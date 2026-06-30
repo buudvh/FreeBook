@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     name: Build Unsigned IPA
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
     - name: Checkout Repository
@@ -22,9 +22,9 @@ jobs:
         path: |
           ~/Library/Caches/Homebrew
           /usr/local/Homebrew
-        key: macos-homebrew-xcodegen-${{ hashFiles('project.yml') }}
+        key: ${{ runner.os }}-homebrew-xcodegen-${{ hashFiles('project.yml') }}
         restore-keys: |
-          macos-homebrew-xcodegen-
+          ${{ runner.os }}-homebrew-xcodegen-
 
     - name: Install XcodeGen
       run: |

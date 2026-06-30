@@ -16,14 +16,14 @@ public struct RegistryMetadata: Codable {
 
 public struct ExtensionRegistryItem: Codable {
     public let name: String
-    public let author: String
+    public let author: String?
     public let path: String // Link tải file plugin.zip
-    public let version: Int
-    public let source: String // URL trang web nguồn (ví dụ: https://truyenfull.vn)
+    public let version: Int?
+    public let source: String? // URL trang web nguồn (ví dụ: https://truyenfull.vn)
     public let icon: String?
     public let description: String?
-    public let type: String // "novel", "comic", "chinese_novel"
-    public let locale: String // "vi_VN", "zh_CN", ...
+    public let type: String? // "novel", "comic", "chinese_novel"
+    public let locale: String? // "vi_VN", "zh_CN", ...
 }
 
 // MARK: - Helper Structs for JavaScript results

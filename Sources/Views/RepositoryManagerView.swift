@@ -178,25 +178,25 @@ struct RepositoryManagerView: View {
             if let existingExt = currentExts.first(where: { $0.packageId == packageId }) {
                 // Đã có, cập nhật metadata mới nếu có thay đổi
                 existingExt.name = item.name
-                existingExt.author = item.author
-                existingExt.version = item.version
-                existingExt.sourceUrl = item.source
+                existingExt.author = item.author ?? "Không rõ"
+                existingExt.version = item.version ?? 1
+                existingExt.sourceUrl = item.source ?? ""
                 existingExt.iconUrl = item.icon
                 existingExt.desc = item.description
-                existingExt.type = item.type
-                existingExt.locale = item.locale
+                existingExt.type = item.type ?? "novel"
+                existingExt.locale = item.locale ?? "vi_VN"
             } else {
                 // Chưa có, thêm mới ở trạng thái chưa cài đặt (localPath = "")
                 let newExt = Extension(
                     packageId: packageId,
                     name: item.name,
-                    author: item.author,
-                    version: item.version,
-                    sourceUrl: item.source,
+                    author: item.author ?? "Không rõ",
+                    version: item.version ?? 1,
+                    sourceUrl: item.source ?? "",
                     iconUrl: item.icon,
                     desc: item.description,
-                    type: item.type,
-                    locale: item.locale,
+                    type: item.type ?? "novel",
+                    locale: item.locale ?? "vi_VN",
                     localPath: "" // Trống nghĩa là chưa cài đặt
                 )
                 newExt.repository = repo
