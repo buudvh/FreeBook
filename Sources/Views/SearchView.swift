@@ -153,21 +153,27 @@ struct SearchView: View {
         
         Task {
             // Chạy song song tìm kiếm trên tất cả các extension đang hoạt động
-            await withTaskGroup(of: (Extension, [SearchNovelResult]?).self) { group in
+            await withTaskGroup(of: (String, [SearchNovelResult]?).self) { group in
                 for ext in extensionsToSearch {
+                    let path = ext.localPath
+                    let packageId = ext.packageId
+                    let configJson = ext.configJson
+                    let extName = ext.name
+                    
                     group.addTask {
                         do {
-                            let extResults = try await ExtensionManager.shared.search(localPath: ext.localPath, query: trimmedQuery, page: 1, configJson: ext.configJson)
-                            return (ext, extResults)
+                            let extResults = try await ExtensionManager.shared.search(localPath: path, query: trimmedQuery, page: 1, configJson: configJson)
+                            return (packageId, extResults)
                         } catch {
-                            print("Lỗi tìm kiếm trên \(ext.name): \(error.localizedDescription)")
-                            return (ext, nil)
+                            print("Lỗi tìm kiếm trên \(extName): \(error.localizedDescription)")
+                            return (packageId, nil)
                         }
                     }
                 }
                 
-                for await (ext, searchResults) in group {
-                    if let searchResults = searchResults {
+                for await (packageId, searchResults) in group {
+                    if let searchResults = searchResults,
+                       let ext = extensionsToSearch.first(where: { $0.packageId == packageId }) {
                         let wrapped = searchResults.map { SearchNovelResultWithExt(result: $0, ext: ext) }
                         await MainActor.run {
                             self.results.append(contentsOf: wrapped)

@@ -50,7 +50,7 @@ import SwiftSoup
     
     public static func clean(_ html: String, _ tags: [String]) -> String {
         do {
-            let whitelist = Whitelist()
+            let whitelist = try Whitelist.none()
             for tag in tags {
                 _ = try whitelist.addTags(tag)
             }
@@ -114,7 +114,11 @@ import SwiftSoup
     }
     
     public func text() -> String {
-        return element.text()
+        do {
+            return try element.text()
+        } catch {
+            return ""
+        }
     }
     
     public func html() -> String {
@@ -126,19 +130,23 @@ import SwiftSoup
     }
     
     public func attr(_ name: String) -> String {
-        return element.attr(name)
-    }
-    
-    public func ownText() -> String {
-        return element.ownText()
-    }
-    
-    public func data() -> String {
         do {
-            return try element.data()
+            return try element.attr(name)
         } catch {
             return ""
         }
+    }
+    
+    public func ownText() -> String {
+        do {
+            return try element.ownText()
+        } catch {
+            return ""
+        }
+    }
+    
+    public func data() -> String {
+        return element.data()
     }
 }
 
@@ -160,7 +168,11 @@ import SwiftSoup
     }
     
     public func text() -> String {
-        return elements.text()
+        do {
+            return try elements.text()
+        } catch {
+            return ""
+        }
     }
     
     public func html() -> String {

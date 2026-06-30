@@ -75,8 +75,9 @@ public final class JSExecutor {
         }
         
         // Kiểm tra xem kết quả trả về có phải là Promise (thenable) không
-        let thenFunc = result.objectForKeyedSubscript("then")
-        if thenFunc.isUndefined || !thenFunc.isObject {
+        guard let thenFunc = result.objectForKeyedSubscript("then"),
+              !thenFunc.isUndefined,
+              thenFunc.isObject else {
             // Trả về kết quả đồng bộ trực tiếp
             return result
         }
