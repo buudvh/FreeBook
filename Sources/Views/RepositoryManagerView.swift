@@ -34,7 +34,7 @@ struct RepositoryManagerView: View {
                             Button(action: {
                                 addSampleRepository()
                             }) {
-                                Text("Nhập kho mẫu của cộng đồng (dat-bi)")
+                                Text("Nhập kho tiện ích mặc định (buudvh)")
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
                             }
@@ -94,11 +94,16 @@ struct RepositoryManagerView: View {
                     addNewRepository(name: name, url: url)
                 }
             }
+            .onAppear {
+                if repositories.isEmpty {
+                    addSampleRepository()
+                }
+            }
         }
     }
     
     private func addSampleRepository() {
-        addNewRepository(name: "Kho VBook dat-bi", url: "https://raw.githubusercontent.com/dat-bi/ext-vbook/main/plugin.json")
+        addNewRepository(name: "Kho mặc định (buudvh)", url: "https://raw.githubusercontent.com/buudvh/leech_story_ext/main/plugin.json")
     }
     
     private func addNewRepository(name: String, url: String) {

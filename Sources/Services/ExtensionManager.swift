@@ -146,12 +146,20 @@ public final class ExtensionManager {
             throw NSError(domain: "ExtensionManager", code: -4, userInfo: [NSLocalizedDescriptionKey: "Script key '\(scriptKey)' not defined"])
         }
         
+        // 1. Thử đường dẫn gốc
         let scriptUrl = extUrl.appendingPathComponent(scriptFileName)
-        guard FileManager.default.fileExists(atPath: scriptUrl.path) else {
-            throw NSError(domain: "ExtensionManager", code: -5, userInfo: [NSLocalizedDescriptionKey: "Script file '\(scriptFileName)' not found"])
+        if FileManager.default.fileExists(atPath: scriptUrl.path) {
+            return scriptUrl
         }
         
-        return scriptUrl
+        // 2. Thử đường dẫn trong thư mục src/
+        let srcScriptUrl = extUrl.appendingPathComponent("src").appendingPathComponent(scriptFileName)
+        if FileManager.default.fileExists(atPath: srcScriptUrl.path) {
+            return srcScriptUrl
+        }
+        
+        // Không tìm thấy ở cả hai nơi
+        throw NSError(domain: "ExtensionManager", code: -5, userInfo: [NSLocalizedDescriptionKey: "Script file '\(scriptFileName)' not found in root or src/"])
     }
     
     // MARK: - Helper Cấu hình
@@ -321,9 +329,16 @@ public final class ExtensionManager {
     
     // Lấy danh mục thể loại (Khám phá)
     public func genre(localPath: String, configJson: String = "{}") async throws -> [String: String] {
-        print("🔍 [ExtensionManager] genre called. localPath: \(localPath)")
+        print("🔍 [ExtensionManager] genre/home called. localPath: \(localPath)")
         do {
-            let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "genre")
+            var scriptUrl: URL
+            do {
+                scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "genre")
+            } catch {
+                print("⚠️ [ExtensionManager] 'genre' script key not found, trying 'home' script key...")
+                scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "home")
+            }
+            
             let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
             
             let executor = JSExecutor(localPath: localPath)
@@ -331,7 +346,7 @@ public final class ExtensionManager {
             executor.injectGlobals(configs)
             
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
-            print("📝 [ExtensionManager] genre raw JS result: \(jsValue)")
+            print("📝 [ExtensionManager] genre/home raw JS result: \(jsValue)")
             
             var dictResult: [String: String] = [:]
             
@@ -357,10 +372,10 @@ public final class ExtensionManager {
                 }
             }
             
-            print("✅ [ExtensionManager] genre parsed \(dictResult.count) categories")
+            print("✅ [ExtensionManager] genre/home parsed \(dictResult.count) categories")
             return dictResult
         } catch {
-            print("❌ [ExtensionManager] genre script failed or not supported: \(error.localizedDescription)")
+            print("❌ [ExtensionManager] genre/home script failed or not supported: \(error.localizedDescription)")
             return [:]
         }
     }

@@ -3,9 +3,11 @@ import SwiftData
 
 struct DiscoveryView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(filter: #Predicate<Extension> { ext in
-        !ext.localPath.isEmpty && ext.isEnabled
-    }) private var activeExtensions: [Extension]
+    @Query private var allExtensions: [Extension]
+    
+    private var activeExtensions: [Extension] {
+        allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
+    }
     
     @State private var selectedExtensionId: String = ""
     @State private var isLoading = false
