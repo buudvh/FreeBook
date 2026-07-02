@@ -65,7 +65,7 @@ import SwiftSoup
     
     public static func clean(_ html: String, _ tags: [String]) -> String {
         do {
-            let whitelist = try Whitelist.none()
+            let whitelist = Whitelist.none()
             for tag in tags {
                 _ = try whitelist.addTags(tag)
             }
@@ -166,11 +166,7 @@ import SwiftSoup
     }
     
     public func ownText() -> String {
-        do {
-            return try element.ownText()
-        } catch {
-            return ""
-        }
+        return element.ownText()
     }
     
     public func data() -> String {
@@ -186,7 +182,7 @@ import SwiftSoup
     }
     
     public func className() -> String {
-        return element.className()
+        return (try? element.className()) ?? ""
     }
     
     public func hasClass(_ className: String) -> Bool {
@@ -307,7 +303,7 @@ import SwiftSoup
     
     public func eq(_ index: Int) -> JSElements {
         guard index >= 0 && index < elements.size() else { return JSElements(Elements()) }
-        let single = Elements(elements.get(index))
+        let single = Elements([elements.get(index)])
         return JSElements(single)
     }
 }

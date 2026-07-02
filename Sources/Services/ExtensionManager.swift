@@ -1,7 +1,6 @@
 import Foundation
 import ZIPFoundation
 import JavaScriptCore
-import SwiftData
 
 // MARK: - Helper Structs for Registry
 public struct RegistryResponse: Codable {

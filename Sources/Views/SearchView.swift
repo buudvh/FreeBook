@@ -3,9 +3,11 @@ import SwiftData
 
 struct SearchView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(filter: #Predicate<Extension> { ext in
-        !ext.localPath.isEmpty && ext.isEnabled
-    }) private var activeExtensions: [Extension]
+    @Query private var allExtensions: [Extension]
+    
+    private var activeExtensions: [Extension] {
+        allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
+    }
     
     @State private var query = ""
     @State private var isSearching = false
