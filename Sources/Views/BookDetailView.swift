@@ -261,9 +261,9 @@ struct BookDetailView: View {
             do {
                 let path = ext.localPath
                 // Chạy chi tiết truyện
-                let detailResult = try await ExtensionManager.shared.detail(localPath: path, url: initialDetailUrl, configJson: ext.configJson)
+                let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
                 // Chạy mục lục chương
-                let tocResult = try await ExtensionManager.shared.toc(localPath: path, url: initialDetailUrl, configJson: ext.configJson)
+                let tocResult = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
                 
                 await MainActor.run {
                     self.title = detailResult.title

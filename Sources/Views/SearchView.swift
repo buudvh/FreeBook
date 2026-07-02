@@ -159,13 +159,14 @@ struct SearchView: View {
                     let packageId = ext.packageId
                     let configJson = ext.configJson
                     let extName = ext.name
+                    let downloadUrl = ext.downloadUrl
                     
                     group.addTask {
                         do {
-                            let extResults = try await ExtensionManager.shared.search(localPath: path, query: trimmedQuery, page: 1, configJson: configJson)
+                            let extResults = try await ExtensionManager.shared.search(localPath: path, downloadUrl: downloadUrl, query: trimmedQuery, page: 1, configJson: configJson)
                             return (packageId, extResults)
                         } catch {
-                            print("Lỗi tìm kiếm trên \(extName): \(error.localizedDescription)")
+                            AppLogger.shared.log("❌ Lỗi tìm kiếm trên \(extName): \(error.localizedDescription)")
                             return (packageId, nil)
                         }
                     }

@@ -13,6 +13,8 @@ import SwiftSoup
     func select(_ selector: String) -> JSElements
     func text() -> String
     func html() -> String
+    func body() -> JSElement?
+    func title() -> String
 }
 
 @objc protocol JSElementExport: JSExport {
@@ -22,6 +24,16 @@ import SwiftSoup
     func attr(_ name: String) -> String
     func ownText() -> String
     func data() -> String
+    func tagName() -> String
+    func id() -> String
+    func className() -> String
+    func hasClass(_ className: String) -> Bool
+    func val() -> String
+    func parent() -> JSElement?
+    func children() -> JSElements
+    func siblingElements() -> JSElements
+    func nextElementSibling() -> JSElement?
+    func previousElementSibling() -> JSElement?
 }
 
 @objc protocol JSElementsExport: JSExport {
@@ -33,6 +45,9 @@ import SwiftSoup
     func get(_ index: Int) -> JSElement?
     func first() -> JSElement?
     func last() -> JSElement?
+    func hasClass(_ className: String) -> Bool
+    func val() -> String
+    func eq(_ index: Int) -> JSElements
 }
 
 // MARK: - Concrete Implementations
@@ -94,6 +109,19 @@ import SwiftSoup
             return ""
         }
     }
+    
+    public func body() -> JSElement? {
+        guard let bodyEl = doc.body() else { return nil }
+        return JSElement(bodyEl)
+    }
+    
+    public func title() -> String {
+        do {
+            return try doc.title()
+        } catch {
+            return ""
+        }
+    }
 }
 
 @objc public final class JSElement: NSObject, JSElementExport {
@@ -147,6 +175,61 @@ import SwiftSoup
     
     public func data() -> String {
         return element.data()
+    }
+    
+    public func tagName() -> String {
+        return element.tagName()
+    }
+    
+    public func id() -> String {
+        return element.id()
+    }
+    
+    public func className() -> String {
+        return element.className()
+    }
+    
+    public func hasClass(_ className: String) -> Bool {
+        return element.hasClass(className)
+    }
+    
+    public func val() -> String {
+        do {
+            return try element.val()
+        } catch {
+            return ""
+        }
+    }
+    
+    public func parent() -> JSElement? {
+        guard let parentEl = element.parent() else { return nil }
+        return JSElement(parentEl)
+    }
+    
+    public func children() -> JSElements {
+        return JSElements(element.children())
+    }
+    
+    public func siblingElements() -> JSElements {
+        return JSElements(element.siblingElements())
+    }
+    
+    public func nextElementSibling() -> JSElement? {
+        do {
+            guard let nextEl = try element.nextElementSibling() else { return nil }
+            return JSElement(nextEl)
+        } catch {
+            return nil
+        }
+    }
+    
+    public func previousElementSibling() -> JSElement? {
+        do {
+            guard let prevEl = try element.previousElementSibling() else { return nil }
+            return JSElement(prevEl)
+        } catch {
+            return nil
+        }
     }
 }
 
@@ -208,5 +291,23 @@ import SwiftSoup
     public func last() -> JSElement? {
         guard let last = elements.last() else { return nil }
         return JSElement(last)
+    }
+    
+    public func hasClass(_ className: String) -> Bool {
+        return elements.hasClass(className)
+    }
+    
+    public func val() -> String {
+        do {
+            return try elements.val()
+        } catch {
+            return ""
+        }
+    }
+    
+    public func eq(_ index: Int) -> JSElements {
+        guard index >= 0 && index < elements.size() else { return JSElements(Elements()) }
+        let single = Elements(elements.get(index))
+        return JSElements(single)
     }
 }

@@ -252,7 +252,7 @@ struct ReaderView: View {
         
         Task {
             do {
-                let content = try await ExtensionManager.shared.chap(localPath: ext.localPath, url: info.url, configJson: ext.configJson)
+                let content = try await ExtensionManager.shared.chap(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: info.url, configJson: ext.configJson)
                 
                 await MainActor.run {
                     self.chapterContent = content

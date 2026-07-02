@@ -63,6 +63,14 @@ public final class ExtensionManager {
         return directory
     }
     
+    public var commonDirectory: URL {
+        let directory = extensionsDirectory.appendingPathComponent("common", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: directory.path) {
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: nil)
+        }
+        return directory
+    }
+    
     // Tải danh sách registry từ một URL kho (plugin.json)
     public func fetchRegistry(from urlString: String) async throws -> [ExtensionRegistryItem] {
         guard let url = URL(string: urlString) else {
@@ -194,12 +202,12 @@ public final class ExtensionManager {
     // MARK: - Chạy Script JS bóc tách dữ liệu
     
     // Tìm kiếm truyện
-    public func search(localPath: String, query: String, page: Int, configJson: String = "{}") async throws -> [SearchNovelResult] {
+    public func search(localPath: String, downloadUrl: String = "", query: String, page: Int, configJson: String = "{}") async throws -> [SearchNovelResult] {
         AppLogger.shared.log("🔍 [ExtensionManager] search called. localPath: \(localPath), query: \(query), page: \(page)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "search")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
-        let executor = JSExecutor(localPath: localPath)
+        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         executor.injectGlobals(configs)
         
@@ -232,12 +240,12 @@ public final class ExtensionManager {
     }
     
     // Lấy thông tin chi tiết truyện
-    public func detail(localPath: String, url: String, configJson: String = "{}") async throws -> NovelDetailResult {
+    public func detail(localPath: String, downloadUrl: String = "", url: String, configJson: String = "{}") async throws -> NovelDetailResult {
         AppLogger.shared.log("🔍 [ExtensionManager] detail called. localPath: \(localPath), url: \(url)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "detail")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
-        let executor = JSExecutor(localPath: localPath)
+        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         executor.injectGlobals(configs)
         
@@ -266,12 +274,12 @@ public final class ExtensionManager {
     }
     
     // Lấy mục lục chương
-    public func toc(localPath: String, url: String, configJson: String = "{}") async throws -> [ChapterResult] {
+    public func toc(localPath: String, downloadUrl: String = "", url: String, configJson: String = "{}") async throws -> [ChapterResult] {
         AppLogger.shared.log("🔍 [ExtensionManager] toc called. localPath: \(localPath), url: \(url)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "toc")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
-        let executor = JSExecutor(localPath: localPath)
+        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         executor.injectGlobals(configs)
         
@@ -301,12 +309,12 @@ public final class ExtensionManager {
     }
     
     // Lấy nội dung chương (có thể là Text hoặc danh sách URL ảnh cho truyện tranh)
-    public func chap(localPath: String, url: String, configJson: String = "{}") async throws -> String {
+    public func chap(localPath: String, downloadUrl: String = "", url: String, configJson: String = "{}") async throws -> String {
         AppLogger.shared.log("🔍 [ExtensionManager] chap called. localPath: \(localPath), url: \(url)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "chap")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
-        let executor = JSExecutor(localPath: localPath)
+        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         executor.injectGlobals(configs)
         
@@ -328,13 +336,13 @@ public final class ExtensionManager {
     }
     
     // Lấy danh mục thể loại (Khám phá)
-    public func genre(localPath: String, configJson: String = "{}") async throws -> [CategoryResult] {
+    public func genre(localPath: String, downloadUrl: String = "", configJson: String = "{}") async throws -> [CategoryResult] {
         AppLogger.shared.log("🔍 [ExtensionManager] genre called. localPath: \(localPath)")
         do {
             let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "genre")
             let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
             
-            let executor = JSExecutor(localPath: localPath)
+            let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
             let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
             executor.injectGlobals(configs)
             
@@ -378,13 +386,13 @@ public final class ExtensionManager {
     }
     
     // Lấy danh sách tab trang chủ (Home)
-    public func home(localPath: String, configJson: String = "{}") async throws -> [CategoryResult] {
+    public func home(localPath: String, downloadUrl: String = "", configJson: String = "{}") async throws -> [CategoryResult] {
         AppLogger.shared.log("🔍 [ExtensionManager] home called. localPath: \(localPath)")
         do {
             let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "home")
             let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
             
-            let executor = JSExecutor(localPath: localPath)
+            let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
             let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
             executor.injectGlobals(configs)
             
@@ -418,11 +426,11 @@ public final class ExtensionManager {
         }
         
         // Fallback to genre
-        return try await genre(localPath: localPath, configJson: configJson)
+        return try await genre(localPath: localPath, downloadUrl: downloadUrl, configJson: configJson)
     }
     
     // Thực thi một script tùy chọn (ví dụ: gen.js, tag.js...) với input và page
-    public func executeCustomScript(localPath: String, scriptFileName: String, input: String, page: Int, configJson: String = "{}") async throws -> [SearchNovelResult] {
+    public func executeCustomScript(localPath: String, downloadUrl: String = "", scriptFileName: String, input: String, page: Int, configJson: String = "{}") async throws -> [SearchNovelResult] {
         AppLogger.shared.log("🔍 [ExtensionManager] executeCustomScript called. localPath: \(localPath), scriptFileName: \(scriptFileName), input: \(input), page: \(page)")
         
         let extUrl = URL(fileURLWithPath: localPath)
@@ -438,7 +446,7 @@ public final class ExtensionManager {
         }
         
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
-        let executor = JSExecutor(localPath: localPath)
+        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         executor.injectGlobals(configs)
         

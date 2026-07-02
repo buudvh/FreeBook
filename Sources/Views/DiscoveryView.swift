@@ -292,10 +292,10 @@ struct DiscoveryView: View {
         Task {
             do {
                 // 1. Tải danh mục Home
-                let homeRes = try await ExtensionManager.shared.home(localPath: ext.localPath, configJson: ext.configJson)
+                let homeRes = try await ExtensionManager.shared.home(localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
                 
                 // 2. Tải danh mục Thể loại
-                let genreRes = try await ExtensionManager.shared.genre(localPath: ext.localPath, configJson: ext.configJson)
+                let genreRes = try await ExtensionManager.shared.genre(localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
                 
                 await MainActor.run {
                     self.homeItems = homeRes
@@ -328,6 +328,7 @@ struct DiscoveryView: View {
         guard let ext = selectedExtension, let cat = selectedCategory else { return }
         if page == 1 {
             isLoadingNovels = true
+            errorMessage = ""
         } else {
             isLoadingMore = true
         }
@@ -336,6 +337,7 @@ struct DiscoveryView: View {
             do {
                 let results = try await ExtensionManager.shared.executeCustomScript(
                     localPath: ext.localPath,
+                    downloadUrl: ext.downloadUrl,
                     scriptFileName: cat.script,
                     input: cat.input,
                     page: page,
@@ -355,6 +357,7 @@ struct DiscoveryView: View {
             } catch {
                 AppLogger.shared.log("❌ [DiscoveryView] loadNovels error: \(error.localizedDescription)")
                 await MainActor.run {
+                    self.errorMessage = error.localizedDescription
                     self.isLoadingNovels = false
                     self.isLoadingMore = false
                     self.canLoadMore = false

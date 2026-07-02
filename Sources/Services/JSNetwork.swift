@@ -65,8 +65,20 @@ public final class JSNetwork {
                 }
                 
                 let responseData = data ?? Data()
-                // Thử decode utf8, nếu lỗi dùng ascii làm phương án dự phòng
-                let textValue = String(data: responseData, encoding: .utf8) ?? String(data: responseData, encoding: .ascii) ?? ""
+                var textValue = ""
+                if let utf8Str = String(data: responseData, encoding: .utf8) {
+                    textValue = utf8Str
+                } else {
+                    let gbkRawValue = CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.GB_18030_2000.rawValue))
+                    let gbkEncoding = String.Encoding(rawValue: gbkRawValue)
+                    if let gbkStr = String(data: responseData, encoding: gbkEncoding) {
+                        textValue = gbkStr
+                    } else if let winStr = String(data: responseData, encoding: .windowsCP1252) {
+                        textValue = winStr
+                    } else if let asciiStr = String(data: responseData, encoding: .ascii) {
+                        textValue = asciiStr
+                    }
+                }
                 
                 var headersDict: [String: String] = [:]
                 for (key, value) in httpResponse.allHeaderFields {
