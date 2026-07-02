@@ -43,5 +43,7 @@ The `JSExecutor` injects the following global namespaces/functions into the `JSC
   - `Engine.newBrowser()` returns a mocked `Browser` instance supporting `.launch(url, timeout)` (sync network request), `.html()`, and `.close()`.
 
 ### 4. Logging & Diagnostics
-- Log all JS exception details including `desc`, `line`, `column`, and `stack` (JS Stacktrace).
-- Keep print traces for inputs and outputs in `ExtensionManager` actions to ensure traceability during debugging.
+- **Environment Constraint:** The primary developer does not own a Mac. The application is built using GitHub Actions (CI) and installed on a physical iOS device inside **LiveContainer** to be run. Direct Xcode console attachment is unavailable.
+- **Rule:** Write all runtime logs to a file named `app_logs.txt` inside the app's `Documents/` directory using the `AppLogger` utility. This allows logs to be read directly on the device or exported.
+- Log all JS exception details including `desc`, `line`, `column`, and `stack` (JS Stacktrace) into both standard output and `app_logs.txt`.
+- Keep detailed trace logs of inputs, JS outputs, and parser results in `ExtensionManager` actions to ensure traceability during debugging.

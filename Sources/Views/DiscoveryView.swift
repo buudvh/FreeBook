@@ -13,10 +13,23 @@ struct DiscoveryView: View {
     
     @State private var selectedExtensionId: String = ""
     @State private var isLoading = false
-    @State private var genres: [String: String] = [:]
-    @State private var selectedGenre: String? = nil
-    @State private var genreNovels: [SearchNovelResult] = []
+    
+    // Nguồn dữ liệu danh mục của tiện ích
+    @State private var homeItems: [CategoryResult] = []
+    @State private var genreItems: [CategoryResult] = []
+    
+    // Danh mục / Tab đang được chọn hiển thị
+    @State private var selectedCategory: CategoryResult? = nil
+    
+    // Trạng thái truyện hiển thị
+    @State private var novels: [SearchNovelResult] = []
     @State private var isLoadingNovels = false
+    @State private var currentPage = 1
+    @State private var isLoadingMore = false
+    @State private var canLoadMore = true
+    
+    // Hiển thị danh mục thể loại dạng sheet trượt
+    @State private var showingGenresSheet = false
     @State private var errorMessage = ""
     
     private var selectedExtension: Extension? {
@@ -25,7 +38,7 @@ struct DiscoveryView: View {
     
     var body: some View {
         NavigationStack {
-            VStack {
+            VStack(spacing: 0) {
                 if activeExtensions.isEmpty {
                     VStack(spacing: 12) {
                         Spacer()
@@ -43,27 +56,39 @@ struct DiscoveryView: View {
                         Spacer()
                     }
                 } else {
-                    // Picker chọn nguồn truyện
-                    Picker("Chọn Nguồn", selection: $selectedExtensionId) {
-                        Text("-- Chọn Nguồn --").tag("")
-                        ForEach(activeExtensions) { ext in
-                            Text(ext.name).tag(ext.packageId)
+                    // 1. Hàng chọn nguồn truyện
+                    HStack {
+                        Text("Nguồn đọc:")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        
+                        Picker("Chọn Nguồn", selection: $selectedExtensionId) {
+                            Text("-- Chọn Nguồn --").tag("")
+                            ForEach(activeExtensions) { ext in
+                                Text(ext.name).tag(ext.packageId)
+                            }
                         }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        
+                        Spacer()
                     }
-                    .pickerStyle(.menu)
                     .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(Color(.systemGroupedBackground).opacity(0.5))
                     .onChange(of: selectedExtensionId) { _, newValue in
                         if !newValue.isEmpty {
-                            loadGenres()
+                            loadDiscoveryData()
                         } else {
-                            genres.removeAll()
-                            selectedGenre = nil
-                            genreNovels.removeAll()
+                            homeItems.removeAll()
+                            genreItems.removeAll()
+                            selectedCategory = nil
+                            novels.removeAll()
                         }
                     }
                     
                     if isLoading {
-                        ProgressView("Đang tải danh mục...")
+                        ProgressView("Đang tải cấu trúc danh mục...")
                             .frame(maxHeight: .infinity)
                     } else if !errorMessage.isEmpty {
                         Text(errorMessage)
@@ -71,29 +96,79 @@ struct DiscoveryView: View {
                             .font(.subheadline)
                             .padding()
                             .frame(maxHeight: .infinity)
-                    } else if selectedGenre != nil {
-                        // Hiển thị danh sách truyện của thể loại đang chọn
-                        VStack(alignment: .leading) {
-                            HStack {
-                                Button(action: { selectedGenre = nil }) {
-                                    HStack {
-                                        Image(systemName: "chevron.left")
-                                        Text("Quay lại danh mục")
+                    } else {
+                        // 2. Thanh Menu: Nút danh mục bên trái + Các tab của Home
+                        HStack(spacing: 0) {
+                            // Nút mở thể loại bên trái
+                            Button(action: { showingGenresSheet = true }) {
+                                Image(systemName: "circle.grid.2x2.fill")
+                                    .font(.title3)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(Color.accentColor.opacity(0.1))
+                                    .foregroundColor(.accentColor)
+                                    .cornerRadius(8)
+                            }
+                            .padding(.leading)
+                            
+                            // Thanh cuộn ngang các mục Home
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(homeItems) { item in
+                                        let isSelected = selectedCategory?.id == item.id
+                                        Button(action: { selectCategory(item) }) {
+                                            Text(item.title)
+                                                .font(.subheadline)
+                                                .fontWeight(isSelected ? .bold : .regular)
+                                                .padding(.horizontal, 14)
+                                                .padding(.vertical, 8)
+                                                .background(isSelected ? Color.accentColor : Color.gray.opacity(0.1))
+                                                .foregroundColor(isSelected ? .white : .primary)
+                                                .cornerRadius(20)
+                                        }
                                     }
                                 }
-                                Spacer()
-                                Text(selectedGenre ?? "")
+                                .padding(.horizontal, 8)
+                            }
+                        }
+                        .padding(.vertical, 10)
+                        .background(Color(.systemBackground))
+                        
+                        Divider()
+                        
+                        // Tiêu đề danh mục đang hiển thị
+                        if let cat = selectedCategory {
+                            HStack {
+                                Text(cat.title)
+                                    .font(.headline)
                                     .fontWeight(.bold)
                                     .foregroundColor(.accentColor)
+                                Spacer()
                             }
                             .padding(.horizontal)
-                            .padding(.top, 4)
-                            
-                            if isLoadingNovels {
-                                ProgressView("Đang tải danh sách truyện...")
-                                    .frame(maxHeight: .infinity)
-                            } else {
-                                List(genreNovels) { novel in
+                            .padding(.vertical, 8)
+                            .background(Color(.secondarySystemBackground).opacity(0.5))
+                        }
+                        
+                        // 3. Danh sách truyện của danh mục được chọn
+                        if isLoadingNovels {
+                            ProgressView("Đang tải danh sách truyện...")
+                                .frame(maxHeight: .infinity)
+                        } else if novels.isEmpty {
+                            VStack(spacing: 12) {
+                                Spacer()
+                                Image(systemName: "book.closed")
+                                    .font(.largeTitle)
+                                    .foregroundColor(.secondary)
+                                Text("Không tìm thấy truyện nào")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
+                            .frame(maxHeight: .infinity)
+                        } else {
+                            List {
+                                ForEach(novels) { novel in
                                     if let ext = selectedExtension {
                                         NavigationLink(destination: BookDetailView(
                                             bookId: "\(ext.name.lowercased())_\(novel.detailUrl)",
@@ -111,6 +186,7 @@ struct DiscoveryView: View {
                                                 }
                                                 .frame(width: 50, height: 70)
                                                 .cornerRadius(6)
+                                                .clipped()
                                                 
                                                 VStack(alignment: .leading, spacing: 4) {
                                                     Text(novel.title)
@@ -126,34 +202,29 @@ struct DiscoveryView: View {
                                         }
                                     }
                                 }
-                            }
-                        }
-                    } else {
-                        // Hiển thị Grid các thể loại
-                        ScrollView {
-                            if genres.isEmpty {
-                                Text("Tiện ích này không hỗ trợ duyệt danh mục hoặc đang trống.")
-                                    .foregroundColor(.gray)
-                                    .padding(.top, 40)
-                            } else {
-                                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                                    ForEach(Array(genres.keys).sorted(), id: \.self) { key in
-                                        Button(action: {
-                                            selectGenre(name: key)
-                                        }) {
-                                            Text(key)
-                                                .font(.subheadline)
-                                                .fontWeight(.medium)
-                                                .frame(maxWidth: .infinity)
-                                                .padding(.vertical, 14)
-                                                .background(Color.accentColor.opacity(0.1))
-                                                .foregroundColor(.accentColor)
-                                                .cornerRadius(10)
+                                
+                                // Tải thêm truyện
+                                if canLoadMore {
+                                    HStack {
+                                        Spacer()
+                                        if isLoadingMore {
+                                            ProgressView()
+                                        } else {
+                                            Button(action: {
+                                                currentPage += 1
+                                                loadNovels(page: currentPage)
+                                            }) {
+                                                Text("Tải thêm truyện")
+                                                    .font(.subheadline)
+                                                    .foregroundColor(.accentColor)
+                                                    .padding(.vertical, 8)
+                                            }
                                         }
+                                        Spacer()
                                     }
                                 }
-                                .padding()
                             }
+                            .listStyle(.plain)
                         }
                     }
                 }
@@ -163,54 +234,130 @@ struct DiscoveryView: View {
                 // Tự động chọn nguồn đầu tiên nếu có và chưa chọn
                 if selectedExtensionId.isEmpty, let first = activeExtensions.first {
                     selectedExtensionId = first.packageId
-                    loadGenres()
+                    loadDiscoveryData()
+                }
+            }
+            // Sheet hiển thị danh sách thể loại đầy đủ (Genres)
+            .sheet(isPresented: $showingGenresSheet) {
+                NavigationStack {
+                    ScrollView {
+                        if genreItems.isEmpty {
+                            Text("Nguồn truyện này không có danh sách thể loại cụ thể.")
+                                .foregroundColor(.gray)
+                                .padding(.top, 40)
+                        } else {
+                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                                ForEach(genreItems) { item in
+                                    Button(action: {
+                                        showingGenresSheet = false
+                                        selectCategory(item)
+                                    }) {
+                                        Text(item.title)
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 14)
+                                            .background(Color.accentColor.opacity(0.1))
+                                            .foregroundColor(.accentColor)
+                                            .cornerRadius(10)
+                                    }
+                                }
+                            }
+                            .padding()
+                        }
+                    }
+                    .navigationTitle("Thể loại")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Đóng") {
+                                showingGenresSheet = false
+                            }
+                        }
+                    }
                 }
             }
         }
     }
     
-    private func loadGenres() {
+    private func loadDiscoveryData() {
         guard let ext = selectedExtension else { return }
         isLoading = true
         errorMessage = ""
-        selectedGenre = nil
-        genreNovels.removeAll()
+        homeItems.removeAll()
+        genreItems.removeAll()
+        selectedCategory = nil
+        novels.removeAll()
         
         Task {
             do {
-                let result = try await ExtensionManager.shared.genre(localPath: ext.localPath, configJson: ext.configJson)
+                // 1. Tải danh mục Home
+                let homeRes = try await ExtensionManager.shared.home(localPath: ext.localPath, configJson: ext.configJson)
+                
+                // 2. Tải danh mục Thể loại
+                let genreRes = try await ExtensionManager.shared.genre(localPath: ext.localPath, configJson: ext.configJson)
+                
                 await MainActor.run {
-                    self.genres = result
+                    self.homeItems = homeRes
+                    self.genreItems = genreRes
                     self.isLoading = false
+                    
+                    // Chọn mục đầu tiên của trang chủ làm mặc định
+                    if let firstHome = homeRes.first {
+                        selectCategory(firstHome)
+                    }
                 }
             } catch {
                 await MainActor.run {
-                    self.errorMessage = "Không thể tải danh mục: \(error.localizedDescription)"
+                    self.errorMessage = "Không thể tải cấu trúc khám phá: \(error.localizedDescription)"
                     self.isLoading = false
                 }
             }
         }
     }
     
-    private func selectGenre(name: String) {
-        guard let ext = selectedExtension else { return }
-        selectedGenre = name
-        isLoadingNovels = true
+    private func selectCategory(_ category: CategoryResult) {
+        selectedCategory = category
+        currentPage = 1
+        novels.removeAll()
+        canLoadMore = true
+        loadNovels(page: 1)
+    }
+    
+    private func loadNovels(page: Int) {
+        guard let ext = selectedExtension, let cat = selectedCategory else { return }
+        if page == 1 {
+            isLoadingNovels = true
+        } else {
+            isLoadingMore = true
+        }
         
         Task {
             do {
-                // Trong VBook, duyệt thể loại chạy qua hàm search với từ khóa là link thể loại hoặc tên thể loại
-                let query = genres[name] ?? name
-                let result = try await ExtensionManager.shared.search(localPath: ext.localPath, query: query, page: 1, configJson: ext.configJson)
+                let results = try await ExtensionManager.shared.executeCustomScript(
+                    localPath: ext.localPath,
+                    scriptFileName: cat.script,
+                    input: cat.input,
+                    page: page,
+                    configJson: ext.configJson
+                )
                 
                 await MainActor.run {
-                    self.genreNovels = result
-                    self.isLoadingNovels = false
+                    if page == 1 {
+                        self.novels = results
+                        self.isLoadingNovels = false
+                    } else {
+                        self.novels.append(contentsOf: results)
+                        self.isLoadingMore = false
+                    }
+                    self.canLoadMore = results.count >= 10
                 }
             } catch {
-                print("Lỗi duyệt thể loại: \(error)")
+                AppLogger.shared.log("❌ [DiscoveryView] loadNovels error: \(error.localizedDescription)")
                 await MainActor.run {
                     self.isLoadingNovels = false
+                    self.isLoadingMore = false
+                    self.canLoadMore = false
                 }
             }
         }

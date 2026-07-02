@@ -15,8 +15,8 @@ public final class JSExecutor {
             let line = exception?.objectForKeyedSubscript("line")?.toString() ?? "unknown"
             let column = exception?.objectForKeyedSubscript("column")?.toString() ?? "unknown"
             let stack = exception?.objectForKeyedSubscript("stack")?.toString() ?? "no stacktrace"
-            print("❌ JSContext Exception: \(desc) at line \(line), column \(column)")
-            print("🥞 JS Stacktrace: \(stack)")
+            AppLogger.shared.log("❌ JSContext Exception: \(desc) at line \(line), column \(column)")
+            AppLogger.shared.log("🥞 JS Stacktrace: \(stack)")
         }
         
         // 2. Đăng ký JSHtml namespace cho JS với tên "Html"
@@ -27,7 +27,7 @@ public final class JSExecutor {
         
         // 4. Định nghĩa console.log để debug từ tiện ích dễ hơn
         let logBlock: @convention(block) (String) -> Void = { msg in
-            print("💬 JS Console: \(msg)")
+            AppLogger.shared.log("💬 JS Console: \(msg)")
         }
         
         let console = JSValue(newObjectIn: context)
@@ -37,22 +37,29 @@ public final class JSExecutor {
         // 5. Định nghĩa hàm load(filename) để nạp các file thư viện JS khác (libs.js, ...) tương tự Rhino
         let loadBlock: @convention(block) (String) -> Void = { [weak self] filename in
             guard let self = self, let localPath = self.localPath else {
-                print("❌ JS Load error: localPath is not set in JSExecutor")
+                AppLogger.shared.log("❌ JS Load error: localPath is not set in JSExecutor")
                 return
             }
             
-            let fileUrl = URL(fileURLWithPath: localPath).appendingPathComponent(filename)
-            guard FileManager.default.fileExists(atPath: fileUrl.path) else {
-                print("❌ JS Load error: File not found at path: \(fileUrl.path)")
-                return
+            let extUrl = URL(fileURLWithPath: localPath)
+            var fileUrl = extUrl.appendingPathComponent(filename)
+            
+            if !FileManager.default.fileExists(atPath: fileUrl.path) {
+                let srcFileUrl = extUrl.appendingPathComponent("src").appendingPathComponent(filename)
+                if FileManager.default.fileExists(atPath: srcFileUrl.path) {
+                    fileUrl = srcFileUrl
+                } else {
+                    AppLogger.shared.log("❌ JS Load error: File '\(filename)' not found in root or src/ of \(localPath)")
+                    return
+                }
             }
             
             do {
                 let script = try String(contentsOf: fileUrl, encoding: .utf8)
                 self.context.evaluateScript(script)
-                print("✅ JS Loaded library: \(filename)")
+                AppLogger.shared.log("✅ JS Loaded library: \(filename)")
             } catch {
-                print("❌ JS Load error running \(filename): \(error.localizedDescription)")
+                AppLogger.shared.log("❌ JS Load error running \(filename): \(error.localizedDescription)")
             }
         }
         context.setObject(loadBlock, forKeyedSubscript: "load" as NSCopying & NSObjectProtocol)
@@ -70,11 +77,14 @@ public final class JSExecutor {
         """
         context.evaluateScript(responseBootstrap)
         
-        // 7. Đăng ký đối tượng Engine toàn cục (mocking Browser)
-        let syncFetchBlock: @convention(block) (String) -> String = { urlString in
-            print("🌐 [Engine.Browser] Sync Fetching: \(urlString)")
-            guard let url = URL(string: urlString) else { return "" }
+        // 7. Đăng ký hàm tải mạng đồng bộ trả về [String: Any] chứa html và status
+        let syncFetchBlock: @convention(block) (String) -> [String: Any] = { urlString in
+            AppLogger.shared.log("🌐 [JSExecutor] Sync Fetching: \(urlString)")
+            guard let url = URL(string: urlString) else {
+                return ["html": "", "status": 400]
+            }
             var resultHtml = ""
+            var statusCode = 200
             let semaphore = DispatchSemaphore(value: 0)
             
             var request = URLRequest(url: url)
@@ -83,7 +93,11 @@ public final class JSExecutor {
             
             let task = URLSession.shared.dataTask(with: request) { data, response, error in
                 if let error = error {
-                    print("❌ [Engine.Browser] Fetch error: \(error.localizedDescription)")
+                    AppLogger.shared.log("❌ [JSExecutor] Fetch error: \(error.localizedDescription)")
+                    statusCode = 500
+                }
+                if let httpResponse = response as? HTTPURLResponse {
+                    statusCode = httpResponse.statusCode
                 }
                 if let data = data {
                     resultHtml = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .ascii) ?? ""
@@ -92,10 +106,39 @@ public final class JSExecutor {
             }
             task.resume()
             _ = semaphore.wait(timeout: .now() + 10.0)
-            return resultHtml
+            
+            return ["html": resultHtml, "status": statusCode]
         }
         context.setObject(syncFetchBlock, forKeyedSubscript: "_nativeSyncFetch" as NSCopying & NSObjectProtocol)
         
+        // 8. Đăng ký fetch đồng bộ ghi đè fetch Promise mặc định
+        let fetchBootstrap = """
+        var fetch = function(url, options) {
+            var res = _nativeSyncFetch(url);
+            return {
+                ok: res.status >= 200 && res.status < 300,
+                status: res.status,
+                html: function() {
+                    return Html.parse(res.html || "");
+                },
+                text: function() {
+                    return res.html || "";
+                },
+                json: function() {
+                    return JSON.parse(res.html || "{}");
+                }
+            };
+        };
+        
+        var crawler = {
+            get: function(url) {
+                return fetch(url);
+            }
+        };
+        """
+        context.evaluateScript(fetchBootstrap)
+        
+        // 9. Đăng ký đối tượng Engine toàn cục (mocking Browser)
         let engineBootstrap = """
         var Engine = {
             newBrowser: function() {
@@ -103,7 +146,8 @@ public final class JSExecutor {
                     _html: "",
                     launch: function(url, timeout) {
                         console.log("🤖 [Engine.Browser] launch(" + url + ")");
-                        this._html = _nativeSyncFetch(url);
+                        var res = _nativeSyncFetch(url);
+                        this._html = res.html || "";
                         return Html.parse(this._html);
                     },
                     html: function() {

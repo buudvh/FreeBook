@@ -195,7 +195,7 @@ public final class ExtensionManager {
     
     // Tìm kiếm truyện
     public func search(localPath: String, query: String, page: Int, configJson: String = "{}") async throws -> [SearchNovelResult] {
-        print("🔍 [ExtensionManager] search called. localPath: \(localPath), query: \(query), page: \(page)")
+        AppLogger.shared.log("🔍 [ExtensionManager] search called. localPath: \(localPath), query: \(query), page: \(page)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "search")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
@@ -205,10 +205,10 @@ public final class ExtensionManager {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [query, page])
-            print("📝 [ExtensionManager] search raw JS result: \(jsValue)")
+            AppLogger.shared.log("📝 [ExtensionManager] search raw JS result: \(jsValue)")
             
             guard let jsArray = jsValue.toArray() else {
-                print("⚠️ [ExtensionManager] search returned non-array result or null")
+                AppLogger.shared.log("⚠️ [ExtensionManager] search returned non-array result or null")
                 return []
             }
             
@@ -223,17 +223,17 @@ public final class ExtensionManager {
                     results.append(SearchNovelResult(title: title, author: author, coverUrl: coverUrl, detailUrl: detailUrl))
                 }
             }
-            print("✅ [ExtensionManager] search parsed \(results.count) results")
+            AppLogger.shared.log("✅ [ExtensionManager] search parsed \(results.count) results")
             return results
         } catch {
-            print("❌ [ExtensionManager] search error: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ [ExtensionManager] search error: \(error.localizedDescription)")
             throw error
         }
     }
     
     // Lấy thông tin chi tiết truyện
     public func detail(localPath: String, url: String, configJson: String = "{}") async throws -> NovelDetailResult {
-        print("🔍 [ExtensionManager] detail called. localPath: \(localPath), url: \(url)")
+        AppLogger.shared.log("🔍 [ExtensionManager] detail called. localPath: \(localPath), url: \(url)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "detail")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
@@ -243,10 +243,10 @@ public final class ExtensionManager {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
-            print("📝 [ExtensionManager] detail raw JS result: \(jsValue)")
+            AppLogger.shared.log("📝 [ExtensionManager] detail raw JS result: \(jsValue)")
             
             guard let dict = jsValue.toDictionary() as? [String: Any] else {
-                print("❌ [ExtensionManager] detail returned non-dictionary result or null")
+                AppLogger.shared.log("❌ [ExtensionManager] detail returned non-dictionary result or null")
                 throw NSError(domain: "ExtensionManager", code: -6, userInfo: [NSLocalizedDescriptionKey: "Failed to parse novel detail"])
             }
             
@@ -257,17 +257,17 @@ public final class ExtensionManager {
             let detailUrl = dict["detail"] as? String ?? url
             
             let result = NovelDetailResult(title: title, author: author, coverUrl: coverUrl, desc: desc, detailUrl: detailUrl)
-            print("✅ [ExtensionManager] detail parsed info: \(result.title) by \(result.author)")
+            AppLogger.shared.log("✅ [ExtensionManager] detail parsed info: \(result.title) by \(result.author)")
             return result
         } catch {
-            print("❌ [ExtensionManager] detail error: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ [ExtensionManager] detail error: \(error.localizedDescription)")
             throw error
         }
     }
     
     // Lấy mục lục chương
     public func toc(localPath: String, url: String, configJson: String = "{}") async throws -> [ChapterResult] {
-        print("🔍 [ExtensionManager] toc called. localPath: \(localPath), url: \(url)")
+        AppLogger.shared.log("🔍 [ExtensionManager] toc called. localPath: \(localPath), url: \(url)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "toc")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
@@ -277,10 +277,10 @@ public final class ExtensionManager {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
-            print("📝 [ExtensionManager] toc raw JS result: \(jsValue)")
+            AppLogger.shared.log("📝 [ExtensionManager] toc raw JS result: \(jsValue)")
             
             guard let jsArray = jsValue.toArray() else {
-                print("⚠️ [ExtensionManager] toc returned non-array result or null")
+                AppLogger.shared.log("⚠️ [ExtensionManager] toc returned non-array result or null")
                 return []
             }
             
@@ -292,17 +292,17 @@ public final class ExtensionManager {
                     results.append(ChapterResult(title: title, url: chapUrl))
                 }
             }
-            print("✅ [ExtensionManager] toc parsed \(results.count) chapters")
+            AppLogger.shared.log("✅ [ExtensionManager] toc parsed \(results.count) chapters")
             return results
         } catch {
-            print("❌ [ExtensionManager] toc error: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ [ExtensionManager] toc error: \(error.localizedDescription)")
             throw error
         }
     }
     
     // Lấy nội dung chương (có thể là Text hoặc danh sách URL ảnh cho truyện tranh)
     public func chap(localPath: String, url: String, configJson: String = "{}") async throws -> String {
-        print("🔍 [ExtensionManager] chap called. localPath: \(localPath), url: \(url)")
+        AppLogger.shared.log("🔍 [ExtensionManager] chap called. localPath: \(localPath), url: \(url)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "chap")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
@@ -312,7 +312,7 @@ public final class ExtensionManager {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
-            print("📝 [ExtensionManager] chap raw JS result length: \(jsValue.toString()?.count ?? 0)")
+            AppLogger.shared.log("📝 [ExtensionManager] chap raw JS result length: \(jsValue.toString()?.count ?? 0)")
             
             if jsValue.isArray {
                 if let array = jsValue.toArray() as? [String] {
@@ -322,23 +322,16 @@ public final class ExtensionManager {
             
             return jsValue.toString() ?? ""
         } catch {
-            print("❌ [ExtensionManager] chap error: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ [ExtensionManager] chap error: \(error.localizedDescription)")
             throw error
         }
     }
     
     // Lấy danh mục thể loại (Khám phá)
-    public func genre(localPath: String, configJson: String = "{}") async throws -> [String: String] {
-        print("🔍 [ExtensionManager] genre/home called. localPath: \(localPath)")
+    public func genre(localPath: String, configJson: String = "{}") async throws -> [CategoryResult] {
+        AppLogger.shared.log("🔍 [ExtensionManager] genre called. localPath: \(localPath)")
         do {
-            var scriptUrl: URL
-            do {
-                scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "genre")
-            } catch {
-                print("⚠️ [ExtensionManager] 'genre' script key not found, trying 'home' script key...")
-                scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "home")
-            }
-            
+            let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "genre")
             let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
             
             let executor = JSExecutor(localPath: localPath)
@@ -346,37 +339,146 @@ public final class ExtensionManager {
             executor.injectGlobals(configs)
             
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
-            print("📝 [ExtensionManager] genre/home raw JS result: \(jsValue)")
+            AppLogger.shared.log("📝 [ExtensionManager] genre raw JS result: \(jsValue)")
             
-            var dictResult: [String: String] = [:]
+            var results: [CategoryResult] = []
             
             if let jsArray = jsValue.toArray() {
                 for item in jsArray {
                     if let itemDict = item as? [String: Any] {
                         if let title = itemDict["title"] as? String,
                            let input = itemDict["input"] as? String {
-                            dictResult[title] = input
+                            let script = itemDict["script"] as? String ?? "search.js"
+                            results.append(CategoryResult(title: title, input: input, script: script))
                         } else if let title = itemDict["name"] as? String,
                                   let input = itemDict["link"] as? String {
-                            dictResult[title] = input
+                            let script = itemDict["script"] as? String ?? "search.js"
+                            results.append(CategoryResult(title: title, input: input, script: script))
                         }
                     }
                 }
             } else if let dict = jsValue.toDictionary() as? [String: String] {
-                dictResult = dict
+                for (key, val) in dict {
+                    results.append(CategoryResult(title: key, input: val, script: "search.js"))
+                }
             } else if let dict = jsValue.toDictionary() as? [String: Any] {
                 for (key, val) in dict {
                     if let valStr = val as? String {
-                        dictResult[key] = valStr
+                        results.append(CategoryResult(title: key, input: valStr, script: "search.js"))
                     }
                 }
             }
             
-            print("✅ [ExtensionManager] genre/home parsed \(dictResult.count) categories")
-            return dictResult
+            AppLogger.shared.log("✅ [ExtensionManager] genre parsed \(results.count) categories")
+            return results
         } catch {
-            print("❌ [ExtensionManager] genre/home script failed or not supported: \(error.localizedDescription)")
-            return [:]
+            AppLogger.shared.log("❌ [ExtensionManager] genre script failed or not supported: \(error.localizedDescription)")
+            return []
         }
     }
+    
+    // Lấy danh sách tab trang chủ (Home)
+    public func home(localPath: String, configJson: String = "{}") async throws -> [CategoryResult] {
+        AppLogger.shared.log("🔍 [ExtensionManager] home called. localPath: \(localPath)")
+        do {
+            let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "home")
+            let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+            
+            let executor = JSExecutor(localPath: localPath)
+            let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
+            executor.injectGlobals(configs)
+            
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
+            AppLogger.shared.log("📝 [ExtensionManager] home raw JS result: \(jsValue)")
+            
+            var results: [CategoryResult] = []
+            
+            if let jsArray = jsValue.toArray() {
+                for item in jsArray {
+                    if let itemDict = item as? [String: Any] {
+                        if let title = itemDict["title"] as? String,
+                           let input = itemDict["input"] as? String {
+                            let script = itemDict["script"] as? String ?? "search.js"
+                            results.append(CategoryResult(title: title, input: input, script: script))
+                        } else if let title = itemDict["name"] as? String,
+                                  let input = itemDict["link"] as? String {
+                            let script = itemDict["script"] as? String ?? "search.js"
+                            results.append(CategoryResult(title: title, input: input, script: script))
+                        }
+                    }
+                }
+            }
+            
+            AppLogger.shared.log("✅ [ExtensionManager] home parsed \(results.count) tabs")
+            if !results.isEmpty {
+                return results
+            }
+        } catch {
+            AppLogger.shared.log("⚠️ [ExtensionManager] home script failed or missing, trying fallback to genre...")
+        }
+        
+        // Fallback to genre
+        return try await genre(localPath: localPath, configJson: configJson)
+    }
+    
+    // Thực thi một script tùy chọn (ví dụ: gen.js, tag.js...) với input và page
+    public func executeCustomScript(localPath: String, scriptFileName: String, input: String, page: Int, configJson: String = "{}") async throws -> [SearchNovelResult] {
+        AppLogger.shared.log("🔍 [ExtensionManager] executeCustomScript called. localPath: \(localPath), scriptFileName: \(scriptFileName), input: \(input), page: \(page)")
+        
+        let extUrl = URL(fileURLWithPath: localPath)
+        // Tìm file script trong thư mục gốc hoặc src/
+        var scriptUrl = extUrl.appendingPathComponent(scriptFileName)
+        if !FileManager.default.fileExists(atPath: scriptUrl.path) {
+            let srcScriptUrl = extUrl.appendingPathComponent("src").appendingPathComponent(scriptFileName)
+            if FileManager.default.fileExists(atPath: srcScriptUrl.path) {
+                scriptUrl = srcScriptUrl
+            } else {
+                throw NSError(domain: "ExtensionManager", code: -5, userInfo: [NSLocalizedDescriptionKey: "Script file '\(scriptFileName)' not found in root or src/"])
+            }
+        }
+        
+        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+        let executor = JSExecutor(localPath: localPath)
+        let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
+        executor.injectGlobals(configs)
+        
+        // VBook formatting: thay thế {0} trong input bằng số trang hiện tại
+        let formattedInput = input.replacingOccurrences(of: "{0}", with: String(page))
+        AppLogger.shared.log("📝 [ExtensionManager] formattedInput: \(formattedInput)")
+        
+        do {
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [formattedInput, page])
+            AppLogger.shared.log("📝 [ExtensionManager] custom script raw JS result: \(jsValue)")
+            
+            guard let jsArray = jsValue.toArray() else {
+                AppLogger.shared.log("⚠️ [ExtensionManager] custom script returned non-array result or null")
+                return []
+            }
+            
+            var results: [SearchNovelResult] = []
+            for item in jsArray {
+                if let dict = item as? [String: Any] {
+                    let title = dict["name"] as? String ?? ""
+                    let detailUrl = dict["link"] as? String ?? ""
+                    let coverUrl = dict["cover"] as? String ?? ""
+                    let author = dict["author"] as? String ?? "Không rõ"
+                    
+                    results.append(SearchNovelResult(title: title, author: author, coverUrl: coverUrl, detailUrl: detailUrl))
+                }
+            }
+            AppLogger.shared.log("✅ [ExtensionManager] custom script parsed \(results.count) results")
+            return results
+        } catch {
+            AppLogger.shared.log("❌ [ExtensionManager] custom script error: \(error.localizedDescription)")
+            throw error
+        }
+    }
+}
+
+// Model danh mục / Home Tab
+public struct CategoryResult: Identifiable, Codable {
+    public var id: String { title + "_" + input }
+    public let title: String
+    public let input: String
+    public let script: String
 }
