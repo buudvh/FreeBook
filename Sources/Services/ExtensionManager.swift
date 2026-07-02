@@ -187,6 +187,7 @@ public final class ExtensionManager {
     
     // Tìm kiếm truyện
     public func search(localPath: String, query: String, page: Int, configJson: String = "{}") async throws -> [SearchNovelResult] {
+        print("🔍 [ExtensionManager] search called. localPath: \(localPath), query: \(query), page: \(page)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "search")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
@@ -194,29 +195,37 @@ public final class ExtensionManager {
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         executor.injectGlobals(configs)
         
-        // Trong VBook, hàm search thường được gọi với tham số (query, page)
-        let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "search", arguments: [query, page])
-        
-        guard let jsArray = jsValue.toArray() else {
-            return []
-        }
-        
-        var results: [SearchNovelResult] = []
-        for item in jsArray {
-            if let dict = item as? [String: Any] {
-                let title = dict["name"] as? String ?? ""
-                let detailUrl = dict["link"] as? String ?? ""
-                let coverUrl = dict["cover"] as? String ?? ""
-                let author = dict["author"] as? String ?? "Không rõ"
-                
-                results.append(SearchNovelResult(title: title, author: author, coverUrl: coverUrl, detailUrl: detailUrl))
+        do {
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [query, page])
+            print("📝 [ExtensionManager] search raw JS result: \(jsValue)")
+            
+            guard let jsArray = jsValue.toArray() else {
+                print("⚠️ [ExtensionManager] search returned non-array result or null")
+                return []
             }
+            
+            var results: [SearchNovelResult] = []
+            for item in jsArray {
+                if let dict = item as? [String: Any] {
+                    let title = dict["name"] as? String ?? ""
+                    let detailUrl = dict["link"] as? String ?? ""
+                    let coverUrl = dict["cover"] as? String ?? ""
+                    let author = dict["author"] as? String ?? "Không rõ"
+                    
+                    results.append(SearchNovelResult(title: title, author: author, coverUrl: coverUrl, detailUrl: detailUrl))
+                }
+            }
+            print("✅ [ExtensionManager] search parsed \(results.count) results")
+            return results
+        } catch {
+            print("❌ [ExtensionManager] search error: \(error.localizedDescription)")
+            throw error
         }
-        return results
     }
     
     // Lấy thông tin chi tiết truyện
     public func detail(localPath: String, url: String, configJson: String = "{}") async throws -> NovelDetailResult {
+        print("🔍 [ExtensionManager] detail called. localPath: \(localPath), url: \(url)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "detail")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
@@ -224,23 +233,33 @@ public final class ExtensionManager {
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         executor.injectGlobals(configs)
         
-        let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "detail", arguments: [url])
-        
-        guard let dict = jsValue.toDictionary() as? [String: Any] else {
-            throw NSError(domain: "ExtensionManager", code: -6, userInfo: [NSLocalizedDescriptionKey: "Failed to parse novel detail"])
+        do {
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
+            print("📝 [ExtensionManager] detail raw JS result: \(jsValue)")
+            
+            guard let dict = jsValue.toDictionary() as? [String: Any] else {
+                print("❌ [ExtensionManager] detail returned non-dictionary result or null")
+                throw NSError(domain: "ExtensionManager", code: -6, userInfo: [NSLocalizedDescriptionKey: "Failed to parse novel detail"])
+            }
+            
+            let title = dict["name"] as? String ?? ""
+            let author = dict["author"] as? String ?? "Không rõ"
+            let coverUrl = dict["cover"] as? String ?? ""
+            let desc = dict["description"] as? String ?? ""
+            let detailUrl = dict["detail"] as? String ?? url
+            
+            let result = NovelDetailResult(title: title, author: author, coverUrl: coverUrl, desc: desc, detailUrl: detailUrl)
+            print("✅ [ExtensionManager] detail parsed info: \(result.title) by \(result.author)")
+            return result
+        } catch {
+            print("❌ [ExtensionManager] detail error: \(error.localizedDescription)")
+            throw error
         }
-        
-        let title = dict["name"] as? String ?? ""
-        let author = dict["author"] as? String ?? "Không rõ"
-        let coverUrl = dict["cover"] as? String ?? ""
-        let desc = dict["description"] as? String ?? ""
-        let detailUrl = dict["detail"] as? String ?? url
-        
-        return NovelDetailResult(title: title, author: author, coverUrl: coverUrl, desc: desc, detailUrl: detailUrl)
     }
     
     // Lấy mục lục chương
     public func toc(localPath: String, url: String, configJson: String = "{}") async throws -> [ChapterResult] {
+        print("🔍 [ExtensionManager] toc called. localPath: \(localPath), url: \(url)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "toc")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
@@ -248,25 +267,34 @@ public final class ExtensionManager {
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         executor.injectGlobals(configs)
         
-        let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "toc", arguments: [url])
-        
-        guard let jsArray = jsValue.toArray() else {
-            return []
-        }
-        
-        var results: [ChapterResult] = []
-        for item in jsArray {
-            if let dict = item as? [String: Any] {
-                let title = dict["name"] as? String ?? ""
-                let chapUrl = dict["link"] as? String ?? ""
-                results.append(ChapterResult(title: title, url: chapUrl))
+        do {
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
+            print("📝 [ExtensionManager] toc raw JS result: \(jsValue)")
+            
+            guard let jsArray = jsValue.toArray() else {
+                print("⚠️ [ExtensionManager] toc returned non-array result or null")
+                return []
             }
+            
+            var results: [ChapterResult] = []
+            for item in jsArray {
+                if let dict = item as? [String: Any] {
+                    let title = dict["name"] as? String ?? ""
+                    let chapUrl = dict["link"] as? String ?? ""
+                    results.append(ChapterResult(title: title, url: chapUrl))
+                }
+            }
+            print("✅ [ExtensionManager] toc parsed \(results.count) chapters")
+            return results
+        } catch {
+            print("❌ [ExtensionManager] toc error: \(error.localizedDescription)")
+            throw error
         }
-        return results
     }
     
     // Lấy nội dung chương (có thể là Text hoặc danh sách URL ảnh cho truyện tranh)
     public func chap(localPath: String, url: String, configJson: String = "{}") async throws -> String {
+        print("🔍 [ExtensionManager] chap called. localPath: \(localPath), url: \(url)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "chap")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
@@ -274,19 +302,26 @@ public final class ExtensionManager {
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         executor.injectGlobals(configs)
         
-        let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "chap", arguments: [url])
-        
-        if jsValue.isArray {
-            if let array = jsValue.toArray() as? [String] {
-                return array.joined(separator: "\n")
+        do {
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
+            print("📝 [ExtensionManager] chap raw JS result length: \(jsValue.toString()?.count ?? 0)")
+            
+            if jsValue.isArray {
+                if let array = jsValue.toArray() as? [String] {
+                    return array.joined(separator: "\n")
+                }
             }
+            
+            return jsValue.toString() ?? ""
+        } catch {
+            print("❌ [ExtensionManager] chap error: \(error.localizedDescription)")
+            throw error
         }
-        
-        return jsValue.toString() ?? ""
     }
     
     // Lấy danh mục thể loại (Khám phá)
     public func genre(localPath: String, configJson: String = "{}") async throws -> [String: String] {
+        print("🔍 [ExtensionManager] genre called. localPath: \(localPath)")
         do {
             let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "genre")
             let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
@@ -295,14 +330,37 @@ public final class ExtensionManager {
             let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
             executor.injectGlobals(configs)
             
-            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "genre", arguments: [])
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
+            print("📝 [ExtensionManager] genre raw JS result: \(jsValue)")
             
-            if let dict = jsValue.toDictionary() as? [String: String] {
-                return dict
+            var dictResult: [String: String] = [:]
+            
+            if let jsArray = jsValue.toArray() {
+                for item in jsArray {
+                    if let itemDict = item as? [String: Any] {
+                        if let title = itemDict["title"] as? String,
+                           let input = itemDict["input"] as? String {
+                            dictResult[title] = input
+                        } else if let title = itemDict["name"] as? String,
+                                  let input = itemDict["link"] as? String {
+                            dictResult[title] = input
+                        }
+                    }
+                }
+            } else if let dict = jsValue.toDictionary() as? [String: String] {
+                dictResult = dict
+            } else if let dict = jsValue.toDictionary() as? [String: Any] {
+                for (key, val) in dict {
+                    if let valStr = val as? String {
+                        dictResult[key] = valStr
+                    }
+                }
             }
-            return [:]
+            
+            print("✅ [ExtensionManager] genre parsed \(dictResult.count) categories")
+            return dictResult
         } catch {
-            print("Genre script failed or not supported: \(error.localizedDescription)")
+            print("❌ [ExtensionManager] genre script failed or not supported: \(error.localizedDescription)")
             return [:]
         }
     }
