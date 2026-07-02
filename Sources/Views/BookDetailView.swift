@@ -47,6 +47,10 @@ struct BookDetailView: View {
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
+    private var cleanedDetailText: String {
+        cleanDetailText(detail)
+    }
+    
     var body: some View {
         VStack {
             if isLoading {
@@ -101,7 +105,7 @@ struct BookDetailView: View {
                                     .cornerRadius(6)
                                 
                                 if !detail.isEmpty {
-                                    Text(cleanDetailText(detail))
+                                    Text(cleanedDetailText)
                                         .font(.caption2)
                                         .foregroundColor(.secondary)
                                         .lineLimit(4)
@@ -225,7 +229,7 @@ struct BookDetailView: View {
                                                 onlineChapters: onlineChapters
                                             )) {
                                                 VStack(alignment: .leading) {
-                                                    Text(chap.title)
+                                                    Text(chap.name)
                                                         .font(.subheadline)
                                                         .foregroundColor(.primary)
                                                         .lineLimit(1)

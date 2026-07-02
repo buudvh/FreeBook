@@ -273,7 +273,7 @@ public final class ExtensionManager {
             let link = dict["link"] as? String ?? dict["url"] as? String ?? url
             
             let result = NovelDetailResult(name: name, author: author, cover: cover, description: description, detail: detail, host: host, link: link)
-            AppLogger.shared.log("✅ [ExtensionManager] detail parsed info: \(result.title) by \(result.author)")
+            AppLogger.shared.log("✅ [ExtensionManager] detail parsed info: \(result.name) by \(result.author)")
             return result
         } catch {
             AppLogger.shared.log("❌ [ExtensionManager] detail error: \(error.localizedDescription)")

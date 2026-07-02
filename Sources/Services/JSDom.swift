@@ -34,6 +34,7 @@ import SwiftSoup
     func siblingElements() -> JSElements
     func nextElementSibling() -> JSElement?
     func previousElementSibling() -> JSElement?
+    func remove()
 }
 
 @objc protocol JSElementsExport: JSExport {
@@ -48,6 +49,7 @@ import SwiftSoup
     func hasClass(_ className: String) -> Bool
     func val() -> String
     func eq(_ index: Int) -> JSElements
+    func remove()
 }
 
 // MARK: - Concrete Implementations
@@ -227,6 +229,14 @@ import SwiftSoup
             return nil
         }
     }
+    
+    public func remove() {
+        do {
+            try element.remove()
+        } catch {
+            print("JSElement remove error: \(error)")
+        }
+    }
 }
 
 @objc public final class JSElements: NSObject, JSElementsExport {
@@ -305,5 +315,13 @@ import SwiftSoup
         guard index >= 0 && index < elements.size() else { return JSElements(Elements()) }
         let single = Elements([elements.get(index)])
         return JSElements(single)
+    }
+    
+    public func remove() {
+        do {
+            try elements.remove()
+        } catch {
+            print("JSElements remove error: \(error)")
+        }
     }
 }
