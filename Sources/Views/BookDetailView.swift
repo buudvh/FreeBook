@@ -19,6 +19,7 @@ struct BookDetailView: View {
     @State private var author = ""
     @State private var coverUrl = ""
     @State private var desc = ""
+    @State private var detail = ""
     @State private var onlineChapters: [ChapterResult] = []
     
     // Tìm sách local trong database
@@ -29,6 +30,21 @@ struct BookDetailView: View {
     // Tìm extension cục bộ để chạy script
     private var ext: Extension? {
         allExtensions.first(where: { $0.packageId == extensionPackageId })
+    }
+    
+    private func cleanDetailText(_ html: String) -> String {
+        var text = html
+            .replacingOccurrences(of: "<br>", with: "\n")
+            .replacingOccurrences(of: "<br/>", with: "\n")
+            .replacingOccurrences(of: "<br />", with: "\n")
+            .replacingOccurrences(of: "<p>", with: "")
+            .replacingOccurrences(of: "</p>", with: "\n")
+        
+        if let regex = try? NSRegularExpression(pattern: "<[^>]+>", options: .caseInsensitive) {
+            let range = NSRange(location: 0, length: text.utf16.count)
+            text = regex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "")
+        }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
     var body: some View {
@@ -83,6 +99,13 @@ struct BookDetailView: View {
                                     .padding(.vertical, 4)
                                     .background(Color.secondary.opacity(0.2))
                                     .cornerRadius(6)
+                                
+                                if !detail.isEmpty {
+                                    Text(cleanDetailText(detail))
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(4)
+                                }
                                 
                                 Spacer()
                                 
@@ -266,18 +289,20 @@ struct BookDetailView: View {
                 let tocResult = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
                 
                 await MainActor.run {
-                    self.title = detailResult.title
+                    self.title = detailResult.name
                     self.author = detailResult.author
-                    self.coverUrl = detailResult.coverUrl
-                    self.desc = detailResult.desc
+                    self.coverUrl = detailResult.cover
+                    self.desc = detailResult.description
+                    self.detail = detailResult.detail
                     self.onlineChapters = tocResult
                     
                     // Nếu sách đã ở local nhưng rỗng chương (hoặc cần update), cập nhật lại
                     if let book = localBook {
-                        book.title = detailResult.title
+                        book.title = detailResult.name
                         book.author = detailResult.author
-                        book.coverUrl = detailResult.coverUrl
-                        book.desc = detailResult.desc
+                        book.coverUrl = detailResult.cover
+                        let savedDesc = detailResult.detail.isEmpty ? detailResult.description : "\(detailResult.description)\n\n---\n\(self.cleanDetailText(detailResult.detail))"
+                        book.desc = savedDesc
                         
                         // Cập nhật chương
                         updateLocalChapters(for: book, with: tocResult)
@@ -295,12 +320,13 @@ struct BookDetailView: View {
     }
     
     private func addToShelf() {
+        let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
         let newBook = Book(
             bookId: bookId,
             title: title,
             author: author,
             coverUrl: coverUrl,
-            desc: desc,
+            desc: savedDesc,
             detailUrl: initialDetailUrl,
             sourceName: sourceName,
             sourceUrl: ext?.sourceUrl ?? "",
@@ -324,7 +350,7 @@ struct BookDetailView: View {
         // Thêm chương mới
         for (index, item) in results.enumerated() {
             let chapId = "\(book.bookId)_\(item.url)"
-            let newChap = Chapter(id: chapId, title: item.title, url: item.url, index: index)
+            let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index)
             newChap.book = book
             modelContext.insert(newChap)
         }

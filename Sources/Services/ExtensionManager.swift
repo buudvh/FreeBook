@@ -28,23 +28,28 @@ public struct ExtensionRegistryItem: Codable {
 // MARK: - Helper Structs for JavaScript results
 public struct SearchNovelResult: Identifiable {
     public let id = UUID()
-    public let title: String
+    public let name: String
     public let author: String
-    public let coverUrl: String
-    public let detailUrl: String
+    public let description: String
+    public let cover: String
+    public let link: String
+    public let host: String
 }
 
 public struct NovelDetailResult {
-    public let title: String
+    public let name: String
     public let author: String
-    public let coverUrl: String
-    public let desc: String
-    public let detailUrl: String
+    public let cover: String
+    public let description: String
+    public let detail: String
+    public let host: String
+    public let link: String
 }
 
 public struct ChapterResult {
-    public let title: String
+    public let name: String
     public let url: String
+    public let host: String
 }
 
 // MARK: - Extension Manager
@@ -222,12 +227,14 @@ public final class ExtensionManager {
             var results: [SearchNovelResult] = []
             for item in jsArray {
                 if let dict = item as? [String: Any] {
-                    let title = dict["name"] as? String ?? ""
-                    let detailUrl = dict["link"] as? String ?? ""
-                    let coverUrl = dict["cover"] as? String ?? ""
+                    let name = dict["name"] as? String ?? ""
                     let author = dict["author"] as? String ?? "Không rõ"
+                    let description = dict["description"] as? String ?? dict["desc"] as? String ?? ""
+                    let cover = dict["cover"] as? String ?? ""
+                    let link = dict["link"] as? String ?? dict["url"] as? String ?? ""
+                    let host = dict["host"] as? String ?? ""
                     
-                    results.append(SearchNovelResult(title: title, author: author, coverUrl: coverUrl, detailUrl: detailUrl))
+                    results.append(SearchNovelResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
                 }
             }
             AppLogger.shared.log("✅ [ExtensionManager] search parsed \(results.count) results")
@@ -257,13 +264,15 @@ public final class ExtensionManager {
                 throw NSError(domain: "ExtensionManager", code: -6, userInfo: [NSLocalizedDescriptionKey: "Failed to parse novel detail"])
             }
             
-            let title = dict["name"] as? String ?? ""
+            let name = dict["name"] as? String ?? ""
             let author = dict["author"] as? String ?? "Không rõ"
-            let coverUrl = dict["cover"] as? String ?? ""
-            let desc = dict["description"] as? String ?? ""
-            let detailUrl = dict["detail"] as? String ?? url
+            let cover = dict["cover"] as? String ?? ""
+            let description = dict["description"] as? String ?? ""
+            let detail = dict["detail"] as? String ?? ""
+            let host = dict["host"] as? String ?? ""
+            let link = dict["link"] as? String ?? dict["url"] as? String ?? url
             
-            let result = NovelDetailResult(title: title, author: author, coverUrl: coverUrl, desc: desc, detailUrl: detailUrl)
+            let result = NovelDetailResult(name: name, author: author, cover: cover, description: description, detail: detail, host: host, link: link)
             AppLogger.shared.log("✅ [ExtensionManager] detail parsed info: \(result.title) by \(result.author)")
             return result
         } catch {
@@ -294,9 +303,10 @@ public final class ExtensionManager {
             var results: [ChapterResult] = []
             for item in jsArray {
                 if let dict = item as? [String: Any] {
-                    let title = dict["name"] as? String ?? ""
-                    let chapUrl = dict["link"] as? String ?? ""
-                    results.append(ChapterResult(title: title, url: chapUrl))
+                    let name = dict["name"] as? String ?? ""
+                    let urlVal = dict["url"] as? String ?? dict["link"] as? String ?? ""
+                    let host = dict["host"] as? String ?? ""
+                    results.append(ChapterResult(name: name, url: urlVal, host: host))
                 }
             }
             AppLogger.shared.log("✅ [ExtensionManager] toc parsed \(results.count) chapters")
@@ -465,12 +475,14 @@ public final class ExtensionManager {
             var results: [SearchNovelResult] = []
             for item in jsArray {
                 if let dict = item as? [String: Any] {
-                    let title = dict["name"] as? String ?? ""
-                    let detailUrl = dict["link"] as? String ?? ""
-                    let coverUrl = dict["cover"] as? String ?? ""
+                    let name = dict["name"] as? String ?? ""
                     let author = dict["author"] as? String ?? "Không rõ"
+                    let description = dict["description"] as? String ?? dict["desc"] as? String ?? ""
+                    let cover = dict["cover"] as? String ?? ""
+                    let link = dict["link"] as? String ?? dict["url"] as? String ?? ""
+                    let host = dict["host"] as? String ?? ""
                     
-                    results.append(SearchNovelResult(title: title, author: author, coverUrl: coverUrl, detailUrl: detailUrl))
+                    results.append(SearchNovelResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
                 }
             }
             AppLogger.shared.log("✅ [ExtensionManager] custom script parsed \(results.count) results")

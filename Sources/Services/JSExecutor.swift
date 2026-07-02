@@ -1,5 +1,6 @@
 import Foundation
 import JavaScriptCore
+import WebKit
 
 public final class JSExecutor {
     public let context: JSContext
@@ -84,13 +85,13 @@ public final class JSExecutor {
         """
         context.evaluateScript(responseBootstrap)
         
-        // 7. Đăng ký hàm tải mạng đồng bộ trả về [String: Any] chứa html, status và raw base64
         let syncFetchBlock: @convention(block) (String) -> [String: Any] = { [weak self] urlString in
-            AppLogger.shared.log("🌐 [JSExecutor] Sync Fetching: \(urlString)")
             guard let self = self else {
                 return ["html": "", "status": 500, "raw": ""]
             }
-            guard let url = URL(string: urlString) else {
+            let resolvedUrlString = self.cleanAndResolveUrl(urlString)
+            AppLogger.shared.log("🌐 [JSExecutor] Sync Fetching: \(resolvedUrlString)")
+            guard let url = URL(string: resolvedUrlString) else {
                 return ["html": "", "status": 400, "raw": ""]
             }
             var resultHtml = ""
@@ -184,6 +185,32 @@ public final class JSExecutor {
         """
         context.evaluateScript(fetchBootstrap)
         
+        // Đăng ký block chạy browser thực tế bằng WKWebView
+        let browserLaunchBlock: @convention(block) (String, Double) -> String = { [weak self] urlString, timeoutMs in
+            guard let self = self else { return "" }
+            let resolvedUrlString = self.cleanAndResolveUrl(urlString)
+            AppLogger.shared.log("🤖 [JSExecutor.Browser] Launching WKWebView for: \(resolvedUrlString)")
+            guard let url = URL(string: resolvedUrlString) else { return "" }
+            
+            let semaphore = DispatchSemaphore(value: 0)
+            var resultHtml = ""
+            
+            DispatchQueue.main.async {
+                let loader = WebViewLoader()
+                objc_setAssociatedObject(self, UnsafeRawPointer(bitPattern: loader.hash)!, loader, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                
+                loader.load(url: url, timeout: timeoutMs / 1000.0) { html in
+                    resultHtml = html ?? ""
+                    objc_setAssociatedObject(self, UnsafeRawPointer(bitPattern: loader.hash)!, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                    semaphore.signal()
+                }
+            }
+            
+            _ = semaphore.wait(timeout: .now() + (timeoutMs / 1000.0) + 1.0)
+            return resultHtml
+        }
+        context.setObject(browserLaunchBlock, forKeyedSubscript: "_nativeBrowserLaunch" as NSCopying & NSObjectProtocol)
+        
         // 9. Đăng ký đối tượng Engine toàn cục (mocking Browser)
         let engineBootstrap = """
         var Engine = {
@@ -192,8 +219,7 @@ public final class JSExecutor {
                     _html: "",
                     launch: function(url, timeout) {
                         console.log("🤖 [Engine.Browser] launch(" + url + ")");
-                        var res = _nativeSyncFetch(url);
-                        this._html = res.html || "";
+                        this._html = _nativeBrowserLaunch(url, timeout || 5000);
                         return Html.parse(this._html);
                     },
                     html: function() {
@@ -279,7 +305,50 @@ public final class JSExecutor {
         return ""
     }
     
-
+    private func cleanAndResolveUrl(_ urlString: String) -> String {
+        var cleaned = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // 1. Nếu chứa nhiều hơn 1 http:// hoặc https://, lấy cái cuối cùng
+        let patterns = ["https://", "http://"]
+        var lastIndex: String.Index? = nil
+        
+        for pattern in patterns {
+            var searchRange = cleaned.startIndex..<cleaned.endIndex
+            while let range = cleaned.range(of: pattern, options: .backwards, range: searchRange) {
+                if lastIndex == nil || range.lowerBound > lastIndex! {
+                    lastIndex = range.lowerBound
+                }
+                searchRange = cleaned.startIndex..<range.lowerBound
+            }
+        }
+        
+        if let idx = lastIndex, idx != cleaned.startIndex {
+            cleaned = String(cleaned[idx...])
+            AppLogger.shared.log("⚠️ [JSExecutor] Cleaned duplicate hosts URL to: \(cleaned)")
+        }
+        
+        // 2. Nếu là URL tương đối (không bắt đầu bằng http:// hoặc https://)
+        if !cleaned.lowercased().hasPrefix("http://") && !cleaned.lowercased().hasPrefix("https://") {
+            // Đọc BASE_URL từ config của extension
+            if let localPath = self.localPath {
+                let extUrl = URL(fileURLWithPath: localPath)
+                let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
+                if let data = try? Data(contentsOf: pluginJsonUrl),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let configSection = json["config"] as? [String: [String: Any]],
+                   let baseUrlConfig = configSection["BASE_URL"],
+                   let defaultValue = baseUrlConfig["default"] as? String {
+                    
+                    let baseUrl = defaultValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let separator = cleaned.hasPrefix("/") || baseUrl.hasSuffix("/") ? "" : "/"
+                    cleaned = baseUrl + separator + cleaned
+                    AppLogger.shared.log("🌐 [JSExecutor] Resolved relative URL to: \(cleaned)")
+                }
+            }
+        }
+        
+        return cleaned
+    }
     
     /// Inject các cấu hình dưới dạng biến toàn cục vào JSContext
     public func injectGlobals(_ globals: [String: Any]) {
@@ -346,5 +415,59 @@ public final class JSExecutor {
                 JSValue(object: onReject, in: self.context) as Any
             ])
         }
+    }
+}
+
+// MARK: - WKWebView Headless Browser Loader Helper
+class WebViewLoader: NSObject, WKNavigationDelegate {
+    private let webView: WKWebView
+    private var completion: ((String?) -> Void)?
+    
+    override init() {
+        let config = WKWebViewConfiguration()
+        config.mediaTypesRequiringUserActionForPlayback = .all
+        
+        self.webView = WKWebView(frame: .zero, configuration: config)
+        super.init()
+        self.webView.navigationDelegate = self
+        self.webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+    }
+    
+    func load(url: URL, timeout: TimeInterval, completion: @escaping (String?) -> Void) {
+        self.completion = completion
+        let request = URLRequest(url: url)
+        
+        DispatchQueue.main.async {
+            self.webView.load(request)
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { [weak self] in
+            guard let self = self, let comp = self.completion else { return }
+            self.completion = nil
+            self.webView.evaluateJavaScript("document.documentElement.outerHTML") { html, error in
+                comp(html as? String ?? "")
+            }
+        }
+    }
+    
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard let comp = self.completion else { return }
+        self.completion = nil
+        
+        webView.evaluateJavaScript("document.documentElement.outerHTML") { html, error in
+            comp(html as? String ?? "")
+        }
+    }
+    
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        guard let comp = self.completion else { return }
+        self.completion = nil
+        comp("")
+    }
+    
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        guard let comp = self.completion else { return }
+        self.completion = nil
+        comp("")
     }
 }

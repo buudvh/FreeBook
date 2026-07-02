@@ -72,7 +72,7 @@ struct ReaderView: View {
             return (chap.title, chap.url)
         } else {
             let chap = onlineChapters[chapterIndex]
-            return (chap.title, chap.url)
+            return (chap.name, chap.url)
         }
     }
     

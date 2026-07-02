@@ -87,14 +87,14 @@ struct SearchView: View {
                     } else {
                         List(results) { item in
                             NavigationLink(destination: BookDetailView(
-                                bookId: "\(item.ext.name.lowercased())_\(item.result.detailUrl)",
+                                bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
                                 extensionPackageId: item.ext.packageId,
-                                initialDetailUrl: item.result.detailUrl,
+                                initialDetailUrl: item.result.link,
                                 sourceName: item.ext.name
                             )) {
                                 HStack(spacing: 12) {
                                     // Ảnh bìa
-                                    AsyncImage(url: URL(string: item.result.coverUrl)) { image in
+                                    AsyncImage(url: URL(string: item.result.cover)) { image in
                                         image.resizable()
                                             .aspectRatio(contentMode: .fill)
                                     } placeholder: {
@@ -105,14 +105,16 @@ struct SearchView: View {
                                     .cornerRadius(6)
                                     
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text(item.result.title)
+                                        Text(item.result.name)
                                             .font(.subheadline)
                                             .fontWeight(.bold)
                                             .lineLimit(2)
                                         
-                                        Text(item.result.author)
+                                        let descText = !item.result.description.isEmpty ? item.result.description : item.result.author
+                                        Text(descText)
                                             .font(.caption)
                                             .foregroundColor(.secondary)
+                                            .lineLimit(2)
                                         
                                         // Tag hiển thị nguồn
                                         Text(item.ext.name)

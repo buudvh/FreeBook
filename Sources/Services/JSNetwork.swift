@@ -23,7 +23,25 @@ public final class JSNetwork {
     public static func registerFetch(in context: JSContext) {
         // 1. Định nghĩa hàm _nativeFetch trong Swift
         let nativeFetchBlock: @convention(block) (String, NSDictionary, JSValue) -> Void = { urlString, options, callback in
-            guard let url = URL(string: urlString) else {
+            var resolvedUrlString = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+            let patterns = ["https://", "http://"]
+            var lastIndex: String.Index? = nil
+            
+            for pattern in patterns {
+                var searchRange = resolvedUrlString.startIndex..<resolvedUrlString.endIndex
+                while let range = resolvedUrlString.range(of: pattern, options: .backwards, range: searchRange) {
+                    if lastIndex == nil || range.lowerBound > lastIndex! {
+                        lastIndex = range.lowerBound
+                    }
+                    searchRange = resolvedUrlString.startIndex..<range.lowerBound
+                }
+            }
+            
+            if let idx = lastIndex, idx != resolvedUrlString.startIndex {
+                resolvedUrlString = String(resolvedUrlString[idx...])
+            }
+            
+            guard let url = URL(string: resolvedUrlString) else {
                 callback.call(withArguments: ["Invalid URL: \(urlString)", NSNull()])
                 return
             }

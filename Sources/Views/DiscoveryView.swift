@@ -171,13 +171,13 @@ struct DiscoveryView: View {
                                 ForEach(novels) { novel in
                                     if let ext = selectedExtension {
                                         NavigationLink(destination: BookDetailView(
-                                            bookId: "\(ext.name.lowercased())_\(novel.detailUrl)",
+                                            bookId: "\(ext.name.lowercased())_\(novel.link)",
                                             extensionPackageId: ext.packageId,
-                                            initialDetailUrl: novel.detailUrl,
+                                            initialDetailUrl: novel.link,
                                             sourceName: ext.name
                                         )) {
                                             HStack(spacing: 12) {
-                                                AsyncImage(url: URL(string: novel.coverUrl)) { image in
+                                                AsyncImage(url: URL(string: novel.cover)) { image in
                                                     image.resizable()
                                                         .aspectRatio(contentMode: .fill)
                                                 } placeholder: {
@@ -189,14 +189,16 @@ struct DiscoveryView: View {
                                                 .clipped()
                                                 
                                                 VStack(alignment: .leading, spacing: 4) {
-                                                    Text(novel.title)
+                                                    Text(novel.name)
                                                         .font(.subheadline)
                                                         .fontWeight(.bold)
                                                         .lineLimit(2)
                                                     
-                                                    Text(novel.author)
+                                                    let descText = !novel.description.isEmpty ? novel.description : novel.author
+                                                    Text(descText)
                                                         .font(.caption)
                                                         .foregroundColor(.secondary)
+                                                        .lineLimit(2)
                                                 }
                                             }
                                         }
