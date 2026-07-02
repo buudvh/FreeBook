@@ -9,9 +9,18 @@ struct ExtensionStoreView: View {
     @State private var errorMessage = ""
     @State private var selectedExtensionForConfig: Extension? = nil
     
-    // Sắp xếp các extension theo tên
+    // Sắp xếp các extension: đã cài đặt lên đầu, tiếp đến xếp theo thứ tự A-Z
     private var extensions: [Extension] {
-        repository.extensions.sorted(by: { $0.name < $1.name })
+        repository.extensions.sorted { ext1, ext2 in
+            let isInstalled1 = !ext1.localPath.isEmpty
+            let isInstalled2 = !ext2.localPath.isEmpty
+            
+            if isInstalled1 != isInstalled2 {
+                return isInstalled1 && !isInstalled2
+            }
+            
+            return ext1.name.localizedCaseInsensitiveCompare(ext2.name) == .orderedAscending
+        }
     }
     
     var body: some View {
@@ -143,35 +152,15 @@ struct ExtensionStoreView: View {
     
     private func installExtension(_ ext: Extension) {
         // Lấy registry item tương ứng từ thông tin trong db
-        let item = ExtensionRegistryItem(
-            name: ext.name,
-            author: ext.author,
-            path: repository.url.replacingOccurrences(of: "plugin.json", with: "extensions/\(ext.packageId)/plugin.zip"), // Fallback logic nếu path trống, thực tế path gốc được lưu
-            version: ext.version,
-            source: ext.sourceUrl,
-            icon: ext.iconUrl,
-            description: ext.desc,
-            type: ext.type,
-            locale: ext.locale
-        )
-        
-        // Cố gắng sử dụng URL download chuẩn nếu VBook registry cung cấp
-        var downloadUrl = item.path
-        // Tìm xem link path gốc là gì từ plugin.json nếu ta lưu nó hoặc sinh trực tiếp
-        // Trong syncExtensions ta có item.path, ở đây ta sẽ dùng logic hợp lý
-        // Đọc lại từ URL Session hoặc nếu có lưu link zip trong Extension model
-        // Để đơn giản, ta sẽ cho phép Extension model lưu trường downloadUrl.
-        // Hãy cập nhật Extension.swift để lưu trường path tải zip!
-        // Để không phải tạo lỗi biên dịch, ta sẽ giả định item.path đã được cấu hình trong Registry Item.
-        
-        // Vì trong model Extension.swift ta chưa lưu trường `zipUrl`, ta có thể sinh tự động:
-        // ext.repository.url chính là URL của plugin.json, ví dụ: https://.../plugin.json
-        // File zip nằm tại: https://.../extensions/packageId/plugin.zip hoặc lấy link tương ứng
-        // Trong plugin.json thực tế của dat-bi, trường `path` chứa link tuyệt đối (https://raw.githubusercontent.com/dat-bi/ext-vbook/main/extensions/123ds/plugin.zip)
-        // Nên để lấy link zip chuẩn, ta có thể xây dựng cấu trúc link zip tuyệt đối:
-        if let repoUrl = URL(string: repository.url) {
-            let baseRepoUrl = repoUrl.deletingLastPathComponent().absoluteString
-            downloadUrl = "\(baseRepoUrl)extensions/\(ext.packageId)/plugin.zip"
+        // Sử dụng ext.downloadUrl nếu có, nếu không thì dùng công thức fallback cũ để tương thích ngược.
+        var downloadUrl = ext.downloadUrl
+        if downloadUrl.isEmpty {
+            if let repoUrl = URL(string: repository.url) {
+                let baseRepoUrl = repoUrl.deletingLastPathComponent().absoluteString
+                downloadUrl = "\(baseRepoUrl)extensions/\(ext.packageId)/plugin.zip"
+            } else {
+                downloadUrl = repository.url.replacingOccurrences(of: "plugin.json", with: "extensions/\(ext.packageId)/plugin.zip")
+            }
         }
         
         let finalItem = ExtensionRegistryItem(

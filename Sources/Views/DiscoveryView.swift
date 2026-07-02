@@ -6,7 +6,9 @@ struct DiscoveryView: View {
     @Query private var allExtensions: [Extension]
     
     private var activeExtensions: [Extension] {
-        allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
+        allExtensions
+            .filter { !$0.localPath.isEmpty && $0.isEnabled }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
     
     @State private var selectedExtensionId: String = ""

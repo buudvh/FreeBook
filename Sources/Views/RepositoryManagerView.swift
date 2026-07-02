@@ -190,6 +190,7 @@ struct RepositoryManagerView: View {
                 existingExt.desc = item.description
                 existingExt.type = item.type ?? "novel"
                 existingExt.locale = item.locale ?? "vi_VN"
+                existingExt.downloadUrl = item.path
             } else {
                 // Chưa có, thêm mới ở trạng thái chưa cài đặt (localPath = "")
                 let newExt = Extension(
@@ -202,7 +203,8 @@ struct RepositoryManagerView: View {
                     desc: item.description,
                     type: item.type ?? "novel",
                     locale: item.locale ?? "vi_VN",
-                    localPath: "" // Trống nghĩa là chưa cài đặt
+                    localPath: "", // Trống nghĩa là chưa cài đặt
+                    downloadUrl: item.path
                 )
                 newExt.repository = repo
                 modelContext.insert(newExt)

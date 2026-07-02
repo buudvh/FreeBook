@@ -15,10 +15,11 @@ public final class Extension {
     public var localPath: String // Thư mục lưu các file JS giải nén
     public var isEnabled: Bool = true
     public var configJson: String = "{}" // Lưu cấu hình đã chỉnh sửa dạng JSON
+    public var downloadUrl: String = "" // Lưu đường dẫn tải file zip tiện ích
     
     public var repository: Repository?
     
-    public init(packageId: String, name: String, author: String, version: Int, sourceUrl: String, iconUrl: String? = nil, desc: String? = nil, type: String, locale: String, localPath: String, isEnabled: Bool = true, configJson: String = "{}") {
+    public init(packageId: String, name: String, author: String, version: Int, sourceUrl: String, iconUrl: String? = nil, desc: String? = nil, type: String, locale: String, localPath: String, isEnabled: Bool = true, configJson: String = "{}", downloadUrl: String = "") {
         self.packageId = packageId
         self.name = name
         self.author = author
@@ -31,5 +32,6 @@ public final class Extension {
         self.localPath = localPath
         self.isEnabled = isEnabled
         self.configJson = configJson
+        self.downloadUrl = downloadUrl
     }
 }
