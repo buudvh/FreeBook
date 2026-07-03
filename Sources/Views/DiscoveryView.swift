@@ -425,7 +425,7 @@ struct DiscoveryView: View {
             }
         }
     }
-
+}
 // MARK: - Subviews
 
 struct ExtensionSelectorView: View {

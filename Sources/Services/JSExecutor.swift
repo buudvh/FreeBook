@@ -31,20 +31,28 @@ public final class JSExecutor {
         // 4. Định nghĩa console.log để debug từ tiện ích dễ hơn
         let logBlock: @convention(block) () -> Void = {
             let args = JSContext.currentArguments() ?? []
-            let message = args.map { arg in
+
+            let message = args.map { item in
+                guard let arg = item as? JSValue else {
+                    return String(describing: item)
+                }
+
                 if arg.isObject {
                     if !arg.isNull && !arg.isUndefined {
-                        if let jsonModule = arg.context.objectForKeyedSubscript("JSON"),
-                           let stringifyFunc = jsonModule.objectForKeyedSubscript("stringify"),
-                           let result = stringifyFunc.call(withArguments: [arg]),
-                           let resultStr = result.toString(),
-                           resultStr != "undefined" {
+                        if let jsonModule = arg.context?.objectForKeyedSubscript("JSON"),
+                        let stringifyFunc = jsonModule.objectForKeyedSubscript("stringify"),
+                        let result = stringifyFunc.call(withArguments: [arg]),
+                        let resultStr = result.toString(),
+                        resultStr != "undefined" {
                             return resultStr
                         }
                     }
                 }
+
                 return arg.toString() ?? "undefined"
-            }.joined(separator: " ")
+            }
+            .joined(separator: " ")
+
             AppLogger.shared.log("💬 JS Console: \(message)")
         }
         
