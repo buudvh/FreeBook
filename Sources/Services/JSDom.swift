@@ -143,7 +143,7 @@ import SwiftSoup
         ]
         for selector in adSelectors {
             if let elements = try? doc.select(selector) {
-                try? elements.remove()
+                _ = try? elements.remove()
             }
         }
     }

@@ -287,7 +287,7 @@ struct ReaderView: View {
                             desc: bookDesc ?? "",
                             detailUrl: bookDetailUrl ?? "",
                             sourceName: bookSourceName ?? "",
-                            sourceUrl: ext?.sourceUrl ?? "",
+                            sourceUrl: ext.sourceUrl,
                             extensionPackageId: extensionPackageId,
                             currentChapterIndex: chapterIndex,
                             isOnShelf: false,
