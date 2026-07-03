@@ -38,9 +38,9 @@ import SwiftSoup
 @objc protocol JSElementExport: JSExport {
     // Getters
     func select(_ selector: String) -> JSElements
-    func getText() -> String
-    func getHtml() -> String
-    func getAttr(_ name: String) -> String
+    func text() -> String
+    func html() -> String
+    func attr(_ name: String) -> String
     func ownText() -> String
     func data() -> String
     func tagName() -> String
@@ -66,11 +66,6 @@ import SwiftSoup
     func prepend(_ html: String)
     func addClass(_ className: String)
     func removeClass(_ className: String)
-    
-    // JS-friendly methods (Getter & Setter unified)
-    func text(_ value: String?) -> String
-    func html(_ value: String?) -> String
-    func attr(_ name: String, _ value: String?) -> String
 }
 
 /// Cầu nối cho JSElements - Đại diện cho danh sách các phần tử DOM.
@@ -232,7 +227,7 @@ import SwiftSoup
         }
     }
     
-    public func getText() -> String {
+    public func text() -> String {
         guard let element = element else { return "" }
         do {
             return try element.text()
@@ -241,7 +236,7 @@ import SwiftSoup
         }
     }
     
-    public func getHtml() -> String {
+    public func html() -> String {
         guard let element = element else { return "" }
         do {
             return try element.html()
@@ -250,7 +245,7 @@ import SwiftSoup
         }
     }
     
-    public func getAttr(_ name: String) -> String {
+    public func attr(_ name: String) -> String {
         guard let element = element else { return "" }
         do {
             return try element.attr(name)
@@ -398,31 +393,6 @@ import SwiftSoup
     public func removeClass(_ className: String) {
         guard let element = element else { return }
         _ = try? element.removeClass(className)
-    }
-    
-    // JS-friendly methods (Getter & Setter unified)
-    public func text(_ value: String?) -> String {
-        if let value = value {
-            setText(value)
-            return value
-        }
-        return getText()
-    }
-    
-    public func html(_ value: String?) -> String {
-        if let value = value {
-            setHtml(value)
-            return value
-        }
-        return getHtml()
-    }
-    
-    public func attr(_ name: String, _ value: String?) -> String {
-        if let value = value {
-            setAttr(name, value)
-            return value
-        }
-        return getAttr(name)
     }
 }
 
