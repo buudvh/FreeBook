@@ -78,3 +78,21 @@ public final class AppLogger {
         return contents
     }
 }
+
+// MARK: - AppDiagnostics
+public final class AppDiagnostics: ObservableObject {
+    public static let shared = AppDiagnostics()
+    
+    @Published public var lastCall: CallInfo? = nil
+    
+    private init() {}
+    
+    public struct CallInfo: Identifiable {
+        public let id = UUID()
+        public let timestamp = Date()
+        public let action: String
+        public let input: String
+        public let status: String
+        public let details: String
+    }
+}

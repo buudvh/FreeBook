@@ -29,8 +29,23 @@ public final class JSExecutor {
         // 3. Đăng ký hàm fetch toàn cục (đã được ghi đè bằng sync fetch ở dưới)
         
         // 4. Định nghĩa console.log để debug từ tiện ích dễ hơn
-        let logBlock: @convention(block) (String) -> Void = { msg in
-            AppLogger.shared.log("💬 JS Console: \(msg)")
+        let logBlock: @convention(block) () -> Void = {
+            let args = JSContext.currentArguments() ?? []
+            let message = args.map { arg in
+                if arg.isObject {
+                    if !arg.isNull && !arg.isUndefined {
+                        if let jsonModule = arg.context.objectForKeyedSubscript("JSON"),
+                           let stringifyFunc = jsonModule.objectForKeyedSubscript("stringify"),
+                           let result = stringifyFunc.call(withArguments: [arg]),
+                           let resultStr = result.toString(),
+                           resultStr != "undefined" {
+                            return resultStr
+                        }
+                    }
+                }
+                return arg.toString() ?? "undefined"
+            }.joined(separator: " ")
+            AppLogger.shared.log("💬 JS Console: \(message)")
         }
         
         let console = JSValue(newObjectIn: context)

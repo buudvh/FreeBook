@@ -67,13 +67,10 @@ import SwiftSoup
     func addClass(_ className: String)
     func removeClass(_ className: String)
     
-    // JS-friendly overloads (Getters & Setters)
-    func text() -> String
-    func text(_ value: String)
-    func html() -> String
-    func html(_ value: String)
-    func attr(_ name: String) -> String
-    func attr(_ name: String, _ value: String)
+    // JS-friendly methods (Getter & Setter unified)
+    func text(_ value: String?) -> String
+    func html(_ value: String?) -> String
+    func attr(_ name: String, _ value: String?) -> String
 }
 
 /// Cầu nối cho JSElements - Đại diện cho danh sách các phần tử DOM.
@@ -403,29 +400,29 @@ import SwiftSoup
         _ = try? element.removeClass(className)
     }
     
-    // JS-friendly overloads
-    public func text() -> String {
+    // JS-friendly methods (Getter & Setter unified)
+    public func text(_ value: String?) -> String {
+        if let value = value {
+            setText(value)
+            return value
+        }
         return getText()
     }
     
-    public func text(_ value: String) {
-        setText(value)
-    }
-    
-    public func html() -> String {
+    public func html(_ value: String?) -> String {
+        if let value = value {
+            setHtml(value)
+            return value
+        }
         return getHtml()
     }
     
-    public func html(_ value: String) {
-        setHtml(value)
-    }
-    
-    public func attr(_ name: String) -> String {
+    public func attr(_ name: String, _ value: String?) -> String {
+        if let value = value {
+            setAttr(name, value)
+            return value
+        }
         return getAttr(name)
-    }
-    
-    public func attr(_ name: String, _ value: String) {
-        setAttr(name, value)
     }
 }
 

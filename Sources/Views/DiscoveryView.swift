@@ -1,12 +1,6 @@
 import SwiftUI
 import SwiftData
 
-struct SearchNovelResultWithExt: Identifiable {
-    let id = UUID()
-    let result: SearchNovelResult
-    let ext: Extension
-}
-
 struct DiscoveryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var allExtensions: [Extension]
@@ -53,13 +47,6 @@ struct DiscoveryView: View {
     @State private var showingExtensionSelector = false
     @State private var extensionSearchQuery = ""
     
-    // Tìm kiếm truyện
-    @State private var searchQuery = ""
-    @State private var isSearching = false
-    @State private var searchAllSources = false
-    @State private var searchResults: [SearchNovelResultWithExt] = []
-    @State private var searchStatusMessage = ""
-    
     private var selectedExtension: Extension? {
         activeExtensions.first(where: { $0.packageId == selectedExtensionId })
     }
@@ -84,35 +71,50 @@ struct DiscoveryView: View {
                         Spacer()
                     }
                 } else {
-                    // 1. Giao diện Chọn Nguồn Truyện "Phần mở rộng"
+                    // 1. Custom Header Bar (Nguồn bên trái có icon & tên, Tìm kiếm bên phải)
                     HStack {
-                        Text("Nguồn đọc:")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        
+                        // Nút chọn nguồn tiện ích
                         Button(action: { showingExtensionSelector = true }) {
-                            HStack(spacing: 4) {
+                            HStack(spacing: 6) {
                                 if let ext = selectedExtension {
+                                    ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 24)
                                     Text(ext.name)
-                                        .fontWeight(.bold)
+                                        .fontWeight(.semibold)
                                 } else {
+                                    Image(systemName: "puzzlepiece.extension")
+                                        .resizable()
+                                        .frame(width: 24, height: 24)
                                     Text("Chọn Nguồn")
                                 }
                                 Image(systemName: "chevron.down")
-                                    .font(.caption)
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.secondary)
                             }
                             .foregroundColor(.primary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                             .background(Color(.secondarySystemBackground))
-                            .cornerRadius(16)
+                            .cornerRadius(18)
                         }
                         
                         Spacer()
+                        
+                        // Nút Tìm Kiếm chuyển sang SearchView
+                        NavigationLink(destination: SearchView(
+                            activeExtensions: activeExtensions,
+                            selectedExtension: selectedExtension
+                        )) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.title3)
+                                .foregroundColor(.primary)
+                                .padding(10)
+                                .background(Color(.secondarySystemBackground))
+                                .clipShape(Circle())
+                        }
                     }
                     .padding(.horizontal)
-                    .padding(.vertical, 8)
-                    .background(Color(.systemGroupedBackground).opacity(0.5))
+                    .padding(.vertical, 10)
+                    .background(Color(.systemBackground))
                     .onChange(of: selectedExtensionId) { _, newValue in
                         lastSelectedExtensionId = newValue
                         if !newValue.isEmpty {
@@ -122,121 +124,12 @@ struct DiscoveryView: View {
                             genreItems.removeAll()
                             selectedCategory = nil
                             novels.removeAll()
-                            searchResults.removeAll()
-                            searchQuery = ""
                         }
                     }
-                    
-                    // 2. Thanh Tìm Kiếm Truyện Tích Hợp
-                    VStack(spacing: 8) {
-                        HStack {
-                            HStack(spacing: 6) {
-                                Image(systemName: "magnifyingglass")
-                                    .foregroundColor(.secondary)
-                                TextField("Tìm truyện hoặc tác giả...", text: $searchQuery, onCommit: performSearch)
-                                    .autocorrectionDisabled()
-                                    .textInputAutocapitalization(.none)
-                                
-                                if !searchQuery.isEmpty {
-                                    Button(action: {
-                                        searchQuery = ""
-                                        searchResults.removeAll()
-                                        searchStatusMessage = ""
-                                    }) {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 7)
-                            .background(Color(.secondarySystemBackground))
-                            .cornerRadius(10)
-                            
-                            Button(action: performSearch) {
-                                Text("Tìm")
-                                    .bold()
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-                        
-                        Toggle(isOn: $searchAllSources) {
-                            Text("Tìm trên tất cả nguồn đã cài")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .toggleStyle(SwitchToggleStyle(tint: .accentColor))
-                        .padding(.horizontal, 4)
-                    }
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
-                    .background(Color(.systemBackground))
                     
                     Divider()
                     
-                    if isSearching {
-                        ProgressView(searchAllSources ? "Đang tìm trên các nguồn..." : "Đang tìm trên nguồn hiện tại...")
-                            .frame(maxHeight: .infinity)
-                    } else if !searchResults.isEmpty {
-                        // Hiển thị Kết quả tìm kiếm
-                        VStack(alignment: .leading, spacing: 0) {
-                            if !searchStatusMessage.isEmpty {
-                                Text(searchStatusMessage)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .padding(.horizontal)
-                                    .padding(.vertical, 6)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(Color(.secondarySystemBackground))
-                            }
-                            
-                            List(searchResults) { item in
-                                NavigationLink(destination: BookDetailView(
-                                    bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
-                                    extensionPackageId: item.ext.packageId,
-                                    initialDetailUrl: item.result.link,
-                                    sourceName: item.ext.name
-                                )) {
-                                    HStack(spacing: 12) {
-                                        AsyncImage(url: URL(string: item.result.cover)) { image in
-                                            image.resizable()
-                                                .aspectRatio(contentMode: .fill)
-                                        } placeholder: {
-                                            Color.gray.opacity(0.3)
-                                                .overlay(Image(systemName: "book"))
-                                        }
-                                        .frame(width: 50, height: 70)
-                                        .cornerRadius(6)
-                                        .clipped()
-                                        
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(item.result.name)
-                                                .font(.subheadline)
-                                                .fontWeight(.bold)
-                                                .lineLimit(2)
-                                            
-                                            let descText = !item.result.description.isEmpty ? item.result.description : item.result.author
-                                            Text(descText)
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                                .lineLimit(2)
-                                            
-                                            Text(item.ext.name)
-                                                .font(.system(size: 9))
-                                                .fontWeight(.semibold)
-                                                .padding(.horizontal, 6)
-                                                .padding(.vertical, 2)
-                                                .background(Color.accentColor.opacity(0.1))
-                                                .foregroundColor(.accentColor)
-                                                .cornerRadius(4)
-                                        }
-                                    }
-                                    .padding(.vertical, 4)
-                                }
-                            }
-                            .listStyle(.plain)
-                        }
-                    } else if isLoading {
+                    if isLoading {
                         ProgressView("Đang tải cấu trúc danh mục...")
                             .frame(maxHeight: .infinity)
                     } else if !errorMessage.isEmpty {
@@ -246,7 +139,7 @@ struct DiscoveryView: View {
                             .padding()
                             .frame(maxHeight: .infinity)
                     } else {
-                        // 3. Menu danh mục & Home tabs (Chỉ hiện khi không ở chế độ tìm kiếm)
+                        // 3. Menu danh mục & Home tabs
                         HStack(spacing: 0) {
                             Button(action: { showingGenresSheet = true }) {
                                 Image(systemName: "circle.grid.2x2.fill")
@@ -354,21 +247,16 @@ struct DiscoveryView: View {
                                 if canLoadMore {
                                     HStack {
                                         Spacer()
-                                        if isLoadingMore {
-                                            ProgressView()
-                                        } else {
-                                            Button(action: {
-                                                currentPage += 1
-                                                loadNovels(page: currentPage)
-                                            }) {
-                                                Text("Tải thêm truyện")
-                                                    .font(.subheadline)
-                                                    .foregroundColor(.accentColor)
-                                                    .padding(.vertical, 8)
+                                        ProgressView()
+                                            .onAppear {
+                                                if !isLoadingMore && !isLoadingNovels {
+                                                    currentPage += 1
+                                                    loadNovels(page: currentPage)
+                                                }
                                             }
-                                        }
                                         Spacer()
                                     }
+                                    .listRowSeparator(.hidden)
                                 }
                             }
                             .listStyle(.plain)
@@ -376,8 +264,7 @@ struct DiscoveryView: View {
                     }
                 }
             }
-            .navigationTitle("Khám Phá")
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .onAppear {
                 // Tự động khôi phục nguồn cuối cùng đã xem
                 if selectedExtensionId.isEmpty {
@@ -492,11 +379,6 @@ struct DiscoveryView: View {
             lastSelectedCategoryId = category.id
         }
         
-        // Khi chuyển sang danh mục, tự động tắt chế độ tìm kiếm cũ
-        searchQuery = ""
-        searchResults.removeAll()
-        searchStatusMessage = ""
-        
         loadNovels(page: 1)
     }
     
@@ -543,98 +425,6 @@ struct DiscoveryView: View {
             }
         }
     }
-    
-    private func performSearch() {
-        let trimmedQuery = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedQuery.isEmpty else { return }
-        
-        isSearching = true
-        searchResults.removeAll()
-        
-        if searchAllSources {
-            let extensionsToSearch = activeExtensions
-            guard !extensionsToSearch.isEmpty else {
-                isSearching = false
-                searchStatusMessage = "Không có nguồn nào hoạt động."
-                return
-            }
-            
-            searchStatusMessage = "Đang tìm kiếm trên \(extensionsToSearch.count) nguồn..."
-            
-            Task {
-                await withTaskGroup(of: (String, [SearchNovelResult]?).self) { group in
-                    for ext in extensionsToSearch {
-                        let path = ext.localPath
-                        let packageId = ext.packageId
-                        let configJson = ext.configJson
-                        let downloadUrl = ext.downloadUrl
-                        
-                        group.addTask {
-                            do {
-                                let extResults = try await ExtensionManager.shared.search(
-                                    localPath: path,
-                                    downloadUrl: downloadUrl,
-                                    query: trimmedQuery,
-                                    page: 1,
-                                    configJson: configJson
-                                )
-                                return (packageId, extResults)
-                            } catch {
-                                return (packageId, nil)
-                            }
-                        }
-                    }
-                    
-                    for await (packageId, searchResults) in group {
-                        if let searchResults = searchResults,
-                           let ext = extensionsToSearch.first(where: { $0.packageId == packageId }) {
-                            let wrapped = searchResults.map { SearchNovelResultWithExt(result: $0, ext: ext) }
-                            await MainActor.run {
-                                self.searchResults.append(contentsOf: wrapped)
-                            }
-                        }
-                    }
-                }
-                
-                await MainActor.run {
-                    self.isSearching = false
-                    self.searchStatusMessage = "Tìm thấy \(searchResults.count) truyện trên các nguồn."
-                }
-            }
-        } else {
-            guard let ext = selectedExtension else {
-                isSearching = false
-                searchStatusMessage = "Vui lòng chọn một nguồn trước."
-                return
-            }
-            
-            searchStatusMessage = "Đang tìm trên nguồn \(ext.name)..."
-            
-            Task {
-                do {
-                    let results = try await ExtensionManager.shared.search(
-                        localPath: ext.localPath,
-                        downloadUrl: ext.downloadUrl,
-                        query: trimmedQuery,
-                        page: 1,
-                        configJson: ext.configJson
-                    )
-                    await MainActor.run {
-                        self.searchResults = results.map { SearchNovelResultWithExt(result: $0, ext: ext) }
-                        self.isSearching = false
-                        self.searchStatusMessage = "Tìm thấy \(results.count) truyện trên nguồn \(ext.name)."
-                    }
-                } catch {
-                    AppLogger.shared.log("❌ Lỗi tìm kiếm trên \(ext.name): \(error.localizedDescription)")
-                    await MainActor.run {
-                        self.isSearching = false
-                        self.searchStatusMessage = "Lỗi khi tìm kiếm: \(error.localizedDescription)"
-                    }
-                }
-            }
-        }
-    }
-}
 
 // MARK: - Subviews
 
@@ -649,13 +439,27 @@ struct ExtensionSelectorView: View {
     @State private var configExtension: Extension? = nil
     
     private var filteredExtensions: [Extension] {
+        let baseList: [Extension]
         if extensionSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return activeExtensions
+            baseList = activeExtensions
         } else {
-            return activeExtensions.filter {
+            baseList = activeExtensions.filter {
                 $0.name.localizedCaseInsensitiveContains(extensionSearchQuery) ||
                 $0.sourceUrl.localizedCaseInsensitiveContains(extensionSearchQuery)
             }
+        }
+        
+        // Đưa phần mở rộng đang chọn lên đầu danh sách
+        return baseList.sorted { ext1, ext2 in
+            let isSel1 = ext1.packageId == selectedExtensionId
+            let isSel2 = ext2.packageId == selectedExtensionId
+            if isSel1 != isSel2 {
+                return isSel1
+            }
+            if ext1.isPinned != ext2.isPinned {
+                return ext1.isPinned && !ext2.isPinned
+            }
+            return ext1.name.localizedCaseInsensitiveCompare(ext2.name) == .orderedAscending
         }
     }
     
@@ -664,25 +468,28 @@ struct ExtensionSelectorView: View {
             VStack(spacing: 0) {
                 // Danh sách phần mở rộng
                 List(filteredExtensions) { ext in
+                    let isSelected = ext.packageId == selectedExtensionId
                     HStack(spacing: 12) {
                         // Icon đại diện nguồn
-                        Image(systemName: "puzzlepiece.extension")
-                            .font(.title3)
-                            .foregroundColor(.accentColor)
-                            .frame(width: 36, height: 36)
-                            .background(Color.accentColor.opacity(0.1))
-                            .cornerRadius(8)
+                        ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 36)
                         
                         VStack(alignment: .leading, spacing: 2) {
                             Text(ext.name)
                                 .font(.body)
-                                .fontWeight(.semibold)
+                                .fontWeight(isSelected ? .bold : .semibold)
                             Text(ext.sourceUrl)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
+                                .lineLimit(1)
                         }
                         
                         Spacer()
+                        
+                        if isSelected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.accentColor)
+                                .padding(.trailing, 4)
+                        }
                         
                         // Nút cấu hình (Bánh răng)
                         Button(action: {
@@ -711,6 +518,7 @@ struct ExtensionSelectorView: View {
                         selectedExtensionId = ext.packageId
                         dismiss()
                     }
+                    .listRowBackground(isSelected ? Color.accentColor.opacity(0.08) : Color(.systemBackground))
                 }
                 .listStyle(.plain)
                 
@@ -757,5 +565,45 @@ struct ExtensionSelectorView: View {
     private func togglePin(_ ext: Extension) {
         ext.isPinned.toggle()
         try? modelContext.save()
+    }
+}
+
+// MARK: - ExtensionIconView
+struct ExtensionIconView: View {
+    let localPath: String
+    let iconUrl: String?
+    let size: CGFloat
+    
+    var body: some View {
+        if !localPath.isEmpty,
+           let uiImage = UIImage(contentsOfFile: URL(fileURLWithPath: localPath).appendingPathComponent("icon.png").path) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: size, height: size)
+                .cornerRadius(size * 0.18)
+        } else if let iconUrl = iconUrl, let url = URL(string: iconUrl) {
+            AsyncImage(url: url) { image in
+                image.resizable()
+            } placeholder: {
+                fallbackIcon
+            }
+            .aspectRatio(contentMode: .fit)
+            .frame(width: size, height: size)
+            .cornerRadius(size * 0.18)
+        } else {
+            fallbackIcon
+        }
+    }
+    
+    private var fallbackIcon: some View {
+        Image(systemName: "puzzlepiece.extension")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: size * 0.7, height: size * 0.7)
+            .padding(size * 0.15)
+            .background(Color.accentColor.opacity(0.1))
+            .foregroundColor(.accentColor)
+            .cornerRadius(size * 0.18)
     }
 }
