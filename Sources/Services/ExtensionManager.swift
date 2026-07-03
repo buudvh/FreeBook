@@ -307,6 +307,8 @@ public final class ExtensionManager {
             
             let jsArray = toDictionaryArray(jsValue)
 
+            var results: [ChapterResult] = []
+
             for dict in jsArray {
                 let name = dict["name"]?.toString() ?? ""
                 let url = dict["url"]?.toString()
@@ -322,7 +324,7 @@ public final class ExtensionManager {
                     )
                 )
             }
-            
+
             AppLogger.shared.log("✅ [ExtensionManager] toc parsed \(results.count) chapters")
             updateDiagnostics(action: "toc", input: url, status: "Success", details: "Parsed \(results.count) chapters:\n\(stringified)")
             return results
