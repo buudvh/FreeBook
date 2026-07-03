@@ -6,6 +6,7 @@ public final class JSExecutor {
     public let context: JSContext
     public let localPath: String?
     public let downloadUrl: String?
+    private var activeBrowsers: [String: WebViewLoader] = [:]
     
     public init(localPath: String? = nil, downloadUrl: String? = nil) {
         self.context = JSContext()
@@ -25,8 +26,7 @@ public final class JSExecutor {
         // 2. Đăng ký JSHtml namespace cho JS với tên "Html"
         context.setObject(JSHtml.self, forKeyedSubscript: "Html" as NSCopying & NSObjectProtocol)
         
-        // 3. Đăng ký hàm fetch toàn cục
-        JSNetwork.registerFetch(in: context)
+        // 3. Đăng ký hàm fetch toàn cục (đã được ghi đè bằng sync fetch ở dưới)
         
         // 4. Định nghĩa console.log để debug từ tiện ích dễ hơn
         let logBlock: @convention(block) (String) -> Void = { msg in
@@ -36,6 +36,19 @@ public final class JSExecutor {
         let console = JSValue(newObjectIn: context)
         console?.setObject(logBlock, forKeyedSubscript: "log" as NSCopying & NSObjectProtocol)
         context.setObject(console, forKeyedSubscript: "console" as NSCopying & NSObjectProtocol)
+        
+        // Đăng ký atob và btoa chuẩn Web
+        let atobBlock: @convention(block) (String) -> String = { base64Str in
+            guard let data = Data(base64Encoded: base64Str) else { return "" }
+            return String(data: data, encoding: .utf8) ?? ""
+        }
+        context.setObject(atobBlock, forKeyedSubscript: "atob" as NSCopying & NSObjectProtocol)
+        
+        let btoaBlock: @convention(block) (String) -> String = { str in
+            guard let data = str.data(using: .utf8) else { return "" }
+            return data.base64EncodedString()
+        }
+        context.setObject(btoaBlock, forKeyedSubscript: "btoa" as NSCopying & NSObjectProtocol)
         
         // 5. Định nghĩa hàm load(filename) để nạp các file thư viện JS khác (libs.js, ...) tương tự Rhino
         let loadBlock: @convention(block) (String) -> Void = { [weak self] filename in
@@ -85,23 +98,50 @@ public final class JSExecutor {
         """
         context.evaluateScript(responseBootstrap)
         
-        let syncFetchBlock: @convention(block) (String) -> [String: Any] = { [weak self] urlString in
+        let syncFetchBlock: @convention(block) (String, JSValue?) -> [String: Any] = { [weak self] urlString, optionsVal in
             guard let self = self else {
-                return ["html": "", "status": 500, "raw": ""]
+                return ["html": "", "status": 500, "raw": "", "headers": [String: String]()]
             }
             let resolvedUrlString = self.cleanAndResolveUrl(urlString)
             AppLogger.shared.log("🌐 [JSExecutor] Sync Fetching: \(resolvedUrlString)")
             guard let url = URL(string: resolvedUrlString) else {
-                return ["html": "", "status": 400, "raw": ""]
+                return ["html": "", "status": 400, "raw": "", "headers": [String: String]()]
             }
             var resultHtml = ""
             var resultRawBase64 = ""
             var statusCode = 200
+            var responseHeaders: [String: String] = [:]
             let semaphore = DispatchSemaphore(value: 0)
             
             var request = URLRequest(url: url)
-            request.httpMethod = "GET"
             request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1", forHTTPHeaderField: "User-Agent")
+            
+            if let options = optionsVal, options.isObject {
+                // Method
+                if let methodVal = options.objectForKeyedSubscript("method"), methodVal.isString {
+                    request.httpMethod = methodVal.toString().uppercased()
+                } else {
+                    request.httpMethod = "GET"
+                }
+                
+                // Headers
+                if let headersVal = options.objectForKeyedSubscript("headers"), headersVal.isObject {
+                    if let headersDict = headersVal.toDictionary() as? [String: String] {
+                        for (key, val) in headersDict {
+                            request.setValue(val, forHTTPHeaderField: key)
+                        }
+                    }
+                }
+                
+                // Body
+                if let bodyVal = options.objectForKeyedSubscript("body") {
+                    if bodyVal.isString {
+                        request.httpBody = bodyVal.toString().data(using: .utf8)
+                    }
+                }
+            } else {
+                request.httpMethod = "GET"
+            }
             
             let task = URLSession.shared.dataTask(with: request) { data, response, error in
                 if let error = error {
@@ -110,6 +150,11 @@ public final class JSExecutor {
                 }
                 if let httpResponse = response as? HTTPURLResponse {
                     statusCode = httpResponse.statusCode
+                    for (key, value) in httpResponse.allHeaderFields {
+                        if let keyStr = key as? String, let valStr = value as? String {
+                            responseHeaders[keyStr] = valStr
+                        }
+                    }
                 }
                 if let data = data {
                     resultHtml = self.decodeData(data)
@@ -120,7 +165,7 @@ public final class JSExecutor {
             task.resume()
             _ = semaphore.wait(timeout: .now() + 10.0)
             
-            return ["html": resultHtml, "status": statusCode, "raw": resultRawBase64]
+            return ["html": resultHtml, "status": statusCode, "raw": resultRawBase64, "headers": responseHeaders]
         }
         context.setObject(syncFetchBlock, forKeyedSubscript: "_nativeSyncFetch" as NSCopying & NSObjectProtocol)
         
@@ -152,10 +197,23 @@ public final class JSExecutor {
         // 8. Đăng ký fetch đồng bộ ghi đè fetch Promise mặc định
         let fetchBootstrap = """
         var fetch = function(url, options) {
-            var res = _nativeSyncFetch(url);
+            var res = _nativeSyncFetch(url, options || null);
+            var headersMap = res.headers || {};
             return {
                 ok: res.status >= 200 && res.status < 300,
                 status: res.status,
+                headers: {
+                    get: function(name) {
+                        if (!name) return null;
+                        var lowerName = name.toLowerCase();
+                        for (var key in headersMap) {
+                            if (key.toLowerCase() === lowerName) {
+                                return headersMap[key];
+                            }
+                        }
+                        return null;
+                    }
+                },
                 html: function(encoding) {
                     var htmlText = "";
                     if (encoding && res.raw) {
@@ -163,7 +221,7 @@ public final class JSExecutor {
                     } else {
                         htmlText = res.html || "";
                     }
-                    return Html.parse(htmlText);
+                    return Html.parseWithBase(htmlText, url);
                 },
                 text: function(encoding) {
                     if (encoding && res.raw) {
@@ -176,32 +234,35 @@ public final class JSExecutor {
                 }
             };
         };
-        
-        var crawler = {
-            get: function(url) {
-                return fetch(url);
-            }
-        };
         """
         context.evaluateScript(fetchBootstrap)
         
-        // Đăng ký block chạy browser thực tế bằng WKWebView
-        let browserLaunchBlock: @convention(block) (String, Double) -> String = { [weak self] urlString, timeoutMs in
+        // Đăng ký các block chạy browser thực tế bằng WKWebView duy trì thực thể
+        let browserNewBlock: @convention(block) (String) -> Void = { [weak self] browserId in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
+                let loader = WebViewLoader()
+                self.activeBrowsers[browserId] = loader
+            }
+        }
+        context.setObject(browserNewBlock, forKeyedSubscript: "_nativeBrowserNew" as NSCopying & NSObjectProtocol)
+        
+        let browserLaunchBlock: @convention(block) (String, String, Double) -> String = { [weak self] browserId, urlString, timeoutMs in
             guard let self = self else { return "" }
             let resolvedUrlString = self.cleanAndResolveUrl(urlString)
-            AppLogger.shared.log("🤖 [JSExecutor.Browser] Launching WKWebView for: \(resolvedUrlString)")
+            AppLogger.shared.log("🤖 [JSExecutor.Browser] Launching: \(resolvedUrlString)")
             guard let url = URL(string: resolvedUrlString) else { return "" }
             
             let semaphore = DispatchSemaphore(value: 0)
             var resultHtml = ""
             
             DispatchQueue.main.async {
-                let loader = WebViewLoader()
-                objc_setAssociatedObject(self, UnsafeRawPointer(bitPattern: loader.hash)!, loader, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-                
+                guard let loader = self.activeBrowsers[browserId] else {
+                    semaphore.signal()
+                    return
+                }
                 loader.load(url: url, timeout: timeoutMs / 1000.0) { html in
                     resultHtml = html ?? ""
-                    objc_setAssociatedObject(self, UnsafeRawPointer(bitPattern: loader.hash)!, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
                     semaphore.signal()
                 }
             }
@@ -211,33 +272,116 @@ public final class JSExecutor {
         }
         context.setObject(browserLaunchBlock, forKeyedSubscript: "_nativeBrowserLaunch" as NSCopying & NSObjectProtocol)
         
-        // 9. Đăng ký đối tượng Engine toàn cục (mocking Browser)
+        let browserGetHtmlBlock: @convention(block) (String) -> String = { [weak self] browserId in
+            guard let self = self else { return "" }
+            let semaphore = DispatchSemaphore(value: 0)
+            var resultHtml = ""
+            
+            DispatchQueue.main.async {
+                guard let loader = self.activeBrowsers[browserId] else {
+                    semaphore.signal()
+                    return
+                }
+                loader.getHtml { html in
+                    resultHtml = html ?? ""
+                    semaphore.signal()
+                }
+            }
+            
+            _ = semaphore.wait(timeout: .now() + 5.0)
+            return resultHtml
+        }
+        context.setObject(browserGetHtmlBlock, forKeyedSubscript: "_nativeBrowserGetHtml" as NSCopying & NSObjectProtocol)
+        
+        let browserCallJsBlock: @convention(block) (String, String, Double) -> String = { [weak self] browserId, script, waitTimeMs in
+            guard let self = self else { return "" }
+            let semaphore = DispatchSemaphore(value: 0)
+            var resultStr = ""
+            
+            DispatchQueue.main.async {
+                guard let loader = self.activeBrowsers[browserId] else {
+                    semaphore.signal()
+                    return
+                }
+                loader.callJs(script: script, waitTime: waitTimeMs / 1000.0) { res, err in
+                    resultStr = res ?? ""
+                    if let err = err {
+                        AppLogger.shared.log("❌ [JSExecutor.Browser] callJs error: \(err.localizedDescription)")
+                    }
+                    semaphore.signal()
+                }
+            }
+            
+            _ = semaphore.wait(timeout: .now() + (waitTimeMs / 1000.0) + 5.0)
+            return resultStr
+        }
+        context.setObject(browserCallJsBlock, forKeyedSubscript: "_nativeBrowserCallJs" as NSCopying & NSObjectProtocol)
+        
+        let browserWaitUrlBlock: @convention(block) (String, String, Double) -> Bool = { [weak self] browserId, targetUrl, timeoutMs in
+            guard let self = self else { return false }
+            let semaphore = DispatchSemaphore(value: 0)
+            var waitSuccess = false
+            
+            DispatchQueue.main.async {
+                guard let loader = self.activeBrowsers[browserId] else {
+                    semaphore.signal()
+                    return
+                }
+                loader.waitUrl(targetUrl: targetUrl, timeout: timeoutMs / 1000.0) { success in
+                    waitSuccess = success
+                    semaphore.signal()
+                }
+            }
+            
+            _ = semaphore.wait(timeout: .now() + (timeoutMs / 1000.0) + 1.0)
+            return waitSuccess
+        }
+        context.setObject(browserWaitUrlBlock, forKeyedSubscript: "_nativeBrowserWaitUrl" as NSCopying & NSObjectProtocol)
+        
+        let browserCloseBlock: @convention(block) (String) -> Void = { [weak self] browserId in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
+                self.activeBrowsers.removeValue(forKey: browserId)
+                AppLogger.shared.log("🤖 [JSExecutor.Browser] Closed & deallocated: \(browserId)")
+            }
+        }
+        context.setObject(browserCloseBlock, forKeyedSubscript: "_nativeBrowserClose" as NSCopying & NSObjectProtocol)
+        
+        // Đăng ký JSCrypto toàn cục
+        context.setObject(JSCrypto.self, forKeyedSubscript: "Crypto" as NSCopying & NSObjectProtocol)
+        
+        // 9. Đăng ký đối tượng Engine toàn cục (Browser thực tế)
         let engineBootstrap = """
         var Engine = {
             newBrowser: function() {
+                var browserId = "browser_" + Math.random().toString(36).substr(2, 9);
+                _nativeBrowserNew(browserId);
                 return {
-                    _html: "",
+                    _id: browserId,
                     launch: function(url, timeout) {
                         console.log("🤖 [Engine.Browser] launch(" + url + ")");
-                        this._html = _nativeBrowserLaunch(url, timeout || 5000);
-                        return Html.parse(this._html);
+                        var html = _nativeBrowserLaunch(this._id, url, timeout || 5000);
+                        return Html.parseWithBase(html, url);
                     },
                     html: function() {
-                        return Html.parse(this._html || "");
+                        var html = _nativeBrowserGetHtml(this._id);
+                        return Html.parse(html || "");
                     },
                     close: function() {
                         console.log("🤖 [Engine.Browser] close()");
+                        _nativeBrowserClose(this._id);
                     },
                     setUserAgent: function(ua) {
                         console.log("🤖 [Engine.Browser] setUserAgent(" + ua + ")");
                     },
                     callJs: function(script, waitTime) {
                         console.log("🤖 [Engine.Browser] callJs()");
-                        return null;
+                        var result = _nativeBrowserCallJs(this._id, script, waitTime || 0);
+                        return result;
                     },
                     waitUrl: function(url, timeout) {
-                        console.log("🤖 [Engine.Browser] waitUrl()");
-                        return true;
+                        console.log("🤖 [Engine.Browser] waitUrl(" + url + ")");
+                        return _nativeBrowserWaitUrl(this._id, url, timeout || 5000);
                     }
                 };
             }
@@ -420,8 +564,10 @@ public final class JSExecutor {
 
 // MARK: - WKWebView Headless Browser Loader Helper
 class WebViewLoader: NSObject, WKNavigationDelegate {
-    private let webView: WKWebView
+    let webView: WKWebView
     private var completion: ((String?) -> Void)?
+    private var waitUrlCompletion: ((Bool) -> Void)?
+    private var targetUrlToWait: String?
     
     override init() {
         let config = WKWebViewConfiguration()
@@ -450,24 +596,75 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
         }
     }
     
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        guard let comp = self.completion else { return }
-        self.completion = nil
-        
-        webView.evaluateJavaScript("document.documentElement.outerHTML") { html, error in
-            comp(html as? String ?? "")
+    func getHtml(completion: @escaping (String?) -> Void) {
+        DispatchQueue.main.async {
+            self.webView.evaluateJavaScript("document.documentElement.outerHTML") { html, error in
+                completion(html as? String ?? "")
+            }
         }
     }
     
+    func callJs(script: String, waitTime: TimeInterval, completion: @escaping (String?, Error?) -> Void) {
+        DispatchQueue.main.async {
+            self.webView.evaluateJavaScript(script) { result, error in
+                let resStr = (result != nil) ? String(describing: result!) : ""
+                if waitTime > 0 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + waitTime) {
+                        completion(resStr, error)
+                    }
+                } else {
+                    completion(resStr, error)
+                }
+            }
+        }
+    }
+    
+    func waitUrl(targetUrl: String, timeout: TimeInterval, completion: @escaping (Bool) -> Void) {
+        self.targetUrlToWait = targetUrl
+        self.waitUrlCompletion = completion
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { [weak self] in
+            guard let self = self, let comp = self.waitUrlCompletion else { return }
+            self.waitUrlCompletion = nil
+            self.targetUrlToWait = nil
+            comp(false)
+        }
+    }
+    
+    private func checkWaitUrl(_ currentUrl: String?) {
+        guard let current = currentUrl, let target = targetUrlToWait, let comp = waitUrlCompletion else { return }
+        if current.contains(target) {
+            self.waitUrlCompletion = nil
+            self.targetUrlToWait = nil
+            comp(true)
+        }
+    }
+    
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if let comp = self.completion {
+            self.completion = nil
+            webView.evaluateJavaScript("document.documentElement.outerHTML") { html, error in
+                comp(html as? String ?? "")
+            }
+        }
+        checkWaitUrl(webView.url?.absoluteString)
+    }
+    
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        checkWaitUrl(webView.url?.absoluteString)
+    }
+    
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        guard let comp = self.completion else { return }
-        self.completion = nil
-        comp("")
+        if let comp = self.completion {
+            self.completion = nil
+            comp("")
+        }
     }
     
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        guard let comp = self.completion else { return }
-        self.completion = nil
-        comp("")
+        if let comp = self.completion {
+            self.completion = nil
+            comp("")
+        }
     }
 }

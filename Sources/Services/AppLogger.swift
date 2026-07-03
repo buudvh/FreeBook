@@ -3,6 +3,19 @@ import Foundation
 public final class AppLogger {
     public static let shared = AppLogger()
     
+    public var isLoggingEnabled: Bool {
+        get {
+            // Mặc định là true nếu chưa cấu hình
+            if UserDefaults.standard.object(forKey: "isLoggingEnabled") == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: "isLoggingEnabled")
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "isLoggingEnabled")
+        }
+    }
+    
     private var logFileUrl: URL {
         let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
         return paths[0].appendingPathComponent("app_logs.txt")
@@ -18,6 +31,8 @@ public final class AppLogger {
     }
     
     public func log(_ message: String) {
+        guard isLoggingEnabled else { return }
+        
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
         let timestamp = formatter.string(from: Date())

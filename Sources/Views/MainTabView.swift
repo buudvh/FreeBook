@@ -11,21 +11,21 @@ struct MainTabView: View {
                 }
                 .tag(0)
             
-            SearchView()
-                .tabItem {
-                    Label("Tìm Kiếm", systemImage: "magnifyingglass")
-                }
-                .tag(1)
-            
             DiscoveryView()
                 .tabItem {
                     Label("Khám Phá", systemImage: "safari.fill")
                 }
-                .tag(2)
+                .tag(1)
             
             RepositoryManagerView()
                 .tabItem {
                     Label("Tiện Ích", systemImage: "puzzlepiece.extension.fill")
+                }
+                .tag(2)
+            
+            SettingsView()
+                .tabItem {
+                    Label("Cài Đặt", systemImage: "gearshape.fill")
                 }
                 .tag(3)
         }

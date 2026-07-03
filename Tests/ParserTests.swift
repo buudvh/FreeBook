@@ -103,4 +103,148 @@ final class ParserTests: XCTestCase {
         // Dọn dẹp
         try? FileManager.default.removeItem(at: tempDir)
     }
+    
+    // Kiểm tra hàm atob() và btoa() chuẩn Web
+    func testJSBridgeAtobBtoa() throws {
+        let executor = JSExecutor()
+        
+        let script = """
+        function testBase64() {
+            var raw = "Hello, World!";
+            var encoded = btoa(raw);
+            var decoded = atob(encoded);
+            return encoded + " | " + decoded;
+        }
+        """
+        
+        executor.context.evaluateScript(script)
+        guard let function = executor.context.objectForKeyedSubscript("testBase64") else {
+            XCTFail("testBase64 function not found")
+            return
+        }
+        
+        let result = function.call(withArguments: [])
+        XCTAssertEqual(result?.toString(), "SGVsbG8sIFdvcmxkIQ== | Hello, World!")
+    }
+    
+    // Kiểm tra các DOM API mới: parseWithBase, outerHtml, hasAttr, absUrl, eachText, eachAttr
+    func testJSBridgeDOMNewAPIs() throws {
+        let executor = JSExecutor()
+        
+        let script = """
+        function testDOM() {
+            var doc = Html.parseWithBase("<html><body><div id='content'><a class='link' href='/relative/path'>Link 1</a><a class='link' href='https://absolute.com/path' target='_blank'>Link 2</a></div></body></html>", "https://example.com/base/");
+            
+            var div = doc.select("div#content").first();
+            var outer = div.outerHtml();
+            
+            var a1 = doc.select("a").get(0);
+            var a2 = doc.select("a").get(1);
+            
+            var a1HasTarget = a1.hasAttr("target"); // false
+            var a2HasTarget = a2.hasAttr("target"); // true
+            
+            var a1AbsUrl = a1.absUrl("href"); // https://example.com/relative/path (or base-relative resolved)
+            var a2AbsUrl = a2.absUrl("href"); // https://absolute.com/path
+            
+            var texts = doc.select("a").eachText(); // ["Link 1", "Link 2"]
+            var targets = doc.select("a").eachAttr("target"); // ["", "_blank"] (or only matching ones depending on implementation)
+            
+            return outer.indexOf("<div id=\\\"content\\\">") !== -1 + " | " + a1HasTarget + " | " + a2HasTarget + " | " + a1AbsUrl + " | " + a2AbsUrl + " | " + texts.join(",") + " | " + targets.filter(Boolean).join(",");
+        }
+        """
+        
+        executor.context.evaluateScript(script)
+        guard let function = executor.context.objectForKeyedSubscript("testDOM") else {
+            XCTFail("testDOM function not found")
+            return
+        }
+        
+        let result = function.call(withArguments: [])
+        let resStr = result?.toString() ?? ""
+        
+        // Kiểm tra xem absUrl có resolve đúng không
+        XCTAssertTrue(resStr.contains("https://example.com/relative/path"), "a1 relative path not resolved properly")
+        XCTAssertTrue(resStr.contains("https://absolute.com/path"), "a2 absolute path not preserved")
+        XCTAssertTrue(resStr.contains("Link 1,Link 2"), "eachText did not return array of texts")
+    }
+    
+    // Kiểm tra các hàm mã hóa của JSCrypto: md5, sha256
+    func testJSBridgeCrypto() throws {
+        let executor = JSExecutor()
+        
+        let script = """
+        function testCrypto() {
+            var raw = "FreeBook";
+            var md5Val = Crypto.md5(raw);
+            var sha256Val = Crypto.sha256(raw);
+            return md5Val + " | " + sha256Val;
+        }
+        """
+        
+        executor.context.evaluateScript(script)
+        guard let function = executor.context.objectForKeyedSubscript("testCrypto") else {
+            XCTFail("testCrypto function not found")
+            return
+        }
+        
+        let res = function.call(withArguments: [])
+        XCTAssertEqual(res?.toString(), "e8831889c2debe0f8f30b91e9894e637 | db3f920267253a6f1d2b822ad6e729cd41eb4cfb22de97e416a90875e6480838")
+    }
+    
+    // Kiểm tra DOM setters và elements.array()
+    func testJSBridgeDOMSetters() throws {
+        let executor = JSExecutor()
+        
+        let script = """
+        function testDOMSetters() {
+            var doc = Html.parse("<div id='box' class='red'>Text</div>");
+            var el = doc.select("#box").first();
+            
+            // Setters
+            el.text("NewText");
+            el.addClass("bold");
+            el.removeClass("red");
+            el.attr("data-id", "123");
+            el.append("<span>Appended</span>");
+            el.prepend("<span>Prepended</span>");
+            
+            // Array conversion
+            var list = doc.select("span");
+            var arr = list.array();
+            var texts = arr.map(function(item) { return item.text(); });
+            
+            return el.text() + " | " + el.className() + " | " + el.attr("data-id") + " | " + texts.join(",");
+        }
+        """
+        
+        executor.context.evaluateScript(script)
+        guard let function = executor.context.objectForKeyedSubscript("testDOMSetters") else {
+            XCTFail("testDOMSetters function not found")
+            return
+        }
+        
+        let res = function.call(withArguments: [])
+        XCTAssertEqual(res?.toString(), "PrependedNewTextAppended | bold | 123 | Prepended,Appended")
+    }
+    
+    // Kiểm tra Browser flow đồng bộ (async test)
+    func testJSBridgeBrowserFlow() async throws {
+        let executor = JSExecutor()
+        
+        let script = """
+        function testBrowser() {
+            var browser = Engine.newBrowser();
+            browser.close();
+            return "OK";
+        }
+        """
+        
+        do {
+            let res = try await executor.runAsync(scriptContent: script, functionName: "testBrowser", arguments: [])
+            XCTAssertEqual(res.toString(), "OK")
+        } catch {
+            XCTFail("Browser test failed: \(error.localizedDescription)")
+        }
+    }
 }

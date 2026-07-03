@@ -3,12 +3,28 @@ import JavaScriptCore
 import SwiftSoup
 
 // MARK: - JSExport Protocols
+//
+// File này định nghĩa các cầu nối JSExport giúp export thư viện parse HTML SwiftSoup sang JavaScript.
+// Mọi class triển khai bên dưới đều kế thừa protocol tương ứng để JSContext có thể gọi trực tiếp.
+//
+// Sơ đồ phân cấp cấu trúc DOM được ánh xạ sang JS:
+// JSHtml (Html toàn cục) ──> JSDocument ──> JSElements (Danh sách) ──> JSElement (Phần tử)
+//
 
+/// Cầu nối cho JSHtml - Namespace "Html" toàn cục trong JS.
+///
+/// **Cách sử dụng trong JS:**
+/// ```javascript
+/// var doc = Html.parse("<html>...</html>");
+/// var docWithBase = Html.parseWithBase("<html>...</html>", "https://example.com");
+/// ```
 @objc protocol JSHtmlExport: JSExport {
     static func parse(_ html: String) -> JSDocument
+    static func parseWithBase(_ html: String, _ baseUri: String) -> JSDocument
     static func clean(_ html: String, _ tags: [String]) -> String
 }
 
+/// Cầu nối cho JSDocument - Đại diện cho toàn bộ tài liệu HTML được phân tích.
 @objc protocol JSDocumentExport: JSExport {
     func select(_ selector: String) -> JSElements
     func text() -> String
@@ -17,7 +33,10 @@ import SwiftSoup
     func title() -> String
 }
 
+/// Cầu nối cho JSElement - Đại diện cho một phần tử DOM đơn lẻ.
+/// Hỗ trợ cả các hàm Getters (lấy thông tin) và Setters (chỉnh sửa nội dung).
 @objc protocol JSElementExport: JSExport {
+    // Getters
     func select(_ selector: String) -> JSElements
     func text() -> String
     func html() -> String
@@ -35,8 +54,31 @@ import SwiftSoup
     func nextElementSibling() -> JSElement?
     func previousElementSibling() -> JSElement?
     func remove()
+    func outerHtml() -> String
+    func hasAttr(_ name: String) -> Bool
+    func absUrl(_ name: String) -> String
+    
+    // Setters (Chỉnh sửa DOM)
+    func attr(_ name: String, _ value: String)
+    func text(_ value: String)
+    func html(_ value: String)
+    func append(_ html: String)
+    func prepend(_ html: String)
+    func addClass(_ className: String)
+    func removeClass(_ className: String)
 }
 
+/// Cầu nối cho JSElements - Đại diện cho danh sách các phần tử DOM.
+///
+/// **Cách duyệt mảng trong JS:**
+/// ```javascript
+/// // Cách 1: Duyệt qua forEach (được định nghĩa qua prototype bootstrap)
+/// elements.forEach(function(el) { ... });
+///
+/// // Cách 2: Chuyển đổi thành Array JS native để sử dụng map/filter
+/// var elArray = elements.array();
+/// var texts = elArray.map(function(el) { return el.text(); });
+/// ```
 @objc protocol JSElementsExport: JSExport {
     func select(_ selector: String) -> JSElements
     func text() -> String
@@ -50,6 +92,9 @@ import SwiftSoup
     func val() -> String
     func eq(_ index: Int) -> JSElements
     func remove()
+    func eachText() -> [String]
+    func eachAttr(_ name: String) -> [String]
+    func array() -> [JSElement]
 }
 
 // MARK: - Concrete Implementations
@@ -61,6 +106,16 @@ import SwiftSoup
             return JSDocument(doc)
         } catch {
             print("JSHtml parse error: \(error)")
+            return JSDocument(Document(""))
+        }
+    }
+    
+    public static func parseWithBase(_ html: String, _ baseUri: String) -> JSDocument {
+        do {
+            let doc = try SwiftSoup.parse(html, baseUri)
+            return JSDocument(doc)
+        } catch {
+            print("JSHtml parseWithBase error: \(error)")
             return JSDocument(Document(""))
         }
     }
@@ -237,6 +292,54 @@ import SwiftSoup
             print("JSElement remove error: \(error)")
         }
     }
+    
+    public func outerHtml() -> String {
+        do {
+            return try element.outerHtml()
+        } catch {
+            return ""
+        }
+    }
+    
+    public func hasAttr(_ name: String) -> Bool {
+        return element.hasAttr(name)
+    }
+    
+    public func absUrl(_ name: String) -> String {
+        do {
+            return try element.absUrl(name)
+        } catch {
+            return ""
+        }
+    }
+    
+    public func attr(_ name: String, _ value: String) {
+        try? element.attr(name, value)
+    }
+    
+    public func text(_ value: String) {
+        try? element.text(value)
+    }
+    
+    public func html(_ value: String) {
+        try? element.html(value)
+    }
+    
+    public func append(_ html: String) {
+        try? element.append(html)
+    }
+    
+    public func prepend(_ html: String) {
+        try? element.prepend(html)
+    }
+    
+    public func addClass(_ className: String) {
+        try? element.addClass(className)
+    }
+    
+    public func removeClass(_ className: String) {
+        try? element.removeClass(className)
+    }
 }
 
 @objc public final class JSElements: NSObject, JSElementsExport {
@@ -323,5 +426,23 @@ import SwiftSoup
         } catch {
             print("JSElements remove error: \(error)")
         }
+    }
+    
+    public func eachText() -> [String] {
+        return elements.array().map { (try? $0.text()) ?? "" }
+    }
+    
+    public func eachAttr(_ name: String) -> [String] {
+        var list: [String] = []
+        for el in elements.array() {
+            if let val = try? el.attr(name) {
+                list.append(val)
+            }
+        }
+        return list
+    }
+    
+    public func array() -> [JSElement] {
+        return elements.array().map { JSElement($0) }
     }
 }
