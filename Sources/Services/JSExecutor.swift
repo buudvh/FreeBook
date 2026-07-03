@@ -410,33 +410,6 @@ public final class JSExecutor {
         };
         """
         context.evaluateScript(engineBootstrap)
-        
-        // 10. Định nghĩa prototype helper cho JSElement (hỗ trợ quá tải Getter/Setter)
-        let domPrototypeBootstrap = """
-        (function() {
-            var doc = Html.parse("<html></html>");
-            var el = doc.body();
-            if (el && el.constructor) {
-                var ElProto = el.constructor.prototype;
-                if (!ElProto.hasOverloadInjected) {
-                    ElProto.hasOverloadInjected = true;
-                    
-                    ElProto.attr = function(name, value) {
-                        return (value === undefined) ? this.getAttr(name) : this.setAttr(name, value);
-                    };
-                    
-                    ElProto.text = function(value) {
-                        return (value === undefined) ? this.getText() : this.setText(value);
-                    };
-                    
-                    ElProto.html = function(value) {
-                        return (value === undefined) ? this.getHtml() : this.setHtml(value);
-                    };
-                }
-            }
-        })();
-        """
-        context.evaluateScript(domPrototypeBootstrap)
     }
     
     private func decodeData(_ data: Data) -> String {

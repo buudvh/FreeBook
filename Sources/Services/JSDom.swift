@@ -66,6 +66,14 @@ import SwiftSoup
     func prepend(_ html: String)
     func addClass(_ className: String)
     func removeClass(_ className: String)
+    
+    // JS-friendly overloads (Getters & Setters)
+    func text() -> String
+    func text(_ value: String)
+    func html() -> String
+    func html(_ value: String)
+    func attr(_ name: String) -> String
+    func attr(_ name: String, _ value: String)
 }
 
 /// Cầu nối cho JSElements - Đại diện cho danh sách các phần tử DOM.
@@ -210,13 +218,14 @@ import SwiftSoup
 }
 
 @objc public final class JSElement: NSObject, JSElementExport {
-    private let element: Element
+    private let element: Element?
     
-    init(_ element: Element) {
+    init(_ element: Element?) {
         self.element = element
     }
     
     public func select(_ selector: String) -> JSElements {
+        guard let element = element else { return JSElements(Elements()) }
         do {
             let elements = try element.select(selector)
             return JSElements(elements)
@@ -227,6 +236,7 @@ import SwiftSoup
     }
     
     public func getText() -> String {
+        guard let element = element else { return "" }
         do {
             return try element.text()
         } catch {
@@ -235,6 +245,7 @@ import SwiftSoup
     }
     
     public func getHtml() -> String {
+        guard let element = element else { return "" }
         do {
             return try element.html()
         } catch {
@@ -243,6 +254,7 @@ import SwiftSoup
     }
     
     public func getAttr(_ name: String) -> String {
+        guard let element = element else { return "" }
         do {
             return try element.attr(name)
         } catch {
@@ -251,30 +263,37 @@ import SwiftSoup
     }
     
     public func ownText() -> String {
+        guard let element = element else { return "" }
         return element.ownText()
     }
     
     public func data() -> String {
+        guard let element = element else { return "" }
         return element.data()
     }
     
     public func tagName() -> String {
+        guard let element = element else { return "" }
         return element.tagName()
     }
     
     public func id() -> String {
+        guard let element = element else { return "" }
         return element.id()
     }
     
     public func className() -> String {
+        guard let element = element else { return "" }
         return (try? element.className()) ?? ""
     }
     
     public func hasClass(_ className: String) -> Bool {
+        guard let element = element else { return false }
         return element.hasClass(className)
     }
     
     public func val() -> String {
+        guard let element = element else { return "" }
         do {
             return try element.val()
         } catch {
@@ -283,19 +302,22 @@ import SwiftSoup
     }
     
     public func parent() -> JSElement? {
-        guard let parentEl = element.parent() else { return nil }
+        guard let element = element, let parentEl = element.parent() else { return nil }
         return JSElement(parentEl)
     }
     
     public func children() -> JSElements {
+        guard let element = element else { return JSElements(Elements()) }
         return JSElements(element.children())
     }
     
     public func siblingElements() -> JSElements {
+        guard let element = element else { return JSElements(Elements()) }
         return JSElements(element.siblingElements())
     }
     
     public func nextElementSibling() -> JSElement? {
+        guard let element = element else { return nil }
         do {
             guard let nextEl = try element.nextElementSibling() else { return nil }
             return JSElement(nextEl)
@@ -305,6 +327,7 @@ import SwiftSoup
     }
     
     public func previousElementSibling() -> JSElement? {
+        guard let element = element else { return nil }
         do {
             guard let prevEl = try element.previousElementSibling() else { return nil }
             return JSElement(prevEl)
@@ -314,6 +337,7 @@ import SwiftSoup
     }
     
     public func remove() {
+        guard let element = element else { return }
         do {
             try element.remove()
         } catch {
@@ -322,6 +346,7 @@ import SwiftSoup
     }
     
     public func outerHtml() -> String {
+        guard let element = element else { return "" }
         do {
             return try element.outerHtml()
         } catch {
@@ -330,10 +355,12 @@ import SwiftSoup
     }
     
     public func hasAttr(_ name: String) -> Bool {
+        guard let element = element else { return false }
         return element.hasAttr(name)
     }
     
     public func absUrl(_ name: String) -> String {
+        guard let element = element else { return "" }
         do {
             return try element.absUrl(name)
         } catch {
@@ -342,31 +369,63 @@ import SwiftSoup
     }
     
     public func setAttr(_ name: String, _ value: String) {
+        guard let element = element else { return }
         _ = try? element.attr(name, value)
     }
     
     public func setText(_ value: String) {
+        guard let element = element else { return }
         _ = try? element.text(value)
     }
     
     public func setHtml(_ value: String) {
+        guard let element = element else { return }
         _ = try? element.html(value)
     }
     
     public func append(_ html: String) {
+        guard let element = element else { return }
         _ = try? element.append(html)
     }
     
     public func prepend(_ html: String) {
+        guard let element = element else { return }
         _ = try? element.prepend(html)
     }
     
     public func addClass(_ className: String) {
+        guard let element = element else { return }
         _ = try? element.addClass(className)
     }
     
     public func removeClass(_ className: String) {
+        guard let element = element else { return }
         _ = try? element.removeClass(className)
+    }
+    
+    // JS-friendly overloads
+    public func text() -> String {
+        return getText()
+    }
+    
+    public func text(_ value: String) {
+        setText(value)
+    }
+    
+    public func html() -> String {
+        return getHtml()
+    }
+    
+    public func html(_ value: String) {
+        setHtml(value)
+    }
+    
+    public func attr(_ name: String) -> String {
+        return getAttr(name)
+    }
+    
+    public func attr(_ name: String, _ value: String) {
+        setAttr(name, value)
     }
 }
 
@@ -416,17 +475,23 @@ import SwiftSoup
     }
     
     public func get(_ index: Int) -> JSElement? {
-        guard index >= 0 && index < elements.size() else { return nil }
+        guard index >= 0 && index < elements.size() else {
+            return JSElement(nil)
+        }
         return JSElement(elements.get(index))
     }
     
     public func first() -> JSElement? {
-        guard let first = elements.first() else { return nil }
+        guard let first = elements.first() else {
+            return JSElement(nil)
+        }
         return JSElement(first)
     }
     
     public func last() -> JSElement? {
-        guard let last = elements.last() else { return nil }
+        guard let last = elements.last() else {
+            return JSElement(nil)
+        }
         return JSElement(last)
     }
     
