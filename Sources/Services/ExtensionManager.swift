@@ -305,67 +305,65 @@ public final class ExtensionManager {
             let stringified = stringify(jsValue)
             AppLogger.shared.log("📝 [ExtensionManager] toc raw JS result: \(stringified)")
             
-            guard let jsArray = jsValue.toArray() else {
-                AppLogger.shared.log("⚠️ [ExtensionManager] toc returned non-array result or null")
-                updateDiagnostics(action: "toc", input: url, status: "Success (Empty)", details: "Returned non-array result")
-                return []
+            let jsArray = toDictionaryArray(jsValue)
+
+            for dict in jsArray {
+                let name = dict["name"]?.toString() ?? ""
+                let url = dict["url"]?.toString()
+                    ?? dict["link"]?.toString()
+                    ?? ""
+                let host = dict["host"]?.toString() ?? ""
+
+                results.append(
+                    ChapterResult(
+                        name: name,
+                        url: url,
+                        host: host
+                    )
+                )
             }
-
-            AppLogger.shared.log("📝 [ExtensionManager] Swift array count = \(jsArray.count)")
-
-            var results: [ChapterResult] = []
-
-            for (index, item) in jsArray.enumerated() {
-
-                AppLogger.shared.log("========== Item \(index) ==========")
-                AppLogger.shared.log("Type: \(type(of: item))")
-                AppLogger.shared.log("Value: \(item)")
-
-                guard let dict = item as? [String: Any] else {
-                    AppLogger.shared.log("❌ Item is not Dictionary")
-                    continue
-                }
-
-                AppLogger.shared.log("Keys: \(Array(dict.keys))")
-
-                if let data = try? JSONSerialization.data(withJSONObject: dict, options: .prettyPrinted),
-                let json = String(data: data, encoding: .utf8) {
-                    AppLogger.shared.log("Dictionary:\n\(json)")
-                }
-
-                let name = dict["name"] as? String ?? ""
-                let urlVal = dict["url"] as? String ?? dict["link"] as? String ?? ""
-                let host = dict["host"] as? String ?? ""
-
-                AppLogger.shared.log("""
-                Parsed:
-                name = [\(name)]
-                url  = [\(urlVal)]
-                host = [\(host)]
-                """)
-
-                results.append(ChapterResult(
-                    name: name,
-                    url: urlVal,
-                    host: host
-                ))
-            }
-
+            
             AppLogger.shared.log("✅ [ExtensionManager] toc parsed \(results.count) chapters")
-
-            updateDiagnostics(
-                action: "toc",
-                input: url,
-                status: "Success",
-                details: "Parsed \(results.count) chapters:\n\(stringified)"
-            )
-
+            updateDiagnostics(action: "toc", input: url, status: "Success", details: "Parsed \(results.count) chapters:\n\(stringified)")
             return results
         } catch {
             AppLogger.shared.log("❌ [ExtensionManager] toc error: \(error.localizedDescription)")
             updateDiagnostics(action: "toc", input: url, status: "Error", details: error.localizedDescription)
             throw error
         }
+    }
+
+    private func toDictionaryArray(_ value: JSValue) -> [[String: JSValue]] {
+        guard let context = value.context,
+            let objectKeys = context.objectForKeyedSubscript("Object")
+                                    .objectForKeyedSubscript("keys") else {
+            return []
+        }
+
+        let length = Int(value.forProperty("length").toInt32())
+        var result: [[String: JSValue]] = []
+        result.reserveCapacity(length)
+
+        for i in 0..<length {
+            guard let item = value.atIndex(i) else { continue }
+
+            var dict: [String: JSValue] = [:]
+
+            guard let keys = objectKeys.call(withArguments: [item]) else {
+                continue
+            }
+
+            let keyCount = Int(keys.forProperty("length").toInt32())
+
+            for j in 0..<keyCount {
+                guard let key = keys.atIndex(j)?.toString() else { continue }
+                dict[key] = item.forProperty(key)
+            }
+
+            result.append(dict)
+        }
+
+        return result
     }
     
     // Lấy nội dung chương (có thể là Text hoặc danh sách URL ảnh cho truyện tranh)
