@@ -545,3 +545,43 @@ struct RepositoryManagerView: View {
         try? modelContext.save()
     }
 }
+
+// MARK: - AddRepositoryView Sheet
+struct AddRepositoryView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var url = ""
+    
+    var onAdd: (String, String) -> Void
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(header: Text("Thông tin kho mới")) {
+                    TextField("Tên kho truyện (Tùy chọn)", text: $name)
+                    TextField("Link plugin.json của kho truyện", text: $url)
+                        .keyboardType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.none)
+                }
+            }
+            .navigationTitle("Nhập Kho Tiện Ích")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Hủy") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Nhập") {
+                        onAdd(name, url)
+                        dismiss()
+                    }
+                    .disabled(url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+}
+

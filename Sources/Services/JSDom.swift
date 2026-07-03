@@ -314,31 +314,31 @@ import SwiftSoup
     }
     
     public func attr(_ name: String, _ value: String) {
-        try? element.attr(name, value)
+        _ = try? element.attr(name, value)
     }
     
     public func text(_ value: String) {
-        try? element.text(value)
+        _ = try? element.text(value)
     }
     
     public func html(_ value: String) {
-        try? element.html(value)
+        _ = try? element.html(value)
     }
     
     public func append(_ html: String) {
-        try? element.append(html)
+        _ = try? element.append(html)
     }
     
     public func prepend(_ html: String) {
-        try? element.prepend(html)
+        _ = try? element.prepend(html)
     }
     
     public func addClass(_ className: String) {
-        try? element.addClass(className)
+        _ = try? element.addClass(className)
     }
     
     public func removeClass(_ className: String) {
-        try? element.removeClass(className)
+        _ = try? element.removeClass(className)
     }
 }
 
