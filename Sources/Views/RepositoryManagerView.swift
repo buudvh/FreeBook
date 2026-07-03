@@ -7,7 +7,7 @@ struct RepositoryManagerView: View {
     @Query private var allExtensions: [Extension]
     
     // Quản lý Tab chính của view
-    @State private var selectedTab = 0 // 0: Danh sách kho, 1: Tất cả tiện ích
+    @State private var selectedTab = 0 // 0: Tất cả tiện ích, 1: Danh sách kho
     
     // Trạng thái cho Tab 0: Danh sách kho
     @State private var showingAddRepo = false
@@ -68,17 +68,17 @@ struct RepositoryManagerView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Segmented control chuyển đổi giữa 2 chế độ xem
                 Picker("", selection: $selectedTab) {
-                    Text("Danh sách kho").tag(0)
-                    Text("Tất cả tiện ích").tag(1)
+                    Text("Tất cả tiện ích").tag(0)
+                    Text("Danh sách kho").tag(1)
                 }
                 .pickerStyle(.segmented)
-                .padding()
+                .padding(.horizontal)
+                .padding(.vertical, 6)
                 .background(Color(.systemGroupedBackground))
                 
-                if selectedTab == 0 {
-                    // TAB 0: QUẢN LÝ KHO TIỆN ÍCH
+                if selectedTab == 1 {
+                    // TAB 1: QUẢN LÝ KHO TIỆN ÍCH (Danh sách kho)
                     List {
                         if !statusMessage.isEmpty {
                             Section {
@@ -343,8 +343,9 @@ struct RepositoryManagerView: View {
                 }
             }
             .navigationTitle("Kho Tiện Ích")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if selectedTab == 0 {
+                if selectedTab == 1 {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button(action: { showingAddRepo = true }) {
                             Image(systemName: "plus")

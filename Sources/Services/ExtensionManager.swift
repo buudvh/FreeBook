@@ -216,7 +216,7 @@ public final class ExtensionManager {
         executor.injectGlobals(configs)
         
         do {
-            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [query, page])
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [query, String(page)])
             AppLogger.shared.log("📝 [ExtensionManager] search raw JS result: \(jsValue)")
             
             guard let jsArray = jsValue.toArray() else {
@@ -439,8 +439,8 @@ public final class ExtensionManager {
     }
     
     // Thực thi một script tùy chọn (ví dụ: gen.js, tag.js...) với input và page
-    public func executeCustomScript(localPath: String, downloadUrl: String = "", scriptFileName: String, input: String, page: Int, configJson: String = "{}") async throws -> [SearchNovelResult] {
-        AppLogger.shared.log("🔍 [ExtensionManager] executeCustomScript called. localPath: \(localPath), scriptFileName: \(scriptFileName), input: \(input), page: \(page)")
+    public func executeCustomScript(localPath: String, downloadUrl: String = "", scriptFileName: String, input: String, page: Int, pageUrl: String?, configJson: String = "{}") async throws -> (results: [SearchNovelResult], nextPage: String?) {
+        AppLogger.shared.log("🔍 [ExtensionManager] executeCustomScript called. localPath: \(localPath), scriptFileName: \(scriptFileName), input: \(input), page: \(page), pageUrl: \(pageUrl ?? "nil")")
         
         let extUrl = URL(fileURLWithPath: localPath)
         // Tìm file script trong thư mục gốc hoặc src/
@@ -463,13 +463,15 @@ public final class ExtensionManager {
         let formattedInput = input.replacingOccurrences(of: "{0}", with: String(page))
         AppLogger.shared.log("📝 [ExtensionManager] formattedInput: \(formattedInput)")
         
+        let pageArg = (page == 1) ? "" : (pageUrl ?? "")
+        
         do {
-            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [formattedInput, page])
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [formattedInput, pageArg])
             AppLogger.shared.log("📝 [ExtensionManager] custom script raw JS result: \(jsValue)")
             
             guard let jsArray = jsValue.toArray() else {
                 AppLogger.shared.log("⚠️ [ExtensionManager] custom script returned non-array result or null")
-                return []
+                return ([], nil)
             }
             
             var results: [SearchNovelResult] = []
@@ -485,8 +487,16 @@ public final class ExtensionManager {
                     results.append(SearchNovelResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
                 }
             }
-            AppLogger.shared.log("✅ [ExtensionManager] custom script parsed \(results.count) results")
-            return results
+            
+            var nextPageVal: String? = nil
+            if let responseObj = executor.context.objectForKeyedSubscript("Response"),
+               let nextVal = responseObj.objectForKeyedSubscript("nextPage"),
+               !nextVal.isUndefined && !nextVal.isNull {
+                nextPageVal = nextVal.toString()
+            }
+            
+            AppLogger.shared.log("✅ [ExtensionManager] custom script parsed \(results.count) results, nextPage: \(nextPageVal ?? "nil")")
+            return (results, nextPageVal)
         } catch {
             AppLogger.shared.log("❌ [ExtensionManager] custom script error: \(error.localizedDescription)")
             throw error

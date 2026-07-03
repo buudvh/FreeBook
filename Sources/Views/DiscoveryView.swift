@@ -43,6 +43,7 @@ struct DiscoveryView: View {
     @State private var currentPage = 1
     @State private var isLoadingMore = false
     @State private var canLoadMore = true
+    @State private var nextNovelPageUrl: String? = nil
     
     // Hiển thị danh mục thể loại dạng sheet trượt
     @State private var showingGenresSheet = false
@@ -376,6 +377,7 @@ struct DiscoveryView: View {
                 }
             }
             .navigationTitle("Khám Phá")
+            .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 // Tự động khôi phục nguồn cuối cùng đã xem
                 if selectedExtensionId.isEmpty {
@@ -481,6 +483,7 @@ struct DiscoveryView: View {
     private func selectCategory(_ category: CategoryResult) {
         selectedCategory = category
         currentPage = 1
+        nextNovelPageUrl = nil
         novels.removeAll()
         canLoadMore = true
         
@@ -508,16 +511,18 @@ struct DiscoveryView: View {
         
         Task {
             do {
-                let results = try await ExtensionManager.shared.executeCustomScript(
+                let (results, nextPage) = try await ExtensionManager.shared.executeCustomScript(
                     localPath: ext.localPath,
                     downloadUrl: ext.downloadUrl,
                     scriptFileName: cat.script,
                     input: cat.input,
                     page: page,
+                    pageUrl: page == 1 ? nil : self.nextNovelPageUrl,
                     configJson: ext.configJson
                 )
                 
                 await MainActor.run {
+                    self.nextNovelPageUrl = nextPage
                     if page == 1 {
                         self.novels = results
                         self.isLoadingNovels = false
@@ -525,7 +530,7 @@ struct DiscoveryView: View {
                         self.novels.append(contentsOf: results)
                         self.isLoadingMore = false
                     }
-                    self.canLoadMore = results.count >= 10
+                    self.canLoadMore = results.count >= 10 && (nextPage != nil || cat.input.contains("{0}"))
                 }
             } catch {
                 AppLogger.shared.log("❌ [DiscoveryView] loadNovels error: \(error.localizedDescription)")

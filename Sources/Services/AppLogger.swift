@@ -54,4 +54,27 @@ public final class AppLogger {
             }
         }
     }
+    
+    public func clear() {
+        try? FileManager.default.removeItem(at: logFileUrl)
+    }
+    
+    public func getLogFileUrl() -> URL {
+        return logFileUrl
+    }
+    
+    public var logFileSize: UInt64 {
+        if let attributes = try? FileManager.default.attributesOfItem(atPath: logFileUrl.path),
+           let fileSize = attributes[.size] as? UInt64 {
+            return fileSize
+        }
+        return 0
+    }
+    
+    public func readLogContents() -> String {
+        guard let contents = try? String(contentsOf: logFileUrl, encoding: .utf8) else {
+            return ""
+        }
+        return contents
+    }
 }

@@ -36,6 +36,14 @@ struct ReaderView: View {
     @State var chapterIndex: Int
     let onlineChapters: [ChapterResult] // Truyền vào nếu đang đọc online
     
+    // Thông tin sách để tự tạo trong DB nếu chưa có (khi đọc online)
+    let bookTitle: String?
+    let bookAuthor: String?
+    let bookCoverUrl: String?
+    let bookDesc: String?
+    let bookDetailUrl: String?
+    let bookSourceName: String?
+    
     @State private var isLoading = true
     @State private var errorMessage = ""
     @State private var chapterTitle = ""
@@ -232,13 +240,14 @@ struct ReaderView: View {
             let sorted = book.chapters.sorted(by: { $0.index < $1.index })
             let chap = sorted[chapterIndex]
             
-            // Cập nhật tiến độ đọc
+            // Cập nhật tiến độ đọc và lịch sử
             book.currentChapterIndex = chapterIndex
+            book.isHistory = true
             book.lastReadDate = Date()
             try? modelContext.save()
             
             if chap.isCached, let content = chap.content, !content.isEmpty {
-                self.chapterContent = content
+                self.chapterContent = content.cleanHTML()
                 self.isLoading = false
                 return
             }
@@ -253,16 +262,50 @@ struct ReaderView: View {
         Task {
             do {
                 let content = try await ExtensionManager.shared.chap(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: info.url, configJson: ext.configJson)
+                let cleanedContent = content.cleanHTML()
                 
                 await MainActor.run {
-                    self.chapterContent = content
+                    self.chapterContent = cleanedContent
                     
                     // Nếu là sách local, tự động lưu vào cache offline luôn
                     if let book = localBook {
                         let sorted = book.chapters.sorted(by: { $0.index < $1.index })
                         let chap = sorted[chapterIndex]
-                        chap.content = content
+                        chap.content = cleanedContent
                         chap.isCached = true
+                        book.currentChapterIndex = chapterIndex
+                        book.isHistory = true
+                        book.lastReadDate = Date()
+                        try? modelContext.save()
+                    } else {
+                        // Nếu sách chưa có trong DB (đang đọc online), tự tạo bản ghi lịch sử đọc!
+                        let newBook = Book(
+                            bookId: bookId,
+                            title: bookTitle ?? "Không rõ",
+                            author: bookAuthor ?? "Không rõ",
+                            coverUrl: bookCoverUrl ?? "",
+                            desc: bookDesc ?? "",
+                            detailUrl: bookDetailUrl ?? "",
+                            sourceName: bookSourceName ?? "",
+                            sourceUrl: ext?.sourceUrl ?? "",
+                            extensionPackageId: extensionPackageId,
+                            currentChapterIndex: chapterIndex,
+                            isOnShelf: false,
+                            isHistory: true
+                        )
+                        modelContext.insert(newBook)
+                        
+                        // Thêm toàn bộ danh sách chương vào database
+                        for (index, item) in onlineChapters.enumerated() {
+                            let chapId = "\(newBook.bookId)_\(item.url)"
+                            let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index)
+                            newChap.book = newBook
+                            if index == chapterIndex {
+                                newChap.content = cleanedContent
+                                newChap.isCached = true
+                            }
+                            modelContext.insert(newChap)
+                        }
                         try? modelContext.save()
                     }
                     

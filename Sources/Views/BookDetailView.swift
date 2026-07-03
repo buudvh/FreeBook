@@ -33,18 +33,7 @@ struct BookDetailView: View {
     }
     
     private func cleanDetailText(_ html: String) -> String {
-        var text = html
-            .replacingOccurrences(of: "<br>", with: "\n")
-            .replacingOccurrences(of: "<br/>", with: "\n")
-            .replacingOccurrences(of: "<br />", with: "\n")
-            .replacingOccurrences(of: "<p>", with: "")
-            .replacingOccurrences(of: "</p>", with: "\n")
-        
-        if let regex = try? NSRegularExpression(pattern: "<[^>]+>", options: .caseInsensitive) {
-            let range = NSRange(location: 0, length: text.utf16.count)
-            text = regex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "")
-        }
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return html.cleanHTML()
     }
     
     private var cleanedDetailText: String {
@@ -115,7 +104,7 @@ struct BookDetailView: View {
                                 
                                 // Nút Thêm Kệ Sách / Bắt đầu đọc
                                 HStack {
-                                    if let book = localBook {
+                                    if let book = localBook, book.isOnShelf {
                                         Button(action: {
                                             removeFromShelf(book)
                                         }) {
@@ -147,7 +136,13 @@ struct BookDetailView: View {
                                             bookId: bookId,
                                             extensionPackageId: extensionPackageId,
                                             chapterIndex: activeChapterIndex,
-                                            onlineChapters: localBook == nil ? onlineChapters : []
+                                            onlineChapters: localBook == nil ? onlineChapters : [],
+                                            bookTitle: title,
+                                            bookAuthor: author,
+                                            bookCoverUrl: coverUrl,
+                                            bookDesc: desc.isEmpty ? nil : desc,
+                                            bookDetailUrl: initialDetailUrl,
+                                            bookSourceName: sourceName
                                         )) {
                                             Text(localBook == nil ? "Đọc ngay" : "Đọc tiếp")
                                                 .font(.caption)
@@ -199,7 +194,13 @@ struct BookDetailView: View {
                                                 bookId: bookId,
                                                 extensionPackageId: extensionPackageId,
                                                 chapterIndex: chap.index,
-                                                onlineChapters: []
+                                                onlineChapters: [],
+                                                bookTitle: nil,
+                                                bookAuthor: nil,
+                                                bookCoverUrl: nil,
+                                                bookDesc: nil,
+                                                bookDetailUrl: nil,
+                                                bookSourceName: nil
                                             )) {
                                                 HStack {
                                                     Text(chap.title)
@@ -226,7 +227,13 @@ struct BookDetailView: View {
                                                 bookId: bookId,
                                                 extensionPackageId: extensionPackageId,
                                                 chapterIndex: index,
-                                                onlineChapters: onlineChapters
+                                                onlineChapters: onlineChapters,
+                                                bookTitle: title,
+                                                bookAuthor: author,
+                                                bookCoverUrl: coverUrl,
+                                                bookDesc: desc.isEmpty ? nil : desc,
+                                                bookDetailUrl: initialDetailUrl,
+                                                bookSourceName: sourceName
                                             )) {
                                                 VStack(alignment: .leading) {
                                                     Text(chap.name)
@@ -296,7 +303,7 @@ struct BookDetailView: View {
                     self.title = detailResult.name
                     self.author = detailResult.author
                     self.coverUrl = detailResult.cover
-                    self.desc = detailResult.description
+                    self.desc = detailResult.description.cleanHTML()
                     self.detail = detailResult.detail
                     self.onlineChapters = tocResult
                     
@@ -305,7 +312,7 @@ struct BookDetailView: View {
                         book.title = detailResult.name
                         book.author = detailResult.author
                         book.coverUrl = detailResult.cover
-                        let savedDesc = detailResult.detail.isEmpty ? detailResult.description : "\(detailResult.description)\n\n---\n\(self.cleanDetailText(detailResult.detail))"
+                        let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(self.cleanDetailText(detailResult.detail))"
                         book.desc = savedDesc
                         
                         // Cập nhật chương
@@ -325,26 +332,37 @@ struct BookDetailView: View {
     
     private func addToShelf() {
         let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
-        let newBook = Book(
-            bookId: bookId,
-            title: title,
-            author: author,
-            coverUrl: coverUrl,
-            desc: savedDesc,
-            detailUrl: initialDetailUrl,
-            sourceName: sourceName,
-            sourceUrl: ext?.sourceUrl ?? "",
-            extensionPackageId: extensionPackageId
-        )
-        
-        modelContext.insert(newBook)
-        updateLocalChapters(for: newBook, with: onlineChapters)
-        try? modelContext.save()
+        if let book = localBook {
+            book.isOnShelf = true
+            try? modelContext.save()
+        } else {
+            let newBook = Book(
+                bookId: bookId,
+                title: title,
+                author: author,
+                coverUrl: coverUrl,
+                desc: savedDesc,
+                detailUrl: initialDetailUrl,
+                sourceName: sourceName,
+                sourceUrl: ext?.sourceUrl ?? "",
+                extensionPackageId: extensionPackageId,
+                isOnShelf: true,
+                isHistory: false
+            )
+            modelContext.insert(newBook)
+            updateLocalChapters(for: newBook, with: onlineChapters)
+            try? modelContext.save()
+        }
     }
     
     private func removeFromShelf(_ book: Book) {
-        modelContext.delete(book)
-        try? modelContext.save()
+        if book.isHistory {
+            book.isOnShelf = false
+            try? modelContext.save()
+        } else {
+            modelContext.delete(book)
+            try? modelContext.save()
+        }
     }
     
     private func updateLocalChapters(for book: Book, with results: [ChapterResult]) {

@@ -16,10 +16,13 @@ public final class Book {
     public var currentChapterPage: Int = 0 // số trang hiện tại hoặc vị trí cuộn
     public var lastReadDate: Date = Date()
     
+    public var isOnShelf: Bool = true
+    public var isHistory: Bool = false
+    
     @Relationship(deleteRule: .cascade, inverse: \Chapter.book)
     public var chapters: [Chapter] = []
     
-    public init(bookId: String, title: String, author: String, coverUrl: String, desc: String, detailUrl: String, sourceName: String, sourceUrl: String, extensionPackageId: String, currentChapterIndex: Int = 0, currentChapterPage: Int = 0) {
+    public init(bookId: String, title: String, author: String, coverUrl: String, desc: String, detailUrl: String, sourceName: String, sourceUrl: String, extensionPackageId: String, currentChapterIndex: Int = 0, currentChapterPage: Int = 0, isOnShelf: Bool = true, isHistory: Bool = false) {
         self.bookId = bookId
         self.title = title
         self.author = author
@@ -31,6 +34,8 @@ public final class Book {
         self.extensionPackageId = extensionPackageId
         self.currentChapterIndex = currentChapterIndex
         self.currentChapterPage = currentChapterPage
+        self.isOnShelf = isOnShelf
+        self.isHistory = isHistory
         self.lastReadDate = Date()
     }
 }

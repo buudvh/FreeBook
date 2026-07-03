@@ -59,9 +59,9 @@ import SwiftSoup
     func absUrl(_ name: String) -> String
     
     // Setters (Chỉnh sửa DOM)
-    func attr(_ name: String, _ value: String)
-    func text(_ value: String)
-    func html(_ value: String)
+    func setAttr(_ name: String, _ value: String)
+    func setText(_ value: String)
+    func setHtml(_ value: String)
     func append(_ html: String)
     func prepend(_ html: String)
     func addClass(_ className: String)
@@ -95,6 +95,8 @@ import SwiftSoup
     func eachText() -> [String]
     func eachAttr(_ name: String) -> [String]
     func array() -> [JSElement]
+    var length: Int { get }
+    func forEach(_ callback: JSValue)
 }
 
 // MARK: - Concrete Implementations
@@ -103,6 +105,7 @@ import SwiftSoup
     public static func parse(_ html: String) -> JSDocument {
         do {
             let doc = try SwiftSoup.parse(html)
+            cleanAds(from: doc)
             return JSDocument(doc)
         } catch {
             print("JSHtml parse error: \(error)")
@@ -113,10 +116,35 @@ import SwiftSoup
     public static func parseWithBase(_ html: String, _ baseUri: String) -> JSDocument {
         do {
             let doc = try SwiftSoup.parse(html, baseUri)
+            cleanAds(from: doc)
             return JSDocument(doc)
         } catch {
             print("JSHtml parseWithBase error: \(error)")
             return JSDocument(Document(""))
+        }
+    }
+    
+    private static func cleanAds(from doc: Document) {
+        let adSelectors = [
+            "div.panel-g",
+            "div.ads", "div.ad", "div.a_d", "div.gg-ad", "div.gg_ad", "div.mgid-widget",
+            "div[class*=\"-ad-\"]", "div[id*=\"-ad-\"]",
+            "div[class*=\"ad-container\"]", "div[class*=\"ad-wrapper\"]", "div[class*=\"ad-box\"]",
+            "div[class*=\"ads-box\"]", "div[class*=\"ad-header\"]", "div[class*=\"ad-footer\"]",
+            "div[class*=\"pop-ad\"]", "div[class*=\"float-ad\"]",
+            "div[id*=\"google_ads_\"]", "div[id*=\"div-gpt-ad\"]",
+            "iframe[id*=\"google_ads_\"]", "iframe[src*=\"googleads\"]", "iframe[src*=\"doubleclick\"]",
+            "div[class*=\"mgid\"]", "div[id*=\"mgid\"]",
+            "div[class*=\"taboola\"]", "div[id*=\"taboola\"]",
+            "ins.adsbygoogle",
+            "a[href*=\"erodalabs.com\"]",
+            "a[href*=\"tip-top.one\"]",
+            "a[href*=\"bet88\"]", "a[href*=\"w88\"]", "a[href*=\"fun88\"]", "a[href*=\"shopee.vn\"]", "a[href*=\"lazada.vn\"]"
+        ]
+        for selector in adSelectors {
+            if let elements = try? doc.select(selector) {
+                try? elements.remove()
+            }
         }
     }
     
@@ -313,15 +341,15 @@ import SwiftSoup
         }
     }
     
-    public func attr(_ name: String, _ value: String) {
+    public func setAttr(_ name: String, _ value: String) {
         _ = try? element.attr(name, value)
     }
     
-    public func text(_ value: String) {
+    public func setText(_ value: String) {
         _ = try? element.text(value)
     }
     
-    public func html(_ value: String) {
+    public func setHtml(_ value: String) {
         _ = try? element.html(value)
     }
     
@@ -444,5 +472,17 @@ import SwiftSoup
     
     public func array() -> [JSElement] {
         return elements.array().map { JSElement($0) }
+    }
+    
+    public var length: Int {
+        return elements.size()
+    }
+    
+    public func forEach(_ callback: JSValue) {
+        let size = elements.size()
+        for i in 0..<size {
+            let item = JSElement(elements.get(i))
+            callback.call(withArguments: [item, i, self])
+        }
     }
 }

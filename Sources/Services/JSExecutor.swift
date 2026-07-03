@@ -88,7 +88,9 @@ public final class JSExecutor {
         // 6. Đăng ký đối tượng Response toàn cục
         let responseBootstrap = """
         var Response = {
+            nextPage: null,
             success: function(data, hasNext) {
+                Response.nextPage = hasNext || null;
                 return data;
             },
             error: function(message) {
@@ -98,11 +100,26 @@ public final class JSExecutor {
         """
         context.evaluateScript(responseBootstrap)
         
+        // 6.5. Đăng ký đối tượng UserAgent toàn cục
+        let userAgentBootstrap = """
+        var UserAgent = {
+            android: function() { return "Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36"; },
+            ios: function() { return "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1"; },
+            pc: function() { return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"; },
+            computer: function() { return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"; }
+        };
+        """
+        context.evaluateScript(userAgentBootstrap)
+        
         let syncFetchBlock: @convention(block) (String, JSValue?) -> [String: Any] = { [weak self] urlString, optionsVal in
             guard let self = self else {
                 return ["html": "", "status": 500, "raw": "", "headers": [String: String]()]
             }
             let resolvedUrlString = self.cleanAndResolveUrl(urlString)
+            if isDomainBlocked(resolvedUrlString) {
+                AppLogger.shared.log("🚫 [JSExecutor] Blocked network fetch to: \(resolvedUrlString)")
+                return ["html": "", "status": 403, "raw": "", "headers": [String: String]()]
+            }
             AppLogger.shared.log("🌐 [JSExecutor] Sync Fetching: \(resolvedUrlString)")
             guard let url = URL(string: resolvedUrlString) else {
                 return ["html": "", "status": 400, "raw": "", "headers": [String: String]()]
@@ -306,7 +323,12 @@ public final class JSExecutor {
                 loader.callJs(script: script, waitTime: waitTimeMs / 1000.0) { res, err in
                     resultStr = res ?? ""
                     if let err = err {
-                        AppLogger.shared.log("❌ [JSExecutor.Browser] callJs error: \(err.localizedDescription)")
+                        let nsErr = err as NSError
+                        if nsErr.domain == WKErrorDomain && nsErr.code == WKError.javaScriptResultTypeIsUnsupported.rawValue {
+                            AppLogger.shared.log("💬 [JSExecutor.Browser] callJs returned unsupported type (ignored)")
+                        } else {
+                            AppLogger.shared.log("❌ [JSExecutor.Browser] callJs error: \(err.localizedDescription)")
+                        }
                     }
                     semaphore.signal()
                 }
@@ -389,24 +411,28 @@ public final class JSExecutor {
         """
         context.evaluateScript(engineBootstrap)
         
-        // 10. Định nghĩa prototype helper cho JSElements (length, forEach)
+        // 10. Định nghĩa prototype helper cho JSElement (hỗ trợ quá tải Getter/Setter)
         let domPrototypeBootstrap = """
         (function() {
             var doc = Html.parse("<html></html>");
-            var elms = doc.select("a");
-            if (elms && elms.constructor) {
-                var Proto = elms.constructor.prototype;
-                Object.defineProperty(Proto, 'length', {
-                    get: function() { return this.size(); },
-                    configurable: true,
-                    enumerable: true
-                });
-                Proto.forEach = function(callback) {
-                    var len = this.size();
-                    for (var i = 0; i < len; i++) {
-                        callback(this.get(i), i, this);
-                    }
-                };
+            var el = doc.body();
+            if (el && el.constructor) {
+                var ElProto = el.constructor.prototype;
+                if (!ElProto.hasOverloadInjected) {
+                    ElProto.hasOverloadInjected = true;
+                    
+                    ElProto.attr = function(name, value) {
+                        return (value === undefined) ? this.getAttr(name) : this.setAttr(name, value);
+                    };
+                    
+                    ElProto.text = function(value) {
+                        return (value === undefined) ? this.getText() : this.setText(value);
+                    };
+                    
+                    ElProto.html = function(value) {
+                        return (value === undefined) ? this.getHtml() : this.setHtml(value);
+                    };
+                }
             }
         })();
         """
@@ -579,6 +605,18 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
         self.webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
     }
     
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationPolicy) -> Void) {
+        if let url = navigationAction.request.url {
+            let urlString = url.absoluteString
+            if isDomainBlocked(urlString) {
+                AppLogger.shared.log("🚫 [JSExecutor.Browser] Blocked WKWebView load to: \(urlString)")
+                decisionHandler(.cancel)
+                return
+            }
+        }
+        decisionHandler(.allow)
+    }
+    
     func load(url: URL, timeout: TimeInterval, completion: @escaping (String?) -> Void) {
         self.completion = completion
         let request = URLRequest(url: url)
@@ -667,4 +705,26 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
             comp("")
         }
     }
+}
+
+fileprivate func isDomainBlocked(_ urlString: String) -> Bool {
+    guard let url = URL(string: urlString), let host = url.host?.lowercased() else {
+        return false
+    }
+    let blockedDomains = [
+        "google-analytics.com",
+        "doubleclick.net",
+        "googlesyndication.com",
+        "mgid.com",
+        "taboola.com",
+        "erodalabs.com",
+        "tip-top.one",
+        "bet88", "w88", "fun88", "shopee.vn", "lazada.vn"
+    ]
+    for blocked in blockedDomains {
+        if host.contains(blocked) {
+            return true
+        }
+    }
+    return false
 }
