@@ -56,10 +56,30 @@ struct ShelfView: View {
                             ScrollView {
                                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
                                     ForEach(shelfBooks) { book in
-                                        NavigationLink(destination: BookDetailView(bookId: book.bookId, extensionPackageId: book.extensionPackageId, initialDetailUrl: book.detailUrl, sourceName: book.sourceName)) {
+                                        NavigationLink(destination: ReaderView(
+                                            bookId: book.bookId,
+                                            extensionPackageId: book.extensionPackageId,
+                                            chapterIndex: book.currentChapterIndex,
+                                            onlineChapters: [],
+                                            bookTitle: nil,
+                                            bookAuthor: nil,
+                                            bookCoverUrl: nil,
+                                            bookDesc: nil,
+                                            bookDetailUrl: nil,
+                                            bookSourceName: nil
+                                        )) {
                                             bookItemView(book)
                                         }
                                         .contextMenu {
+                                            NavigationLink(destination: BookDetailView(
+                                                bookId: book.bookId,
+                                                extensionPackageId: book.extensionPackageId,
+                                                initialDetailUrl: book.detailUrl,
+                                                sourceName: book.sourceName
+                                            )) {
+                                                Label("Xem chi tiết", systemImage: "info.circle")
+                                            }
+                                            
                                             Button(role: .destructive) {
                                                 removeFromShelf(book)
                                             } label: {
@@ -96,10 +116,30 @@ struct ShelfView: View {
                             ScrollView {
                                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
                                     ForEach(historyBooks) { book in
-                                        NavigationLink(destination: BookDetailView(bookId: book.bookId, extensionPackageId: book.extensionPackageId, initialDetailUrl: book.detailUrl, sourceName: book.sourceName)) {
+                                        NavigationLink(destination: ReaderView(
+                                            bookId: book.bookId,
+                                            extensionPackageId: book.extensionPackageId,
+                                            chapterIndex: book.currentChapterIndex,
+                                            onlineChapters: [],
+                                            bookTitle: nil,
+                                            bookAuthor: nil,
+                                            bookCoverUrl: nil,
+                                            bookDesc: nil,
+                                            bookDetailUrl: nil,
+                                            bookSourceName: nil
+                                        )) {
                                             bookItemView(book)
                                         }
                                         .contextMenu {
+                                            NavigationLink(destination: BookDetailView(
+                                                bookId: book.bookId,
+                                                extensionPackageId: book.extensionPackageId,
+                                                initialDetailUrl: book.detailUrl,
+                                                sourceName: book.sourceName
+                                            )) {
+                                                Label("Xem chi tiết", systemImage: "info.circle")
+                                            }
+                                            
                                             Button(role: .destructive) {
                                                 removeFromHistory(book)
                                             } label: {

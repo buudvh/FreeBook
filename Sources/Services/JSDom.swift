@@ -38,9 +38,9 @@ import SwiftSoup
 @objc protocol JSElementExport: JSExport {
     // Getters
     func select(_ selector: String) -> JSElements
-    func text() -> String
-    func html() -> String
-    func attr(_ name: String) -> String
+    func getText() -> String
+    func getHtml() -> String
+    func getAttr(_ name: String) -> String
     func ownText() -> String
     func data() -> String
     func tagName() -> String
@@ -226,7 +226,7 @@ import SwiftSoup
         }
     }
     
-    public func text() -> String {
+    public func getText() -> String {
         do {
             return try element.text()
         } catch {
@@ -234,7 +234,7 @@ import SwiftSoup
         }
     }
     
-    public func html() -> String {
+    public func getHtml() -> String {
         do {
             return try element.html()
         } catch {
@@ -242,7 +242,7 @@ import SwiftSoup
         }
     }
     
-    public func attr(_ name: String) -> String {
+    public func getAttr(_ name: String) -> String {
         do {
             return try element.attr(name)
         } catch {
