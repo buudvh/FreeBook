@@ -310,18 +310,56 @@ public final class ExtensionManager {
                 updateDiagnostics(action: "toc", input: url, status: "Success (Empty)", details: "Returned non-array result")
                 return []
             }
-            
+
+            AppLogger.shared.log("📝 [ExtensionManager] Swift array count = \(jsArray.count)")
+
             var results: [ChapterResult] = []
-            for item in jsArray {
-                if let dict = item as? [String: Any] {
-                    let name = dict["name"] as? String ?? ""
-                    let urlVal = dict["url"] as? String ?? dict["link"] as? String ?? ""
-                    let host = dict["host"] as? String ?? ""
-                    results.append(ChapterResult(name: name, url: urlVal, host: host))
+
+            for (index, item) in jsArray.enumerated() {
+
+                AppLogger.shared.log("========== Item \(index) ==========")
+                AppLogger.shared.log("Type: \(type(of: item))")
+                AppLogger.shared.log("Value: \(item)")
+
+                guard let dict = item as? [String: Any] else {
+                    AppLogger.shared.log("❌ Item is not Dictionary")
+                    continue
                 }
+
+                AppLogger.shared.log("Keys: \(Array(dict.keys))")
+
+                if let data = try? JSONSerialization.data(withJSONObject: dict, options: .prettyPrinted),
+                let json = String(data: data, encoding: .utf8) {
+                    AppLogger.shared.log("Dictionary:\n\(json)")
+                }
+
+                let name = dict["name"] as? String ?? ""
+                let urlVal = dict["url"] as? String ?? dict["link"] as? String ?? ""
+                let host = dict["host"] as? String ?? ""
+
+                AppLogger.shared.log("""
+                Parsed:
+                name = [\(name)]
+                url  = [\(urlVal)]
+                host = [\(host)]
+                """)
+
+                results.append(ChapterResult(
+                    name: name,
+                    url: urlVal,
+                    host: host
+                ))
             }
+
             AppLogger.shared.log("✅ [ExtensionManager] toc parsed \(results.count) chapters")
-            updateDiagnostics(action: "toc", input: url, status: "Success", details: "Parsed \(results.count) chapters:\n\(stringified)")
+
+            updateDiagnostics(
+                action: "toc",
+                input: url,
+                status: "Success",
+                details: "Parsed \(results.count) chapters:\n\(stringified)"
+            )
+
             return results
         } catch {
             AppLogger.shared.log("❌ [ExtensionManager] toc error: \(error.localizedDescription)")
