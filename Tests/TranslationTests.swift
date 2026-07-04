@@ -69,9 +69,6 @@ final class TranslationTests: XCTestCase {
         
         let translatedMeta = TranslateUtils.translateMeta("决战天下")
         XCTAssertEqual(translatedMeta, "Quyết chiến thiên hạ")
-        
-        let translatedHTML = TranslateUtils.translateContent("决战<img src='test.jpg'>天下")
-        XCTAssertEqual(translatedHTML, "Quyết chiến <img src='test.jpg'> thiên hạ")
     }
     
     func testTOCRulesMatching() throws {

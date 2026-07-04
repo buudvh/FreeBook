@@ -27,7 +27,7 @@ struct ReaderTextView: UIViewRepresentable {
         textView.setContentCompressionResistancePriority(.required, for: .vertical)
         
         // Đăng ký custom menu item cho iOS 15 trở xuống
-        let menuItem = UIMenuItem(title: "Dịch/Đọc", action: #selector(ReaderUITextView.customDefineAction))
+        let menuItem = UIMenuItem(title: "Dịch", action: #selector(ReaderUITextView.customDefineAction))
         UIMenuController.shared.menuItems = [menuItem]
         
         return textView
@@ -58,7 +58,7 @@ struct ReaderTextView: UIViewRepresentable {
         // Cấu hình Edit Menu cho iOS 16+
         @available(iOS 16.0, *)
         func textView(_ textView: UITextView, editMenuForTextIn range: NSRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
-            let customAction = UIAction(title: "Dịch/Đọc") { [weak self] _ in
+            let customAction = UIAction(title: "Dịch") { [weak self] _ in
                 if let selectedText = textView.text(in: textView.selectedTextRange!) {
                     self?.triggerCustomDefine(text: selectedText)
                 }

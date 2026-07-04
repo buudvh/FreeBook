@@ -410,9 +410,6 @@ public final class ExtensionManager {
                 resultStr = jsValue.toString() ?? ""
             }
             
-            if TranslateUtils.isTranslationEnabled && TranslateUtils.containsChinese(resultStr) {
-                resultStr = TranslateUtils.translateContent(resultStr)
-            }
             updateDiagnostics(action: "chap", input: url, status: "Success", details: "Length: \(resultStr.count) characters\n\(stringified)")
             return resultStr
         } catch {

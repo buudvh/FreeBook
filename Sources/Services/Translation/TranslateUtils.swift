@@ -171,33 +171,9 @@ public final class TranslateUtils {
             return cached as String
         }
         
-        do {
-            let htmlTagRegex = try NSRegularExpression(pattern: #"<[^>]+>"#, options: [])
-            let range = NSRange(text.startIndex..<text.endIndex, in: text)
-            let matches = htmlTagRegex.matches(in: text, options: [], range: range)
-            
-            var tags: [String] = []
-            var protectedText = text
-            
-            for (index, match) in matches.enumerated().reversed() {
-                if let matchRange = Range(match.range, in: protectedText) {
-                    let tagContent = String(protectedText[matchRange])
-                    tags.insert(tagContent, at: 0)
-                    protectedText.replaceSubrange(matchRange, with: "[[LG_TAG_\(matches.count - 1 - index)]]")
-                }
-            }
-            
-            var translated = performTranslation(protectedText, bookId: bookId)
-            
-            for (index, tag) in tags.enumerated() {
-                translated = translated.replacingOccurrences(of: "[[LG_TAG_\(index)]]", with: tag)
-            }
-            
-            translationCache.setObject(translated as NSString, forKey: cacheKey)
-            return translated
-        } catch {
-            return text
-        }
+        let translated = performTranslation(text, bookId: bookId)
+        translationCache.setObject(translated as NSString, forKey: cacheKey)
+        return translated
     }
     
     private static func performTranslation(_ text: String, bookId: String?) -> String {
