@@ -605,6 +605,52 @@ public final class TranslateUtils {
         
         return output
     }
+    
+    public static func getSentenceRanges(in text: String) -> [SentenceRange] {
+        let pattern = #"[^。！？\n\r.!?]+[。！？\n\r.!?]*"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            return [SentenceRange(text: text, range: NSRange(location: 0, length: (text as NSString).length))]
+        }
+        
+        let nsText = text as NSString
+        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsText.length))
+        
+        return matches.map { match in
+            let matchRange = match.range
+            let substring = nsText.substring(with: matchRange)
+            return SentenceRange(text: substring, range: matchRange)
+        }
+    }
+    
+    public static func snapToToken(
+        sentence: String,
+        selectionOffset: Int,
+        selectionLength: Int,
+        bookId: String?
+    ) -> (offset: Int, length: Int) {
+        let tokens = getTranslationTokens(for: sentence, bookId: bookId)
+        guard !tokens.isEmpty else { return (selectionOffset, selectionLength) }
+        
+        let selectionEnd = selectionOffset + selectionLength
+        var overlappingTokens: [TranslationWordToken] = []
+        
+        for token in tokens {
+            let tokenEnd = token.originalOffset + token.originalLength
+            let maxStart = max(token.originalOffset, selectionOffset)
+            let minEnd = min(tokenEnd, selectionEnd)
+            if maxStart < minEnd {
+                overlappingTokens.append(token)
+            }
+        }
+        
+        if let first = overlappingTokens.first, let last = overlappingTokens.last {
+            let start = first.originalOffset
+            let end = last.originalOffset + last.originalLength
+            return (start, end - start)
+        }
+        
+        return (selectionOffset, selectionLength)
+    }
 }
 
 public struct TranslationWordToken: Identifiable, Hashable {
@@ -619,5 +665,15 @@ public struct TranslationWordToken: Identifiable, Hashable {
         self.translatedText = translatedText
         self.originalOffset = originalOffset
         self.originalLength = originalLength
+    }
+}
+
+public struct SentenceRange {
+    public let text: String
+    public let range: NSRange
+    
+    public init(text: String, range: NSRange) {
+        self.text = text
+        self.range = range
     }
 }

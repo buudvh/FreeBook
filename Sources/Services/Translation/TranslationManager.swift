@@ -110,6 +110,43 @@ public final class TranslationManager: ObservableObject {
         try await loadAllDictionaries()
     }
     
+    public func deleteCustomEntry(word: String, isName: Bool, bookId: String?) async throws {
+        let fileName = isName ? "Names.txt" : "VietPhrase.txt"
+        
+        let fileUrl: URL
+        if let bid = bookId {
+            let bookDir = translateDirectory.appendingPathComponent("books").appendingPathComponent(bid)
+            fileUrl = bookDir.appendingPathComponent(fileName)
+        } else {
+            fileUrl = translateDirectory.appendingPathComponent(fileName)
+        }
+        
+        guard FileManager.default.fileExists(atPath: fileUrl.path) else { return }
+        let content = (try? String(contentsOf: fileUrl, encoding: .utf8)) ?? ""
+        
+        var lines = content.components(separatedBy: .newlines)
+        var modified = false
+        
+        for i in (0..<lines.count).reversed() {
+            let line = lines[i].trimmingCharacters(in: .whitespacesAndNewlines)
+            if line.hasPrefix("\(word)=") {
+                lines.remove(at: i)
+                modified = true
+            }
+        }
+        
+        if modified {
+            let newContent = lines.joined(separator: "\n")
+            try newContent.write(to: fileUrl, atomically: true, encoding: .utf8)
+            
+            TranslateUtils.clearCache()
+            if let bid = bookId {
+                bookDicts.removeValue(forKey: bid)
+            }
+            try await loadAllDictionaries()
+        }
+    }
+    
     public var translateDirectory: URL {
         let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
         let directory = paths[0].appendingPathComponent("translate", isDirectory: true)
@@ -126,7 +163,7 @@ public final class TranslationManager: ObservableObject {
     }
     
     public func loadAllDictionaries() async throws {
-        AppLogger.shared.log("📚 Loading translation dictionaries...")
+        // AppLogger.shared.log("📚 Loading translation dictionaries...")
         
         // 1. Load Names (Optional)
         let namesTxtUrl = translateDirectory.appendingPathComponent("Names.txt")
@@ -136,14 +173,14 @@ public final class TranslationManager: ObservableObject {
             try? txt.load(from: namesTxtUrl)
             if txt.isLoaded {
                 tempNames = txt
-                AppLogger.shared.log("📚 Names dictionary loaded (.txt)")
+                // AppLogger.shared.log("📚 Names dictionary loaded (.txt)")
             }
         }
         self.namesDict = tempNames
         let namesLoaded = tempNames != nil
         await MainActor.run { self.isNamesLoaded = namesLoaded }
         if !namesLoaded {
-            AppLogger.shared.log("📚 Names dictionary is missing (optional, skipped)")
+            // AppLogger.shared.log("📚 Names dictionary is missing (optional, skipped)")
         }
         
         // 2. Load VietPhrase (Required)
@@ -155,10 +192,10 @@ public final class TranslationManager: ObservableObject {
                 try txt.load(from: vpTxtUrl)
                 if txt.isLoaded {
                     tempVP = txt
-                    AppLogger.shared.log("📚 VietPhrase dictionary loaded (.txt)")
+                    // AppLogger.shared.log("📚 VietPhrase dictionary loaded (.txt)")
                 }
             } catch {
-                AppLogger.shared.log("❌ Failed to load VietPhrase.txt: \(error.localizedDescription)")
+                // AppLogger.shared.log("❌ Failed to load VietPhrase.txt: \(error.localizedDescription)")
             }
         }
         self.vietPhraseDict = tempVP
@@ -173,7 +210,7 @@ public final class TranslationManager: ObservableObject {
             try? txt.load(from: pronounsTxtUrl)
             if txt.isLoaded {
                 tempPronouns = txt
-                AppLogger.shared.log("📚 Pronouns dictionary loaded (.txt)")
+                // AppLogger.shared.log("📚 Pronouns dictionary loaded (.txt)")
             }
         }
         self.pronounsDict = tempPronouns
@@ -188,7 +225,7 @@ public final class TranslationManager: ObservableObject {
             try? txt.load(from: luatNhanTxtUrl)
             if txt.isLoaded {
                 tempLuatNhan = txt
-                AppLogger.shared.log("📚 LuatNhan dictionary loaded (.txt)")
+                // AppLogger.shared.log("📚 LuatNhan dictionary loaded (.txt)")
             }
         }
         self.luatNhanDict = tempLuatNhan
@@ -203,9 +240,9 @@ public final class TranslationManager: ObservableObject {
             do {
                 tempPA = try loadPhoneticMap(from: paTxtUrl)
                 paLoaded = true
-                AppLogger.shared.log("📚 PhienAm dictionary loaded (\(tempPA.count) entries)")
+                // AppLogger.shared.log("📚 PhienAm dictionary loaded (\(tempPA.count) entries)")
             } catch {
-                AppLogger.shared.log("❌ Failed to load ChinesePhienAmWords.txt: \(error.localizedDescription)")
+                // AppLogger.shared.log("❌ Failed to load ChinesePhienAmWords.txt: \(error.localizedDescription)")
             }
         }
         self.phienAmMap = tempPA
@@ -247,7 +284,7 @@ public final class TranslationManager: ObservableObject {
         }
         
         let destUrl = translateDirectory.appendingPathComponent(destName)
-        AppLogger.shared.log("📚 Importing dictionary to \(destUrl.path) from \(url.path)")
+        // AppLogger.shared.log("📚 Importing dictionary to \(destUrl.path) from \(url.path)")
         
         if FileManager.default.fileExists(atPath: destUrl.path) {
             try? FileManager.default.removeItem(at: destUrl)
@@ -282,7 +319,7 @@ public final class TranslationManager: ObservableObject {
     }
     
     public func downloadDefaultDictionaries() async {
-        AppLogger.shared.log("📚 Starting download of default dictionaries from Hugging Face...")
+        // AppLogger.shared.log("📚 Starting download of default dictionaries from Hugging Face...")
         await MainActor.run {
             self.isDownloading = true
             self.downloadProgress = 0.0
@@ -308,7 +345,7 @@ public final class TranslationManager: ObservableObject {
             }
             
             do {
-                AppLogger.shared.log("📚 Fetching \(urlString) ...")
+                // AppLogger.shared.log("📚 Fetching \(urlString) ...")
                 let (tempUrl, response) = try await URLSession.shared.download(from: url)
                 
                 guard let httpResponse = response as? HTTPURLResponse else {
@@ -326,9 +363,9 @@ public final class TranslationManager: ObservableObject {
                 }
                 try FileManager.default.moveItem(at: tempUrl, to: destUrl)
                 successCount += 1
-                AppLogger.shared.log("📚 Downloaded and saved \(file.name) to \(file.localName) successfully.")
+                // AppLogger.shared.log("📚 Downloaded and saved \(file.name) to \(file.localName) successfully.")
             } catch {
-                AppLogger.shared.log("❌ Download error for \(file.name): \(error.localizedDescription)")
+                // AppLogger.shared.log("❌ Download error for \(file.name): \(error.localizedDescription)")
                 if file.required {
                     await MainActor.run {
                         self.isDownloading = false
@@ -347,9 +384,9 @@ public final class TranslationManager: ObservableObject {
         
         do {
             try await loadAllDictionaries()
-            AppLogger.shared.log("📚 All dictionaries reloaded after download.")
+            // AppLogger.shared.log("📚 All dictionaries reloaded after download.")
         } catch {
-            AppLogger.shared.log("❌ Failed to reload dictionaries: \(error.localizedDescription)")
+            // AppLogger.shared.log("❌ Failed to reload dictionaries: \(error.localizedDescription)")
         }
     }
     

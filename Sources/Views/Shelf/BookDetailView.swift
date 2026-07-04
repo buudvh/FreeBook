@@ -21,6 +21,7 @@ struct BookDetailView: View {
     @State private var desc = ""
     @State private var detail = ""
     @State private var onlineChapters: [ChapterResult] = []
+    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     
     // Tìm sách local trong database
     private var localBook: Book? {
@@ -38,6 +39,20 @@ struct BookDetailView: View {
     
     private var cleanedDetailText: String {
         cleanDetailText(detail)
+    }
+    
+    private func translateMetaIfNeeded(_ text: String) -> String {
+        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
+            return text
+        }
+        return TranslateUtils.translateMeta(text, bookId: bookId)
+    }
+    
+    private func translateTitleIfNeeded(_ text: String) -> String {
+        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
+            return text
+        }
+        return TranslateUtils.translateChapterTitle(text, bookId: bookId)
     }
     
     var body: some View {
@@ -77,12 +92,12 @@ struct BookDetailView: View {
                             .shadow(radius: 2)
                             
                             VStack(alignment: .leading, spacing: 8) {
-                                Text(title)
+                                Text(translateMetaIfNeeded(title))
                                     .font(.title3)
                                     .fontWeight(.bold)
                                     .lineLimit(3)
                                 
-                                Text("Tác giả: \(author)")
+                                Text("Tác giả: \(translateMetaIfNeeded(author))")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                                 
@@ -94,7 +109,7 @@ struct BookDetailView: View {
                                     .cornerRadius(6)
                                 
                                 if !detail.isEmpty {
-                                    Text(cleanedDetailText)
+                                    Text(translateMetaIfNeeded(cleanedDetailText))
                                         .font(.caption2)
                                         .foregroundColor(.secondary)
                                         .lineLimit(4)
@@ -203,7 +218,7 @@ struct BookDetailView: View {
                                                 bookSourceName: nil
                                             )) {
                                                 HStack {
-                                                    Text(chap.title)
+                                                    Text(translateTitleIfNeeded(chap.title))
                                                         .foregroundColor(book.currentChapterIndex == chap.index ? .accentColor : .primary)
                                                         .font(.subheadline)
                                                         .lineLimit(1)
@@ -236,7 +251,7 @@ struct BookDetailView: View {
                                                 bookSourceName: sourceName
                                             )) {
                                                 VStack(alignment: .leading) {
-                                                    Text(chap.name)
+                                                    Text(translateTitleIfNeeded(chap.name))
                                                         .font(.subheadline)
                                                         .foregroundColor(.primary)
                                                         .lineLimit(1)
@@ -259,7 +274,13 @@ struct BookDetailView: View {
         .navigationTitle("Chi Tiết Truyện")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                Button(action: {
+                    isTranslationEnabled.toggle()
+                }) {
+                    Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
+                }
+                
                 if localBook != nil {
                     NavigationLink(destination: BookDictionaryView(bookId: bookId)) {
                         Image(systemName: "character.book.closed")

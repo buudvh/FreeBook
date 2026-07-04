@@ -76,7 +76,7 @@ public final class JSExecutor {
         // 5. Định nghĩa hàm load(filename) để nạp các file thư viện JS khác (libs.js, ...) tương tự Rhino
         let loadBlock: @convention(block) (String) -> Void = { [weak self] filename in
             guard let self = self, let localPath = self.localPath else {
-                AppLogger.shared.log("❌ JS Load error: localPath is not set in JSExecutor")
+                // AppLogger.shared.log("❌ JS Load error: localPath is not set in JSExecutor")
                 return
             }
             
@@ -93,7 +93,7 @@ public final class JSExecutor {
             }
             
             if !exists {
-                AppLogger.shared.log("❌ JS Load error: File '\(filename)' not found in extension.")
+                // AppLogger.shared.log("❌ JS Load error: File '\(filename)' not found in extension.")
                 return
             }
             
@@ -101,9 +101,9 @@ public final class JSExecutor {
                 let data = try Data(contentsOf: fileUrl)
                 let script = self.decodeData(data)
                 self.context.evaluateScript(script)
-                AppLogger.shared.log("✅ JS Loaded library: \(filename)")
+                // AppLogger.shared.log("✅ JS Loaded library: \(filename)")
             } catch {
-                AppLogger.shared.log("❌ JS Load error running \(filename): \(error.localizedDescription)")
+                // AppLogger.shared.log("❌ JS Load error running \(filename): \(error.localizedDescription)")
             }
         }
         context.setObject(loadBlock, forKeyedSubscript: "load" as NSCopying & NSObjectProtocol)
@@ -140,10 +140,10 @@ public final class JSExecutor {
             }
             let resolvedUrlString = self.cleanAndResolveUrl(urlString)
             if isDomainBlocked(resolvedUrlString) {
-                AppLogger.shared.log("🚫 [JSExecutor] Blocked network fetch to: \(resolvedUrlString)")
+                // AppLogger.shared.log("🚫 [JSExecutor] Blocked network fetch to: \(resolvedUrlString)")
                 return ["html": "", "status": 403, "raw": "", "headers": [String: String]()]
             }
-            AppLogger.shared.log("🌐 [JSExecutor] Sync Fetching: \(resolvedUrlString)")
+            // AppLogger.shared.log("🌐 [JSExecutor] Sync Fetching: \(resolvedUrlString)")
             guard let url = URL(string: resolvedUrlString) else {
                 return ["html": "", "status": 400, "raw": "", "headers": [String: String]()]
             }
@@ -185,7 +185,7 @@ public final class JSExecutor {
             
             let task = URLSession.shared.dataTask(with: request) { data, response, error in
                 if let error = error {
-                    AppLogger.shared.log("❌ [JSExecutor] Fetch error: \(error.localizedDescription)")
+                    // AppLogger.shared.log("❌ [JSExecutor] Fetch error: \(error.localizedDescription)")
                     statusCode = 500
                 }
                 if let httpResponse = response as? HTTPURLResponse {
@@ -290,7 +290,7 @@ public final class JSExecutor {
         let browserLaunchBlock: @convention(block) (String, String, Double) -> String = { [weak self] browserId, urlString, timeoutMs in
             guard let self = self else { return "" }
             let resolvedUrlString = self.cleanAndResolveUrl(urlString)
-            AppLogger.shared.log("🤖 [JSExecutor.Browser] Launching: \(resolvedUrlString)")
+            // AppLogger.shared.log("🤖 [JSExecutor.Browser] Launching: \(resolvedUrlString)")
             guard let url = URL(string: resolvedUrlString) else { return "" }
             
             let semaphore = DispatchSemaphore(value: 0)
@@ -348,9 +348,9 @@ public final class JSExecutor {
                     if let err = err {
                         let nsErr = err as NSError
                         if nsErr.domain == WKErrorDomain && nsErr.code == WKError.javaScriptResultTypeIsUnsupported.rawValue {
-                            AppLogger.shared.log("💬 [JSExecutor.Browser] callJs returned unsupported type (ignored)")
+                            // AppLogger.shared.log("💬 [JSExecutor.Browser] callJs returned unsupported type (ignored)")
                         } else {
-                            AppLogger.shared.log("❌ [JSExecutor.Browser] callJs error: \(err.localizedDescription)")
+                            // AppLogger.shared.log("❌ [JSExecutor.Browser] callJs error: \(err.localizedDescription)")
                         }
                     }
                     semaphore.signal()
@@ -387,7 +387,7 @@ public final class JSExecutor {
             guard let self = self else { return }
             DispatchQueue.main.async {
                 self.activeBrowsers.removeValue(forKey: browserId)
-                AppLogger.shared.log("🤖 [JSExecutor.Browser] Closed & deallocated: \(browserId)")
+                // AppLogger.shared.log("🤖 [JSExecutor.Browser] Closed & deallocated: \(browserId)")
             }
         }
         context.setObject(browserCloseBlock, forKeyedSubscript: "_nativeBrowserClose" as NSCopying & NSObjectProtocol)
@@ -490,7 +490,7 @@ public final class JSExecutor {
         
         if let idx = lastIndex, idx != cleaned.startIndex {
             cleaned = String(cleaned[idx...])
-            AppLogger.shared.log("⚠️ [JSExecutor] Cleaned duplicate hosts URL to: \(cleaned)")
+            // AppLogger.shared.log("⚠️ [JSExecutor] Cleaned duplicate hosts URL to: \(cleaned)")
         }
         
         // 2. Nếu là URL tương đối (không bắt đầu bằng http:// hoặc https://)
@@ -508,7 +508,7 @@ public final class JSExecutor {
                     let baseUrl = defaultValue.trimmingCharacters(in: .whitespacesAndNewlines)
                     let separator = cleaned.hasPrefix("/") || baseUrl.hasSuffix("/") ? "" : "/"
                     cleaned = baseUrl + separator + cleaned
-                    AppLogger.shared.log("🌐 [JSExecutor] Resolved relative URL to: \(cleaned)")
+                    // AppLogger.shared.log("🌐 [JSExecutor] Resolved relative URL to: \(cleaned)")
                 }
             }
         }
@@ -605,7 +605,7 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
         if let url = navigationAction.request.url {
             let urlString = url.absoluteString
             if isDomainBlocked(urlString) {
-                AppLogger.shared.log("🚫 [JSExecutor.Browser] Blocked WKWebView load to: \(urlString)")
+                // AppLogger.shared.log("🚫 [JSExecutor.Browser] Blocked WKWebView load to: \(urlString)")
                 decisionHandler(.cancel)
                 return
             }

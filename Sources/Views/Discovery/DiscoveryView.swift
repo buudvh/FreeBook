@@ -100,6 +100,18 @@ struct DiscoveryView: View {
                         
                         Spacer()
                         
+                        // Toggle dịch
+                        Button(action: {
+                            isTranslationEnabled.toggle()
+                        }) {
+                            Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
+                                .font(.title3)
+                                .foregroundColor(.primary)
+                                .padding(10)
+                                .background(Color(.secondarySystemBackground))
+                                .clipShape(Circle())
+                        }
+                        
                         // Nút Tìm Kiếm chuyển sang SearchView
                         NavigationLink(destination: SearchView(
                             activeExtensions: activeExtensions,
@@ -438,7 +450,7 @@ struct DiscoveryView: View {
                     self.canLoadMore = results.count >= 10 && (nextPage != nil || cat.input.contains("{0}"))
                 }
             } catch {
-                AppLogger.shared.log("❌ [DiscoveryView] loadNovels error: \(error.localizedDescription)")
+                // AppLogger.shared.log("❌ [DiscoveryView] loadNovels error: \(error.localizedDescription)")
                 await MainActor.run {
                     self.errorMessage = error.localizedDescription
                     self.isLoadingNovels = false

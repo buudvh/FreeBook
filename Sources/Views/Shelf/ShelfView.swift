@@ -19,8 +19,7 @@ struct ShelfView: View {
     
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottomTrailing) {
-                VStack(spacing: 0) {
+            VStack(spacing: 0) {
                 // Segmented control to switch tabs
                 Picker("Phân loại", selection: $selectedTab) {
                     Text("Kệ Sách").tag(0)
@@ -67,8 +66,8 @@ struct ShelfView: View {
                                             bookAuthor: nil,
                                             bookCoverUrl: nil,
                                             bookDesc: nil,
-                                            bookDetailUrl: nil,
-                                            bookSourceName: nil
+                                            bookDetailUrl: book.detailUrl,
+                                            bookSourceName: book.sourceName
                                         )) {
                                             bookItemView(book)
                                         }
@@ -127,8 +126,8 @@ struct ShelfView: View {
                                             bookAuthor: nil,
                                             bookCoverUrl: nil,
                                             bookDesc: nil,
-                                            bookDetailUrl: nil,
-                                            bookSourceName: nil
+                                            bookDetailUrl: book.detailUrl,
+                                            bookSourceName: book.sourceName
                                         )) {
                                             bookItemView(book)
                                         }
@@ -156,27 +155,17 @@ struct ShelfView: View {
                     }
                 }
             }
-            
-            // Floating Translate Toggle Button
-            Button(action: {
-                    isTranslationEnabled.toggle()
-                }) {
-                    Image(systemName: "character.bubble.fill")
-                        .font(.title2)
-                        .foregroundColor(isTranslationEnabled ? .white : .primary)
-                        .padding(14)
-                        .background(isTranslationEnabled ? Color.blue : Color.secondary.opacity(0.18))
-                        .clipShape(Circle())
-                        .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
-                }
-                .padding(.trailing, 20)
-                .padding(.bottom, 24)
-            }
             .navigationTitle(selectedTab == 0 ? "Kệ Sách" : "Lịch Sử Đọc")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if selectedTab == 1 && !historyBooks.isEmpty {
-                    ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        isTranslationEnabled.toggle()
+                    }) {
+                        Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
+                    }
+                    
+                    if selectedTab == 1 && !historyBooks.isEmpty {
                         Button(action: {
                             showingClearHistoryAlert = true
                         }) {
@@ -199,51 +188,55 @@ struct ShelfView: View {
     
     @ViewBuilder
     private func bookItemView(_ book: Book) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            // Ảnh bìa truyện
-            AsyncImage(url: URL(string: book.coverUrl)) { image in
-                image.resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
-                Color.gray.opacity(0.3)
-                    .overlay(
-                        Image(systemName: "book.closed")
-                            .foregroundColor(.gray)
-                    )
-            }
-            .frame(height: 150)
-            .cornerRadius(8)
-            .shadow(radius: 2)
-            
-            // Tên truyện
-            Text(translateIfNeeded(book.title))
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundColor(.primary)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-            
-            // Tiến độ đọc
-            if book.chapters.isEmpty {
-                Text("Chưa tải chương")
-                    .font(.caption2)
-                    .foregroundColor(.gray)
+        HStack(spacing: 12) {
+            if let coverUrl = book.coverUrl, let url = URL(string: coverUrl) {
+                AsyncImage(url: url) { image in
+                    image.resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Color.gray.opacity(0.2)
+                }
+                .frame(width: 50, height: 70)
+                .cornerRadius(4)
+                .clipped()
             } else {
-                let currentChapIndex = min(book.currentChapterIndex, book.chapters.count - 1)
-                let chapterTitle = currentChapIndex >= 0 ? book.chapters[currentChapIndex].title : "Chưa đọc"
-                Text("Đang đọc: \(translateIfNeeded(chapterTitle))")
-                    .font(.system(size: 10))
-                    .foregroundColor(.gray)
-                    .lineLimit(1)
+                Color.gray.opacity(0.2)
+                    .frame(width: 50, height: 70)
+                    .cornerRadius(4)
             }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(translateIfNeeded(book.title))
+                    .font(.headline)
+                    .lineLimit(1)
+                
+                if let author = book.author {
+                    Text(translateIfNeeded(author))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                
+                if selectedTab == 1 {
+                    let sortedChapters = book.chapters.sorted(by: { $0.index < $1.index })
+                    if book.currentChapterIndex >= 0 && book.currentChapterIndex < sortedChapters.count {
+                        let currentChap = sortedChapters[book.currentChapterIndex]
+                        Text("Đã đọc: \(translateIfNeeded(currentChap.title))")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            Spacer()
         }
     }
     
     private func translateIfNeeded(_ text: String) -> String {
-        if isTranslationEnabled && TranslateUtils.containsChinese(text) {
-            return TranslateUtils.translateMeta(text)
+        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
+            return text
         }
-        return text
+        return TranslateUtils.translateMeta(text)
     }
     
     private func removeFromShelf(_ book: Book) {
@@ -266,8 +259,13 @@ struct ShelfView: View {
     
     private func clearAllHistory() {
         for book in historyBooks {
-            removeFromHistory(book)
+            if book.isOnShelf {
+                book.isHistory = false
+            } else {
+                modelContext.delete(book)
+            }
         }
+        try? modelContext.save()
     }
 }
 

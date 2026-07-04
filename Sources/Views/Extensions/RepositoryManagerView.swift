@@ -432,7 +432,7 @@ struct RepositoryManagerView: View {
                     repo.lastUpdated = Date()
                     updatedCount += 1
                 } catch {
-                    print("Lỗi cập nhật kho \(repo.name): \(error.localizedDescription)")
+                    // print("Lỗi cập nhật kho \(repo.name): \(error.localizedDescription)")
                 }
             }
             try? modelContext.save()

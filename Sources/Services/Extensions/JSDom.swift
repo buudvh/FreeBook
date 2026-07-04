@@ -108,7 +108,7 @@ import SwiftSoup
             cleanAds(from: doc)
             return JSDocument(doc)
         } catch {
-            print("JSHtml parse error: \(error)")
+            // print("JSHtml parse error: \(error)")
             return JSDocument(Document(""))
         }
     }
@@ -119,7 +119,7 @@ import SwiftSoup
             cleanAds(from: doc)
             return JSDocument(doc)
         } catch {
-            print("JSHtml parseWithBase error: \(error)")
+            // print("JSHtml parseWithBase error: \(error)")
             return JSDocument(Document(""))
         }
     }
@@ -156,7 +156,7 @@ import SwiftSoup
             }
             return try SwiftSoup.clean(html, whitelist) ?? ""
         } catch {
-            print("JSHtml clean error: \(error)")
+            // print("JSHtml clean error: \(error)")
             return html
         }
     }
@@ -174,7 +174,7 @@ import SwiftSoup
             let elements = try doc.select(selector)
             return JSElements(elements)
         } catch {
-            print("JSDocument select error: \(error)")
+            // print("JSDocument select error: \(error)")
             return JSElements(Elements())
         }
     }
@@ -222,7 +222,7 @@ import SwiftSoup
             let elements = try element.select(selector)
             return JSElements(elements)
         } catch {
-            print("JSElement select error: \(error)")
+            // print("JSElement select error: \(error)")
             return JSElements(Elements())
         }
     }
@@ -333,7 +333,7 @@ import SwiftSoup
         do {
             try element.remove()
         } catch {
-            print("JSElement remove error: \(error)")
+            // print("JSElement remove error: \(error)")
         }
     }
     
@@ -408,7 +408,7 @@ import SwiftSoup
             let selected = try elements.select(selector)
             return JSElements(selected)
         } catch {
-            print("JSElements select error: \(error)")
+            // print("JSElements select error: \(error)")
             return JSElements(Elements())
         }
     }
@@ -484,7 +484,7 @@ import SwiftSoup
         do {
             try elements.remove()
         } catch {
-            print("JSElements remove error: \(error)")
+            // print("JSElements remove error: \(error)")
         }
     }
     

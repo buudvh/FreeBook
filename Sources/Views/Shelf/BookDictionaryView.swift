@@ -178,7 +178,7 @@ struct BookDictionaryView: View {
                             TranslationManager.shared.clearBookDictCache(for: bookId)
                             loadEntries()
                         } catch {
-                            AppLogger.shared.log("❌ Lỗi import từ điển truyện: \(error.localizedDescription)")
+                            // AppLogger.shared.log("❌ Lỗi import từ điển truyện: \(error.localizedDescription)")
                         }
                     }
                 },
@@ -240,7 +240,7 @@ struct BookDictionaryView: View {
                     loadEntries()
                 }
             } catch {
-                AppLogger.shared.log("❌ Lỗi lưu từ điển: \(error.localizedDescription)")
+                // AppLogger.shared.log("❌ Lỗi lưu từ điển: \(error.localizedDescription)")
             }
         }
     }

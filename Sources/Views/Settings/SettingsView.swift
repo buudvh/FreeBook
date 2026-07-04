@@ -214,7 +214,7 @@ struct SettingsView: View {
                             do {
                                 try await translationManager.importDictionary(from: selectedUrl, type: importType)
                             } catch {
-                                AppLogger.shared.log("❌ Lỗi import từ điển: \(error.localizedDescription)")
+                                // AppLogger.shared.log("❌ Lỗi import từ điển: \(error.localizedDescription)")
                             }
                         }
                     },

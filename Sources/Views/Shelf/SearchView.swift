@@ -225,7 +225,7 @@ struct SearchView: View {
                         self.searchStatusMessage = "Tìm thấy \(results.count) truyện trên nguồn \(ext.name)."
                     }
                 } catch {
-                    AppLogger.shared.log("❌ Lỗi tìm kiếm trên \(ext.name): \(error.localizedDescription)")
+                    // AppLogger.shared.log("❌ Lỗi tìm kiếm trên \(ext.name): \(error.localizedDescription)")
                     await MainActor.run {
                         self.isSearching = false
                         self.searchStatusMessage = "Lỗi khi tìm kiếm: \(error.localizedDescription)"

@@ -175,7 +175,7 @@ struct ExtensionConfigView: View {
             }
             dismiss()
         } catch {
-            print("Lỗi lưu cấu hình: \(error.localizedDescription)")
+            // print("Lỗi lưu cấu hình: \(error.localizedDescription)")
         }
     }
 }

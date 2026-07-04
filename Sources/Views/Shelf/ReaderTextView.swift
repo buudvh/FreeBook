@@ -5,7 +5,7 @@ struct ReaderTextView: UIViewRepresentable {
     let text: String
     let fontSize: Double
     let theme: ReaderTheme
-    let onSelectionChange: (String, String, Int) -> Void
+    let onSelectionChange: (String, String, Int, Int) -> Void
 
     func sizeThatFits(
         _ proposal: ProposedViewSize,
@@ -122,7 +122,7 @@ struct ReaderTextView: UIViewRepresentable {
             let surroundingSentence = fullNSString.substring(with: sentenceRange).trimmingCharacters(in: .whitespacesAndNewlines)
             let offsetInSentence = max(0, nsRange.location - startLoc)
             
-            parent.onSelectionChange(text, surroundingSentence, offsetInSentence)
+            parent.onSelectionChange(text, surroundingSentence, offsetInSentence, nsRange.location)
         }
     }
 }

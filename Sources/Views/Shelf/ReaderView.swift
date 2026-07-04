@@ -67,6 +67,7 @@ struct ReaderView: View {
     @State private var translationMode: String = "VP" // "VP" or "HV"
     @State private var translationTokens: [TranslationWordToken] = []
     @State private var dictionaryMatches: [DictionaryMatchInfo] = []
+    @State private var showingManageDefinitionsSheet = false
     
     // Tùy chọn giao diện đọc (Novel)
     @AppStorage("readerFontSize") private var fontSize: Double = 18.0
@@ -172,10 +173,75 @@ struct ReaderView: View {
                                     text: chapterContent,
                                     fontSize: fontSize,
                                     theme: selectedTheme,
-                                    onSelectionChange: { selectedText, sentence, offset in
+                                    onSelectionChange: { selectedText, sentence, offset, absoluteOffset in
+                                        if isTranslationEnabled {
+                                            let vietSentenceRanges = TranslateUtils.getSentenceRanges(in: chapterContent)
+                                            if let sentenceIdx = vietSentenceRanges.firstIndex(where: { 
+                                                $0.range.location <= absoluteOffset && absoluteOffset < $0.range.location + $0.range.length 
+                                            }) {
+                                                let vietSentenceRange = vietSentenceRanges[sentenceIdx]
+                                                let offsetInVietSentence = absoluteOffset - vietSentenceRange.range.location
+                                                
+                                                let chiSentenceRanges = TranslateUtils.getSentenceRanges(in: originalContent)
+                                                if sentenceIdx < chiSentenceRanges.count {
+                                                    let chiSentenceRange = chiSentenceRanges[sentenceIdx]
+                                                    let chiSentence = chiSentenceRange.text
+                                                    
+                                                    let tokens = TranslateUtils.getTranslationTokens(for: chiSentence, bookId: bookId)
+                                                    var reconstructedViet = ""
+                                                    var tokenRanges: [NSRange] = []
+                                                    
+                                                    for token in tokens {
+                                                        let start = reconstructedViet.count
+                                                        reconstructedViet.append(token.translatedText)
+                                                        let end = reconstructedViet.count
+                                                        tokenRanges.append(NSRange(location: start, length: end - start))
+                                                        reconstructedViet.append(" ")
+                                                    }
+                                                    
+                                                    let userSelectionRange = NSRange(location: offsetInVietSentence, length: selectedText.count)
+                                                    var overlappingIndices: [Int] = []
+                                                    for (idx, tokenRange) in tokenRanges.enumerated() {
+                                                        let maxStart = max(tokenRange.location, userSelectionRange.location)
+                                                        let minEnd = min(tokenRange.location + tokenRange.length, userSelectionRange.location + userSelectionRange.length)
+                                                        if maxStart < minEnd {
+                                                            overlappingIndices.append(idx)
+                                                        }
+                                                    }
+                                                    
+                                                    if !overlappingIndices.isEmpty {
+                                                        let firstIdx = overlappingIndices.first!
+                                                        let lastIdx = overlappingIndices.last!
+                                                        let chiOffset = tokens[firstIdx].originalOffset
+                                                        let chiLength = (tokens[lastIdx].originalOffset + tokens[lastIdx].originalLength) - chiOffset
+                                                        
+                                                        let snapped = TranslateUtils.snapToToken(
+                                                            sentence: chiSentence,
+                                                            selectionOffset: chiOffset,
+                                                            selectionLength: chiLength,
+                                                            bookId: bookId
+                                                        )
+                                                        
+                                                        self.originalSentence = chiSentence
+                                                        self.selectedWordOffset = snapped.offset
+                                                        self.selectedWordLength = snapped.length
+                                                        self.updateEditorFromSelection()
+                                                        self.showingDefinitionSheet = true
+                                                        return
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        
+                                        let snapped = TranslateUtils.snapToToken(
+                                            sentence: sentence,
+                                            selectionOffset: offset,
+                                            selectionLength: selectedText.count,
+                                            bookId: bookId
+                                        )
                                         self.originalSentence = sentence
-                                        self.selectedWordOffset = offset
-                                        self.selectedWordLength = selectedText.count
+                                        self.selectedWordOffset = snapped.offset
+                                        self.selectedWordLength = snapped.length
                                         self.updateEditorFromSelection()
                                         self.showingDefinitionSheet = true
                                     }
@@ -194,22 +260,6 @@ struct ReaderView: View {
                 }
             }
             
-            // Floating Translate Toggle Button
-            if ext?.type != "comic" && !isLoading && errorMessage.isEmpty {
-                Button(action: {
-                    isTranslationEnabled.toggle()
-                }) {
-                    Image(systemName: "character.bubble.fill")
-                        .font(.title2)
-                        .foregroundColor(isTranslationEnabled ? .white : selectedTheme.textColor)
-                        .padding(14)
-                        .background(isTranslationEnabled ? Color.blue : selectedTheme.textColor.opacity(0.18))
-                        .clipShape(Circle())
-                        .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
-                }
-                .padding(.trailing, 20)
-                .padding(.bottom, 24)
-            }
         }
         .navigationTitle(currentChapterInfo?.title ?? "Trình đọc")
         .navigationBarTitleDisplayMode(.inline)
@@ -217,6 +267,14 @@ struct ReaderView: View {
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 if ext?.type != "comic" {
+                    // Translation Toggle Button
+                    Button(action: {
+                        isTranslationEnabled.toggle()
+                    }) {
+                        Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
+                            .foregroundColor(selectedTheme.textColor)
+                    }
+                    
                     // TTS Dummy Button
                     Button(action: {
                         // TTS function will be done in a later phase
@@ -357,26 +415,42 @@ struct ReaderView: View {
                 
                 // Prioritized Multi-tier Dictionary definitions
                 if !dictionaryMatches.isEmpty {
-                    ScrollView(.vertical, showsIndicators: true) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ForEach(dictionaryMatches) { match in
-                                HStack(alignment: .top, spacing: 4) {
-                                    Text("\(match.source):")
-                                        .font(.caption)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.secondary)
-                                    Text(match.translation)
-                                        .font(.caption)
-                                        .foregroundColor(.primary)
-                                }
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Định nghĩa từ điển:")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Button(action: { showingManageDefinitionsSheet = true }) {
+                                Text("Quản lý")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.blue)
                             }
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        
+                        ScrollView(.vertical, showsIndicators: true) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(dictionaryMatches) { match in
+                                    HStack(alignment: .top, spacing: 4) {
+                                        Text("\(match.source):")
+                                            .font(.caption)
+                                            .fontWeight(.bold)
+                                            .foregroundColor(.secondary)
+                                        Text(match.translation)
+                                            .font(.caption)
+                                            .foregroundColor(.primary)
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(maxHeight: 60)
+                        .padding(8)
+                        .background(Color.secondary.opacity(0.05))
+                        .cornerRadius(6)
                     }
-                    .frame(maxHeight: 60)
-                    .padding(8)
-                    .background(Color.secondary.opacity(0.05))
-                    .cornerRadius(6)
                 }
                 
                 // Quick suggestions chips
@@ -476,6 +550,21 @@ struct ReaderView: View {
                 self.searchEngines = SearchEngine.loadEngines()
             }
         }
+        .sheet(isPresented: $showingManageDefinitionsSheet) {
+            ManageDefinitionsView(
+                word: selectedTextForDefinition,
+                bookId: bookId,
+                onChanged: {
+                    self.dictionaryMatches = getDictionaryMatches(for: selectedTextForDefinition)
+                    if self.translationMode == "VP" {
+                        self.customMeaning = TranslateUtils.translateMeta(selectedTextForDefinition, bookId: bookId)
+                    } else {
+                        self.customMeaning = getHanViet(for: selectedTextForDefinition)
+                    }
+                    applyTranslation()
+                }
+            )
+        }
         .onAppear {
             // Tải theme mặc định từ AppStorage nếu thích hợp, ở đây dùng sepia/paper làm mặc định
             loadChapterContent()
@@ -565,7 +654,7 @@ struct ReaderView: View {
                     applyTranslation()
                 }
             } catch {
-                AppLogger.shared.log("❌ Lỗi lưu định nghĩa từ: \(error.localizedDescription)")
+                // AppLogger.shared.log("❌ Lỗi lưu định nghĩa từ: \(error.localizedDescription)")
             }
         }
     }
@@ -747,11 +836,38 @@ struct ReaderView: View {
         let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !word.isEmpty else { return }
         
-        guard let encodedWord = word.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return }
-        let urlString = engine.urlTemplate.replacingOccurrences(of: "%s", with: encodedWord)
+        let rawUrl = engine.urlTemplate.replacingOccurrences(of: "%s", with: word)
+        guard let encoded = rawUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: encoded) else { return }
         
-        if let url = URL(string: urlString) {
-            UIApplication.shared.open(url)
+        UIApplication.shared.open(url)
+    }
+
+    private func isEditableSource(_ source: String) -> Bool {
+        return source == "Names (Riêng)" || source == "Names (Chung)" ||
+               source == "VietPhrase (Riêng)" || source == "VietPhrase (Chung)"
+    }
+    
+    private func deleteMatch(_ match: DictionaryMatchInfo) {
+        let isName = match.source.contains("Names")
+        let bid = match.source.contains("Riêng") ? bookId : nil
+        let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        Task {
+            do {
+                try await TranslationManager.shared.deleteCustomEntry(word: word, isName: isName, bookId: bid)
+                await MainActor.run {
+                    self.dictionaryMatches = getDictionaryMatches(for: word)
+                    if self.translationMode == "VP" {
+                        self.customMeaning = TranslateUtils.translateMeta(word, bookId: bookId)
+                    } else {
+                        self.customMeaning = getHanViet(for: word)
+                    }
+                    applyTranslation()
+                }
+            } catch {
+                // AppLogger.shared.log("❌ Lỗi xóa định nghĩa từ: \(error.localizedDescription)")
+            }
         }
     }
 
