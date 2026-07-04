@@ -168,8 +168,6 @@ struct ReaderView: View {
                                     .foregroundColor(selectedTheme.textColor)
                                     .padding(.top, 16)
 
-                                AppLogger.shared.log("chapterContent: \(chapterContent)")
-
                                 ReaderTextView(
                                     text: chapterContent,
                                     fontSize: fontSize,

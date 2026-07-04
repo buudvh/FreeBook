@@ -35,6 +35,7 @@ struct ReaderTextView: UIViewRepresentable {
     
     func updateUIView(_ uiView: UITextView, context: Context) {
         uiView.text = text
+        AppLogger.shared.log("text: \(text)")
         uiView.font = UIFont.systemFont(ofSize: CGFloat(fontSize))
         uiView.textColor = UIColor(theme.textColor)
     }
