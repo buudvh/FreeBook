@@ -184,7 +184,7 @@ public final class JSExecutor {
             }
             
             let task = URLSession.shared.dataTask(with: request) { data, response, error in
-                if let error = error {
+                if error != nil {
                     // AppLogger.shared.log("❌ [JSExecutor] Fetch error: \(error.localizedDescription)")
                     statusCode = 500
                 }

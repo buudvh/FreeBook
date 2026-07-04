@@ -189,7 +189,7 @@ struct ShelfView: View {
     @ViewBuilder
     private func bookItemView(_ book: Book) -> some View {
         HStack(spacing: 12) {
-            if let coverUrl = book.coverUrl, let url = URL(string: coverUrl) {
+            if !book.coverUrl.isEmpty, let url = URL(string: book.coverUrl) {
                 AsyncImage(url: url) { image in
                     image.resizable()
                         .aspectRatio(contentMode: .fill)
@@ -210,8 +210,8 @@ struct ShelfView: View {
                     .font(.headline)
                     .lineLimit(1)
                 
-                if let author = book.author {
-                    Text(translateIfNeeded(author))
+                if !book.author.isEmpty {
+                    Text(translateIfNeeded(book.author))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .lineLimit(1)

@@ -246,7 +246,8 @@ public final class TranslationManager: ObservableObject {
             }
         }
         self.phienAmMap = tempPA
-        await MainActor.run { self.isPhienAmLoaded = paLoaded }
+        let isLoaded = paLoaded
+        await MainActor.run { self.isPhienAmLoaded = isLoaded }
     }
     
     private func loadPhoneticMap(from fileURL: URL) throws -> [String: String] {
@@ -376,9 +377,10 @@ public final class TranslationManager: ObservableObject {
             }
         }
         
+        let finalSuccessCount = successCount
         await MainActor.run {
             self.downloadProgress = 1.0
-            self.downloadMessage = "Đã tải xong \(successCount)/\(files.count) tệp!"
+            self.downloadMessage = "Đã tải xong \(finalSuccessCount)/\(files.count) tệp!"
             self.isDownloading = false
         }
         
