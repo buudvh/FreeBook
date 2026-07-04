@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import AVFoundation
 
 enum ReaderTheme: String, CaseIterable, Identifiable {
     case paper = "Mặc định"
@@ -1416,7 +1417,7 @@ struct TTSSettingsSheet: View {
                     ttsManager.selectedVoice = systemVoices.first?.identifier ?? ""
                 }
                 
-                self.availableVoices = await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false) ?? NghiTTSClient.fallbackVietnameseVoices
+                self.availableVoices = (try? await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false)) ?? NghiTTSClient.fallbackVietnameseVoices
             }
         }
     }
@@ -1431,7 +1432,7 @@ struct TTSSettingsSheet: View {
             ttsManager.selectedVoice = ""
         }
         Task {
-            self.availableVoices = await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false) ?? NghiTTSClient.fallbackVietnameseVoices
+            self.availableVoices = (try? await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false)) ?? NghiTTSClient.fallbackVietnameseVoices
         }
     }
 }

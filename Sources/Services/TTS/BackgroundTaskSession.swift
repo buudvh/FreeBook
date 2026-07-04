@@ -17,7 +17,7 @@ struct BackgroundTaskSession {
     static func begin(name: String) -> BackgroundTaskSession {
         #if os(iOS)
         let id = UIApplication.shared.beginBackgroundTask(withName: name) {
-            appLog("⚠️ Background task '\(name)' expired.")
+            AppLogger.shared.log("⚠️ Background task '\(name)' expired.")
         }
         return BackgroundTaskSession(taskId: id)
         #else

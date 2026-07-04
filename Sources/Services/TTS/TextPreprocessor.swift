@@ -1188,7 +1188,7 @@ final actor TextPreprocessor {
     }
 
     private static func preprocessLog(_ message: @autoclosure () -> String) {
-        appLog(message())
+        AppLogger.shared.log(message())
     }
 
     private func storeTransliteration(_ value: String, for key: String) {
@@ -1244,7 +1244,7 @@ final actor TextPreprocessor {
     private static func loadPlist(from url: URL) -> [String: String] {
         guard let data = try? Data(contentsOf: url),
               let dict = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: String] else {
-            appLog("Warning: Could not read Plist file at \(url.path)")
+            AppLogger.shared.log("Warning: Could not read Plist file at \(url.path)")
             return [:]
         }
         return dict

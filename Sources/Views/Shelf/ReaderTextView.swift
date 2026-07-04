@@ -77,7 +77,7 @@ struct ReaderTextView: UIViewRepresentable {
                     let start = uiView.position(from: uiView.beginningOfDocument, offset: highlight.location) ?? uiView.beginningOfDocument
                     let end = uiView.position(from: start, offset: highlight.length) ?? start
                     if let textRange = uiView.textRange(from: start, to: end) {
-                        let rect = uiView.firstRect(from: textRange)
+                        let rect = uiView.firstRect(for: textRange)
                         let rectInScrollView = uiView.convert(rect, to: scrollView)
                         
                         let visibleHeight = scrollView.bounds.height
