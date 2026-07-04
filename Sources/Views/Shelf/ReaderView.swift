@@ -56,8 +56,8 @@ struct ReaderView: View {
     @State private var selectedTextForDefinition = ""
     @State private var showingDefinitionSheet = false
     @State private var customMeaning = ""
-    @State private var saveToBookSpecific = true
-    @State private var saveAsNameType = false
+    @AppStorage("saveToBookSpecific") private var saveToBookSpecific = true
+    @AppStorage("saveAsNameType") private var saveAsNameType = false
     
     // Advanced Highlight Translation Editor
     @State private var originalSentence = ""
@@ -74,6 +74,13 @@ struct ReaderView: View {
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
     @State private var showingSettings = false
+    
+    // TTS Configurations & State
+    @StateObject private var ttsManager = TTSManager.shared
+    @State private var showingTTSPanel = false
+    @State private var showingTTSSettings = false
+    @State private var triggerGetVisibleIndex: UUID? = nil
+    @State private var prefetchTask: Task<Void, Never>? = nil
     
     private var localBook: Book? {
         allBooks.first(where: { $0.bookId == bookId })
@@ -173,6 +180,16 @@ struct ReaderView: View {
                                     text: chapterContent,
                                     fontSize: fontSize,
                                     theme: selectedTheme,
+                                    highlightRange: ttsManager.highlightRange,
+                                    triggerGetVisibleIndex: $triggerGetVisibleIndex,
+                                    onGetVisibleIndex: { charIndex in
+                                        ttsManager.startSpeaking(
+                                            chapterContent: chapterContent,
+                                            startCharIndex: charIndex,
+                                            bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+                                            chapterTitle: chapterTitle
+                                        )
+                                    },
                                     onSelectionChange: { selectedText, sentence, offset, absoluteOffset in
                                         if isTranslationEnabled {
                                             let vietSentenceRanges = TranslateUtils.getSentenceRanges(in: chapterContent)
@@ -244,6 +261,15 @@ struct ReaderView: View {
                                         self.selectedWordLength = snapped.length
                                         self.updateEditorFromSelection()
                                         self.showingDefinitionSheet = true
+                                    },
+                                    onSpeakFromHere: { absoluteOffset in
+                                        ttsManager.startSpeaking(
+                                            chapterContent: chapterContent,
+                                            startCharIndex: absoluteOffset,
+                                            bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+                                            chapterTitle: chapterTitle
+                                        )
+                                        showingTTSPanel = true
                                     }
                                 )
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -259,7 +285,11 @@ struct ReaderView: View {
                     }
                 }
             }
-            
+            if showingTTSPanel {
+                TTSControlPanelView(showingTTSPanel: $showingTTSPanel, showingTTSSettings: $showingTTSSettings)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(10)
+            }
         }
         .navigationTitle(currentChapterInfo?.title ?? "Trình đọc")
         .navigationBarTitleDisplayMode(.inline)
@@ -275,12 +305,18 @@ struct ReaderView: View {
                             .foregroundColor(selectedTheme.textColor)
                     }
                     
-                    // TTS Dummy Button
+                    // TTS Button
                     Button(action: {
-                        // TTS function will be done in a later phase
+                        if ttsManager.isPlaying {
+                            ttsManager.stop()
+                            showingTTSPanel = false
+                        } else {
+                            triggerGetVisibleIndex = UUID()
+                            showingTTSPanel = true
+                        }
                     }) {
-                        Image(systemName: "play.circle")
-                            .foregroundColor(selectedTheme.textColor)
+                        Image(systemName: ttsManager.isPlaying ? "stop.circle.fill" : "play.circle")
+                            .foregroundColor(ttsManager.isPlaying ? .red : selectedTheme.textColor)
                     }
                     
                     // Dictionary Manager Link
@@ -302,6 +338,9 @@ struct ReaderView: View {
         .sheet(isPresented: $showingSettings) {
             ReaderSettingsView(fontSize: $fontSize, selectedTheme: $selectedTheme, isTranslationEnabled: $isTranslationEnabled)
                 .presentationDetents([.height(240)])
+        }
+        .sheet(isPresented: $showingTTSSettings) {
+            TTSSettingsSheet()
         }
         .onChange(of: isTranslationEnabled) { _, _ in
             applyTranslation()
@@ -338,7 +377,9 @@ struct ReaderView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 4) {
                             ForEach(translationTokens) { token in
-                                let isSelected = (token.originalOffset == selectedWordOffset && token.originalLength == selectedWordLength)
+                                // Sửa logic bôi đậm khi mở rộng ngoài cụm từ đã tokenize
+                                let isSelected = (token.originalOffset < selectedWordOffset + selectedWordLength && 
+                                                  token.originalOffset + token.originalLength > selectedWordOffset)
                                 Text(token.originalText)
                                     .font(.title3)
                                     .bold(isSelected)
@@ -375,7 +416,9 @@ struct ReaderView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(translationTokens) { token in
-                            let isSelected = (token.originalOffset == selectedWordOffset && token.originalLength == selectedWordLength)
+                            // Sửa logic bôi đậm khi mở rộng ngoài cụm từ đã tokenize
+                            let isSelected = (token.originalOffset < selectedWordOffset + selectedWordLength && 
+                                              token.originalOffset + token.originalLength > selectedWordOffset)
                             Text(token.translatedText)
                                 .font(.subheadline)
                                 .bold(isSelected)
@@ -413,111 +456,93 @@ struct ReaderView: View {
                 .background(Color.secondary.opacity(0.1))
                 .cornerRadius(8)
                 
-                // Prioritized Multi-tier Dictionary definitions
-                if !dictionaryMatches.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("Định nghĩa từ điển:")
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Button(action: { showingManageDefinitionsSheet = true }) {
-                                Text("Quản lý")
-                                    .font(.caption)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.blue)
-                            }
-                        }
-                        
-                        ScrollView(.vertical, showsIndicators: true) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                ForEach(dictionaryMatches) { match in
-                                    HStack(alignment: .top, spacing: 4) {
-                                        Text("\(match.source):")
-                                            .font(.caption)
-                                            .fontWeight(.bold)
-                                            .foregroundColor(.secondary)
-                                        Text(match.translation)
-                                            .font(.caption)
-                                            .foregroundColor(.primary)
-                                    }
+                // Hàng 1: Nút Quản lý icon tròn và Danh sách gợi ý chip ngang
+                HStack(spacing: 8) {
+                    Button(action: { showingManageDefinitionsSheet = true }) {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.body)
+                            .fontWeight(.medium)
+                            .foregroundColor(.blue)
+                            .padding(8)
+                            .background(Color.blue.opacity(0.1))
+                            .clipShape(Circle())
+                    }
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(suggestionChips, id: \.self) { chip in
+                                Button(action: { customMeaning = chip }) {
+                                    Text(chip)
+                                        .font(.subheadline)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        .background(Color.blue.opacity(0.1))
+                                        .foregroundColor(.blue)
+                                        .cornerRadius(15)
                                 }
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .frame(maxHeight: 60)
-                        .padding(8)
-                        .background(Color.secondary.opacity(0.05))
-                        .cornerRadius(6)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 
-                // Quick suggestions chips
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(suggestionChips, id: \.self) { chip in
-                            Button(action: { customMeaning = chip }) {
-                                Text(chip)
-                                    .font(.subheadline)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(Color.blue.opacity(0.1))
-                                    .foregroundColor(.blue)
-                                    .cornerRadius(15)
+                // Hàng 2: Nhóm nút định dạng chữ aa, Aa1, Aa2, AA dàn đều cả hàng
+                HStack(spacing: 8) {
+                    ForEach(["aa", "Aa¹", "Aa²", "AA"], id: \.self) { format in
+                        Button(action: {
+                            switch format {
+                            case "aa":
+                                customMeaning = customMeaning.lowercased()
+                            case "Aa¹":
+                                if !customMeaning.isEmpty {
+                                    customMeaning = customMeaning.prefix(1).uppercased() + customMeaning.dropFirst().lowercased()
+                                }
+                            case "Aa²":
+                                customMeaning = customMeaning.capitalized
+                            case "AA":
+                                customMeaning = customMeaning.uppercased()
+                            default:
+                                break
                             }
+                        }) {
+                            Text(format)
+                                .font(.body)
+                                .fontWeight(.bold)
+                                .padding(.vertical, 10)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.secondary.opacity(0.15))
+                                .cornerRadius(8)
                         }
                     }
                 }
                 
-                // Case formats & Dictionary toggles
+                // Hàng 3: Hai Segment chọn Loại (Names/VP) và Phạm vi (Riêng/Chung) trên cùng 1 hàng
                 HStack(spacing: 12) {
-                    // Case formats
-                    HStack(spacing: 4) {
-                        Button("aa") { customMeaning = customMeaning.lowercased() }
-                        Button("Aa¹") {
-                            if !customMeaning.isEmpty {
-                                customMeaning = customMeaning.prefix(1).uppercased() + customMeaning.dropFirst().lowercased()
-                            }
-                        }
-                        Button("Aa²") { customMeaning = customMeaning.capitalized }
-                        Button("AA") { customMeaning = customMeaning.uppercased() }
-                    }
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .padding(6)
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(6)
-                    
-                    Spacer()
-                    
-                    // NE / VP
                     Picker("Loại", selection: $saveAsNameType) {
-                        Text("Names (NE)").tag(true)
-                        Text("VietPhrase (VP)").tag(false)
+                        Text("Names").tag(true)
+                        Text("VP").tag(false)
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 150)
+                    
+                    Picker("Phạm vi", selection: $saveToBookSpecific) {
+                        Text("Riêng").tag(true)
+                        Text("Chung").tag(false)
+                    }
+                    .pickerStyle(.segmented)
                 }
                 
-                HStack {
-                    // Scope: Riêng / Chung
-                    Picker("Phạm vi", selection: $saveToBookSpecific) {
-                        Text("Riêng truyện").tag(true)
-                        Text("Chung hệ thống").tag(false)
-                    }
-                    .pickerStyle(.segmented)
-                    
-                    Spacer()
-                    
-                    // Update action button
-                    Button(action: saveDefinition) {
+                // Hàng 4: Phím Cập nhật đứng riêng 1 hàng dưới cùng
+                Button(action: saveDefinition) {
+                    HStack {
+                        Spacer()
                         Label("Cập nhật", systemImage: "tray.and.arrow.down.fill")
                             .fontWeight(.semibold)
+                        Spacer()
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .padding(.vertical, 12)
                 }
+                .buttonStyle(.borderedProminent)
+                .disabled(customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 
                 Divider()
                 
@@ -545,7 +570,7 @@ struct ReaderView: View {
             }
             .padding()
             .background(Color(uiColor: .systemBackground).onTapGesture { hideKeyboard() })
-            .presentationDetents([.height(530), .large])
+            .presentationDetents([.height(480), .large])
             .onAppear {
                 self.searchEngines = SearchEngine.loadEngines()
             }
@@ -568,6 +593,20 @@ struct ReaderView: View {
         .onAppear {
             // Tải theme mặc định từ AppStorage nếu thích hợp, ở đây dùng sepia/paper làm mặc định
             loadChapterContent()
+            
+            ttsManager.onChapterFinished = {
+                nextChapter()
+            }
+            ttsManager.onChapterNext = {
+                nextChapter()
+            }
+            ttsManager.onChapterPrev = {
+                prevChapter()
+            }
+        }
+        .onDisappear {
+            ttsManager.stop()
+            prefetchTask?.cancel()
         }
     }
     
@@ -629,12 +668,32 @@ struct ReaderView: View {
                     self.chapterTitle = translatedTitle
                     self.chapterContent = translatedContent
                     self.isLoading = false
+                    
+                    if ttsManager.isPlaying {
+                        ttsManager.startSpeaking(
+                            chapterContent: translatedContent,
+                            startCharIndex: 0,
+                            bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+                            chapterTitle: translatedTitle
+                        )
+                    }
+                    prefetchNextChapter()
                 }
             }
         } else {
             self.chapterTitle = originalTitle
             self.chapterContent = originalContent
             self.isLoading = false
+            
+            if ttsManager.isPlaying {
+                ttsManager.startSpeaking(
+                    chapterContent: originalContent,
+                    startCharIndex: 0,
+                    bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+                    chapterTitle: originalTitle
+                )
+            }
+            prefetchNextChapter()
         }
     }
     
@@ -672,28 +731,80 @@ struct ReaderView: View {
     
     private var suggestionChips: [String] {
         var chips: [String] = []
-        let word = selectedTextForDefinition
+        let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !word.isEmpty else { return [] }
         
-        let currentTranslation = TranslateUtils.translateMeta(word, bookId: bookId)
-        if !currentTranslation.isEmpty && currentTranslation != word {
-            let clean = currentTranslation.replacingOccurrences(of: "¦", with: "/")
+        let manager = TranslationManager.shared
+        let bookDicts = manager.getBookDictionaries(for: bookId)
+        
+        func addTranslation(_ translation: String) {
+            let clean = translation.replacingOccurrences(of: "¦", with: "/")
             let parts = clean.components(separatedBy: "/")
             for part in parts {
                 let trimmed = part.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !trimmed.isEmpty && !chips.contains(trimmed) {
-                    chips.append(trimmed)
+                if !trimmed.isEmpty {
+                    let isDuplicate = chips.contains { existing in
+                        existing.localizedCaseInsensitiveCompare(trimmed) == .orderedSame
+                    }
+                    if !isDuplicate {
+                        chips.append(trimmed)
+                    }
                 }
             }
         }
         
-        let hv = getHanViet(for: word)
-        if !hv.isEmpty {
-            if !chips.contains(hv) {
-                chips.append(hv)
+        // 1. Book Names
+        if let bookNames = bookDicts.names,
+           let match = bookNames.findLongestMatch(text: word, startIndex: 0),
+           match.length == word.count {
+            addTranslation(match.value)
+        }
+        
+        // 2. Global Names
+        if let names = manager.namesDict,
+           let match = names.findLongestMatch(text: word, startIndex: 0),
+           match.length == word.count {
+            addTranslation(match.value)
+        }
+        
+        // 3. Pronouns
+        if let pronouns = manager.pronounsDict,
+           let match = pronouns.findLongestMatch(text: word, startIndex: 0),
+           match.length == word.count {
+            addTranslation(match.value)
+        }
+        
+        // 4. LuatNhan
+        if let luatNhan = manager.luatNhanDict,
+           let match = luatNhan.findLongestMatch(text: word, startIndex: 0),
+           match.length == word.count {
+            addTranslation(match.value)
+        }
+        
+        // 5. Book VietPhrase
+        if let bookVP = bookDicts.vietPhrase,
+           let match = bookVP.findLongestMatch(text: word, startIndex: 0),
+           match.length == word.count {
+            addTranslation(match.value)
+        }
+        
+        // 6. Global VietPhrase (Chung)
+        if let vp = manager.vietPhraseDict,
+           let match = vp.findLongestMatch(text: word, startIndex: 0),
+           match.length == word.count {
+            if match.value.count < 100 {
+                addTranslation(match.value)
             }
-            let hvLower = hv.lowercased()
-            if !chips.contains(hvLower) {
-                chips.append(hvLower)
+        }
+        
+        // 7. Phiên âm Hán Việt (chỉ 1 bản viết thường duy nhất)
+        let hv = getHanViet(for: word).lowercased()
+        if !hv.isEmpty {
+            let isDuplicate = chips.contains { existing in
+                existing.localizedCaseInsensitiveCompare(hv) == .orderedSame
+            }
+            if !isDuplicate {
+                chips.append(hv)
             }
         }
         
@@ -973,6 +1084,62 @@ struct ReaderView: View {
             loadChapterContent()
         }
     }
+    
+    private func prefetchNextChapter() {
+        prefetchTask?.cancel()
+        
+        let nextIdx = chapterIndex + 1
+        guard nextIdx < totalChaptersCount else { return }
+        
+        prefetchTask = Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled else { return }
+            
+            let sortedChapters: [Chapter]
+            let targetUrl: String
+            let targetTitle: String
+            
+            if let book = localBook {
+                sortedChapters = book.chapters.sorted(by: { $0.index < $1.index })
+                guard nextIdx < sortedChapters.count else { return }
+                let nextChap = sortedChapters[nextIdx]
+                if nextChap.isCached && nextChap.content?.isEmpty == false {
+                    return
+                }
+                targetUrl = nextChap.url
+                targetTitle = nextChap.title
+            } else {
+                guard nextIdx < onlineChapters.count else { return }
+                let nextChap = onlineChapters[nextIdx]
+                targetUrl = nextChap.url
+                targetTitle = nextChap.name
+            }
+            
+            guard let ext = ext else { return }
+            
+            do {
+                AppLogger.shared.log("Tải trước chương \(nextIdx): \(targetTitle)")
+                let content = try await ExtensionManager.shared.chap(
+                    localPath: ext.localPath,
+                    downloadUrl: ext.downloadUrl,
+                    url: targetUrl,
+                    configJson: ext.configJson
+                )
+                let cleanedContent = content.cleanHTML()
+                
+                if let book = localBook {
+                    let sorted = book.chapters.sorted(by: { $0.index < $1.index })
+                    let chap = sorted[nextIdx]
+                    chap.content = cleanedContent
+                    chap.isCached = true
+                    try? modelContext.save()
+                    AppLogger.shared.log("Tải trước thành công và cache chương \(nextIdx)")
+                }
+            } catch {
+                AppLogger.shared.log("Lỗi tải trước chương \(nextIdx): \(error.localizedDescription)")
+            }
+        }
+    }
 }
 
 // MARK: - ReaderSettingsView Sheet
@@ -1031,4 +1198,240 @@ struct DictionaryMatchInfo: Identifiable {
     var id = UUID()
     let source: String
     let translation: String
+}
+
+// MARK: - TTS Control Panel View
+
+struct TTSControlPanelView: View {
+    @Binding var showingTTSPanel: Bool
+    @Binding var showingTTSSettings: Bool
+    @ObservedObject var ttsManager = TTSManager.shared
+    
+    var body: some View {
+        VStack {
+            Spacer()
+            
+            VStack(spacing: 12) {
+                if ttsManager.isPlaying, ttsManager.paragraphs.count > 0 {
+                    Text("Đang đọc đoạn \(ttsManager.currentParagraphIndex + 1)/\(ttsManager.paragraphs.count)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                
+                HStack(spacing: 30) {
+                    Button(action: {
+                        ttsManager.skipBackward()
+                    }) {
+                        Image(systemName: "backward.fill")
+                            .font(.title2)
+                            .foregroundColor(.primary)
+                    }
+                    .disabled(!ttsManager.isPlaying || ttsManager.currentParagraphIndex <= 0)
+                    
+                    Button(action: {
+                        if ttsManager.isPlaying {
+                            ttsManager.pause()
+                        } else {
+                            ttsManager.resume()
+                        }
+                    }) {
+                        Image(systemName: ttsManager.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(.white)
+                            .padding(14)
+                            .background(Color.blue)
+                            .clipShape(Circle())
+                    }
+                    
+                    Button(action: {
+                        ttsManager.skipForward()
+                    }) {
+                        Image(systemName: "forward.fill")
+                            .font(.title2)
+                            .foregroundColor(.primary)
+                    }
+                    .disabled(!ttsManager.isPlaying)
+                    
+                    Button(action: {
+                        ttsManager.stop()
+                        showingTTSPanel = false
+                    }) {
+                        Image(systemName: "stop.fill")
+                            .font(.title3)
+                            .foregroundColor(.red)
+                    }
+                    
+                    Button(action: {
+                        showingTTSSettings = true
+                    }) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.title3)
+                            .foregroundColor(.blue)
+                    }
+                }
+            }
+            .padding(.vertical, 16)
+            .padding(.horizontal, 24)
+            .background(Color(uiColor: .secondarySystemBackground))
+            .cornerRadius(20)
+            .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
+            .padding(.bottom, 20)
+            .padding(.horizontal)
+        }
+    }
+}
+
+// MARK: - TTS Settings Sheet View
+
+struct TTSSettingsSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @ObservedObject var ttsManager = TTSManager.shared
+    @State private var availableVoices: [Voice] = []
+    @State private var systemVoices: [AVSpeechSynthesisVoice] = []
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Công cụ đọc") {
+                    Picker("Trình đọc", selection: $ttsManager.tool) {
+                        Text("Hệ thống (Apple)").tag("system")
+                        Text("NghiTTS (Piper Offline)").tag("nghitts")
+                    }
+                    .pickerStyle(.segmented)
+                }
+                
+                Section("Giọng đọc") {
+                    if ttsManager.tool == "system" {
+                        Picker("Giọng đọc hệ thống", selection: $ttsManager.selectedVoice) {
+                            ForEach(systemVoices, id: \.identifier) { voice in
+                                Text("\(voice.name) (\(voice.quality == .premium ? "Premium" : "Default"))")
+                                    .tag(voice.identifier)
+                            }
+                        }
+                    } else {
+                        List(availableVoices) { voice in
+                            let isDownloaded = isModelDownloaded(voice)
+                            let progress = ttsManager.downloadingVoices[voice.name]
+                            let msg = ttsManager.downloadingMessages[voice.name]
+                            
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(voice.name)
+                                        .fontWeight(ttsManager.selectedVoice == voice.name ? .bold : .regular)
+                                    if let p = progress {
+                                        ProgressView(value: p)
+                                        Text(msg ?? "Đang tải...")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                
+                                if progress != nil {
+                                    ProgressView()
+                                } else if isDownloaded {
+                                    HStack(spacing: 8) {
+                                        if ttsManager.selectedVoice == voice.name {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundColor(.green)
+                                        } else {
+                                            Button("Chọn") {
+                                                ttsManager.selectedVoice = voice.name
+                                            }
+                                            .buttonStyle(.bordered)
+                                        }
+                                        
+                                        Button(role: .destructive) {
+                                            deleteModel(voice)
+                                        } label: {
+                                            Image(systemName: "trash")
+                                                .foregroundColor(.red)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                } else {
+                                    Button(action: {
+                                        Task {
+                                            await ttsManager.downloadNghiTTSModel(voice: voice)
+                                        }
+                                    }) {
+                                        Image(systemName: "icloud.and.arrow.down")
+                                            .foregroundColor(.blue)
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .frame(minHeight: 180)
+                    }
+                }
+                
+                Section("Cấu hình giọng nói") {
+                    VStack(alignment: .leading) {
+                         HStack {
+                             Text("Tốc độ:")
+                             Spacer()
+                             Text(String(format: "%.1fx", ttsManager.speed))
+                                 .font(.system(.body, design: .monospaced))
+                         }
+                         Slider(value: $ttsManager.speed, in: 0.5...5.0, step: 0.1)
+                    }
+                    
+                    VStack(alignment: .leading) {
+                         HStack {
+                             Text("Cao độ (Pitch):")
+                             Spacer()
+                             Text(String(format: "%.1fx", ttsManager.pitch))
+                                 .font(.system(.body, design: .monospaced))
+                         }
+                         Slider(value: $ttsManager.pitch, in: 0.5...2.0, step: 0.1)
+                             .disabled(ttsManager.tool == "nghitts")
+                         if ttsManager.tool == "nghitts" {
+                             Text("(*) NghiTTS không hỗ trợ chỉnh cao độ thời gian thực")
+                                 .font(.caption2)
+                                 .foregroundColor(.secondary)
+                         }
+                    }
+                    
+                    Picker("Độ dài phân đoạn", selection: $ttsManager.chunkLength) {
+                        Text("250 ký tự").tag(250)
+                        Text("500 ký tự").tag(500)
+                        Text("1000 ký tự (Mặc định)").tag(1000)
+                    }
+                }
+            }
+            .navigationTitle("Cài đặt TTS")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Xong") { dismiss() }
+                }
+            }
+            .task {
+                self.systemVoices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("vi") }
+                
+                if ttsManager.tool == "system" && ttsManager.selectedVoice.isEmpty {
+                    ttsManager.selectedVoice = systemVoices.first?.identifier ?? ""
+                }
+                
+                self.availableVoices = await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false) ?? NghiTTSClient.fallbackVietnameseVoices
+            }
+        }
+    }
+    
+    private func isModelDownloaded(_ voice: Voice) -> Bool {
+        return (try? ModelStore().modelExists(for: voice.id)) ?? false
+    }
+    
+    private func deleteModel(_ voice: Voice) {
+        try? ModelStore().deleteModel(for: voice.id)
+        if ttsManager.selectedVoice == voice.name {
+            ttsManager.selectedVoice = ""
+        }
+        Task {
+            self.availableVoices = await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false) ?? NghiTTSClient.fallbackVietnameseVoices
+        }
+    }
 }

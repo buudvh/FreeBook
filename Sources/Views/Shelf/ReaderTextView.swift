@@ -5,7 +5,11 @@ struct ReaderTextView: UIViewRepresentable {
     let text: String
     let fontSize: Double
     let theme: ReaderTheme
+    let highlightRange: NSRange?
+    @Binding var triggerGetVisibleIndex: UUID?
+    let onGetVisibleIndex: (Int) -> Void
     let onSelectionChange: (String, String, Int, Int) -> Void
+    let onSpeakFromHere: (Int) -> Void
 
     func sizeThatFits(
         _ proposal: ProposedViewSize,
@@ -38,7 +42,6 @@ struct ReaderTextView: UIViewRepresentable {
         textView.textContainerInset = .zero
         textView.textContainer.lineFragmentPadding = 0
         
-        // Sửa lỗi hiển thị chữ tràn/vỡ dòng
         textView.textContainer.widthTracksTextView = true
         textView.textContainer.lineBreakMode = .byWordWrapping
         textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -46,19 +49,67 @@ struct ReaderTextView: UIViewRepresentable {
         
         // Đăng ký custom menu item cho iOS 15 trở xuống
         let menuItem = UIMenuItem(title: "Dịch", action: #selector(ReaderUITextView.customDefineAction))
-        UIMenuController.shared.menuItems = [menuItem]
+        let ttsItem = UIMenuItem(title: "Đọc từ đây", action: #selector(ReaderUITextView.customSpeakAction))
+        UIMenuController.shared.menuItems = [menuItem, ttsItem]
         
         return textView
     }
     
     func updateUIView(_ uiView: UITextView, context: Context) {
-        if uiView.text != text {
-            uiView.text = text
+        let nsText = text as NSString
+        let fullRange = NSRange(location: 0, length: nsText.length)
+        
+        let attributedText = NSMutableAttributedString(string: text)
+        attributedText.addAttribute(.font, value: UIFont.systemFont(ofSize: CGFloat(fontSize)), range: fullRange)
+        attributedText.addAttribute(.foregroundColor, value: UIColor(theme.textColor), range: fullRange)
+        
+        // Tô màu nền cho đoạn văn đang đọc (Highlight)
+        if let highlight = highlightRange, highlight.location != NSNotFound && highlight.location + highlight.length <= nsText.length {
+            let highlightBgColor = theme == .dark
+                ? UIColor.yellow.withAlphaComponent(0.18)
+                : UIColor.yellow.withAlphaComponent(0.28)
+            attributedText.addAttribute(.backgroundColor, value: highlightBgColor, range: highlight)
+            
+            // Tự động cuộn màn hình (Auto-scroll) để đưa đoạn highlight vào khung hình
+            DispatchQueue.main.async {
+                if let scrollView = uiView.parentScrollView {
+                    uiView.layoutManager.ensureLayout(for: uiView.textContainer)
+                    let start = uiView.position(from: uiView.beginningOfDocument, offset: highlight.location) ?? uiView.beginningOfDocument
+                    let end = uiView.position(from: start, offset: highlight.length) ?? start
+                    if let textRange = uiView.textRange(from: start, to: end) {
+                        let rect = uiView.firstRect(from: textRange)
+                        let rectInScrollView = uiView.convert(rect, to: scrollView)
+                        
+                        let visibleHeight = scrollView.bounds.height
+                        // Chỉ cuộn nếu nằm ngoài vùng nhìn thấy hiện tại
+                        if rectInScrollView.minY < scrollView.contentOffset.y || rectInScrollView.maxY > scrollView.contentOffset.y + visibleHeight {
+                            let targetY = max(0, rectInScrollView.minY - 100) // Lùi lên 100px
+                            scrollView.setContentOffset(CGPoint(x: 0, y: targetY), animated: true)
+                        }
+                    }
+                }
+            }
         }
-
-        uiView.font = UIFont.systemFont(ofSize: CGFloat(fontSize))
-        uiView.textColor = UIColor(theme.textColor)
-
+        
+        uiView.attributedText = attributedText
+        
+        // Xử lý trigger lấy index ký tự hiển thị đầu tiên
+        if context.coordinator.lastTriggeredId != triggerGetVisibleIndex {
+            context.coordinator.lastTriggeredId = triggerGetVisibleIndex
+            if triggerGetVisibleIndex != nil {
+                DispatchQueue.main.async {
+                    if let scrollView = uiView.parentScrollView {
+                        let point = CGPoint(x: 0, y: scrollView.contentOffset.y)
+                        let pointInTextView = scrollView.convert(point, to: uiView)
+                        let charIndex = uiView.layoutManager.characterIndex(for: pointInTextView, in: uiView.textContainer, fractionOfDistanceBetweenInsertionPoints: nil)
+                        onGetVisibleIndex(charIndex)
+                    } else {
+                        onGetVisibleIndex(0)
+                    }
+                }
+            }
+        }
+        
         uiView.invalidateIntrinsicContentSize()
     }
     
@@ -69,13 +120,14 @@ struct ReaderTextView: UIViewRepresentable {
     class Coordinator: NSObject, UITextViewDelegate {
         var parent: ReaderTextView
         weak var parentTextView: UITextView?
+        var lastTriggeredId: UUID?
         
         init(_ parent: ReaderTextView) {
             self.parent = parent
         }
         
         func textViewDidChangeSelection(_ textView: UITextView) {
-            // Không làm gì ở đây để tránh tự động nhảy sheet dịch lập tức khi mới bôi đen
+            // Không làm gì để tránh sheet dịch tự mở lập tức khi bôi đen
         }
         
         // Cấu hình Edit Menu cho iOS 16+
@@ -86,8 +138,14 @@ struct ReaderTextView: UIViewRepresentable {
                     self?.triggerCustomDefine(text: selectedText)
                 }
             }
+            
+            let ttsAction = UIAction(title: "Đọc từ đây") { [weak self] _ in
+                self?.parent.onSpeakFromHere(range.location)
+            }
+            
             var actions = suggestedActions
             actions.insert(customAction, at: 0)
+            actions.insert(ttsAction, at: 1)
             return UIMenu(children: actions)
         }
         
@@ -131,8 +189,13 @@ struct ReaderTextView: UIViewRepresentable {
 
 class ReaderUITextView: UITextView {
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        if action == #selector(customDefineAction) {
+        if action == #selector(customDefineAction) || action == #selector(customSpeakAction) {
             return true
+        }
+        // Chặn tính năng Tra cứu của Apple trên iOS 15 trở xuống
+        let actionString = action.description
+        if actionString == "_define:" || actionString == "_lookup:" {
+            return false
         }
         return super.canPerformAction(action, withSender: sender)
     }
@@ -142,6 +205,14 @@ class ReaderUITextView: UITextView {
            let text = self.text(in: range),
            let delegate = self.delegate as? ReaderTextView.Coordinator {
             delegate.triggerCustomDefine(text: text)
+        }
+    }
+    
+    @objc func customSpeakAction() {
+        if let range = self.selectedTextRange,
+           let delegate = self.delegate as? ReaderTextView.Coordinator {
+            let nsRange = self.selectedRange
+            delegate.parent.onSpeakFromHere(nsRange.location)
         }
     }
 }
@@ -159,5 +230,20 @@ class AutoSizingTextView: ReaderUITextView {
             width: UIView.noIntrinsicMetric,
             height: contentSize.height
         )
+    }
+}
+
+// MARK: - Helpers
+
+extension UIView {
+    var parentScrollView: UIScrollView? {
+        var current = self.superview
+        while current != nil {
+            if let scrollView = current as? UIScrollView {
+                return scrollView
+            }
+            current = current?.superview
+        }
+        return nil
     }
 }
