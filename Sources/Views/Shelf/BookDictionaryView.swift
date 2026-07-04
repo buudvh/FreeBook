@@ -120,6 +120,7 @@ struct BookDictionaryView: View {
             }
             .listStyle(.plain)
         }
+        .background(Color(uiColor: .systemBackground).onTapGesture { hideKeyboard() })
         .navigationTitle("Từ Điển Truyện")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -151,40 +152,39 @@ struct BookDictionaryView: View {
         .onAppear {
             loadEntries()
         }
-        .fileImporter(
-            isPresented: $showingFileImporter,
-            allowedContentTypes: [.plainText],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                guard let selectedUrl = urls.first else { return }
-                let accessing = selectedUrl.startAccessingSecurityScopedResource()
-                defer {
-                    if accessing {
-                        selectedUrl.stopAccessingSecurityScopedResource()
+        .background(
+            DocumentPickerPresenter(
+                isPresented: $showingFileImporter,
+                allowedContentTypes: [.plainText],
+                allowsMultipleSelection: false,
+                onPick: { urls in
+                    guard let selectedUrl = urls.first else { return }
+                    let accessing = selectedUrl.startAccessingSecurityScopedResource()
+                    defer {
+                        if accessing {
+                            selectedUrl.stopAccessingSecurityScopedResource()
+                        }
                     }
-                }
-                Task {
-                    do {
-                        let content = try String(contentsOf: selectedUrl, encoding: .utf8)
-                        let fileName = (importType == "names") ? "Names.txt" : "VietPhrase.txt"
-                        let bookDir = TranslationManager.shared.translateDirectory.appendingPathComponent("books").appendingPathComponent(bookId)
-                        try FileManager.default.createDirectory(at: bookDir, withIntermediateDirectories: true)
-                        let fileUrl = bookDir.appendingPathComponent(fileName)
-                        try content.write(to: fileUrl, atomically: true, encoding: .utf8)
-                        
-                        TranslateUtils.clearCache()
-                        TranslationManager.shared.clearBookDictCache(for: bookId)
-                        loadEntries()
-                    } catch {
-                        AppLogger.shared.log("❌ Lỗi import từ điển truyện: \(error.localizedDescription)")
+                    Task {
+                        do {
+                            let content = try String(contentsOf: selectedUrl, encoding: .utf8)
+                            let fileName = (importType == "names") ? "Names.txt" : "VietPhrase.txt"
+                            let bookDir = TranslationManager.shared.translateDirectory.appendingPathComponent("books").appendingPathComponent(bookId)
+                            try FileManager.default.createDirectory(at: bookDir, withIntermediateDirectories: true)
+                            let fileUrl = bookDir.appendingPathComponent(fileName)
+                            try content.write(to: fileUrl, atomically: true, encoding: .utf8)
+                            
+                            TranslateUtils.clearCache()
+                            TranslationManager.shared.clearBookDictCache(for: bookId)
+                            loadEntries()
+                        } catch {
+                            AppLogger.shared.log("❌ Lỗi import từ điển truyện: \(error.localizedDescription)")
+                        }
                     }
-                }
-            case .failure(let error):
-                AppLogger.shared.log("❌ Lỗi chọn file: \(error.localizedDescription)")
-            }
-        }
+                },
+                onCancel: nil
+            )
+        )
     }
     
     private func loadEntries() {

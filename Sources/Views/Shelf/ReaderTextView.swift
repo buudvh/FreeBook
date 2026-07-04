@@ -5,7 +5,7 @@ struct ReaderTextView: UIViewRepresentable {
     let text: String
     let fontSize: Double
     let theme: ReaderTheme
-    let onSelectionChange: (String) -> Void
+    let onSelectionChange: (String, String, Int) -> Void
     
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
@@ -44,7 +44,37 @@ struct ReaderTextView: UIViewRepresentable {
                   !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 return
             }
-            parent.onSelectionChange(selectedText)
+            
+            let fullText = textView.text ?? ""
+            let nsRange = textView.selectedRange
+            let fullNSString = fullText as NSString
+            
+            // Quét ngược tìm đầu câu
+            var startLoc = nsRange.location
+            while startLoc > 0 {
+                let char = fullNSString.substring(with: NSRange(location: startLoc - 1, length: 1))
+                if char == "。" || char == "！" || char == "？" || char == "\n" || char == "\r" || char == "." || char == "!" || char == "?" {
+                    break
+                }
+                startLoc -= 1
+            }
+            
+            // Quét xuôi tìm cuối câu
+            var endLoc = nsRange.location + nsRange.length
+            let totalLen = fullNSString.length
+            while endLoc < totalLen {
+                let char = fullNSString.substring(with: NSRange(location: endLoc, length: 1))
+                if char == "。" || char == "！" || char == "？" || char == "\n" || char == "\r" || char == "." || char == "!" || char == "?" {
+                    break
+                }
+                endLoc += 1
+            }
+            
+            let sentenceRange = NSRange(location: startLoc, length: endLoc - startLoc)
+            let surroundingSentence = fullNSString.substring(with: sentenceRange).trimmingCharacters(in: .whitespacesAndNewlines)
+            let offsetInSentence = max(0, nsRange.location - startLoc)
+            
+            parent.onSelectionChange(selectedText, surroundingSentence, offsetInSentence)
         }
     }
 }

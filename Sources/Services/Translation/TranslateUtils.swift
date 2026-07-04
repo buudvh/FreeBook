@@ -210,6 +210,8 @@ public final class TranslateUtils {
         
         var translatedWords: [String] = []
         let names = TranslationManager.shared.namesDict
+        let pronouns = TranslationManager.shared.pronounsDict
+        let luatNhan = TranslationManager.shared.luatNhanDict
         let vp = TranslationManager.shared.vietPhraseDict
         let phienAm = TranslationManager.shared.phienAmMap
         
@@ -242,6 +244,20 @@ public final class TranslateUtils {
             }
             
             if translation == nil,
+               let pronouns = pronouns,
+               let match = pronouns.findLongestMatch(text: token, startIndex: 0),
+               match.length == token.count {
+                translation = match.value
+            }
+            
+            if translation == nil,
+               let luatNhan = luatNhan,
+               let match = luatNhan.findLongestMatch(text: token, startIndex: 0),
+               match.length == token.count {
+                translation = match.value
+            }
+            
+            if translation == nil,
                let bookVP = bookVP,
                let match = bookVP.findLongestMatch(text: token, startIndex: 0),
                match.length == token.count {
@@ -256,8 +272,9 @@ public final class TranslateUtils {
             }
             
             if let found = translation {
-                if found.contains("/") {
-                    translatedWords.append(found.components(separatedBy: "/")[0])
+                let cleanFound = found.replacingOccurrences(of: "¦", with: "/")
+                if cleanFound.contains("/") {
+                    translatedWords.append(cleanFound.components(separatedBy: "/")[0])
                 } else {
                     translatedWords.append(found)
                 }
@@ -290,6 +307,8 @@ public final class TranslateUtils {
         var currentIndex = 0
         
         let names = TranslationManager.shared.namesDict
+        let pronouns = TranslationManager.shared.pronounsDict
+        let luatNhan = TranslationManager.shared.luatNhanDict
         let vp = TranslationManager.shared.vietPhraseDict
         
         var bookVP: TrieDictionary? = nil
@@ -313,6 +332,20 @@ public final class TranslateUtils {
             
             if let names = names,
                let match = names.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
+                }
+            }
+            
+            if let pronouns = pronouns,
+               let match = pronouns.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
+                }
+            }
+            
+            if let luatNhan = luatNhan,
+               let match = luatNhan.findLongestMatch(text: checkText, startIndex: 0) {
                 if match.length > longestMatchLen {
                     longestMatchLen = match.length
                 }

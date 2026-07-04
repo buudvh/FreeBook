@@ -6,12 +6,16 @@ public final class TranslationManager: ObservableObject {
     @Published public var isVietPhraseLoaded = false
     @Published public var isPhienAmLoaded = false
     @Published public var isNamesLoaded = false
+    @Published public var isPronounsLoaded = false
+    @Published public var isLuatNhanLoaded = false
     @Published public var isDownloading = false
     @Published public var downloadProgress: Double = 0.0
     @Published public var downloadMessage = ""
     
     public private(set) var vietPhraseDict: TrieDictionary?
     public private(set) var namesDict: TrieDictionary?
+    public private(set) var pronounsDict: TrieDictionary?
+    public private(set) var luatNhanDict: TrieDictionary?
     public private(set) var phienAmMap: [String: String] = [:]
     
     private var bookDicts: [String: (vietPhrase: TrieDictionary?, names: TrieDictionary?)] = [:]
@@ -36,9 +40,7 @@ public final class TranslationManager: ObservableObject {
         }
         
         let bookDir = translateDirectory.appendingPathComponent("books").appendingPathComponent(bookId)
-        let vpDatUrl = bookDir.appendingPathComponent("VietPhrase.dat")
         let vpTxtUrl = bookDir.appendingPathComponent("VietPhrase.txt")
-        let namesDatUrl = bookDir.appendingPathComponent("Names.dat")
         let namesTxtUrl = bookDir.appendingPathComponent("Names.txt")
         
         try? FileManager.default.createDirectory(at: bookDir, withIntermediateDirectories: true)
@@ -46,23 +48,13 @@ public final class TranslationManager: ObservableObject {
         var vp: TrieDictionary?
         var names: TrieDictionary?
         
-        if FileManager.default.fileExists(atPath: vpDatUrl.path) {
-            let dat = DoubleArrayTrie()
-            try? dat.load(from: vpDatUrl)
-            if dat.isLoaded { vp = dat }
-        }
-        if vp == nil && FileManager.default.fileExists(atPath: vpTxtUrl.path) {
+        if FileManager.default.fileExists(atPath: vpTxtUrl.path) {
             let txt = TextDictionary()
             try? txt.load(from: vpTxtUrl)
             if txt.isLoaded { vp = txt }
         }
         
-        if FileManager.default.fileExists(atPath: namesDatUrl.path) {
-            let dat = DoubleArrayTrie()
-            try? dat.load(from: namesDatUrl)
-            if dat.isLoaded { names = dat }
-        }
-        if names == nil && FileManager.default.fileExists(atPath: namesTxtUrl.path) {
+        if FileManager.default.fileExists(atPath: namesTxtUrl.path) {
             let txt = TextDictionary()
             try? txt.load(from: namesTxtUrl)
             if txt.isLoaded { names = txt }
@@ -128,8 +120,7 @@ public final class TranslationManager: ObservableObject {
     }
     
     public func isDownloaded() -> Bool {
-        let vpExists = FileManager.default.fileExists(atPath: translateDirectory.appendingPathComponent("VietPhrase.dat").path) ||
-                       FileManager.default.fileExists(atPath: translateDirectory.appendingPathComponent("VietPhrase.txt").path)
+        let vpExists = FileManager.default.fileExists(atPath: translateDirectory.appendingPathComponent("VietPhrase.txt").path)
         let paExists = FileManager.default.fileExists(atPath: translateDirectory.appendingPathComponent("ChinesePhienAmWords.txt").path)
         return vpExists && paExists
     }
@@ -138,20 +129,9 @@ public final class TranslationManager: ObservableObject {
         AppLogger.shared.log("📚 Loading translation dictionaries...")
         
         // 1. Load Names (Optional)
-        let namesDatUrl = translateDirectory.appendingPathComponent("Names.dat")
         let namesTxtUrl = translateDirectory.appendingPathComponent("Names.txt")
-        
         var tempNames: TrieDictionary? = nil
-        if FileManager.default.fileExists(atPath: namesDatUrl.path) {
-            let dat = DoubleArrayTrie()
-            try? dat.load(from: namesDatUrl)
-            if dat.isLoaded {
-                tempNames = dat
-                AppLogger.shared.log("📚 Names dictionary loaded (.dat)")
-            }
-        }
-        
-        if tempNames == nil && FileManager.default.fileExists(atPath: namesTxtUrl.path) {
+        if FileManager.default.fileExists(atPath: namesTxtUrl.path) {
             let txt = TextDictionary()
             try? txt.load(from: namesTxtUrl)
             if txt.isLoaded {
@@ -159,7 +139,6 @@ public final class TranslationManager: ObservableObject {
                 AppLogger.shared.log("📚 Names dictionary loaded (.txt)")
             }
         }
-        
         self.namesDict = tempNames
         let namesLoaded = tempNames != nil
         await MainActor.run { self.isNamesLoaded = namesLoaded }
@@ -168,24 +147,9 @@ public final class TranslationManager: ObservableObject {
         }
         
         // 2. Load VietPhrase (Required)
-        let vpDatUrl = translateDirectory.appendingPathComponent("VietPhrase.dat")
         let vpTxtUrl = translateDirectory.appendingPathComponent("VietPhrase.txt")
         var tempVP: TrieDictionary? = nil
-        
-        if FileManager.default.fileExists(atPath: vpDatUrl.path) {
-            let dat = DoubleArrayTrie()
-            do {
-                try dat.load(from: vpDatUrl)
-                if dat.isLoaded {
-                    tempVP = dat
-                    AppLogger.shared.log("📚 VietPhrase dictionary loaded (.dat)")
-                }
-            } catch {
-                AppLogger.shared.log("❌ Failed to load VietPhrase.dat: \(error.localizedDescription)")
-            }
-        }
-        
-        if tempVP == nil && FileManager.default.fileExists(atPath: vpTxtUrl.path) {
+        if FileManager.default.fileExists(atPath: vpTxtUrl.path) {
             let txt = TextDictionary()
             do {
                 try txt.load(from: vpTxtUrl)
@@ -197,16 +161,44 @@ public final class TranslationManager: ObservableObject {
                 AppLogger.shared.log("❌ Failed to load VietPhrase.txt: \(error.localizedDescription)")
             }
         }
-        
         self.vietPhraseDict = tempVP
         let vpLoaded = tempVP != nil
         await MainActor.run { self.isVietPhraseLoaded = vpLoaded }
         
-        // 3. Load PhienAm (Required)
+        // 3. Load Pronouns (Optional)
+        let pronounsTxtUrl = translateDirectory.appendingPathComponent("Pronouns.txt")
+        var tempPronouns: TrieDictionary? = nil
+        if FileManager.default.fileExists(atPath: pronounsTxtUrl.path) {
+            let txt = TextDictionary()
+            try? txt.load(from: pronounsTxtUrl)
+            if txt.isLoaded {
+                tempPronouns = txt
+                AppLogger.shared.log("📚 Pronouns dictionary loaded (.txt)")
+            }
+        }
+        self.pronounsDict = tempPronouns
+        let pronounsLoaded = tempPronouns != nil
+        await MainActor.run { self.isPronounsLoaded = pronounsLoaded }
+        
+        // 4. Load LuatNhan (Optional)
+        let luatNhanTxtUrl = translateDirectory.appendingPathComponent("LuatNhan.txt")
+        var tempLuatNhan: TrieDictionary? = nil
+        if FileManager.default.fileExists(atPath: luatNhanTxtUrl.path) {
+            let txt = TextDictionary()
+            try? txt.load(from: luatNhanTxtUrl)
+            if txt.isLoaded {
+                tempLuatNhan = txt
+                AppLogger.shared.log("📚 LuatNhan dictionary loaded (.txt)")
+            }
+        }
+        self.luatNhanDict = tempLuatNhan
+        let luatNhanLoaded = tempLuatNhan != nil
+        await MainActor.run { self.isLuatNhanLoaded = luatNhanLoaded }
+        
+        // 5. Load PhienAm (Required)
         let paTxtUrl = translateDirectory.appendingPathComponent("ChinesePhienAmWords.txt")
         var tempPA: [String: String] = [:]
         var paLoaded = false
-        
         if FileManager.default.fileExists(atPath: paTxtUrl.path) {
             do {
                 tempPA = try loadPhoneticMap(from: paTxtUrl)
@@ -216,7 +208,6 @@ public final class TranslationManager: ObservableObject {
                 AppLogger.shared.log("❌ Failed to load ChinesePhienAmWords.txt: \(error.localizedDescription)")
             }
         }
-        
         self.phienAmMap = tempPA
         await MainActor.run { self.isPhienAmLoaded = paLoaded }
     }
@@ -244,14 +235,19 @@ public final class TranslationManager: ObservableObject {
     public func importDictionary(from url: URL, type: String) async throws {
         let destName: String
         if type == "vietphrase" {
-            destName = url.pathExtension == "dat" ? "VietPhrase.dat" : "VietPhrase.txt"
+            destName = "VietPhrase.txt"
         } else if type == "names" {
-            destName = url.pathExtension == "dat" ? "Names.dat" : "Names.txt"
+            destName = "Names.txt"
+        } else if type == "pronouns" {
+            destName = "Pronouns.txt"
+        } else if type == "luatnhan" {
+            destName = "LuatNhan.txt"
         } else {
             destName = "ChinesePhienAmWords.txt"
         }
         
         let destUrl = translateDirectory.appendingPathComponent(destName)
+        AppLogger.shared.log("📚 Importing dictionary to \(destUrl.path) from \(url.path)")
         
         if FileManager.default.fileExists(atPath: destUrl.path) {
             try? FileManager.default.removeItem(at: destUrl)
@@ -263,15 +259,21 @@ public final class TranslationManager: ObservableObject {
     
     public func deleteDictionary(type: String) async {
         if type == "vietphrase" {
-            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("VietPhrase.dat"))
             try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("VietPhrase.txt"))
             self.vietPhraseDict = nil
             await MainActor.run { self.isVietPhraseLoaded = false }
         } else if type == "names" {
-            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("Names.dat"))
             try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("Names.txt"))
             self.namesDict = nil
             await MainActor.run { self.isNamesLoaded = false }
+        } else if type == "pronouns" {
+            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("Pronouns.txt"))
+            self.pronounsDict = nil
+            await MainActor.run { self.isPronounsLoaded = false }
+        } else if type == "luatnhan" {
+            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("LuatNhan.txt"))
+            self.luatNhanDict = nil
+            await MainActor.run { self.isLuatNhanLoaded = false }
         } else if type == "phienam" {
             try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("ChinesePhienAmWords.txt"))
             self.phienAmMap = [:]
@@ -280,6 +282,7 @@ public final class TranslationManager: ObservableObject {
     }
     
     public func downloadDefaultDictionaries() async {
+        AppLogger.shared.log("📚 Starting download of default dictionaries from Hugging Face...")
         await MainActor.run {
             self.isDownloading = true
             self.downloadProgress = 0.0
@@ -287,9 +290,10 @@ public final class TranslationManager: ObservableObject {
         }
         
         let files = [
-            (name: "ChinesePhienAmWords.txt", required: true),
-            (name: "Names.dat", required: false),
-            (name: "VietPhrase.dat", required: true)
+            (name: "vietpharse.txt", localName: "VietPhrase.txt", required: true),
+            (name: "phienam.txt", localName: "ChinesePhienAmWords.txt", required: true),
+            (name: "pronouns.txt", localName: "Pronouns.txt", required: false),
+            (name: "luatnhan.txt", localName: "LuatNhan.txt", required: false)
         ]
         
         var successCount = 0
@@ -304,14 +308,25 @@ public final class TranslationManager: ObservableObject {
             }
             
             do {
-                let (tempUrl, _) = try await URLSession.shared.download(from: url)
-                let destUrl = translateDirectory.appendingPathComponent(file.name)
+                AppLogger.shared.log("📚 Fetching \(urlString) ...")
+                let (tempUrl, response) = try await URLSession.shared.download(from: url)
+                
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw NSError(domain: "DownloadError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid HTTP Response"])
+                }
+                
+                guard httpResponse.statusCode == 200 else {
+                    throw NSError(domain: "DownloadError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Server returned status code \(httpResponse.statusCode)"])
+                }
+                
+                let destUrl = translateDirectory.appendingPathComponent(file.localName)
                 
                 if FileManager.default.fileExists(atPath: destUrl.path) {
                     try? FileManager.default.removeItem(at: destUrl)
                 }
                 try FileManager.default.moveItem(at: tempUrl, to: destUrl)
                 successCount += 1
+                AppLogger.shared.log("📚 Downloaded and saved \(file.name) to \(file.localName) successfully.")
             } catch {
                 AppLogger.shared.log("❌ Download error for \(file.name): \(error.localizedDescription)")
                 if file.required {
@@ -330,6 +345,44 @@ public final class TranslationManager: ObservableObject {
             self.isDownloading = false
         }
         
-        try? await loadAllDictionaries()
+        do {
+            try await loadAllDictionaries()
+            AppLogger.shared.log("📚 All dictionaries reloaded after download.")
+        } catch {
+            AppLogger.shared.log("❌ Failed to reload dictionaries: \(error.localizedDescription)")
+        }
+    }
+    
+    public func getWordCount(for type: String) -> Int? {
+        let fileName: String
+        if type == "vietphrase" {
+            fileName = "VietPhrase.txt"
+        } else if type == "names" {
+            fileName = "Names.txt"
+        } else if type == "pronouns" {
+            fileName = "Pronouns.txt"
+        } else if type == "luatnhan" {
+            fileName = "LuatNhan.txt"
+        } else if type == "phienam" {
+            fileName = "ChinesePhienAmWords.txt"
+        } else {
+            return nil
+        }
+        
+        let txtUrl = translateDirectory.appendingPathComponent(fileName)
+        
+        guard FileManager.default.fileExists(atPath: txtUrl.path) else {
+            return nil
+        }
+        
+        do {
+            let content = try String(contentsOf: txtUrl, encoding: .utf8)
+            let lines = content.components(separatedBy: .newlines)
+            let count = lines.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !$0.hasPrefix("#") }.count
+            return count
+        } catch {
+            return nil
+        }
     }
 }
+

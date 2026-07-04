@@ -48,16 +48,35 @@ struct SettingsView: View {
                     }
                     
                     if isTranslationEnabled {
-                        HStack {
-                            Text("Trạng thái từ điển")
-                            Spacer()
-                            if translationManager.isVietPhraseLoaded {
-                                Text("Đã sẵn sàng")
-                                    .foregroundColor(.green)
-                            } else {
-                                Text("Chưa có từ điển")
-                                    .foregroundColor(.red)
+                        Section(header: Text("Từ điển chung")) {
+                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                                DictionaryCard(
+                                    title: "VietPhrase.txt",
+                                    statusText: getStatusText(for: "vietphrase"),
+                                    isSet: translationManager.isVietPhraseLoaded
+                                )
+                                DictionaryCard(
+                                    title: "Name.txt",
+                                    statusText: getStatusText(for: "names"),
+                                    isSet: translationManager.isNamesLoaded
+                                )
+                                DictionaryCard(
+                                    title: "PhienAm.txt",
+                                    statusText: getStatusText(for: "phienam"),
+                                    isSet: translationManager.isPhienAmLoaded
+                                )
+                                DictionaryCard(
+                                    title: "Pronouns.txt",
+                                    statusText: getStatusText(for: "pronouns"),
+                                    isSet: translationManager.isPronounsLoaded
+                                )
+                                DictionaryCard(
+                                    title: "LuatNhan.txt",
+                                    statusText: getStatusText(for: "luatnhan"),
+                                    isSet: translationManager.isLuatNhanLoaded
+                                )
                             }
+                            .padding(.vertical, 4)
                         }
                         
                         if translationManager.isDownloading {
@@ -76,12 +95,20 @@ struct SettingsView: View {
                             }
                             
                             Menu {
-                                Button("Nhập VietPhrase (.dat/.txt)") {
+                                Button("Nhập VietPhrase (.txt)") {
                                     importType = "vietphrase"
                                     showingFileImporter = true
                                 }
-                                Button("Nhập Names (.dat/.txt)") {
+                                Button("Nhập Names (.txt)") {
                                     importType = "names"
+                                    showingFileImporter = true
+                                }
+                                Button("Nhập Từ Xưng Hô (Pronouns.txt)") {
+                                    importType = "pronouns"
+                                    showingFileImporter = true
+                                }
+                                Button("Nhập Luật Nhân (LuatNhan.txt)") {
+                                    importType = "luatnhan"
                                     showingFileImporter = true
                                 }
                                 Button("Nhập Phiên Âm (ChinesePhienAmWords.txt)") {
@@ -97,6 +124,10 @@ struct SettingsView: View {
                             TranslateUtils.clearCache()
                         }) {
                             Label("Xóa cache dịch thuật", systemImage: "trash")
+                        }
+                        
+                        NavigationLink(destination: SearchEnginesConfigView()) {
+                            Label("Cấu hình công cụ tra cứu", systemImage: "magnifyingglass")
                         }
                     }
                 }
@@ -166,31 +197,30 @@ struct SettingsView: View {
             } message: {
                 Text("Bạn có chắc chắn muốn xóa file app_logs.txt không? Thao tác này không thể hoàn tác.")
             }
-            .fileImporter(
-                isPresented: $showingFileImporter,
-                allowedContentTypes: [.data, .plainText],
-                allowsMultipleSelection: false
-            ) { result in
-                switch result {
-                case .success(let urls):
-                    guard let selectedUrl = urls.first else { return }
-                    let accessing = selectedUrl.startAccessingSecurityScopedResource()
-                    defer {
-                        if accessing {
-                            selectedUrl.stopAccessingSecurityScopedResource()
+            .background(
+                DocumentPickerPresenter(
+                    isPresented: $showingFileImporter,
+                    allowedContentTypes: [.plainText, .text],
+                    allowsMultipleSelection: false,
+                    onPick: { urls in
+                        guard let selectedUrl = urls.first else { return }
+                        let accessing = selectedUrl.startAccessingSecurityScopedResource()
+                        defer {
+                            if accessing {
+                                selectedUrl.stopAccessingSecurityScopedResource()
+                            }
                         }
-                    }
-                    Task {
-                        do {
-                            try await translationManager.importDictionary(from: selectedUrl, type: importType)
-                        } catch {
-                            AppLogger.shared.log("❌ Lỗi import từ điển: \(error.localizedDescription)")
+                        Task {
+                            do {
+                                try await translationManager.importDictionary(from: selectedUrl, type: importType)
+                            } catch {
+                                AppLogger.shared.log("❌ Lỗi import từ điển: \(error.localizedDescription)")
+                            }
                         }
-                    }
-                case .failure(let error):
-                    AppLogger.shared.log("❌ Lỗi chọn file: \(error.localizedDescription)")
-                }
-            }
+                    },
+                    onCancel: nil
+                )
+            )
         }
     }
     
@@ -209,6 +239,44 @@ struct SettingsView: View {
         formatter.allowedUnits = [.useAll]
         formatter.countStyle = .file
         return formatter.string(fromByteCount: Int64(bytes))
+    }
+    
+    private func getStatusText(for type: String) -> String {
+        if let count = translationManager.getWordCount(for: type) {
+            return "\(count) từ"
+        }
+        return "<Chưa thiết lập>"
+    }
+}
+
+// MARK: - Dictionary Status Card Subview
+
+struct DictionaryCard: View {
+    let title: String
+    let statusText: String
+    let isSet: Bool
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.subheadline)
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
+                .lineLimit(1)
+            
+            Text(statusText)
+                .font(.caption)
+                .foregroundColor(isSet ? .secondary : .red)
+                .lineLimit(1)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.secondary.opacity(0.08))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.secondary.opacity(0.12), lineWidth: 1)
+        )
     }
 }
 

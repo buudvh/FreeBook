@@ -59,6 +59,13 @@ struct ReaderView: View {
     @State private var saveToBookSpecific = true
     @State private var saveAsNameType = false
     
+    // Advanced Highlight Translation Editor
+    @State private var originalSentence = ""
+    @State private var selectedWordOffset = 0
+    @State private var selectedWordLength = 0
+    @State private var searchEngines: [SearchEngine] = []
+    @State private var translationMode: String = "VP" // "VP" or "HV"
+    
     // Tùy chọn giao diện đọc (Novel)
     @AppStorage("readerFontSize") private var fontSize: Double = 18.0
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
@@ -159,17 +166,19 @@ struct ReaderView: View {
                                     .foregroundColor(selectedTheme.textColor)
                                     .padding(.top, 16)
                                 
-                                 ReaderTextView(
-                                     text: chapterContent,
-                                     fontSize: fontSize,
-                                     theme: selectedTheme,
-                                     onSelectionChange: { selectedText in
-                                         self.selectedTextForDefinition = selectedText
-                                         self.customMeaning = TranslateUtils.translateMeta(selectedText, bookId: bookId)
-                                         self.showingDefinitionSheet = true
-                                     }
-                                 )
-                                 .frame(maxWidth: .infinity, alignment: .leading)
+                                ReaderTextView(
+                                    text: chapterContent,
+                                    fontSize: fontSize,
+                                    theme: selectedTheme,
+                                    onSelectionChange: { selectedText, sentence, offset in
+                                        self.originalSentence = sentence
+                                        self.selectedWordOffset = offset
+                                        self.selectedWordLength = selectedText.count
+                                        self.updateEditorFromSelection()
+                                        self.showingDefinitionSheet = true
+                                    }
+                                )
+                                .frame(maxWidth: .infinity, alignment: .leading)
                                 
                                 Divider()
                                     .background(selectedTheme.textColor.opacity(0.2))
@@ -203,57 +212,192 @@ struct ReaderView: View {
             applyTranslation()
         }
         .sheet(isPresented: $showingDefinitionSheet) {
-            VStack(spacing: 20) {
-                Text("Tra Từ & Thêm Nghĩa Dịch")
-                    .font(.headline)
-                    .padding(.top)
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Từ gốc (Chữ Hán)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(selectedTextForDefinition)
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .padding(10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.secondary.opacity(0.1))
-                        .cornerRadius(8)
+            VStack(spacing: 16) {
+                // Header
+                HStack {
+                    Text("Dịch")
+                        .font(.headline)
+                    Spacer()
+                    Button(action: { showingDefinitionSheet = false }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                            .font(.title2)
+                    }
                 }
                 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Nghĩa dịch (Hán-Việt / VietPhrase)")
-                        .font(.caption)
+                // Original Hán ngữ segment with adjuster
+                HStack(spacing: 8) {
+                    HStack(spacing: 4) {
+                        Button(action: expandSelectionLeft) {
+                            Image(systemName: "chevron.left")
+                        }
+                        Button(action: shrinkSelectionLeft) {
+                            Image(systemName: "chevron.right")
+                        }
+                    }
+                    .foregroundColor(.blue)
+                    .font(.subheadline)
+                    
+                    Spacer()
+                    
+                    let segs = sentenceSegments
+                    Text(segs.prefix)
                         .foregroundColor(.secondary)
-                    TextField("Nhập nghĩa dịch mong muốn...", text: $customMeaning)
-                        .textFieldStyle(.roundedBorder)
+                    + Text(segs.selected)
+                        .foregroundColor(.primary)
+                        .bold()
+                        .underline()
+                    + Text(segs.suffix)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    HStack(spacing: 4) {
+                        Button(action: shrinkSelectionRight) {
+                            Image(systemName: "chevron.left")
+                        }
+                        Button(action: expandSelectionRight) {
+                            Image(systemName: "chevron.right")
+                        }
+                    }
+                    .foregroundColor(.blue)
+                    .font(.subheadline)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity)
+                .background(Color.secondary.opacity(0.08))
+                .cornerRadius(8)
+                .lineLimit(1)
+                
+                // Translated segment text
+                let tSegs = translatedSentenceSegments
+                HStack {
+                    Text(tSegs.prefix)
+                        .foregroundColor(.secondary)
+                    + Text(tSegs.selected)
+                        .foregroundColor(.primary)
+                        .bold()
+                        .underline()
+                    + Text(tSegs.suffix)
+                        .foregroundColor(.secondary)
+                }
+                .font(.subheadline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 4)
+                
+                // Input TextField with Clear button
+                HStack {
+                    TextField("Nhập nghĩa dịch...", text: $customMeaning)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
-                }
-                
-                VStack(spacing: 12) {
-                    Toggle("Lưu riêng cho truyện này", isOn: $saveToBookSpecific)
-                    Toggle("Lưu dạng Tên riêng (Names)", isOn: $saveAsNameType)
-                }
-                .padding(.vertical, 8)
-                
-                HStack(spacing: 16) {
-                    Button("Hủy", role: .cancel) {
-                        showingDefinitionSheet = false
-                    }
-                    .buttonStyle(.bordered)
                     
-                    Button("Lưu Nghĩa") {
-                        saveDefinition()
+                    if !customMeaning.isEmpty {
+                        Button(action: { customMeaning = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                .padding(10)
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(8)
+                
+                // Quick suggestions chips
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(suggestionChips, id: \.self) { chip in
+                            Button(action: { customMeaning = chip }) {
+                                Text(chip)
+                                    .font(.subheadline)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color.blue.opacity(0.1))
+                                    .foregroundColor(.blue)
+                                    .cornerRadius(15)
+                            }
+                        }
+                    }
+                }
+                
+                // Case formats & Dictionary toggles
+                HStack(spacing: 12) {
+                    // Case formats
+                    HStack(spacing: 4) {
+                        Button("aa") { customMeaning = customMeaning.lowercased() }
+                        Button("Aa¹") {
+                            if !customMeaning.isEmpty {
+                                customMeaning = customMeaning.prefix(1).uppercased() + customMeaning.dropFirst().lowercased()
+                            }
+                        }
+                        Button("Aa²") { customMeaning = customMeaning.capitalized }
+                        Button("AA") { customMeaning = customMeaning.uppercased() }
+                    }
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .padding(6)
+                    .background(Color.secondary.opacity(0.1))
+                    .cornerRadius(6)
+                    
+                    Spacer()
+                    
+                    // NE / VP
+                    Picker("Loại", selection: $saveAsNameType) {
+                        Text("Names (NE)").tag(true)
+                        Text("VietPhrase (VP)").tag(false)
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 150)
+                }
+                
+                HStack {
+                    // Scope: Riêng / Chung
+                    Picker("Phạm vi", selection: $saveToBookSpecific) {
+                        Text("Riêng truyện").tag(true)
+                        Text("Chung hệ thống").tag(false)
+                    }
+                    .pickerStyle(.segmented)
+                    
+                    Spacer()
+                    
+                    // Update action button
+                    Button(action: saveDefinition) {
+                        Label("Cập nhật", systemImage: "tray.and.arrow.down.fill")
+                            .fontWeight(.semibold)
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
                 
-                Spacer()
+                Divider()
+                
+                // Quick Lookup Links
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(searchEngines) { engine in
+                            Button(action: {
+                                performQuickLookup(using: engine)
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "safari")
+                                    Text(engine.name)
+                                }
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color.secondary.opacity(0.12))
+                                .cornerRadius(6)
+                            }
+                        }
+                    }
+                }
             }
             .padding()
-            .presentationDetents([.height(380)])
+            .background(Color(uiColor: .systemBackground).onTapGesture { hideKeyboard() })
+            .presentationDetents([.height(430)])
+            .onAppear {
+                self.searchEngines = SearchEngine.loadEngines()
+            }
         }
         .onAppear {
             // Tải theme mặc định từ AppStorage nếu thích hợp, ở đây dùng sepia/paper làm mặc định
@@ -346,6 +490,129 @@ struct ReaderView: View {
             } catch {
                 AppLogger.shared.log("❌ Lỗi lưu định nghĩa từ: \(error.localizedDescription)")
             }
+        }
+    }
+    
+    // MARK: - Advanced Translation Editor Helpers
+    
+    private func getHanViet(for word: String) -> String {
+        let phienAm = TranslationManager.shared.phienAmMap
+        var list: [String] = []
+        for char in word {
+            list.append(phienAm[String(char)] ?? String(char))
+        }
+        return list.joined(separator: " ").capitalized
+    }
+    
+    private var suggestionChips: [String] {
+        var chips: [String] = []
+        let word = selectedTextForDefinition
+        
+        let currentTranslation = TranslateUtils.translateMeta(word, bookId: bookId)
+        if !currentTranslation.isEmpty && currentTranslation != word {
+            let clean = currentTranslation.replacingOccurrences(of: "¦", with: "/")
+            let parts = clean.components(separatedBy: "/")
+            for part in parts {
+                let trimmed = part.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty && !chips.contains(trimmed) {
+                    chips.append(trimmed)
+                }
+            }
+        }
+        
+        let hv = getHanViet(for: word)
+        if !hv.isEmpty {
+            if !chips.contains(hv) {
+                chips.append(hv)
+            }
+            let hvLower = hv.lowercased()
+            if !chips.contains(hvLower) {
+                chips.append(hvLower)
+            }
+        }
+        
+        return chips
+    }
+    
+    private var sentenceSegments: (prefix: String, selected: String, suffix: String) {
+        let ns = originalSentence as NSString
+        guard selectedWordOffset >= 0 && selectedWordOffset + selectedWordLength <= ns.length else {
+            return ("", originalSentence, "")
+        }
+        let prefix = ns.substring(with: NSRange(location: 0, length: selectedWordOffset))
+        let selected = ns.substring(with: NSRange(location: selectedWordOffset, length: selectedWordLength))
+        let suffix = ns.substring(with: NSRange(location: selectedWordOffset + selectedWordLength, length: ns.length - (selectedWordOffset + selectedWordLength)))
+        return (prefix, selected, suffix)
+    }
+    
+    private var translatedSentenceSegments: (prefix: String, selected: String, suffix: String) {
+        let translatedSentence = TranslateUtils.translateContent(originalSentence, bookId: bookId)
+        let translatedWord = TranslateUtils.translateMeta(selectedTextForDefinition, bookId: bookId)
+        
+        guard !translatedWord.isEmpty,
+              let range = translatedSentence.range(of: translatedWord) else {
+            return ("", translatedSentence, "")
+        }
+        
+        let prefix = String(translatedSentence[..<range.lowerBound])
+        let selected = String(translatedSentence[range])
+        let suffix = String(translatedSentence[range.upperBound...])
+        return (prefix, selected, suffix)
+    }
+    
+    private func expandSelectionLeft() {
+        if selectedWordOffset > 0 {
+            selectedWordOffset -= 1
+            selectedWordLength += 1
+            updateEditorFromSelection()
+        }
+    }
+    
+    private func shrinkSelectionLeft() {
+        if selectedWordLength > 1 {
+            selectedWordOffset += 1
+            selectedWordLength -= 1
+            updateEditorFromSelection()
+        }
+    }
+    
+    private func shrinkSelectionRight() {
+        if selectedWordLength > 1 {
+            selectedWordLength -= 1
+            updateEditorFromSelection()
+        }
+    }
+    
+    private func expandSelectionRight() {
+        let ns = originalSentence as NSString
+        if selectedWordOffset + selectedWordLength < ns.length {
+            selectedWordLength += 1
+            updateEditorFromSelection()
+        }
+    }
+    
+    private func updateEditorFromSelection() {
+        let ns = originalSentence as NSString
+        guard selectedWordOffset >= 0 && selectedWordOffset + selectedWordLength <= ns.length else { return }
+        let word = ns.substring(with: NSRange(location: selectedWordOffset, length: selectedWordLength))
+        self.selectedTextForDefinition = word
+        
+        if translationMode == "VP" {
+            self.customMeaning = TranslateUtils.translateMeta(word, bookId: bookId)
+        } else {
+            self.customMeaning = getHanViet(for: word)
+        }
+    }
+    
+    private func performQuickLookup(using engine: SearchEngine) {
+        let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !word.isEmpty else { return }
+        
+        guard let encodedWord = word.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return }
+        let urlString = engine.urlTemplate.replacingOccurrences(of: "%s", with: encodedWord)
+        
+        if let url = URL(string: urlString) {
+            UIApplication.shared.open(url)
         }
     }
 
