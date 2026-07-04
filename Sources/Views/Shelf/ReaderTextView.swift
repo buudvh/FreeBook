@@ -8,7 +8,9 @@ struct ReaderTextView: UIViewRepresentable {
     let onSelectionChange: (String, String, Int) -> Void
     
     func makeUIView(context: Context) -> UITextView {
-        let textView = UITextView()
+        let textView = ReaderUITextView()
+        context.coordinator.parentTextView = textView
+        
         textView.isEditable = false
         textView.isSelectable = true
         textView.isScrollEnabled = false
@@ -17,6 +19,16 @@ struct ReaderTextView: UIViewRepresentable {
         
         textView.textContainerInset = .zero
         textView.textContainer.lineFragmentPadding = 0
+        
+        // Sửa lỗi hiển thị chữ tràn/vỡ dòng
+        textView.textContainer.widthTracksTextView = true
+        textView.textContainer.lineBreakMode = .byWordWrapping
+        textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        textView.setContentCompressionResistancePriority(.required, for: .vertical)
+        
+        // Đăng ký custom menu item cho iOS 15 trở xuống
+        let menuItem = UIMenuItem(title: "Dịch/Đọc", action: #selector(ReaderUITextView.customDefineAction))
+        UIMenuController.shared.menuItems = [menuItem]
         
         return textView
     }
@@ -33,18 +45,31 @@ struct ReaderTextView: UIViewRepresentable {
     
     class Coordinator: NSObject, UITextViewDelegate {
         var parent: ReaderTextView
+        weak var parentTextView: UITextView?
         
         init(_ parent: ReaderTextView) {
             self.parent = parent
         }
         
         func textViewDidChangeSelection(_ textView: UITextView) {
-            guard let range = textView.selectedTextRange,
-                  let selectedText = textView.text(in: range),
-                  !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                return
+            // Không làm gì ở đây để tránh tự động nhảy sheet dịch lập tức khi mới bôi đen
+        }
+        
+        // Cấu hình Edit Menu cho iOS 16+
+        @available(iOS 16.0, *)
+        func textView(_ textView: UITextView, editMenuForTextIn range: NSRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
+            let customAction = UIAction(title: "Dịch/Đọc") { [weak self] _ in
+                if let selectedText = textView.text(in: textView.selectedTextRange!) {
+                    self?.triggerCustomDefine(text: selectedText)
+                }
             }
-            
+            var actions = suggestedActions
+            actions.insert(customAction, at: 0)
+            return UIMenu(children: actions)
+        }
+        
+        func triggerCustomDefine(text: String) {
+            guard let textView = parentTextView else { return }
             let fullText = textView.text ?? ""
             let nsRange = textView.selectedRange
             let fullNSString = fullText as NSString
@@ -74,7 +99,26 @@ struct ReaderTextView: UIViewRepresentable {
             let surroundingSentence = fullNSString.substring(with: sentenceRange).trimmingCharacters(in: .whitespacesAndNewlines)
             let offsetInSentence = max(0, nsRange.location - startLoc)
             
-            parent.onSelectionChange(selectedText, surroundingSentence, offsetInSentence)
+            parent.onSelectionChange(text, surroundingSentence, offsetInSentence)
+        }
+    }
+}
+
+// MARK: - Subclass UITextView to support custom action selector
+
+class ReaderUITextView: UITextView {
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        if action == #selector(customDefineAction) {
+            return true
+        }
+        return super.canPerformAction(action, withSender: sender)
+    }
+    
+    @objc func customDefineAction() {
+        if let range = self.selectedTextRange,
+           let text = self.text(in: range),
+           let delegate = self.delegate as? ReaderTextView.Coordinator {
+            delegate.triggerCustomDefine(text: text)
         }
     }
 }

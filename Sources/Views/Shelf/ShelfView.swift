@@ -7,6 +7,7 @@ struct ShelfView: View {
     
     @State private var selectedTab = 0 // 0: Kệ Sách, 1: Lịch Sử
     @State private var showingClearHistoryAlert = false
+    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     
     private var shelfBooks: [Book] {
         allBooks.filter { $0.isOnShelf }
@@ -18,7 +19,8 @@ struct ShelfView: View {
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
+            ZStack(alignment: .bottomTrailing) {
+                VStack(spacing: 0) {
                 // Segmented control to switch tabs
                 Picker("Phân loại", selection: $selectedTab) {
                     Text("Kệ Sách").tag(0)
@@ -153,6 +155,21 @@ struct ShelfView: View {
                         }
                     }
                 }
+                
+                // Floating Translate Toggle Button
+                Button(action: {
+                    isTranslationEnabled.toggle()
+                }) {
+                    Image(systemName: "character.bubble.fill")
+                        .font(.title2)
+                        .foregroundColor(isTranslationEnabled ? .white : .primary)
+                        .padding(14)
+                        .background(isTranslationEnabled ? Color.blue : Color.secondary.opacity(0.18))
+                        .clipShape(Circle())
+                        .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
+                }
+                .padding(.trailing, 20)
+                .padding(.bottom, 24)
             }
             .navigationTitle(selectedTab == 0 ? "Kệ Sách" : "Lịch Sử Đọc")
             .navigationBarTitleDisplayMode(.inline)
@@ -198,7 +215,7 @@ struct ShelfView: View {
             .shadow(radius: 2)
             
             // Tên truyện
-            Text(book.title)
+            Text(translateIfNeeded(book.title))
                 .font(.caption)
                 .fontWeight(.bold)
                 .foregroundColor(.primary)
@@ -213,12 +230,19 @@ struct ShelfView: View {
             } else {
                 let currentChapIndex = min(book.currentChapterIndex, book.chapters.count - 1)
                 let chapterTitle = currentChapIndex >= 0 ? book.chapters[currentChapIndex].title : "Chưa đọc"
-                Text("Đang đọc: \(chapterTitle)")
+                Text("Đang đọc: \(translateIfNeeded(chapterTitle))")
                     .font(.system(size: 10))
                     .foregroundColor(.gray)
                     .lineLimit(1)
             }
         }
+    }
+    
+    private func translateIfNeeded(_ text: String) -> String {
+        if isTranslationEnabled && TranslateUtils.containsChinese(text) {
+            return TranslateUtils.translateMeta(text)
+        }
+        return text
     }
     
     private func removeFromShelf(_ book: Book) {

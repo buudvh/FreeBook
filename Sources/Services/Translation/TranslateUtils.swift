@@ -503,4 +503,145 @@ public final class TranslateUtils {
     public static func clearCache() {
         translationCache.removeAllObjects()
     }
+    
+    // MARK: - Tokenizer for interactive reader selection
+    
+    public static func getTranslationTokens(for sentence: String, bookId: String?) -> [TranslationWordToken] {
+        var output: [TranslationWordToken] = []
+        let chars = Array(sentence)
+        let length = chars.count
+        var currentIndex = 0
+        
+        let names = TranslationManager.shared.namesDict
+        let pronouns = TranslationManager.shared.pronounsDict
+        let luatNhan = TranslationManager.shared.luatNhanDict
+        let vp = TranslationManager.shared.vietPhraseDict
+        let phienAm = TranslationManager.shared.phienAmMap
+        
+        var bookVP: TrieDictionary? = nil
+        var bookNames: TrieDictionary? = nil
+        if let bid = bookId {
+            let bookDicts = TranslationManager.shared.getBookDictionaries(for: bid)
+            bookVP = bookDicts.vietPhrase
+            bookNames = bookDicts.names
+        }
+        
+        while currentIndex < length {
+            var longestMatchLen = 0
+            
+            let limit = min(length - currentIndex, 20)
+            let checkText = String(chars[currentIndex..<(currentIndex + limit)])
+            
+            if let bookNames = bookNames,
+               let match = bookNames.findLongestMatch(text: checkText, startIndex: 0) {
+                longestMatchLen = match.length
+            }
+            
+            if let names = names,
+               let match = names.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
+                }
+            }
+            
+            if let pronouns = pronouns,
+               let match = pronouns.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
+                }
+            }
+            
+            if let luatNhan = luatNhan,
+               let match = luatNhan.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
+                }
+            }
+            
+            if let bookVP = bookVP,
+               let match = bookVP.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
+                }
+            }
+            
+            if let vp = vp,
+               let match = vp.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
+                }
+            }
+            
+            let tokenStr: String
+            let matchedLen: Int
+            
+            if longestMatchLen > 0 {
+                tokenStr = String(chars[currentIndex..<(currentIndex + longestMatchLen)])
+                matchedLen = longestMatchLen
+            } else {
+                let char = chars[currentIndex]
+                if isChineseCharacter(char) {
+                    tokenStr = String(char)
+                    matchedLen = 1
+                } else {
+                    var end = currentIndex + 1
+                    while end < length && !isChineseCharacter(chars[end]) {
+                        end += 1
+                    }
+                    tokenStr = String(chars[currentIndex..<end])
+                    matchedLen = end - currentIndex
+                }
+            }
+            
+            let translatedToken: String
+            if tokenStr == "的" || tokenStr == "了" || tokenStr == "著" {
+                translatedToken = ""
+            } else {
+                let rawTranslation = translateMeta(tokenStr, bookId: bookId)
+                if rawTranslation == tokenStr {
+                    if tokenStr.count == 1, isChineseCharacter(tokenStr.first!) {
+                        translatedToken = phienAm[tokenStr] ?? tokenStr
+                    } else {
+                        var phienAmList: [String] = []
+                        for c in tokenStr {
+                            phienAmList.append(phienAm[String(c)] ?? String(c))
+                        }
+                        translatedToken = phienAmList.joined(separator: " ")
+                    }
+                } else {
+                    let clean = rawTranslation.replacingOccurrences(of: "¦", with: "/")
+                    translatedToken = clean.components(separatedBy: "/")[0]
+                }
+            }
+            
+            let trimmedTrans = translatedToken.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedTrans.isEmpty || !tokenStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                output.append(TranslationWordToken(
+                    originalText: tokenStr,
+                    translatedText: trimmedTrans.isEmpty ? tokenStr : trimmedTrans,
+                    originalOffset: currentIndex,
+                    originalLength: matchedLen
+                ))
+            }
+            
+            currentIndex += matchedLen
+        }
+        
+        return output
+    }
+}
+
+public struct TranslationWordToken: Identifiable, Hashable {
+    public var id = UUID()
+    public let originalText: String
+    public let translatedText: String
+    public let originalOffset: Int
+    public let originalLength: Int
+    
+    public init(originalText: String, translatedText: String, originalOffset: Int, originalLength: Int) {
+        self.originalText = originalText
+        self.translatedText = translatedText
+        self.originalOffset = originalOffset
+        self.originalLength = originalLength
+    }
 }

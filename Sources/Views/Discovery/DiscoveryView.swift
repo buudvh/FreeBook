@@ -46,6 +46,7 @@ struct DiscoveryView: View {
     // Sheet chọn nguồn "Phần mở rộng" nâng cao
     @State private var showingExtensionSelector = false
     @State private var extensionSearchQuery = ""
+    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     
     private var selectedExtension: Extension? {
         activeExtensions.first(where: { $0.packageId == selectedExtensionId })
@@ -346,6 +347,9 @@ struct DiscoveryView: View {
                     extensionSearchQuery: $extensionSearchQuery,
                     modelContext: modelContext
                 )
+            }
+            .onChange(of: isTranslationEnabled) { _, _ in
+                loadDiscoveryData()
             }
         }
     }

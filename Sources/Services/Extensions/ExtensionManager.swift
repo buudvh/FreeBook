@@ -425,6 +425,14 @@ public final class ExtensionManager {
     // Lấy danh mục thể loại (Khám phá)
     public func genre(localPath: String, downloadUrl: String = "", configJson: String = "{}") async throws -> [CategoryResult] {
         AppLogger.shared.log("🔍 [ExtensionManager] genre called. localPath: \(localPath)")
+        
+        let translateTitle: (String) -> String = { title in
+            if TranslateUtils.isTranslationEnabled && TranslateUtils.containsChinese(title) {
+                return TranslateUtils.translateMeta(title)
+            }
+            return title
+        }
+        
         do {
             let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "genre")
             let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
@@ -445,22 +453,22 @@ public final class ExtensionManager {
                         if let title = itemDict["title"] as? String,
                            let input = itemDict["input"] as? String {
                             let script = itemDict["script"] as? String ?? "search.js"
-                            results.append(CategoryResult(title: title, input: input, script: script))
+                            results.append(CategoryResult(title: translateTitle(title), input: input, script: script))
                         } else if let title = itemDict["name"] as? String,
                                   let input = itemDict["link"] as? String {
                             let script = itemDict["script"] as? String ?? "search.js"
-                            results.append(CategoryResult(title: title, input: input, script: script))
+                            results.append(CategoryResult(title: translateTitle(title), input: input, script: script))
                         }
                     }
                 }
             } else if let dict = jsValue.toDictionary() as? [String: String] {
                 for (key, val) in dict {
-                    results.append(CategoryResult(title: key, input: val, script: "search.js"))
+                    results.append(CategoryResult(title: translateTitle(key), input: val, script: "search.js"))
                 }
             } else if let dict = jsValue.toDictionary() as? [String: Any] {
                 for (key, val) in dict {
                     if let valStr = val as? String {
-                        results.append(CategoryResult(title: key, input: valStr, script: "search.js"))
+                        results.append(CategoryResult(title: translateTitle(key), input: valStr, script: "search.js"))
                     }
                 }
             }
@@ -478,6 +486,14 @@ public final class ExtensionManager {
     // Lấy danh sách tab trang chủ (Home)
     public func home(localPath: String, downloadUrl: String = "", configJson: String = "{}") async throws -> [CategoryResult] {
         AppLogger.shared.log("🔍 [ExtensionManager] home called. localPath: \(localPath)")
+        
+        let translateTitle: (String) -> String = { title in
+            if TranslateUtils.isTranslationEnabled && TranslateUtils.containsChinese(title) {
+                return TranslateUtils.translateMeta(title)
+            }
+            return title
+        }
+        
         do {
             let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "home")
             let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
@@ -498,11 +514,11 @@ public final class ExtensionManager {
                         if let title = itemDict["title"] as? String,
                            let input = itemDict["input"] as? String {
                             let script = itemDict["script"] as? String ?? "search.js"
-                            results.append(CategoryResult(title: title, input: input, script: script))
+                            results.append(CategoryResult(title: translateTitle(title), input: input, script: script))
                         } else if let title = itemDict["name"] as? String,
                                   let input = itemDict["link"] as? String {
                             let script = itemDict["script"] as? String ?? "search.js"
-                            results.append(CategoryResult(title: title, input: input, script: script))
+                            results.append(CategoryResult(title: translateTitle(title), input: input, script: script))
                         }
                     }
                 }
