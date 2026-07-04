@@ -19,6 +19,16 @@ This document defines coding guidelines, runtime specifications, and constraints
 - When syncing repository files (`RepositoryManagerView.swift`), save the raw `path` from `plugin.json` directly into `downloadUrl` to ensure correct package downloads.
 - Do not use hardcoded string replacements to generate zip URLs.
 
+### 3. Codebase File & Folder Organization (Views, Services, Models)
+- **Rule:** Maintain the following directory structure for codebase integrity:
+  - **Models (`Sources/Models`)**:
+    - `Database/`: All SwiftData persistable model classes (`Book`, `Chapter`, `Extension`, `Repository`).
+    - `Dictionaries/`: All translation lookup data structure classes (`DoubleArrayTrie`, `TextDictionary`).
+  - **Views (`Sources/Views`)**:
+    - Organized in subfolders by application tab: `Shelf/` (Shelf & Reader), `Discovery/` (Discovery), `Extensions/` (Repository manager & config), and `Settings/` (General & translation configuration).
+  - **Services (`Sources/Services`)**:
+    - Organized in subfolders by functional domain: `Extensions/` (JS engine and extension executor), `Translation/` (Translation manager and utilities), and `Logging/` (App logger).
+
 ---
 
 ## JavaScript Core Runtime & VBook Extensions Integration

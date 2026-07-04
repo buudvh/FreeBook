@@ -49,8 +49,19 @@ struct ReaderView: View {
     @State private var chapterTitle = ""
     @State private var chapterContent = ""
     
+    @State private var originalTitle = ""
+    @State private var originalContent = ""
+    
+    // Highlight & Define
+    @State private var selectedTextForDefinition = ""
+    @State private var showingDefinitionSheet = false
+    @State private var customMeaning = ""
+    @State private var saveToBookSpecific = true
+    @State private var saveAsNameType = false
+    
     // Tùy chọn giao diện đọc (Novel)
     @AppStorage("readerFontSize") private var fontSize: Double = 18.0
+    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @State private var selectedTheme: ReaderTheme = .paper
     @State private var showingSettings = false
     
@@ -148,11 +159,17 @@ struct ReaderView: View {
                                     .foregroundColor(selectedTheme.textColor)
                                     .padding(.top, 16)
                                 
-                                Text(chapterContent)
-                                    .font(.system(size: fontSize))
-                                    .lineSpacing(8)
-                                    .foregroundColor(selectedTheme.textColor)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                 ReaderTextView(
+                                     text: chapterContent,
+                                     fontSize: fontSize,
+                                     theme: selectedTheme,
+                                     onSelectionChange: { selectedText in
+                                         self.selectedTextForDefinition = selectedText
+                                         self.customMeaning = TranslateUtils.translateMeta(selectedText, bookId: bookId)
+                                         self.showingDefinitionSheet = true
+                                     }
+                                 )
+                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 
                                 Divider()
                                     .background(selectedTheme.textColor.opacity(0.2))
@@ -179,8 +196,64 @@ struct ReaderView: View {
             }
         }
         .sheet(isPresented: $showingSettings) {
-            ReaderSettingsView(fontSize: $fontSize, selectedTheme: $selectedTheme)
-                .presentationDetents([.height(180)])
+            ReaderSettingsView(fontSize: $fontSize, selectedTheme: $selectedTheme, isTranslationEnabled: $isTranslationEnabled)
+                .presentationDetents([.height(240)])
+        }
+        .onChange(of: isTranslationEnabled) { _, _ in
+            applyTranslation()
+        }
+        .sheet(isPresented: $showingDefinitionSheet) {
+            VStack(spacing: 20) {
+                Text("Tra Từ & Thêm Nghĩa Dịch")
+                    .font(.headline)
+                    .padding(.top)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Từ gốc (Chữ Hán)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(selectedTextForDefinition)
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(8)
+                }
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Nghĩa dịch (Hán-Việt / VietPhrase)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    TextField("Nhập nghĩa dịch mong muốn...", text: $customMeaning)
+                        .textFieldStyle(.roundedBorder)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                }
+                
+                VStack(spacing: 12) {
+                    Toggle("Lưu riêng cho truyện này", isOn: $saveToBookSpecific)
+                    Toggle("Lưu dạng Tên riêng (Names)", isOn: $saveAsNameType)
+                }
+                .padding(.vertical, 8)
+                
+                HStack(spacing: 16) {
+                    Button("Hủy", role: .cancel) {
+                        showingDefinitionSheet = false
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Button("Lưu Nghĩa") {
+                        saveDefinition()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                
+                Spacer()
+            }
+            .padding()
+            .presentationDetents([.height(380)])
         }
         .onAppear {
             // Tải theme mặc định từ AppStorage nếu thích hợp, ở đây dùng sepia/paper làm mặc định
@@ -225,17 +298,63 @@ struct ReaderView: View {
         }
     }
     
-    private func loadChapterContent() {
-        guard let info = currentChapterInfo else {
-            errorMessage = "Lỗi xác định mục lục chương"
-            return
+    private func applyTranslation() {
+        let titleToUse = currentChapterInfo?.title ?? "Trình đọc"
+        self.originalTitle = titleToUse
+        
+        if isTranslationEnabled {
+            self.isLoading = true
+            Task {
+                var translatedTitle = titleToUse
+                if TranslateUtils.containsChinese(titleToUse) {
+                    translatedTitle = TranslateUtils.translateChapterTitle(titleToUse, bookId: bookId)
+                }
+                
+                var translatedContent = originalContent
+                if TranslateUtils.containsChinese(originalContent) {
+                    translatedContent = TranslateUtils.translateContent(originalContent, bookId: bookId)
+                }
+                
+                await MainActor.run {
+                    self.chapterTitle = translatedTitle
+                    self.chapterContent = translatedContent
+                    self.isLoading = false
+                }
+            }
+        } else {
+            self.chapterTitle = originalTitle
+            self.chapterContent = originalContent
+            self.isLoading = false
         }
+    }
+    
+    private func saveDefinition() {
+        let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
+        let meaning = customMeaning.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !word.isEmpty && !meaning.isEmpty else { return }
+        
+        let bid = saveToBookSpecific ? bookId : nil
+        
+        Task {
+            do {
+                try await TranslationManager.shared.saveCustomEntry(word: word, meaning: meaning, isName: saveAsNameType, bookId: bid)
+                await MainActor.run {
+                    showingDefinitionSheet = false
+                    applyTranslation()
+                }
+            } catch {
+                AppLogger.shared.log("❌ Lỗi lưu định nghĩa từ: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func loadChapterContent() {
+        guard let info = currentChapterInfo else { return }
         
         isLoading = true
         errorMessage = ""
-        chapterTitle = info.title
         
-        // 1. Kiểm tra cache nếu là sách lưu local
         if let book = localBook {
             let sorted = book.chapters.sorted(by: { $0.index < $1.index })
             let chap = sorted[chapterIndex]
@@ -247,8 +366,8 @@ struct ReaderView: View {
             try? modelContext.save()
             
             if chap.isCached, let content = chap.content, !content.isEmpty {
-                self.chapterContent = content.cleanHTML()
-                self.isLoading = false
+                self.originalContent = content.cleanHTML()
+                self.applyTranslation()
                 return
             }
         }
@@ -265,9 +384,10 @@ struct ReaderView: View {
                 let cleanedContent = content.cleanHTML()
                 
                 await MainActor.run {
-                    self.chapterContent = cleanedContent
+                    self.originalContent = cleanedContent
+                    self.applyTranslation()
                     
-                    // Nếu là sách local, tự động lưu vào cache offline luôn
+                    // Nếu là sách local, tự động lưu vào cache offline luôn (lưu bản gốc chưa dịch!)
                     if let book = localBook {
                         let sorted = book.chapters.sorted(by: { $0.index < $1.index })
                         let chap = sorted[chapterIndex]
@@ -308,8 +428,6 @@ struct ReaderView: View {
                         }
                         try? modelContext.save()
                     }
-                    
-                    self.isLoading = false
                 }
             } catch {
                 await MainActor.run {
@@ -339,6 +457,7 @@ struct ReaderView: View {
 struct ReaderSettingsView: View {
     @Binding var fontSize: Double
     @Binding var selectedTheme: ReaderTheme
+    @Binding var isTranslationEnabled: Bool
     
     var body: some View {
         VStack(spacing: 20) {
@@ -375,6 +494,10 @@ struct ReaderSettingsView: View {
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
+            
+            // Toggle dịch
+            Toggle("Bật dịch Quick Translate", isOn: $isTranslationEnabled)
+                .padding(.horizontal)
             
             Spacer()
         }

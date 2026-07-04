@@ -6,6 +6,15 @@
         "-y",
         "@modelcontextprotocol/server-git"
       ]
+    },
+    "codegraph": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@colbymchenry/codegraph",
+        "serve",
+        "--mcp"
+      ]
     }
   }
 }

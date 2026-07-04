@@ -152,23 +152,42 @@ struct DiscoveryView: View {
                             }
                             .padding(.leading)
                             
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(homeItems) { item in
-                                        let isSelected = selectedCategory?.id == item.id
-                                        Button(action: { selectCategory(item) }) {
-                                            Text(item.title)
-                                                .font(.subheadline)
-                                                .fontWeight(isSelected ? .bold : .regular)
-                                                .padding(.horizontal, 14)
-                                                .padding(.vertical, 8)
-                                                .background(isSelected ? Color.accentColor : Color.gray.opacity(0.1))
-                                                .foregroundColor(isSelected ? .white : .primary)
-                                                .cornerRadius(20)
+                            ScrollViewReader { proxy in
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(homeItems) { item in
+                                            let isSelected = selectedCategory?.id == item.id
+                                            Button(action: { selectCategory(item) }) {
+                                                Text(item.title)
+                                                    .font(.subheadline)
+                                                    .fontWeight(isSelected ? .bold : .regular)
+                                                    .padding(.horizontal, 14)
+                                                    .padding(.vertical, 8)
+                                                    .background(isSelected ? Color.accentColor : Color.gray.opacity(0.1))
+                                                    .foregroundColor(isSelected ? .white : .primary)
+                                                    .cornerRadius(20)
+                                            }
+                                            .id(item.id)
+                                        }
+                                    }
+                                    .padding(.horizontal, 8)
+                                }
+                                .onChange(of: selectedCategory?.id) { _, newValue in
+                                    if let id = newValue {
+                                        withAnimation {
+                                            proxy.scrollTo(id, anchor: .center)
                                         }
                                     }
                                 }
-                                .padding(.horizontal, 8)
+                                .onAppear {
+                                    if let id = selectedCategory?.id {
+                                        DispatchQueue.main.async {
+                                            withAnimation {
+                                                proxy.scrollTo(id, anchor: .center)
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                         .padding(.vertical, 10)

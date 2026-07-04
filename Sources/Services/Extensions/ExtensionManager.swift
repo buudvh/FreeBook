@@ -229,12 +229,20 @@ public final class ExtensionManager {
             var results: [SearchNovelResult] = []
             for item in jsArray {
                 if let dict = item as? [String: Any] {
-                    let name = dict["name"] as? String ?? ""
-                    let author = dict["author"] as? String ?? "Không rõ"
-                    let description = dict["description"] as? String ?? dict["desc"] as? String ?? ""
+                    var name = dict["name"] as? String ?? ""
+                    var author = dict["author"] as? String ?? "Không rõ"
+                    var description = dict["description"] as? String ?? dict["desc"] as? String ?? ""
                     let cover = dict["cover"] as? String ?? ""
                     let link = dict["link"] as? String ?? dict["url"] as? String ?? ""
                     let host = dict["host"] as? String ?? ""
+                    
+                    guard !link.isEmpty else { continue }
+                    
+                    if TranslateUtils.isTranslationEnabled {
+                        if TranslateUtils.containsChinese(name) { name = TranslateUtils.translateMeta(name) }
+                        if TranslateUtils.containsChinese(author) { author = TranslateUtils.translateMeta(author) }
+                        if TranslateUtils.containsChinese(description) { description = TranslateUtils.translateMeta(description) }
+                    }
                     
                     results.append(SearchNovelResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
                 }
@@ -271,13 +279,19 @@ public final class ExtensionManager {
                 throw NSError(domain: "ExtensionManager", code: -6, userInfo: [NSLocalizedDescriptionKey: errorDesc])
             }
             
-            let name = dict["name"] as? String ?? ""
-            let author = dict["author"] as? String ?? "Không rõ"
+            var name = dict["name"] as? String ?? ""
+            var author = dict["author"] as? String ?? "Không rõ"
             let cover = dict["cover"] as? String ?? ""
-            let description = dict["description"] as? String ?? ""
+            var description = dict["description"] as? String ?? ""
             let detail = dict["detail"] as? String ?? ""
             let host = dict["host"] as? String ?? ""
             let link = dict["link"] as? String ?? dict["url"] as? String ?? url
+            
+            if TranslateUtils.isTranslationEnabled {
+                if TranslateUtils.containsChinese(name) { name = TranslateUtils.translateMeta(name) }
+                if TranslateUtils.containsChinese(author) { author = TranslateUtils.translateMeta(author) }
+                if TranslateUtils.containsChinese(description) { description = TranslateUtils.translateMeta(description) }
+            }
             
             let result = NovelDetailResult(name: name, author: author, cover: cover, description: description, detail: detail, host: host, link: link)
             AppLogger.shared.log("✅ [ExtensionManager] detail parsed info: \(result.name) by \(result.author)")
@@ -308,14 +322,18 @@ public final class ExtensionManager {
             let jsArray = toDictionaryArray(jsValue)
 
             var results: [ChapterResult] = []
-
+ 
             for dict in jsArray {
-                let name = dict["name"]?.toString() ?? ""
+                var name = dict["name"]?.toString() ?? ""
                 let url = dict["url"]?.toString()
                     ?? dict["link"]?.toString()
                     ?? ""
                 let host = dict["host"]?.toString() ?? ""
-
+ 
+                if TranslateUtils.isTranslationEnabled && TranslateUtils.containsChinese(name) {
+                    name = TranslateUtils.translateChapterTitle(name)
+                }
+ 
                 results.append(
                     ChapterResult(
                         name: name,
@@ -390,6 +408,10 @@ public final class ExtensionManager {
                 }
             } else {
                 resultStr = jsValue.toString() ?? ""
+            }
+            
+            if TranslateUtils.isTranslationEnabled && TranslateUtils.containsChinese(resultStr) {
+                resultStr = TranslateUtils.translateContent(resultStr)
             }
             updateDiagnostics(action: "chap", input: url, status: "Success", details: "Length: \(resultStr.count) characters\n\(stringified)")
             return resultStr
@@ -542,12 +564,20 @@ public final class ExtensionManager {
             var results: [SearchNovelResult] = []
             for item in jsArray {
                 if let dict = item as? [String: Any] {
-                    let name = dict["name"] as? String ?? ""
-                    let author = dict["author"] as? String ?? "Không rõ"
-                    let description = dict["description"] as? String ?? dict["desc"] as? String ?? ""
+                    var name = dict["name"] as? String ?? ""
+                    var author = dict["author"] as? String ?? "Không rõ"
+                    var description = dict["description"] as? String ?? dict["desc"] as? String ?? ""
                     let cover = dict["cover"] as? String ?? ""
                     let link = dict["link"] as? String ?? dict["url"] as? String ?? ""
                     let host = dict["host"] as? String ?? ""
+                    
+                    guard !link.isEmpty else { continue }
+                    
+                    if TranslateUtils.isTranslationEnabled {
+                        if TranslateUtils.containsChinese(name) { name = TranslateUtils.translateMeta(name) }
+                        if TranslateUtils.containsChinese(author) { author = TranslateUtils.translateMeta(author) }
+                        if TranslateUtils.containsChinese(description) { description = TranslateUtils.translateMeta(description) }
+                    }
                     
                     results.append(SearchNovelResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
                 }

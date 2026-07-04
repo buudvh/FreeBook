@@ -258,6 +258,15 @@ struct BookDetailView: View {
         }
         .navigationTitle("Chi Tiết Truyện")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if localBook != nil {
+                    NavigationLink(destination: BookDictionaryView(bookId: bookId)) {
+                        Image(systemName: "character.book.closed")
+                    }
+                }
+            }
+        }
         .onAppear {
             loadBookData()
         }

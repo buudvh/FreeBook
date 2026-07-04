@@ -1,0 +1,6 @@
+.codegraph/
+.build/
+DerivedData/
+*.xcodeproj
+*.xcworkspace
+.DS_Store
