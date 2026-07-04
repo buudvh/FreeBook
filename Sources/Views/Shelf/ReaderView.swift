@@ -167,7 +167,9 @@ struct ReaderView: View {
                                     .fontWeight(.bold)
                                     .foregroundColor(selectedTheme.textColor)
                                     .padding(.top, 16)
-                                
+
+                                AppLogger.shared.log("chapterContent: \(chapterContent)")
+
                                 ReaderTextView(
                                     text: chapterContent,
                                     fontSize: fontSize,
@@ -536,6 +538,8 @@ struct ReaderView: View {
                     translatedContent = TranslateUtils.translateContent(originalContent, bookId: bookId)
                 }
                 
+                AppLogger.shared.log("translatedContent: \(translatedContent)")
+
                 await MainActor.run {
                     self.chapterTitle = translatedTitle
                     self.chapterContent = translatedContent
