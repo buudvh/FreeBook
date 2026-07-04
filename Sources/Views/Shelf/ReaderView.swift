@@ -167,7 +167,7 @@ struct ReaderView: View {
                                     .fontWeight(.bold)
                                     .foregroundColor(selectedTheme.textColor)
                                     .padding(.top, 16)
-
+                                
                                 ReaderTextView(
                                     text: chapterContent,
                                     fontSize: fontSize,
@@ -536,8 +536,6 @@ struct ReaderView: View {
                     translatedContent = TranslateUtils.translateContent(originalContent, bookId: bookId)
                 }
                 
-                AppLogger.shared.log("translatedContent: \(translatedContent)")
-
                 await MainActor.run {
                     self.chapterTitle = translatedTitle
                     self.chapterContent = translatedContent
@@ -790,8 +788,6 @@ struct ReaderView: View {
             do {
                 let content = try await ExtensionManager.shared.chap(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: info.url, configJson: ext.configJson)
                 let cleanedContent = content.cleanHTML()
-
-                AppLogger.shared.log("cleanedContent: \(cleanedContent)")
                 
                 await MainActor.run {
                     self.originalContent = cleanedContent

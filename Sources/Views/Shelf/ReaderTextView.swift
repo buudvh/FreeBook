@@ -6,9 +6,27 @@ struct ReaderTextView: UIViewRepresentable {
     let fontSize: Double
     let theme: ReaderTheme
     let onSelectionChange: (String, String, Int) -> Void
+
+    func sizeThatFits(
+        _ proposal: ProposedViewSize,
+        uiView: UITextView,
+        context: Context
+    ) -> CGSize? {
+
+        guard let width = proposal.width else {
+            return nil
+        }
+
+        let size = uiView.sizeThatFits(
+            CGSize(width: width,
+                height: .greatestFiniteMagnitude)
+        )
+
+        return CGSize(width: width, height: ceil(size.height))
+    }
     
     func makeUIView(context: Context) -> UITextView {
-        let textView = ReaderUITextView()
+        let textView = AutoSizingTextView()
         context.coordinator.parentTextView = textView
         
         textView.isEditable = false
@@ -34,10 +52,14 @@ struct ReaderTextView: UIViewRepresentable {
     }
     
     func updateUIView(_ uiView: UITextView, context: Context) {
-        uiView.text = text
-        AppLogger.shared.log("text: \(text)")
+        if uiView.text != text {
+            uiView.text = text
+        }
+
         uiView.font = UIFont.systemFont(ofSize: CGFloat(fontSize))
         uiView.textColor = UIColor(theme.textColor)
+
+        uiView.invalidateIntrinsicContentSize()
     }
     
     func makeCoordinator() -> Coordinator {
@@ -121,5 +143,21 @@ class ReaderUITextView: UITextView {
            let delegate = self.delegate as? ReaderTextView.Coordinator {
             delegate.triggerCustomDefine(text: text)
         }
+    }
+}
+
+class AutoSizingTextView: ReaderUITextView {
+
+    override var contentSize: CGSize {
+        didSet {
+            invalidateIntrinsicContentSize()
+        }
+    }
+
+    override var intrinsicContentSize: CGSize {
+        CGSize(
+            width: UIView.noIntrinsicMetric,
+            height: contentSize.height
+        )
     }
 }

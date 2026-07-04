@@ -399,7 +399,7 @@ public final class ExtensionManager {
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
             let stringified = stringify(jsValue)
-            AppLogger.shared.log("📝 [ExtensionManager] chap raw JS result: \(stringified)")
+            AppLogger.shared.log("📝 [ExtensionManager] chap raw JS result length: \(stringified.count)")
             
             var resultStr = ""
             if jsValue.isArray {
