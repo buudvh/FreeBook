@@ -788,6 +788,8 @@ struct ReaderView: View {
             do {
                 let content = try await ExtensionManager.shared.chap(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: info.url, configJson: ext.configJson)
                 let cleanedContent = content.cleanHTML()
+
+                AppLogger.shared.log("cleanedContent: \(cleanedContent)")
                 
                 await MainActor.run {
                     self.originalContent = cleanedContent
