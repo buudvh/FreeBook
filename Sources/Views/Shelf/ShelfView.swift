@@ -155,9 +155,10 @@ struct ShelfView: View {
                         }
                     }
                 }
-                
-                // Floating Translate Toggle Button
-                Button(action: {
+            }
+            
+            // Floating Translate Toggle Button
+            Button(action: {
                     isTranslationEnabled.toggle()
                 }) {
                     Image(systemName: "character.bubble.fill")

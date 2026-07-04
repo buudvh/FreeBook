@@ -454,7 +454,7 @@ public final class TranslateUtils {
         let capitalizeRegex = try! NSRegularExpression(pattern: #"(^\s*|[.!?“‘”’\[【-]\s*)(\p{Ll})"#, options: [.anchorsMatchLines])
         let matches = capitalizeRegex.matches(in: result, options: [], range: NSRange(result.startIndex..<result.endIndex, in: result))
         
-        var offset = 0
+        let offset = 0
         for match in matches {
             if match.numberOfRanges == 3 {
                 let range2 = match.range(at: 2)
