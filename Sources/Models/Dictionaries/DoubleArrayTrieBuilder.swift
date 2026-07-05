@@ -116,8 +116,9 @@ public final class DoubleArrayTrieBuilder {
         func ensureCapacity(forIndex idx: Int) {
             if idx >= base.count {
                 let newCapacity = max(idx + 1, base.count * 2)
-                base.append(repeating: Int32(0), count: newCapacity - base.count)
-                check.append(repeating: Int32(0), count: newCapacity - check.count)
+                let count = newCapacity - base.count
+                base.append(contentsOf: repeatElement(Int32(0), count: count))
+                check.append(contentsOf: repeatElement(Int32(0), count: count))
             }
         }
         

@@ -5,6 +5,10 @@ public final class TextDictionary: TrieDictionary {
     private var maxWordLength: Int = 1
     public private(set) var isLoaded = false
     
+    public var wordCount: Int {
+        return entries.count
+    }
+    
     public init() {}
     
     public func load(from fileURL: URL) throws {
