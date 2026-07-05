@@ -5,7 +5,7 @@ import SwiftData
 struct FreeBookApp: App {
     var body: some Scene {
         WindowGroup {
-            MainTabView()
+            AppLaunchRootView()
         }
         .modelContainer(for: [
             Repository.self,
@@ -13,5 +13,22 @@ struct FreeBookApp: App {
             Book.self,
             Chapter.self
         ])
+    }
+}
+
+struct AppLaunchRootView: View {
+    @ObservedObject private var translationManager = TranslationManager.shared
+    
+    var body: some View {
+        Group {
+            if translationManager.isInitialized {
+                MainTabView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            } else {
+                AppLoadingView()
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.5), value: translationManager.isInitialized)
     }
 }

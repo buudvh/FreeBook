@@ -1074,6 +1074,7 @@ struct ReaderView: View {
             
             // Cập nhật tiến độ đọc và lịch sử
             book.currentChapterIndex = chapterIndex
+            book.currentChapterTitle = chap.title
             book.isHistory = true
             book.lastReadDate = Date()
             try? modelContext.save()
@@ -1107,6 +1108,7 @@ struct ReaderView: View {
                         chap.content = cleanedContent
                         chap.isCached = true
                         book.currentChapterIndex = chapterIndex
+                        book.currentChapterTitle = chap.title
                         book.isHistory = true
                         book.lastReadDate = Date()
                         try? modelContext.save()
@@ -1123,6 +1125,7 @@ struct ReaderView: View {
                             sourceUrl: ext.sourceUrl,
                             extensionPackageId: extensionPackageId,
                             currentChapterIndex: chapterIndex,
+                            currentChapterTitle: info.title,
                             isOnShelf: false,
                             isHistory: true
                         )

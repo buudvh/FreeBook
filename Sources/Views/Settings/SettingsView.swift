@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var toastMessage = ""
     @State private var showingFileImporter = false
     @State private var importType = "vietphrase"
+    @State private var importingType: String? = nil
     
     var body: some View {
         NavigationStack {
@@ -51,6 +52,12 @@ struct SettingsView: View {
                     
                     if isTranslationEnabled {
                         Section(header: Text("Từ điển chung")) {
+                            if importingType != nil {
+                                ProgressView()
+                                    .progressViewStyle(LinearProgressViewStyle())
+                                    .padding(.bottom, 8)
+                            }
+                            
                             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                                 Button(action: {
                                     importType = "vietphrase"
@@ -59,10 +66,12 @@ struct SettingsView: View {
                                     DictionaryCard(
                                         title: "VietPhrase.txt",
                                         statusText: getStatusText(for: "vietphrase"),
-                                        isSet: translationManager.isVietPhraseLoaded
+                                        isSet: translationManager.isVietPhraseLoaded,
+                                        isLoading: importingType == "vietphrase"
                                     )
                                 }
                                 .buttonStyle(PlainButtonStyle())
+                                .disabled(importingType != nil)
                                 
                                 Button(action: {
                                     importType = "names"
@@ -71,10 +80,12 @@ struct SettingsView: View {
                                     DictionaryCard(
                                         title: "Name.txt",
                                         statusText: getStatusText(for: "names"),
-                                        isSet: translationManager.isNamesLoaded
+                                        isSet: translationManager.isNamesLoaded,
+                                        isLoading: importingType == "names"
                                     )
                                 }
                                 .buttonStyle(PlainButtonStyle())
+                                .disabled(importingType != nil)
                                 
                                 Button(action: {
                                     importType = "phienam"
@@ -83,10 +94,12 @@ struct SettingsView: View {
                                     DictionaryCard(
                                         title: "PhienAm.txt",
                                         statusText: getStatusText(for: "phienam"),
-                                        isSet: translationManager.isPhienAmLoaded
+                                        isSet: translationManager.isPhienAmLoaded,
+                                        isLoading: importingType == "phienam"
                                     )
                                 }
                                 .buttonStyle(PlainButtonStyle())
+                                .disabled(importingType != nil)
                                 
                                 Button(action: {
                                     importType = "pronouns"
@@ -95,10 +108,12 @@ struct SettingsView: View {
                                     DictionaryCard(
                                         title: "Pronouns.txt",
                                         statusText: getStatusText(for: "pronouns"),
-                                        isSet: translationManager.isPronounsLoaded
+                                        isSet: translationManager.isPronounsLoaded,
+                                        isLoading: importingType == "pronouns"
                                     )
                                 }
                                 .buttonStyle(PlainButtonStyle())
+                                .disabled(importingType != nil)
                                 
                                 Button(action: {
                                     importType = "luatnhan"
@@ -107,10 +122,12 @@ struct SettingsView: View {
                                     DictionaryCard(
                                         title: "LuatNhan.txt",
                                         statusText: getStatusText(for: "luatnhan"),
-                                        isSet: translationManager.isLuatNhanLoaded
+                                        isSet: translationManager.isLuatNhanLoaded,
+                                        isLoading: importingType == "luatnhan"
                                     )
                                 }
                                 .buttonStyle(PlainButtonStyle())
+                                .disabled(importingType != nil)
                             }
                             .padding(.vertical, 4)
                         }
@@ -119,7 +136,7 @@ struct SettingsView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(translationManager.downloadMessage)
                                     .font(.caption)
-                                    ProgressView(value: translationManager.downloadProgress)
+                                ProgressView(value: translationManager.downloadProgress)
                             }
                         } else {
                             Button(action: {
@@ -129,6 +146,7 @@ struct SettingsView: View {
                             }) {
                                 Label(translationManager.isDownloaded() ? "Tải lại từ điển mặc định" : "Tải từ điển mặc định", systemImage: "arrow.down.circle")
                             }
+                            .disabled(importingType != nil)
                         }
                         
                         Button(action: {
@@ -137,10 +155,12 @@ struct SettingsView: View {
                         }) {
                             Label("Làm mới dữ liệu dịch", systemImage: "arrow.clockwise")
                         }
+                        .disabled(importingType != nil)
                         
                         NavigationLink(destination: SearchEnginesConfigView()) {
                             Label("Cấu hình công cụ tra cứu", systemImage: "magnifyingglass")
                         }
+                        .disabled(importingType != nil)
                     }
                 }
                 
@@ -222,7 +242,7 @@ struct SettingsView: View {
                                 .fill(Color(red: 0.1, green: 0.1, blue: 0.1).opacity(0.92))
                                 .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
                         )
-                        .padding(.bottom, 20)
+                        .padding(.bottom, 70)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
@@ -239,11 +259,24 @@ struct SettingsView: View {
                                 selectedUrl.stopAccessingSecurityScopedResource()
                             }
                         }
+                        
+                        let currentType = importType
+                        importingType = currentType
+                        
                         Task {
                             do {
-                                try await translationManager.importDictionary(from: selectedUrl, type: importType)
+                                try await translationManager.importDictionary(from: selectedUrl, type: currentType)
+                                await MainActor.run {
+                                    showToast("Nhập dữ liệu từ điển thành công!")
+                                }
                             } catch {
-                                // AppLogger.shared.log("❌ Lỗi import từ điển: \(error.localizedDescription)")
+                                AppLogger.shared.log("❌ Lỗi import từ điển: \(error.localizedDescription)")
+                                await MainActor.run {
+                                    showToast("Lỗi: \(error.localizedDescription)")
+                                }
+                            }
+                            await MainActor.run {
+                                importingType = nil
                             }
                         }
                     },
@@ -271,6 +304,9 @@ struct SettingsView: View {
     }
     
     private func getStatusText(for type: String) -> String {
+        if importingType == type {
+            return "Đang import..."
+        }
         if let count = translationManager.getWordCount(for: type) {
             return "\(count) từ"
         }
@@ -299,6 +335,7 @@ struct DictionaryCard: View {
     let title: String
     let statusText: String
     let isSet: Bool
+    let isLoading: Bool
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -310,7 +347,7 @@ struct DictionaryCard: View {
             
             Text(statusText)
                 .font(.caption)
-                .foregroundColor(isSet ? .secondary : .red)
+                .foregroundColor(isLoading ? .blue : (isSet ? .secondary : .red))
                 .lineLimit(1)
         }
         .padding(10)

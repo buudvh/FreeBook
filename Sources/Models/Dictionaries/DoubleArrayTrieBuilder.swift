@@ -116,8 +116,8 @@ public final class DoubleArrayTrieBuilder {
         func ensureCapacity(forIndex idx: Int) {
             if idx >= base.count {
                 let newCapacity = max(idx + 1, base.count * 2)
-                base.append(contentsOf: Array(repeating: Int32(0), count: newCapacity - base.count))
-                check.append(contentsOf: Array(repeating: Int32(0), count: newCapacity - check.count))
+                base.append(repeating: Int32(0), count: newCapacity - base.count)
+                check.append(repeating: Int32(0), count: newCapacity - check.count)
             }
         }
         
@@ -125,7 +125,8 @@ public final class DoubleArrayTrieBuilder {
         var nextCheckPos: Int = 1
         
         func buildTrie(parentState: Int, siblings: [Sibling]) {
-            var baseValue = nextCheckPos
+            let minCode = siblings.first?.code ?? 0
+            var baseValue = max(nextCheckPos - Int(minCode), 1)
             let maxCode = siblings.map { $0.code }.max() ?? 0
             
             outerLoop: while true {
@@ -141,15 +142,16 @@ public final class DoubleArrayTrieBuilder {
                 break
             }
             
-            if parentState == 1 {
-                nextCheckPos = baseValue
-            }
-            
             base[parentState] = Int32(baseValue)
             
             for sib in siblings {
                 let childState = baseValue + Int(sib.code)
                 check[childState] = Int32(parentState)
+            }
+            
+            // Cập nhật vị trí trống tiếp theo của mảng check
+            while nextCheckPos < check.count && check[nextCheckPos] != 0 {
+                nextCheckPos += 1
             }
             
             for sib in siblings {

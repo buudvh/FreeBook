@@ -14,6 +14,7 @@ public final class Book {
     public var extensionPackageId: String
     public var currentChapterIndex: Int = 0
     public var currentChapterPage: Int = 0 // số trang hiện tại hoặc vị trí cuộn
+    public var currentChapterTitle: String = ""
     public var lastReadDate: Date = Date()
     
     public var isOnShelf: Bool = true
@@ -22,7 +23,17 @@ public final class Book {
     @Relationship(deleteRule: .cascade, inverse: \Chapter.book)
     public var chapters: [Chapter] = []
     
-    public init(bookId: String, title: String, author: String, coverUrl: String, desc: String, detailUrl: String, sourceName: String, sourceUrl: String, extensionPackageId: String, currentChapterIndex: Int = 0, currentChapterPage: Int = 0, isOnShelf: Bool = true, isHistory: Bool = false) {
+    public var displayChapterTitle: String {
+        if !currentChapterTitle.isEmpty {
+            return currentChapterTitle
+        }
+        if let match = chapters.first(where: { $0.index == currentChapterIndex }) {
+            return match.title
+        }
+        return ""
+    }
+    
+    public init(bookId: String, title: String, author: String, coverUrl: String, desc: String, detailUrl: String, sourceName: String, sourceUrl: String, extensionPackageId: String, currentChapterIndex: Int = 0, currentChapterPage: Int = 0, currentChapterTitle: String = "", isOnShelf: Bool = true, isHistory: Bool = false) {
         self.bookId = bookId
         self.title = title
         self.author = author
@@ -34,6 +45,7 @@ public final class Book {
         self.extensionPackageId = extensionPackageId
         self.currentChapterIndex = currentChapterIndex
         self.currentChapterPage = currentChapterPage
+        self.currentChapterTitle = currentChapterTitle
         self.isOnShelf = isOnShelf
         self.isHistory = isHistory
         self.lastReadDate = Date()

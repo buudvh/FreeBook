@@ -8,6 +8,7 @@ public final class TranslationManager: ObservableObject {
     @Published public var isNamesLoaded = false
     @Published public var isPronounsLoaded = false
     @Published public var isLuatNhanLoaded = false
+    @Published public var isInitialized = false
     @Published public var isDownloading = false
     @Published public var downloadProgress: Double = 0.0
     @Published public var downloadMessage = ""
@@ -19,6 +20,7 @@ public final class TranslationManager: ObservableObject {
     public private(set) var phienAmMap: [String: String] = [:]
     
     private var bookDicts: [String: (vietPhrase: TrieDictionary?, names: TrieDictionary?)] = [:]
+    private var txtWordCountsCache: [String: Int] = [:]
     
     private init() {
         Task {
@@ -186,6 +188,12 @@ public final class TranslationManager: ObservableObject {
     }
     
     public func loadAllDictionaries() async throws {
+        defer {
+            Task { @MainActor in
+                self.isInitialized = true
+            }
+        }
+        
         // 1. Load Names (Optional)
         let namesDatUrl = translateDirectory.appendingPathComponent("Names.dat")
         let namesTxtUrl = translateDirectory.appendingPathComponent("Names.txt")
@@ -200,7 +208,10 @@ public final class TranslationManager: ObservableObject {
             try? DoubleArrayTrieBuilder().build(fromTxtFile: namesTxtUrl, toDatFile: namesDatUrl)
             let dat = DoubleArrayTrie()
             try? dat.load(from: namesDatUrl)
-            if dat.isLoaded { tempNames = dat }
+            if dat.isLoaded { 
+                tempNames = dat
+                try? FileManager.default.removeItem(at: namesTxtUrl)
+            }
         }
         self.namesDict = tempNames
         let namesLoaded = tempNames != nil
@@ -220,7 +231,10 @@ public final class TranslationManager: ObservableObject {
             try? DoubleArrayTrieBuilder().build(fromTxtFile: vpTxtUrl, toDatFile: vpDatUrl)
             let dat = DoubleArrayTrie()
             try? dat.load(from: vpDatUrl)
-            if dat.isLoaded { tempVP = dat }
+            if dat.isLoaded { 
+                tempVP = dat
+                try? FileManager.default.removeItem(at: vpTxtUrl)
+            }
         }
         self.vietPhraseDict = tempVP
         let vpLoaded = tempVP != nil
@@ -240,7 +254,10 @@ public final class TranslationManager: ObservableObject {
             try? DoubleArrayTrieBuilder().build(fromTxtFile: pronounsTxtUrl, toDatFile: pronounsDatUrl)
             let dat = DoubleArrayTrie()
             try? dat.load(from: pronounsDatUrl)
-            if dat.isLoaded { tempPronouns = dat }
+            if dat.isLoaded { 
+                tempPronouns = dat
+                try? FileManager.default.removeItem(at: pronounsTxtUrl)
+            }
         }
         self.pronounsDict = tempPronouns
         let pronounsLoaded = tempPronouns != nil
@@ -260,7 +277,10 @@ public final class TranslationManager: ObservableObject {
             try? DoubleArrayTrieBuilder().build(fromTxtFile: luatNhanTxtUrl, toDatFile: luatNhanDatUrl)
             let dat = DoubleArrayTrie()
             try? dat.load(from: luatNhanDatUrl)
-            if dat.isLoaded { tempLuatNhan = dat }
+            if dat.isLoaded { 
+                tempLuatNhan = dat
+                try? FileManager.default.removeItem(at: luatNhanTxtUrl)
+            }
         }
         self.luatNhanDict = tempLuatNhan
         let luatNhanLoaded = tempLuatNhan != nil
@@ -427,6 +447,19 @@ public final class TranslationManager: ObservableObject {
     }
     
     public func getWordCount(for type: String) -> Int? {
+        // Bước 1: Thử lấy trực tiếp từ thực thể đã nạp sẵn trong RAM (O(1))
+        if type == "vietphrase", let dict = vietPhraseDict {
+            return dict.wordCount
+        } else if type == "names", let dict = namesDict {
+            return dict.wordCount
+        } else if type == "pronouns", let dict = pronounsDict {
+            return dict.wordCount
+        } else if type == "luatnhan", let dict = luatNhanDict {
+            return dict.wordCount
+        } else if type == "phienam", !phienAmMap.isEmpty {
+            return phienAmMap.count
+        }
+        
         let fileName: String
         if type == "vietphrase" {
             fileName = "VietPhrase.dat"
@@ -443,25 +476,61 @@ public final class TranslationManager: ObservableObject {
         }
         
         let fileUrl = translateDirectory.appendingPathComponent(fileName)
+        
+        // Nếu file không tồn tại
         guard FileManager.default.fileExists(atPath: fileUrl.path) else {
+            // Thử tìm file .txt dự phòng
             let fallbackName = fileName.replacingOccurrences(of: ".dat", with: ".txt")
             let fallbackUrl = translateDirectory.appendingPathComponent(fallbackName)
-            if FileManager.default.fileExists(atPath: fallbackUrl.path),
-               let content = try? String(contentsOf: fallbackUrl, encoding: .utf8) {
-                return content.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !$0.hasPrefix("#") }.count
+            guard FileManager.default.fileExists(atPath: fallbackUrl.path) else { return nil }
+            
+            // Đọc từ Cache hoặc đếm rồi lưu vào Cache
+            if let cachedCount = txtWordCountsCache[type] {
+                return cachedCount
+            }
+            if let content = try? String(contentsOf: fallbackUrl, encoding: .utf8) {
+                let count = content.components(separatedBy: .newlines)
+                    .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !$0.hasPrefix("#") }
+                    .count
+                txtWordCountsCache[type] = count
+                return count
             }
             return nil
         }
         
+        // Bước 2: Nếu là file .dat, đọc nhanh 24 byte Header từ ổ đĩa (O(1))
         if fileName.hasSuffix(".dat") {
+            if let fileHandle = try? FileHandle(forReadingFrom: fileUrl) {
+                defer { try? fileHandle.close() }
+                if let headerData = try? fileHandle.read(upToCount: 24), headerData.count >= 12 {
+                    let size = headerData.withUnsafeBytes { pointer -> Int32 in
+                        guard pointer.count >= 12 else { return 0 }
+                        let rawValue = pointer.load(fromByteOffset: 8, as: Int32.self)
+                        return Int32(bigEndian: rawValue)
+                    }
+                    if size > 0 {
+                        return Int(size)
+                    }
+                }
+            }
+            
+            // Fallback trong trường hợp đọc file nhị phân lỗi
             let dat = DoubleArrayTrie()
             try? dat.load(from: fileUrl)
             if dat.isLoaded {
-                return dat.allEntries().count
+                return dat.wordCount
             }
         } else {
+            // Bước 3: Nếu là file .txt, sử dụng cache
+            if let cachedCount = txtWordCountsCache[type] {
+                return cachedCount
+            }
             if let content = try? String(contentsOf: fileUrl, encoding: .utf8) {
-                return content.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !$0.hasPrefix("#") }.count
+                let count = content.components(separatedBy: .newlines)
+                    .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !$0.hasPrefix("#") }
+                    .count
+                txtWordCountsCache[type] = count
+                return count
             }
         }
         return nil

@@ -2,6 +2,7 @@ import Foundation
 
 public protocol TrieDictionary {
     func findLongestMatch(text: String, startIndex: Int) -> (length: Int, value: String)?
+    var wordCount: Int { get }
 }
 
 extension Data {
@@ -31,6 +32,10 @@ public final class DoubleArrayTrie: TrieDictionary {
     private var baseLen: Int = 0
     private var size: Int = 0
     public private(set) var isLoaded = false
+    
+    public var wordCount: Int {
+        return size
+    }
     
     public init() {}
     

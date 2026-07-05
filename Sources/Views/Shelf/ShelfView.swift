@@ -9,12 +9,23 @@ struct ShelfView: View {
     @State private var showingClearHistoryAlert = false
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     
+    @State private var shelfLimit = 50
+    @State private var historyLimit = 50
+    
     private var shelfBooks: [Book] {
         allBooks.filter { $0.isOnShelf }
     }
     
     private var historyBooks: [Book] {
         allBooks.filter { $0.isHistory }
+    }
+    
+    private var displayedShelfBooks: [Book] {
+        Array(shelfBooks.prefix(shelfLimit))
+    }
+    
+    private var displayedHistoryBooks: [Book] {
+        Array(historyBooks.prefix(historyLimit))
     }
     
     var body: some View {
@@ -54,43 +65,55 @@ struct ShelfView: View {
                             }
                             .frame(maxHeight: .infinity)
                         } else {
-                            ScrollView {
-                                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                                    ForEach(shelfBooks) { book in
-                                        NavigationLink(destination: ReaderView(
+                            List {
+                                ForEach(displayedShelfBooks) { book in
+                                    NavigationLink(destination: ReaderView(
+                                        bookId: book.bookId,
+                                        extensionPackageId: book.extensionPackageId,
+                                        chapterIndex: book.currentChapterIndex,
+                                        onlineChapters: [],
+                                        bookTitle: nil,
+                                        bookAuthor: nil,
+                                        bookCoverUrl: nil,
+                                        bookDesc: nil,
+                                        bookDetailUrl: book.detailUrl,
+                                        bookSourceName: book.sourceName
+                                    )) {
+                                        bookItemView(book)
+                                    }
+                                    .contextMenu {
+                                        NavigationLink(destination: BookDetailView(
                                             bookId: book.bookId,
                                             extensionPackageId: book.extensionPackageId,
-                                            chapterIndex: book.currentChapterIndex,
-                                            onlineChapters: [],
-                                            bookTitle: nil,
-                                            bookAuthor: nil,
-                                            bookCoverUrl: nil,
-                                            bookDesc: nil,
-                                            bookDetailUrl: book.detailUrl,
-                                            bookSourceName: book.sourceName
+                                            initialDetailUrl: book.detailUrl,
+                                            sourceName: book.sourceName
                                         )) {
-                                            bookItemView(book)
+                                            Label("Xem chi tiết", systemImage: "info.circle")
                                         }
-                                        .contextMenu {
-                                            NavigationLink(destination: BookDetailView(
-                                                bookId: book.bookId,
-                                                extensionPackageId: book.extensionPackageId,
-                                                initialDetailUrl: book.detailUrl,
-                                                sourceName: book.sourceName
-                                            )) {
-                                                Label("Xem chi tiết", systemImage: "info.circle")
-                                            }
-                                            
-                                            Button(role: .destructive) {
-                                                removeFromShelf(book)
-                                            } label: {
-                                                Label("Xóa khỏi kệ sách", systemImage: "bookmark.slash")
-                                            }
+                                        
+                                        Button(role: .destructive) {
+                                            removeFromShelf(book)
+                                        } label: {
+                                            Label("Xóa khỏi kệ sách", systemImage: "bookmark.slash")
                                         }
                                     }
                                 }
-                                .padding(16)
+                                
+                                if shelfBooks.count > shelfLimit {
+                                    HStack {
+                                        Spacer()
+                                        ProgressView()
+                                            .onAppear {
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                                    shelfLimit += 50
+                                                }
+                                            }
+                                        Spacer()
+                                    }
+                                    .listRowSeparator(.hidden)
+                                }
                             }
+                            .listStyle(.plain)
                         }
                     } else {
                         // TAB LỊCH SỬ
@@ -114,43 +137,55 @@ struct ShelfView: View {
                             }
                             .frame(maxHeight: .infinity)
                         } else {
-                            ScrollView {
-                                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                                    ForEach(historyBooks) { book in
-                                        NavigationLink(destination: ReaderView(
+                            List {
+                                ForEach(displayedHistoryBooks) { book in
+                                    NavigationLink(destination: ReaderView(
+                                        bookId: book.bookId,
+                                        extensionPackageId: book.extensionPackageId,
+                                        chapterIndex: book.currentChapterIndex,
+                                        onlineChapters: [],
+                                        bookTitle: nil,
+                                        bookAuthor: nil,
+                                        bookCoverUrl: nil,
+                                        bookDesc: nil,
+                                        bookDetailUrl: book.detailUrl,
+                                        bookSourceName: book.sourceName
+                                    )) {
+                                        bookItemView(book)
+                                    }
+                                    .contextMenu {
+                                        NavigationLink(destination: BookDetailView(
                                             bookId: book.bookId,
                                             extensionPackageId: book.extensionPackageId,
-                                            chapterIndex: book.currentChapterIndex,
-                                            onlineChapters: [],
-                                            bookTitle: nil,
-                                            bookAuthor: nil,
-                                            bookCoverUrl: nil,
-                                            bookDesc: nil,
-                                            bookDetailUrl: book.detailUrl,
-                                            bookSourceName: book.sourceName
+                                            initialDetailUrl: book.detailUrl,
+                                            sourceName: book.sourceName
                                         )) {
-                                            bookItemView(book)
+                                            Label("Xem chi tiết", systemImage: "info.circle")
                                         }
-                                        .contextMenu {
-                                            NavigationLink(destination: BookDetailView(
-                                                bookId: book.bookId,
-                                                extensionPackageId: book.extensionPackageId,
-                                                initialDetailUrl: book.detailUrl,
-                                                sourceName: book.sourceName
-                                            )) {
-                                                Label("Xem chi tiết", systemImage: "info.circle")
-                                            }
-                                            
-                                            Button(role: .destructive) {
-                                                removeFromHistory(book)
-                                            } label: {
-                                                Label("Xóa lịch sử", systemImage: "clock.badge.xmark")
-                                            }
+                                        
+                                        Button(role: .destructive) {
+                                            removeFromHistory(book)
+                                        } label: {
+                                            Label("Xóa lịch sử", systemImage: "clock.badge.xmark")
                                         }
                                     }
                                 }
-                                .padding(16)
+                                
+                                if historyBooks.count > historyLimit {
+                                    HStack {
+                                        Spacer()
+                                        ProgressView()
+                                            .onAppear {
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                                    historyLimit += 50
+                                                }
+                                            }
+                                        Spacer()
+                                    }
+                                    .listRowSeparator(.hidden)
+                                }
                             }
+                            .listStyle(.plain)
                         }
                     }
                 }
@@ -182,6 +217,10 @@ struct ShelfView: View {
                 Button("Hủy", role: .cancel) {}
             } message: {
                 Text("Bạn có chắc chắn muốn xóa toàn bộ lịch sử đọc không? Sách trong kệ sách sẽ không bị ảnh hưởng.")
+            }
+            .onChange(of: selectedTab) { _, _ in
+                shelfLimit = 50
+                historyLimit = 50
             }
         }
     }
@@ -218,10 +257,9 @@ struct ShelfView: View {
                 }
                 
                 if selectedTab == 1 {
-                    let sortedChapters = book.chapters.sorted(by: { $0.index < $1.index })
-                    if book.currentChapterIndex >= 0 && book.currentChapterIndex < sortedChapters.count {
-                        let currentChap = sortedChapters[book.currentChapterIndex]
-                        Text("Đã đọc: \(translateIfNeeded(currentChap.title))")
+                    let chapterTitle = book.displayChapterTitle
+                    if !chapterTitle.isEmpty {
+                        Text("Đã đọc: \(translateIfNeeded(chapterTitle))")
                             .font(.caption)
                             .foregroundColor(.blue)
                             .lineLimit(1)
