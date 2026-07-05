@@ -14,7 +14,7 @@ struct SettingsView: View {
     @State private var toastMessage = ""
     @State private var showingFileImporter = false
     @State private var importType = "vietphrase"
-    @State private var importingType: String? = nil
+    @State private var importingTypes: Set<String> = []
     
     var body: some View {
         NavigationStack {
@@ -52,12 +52,6 @@ struct SettingsView: View {
                     
                     if isTranslationEnabled {
                         Section(header: Text("Từ điển chung")) {
-                            if importingType != nil {
-                                ProgressView()
-                                    .progressViewStyle(LinearProgressViewStyle())
-                                    .padding(.bottom, 8)
-                            }
-                            
                             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                                 Button(action: {
                                     importType = "vietphrase"
@@ -67,11 +61,11 @@ struct SettingsView: View {
                                         title: "VietPhrase.txt",
                                         statusText: getStatusText(for: "vietphrase"),
                                         isSet: translationManager.isVietPhraseLoaded,
-                                        isLoading: importingType == "vietphrase"
+                                        isLoading: importingTypes.contains("vietphrase")
                                     )
                                 }
                                 .buttonStyle(PlainButtonStyle())
-                                .disabled(importingType != nil)
+                                .disabled(importingTypes.contains("vietphrase"))
                                 
                                 Button(action: {
                                     importType = "names"
@@ -81,11 +75,11 @@ struct SettingsView: View {
                                         title: "Name.txt",
                                         statusText: getStatusText(for: "names"),
                                         isSet: translationManager.isNamesLoaded,
-                                        isLoading: importingType == "names"
+                                        isLoading: importingTypes.contains("names")
                                     )
                                 }
                                 .buttonStyle(PlainButtonStyle())
-                                .disabled(importingType != nil)
+                                .disabled(importingTypes.contains("names"))
                                 
                                 Button(action: {
                                     importType = "phienam"
@@ -95,11 +89,11 @@ struct SettingsView: View {
                                         title: "PhienAm.txt",
                                         statusText: getStatusText(for: "phienam"),
                                         isSet: translationManager.isPhienAmLoaded,
-                                        isLoading: importingType == "phienam"
+                                        isLoading: importingTypes.contains("phienam")
                                     )
                                 }
                                 .buttonStyle(PlainButtonStyle())
-                                .disabled(importingType != nil)
+                                .disabled(importingTypes.contains("phienam"))
                                 
                                 Button(action: {
                                     importType = "pronouns"
@@ -109,11 +103,11 @@ struct SettingsView: View {
                                         title: "Pronouns.txt",
                                         statusText: getStatusText(for: "pronouns"),
                                         isSet: translationManager.isPronounsLoaded,
-                                        isLoading: importingType == "pronouns"
+                                        isLoading: importingTypes.contains("pronouns")
                                     )
                                 }
                                 .buttonStyle(PlainButtonStyle())
-                                .disabled(importingType != nil)
+                                .disabled(importingTypes.contains("pronouns"))
                                 
                                 Button(action: {
                                     importType = "luatnhan"
@@ -123,11 +117,11 @@ struct SettingsView: View {
                                         title: "LuatNhan.txt",
                                         statusText: getStatusText(for: "luatnhan"),
                                         isSet: translationManager.isLuatNhanLoaded,
-                                        isLoading: importingType == "luatnhan"
+                                        isLoading: importingTypes.contains("luatnhan")
                                     )
                                 }
                                 .buttonStyle(PlainButtonStyle())
-                                .disabled(importingType != nil)
+                                .disabled(importingTypes.contains("luatnhan"))
                             }
                             .padding(.vertical, 4)
                         }
@@ -146,7 +140,7 @@ struct SettingsView: View {
                             }) {
                                 Label(translationManager.isDownloaded() ? "Tải lại từ điển mặc định" : "Tải từ điển mặc định", systemImage: "arrow.down.circle")
                             }
-                            .disabled(importingType != nil)
+                            .disabled(!importingTypes.isEmpty)
                         }
                         
                         Button(action: {
@@ -155,12 +149,12 @@ struct SettingsView: View {
                         }) {
                             Label("Làm mới dữ liệu dịch", systemImage: "arrow.clockwise")
                         }
-                        .disabled(importingType != nil)
+                        .disabled(!importingTypes.isEmpty)
                         
                         NavigationLink(destination: SearchEnginesConfigView()) {
                             Label("Cấu hình công cụ tra cứu", systemImage: "magnifyingglass")
                         }
-                        .disabled(importingType != nil)
+                        .disabled(!importingTypes.isEmpty)
                     }
                 }
                 
@@ -261,7 +255,7 @@ struct SettingsView: View {
                         }
                         
                         let currentType = importType
-                        importingType = currentType
+                        importingTypes.insert(currentType)
                         
                         Task {
                             do {
@@ -276,7 +270,7 @@ struct SettingsView: View {
                                 }
                             }
                             await MainActor.run {
-                                importingType = nil
+                                importingTypes.remove(currentType)
                             }
                         }
                     },
@@ -304,7 +298,7 @@ struct SettingsView: View {
     }
     
     private func getStatusText(for type: String) -> String {
-        if importingType == type {
+        if importingTypes.contains(type) {
             return "Đang import..."
         }
         if let count = translationManager.getWordCount(for: type) {
@@ -338,17 +332,25 @@ struct DictionaryCard: View {
     let isLoading: Bool
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.subheadline)
-                .fontWeight(.bold)
-                .foregroundColor(.primary)
-                .lineLimit(1)
+        HStack {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                
+                Text(statusText)
+                    .font(.caption)
+                    .foregroundColor(isLoading ? .blue : (isSet ? .secondary : .red))
+                    .lineLimit(1)
+            }
             
-            Text(statusText)
-                .font(.caption)
-                .foregroundColor(isLoading ? .blue : (isSet ? .secondary : .red))
-                .lineLimit(1)
+            if isLoading {
+                Spacer()
+                ProgressView()
+                    .controlSize(.small)
+            }
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)

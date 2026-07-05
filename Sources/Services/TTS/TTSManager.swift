@@ -293,7 +293,7 @@ public final class TTSManager: NSObject, ObservableObject {
         Task {
             do {
                 // Suy luận với tốc độ mặc định 1.0
-                let wavData = try await service.synthesize(text: text, voice: selectedVoice)
+                let wavData = try await service.synthesize(text: text, voice: selectedVoice, speed: 1.0)
                 
                 guard self.isPlaying else {
                     self.cleanUpTempFile()
@@ -322,6 +322,13 @@ public final class TTSManager: NSObject, ObservableObject {
         self.currentTempFileUrl = fileURL
         
         let file = try AVAudioFile(forReading: fileURL)
+        
+        player.stop()
+        engine.disconnectNodeOutput(player)
+        engine.disconnectNodeOutput(pitchNode)
+        
+        engine.connect(player, to: pitchNode, format: file.processingFormat)
+        engine.connect(pitchNode, to: engine.mainMixerNode, format: file.processingFormat)
         
         if !engine.isRunning {
             try engine.start()

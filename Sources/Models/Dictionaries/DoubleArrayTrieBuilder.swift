@@ -94,8 +94,9 @@ public final class DoubleArrayTrieBuilder {
         var base: [Int32] = Array(repeating: 0, count: 65536)
         var check: [Int32] = Array(repeating: 0, count: 65536)
         
-        // Đánh dấu trạng thái 0 là đã sử dụng
+        // Đánh dấu trạng thái 0 và trạng thái 1 (root) là đã sử dụng
         check[0] = -1
+        check[1] = -1
         
         // 5. Khởi tạo String Pool để lưu nghĩa dịch tiếng Việt
         var stringPool = Data()

@@ -23,7 +23,7 @@ final class PiperTTSService {
         self.engine = engine
     }
 
-    func synthesize(text: String, voice: String) async throws -> Data {
+    func synthesize(text: String, voice: String, speed: Double) async throws -> Data {
         let voiceId = voice.toASCIIID
         let modelONNX = modelStore.modelURL(for: voiceId, extension: "onnx")
         let modelConfig = modelStore.modelURL(for: voiceId, extension: "onnx.json")
@@ -35,7 +35,6 @@ final class PiperTTSService {
 
         syncQueue.sync { _currentModel = voice }
         
-        let speed = 1.0
         // Nếu không chứa ký tự chữ/số nào, tạo khoảng lặng chờ tương đương dấu câu và trả về ngay
         if text.rangeOfCharacter(from: .alphanumerics) == nil {
             let sampleRate = 22050 // Tần số mẫu mặc định của model
