@@ -108,7 +108,7 @@ public final class DoubleArrayTrieBuilder {
             stringPoolOffsets[i] = offset
             
             var lenBE = UInt16(valData.count).bigEndian
-            withUnsafeBytes(of: &lenBE) { stringPool.append($0) }
+            withUnsafeBytes(of: &lenBE) { stringPool.append(contentsOf: $0) }
             stringPool.append(valData)
         }
         
@@ -216,39 +216,39 @@ public final class DoubleArrayTrieBuilder {
         var baseLenBE = Int32(baseLen).bigEndian
         var charMapSizeBE = Int32(charMap.count).bigEndian
         
-        withUnsafeBytes(of: &magic) { outputData.append($0) }
-        withUnsafeBytes(of: &version) { outputData.append($0) }
-        withUnsafeBytes(of: &sizeBE) { outputData.append($0) }
-        withUnsafeBytes(of: &baseLenBE) { outputData.append($0) }
-        withUnsafeBytes(of: &charMapSizeBE) { outputData.append($0) }
+        withUnsafeBytes(of: &magic) { outputData.append(contentsOf: $0) }
+        withUnsafeBytes(of: &version) { outputData.append(contentsOf: $0) }
+        withUnsafeBytes(of: &sizeBE) { outputData.append(contentsOf: $0) }
+        withUnsafeBytes(of: &baseLenBE) { outputData.append(contentsOf: $0) }
+        withUnsafeBytes(of: &charMapSizeBE) { outputData.append(contentsOf: $0) }
         
         var reserved = Int32(0).bigEndian
-        withUnsafeBytes(of: &reserved) { outputData.append($0) }
+        withUnsafeBytes(of: &reserved) { outputData.append(contentsOf: $0) }
         
         // Ghi CharMap
         let sortedCharMap = charMap.sorted { $0.key < $1.key }
         for entry in sortedCharMap {
             var charCode = Int32(entry.key).bigEndian
             var mappedCode = Int32(entry.value).bigEndian
-            withUnsafeBytes(of: &charCode) { outputData.append($0) }
-            withUnsafeBytes(of: &mappedCode) { outputData.append($0) }
+            withUnsafeBytes(of: &charCode) { outputData.append(contentsOf: $0) }
+            withUnsafeBytes(of: &mappedCode) { outputData.append(contentsOf: $0) }
         }
         
         // Ghi BASE
         for i in 0..<baseLen {
             var val = base[i].bigEndian
-            withUnsafeBytes(of: &val) { outputData.append($0) }
+            withUnsafeBytes(of: &val) { outputData.append(contentsOf: $0) }
         }
         
         // Ghi CHECK
         for i in 0..<baseLen {
             var val = check[i].bigEndian
-            withUnsafeBytes(of: &val) { outputData.append($0) }
+            withUnsafeBytes(of: &val) { outputData.append(contentsOf: $0) }
         }
         
         // Ghi PoolSize
         var poolSize = Int32(stringPool.count).bigEndian
-        withUnsafeBytes(of: &poolSize) { outputData.append($0) }
+        withUnsafeBytes(of: &poolSize) { outputData.append(contentsOf: $0) }
         
         // Ghi String Pool
         outputData.append(stringPool)

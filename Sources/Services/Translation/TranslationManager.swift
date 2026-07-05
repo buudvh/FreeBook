@@ -269,12 +269,16 @@ public final class TranslationManager: ObservableObject {
         // 5. Load PhienAm (Required)
         let paTxtUrl = translateDirectory.appendingPathComponent("ChinesePhienAmWords.txt")
         var tempPA: [String: String] = [:]
-        var paLoaded = false
+        let paLoaded: Bool
         if FileManager.default.fileExists(atPath: paTxtUrl.path) {
+            var loaded = false
             do {
                 tempPA = try loadPhoneticMap(from: paTxtUrl)
-                paLoaded = true
+                loaded = true
             } catch {}
+            paLoaded = loaded
+        } else {
+            paLoaded = false
         }
         self.phienAmMap = tempPA
         await MainActor.run { self.isPhienAmLoaded = paLoaded }
