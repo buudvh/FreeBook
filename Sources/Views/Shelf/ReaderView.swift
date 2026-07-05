@@ -360,7 +360,7 @@ struct ReaderView: View {
                     }
                 }
                 
-                // Original Hán ngữ segment with adjuster (underlines each Chinese token)
+                // Hàng 1: Đoạn dịch gốc và nút điều chỉnh 2 bên (Token-based)
                 HStack(spacing: 8) {
                     HStack(spacing: 4) {
                         Button(action: expandSelectionLeft) {
@@ -378,13 +378,12 @@ struct ReaderView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 4) {
                             ForEach(translationTokens) { token in
-                                // Sửa logic bôi đậm khi mở rộng ngoài cụm từ đã tokenize
                                 let isSelected = (token.originalOffset < selectedWordOffset + selectedWordLength && 
                                                   token.originalOffset + token.originalLength > selectedWordOffset)
                                 Text(token.originalText)
                                     .font(.title3)
                                     .bold(isSelected)
-                                    .underline() // Underline all tokens individually
+                                    .underline()
                                     .foregroundColor(isSelected ? .blue : .primary)
                                     .onTapGesture {
                                         selectedWordOffset = token.originalOffset
@@ -413,17 +412,16 @@ struct ReaderView: View {
                 .background(Color.secondary.opacity(0.08))
                 .cornerRadius(8)
                 
-                // Translated Vietnamese segment (underlines each translated token, tap-interactive)
+                // Hàng 2: Đoạn dịch (bold/underline các thẻ chứa từ đã chọn)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(translationTokens) { token in
-                            // Sửa logic bôi đậm khi mở rộng ngoài cụm từ đã tokenize
                             let isSelected = (token.originalOffset < selectedWordOffset + selectedWordLength && 
                                               token.originalOffset + token.originalLength > selectedWordOffset)
                             Text(token.translatedText)
                                 .font(.subheadline)
                                 .bold(isSelected)
-                                .underline() // Underline all tokens individually
+                                .underline()
                                 .foregroundColor(isSelected ? .blue : .primary)
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 2)
@@ -440,7 +438,7 @@ struct ReaderView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 4)
                 
-                // Input TextField with Clear button
+                // Hàng 3: Ô nhập nghĩa dịch
                 HStack {
                     TextField("Nhập nghĩa dịch...", text: $customMeaning)
                         .autocorrectionDisabled()
@@ -457,7 +455,7 @@ struct ReaderView: View {
                 .background(Color.secondary.opacity(0.1))
                 .cornerRadius(8)
                 
-                // Hàng 1: Nút Quản lý icon tròn và Danh sách gợi ý chip ngang
+                // Hàng 4: Icon Quản lý tròn và Danh sách gợi ý chip ngang
                 HStack(spacing: 8) {
                     Button(action: { showingManageDefinitionsSheet = true }) {
                         Image(systemName: "slider.horizontal.3")
@@ -487,7 +485,7 @@ struct ReaderView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 
-                // Hàng 2: Nhóm nút định dạng chữ aa, Aa1, Aa2, AA dàn đều cả hàng
+                // Hàng 5: Nhóm nút định dạng chữ aa, Aa1, Aa2, AA dàn đều cả hàng
                 HStack(spacing: 8) {
                     ForEach(["aa", "Aa¹", "Aa²", "AA"], id: \.self) { format in
                         Button(action: {
@@ -517,7 +515,7 @@ struct ReaderView: View {
                     }
                 }
                 
-                // Hàng 3: Hai Segment chọn Loại (Names/VP) và Phạm vi (Riêng/Chung) trên cùng 1 hàng
+                // Hàng 6: Hai Segment chọn Loại (Names/VP) và Phạm vi (Riêng/Chung) trên cùng 1 hàng
                 HStack(spacing: 12) {
                     Picker("Loại", selection: $saveAsNameType) {
                         Text("Names").tag(true)
@@ -532,7 +530,7 @@ struct ReaderView: View {
                     .pickerStyle(.segmented)
                 }
                 
-                // Hàng 4: Phím Cập nhật đứng riêng 1 hàng dưới cùng
+                // Hàng 7: Phím Cập nhật đứng riêng 1 hàng dưới cùng
                 Button(action: saveDefinition) {
                     HStack {
                         Spacer()
@@ -571,7 +569,7 @@ struct ReaderView: View {
             }
             .padding()
             .background(Color(uiColor: .systemBackground).onTapGesture { hideKeyboard() })
-            .presentationDetents([.height(480), .large])
+            .presentationDetents([.height(530), .large])
             .onAppear {
                 self.searchEngines = SearchEngine.loadEngines()
             }
@@ -838,33 +836,61 @@ struct ReaderView: View {
         return (prefix, selected, suffix)
     }
     
+    private var selectedTokens: [TranslationWordToken] {
+        translationTokens.filter { token in
+            token.originalOffset < selectedWordOffset + selectedWordLength &&
+            token.originalOffset + token.originalLength > selectedWordOffset
+        }
+    }
+    
     private func expandSelectionLeft() {
-        if selectedWordOffset > 0 {
-            selectedWordOffset -= 1
-            selectedWordLength += 1
+        let tokens = translationTokens
+        guard !tokens.isEmpty else { return }
+        let selected = selectedTokens
+        guard let firstSelected = selected.first else { return }
+        
+        if let idx = tokens.firstIndex(where: { $0.originalOffset == firstSelected.originalOffset }), idx > 0 {
+            let prevToken = tokens[idx - 1]
+            selectedWordLength = (selectedWordOffset + selectedWordLength) - prevToken.originalOffset
+            selectedWordOffset = prevToken.originalOffset
             updateEditorFromSelection()
         }
     }
     
     private func shrinkSelectionLeft() {
-        if selectedWordLength > 1 {
-            selectedWordOffset += 1
-            selectedWordLength -= 1
+        let tokens = translationTokens
+        let selected = selectedTokens
+        guard selected.count > 1, let firstSelected = selected.first else { return }
+        
+        if let idx = tokens.firstIndex(where: { $0.originalOffset == firstSelected.originalOffset }), idx < tokens.count - 1 {
+            let nextToken = tokens[idx + 1]
+            selectedWordLength = (selectedWordOffset + selectedWordLength) - nextToken.originalOffset
+            selectedWordOffset = nextToken.originalOffset
             updateEditorFromSelection()
         }
     }
     
     private func shrinkSelectionRight() {
-        if selectedWordLength > 1 {
-            selectedWordLength -= 1
+        let tokens = translationTokens
+        let selected = selectedTokens
+        guard selected.count > 1, let lastSelected = selected.last else { return }
+        
+        if let idx = tokens.firstIndex(where: { $0.originalOffset == lastSelected.originalOffset }), idx > 0 {
+            let prevToken = tokens[idx - 1]
+            selectedWordLength = (prevToken.originalOffset + prevToken.originalLength) - selectedWordOffset
             updateEditorFromSelection()
         }
     }
     
     private func expandSelectionRight() {
-        let ns = originalSentence as NSString
-        if selectedWordOffset + selectedWordLength < ns.length {
-            selectedWordLength += 1
+        let tokens = translationTokens
+        guard !tokens.isEmpty else { return }
+        let selected = selectedTokens
+        guard let lastSelected = selected.last else { return }
+        
+        if let idx = tokens.firstIndex(where: { $0.originalOffset == lastSelected.originalOffset }), idx < tokens.count - 1 {
+            let nextToken = tokens[idx + 1]
+            selectedWordLength = (nextToken.originalOffset + nextToken.originalLength) - selectedWordOffset
             updateEditorFromSelection()
         }
     }
