@@ -10,6 +10,8 @@ struct SettingsView: View {
     @State private var showingCopyWarningAlert = false
     @State private var showingCopySuccessAlert = false
     @State private var showingClearLogAlert = false
+    @State private var showingToast = false
+    @State private var toastMessage = ""
     @State private var showingFileImporter = false
     @State private var importType = "vietphrase"
     
@@ -50,31 +52,65 @@ struct SettingsView: View {
                     if isTranslationEnabled {
                         Section(header: Text("Từ điển chung")) {
                             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                                DictionaryCard(
-                                    title: "VietPhrase.txt",
-                                    statusText: getStatusText(for: "vietphrase"),
-                                    isSet: translationManager.isVietPhraseLoaded
-                                )
-                                DictionaryCard(
-                                    title: "Name.txt",
-                                    statusText: getStatusText(for: "names"),
-                                    isSet: translationManager.isNamesLoaded
-                                )
-                                DictionaryCard(
-                                    title: "PhienAm.txt",
-                                    statusText: getStatusText(for: "phienam"),
-                                    isSet: translationManager.isPhienAmLoaded
-                                )
-                                DictionaryCard(
-                                    title: "Pronouns.txt",
-                                    statusText: getStatusText(for: "pronouns"),
-                                    isSet: translationManager.isPronounsLoaded
-                                )
-                                DictionaryCard(
-                                    title: "LuatNhan.txt",
-                                    statusText: getStatusText(for: "luatnhan"),
-                                    isSet: translationManager.isLuatNhanLoaded
-                                )
+                                Button(action: {
+                                    importType = "vietphrase"
+                                    showingFileImporter = true
+                                }) {
+                                    DictionaryCard(
+                                        title: "VietPhrase.txt",
+                                        statusText: getStatusText(for: "vietphrase"),
+                                        isSet: translationManager.isVietPhraseLoaded
+                                    )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                
+                                Button(action: {
+                                    importType = "names"
+                                    showingFileImporter = true
+                                }) {
+                                    DictionaryCard(
+                                        title: "Name.txt",
+                                        statusText: getStatusText(for: "names"),
+                                        isSet: translationManager.isNamesLoaded
+                                    )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                
+                                Button(action: {
+                                    importType = "phienam"
+                                    showingFileImporter = true
+                                }) {
+                                    DictionaryCard(
+                                        title: "PhienAm.txt",
+                                        statusText: getStatusText(for: "phienam"),
+                                        isSet: translationManager.isPhienAmLoaded
+                                    )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                
+                                Button(action: {
+                                    importType = "pronouns"
+                                    showingFileImporter = true
+                                }) {
+                                    DictionaryCard(
+                                        title: "Pronouns.txt",
+                                        statusText: getStatusText(for: "pronouns"),
+                                        isSet: translationManager.isPronounsLoaded
+                                    )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                
+                                Button(action: {
+                                    importType = "luatnhan"
+                                    showingFileImporter = true
+                                }) {
+                                    DictionaryCard(
+                                        title: "LuatNhan.txt",
+                                        statusText: getStatusText(for: "luatnhan"),
+                                        isSet: translationManager.isLuatNhanLoaded
+                                    )
+                                }
+                                .buttonStyle(PlainButtonStyle())
                             }
                             .padding(.vertical, 4)
                         }
@@ -93,37 +129,13 @@ struct SettingsView: View {
                             }) {
                                 Label(translationManager.isDownloaded() ? "Tải lại từ điển mặc định" : "Tải từ điển mặc định", systemImage: "arrow.down.circle")
                             }
-                            
-                            Menu {
-                                Button("Nhập VietPhrase (.txt)") {
-                                    importType = "vietphrase"
-                                    showingFileImporter = true
-                                }
-                                Button("Nhập Names (.txt)") {
-                                    importType = "names"
-                                    showingFileImporter = true
-                                }
-                                Button("Nhập Từ Xưng Hô (Pronouns.txt)") {
-                                    importType = "pronouns"
-                                    showingFileImporter = true
-                                }
-                                Button("Nhập Luật Nhân (LuatNhan.txt)") {
-                                    importType = "luatnhan"
-                                    showingFileImporter = true
-                                }
-                                Button("Nhập Phiên Âm (ChinesePhienAmWords.txt)") {
-                                    importType = "phienam"
-                                    showingFileImporter = true
-                                }
-                            } label: {
-                                Label("Nhập từ điển tùy chỉnh...", systemImage: "plus.circle")
-                            }
                         }
                         
                         Button(action: {
                             TranslateUtils.clearCache()
+                            showToast("Đã làm mới dữ liệu dịch thành công")
                         }) {
-                            Label("Xóa cache dịch thuật", systemImage: "trash")
+                            Label("Làm mới dữ liệu dịch", systemImage: "arrow.clockwise")
                         }
                         
                         NavigationLink(destination: SearchEnginesConfigView()) {
@@ -197,6 +209,23 @@ struct SettingsView: View {
             } message: {
                 Text("Bạn có chắc chắn muốn xóa file app_logs.txt không? Thao tác này không thể hoàn tác.")
             }
+            .overlay(alignment: .bottom) {
+                if showingToast {
+                    Text(toastMessage)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule()
+                                .fill(Color(red: 0.1, green: 0.1, blue: 0.1).opacity(0.92))
+                                .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
+                        )
+                        .padding(.bottom, 20)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
             .background(
                 DocumentPickerPresenter(
                     isPresented: $showingFileImporter,
@@ -246,6 +275,21 @@ struct SettingsView: View {
             return "\(count) từ"
         }
         return "<Chưa thiết lập>"
+    }
+    
+    private func showToast(_ message: String) {
+        toastMessage = message
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+            showingToast = true
+        }
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showingToast = false
+                }
+            }
+        }
     }
 }
 

@@ -269,6 +269,9 @@ struct BookDetailView: View {
                     }
                     .padding(.vertical)
                 }
+                .refreshable {
+                    await reloadBookData()
+                }
             }
         }
         .navigationTitle("Chi Tiết Truyện")
@@ -405,6 +408,41 @@ struct BookDetailView: View {
             let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index)
             newChap.book = book
             modelContext.insert(newChap)
+        }
+    }
+    
+    private func reloadBookData() async {
+        guard let ext = ext else { return }
+        guard !ext.localPath.isEmpty else { return }
+        
+        do {
+            let path = ext.localPath
+            let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
+            let tocResult = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
+            
+            await MainActor.run {
+                self.title = detailResult.name
+                self.author = detailResult.author
+                self.coverUrl = detailResult.cover
+                self.desc = detailResult.description.cleanHTML()
+                self.detail = detailResult.detail
+                self.onlineChapters = tocResult
+                
+                if let book = localBook {
+                    book.title = detailResult.name
+                    book.author = detailResult.author
+                    book.coverUrl = detailResult.cover
+                    let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(self.cleanDetailText(detailResult.detail))"
+                    book.desc = savedDesc
+                    
+                    updateLocalChapters(for: book, with: tocResult)
+                    try? modelContext.save()
+                }
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = error.localizedDescription
+            }
         }
     }
 }

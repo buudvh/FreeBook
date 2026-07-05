@@ -145,4 +145,54 @@ public final class DoubleArrayTrie: TrieDictionary {
         
         return nil
     }
+    
+    public func allEntries() -> [(key: String, value: String)] {
+        guard isLoaded else { return [] }
+        
+        // Build reverse character map
+        var revMap: [Int32: UInt16] = [:]
+        for i in 0..<65536 {
+            let code = fastCharMap[i]
+            if code > 0 {
+                revMap[code] = UInt16(i)
+            }
+        }
+        
+        var results: [(key: String, value: String)] = []
+        var currentPath: [UInt16] = []
+        
+        func dfs(state: Int32) {
+            let baseVal = base[Int(state)]
+            
+            // Check if there is a terminal transition from this state (code 0)
+            let termState = baseVal
+            if termState >= 0 && termState < Int32(baseLen) && check[Int(termState)] == state {
+                let stringOffset = base[Int(termState)]
+                let absOffset = stringPoolOffset + Int(stringOffset)
+                if absOffset + 2 <= data.count {
+                    let strLen = Int(data.readUInt16BE(at: absOffset))
+                    if absOffset + 2 + strLen <= data.count {
+                        let strData = data.subdata(in: (absOffset + 2)..<(absOffset + 2 + strLen))
+                        if let valStr = String(data: strData, encoding: .utf8) {
+                            let keyStr = String(decoding: currentPath, as: UTF16.self)
+                            results.append((key: keyStr, value: valStr))
+                        }
+                    }
+                }
+            }
+            
+            // Find all valid transitions
+            for (code, charCodePoint) in revMap {
+                let nextState = baseVal + code
+                if nextState >= 0 && nextState < Int32(baseLen) && check[Int(nextState)] == state {
+                    currentPath.append(charCodePoint)
+                    dfs(state: nextState)
+                    currentPath.removeLast()
+                }
+            }
+        }
+        
+        dfs(state: 1)
+        return results
+    }
 }

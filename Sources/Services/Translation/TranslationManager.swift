@@ -41,23 +41,39 @@ public final class TranslationManager: ObservableObject {
         
         let bookDir = translateDirectory.appendingPathComponent("books").appendingPathComponent(bookId)
         let vpTxtUrl = bookDir.appendingPathComponent("VietPhrase.txt")
+        let vpDatUrl = bookDir.appendingPathComponent("VietPhrase.dat")
         let namesTxtUrl = bookDir.appendingPathComponent("Names.txt")
+        let namesDatUrl = bookDir.appendingPathComponent("Names.dat")
         
         try? FileManager.default.createDirectory(at: bookDir, withIntermediateDirectories: true)
         
         var vp: TrieDictionary?
         var names: TrieDictionary?
         
-        if FileManager.default.fileExists(atPath: vpTxtUrl.path) {
-            let txt = TextDictionary()
-            try? txt.load(from: vpTxtUrl)
-            if txt.isLoaded { vp = txt }
+        // Load VietPhrase
+        if FileManager.default.fileExists(atPath: vpDatUrl.path) {
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: vpDatUrl)
+            if dat.isLoaded { vp = dat }
+        } else if FileManager.default.fileExists(atPath: vpTxtUrl.path) {
+            // Compile on the fly
+            try? DoubleArrayTrieBuilder().build(fromTxtFile: vpTxtUrl, toDatFile: vpDatUrl)
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: vpDatUrl)
+            if dat.isLoaded { vp = dat }
         }
         
-        if FileManager.default.fileExists(atPath: namesTxtUrl.path) {
-            let txt = TextDictionary()
-            try? txt.load(from: namesTxtUrl)
-            if txt.isLoaded { names = txt }
+        // Load Names
+        if FileManager.default.fileExists(atPath: namesDatUrl.path) {
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: namesDatUrl)
+            if dat.isLoaded { names = dat }
+        } else if FileManager.default.fileExists(atPath: namesTxtUrl.path) {
+            // Compile on the fly
+            try? DoubleArrayTrieBuilder().build(fromTxtFile: namesTxtUrl, toDatFile: namesDatUrl)
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: namesDatUrl)
+            if dat.isLoaded { names = dat }
         }
         
         let result = (vietPhrase: vp, names: names)
@@ -66,7 +82,7 @@ public final class TranslationManager: ObservableObject {
     }
     
     public func saveCustomEntry(word: String, meaning: String, isName: Bool, bookId: String?) async throws {
-        let fileName = isName ? "Names.txt" : "VietPhrase.txt"
+        let fileName = isName ? "Names.dat" : "VietPhrase.dat"
         
         let fileUrl: URL
         if let bid = bookId {
@@ -77,32 +93,34 @@ public final class TranslationManager: ObservableObject {
             fileUrl = translateDirectory.appendingPathComponent(fileName)
         }
         
-        var content = ""
+        // 1. Đọc ngược các từ hiện có từ file .dat (nếu có)
+        var entries: [(key: String, value: String)] = []
         if FileManager.default.fileExists(atPath: fileUrl.path) {
-            content = (try? String(contentsOf: fileUrl, encoding: .utf8)) ?? ""
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: fileUrl)
+            if dat.isLoaded {
+                entries = dat.allEntries()
+            }
         }
         
-        var lines = content.components(separatedBy: .newlines)
+        // 2. Cập nhật hoặc thêm từ mới
         var found = false
-        for i in 0..<lines.count {
-            let line = lines[i].trimmingCharacters(in: .whitespacesAndNewlines)
-            if line.hasPrefix("\(word)=") {
-                lines[i] = "\(word)=\(meaning)"
+        for i in 0..<entries.count {
+            if entries[i].key == word {
+                entries[i].value = meaning
                 found = true
                 break
             }
         }
         
         if !found {
-            if lines.last?.isEmpty == false {
-                lines.append("")
-            }
-            lines.append("\(word)=\(meaning)")
+            entries.append((key: word, value: meaning))
         }
         
-        let newContent = lines.joined(separator: "\n")
-        try newContent.write(to: fileUrl, atomically: true, encoding: .utf8)
+        // 3. Biên dịch trực tiếp ra file .dat ghi đè lên vị trí cũ
+        try DoubleArrayTrieBuilder().build(fromEntries: entries, toDatFile: fileUrl)
         
+        // 4. Reset cache và load lại
         TranslateUtils.clearCache()
         if let bid = bookId {
             bookDicts.removeValue(forKey: bid)
@@ -111,7 +129,7 @@ public final class TranslationManager: ObservableObject {
     }
     
     public func deleteCustomEntry(word: String, isName: Bool, bookId: String?) async throws {
-        let fileName = isName ? "Names.txt" : "VietPhrase.txt"
+        let fileName = isName ? "Names.dat" : "VietPhrase.dat"
         
         let fileUrl: URL
         if let bid = bookId {
@@ -122,22 +140,26 @@ public final class TranslationManager: ObservableObject {
         }
         
         guard FileManager.default.fileExists(atPath: fileUrl.path) else { return }
-        let content = (try? String(contentsOf: fileUrl, encoding: .utf8)) ?? ""
         
-        var lines = content.components(separatedBy: .newlines)
-        var modified = false
+        // 1. Đọc ngược các từ từ file .dat
+        let dat = DoubleArrayTrie()
+        try? dat.load(from: fileUrl)
+        guard dat.isLoaded else { return }
         
-        for i in (0..<lines.count).reversed() {
-            let line = lines[i].trimmingCharacters(in: .whitespacesAndNewlines)
-            if line.hasPrefix("\(word)=") {
-                lines.remove(at: i)
-                modified = true
+        var entries = dat.allEntries()
+        
+        // 2. Xóa từ
+        let initialCount = entries.count
+        entries.removeAll { $0.key == word }
+        
+        // 3. Nếu danh sách thay đổi, ghi đè file .dat mới
+        if entries.count < initialCount {
+            if entries.isEmpty {
+                // Nếu rỗng, xóa luôn file .dat
+                try? FileManager.default.removeItem(at: fileUrl)
+            } else {
+                try DoubleArrayTrieBuilder().build(fromEntries: entries, toDatFile: fileUrl)
             }
-        }
-        
-        if modified {
-            let newContent = lines.joined(separator: "\n")
-            try newContent.write(to: fileUrl, atomically: true, encoding: .utf8)
             
             TranslateUtils.clearCache()
             if let bid = bookId {
@@ -157,76 +179,88 @@ public final class TranslationManager: ObservableObject {
     }
     
     public func isDownloaded() -> Bool {
-        let vpExists = FileManager.default.fileExists(atPath: translateDirectory.appendingPathComponent("VietPhrase.txt").path)
+        let vpTxtExists = FileManager.default.fileExists(atPath: translateDirectory.appendingPathComponent("VietPhrase.txt").path)
+        let vpDatExists = FileManager.default.fileExists(atPath: translateDirectory.appendingPathComponent("VietPhrase.dat").path)
         let paExists = FileManager.default.fileExists(atPath: translateDirectory.appendingPathComponent("ChinesePhienAmWords.txt").path)
-        return vpExists && paExists
+        return (vpTxtExists || vpDatExists) && paExists
     }
     
     public func loadAllDictionaries() async throws {
-        // AppLogger.shared.log("📚 Loading translation dictionaries...")
-        
         // 1. Load Names (Optional)
+        let namesDatUrl = translateDirectory.appendingPathComponent("Names.dat")
         let namesTxtUrl = translateDirectory.appendingPathComponent("Names.txt")
         var tempNames: TrieDictionary? = nil
-        if FileManager.default.fileExists(atPath: namesTxtUrl.path) {
-            let txt = TextDictionary()
-            try? txt.load(from: namesTxtUrl)
-            if txt.isLoaded {
-                tempNames = txt
-                // AppLogger.shared.log("📚 Names dictionary loaded (.txt)")
-            }
+        
+        if FileManager.default.fileExists(atPath: namesDatUrl.path) {
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: namesDatUrl)
+            if dat.isLoaded { tempNames = dat }
+        } else if FileManager.default.fileExists(atPath: namesTxtUrl.path) {
+            // Compile on the fly
+            try? DoubleArrayTrieBuilder().build(fromTxtFile: namesTxtUrl, toDatFile: namesDatUrl)
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: namesDatUrl)
+            if dat.isLoaded { tempNames = dat }
         }
         self.namesDict = tempNames
         let namesLoaded = tempNames != nil
         await MainActor.run { self.isNamesLoaded = namesLoaded }
-        if !namesLoaded {
-            // AppLogger.shared.log("📚 Names dictionary is missing (optional, skipped)")
-        }
         
         // 2. Load VietPhrase (Required)
+        let vpDatUrl = translateDirectory.appendingPathComponent("VietPhrase.dat")
         let vpTxtUrl = translateDirectory.appendingPathComponent("VietPhrase.txt")
         var tempVP: TrieDictionary? = nil
-        if FileManager.default.fileExists(atPath: vpTxtUrl.path) {
-            let txt = TextDictionary()
-            do {
-                try txt.load(from: vpTxtUrl)
-                if txt.isLoaded {
-                    tempVP = txt
-                    // AppLogger.shared.log("📚 VietPhrase dictionary loaded (.txt)")
-                }
-            } catch {
-                // AppLogger.shared.log("❌ Failed to load VietPhrase.txt: \(error.localizedDescription)")
-            }
+        
+        if FileManager.default.fileExists(atPath: vpDatUrl.path) {
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: vpDatUrl)
+            if dat.isLoaded { tempVP = dat }
+        } else if FileManager.default.fileExists(atPath: vpTxtUrl.path) {
+            // Compile on the fly
+            try? DoubleArrayTrieBuilder().build(fromTxtFile: vpTxtUrl, toDatFile: vpDatUrl)
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: vpDatUrl)
+            if dat.isLoaded { tempVP = dat }
         }
         self.vietPhraseDict = tempVP
         let vpLoaded = tempVP != nil
         await MainActor.run { self.isVietPhraseLoaded = vpLoaded }
         
         // 3. Load Pronouns (Optional)
+        let pronounsDatUrl = translateDirectory.appendingPathComponent("Pronouns.dat")
         let pronounsTxtUrl = translateDirectory.appendingPathComponent("Pronouns.txt")
         var tempPronouns: TrieDictionary? = nil
-        if FileManager.default.fileExists(atPath: pronounsTxtUrl.path) {
-            let txt = TextDictionary()
-            try? txt.load(from: pronounsTxtUrl)
-            if txt.isLoaded {
-                tempPronouns = txt
-                // AppLogger.shared.log("📚 Pronouns dictionary loaded (.txt)")
-            }
+        
+        if FileManager.default.fileExists(atPath: pronounsDatUrl.path) {
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: pronounsDatUrl)
+            if dat.isLoaded { tempPronouns = dat }
+        } else if FileManager.default.fileExists(atPath: pronounsTxtUrl.path) {
+            // Compile on the fly
+            try? DoubleArrayTrieBuilder().build(fromTxtFile: pronounsTxtUrl, toDatFile: pronounsDatUrl)
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: pronounsDatUrl)
+            if dat.isLoaded { tempPronouns = dat }
         }
         self.pronounsDict = tempPronouns
         let pronounsLoaded = tempPronouns != nil
         await MainActor.run { self.isPronounsLoaded = pronounsLoaded }
         
         // 4. Load LuatNhan (Optional)
+        let luatNhanDatUrl = translateDirectory.appendingPathComponent("LuatNhan.dat")
         let luatNhanTxtUrl = translateDirectory.appendingPathComponent("LuatNhan.txt")
         var tempLuatNhan: TrieDictionary? = nil
-        if FileManager.default.fileExists(atPath: luatNhanTxtUrl.path) {
-            let txt = TextDictionary()
-            try? txt.load(from: luatNhanTxtUrl)
-            if txt.isLoaded {
-                tempLuatNhan = txt
-                // AppLogger.shared.log("📚 LuatNhan dictionary loaded (.txt)")
-            }
+        
+        if FileManager.default.fileExists(atPath: luatNhanDatUrl.path) {
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: luatNhanDatUrl)
+            if dat.isLoaded { tempLuatNhan = dat }
+        } else if FileManager.default.fileExists(atPath: luatNhanTxtUrl.path) {
+            // Compile on the fly
+            try? DoubleArrayTrieBuilder().build(fromTxtFile: luatNhanTxtUrl, toDatFile: luatNhanDatUrl)
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: luatNhanDatUrl)
+            if dat.isLoaded { tempLuatNhan = dat }
         }
         self.luatNhanDict = tempLuatNhan
         let luatNhanLoaded = tempLuatNhan != nil
@@ -240,14 +274,10 @@ public final class TranslationManager: ObservableObject {
             do {
                 tempPA = try loadPhoneticMap(from: paTxtUrl)
                 paLoaded = true
-                // AppLogger.shared.log("📚 PhienAm dictionary loaded (\(tempPA.count) entries)")
-            } catch {
-                // AppLogger.shared.log("❌ Failed to load ChinesePhienAmWords.txt: \(error.localizedDescription)")
-            }
+            } catch {}
         }
         self.phienAmMap = tempPA
-        let isLoaded = paLoaded
-        await MainActor.run { self.isPhienAmLoaded = isLoaded }
+        await MainActor.run { self.isPhienAmLoaded = paLoaded }
     }
     
     private func loadPhoneticMap(from fileURL: URL) throws -> [String: String] {
@@ -273,43 +303,50 @@ public final class TranslationManager: ObservableObject {
     public func importDictionary(from url: URL, type: String) async throws {
         let destName: String
         if type == "vietphrase" {
-            destName = "VietPhrase.txt"
+            destName = "VietPhrase.dat"
         } else if type == "names" {
-            destName = "Names.txt"
+            destName = "Names.dat"
         } else if type == "pronouns" {
-            destName = "Pronouns.txt"
+            destName = "Pronouns.dat"
         } else if type == "luatnhan" {
-            destName = "LuatNhan.txt"
+            destName = "LuatNhan.dat"
         } else {
             destName = "ChinesePhienAmWords.txt"
         }
         
         let destUrl = translateDirectory.appendingPathComponent(destName)
-        // AppLogger.shared.log("📚 Importing dictionary to \(destUrl.path) from \(url.path)")
-        
         if FileManager.default.fileExists(atPath: destUrl.path) {
             try? FileManager.default.removeItem(at: destUrl)
         }
         
-        try FileManager.default.copyItem(at: url, to: destUrl)
+        if destName.hasSuffix(".dat") {
+            try DoubleArrayTrieBuilder().build(fromTxtFile: url, toDatFile: destUrl)
+        } else {
+            try FileManager.default.copyItem(at: url, to: destUrl)
+        }
+        
         try await loadAllDictionaries()
     }
     
     public func deleteDictionary(type: String) async {
         if type == "vietphrase" {
             try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("VietPhrase.txt"))
+            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("VietPhrase.dat"))
             self.vietPhraseDict = nil
             await MainActor.run { self.isVietPhraseLoaded = false }
         } else if type == "names" {
             try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("Names.txt"))
+            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("Names.dat"))
             self.namesDict = nil
             await MainActor.run { self.isNamesLoaded = false }
         } else if type == "pronouns" {
             try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("Pronouns.txt"))
+            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("Pronouns.dat"))
             self.pronounsDict = nil
             await MainActor.run { self.isPronounsLoaded = false }
         } else if type == "luatnhan" {
             try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("LuatNhan.txt"))
+            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("LuatNhan.dat"))
             self.luatNhanDict = nil
             await MainActor.run { self.isLuatNhanLoaded = false }
         } else if type == "phienam" {
@@ -320,7 +357,6 @@ public final class TranslationManager: ObservableObject {
     }
     
     public func downloadDefaultDictionaries() async {
-        // AppLogger.shared.log("📚 Starting download of default dictionaries from Hugging Face...")
         await MainActor.run {
             self.isDownloading = true
             self.downloadProgress = 0.0
@@ -346,7 +382,6 @@ public final class TranslationManager: ObservableObject {
             }
             
             do {
-                // AppLogger.shared.log("📚 Fetching \(urlString) ...")
                 let (tempUrl, response) = try await URLSession.shared.download(from: url)
                 
                 guard let httpResponse = response as? HTTPURLResponse else {
@@ -364,9 +399,7 @@ public final class TranslationManager: ObservableObject {
                 }
                 try FileManager.default.moveItem(at: tempUrl, to: destUrl)
                 successCount += 1
-                // AppLogger.shared.log("📚 Downloaded and saved \(file.name) to \(file.localName) successfully.")
             } catch {
-                // AppLogger.shared.log("❌ Download error for \(file.name): \(error.localizedDescription)")
                 if file.required {
                     await MainActor.run {
                         self.isDownloading = false
@@ -386,42 +419,48 @@ public final class TranslationManager: ObservableObject {
         
         do {
             try await loadAllDictionaries()
-            // AppLogger.shared.log("📚 All dictionaries reloaded after download.")
-        } catch {
-            // AppLogger.shared.log("❌ Failed to reload dictionaries: \(error.localizedDescription)")
-        }
+        } catch {}
     }
     
     public func getWordCount(for type: String) -> Int? {
         let fileName: String
         if type == "vietphrase" {
-            fileName = "VietPhrase.txt"
+            fileName = "VietPhrase.dat"
         } else if type == "names" {
-            fileName = "Names.txt"
+            fileName = "Names.dat"
         } else if type == "pronouns" {
-            fileName = "Pronouns.txt"
+            fileName = "Pronouns.dat"
         } else if type == "luatnhan" {
-            fileName = "LuatNhan.txt"
+            fileName = "LuatNhan.dat"
         } else if type == "phienam" {
             fileName = "ChinesePhienAmWords.txt"
         } else {
             return nil
         }
         
-        let txtUrl = translateDirectory.appendingPathComponent(fileName)
-        
-        guard FileManager.default.fileExists(atPath: txtUrl.path) else {
+        let fileUrl = translateDirectory.appendingPathComponent(fileName)
+        guard FileManager.default.fileExists(atPath: fileUrl.path) else {
+            let fallbackName = fileName.replacingOccurrences(of: ".dat", with: ".txt")
+            let fallbackUrl = translateDirectory.appendingPathComponent(fallbackName)
+            if FileManager.default.fileExists(atPath: fallbackUrl.path),
+               let content = try? String(contentsOf: fallbackUrl, encoding: .utf8) {
+                return content.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !$0.hasPrefix("#") }.count
+            }
             return nil
         }
         
-        do {
-            let content = try String(contentsOf: txtUrl, encoding: .utf8)
-            let lines = content.components(separatedBy: .newlines)
-            let count = lines.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !$0.hasPrefix("#") }.count
-            return count
-        } catch {
-            return nil
+        if fileName.hasSuffix(".dat") {
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: fileUrl)
+            if dat.isLoaded {
+                return dat.allEntries().count
+            }
+        } else {
+            if let content = try? String(contentsOf: fileUrl, encoding: .utf8) {
+                return content.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !$0.hasPrefix("#") }.count
+            }
         }
+        return nil
     }
 }
 

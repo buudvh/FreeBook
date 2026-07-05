@@ -292,6 +292,9 @@ struct DiscoveryView: View {
                                 }
                             }
                             .listStyle(.plain)
+                            .refreshable {
+                                await reloadCurrentCategory()
+                            }
                         }
                     }
                 }
@@ -457,6 +460,31 @@ struct DiscoveryView: View {
                     self.isLoadingMore = false
                     self.canLoadMore = false
                 }
+            }
+        }
+    }
+    
+    private func reloadCurrentCategory() async {
+        guard let ext = selectedExtension, let cat = selectedCategory else { return }
+        currentPage = 1
+        do {
+            let (results, nextPage) = try await ExtensionManager.shared.executeCustomScript(
+                localPath: ext.localPath,
+                downloadUrl: ext.downloadUrl,
+                scriptFileName: cat.script,
+                input: cat.input,
+                page: 1,
+                pageUrl: nil,
+                configJson: ext.configJson
+            )
+            await MainActor.run {
+                self.nextNovelPageUrl = nextPage
+                self.novels = results
+                self.canLoadMore = results.count >= 10 && (nextPage != nil || cat.input.contains("{0}"))
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = error.localizedDescription
             }
         }
     }

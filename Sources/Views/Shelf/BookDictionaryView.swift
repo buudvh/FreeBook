@@ -167,12 +167,16 @@ struct BookDictionaryView: View {
                     }
                     Task {
                         do {
-                            let content = try String(contentsOf: selectedUrl, encoding: .utf8)
-                            let fileName = (importType == "names") ? "Names.txt" : "VietPhrase.txt"
+                            let datFileName = (importType == "names") ? "Names.dat" : "VietPhrase.dat"
                             let bookDir = TranslationManager.shared.translateDirectory.appendingPathComponent("books").appendingPathComponent(bookId)
                             try FileManager.default.createDirectory(at: bookDir, withIntermediateDirectories: true)
-                            let fileUrl = bookDir.appendingPathComponent(fileName)
-                            try content.write(to: fileUrl, atomically: true, encoding: .utf8)
+                            let datUrl = bookDir.appendingPathComponent(datFileName)
+                            
+                            try DoubleArrayTrieBuilder().build(fromTxtFile: selectedUrl, toDatFile: datUrl)
+                            
+                            let txtFileName = (importType == "names") ? "Names.txt" : "VietPhrase.txt"
+                            let txtUrl = bookDir.appendingPathComponent(txtFileName)
+                            try? FileManager.default.removeItem(at: txtUrl)
                             
                             TranslateUtils.clearCache()
                             TranslationManager.shared.clearBookDictCache(for: bookId)
@@ -189,12 +193,23 @@ struct BookDictionaryView: View {
     
     private func loadEntries() {
         let bookDir = TranslationManager.shared.translateDirectory.appendingPathComponent("books").appendingPathComponent(bookId)
-        let vpUrl = bookDir.appendingPathComponent("VietPhrase.txt")
-        let namesUrl = bookDir.appendingPathComponent("Names.txt")
+        let vpDatUrl = bookDir.appendingPathComponent("VietPhrase.dat")
+        let namesDatUrl = bookDir.appendingPathComponent("Names.dat")
+        let vpTxtUrl = bookDir.appendingPathComponent("VietPhrase.txt")
+        let namesTxtUrl = bookDir.appendingPathComponent("Names.txt")
         
         var temp: [BookDictEntry] = []
         
-        if let content = try? String(contentsOf: vpUrl, encoding: .utf8) {
+        // Load VietPhrase
+        if FileManager.default.fileExists(atPath: vpDatUrl.path) {
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: vpDatUrl)
+            if dat.isLoaded {
+                for entry in dat.allEntries() {
+                    temp.append(BookDictEntry(word: entry.key, meaning: entry.value, isName: false))
+                }
+            }
+        } else if let content = try? String(contentsOf: vpTxtUrl, encoding: .utf8) {
             let lines = content.components(separatedBy: .newlines)
             for line in lines {
                 let parts = line.components(separatedBy: "=")
@@ -208,7 +223,16 @@ struct BookDictionaryView: View {
             }
         }
         
-        if let content = try? String(contentsOf: namesUrl, encoding: .utf8) {
+        // Load Names
+        if FileManager.default.fileExists(atPath: namesDatUrl.path) {
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: namesDatUrl)
+            if dat.isLoaded {
+                for entry in dat.allEntries() {
+                    temp.append(BookDictEntry(word: entry.key, meaning: entry.value, isName: true))
+                }
+            }
+        } else if let content = try? String(contentsOf: namesTxtUrl, encoding: .utf8) {
             let lines = content.components(separatedBy: .newlines)
             for line in lines {
                 let parts = line.components(separatedBy: "=")
@@ -246,24 +270,16 @@ struct BookDictionaryView: View {
     }
     
     private func deleteEntry(_ entry: BookDictEntry) {
-        let fileName = entry.isName ? "Names.txt" : "VietPhrase.txt"
-        let bookDir = TranslationManager.shared.translateDirectory.appendingPathComponent("books").appendingPathComponent(bookId)
-        let fileUrl = bookDir.appendingPathComponent(fileName)
-        
-        guard let content = try? String(contentsOf: fileUrl, encoding: .utf8) else { return }
-        var lines = content.components(separatedBy: .newlines)
-        
-        lines.removeAll { line in
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.hasPrefix("\(entry.word)=")
+        Task {
+            do {
+                try await TranslationManager.shared.deleteCustomEntry(word: entry.word, isName: entry.isName, bookId: bookId)
+                await MainActor.run {
+                    loadEntries()
+                }
+            } catch {
+                // AppLogger.shared.log("❌ Lỗi xóa từ: \(error.localizedDescription)")
+            }
         }
-        
-        let newContent = lines.joined(separator: "\n")
-        try? newContent.write(to: fileUrl, atomically: true, encoding: .utf8)
-        
-        TranslateUtils.clearCache()
-        TranslationManager.shared.clearBookDictCache(for: bookId)
-        loadEntries()
     }
     
     private func exportContent() -> String {

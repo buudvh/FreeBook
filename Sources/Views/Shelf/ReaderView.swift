@@ -363,16 +363,27 @@ struct ReaderView: View {
                     }
                     
                     // Dictionary Manager Link
-                    if localBook != nil {
-                        NavigationLink(destination: BookDictionaryView(bookId: bookId)) {
-                            Image(systemName: "character.book.closed")
-                                .foregroundColor(selectedTheme.textColor)
+                    // Dictionary Manager, Reload, and Settings collapsed in a Menu
+                    Menu {
+                        Button(action: {
+                            reloadChapterContent()
+                        }) {
+                            Label("Tải lại chương", systemImage: "arrow.clockwise")
                         }
-                    }
-                    
-                    // Reader Settings Button
-                    Button(action: { showingSettings.toggle() }) {
-                        Image(systemName: "textformat.size")
+                        
+                        if localBook != nil {
+                            NavigationLink(destination: BookDictionaryView(bookId: bookId)) {
+                                Label("Từ điển truyện", systemImage: "character.book.closed")
+                            }
+                        }
+                        
+                        Button(action: {
+                            showingSettings.toggle()
+                        }) {
+                            Label("Cấu hình đọc (AA)", systemImage: "textformat.size")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                             .foregroundColor(selectedTheme.textColor)
                     }
                 }
@@ -1134,6 +1145,44 @@ struct ReaderView: View {
             } catch {
                 await MainActor.run {
                     self.errorMessage = error.localizedDescription
+                    self.isLoading = false
+                }
+            }
+        }
+    }
+    
+    private func reloadChapterContent() {
+        guard let info = currentChapterInfo else { return }
+        guard let ext = ext else { return }
+        
+        isLoading = true
+        errorMessage = ""
+        
+        Task {
+            do {
+                let content = try await ExtensionManager.shared.chap(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: info.url, configJson: ext.configJson)
+                let cleanedContent = content.cleanHTML()
+                
+                await MainActor.run {
+                    self.originalContent = cleanedContent
+                    self.applyTranslation()
+                    
+                    // Cập nhật nội dung cache mới nhất vào database
+                    if let book = localBook {
+                        let sorted = book.chapters.sorted(by: { $0.index < $1.index })
+                        if chapterIndex < sorted.count {
+                            let chap = sorted[chapterIndex]
+                            chap.content = cleanedContent
+                            chap.isCached = true
+                            try? modelContext.save()
+                        }
+                    }
+                    
+                    self.isLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.errorMessage = "Không thể tải lại chương: \(error.localizedDescription)"
                     self.isLoading = false
                 }
             }

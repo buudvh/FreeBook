@@ -23,12 +23,7 @@ public final class TextDictionary: TrieDictionary {
             let parts = clean.split(separator: "=", maxSplits: 1)
             if parts.count == 2 {
                 let key = String(parts[0]).trimmingCharacters(in: .whitespacesAndNewlines)
-                var val = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
-                
-                let cleanVal = val.replacingOccurrences(of: "¦", with: "/")
-                if cleanVal.contains("/") {
-                    val = cleanVal.components(separatedBy: "/")[0].trimmingCharacters(in: .whitespacesAndNewlines)
-                }
+                let val = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
                 
                 if !key.isEmpty && !val.isEmpty {
                     tempEntries[key] = val

@@ -12,6 +12,13 @@ public final class TranslateUtils {
     
     private static let translationCache = NSCache<NSString, NSString>()
     
+    public static func getFirstMeaning(of rawTranslation: String) -> String {
+        if let idx = rawTranslation.firstIndex(where: { $0 == "/" || $0 == "¦" }) {
+            return String(rawTranslation[..<idx]).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return rawTranslation
+    }
+    
     // Default TOC rules mapped from user preference
     private static let defaultTOCRules = [
         TOCRule(id: "db9e3730282741c9a42f01184e4bc68c", name: "x.第x章", rule: #"^\d{1,4}\.第[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]{1,10}章.{0,50}$"#, example: "1.第1章", enabled: true),
@@ -164,6 +171,11 @@ public final class TranslateUtils {
     private static func translateText(_ text: String?, isMeta: Bool, bookId: String?) -> String {
         guard let text = text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return text ?? "" }
         
+        // Nếu từ điển chưa load xong, trả về văn bản gốc và không lưu cache dịch
+        guard TranslationManager.shared.isVietPhraseLoaded else {
+            return text
+        }
+        
         let md5 = JSCrypto.md5(text)
         let cacheKey = "translate|vietphrase|v2|\(isMeta ? "meta" : "content")|\(bookId ?? "global")|\(md5)" as NSString
         
@@ -248,12 +260,7 @@ public final class TranslateUtils {
             }
             
             if let found = translation {
-                let cleanFound = found.replacingOccurrences(of: "¦", with: "/")
-                if cleanFound.contains("/") {
-                    translatedWords.append(cleanFound.components(separatedBy: "/")[0])
-                } else {
-                    translatedWords.append(found)
-                }
+                translatedWords.append(getFirstMeaning(of: found))
             } else {
                 if token.count == 1, isChineseCharacter(token.first!) {
                     translatedWords.append(phienAm[token] ?? token)
@@ -585,8 +592,7 @@ public final class TranslateUtils {
                         translatedToken = phienAmList.joined(separator: " ")
                     }
                 } else {
-                    let clean = rawTranslation.replacingOccurrences(of: "¦", with: "/")
-                    translatedToken = clean.components(separatedBy: "/")[0]
+                    translatedToken = TranslateUtils.getFirstMeaning(of: rawTranslation)
                 }
             }
             
