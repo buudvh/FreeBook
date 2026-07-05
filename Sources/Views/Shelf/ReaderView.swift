@@ -204,28 +204,70 @@ struct ReaderView: View {
                                                 if sentenceIdx < chiSentenceRanges.count {
                                                     let chiSentenceRange = chiSentenceRanges[sentenceIdx]
                                                     let chiSentence = chiSentenceRange.text
-                                                    
                                                     let tokens = TranslateUtils.getTranslationTokens(for: chiSentence, bookId: bookId)
-                                                    var reconstructedViet = ""
-                                                    var tokenRanges: [NSRange] = []
-                                                    
-                                                    for token in tokens {
-                                                        let start = reconstructedViet.count
-                                                        reconstructedViet.append(token.translatedText)
-                                                        let end = reconstructedViet.count
-                                                        tokenRanges.append(NSRange(location: start, length: end - start))
-                                                        reconstructedViet.append(" ")
-                                                    }
-                                                    
-                                                    let userSelectionRange = NSRange(location: offsetInVietSentence, length: selectedText.count)
-                                                    var overlappingIndices: [Int] = []
-                                                    for (idx, tokenRange) in tokenRanges.enumerated() {
-                                                        let maxStart = max(tokenRange.location, userSelectionRange.location)
-                                                        let minEnd = min(tokenRange.location + tokenRange.length, userSelectionRange.location + userSelectionRange.length)
-                                                        if maxStart < minEnd {
-                                                            overlappingIndices.append(idx)
-                                                        }
-                                                    }
+                                                     
+                                                     // Dựng bản đồ ký tự không khoảng trắng cho câu tiếng Việt hiển thị
+                                                     let vietSentenceNS = vietSentenceRange.text as NSString
+                                                     var vietNonSpaceMap: [Int] = []
+                                                     var nonSpaceCount = 0
+                                                     let whitespaceSet = CharacterSet.whitespacesAndNewlines
+                                                     
+                                                     for i in 0..<vietSentenceNS.length {
+                                                         let charCode = vietSentenceNS.character(at: i)
+                                                         if let unicodeScalar = UnicodeScalar(charCode), whitespaceSet.contains(unicodeScalar) {
+                                                             vietNonSpaceMap.append(-1)
+                                                         } else {
+                                                             vietNonSpaceMap.append(nonSpaceCount)
+                                                             nonSpaceCount += 1
+                                                         }
+                                                     }
+                                                     
+                                                     // Tìm phạm vi non-space của vùng bôi đen
+                                                     var userStartNonSpace = -1
+                                                     var userEndNonSpace = -1
+                                                     for i in 0..<selectedText.count {
+                                                         let charIdxInSentence = offsetInVietSentence + i
+                                                         if charIdxInSentence < vietNonSpaceMap.count {
+                                                             let nsIdx = vietNonSpaceMap[charIdxInSentence]
+                                                             if nsIdx != -1 {
+                                                                 if userStartNonSpace == -1 {
+                                                                     userStartNonSpace = nsIdx
+                                                                 }
+                                                                 userEndNonSpace = nsIdx + 1
+                                                             }
+                                                         }
+                                                     }
+                                                     
+                                                     // Dựng phạm vi non-space cho từng token
+                                                     var tokenNonSpaceRanges: [NSRange] = []
+                                                     var reconstructedNonSpaceCount = 0
+                                                     for token in tokens {
+                                                         var tokenNonSpaceLen = 0
+                                                         let tokenNS = token.translatedText as NSString
+                                                         for i in 0..<tokenNS.length {
+                                                             let charCode = tokenNS.character(at: i)
+                                                             if let unicodeScalar = UnicodeScalar(charCode), whitespaceSet.contains(unicodeScalar) {
+                                                                 // Bỏ qua khoảng trắng
+                                                             } else {
+                                                                 tokenNonSpaceLen += 1
+                                                             }
+                                                         }
+                                                         tokenNonSpaceRanges.append(NSRange(location: reconstructedNonSpaceCount, length: tokenNonSpaceLen))
+                                                         reconstructedNonSpaceCount += tokenNonSpaceLen
+                                                     }
+                                                     
+                                                     // So khớp overlap
+                                                     var overlappingIndices: [Int] = []
+                                                     if userStartNonSpace != -1 && userEndNonSpace != -1 {
+                                                         let userRange = NSRange(location: userStartNonSpace, length: userEndNonSpace - userStartNonSpace)
+                                                         for (idx, tokenRange) in tokenNonSpaceRanges.enumerated() {
+                                                             let maxStart = max(tokenRange.location, userRange.location)
+                                                             let minEnd = min(tokenRange.location + tokenRange.length, userRange.location + userRange.length)
+                                                             if maxStart < minEnd {
+                                                                 overlappingIndices.append(idx)
+                                                             }
+                                                         }
+                                                     }
                                                     
                                                     if !overlappingIndices.isEmpty {
                                                         let firstIdx = overlappingIndices.first!
