@@ -7,7 +7,6 @@ struct NghiTTSSettingsView: View {
     @AppStorage(PreprocessorSettingKey.numericNormalizationEnabled) private var preprocessorNumericNormalizationEnabled = true
     @AppStorage(PreprocessorSettingKey.dictionaryReplacementEnabled) private var preprocessorDictionaryReplacementEnabled = true
     @AppStorage(PreprocessorSettingKey.transliterationEnabled) private var preprocessorTransliterationEnabled = true
-    @AppStorage(PreprocessorSettingKey.debugLoggingEnabled) private var preprocessorDebugLoggingEnabled = false
     
     // Pause Durations (seconds)
     @AppStorage("newlinePauseDuration") private var newlinePause = 0.4
@@ -22,7 +21,6 @@ struct NghiTTSSettingsView: View {
                 Toggle("Chuẩn hóa cách đọc số", isOn: $preprocessorNumericNormalizationEnabled)
                 Toggle("Áp dụng thay thế từ điển", isOn: $preprocessorDictionaryReplacementEnabled)
                 Toggle("Phiên âm tiếng Anh/Nhật", isOn: $preprocessorTransliterationEnabled)
-                Toggle("Ghi nhật ký gỡ lỗi", isOn: $preprocessorDebugLoggingEnabled)
             }
             
             Section("Cấu hình khoảng ngắt (giây)") {

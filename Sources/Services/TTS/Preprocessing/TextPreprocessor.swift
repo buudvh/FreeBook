@@ -4,12 +4,10 @@ enum PreprocessorSettingKey {
     static let numericNormalizationEnabled = "preprocessorNumericNormalizationEnabled"
     static let dictionaryReplacementEnabled = "preprocessorDictionaryReplacementEnabled"
     static let transliterationEnabled = "preprocessorTransliterationEnabled"
-    static let debugLoggingEnabled = "preprocessorDebugLoggingEnabled"
 }
 
 
 private enum PreprocessorConfig {
-    static let debugLoggingKey = PreprocessorSettingKey.debugLoggingEnabled
     static let transliterationCacheLimit = 4096
     static let transliterationCacheEvictionBatch = 512
 }

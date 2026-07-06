@@ -224,8 +224,16 @@ public final class TTSManager: NSObject, ObservableObject {
         self.chapterTitle = currentChapter.title
         
         if let cached = currentChapter.cachedContent, !cached.isEmpty {
-            self.chapterContent = cached
-            self.continueStartSpeaking(startCharIndex: startCharIndex)
+            Task {
+                let translated = await self.translateContentInBackground(cached)
+                await MainActor.run {
+                    if self.playingBookId == bookId && self.playingChapterIndex == currentIndex {
+                        self.chaptersQueue[currentIndex].cachedContent = translated
+                        self.chapterContent = translated
+                        self.continueStartSpeaking(startCharIndex: startCharIndex)
+                    }
+                }
+            }
         } else {
             // Tải chương online nếu chưa được cache
             Task {
@@ -302,7 +310,18 @@ public final class TTSManager: NSObject, ObservableObject {
         
         // Nếu chương tiếp theo đã được tải/cache nội dung dịch sẵn, không cần preload
         if let cached = nextChapter.cachedContent, !cached.isEmpty {
-            self.preloadedNextChapterContent = cached
+            isPreloading = true
+            Task {
+                let translated = await self.translateContentInBackground(cached)
+                await MainActor.run {
+                    self.isPreloading = false
+                    if nextIdx < self.chaptersQueue.count && self.chaptersQueue[nextIdx].url == nextChapter.url {
+                        self.chaptersQueue[nextIdx].cachedContent = translated
+                        self.preloadedNextChapterContent = translated
+                        AppLogger.shared.log("🚀 [TTSManager] Đã dịch xong chương tiếp theo (từ cache): \(nextChapter.title)")
+                    }
+                }
+            }
             return
         }
         
@@ -448,8 +467,16 @@ public final class TTSManager: NSObject, ObservableObject {
                     self.preloadedNextChapterContent = nil
                     self.continueStartSpeaking(startCharIndex: 0)
                 } else if let cached = nextChapter.cachedContent, !cached.isEmpty {
-                    self.chapterContent = cached
-                    self.continueStartSpeaking(startCharIndex: 0)
+                    Task {
+                        let translated = await self.translateContentInBackground(cached)
+                        await MainActor.run {
+                            if self.playingChapterIndex == nextIdx {
+                                self.chaptersQueue[nextIdx].cachedContent = translated
+                                self.chapterContent = translated
+                                self.continueStartSpeaking(startCharIndex: 0)
+                            }
+                        }
+                    }
                 } else {
                     // Chưa preload kịp, tiến hành tải trực tiếp
                     Task {
