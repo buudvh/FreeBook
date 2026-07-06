@@ -811,7 +811,7 @@ final actor TextPreprocessor {
     }
 
     private static func processVietnameseText(_ text: String, config: PreprocessorRuntimeConfig, unlimitedRoman: Bool = false) -> String {
-        Self.preprocessLog("📝 [Vietnamese Normalizer] Starting preprocess for text: '\(text)'")
+        // Self.preprocessLog("📝 [Vietnamese Normalizer] Starting preprocess for text: '\(text)'")
         var e = text
 
         //Self.preprocessLog("   - Running precomposedStringWithCanonicalMapping")
@@ -862,14 +862,14 @@ final actor TextPreprocessor {
         //Self.preprocessLog("   - Running processDigits")
         e = processDigits(e)
         } else {
-            Self.preprocessLog("   - Numeric normalization disabled; skipping number/date/time/currency pipeline")
+            // Self.preprocessLog("   - Numeric normalization disabled; skipping number/date/time/currency pipeline")
         }
 
-        Self.preprocessLog("   - Trimming and cleaning white spaces")
+        // Self.preprocessLog("   - Trimming and cleaning white spaces")
         e = PreprocessorRegex.whitespaceCollapse.stringByReplacingMatches(in: e, options: [], range: NSRange(location: 0, length: e.utf16.count), withTemplate: " ")
         e = e.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        Self.preprocessLog("📝 [Vietnamese Normalizer] Finished. Output: '\(e)'")
+        // Self.preprocessLog("📝 [Vietnamese Normalizer] Finished. Output: '\(e)'")
         return e
     }
 
@@ -881,17 +881,17 @@ final actor TextPreprocessor {
     private func replaceDictionaryWords(in text: String, type: DictionaryType, config: PreprocessorRuntimeConfig) -> String {
         let typeStr = type == .acronym ? "acronym" : "word"
         guard config.dictionaryReplacementEnabled else {
-            Self.preprocessLog("📖 [ReplaceDictionary] Type: \(typeStr), dictionary replacement disabled; skipping.")
+            // Self.preprocessLog("📖 [ReplaceDictionary] Type: \(typeStr), dictionary replacement disabled; skipping.")
             return text
         }
-        Self.preprocessLog("📖 [ReplaceDictionary] Type: \(typeStr), Input: '\(text)'")
+        // Self.preprocessLog("📖 [ReplaceDictionary] Type: \(typeStr), Input: '\(text)'")
         // Tìm toàn bộ các token là từ (word tokens) trong văn bản
         let regex = PreprocessorRegex.wordTokens
 
         let nsString = text as NSString
         let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
         guard !matches.isEmpty else {
-            Self.preprocessLog("📖 [ReplaceDictionary] Type: \(typeStr), No word matches found.")
+            // Self.preprocessLog("📖 [ReplaceDictionary] Type: \(typeStr), No word matches found.")
             return text
         }
 
@@ -947,7 +947,7 @@ final actor TextPreprocessor {
                 let replacementText = (type == .word) ? "\u{FEFF}\(match)\u{FEFF}" : match
                 result += replacementText
 
-                Self.preprocessLog("   - Replaced phrase '\(nsString.substring(with: NSRange(location: matchStartLoc, length: matchEndLoc - matchStartLoc)))' with '\(replacementText)'")
+                // Self.preprocessLog("   - Replaced phrase '\(nsString.substring(with: NSRange(location: matchStartLoc, length: matchEndLoc - matchStartLoc)))' with '\(replacementText)'")
 
                 lastCopiedIndex = matchEndLoc
                 i += matchedLength
@@ -961,7 +961,7 @@ final actor TextPreprocessor {
             result += nsString.substring(with: NSRange(location: lastCopiedIndex, length: nsString.length - lastCopiedIndex))
         }
 
-        Self.preprocessLog("📖 [ReplaceDictionary] Type: \(typeStr), Output: '\(result)'")
+        // Self.preprocessLog("📖 [ReplaceDictionary] Type: \(typeStr), Output: '\(result)'")
         return result
     }
 
@@ -1024,31 +1024,31 @@ final actor TextPreprocessor {
 
     // MARK: - Main Preprocess Pipeline
     func preprocess(_ text: String) -> String {
-        Self.preprocessLog("🚀 [Preprocess] Start preprocessing for: '\(text)'")
+        // Self.preprocessLog("🚀 [Preprocess] Start preprocessing for: '\(text)'")
         if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Self.preprocessLog("🚀 [Preprocess] Text is empty, returning empty string.")
             return ""
         }
 
         let runtimeConfig = PreprocessorRuntimeConfig.load()
-        Self.preprocessLog(
-            "🚀 [Preprocess] Config snapshot: numeric=\(runtimeConfig.numericNormalizationEnabled), dictionary=\(runtimeConfig.dictionaryReplacementEnabled), transliteration=\(runtimeConfig.transliterationEnabled)"
-        )
+        // Self.preprocessLog(
+        //     "🚀 [Preprocess] Config snapshot: numeric=\(runtimeConfig.numericNormalizationEnabled), dictionary=\(runtimeConfig.dictionaryReplacementEnabled), transliteration=\(runtimeConfig.transliterationEnabled)"
+        // )
 
         // 0. Chuyển đổi Hiragana/Katakana tiếng Nhật sang Romaji
         let pipelineInput: String
         if runtimeConfig.transliterationEnabled {
-            Self.preprocessLog("🚀 [Preprocess] Step 0a: Converting Japanese characters (Romaji)...")
+            // Self.preprocessLog("🚀 [Preprocess] Step 0a: Converting Japanese characters (Romaji)...")
             pipelineInput = JapaneseTransliterator.convertToRomaji(text)
         } else {
-            Self.preprocessLog("🚀 [Preprocess] Step 0a: Transliteration disabled; keeping original script.")
+            // Self.preprocessLog("🚀 [Preprocess] Step 0a: Transliteration disabled; keeping original script.")
             pipelineInput = text
         }
 
-        Self.preprocessLog("🚀 [Preprocess] Step 0b: Running Vietnamese text processor...")
+        // Self.preprocessLog("🚀 [Preprocess] Step 0b: Running Vietnamese text processor...")
         let processedVi = Self.processVietnameseText(pipelineInput, config: runtimeConfig)
 
-        Self.preprocessLog("🚀 [Preprocess] Step 0c: Cleaning emojis and symbols...")
+        // Self.preprocessLog("🚀 [Preprocess] Step 0c: Cleaning emojis and symbols...")
         let cleaned = Self.cleanEmojisAndSymbols(processedVi)
 
         let lowercased = cleaned.lowercased()
@@ -1056,14 +1056,14 @@ final actor TextPreprocessor {
         // 1. Thay thế từ viết tắt (Acronyms) khi config bật
         var replacedText = lowercased
         if runtimeConfig.dictionaryReplacementEnabled {
-            Self.preprocessLog("🚀 [Preprocess] Step 1: Replacing acronyms...")
+            // Self.preprocessLog("🚀 [Preprocess] Step 1: Replacing acronyms...")
             replacedText = replaceDictionaryWords(in: lowercased, type: .acronym, config: runtimeConfig)
 
             // 2. Tiến hành khớp từ điển tiếng Anh và chạy bộ quy tắc
-            Self.preprocessLog("🚀 [Preprocess] Step 2: Translating English words...")
+            // Self.preprocessLog("🚀 [Preprocess] Step 2: Translating English words...")
             replacedText = replaceDictionaryWords(in: replacedText, type: .word, config: runtimeConfig)
         } else {
-            Self.preprocessLog("🚀 [Preprocess] Step 1/2: Dictionary replacement disabled; skipping acronym and word maps.")
+            // Self.preprocessLog("🚀 [Preprocess] Step 1/2: Dictionary replacement disabled; skipping acronym and word maps.")
         }
 
         let shouldProcessTokens = runtimeConfig.dictionaryReplacementEnabled || runtimeConfig.transliterationEnabled
@@ -1076,7 +1076,7 @@ final actor TextPreprocessor {
             result = ""
             var lastOffset = 0
 
-            Self.preprocessLog("🚀 [Preprocess] Step 2b: Processing individual non-Vietnamese tokens...")
+            // Self.preprocessLog("🚀 [Preprocess] Step 2b: Processing individual non-Vietnamese tokens...")
             for match in matches {
                 if match.range.location > lastOffset {
                     let gapRange = NSRange(location: lastOffset, length: match.range.location - lastOffset)

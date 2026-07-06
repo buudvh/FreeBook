@@ -132,17 +132,21 @@ final class ONNXPiperEngine: PiperEngine {
     }
 
     func synthesize(text: String, modelONNX: URL, modelConfig: URL, speed: Double) async throws -> Data {
+        AppLogger.shared.log("🤖 [ONNXPiperEngine] Bắt đầu tổng hợp âm thanh...")
         // 1. Đọc và phân tích cú pháp tệp cấu hình JSON
         guard let configData = try? Data(contentsOf: modelConfig) else {
+            AppLogger.shared.log("🤖 [ONNXPiperEngine] LỖI: Không thể đọc cấu hình mô hình tại \(modelConfig.lastPathComponent)")
             throw TTSError.internalError("Cannot read Piper config file: \(modelConfig.lastPathComponent)")
         }
         
         guard let config = try? JSONDecoder().decode(PiperConfig.self, from: configData),
               let phonemeIdMap = config.phoneme_id_map else {
+            AppLogger.shared.log("🤖 [ONNXPiperEngine] LỖI: Không thể phân tích cú pháp JSON cấu hình.")
             throw TTSError.internalError("Failed to parse Piper config file: \(modelConfig.lastPathComponent)")
         }
         
         let sampleRate = config.audio?.sample_rate ?? 22050
+        AppLogger.shared.log("🤖 [ONNXPiperEngine] Tần số mẫu: \(sampleRate)")
         
         // Xác định các ký tự đặc biệt
         let padId = phonemeIdMap["_"]?.first ?? 0
@@ -150,17 +154,21 @@ final class ONNXPiperEngine: PiperEngine {
         let eosId = phonemeIdMap["$"]?.first ?? 2
         
         // Lấy môi trường và Session từ cache (hoặc khởi tạo mới nếu đổi model)
+        AppLogger.shared.log("🤖 [ONNXPiperEngine] Đang nạp session cho model: \(modelONNX.lastPathComponent)...")
         let (_, session) = try getSession(modelONNX: modelONNX)
+        AppLogger.shared.log("🤖 [ONNXPiperEngine] Đã nạp session thành công.")
         
         let inputNames = try session.inputNames()
         let outputNames = try session.outputNames()
         guard let firstOutputName = outputNames.first else {
+            AppLogger.shared.log("🤖 [ONNXPiperEngine] LỖI: Model không có output names.")
             throw TTSError.internalError("Model has no output names.")
         }
         
         // Tách câu để xử lý tuần tự kèm theo thông tin dấu câu để chèn khoảng lặng tĩnh
         let chunks = chunkTextWithPunctuation(text)
         guard !chunks.isEmpty else {
+            AppLogger.shared.log("🤖 [ONNXPiperEngine] Văn bản rỗng hoặc chỉ toàn dấu câu, trả về khoảng lặng.")
             return WAVEncoder.encodePCM16(samples: [], sampleRate: sampleRate, channels: 1)
         }
         
@@ -170,8 +178,11 @@ final class ONNXPiperEngine: PiperEngine {
         for (index, chunk) in chunks.enumerated() {
             // Chuyển văn bản sang âm vị sử dụng eSpeak NG cho từng câu
             let processedText = chunk.text
+            AppLogger.shared.log("🤖 [ONNXPiperEngine] Đang xử lý câu \(index + 1)/\(chunks.count): '\(processedText)'")
             
+            AppLogger.shared.log("🤖 [ONNXPiperEngine] Gọi EspeakPhonemizer.phonemize...")
             let rawPhonemes = try EspeakPhonemizer.phonemize(text: processedText)
+            AppLogger.shared.log("🤖 [ONNXPiperEngine] Gọi EspeakPhonemizer.phonemize xong: '\(rawPhonemes)'")
             
             // Làm sạch các ký tự điều khiển của eSpeak
             let phonemes = rawPhonemes
@@ -266,11 +277,13 @@ final class ONNXPiperEngine: PiperEngine {
             }
             
             // Chạy suy luận (Run Inference)
+            AppLogger.shared.log("🤖 [ONNXPiperEngine] Đang chạy session.run cho câu \(index + 1)...")
             let outputs = try session.run(
                 withInputs: feeds,
                 outputNames: Set([firstOutputName]),
                 runOptions: nil
             )
+            AppLogger.shared.log("🤖 [ONNXPiperEngine] session.run thành công cho câu \(index + 1).")
             
             // Kéo dài vòng đời của NSMutableData thủ công để tránh ARC giải phóng trước session.run kết thúc
             _ = inputNSMutableData
@@ -281,6 +294,7 @@ final class ONNXPiperEngine: PiperEngine {
             }
             
             guard let outputValue = outputs[firstOutputName] else {
+                AppLogger.shared.log("🤖 [ONNXPiperEngine] LỖI: Model không trả về speech tensor '\(firstOutputName)'.")
                 throw TTSError.internalError("Model did not return speech '\(firstOutputName)' tensor.")
             }
             
@@ -311,9 +325,12 @@ final class ONNXPiperEngine: PiperEngine {
             }
         }
         
+        // Chuẩn bị kết quả
+        AppLogger.shared.log("🤖 [ONNXPiperEngine] Chuẩn hóa đỉnh âm lượng...")
         // Chuẩn hóa đỉnh âm lượng
         normalizePeak(&mergedSamples, target: 0.9)
         
+        AppLogger.shared.log("🤖 [ONNXPiperEngine] Đang đóng gói thành tệp WAV...")
         // Đóng gói thành tệp WAV
         let wavData = WAVEncoder.encodePCM16(
             samples: mergedSamples,
@@ -321,6 +338,7 @@ final class ONNXPiperEngine: PiperEngine {
             channels: 1
         )
         
+        AppLogger.shared.log("🤖 [ONNXPiperEngine] Tổng hợp hoàn tất. Dung lượng: \(wavData.count) bytes")
         return wavData
     }
 }

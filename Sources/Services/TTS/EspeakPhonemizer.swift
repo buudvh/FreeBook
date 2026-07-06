@@ -9,80 +9,41 @@ final class EspeakPhonemizer {
         lock.lock()
         defer { lock.unlock() }
 
+        AppLogger.shared.log("🗣️ [EspeakPhonemizer] Bắt đầu chuyển âm vị cho câu: '\(text)'")
+
         if !isInitialized {
+            AppLogger.shared.log("🗣️ [EspeakPhonemizer] Khởi tạo espeak engine lần đầu...")
             guard let dataPath = findEspeakDataPath() else {
+                AppLogger.shared.log("🗣️ [EspeakPhonemizer] LỖI: Không tìm thấy thư mục espeak-ng-data.")
                 throw TTSError.internalError("Cannot find espeak-ng-data directory.")
             }
-            
-            let fm = FileManager.default
-            //appLog("[EspeakPhonemizer] [Check] dataPath exists: \(fm.fileExists(atPath: dataPath))")
-            //appLog("[EspeakPhonemizer] [Check] phondata exists: \(fm.fileExists(atPath: dataPath + "/phondata"))")
-            //appLog("[EspeakPhonemizer] [Check] phontab exists: \(fm.fileExists(atPath: dataPath + "/phontab"))")
-            //appLog("[EspeakPhonemizer] [Check] phonindex exists: \(fm.fileExists(atPath: dataPath + "/phonindex"))")
-            //appLog("[EspeakPhonemizer] [Check] intonations exists: \(fm.fileExists(atPath: dataPath + "/intonations"))")
-            //appLog("[EspeakPhonemizer] [Check] voices exists: \(fm.fileExists(atPath: dataPath + "/voices"))")
+            AppLogger.shared.log("🗣️ [EspeakPhonemizer] Tìm thấy thư mục dataPath: \(dataPath)")
             
             let parentPath = URL(fileURLWithPath: dataPath).deletingLastPathComponent().path
-            //appLog("[EspeakPhonemizer] [P1] calling espeak_Initialize(dataPath: \(parentPath))")
-            // AUDIO_OUTPUT_RETRIEVAL = 1
+            AppLogger.shared.log("🗣️ [EspeakPhonemizer] Đường dẫn cha: \(parentPath). Đang gọi espeak_Initialize...")
+            
             let sampleRate = espeak_Initialize(AUDIO_OUTPUT_RETRIEVAL, 0, parentPath, 0)
-            //appLog("[EspeakPhonemizer] [P2] espeak_Initialize completed. sampleRate: \(sampleRate)")
+            AppLogger.shared.log("🗣️ [EspeakPhonemizer] Gọi espeak_Initialize xong. sampleRate phản hồi: \(sampleRate)")
             guard sampleRate >= 0 else {
+                AppLogger.shared.log("🗣️ [EspeakPhonemizer] LỖI: espeak_Initialize thất bại với mã \(sampleRate)")
                 throw TTSError.internalError("espeak_Initialize failed with code \(sampleRate).")
             }
             
-            //appLog("[EspeakPhonemizer] [P3] calling espeak_SetVoiceByName('vi')")
-            // Set voice to Vietnamese
+            AppLogger.shared.log("🗣️ [EspeakPhonemizer] Đang cài giọng mặc định 'vi'...")
             let voiceResult = espeak_SetVoiceByName("vi")
-            //appLog("[EspeakPhonemizer] [P4] espeak_SetVoiceByName completed. voiceResult: \(voiceResult.rawValue)")
-            // EE_OK = 0
+            AppLogger.shared.log("🗣️ [EspeakPhonemizer] Cài giọng xong. Kết quả: \(voiceResult.rawValue)")
             guard voiceResult.rawValue == 0 else {
+                AppLogger.shared.log("🗣️ [EspeakPhonemizer] LỖI: espeak_SetVoiceByName('vi') thất bại.")
                 throw TTSError.internalError("espeak_SetVoiceByName('vi') failed.")
             }
             
-            // Log Current Voice safely
-            if let currentVoice = espeak_GetCurrentVoice() {
-                var nameStr = "nil"
-                var langStr = "nil"
-                var idStr = "nil"
-                if let namePtr = currentVoice.pointee.name {
-                    nameStr = String(cString: namePtr)
-                }
-                if let langPtr = currentVoice.pointee.languages {
-                    langStr = String(cString: langPtr)
-                }
-                if let idPtr = currentVoice.pointee.identifier {
-                    idStr = String(cString: idPtr)
-                }
-                //appLog("[EspeakPhonemizer] Current voice: name=\(nameStr), languages=\(langStr), identifier=\(idStr)")
-            } else {
-                //appLog("[EspeakPhonemizer] Current voice is nil")
-            }
-            
-            // Run English test check
-            //appLog("[EspeakPhonemizer] [Test EN] Setting voice to 'en'")
-            _ = espeak_SetVoiceByName("en")
-            if let enCString = "hello world".cString(using: .utf8) {
-                enCString.withUnsafeBufferPointer { buffer in
-                    var enTextPointer: UnsafeRawPointer? = UnsafeRawPointer(buffer.baseAddress)
-                    let enPhonemes = espeak_TextToPhonemes(&enTextPointer, 1, 2)
-                    if let enPhonemes {
-                        //appLog("[EspeakPhonemizer] [Test EN] Success: '\(String(cString: enPhonemes))'")
-                    } else {
-                        //appLog("[EspeakPhonemizer] [Test EN] Failed: returned nil")
-                    }
-                }
-            }
-            
-            // Re-set voice to 'vi'
-            _ = espeak_SetVoiceByName("vi")
-            
             isInitialized = true
+            AppLogger.shared.log("🗣️ [EspeakPhonemizer] Khởi tạo espeak hoàn tất thành công.")
         }
 
         // Nếu không chứa ký tự chữ/số nào, trả về rỗng ngay lập tức để tránh gọi espeak vô ích
         guard text.rangeOfCharacter(from: .alphanumerics) != nil else {
-            //appLog("[EspeakPhonemizer] Text contains no alphanumeric characters, returning empty phonemes.")
+            AppLogger.shared.log("🗣️ [EspeakPhonemizer] Văn bản không chứa ký tự chữ/số, bỏ qua.")
             return ""
         }
 
@@ -92,7 +53,7 @@ final class EspeakPhonemizer {
         
         var result = ""
         var iterations = 0
-        //appLog("[EspeakPhonemizer] [P5] starting phonemization loop for text: '\(text)'")
+        AppLogger.shared.log("🗣️ [EspeakPhonemizer] Bắt đầu vòng lặp sinh âm vị...")
         cString.withUnsafeBufferPointer { buffer in
             guard let baseAddress = buffer.baseAddress else { return }
             var textPointer: UnsafeRawPointer? = UnsafeRawPointer(baseAddress)
@@ -101,44 +62,57 @@ final class EspeakPhonemizer {
             while textPointer != nil {
                 iterations += 1
                 if iterations > 10000 {
-                    //appLog("[EspeakPhonemizer] [P_WARN] iterations exceeded limit, breaking")
+                    AppLogger.shared.log("🗣️ [EspeakPhonemizer] CẢNH BÁO: Vượt quá giới hạn vòng lặp")
                     break
                 }
-                // textmode: espeakCHARS_UTF8 = 1
-                // phonememode: 2 (IPA - International Phonetic Alphabet as UTF-8)
-                //appLog("[EspeakPhonemizer] [P6] calling espeak_TextToPhonemes (iteration: \(iterations))")
+                
                 let phonemesCStr = espeak_TextToPhonemes(&textPointer, 1, 2)
                 
-                // Tránh lặp vô hạn nếu con trỏ không dịch chuyển sau cuộc gọi
                 if textPointer == lastPointer {
-                    //appLog("[EspeakPhonemizer] [P_WARN] textPointer did not advance (value: \(String(describing: textPointer))), breaking loop to prevent hang")
+                    AppLogger.shared.log("🗣️ [EspeakPhonemizer] CẢNH BÁO: Con trỏ textPointer không dịch chuyển")
                     break
                 }
                 lastPointer = textPointer
                 
-                //appLog("[EspeakPhonemizer] [P6_Result] Pointer: \(String(describing: phonemesCStr))")
-                //appLog("[EspeakPhonemizer] [P6_Result] textPointer after call: \(String(describing: textPointer))")
                 if let phonemesCStr {
-                    //appLog("[EspeakPhonemizer] [P6_Result] First byte: \(phonemesCStr.pointee)")
                     let part = String(cString: phonemesCStr)
-                    //appLog("[EspeakPhonemizer] [P7] espeak_TextToPhonemes completed. phonemes: '\(part)'")
+                    AppLogger.shared.log("🗣️ [EspeakPhonemizer] Phân đoạn \(iterations): '\(part)'")
                     if !result.isEmpty && !part.isEmpty {
                         result += " "
                     }
                     result += part
                 } else {
-                    //appLog("[EspeakPhonemizer] [P8] espeak_TextToPhonemes returned nil (end of text)")
+                    AppLogger.shared.log("🗣️ [EspeakPhonemizer] espeak_TextToPhonemes trả về nil (kết thúc văn bản)")
                     break
                 }
             }
         }
-        //appLog("[EspeakPhonemizer] [P9] phonemization finished. result: '\(result)'")
+        
+        AppLogger.shared.log("🗣️ [EspeakPhonemizer] Kết quả chuyển âm vị: '\(result)'")
         return result
     }
 
     private static func findEspeakDataPath() -> String? {
         let fm = FileManager.default
         
+        // 1. Thử tìm trực tiếp qua Bundle để tránh quét đệ quy
+        AppLogger.shared.log("🗣️ [EspeakPhonemizer] Tìm espeak-ng-data trực tiếp trong các bundles...")
+        for bundle in Bundle.allBundles {
+            if let path = bundle.path(forResource: "espeak-ng-data", ofType: nil) {
+                AppLogger.shared.log("🗣️ [EspeakPhonemizer] Thư mục được tìm thấy trực tiếp tại: \(path)")
+                return path
+            }
+            if let path = bundle.path(forResource: "espeak-ng-spm_espeak-ng-data", ofType: "bundle") {
+                let subPath = URL(fileURLWithPath: path).appendingPathComponent("espeak-ng-data").path
+                if fm.fileExists(atPath: subPath) {
+                    AppLogger.shared.log("🗣️ [EspeakPhonemizer] Thư mục được tìm thấy bên trong SPM bundle: \(subPath)")
+                    return subPath
+                }
+            }
+        }
+        
+        // 2. Dự phòng: Quét đệ quy nếu cách tìm trực tiếp thất bại
+        AppLogger.shared.log("🗣️ [EspeakPhonemizer] Không tìm thấy trực tiếp. Chuyển sang quét đệ quy các root directories...")
         let roots: [URL] = (
             [
                 Bundle.main.bundleURL,
@@ -149,21 +123,21 @@ final class EspeakPhonemizer {
             Bundle.allFrameworks.map(\.bundleURL)
         ).compactMap { $0 }
 
-        // Remove duplicates to prevent redundant scans
         let uniqueRoots = Array(Set(roots))
-        
+        AppLogger.shared.log("🗣️ [EspeakPhonemizer] Đang duyệt \(uniqueRoots.count) roots...")
         for root in uniqueRoots {
+            AppLogger.shared.log("🗣️ [EspeakPhonemizer] Quét đệ quy root: \(root.path)")
             if let enumerator = fm.enumerator(at: root, includingPropertiesForKeys: nil) {
                 for case let url as URL in enumerator {
                     if url.lastPathComponent == "espeak-ng-data" {
-                        //appLog("[EspeakPhonemizer] findEspeakDataPath found: \(url.path)")
+                        AppLogger.shared.log("🗣️ [EspeakPhonemizer] Quét tìm thấy: \(url.path)")
                         return url.path
                     }
                 }
             }
         }
         
-        //appLog("[EspeakPhonemizer] findEspeakDataPath: NOT FOUND")
+        AppLogger.shared.log("🗣️ [EspeakPhonemizer] THẤT BẠI: Không tìm thấy espeak-ng-data trên toàn bộ hệ thống file.")
         return nil
     }
 }

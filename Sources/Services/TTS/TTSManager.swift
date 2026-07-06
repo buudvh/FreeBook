@@ -312,33 +312,47 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     private func playWavData(_ data: Data) throws {
-        guard let engine = audioEngine, let player = playerNode, let pitchNode = timePitchNode else { return }
+        AppLogger.shared.log("🔊 [TTSManager] Bắt đầu phát WAV. Kích thước dữ liệu: \(data.count) bytes")
+        guard let engine = audioEngine, let player = playerNode, let pitchNode = timePitchNode else { 
+            AppLogger.shared.log("🔊 [TTSManager] LỖI: Các thành phần AVAudioEngine chưa được khởi tạo.")
+            return 
+        }
         
         cleanUpTempFile()
         
         let tempDir = NSTemporaryDirectory()
         let fileURL = URL(fileURLWithPath: tempDir).appendingPathComponent(UUID().uuidString + ".wav")
+        AppLogger.shared.log("🔊 [TTSManager] Đang ghi file tạm thời: \(fileURL.lastPathComponent)")
         try data.write(to: fileURL)
         self.currentTempFileUrl = fileURL
         
+        AppLogger.shared.log("🔊 [TTSManager] Đang đọc AVAudioFile...")
         let file = try AVAudioFile(forReading: fileURL)
+        AppLogger.shared.log("🔊 [TTSManager] AVAudioFile định dạng xử lý: \(file.processingFormat)")
         
+        AppLogger.shared.log("🔊 [TTSManager] Dừng player và ngắt kết nối các nodes cũ...")
         player.stop()
         engine.disconnectNodeOutput(player)
         engine.disconnectNodeOutput(pitchNode)
         
+        AppLogger.shared.log("🔊 [TTSManager] Đang kết nối Player -> TimePitch với định dạng file: \(file.processingFormat)")
         engine.connect(player, to: pitchNode, format: file.processingFormat)
-        engine.connect(pitchNode, to: engine.mainMixerNode, format: file.processingFormat)
         
+        AppLogger.shared.log("🔊 [TTSManager] Đang kết nối TimePitch -> mainMixerNode với định dạng tự động (nil)...")
+        // ĐỂ CHẾ ĐỘ FORMAT LÀ NIL ĐỂ HỆ THỐNG TỰ ĐỘNG CHUYỂN ĐỔI TẦN SỐ MẪU AN TOÀN
+        engine.connect(pitchNode, to: engine.mainMixerNode, format: nil)
+        
+        AppLogger.shared.log("🔊 [TTSManager] Bắt đầu chạy Audio Engine nếu chưa chạy...")
         if !engine.isRunning {
             try engine.start()
+            AppLogger.shared.log("🔊 [TTSManager] Audio Engine đã khởi động thành công.")
         }
         
-        // Điều chỉnh tốc độ và cao độ tại trình phát
         pitchNode.rate = Float(speed)
         let cents = 1200.0 * log2(pitch)
         pitchNode.pitch = Float(cents)
         
+        AppLogger.shared.log("🔊 [TTSManager] Đang lập lịch phát file âm thanh...")
         player.scheduleFile(file, at: nil) { [weak self] in
             DispatchQueue.main.async {
                 guard let self = self, self.isPlaying else { return }
@@ -347,8 +361,10 @@ public final class TTSManager: NSObject, ObservableObject {
             }
         }
         
+        AppLogger.shared.log("🔊 [TTSManager] Gọi player.play()...")
         player.play()
         updateNowPlayingInfo()
+        AppLogger.shared.log("🔊 [TTSManager] Phát WAV hoàn tất thiết lập.")
     }
     
     private func cleanUpTempFile() {
