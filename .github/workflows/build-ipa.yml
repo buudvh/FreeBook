@@ -34,6 +34,32 @@ jobs:
       run: |
         xcodegen generate
 
+    - name: Resolve and patch Package dependencies
+      run: |
+        set -euo pipefail
+        xcodebuild -resolvePackageDependencies -project FreeBook.xcodeproj -scheme FreeBook -derivedDataPath build_dd
+        python3 -c '
+        import os
+        p = "build_dd/SourcePackages/checkouts/espeak-ng-spm/Package.swift"
+        if os.path.exists(p):
+            os.chmod(p, 0o644)
+            with open(p, "r") as f:
+                c = f.read()
+            target = ".define(\"N_PATH_HOME\", to: \"1024\"),"
+            replacement = target + "\n        .unsafeFlags([\"-Wno-error=implicit-function-declaration\", \"-Wno-error=implicit-int\", \"-Wno-error=incompatible-pointer-types\"]),"
+            if target in c:
+                c = c.replace(target, replacement)
+                with open(p, "w") as f:
+                    f.write(c)
+                print("Patched Package.swift successfully!")
+            else:
+                print("Error: Target string not found in Package.swift!")
+                exit(1)
+        else:
+            print(f"Error: {p} not found!")
+            exit(1)
+        '
+
     - name: Build and Archive App (Unsigned)
       run: |
         xcodebuild archive \
@@ -41,6 +67,7 @@ jobs:
           -configuration Release \
           -destination 'generic/platform=iOS' \
           -archivePath build/FreeBook.xcarchive \
+          -derivedDataPath build_dd \
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGN_IDENTITY="" \
@@ -49,11 +76,76 @@ jobs:
 
     - name: Package IPA
       run: |
+        set -euo pipefail
         mkdir -p build/Payload
         cp -r build/FreeBook.xcarchive/Products/Applications/FreeBook.app build/Payload/
+        
+        # 1. Cài đặt espeak-ng trên máy chủ macOS của Github để lấy dữ liệu âm vị đã biên dịch nhị phân
+        HOMEBREW_NO_AUTO_UPDATE=1 brew install espeak-ng
+        BREW_DATA_PATH="$(brew --prefix espeak-ng)/share/espeak-ng-data"
+        DEST_DATA_PATH="build/Payload/FreeBook.app/espeak-ng_data.bundle/espeak-ng-data"
+        
+        if [ -d "$DEST_DATA_PATH" ]; then
+          echo "Copying compiled espeak-ng database files recursively to $DEST_DATA_PATH"
+          cp -R "$BREW_DATA_PATH"/* "$DEST_DATA_PATH"/
+          
+          # 2. Xóa các từ điển ngôn ngữ không sử dụng để giảm dung lượng file IPA
+          echo "Cleaning up unnecessary dictionaries..."
+          for f in "$DEST_DATA_PATH"/*_dict; do
+            [ -e "$f" ] || continue
+            filename=$(basename "$f")
+            if [ "$filename" != "vi_dict" ] && [ "$filename" != "en_dict" ]; then
+              rm -f "$f"
+            fi
+          done
+          
+          # 3. Dọn dẹp các tệp cấu hình giọng nói dư thừa
+          VOICES_DIR="$DEST_DATA_PATH/voices"
+          if [ -d "$VOICES_DIR" ]; then
+            echo "Cleaning up unnecessary voices..."
+            for d in "$VOICES_DIR"/*; do
+              [ -e "$d" ] || continue
+              name=$(basename "$d")
+              if [ -d "$d" ]; then
+                if [ "$name" != "!v" ] && [ "$name" != "en" ] && [ "$name" != "asia" ]; then
+                  rm -rf "$d"
+                fi
+              else
+                case "$name" in
+                  active|default|en*|vi*) ;;
+                  *) rm -f "$d" ;;
+                esac
+              fi
+            done
+            
+            # Chỉ giữ giọng đọc tiếng Việt trong voices/asia
+            if [ -d "$VOICES_DIR/asia" ]; then
+              for f in "$VOICES_DIR/asia"/*; do
+                [ -e "$f" ] || continue
+                name=$(basename "$f")
+                case "$name" in
+                  vi*) ;;
+                  *) rm -rf "$f" ;;
+                esac
+              done
+            fi
+          fi
+          
+          # 4. Xác minh sự tồn tại của các file cơ sở dữ liệu quan trọng
+          echo "Verifying core espeak-ng database files..."
+          test -f "$DEST_DATA_PATH/phondata"
+          test -f "$DEST_DATA_PATH/phontab"
+          test -f "$DEST_DATA_PATH/phonindex"
+          test -f "$DEST_DATA_PATH/intonations"
+          echo "Core verification successful!"
+        else
+          echo "Error: $DEST_DATA_PATH does not exist!"
+          exit 1
+        fi
+        
         cd build
         zip -r FreeBook.ipa Payload
-        echo "IPA packaged at build/FreeBook.ipa"
+        echo "IPA packaged successfully at build/FreeBook.ipa"
 
     - name: Upload IPA Artifact
       uses: actions/upload-artifact@v4
