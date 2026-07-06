@@ -113,7 +113,7 @@ final class ONNXPiperEngine: PiperEngine {
         return 0.0
     }
 
-    private func trimSilence(_ samples: [Float], threshold: Float = 0.0005, minSamples: Int = 2205) -> [Float] {
+    private func trimSilence(_ samples: [Float], threshold: Float = 0.002, minSamples: Int = 441) -> [Float] {
         guard !samples.isEmpty else { return [] }
         var start = 0
         var end = samples.count - 1

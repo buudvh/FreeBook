@@ -651,19 +651,35 @@ struct ReaderView: View {
                 
                 // Hàng 5: Nhóm nút định dạng chữ aa, Aa1, Aa2, AA dàn đều cả hàng
                 HStack(spacing: 8) {
-                    ForEach(["aa", "Aa¹", "Aa²", "AA"], id: \.self) { format in
+                    ForEach(["aa", "Aa¹", "Aa²", "Aa", "AA"], id: \.self) { format in
                         Button(action: {
                             switch format {
                             case "aa":
                                 customMeaning = customMeaning.lowercased()
+
                             case "Aa¹":
-                                if !customMeaning.isEmpty {
-                                    customMeaning = customMeaning.prefix(1).uppercased() + customMeaning.dropFirst().lowercased()
+                                if let first = customMeaning.first {
+                                    customMeaning = first.uppercased() + customMeaning.dropFirst().lowercased()
                                 }
+
                             case "Aa²":
+                                if customMeaning.count >= 2 {
+                                    customMeaning = customMeaning.prefix(2).uppercased()
+                                        + customMeaning.dropFirst(2).lowercased()
+                                } else {
+                                    customMeaning = customMeaning.uppercased()
+                                }
+
+                            case "Aa":      // Chữ đầu hoa
+                                customMeaning = customMeaning.prefix(1).uppercased()
+                                    + customMeaning.dropFirst().lowercased()
+
+                            case "Title":
                                 customMeaning = customMeaning.capitalized
-                            case "AA":
+
+                            case "AA":      // Tất cả hoa
                                 customMeaning = customMeaning.uppercased()
+
                             default:
                                 break
                             }
