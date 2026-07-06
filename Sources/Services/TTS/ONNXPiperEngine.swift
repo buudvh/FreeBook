@@ -82,13 +82,15 @@ final class ONNXPiperEngine: PiperEngine {
         let trimmed = punctuation.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
             if punctuation.contains("\n") || punctuation.contains("\r") {
-                return UserDefaults.standard.double(forKey: "newlinePauseDuration")
+                let val = UserDefaults.standard.double(forKey: "newlinePauseDuration")
+                return val > 0 ? val : 0.4
             }
             return 0.0
         }
         
         if trimmed.contains(".") || trimmed.contains("!") || trimmed.contains("?") {
-            return UserDefaults.standard.double(forKey: "sentencePauseDuration")
+            let val = UserDefaults.standard.double(forKey: "sentencePauseDuration")
+            return val > 0 ? val : 0.3
         }
         
         if trimmed.contains("\"") ||
@@ -99,11 +101,13 @@ final class ONNXPiperEngine: PiperEngine {
            trimmed.contains("『") || trimmed.contains("』") ||
            trimmed.contains("【") || trimmed.contains("】") ||
            trimmed.contains("［") || trimmed.contains("］") {
-            return UserDefaults.standard.double(forKey: "bracketPauseDuration")
+            let val = UserDefaults.standard.double(forKey: "bracketPauseDuration")
+            return val > 0 ? val : 0.1
         }
         
         if trimmed.contains(",") || trimmed.contains(";") || trimmed.contains(":") {
-            return UserDefaults.standard.double(forKey: "phrasePauseDuration")
+            let val = UserDefaults.standard.double(forKey: "phrasePauseDuration")
+            return val > 0 ? val : 0.15
         }
         
         return 0.0

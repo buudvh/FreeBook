@@ -41,7 +41,7 @@ final class PiperTTSService {
             let phrasePause = UserDefaults.standard.double(forKey: "phrasePauseDuration")
             let sentencePause = UserDefaults.standard.double(forKey: "sentencePauseDuration")
             let hasSentencePunct = text.contains(".") || text.contains("!") || text.contains("?")
-            let pauseDuration = hasSentencePunct ? (sentencePause > 0 ? sentencePause : 0.4) : (phrasePause > 0 ? phrasePause : 0.2)
+            let pauseDuration = hasSentencePunct ? (sentencePause > 0 ? sentencePause : 0.3) : (phrasePause > 0 ? phrasePause : 0.15)
             
             let scaledDuration = pauseDuration / speed
             let silenceSamplesCount = Int(Double(sampleRate) * scaledDuration)

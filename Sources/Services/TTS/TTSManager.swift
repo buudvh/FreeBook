@@ -338,9 +338,9 @@ public final class TTSManager: NSObject, ObservableObject {
         AppLogger.shared.log("🔊 [TTSManager] Đang kết nối Player -> TimePitch với định dạng file: \(file.processingFormat)")
         engine.connect(player, to: pitchNode, format: file.processingFormat)
         
-        AppLogger.shared.log("🔊 [TTSManager] Đang kết nối TimePitch -> mainMixerNode với định dạng tự động (nil)...")
-        // ĐỂ CHẾ ĐỘ FORMAT LÀ NIL ĐỂ HỆ THỐNG TỰ ĐỘNG CHUYỂN ĐỔI TẦN SỐ MẪU AN TOÀN
-        engine.connect(pitchNode, to: engine.mainMixerNode, format: nil)
+        AppLogger.shared.log("🔊 [TTSManager] Đang kết nối TimePitch -> mainMixerNode với định dạng file: \(file.processingFormat)")
+        // Khôi phục lại kết nối định dạng file vì pitchNode không tự chuyển đổi tần số mẫu được
+        engine.connect(pitchNode, to: engine.mainMixerNode, format: file.processingFormat)
         
         AppLogger.shared.log("🔊 [TTSManager] Bắt đầu chạy Audio Engine nếu chưa chạy...")
         if !engine.isRunning {
@@ -382,9 +382,6 @@ public final class TTSManager: NSObject, ObservableObject {
         var currentOffset = 0
         
         let lines = content.components(separatedBy: "\n")
-        var tempBuffer = ""
-        var tempBufferRange = NSRange(location: 0, length: 0)
-        
         let maxLen = chunkLength > 0 ? chunkLength : 1000 // Mặc định 1000 ký tự
         
         for line in lines {
@@ -401,33 +398,15 @@ public final class TTSManager: NSObject, ObservableObject {
             }
             
             if trimmed.count > maxLen {
-                // Flush buffer cũ trước
-                if !tempBuffer.isEmpty {
-                    result.append(TTSParagraph(text: tempBuffer.trimmed, range: tempBufferRange))
-                    tempBuffer = ""
-                }
-                
-                // Tách nhỏ đoạn quá dài
+                // Tách nhỏ dòng quá dài dựa trên dấu câu
                 let subParagraphs = splitSentence(trimmed, maxLength: maxLen, baseOffset: range.location)
                 result.append(contentsOf: subParagraphs)
             } else {
-                if tempBuffer.isEmpty {
-                    tempBuffer = trimmed
-                    tempBufferRange = range
-                } else if tempBuffer.count + 1 + trimmed.count <= maxLen {
-                    tempBuffer += "\n" + trimmed
-                    tempBufferRange.length = (range.location + range.length) - tempBufferRange.location
-                } else {
-                    result.append(TTSParagraph(text: tempBuffer.trimmed, range: tempBufferRange))
-                    tempBuffer = trimmed
-                    tempBufferRange = range
-                }
+                // Thêm trực tiếp dòng này thành 1 đoạn đọc độc lập (không gom dòng)
+                result.append(TTSParagraph(text: trimmed, range: range))
             }
+            
             currentOffset = range.location + range.length
-        }
-        
-        if !tempBuffer.isEmpty {
-            result.append(TTSParagraph(text: tempBuffer.trimmed, range: tempBufferRange))
         }
         
         return result
