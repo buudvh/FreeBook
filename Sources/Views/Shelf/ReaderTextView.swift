@@ -103,6 +103,7 @@ struct ReaderTextView: UIViewRepresentable {
             context.coordinator.lastTriggeredId = triggerGetVisibleIndex
             if triggerGetVisibleIndex != nil {
                 DispatchQueue.main.async {
+                    self.triggerGetVisibleIndex = nil
                     if let scrollView = uiView.parentScrollView {
                         let point = CGPoint(x: 0, y: scrollView.contentOffset.y)
                         let pointInTextView = scrollView.convert(point, to: uiView)
