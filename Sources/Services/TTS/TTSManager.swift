@@ -276,7 +276,7 @@ public final class TTSManager: NSObject, ObservableObject {
             localPath: extInfo.localPath,
             downloadUrl: extInfo.downloadUrl,
             url: url,
-            configJson: extInfo.configJson
+            configJson: extInfo.configJson ?? ""
         )
         return rawContent.cleanHTML()
     }
