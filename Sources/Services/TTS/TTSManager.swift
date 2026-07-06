@@ -124,6 +124,7 @@ public final class TTSManager: NSObject, ObservableObject {
             self.pitch = UserDefaults.standard.double(forKey: "nghittsPitch") > 0 ? UserDefaults.standard.double(forKey: "nghittsPitch") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "nghittsVoice") ?? "Ngọc Huyền (mới)"
         }
+    }
     
     private func setupEngines() {
         do {

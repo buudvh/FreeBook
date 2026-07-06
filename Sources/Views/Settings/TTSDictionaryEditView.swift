@@ -251,7 +251,7 @@ struct TTSDictionaryEditView: View {
 
     private func loadDictionary() async {
         isLoading = true
-        let map = TextPreprocessor.shared.getWordMap()
+        let map = await TextPreprocessor.shared.getWordMap()
         allWords = map
         sortedKeys = map.keys.sorted()
         

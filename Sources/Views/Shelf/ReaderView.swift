@@ -1411,10 +1411,6 @@ struct TTSSettingsSheet: View {
     @State private var availableVoices: [Voice] = []
     @State private var systemVoices: [AVSpeechSynthesisVoice] = []
     
-    private func isModelDownloaded(_ voice: Voice) -> Bool {
-        return (try? ModelStore().modelExists(for: voice.id)) ?? false
-    }
-    
     private var hasNoDictionary: Bool {
         let path = (try? ModelStore())?.rootURL.appendingPathComponent("non-vietnamese-words.plist").path ?? ""
         return !FileManager.default.fileExists(atPath: path)
