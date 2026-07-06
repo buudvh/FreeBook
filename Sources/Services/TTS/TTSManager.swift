@@ -654,37 +654,57 @@ public final class TTSManager: NSObject, ObservableObject {
     
     private func parseParagraphs(_ content: String) -> [TTSParagraph] {
         var result: [TTSParagraph] = []
-        let nsText = content as NSString
-        var currentOffset = 0
-        
-        let lines = content.components(separatedBy: "\n")
-        let maxLen = chunkLength > 0 ? chunkLength : 1000 // Mặc định 1000 ký tự
-        
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty {
-                currentOffset += line.count + 1
-                continue
-            }
-            
-            let range = nsText.range(of: line, options: [], range: NSRange(location: currentOffset, length: nsText.length - currentOffset))
-            if range.location == NSNotFound {
-                currentOffset += line.count + 1
-                continue
-            }
-            
-            if trimmed.count > maxLen {
-                // Tách nhỏ dòng quá dài dựa trên dấu câu
-                let subParagraphs = splitSentence(trimmed, maxLength: maxLen, baseOffset: range.location)
-                result.append(contentsOf: subParagraphs)
-            } else {
-                // Thêm trực tiếp dòng này thành 1 đoạn đọc độc lập (không gom dòng)
-                result.append(TTSParagraph(text: trimmed, range: range))
-            }
-            
-            currentOffset = range.location + range.length
+        let maxLen = max(chunkLength, 1000)
+
+        // Match từng đoạn, các dòng trong cùng một đoạn được giữ nguyên.
+        // Một hoặc nhiều dòng trống được coi là ranh giới giữa các đoạn.
+        let pattern = #"(?ms)\S.*?(?=(?:\R\s*\R)|\z)"#
+
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return result
         }
-        
+
+        let nsRange = NSRange(content.startIndex..., in: content)
+
+        regex.enumerateMatches(in: content, options: [], range: nsRange) { match, _, _ in
+            guard
+                let match = match,
+                let range = Range(match.range, in: content)
+            else {
+                return
+            }
+
+            let paragraph = String(content[range]).trimmingCharacters(in: .whitespacesAndNewlines)
+
+            guard !paragraph.isEmpty else {
+                return
+            }
+
+            // Điều chỉnh NSRange sau khi trim
+            guard let trimmedRange = content.range(of: paragraph, range: range) else {
+                return
+            }
+
+            let paragraphRange = NSRange(trimmedRange, in: content)
+
+            if paragraph.count > maxLen {
+                result.append(
+                    contentsOf: splitSentence(
+                        paragraph,
+                        maxLength: maxLen,
+                        baseOffset: paragraphRange.location
+                    )
+                )
+            } else {
+                result.append(
+                    TTSParagraph(
+                        text: paragraph,
+                        range: paragraphRange
+                    )
+                )
+            }
+        }
+
         return result
     }
     
