@@ -577,8 +577,7 @@ public final class TTSManager: NSObject, ObservableObject {
         pitchNode.pitch = Float(cents)
         
         AppLogger.shared.log("🔊 [TTSManager] Đang lập lịch phát file âm thanh...")
-        player.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] callbackType in
-            guard callbackType == .dataPlayedBack else { return }
+        player.scheduleFile(file, at: nil) { [weak self] in
             DispatchQueue.main.async {
                 guard let self = self, self.isPlaying else { return }
                 self.cleanUpTempFile()

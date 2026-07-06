@@ -139,8 +139,7 @@ struct ReaderTextView: UIViewRepresentable {
         @available(iOS 16.0, *)
         func textView(_ textView: UITextView, editMenuForTextIn range: NSRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
             let customAction = UIAction(
-                title: "Dịch",
-                image: UIImage(systemName: "character.book.closed")
+                title: "📖 Dịch"
             ) { [weak self] _ in
                 if let selectedText = textView.text(in: textView.selectedTextRange!) {
                     self?.triggerCustomDefine(text: selectedText)
@@ -148,8 +147,7 @@ struct ReaderTextView: UIViewRepresentable {
             }
             
             let ttsAction = UIAction(
-                title: "Đọc từ đây",
-                image: UIImage(systemName: "play.circle")
+                title: "🔊 Đọc từ đây"
             ) { [weak self] _ in
                 self?.parent.onSpeakFromHere(range.location)
             }
