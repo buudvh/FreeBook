@@ -204,8 +204,9 @@ final class ONNXPiperEngine: PiperEngine {
                 guard let baseAddress = buffer.baseAddress else { return Data() }
                 return Data(bytes: baseAddress, count: buffer.count * MemoryLayout<Int64>.size)
             }
+            let inputNSMutableData = NSMutableData(data: inputData)
             let inputTensor = try ORTValue(
-                tensorData: NSMutableData(data: inputData),
+                tensorData: inputNSMutableData,
                 elementType: ORTTensorElementDataType.int64,
                 shape: inputShape
             )
@@ -216,8 +217,9 @@ final class ONNXPiperEngine: PiperEngine {
             let lengthData = withUnsafePointer(to: inputLengthValue) { ptr in
                 Data(bytes: ptr, count: MemoryLayout<Int64>.size)
             }
+            let lengthNSMutableData = NSMutableData(data: lengthData)
             let lengthTensor = try ORTValue(
-                tensorData: NSMutableData(data: lengthData),
+                tensorData: lengthNSMutableData,
                 elementType: ORTTensorElementDataType.int64,
                 shape: lengthShape
             )
@@ -232,8 +234,9 @@ final class ONNXPiperEngine: PiperEngine {
                 guard let baseAddress = buffer.baseAddress else { return Data() }
                 return Data(bytes: baseAddress, count: buffer.count * MemoryLayout<Float>.size)
             }
+            let scalesNSMutableData = NSMutableData(data: scalesData)
             let scalesTensor = try ORTValue(
-                tensorData: NSMutableData(data: scalesData),
+                tensorData: scalesNSMutableData,
                 elementType: ORTTensorElementDataType.float,
                 shape: scalesShape
             )
@@ -245,14 +248,17 @@ final class ONNXPiperEngine: PiperEngine {
             ]
             
             // Hỗ trợ model đa giọng đọc (Multi-speaker) nếu có yêu cầu "sid" (Speaker ID)
+            var sidNSMutableData: NSMutableData? = nil
             if inputNames.contains("sid") {
                 let speakerId: Int64 = 0
                 let sidShape: [NSNumber] = [1]
                 let sidData = withUnsafePointer(to: speakerId) { ptr in
                     Data(bytes: ptr, count: MemoryLayout<Int64>.size)
                 }
+                let data = NSMutableData(data: sidData)
+                sidNSMutableData = data
                 let sidTensor = try ORTValue(
-                    tensorData: NSMutableData(data: sidData),
+                    tensorData: data,
                     elementType: ORTTensorElementDataType.int64,
                     shape: sidShape
                 )
@@ -265,6 +271,14 @@ final class ONNXPiperEngine: PiperEngine {
                 outputNames: Set([firstOutputName]),
                 runOptions: nil
             )
+            
+            // Kéo dài vòng đời của NSMutableData thủ công để tránh ARC giải phóng trước session.run kết thúc
+            _ = inputNSMutableData
+            _ = lengthNSMutableData
+            _ = scalesNSMutableData
+            if let sidNSMutableData {
+                _ = sidNSMutableData
+            }
             
             guard let outputValue = outputs[firstOutputName] else {
                 throw TTSError.internalError("Model did not return speech '\(firstOutputName)' tensor.")
