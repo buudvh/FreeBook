@@ -55,6 +55,16 @@ public final class TTSManager: NSObject, ObservableObject {
     @Published public var currentParagraphIndex: Int = -1
     @Published public var highlightRange: NSRange? = nil
     
+    // Thông tin phát nhạc độc lập toàn cục
+    @Published public private(set) var playingBookId: String = ""
+    @Published public private(set) var playingChapterUrl: String = ""
+    @Published public private(set) var playingChapterIndex: Int = -1
+    
+    private var chaptersQueue: [TTSChapterInfo] = []
+    private var extensionInfo: TTSExtensionInfo? = nil
+    private var preloadedNextChapterContent: String? = nil
+    private var isPreloading: Bool = false
+    
     // Tiến trình tải model NghiTTS
     @Published public var downloadingVoices: [String: Double] = [:] // voiceName -> progress (0.0 ... 1.0)
     @Published public var downloadingMessages: [String: String] = [:] // voiceName -> message
@@ -185,12 +195,61 @@ public final class TTSManager: NSObject, ObservableObject {
     
     // MARK: - Playback Control
     
-    public func startSpeaking(chapterContent: String, startCharIndex: Int, bookTitle: String, chapterTitle: String) {
-        self.configureAudioSession()
-        self.chapterContent = chapterContent
-        self.bookTitle = bookTitle
-        self.chapterTitle = chapterTitle
+    public func startSpeaking(
+        bookId: String,
+        chapters: [TTSChapterInfo],
+        currentIndex: Int,
+        startCharIndex: Int,
+        bookTitle: String,
+        extensionInfo: TTSExtensionInfo?
+    ) {
+        // Dọn dẹp trình phát cũ trước tiên để tránh xung đột luồng và callback lặp
+        self.stopCurrentPlayback()
         
+        self.configureAudioSession()
+        self.playingBookId = bookId
+        self.chaptersQueue = chapters
+        self.playingChapterIndex = currentIndex
+        self.bookTitle = bookTitle
+        self.extensionInfo = extensionInfo
+        
+        // Hủy dữ liệu tải trước cũ
+        self.preloadedNextChapterContent = nil
+        
+        guard currentIndex >= 0 && currentIndex < chapters.count else { return }
+        let currentChapter = chapters[currentIndex]
+        self.playingChapterUrl = currentChapter.url
+        self.chapterTitle = currentChapter.title
+        
+        if let cached = currentChapter.cachedContent, !cached.isEmpty {
+            self.chapterContent = cached
+            self.continueStartSpeaking(startCharIndex: startCharIndex)
+        } else {
+            // Tải chương online nếu chưa được cache
+            Task {
+                do {
+                    let content = try await self.downloadChapterOnline(url: currentChapter.url)
+                    let translated = await self.translateContentInBackground(content)
+                    
+                    await MainActor.run {
+                        // Cập nhật lại cache trong hàng đợi
+                        if self.playingBookId == bookId && self.playingChapterIndex == currentIndex {
+                            self.chaptersQueue[currentIndex].cachedContent = translated
+                            self.chapterContent = translated
+                            self.continueStartSpeaking(startCharIndex: startCharIndex)
+                        }
+                    }
+                } catch {
+                    AppLogger.shared.log("Lỗi tải chương online cho TTS: \(error.localizedDescription)")
+                    await MainActor.run {
+                        self.stop()
+                    }
+                }
+            }
+        }
+    }
+    
+    private func continueStartSpeaking(startCharIndex: Int) {
         // Phân đoạn văn bản
         self.paragraphs = parseParagraphs(chapterContent)
         
@@ -203,6 +262,70 @@ public final class TTSManager: NSObject, ObservableObject {
         self.isPlaying = true
         
         speakCurrent()
+        
+        // Kích hoạt preload chương tiếp theo
+        triggerPreloadNextChapter()
+    }
+    
+    // Tải nội dung chương online thông qua ExtensionManager
+    private func downloadChapterOnline(url: String) async throws -> String {
+        guard let extInfo = extensionInfo else {
+            throw NSError(domain: "TTSManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Extension info is missing"])
+        }
+        let rawContent = try await ExtensionManager.shared.chap(
+            localPath: extInfo.localPath,
+            downloadUrl: extInfo.downloadUrl,
+            url: url,
+            configJson: extInfo.configJson
+        )
+        return rawContent.cleanHTML()
+    }
+    
+    // Dịch nội dung chương chạy ngầm
+    private func translateContentInBackground(_ originalContent: String) async -> String {
+        guard TranslateUtils.containsChinese(originalContent) else {
+            return originalContent
+        }
+        // Gọi bộ dịch
+        return TranslateUtils.translateContent(originalContent, bookId: playingBookId)
+    }
+    
+    // Kích hoạt preload chương kế tiếp
+    private func triggerPreloadNextChapter() {
+        guard !isPreloading else { return }
+        let nextIdx = playingChapterIndex + 1
+        guard nextIdx < chaptersQueue.count else { return }
+        
+        let nextChapter = chaptersQueue[nextIdx]
+        
+        // Nếu chương tiếp theo đã được tải/cache nội dung dịch sẵn, không cần preload
+        if let cached = nextChapter.cachedContent, !cached.isEmpty {
+            self.preloadedNextChapterContent = cached
+            return
+        }
+        
+        isPreloading = true
+        Task {
+            do {
+                let raw = try await self.downloadChapterOnline(url: nextChapter.url)
+                let translated = await self.translateContentInBackground(raw)
+                
+                await MainActor.run {
+                    self.isPreloading = false
+                    // Lưu vào cache hàng đợi
+                    if nextIdx < self.chaptersQueue.count && self.chaptersQueue[nextIdx].url == nextChapter.url {
+                        self.chaptersQueue[nextIdx].cachedContent = translated
+                        self.preloadedNextChapterContent = translated
+                        AppLogger.shared.log("🚀 [TTSManager] Đã preload xong chương tiếp theo: \(nextChapter.title)")
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.isPreloading = false
+                }
+                AppLogger.shared.log("Lỗi preload chương tiếp theo: \(error.localizedDescription)")
+            }
+        }
     }
     
     public func pause() {
@@ -288,9 +411,56 @@ public final class TTSManager: NSObject, ObservableObject {
             currentParagraphIndex += 1
             speakCurrent()
         } else {
-            // Hết chương, chuyển chương mới tự động
-            stop()
-            onChapterFinished?()
+            // Hết chương, tự động chuyển chương mới nếu có trong Queue
+            let nextIdx = playingChapterIndex + 1
+            if nextIdx < chaptersQueue.count {
+                self.playingChapterIndex = nextIdx
+                let nextChapter = chaptersQueue[nextIdx]
+                self.playingChapterUrl = nextChapter.url
+                self.chapterTitle = nextChapter.title
+                
+                // Gửi thông báo chuyển chương mới
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("ttsDidAdvanceToNextChapter"),
+                    object: nil,
+                    userInfo: ["bookId": playingBookId, "chapterIndex": nextIdx]
+                )
+                
+                if let preloaded = preloadedNextChapterContent, !preloaded.isEmpty {
+                    // Sử dụng nội dung tải trước
+                    self.chapterContent = preloaded
+                    self.preloadedNextChapterContent = nil
+                    self.continueStartSpeaking(startCharIndex: 0)
+                } else if let cached = nextChapter.cachedContent, !cached.isEmpty {
+                    self.chapterContent = cached
+                    self.continueStartSpeaking(startCharIndex: 0)
+                } else {
+                    // Chưa preload kịp, tiến hành tải trực tiếp
+                    Task {
+                        do {
+                            let raw = try await self.downloadChapterOnline(url: nextChapter.url)
+                            let translated = await self.translateContentInBackground(raw)
+                            
+                            await MainActor.run {
+                                if self.playingChapterIndex == nextIdx {
+                                    self.chaptersQueue[nextIdx].cachedContent = translated
+                                    self.chapterContent = translated
+                                    self.continueStartSpeaking(startCharIndex: 0)
+                                }
+                            }
+                        } catch {
+                            AppLogger.shared.log("Lỗi tải chương mới khi tự chuyển chương: \(error.localizedDescription)")
+                            await MainActor.run {
+                                self.stop()
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Đã hết sách hoàn toàn
+                stop()
+                onChapterFinished?()
+            }
         }
     }
     
@@ -407,7 +577,8 @@ public final class TTSManager: NSObject, ObservableObject {
         pitchNode.pitch = Float(cents)
         
         AppLogger.shared.log("🔊 [TTSManager] Đang lập lịch phát file âm thanh...")
-        player.scheduleFile(file, at: nil) { [weak self] in
+        player.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] callbackType in
+            guard callbackType == .dataPlayedBack else { return }
             DispatchQueue.main.async {
                 guard let self = self, self.isPlaying else { return }
                 self.cleanUpTempFile()

@@ -329,6 +329,16 @@ final class ONNXPiperEngine: PiperEngine {
             }
         }
         
+        // Chèn khoảng lặng tĩnh ở cuối đoạn (paragraph pause) để tạo khoảng nghỉ tự nhiên và tránh bị cắt chữ khi player dừng đột ngột
+        let paragraphPauseSec = UserDefaults.standard.double(forKey: "paragraphPauseDuration")
+        let actualParagraphPause = paragraphPauseSec > 0 ? paragraphPauseSec : 0.5
+        let scaledParagraphPause = actualParagraphPause / max(0.1, speed)
+        let paragraphSilenceSamplesCount = Int(Double(sampleRate) * scaledParagraphPause)
+        if paragraphSilenceSamplesCount > 0 {
+            let silenceSamples = [Float](repeating: 0.0, count: paragraphSilenceSamplesCount)
+            mergedSamples.append(contentsOf: silenceSamples)
+        }
+        
         // Chuẩn bị kết quả
         AppLogger.shared.log("🤖 [ONNXPiperEngine] Chuẩn hóa đỉnh âm lượng...")
         // Chuẩn hóa đỉnh âm lượng

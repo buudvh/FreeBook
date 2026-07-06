@@ -43,10 +43,18 @@ public final class DoubleArrayTrieBuilder {
             let rawVal = sortedEntries[i].value
             let cleanVal = rawVal.replacingOccurrences(of: "¦", with: "/")
             let parts = cleanVal.components(separatedBy: "/")
-            let normalized = parts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                                 .filter { !$0.isEmpty }
-                                 .joined(separator: "/")
-            sortedEntries[i].value = normalized
+            let trimmedParts = parts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            
+            let hasEmptyFirstMeaning = cleanVal.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("/")
+            let normalized: [String]
+            if hasEmptyFirstMeaning {
+                let first = trimmedParts.first ?? ""
+                let rest = trimmedParts.dropFirst().filter { !$0.isEmpty }
+                normalized = [first] + rest
+            } else {
+                normalized = trimmedParts.filter { !$0.isEmpty }
+            }
+            sortedEntries[i].value = normalized.joined(separator: "/")
         }
         
         // Sắp xếp các khóa theo thứ tự từ điển (lexicographically)

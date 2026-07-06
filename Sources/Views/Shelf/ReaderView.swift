@@ -72,6 +72,7 @@ struct ReaderView: View {
     
     // Tùy chọn giao diện đọc (Novel)
     @AppStorage("readerFontSize") private var fontSize: Double = 18.0
+    @AppStorage("readerLineSpacing") private var lineSpacing: Double = 6.0
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
     @State private var showingSettings = false
@@ -90,6 +91,44 @@ struct ReaderView: View {
     
     private var ext: Extension? {
         allExtensions.first(where: { $0.packageId == extensionPackageId })
+    }
+    
+    private var isCurrentlyPlayingThisChapter: Bool {
+        ttsManager.isPlaying &&
+        ttsManager.playingBookId == bookId &&
+        ttsManager.playingChapterIndex == chapterIndex
+    }
+    
+    private var ttsChaptersQueue: [TTSChapterInfo] {
+        if let book = localBook {
+            let sorted = book.chapters.sorted(by: { $0.index < $1.index })
+            return sorted.map { chap in
+                TTSChapterInfo(
+                    title: chap.title,
+                    url: chap.url,
+                    index: chap.index,
+                    cachedContent: chap.isCached ? chap.content : nil
+                )
+            }
+        } else {
+            return onlineChapters.enumerated().map { (index, chap) in
+                TTSChapterInfo(
+                    title: chap.name,
+                    url: chap.url,
+                    index: index,
+                    cachedContent: index == chapterIndex ? chapterContent : nil
+                )
+            }
+        }
+    }
+    
+    private var ttsExtensionInfo: TTSExtensionInfo? {
+        guard let ext = ext else { return nil }
+        return TTSExtensionInfo(
+            localPath: ext.localPath,
+            downloadUrl: ext.downloadUrl,
+            configJson: ext.configJson
+        )
     }
     
     // Tổng số chương hiện có
@@ -181,15 +220,18 @@ struct ReaderView: View {
                                 ReaderTextView(
                                     text: chapterContent,
                                     fontSize: fontSize,
+                                    lineSpacing: lineSpacing,
                                     theme: selectedTheme,
-                                    highlightRange: ttsManager.highlightRange,
+                                    highlightRange: isCurrentlyPlayingThisChapter ? ttsManager.highlightRange : nil,
                                     triggerGetVisibleIndex: $triggerGetVisibleIndex,
                                     onGetVisibleIndex: { charIndex in
                                         ttsManager.startSpeaking(
-                                            chapterContent: chapterContent,
+                                            bookId: bookId,
+                                            chapters: ttsChaptersQueue,
+                                            currentIndex: chapterIndex,
                                             startCharIndex: charIndex,
                                             bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
-                                            chapterTitle: chapterTitle
+                                            extensionInfo: ttsExtensionInfo
                                         )
                                     },
                                     onSelectionChange: { selectedText, sentence, offset, absoluteOffset in
@@ -308,10 +350,12 @@ struct ReaderView: View {
                                     },
                                     onSpeakFromHere: { absoluteOffset in
                                         ttsManager.startSpeaking(
-                                            chapterContent: chapterContent,
+                                            bookId: bookId,
+                                            chapters: ttsChaptersQueue,
+                                            currentIndex: chapterIndex,
                                             startCharIndex: absoluteOffset,
                                             bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
-                                            chapterTitle: chapterTitle
+                                            extensionInfo: ttsExtensionInfo
                                         )
                                         showingTTSPanel = true
                                     }
@@ -395,16 +439,18 @@ struct ReaderView: View {
             }
         }
         .sheet(isPresented: $showingSettings) {
-            ReaderSettingsView(fontSize: $fontSize, selectedTheme: $selectedTheme, isTranslationEnabled: $isTranslationEnabled)
-                .presentationDetents([.height(240)])
+            ReaderSettingsView(fontSize: $fontSize, lineSpacing: $lineSpacing, selectedTheme: $selectedTheme, isTranslationEnabled: $isTranslationEnabled)
+                .presentationDetents([.height(250)])
         }
         .sheet(isPresented: $showingTTSSettings, onDismiss: {
             if let resumeIdx = ttsResumeCharIndex {
                 ttsManager.startSpeaking(
-                    chapterContent: chapterContent,
+                    bookId: bookId,
+                    chapters: ttsChaptersQueue,
+                    currentIndex: chapterIndex,
                     startCharIndex: resumeIdx,
                     bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
-                    chapterTitle: chapterTitle
+                    extensionInfo: ttsExtensionInfo
                 )
                 ttsResumeCharIndex = nil
             }
@@ -722,8 +768,17 @@ struct ReaderView: View {
             }
         }
         .onDisappear {
-            ttsManager.stop()
             prefetchTask?.cancel()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ttsDidAdvanceToNextChapter"))) { notification in
+            guard let userInfo = notification.userInfo,
+                  let bid = userInfo["bookId"] as? String,
+                  let nextIdx = userInfo["chapterIndex"] as? Int else { return }
+            
+            if bid == bookId && nextIdx != chapterIndex {
+                chapterIndex = nextIdx
+                loadChapterContent()
+            }
         }
     }
     
@@ -764,7 +819,7 @@ struct ReaderView: View {
         }
     }
     
-    private func applyTranslation(restartTTSIfPlaying: Bool = true) {
+    private func applyTranslation() {
         let titleToUse = currentChapterInfo?.title ?? "Trình đọc"
         self.originalTitle = titleToUse
         
@@ -785,15 +840,6 @@ struct ReaderView: View {
                     self.chapterTitle = translatedTitle
                     self.chapterContent = translatedContent
                     self.isLoading = false
-                    
-                    if restartTTSIfPlaying && ttsManager.isPlaying {
-                        ttsManager.startSpeaking(
-                            chapterContent: translatedContent,
-                            startCharIndex: 0,
-                            bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
-                            chapterTitle: translatedTitle
-                        )
-                    }
                     prefetchNextChapter()
                 }
             }
@@ -801,15 +847,6 @@ struct ReaderView: View {
             self.chapterTitle = originalTitle
             self.chapterContent = originalContent
             self.isLoading = false
-            
-            if restartTTSIfPlaying && ttsManager.isPlaying {
-                ttsManager.startSpeaking(
-                    chapterContent: originalContent,
-                    startCharIndex: 0,
-                    bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
-                    chapterTitle: originalTitle
-                )
-            }
             prefetchNextChapter()
         }
     }
@@ -827,7 +864,7 @@ struct ReaderView: View {
                 try await TranslationManager.shared.saveCustomEntry(word: word, meaning: meaning, isName: saveAsNameType, bookId: bid)
                 await MainActor.run {
                     showingDefinitionSheet = false
-                    applyTranslation(restartTTSIfPlaying: false)
+                    applyTranslation()
                 }
             } catch {
                 // AppLogger.shared.log("❌ Lỗi lưu định nghĩa từ: \(error.localizedDescription)")
@@ -1119,7 +1156,7 @@ struct ReaderView: View {
                     } else {
                         self.customMeaning = getHanViet(for: word)
                     }
-                    applyTranslation(restartTTSIfPlaying: false)
+                    applyTranslation()
                 }
             } catch {
                 // AppLogger.shared.log("❌ Lỗi xóa định nghĩa từ: \(error.localizedDescription)")
@@ -1331,6 +1368,7 @@ struct ReaderView: View {
 // MARK: - ReaderSettingsView Sheet
 struct ReaderSettingsView: View {
     @Binding var fontSize: Double
+    @Binding var lineSpacing: Double
     @Binding var selectedTheme: ReaderTheme
     @Binding var isTranslationEnabled: Bool
     
@@ -1340,24 +1378,58 @@ struct ReaderSettingsView: View {
                 .font(.headline)
                 .padding(.top)
             
-            // Chỉnh size chữ
-            HStack(spacing: 20) {
-                Button(action: { if fontSize > 12 { fontSize -= 1 } }) {
-                    Image(systemName: "textformat.size.smaller")
-                        .padding(10)
-                        .background(Color.secondary.opacity(0.15))
-                        .cornerRadius(8)
+            // Chỉnh cỡ chữ & giãn dòng song song
+            HStack(spacing: 40) {
+                // Size chữ
+                VStack(spacing: 4) {
+                    Text("Cỡ chữ")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    HStack(spacing: 12) {
+                        Button(action: { if fontSize > 12 { fontSize -= 1 } }) {
+                            Image(systemName: "minus.circle")
+                                .padding(6)
+                                .background(Color.secondary.opacity(0.15))
+                                .cornerRadius(6)
+                        }
+                        
+                        Text("\(Int(fontSize))")
+                            .font(.body)
+                            .frame(width: 30)
+                        
+                        Button(action: { if fontSize < 36 { fontSize += 1 } }) {
+                            Image(systemName: "plus.circle")
+                                .padding(6)
+                                .background(Color.secondary.opacity(0.15))
+                                .cornerRadius(6)
+                        }
+                    }
                 }
                 
-                Text("\(Int(fontSize)) pt")
-                    .font(.subheadline)
-                    .frame(width: 60)
-                
-                Button(action: { if fontSize < 36 { fontSize += 1 } }) {
-                    Image(systemName: "textformat.size.larger")
-                        .padding(10)
-                        .background(Color.secondary.opacity(0.15))
-                        .cornerRadius(8)
+                // Khoảng cách dòng
+                VStack(spacing: 4) {
+                    Text("Giãn dòng")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    HStack(spacing: 12) {
+                        Button(action: { if lineSpacing > 2 { lineSpacing -= 1 } }) {
+                            Image(systemName: "minus.circle")
+                                .padding(6)
+                                .background(Color.secondary.opacity(0.15))
+                                .cornerRadius(6)
+                        }
+                        
+                        Text("\(Int(lineSpacing))")
+                            .font(.body)
+                            .frame(width: 30)
+                        
+                        Button(action: { if lineSpacing < 20 { lineSpacing += 1 } }) {
+                            Image(systemName: "plus.circle")
+                                .padding(6)
+                                .background(Color.secondary.opacity(0.15))
+                                .cornerRadius(6)
+                        }
+                    }
                 }
             }
             

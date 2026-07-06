@@ -577,11 +577,15 @@ public final class TranslateUtils {
             }
             
             let translatedToken: String
+            let isMatched: Bool
+            
             if tokenStr == "的" || tokenStr == "了" || tokenStr == "著" {
                 translatedToken = ""
+                isMatched = false
             } else {
                 let rawTranslation = translateMeta(tokenStr, bookId: bookId)
                 if rawTranslation == tokenStr {
+                    isMatched = false
                     if tokenStr.count == 1, isChineseCharacter(tokenStr.first!) {
                         translatedToken = phienAm[tokenStr] ?? tokenStr
                     } else {
@@ -592,15 +596,16 @@ public final class TranslateUtils {
                         translatedToken = phienAmList.joined(separator: " ")
                     }
                 } else {
+                    isMatched = true
                     translatedToken = TranslateUtils.getFirstMeaning(of: rawTranslation)
                 }
             }
             
             let trimmedTrans = translatedToken.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmedTrans.isEmpty || !tokenStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if isMatched || !trimmedTrans.isEmpty || !tokenStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 output.append(TranslationWordToken(
                     originalText: tokenStr,
-                    translatedText: trimmedTrans.isEmpty ? tokenStr : trimmedTrans,
+                    translatedText: isMatched ? trimmedTrans : (trimmedTrans.isEmpty ? tokenStr : trimmedTrans),
                     originalOffset: currentIndex,
                     originalLength: matchedLen
                 ))

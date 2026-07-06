@@ -4,6 +4,7 @@ import UIKit
 struct ReaderTextView: UIViewRepresentable {
     let text: String
     let fontSize: Double
+    let lineSpacing: Double
     let theme: ReaderTheme
     let highlightRange: NSRange?
     @Binding var triggerGetVisibleIndex: UUID?
@@ -62,6 +63,10 @@ struct ReaderTextView: UIViewRepresentable {
         let attributedText = NSMutableAttributedString(string: text)
         attributedText.addAttribute(.font, value: UIFont.systemFont(ofSize: CGFloat(fontSize)), range: fullRange)
         attributedText.addAttribute(.foregroundColor, value: UIColor(theme.textColor), range: fullRange)
+        
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineSpacing = CGFloat(lineSpacing)
+        attributedText.addAttribute(.paragraphStyle, value: paragraphStyle, range: fullRange)
         
         // Tô màu nền cho đoạn văn đang đọc (Highlight)
         if let highlight = highlightRange, highlight.location != NSNotFound && highlight.location + highlight.length <= nsText.length {

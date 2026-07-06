@@ -14,6 +14,7 @@ struct NghiTTSSettingsView: View {
     @AppStorage("sentencePauseDuration") private var sentencePause = 0.3
     @AppStorage("phrasePauseDuration") private var phrasePause = 0.15
     @AppStorage("bracketPauseDuration") private var bracketPause = 0.1
+    @AppStorage("paragraphPauseDuration") private var paragraphPause = 0.5
     
     var body: some View {
         Form {
@@ -29,12 +30,14 @@ struct NghiTTSSettingsView: View {
                 PrecisionSliderView(title: "Cuối câu (. ! ?):", value: $sentencePause, defaultValue: 0.3)
                 PrecisionSliderView(title: "Giữa câu (, ; :):", value: $phrasePause, defaultValue: 0.15)
                 PrecisionSliderView(title: "Dấu ngoặc (( ) [ ] { } 「 」 etc.):", value: $bracketPause, defaultValue: 0.1)
+                PrecisionSliderView(title: "Cuối đoạn văn:", value: $paragraphPause, defaultValue: 0.5)
                 
                 Button("Đặt lại mặc định") {
                     newlinePause = 0.4
                     sentencePause = 0.3
                     phrasePause = 0.15
                     bracketPause = 0.1
+                    paragraphPause = 0.5
                 }
                 .foregroundStyle(.red)
             }
