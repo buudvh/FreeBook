@@ -1411,81 +1411,89 @@ struct TTSSettingsSheet: View {
     @State private var availableVoices: [Voice] = []
     @State private var systemVoices: [AVSpeechSynthesisVoice] = []
     
+    private func isModelDownloaded(_ voice: Voice) -> Bool {
+        return (try? ModelStore().modelExists(for: voice.id)) ?? false
+    }
+    
+    private var hasNoDictionary: Bool {
+        let path = (try? ModelStore())?.rootURL.appendingPathComponent("non-vietnamese-words.plist").path ?? ""
+        return !FileManager.default.fileExists(atPath: path)
+    }
+    
     var body: some View {
         NavigationStack {
             Form {
                 Section("Công cụ đọc") {
                     Picker("Trình đọc", selection: $ttsManager.tool) {
-                        Text("Hệ thống (Apple)").tag("system")
+                        Text("Siri (Hệ thống Apple)").tag("system")
                         Text("NghiTTS (Piper Offline)").tag("nghitts")
                     }
-                    .pickerStyle(.segmented)
+                    .pickerStyle(.menu)
                 }
                 
                 Section("Giọng đọc") {
                     if ttsManager.tool == "system" {
-                        Picker("Giọng đọc hệ thống", selection: $ttsManager.selectedVoice) {
+                        Picker("Giọng đọc Siri", selection: $ttsManager.selectedVoice) {
                             ForEach(systemVoices, id: \.identifier) { voice in
                                 Text("\(voice.name) (\(voice.quality == .premium ? "Premium" : "Default"))")
                                     .tag(voice.identifier)
                             }
                         }
+                        .pickerStyle(.menu)
                     } else {
-                        List(availableVoices) { voice in
-                            let isDownloaded = isModelDownloaded(voice)
-                            let progress = ttsManager.downloadingVoices[voice.name]
-                            let msg = ttsManager.downloadingMessages[voice.name]
-                            
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(voice.name)
-                                        .fontWeight(ttsManager.selectedVoice == voice.name ? .bold : .regular)
-                                    if let p = progress {
-                                        ProgressView(value: p)
-                                        Text(msg ?? "Đang tải...")
-                                            .font(.caption2)
+                        let downloadedVoices = availableVoices.filter { isModelDownloaded($0) }
+                        let hasNoModels = downloadedVoices.isEmpty
+                        let missingDict = hasNoDictionary
+                        
+                        if hasNoModels || missingDict {
+                            VStack(alignment: .leading, spacing: 10) {
+                                if hasNoModels {
+                                    HStack {
+                                        Image(systemName: "exclamationmark.triangle.fill")
+                                            .foregroundColor(.orange)
+                                        Text("Chưa tải giọng đọc NghiTTS nào")
+                                            .font(.subheadline)
                                             .foregroundColor(.secondary)
                                     }
                                 }
-                                Spacer()
+                                if missingDict {
+                                    HStack {
+                                        Image(systemName: "exclamationmark.triangle.fill")
+                                            .foregroundColor(.orange)
+                                        Text("Chưa tải thư viện phiên âm")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
                                 
-                                if progress != nil {
-                                    ProgressView()
-                                } else if isDownloaded {
-                                    HStack(spacing: 8) {
-                                        if ttsManager.selectedVoice == voice.name {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .foregroundColor(.green)
-                                        } else {
-                                            Button("Chọn") {
-                                                ttsManager.selectedVoice = voice.name
-                                            }
-                                            .buttonStyle(.bordered)
-                                        }
-                                        
-                                        Button(role: .destructive) {
-                                            deleteModel(voice)
-                                        } label: {
-                                            Image(systemName: "trash")
-                                                .foregroundColor(.red)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                } else {
-                                    Button(action: {
-                                        Task {
-                                            await ttsManager.downloadNghiTTSModel(voice: voice)
-                                        }
-                                    }) {
-                                        Image(systemName: "icloud.and.arrow.down")
-                                            .foregroundColor(.blue)
-                                    }
-                                    .buttonStyle(.bordered)
+                                NavigationLink(destination: TTSModelManagerView()) {
+                                    Text("Tải model và thư viện")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 6)
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                            .padding(.vertical, 4)
+                        } else {
+                            Picker("Giọng đọc NghiTTS", selection: $ttsManager.selectedVoice) {
+                                ForEach(downloadedVoices, id: \.name) { voice in
+                                    Text(voice.name)
+                                        .tag(voice.name)
                                 }
                             }
-                            .contentShape(Rectangle())
+                            .pickerStyle(.menu)
+                            
+                            NavigationLink(destination: TTSModelManagerView()) {
+                                HStack {
+                                    Text("Quản lý model & thư viện")
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .foregroundColor(.secondary)
+                                }
+                            }
                         }
-                        .frame(minHeight: 180)
                     }
                 }
                 
@@ -1530,14 +1538,16 @@ struct TTSSettingsSheet: View {
                     Button("Xong") { dismiss() }
                 }
             }
-            .task {
+            .onAppear {
                 self.systemVoices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("vi") }
                 
                 if ttsManager.tool == "system" && ttsManager.selectedVoice.isEmpty {
                     ttsManager.selectedVoice = systemVoices.first?.identifier ?? ""
                 }
                 
-                self.availableVoices = (try? await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false)) ?? NghiTTSClient.fallbackVietnameseVoices
+                Task {
+                    self.availableVoices = (try? await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false)) ?? NghiTTSClient.fallbackVietnameseVoices
+                }
             }
         }
     }

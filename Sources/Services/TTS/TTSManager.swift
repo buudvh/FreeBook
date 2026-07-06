@@ -9,16 +9,42 @@ public final class TTSManager: NSObject, ObservableObject {
     
     // Cấu hình (lưu qua AppStorage/UserDefaults)
     @Published public var tool: String {
-        didSet { UserDefaults.standard.set(tool, forKey: "ttsTool") }
+        didSet {
+            UserDefaults.standard.set(tool, forKey: "ttsTool")
+            loadParamsForCurrentTool()
+        }
     }
     @Published public var speed: Double {
-        didSet { UserDefaults.standard.set(speed, forKey: "ttsRate"); updatePlaybackParams() }
+        didSet {
+            UserDefaults.standard.set(speed, forKey: "ttsRate")
+            if tool == "system" {
+                UserDefaults.standard.set(speed, forKey: "systemRate")
+            } else {
+                UserDefaults.standard.set(speed, forKey: "nghittsRate")
+            }
+            updatePlaybackParams()
+        }
     }
     @Published public var pitch: Double {
-        didSet { UserDefaults.standard.set(pitch, forKey: "ttsPitch"); updatePlaybackParams() }
+        didSet {
+            UserDefaults.standard.set(pitch, forKey: "ttsPitch")
+            if tool == "system" {
+                UserDefaults.standard.set(pitch, forKey: "systemPitch")
+            } else {
+                UserDefaults.standard.set(pitch, forKey: "nghittsPitch")
+            }
+            updatePlaybackParams()
+        }
     }
     @Published public var selectedVoice: String {
-        didSet { UserDefaults.standard.set(selectedVoice, forKey: "ttsVoice") }
+        didSet {
+            UserDefaults.standard.set(selectedVoice, forKey: "ttsVoice")
+            if tool == "system" {
+                UserDefaults.standard.set(selectedVoice, forKey: "systemVoice")
+            } else {
+                UserDefaults.standard.set(selectedVoice, forKey: "nghittsVoice")
+            }
+        }
     }
     @Published public var chunkLength: Int {
         didSet { UserDefaults.standard.set(chunkLength, forKey: "ttsChunkLength") }
@@ -60,10 +86,22 @@ public final class TTSManager: NSObject, ObservableObject {
     
     private override init() {
         // Nạp cấu hình từ UserDefaults
-        self.tool = UserDefaults.standard.string(forKey: "ttsTool") ?? "system"
-        self.speed = UserDefaults.standard.object(forKey: "ttsRate") != nil ? UserDefaults.standard.double(forKey: "ttsRate") : 1.0
-        self.pitch = UserDefaults.standard.object(forKey: "ttsPitch") != nil ? UserDefaults.standard.double(forKey: "ttsPitch") : 1.0
-        self.selectedVoice = UserDefaults.standard.string(forKey: "ttsVoice") ?? ""
+        let toolVal = UserDefaults.standard.string(forKey: "ttsTool") ?? "system"
+        self.tool = toolVal
+        
+        let defaultRate = UserDefaults.standard.object(forKey: "ttsRate") != nil ? UserDefaults.standard.double(forKey: "ttsRate") : 1.0
+        let defaultPitch = UserDefaults.standard.object(forKey: "ttsPitch") != nil ? UserDefaults.standard.double(forKey: "ttsPitch") : 1.0
+        
+        if toolVal == "system" {
+            self.speed = UserDefaults.standard.double(forKey: "systemRate") > 0 ? UserDefaults.standard.double(forKey: "systemRate") : defaultRate
+            self.pitch = UserDefaults.standard.double(forKey: "systemPitch") > 0 ? UserDefaults.standard.double(forKey: "systemPitch") : defaultPitch
+            self.selectedVoice = UserDefaults.standard.string(forKey: "systemVoice") ?? (UserDefaults.standard.string(forKey: "ttsVoice") ?? "")
+        } else {
+            self.speed = UserDefaults.standard.double(forKey: "nghittsRate") > 0 ? UserDefaults.standard.double(forKey: "nghittsRate") : defaultRate
+            self.pitch = UserDefaults.standard.double(forKey: "nghittsPitch") > 0 ? UserDefaults.standard.double(forKey: "nghittsPitch") : defaultPitch
+            self.selectedVoice = UserDefaults.standard.string(forKey: "nghittsVoice") ?? (UserDefaults.standard.string(forKey: "ttsVoice") ?? "Ngọc Huyền (mới)")
+        }
+        
         self.chunkLength = UserDefaults.standard.object(forKey: "ttsChunkLength") != nil ? UserDefaults.standard.integer(forKey: "ttsChunkLength") : 1000
         
         super.init()
@@ -72,6 +110,20 @@ public final class TTSManager: NSObject, ObservableObject {
         setupAudioEngine()
         setupRemoteCommandCenter()
     }
+    
+    private func loadParamsForCurrentTool() {
+        let defaultRate = UserDefaults.standard.object(forKey: "ttsRate") != nil ? UserDefaults.standard.double(forKey: "ttsRate") : 1.0
+        let defaultPitch = UserDefaults.standard.object(forKey: "ttsPitch") != nil ? UserDefaults.standard.double(forKey: "ttsPitch") : 1.0
+        
+        if tool == "system" {
+            self.speed = UserDefaults.standard.double(forKey: "systemRate") > 0 ? UserDefaults.standard.double(forKey: "systemRate") : defaultRate
+            self.pitch = UserDefaults.standard.double(forKey: "systemPitch") > 0 ? UserDefaults.standard.double(forKey: "systemPitch") : defaultPitch
+            self.selectedVoice = UserDefaults.standard.string(forKey: "systemVoice") ?? ""
+        } else {
+            self.speed = UserDefaults.standard.double(forKey: "nghittsRate") > 0 ? UserDefaults.standard.double(forKey: "nghittsRate") : defaultRate
+            self.pitch = UserDefaults.standard.double(forKey: "nghittsPitch") > 0 ? UserDefaults.standard.double(forKey: "nghittsPitch") : defaultPitch
+            self.selectedVoice = UserDefaults.standard.string(forKey: "nghittsVoice") ?? "Ngọc Huyền (mới)"
+        }
     
     private func setupEngines() {
         do {

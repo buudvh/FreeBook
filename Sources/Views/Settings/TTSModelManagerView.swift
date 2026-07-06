@@ -1,0 +1,593 @@
+import SwiftUI
+import UniformTypeIdentifiers
+
+struct TTSModelManagerView: View {
+    @ObservedObject var ttsManager = TTSManager.shared
+    @State private var availableVoices: [Voice] = []
+    @State private var isLoadingVoices = false
+    @State private var isShowingFileImporter = false
+    @State private var downloadingStatus: [String: Double] = [:]
+    @State private var downloadingMessages: [String: String] = [:]
+    @State private var isDownloadingDict = false
+    @State private var dictDownloadMessage = ""
+    
+    @State private var isImportingModel = false
+    @State private var importModelMessage = "Đang nhập model..."
+    @State private var modelRefreshTrigger = 0
+    @State private var toastMessage = ""
+    @State private var showingToast = false
+    @State private var isToastError = false
+    
+    private func isModelDownloaded(_ voice: Voice) -> Bool {
+        let _ = modelRefreshTrigger
+        return (try? ModelStore().modelExists(for: voice.id)) ?? false
+    }
+    
+    private var hasNoDictionary: Bool {
+        let _ = modelRefreshTrigger
+        let path = (try? ModelStore())?.rootURL.appendingPathComponent("non-vietnamese-words.plist").path ?? ""
+        return !FileManager.default.fileExists(atPath: path)
+    }
+    
+    private var topVoices: [Voice] {
+        let topNames = ["Ngọc Huyền (mới)", "Mai Phương", "Duy Onyx (mới)", "Ngọc Ngạn"].map { $0.precomposedStringWithCanonicalMapping }
+        return NghiTTSClient.fallbackVietnameseVoices.filter { topNames.contains($0.name.precomposedStringWithCanonicalMapping) }
+    }
+
+    private var systemVoices: [Voice] {
+        let _ = modelRefreshTrigger
+        let topNames = ["Ngọc Huyền (mới)", "Mai Phương", "Duy Onyx (mới)", "Ngọc Ngạn"].map { $0.precomposedStringWithCanonicalMapping }
+        let baseVoices = NghiTTSClient.fallbackVietnameseVoices.filter { !topNames.contains($0.name.precomposedStringWithCanonicalMapping) }
+        
+        let downloaded = baseVoices.filter { isModelDownloaded($0) }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        let notDownloaded = baseVoices.filter { !isModelDownloaded($0) }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            
+        return downloaded + notDownloaded
+    }
+
+    private var customVoices: [Voice] {
+        let _ = modelRefreshTrigger
+        guard let store = try? ModelStore() else { return [] }
+        let localIDs = store.getLocalVoiceIDs()
+        let fallbackIDs = NghiTTSClient.fallbackVietnameseVoices.map { $0.id }
+        let customIDs = localIDs.filter { !fallbackIDs.contains($0) }
+        let unsorted = customIDs.map { id in
+            let name = id.replacingOccurrences(of: "_", with: " ").capitalized
+            return Voice(id: id, name: name)
+        }
+        return unsorted.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+    
+    var body: some View {
+        ZStack {
+            List {
+                Section("Thư viện phiên âm (Anh / Nhật)") {
+                    NavigationLink(destination: TTSDictionaryEditView()) {
+                        Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
+                    }
+                    
+                    if hasNoDictionary {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                Text("Chưa tải thư viện phiên âm")
+                                    .fontWeight(.medium)
+                            }
+                            Text("Cần thiết để phiên âm chính xác các từ tiếng Anh và tiếng Nhật khi đọc truyện.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            if isDownloadingDict {
+                                ProgressView(dictDownloadMessage)
+                                    .font(.caption)
+                            } else {
+                                Button("Tải thư viện phiên âm") {
+                                    downloadDict()
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    } else {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Thư viện phiên âm")
+                                    .fontWeight(.medium)
+                                Text("Đã được tải và sẵn sàng sử dụng.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            if isDownloadingDict {
+                                ProgressView()
+                            } else {
+                                Button("Tải lại") {
+                                    downloadDict()
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                    }
+                }
+                
+                Section {
+                    Button(action: {
+                        isShowingFileImporter = true
+                    }) {
+                        Label("Nhập Model Ngoài...", systemImage: "square.and.arrow.down")
+                    }
+                }
+                
+                Section(header: HStack {
+                    Text("Giọng đọc đặc sắc")
+                    Spacer()
+                    HStack(spacing: 12) {
+                        Button("Tải tất cả") {
+                            downloadAll(in: topVoices)
+                        }
+                        .buttonStyle(.borderless)
+                        .textCase(.none)
+                        .font(.caption)
+                        
+                        Button("Xóa tất cả", role: .destructive) {
+                            deleteAll(in: topVoices)
+                        }
+                        .buttonStyle(.borderless)
+                        .textCase(.none)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                    }
+                }) {
+                    ForEach(topVoices) { voice in
+                        modelRow(for: voice)
+                    }
+                }
+                
+                Section(header: HStack {
+                    Text("Giọng đọc hệ thống")
+                    Spacer()
+                    HStack(spacing: 12) {
+                        Button("Tải tất cả") {
+                            downloadAll(in: systemVoices)
+                        }
+                        .buttonStyle(.borderless)
+                        .textCase(.none)
+                        .font(.caption)
+                        
+                        Button("Xóa tất cả", role: .destructive) {
+                            deleteAll(in: systemVoices)
+                        }
+                        .buttonStyle(.borderless)
+                        .textCase(.none)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                    }
+                }) {
+                    if isLoadingVoices {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                            Spacer()
+                        }
+                    } else {
+                        ForEach(systemVoices) { voice in
+                            modelRow(for: voice)
+                        }
+                    }
+                }
+                
+                let custom = customVoices
+                if !custom.isEmpty {
+                    Section(header: HStack {
+                        Text("Giọng đọc tùy chỉnh")
+                        Spacer()
+                        Button("Xóa tất cả", role: .destructive) {
+                            deleteAll(in: custom)
+                        }
+                        .buttonStyle(.borderless)
+                        .textCase(.none)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                    }) {
+                        ForEach(custom) { voice in
+                            modelRow(for: voice, isCustom: true)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Quản lý Model & Thư viện")
+            .background {
+                DocumentPickerPresenter(
+                    isPresented: $isShowingFileImporter,
+                    allowedContentTypes: [UTType(filenameExtension: "onnx") ?? .data, .json],
+                    allowsMultipleSelection: true,
+                    onPick: { urls in
+                        handleModelImportPick(urls: urls)
+                    },
+                    onCancel: nil
+                )
+            }
+            .task {
+                await loadVoices()
+            }
+            
+            if isImportingModel {
+                Color.black.opacity(0.3)
+                    .edgesIgnoringSafeArea(.all)
+                ProgressView(importModelMessage)
+                    .padding(20)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(12)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if showingToast {
+                HStack(spacing: 8) {
+                    Image(systemName: isToastError ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
+                        .foregroundColor(isToastError ? .red : .green)
+                    Text(toastMessage)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(
+                    Capsule()
+                        .fill(Color(red: 0.1, green: 0.1, blue: 0.1).opacity(0.9))
+                )
+                .padding(.bottom, 20)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func modelRow(for voice: Voice, isCustom: Bool = false) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(voice.name)
+                    .font(.body)
+                
+                let isDownloaded = isModelDownloaded(voice)
+                if isDownloaded {
+                    if let store = try? ModelStore() {
+                        let bytes = store.bytesForVoice(voice.id)
+                        Text(String(format: "Dung lượng: %.1f MB", Double(bytes) / 1024.0 / 1024.0))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    Text("Chưa tải về")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                if let progress = downloadingStatus[voice.name] {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ProgressView(value: progress)
+                        Text(downloadingMessages[voice.name] ?? "Đang tải...")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.top, 4)
+                }
+            }
+            
+            Spacer()
+            
+            let isDownloading = downloadingStatus[voice.name] != nil
+            if isDownloading {
+                ProgressView()
+            } else {
+                let isDownloaded = isModelDownloaded(voice)
+                HStack(spacing: 8) {
+                    if isDownloaded {
+                        if !isCustom {
+                            Button("Tải lại") {
+                                Task {
+                                    await downloadSingleModel(voice: voice)
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        
+                        Button("Xóa", role: .destructive) {
+                            deleteSingleModel(voice: voice)
+                        }
+                        .buttonStyle(.bordered)
+                        .foregroundColor(.red)
+                    } else {
+                        Button("Tải") {
+                            Task {
+                                await downloadSingleModel(voice: voice)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+    
+    private func loadVoices() async {
+        isLoadingVoices = true
+        defer { isLoadingVoices = false }
+        availableVoices = (try? await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false)) ?? NghiTTSClient.fallbackVietnameseVoices
+    }
+    
+    private func downloadDict() {
+        isDownloadingDict = true
+        dictDownloadMessage = "Đang tải thư viện..."
+        Task {
+            do {
+                try await ttsManager.nghiTTSClient?.downloadDictionaries()
+                await MainActor.run {
+                    isDownloadingDict = false
+                    dictDownloadMessage = ""
+                    modelRefreshTrigger += 1
+                    showToast("Đã tải thư viện phiên âm thành công", isError: false)
+                }
+            } catch {
+                await MainActor.run {
+                    isDownloadingDict = false
+                    dictDownloadMessage = "Lỗi: \(error.localizedDescription)"
+                    showToast("Lỗi tải thư viện: \(error.localizedDescription)", isError: true)
+                }
+            }
+        }
+    }
+    
+    private func downloadSingleModel(voice: Voice) async {
+        downloadingStatus[voice.name] = 0.0
+        downloadingMessages[voice.name] = "Bắt đầu tải..."
+        
+        do {
+            _ = try await ttsManager.nghiTTSClient?.prefetchModels(voices: [voice.name]) { msg, progress in
+                DispatchQueue.main.async {
+                    self.downloadingStatus[voice.name] = progress
+                    self.downloadingMessages[voice.name] = msg
+                }
+            }
+            DispatchQueue.main.async {
+                self.downloadingStatus.removeValue(forKey: voice.name)
+                self.downloadingMessages.removeValue(forKey: voice.name)
+                self.modelRefreshTrigger += 1
+                self.showToast("Tải xong model \(voice.name)", isError: false)
+            }
+            await loadVoices()
+        } catch {
+            DispatchQueue.main.async {
+                self.downloadingStatus.removeValue(forKey: voice.name)
+                self.downloadingMessages.removeValue(forKey: voice.name)
+                self.showToast("Lỗi tải model \(voice.name): \(error.localizedDescription)", isError: true)
+            }
+        }
+    }
+    
+    private func deleteSingleModel(voice: Voice) {
+        do {
+            try ModelStore().deleteModel(for: voice.id)
+            modelRefreshTrigger += 1
+            showToast("Đã xóa model \(voice.name) thành công.", isError: false)
+            if ttsManager.selectedVoice == voice.name {
+                ttsManager.selectedVoice = ""
+            }
+            Task {
+                await loadVoices()
+            }
+        } catch {
+            showToast("Lỗi xóa model \(voice.name): \(error.localizedDescription)", isError: true)
+        }
+    }
+    
+    private func downloadAll(in list: [Voice]) {
+        let toDownload = list.filter { !isModelDownloaded($0) && downloadingStatus[$0.name] == nil }
+        for voice in toDownload {
+            Task {
+                await downloadSingleModel(voice: voice)
+            }
+        }
+    }
+    
+    private func deleteAll(in list: [Voice]) {
+        let toDelete = list.filter { isModelDownloaded($0) }
+        guard !toDelete.isEmpty else { return }
+        for voice in toDelete {
+            do {
+                try ModelStore().deleteModel(for: voice.id)
+                if ttsManager.selectedVoice == voice.name {
+                    ttsManager.selectedVoice = ""
+                }
+            } catch {
+                showToast("Lỗi xóa: \(error.localizedDescription)", isError: true)
+            }
+        }
+        modelRefreshTrigger += 1
+        Task {
+            await loadVoices()
+        }
+    }
+    
+    private func showToast(_ message: String, isError: Bool) {
+        toastMessage = message
+        isToastError = isError
+        withAnimation(.spring()) {
+            showingToast = true
+        }
+        Task {
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            await MainActor.run {
+                withAnimation(.easeInOut) {
+                    showingToast = false
+                }
+            }
+        }
+    }
+    
+    private func handleModelImportPick(urls: [URL]) {
+        let validURLs = urls.filter {
+            let ext = $0.pathExtension.lowercased()
+            return ext == "onnx" || ext == "json"
+        }
+        if validURLs.isEmpty {
+            showToast("Vui lòng chọn tệp tin model (.onnx) và cấu hình (.json).", isError: true)
+            return
+        }
+
+        let onnxURLs = validURLs.filter { $0.pathExtension.lowercased() == "onnx" }
+        let jsonURLs = validURLs.filter { $0.pathExtension.lowercased() == "json" }
+
+        if onnxURLs.isEmpty || jsonURLs.isEmpty {
+            showToast("Cần chọn cả hai tệp .onnx và .json cho model. Vui lòng thử lại.", isError: true)
+            return
+        }
+
+        func cleanVoiceId(for url: URL) -> String {
+            let baseName = url.deletingPathExtension().lastPathComponent
+            if url.pathExtension.lowercased() == "json", baseName.lowercased().hasSuffix(".onnx") {
+                return String(baseName.dropLast(5)).replacingOccurrences(of: "[^a-zA-Z0-9_-]", with: "", options: .regularExpression).lowercased()
+            }
+            return baseName.replacingOccurrences(of: "[^a-zA-Z0-9_-]", with: "", options: .regularExpression).lowercased()
+        }
+
+        let jsonById = Dictionary(uniqueKeysWithValues: jsonURLs.compactMap { url in
+            let id = cleanVoiceId(for: url)
+            return id.isEmpty ? nil : (id, url)
+        })
+
+        var pairedFiles: [(onnxURL: URL, jsonURL: URL, voiceId: String)] = []
+        var missingJSON: [String] = []
+        for onnxURL in onnxURLs {
+            let id = cleanVoiceId(for: onnxURL)
+            if let jsonURL = jsonById[id] {
+                pairedFiles.append((onnxURL: onnxURL, jsonURL: jsonURL, voiceId: id))
+            } else {
+                missingJSON.append(onnxURL.lastPathComponent)
+            }
+        }
+
+        if !missingJSON.isEmpty {
+            showToast("Thiếu tệp .json tương ứng cho: \(missingJSON.joined(separator: ", ")).", isError: true)
+            return
+        }
+
+        isImportingModel = true
+        importModelMessage = "Đang nhập model..."
+
+        Task {
+            let fm = FileManager.default
+            var importCount = 0
+            var errorCount = 0
+            var lastErrorMessage: String?
+            
+            for pair in pairedFiles {
+                let onnxAccess = pair.onnxURL.startAccessingSecurityScopedResource()
+                let jsonAccess = pair.jsonURL.startAccessingSecurityScopedResource()
+                
+                defer {
+                    if onnxAccess { pair.onnxURL.stopAccessingSecurityScopedResource() }
+                    if jsonAccess { pair.jsonURL.stopAccessingSecurityScopedResource() }
+                }
+                
+                guard let store = try? ModelStore() else { continue }
+                let destOnnx = store.modelURL(for: pair.voiceId, extension: "onnx")
+                let destConfig = store.modelURL(for: pair.voiceId, extension: "onnx.json")
+                
+                let targets = [
+                    (source: pair.onnxURL, destination: destOnnx),
+                    (source: pair.jsonURL, destination: destConfig)
+                ]
+                
+                for target in targets {
+                    var cleanupURL: URL?
+                    do {
+                        let values = try target.source.resourceValues(forKeys: [.fileSizeKey])
+                        let size = values.fileSize ?? 0
+                        if size <= 0 {
+                            throw NSError(domain: "TTSModelManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Tệp \(target.source.lastPathComponent) rỗng hoặc không đọc được."])
+                        }
+                        
+                        if target.source.pathExtension.lowercased() == "json" {
+                            let data = try Data(contentsOf: target.source)
+                            _ = try JSONSerialization.jsonObject(with: data, options: [])
+                        }
+                        
+                        if fm.fileExists(atPath: target.destination.path) {
+                            try fm.removeItem(at: target.destination)
+                        }
+                        
+                        cleanupURL = target.destination
+                        try streamCopy(from: target.source, to: target.destination)
+                        importCount += 1
+                    } catch {
+                        lastErrorMessage = error.localizedDescription
+                        if let cleanup = cleanupURL, fm.fileExists(atPath: cleanup.path) {
+                            try? fm.removeItem(at: cleanup)
+                        }
+                        errorCount += 1
+                    }
+                }
+            }
+            
+            await MainActor.run {
+                isImportingModel = false
+                modelRefreshTrigger += 1
+                if errorCount > 0 {
+                    showToast(lastErrorMessage ?? "Lỗi nhập model.", isError: true)
+                } else {
+                    showToast("Nhập thành công \(importCount / 2) model.", isError: false)
+                }
+                Task {
+                    await loadVoices()
+                }
+            }
+        }
+    }
+    
+    private func streamCopy(from sourceURL: URL, to destinationURL: URL) throws {
+        guard let inputStream = InputStream(url: sourceURL) else {
+            throw NSError(domain: "StreamCopy", code: 1, userInfo: [NSLocalizedDescriptionKey: "Không thể mở input stream"])
+        }
+        guard let outputStream = OutputStream(url: destinationURL, append: false) else {
+            throw NSError(domain: "StreamCopy", code: 2, userInfo: [NSLocalizedDescriptionKey: "Không thể mở output stream"])
+        }
+        
+        inputStream.open()
+        defer { inputStream.close() }
+        outputStream.open()
+        defer { outputStream.close() }
+        
+        let bufferSize = 65536 // 64KB
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate() }
+        
+        while inputStream.hasBytesAvailable {
+            let bytesRead = inputStream.read(buffer, maxLength: bufferSize)
+            if bytesRead < 0 {
+                if let error = inputStream.streamError {
+                    throw error
+                }
+                throw NSError(domain: "StreamCopy", code: 3, userInfo: [NSLocalizedDescriptionKey: "Lỗi đọc tệp nguồn"])
+            } else if bytesRead == 0 {
+                break
+            }
+            
+            var bytesWritten = 0
+            while bytesWritten < bytesRead {
+                let written = outputStream.write(buffer.advanced(by: bytesWritten), maxLength: bytesRead - bytesWritten)
+                if written < 0 {
+                    if let error = outputStream.streamError {
+                        throw error
+                    }
+                    throw NSError(domain: "StreamCopy", code: 4, userInfo: [NSLocalizedDescriptionKey: "Lỗi ghi tệp đích"])
+                }
+                bytesWritten += written
+            }
+        }
+    }
+}
