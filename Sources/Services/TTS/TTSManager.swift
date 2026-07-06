@@ -611,7 +611,7 @@ public final class TTSManager: NSObject, ObservableObject {
 
 // MARK: - AVSpeechSynthesizerDelegate
 
-extension TTSManager: AVSpeechSynthesizerDelegate {
+extension TTSManager: @preconcurrency AVSpeechSynthesizerDelegate {
     public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         guard isPlaying else { return }
         nextParagraph()

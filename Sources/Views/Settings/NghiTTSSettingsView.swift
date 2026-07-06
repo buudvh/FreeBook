@@ -1,12 +1,5 @@
 import SwiftUI
 
-struct PreprocessorSettingKey {
-    static let numericNormalizationEnabled = "preprocessorNumericNormalizationEnabled"
-    static let dictionaryReplacementEnabled = "preprocessorDictionaryReplacementEnabled"
-    static let transliterationEnabled = "preprocessorTransliterationEnabled"
-    static let debugLoggingEnabled = "preprocessorDebugLoggingEnabled"
-}
-
 struct NghiTTSSettingsView: View {
     @Environment(\.dismiss) var dismiss
     
