@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import MediaPlayer
 import Combine
+import QuartzCore
 
 @MainActor
 public final class TTSManager: NSObject, ObservableObject {
@@ -64,6 +65,7 @@ public final class TTSManager: NSObject, ObservableObject {
     private var extensionInfo: TTSExtensionInfo? = nil
     private var preloadedNextChapterContent: String? = nil
     private var isPreloading: Bool = false
+    private var currentPlaybackId: String? = nil
     
     // Tiến trình tải model NghiTTS
     @Published public var downloadingVoices: [String: Double] = [:] // voiceName -> progress (0.0 ... 1.0)
@@ -329,6 +331,8 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     public func pause() {
+        let pid = currentPlaybackId ?? "NONE"
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] pause() được gọi.")
         guard isPlaying else { return }
         self.isPlaying = false
         
@@ -341,6 +345,8 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     public func resume() {
+        let pid = currentPlaybackId ?? "NONE"
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] resume() được gọi.")
         guard !isPlaying else { return }
         self.configureAudioSession()
         self.isPlaying = true
@@ -361,6 +367,8 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     public func stop() {
+        let pid = currentPlaybackId ?? "NONE"
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] stop() được gọi.")
         self.isPlaying = false
         self.currentParagraphIndex = -1
         self.highlightRange = nil
@@ -375,6 +383,8 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     public func skipForward() {
+        let pid = currentPlaybackId ?? "NONE"
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] skipForward() được gọi.")
         guard isPlaying else { return }
         if currentParagraphIndex + 1 < paragraphs.count {
             stopCurrentPlayback()
@@ -388,6 +398,8 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     public func skipBackward() {
+        let pid = currentPlaybackId ?? "NONE"
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] skipBackward() được gọi.")
         guard isPlaying else { return }
         if currentParagraphIndex > 0 {
             stopCurrentPlayback()
@@ -397,6 +409,8 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     private func stopCurrentPlayback() {
+        let pid = currentPlaybackId ?? "NONE"
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] stopCurrentPlayback() được gọi.")
         if tool == "system" {
             systemSynthesizer?.stopSpeaking(at: .immediate)
         } else {
@@ -406,6 +420,8 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     private func nextParagraph() {
+        let pid = currentPlaybackId ?? "NONE"
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] nextParagraph() được gọi.")
         guard isPlaying else { return }
         if currentParagraphIndex + 1 < paragraphs.count {
             currentParagraphIndex += 1
@@ -465,6 +481,8 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     private func speakCurrent() {
+        let pid = currentPlaybackId ?? "NONE"
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] speakCurrent() được gọi. index=\(currentParagraphIndex)")
         guard isPlaying, currentParagraphIndex >= 0 && currentParagraphIndex < paragraphs.count else { return }
         
         let paragraph = paragraphs[currentParagraphIndex]
@@ -536,9 +554,14 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     private func playWavData(_ data: Data) throws {
-        AppLogger.shared.log("🔊 [TTSManager] Bắt đầu phát WAV. Kích thước dữ liệu: \(data.count) bytes")
+        let playbackId = String(UUID().uuidString.prefix(4))
+        self.currentPlaybackId = playbackId
+        let paragraphIndex = self.currentParagraphIndex
+        let startTime = CACurrentMediaTime()
+        
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Bắt đầu playWavData. Kích thước dữ liệu: \(data.count) bytes, paragraphIndex: \(paragraphIndex)")
         guard let engine = audioEngine, let player = playerNode, let pitchNode = timePitchNode else { 
-            AppLogger.shared.log("🔊 [TTSManager] LỖI: Các thành phần AVAudioEngine chưa được khởi tạo.")
+            AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] LỖI: Các thành phần AVAudioEngine chưa được khởi tạo.")
             return 
         }
         
@@ -546,38 +569,40 @@ public final class TTSManager: NSObject, ObservableObject {
         
         let tempDir = NSTemporaryDirectory()
         let fileURL = URL(fileURLWithPath: tempDir).appendingPathComponent(UUID().uuidString + ".wav")
-        AppLogger.shared.log("🔊 [TTSManager] Đang ghi file tạm thời: \(fileURL.lastPathComponent)")
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Đang ghi file tạm thời: \(fileURL.lastPathComponent)")
         try data.write(to: fileURL)
         self.currentTempFileUrl = fileURL
         
-        AppLogger.shared.log("🔊 [TTSManager] Đang đọc AVAudioFile...")
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Đang đọc AVAudioFile...")
         let file = try AVAudioFile(forReading: fileURL)
-        AppLogger.shared.log("🔊 [TTSManager] AVAudioFile định dạng xử lý: \(file.processingFormat)")
         
-        AppLogger.shared.log("🔊 [TTSManager] Dừng player và ngắt kết nối các nodes cũ...")
+        AppLogger.shared.log("""
+        🔊 [TTSManager] [ID=\(playbackId)] Trạng thái trước khi schedule:
+        - engine.isRunning: \(engine.isRunning)
+        - player.isPlaying: \(player.isPlaying)
+        - file.length: \(file.length) frames
+        - file.sampleRate: \(file.processingFormat.sampleRate) Hz
+        """)
+        
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Gọi player.stop()...")
         player.stop()
-        engine.disconnectNodeOutput(player)
-        engine.disconnectNodeOutput(pitchNode)
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Gọi player.stop() xong.")
         
-        AppLogger.shared.log("🔊 [TTSManager] Đang kết nối Player -> TimePitch với định dạng file: \(file.processingFormat)")
-        engine.connect(player, to: pitchNode, format: file.processingFormat)
-        
-        AppLogger.shared.log("🔊 [TTSManager] Đang kết nối TimePitch -> mainMixerNode với định dạng file: \(file.processingFormat)")
-        // Khôi phục lại kết nối định dạng file vì pitchNode không tự chuyển đổi tần số mẫu được
-        engine.connect(pitchNode, to: engine.mainMixerNode, format: file.processingFormat)
-        
-        AppLogger.shared.log("🔊 [TTSManager] Bắt đầu chạy Audio Engine nếu chưa chạy...")
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Bắt đầu chạy Audio Engine nếu chưa chạy...")
         if !engine.isRunning {
             try engine.start()
-            AppLogger.shared.log("🔊 [TTSManager] Audio Engine đã khởi động thành công.")
+            AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Audio Engine đã khởi động thành công.")
         }
         
         pitchNode.rate = Float(speed)
         let cents = 1200.0 * log2(pitch)
         pitchNode.pitch = Float(cents)
         
-        AppLogger.shared.log("🔊 [TTSManager] Đang lập lịch phát file âm thanh...")
-        player.scheduleFile(file, at: nil) { [weak self] in
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Đang lập lịch phát file âm thanh (scheduleFile)... t=\(startTime)")
+        player.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] callbackType in
+            let completionTime = CACurrentMediaTime()
+            AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] scheduleFile completion callback: paragraph=\(paragraphIndex) t=\(completionTime) (diff=\(completionTime - startTime)s), callbackType: \(callbackType.rawValue)")
+            
             DispatchQueue.main.async {
                 guard let self = self, self.isPlaying else { return }
                 self.cleanUpTempFile()
@@ -585,10 +610,10 @@ public final class TTSManager: NSObject, ObservableObject {
             }
         }
         
-        AppLogger.shared.log("🔊 [TTSManager] Gọi player.play()...")
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Gọi player.play()... t=\(CACurrentMediaTime())")
         player.play()
         updateNowPlayingInfo()
-        AppLogger.shared.log("🔊 [TTSManager] Phát WAV hoàn tất thiết lập.")
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Phát WAV hoàn tất thiết lập.")
     }
     
     private func cleanUpTempFile() {
