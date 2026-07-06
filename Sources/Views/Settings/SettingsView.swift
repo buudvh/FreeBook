@@ -165,6 +165,9 @@ struct SettingsView: View {
                     NavigationLink(destination: TTSDictionaryEditView()) {
                         Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
                     }
+                    NavigationLink(destination: NghiTTSSettingsView()) {
+                        Label("Cấu hình tiền xử lý & ngắt nghỉ", systemImage: "slider.horizontal.3")
+                    }
                 }
                 
                 Section(header: Text("Nhật Ký (Log)")) {

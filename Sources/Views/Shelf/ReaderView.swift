@@ -80,6 +80,7 @@ struct ReaderView: View {
     @StateObject private var ttsManager = TTSManager.shared
     @State private var showingTTSPanel = false
     @State private var showingTTSSettings = false
+    @State private var ttsResumeCharIndex: Int? = nil
     @State private var triggerGetVisibleIndex: UUID? = nil
     @State private var prefetchTask: Task<Void, Never>? = nil
     
@@ -328,8 +329,12 @@ struct ReaderView: View {
                     }
                 }
             }
-            if showingTTSPanel {
-                TTSControlPanelView(showingTTSPanel: $showingTTSPanel, showingTTSSettings: $showingTTSSettings)
+             if showingTTSPanel {
+                 TTSControlPanelView(
+                     showingTTSPanel: $showingTTSPanel,
+                     showingTTSSettings: $showingTTSSettings,
+                     ttsResumeCharIndex: $ttsResumeCharIndex
+                 )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(10)
             }
@@ -393,7 +398,17 @@ struct ReaderView: View {
             ReaderSettingsView(fontSize: $fontSize, selectedTheme: $selectedTheme, isTranslationEnabled: $isTranslationEnabled)
                 .presentationDetents([.height(240)])
         }
-        .sheet(isPresented: $showingTTSSettings) {
+        .sheet(isPresented: $showingTTSSettings, onDismiss: {
+            if let resumeIdx = ttsResumeCharIndex {
+                ttsManager.startSpeaking(
+                    chapterContent: chapterContent,
+                    startCharIndex: resumeIdx,
+                    bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+                    chapterTitle: chapterTitle
+                )
+                ttsResumeCharIndex = nil
+            }
+        }) {
             TTSSettingsSheet()
         }
         .onChange(of: isTranslationEnabled) { _, _ in
@@ -428,21 +443,46 @@ struct ReaderView: View {
                     
                     Spacer()
                     
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 4) {
-                            ForEach(translationTokens) { token in
-                                let isSelected = (token.originalOffset < selectedWordOffset + selectedWordLength && 
-                                                  token.originalOffset + token.originalLength > selectedWordOffset)
-                                Text(token.originalText)
-                                    .font(.title3)
-                                    .bold(isSelected)
-                                    .underline()
-                                    .foregroundColor(isSelected ? .blue : .primary)
-                                    .onTapGesture {
-                                        selectedWordOffset = token.originalOffset
-                                        selectedWordLength = token.originalLength
-                                        updateEditorFromSelection()
+                    ScrollViewReader { proxy in
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 4) {
+                                ForEach(translationTokens) { token in
+                                    let isSelected = (token.originalOffset < selectedWordOffset + selectedWordLength && 
+                                                      token.originalOffset + token.originalLength > selectedWordOffset)
+                                    Text(token.originalText)
+                                        .font(.title3)
+                                        .bold(isSelected)
+                                        .underline()
+                                        .foregroundColor(isSelected ? .blue : .primary)
+                                        .id("orig-\(token.id)")
+                                        .onTapGesture {
+                                            selectedWordOffset = token.originalOffset
+                                            selectedWordLength = token.originalLength
+                                            updateEditorFromSelection()
+                                        }
+                                }
+                            }
+                        }
+                        .onChange(of: selectedWordOffset) { _, _ in
+                            if let selectedToken = translationTokens.first(where: {
+                                $0.originalOffset < selectedWordOffset + selectedWordLength && 
+                                $0.originalOffset + $0.originalLength > selectedWordOffset
+                            }) {
+                                withAnimation {
+                                    proxy.scrollTo("orig-\(selectedToken.id)", anchor: .center)
+                                }
+                            }
+                        }
+                        .onAppear {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                if let selectedToken = translationTokens.first(where: {
+                                    $0.originalOffset < selectedWordOffset + selectedWordLength && 
+                                    $0.originalOffset + $0.originalLength > selectedWordOffset
+                                }) {
+                                    withAnimation {
+                                        proxy.scrollTo("orig-\(selectedToken.id)", anchor: .center)
                                     }
+                                }
                             }
                         }
                     }
@@ -466,25 +506,50 @@ struct ReaderView: View {
                 .cornerRadius(8)
                 
                 // Hàng 2: Đoạn dịch (bold/underline các thẻ chứa từ đã chọn)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(translationTokens) { token in
-                            let isSelected = (token.originalOffset < selectedWordOffset + selectedWordLength && 
-                                              token.originalOffset + token.originalLength > selectedWordOffset)
-                            Text(token.translatedText)
-                                .font(.subheadline)
-                                .bold(isSelected)
-                                .underline()
-                                .foregroundColor(isSelected ? .blue : .primary)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 2)
-                                .background(isSelected ? Color.blue.opacity(0.1) : Color.clear)
-                                .cornerRadius(4)
-                                .onTapGesture {
-                                    selectedWordOffset = token.originalOffset
-                                    selectedWordLength = token.originalLength
-                                    updateEditorFromSelection()
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(translationTokens) { token in
+                                let isSelected = (token.originalOffset < selectedWordOffset + selectedWordLength && 
+                                                  token.originalOffset + token.originalLength > selectedWordOffset)
+                                Text(token.translatedText)
+                                    .font(.subheadline)
+                                    .bold(isSelected)
+                                    .underline()
+                                    .foregroundColor(isSelected ? .blue : .primary)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 2)
+                                    .background(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+                                    .cornerRadius(4)
+                                    .id("trans-\(token.id)")
+                                    .onTapGesture {
+                                        selectedWordOffset = token.originalOffset
+                                        selectedWordLength = token.originalLength
+                                        updateEditorFromSelection()
+                                    }
+                            }
+                        }
+                    }
+                    .onChange(of: selectedWordOffset) { _, _ in
+                        if let selectedToken = translationTokens.first(where: {
+                            $0.originalOffset < selectedWordOffset + selectedWordLength && 
+                            $0.originalOffset + $0.originalLength > selectedWordOffset
+                        }) {
+                            withAnimation {
+                                proxy.scrollTo("trans-\(selectedToken.id)", anchor: .center)
+                            }
+                        }
+                    }
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            if let selectedToken = translationTokens.first(where: {
+                                $0.originalOffset < selectedWordOffset + selectedWordLength && 
+                                $0.originalOffset + $0.originalLength > selectedWordOffset
+                            }) {
+                                withAnimation {
+                                    proxy.scrollTo("trans-\(selectedToken.id)", anchor: .center)
                                 }
+                            }
                         }
                     }
                 }
@@ -699,7 +764,7 @@ struct ReaderView: View {
         }
     }
     
-    private func applyTranslation() {
+    private func applyTranslation(restartTTSIfPlaying: Bool = true) {
         let titleToUse = currentChapterInfo?.title ?? "Trình đọc"
         self.originalTitle = titleToUse
         
@@ -721,7 +786,7 @@ struct ReaderView: View {
                     self.chapterContent = translatedContent
                     self.isLoading = false
                     
-                    if ttsManager.isPlaying {
+                    if restartTTSIfPlaying && ttsManager.isPlaying {
                         ttsManager.startSpeaking(
                             chapterContent: translatedContent,
                             startCharIndex: 0,
@@ -737,7 +802,7 @@ struct ReaderView: View {
             self.chapterContent = originalContent
             self.isLoading = false
             
-            if ttsManager.isPlaying {
+            if restartTTSIfPlaying && ttsManager.isPlaying {
                 ttsManager.startSpeaking(
                     chapterContent: originalContent,
                     startCharIndex: 0,
@@ -762,7 +827,7 @@ struct ReaderView: View {
                 try await TranslationManager.shared.saveCustomEntry(word: word, meaning: meaning, isName: saveAsNameType, bookId: bid)
                 await MainActor.run {
                     showingDefinitionSheet = false
-                    applyTranslation()
+                    applyTranslation(restartTTSIfPlaying: false)
                 }
             } catch {
                 // AppLogger.shared.log("❌ Lỗi lưu định nghĩa từ: \(error.localizedDescription)")
@@ -1054,7 +1119,7 @@ struct ReaderView: View {
                     } else {
                         self.customMeaning = getHanViet(for: word)
                     }
-                    applyTranslation()
+                    applyTranslation(restartTTSIfPlaying: false)
                 }
             } catch {
                 // AppLogger.shared.log("❌ Lỗi xóa định nghĩa từ: \(error.localizedDescription)")
@@ -1326,6 +1391,7 @@ struct DictionaryMatchInfo: Identifiable {
 struct TTSControlPanelView: View {
     @Binding var showingTTSPanel: Bool
     @Binding var showingTTSSettings: Bool
+    @Binding var ttsResumeCharIndex: Int?
     @ObservedObject var ttsManager = TTSManager.shared
     
     var body: some View {
@@ -1384,6 +1450,17 @@ struct TTSControlPanelView: View {
                     }
                     
                     Button(action: {
+                        if ttsManager.isPlaying {
+                            let idx = ttsManager.currentParagraphIndex
+                            if idx >= 0 && idx < ttsManager.paragraphs.count {
+                                ttsResumeCharIndex = ttsManager.paragraphs[idx].range.location
+                            } else {
+                                ttsResumeCharIndex = 0
+                            }
+                            ttsManager.stop()
+                        } else {
+                            ttsResumeCharIndex = nil
+                        }
                         showingTTSSettings = true
                     }) {
                         Image(systemName: "gearshape.fill")
@@ -1489,6 +1566,14 @@ struct TTSSettingsSheet: View {
                                         .foregroundColor(.secondary)
                                 }
                             }
+                        }
+                    }
+                }
+                
+                if ttsManager.tool == "nghitts" {
+                    Section("NghiTTS (Piper Offline)") {
+                        NavigationLink(destination: NghiTTSSettingsView()) {
+                            Label("Cấu hình tiền xử lý & ngắt nghỉ", systemImage: "slider.horizontal.3")
                         }
                     }
                 }

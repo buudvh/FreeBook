@@ -430,6 +430,7 @@ struct TTSModelManagerView: View {
     }
     
     private func handleModelImportPick(urls: [URL]) {
+        isShowingFileImporter = false
         let validURLs = urls.filter {
             let ext = $0.pathExtension.lowercased()
             return ext == "onnx" || ext == "json"

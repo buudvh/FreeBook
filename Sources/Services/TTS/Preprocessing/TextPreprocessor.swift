@@ -171,7 +171,7 @@ final actor TextPreprocessor {
         guard let appSupport = try? fileManager.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true) else {
             return nil
         }
-        let rootURL = appSupport.appendingPathComponent("LocalTTS", isDirectory: true)
+        let rootURL = appSupport.appendingPathComponent("FreeBook/TTS", isDirectory: true)
         try? fileManager.createDirectory(at: rootURL, withIntermediateDirectories: true)
         return rootURL.appendingPathComponent("non-vietnamese-words.plist")
     }
@@ -252,7 +252,7 @@ final actor TextPreprocessor {
         
         // Try loading from Application Support directory
         if let appSupport = try? fileManager.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true) {
-            let rootURL = appSupport.appendingPathComponent("LocalTTS", isDirectory: true)
+            let rootURL = appSupport.appendingPathComponent("FreeBook/TTS", isDirectory: true)
             try? fileManager.createDirectory(at: rootURL, withIntermediateDirectories: true)
             let wordsURL = rootURL.appendingPathComponent("non-vietnamese-words.plist")
             let acronymsURL = rootURL.appendingPathComponent("acronyms.plist")

@@ -162,7 +162,7 @@ public final class TTSManager: NSObject, ObservableObject {
     private func configureAudioSession() {
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
+            try session.setCategory(.playback, mode: .spokenAudio, options: [])
             try session.setActive(true)
         } catch {
             AppLogger.shared.log("Failed to configure AVAudioSession: \(error.localizedDescription)")
@@ -248,6 +248,7 @@ public final class TTSManager: NSObject, ObservableObject {
         cleanUpTempFile()
         
         updateNowPlayingInfo()
+        MPNowPlayingInfoCenter.default().playbackState = .stopped
     }
     
     public func skipForward() {
@@ -507,6 +508,9 @@ public final class TTSManager: NSObject, ObservableObject {
     private func setupRemoteCommandCenter() {
         let commandCenter = MPRemoteCommandCenter.shared()
         
+        // Bắt đầu nhận sự kiện điều khiển từ xa
+        UIApplication.shared.beginReceivingRemoteControlEvents()
+        
         // Play
         commandCenter.playCommand.isEnabled = true
         commandCenter.playCommand.addTarget { [weak self] _ in
@@ -574,6 +578,7 @@ public final class TTSManager: NSObject, ObservableObject {
         info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? speed : 0.0
         
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        MPNowPlayingInfoCenter.default().playbackState = isPlaying ? .playing : .paused
     }
     
     // MARK: - NghiTTS Downloader Wrapper
