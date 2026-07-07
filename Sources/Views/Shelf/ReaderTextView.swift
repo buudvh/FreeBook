@@ -219,7 +219,7 @@ class ReaderUITextView: UITextView {
     }
     
     @objc func customSpeakAction() {
-        if let range = self.selectedTextRange,
+        if self.selectedTextRange != nil,
            let delegate = self.delegate as? ReaderTextView.Coordinator {
             let nsRange = self.selectedRange
             delegate.parent.onSpeakFromHere(nsRange.location)

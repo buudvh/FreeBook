@@ -13,6 +13,7 @@ public final class TTSManager: NSObject, ObservableObject {
         didSet {
             UserDefaults.standard.set(tool, forKey: "ttsTool")
             loadParamsForCurrentTool()
+            clearPrefetchCache()
         }
     }
     @Published public var speed: Double {
@@ -45,6 +46,7 @@ public final class TTSManager: NSObject, ObservableObject {
             } else {
                 UserDefaults.standard.set(selectedVoice, forKey: "nghittsVoice")
             }
+            clearPrefetchCache()
         }
     }
     @Published public var chunkLength: Int {
@@ -67,6 +69,10 @@ public final class TTSManager: NSObject, ObservableObject {
     private var preloadedNextChapterContent: String? = nil
     private var isPreloading: Bool = false
     private var currentPlaybackId: String? = nil
+    
+    // Cache lưu trữ dữ liệu âm thanh đã được tổng hợp trước cho các đoạn văn
+    private var preloadedWavs: [Int: Data] = [:]
+    private var prefetchTasks: [Int: Task<Void, Never>] = [:]
     
     // Tiến trình tải model NghiTTS
     @Published public var downloadingVoices: [String: Double] = [:] // voiceName -> progress (0.0 ... 1.0)
@@ -221,6 +227,9 @@ public final class TTSManager: NSObject, ObservableObject {
         // Hủy dữ liệu tải trước cũ
         self.preloadedNextChapterContent = nil
         
+        // Xóa bộ đệm tải trước của đoạn văn cũ
+        self.clearPrefetchCache()
+        
         guard currentIndex >= 0 && currentIndex < chapters.count else { return }
         let currentChapter = chapters[currentIndex]
         self.playingChapterUrl = currentChapter.url
@@ -289,6 +298,8 @@ public final class TTSManager: NSObject, ObservableObject {
         self.currentParagraphIndex = -1
         self.currentParentParagraphIndex = -1
         self.highlightRange = nil
+        
+        clearPrefetchCache()
         
         systemSynthesizer?.stopSpeaking(at: .immediate)
         playerNode?.stop()
@@ -409,6 +420,79 @@ public final class TTSManager: NSObject, ObservableObject {
         updateNowPlayingInfo()
     }
     
+    private func clearPrefetchCache() {
+        for task in prefetchTasks.values {
+            task.cancel()
+        }
+        prefetchTasks.removeAll()
+        preloadedWavs.removeAll()
+        AppLogger.shared.log("🔊 [TTSManager] Đã làm sạch bộ đệm prefetch và hủy các task đang chạy nền.")
+    }
+    
+    private func updatePrefetchWindow() {
+        guard isPlaying, tool != "system" else { return }
+        
+        let N = currentParagraphIndex
+        let targetIndices = [N + 1].filter { $0 >= 0 && $0 < paragraphs.count }
+        
+        // 1. Hủy các task prefetch không còn nằm trong cửa sổ mục tiêu [N+1]
+        var tasksToCancel: [Int] = []
+        for idx in prefetchTasks.keys {
+            if !targetIndices.contains(idx) {
+                tasksToCancel.append(idx)
+            }
+        }
+        for idx in tasksToCancel {
+            prefetchTasks[idx]?.cancel()
+            prefetchTasks.removeValue(forKey: idx)
+        }
+        
+        // 2. Xóa các cache không còn nằm trong cửa sổ [N, N+1]
+        let cacheKeepIndices = [N, N + 1]
+        var cacheToClear: [Int] = []
+        for idx in preloadedWavs.keys {
+            if !cacheKeepIndices.contains(idx) {
+                cacheToClear.append(idx)
+            }
+        }
+        for idx in cacheToClear {
+            preloadedWavs.removeValue(forKey: idx)
+        }
+        
+        // 3. Bắt đầu prefetch cho các chỉ số thiếu trong [N+1]
+        for idx in targetIndices {
+            if preloadedWavs[idx] == nil && prefetchTasks[idx] == nil {
+                startPrefetchTask(for: idx)
+            }
+        }
+    }
+    
+    private func startPrefetchTask(for index: Int) {
+        guard index >= 0 && index < paragraphs.count else { return }
+        let text = paragraphs[index].text
+        let voice = selectedVoice
+        
+        guard let service = nghiTTSService else { return }
+        
+        let task = Task { [weak self] in
+            guard let self = self else { return }
+            do {
+                AppLogger.shared.log("🔊 [TTSManager] Bắt đầu tải trước cho đoạn \(index)...")
+                let wavData = try await service.synthesize(text: text, voice: voice, speed: 1.0)
+                
+                if !Task.isCancelled && self.selectedVoice == voice && self.tool != "system" {
+                    self.preloadedWavs[index] = wavData
+                    AppLogger.shared.log("🔊 [TTSManager] Đã tải trước và lưu cache thành công cho đoạn \(index). Kích thước: \(wavData.count) bytes.")
+                }
+                self.prefetchTasks.removeValue(forKey: index)
+            } catch {
+                self.prefetchTasks.removeValue(forKey: index)
+                AppLogger.shared.log("🔊 [TTSManager] Tải trước thất bại cho đoạn \(index): \(error.localizedDescription)")
+            }
+        }
+        prefetchTasks[index] = task
+    }
+    
     private func playNghiTTS(_ text: String) {
         guard let service = nghiTTSService else {
             AppLogger.shared.log("NghiTTS engine not initialized.")
@@ -416,12 +500,42 @@ public final class TTSManager: NSObject, ObservableObject {
             return
         }
         
+        let index = currentParagraphIndex
+        
+        // Cập nhật cửa sổ prefetch gối đầu ngay khi bắt đầu phát đoạn mới
+        updatePrefetchWindow()
+        
+        // Kiểm tra xem dữ liệu của đoạn index hiện tại đã có sẵn trong cache chưa
+        if let cachedWav = preloadedWavs[index] {
+            AppLogger.shared.log("🔊 [TTSManager] Phát hiện cache cho đoạn \(index), phát lập tức.")
+            do {
+                try self.playWavData(cachedWav)
+            } catch {
+                AppLogger.shared.log("🔊 [TTSManager] Chơi cache thất bại cho đoạn \(index): \(error.localizedDescription)")
+                self.stop()
+            }
+            return
+        }
+        
+        // Nếu chưa có cache (ví dụ người dùng bấm nhảy đoạn thủ công quá nhanh hoặc lỗi), ta đợi task prefetch đang chạy (nếu có)
+        // hoặc tự động tạo task tổng hợp mới
         Task {
             do {
-                // Suy luận với tốc độ mặc định 1.0
-                let wavData = try await service.synthesize(text: text, voice: selectedVoice, speed: 1.0)
+                let wavData: Data
+                if let activeTask = prefetchTasks[index] {
+                    // Chờ task đang chạy hoàn thành
+                    _ = await activeTask.value
+                    if let cached = preloadedWavs[index] {
+                        wavData = cached
+                    } else {
+                        // Nếu chờ task prefetch bị hủy hoặc lỗi, ta chạy tự tổng hợp lại
+                        wavData = try await service.synthesize(text: text, voice: selectedVoice, speed: 1.0)
+                    }
+                } else {
+                    wavData = try await service.synthesize(text: text, voice: selectedVoice, speed: 1.0)
+                }
                 
-                guard self.isPlaying else {
+                guard self.isPlaying && self.currentParagraphIndex == index else {
                     self.cleanUpTempFile()
                     return
                 }

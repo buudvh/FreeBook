@@ -13,10 +13,19 @@ final class TTSManagerTests: XCTestCase {
         Đoạn văn thứ hai cũng ngắn.
         """
         
-        manager.startSpeaking(chapterContent: sampleContent, startCharIndex: 0, bookTitle: "Test Book", chapterTitle: "Test Chapter")
+        let mockChapter = TTSChapterInfo(title: "Test Chapter", url: "test_url", index: 0, cachedContent: sampleContent)
+        manager.startSpeaking(
+            bookId: "test_book_id",
+            chapters: [mockChapter],
+            currentIndex: 0,
+            chapterContent: sampleContent,
+            startParagraphIndex: 0,
+            bookTitle: "Test Book",
+            extensionInfo: nil
+        )
         
-        XCTAssertEqual(manager.paragraphs.count, 1)
-        XCTAssertEqual(manager.paragraphs.first?.text, "Đoạn văn thứ nhất ngắn.\nĐoạn văn thứ hai cũng ngắn.")
+        XCTAssertEqual(manager.paragraphs.count, 2)
+        XCTAssertEqual(manager.paragraphs.first?.text, "Đoạn văn thứ nhất ngắn.")
         
         manager.stop()
     }
@@ -27,7 +36,16 @@ final class TTSManagerTests: XCTestCase {
         
         let sampleContent = "Đây là một câu rất dài vượt quá độ dài giới hạn hai mươi ký tự."
         
-        manager.startSpeaking(chapterContent: sampleContent, startCharIndex: 0, bookTitle: "Test Book", chapterTitle: "Test Chapter")
+        let mockChapter = TTSChapterInfo(title: "Test Chapter", url: "test_url", index: 0, cachedContent: sampleContent)
+        manager.startSpeaking(
+            bookId: "test_book_id",
+            chapters: [mockChapter],
+            currentIndex: 0,
+            chapterContent: sampleContent,
+            startParagraphIndex: 0,
+            bookTitle: "Test Book",
+            extensionInfo: nil
+        )
         
         XCTAssertGreaterThan(manager.paragraphs.count, 1)
         manager.stop()

@@ -82,7 +82,7 @@ struct ReaderView: View {
     @State private var showingTTSPanel = false
     @State private var ttsShouldAutoPlayNextChapter = false
     @State private var showingTTSSettings = false
-    @State private var ttsResumeCharIndex: Int? = nil
+    @State private var ttsResumeParagraphIndex: Int? = nil
     @State private var triggerGetVisibleIndex: UUID? = nil
     @State private var prefetchTask: Task<Void, Never>? = nil
     
@@ -236,7 +236,7 @@ struct ReaderView: View {
                  TTSControlPanelView(
                      showingTTSPanel: $showingTTSPanel,
                      showingTTSSettings: $showingTTSSettings,
-                     ttsResumeCharIndex: $ttsResumeCharIndex
+                     ttsResumeParagraphIndex: $ttsResumeParagraphIndex
                  )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(10)
@@ -302,16 +302,17 @@ struct ReaderView: View {
                 .presentationDetents([.height(250)])
         }
         .sheet(isPresented: $showingTTSSettings, onDismiss: {
-            if let resumeIdx = ttsResumeCharIndex {
+            if let resumeParagraphIdx = ttsResumeParagraphIndex {
                 ttsManager.startSpeaking(
                     bookId: bookId,
                     chapters: ttsChaptersQueue,
                     currentIndex: chapterIndex,
-                    startCharIndex: resumeIdx,
+                    chapterContent: isTranslationEnabled ? chapterContent : originalContent,
+                    startParagraphIndex: resumeParagraphIdx,
                     bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
                     extensionInfo: ttsExtensionInfo
                 )
-                ttsResumeCharIndex = nil
+                ttsResumeParagraphIndex = nil
             }
         }) {
             TTSSettingsSheet()
@@ -1564,7 +1565,7 @@ struct DictionaryMatchInfo: Identifiable {
 struct TTSControlPanelView: View {
     @Binding var showingTTSPanel: Bool
     @Binding var showingTTSSettings: Bool
-    @Binding var ttsResumeCharIndex: Int?
+    @Binding var ttsResumeParagraphIndex: Int?
     @ObservedObject var ttsManager = TTSManager.shared
     
     var body: some View {
@@ -1626,13 +1627,13 @@ struct TTSControlPanelView: View {
                         if ttsManager.isPlaying {
                             let idx = ttsManager.currentParagraphIndex
                             if idx >= 0 && idx < ttsManager.paragraphs.count {
-                                ttsResumeCharIndex = ttsManager.paragraphs[idx].range.location
+                                ttsResumeParagraphIndex = ttsManager.paragraphs[idx].paragraphIndex
                             } else {
-                                ttsResumeCharIndex = 0
+                                ttsResumeParagraphIndex = 0
                             }
                             ttsManager.stop()
                         } else {
-                            ttsResumeCharIndex = nil
+                            ttsResumeParagraphIndex = nil
                         }
                         showingTTSSettings = true
                     }) {
