@@ -80,6 +80,7 @@ struct ReaderView: View {
     // TTS Configurations & State
     @StateObject private var ttsManager = TTSManager.shared
     @State private var showingTTSPanel = false
+    @State private var ttsShouldAutoPlayNextChapter = false
     @State private var showingTTSSettings = false
     @State private var ttsResumeCharIndex: Int? = nil
     @State private var triggerGetVisibleIndex: UUID? = nil
@@ -643,6 +644,7 @@ struct ReaderView: View {
             
             if bid == bookId && nextIdx != chapterIndex {
                 chapterIndex = nextIdx
+                self.ttsShouldAutoPlayNextChapter = true
                 loadChapterContent()
             }
         }
@@ -706,6 +708,20 @@ struct ReaderView: View {
                     self.chapterTitle = translatedTitle
                     self.chapterContent = translatedContent
                     self.isLoading = false
+                    
+                    if self.ttsShouldAutoPlayNextChapter {
+                        self.ttsShouldAutoPlayNextChapter = false
+                        ttsManager.startSpeaking(
+                            bookId: bookId,
+                            chapters: ttsChaptersQueue,
+                            currentIndex: chapterIndex,
+                            chapterContent: translatedContent,
+                            startParagraphIndex: 0,
+                            bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+                            extensionInfo: ttsExtensionInfo
+                        )
+                    }
+                    
                     prefetchNextChapter()
                 }
             }
@@ -713,6 +729,20 @@ struct ReaderView: View {
             self.chapterTitle = originalTitle
             self.chapterContent = originalContent
             self.isLoading = false
+            
+            if self.ttsShouldAutoPlayNextChapter {
+                self.ttsShouldAutoPlayNextChapter = false
+                ttsManager.startSpeaking(
+                    bookId: bookId,
+                    chapters: ttsChaptersQueue,
+                    currentIndex: chapterIndex,
+                    chapterContent: originalContent,
+                    startParagraphIndex: 0,
+                    bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+                    extensionInfo: ttsExtensionInfo
+                )
+            }
+            
             prefetchNextChapter()
         }
     }
@@ -1039,13 +1069,13 @@ struct ReaderView: View {
                             item: item
                         )
                     },
-                    onSpeakFromHere: { offset in
-                        let absOffset = calculateAbsoluteOffset(for: item.id, relativeOffset: offset, isTranslated: isTranslationEnabled)
+                    onSpeakFromHere: { _ in
                         ttsManager.startSpeaking(
                             bookId: bookId,
                             chapters: ttsChaptersQueue,
                             currentIndex: chapterIndex,
-                            startCharIndex: absOffset,
+                            chapterContent: isTranslationEnabled ? chapterContent : originalContent,
+                            startParagraphIndex: item.id,
                             bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
                             extensionInfo: ttsExtensionInfo
                         )
@@ -1060,25 +1090,14 @@ struct ReaderView: View {
         let originalLines = originalContent.components(separatedBy: "\n")
         let translatedLines = chapterContent.components(separatedBy: "\n")
         var items: [ParagraphItem] = []
-        var index = 0
-        for i in 0..<originalLines.count {
-            let orig = originalLines[i].trimmingCharacters(in: .whitespacesAndNewlines)
-            let trans = i < translatedLines.count ? translatedLines[i].trimmingCharacters(in: .whitespacesAndNewlines) : ""
-            if !orig.isEmpty || !trans.isEmpty {
-                items.append(ParagraphItem(id: index, original: orig, translated: trans))
-                index += 1
-            }
+        let maxLines = max(originalLines.count, translatedLines.count)
+        
+        for i in 0..<maxLines {
+            let orig = i < originalLines.count ? originalLines[i] : ""
+            let trans = i < translatedLines.count ? translatedLines[i] : ""
+            items.append(ParagraphItem(id: i, original: orig, translated: trans))
         }
         return items
-    }
-    
-    private func calculateAbsoluteOffset(for paragraphIdx: Int, relativeOffset: Int, isTranslated: Bool) -> Int {
-        let lines = (isTranslated ? chapterContent : originalContent).components(separatedBy: "\n")
-        var offset = 0
-        for i in 0..<min(paragraphIdx, lines.count) {
-            offset += lines[i].count + 1 // +1 cho dấu xuống dòng \n
-        }
-        return offset + relativeOffset
     }
     
     private func onSelectionChangeInParagraph(
