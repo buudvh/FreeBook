@@ -710,14 +710,20 @@ public final class TTSManager: NSObject, ObservableObject {
     
     private func splitSentence(_ text: String, maxLength: Int, baseOffset: Int) -> [TTSParagraph] {
         var result: [TTSParagraph] = []
+        
+        var tempText = text
+        tempText = tempText.replacingOccurrences(of: "...", with: ",,,")
+        tempText = tempText.replacingOccurrences(of: "..", with: ",,")
+        
         let nsText = text as NSString
+        let nsTempText = tempText as NSString
         
         let pattern = "[^.!?。！？]+[.!?。！？]?"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
             return [TTSParagraph(text: text, range: NSRange(location: baseOffset, length: text.count))]
         }
         
-        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsText.length))
+        let matches = regex.matches(in: tempText, options: [], range: NSRange(location: 0, length: nsTempText.length))
         var currentSubText = ""
         var currentSubRange = NSRange(location: baseOffset, length: 0)
         

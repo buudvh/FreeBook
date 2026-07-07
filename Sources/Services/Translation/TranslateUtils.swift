@@ -618,13 +618,18 @@ public final class TranslateUtils {
     }
     
     public static func getSentenceRanges(in text: String) -> [SentenceRange] {
+        var tempText = text
+        tempText = tempText.replacingOccurrences(of: "...", with: ",,,")
+        tempText = tempText.replacingOccurrences(of: "..", with: ",,")
+        
         let pattern = #"[^。！？\n\r.!?]+[。！？\n\r.!?]*"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
             return [SentenceRange(text: text, range: NSRange(location: 0, length: (text as NSString).length))]
         }
         
         let nsText = text as NSString
-        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsText.length))
+        let nsTempText = tempText as NSString
+        let matches = regex.matches(in: tempText, options: [], range: NSRange(location: 0, length: nsTempText.length))
         
         return matches.map { match in
             let matchRange = match.range
