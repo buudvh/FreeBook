@@ -70,17 +70,21 @@ struct TTSFloatingWidgetView: View {
                     }) {
                         ZStack {
                             Circle()
-                                .fill(Color(uiColor: .systemBackground))
-                                .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 3)
+                                .fill(Color.black.opacity(0.6))
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white.opacity(0.6), lineWidth: 2)
+                                )
+                                .shadow(color: Color.black.opacity(0.3), radius: 8, x: 0, y: 3)
                             
                             if ttsManager.isPlaying {
                                 Image(systemName: "waveform")
                                     .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(.white)
                             } else {
                                 Image(systemName: "play.fill")
                                     .font(.system(size: 20))
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(.white)
                                     .offset(x: 1.5)
                             }
                         }
