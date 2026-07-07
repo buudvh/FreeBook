@@ -100,4 +100,32 @@ final class TranslationTests: XCTestCase {
         try? FileManager.default.removeItem(at: bookDir)
         manager.clearBookDictCache(for: bookId)
     }
+    
+    func testBookSpecificNamesPrioritization() async throws {
+        let manager = TranslationManager.shared
+        let bookId = "test_book_prioritize_123"
+        
+        // 1. Thêm Tên riêng trong truyện: 林动 = Lâm Động
+        try await manager.saveCustomEntry(word: "林动", meaning: "Lâm Động", isName: true, bookId: bookId)
+        // 2. Thêm từ VietPhrase truyện: 林动人 = lâm động nhân
+        try await manager.saveCustomEntry(word: "林动人", meaning: "lâm động nhân", isName: false, bookId: bookId)
+        
+        // Cần đảm bảo có phiên âm cho chữ "人" (nhân) để kiểm chứng
+        let paUrl = manager.translateDirectory.appendingPathComponent("ChinesePhienAmWords.txt")
+        let currentPa = (try? String(contentsOf: paUrl, encoding: .utf8)) ?? ""
+        if !currentPa.contains("人=nhân") {
+            let newPa = currentPa + "\n人=nhân\n"
+            try? newPa.write(to: paUrl, atomically: true, encoding: .utf8)
+            try? await manager.loadAllDictionaries()
+        }
+        
+        // Dịch với bookId -> Phải ưu tiên "林动" (Lâm Động) + "人" (nhân) thay vì cụm dài "林动人" (lâm động nhân)
+        let translated = TranslateUtils.translateMeta("林动人", bookId: bookId)
+        XCTAssertEqual(translated, "Lâm Động nhân")
+        
+        // Cleanup
+        let bookDir = manager.translateDirectory.appendingPathComponent("books").appendingPathComponent(bookId)
+        try? FileManager.default.removeItem(at: bookDir)
+        manager.clearBookDictCache(for: bookId)
+    }
 }

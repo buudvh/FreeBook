@@ -318,38 +318,40 @@ public final class TranslateUtils {
                 longestMatchLen = match.length
             }
             
-            if let names = names,
-               let match = names.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
+            if longestMatchLen == 0 {
+                if let names = names,
+                   let match = names.findLongestMatch(text: checkText, startIndex: 0) {
+                    if match.length > longestMatchLen {
+                        longestMatchLen = match.length
+                    }
                 }
-            }
-            
-            if let pronouns = pronouns,
-               let match = pronouns.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
+                
+                if let pronouns = pronouns,
+                   let match = pronouns.findLongestMatch(text: checkText, startIndex: 0) {
+                    if match.length > longestMatchLen {
+                        longestMatchLen = match.length
+                    }
                 }
-            }
-            
-            if let luatNhan = luatNhan,
-               let match = luatNhan.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
+                
+                if let luatNhan = luatNhan,
+                   let match = luatNhan.findLongestMatch(text: checkText, startIndex: 0) {
+                    if match.length > longestMatchLen {
+                        longestMatchLen = match.length
+                    }
                 }
-            }
-            
-            if let bookVP = bookVP,
-               let match = bookVP.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
+                
+                if let bookVP = bookVP,
+                   let match = bookVP.findLongestMatch(text: checkText, startIndex: 0) {
+                    if match.length > longestMatchLen {
+                        longestMatchLen = match.length
+                    }
                 }
-            }
-            
-            if let vp = vp,
-               let match = vp.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
+                
+                if let vp = vp,
+                   let match = vp.findLongestMatch(text: checkText, startIndex: 0) {
+                    if match.length > longestMatchLen {
+                        longestMatchLen = match.length
+                    }
                 }
             }
             
@@ -525,38 +527,40 @@ public final class TranslateUtils {
                 longestMatchLen = match.length
             }
             
-            if let names = names,
-               let match = names.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
+            if longestMatchLen == 0 {
+                if let names = names,
+                   let match = names.findLongestMatch(text: checkText, startIndex: 0) {
+                    if match.length > longestMatchLen {
+                        longestMatchLen = match.length
+                    }
                 }
-            }
-            
-            if let pronouns = pronouns,
-               let match = pronouns.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
+                
+                if let pronouns = pronouns,
+                   let match = pronouns.findLongestMatch(text: checkText, startIndex: 0) {
+                    if match.length > longestMatchLen {
+                        longestMatchLen = match.length
+                    }
                 }
-            }
-            
-            if let luatNhan = luatNhan,
-               let match = luatNhan.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
+                
+                if let luatNhan = luatNhan,
+                   let match = luatNhan.findLongestMatch(text: checkText, startIndex: 0) {
+                    if match.length > longestMatchLen {
+                        longestMatchLen = match.length
+                    }
                 }
-            }
-            
-            if let bookVP = bookVP,
-               let match = bookVP.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
+                
+                if let bookVP = bookVP,
+                   let match = bookVP.findLongestMatch(text: checkText, startIndex: 0) {
+                    if match.length > longestMatchLen {
+                        longestMatchLen = match.length
+                    }
                 }
-            }
-            
-            if let vp = vp,
-               let match = vp.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
+                
+                if let vp = vp,
+                   let match = vp.findLongestMatch(text: checkText, startIndex: 0) {
+                    if match.length > longestMatchLen {
+                        longestMatchLen = match.length
+                    }
                 }
             }
             
