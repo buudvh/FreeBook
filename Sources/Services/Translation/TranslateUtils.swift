@@ -14,14 +14,9 @@ public final class TranslateUtils {
     
     public static func getFirstMeaning(of rawTranslation: String) -> String {
         let clean = rawTranslation.replacingOccurrences(of: "¦", with: "/")
-        let parts = clean.components(separatedBy: "/")
-        for part in parts {
-            let trimmed = part.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty {
-                return trimmed
-            }
-        }
-        return rawTranslation
+        return clean.components(separatedBy: "/").first?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? rawTranslation
     }
     
     // Default TOC rules mapped from user preference
@@ -216,11 +211,7 @@ public final class TranslateUtils {
             bookNames = bookDicts.names
         }
         
-        for token in tokens {
-            if token == "的" || token == "了" || token == "著" {
-                continue
-            }
-            
+        for token in tokens {            
             var translation: String? = nil
             
             if let bookNames = bookNames,
@@ -588,26 +579,21 @@ public final class TranslateUtils {
             let translatedToken: String
             let isMatched: Bool
             
-            if tokenStr == "的" || tokenStr == "了" || tokenStr == "著" {
-                translatedToken = ""
+            let rawTranslation = translateMeta(tokenStr, bookId: bookId)
+            if rawTranslation == tokenStr {
                 isMatched = false
-            } else {
-                let rawTranslation = translateMeta(tokenStr, bookId: bookId)
-                if rawTranslation == tokenStr {
-                    isMatched = false
-                    if tokenStr.count == 1, isChineseCharacter(tokenStr.first!) {
-                        translatedToken = phienAm[tokenStr] ?? tokenStr
-                    } else {
-                        var phienAmList: [String] = []
-                        for c in tokenStr {
-                            phienAmList.append(phienAm[String(c)] ?? String(c))
-                        }
-                        translatedToken = phienAmList.joined(separator: " ")
-                    }
+                if tokenStr.count == 1, isChineseCharacter(tokenStr.first!) {
+                    translatedToken = phienAm[tokenStr] ?? tokenStr
                 } else {
-                    isMatched = true
-                    translatedToken = TranslateUtils.getFirstMeaning(of: rawTranslation)
+                    var phienAmList: [String] = []
+                    for c in tokenStr {
+                        phienAmList.append(phienAm[String(c)] ?? String(c))
+                    }
+                    translatedToken = phienAmList.joined(separator: " ")
                 }
+            } else {
+                isMatched = true
+                translatedToken = TranslateUtils.getFirstMeaning(of: rawTranslation)
             }
             
             let trimmedTrans = translatedToken.trimmingCharacters(in: .whitespacesAndNewlines)

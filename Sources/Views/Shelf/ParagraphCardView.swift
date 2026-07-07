@@ -27,3 +27,16 @@ struct ParagraphCardView: View {
         .frame(minHeight: 20)
     }
 }
+
+// Cấu trúc dữ liệu dòng text song hành
+public struct ParagraphItem: Identifiable, Codable, Equatable {
+    public let id: Int
+    public let original: String
+    public let translated: String
+    
+    public init(id: Int, original: String, translated: String) {
+        self.id = id
+        self.original = original
+        self.translated = translated
+    }
+}

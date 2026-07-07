@@ -281,7 +281,7 @@ struct SettingsView: View {
                                     showToast("Lỗi: \(error.localizedDescription)")
                                 }
                             }
-                            await MainActor.run {
+                            _ = await MainActor.run {
                                 importingTypes.remove(currentType)
                             }
                         }

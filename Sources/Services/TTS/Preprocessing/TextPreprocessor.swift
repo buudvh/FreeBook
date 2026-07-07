@@ -877,7 +877,6 @@ final actor TextPreprocessor {
     }
 
     private func replaceDictionaryWords(in text: String, type: DictionaryType, config: PreprocessorRuntimeConfig) -> String {
-        let typeStr = type == .acronym ? "acronym" : "word"
         guard config.dictionaryReplacementEnabled else {
             // Self.preprocessLog("📖 [ReplaceDictionary] Type: \(typeStr), dictionary replacement disabled; skipping.")
             return text
