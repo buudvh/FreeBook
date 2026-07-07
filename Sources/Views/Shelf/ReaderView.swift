@@ -1015,53 +1015,32 @@ struct ReaderView: View {
     }
     
     private func expandSelectionLeft() {
-        let tokens = translationTokens
-        guard !tokens.isEmpty else { return }
-        let selected = selectedTokens
-        guard let firstSelected = selected.first else { return }
-        
-        if let idx = tokens.firstIndex(where: { $0.originalOffset == firstSelected.originalOffset }), idx > 0 {
-            let prevToken = tokens[idx - 1]
-            selectedWordLength = (selectedWordOffset + selectedWordLength) - prevToken.originalOffset
-            selectedWordOffset = prevToken.originalOffset
+        if selectedWordOffset > 0 {
+            selectedWordOffset -= 1
+            selectedWordLength += 1
             updateEditorFromSelection()
         }
     }
     
     private func shrinkSelectionLeft() {
-        let tokens = translationTokens
-        let selected = selectedTokens
-        guard selected.count > 1, let firstSelected = selected.first else { return }
-        
-        if let idx = tokens.firstIndex(where: { $0.originalOffset == firstSelected.originalOffset }), idx < tokens.count - 1 {
-            let nextToken = tokens[idx + 1]
-            selectedWordLength = (selectedWordOffset + selectedWordLength) - nextToken.originalOffset
-            selectedWordOffset = nextToken.originalOffset
+        if selectedWordLength > 1 {
+            selectedWordOffset += 1
+            selectedWordLength -= 1
             updateEditorFromSelection()
         }
     }
     
     private func shrinkSelectionRight() {
-        let tokens = translationTokens
-        let selected = selectedTokens
-        guard selected.count > 1, let lastSelected = selected.last else { return }
-        
-        if let idx = tokens.firstIndex(where: { $0.originalOffset == lastSelected.originalOffset }), idx > 0 {
-            let prevToken = tokens[idx - 1]
-            selectedWordLength = (prevToken.originalOffset + prevToken.originalLength) - selectedWordOffset
+        if selectedWordLength > 1 {
+            selectedWordLength -= 1
             updateEditorFromSelection()
         }
     }
     
     private func expandSelectionRight() {
-        let tokens = translationTokens
-        guard !tokens.isEmpty else { return }
-        let selected = selectedTokens
-        guard let lastSelected = selected.last else { return }
-        
-        if let idx = tokens.firstIndex(where: { $0.originalOffset == lastSelected.originalOffset }), idx < tokens.count - 1 {
-            let nextToken = tokens[idx + 1]
-            selectedWordLength = (nextToken.originalOffset + nextToken.originalLength) - selectedWordOffset
+        let ns = originalSentence as NSString
+        if selectedWordOffset + selectedWordLength < ns.length {
+            selectedWordLength += 1
             updateEditorFromSelection()
         }
     }
