@@ -58,14 +58,15 @@ public final class TTSManager: NSObject, ObservableObject {
     @Published public var currentParagraphIndex: Int = -1
     @Published public var currentParentParagraphIndex: Int = -1
     @Published public var highlightRange: NSRange? = nil
+    @Published public var showFloatingWidget: Bool = false
     
     // Thông tin phát nhạc độc lập toàn cục
     @Published public private(set) var playingBookId: String = ""
     @Published public private(set) var playingChapterUrl: String = ""
     @Published public private(set) var playingChapterIndex: Int = -1
+    @Published public private(set) var extensionInfo: TTSExtensionInfo? = nil
     
     private var chaptersQueue: [TTSChapterInfo] = []
-    private var extensionInfo: TTSExtensionInfo? = nil
     private var preloadedNextChapterContent: String? = nil
     private var isPreloading: Bool = false
     private var currentPlaybackId: String? = nil
@@ -223,6 +224,7 @@ public final class TTSManager: NSObject, ObservableObject {
         self.bookTitle = bookTitle
         self.extensionInfo = extensionInfo
         self.chapterContent = chapterContent
+        self.showFloatingWidget = true
         
         // Hủy dữ liệu tải trước cũ
         self.preloadedNextChapterContent = nil
@@ -298,6 +300,7 @@ public final class TTSManager: NSObject, ObservableObject {
         self.currentParagraphIndex = -1
         self.currentParentParagraphIndex = -1
         self.highlightRange = nil
+        self.showFloatingWidget = false
         
         clearPrefetchCache()
         
@@ -308,6 +311,13 @@ public final class TTSManager: NSObject, ObservableObject {
         
         updateNowPlayingInfo()
         MPNowPlayingInfoCenter.default().playbackState = .stopped
+    }
+    
+    public func restartCurrentParagraph() {
+        guard isPlaying else { return }
+        stopCurrentPlayback()
+        clearPrefetchCache()
+        speakCurrent()
     }
     
     public func skipForward() {
@@ -603,6 +613,10 @@ public final class TTSManager: NSObject, ObservableObject {
             
             DispatchQueue.main.async {
                 guard let self = self, self.isPlaying else { return }
+                guard self.currentPlaybackId == playbackId else {
+                    AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Bỏ qua callback kết thúc vì currentPlaybackId (\(self.currentPlaybackId ?? "nil")) đã thay đổi.")
+                    return
+                }
                 self.cleanUpTempFile()
                 self.nextParagraph()
             }
@@ -725,6 +739,18 @@ public final class TTSManager: NSObject, ObservableObject {
             return .success
         }
         
+        // Toggle Play/Pause (Tai nghe / AirPods / Thiết bị Bluetooth)
+        commandCenter.togglePlayPauseCommand.isEnabled = true
+        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
+            guard let self = self else { return .commandFailed }
+            if self.isPlaying {
+                self.pause()
+            } else {
+                self.resume()
+            }
+            return .success
+        }
+        
         // Next Chapter
         commandCenter.nextTrackCommand.isEnabled = true
         commandCenter.nextTrackCommand.addTarget { [weak self] _ in
@@ -748,6 +774,7 @@ public final class TTSManager: NSObject, ObservableObject {
         }
         
         // Skip Forward (Đoạn sau)
+        commandCenter.skipForwardCommand.preferredIntervals = [15]
         commandCenter.skipForwardCommand.isEnabled = true
         commandCenter.skipForwardCommand.addTarget { [weak self] _ in
             guard let self = self else { return .commandFailed }
@@ -756,6 +783,7 @@ public final class TTSManager: NSObject, ObservableObject {
         }
         
         // Skip Backward (Đoạn trước)
+        commandCenter.skipBackwardCommand.preferredIntervals = [15]
         commandCenter.skipBackwardCommand.isEnabled = true
         commandCenter.skipBackwardCommand.addTarget { [weak self] _ in
             guard let self = self else { return .commandFailed }

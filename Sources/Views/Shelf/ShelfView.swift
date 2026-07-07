@@ -12,6 +12,15 @@ struct ShelfView: View {
     @State private var shelfLimit = 50
     @State private var historyLimit = 50
     
+    @ObservedObject private var ttsManager = TTSManager.shared
+    
+    @State private var navigateToPlayingBookId: String? = nil
+    @State private var navigateToPlayingExtensionId: String = ""
+    @State private var navigateToPlayingChapterIndex: Int = 0
+    @State private var navigateToPlayingDetailUrl: String = ""
+    @State private var navigateToPlayingSourceName: String = ""
+    @State private var triggerNavigation = false
+    
     private var shelfBooks: [Book] {
         allBooks.filter { $0.isOnShelf }
     }
@@ -221,6 +230,35 @@ struct ShelfView: View {
             .onChange(of: selectedTab) { _, _ in
                 shelfLimit = 50
                 historyLimit = 50
+            }
+            .navigationDestination(isPresented: $triggerNavigation) {
+                if let bookId = navigateToPlayingBookId {
+                    ReaderView(
+                        bookId: bookId,
+                        extensionPackageId: navigateToPlayingExtensionId,
+                        chapterIndex: navigateToPlayingChapterIndex,
+                        onlineChapters: [],
+                        bookTitle: nil,
+                        bookAuthor: nil,
+                        bookCoverUrl: nil,
+                        bookDesc: nil,
+                        bookDetailUrl: navigateToPlayingDetailUrl,
+                        bookSourceName: navigateToPlayingSourceName
+                    )
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openCurrentlyPlayingReader"))) { _ in
+                guard ReaderView.activeBookId != ttsManager.playingBookId || ReaderView.activeChapterIndex != ttsManager.playingChapterIndex else {
+                    return
+                }
+                if let bookId = ttsManager.playingBookId, !bookId.isEmpty {
+                    self.navigateToPlayingBookId = bookId
+                    self.navigateToPlayingExtensionId = ttsManager.extensionInfo?.localPath ?? ""
+                    self.navigateToPlayingChapterIndex = ttsManager.playingChapterIndex
+                    self.navigateToPlayingDetailUrl = ttsManager.extensionInfo?.downloadUrl ?? ""
+                    self.navigateToPlayingSourceName = ttsManager.extensionInfo?.configJson ?? ""
+                    self.triggerNavigation = true
+                }
             }
         }
     }

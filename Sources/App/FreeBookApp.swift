@@ -18,15 +18,23 @@ struct FreeBookApp: App {
 
 struct AppLaunchRootView: View {
     @ObservedObject private var translationManager = TranslationManager.shared
+    @ObservedObject private var ttsManager = TTSManager.shared
     
     var body: some View {
-        Group {
-            if translationManager.isInitialized {
-                MainTabView()
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
-            } else {
-                AppLoadingView()
-                    .transition(.opacity)
+        ZStack {
+            Group {
+                if translationManager.isInitialized {
+                    MainTabView()
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                } else {
+                    AppLoadingView()
+                        .transition(.opacity)
+                }
+            }
+            
+            if translationManager.isInitialized && ttsManager.showFloatingWidget {
+                TTSFloatingWidgetView()
+                    .zIndex(999)
             }
         }
         .animation(.easeInOut(duration: 0.5), value: translationManager.isInitialized)

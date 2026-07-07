@@ -144,10 +144,31 @@ struct SettingsView: View {
                         }
                         
                         Button(action: {
-                            TranslateUtils.clearCache()
-                            showToast("Đã làm mới dữ liệu dịch thành công")
+                            importingTypes.insert("refresh")
+                            Task {
+                                do {
+                                    try await translationManager.loadAllDictionaries()
+                                    translationManager.clearBookDictCache()
+                                    TranslateUtils.clearCache()
+                                    await MainActor.run {
+                                        importingTypes.remove("refresh")
+                                        showToast("Đã làm mới dữ liệu dịch thành công")
+                                    }
+                                } catch {
+                                    await MainActor.run {
+                                        importingTypes.remove("refresh")
+                                        showToast("Lỗi làm mới dữ liệu dịch: \(error.localizedDescription)")
+                                    }
+                                }
+                            }
                         }) {
-                            Label("Làm mới dữ liệu dịch", systemImage: "arrow.clockwise")
+                            HStack {
+                                Label("Làm mới dữ liệu dịch", systemImage: "arrow.clockwise")
+                                if importingTypes.contains("refresh") {
+                                    Spacer()
+                                    ProgressView()
+                                }
+                            }
                         }
                         .disabled(!importingTypes.isEmpty)
                         

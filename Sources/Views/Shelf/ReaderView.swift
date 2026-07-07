@@ -27,6 +27,9 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
 }
 
 struct ReaderView: View {
+    public static var activeBookId: String? = nil
+    public static var activeChapterIndex: Int = -1
+
     @Environment(\.modelContext) private var modelContext
     @Query private var allBooks: [Book]
     @Query private var allExtensions: [Extension]
@@ -79,7 +82,6 @@ struct ReaderView: View {
     
     // TTS Configurations & State
     @StateObject private var ttsManager = TTSManager.shared
-    @State private var showingTTSPanel = false
     @State private var ttsShouldAutoPlayNextChapter = false
     @State private var showingTTSSettings = false
     @State private var ttsResumeParagraphIndex: Int? = nil
@@ -165,16 +167,6 @@ struct ReaderView: View {
             VStack(spacing: 0) {
                 readerContentView
             }
-            
-            if showingTTSPanel {
-                TTSControlPanelView(
-                    showingTTSPanel: $showingTTSPanel,
-                    showingTTSSettings: $showingTTSSettings,
-                    ttsResumeParagraphIndex: $ttsResumeParagraphIndex
-                )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(10)
-            }
         }
         .navigationTitle(currentChapterInfo?.title ?? "Trình đọc")
         .navigationBarTitleDisplayMode(.inline)
@@ -212,6 +204,9 @@ struct ReaderView: View {
         }
 
         .onAppear {
+            ReaderView.activeBookId = bookId
+            ReaderView.activeChapterIndex = chapterIndex
+            
             // Tải theme mặc định từ AppStorage nếu thích hợp, ở đây dùng sepia/paper làm mặc định
             loadChapterContent()
             
@@ -226,7 +221,16 @@ struct ReaderView: View {
             }
         }
         .onDisappear {
+            if ReaderView.activeBookId == bookId && ReaderView.activeChapterIndex == chapterIndex {
+                ReaderView.activeBookId = nil
+                ReaderView.activeChapterIndex = -1
+            }
             prefetchTask?.cancel()
+        }
+        .onChange(of: chapterIndex) { _, newValue in
+            if ReaderView.activeBookId == bookId {
+                ReaderView.activeChapterIndex = newValue
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ttsDidAdvanceToNextChapter"))) { notification in
             guard let userInfo = notification.userInfo,
@@ -698,7 +702,6 @@ struct ReaderView: View {
                             bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
                             extensionInfo: ttsExtensionInfo
                         )
-                        showingTTSPanel = true
                     }
                 )
                 .id("paragraph-\(item.id)")
@@ -1161,118 +1164,6 @@ struct ReaderSettingsView: View {
                     Text(theme.rawValue).tag(theme)
                 }
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            
-            // Toggle dịch
-            Toggle("Bật dịch Quick Translate", isOn: $isTranslationEnabled)
-                .padding(.horizontal)
-            
-            Spacer()
-        }
-        .padding()
-    }
-}
-
-struct DictionaryMatchInfo: Identifiable {
-    var id = UUID()
-    let source: String
-    let translation: String
-}
-
-// MARK: - TTS Control Panel View
-
-struct TTSControlPanelView: View {
-    @Binding var showingTTSPanel: Bool
-    @Binding var showingTTSSettings: Bool
-    @Binding var ttsResumeParagraphIndex: Int?
-    @ObservedObject var ttsManager = TTSManager.shared
-    
-    var body: some View {
-        VStack {
-            Spacer()
-            
-            VStack(spacing: 12) {
-                if ttsManager.isPlaying, ttsManager.paragraphs.count > 0 {
-                    Text("Đang đọc đoạn \(ttsManager.currentParagraphIndex + 1)/\(ttsManager.paragraphs.count)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
-                
-                HStack(spacing: 30) {
-                    Button(action: {
-                        ttsManager.skipBackward()
-                    }) {
-                        Image(systemName: "backward.fill")
-                            .font(.title2)
-                            .foregroundColor(.primary)
-                    }
-                    .disabled(!ttsManager.isPlaying || ttsManager.currentParagraphIndex <= 0)
-                    
-                    Button(action: {
-                        if ttsManager.isPlaying {
-                            ttsManager.pause()
-                        } else {
-                            ttsManager.resume()
-                        }
-                    }) {
-                        Image(systemName: ttsManager.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 28))
-                            .foregroundColor(.white)
-                            .padding(14)
-                            .background(Color.blue)
-                            .clipShape(Circle())
-                    }
-                    
-                    Button(action: {
-                        ttsManager.skipForward()
-                    }) {
-                        Image(systemName: "forward.fill")
-                            .font(.title2)
-                            .foregroundColor(.primary)
-                    }
-                    .disabled(!ttsManager.isPlaying)
-                    
-                    Button(action: {
-                        ttsManager.stop()
-                        showingTTSPanel = false
-                    }) {
-                        Image(systemName: "stop.fill")
-                            .font(.title3)
-                            .foregroundColor(.red)
-                    }
-                    
-                    Button(action: {
-                        if ttsManager.isPlaying {
-                            let idx = ttsManager.currentParagraphIndex
-                            if idx >= 0 && idx < ttsManager.paragraphs.count {
-                                ttsResumeParagraphIndex = ttsManager.paragraphs[idx].paragraphIndex
-                            } else {
-                                ttsResumeParagraphIndex = 0
-                            }
-                            ttsManager.stop()
-                        } else {
-                            ttsResumeParagraphIndex = nil
-                        }
-                        showingTTSSettings = true
-                    }) {
-                        Image(systemName: "gearshape.fill")
-                            .font(.title3)
-                            .foregroundColor(.blue)
-                    }
-                }
-            }
-            .padding(.vertical, 16)
-            .padding(.horizontal, 24)
-            .background(Color(uiColor: .secondarySystemBackground))
-            .cornerRadius(20)
-            .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
-            .padding(.bottom, 20)
-            .padding(.horizontal)
-        }
-    }
-}
 
 // MARK: - TTS Settings Sheet View
 
@@ -1554,10 +1445,8 @@ extension ReaderView {
             Button(action: {
                 if ttsManager.isPlaying {
                     ttsManager.stop()
-                    showingTTSPanel = false
                 } else {
                     triggerGetVisibleIndex = UUID()
-                    showingTTSPanel = true
                 }
             }) {
                 Image(systemName: ttsManager.isPlaying ? "stop.circle.fill" : "play.circle")
