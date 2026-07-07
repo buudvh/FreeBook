@@ -287,23 +287,41 @@ struct ShelfView: View {
     }
     
     private func removeFromHistory(_ book: Book) {
-        if book.isOnShelf {
-            book.isHistory = false
-        } else {
-            modelContext.delete(book)
-        }
+        book.isHistory = false
         try? modelContext.save()
+        
+        if !book.isOnShelf {
+            let id = book.persistentModelID
+            let container = modelContext.container
+            Task.detached(priority: .background) {
+                let bgContext = ModelContext(container)
+                if let b = bgContext.model(for: id) as? Book {
+                    bgContext.delete(b)
+                    try? bgContext.save()
+                }
+            }
+        }
     }
     
     private func clearAllHistory() {
+        let bookIdsToDelete = historyBooks.filter { !$0.isOnShelf }.map { $0.persistentModelID }
+        
         for book in historyBooks {
-            if book.isOnShelf {
-                book.isHistory = false
-            } else {
-                modelContext.delete(book)
-            }
+            book.isHistory = false
         }
         try? modelContext.save()
+        
+        guard !bookIdsToDelete.isEmpty else { return }
+        let container = modelContext.container
+        Task.detached(priority: .background) {
+            let bgContext = ModelContext(container)
+            for id in bookIdsToDelete {
+                if let b = bgContext.model(for: id) as? Book {
+                    bgContext.delete(b)
+                }
+            }
+            try? bgContext.save()
+        }
     }
 }
 

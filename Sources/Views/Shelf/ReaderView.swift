@@ -85,6 +85,8 @@ struct ReaderView: View {
     @State private var ttsResumeParagraphIndex: Int? = nil
     @State private var triggerGetVisibleIndex: UUID? = nil
     @State private var prefetchTask: Task<Void, Never>? = nil
+    @State private var editingParagraphIndex: Int? = nil
+    @State private var scrollTargetParagraphIndex: Int? = nil
     
     private var localBook: Book? {
         allBooks.first(where: { $0.bookId == bookId })
@@ -161,85 +163,17 @@ struct ReaderView: View {
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // Nội dung chính
-                if isLoading {
-                    ProgressView()
-                        .tint(selectedTheme.textColor)
-                        .scaleEffect(1.2)
-                        .frame(maxHeight: .infinity)
-                } else if !errorMessage.isEmpty {
-                    VStack(spacing: 16) {
-                        Text("Không tải được chương")
-                            .font(.headline)
-                            .foregroundColor(selectedTheme.textColor)
-                        Text(errorMessage)
-                            .font(.subheadline)
-                            .foregroundColor(.red)
-                            .multilineTextAlignment(.center)
-                        Button("Thử lại") {
-                            loadChapterContent()
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    .padding()
-                    .frame(maxHeight: .infinity)
-                } else {
-                    if ext?.type == "comic" {
-                        // HIỂN THỊ TRUYỆN TRANH (Webtoon style)
-                        let imageUrls = chapterContent.components(separatedBy: "\n").filter { !$0.isEmpty }
-                        ScrollView {
-                            LazyVStack(spacing: 0) {
-                                ForEach(imageUrls, id: \.self) { urlString in
-                                    AsyncImage(url: URL(string: urlString)) { image in
-                                        image.resizable()
-                                            .aspectRatio(contentMode: .fit)
-                                    } placeholder: {
-                                        HStack {
-                                            Spacer()
-                                            ProgressView()
-                                                .padding(.vertical, 40)
-                                            Spacer()
-                                        }
-                                        .background(Color.gray.opacity(0.1))
-                                    }
-                                }
-                                
-                                navigationButtons
-                                    .padding(.vertical, 24)
-                            }
-                        }
-                    } else {
-                        // HIỂN THỊ TRUYỆN CHỮ
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 20) {
-                                Text(chapterTitle)
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(selectedTheme.textColor)
-                                    .padding(.top, 16)
-                                
-                                chapterContentView
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                
-                                Divider()
-                                    .background(selectedTheme.textColor.opacity(0.2))
-                                
-                                navigationButtons
-                                    .padding(.vertical, 16)
-                            }
-                            .padding(.horizontal, 18)
-                        }
-                    }
-                }
+                readerContentView
             }
-             if showingTTSPanel {
-                 TTSControlPanelView(
-                     showingTTSPanel: $showingTTSPanel,
-                     showingTTSSettings: $showingTTSSettings,
-                     ttsResumeParagraphIndex: $ttsResumeParagraphIndex
-                 )
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .zIndex(10)
+            
+            if showingTTSPanel {
+                TTSControlPanelView(
+                    showingTTSPanel: $showingTTSPanel,
+                    showingTTSSettings: $showingTTSSettings,
+                    ttsResumeParagraphIndex: $ttsResumeParagraphIndex
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(10)
             }
         }
         .navigationTitle(currentChapterInfo?.title ?? "Trình đọc")
@@ -247,54 +181,7 @@ struct ReaderView: View {
         .toolbarColorScheme(selectedTheme == .dark ? .dark : .light, for: .navigationBar)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
-                if ext?.type != "comic" {
-                    // Translation Toggle Button
-                    Button(action: {
-                        isTranslationEnabled.toggle()
-                    }) {
-                        Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
-                            .foregroundColor(selectedTheme.textColor)
-                    }
-                    
-                    // TTS Button
-                    Button(action: {
-                        if ttsManager.isPlaying {
-                            ttsManager.stop()
-                            showingTTSPanel = false
-                        } else {
-                            triggerGetVisibleIndex = UUID()
-                            showingTTSPanel = true
-                        }
-                    }) {
-                        Image(systemName: ttsManager.isPlaying ? "stop.circle.fill" : "play.circle")
-                            .foregroundColor(ttsManager.isPlaying ? .red : selectedTheme.textColor)
-                    }
-                    
-                    // Dictionary Manager Link
-                    // Dictionary Manager, Reload, and Settings collapsed in a Menu
-                    Menu {
-                        Button(action: {
-                            reloadChapterContent()
-                        }) {
-                            Label("Tải lại chương", systemImage: "arrow.clockwise")
-                        }
-                        
-                        if localBook != nil {
-                            NavigationLink(destination: BookDictionaryView(bookId: bookId)) {
-                                Label("Từ điển truyện", systemImage: "character.book.closed")
-                            }
-                        }
-                        
-                        Button(action: {
-                            showingSettings.toggle()
-                        }) {
-                            Label("Cài đặt trình đọc", systemImage: "gearshape")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .foregroundColor(selectedTheme.textColor)
-                    }
-                }
+                readerToolbarContent
             }
         }
         .sheet(isPresented: $showingSettings) {
@@ -321,306 +208,9 @@ struct ReaderView: View {
             applyTranslation()
         }
         .sheet(isPresented: $showingDefinitionSheet) {
-            VStack(spacing: 16) {
-                // Header
-                HStack {
-                    Text("Dịch")
-                        .font(.headline)
-                    Spacer()
-                    Button(action: { showingDefinitionSheet = false }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                            .font(.title2)
-                    }
-                }
-                
-                // Hàng 1: Đoạn dịch gốc và nút điều chỉnh 2 bên (Token-based)
-                HStack(spacing: 8) {
-                    HStack(spacing: 4) {
-                        Button(action: expandSelectionLeft) {
-                            Image(systemName: "chevron.left")
-                        }
-                        Button(action: shrinkSelectionLeft) {
-                            Image(systemName: "chevron.right")
-                        }
-                    }
-                    .foregroundColor(.blue)
-                    .font(.subheadline)
-                    
-                    Spacer()
-                    
-                    ScrollViewReader { proxy in
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 2) {
-                                let nsSentence = originalSentence as NSString
-                                ForEach(0..<nsSentence.length, id: \.self) { index in
-                                    let char = nsSentence.substring(with: NSRange(location: index, length: 1))
-                                    let isSelected = (index >= selectedWordOffset && index < selectedWordOffset + selectedWordLength)
-                                    Text(char)
-                                        .font(.title3)
-                                        .bold(isSelected)
-                                        .underline(isSelected)
-                                        .foregroundColor(isSelected ? .blue : .primary)
-                                        .id("orig-\(index)")
-                                        .onTapGesture {
-                                            selectedWordOffset = index
-                                            selectedWordLength = 1
-                                            updateEditorFromSelection()
-                                        }
-                                }
-                            }
-                        }
-                        .onChange(of: selectedWordOffset) { _, _ in
-                            withAnimation {
-                                proxy.scrollTo("orig-\(selectedWordOffset)", anchor: .center)
-                            }
-                        }
-                        .onAppear {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                withAnimation {
-                                    proxy.scrollTo("orig-\(selectedWordOffset)", anchor: .center)
-                                }
-                            }
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    HStack(spacing: 4) {
-                        Button(action: shrinkSelectionRight) {
-                            Image(systemName: "chevron.left")
-                        }
-                        Button(action: expandSelectionRight) {
-                            Image(systemName: "chevron.right")
-                        }
-                    }
-                    .foregroundColor(.blue)
-                    .font(.subheadline)
-                }
-                .padding(10)
-                .frame(maxWidth: .infinity)
-                .background(Color.secondary.opacity(0.08))
-                .cornerRadius(8)
-                
-                // Hàng 2: Đoạn dịch (bold/underline các thẻ chứa từ đã chọn)
-                ScrollViewReader { proxy in
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 6) {
-                            ForEach(translationTokens) { token in
-                                let isSelected = (token.originalOffset < selectedWordOffset + selectedWordLength && 
-                                                  token.originalOffset + token.originalLength > selectedWordOffset)
-                                Text(token.translatedText)
-                                    .font(.subheadline)
-                                    .bold(isSelected)
-                                    .underline()
-                                    .foregroundColor(isSelected ? .blue : .primary)
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 2)
-                                    .background(isSelected ? Color.blue.opacity(0.1) : Color.clear)
-                                    .cornerRadius(4)
-                                    .id("trans-\(token.id)")
-                                    .onTapGesture {
-                                        selectedWordOffset = token.originalOffset
-                                        selectedWordLength = token.originalLength
-                                        updateEditorFromSelection()
-                                    }
-                            }
-                        }
-                    }
-                    .onChange(of: selectedWordOffset) { _, _ in
-                        if let selectedToken = translationTokens.first(where: {
-                            $0.originalOffset < selectedWordOffset + selectedWordLength && 
-                            $0.originalOffset + $0.originalLength > selectedWordOffset
-                        }) {
-                            withAnimation {
-                                proxy.scrollTo("trans-\(selectedToken.id)", anchor: .center)
-                            }
-                        }
-                    }
-                    .onAppear {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            if let selectedToken = translationTokens.first(where: {
-                                $0.originalOffset < selectedWordOffset + selectedWordLength && 
-                                $0.originalOffset + $0.originalLength > selectedWordOffset
-                            }) {
-                                withAnimation {
-                                    proxy.scrollTo("trans-\(selectedToken.id)", anchor: .center)
-                                }
-                            }
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 4)
-                
-                // Hàng 3: Ô nhập nghĩa dịch
-                HStack {
-                    TextField("Nhập nghĩa dịch...", text: $customMeaning)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                    
-                    if !customMeaning.isEmpty {
-                        Button(action: { customMeaning = "" }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                .padding(10)
-                .background(Color.secondary.opacity(0.1))
-                .cornerRadius(8)
-                
-                // Hàng 4: Icon Quản lý tròn và Danh sách gợi ý chip ngang
-                HStack(spacing: 8) {
-                    Button(action: { showingManageDefinitionsSheet = true }) {
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.body)
-                            .fontWeight(.medium)
-                            .foregroundColor(.blue)
-                            .padding(8)
-                            .background(Color.blue.opacity(0.1))
-                            .clipShape(Circle())
-                    }
-                    
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(suggestionChips, id: \.self) { chip in
-                                Button(action: { customMeaning = chip }) {
-                                    Text(chip)
-                                        .font(.subheadline)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
-                                        .background(Color.blue.opacity(0.1))
-                                        .foregroundColor(.blue)
-                                        .cornerRadius(15)
-                                }
-                            }
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                
-                // Hàng 5: Nhóm nút định dạng chữ aa, Aa1, Aa2, AA dàn đều cả hàng
-                HStack(spacing: 8) {
-                    ForEach(["aa", "Aa¹", "Aa²", "Aa", "AA"], id: \.self) { format in
-                        Button(action: {
-                            switch format {
-                            case "aa":
-                                customMeaning = customMeaning.lowercased()
-
-                            case "Aa¹":
-                                if let first = customMeaning.first {
-                                    customMeaning = first.uppercased() + customMeaning.dropFirst().lowercased()
-                                }
-
-                            case "Aa²":
-                                if customMeaning.count >= 2 {
-                                    customMeaning = customMeaning.prefix(2).uppercased()
-                                        + customMeaning.dropFirst(2).lowercased()
-                                } else {
-                                    customMeaning = customMeaning.uppercased()
-                                }
-
-                            case "Aa":      // Chữ đầu hoa
-                                customMeaning = customMeaning.prefix(1).uppercased()
-                                    + customMeaning.dropFirst().lowercased()
-
-                            case "Title":
-                                customMeaning = customMeaning.capitalized
-
-                            case "AA":      // Tất cả hoa
-                                customMeaning = customMeaning.uppercased()
-
-                            default:
-                                break
-                            }
-                        }) {
-                            Text(format)
-                                .font(.body)
-                                .fontWeight(.bold)
-                                .padding(.vertical, 10)
-                                .frame(maxWidth: .infinity)
-                                .background(Color.secondary.opacity(0.15))
-                                .cornerRadius(8)
-                        }
-                    }
-                }
-                
-                // Hàng 6: Hai Segment chọn Loại (Names/VP) và Phạm vi (Riêng/Chung) trên cùng 1 hàng
-                HStack(spacing: 12) {
-                    Picker("Loại", selection: $saveAsNameType) {
-                        Text("Names").tag(true)
-                        Text("VP").tag(false)
-                    }
-                    .pickerStyle(.segmented)
-                    
-                    Picker("Phạm vi", selection: $saveToBookSpecific) {
-                        Text("Riêng").tag(true)
-                        Text("Chung").tag(false)
-                    }
-                    .pickerStyle(.segmented)
-                }
-                
-                // Hàng 7: Phím Cập nhật đứng riêng 1 hàng dưới cùng
-                Button(action: saveDefinition) {
-                    HStack {
-                        Spacer()
-                        Label("Cập nhật", systemImage: "tray.and.arrow.down.fill")
-                            .fontWeight(.semibold)
-                        Spacer()
-                    }
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                
-                Divider()
-                
-                // Quick Lookup Links
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(searchEngines) { engine in
-                            Button(action: {
-                                performQuickLookup(using: engine)
-                            }) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "safari")
-                                    Text(engine.name)
-                                }
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color.secondary.opacity(0.12))
-                                .cornerRadius(6)
-                            }
-                        }
-                    }
-                }
-            }
-            .padding()
-            .background(Color(uiColor: .systemBackground).onTapGesture { hideKeyboard() })
-            .presentationDetents([.height(530), .large])
-            .onAppear {
-                self.searchEngines = SearchEngine.loadEngines()
-            }
+            definitionSheetContent
         }
-        .sheet(isPresented: $showingManageDefinitionsSheet) {
-            ManageDefinitionsView(
-                word: selectedTextForDefinition,
-                bookId: bookId,
-                matches: $dictionaryMatches,
-                onChanged: {
-                    self.dictionaryMatches = getDictionaryMatches(for: selectedTextForDefinition)
-                    if self.translationMode == "VP" {
-                        self.customMeaning = TranslateUtils.translateMeta(selectedTextForDefinition, bookId: bookId)
-                    } else {
-                        self.customMeaning = getHanViet(for: selectedTextForDefinition)
-                    }
-                    applyTranslation()
-                }
-            )
-        }
+
         .onAppear {
             // Tải theme mặc định từ AppStorage nếu thích hợp, ở đây dùng sepia/paper làm mặc định
             loadChapterContent()
@@ -710,6 +300,13 @@ struct ReaderView: View {
                     self.chapterContent = translatedContent
                     self.isLoading = false
                     
+                    if let editingIdx = self.editingParagraphIndex {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            self.scrollTargetParagraphIndex = editingIdx
+                            self.editingParagraphIndex = nil
+                        }
+                    }
+                    
                     if self.ttsShouldAutoPlayNextChapter {
                         self.ttsShouldAutoPlayNextChapter = false
                         ttsManager.startSpeaking(
@@ -730,6 +327,13 @@ struct ReaderView: View {
             self.chapterTitle = originalTitle
             self.chapterContent = originalContent
             self.isLoading = false
+            
+            if let editingIdx = self.editingParagraphIndex {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.scrollTargetParagraphIndex = editingIdx
+                    self.editingParagraphIndex = nil
+                }
+            }
             
             if self.ttsShouldAutoPlayNextChapter {
                 self.ttsShouldAutoPlayNextChapter = false
@@ -1061,6 +665,20 @@ struct ReaderView: View {
                     lineSpacing: lineSpacing,
                     theme: selectedTheme,
                     highlightRange: relativeHighlightRange,
+                    triggerGetVisibleIndex: $triggerGetVisibleIndex,
+                    onGetVisibleIndex: { visibleOffset in
+                        // Chỉ bắt đầu nói khi TTS chưa phát và nhận diện được đoạn visible đầu tiên
+                        guard !ttsManager.isPlaying else { return }
+                        ttsManager.startSpeaking(
+                            bookId: bookId,
+                            chapters: ttsChaptersQueue,
+                            currentIndex: chapterIndex,
+                            chapterContent: isTranslationEnabled ? chapterContent : originalContent,
+                            startParagraphIndex: item.id,
+                            bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+                            extensionInfo: ttsExtensionInfo
+                        )
+                    },
                     onSelectionChange: { selectedText, sentence, offset, absoluteOffset in
                         self.onSelectionChangeInParagraph(
                             selectedText: selectedText,
@@ -1083,6 +701,7 @@ struct ReaderView: View {
                         showingTTSPanel = true
                     }
                 )
+                .id("paragraph-\(item.id)")
             }
         }
     }
@@ -1108,6 +727,7 @@ struct ReaderView: View {
         absoluteOffset: Int,
         item: ParagraphItem
     ) {
+        self.editingParagraphIndex = item.id
         if isTranslationEnabled {
             // Khi bật dịch, bôi đen là tiếng Việt. Cần tìm câu gốc tiếng Trung tương ứng trong thẻ/div này
             let vietSentenceRanges = TranslateUtils.getSentenceRanges(in: item.translated)
@@ -1818,6 +1438,452 @@ struct TTSSettingsSheet: View {
         }
         Task {
             self.availableVoices = (try? await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false)) ?? NghiTTSClient.fallbackVietnameseVoices
+        }
+    }
+}
+
+// MARK: - View Helpers Extension
+extension ReaderView {
+    
+    @ViewBuilder
+    private var readerContentView: some View {
+        if isLoading {
+            ProgressView()
+                .tint(selectedTheme.textColor)
+                .scaleEffect(1.2)
+                .frame(maxHeight: .infinity)
+        } else if !errorMessage.isEmpty {
+            errorView
+        } else if ext?.type == "comic" {
+            comicReaderView
+        } else {
+            textReaderView
+        }
+    }
+    
+    @ViewBuilder
+    private var errorView: some View {
+        VStack(spacing: 16) {
+            Text("Không tải được chương")
+                .font(.headline)
+                .foregroundColor(selectedTheme.textColor)
+            Text(errorMessage)
+                .font(.subheadline)
+                .foregroundColor(.red)
+                .multilineTextAlignment(.center)
+            Button("Thử lại") {
+                loadChapterContent()
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding()
+        .frame(maxHeight: .infinity)
+    }
+    
+    @ViewBuilder
+    private var comicReaderView: some View {
+        let imageUrls = chapterContent.components(separatedBy: "\n").filter { !$0.isEmpty }
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(imageUrls, id: \.self) { urlString in
+                    AsyncImage(url: URL(string: urlString)) { image in
+                        image.resizable()
+                            .aspectRatio(contentMode: .fit)
+                    } placeholder: {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                                .padding(.vertical, 40)
+                            Spacer()
+                        }
+                        .background(Color.gray.opacity(0.1))
+                    }
+                }
+                
+                navigationButtons
+                    .padding(.vertical, 24)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var textReaderView: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text(chapterTitle)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(selectedTheme.textColor)
+                        .padding(.top, 16)
+                    
+                    chapterContentView
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    Divider()
+                        .background(selectedTheme.textColor.opacity(0.2))
+                    
+                    navigationButtons
+                        .padding(.vertical, 16)
+                }
+                .padding(.horizontal, 18)
+            }
+            .onChange(of: scrollTargetParagraphIndex) { _, newValue in
+                if let index = newValue {
+                    withAnimation {
+                        proxy.scrollTo("paragraph-\(index)", anchor: .center)
+                    }
+                    scrollTargetParagraphIndex = nil
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var readerToolbarContent: some View {
+        if ext?.type != "comic" {
+            // Translation Toggle Button
+            Button(action: {
+                isTranslationEnabled.toggle()
+            }) {
+                Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
+                    .foregroundColor(selectedTheme.textColor)
+            }
+            
+            // TTS Button
+            Button(action: {
+                if ttsManager.isPlaying {
+                    ttsManager.stop()
+                    showingTTSPanel = false
+                } else {
+                    triggerGetVisibleIndex = UUID()
+                    showingTTSPanel = true
+                }
+            }) {
+                Image(systemName: ttsManager.isPlaying ? "stop.circle.fill" : "play.circle")
+                    .foregroundColor(ttsManager.isPlaying ? .red : selectedTheme.textColor)
+            }
+            
+            // Dictionary Manager, Reload, and Settings Menu
+            Menu {
+                Button(action: {
+                    reloadChapterContent()
+                }) {
+                    Label("Tải lại chương", systemImage: "arrow.clockwise")
+                }
+                
+                if localBook != nil {
+                    NavigationLink(destination: BookDictionaryView(bookId: bookId)) {
+                        Label("Từ điển truyện", systemImage: "character.book.closed")
+                    }
+                }
+                
+                Button(action: {
+                    showingSettings.toggle()
+                }) {
+                    Label("Cài đặt trình đọc", systemImage: "gearshape")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .foregroundColor(selectedTheme.textColor)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var definitionSheetContent: some View {
+        VStack(spacing: 16) {
+            // Header
+            HStack {
+                Text("Dịch")
+                    .font(.headline)
+                Spacer()
+                Button(action: { showingDefinitionSheet = false }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                        .font(.title2)
+                }
+            }
+            
+            // Hàng 1: Đoạn dịch gốc và nút điều chỉnh 2 bên (Token-based)
+            HStack(spacing: 8) {
+                HStack(spacing: 4) {
+                    Button(action: expandSelectionLeft) {
+                        Image(systemName: "chevron.left")
+                    }
+                    Button(action: shrinkSelectionLeft) {
+                        Image(systemName: "chevron.right")
+                    }
+                }
+                .foregroundColor(.blue)
+                .font(.subheadline)
+                
+                Spacer()
+                
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 2) {
+                            let nsSentence = originalSentence as NSString
+                            ForEach(0..<nsSentence.length, id: \.self) { index in
+                                let char = nsSentence.substring(with: NSRange(location: index, length: 1))
+                                let isSelected = (index >= selectedWordOffset && index < selectedWordOffset + selectedWordLength)
+                                Text(char)
+                                    .font(.title3)
+                                    .bold(isSelected)
+                                    .underline(isSelected)
+                                    .foregroundColor(isSelected ? .blue : .primary)
+                                    .id("orig-\(index)")
+                                    .onTapGesture {
+                                        selectedWordOffset = index
+                                        selectedWordLength = 1
+                                        updateEditorFromSelection()
+                                    }
+                            }
+                        }
+                    }
+                    .onChange(of: selectedWordOffset) { _, _ in
+                        withAnimation {
+                            proxy.scrollTo("orig-\(selectedWordOffset)", anchor: .center)
+                        }
+                    }
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation {
+                                proxy.scrollTo("orig-\(selectedWordOffset)", anchor: .center)
+                            }
+                        }
+                    }
+                }
+                
+                Spacer()
+                
+                HStack(spacing: 4) {
+                    Button(action: shrinkSelectionRight) {
+                        Image(systemName: "chevron.left")
+                    }
+                    Button(action: expandSelectionRight) {
+                        Image(systemName: "chevron.right")
+                    }
+                }
+                .foregroundColor(.blue)
+                .font(.subheadline)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity)
+            .background(Color.secondary.opacity(0.08))
+            .cornerRadius(8)
+            
+            // Hàng 2: Đoạn dịch (bold/underline các thẻ chứa từ đã chọn)
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(translationTokens) { token in
+                            let isSelected = (token.originalOffset < selectedWordOffset + selectedWordLength && 
+                                              token.originalOffset + token.originalLength > selectedWordOffset)
+                            Text(token.translatedText)
+                                .font(.subheadline)
+                                .bold(isSelected)
+                                .underline()
+                                .foregroundColor(isSelected ? .blue : .primary)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+                                .cornerRadius(4)
+                                .id("trans-\(token.id)")
+                                .onTapGesture {
+                                    selectedWordOffset = token.originalOffset
+                                    selectedWordLength = token.originalLength
+                                    updateEditorFromSelection()
+                                }
+                        }
+                    }
+                }
+                .onChange(of: selectedWordOffset) { _, _ in
+                    if let selectedToken = translationTokens.first(where: {
+                        $0.originalOffset < selectedWordOffset + selectedWordLength && 
+                        $0.originalOffset + $0.originalLength > selectedWordOffset
+                    }) {
+                        withAnimation {
+                            proxy.scrollTo("trans-\(selectedToken.id)", anchor: .center)
+                        }
+                    }
+                }
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        if let selectedToken = translationTokens.first(where: {
+                            $0.originalOffset < selectedWordOffset + selectedWordLength && 
+                            $0.originalOffset + $0.originalLength > selectedWordOffset
+                        }) {
+                            withAnimation {
+                                proxy.scrollTo("trans-\(selectedToken.id)", anchor: .center)
+                            }
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4)
+            
+            // Hàng 3: Ô nhập nghĩa dịch
+            HStack {
+                TextField("Nhập nghĩa dịch...", text: $customMeaning)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                
+                if !customMeaning.isEmpty {
+                    Button(action: { customMeaning = "" }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding(10)
+            .background(Color.secondary.opacity(0.1))
+            .cornerRadius(8)
+            
+            // Hàng 4: Icon Quản lý tròn và gợi ý chip ngang
+            HStack(spacing: 8) {
+                Button(action: { showingManageDefinitionsSheet = true }) {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(.blue)
+                        .padding(8)
+                        .background(Color.blue.opacity(0.1))
+                        .clipShape(Circle())
+                }
+                
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(suggestionChips, id: \.self) { chip in
+                            Button(action: { customMeaning = chip }) {
+                                Text(chip)
+                                    .font(.subheadline)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color.blue.opacity(0.1))
+                                    .foregroundColor(.blue)
+                                    .cornerRadius(15)
+                            }
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            
+            // Hàng 5: Nhóm nút định dạng chữ aa, Aa1, Aa2, AA
+            HStack(spacing: 8) {
+                ForEach(["aa", "Aa¹", "Aa²", "Aa", "AA"], id: \.self) { format in
+                    Button(action: {
+                        switch format {
+                        case "aa":
+                            customMeaning = customMeaning.lowercased()
+                        case "Aa¹":
+                            if let first = customMeaning.first {
+                                customMeaning = first.uppercased() + customMeaning.dropFirst().lowercased()
+                            }
+                        case "Aa²":
+                            if customMeaning.count >= 2 {
+                                customMeaning = customMeaning.prefix(2).uppercased()
+                                    + customMeaning.dropFirst(2).lowercased()
+                            } else {
+                                customMeaning = customMeaning.uppercased()
+                            }
+                        case "Aa":
+                            customMeaning = customMeaning.prefix(1).uppercased()
+                                + customMeaning.dropFirst().lowercased()
+                        case "Title":
+                            customMeaning = customMeaning.capitalized
+                        case "AA":
+                            customMeaning = customMeaning.uppercased()
+                        default:
+                            break
+                        }
+                    }) {
+                        Text(format)
+                            .font(.body)
+                            .fontWeight(.bold)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.secondary.opacity(0.15))
+                            .cornerRadius(8)
+                    }
+                }
+            }
+            
+            // Hàng 6: Hai Segment chọn Loại (Names/VP) và Phạm vi (Riêng/Chung)
+            HStack(spacing: 12) {
+                Picker("Loại", selection: $saveAsNameType) {
+                    Text("Names").tag(true)
+                    Text("VP").tag(false)
+                }
+                .pickerStyle(.segmented)
+                
+                Picker("Phạm vi", selection: $saveToBookSpecific) {
+                    Text("Riêng").tag(true)
+                    Text("Chung").tag(false)
+                }
+                .pickerStyle(.segmented)
+            }
+            
+            // Hàng 7: Phím Cập nhật
+            Button(action: saveDefinition) {
+                HStack {
+                    Spacer()
+                    Label("Cập nhật", systemImage: "tray.and.arrow.down.fill")
+                        .fontWeight(.semibold)
+                    Spacer()
+                }
+                .padding(.vertical, 12)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            
+            Divider()
+            
+            // Quick Lookup Links
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(searchEngines) { engine in
+                        Button(action: {
+                            performQuickLookup(using: engine)
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "safari")
+                                Text(engine.name)
+                            }
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.secondary.opacity(0.12))
+                            .cornerRadius(6)
+                        }
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(uiColor: .systemBackground).onTapGesture { hideKeyboard() })
+        .presentationDetents([.height(530), .large])
+        .onAppear {
+            self.searchEngines = SearchEngine.loadEngines()
+        }
+        .sheet(isPresented: $showingManageDefinitionsSheet) {
+            ManageDefinitionsView(
+                word: selectedTextForDefinition,
+                bookId: bookId,
+                matches: $dictionaryMatches,
+                onChanged: {
+                    self.dictionaryMatches = getDictionaryMatches(for: selectedTextForDefinition)
+                    if self.translationMode == "VP" {
+                        self.customMeaning = TranslateUtils.translateMeta(selectedTextForDefinition, bookId: bookId)
+                    } else {
+                        self.customMeaning = getHanViet(for: selectedTextForDefinition)
+                    }
+                    applyTranslation()
+                }
+            )
         }
     }
 }
