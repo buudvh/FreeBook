@@ -13,8 +13,13 @@ public final class TranslateUtils {
     private static let translationCache = NSCache<NSString, NSString>()
     
     public static func getFirstMeaning(of rawTranslation: String) -> String {
-        if let idx = rawTranslation.firstIndex(where: { $0 == "/" || $0 == "¦" }) {
-            return String(rawTranslation[..<idx]).trimmingCharacters(in: .whitespacesAndNewlines)
+        let clean = rawTranslation.replacingOccurrences(of: "¦", with: "/")
+        let parts = clean.components(separatedBy: "/")
+        for part in parts {
+            let trimmed = part.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                return trimmed
+            }
         }
         return rawTranslation
     }

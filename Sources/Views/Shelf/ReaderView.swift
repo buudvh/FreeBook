@@ -607,6 +607,7 @@ struct ReaderView: View {
             ManageDefinitionsView(
                 word: selectedTextForDefinition,
                 bookId: bookId,
+                matches: $dictionaryMatches,
                 onChanged: {
                     self.dictionaryMatches = getDictionaryMatches(for: selectedTextForDefinition)
                     if self.translationMode == "VP" {
