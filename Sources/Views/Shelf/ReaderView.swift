@@ -74,8 +74,6 @@ struct ReaderView: View {
     @AppStorage("readerFontSize") private var fontSize: Double = 18.0
     @AppStorage("readerLineSpacing") private var lineSpacing: Double = 6.0
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
-    @AppStorage("isCardModeEnabled") private var isCardModeEnabled = false
-    @State private var flippedCardIds: Set<Int> = []
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
     @State private var showingSettings = false
     
@@ -219,87 +217,7 @@ struct ReaderView: View {
                                     .foregroundColor(selectedTheme.textColor)
                                     .padding(.top, 16)
                                 
-                                if isCardModeEnabled && isTranslationEnabled {
-                                    LazyVStack(spacing: 16) {
-                                        ForEach(paragraphItems) { item in
-                                            let isFlipped = flippedCardIds.contains(item.id)
-                                            ParagraphCardView(
-                                                item: item,
-                                                isFlipped: isFlipped,
-                                                fontSize: fontSize,
-                                                lineSpacing: lineSpacing,
-                                                theme: selectedTheme,
-                                                onTap: {
-                                                    if isFlipped {
-                                                        flippedCardIds.remove(item.id)
-                                                    } else {
-                                                        flippedCardIds.insert(item.id)
-                                                    }
-                                                },
-                                                onSelectionChange: { selectedText, sentence, offset, absoluteOffset in
-                                                    self.onSelectionChangeInCard(
-                                                        selectedText: selectedText,
-                                                        sentence: sentence,
-                                                        offset: offset,
-                                                        absoluteOffset: absoluteOffset,
-                                                        item: item,
-                                                        isFlipped: isFlipped
-                                                    )
-                                                },
-                                                onSpeakFromHere: { offset in
-                                                    let absOffset = calculateAbsoluteOffset(for: item.id, relativeOffset: offset, isFlipped: isFlipped)
-                                                    ttsManager.startSpeaking(
-                                                        bookId: bookId,
-                                                        chapters: ttsChaptersQueue,
-                                                        currentIndex: chapterIndex,
-                                                        startCharIndex: absOffset,
-                                                        bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
-                                                        extensionInfo: ttsExtensionInfo
-                                                    )
-                                                    showingTTSPanel = true
-                                                }
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    ReaderTextView(
-                                        text: chapterContent,
-                                        fontSize: fontSize,
-                                        lineSpacing: lineSpacing,
-                                        theme: selectedTheme,
-                                        highlightRange: isCurrentlyPlayingThisChapter ? ttsManager.highlightRange : nil,
-                                        triggerGetVisibleIndex: $triggerGetVisibleIndex,
-                                        onGetVisibleIndex: { charIndex in
-                                            ttsManager.startSpeaking(
-                                                bookId: bookId,
-                                                chapters: ttsChaptersQueue,
-                                                currentIndex: chapterIndex,
-                                                startCharIndex: charIndex,
-                                                bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
-                                                extensionInfo: ttsExtensionInfo
-                                            )
-                                        },
-                                        onSelectionChange: { selectedText, sentence, offset, absoluteOffset in
-                                            self.onSelectionChangeInNormalMode(
-                                                selectedText: selectedText,
-                                                sentence: sentence,
-                                                offset: offset,
-                                                absoluteOffset: absoluteOffset
-                                            )
-                                        },
-                                        onSpeakFromHere: { absoluteOffset in
-                                            ttsManager.startSpeaking(
-                                                bookId: bookId,
-                                                chapters: ttsChaptersQueue,
-                                                currentIndex: chapterIndex,
-                                                startCharIndex: absoluteOffset,
-                                                bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
-                                                extensionInfo: ttsExtensionInfo
-                                            )
-                                            showingTTSPanel = true
-                                        }
-                                    )
-                                }
+                                chapterContentView
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 
                                 Divider()
@@ -358,17 +276,6 @@ struct ReaderView: View {
                             reloadChapterContent()
                         }) {
                             Label("Tải lại chương", systemImage: "arrow.clockwise")
-                        }
-                        
-                        if isTranslationEnabled {
-                            Button(action: {
-                                isCardModeEnabled.toggle()
-                            }) {
-                                Label(
-                                    isCardModeEnabled ? "Tắt chế độ thẻ lật" : "Bật chế độ thẻ lật",
-                                    systemImage: isCardModeEnabled ? "square.text.square.fill" : "square.text.square"
-                                )
-                            }
                         }
                         
                         if localBook != nil {
@@ -797,7 +704,6 @@ struct ReaderView: View {
                 await MainActor.run {
                     self.chapterTitle = translatedTitle
                     self.chapterContent = translatedContent
-                    self.flippedCardIds.removeAll()
                     self.isLoading = false
                     prefetchNextChapter()
                 }
@@ -805,7 +711,6 @@ struct ReaderView: View {
         } else {
             self.chapterTitle = originalTitle
             self.chapterContent = originalContent
-            self.flippedCardIds.removeAll()
             self.isLoading = false
             prefetchNextChapter()
         }
@@ -1105,6 +1010,42 @@ struct ReaderView: View {
     
     // MARK: - Flashcard Song ngữ & Tách Đoạn văn Helpers
     
+    @ViewBuilder
+    private var chapterContentView: some View {
+        LazyVStack(alignment: .leading, spacing: fontSize * 0.8) {
+            ForEach(paragraphItems) { item in
+                ParagraphCardView(
+                    item: item,
+                    isTranslationEnabled: isTranslationEnabled,
+                    fontSize: fontSize,
+                    lineSpacing: lineSpacing,
+                    theme: selectedTheme,
+                    onSelectionChange: { selectedText, sentence, offset, absoluteOffset in
+                        self.onSelectionChangeInParagraph(
+                            selectedText: selectedText,
+                            sentence: sentence,
+                            offset: offset,
+                            absoluteOffset: absoluteOffset,
+                            item: item
+                        )
+                    },
+                    onSpeakFromHere: { offset in
+                        let absOffset = calculateAbsoluteOffset(for: item.id, relativeOffset: offset, isTranslated: isTranslationEnabled)
+                        ttsManager.startSpeaking(
+                            bookId: bookId,
+                            chapters: ttsChaptersQueue,
+                            currentIndex: chapterIndex,
+                            startCharIndex: absOffset,
+                            bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+                            extensionInfo: ttsExtensionInfo
+                        )
+                        showingTTSPanel = true
+                    }
+                )
+            }
+        }
+    }
+    
     private var paragraphItems: [ParagraphItem] {
         let originalLines = originalContent.components(separatedBy: "\n")
         let translatedLines = chapterContent.components(separatedBy: "\n")
@@ -1119,8 +1060,8 @@ struct ReaderView: View {
         return items
     }
     
-    private func calculateAbsoluteOffset(for paragraphIdx: Int, relativeOffset: Int, isFlipped: Bool) -> Int {
-        let lines = (isFlipped ? originalContent : chapterContent).components(separatedBy: "\n")
+    private func calculateAbsoluteOffset(for paragraphIdx: Int, relativeOffset: Int, isTranslated: Bool) -> Int {
+        let lines = (isTranslated ? chapterContent : originalContent).components(separatedBy: "\n")
         var offset = 0
         for i in 0..<min(paragraphIdx, lines.count) {
             offset += lines[i].count + 1 // +1 cho dấu xuống dòng \n
@@ -1128,182 +1069,150 @@ struct ReaderView: View {
         return offset + relativeOffset
     }
     
-    private func onSelectionChangeInNormalMode(selectedText: String, sentence: String, offset: Int, absoluteOffset: Int) {
+    private func onSelectionChangeInParagraph(
+        selectedText: String,
+        sentence: String,
+        offset: Int,
+        absoluteOffset: Int,
+        item: ParagraphItem
+    ) {
         if isTranslationEnabled {
-            let chapterNS = chapterContent as NSString
-            let originalNS = originalContent as NSString
+            // Khi bật dịch, bôi đen là tiếng Việt. Cần tìm câu gốc tiếng Trung tương ứng trong thẻ/div này
+            let vietSentenceRanges = TranslateUtils.getSentenceRanges(in: item.translated)
+            let chiSentenceRanges = TranslateUtils.getSentenceRanges(in: item.original)
             
-            // Tìm ranh giới đoạn văn dịch chứa absoluteOffset
-            var paraStartLoc = absoluteOffset
-            while paraStartLoc > 0 {
-                let char = chapterNS.substring(with: NSRange(location: paraStartLoc - 1, length: 1))
-                if char == "\n" || char == "\r" {
-                    break
-                }
-                paraStartLoc -= 1
-            }
-            
-            var paraEndLoc = absoluteOffset
-            let chapterLen = chapterNS.length
-            while paraEndLoc < chapterLen {
-                let charStr = chapterNS.substring(with: NSRange(location: paraEndLoc, length: 1))
-                if charStr == "\n" || charStr == "\r" {
-                    break
-                }
-                paraEndLoc += 1
-            }
-            
-            let vietParagraphRange = NSRange(location: paraStartLoc, length: paraEndLoc - paraStartLoc)
-            let vietParagraph = chapterNS.substring(with: vietParagraphRange)
-            let offsetInVietParagraph = absoluteOffset - paraStartLoc
-            
-            // Xác định chỉ số đoạn văn
-            var paragraphIdx = 0
-            if paraStartLoc > 0 {
-                let textBeforePara = chapterNS.substring(with: NSRange(location: 0, length: paraStartLoc))
-                paragraphIdx = textBeforePara.components(separatedBy: "\n").count - 1
-            }
-            
-            let chiParagraphs = originalContent.components(separatedBy: "\n")
-            
-            if paragraphIdx < chiParagraphs.count {
-                let chiParagraph = chiParagraphs[paragraphIdx]
+            if !vietSentenceRanges.isEmpty && !chiSentenceRanges.isEmpty {
+                var sentenceIdx = vietSentenceRanges.firstIndex(where: { 
+                    $0.range.location <= absoluteOffset && absoluteOffset < $0.range.location + $0.range.length 
+                })
                 
-                let vietSentenceRanges = TranslateUtils.getSentenceRanges(in: vietParagraph)
-                let chiSentenceRanges = TranslateUtils.getSentenceRanges(in: chiParagraph)
+                let targetChiSentenceIdx: Int
+                let vietSentenceRange: SentenceRange
                 
-                if !vietSentenceRanges.isEmpty && !chiSentenceRanges.isEmpty {
-                    var sentenceIdx = vietSentenceRanges.firstIndex(where: { 
-                        $0.range.location <= offsetInVietParagraph && offsetInVietParagraph < $0.range.location + $0.range.length 
-                      })
+                if let sIdx = sentenceIdx, sIdx < chiSentenceRanges.count {
+                    targetChiSentenceIdx = sIdx
+                    vietSentenceRange = vietSentenceRanges[sIdx]
+                } else {
+                    // Fallback: Tìm bằng tỷ lệ tương đối trong phạm vi thẻ
+                    let vietLength = Double(item.translated.count)
+                    let relativePos = vietLength > 0 ? Double(absoluteOffset) / vietLength : 0.0
                     
-                    let targetChiSentenceIdx: Int
-                    let vietSentenceRange: SentenceRange
+                    let chiLength = Double(item.original.count)
+                    var bestIdx = 0
+                    var minDiff = Double.infinity
                     
-                    if let sIdx = sentenceIdx, sIdx < chiSentenceRanges.count {
-                        targetChiSentenceIdx = sIdx
-                        vietSentenceRange = vietSentenceRanges[sIdx]
-                    } else {
-                        // Fallback: Tìm bằng tỷ lệ tương đối trong đoạn văn
-                        let vietLength = Double(vietParagraph.count)
-                        let relativePos = vietLength > 0 ? Double(offsetInVietParagraph) / vietLength : 0.0
-                        
-                        let chiLength = Double(chiParagraph.count)
-                        var bestIdx = 0
-                        var minDiff = Double.infinity
-                        
-                        for (idx, chiRange) in chiSentenceRanges.enumerated() {
-                            let chiCenter = Double(chiRange.range.location) + Double(chiRange.range.length) / 2.0
-                            let chiRelativePos = chiLength > 0 ? chiCenter / chiLength : 0.0
-                            let diff = abs(chiRelativePos - relativePos)
-                            if diff < minDiff {
-                                minDiff = diff
-                                bestIdx = idx
-                            }
+                    for (idx, chiRange) in chiSentenceRanges.enumerated() {
+                        let chiCenter = Double(chiRange.range.location) + Double(chiRange.range.length) / 2.0
+                        let chiRelativePos = chiLength > 0 ? chiCenter / chiLength : 0.0
+                        let diff = abs(chiRelativePos - relativePos)
+                        if diff < minDiff {
+                            minDiff = diff
+                            bestIdx = idx
                         }
-                        targetChiSentenceIdx = bestIdx
-                        let targetVietIdx = min(bestIdx, vietSentenceRanges.count - 1)
-                        vietSentenceRange = vietSentenceRanges[targetVietIdx]
-                        sentenceIdx = targetVietIdx
                     }
-                    
-                    let offsetInVietSentence = max(0, offsetInVietParagraph - vietSentenceRange.range.location)
-                    let chiSentenceRange = chiSentenceRanges[targetChiSentenceIdx]
-                    let chiSentence = chiSentenceRange.text
-                    let tokens = TranslateUtils.getTranslationTokens(for: chiSentence, bookId: bookId)
-                    
-                    let vietSentenceNS = vietSentenceRange.text as NSString
-                    var vietNonSpaceMap: [Int] = []
-                    var nonSpaceCount = 0
-                    let whitespaceSet = CharacterSet.whitespacesAndNewlines
-                    
-                    for i in 0..<vietSentenceNS.length {
-                        let charCode = vietSentenceNS.character(at: i)
+                    targetChiSentenceIdx = bestIdx
+                    let targetVietIdx = min(bestIdx, vietSentenceRanges.count - 1)
+                    vietSentenceRange = vietSentenceRanges[targetVietIdx]
+                    sentenceIdx = targetVietIdx
+                }
+                
+                let offsetInVietSentence = max(0, absoluteOffset - vietSentenceRange.range.location)
+                let chiSentenceRange = chiSentenceRanges[targetChiSentenceIdx]
+                let chiSentence = chiSentenceRange.text
+                let tokens = TranslateUtils.getTranslationTokens(for: chiSentence, bookId: bookId)
+                
+                let vietSentenceNS = vietSentenceRange.text as NSString
+                var vietNonSpaceMap: [Int] = []
+                var nonSpaceCount = 0
+                let whitespaceSet = CharacterSet.whitespacesAndNewlines
+                
+                for i in 0..<vietSentenceNS.length {
+                    let charCode = vietSentenceNS.character(at: i)
+                    if let unicodeScalar = UnicodeScalar(charCode), whitespaceSet.contains(unicodeScalar) {
+                        vietNonSpaceMap.append(-1)
+                    } else {
+                        vietNonSpaceMap.append(nonSpaceCount)
+                        nonSpaceCount += 1
+                    }
+                }
+                
+                var userStartNonSpace = -1
+                var userEndNonSpace = -1
+                for i in 0..<selectedText.count {
+                    let charIdxInSentence = offsetInVietSentence + i
+                    if charIdxInSentence < vietNonSpaceMap.count {
+                        let nsIdx = vietNonSpaceMap[charIdxInSentence]
+                        if nsIdx != -1 {
+                            if userStartNonSpace == -1 {
+                                userStartNonSpace = nsIdx
+                            }
+                            userEndNonSpace = nsIdx + 1
+                        }
+                    }
+                }
+                
+                var tokenNonSpaceRanges: [NSRange] = []
+                var reconstructedNonSpaceCount = 0
+                for token in tokens {
+                    var tokenNonSpaceLen = 0
+                    let tokenNS = token.translatedText as NSString
+                    for i in 0..<tokenNS.length {
+                        let charCode = tokenNS.character(at: i)
                         if let unicodeScalar = UnicodeScalar(charCode), whitespaceSet.contains(unicodeScalar) {
-                            vietNonSpaceMap.append(-1)
+                            // Bỏ qua
                         } else {
-                            vietNonSpaceMap.append(nonSpaceCount)
-                            nonSpaceCount += 1
+                            tokenNonSpaceLen += 1
                         }
                     }
-                    
-                    var userStartNonSpace = -1
-                    var userEndNonSpace = -1
-                    for i in 0..<selectedText.count {
-                        let charIdxInSentence = offsetInVietSentence + i
-                        if charIdxInSentence < vietNonSpaceMap.count {
-                            let nsIdx = vietNonSpaceMap[charIdxInSentence]
-                            if nsIdx != -1 {
-                                if userStartNonSpace == -1 {
-                                    userStartNonSpace = nsIdx
-                                }
-                                userEndNonSpace = nsIdx + 1
-                            }
-                        }
-                    }
-                    
-                    var tokenNonSpaceRanges: [NSRange] = []
-                    var reconstructedNonSpaceCount = 0
-                    for token in tokens {
-                        var tokenNonSpaceLen = 0
-                        let tokenNS = token.translatedText as NSString
-                        for i in 0..<tokenNS.length {
-                            let charCode = tokenNS.character(at: i)
-                            if let unicodeScalar = UnicodeScalar(charCode), whitespaceSet.contains(unicodeScalar) {
-                                // Bỏ qua
-                            } else {
-                                tokenNonSpaceLen += 1
-                            }
-                        }
-                        tokenNonSpaceRanges.append(NSRange(location: reconstructedNonSpaceCount, length: tokenNonSpaceLen))
-                        reconstructedNonSpaceCount += tokenNonSpaceLen
-                    }
-                    
-                    var overlappingIndices: [Int] = []
-                    if userStartNonSpace != -1 && userEndNonSpace != -1 {
-                        let userRange = NSRange(location: userStartNonSpace, length: userEndNonSpace - userStartNonSpace)
-                        for (idx, tokenRange) in tokenNonSpaceRanges.enumerated() {
-                            let maxStart = max(tokenRange.location, userRange.location)
-                            let minEnd = min(tokenRange.location + tokenRange.length, userRange.location + userRange.length)
-                            if maxStart < minEnd {
-                                overlappingIndices.append(idx)
-                            }
-                        }
-                    }
-                    
-                    var finalChiOffset = 0
-                    var finalChiLength = 1
-                    
-                    if !overlappingIndices.isEmpty {
-                        let firstIdx = overlappingIndices.first!
-                        let lastIdx = overlappingIndices.last!
-                        finalChiOffset = tokens[firstIdx].originalOffset
-                        finalChiLength = (tokens[lastIdx].originalOffset + tokens[lastIdx].originalLength) - finalChiOffset
-                    } else {
-                        let vietLen = Double(vietSentenceRange.text.count)
-                        let ratio = vietLen > 0 ? Double(offsetInVietSentence) / vietLen : 0.0
-                        let chiLen = Double(chiSentence.count)
-                        finalChiOffset = min(Int(round(ratio * chiLen)), max(0, chiSentence.count - 1))
-                        finalChiLength = 1
-                    }
-                    
-                    let snapped = TranslateUtils.snapToToken(
-                        sentence: chiSentence,
-                        selectionOffset: finalChiOffset,
-                        selectionLength: finalChiLength,
-                        bookId: bookId
-                    )
-                    
-                    self.originalSentence = chiSentence
-                    self.selectedWordOffset = snapped.offset
-                    self.selectedWordLength = snapped.length
-                    self.updateEditorFromSelection()
-                    self.showingDefinitionSheet = true
-                    return
+                    tokenNonSpaceRanges.append(NSRange(location: reconstructedNonSpaceCount, length: tokenNonSpaceLen))
+                    reconstructedNonSpaceCount += tokenNonSpaceLen
                 }
+                
+                var overlappingIndices: [Int] = []
+                if userStartNonSpace != -1 && userEndNonSpace != -1 {
+                    let userRange = NSRange(location: userStartNonSpace, length: userEndNonSpace - userStartNonSpace)
+                    for (idx, tokenRange) in tokenNonSpaceRanges.enumerated() {
+                        let maxStart = max(tokenRange.location, userRange.location)
+                        let minEnd = min(tokenRange.location + tokenRange.length, userRange.location + userRange.length)
+                        if maxStart < minEnd {
+                            overlappingIndices.append(idx)
+                        }
+                    }
+                }
+                
+                var finalChiOffset = 0
+                var finalChiLength = 1
+                
+                if !overlappingIndices.isEmpty {
+                    let firstIdx = overlappingIndices.first!
+                    let lastIdx = overlappingIndices.last!
+                    finalChiOffset = tokens[firstIdx].originalOffset
+                    finalChiLength = (tokens[lastIdx].originalOffset + tokens[lastIdx].originalLength) - finalChiOffset
+                } else {
+                    let vietLen = Double(vietSentenceRange.text.count)
+                    let ratio = vietLen > 0 ? Double(offsetInVietSentence) / vietLen : 0.0
+                    let chiLen = Double(chiSentence.count)
+                    finalChiOffset = min(Int(round(ratio * chiLen)), max(0, chiSentence.count - 1))
+                    finalChiLength = 1
+                }
+                
+                let snapped = TranslateUtils.snapToToken(
+                    sentence: chiSentence,
+                    selectionOffset: finalChiOffset,
+                    selectionLength: finalChiLength,
+                    bookId: bookId
+                )
+                
+                self.originalSentence = chiSentence
+                self.selectedWordOffset = snapped.offset
+                self.selectedWordLength = snapped.length
+                self.updateEditorFromSelection()
+                self.showingDefinitionSheet = true
+                return
             }
         }
         
+        // Không bật dịch (hoặc lỗi): Tra cứu trực tiếp
         let snapped = TranslateUtils.snapToToken(
             sentence: sentence,
             selectionOffset: offset,
@@ -1316,175 +1225,7 @@ struct ReaderView: View {
         self.updateEditorFromSelection()
         self.showingDefinitionSheet = true
     }
-    
-    private func onSelectionChangeInCard(
-        selectedText: String,
-        sentence: String,
-        offset: Int,
-        absoluteOffset: Int,
-        item: ParagraphItem,
-        isFlipped: Bool
-    ) {
-        if isFlipped {
-            let snapped = TranslateUtils.snapToToken(
-                sentence: sentence,
-                selectionOffset: offset,
-                selectionLength: selectedText.count,
-                bookId: bookId
-            )
-            self.originalSentence = sentence
-            self.selectedWordOffset = snapped.offset
-            self.selectedWordLength = snapped.length
-            self.updateEditorFromSelection()
-            self.showingDefinitionSheet = true
-        } else {
-            if isTranslationEnabled {
-                let vietSentenceRanges = TranslateUtils.getSentenceRanges(in: item.translated)
-                let chiSentenceRanges = TranslateUtils.getSentenceRanges(in: item.original)
-                
-                if !vietSentenceRanges.isEmpty && !chiSentenceRanges.isEmpty {
-                    var sentenceIdx = vietSentenceRanges.firstIndex(where: { 
-                        $0.range.location <= absoluteOffset && absoluteOffset < $0.range.location + $0.range.length 
-                    })
-                    
-                    let targetChiSentenceIdx: Int
-                    let vietSentenceRange: SentenceRange
-                    
-                    if let sIdx = sentenceIdx, sIdx < chiSentenceRanges.count {
-                        targetChiSentenceIdx = sIdx
-                        vietSentenceRange = vietSentenceRanges[sIdx]
-                    } else {
-                        let vietLength = Double(item.translated.count)
-                        let relativePos = vietLength > 0 ? Double(absoluteOffset) / vietLength : 0.0
-                        
-                        let chiLength = Double(item.original.count)
-                        var bestIdx = 0
-                        var minDiff = Double.infinity
-                        
-                        for (idx, chiRange) in chiSentenceRanges.enumerated() {
-                            let chiCenter = Double(chiRange.range.location) + Double(chiRange.range.length) / 2.0
-                            let chiRelativePos = chiLength > 0 ? chiCenter / chiLength : 0.0
-                            let diff = abs(chiRelativePos - relativePos)
-                            if diff < minDiff {
-                                minDiff = diff
-                                bestIdx = idx
-                            }
-                        }
-                        targetChiSentenceIdx = bestIdx
-                        let targetVietIdx = min(bestIdx, vietSentenceRanges.count - 1)
-                        vietSentenceRange = vietSentenceRanges[targetVietIdx]
-                        sentenceIdx = targetVietIdx
-                    }
-                    
-                    let offsetInVietSentence = max(0, absoluteOffset - vietSentenceRange.range.location)
-                    let chiSentenceRange = chiSentenceRanges[targetChiSentenceIdx]
-                    let chiSentence = chiSentenceRange.text
-                    let tokens = TranslateUtils.getTranslationTokens(for: chiSentence, bookId: bookId)
-                    
-                    let vietSentenceNS = vietSentenceRange.text as NSString
-                    var vietNonSpaceMap: [Int] = []
-                    var nonSpaceCount = 0
-                    let whitespaceSet = CharacterSet.whitespacesAndNewlines
-                    
-                    for i in 0..<vietSentenceNS.length {
-                        let charCode = vietSentenceNS.character(at: i)
-                        if let unicodeScalar = UnicodeScalar(charCode), whitespaceSet.contains(unicodeScalar) {
-                            vietNonSpaceMap.append(-1)
-                        } else {
-                            vietNonSpaceMap.append(nonSpaceCount)
-                            nonSpaceCount += 1
-                        }
-                    }
-                    
-                    var userStartNonSpace = -1
-                    var userEndNonSpace = -1
-                    for i in 0..<selectedText.count {
-                        let charIdxInSentence = offsetInVietSentence + i
-                        if charIdxInSentence < vietNonSpaceMap.count {
-                            let nsIdx = vietNonSpaceMap[charIdxInSentence]
-                            if nsIdx != -1 {
-                                if userStartNonSpace == -1 {
-                                    userStartNonSpace = nsIdx
-                                }
-                                userEndNonSpace = nsIdx + 1
-                            }
-                        }
-                    }
-                    
-                    var tokenNonSpaceRanges: [NSRange] = []
-                    var reconstructedNonSpaceCount = 0
-                    for token in tokens {
-                        var tokenNonSpaceLen = 0
-                        let tokenNS = token.translatedText as NSString
-                        for i in 0..<tokenNS.length {
-                            let charCode = tokenNS.character(at: i)
-                            if let unicodeScalar = UnicodeScalar(charCode), whitespaceSet.contains(unicodeScalar) {
-                                // Bỏ qua
-                            } else {
-                                tokenNonSpaceLen += 1
-                            }
-                        }
-                        tokenNonSpaceRanges.append(NSRange(location: reconstructedNonSpaceCount, length: tokenNonSpaceLen))
-                        reconstructedNonSpaceCount += tokenNonSpaceLen
-                    }
-                    
-                    var overlappingIndices: [Int] = []
-                    if userStartNonSpace != -1 && userEndNonSpace != -1 {
-                        let userRange = NSRange(location: userStartNonSpace, length: userEndNonSpace - userStartNonSpace)
-                        for (idx, tokenRange) in tokenNonSpaceRanges.enumerated() {
-                            let maxStart = max(tokenRange.location, userRange.location)
-                            let minEnd = min(tokenRange.location + tokenRange.length, userRange.location + userRange.length)
-                            if maxStart < minEnd {
-                                overlappingIndices.append(idx)
-                            }
-                        }
-                    }
-                    
-                    var finalChiOffset = 0
-                    var finalChiLength = 1
-                    
-                    if !overlappingIndices.isEmpty {
-                        let firstIdx = overlappingIndices.first!
-                        let lastIdx = overlappingIndices.last!
-                        finalChiOffset = tokens[firstIdx].originalOffset
-                        finalChiLength = (tokens[lastIdx].originalOffset + tokens[lastIdx].originalLength) - finalChiOffset
-                    } else {
-                        let vietLen = Double(vietSentenceRange.text.count)
-                        let ratio = vietLen > 0 ? Double(offsetInVietSentence) / vietLen : 0.0
-                        let chiLen = Double(chiSentence.count)
-                        finalChiOffset = min(Int(round(ratio * chiLen)), max(0, chiSentence.count - 1))
-                        finalChiLength = 1
-                    }
-                    
-                    let snapped = TranslateUtils.snapToToken(
-                        sentence: chiSentence,
-                        selectionOffset: finalChiOffset,
-                        selectionLength: finalChiLength,
-                        bookId: bookId
-                    )
-                    
-                    self.originalSentence = chiSentence
-                    self.selectedWordOffset = snapped.offset
-                    self.selectedWordLength = snapped.length
-                    self.updateEditorFromSelection()
-                    self.showingDefinitionSheet = true
-                    return
-                }
-            }
-            
-            let snapped = TranslateUtils.snapToToken(
-                sentence: sentence,
-                selectionOffset: offset,
-                selectionLength: selectedText.count,
-                bookId: bookId
-            )
-            self.originalSentence = sentence
-            self.selectedWordOffset = snapped.offset
-            self.selectedWordLength = snapped.length
-            self.updateEditorFromSelection()
-            self.showingDefinitionSheet = true
-        }
-    }
+
 
     private func loadChapterContent() {
         guard let info = currentChapterInfo else { return }
