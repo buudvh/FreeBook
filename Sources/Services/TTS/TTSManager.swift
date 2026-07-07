@@ -54,6 +54,7 @@ public final class TTSManager: NSObject, ObservableObject {
     // Trạng thái playback
     @Published public var isPlaying: Bool = false
     @Published public var currentParagraphIndex: Int = -1
+    @Published public var currentParentParagraphIndex: Int = -1
     @Published public var highlightRange: NSRange? = nil
     
     // Thông tin phát nhạc độc lập toàn cục
@@ -390,6 +391,7 @@ public final class TTSManager: NSObject, ObservableObject {
         AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] stop() được gọi.")
         self.isPlaying = false
         self.currentParagraphIndex = -1
+        self.currentParentParagraphIndex = -1
         self.highlightRange = nil
         
         systemSynthesizer?.stopSpeaking(at: .immediate)
@@ -514,6 +516,7 @@ public final class TTSManager: NSObject, ObservableObject {
         
         let paragraph = paragraphs[currentParagraphIndex]
         self.highlightRange = paragraph.range
+        self.currentParentParagraphIndex = paragraph.paragraphIndex
         
         if tool == "system" {
             playSystemTTS(paragraph.text)
@@ -654,61 +657,40 @@ public final class TTSManager: NSObject, ObservableObject {
     
     private func parseParagraphs(_ content: String) -> [TTSParagraph] {
         var result: [TTSParagraph] = []
-        let maxLen = max(chunkLength, 1000)
-
-        // Match từng đoạn, các dòng trong cùng một đoạn được giữ nguyên.
-        // Một hoặc nhiều dòng trống được coi là ranh giới giữa các đoạn.
-        let pattern = #"(?ms)\S.*?(?=(?:\R\s*\R)|\z)"#
-
-        guard let regex = try? NSRegularExpression(pattern: pattern) else {
-            return result
-        }
-
-        let nsRange = NSRange(content.startIndex..., in: content)
-
-        regex.enumerateMatches(in: content, options: [], range: nsRange) { match, _, _ in
-            guard
-                let match = match,
-                let range = Range(match.range, in: content)
-            else {
-                return
+        let lines = content.components(separatedBy: "\n")
+        var currentOffset = 0
+        
+        for i in 0..<lines.count {
+            let line = lines[i]
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            let lineRange = NSRange(location: currentOffset, length: line.count)
+            
+            let paragraphRange: NSRange
+            if let trimmedRange = content.range(of: trimmed, range: Range(lineRange, in: content)!) {
+                paragraphRange = NSRange(trimmedRange, in: content)
+            } else {
+                paragraphRange = NSRange(location: currentOffset, length: trimmed.count)
             }
-
-            let paragraph = String(content[range]).trimmingCharacters(in: .whitespacesAndNewlines)
-
-            guard !paragraph.isEmpty else {
-                return
-            }
-
-            // Điều chỉnh NSRange sau khi trim
-            guard let trimmedRange = content.range(of: paragraph, range: range) else {
-                return
-            }
-
-            let paragraphRange = NSRange(trimmedRange, in: content)
-
-            if paragraph.count > maxLen {
-                result.append(
-                    contentsOf: splitSentence(
-                        paragraph,
-                        maxLength: maxLen,
-                        baseOffset: paragraphRange.location
-                    )
-                )
+            
+            let maxLen = max(chunkLength, 1000)
+            if trimmed.count > maxLen {
+                let subParagraphs = splitSentence(trimmed, maxLength: maxLen, baseOffset: paragraphRange.location, paragraphIndex: i)
+                result.append(contentsOf: subParagraphs)
             } else {
                 result.append(
                     TTSParagraph(
-                        text: paragraph,
-                        range: paragraphRange
+                        text: trimmed,
+                        range: paragraphRange,
+                        paragraphIndex: i
                     )
                 )
             }
+            currentOffset += line.count + 1
         }
-
         return result
     }
     
-    private func splitSentence(_ text: String, maxLength: Int, baseOffset: Int) -> [TTSParagraph] {
+    private func splitSentence(_ text: String, maxLength: Int, baseOffset: Int, paragraphIndex: Int) -> [TTSParagraph] {
         var result: [TTSParagraph] = []
         
         var tempText = text
@@ -720,7 +702,7 @@ public final class TTSManager: NSObject, ObservableObject {
         
         let pattern = "[^.!?。！？]+[.!?。！？]?"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
-            return [TTSParagraph(text: text, range: NSRange(location: baseOffset, length: text.count))]
+            return [TTSParagraph(text: text, range: NSRange(location: baseOffset, length: text.count), paragraphIndex: paragraphIndex)]
         }
         
         let matches = regex.matches(in: tempText, options: [], range: NSRange(location: 0, length: nsTempText.length))
@@ -737,7 +719,7 @@ public final class TTSManager: NSObject, ObservableObject {
                 currentSubRange.length += match.range.length
             } else {
                 if !currentSubText.isEmpty {
-                    result.append(TTSParagraph(text: currentSubText.trimmed, range: currentSubRange))
+                    result.append(TTSParagraph(text: currentSubText.trimmed, range: currentSubRange, paragraphIndex: paragraphIndex))
                 }
                 currentSubText = matchText
                 currentSubRange = NSRange(location: baseOffset + match.range.location, length: match.range.length)
@@ -745,7 +727,7 @@ public final class TTSManager: NSObject, ObservableObject {
         }
         
         if !currentSubText.isEmpty {
-            result.append(TTSParagraph(text: currentSubText.trimmed, range: currentSubRange))
+            result.append(TTSParagraph(text: currentSubText.trimmed, range: currentSubRange, paragraphIndex: paragraphIndex))
         }
         
         return result

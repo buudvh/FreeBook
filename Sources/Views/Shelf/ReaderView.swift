@@ -1015,12 +1015,21 @@ struct ReaderView: View {
     private var chapterContentView: some View {
         LazyVStack(alignment: .leading, spacing: fontSize * 0.8) {
             ForEach(paragraphItems) { item in
+                let textLen = (isTranslationEnabled ? item.translated : item.original).count
+                let relativeHighlightRange: NSRange? = {
+                    if isCurrentlyPlayingThisChapter && item.id == ttsManager.currentParentParagraphIndex {
+                        return NSRange(location: 0, length: textLen)
+                    }
+                    return nil
+                }()
+                
                 ParagraphCardView(
                     item: item,
                     isTranslationEnabled: isTranslationEnabled,
                     fontSize: fontSize,
                     lineSpacing: lineSpacing,
                     theme: selectedTheme,
+                    highlightRange: relativeHighlightRange,
                     onSelectionChange: { selectedText, sentence, offset, absoluteOffset in
                         self.onSelectionChangeInParagraph(
                             selectedText: selectedText,
@@ -1051,11 +1060,13 @@ struct ReaderView: View {
         let originalLines = originalContent.components(separatedBy: "\n")
         let translatedLines = chapterContent.components(separatedBy: "\n")
         var items: [ParagraphItem] = []
+        var index = 0
         for i in 0..<originalLines.count {
             let orig = originalLines[i].trimmingCharacters(in: .whitespacesAndNewlines)
             let trans = i < translatedLines.count ? translatedLines[i].trimmingCharacters(in: .whitespacesAndNewlines) : ""
             if !orig.isEmpty || !trans.isEmpty {
-                items.append(ParagraphItem(id: i, original: orig, translated: trans))
+                items.append(ParagraphItem(id: index, original: orig, translated: trans))
+                index += 1
             }
         }
         return items
@@ -1228,6 +1239,13 @@ struct ReaderView: View {
     }
 
 
+    private func cleanBlankLines(in text: String) -> String {
+        return text.components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+    }
+
     private func loadChapterContent() {
         guard let info = currentChapterInfo else { return }
         
@@ -1246,7 +1264,7 @@ struct ReaderView: View {
             try? modelContext.save()
             
             if chap.isCached, let content = chap.content, !content.isEmpty {
-                self.originalContent = content.cleanHTML()
+                self.originalContent = cleanBlankLines(in: content.cleanHTML())
                 self.applyTranslation()
                 return
             }
@@ -1261,7 +1279,7 @@ struct ReaderView: View {
         Task {
             do {
                 let content = try await ExtensionManager.shared.chap(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: info.url, configJson: ext.configJson)
-                let cleanedContent = content.cleanHTML()
+                let cleanedContent = cleanBlankLines(in: content.cleanHTML())
                 
                 await MainActor.run {
                     self.originalContent = cleanedContent
@@ -1330,7 +1348,7 @@ struct ReaderView: View {
         Task {
             do {
                 let content = try await ExtensionManager.shared.chap(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: info.url, configJson: ext.configJson)
-                let cleanedContent = content.cleanHTML()
+                let cleanedContent = cleanBlankLines(in: content.cleanHTML())
                 
                 await MainActor.run {
                     self.originalContent = cleanedContent

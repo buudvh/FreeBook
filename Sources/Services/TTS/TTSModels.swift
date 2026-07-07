@@ -53,10 +53,12 @@ public extension Voice {
 public struct TTSParagraph: Codable, Hashable {
     public let text: String
     public let range: NSRange
+    public let paragraphIndex: Int
     
-    public init(text: String, range: NSRange) {
+    public init(text: String, range: NSRange, paragraphIndex: Int) {
         self.text = text
         self.range = range
+        self.paragraphIndex = paragraphIndex
     }
 }
 

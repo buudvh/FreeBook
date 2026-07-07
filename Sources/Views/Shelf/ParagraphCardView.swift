@@ -18,6 +18,7 @@ struct ParagraphCardView: View {
     let fontSize: Double
     let lineSpacing: Double
     let theme: ReaderTheme
+    let highlightRange: NSRange?
     let onSelectionChange: (String, String, Int, Int) -> Void
     let onSpeakFromHere: (Int) -> Void
     
@@ -27,7 +28,7 @@ struct ParagraphCardView: View {
             fontSize: fontSize,
             lineSpacing: lineSpacing,
             theme: theme,
-            highlightRange: nil,
+            highlightRange: highlightRange,
             triggerGetVisibleIndex: .constant(nil),
             onGetVisibleIndex: { _ in },
             onSelectionChange: onSelectionChange,
