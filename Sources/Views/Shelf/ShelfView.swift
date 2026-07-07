@@ -251,7 +251,8 @@ struct ShelfView: View {
                 guard ReaderView.activeBookId != ttsManager.playingBookId || ReaderView.activeChapterIndex != ttsManager.playingChapterIndex else {
                     return
                 }
-                if let bookId = ttsManager.playingBookId, !bookId.isEmpty {
+                let bookId = ttsManager.playingBookId
+                if !bookId.isEmpty {
                     self.navigateToPlayingBookId = bookId
                     self.navigateToPlayingExtensionId = ttsManager.extensionInfo?.localPath ?? ""
                     self.navigateToPlayingChapterIndex = ttsManager.playingChapterIndex

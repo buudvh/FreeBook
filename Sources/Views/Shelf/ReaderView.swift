@@ -1164,6 +1164,22 @@ struct ReaderSettingsView: View {
                     Text(theme.rawValue).tag(theme)
                 }
             }
+            
+            // Toggle dịch
+            Toggle("Bật dịch Quick Translate", isOn: $isTranslationEnabled)
+                .padding(.horizontal)
+            
+            Spacer()
+        }
+        .padding()
+    }
+}
+
+struct DictionaryMatchInfo: Identifiable {
+    var id = UUID()
+    let source: String
+    let translation: String
+}
 
 // MARK: - TTS Settings Sheet View
 
