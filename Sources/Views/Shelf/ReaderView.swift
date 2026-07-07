@@ -491,43 +491,34 @@ struct ReaderView: View {
                     
                     ScrollViewReader { proxy in
                         ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 4) {
-                                ForEach(translationTokens) { token in
-                                    let isSelected = (token.originalOffset < selectedWordOffset + selectedWordLength && 
-                                                      token.originalOffset + token.originalLength > selectedWordOffset)
-                                    Text(token.originalText)
+                            HStack(spacing: 2) {
+                                let nsSentence = originalSentence as NSString
+                                ForEach(0..<nsSentence.length, id: \.self) { index in
+                                    let char = nsSentence.substring(with: NSRange(location: index, length: 1))
+                                    let isSelected = (index >= selectedWordOffset && index < selectedWordOffset + selectedWordLength)
+                                    Text(char)
                                         .font(.title3)
                                         .bold(isSelected)
-                                        .underline()
+                                        .underline(isSelected)
                                         .foregroundColor(isSelected ? .blue : .primary)
-                                        .id("orig-\(token.id)")
+                                        .id("orig-\(index)")
                                         .onTapGesture {
-                                            selectedWordOffset = token.originalOffset
-                                            selectedWordLength = token.originalLength
+                                            selectedWordOffset = index
+                                            selectedWordLength = 1
                                             updateEditorFromSelection()
                                         }
                                 }
                             }
                         }
                         .onChange(of: selectedWordOffset) { _, _ in
-                            if let selectedToken = translationTokens.first(where: {
-                                $0.originalOffset < selectedWordOffset + selectedWordLength && 
-                                $0.originalOffset + $0.originalLength > selectedWordOffset
-                            }) {
-                                withAnimation {
-                                    proxy.scrollTo("orig-\(selectedToken.id)", anchor: .center)
-                                }
+                            withAnimation {
+                                proxy.scrollTo("orig-\(selectedWordOffset)", anchor: .center)
                             }
                         }
                         .onAppear {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                if let selectedToken = translationTokens.first(where: {
-                                    $0.originalOffset < selectedWordOffset + selectedWordLength && 
-                                    $0.originalOffset + $0.originalLength > selectedWordOffset
-                                }) {
-                                    withAnimation {
-                                        proxy.scrollTo("orig-\(selectedToken.id)", anchor: .center)
-                                    }
+                                withAnimation {
+                                    proxy.scrollTo("orig-\(selectedWordOffset)", anchor: .center)
                                 }
                             }
                         }
