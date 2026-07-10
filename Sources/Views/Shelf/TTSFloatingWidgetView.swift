@@ -13,6 +13,7 @@ struct TTSFloatingWidgetView: View {
     @State private var edgeDirection: EdgeDirection = .right
     @State private var showingTTSSettings = false
     @State private var autoHideWorkItem: DispatchWorkItem? = nil
+    @State private var dragOffset: CGSize = .zero
     
     enum EdgeDirection {
         case left, right
@@ -27,8 +28,12 @@ struct TTSFloatingWidgetView: View {
         if isHiddenAtEdge {
             return edgeDirection == .left ? -size / 2 + 15 : screenWidth + size / 2 - 15
         } else {
-            return position.x
+            return position.x + dragOffset.width
         }
+    }
+    
+    var currentY: CGFloat {
+        return position.y + dragOffset.height
     }
     
     var expandedX: CGFloat {
@@ -91,16 +96,23 @@ struct TTSFloatingWidgetView: View {
                         .frame(width: size, height: size)
                     }
                     .opacity(isHiddenAtEdge ? 0.4 : 1.0)
-                    .position(x: currentX, y: position.y)
+                    .position(x: currentX, y: currentY)
                     .gesture(
                         DragGesture()
                             .onChanged { value in
-                                position = value.location
+                                if isHiddenAtEdge {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                        isHiddenAtEdge = false
+                                    }
+                                }
+                                dragOffset = value.translation
                             }
                             .onEnded { value in
-                                let dragEndValue = value.location
-                                let leftDistance = dragEndValue.x
-                                let rightDistance = screenWidth - dragEndValue.x
+                                let finalX = position.x + value.translation.width
+                                let finalY = position.y + value.translation.height
+                                
+                                let leftDistance = finalX
+                                let rightDistance = screenWidth - finalX
                                 
                                 let targetX: CGFloat
                                 if leftDistance < rightDistance {
@@ -114,10 +126,11 @@ struct TTSFloatingWidgetView: View {
                                 // Giới hạn vị trí Y trong phạm vi hiển thị an toàn
                                 let minY: CGFloat = size / 2 + 100
                                 let maxY: CGFloat = screenHeight - size / 2 - 120
-                                let targetY = min(max(dragEndValue.y, minY), maxY)
+                                let targetY = min(max(finalY, minY), maxY)
                                 
                                 withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
                                     position = CGPoint(x: targetX, y: targetY)
+                                    dragOffset = .zero
                                     isHiddenAtEdge = false
                                 }
                                 startAutoHideTimer()
