@@ -3,7 +3,6 @@ import SwiftUI
 struct CollapsedCircleView: View {
     let isPlaying: Bool
     let isHiddenMode: Bool
-    let onTap: () -> Void
     
     private let size: CGFloat = 55
     
@@ -31,8 +30,5 @@ struct CollapsedCircleView: View {
         .frame(width: size, height: size)
         .contentShape(Circle())
         .opacity(isHiddenMode ? 0.4 : 1.0)
-        .onTapGesture {
-            onTap()
-        }
     }
 }

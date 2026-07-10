@@ -6,6 +6,7 @@ public final class FloatingWidgetViewModel: ObservableObject {
     @Published public var verticalRatio: CGFloat
     @Published public var edgeDirection: EdgeDirection
     @Published public var mode: WidgetMode
+    @Published public var isDragging: Bool = false
 
     private var autoHideTask: Task<Void, Never>? = nil
 
@@ -18,15 +19,12 @@ public final class FloatingWidgetViewModel: ObservableObject {
 
         self.verticalRatio = storedRatio > 0 ? CGFloat(storedRatio) : 0.5
         self.edgeDirection = (storedEdge == "left") ? .left : .right
-        self.mode = .collapsed
+        self.mode = .expanded
     }
 
     public func handleTapCircle(buttonSize: CGFloat, screenWidth: CGFloat) {
         autoHideTask?.cancel()
-        if mode == .hidden {
-            mode = .collapsed
-            startAutoHideTimer(buttonSize: buttonSize, screenWidth: screenWidth)
-        } else if mode == .collapsed {
+        if mode == .hidden || mode == .collapsed {
             mode = .expanded
         }
     }
@@ -42,7 +40,8 @@ public final class FloatingWidgetViewModel: ObservableObject {
         finalPosition: CGPoint,
         buttonSize: CGFloat,
         screenWidth: CGFloat,
-        screenHeight: CGFloat
+        screenHeight: CGFloat,
+        preserveMode: Bool = false
     ) {
         autoHideTask?.cancel()
         guard screenHeight > 0 else { return }
@@ -54,20 +53,25 @@ public final class FloatingWidgetViewModel: ObservableObject {
 
         self.verticalRatio = targetY / screenHeight
         self.edgeDirection = targetEdge
-        self.mode = .collapsed
+        if !preserveMode {
+            self.mode = .collapsed
+        }
 
         UserDefaults.standard.set(Double(self.verticalRatio), forKey: storedRatioKey)
         UserDefaults.standard.set(targetEdge == .left ? "left" : "right", forKey: storedEdgeKey)
 
-        startAutoHideTimer(buttonSize: buttonSize, screenWidth: screenWidth)
+        if mode == .collapsed {
+            startAutoHideTimer(buttonSize: buttonSize, screenWidth: screenWidth)
+        }
     }
 
     public func startAutoHideTimer(buttonSize: CGFloat, screenWidth: CGFloat) {
         autoHideTask?.cancel()
+        guard !isDragging else { return }
         autoHideTask = Task {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             guard !Task.isCancelled else { return }
-            guard mode == .collapsed else { return }
+            guard mode == .collapsed, !self.isDragging else { return }
 
             mode = .hidden
         }
@@ -75,9 +79,6 @@ public final class FloatingWidgetViewModel: ObservableObject {
 
     public func handleDragStart() {
         autoHideTask?.cancel()
-        if mode == .hidden {
-            mode = .collapsed
-        }
     }
 
     public func cancelTasks() {

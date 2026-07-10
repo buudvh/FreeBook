@@ -167,7 +167,7 @@ struct ReaderTextView: UIViewRepresentable {
             }
             
             let ttsAction = UIAction(
-                title: "🔊 Đọc từ đây"
+                title: "🎧 Nghe đoạn này"
             ) { [weak self] _ in
                 self?.parent.onSpeakFromHere(range.location)
             }

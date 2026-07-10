@@ -79,7 +79,8 @@ final class FloatingWidgetViewModelTests: XCTestCase {
         model.mode = .hidden
 
         model.handleDragStart()
-        XCTAssertEqual(model.mode, .collapsed)
+        // handleDragStart() no longer changes mode — mode stays .hidden
+        XCTAssertEqual(model.mode, .hidden)
 
         model.handleDragEnd(
             finalPosition: CGPoint(x: 80, y: 360),
@@ -88,10 +89,30 @@ final class FloatingWidgetViewModelTests: XCTestCase {
             screenHeight: screenHeight
         )
 
+        // handleDragEnd() sets mode to .collapsed
         XCTAssertEqual(model.mode, .collapsed)
         XCTAssertEqual(model.edgeDirection, .left)
         XCTAssertEqual(UserDefaults.standard.string(forKey: edgeKey), "left")
         XCTAssertEqual(UserDefaults.standard.double(forKey: ratioKey), Double(360 / screenHeight), accuracy: 0.0001)
+        model.cancelTasks()
+        resetStoredWidgetState()
+    }
+
+    func testAutoHideBlockedDuringDrag() {
+        resetStoredWidgetState()
+        let model = FloatingWidgetViewModel()
+        model.mode = .collapsed
+
+        // Simulate drag in progress
+        model.isDragging = true
+        model.startAutoHideTimer(buttonSize: buttonSize, screenWidth: screenWidth)
+
+        // Timer should not have been scheduled at all
+        // Mode should still be .collapsed immediately
+        XCTAssertEqual(model.mode, .collapsed)
+
+        // Clean up
+        model.isDragging = false
         model.cancelTasks()
         resetStoredWidgetState()
     }

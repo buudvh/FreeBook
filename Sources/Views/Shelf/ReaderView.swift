@@ -1790,7 +1790,7 @@ extension ReaderView {
                     .frame(maxWidth: .infinity)
                 }
                 
-                // Đọc nói TTS
+                // Nghe truyện TTS
                 Button(action: {
                     if ttsManager.isPlaying {
                         ttsManager.stop()
@@ -1802,7 +1802,7 @@ extension ReaderView {
                         Image(systemName: ttsManager.isPlaying ? "stop.circle.fill" : "headphones")
                             .font(.system(size: 20))
                             .foregroundColor(ttsManager.isPlaying ? .red : .white)
-                        Text("Đọc nói")
+                        Text("Nghe truyện")
                             .font(.system(size: 9))
                     }
                     .frame(maxWidth: .infinity)

@@ -2,10 +2,9 @@ import SwiftUI
 
 struct TTSFloatingWidgetView: View {
     @StateObject private var viewModel = FloatingWidgetViewModel()
-    @State private var dragStartPosition: CGPoint? = nil
-    @State private var dragTranslation: CGSize = .zero
-    @State private var isDragging = false
-    @ObservedObject var ttsManager = TTSManager.shared
+    @StateObject private var playState = TTSPlayStateReader()
+    @State private var visualPosition: CGPoint? = nil
+    @State private var dragOrigin: CGPoint? = nil
     @State private var showingTTSSettings = false
 
     static let widgetAnimation = Animation.spring(response: 0.35, dampingFraction: 0.75)
@@ -21,12 +20,23 @@ struct TTSFloatingWidgetView: View {
         GeometryReader { geometry in
             let screenWidth = geometry.size.width
             let screenHeight = geometry.size.height
-            let circlePosition = restingCirclePosition(screenWidth: screenWidth, screenHeight: screenHeight)
-            let panelPosition = expandedPanelPosition(screenWidth: screenWidth, screenHeight: screenHeight)
-            let renderPosition = activeCirclePosition(restingPosition: circlePosition)
+            let restingPosition = restingCirclePosition(screenWidth: screenWidth, screenHeight: screenHeight)
+            let restingPanelPos = expandedPanelPosition(screenWidth: screenWidth, screenHeight: screenHeight)
 
             ZStack {
                 if viewModel.mode == .expanded {
+                    // Compute panel render position: use the Y from visualPosition during drag
+                    let panelRenderPos: CGPoint = {
+                        if let vp = visualPosition {
+                            // During drag, keep panel centered on edge but follow Y
+                            let px = viewModel.edgeDirection == .left
+                                ? Layout.margin + Layout.expandedWidth / 2
+                                : screenWidth - Layout.margin - Layout.expandedWidth / 2
+                            return CGPoint(x: px, y: vp.y)
+                        }
+                        return restingPanelPos
+                    }()
+
                     Color.black.opacity(0.001)
                         .ignoresSafeArea()
                         .onTapGesture {
@@ -36,7 +46,7 @@ struct TTSFloatingWidgetView: View {
                         }
 
                     ExpandedControlPanel(
-                        isPlaying: ttsManager.isPlaying,
+                        isPlaying: playState.isPlaying,
                         onBackToReader: {
                             NotificationCenter.default.post(name: NSNotification.Name("openCurrentlyPlayingReader"), object: nil)
                             withAnimation(TTSFloatingWidgetView.widgetAnimation) {
@@ -45,60 +55,65 @@ struct TTSFloatingWidgetView: View {
                             viewModel.startAutoHideTimer(buttonSize: Layout.buttonSize, screenWidth: screenWidth)
                         },
                         onPlayPause: {
-                            if ttsManager.isPlaying {
-                                ttsManager.pause()
+                            let tts = TTSManager.shared
+                            if tts.isPlaying {
+                                tts.pause()
                             } else {
-                                ttsManager.resume()
+                                tts.resume()
                             }
                         },
                         onSkipForward: {
-                            ttsManager.skipForward()
+                            TTSManager.shared.skipForward()
                         },
                         onShowSettings: {
                             showingTTSSettings = true
                         },
                         onStop: {
-                            ttsManager.stop()
+                            TTSManager.shared.stop()
                             withAnimation(TTSFloatingWidgetView.widgetAnimation) {
                                 viewModel.mode = .collapsed
                             }
                         }
                     )
-                    .position(panelPosition)
+                    .position(panelRenderPos)
+                    .highPriorityGesture(
+                        dragGesture(
+                            restingPosition: restingPanelPos,
+                            screenWidth: screenWidth,
+                            screenHeight: screenHeight,
+                            preserveMode: true
+                        )
+                    )
                     .sheet(isPresented: $showingTTSSettings, onDismiss: {
-                        if ttsManager.isPlaying {
-                            ttsManager.restartCurrentParagraph()
+                        if TTSManager.shared.isPlaying {
+                            TTSManager.shared.restartCurrentParagraph()
                         }
                     }) {
                         TTSSettingsSheet()
                     }
                 } else {
+                    let renderPosition = visualPosition ?? restingPosition
+
                     CollapsedCircleView(
-                        isPlaying: ttsManager.isPlaying,
+                        isPlaying: playState.isPlaying,
                         isHiddenMode: viewModel.mode == .hidden
-                    ) {
+                    )
+                    .position(renderPosition)
+                    .highPriorityGesture(
+                        dragGesture(
+                            restingPosition: restingPosition,
+                            screenWidth: screenWidth,
+                            screenHeight: screenHeight,
+                            preserveMode: false
+                        )
+                    )
+                    .onTapGesture {
+                        guard !viewModel.isDragging else { return }
                         withAnimation(TTSFloatingWidgetView.widgetAnimation) {
                             viewModel.handleTapCircle(buttonSize: Layout.buttonSize, screenWidth: screenWidth)
                         }
                     }
-                    .gesture(
-                        dragGesture(
-                            currentPosition: circlePosition,
-                            screenWidth: screenWidth,
-                            screenHeight: screenHeight
-                        )
-                    )
-                    .position(renderPosition)
                 }
-            }
-            .transaction { transaction in
-                if isDragging {
-                    transaction.animation = nil
-                    transaction.disablesAnimations = true
-                }
-            }
-            .onAppear {
-                viewModel.startAutoHideTimer(buttonSize: Layout.buttonSize, screenWidth: screenWidth)
             }
         }
         .onDisappear {
@@ -129,54 +144,56 @@ struct TTSFloatingWidgetView: View {
         return CGPoint(x: x, y: viewModel.verticalRatio * screenHeight)
     }
 
-    private func activeCirclePosition(restingPosition: CGPoint) -> CGPoint {
-        guard let dragStartPosition else {
-            return restingPosition
-        }
-
-        return CGPoint(
-            x: dragStartPosition.x + dragTranslation.width,
-            y: dragStartPosition.y + dragTranslation.height
-        )
-    }
-
     private func dragGesture(
-        currentPosition: CGPoint,
+        restingPosition: CGPoint,
         screenWidth: CGFloat,
-        screenHeight: CGFloat
+        screenHeight: CGFloat,
+        preserveMode: Bool
     ) -> some Gesture {
-        DragGesture(minimumDistance: 3)
+        DragGesture(minimumDistance: 5)
             .onChanged { value in
-                if dragStartPosition == nil {
-                    dragStartPosition = currentPosition
+                if !viewModel.isDragging {
+                    // Capture the origin once at the start of the drag
+                    dragOrigin = visualPosition ?? restingPosition
+                    viewModel.isDragging = true
+                    viewModel.handleDragStart()
+                }
+
+                // Update visual position directly — no animation
+                if let origin = dragOrigin {
                     var transaction = Transaction()
                     transaction.disablesAnimations = true
                     withTransaction(transaction) {
-                        viewModel.handleDragStart()
+                        visualPosition = CGPoint(
+                            x: origin.x + value.translation.width,
+                            y: origin.y + value.translation.height
+                        )
                     }
                 }
-
-                isDragging = true
-                dragTranslation = value.translation
             }
             .onEnded { value in
-                let startPosition = dragStartPosition ?? currentPosition
+                let origin = dragOrigin ?? restingPosition
                 let finalPosition = CGPoint(
-                    x: startPosition.x + value.translation.width,
-                    y: startPosition.y + value.translation.height
+                    x: origin.x + value.translation.width,
+                    y: origin.y + value.translation.height
                 )
 
+                // Animate the snap to edge
                 withAnimation(TTSFloatingWidgetView.widgetAnimation) {
                     viewModel.handleDragEnd(
                         finalPosition: finalPosition,
                         buttonSize: Layout.buttonSize,
                         screenWidth: screenWidth,
-                        screenHeight: screenHeight
+                        screenHeight: screenHeight,
+                        preserveMode: preserveMode
                     )
-                    dragStartPosition = nil
-                    dragTranslation = .zero
-                    isDragging = false
+                    // Clear visualPosition so the view returns to resting position
+                    visualPosition = nil
                 }
+
+                // Reset drag state OUTSIDE the animation block to avoid ghost frames
+                viewModel.isDragging = false
+                dragOrigin = nil
             }
     }
 }
