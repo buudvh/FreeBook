@@ -268,6 +268,7 @@ struct BookDetailView: View {
                     await reloadBookData()
                 }
             }
+        }
             .navigationTitle("Chi Tiết Truyện")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

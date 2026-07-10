@@ -183,11 +183,17 @@ public final class ExtensionManager {
         let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
         if let data = try? Data(contentsOf: pluginJsonUrl),
            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let configSection = json["config"] as? [String: [String: Any]] {
+           let configSection = json["config"] as? [String: Any] {
             
-            for (key, configItem) in configSection {
-                if let defaultValue = configItem["default"] {
-                    combined[key] = defaultValue
+            for (key, val) in configSection {
+                if let configDict = val as? [String: Any] {
+                    // Nếu là dạng Object mô tả cấu hình có trường "default"
+                    if let defaultValue = configDict["default"] {
+                        combined[key] = defaultValue
+                    }
+                } else {
+                    // Nếu là dạng giá trị thô trực tiếp (ví dụ: "thread_num": 1 hoặc "delay": 3000)
+                    combined[key] = val
                 }
             }
         }
