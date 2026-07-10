@@ -328,6 +328,7 @@ struct BookDetailView: View {
                 .cornerRadius(12)
             }
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     private func loadBookData() {

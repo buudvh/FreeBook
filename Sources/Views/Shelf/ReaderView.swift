@@ -289,6 +289,7 @@ struct ReaderView: View {
                 loadChapterContent()
             }
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     // Nút chuyển chương

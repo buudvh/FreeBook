@@ -586,6 +586,9 @@ public final class TTSManager: NSObject, ObservableObject {
         player.stop()
         AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Gọi player.stop() xong.")
         
+        // Thiết lập lại kết nối giữa player và pitchNode để khớp chính xác format của buffer (tránh lỗi kênh và sample rate)
+        engine.connect(player, to: pitchNode, format: buffer.format)
+        
         AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Bắt đầu chạy Audio Engine nếu chưa chạy...")
         if !engine.isRunning {
             do {
