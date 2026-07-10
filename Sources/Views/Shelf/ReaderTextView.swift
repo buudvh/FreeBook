@@ -53,6 +53,12 @@ struct ReaderTextView: UIViewRepresentable {
         let ttsItem = UIMenuItem(title: "Đọc từ đây", action: #selector(ReaderUITextView.customSpeakAction))
         UIMenuController.shared.menuItems = [menuItem, ttsItem]
         
+        // Thêm cử chỉ chạm nhẹ (single tap) để toggle HUD
+        let tapGesture = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
+        tapGesture.cancelsTouchesInView = false
+        tapGesture.delegate = context.coordinator
+        textView.addGestureRecognizer(tapGesture)
+        
         return textView
     }
     
@@ -123,13 +129,26 @@ struct ReaderTextView: UIViewRepresentable {
         Coordinator(self)
     }
     
-    class Coordinator: NSObject, UITextViewDelegate {
+    class Coordinator: NSObject, UITextViewDelegate, UIGestureRecognizerDelegate {
         var parent: ReaderTextView
         weak var parentTextView: UITextView?
         var lastTriggeredId: UUID?
         
         init(_ parent: ReaderTextView) {
             self.parent = parent
+        }
+        
+        @objc func handleTap(_ gesture: UITapGestureRecognizer) {
+            guard let textView = gesture.view as? UITextView else { return }
+            // Nếu người dùng đang bôi đen chọn chữ, lần chạm đơn đầu tiên sẽ xóa vùng chọn chữ trước, tránh toggle HUD gây khó chịu
+            if textView.selectedRange.length > 0 {
+                return
+            }
+            NotificationCenter.default.post(name: NSNotification.Name("toggleReaderControls"), object: nil)
+        }
+        
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            return true
         }
         
         func textViewDidChangeSelection(_ textView: UITextView) {

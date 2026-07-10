@@ -4,9 +4,10 @@ import AVFoundation
 struct TTSFloatingWidgetView: View {
     @ObservedObject var ttsManager = TTSManager.shared
     
+    // Khởi tạo mặc định ở giữa chiều dọc, sát mép phải
     @State private var position: CGPoint = CGPoint(
-        x: UIScreen.main.bounds.width - 40,
-        y: UIScreen.main.bounds.height - 180
+        x: UIScreen.main.bounds.width - 55 / 2 - 10,
+        y: UIScreen.main.bounds.height / 2
     )
     @State private var isCollapsed = true
     @State private var isHiddenAtEdge = false
@@ -14,6 +15,10 @@ struct TTSFloatingWidgetView: View {
     @State private var showingTTSSettings = false
     @State private var autoHideWorkItem: DispatchWorkItem? = nil
     @State private var dragOffset: CGSize = .zero
+    
+    // Lưu trữ vị trí widget
+    @AppStorage("ttsWidgetPositionX") private var storedPositionX: Double = -1.0
+    @AppStorage("ttsWidgetPositionY") private var storedPositionY: Double = -1.0
     
     enum EdgeDirection {
         case left, right
@@ -100,9 +105,10 @@ struct TTSFloatingWidgetView: View {
                         DragGesture(minimumDistance: 3)
                             .onChanged { value in
                                 if isHiddenAtEdge {
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                                        isHiddenAtEdge = false
-                                    }
+                                    // Cập nhật vị trí X cơ sở về vị trí hiển thị hiện tại ở mép để tránh bị giật nhảy hình
+                                    let visualX = edgeDirection == .left ? -size / 2 + 15 : screenWidth + size / 2 - 15
+                                    position.x = visualX
+                                    isHiddenAtEdge = false
                                 }
                                 dragOffset = value.translation
                             }
@@ -132,11 +138,16 @@ struct TTSFloatingWidgetView: View {
                                     dragOffset = .zero
                                     isHiddenAtEdge = false
                                 }
+                                // Lưu vị trí mới vào AppStorage
+                                storedPositionX = Double(targetX)
+                                storedPositionY = Double(targetY)
                                 startAutoHideTimer()
                             }
                     )
-                    .offset(dragOffset)
-                    .position(x: currentX, y: currentY)
+                    .position(
+                        x: currentX + dragOffset.width,
+                        y: currentY + dragOffset.height
+                    )
                 } else {
                     // Thanh ngang mở rộng điều khiển
                     HStack(spacing: 0) {
@@ -152,7 +163,7 @@ struct TTSFloatingWidgetView: View {
                                 Image(systemName: "book.fill")
                                     .font(.system(size: 16))
                                 Text("Xem")
-                                    .font(.system(size: 8))
+                                        .font(.system(size: 8))
                             }
                             .foregroundColor(.blue)
                             .frame(width: 44, height: 44)
@@ -226,6 +237,13 @@ struct TTSFloatingWidgetView: View {
             }
         }
         .onAppear {
+            if storedPositionX > 0 && storedPositionY > 0 {
+                position = CGPoint(x: storedPositionX, y: storedPositionY)
+                edgeDirection = position.x < screenWidth / 2 ? .left : .right
+            } else {
+                storedPositionX = Double(position.x)
+                storedPositionY = Double(position.y)
+            }
             startAutoHideTimer()
         }
         .onDisappear {

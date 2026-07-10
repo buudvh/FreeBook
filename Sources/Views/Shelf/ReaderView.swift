@@ -79,6 +79,7 @@ struct ReaderView: View {
     @AppStorage("readerLineSpacing") private var lineSpacing: Double = 6.0
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
+    @AppStorage("hasOpenedReader") private var hasOpenedReader = false
     @State private var showingSettings = false
     
     // TTS Configurations & State
@@ -265,6 +266,12 @@ struct ReaderView: View {
             ttsManager.onChapterPrev = {
                 prevChapter()
             }
+            
+            // Tự động hiển thị thanh công cụ HUD trong lần đầu mở trình đọc
+            if !hasOpenedReader {
+                showControls = true
+                hasOpenedReader = true
+            }
         }
         .onDisappear {
             if ReaderView.activeBookId == bookId && ReaderView.activeChapterIndex == chapterIndex {
@@ -287,6 +294,11 @@ struct ReaderView: View {
                 chapterIndex = nextIdx
                 self.ttsShouldAutoPlayNextChapter = true
                 loadChapterContent()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleReaderControls"))) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showControls.toggle()
             }
         }
         .toolbar(.hidden, for: .tabBar)
