@@ -7,7 +7,7 @@ public final class AppLogger {
         get {
             // Mặc định là true nếu chưa cấu hình
             if UserDefaults.standard.object(forKey: "isLoggingEnabled") == nil {
-                return true
+                return false
             }
             return UserDefaults.standard.bool(forKey: "isLoggingEnabled")
         }

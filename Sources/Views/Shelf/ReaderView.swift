@@ -1307,14 +1307,27 @@ struct TTSSettingsSheet: View {
                                     }
                                 }
                                 
-                                NavigationLink(destination: TTSModelManagerView()) {
-                                    Text("Tải model và thư viện")
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 6)
+                                if hasNoModels {
+                                    NavigationLink(destination: TTSModelManagerView()) {
+                                        Text("Tải model")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 6)
+                                    }
+                                    .buttonStyle(.borderedProminent)
                                 }
-                                .buttonStyle(.borderedProminent)
+
+                                if missingDict {
+                                    NavigationLink(destination: TTSDictionaryEditView()) {
+                                        Text("Tải thư viện phiên âm")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 6)
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
                             }
                             .padding(.vertical, 4)
                         } else {
@@ -1327,12 +1340,11 @@ struct TTSSettingsSheet: View {
                             .pickerStyle(.menu)
                             
                             NavigationLink(destination: TTSModelManagerView()) {
-                                HStack {
-                                    Text("Quản lý model & thư viện")
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .foregroundColor(.secondary)
-                                }
+                                Label("Quản lý Model", systemImage: "waveform.and.mic")
+                            }
+
+                            NavigationLink(destination: TTSDictionaryEditView()) {
+                                Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
                             }
                         }
                     }
@@ -1626,18 +1638,6 @@ extension ReaderView {
                             .font(.system(size: 18))
                             .foregroundColor(.white)
                             .frame(width: 36, height: 44)
-                    }
-                    
-                    // Từ điển truyện
-                    if localBook != nil {
-                        Button(action: {
-                            showingBookDictionary = true
-                        }) {
-                            Image(systemName: "key.fill")
-                                .font(.system(size: 18))
-                                .foregroundColor(.white)
-                                .frame(width: 36, height: 44)
-                        }
                     }
                     
                     // Tìm kiếm

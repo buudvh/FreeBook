@@ -2,58 +2,30 @@ import SwiftUI
 
 struct TTSFloatingWidgetView: View {
     @StateObject private var viewModel = FloatingWidgetViewModel()
-    @GestureState private var dragTranslation: CGSize = .zero
-    @GestureState private var isDragging = false
-    @State private var snapOffset: CGSize = .zero
+    @State private var dragStartPosition: CGPoint? = nil
+    @State private var dragTranslation: CGSize = .zero
+    @State private var isDragging = false
     @ObservedObject var ttsManager = TTSManager.shared
     @State private var showingTTSSettings = false
-    
+
     static let widgetAnimation = Animation.spring(response: 0.35, dampingFraction: 0.75)
-    
+
     enum Layout {
         static let buttonSize: CGFloat = 55
         static let expandedWidth: CGFloat = 260
         static let margin: CGFloat = 10
         static let edgeOffset: CGFloat = 15
     }
-    
+
     var body: some View {
         GeometryReader { geometry in
             let screenWidth = geometry.size.width
             let screenHeight = geometry.size.height
-            
-            // Tính toán vị trí X tĩnh nghỉ
-            let currentX: CGFloat = {
-                if viewModel.mode == .hidden {
-                    return viewModel.edgeDirection == .left 
-                        ? -Layout.buttonSize / 2 + Layout.edgeOffset 
-                        : screenWidth + Layout.buttonSize / 2 - Layout.edgeOffset
-                } else {
-                    return viewModel.edgeDirection == .left 
-                        ? Layout.buttonSize / 2 + Layout.margin 
-                        : screenWidth - Layout.buttonSize / 2 - Layout.margin
-                }
-            }()
-            
-            let currentY = viewModel.verticalRatio * screenHeight
-            
-            // Vị trí render thực tế dựa trên dragTranslation và snapOffset
-            let renderPosition: CGPoint = {
-                if viewModel.mode == .expanded {
-                    let expandedX = viewModel.edgeDirection == .left 
-                        ? Layout.margin + Layout.expandedWidth / 2 
-                        : screenWidth - Layout.margin - Layout.expandedWidth / 2
-                    return CGPoint(x: expandedX, y: currentY)
-                } else {
-                    return CGPoint(
-                        x: currentX + dragTranslation.width + snapOffset.width,
-                        y: currentY + dragTranslation.height + snapOffset.height
-                    )
-                }
-            }()
-            
+            let circlePosition = restingCirclePosition(screenWidth: screenWidth, screenHeight: screenHeight)
+            let panelPosition = expandedPanelPosition(screenWidth: screenWidth, screenHeight: screenHeight)
+            let renderPosition = activeCirclePosition(restingPosition: circlePosition)
+
             ZStack {
-                // Vùng nhận diện tap ngoài để thu nhỏ lại khi đang mở rộng
                 if viewModel.mode == .expanded {
                     Color.black.opacity(0.001)
                         .ignoresSafeArea()
@@ -62,97 +34,67 @@ struct TTSFloatingWidgetView: View {
                                 viewModel.handleOutsideTap(buttonSize: Layout.buttonSize, screenWidth: screenWidth)
                             }
                         }
-                }
-                
-                // 1. Nút tròn thu gọn
-                CollapsedCircleView(
-                    isPlaying: ttsManager.isPlaying,
-                    isHiddenMode: viewModel.mode == .hidden
-                ) {
-                    withAnimation(TTSFloatingWidgetView.widgetAnimation) {
-                        viewModel.handleTapCircle(buttonSize: Layout.buttonSize, screenWidth: screenWidth)
-                    }
-                }
-                .gesture(
-                    DragGesture(minimumDistance: 3)
-                        .updating($dragTranslation) { value, state, _ in
-                            state = value.translation
-                        }
-                        .updating($isDragging) { _, state, _ in
-                            state = true
-                        }
-                        .onEnded { value in
-                            // Ghi nhận vị trí thả tay vào snapOffset để chặn cú giật hình khi dragTranslation tự động về .zero
-                            snapOffset = value.translation
-                            
+
+                    ExpandedControlPanel(
+                        isPlaying: ttsManager.isPlaying,
+                        onBackToReader: {
+                            NotificationCenter.default.post(name: NSNotification.Name("openCurrentlyPlayingReader"), object: nil)
                             withAnimation(TTSFloatingWidgetView.widgetAnimation) {
-                                viewModel.handleDragEnd(
-                                    translation: value.translation,
-                                    buttonSize: Layout.buttonSize,
-                                    screenWidth: screenWidth,
-                                    screenHeight: screenHeight
-                                )
-                                snapOffset = .zero
+                                viewModel.mode = .collapsed
+                            }
+                            viewModel.startAutoHideTimer(buttonSize: Layout.buttonSize, screenWidth: screenWidth)
+                        },
+                        onPlayPause: {
+                            if ttsManager.isPlaying {
+                                ttsManager.pause()
+                            } else {
+                                ttsManager.resume()
+                            }
+                        },
+                        onSkipForward: {
+                            ttsManager.skipForward()
+                        },
+                        onShowSettings: {
+                            showingTTSSettings = true
+                        },
+                        onStop: {
+                            ttsManager.stop()
+                            withAnimation(TTSFloatingWidgetView.widgetAnimation) {
+                                viewModel.mode = .collapsed
                             }
                         }
-                )
-                .position(renderPosition)
-                .opacity(viewModel.mode == .expanded ? 0.0 : 1.0)
-                .scaleEffect(viewModel.mode == .expanded ? 0.8 : 1.0)
-                .allowsHitTesting(viewModel.mode != .expanded)
-                
-                // 2. Thanh điều khiển mở rộng
-                ExpandedControlPanel(
-                    isPlaying: ttsManager.isPlaying,
-                    onBackToReader: {
-                        NotificationCenter.default.post(name: NSNotification.Name("openCurrentlyPlayingReader"), object: nil)
-                        withAnimation(TTSFloatingWidgetView.widgetAnimation) {
-                            viewModel.mode = .collapsed
-                        }
-                        viewModel.startAutoHideTimer(buttonSize: Layout.buttonSize, screenWidth: screenWidth)
-                    },
-                    onPlayPause: {
+                    )
+                    .position(panelPosition)
+                    .sheet(isPresented: $showingTTSSettings, onDismiss: {
                         if ttsManager.isPlaying {
-                            ttsManager.pause()
-                        } else {
-                            ttsManager.resume()
+                            ttsManager.restartCurrentParagraph()
                         }
-                    },
-                    onSkipForward: {
-                        ttsManager.skipForward()
-                    },
-                    onShowSettings: {
-                        showingTTSSettings = true
-                    },
-                    onStop: {
-                        ttsManager.stop()
+                    }) {
+                        TTSSettingsSheet()
+                    }
+                } else {
+                    CollapsedCircleView(
+                        isPlaying: ttsManager.isPlaying,
+                        isHiddenMode: viewModel.mode == .hidden
+                    ) {
                         withAnimation(TTSFloatingWidgetView.widgetAnimation) {
-                            viewModel.mode = .collapsed
+                            viewModel.handleTapCircle(buttonSize: Layout.buttonSize, screenWidth: screenWidth)
                         }
                     }
-                )
-                .position(renderPosition)
-                .opacity(viewModel.mode == .expanded ? 1.0 : 0.0)
-                .scaleEffect(viewModel.mode == .expanded ? 1.0 : 0.8)
-                .allowsHitTesting(viewModel.mode == .expanded)
-                .sheet(isPresented: $showingTTSSettings, onDismiss: {
-                    if ttsManager.isPlaying {
-                        ttsManager.restartCurrentParagraph()
-                    }
-                }) {
-                    TTSSettingsSheet()
+                    .gesture(
+                        dragGesture(
+                            currentPosition: circlePosition,
+                            screenWidth: screenWidth,
+                            screenHeight: screenHeight
+                        )
+                    )
+                    .position(renderPosition)
                 }
             }
-            .animation(.easeInOut(duration: 0.5), value: viewModel.mode)
             .transaction { transaction in
                 if isDragging {
                     transaction.animation = nil
                     transaction.disablesAnimations = true
-                }
-            }
-            .onChange(of: isDragging) { _, dragging in
-                if dragging {
-                    viewModel.handleDragStart()
                 }
             }
             .onAppear {
@@ -162,5 +104,79 @@ struct TTSFloatingWidgetView: View {
         .onDisappear {
             viewModel.cancelTasks()
         }
+    }
+
+    private func restingCirclePosition(screenWidth: CGFloat, screenHeight: CGFloat) -> CGPoint {
+        let x: CGFloat
+        if viewModel.mode == .hidden {
+            x = viewModel.edgeDirection == .left
+                ? -Layout.buttonSize / 2 + Layout.edgeOffset
+                : screenWidth + Layout.buttonSize / 2 - Layout.edgeOffset
+        } else {
+            x = viewModel.edgeDirection == .left
+                ? Layout.buttonSize / 2 + Layout.margin
+                : screenWidth - Layout.buttonSize / 2 - Layout.margin
+        }
+
+        return CGPoint(x: x, y: viewModel.verticalRatio * screenHeight)
+    }
+
+    private func expandedPanelPosition(screenWidth: CGFloat, screenHeight: CGFloat) -> CGPoint {
+        let x = viewModel.edgeDirection == .left
+            ? Layout.margin + Layout.expandedWidth / 2
+            : screenWidth - Layout.margin - Layout.expandedWidth / 2
+
+        return CGPoint(x: x, y: viewModel.verticalRatio * screenHeight)
+    }
+
+    private func activeCirclePosition(restingPosition: CGPoint) -> CGPoint {
+        guard let dragStartPosition else {
+            return restingPosition
+        }
+
+        return CGPoint(
+            x: dragStartPosition.x + dragTranslation.width,
+            y: dragStartPosition.y + dragTranslation.height
+        )
+    }
+
+    private func dragGesture(
+        currentPosition: CGPoint,
+        screenWidth: CGFloat,
+        screenHeight: CGFloat
+    ) -> some Gesture {
+        DragGesture(minimumDistance: 3)
+            .onChanged { value in
+                if dragStartPosition == nil {
+                    dragStartPosition = currentPosition
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
+                        viewModel.handleDragStart()
+                    }
+                }
+
+                isDragging = true
+                dragTranslation = value.translation
+            }
+            .onEnded { value in
+                let startPosition = dragStartPosition ?? currentPosition
+                let finalPosition = CGPoint(
+                    x: startPosition.x + value.translation.width,
+                    y: startPosition.y + value.translation.height
+                )
+
+                withAnimation(TTSFloatingWidgetView.widgetAnimation) {
+                    viewModel.handleDragEnd(
+                        finalPosition: finalPosition,
+                        buttonSize: Layout.buttonSize,
+                        screenWidth: screenWidth,
+                        screenHeight: screenHeight
+                    )
+                    dragStartPosition = nil
+                    dragTranslation = .zero
+                    isDragging = false
+                }
+            }
     }
 }

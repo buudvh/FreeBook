@@ -8,8 +8,6 @@ struct TTSModelManagerView: View {
     @State private var isShowingFileImporter = false
     @State private var downloadingStatus: [String: Double] = [:]
     @State private var downloadingMessages: [String: String] = [:]
-    @State private var isDownloadingDict = false
-    @State private var dictDownloadMessage = ""
     
     @State private var isImportingModel = false
     @State private var importModelMessage = "Đang nhập model..."
@@ -21,12 +19,6 @@ struct TTSModelManagerView: View {
     private func isModelDownloaded(_ voice: Voice) -> Bool {
         let _ = modelRefreshTrigger
         return (try? ModelStore().modelExists(for: voice.id)) ?? false
-    }
-    
-    private var hasNoDictionary: Bool {
-        let _ = modelRefreshTrigger
-        let path = (try? ModelStore())?.rootURL.appendingPathComponent("non-vietnamese-words.plist").path ?? ""
-        return !FileManager.default.fileExists(atPath: path)
     }
     
     private var topVoices: [Voice] {
@@ -63,56 +55,6 @@ struct TTSModelManagerView: View {
     var body: some View {
         ZStack {
             List {
-                Section("Thư viện phiên âm (Anh / Nhật)") {
-                    NavigationLink(destination: TTSDictionaryEditView()) {
-                        Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
-                    }
-                    
-                    if hasNoDictionary {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.orange)
-                                Text("Chưa tải thư viện phiên âm")
-                                    .fontWeight(.medium)
-                            }
-                            Text("Cần thiết để phiên âm chính xác các từ tiếng Anh và tiếng Nhật khi đọc truyện.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            if isDownloadingDict {
-                                ProgressView(dictDownloadMessage)
-                                    .font(.caption)
-                            } else {
-                                Button("Tải thư viện phiên âm") {
-                                    downloadDict()
-                                }
-                                .buttonStyle(.borderedProminent)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    } else {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Thư viện phiên âm")
-                                    .fontWeight(.medium)
-                                Text("Đã được tải và sẵn sàng sử dụng.")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                            if isDownloadingDict {
-                                ProgressView()
-                            } else {
-                                Button("Tải lại") {
-                                    downloadDict()
-                                }
-                                .buttonStyle(.bordered)
-                            }
-                        }
-                    }
-                }
-                
                 Section {
                     Button(action: {
                         isShowingFileImporter = true
@@ -198,7 +140,7 @@ struct TTSModelManagerView: View {
                     }
                 }
             }
-            .navigationTitle("Quản lý Model & Thư viện")
+            .navigationTitle("Quản lý Model")
             .background {
                 DocumentPickerPresenter(
                     isPresented: $isShowingFileImporter,
@@ -318,28 +260,6 @@ struct TTSModelManagerView: View {
         isLoadingVoices = true
         defer { isLoadingVoices = false }
         availableVoices = (try? await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false)) ?? NghiTTSClient.fallbackVietnameseVoices
-    }
-    
-    private func downloadDict() {
-        isDownloadingDict = true
-        dictDownloadMessage = "Đang tải thư viện..."
-        Task {
-            do {
-                try await ttsManager.nghiTTSClient?.downloadDictionaries()
-                await MainActor.run {
-                    isDownloadingDict = false
-                    dictDownloadMessage = ""
-                    modelRefreshTrigger += 1
-                    showToast("Đã tải thư viện phiên âm thành công", isError: false)
-                }
-            } catch {
-                await MainActor.run {
-                    isDownloadingDict = false
-                    dictDownloadMessage = "Lỗi: \(error.localizedDescription)"
-                    showToast("Lỗi tải thư viện: \(error.localizedDescription)", isError: true)
-                }
-            }
-        }
     }
     
     private func downloadSingleModel(voice: Voice) async {

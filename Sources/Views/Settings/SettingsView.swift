@@ -181,7 +181,7 @@ struct SettingsView: View {
                 
                 Section(header: Text("NghiTTS (Piper Offline)")) {
                     NavigationLink(destination: TTSModelManagerView()) {
-                        Label("Quản lý Model & Thư viện", systemImage: "waveform.and.mic")
+                        Label("Quản lý Model", systemImage: "waveform.and.mic")
                     }
                     NavigationLink(destination: TTSDictionaryEditView()) {
                         Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
