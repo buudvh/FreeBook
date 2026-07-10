@@ -24,23 +24,17 @@ public final class FloatingWidgetViewModel: ObservableObject {
     public func handleTapCircle(buttonSize: CGFloat, screenWidth: CGFloat) {
         autoHideTask?.cancel()
         if mode == .hidden {
-            withAnimation(TTSFloatingWidgetView.widgetAnimation) {
-                mode = .collapsed
-            }
+            mode = .collapsed
             startAutoHideTimer(buttonSize: buttonSize, screenWidth: screenWidth)
         } else if mode == .collapsed {
-            withAnimation(TTSFloatingWidgetView.widgetAnimation) {
-                mode = .expanded
-            }
+            mode = .expanded
         }
     }
     
     public func handleOutsideTap(buttonSize: CGFloat, screenWidth: CGFloat) {
         guard mode == .expanded else { return }
         autoHideTask?.cancel()
-        withAnimation(TTSFloatingWidgetView.widgetAnimation) {
-            mode = .collapsed
-        }
+        mode = .collapsed
         startAutoHideTimer(buttonSize: buttonSize, screenWidth: screenWidth)
     }
     
@@ -72,11 +66,9 @@ public final class FloatingWidgetViewModel: ObservableObject {
         let maxY: CGFloat = screenHeight - buttonSize / 2 - 120
         let targetY = min(max(finalY, minY), maxY)
         
-        withAnimation(TTSFloatingWidgetView.widgetAnimation) {
-            self.verticalRatio = targetY / screenHeight
-            self.edgeDirection = targetEdge
-            self.mode = .collapsed
-        }
+        self.verticalRatio = targetY / screenHeight
+        self.edgeDirection = targetEdge
+        self.mode = .collapsed
         
         // Lưu trữ trạng thái mới
         UserDefaults.standard.set(Double(self.verticalRatio), forKey: storedRatioKey)
@@ -92,9 +84,7 @@ public final class FloatingWidgetViewModel: ObservableObject {
             guard !Task.isCancelled else { return }
             guard mode == .collapsed else { return }
             
-            withAnimation(.easeInOut(duration: 0.5)) {
-                mode = .hidden
-            }
+            mode = .hidden
         }
     }
     

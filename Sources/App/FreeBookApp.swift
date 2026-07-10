@@ -31,12 +31,12 @@ struct AppLaunchRootView: View {
                         .transition(.opacity)
                 }
             }
+            .animation(.easeInOut(duration: 0.5), value: translationManager.isInitialized)
             
             if translationManager.isInitialized && ttsManager.showFloatingWidget {
                 TTSFloatingWidgetView()
                     .zIndex(999)
             }
         }
-        .animation(.easeInOut(duration: 0.5), value: translationManager.isInitialized)
     }
 }

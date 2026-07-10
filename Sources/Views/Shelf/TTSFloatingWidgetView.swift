@@ -3,6 +3,8 @@ import SwiftUI
 struct TTSFloatingWidgetView: View {
     @StateObject private var viewModel = FloatingWidgetViewModel()
     @GestureState private var dragTranslation: CGSize = .zero
+    @GestureState private var isDragging = false
+    @State private var snapOffset: CGSize = .zero
     @ObservedObject var ttsManager = TTSManager.shared
     @State private var showingTTSSettings = false
     
@@ -35,7 +37,7 @@ struct TTSFloatingWidgetView: View {
             
             let currentY = viewModel.verticalRatio * screenHeight
             
-            // Vị trí render thực tế dựa trên dragTranslation
+            // Vị trí render thực tế dựa trên dragTranslation và snapOffset
             let renderPosition: CGPoint = {
                 if viewModel.mode == .expanded {
                     let expandedX = viewModel.edgeDirection == .left 
@@ -44,8 +46,8 @@ struct TTSFloatingWidgetView: View {
                     return CGPoint(x: expandedX, y: currentY)
                 } else {
                     return CGPoint(
-                        x: currentX + dragTranslation.width,
-                        y: currentY + dragTranslation.height
+                        x: currentX + dragTranslation.width + snapOffset.width,
+                        y: currentY + dragTranslation.height + snapOffset.height
                     )
                 }
             }()
@@ -56,7 +58,9 @@ struct TTSFloatingWidgetView: View {
                     Color.black.opacity(0.001)
                         .ignoresSafeArea()
                         .onTapGesture {
-                            viewModel.handleOutsideTap(buttonSize: Layout.buttonSize, screenWidth: screenWidth)
+                            withAnimation(TTSFloatingWidgetView.widgetAnimation) {
+                                viewModel.handleOutsideTap(buttonSize: Layout.buttonSize, screenWidth: screenWidth)
+                            }
                         }
                 }
                 
@@ -65,23 +69,31 @@ struct TTSFloatingWidgetView: View {
                     isPlaying: ttsManager.isPlaying,
                     isHiddenMode: viewModel.mode == .hidden
                 ) {
-                    viewModel.handleTapCircle(buttonSize: Layout.buttonSize, screenWidth: screenWidth)
+                    withAnimation(TTSFloatingWidgetView.widgetAnimation) {
+                        viewModel.handleTapCircle(buttonSize: Layout.buttonSize, screenWidth: screenWidth)
+                    }
                 }
                 .gesture(
                     DragGesture(minimumDistance: 3)
                         .updating($dragTranslation) { value, state, _ in
                             state = value.translation
                         }
-                        .onChanged { _ in
-                            viewModel.handleDragStart()
+                        .updating($isDragging) { _, state, _ in
+                            state = true
                         }
                         .onEnded { value in
-                            viewModel.handleDragEnd(
-                                translation: value.translation,
-                                buttonSize: Layout.buttonSize,
-                                screenWidth: screenWidth,
-                                screenHeight: screenHeight
-                            )
+                            // Ghi nhận vị trí thả tay vào snapOffset để chặn cú giật hình khi dragTranslation tự động về .zero
+                            snapOffset = value.translation
+                            
+                            withAnimation(TTSFloatingWidgetView.widgetAnimation) {
+                                viewModel.handleDragEnd(
+                                    translation: value.translation,
+                                    buttonSize: Layout.buttonSize,
+                                    screenWidth: screenWidth,
+                                    screenHeight: screenHeight
+                                )
+                                snapOffset = .zero
+                            }
                         }
                 )
                 .position(renderPosition)
@@ -129,6 +141,18 @@ struct TTSFloatingWidgetView: View {
                     }
                 }) {
                     TTSSettingsSheet()
+                }
+            }
+            .animation(.easeInOut(duration: 0.5), value: viewModel.mode)
+            .transaction { transaction in
+                if isDragging {
+                    transaction.animation = nil
+                    transaction.disablesAnimations = true
+                }
+            }
+            .onChange(of: isDragging) { _, dragging in
+                if dragging {
+                    viewModel.handleDragStart()
                 }
             }
             .onAppear {
