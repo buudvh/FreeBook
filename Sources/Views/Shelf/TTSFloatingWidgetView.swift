@@ -28,12 +28,12 @@ struct TTSFloatingWidgetView: View {
         if isHiddenAtEdge {
             return edgeDirection == .left ? -size / 2 + 15 : screenWidth + size / 2 - 15
         } else {
-            return position.x + dragOffset.width
+            return position.x
         }
     }
     
     var currentY: CGFloat {
-        return position.y + dragOffset.height
+        return position.y
     }
     
     var expandedX: CGFloat {
@@ -135,6 +135,7 @@ struct TTSFloatingWidgetView: View {
                                 startAutoHideTimer()
                             }
                     )
+                    .offset(dragOffset)
                     .position(x: currentX, y: currentY)
                 } else {
                     // Thanh ngang mở rộng điều khiển

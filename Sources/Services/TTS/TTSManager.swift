@@ -485,13 +485,15 @@ public final class TTSManager: NSObject, ObservableObject {
         guard let service = nghiTTSService else { return }
         
         let task = Task { [weak self] in
-            guard let self = self else { return }
+            guard let self = self, let player = self.playerNode else { return }
+            let targetFormat = player.outputFormat(forBus: 0)
+            
             do {
                 AppLogger.shared.log("🔊 [TTSManager] Bắt đầu tải trước cho đoạn \(index)...")
                 let wavData = try await service.synthesize(text: text, voice: voice, speed: 1.0)
                 
                 if !Task.isCancelled && self.selectedVoice == voice && self.tool != "system" {
-                    if let buffer = self.makePCMBuffer(fromWavData: wavData) {
+                    if let buffer = self.makePCMBuffer(fromWavData: wavData, targetFormat: targetFormat) {
                         self.preloadedWavs[index] = buffer
                         AppLogger.shared.log("🔊 [TTSManager] Đã tải trước và lưu cache PCMBuffer thành công cho đoạn \(index).")
                     } else {
@@ -531,6 +533,9 @@ public final class TTSManager: NSObject, ObservableObject {
         Task {
             do {
                 let buffer: AVAudioPCMBuffer
+                guard let player = self.playerNode else { return }
+                let targetFormat = player.outputFormat(forBus: 0)
+                
                 if let activeTask = prefetchTasks[index] {
                     // Chờ task đang chạy hoàn thành
                     _ = await activeTask.value
@@ -539,14 +544,14 @@ public final class TTSManager: NSObject, ObservableObject {
                     } else {
                         // Nếu chờ task prefetch bị hủy hoặc lỗi, ta chạy tự tổng hợp lại
                         let wavData = try await service.synthesize(text: text, voice: selectedVoice, speed: 1.0)
-                        guard let b = self.makePCMBuffer(fromWavData: wavData) else {
+                        guard let b = self.makePCMBuffer(fromWavData: wavData, targetFormat: targetFormat) else {
                             throw NSError(domain: "TTSManager", code: -10, userInfo: [NSLocalizedDescriptionKey: "WAV conversion failed"])
                         }
                         buffer = b
                     }
                 } else {
                     let wavData = try await service.synthesize(text: text, voice: selectedVoice, speed: 1.0)
-                    guard let b = self.makePCMBuffer(fromWavData: wavData) else {
+                    guard let b = self.makePCMBuffer(fromWavData: wavData, targetFormat: targetFormat) else {
                         throw NSError(domain: "TTSManager", code: -10, userInfo: [NSLocalizedDescriptionKey: "WAV conversion failed"])
                     }
                     buffer = b
@@ -626,40 +631,75 @@ public final class TTSManager: NSObject, ObservableObject {
         AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Phát buffer hoàn tất thiết lập.")
     }
     
-    private func makePCMBuffer(fromWavData wavData: Data) -> AVAudioPCMBuffer? {
+    private func resample(_ samples: [Float], from sourceRate: Double, to targetRate: Double) -> [Float] {
+        guard sourceRate != targetRate else { return samples }
+        let ratio = targetRate / sourceRate
+        let targetLength = Int(Double(samples.count) * ratio)
+        var resampled = [Float](repeating: 0.0, count: targetLength)
+        
+        for i in 0..<targetLength {
+            let srcIndex = Double(i) / ratio
+            let indexFloor = Int(floor(srcIndex))
+            let indexCeil = min(indexFloor + 1, samples.count - 1)
+            let weight = srcIndex - Double(indexFloor)
+            
+            let sampleFloor = samples[indexFloor]
+            let sampleCeil = samples[indexCeil]
+            
+            resampled[i] = sampleFloor + Float(weight) * (sampleCeil - sampleFloor)
+        }
+        
+        return resampled
+    }
+    
+    private func makePCMBuffer(fromWavData wavData: Data, targetFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
         guard wavData.count >= 44 else { return nil }
         
-        let channels = Int(wavData[22]) | (Int(wavData[23]) << 8)
-        let sampleRate = Double(Int(wavData[24]) | (Int(wavData[25]) << 8) | (Int(wavData[26]) << 16) | (Int(wavData[27]) << 24))
+        let srcChannels = Int(wavData[22]) | (Int(wavData[23]) << 8)
+        let srcSampleRate = Double(Int(wavData[24]) | (Int(wavData[25]) << 8) | (Int(wavData[26]) << 16) | (Int(wavData[27]) << 24))
         let payloadSize = Int(wavData[40]) | (Int(wavData[41]) << 8) | (Int(wavData[42]) << 16) | (Int(wavData[43]) << 24)
         
         guard wavData.count >= 44 + payloadSize else { return nil }
         
-        guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: sampleRate, channels: AVAudioChannelCount(channels), interleaved: false) else {
-            return nil
+        let srcSampleCount = payloadSize / 2
+        var srcFloatSamples = [Float](repeating: 0.0, count: srcSampleCount)
+        
+        wavData.withUnsafeBytes { rawBuffer in
+            if let baseAddress = rawBuffer.baseAddress {
+                let srcPointer = baseAddress.advanced(by: 44).assumingMemoryBound(to: Int16.self)
+                for i in 0..<srcSampleCount {
+                    let intVal = srcPointer[i]
+                    srcFloatSamples[i] = Float(intVal) / (intVal < 0 ? 32768.0 : 32767.0)
+                }
+            }
         }
         
-        let sampleCount = payloadSize / 2
-        let frameCount = AVAudioFrameCount(sampleCount / channels)
-        
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
-            return nil
+        let targetSampleRate = targetFormat.sampleRate
+        let resampledFloatSamples: [Float]
+        if srcSampleRate != targetSampleRate {
+            resampledFloatSamples = resample(srcFloatSamples, from: srcSampleRate, to: targetSampleRate)
+        } else {
+            resampledFloatSamples = srcFloatSamples
         }
         
-        buffer.frameLength = frameCount
+        let targetFrameCount = AVAudioFrameCount(resampledFloatSamples.count / srcChannels)
         
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: targetFrameCount) else {
+            return nil
+        }
+        buffer.frameLength = targetFrameCount
+        
+        let targetChannels = Int(targetFormat.channelCount)
         if let floatChannelData = buffer.floatChannelData {
-            wavData.withUnsafeBytes { rawBuffer in
-                if let baseAddress = rawBuffer.baseAddress {
-                    let srcPointer = baseAddress.advanced(by: 44).assumingMemoryBound(to: Int16.self)
-                    
-                    for channel in 0..<channels {
-                        let destPointer = floatChannelData[channel]
-                        for frame in 0..<Int(frameCount) {
-                            let sampleIndex = frame * channels + channel
-                            let intVal = srcPointer[sampleIndex]
-                            destPointer[frame] = Float(intVal) / (intVal < 0 ? 32768.0 : 32767.0)
-                        }
+            for channel in 0..<targetChannels {
+                let destPointer = floatChannelData[channel]
+                for frame in 0..<Int(targetFrameCount) {
+                    let srcChannel = min(channel, srcChannels - 1)
+                    let srcIndex = frame * srcChannels + srcChannel
+                    if srcIndex < resampledFloatSamples.count {
+                        destPointer[frame] = resampledFloatSamples[srcIndex]
+                    } else {
+                        destPointer[frame] = 0.0
                     }
                 }
             }
