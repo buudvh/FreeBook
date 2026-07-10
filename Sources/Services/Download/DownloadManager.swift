@@ -272,8 +272,9 @@ public final class DownloadManager: ObservableObject {
                 }
                 
                 processedCount += 1
+                let currentProgress = processedCount
                 await MainActor.run {
-                    self.updateProgress(taskId: taskId, progress: processedCount, total: total)
+                    self.updateProgress(taskId: taskId, progress: currentProgress, total: total)
                 }
             }
             

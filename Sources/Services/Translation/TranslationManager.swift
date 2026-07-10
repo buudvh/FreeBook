@@ -95,7 +95,7 @@ public final class TranslationManager: ObservableObject {
         let fileUrl = translateDirectory.appendingPathComponent(fileName)
         let list = isName ? deletedNames : deletedVietPhrase
         let content = list.joined(separator: "\n")
-        try? content.write(to: fileUrl, encoding: .utf8)
+        try? content.write(to: fileUrl, atomically: true, encoding: .utf8)
     }
 
     public func saveCustomEntry(word: String, meaning: String, isName: Bool, bookId: String?) async throws {

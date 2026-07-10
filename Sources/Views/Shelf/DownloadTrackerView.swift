@@ -137,7 +137,6 @@ struct DownloadTrackerView: View {
         }
     }
     
-    @ViewBuilder
     private func statusBadge(_ status: TaskStatus) -> some View {
         let color: Color
         switch status {
@@ -148,7 +147,7 @@ struct DownloadTrackerView: View {
         case .cancelled: color = .orange
         }
         
-        Text(status.rawValue)
+        return Text(status.rawValue)
             .font(.caption2)
             .fontWeight(.medium)
             .foregroundColor(color)
