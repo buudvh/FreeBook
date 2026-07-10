@@ -31,6 +31,7 @@ struct ReaderView: View {
     public static var activeChapterIndex: Int = -1
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @Query private var allBooks: [Book]
     @Query private var allExtensions: [Extension]
     

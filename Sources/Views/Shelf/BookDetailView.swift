@@ -23,6 +23,13 @@ struct BookDetailView: View {
     @State private var onlineChapters: [ChapterResult] = []
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     
+    // Phân trang danh sách chương
+    @State private var tocPages: [String] = []
+    @State private var remainingPagesLoaded = false
+    @State private var isLoadingRemainingPages = false
+    @State private var navigateToReader = false
+    @State private var targetChapterIndex = 0
+    
     // Tìm sách local trong database
     private var localBook: Book? {
         allBooks.first(where: { $0.bookId == bookId })
@@ -56,7 +63,8 @@ struct BookDetailView: View {
     }
     
     var body: some View {
-        VStack {
+        ZStack {
+            VStack {
             if isLoading {
                 ProgressView("Đang tải chi tiết truyện...")
                     .frame(maxHeight: .infinity)
@@ -80,16 +88,9 @@ struct BookDetailView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         // Phần Header truyện
                         HStack(alignment: .top, spacing: 16) {
-                            AsyncImage(url: URL(string: coverUrl)) { image in
-                                image.resizable()
-                                    .aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Color.gray.opacity(0.3)
-                                    .overlay(Image(systemName: "book"))
-                            }
-                            .frame(width: 100, height: 140)
-                            .cornerRadius(8)
-                            .shadow(radius: 2)
+                            BookCoverView(bookId: bookId, coverUrl: coverUrl, width: 100, height: 140)
+                                .cornerRadius(8)
+                                .shadow(radius: 2)
                             
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(translateMetaIfNeeded(title))
@@ -147,18 +148,10 @@ struct BookDetailView: View {
                                     let totalChaps = localBook?.chapters.count ?? onlineChapters.count
                                     
                                     if totalChaps > 0 {
-                                        NavigationLink(destination: ReaderView(
-                                            bookId: bookId,
-                                            extensionPackageId: extensionPackageId,
-                                            chapterIndex: activeChapterIndex,
-                                            onlineChapters: localBook == nil ? onlineChapters : [],
-                                            bookTitle: title,
-                                            bookAuthor: author,
-                                            bookCoverUrl: coverUrl,
-                                            bookDesc: desc.isEmpty ? nil : desc,
-                                            bookDetailUrl: initialDetailUrl,
-                                            bookSourceName: sourceName
-                                        )) {
+                                        Button(action: {
+                                            targetChapterIndex = activeChapterIndex
+                                            startReading()
+                                        }) {
                                             Text(localBook == nil ? "Đọc ngay" : "Đọc tiếp")
                                                 .font(.caption)
                                                 .fontWeight(.bold)
@@ -205,18 +198,10 @@ struct BookDetailView: View {
                                         // Hiển thị chương từ database
                                         let sortedChaps = book.chapters.sorted(by: { $0.index < $1.index })
                                         ForEach(sortedChaps) { chap in
-                                            NavigationLink(destination: ReaderView(
-                                                bookId: bookId,
-                                                extensionPackageId: extensionPackageId,
-                                                chapterIndex: chap.index,
-                                                onlineChapters: [],
-                                                bookTitle: nil,
-                                                bookAuthor: nil,
-                                                bookCoverUrl: nil,
-                                                bookDesc: nil,
-                                                bookDetailUrl: nil,
-                                                bookSourceName: nil
-                                            )) {
+                                            Button(action: {
+                                                targetChapterIndex = chap.index
+                                                startReading()
+                                            }) {
                                                 HStack {
                                                     Text(translateTitleIfNeeded(chap.title))
                                                         .foregroundColor(book.currentChapterIndex == chap.index ? .accentColor : .primary)
@@ -238,18 +223,10 @@ struct BookDetailView: View {
                                     } else {
                                         // Hiển thị chương online
                                         ForEach(Array(onlineChapters.enumerated()), id: \.offset) { index, chap in
-                                            NavigationLink(destination: ReaderView(
-                                                bookId: bookId,
-                                                extensionPackageId: extensionPackageId,
-                                                chapterIndex: index,
-                                                onlineChapters: onlineChapters,
-                                                bookTitle: title,
-                                                bookAuthor: author,
-                                                bookCoverUrl: coverUrl,
-                                                bookDesc: desc.isEmpty ? nil : desc,
-                                                bookDetailUrl: initialDetailUrl,
-                                                bookSourceName: sourceName
-                                            )) {
+                                            Button(action: {
+                                                targetChapterIndex = index
+                                                startReading()
+                                            }) {
                                                 VStack(alignment: .leading) {
                                                     Text(translateTitleIfNeeded(chap.name))
                                                         .font(.subheadline)
@@ -263,6 +240,24 @@ struct BookDetailView: View {
                                             .buttonStyle(.plain)
                                         }
                                     }
+                                    
+                                    // Nút tải thêm chương phân trang
+                                    if tocPages.count > 1 && !remainingPagesLoaded {
+                                        Button(action: loadMoreChapters) {
+                                            HStack {
+                                                Spacer()
+                                                Text("Tải thêm chương (còn \(tocPages.count - 1) trang)")
+                                                    .fontWeight(.semibold)
+                                                Spacer()
+                                            }
+                                            .padding()
+                                            .background(Color.blue.opacity(0.1))
+                                            .foregroundColor(.blue)
+                                            .cornerRadius(8)
+                                            .padding(.horizontal)
+                                            .padding(.top, 10)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -273,26 +268,64 @@ struct BookDetailView: View {
                     await reloadBookData()
                 }
             }
-        }
-        .navigationTitle("Chi Tiết Truyện")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItemGroup(placement: .navigationBarTrailing) {
-                Button(action: {
-                    isTranslationEnabled.toggle()
-                }) {
-                    Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
-                }
-                
-                if localBook != nil {
-                    NavigationLink(destination: BookDictionaryView(bookId: bookId)) {
-                        Image(systemName: "character.book.closed")
+            .navigationTitle("Chi Tiết Truyện")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        isTranslationEnabled.toggle()
+                    }) {
+                        Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
+                    }
+                    
+                    if localBook != nil {
+                        NavigationLink(destination: BookDictionaryView(bookId: bookId)) {
+                            Image(systemName: "character.book.closed")
+                        }
                     }
                 }
             }
-        }
-        .onAppear {
-            loadBookData()
+            .onAppear {
+                loadBookData()
+            }
+            
+            // Hidden navigation link for programmatic reader routing
+            NavigationLink(
+                destination: ReaderView(
+                    bookId: bookId,
+                    extensionPackageId: extensionPackageId,
+                    chapterIndex: targetChapterIndex,
+                    onlineChapters: localBook == nil ? onlineChapters : [],
+                    bookTitle: title,
+                    bookAuthor: author,
+                    bookCoverUrl: coverUrl,
+                    bookDesc: desc.isEmpty ? nil : desc,
+                    bookDetailUrl: initialDetailUrl,
+                    bookSourceName: sourceName
+                ),
+                isActive: $navigateToReader
+            ) {
+                EmptyView()
+            }
+            
+            // Loading remaining pages overlay
+            if isLoadingRemainingPages {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(1.3)
+                    Text("Đang tải danh sách chương...")
+                        .foregroundColor(.white)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+                .padding(20)
+                .background(Color.black.opacity(0.75))
+                .cornerRadius(12)
+            }
         }
     }
     
@@ -304,6 +337,7 @@ struct BookDetailView: View {
             self.coverUrl = book.coverUrl
             self.desc = book.desc
             if !book.chapters.isEmpty {
+                self.remainingPagesLoaded = true
                 self.isLoading = false
                 return
             }
@@ -311,13 +345,13 @@ struct BookDetailView: View {
         
         guard let ext = ext else {
             errorMessage = "Không tìm thấy tiện ích bóc tách của truyện này!"
-            isLoading = false
+            self.isLoading = false
             return
         }
         
         guard !ext.localPath.isEmpty else {
             errorMessage = "Vui lòng cài đặt tiện ích '\(ext.name)' trong phần Tiện Ích trước khi bóc tách nguồn này!"
-            isLoading = false
+            self.isLoading = false
             return
         }
         
@@ -329,8 +363,21 @@ struct BookDetailView: View {
                 let path = ext.localPath
                 // Chạy chi tiết truyện
                 let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
-                // Chạy mục lục chương
-                let tocResult = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
+                
+                // Chạy mục lục chương (có hỗ trợ phân trang)
+                var firstPageChapters: [ChapterResult] = []
+                var pages: [String] = []
+                
+                if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
+                    pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
+                    if !pages.isEmpty {
+                        firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages[0], configJson: ext.configJson)
+                    } else {
+                        firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
+                    }
+                } else {
+                    firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
+                }
                 
                 await MainActor.run {
                     self.title = detailResult.name
@@ -338,7 +385,8 @@ struct BookDetailView: View {
                     self.coverUrl = detailResult.cover
                     self.desc = detailResult.description.cleanHTML()
                     self.detail = detailResult.detail
-                    self.onlineChapters = tocResult
+                    self.onlineChapters = firstPageChapters
+                    self.tocPages = pages
                     
                     // Nếu sách đã ở local nhưng rỗng chương (hoặc cần update), cập nhật lại
                     if let book = localBook {
@@ -349,7 +397,7 @@ struct BookDetailView: View {
                         book.desc = savedDesc
                         
                         // Cập nhật chương
-                        updateLocalChapters(for: book, with: tocResult)
+                        updateLocalChapters(for: book, with: firstPageChapters)
                     }
                     
                     self.isLoading = false
@@ -365,26 +413,171 @@ struct BookDetailView: View {
     
     private func addToShelf() {
         let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
+        
         if let book = localBook {
             book.isOnShelf = true
             try? modelContext.save()
+            
+            // Tải toàn bộ chương nếu chưa được nạp đầy đủ
+            if tocPages.count > 1 && !remainingPagesLoaded {
+                isLoadingRemainingPages = true
+                Task {
+                    do {
+                        let remainingChaps = try await loadAllRemainingPages()
+                        await MainActor.run {
+                            self.onlineChapters.append(contentsOf: remainingChaps)
+                            let startIdx = book.chapters.count
+                            for (index, item) in remainingChaps.enumerated() {
+                                let chapId = "\(bookId)_\(item.url)"
+                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx + index)
+                                newChap.book = book
+                                modelContext.insert(newChap)
+                            }
+                            try? modelContext.save()
+                            self.remainingPagesLoaded = true
+                            self.isLoadingRemainingPages = false
+                        }
+                    } catch {
+                        await MainActor.run {
+                            self.errorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
+                            self.isLoadingRemainingPages = false
+                        }
+                    }
+                }
+            }
         } else {
-            let newBook = Book(
-                bookId: bookId,
-                title: title,
-                author: author,
-                coverUrl: coverUrl,
-                desc: savedDesc,
-                detailUrl: initialDetailUrl,
-                sourceName: sourceName,
-                sourceUrl: ext?.sourceUrl ?? "",
-                extensionPackageId: extensionPackageId,
-                isOnShelf: true,
-                isHistory: false
+            if tocPages.count > 1 && !remainingPagesLoaded {
+                isLoadingRemainingPages = true
+                Task {
+                    do {
+                        let remainingChaps = try await loadAllRemainingPages()
+                        await MainActor.run {
+                            self.onlineChapters.append(contentsOf: remainingChaps)
+                            createBookOnShelf(savedDesc: savedDesc)
+                            self.remainingPagesLoaded = true
+                            self.isLoadingRemainingPages = false
+                        }
+                    } catch {
+                        await MainActor.run {
+                            self.errorMessage = "Lỗi tải thêm chương khi lưu kệ: \(error.localizedDescription)"
+                            self.isLoadingRemainingPages = false
+                            createBookOnShelf(savedDesc: savedDesc)
+                        }
+                    }
+                }
+            } else {
+                createBookOnShelf(savedDesc: savedDesc)
+            }
+        }
+    }
+    
+    private func createBookOnShelf(savedDesc: String) {
+        let newBook = Book(
+            bookId: bookId,
+            title: title,
+            author: author,
+            coverUrl: coverUrl,
+            desc: savedDesc,
+            detailUrl: initialDetailUrl,
+            sourceName: sourceName,
+            sourceUrl: ext?.sourceUrl ?? "",
+            extensionPackageId: extensionPackageId,
+            currentChapterIndex: 0,
+            currentChapterTitle: onlineChapters.first?.name ?? "",
+            isOnShelf: true,
+            isHistory: false
+        )
+        modelContext.insert(newBook)
+        updateLocalChapters(for: newBook, with: onlineChapters)
+        try? modelContext.save()
+    }
+    
+    private func loadAllRemainingPages() async throws -> [ChapterResult] {
+        guard let ext = ext else { return [] }
+        var allChapters: [ChapterResult] = []
+        let remainingPages = Array(tocPages.dropFirst())
+        for pageUrl in remainingPages {
+            let pageChaps = try await ExtensionManager.shared.toc(
+                localPath: ext.localPath,
+                downloadUrl: ext.downloadUrl,
+                url: pageUrl,
+                configJson: ext.configJson
             )
-            modelContext.insert(newBook)
-            updateLocalChapters(for: newBook, with: onlineChapters)
-            try? modelContext.save()
+            allChapters.append(contentsOf: pageChaps)
+        }
+        return allChapters
+    }
+    
+    private func loadMoreChapters() {
+        guard !isLoadingRemainingPages else { return }
+        isLoadingRemainingPages = true
+        errorMessage = ""
+        
+        Task {
+            do {
+                let remainingChaps = try await loadAllRemainingPages()
+                await MainActor.run {
+                    self.onlineChapters.append(contentsOf: remainingChaps)
+                    
+                    if let book = localBook {
+                        let startIdx = book.chapters.count
+                        for (index, item) in remainingChaps.enumerated() {
+                            let chapId = "\(bookId)_\(item.url)"
+                            let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx + index)
+                            newChap.book = book
+                            modelContext.insert(newChap)
+                        }
+                        try? modelContext.save()
+                    }
+                    
+                    self.remainingPagesLoaded = true
+                    self.isLoadingRemainingPages = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.errorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
+                    self.isLoadingRemainingPages = false
+                }
+            }
+        }
+    }
+    
+    private func startReading() {
+        if tocPages.count > 1 && !remainingPagesLoaded {
+            isLoadingRemainingPages = true
+            errorMessage = ""
+            
+            Task {
+                do {
+                    let remainingChaps = try await loadAllRemainingPages()
+                    await MainActor.run {
+                        self.onlineChapters.append(contentsOf: remainingChaps)
+                        
+                        if let book = localBook {
+                            let startIdx = book.chapters.count
+                            for (index, item) in remainingChaps.enumerated() {
+                                let chapId = "\(bookId)_\(item.url)"
+                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx + index)
+                                newChap.book = book
+                                modelContext.insert(newChap)
+                            }
+                            try? modelContext.save()
+                        }
+                        
+                        self.remainingPagesLoaded = true
+                        self.isLoadingRemainingPages = false
+                        self.navigateToReader = true
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.errorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
+                        self.isLoadingRemainingPages = false
+                        self.navigateToReader = true
+                    }
+                }
+            }
+        } else {
+            self.navigateToReader = true
         }
     }
     
@@ -418,7 +611,25 @@ struct BookDetailView: View {
         do {
             let path = ext.localPath
             let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
-            let tocResult = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
+            
+            var allChapters: [ChapterResult] = []
+            if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
+                let pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
+                await MainActor.run {
+                    self.tocPages = pages
+                }
+                
+                for pageUrl in pages {
+                    let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, configJson: ext.configJson)
+                    allChapters.append(contentsOf: pageChaps)
+                }
+                await MainActor.run {
+                    self.remainingPagesLoaded = true
+                }
+            } else {
+                let tocResult = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
+                allChapters = tocResult
+            }
             
             await MainActor.run {
                 self.title = detailResult.name
@@ -426,7 +637,7 @@ struct BookDetailView: View {
                 self.coverUrl = detailResult.cover
                 self.desc = detailResult.description.cleanHTML()
                 self.detail = detailResult.detail
-                self.onlineChapters = tocResult
+                self.onlineChapters = allChapters
                 
                 if let book = localBook {
                     book.title = detailResult.name
@@ -435,7 +646,7 @@ struct BookDetailView: View {
                     let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(self.cleanDetailText(detailResult.detail))"
                     book.desc = savedDesc
                     
-                    updateLocalChapters(for: book, with: tocResult)
+                    updateLocalChapters(for: book, with: allChapters)
                     try? modelContext.save()
                 }
             }

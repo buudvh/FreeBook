@@ -613,6 +613,46 @@ public final class ExtensionManager {
         }
     }
     
+    public func hasScript(localPath: String, scriptKey: String) -> Bool {
+        let extUrl = URL(fileURLWithPath: localPath)
+        let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
+        guard let data = try? Data(contentsOf: pluginJsonUrl),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let script = json["script"] as? [String: String] else {
+            return false
+        }
+        return script[scriptKey] != nil
+    }
+    
+    public func page(localPath: String, downloadUrl: String = "", url: String, configJson: String = "{}") async throws -> [String] {
+        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "page")
+        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+        
+        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
+        let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
+        executor.injectGlobals(configs)
+        
+        do {
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
+            let stringified = stringify(jsValue)
+            
+            var results: [String] = []
+            if jsValue.isArray {
+                if let array = jsValue.toArray() as? [String] {
+                    results = array
+                }
+            } else if let str = jsValue.toString() {
+                results = [str]
+            }
+            
+            updateDiagnostics(action: "page", input: url, status: "Success", details: "Parsed \(results.count) pages:\n\(stringified)")
+            return results
+        } catch {
+            updateDiagnostics(action: "page", input: url, status: "Error", details: error.localizedDescription)
+            throw error
+        }
+    }
+    
     private func stringify(_ jsValue: JSValue) -> String {
         if let jsonModule = jsValue.context.objectForKeyedSubscript("JSON"),
            let stringifyFunc = jsonModule.objectForKeyedSubscript("stringify"),

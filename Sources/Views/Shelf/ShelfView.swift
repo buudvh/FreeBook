@@ -267,21 +267,8 @@ struct ShelfView: View {
     @ViewBuilder
     private func bookItemView(_ book: Book) -> some View {
         HStack(spacing: 12) {
-            if !book.coverUrl.isEmpty, let url = URL(string: book.coverUrl) {
-                AsyncImage(url: url) { image in
-                    image.resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Color.gray.opacity(0.2)
-                }
-                .frame(width: 50, height: 70)
+            BookCoverView(bookId: book.bookId, coverUrl: book.coverUrl, width: 50, height: 70)
                 .cornerRadius(4)
-                .clipped()
-            } else {
-                Color.gray.opacity(0.2)
-                    .frame(width: 50, height: 70)
-                    .cornerRadius(4)
-            }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(translateIfNeeded(book.title))

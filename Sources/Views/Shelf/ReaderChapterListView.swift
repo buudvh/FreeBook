@@ -203,12 +203,32 @@ struct ReaderChapterListView: View {
         
         Task {
             do {
-                let tocResult = try await ExtensionManager.shared.toc(
-                    localPath: ext.localPath,
-                    downloadUrl: ext.downloadUrl,
-                    url: url,
-                    configJson: ext.configJson
-                )
+                var allChapters: [ChapterResult] = []
+                if ExtensionManager.shared.hasScript(localPath: ext.localPath, scriptKey: "page") {
+                    let pages = try await ExtensionManager.shared.page(
+                        localPath: ext.localPath,
+                        downloadUrl: ext.downloadUrl,
+                        url: url,
+                        configJson: ext.configJson
+                    )
+                    for pageUrl in pages {
+                        let pageChaps = try await ExtensionManager.shared.toc(
+                            localPath: ext.localPath,
+                            downloadUrl: ext.downloadUrl,
+                            url: pageUrl,
+                            configJson: ext.configJson
+                        )
+                        allChapters.append(contentsOf: pageChaps)
+                    }
+                } else {
+                    let tocResult = try await ExtensionManager.shared.toc(
+                        localPath: ext.localPath,
+                        downloadUrl: ext.downloadUrl,
+                        url: url,
+                        configJson: ext.configJson
+                    )
+                    allChapters = tocResult
+                }
                 
                 await MainActor.run {
                     if let book = localBook {
@@ -217,7 +237,7 @@ struct ReaderChapterListView: View {
                         let existingMap = Dictionary(uniqueKeysWithValues: existingChaps.map { ($0.url, $0) })
                         
                         var newChapters: [Chapter] = []
-                        for (index, item) in tocResult.enumerated() {
+                        for (index, item) in allChapters.enumerated() {
                             if let existing = existingMap[item.url] {
                                 existing.title = item.name
                                 existing.index = index
@@ -234,7 +254,7 @@ struct ReaderChapterListView: View {
                         try? modelContext.save()
                     } else {
                         // Cập nhật onlineChapters binding
-                        self.onlineChapters = tocResult
+                        self.onlineChapters = allChapters
                     }
                     
                     // Nạp lại danh sách chương
