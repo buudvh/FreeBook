@@ -60,8 +60,31 @@ struct TTSFloatingWidgetView: View {
             
             Group {
                 if isCollapsed {
-                    // Nút tròn thu gọn
-                    Button(action: {
+                    // Nút tròn thu gọn (Sử dụng ZStack thay cho Button để tránh xung đột cử chỉ kéo thả)
+                    ZStack {
+                        Circle()
+                            .fill(Color.black.opacity(0.6))
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white.opacity(0.6), lineWidth: 2)
+                            )
+                            .shadow(color: Color.black.opacity(0.3), radius: 8, x: 0, y: 3)
+                        
+                        if ttsManager.isPlaying {
+                            Image(systemName: "waveform")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.white)
+                        } else {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.white)
+                                .offset(x: 1.5)
+                        }
+                    }
+                    .frame(width: size, height: size)
+                    .contentShape(Circle())
+                    .opacity(isHiddenAtEdge ? 0.4 : 1.0)
+                    .onTapGesture {
                         if isHiddenAtEdge {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                                 isHiddenAtEdge = false
@@ -72,33 +95,9 @@ struct TTSFloatingWidgetView: View {
                                 isCollapsed = false
                             }
                         }
-                    }) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.black.opacity(0.6))
-                                .overlay(
-                                    Circle()
-                                        .stroke(Color.white.opacity(0.6), lineWidth: 2)
-                                )
-                                .shadow(color: Color.black.opacity(0.3), radius: 8, x: 0, y: 3)
-                            
-                            if ttsManager.isPlaying {
-                                Image(systemName: "waveform")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(.white)
-                            } else {
-                                Image(systemName: "play.fill")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.white)
-                                    .offset(x: 1.5)
-                            }
-                        }
-                        .frame(width: size, height: size)
                     }
-                    .opacity(isHiddenAtEdge ? 0.4 : 1.0)
-                    .position(x: currentX, y: currentY)
                     .gesture(
-                        DragGesture()
+                        DragGesture(minimumDistance: 3)
                             .onChanged { value in
                                 if isHiddenAtEdge {
                                     withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
@@ -136,6 +135,7 @@ struct TTSFloatingWidgetView: View {
                                 startAutoHideTimer()
                             }
                     )
+                    .position(x: currentX, y: currentY)
                 } else {
                     // Thanh ngang mở rộng điều khiển
                     HStack(spacing: 0) {

@@ -90,6 +90,13 @@ struct ReaderView: View {
     @State private var editingParagraphIndex: Int? = nil
     @State private var scrollTargetParagraphIndex: Int? = nil
     
+    // State variables for overlay HUD controls
+    @State private var showControls = false
+    @State private var showingChapterList = false
+    @State private var showingBookDictionary = false
+    @State private var sliderValue: Double = 0.0
+    @State private var currentOnlineChapters: [ChapterResult] = []
+    
     private var localBook: Book? {
         allBooks.first(where: { $0.bookId == bookId })
     }
@@ -116,7 +123,7 @@ struct ReaderView: View {
                 )
             }
         } else {
-            return onlineChapters.enumerated().map { (index, chap) in
+            return currentOnlineChapters.enumerated().map { (index, chap) in
                 TTSChapterInfo(
                     title: chap.name,
                     url: chap.url,
@@ -141,7 +148,7 @@ struct ReaderView: View {
         if let book = localBook {
             return book.chapters.count
         }
-        return onlineChapters.count
+        return currentOnlineChapters.count
     }
     
     // Lấy thông tin chương hiện tại (Title, URL)
@@ -153,7 +160,7 @@ struct ReaderView: View {
             let chap = sorted[chapterIndex]
             return (chap.title, chap.url)
         } else {
-            let chap = onlineChapters[chapterIndex]
+            let chap = currentOnlineChapters[chapterIndex]
             return (chap.name, chap.url)
         }
     }
@@ -163,22 +170,56 @@ struct ReaderView: View {
             // Nền theo theme
             selectedTheme.backgroundColor
                 .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showControls.toggle()
+                    }
+                }
             
             VStack(spacing: 0) {
                 readerContentView
             }
-        }
-        .navigationTitle(currentChapterInfo?.title ?? "Trình đọc")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarColorScheme(selectedTheme == .dark ? .dark : .light, for: .navigationBar)
-        .toolbar {
-            ToolbarItemGroup(placement: .navigationBarTrailing) {
-                readerToolbarContent
+            
+            // Top/Bottom overlay controls
+            if showControls {
+                VStack(spacing: 0) {
+                    topOverlayBar
+                    Spacer()
+                    bottomOverlayBar
+                }
+                .ignoresSafeArea(edges: .bottom)
             }
         }
+        .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
         .sheet(isPresented: $showingSettings) {
             ReaderSettingsView(fontSize: $fontSize, lineSpacing: $lineSpacing, selectedTheme: $selectedTheme, isTranslationEnabled: $isTranslationEnabled)
                 .presentationDetents([.height(250)])
+        }
+        .sheet(isPresented: $showingChapterList) {
+            ReaderChapterListView(
+                bookId: bookId,
+                extensionPackageId: extensionPackageId,
+                bookDetailUrl: bookDetailUrl,
+                currentChapterIndex: chapterIndex,
+                isTranslationEnabled: isTranslationEnabled,
+                theme: selectedTheme,
+                onlineChapters: $currentOnlineChapters,
+                onSelectChapter: { selectedIdx in
+                    selectChapter(at: selectedIdx)
+                }
+            )
+        }
+        .sheet(isPresented: $showingBookDictionary) {
+            NavigationStack {
+                BookDictionaryView(bookId: bookId)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Đóng") {
+                                showingBookDictionary = false
+                            }
+                        }
+                    }
+            }
         }
         .sheet(isPresented: $showingTTSSettings, onDismiss: {
             if let resumeParagraphIdx = ttsResumeParagraphIndex {
@@ -206,6 +247,10 @@ struct ReaderView: View {
         .onAppear {
             ReaderView.activeBookId = bookId
             ReaderView.activeChapterIndex = chapterIndex
+            
+            if currentOnlineChapters.isEmpty {
+                currentOnlineChapters = onlineChapters
+            }
             
             // Tải theme mặc định từ AppStorage nếu thích hợp, ở đây dùng sepia/paper làm mặc định
             loadChapterContent()
@@ -892,6 +937,7 @@ struct ReaderView: View {
     private func loadChapterContent() {
         guard let info = currentChapterInfo else { return }
         
+        sliderValue = Double(chapterIndex)
         isLoading = true
         errorMessage = ""
         
@@ -959,7 +1005,7 @@ struct ReaderView: View {
                         modelContext.insert(newBook)
                         
                         // Thêm toàn bộ danh sách chương vào database
-                        for (index, item) in onlineChapters.enumerated() {
+                        for (index, item) in currentOnlineChapters.enumerated() {
                             let chapId = "\(newBook.bookId)_\(item.url)"
                             let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index)
                             newChap.book = newBook
@@ -1033,6 +1079,13 @@ struct ReaderView: View {
         }
     }
     
+    private func selectChapter(at index: Int) {
+        if index >= 0 && index < totalChaptersCount {
+            chapterIndex = index
+            loadChapterContent()
+        }
+    }
+    
     private func prefetchNextChapter() {
         prefetchTask?.cancel()
         
@@ -1057,8 +1110,8 @@ struct ReaderView: View {
                 targetUrl = nextChap.url
                 targetTitle = nextChap.title
             } else {
-                guard nextIdx < onlineChapters.count else { return }
-                let nextChap = onlineChapters[nextIdx]
+                guard nextIdx < currentOnlineChapters.count else { return }
+                let nextChap = currentOnlineChapters[nextIdx]
                 targetUrl = nextChap.url
                 targetTitle = nextChap.name
             }
@@ -1410,6 +1463,12 @@ extension ReaderView {
                 navigationButtons
                     .padding(.vertical, 24)
             }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showControls.toggle()
+                }
+            }
         }
     }
     
@@ -1434,6 +1493,12 @@ extension ReaderView {
                         .padding(.vertical, 16)
                 }
                 .padding(.horizontal, 18)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showControls.toggle()
+                    }
+                }
             }
             .onChange(of: scrollTargetParagraphIndex) { _, newValue in
                 if let index = newValue {
@@ -1493,6 +1558,264 @@ extension ReaderView {
                     .foregroundColor(selectedTheme.textColor)
             }
         }
+    }
+    
+    // MARK: - Custom HUD Overlay Bars
+    @ViewBuilder
+    private var topOverlayBar: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: 0) {
+                // Nút Đóng X
+                Button(action: {
+                    dismiss()
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 44, height: 44)
+                }
+                .padding(.leading, 8)
+                
+                // Tiêu đề sách & Chương
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(localBook?.title ?? bookTitle ?? "FreeBook")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    
+                    HStack(spacing: 4) {
+                        Text(currentChapterInfo?.title ?? "Chương \(chapterIndex + 1)")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.8))
+                            .lineLimit(1)
+                        
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    showingChapterList = true
+                }
+                .padding(.leading, 8)
+                
+                Spacer()
+                
+                // Các phím Trailing Actions
+                HStack(spacing: 12) {
+                    // Tải lại
+                    Button(action: {
+                        reloadChapterContent()
+                    }) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.system(size: 18))
+                            .foregroundColor(.white)
+                            .frame(width: 36, height: 44)
+                    }
+                    
+                    // Từ điển truyện
+                    if localBook != nil {
+                        Button(action: {
+                            showingBookDictionary = true
+                        }) {
+                            Image(systemName: "key.fill")
+                                .font(.system(size: 18))
+                                .foregroundColor(.white)
+                                .frame(width: 36, height: 44)
+                        }
+                    }
+                    
+                    // Tìm kiếm
+                    Button(action: {
+                        // Tính năng tìm kiếm trong chương
+                    }) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 18))
+                            .foregroundColor(.white)
+                            .frame(width: 36, height: 44)
+                    }
+                    
+                    // Dấu ba chấm
+                    Button(action: {
+                        showingSettings.toggle()
+                    }) {
+                        Image(systemName: "ellipsis")
+                            .rotationEffect(.degrees(90))
+                            .font(.system(size: 18))
+                            .foregroundColor(.white)
+                            .frame(width: 36, height: 44)
+                    }
+                }
+                .padding(.trailing, 8)
+            }
+            .frame(height: 50)
+            
+            // Subheader: Chọn nhanh dịch & Tỷ lệ chương
+            HStack {
+                HStack(spacing: 4) {
+                    Image(systemName: "character.bubble.fill")
+                        .font(.system(size: 12))
+                    Text(isTranslationEnabled ? "Việt (VP)" : "Trung (Gốc)")
+                        .font(.system(size: 12))
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 8))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color.white.opacity(0.2))
+                .cornerRadius(12)
+                .onTapGesture {
+                    isTranslationEnabled.toggle()
+                }
+                
+                Spacer()
+                
+                Text("\(chapterIndex + 1)/\(totalChaptersCount)")
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.8))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+        }
+        .padding(.top, 10)
+        .background(
+            Color(white: 0.08, opacity: 0.95)
+                .ignoresSafeArea(edges: .top)
+        )
+    }
+    
+    @ViewBuilder
+    private var bottomOverlayBar: some View {
+        VStack(spacing: 12) {
+            // Hàng 1: % tiến độ, Tên chương, Nút Layout
+            HStack {
+                let progress = totalChaptersCount > 0 ? (Double(chapterIndex + 1) / Double(totalChaptersCount)) * 100 : 0.0
+                Text(String(format: "%.1f%%", progress))
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.8))
+                
+                Spacer()
+                
+                Text(currentChapterInfo?.title ?? "")
+                    .font(.system(size: 12))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                    .frame(maxWidth: 180)
+                
+                Spacer()
+                
+                Button(action: {
+                    // Aesthetic switch layout
+                }) {
+                    Image(systemName: ext?.type == "comic" ? "square.fill.text.grid.1x2" : "doc.plaintext")
+                        .font(.system(size: 14))
+                        .foregroundColor(.white)
+                }
+            }
+            .padding(.horizontal, 16)
+            
+            // Hàng 2: Trước - Slider - Tiếp
+            HStack(spacing: 16) {
+                Button(action: prevChapter) {
+                    Text("Trước")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(chapterIndex > 0 ? .white : .white.opacity(0.4))
+                }
+                .disabled(chapterIndex <= 0)
+                
+                Slider(
+                    value: $sliderValue,
+                    in: 0...Double(max(0, totalChaptersCount - 1)),
+                    step: 1,
+                    onEditingChanged: { editing in
+                        if !editing {
+                            selectChapter(at: Int(sliderValue))
+                        }
+                    }
+                )
+                .tint(.blue)
+                
+                Button(action: nextChapter) {
+                    Text("Tiếp")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(chapterIndex < totalChaptersCount - 1 ? .white : .white.opacity(0.4))
+                }
+                .disabled(chapterIndex >= totalChaptersCount - 1)
+            }
+            .padding(.horizontal, 16)
+            
+            // Hàng 3: Các nút chức năng dưới cùng
+            HStack(spacing: 0) {
+                // Xem danh sách chương
+                Button(action: {
+                    showingChapterList = true
+                }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "list.bullet")
+                            .font(.system(size: 20))
+                        Text("Mục lục")
+                            .font(.system(size: 9))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                }
+                
+                // Từ điển truyện
+                Button(action: {
+                    showingBookDictionary = true
+                }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "book.closed")
+                            .font(.system(size: 20))
+                        Text("Từ điển")
+                            .font(.system(size: 9))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                }
+                
+                // Đọc nói TTS
+                Button(action: {
+                    if ttsManager.isPlaying {
+                        ttsManager.stop()
+                    } else {
+                        triggerGetVisibleIndex = UUID()
+                    }
+                }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: ttsManager.isPlaying ? "stop.circle.fill" : "headphones")
+                            .font(.system(size: 20))
+                            .foregroundColor(ttsManager.isPlaying ? .red : .white)
+                        Text("Đọc nói")
+                            .font(.system(size: 9))
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                
+                // Cài đặt
+                Button(action: {
+                    showingSettings = true
+                }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 20))
+                        Text("Cài đặt")
+                            .font(.system(size: 9))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.top, 4)
+            .padding(.bottom, 12)
+        }
+        .padding(.vertical, 8)
+        .background(
+            Color(white: 0.08, opacity: 0.95)
+                .ignoresSafeArea(edges: .bottom)
+        )
     }
     
     @ViewBuilder
