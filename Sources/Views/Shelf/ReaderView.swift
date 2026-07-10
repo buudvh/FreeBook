@@ -341,6 +341,13 @@ struct ReaderView: View {
         }
     }
     
+    private func translateMetaIfNeeded(_ text: String) -> String {
+        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
+            return text
+        }
+        return TranslateUtils.translateMeta(text, bookId: bookId)
+    }
+
     private func applyTranslation() {
         let titleToUse = currentChapterInfo?.title ?? "Trình đọc"
         self.originalTitle = titleToUse
@@ -1604,13 +1611,13 @@ extension ReaderView {
                 
                 // Tiêu đề sách & Chương
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(localBook?.title ?? bookTitle ?? "FreeBook")
+                    Text(translateMetaIfNeeded(localBook?.title ?? bookTitle ?? "FreeBook"))
                         .font(.system(size: 15, weight: .bold))
                         .foregroundColor(.white)
                         .lineLimit(1)
                     
                     HStack(spacing: 4) {
-                        Text(currentChapterInfo?.title ?? "Chương \(chapterIndex + 1)")
+                        Text(chapterTitle.isEmpty ? (currentChapterInfo?.title ?? "Chương \(chapterIndex + 1)") : chapterTitle)
                             .font(.system(size: 12))
                             .foregroundColor(.white.opacity(0.8))
                             .lineLimit(1)

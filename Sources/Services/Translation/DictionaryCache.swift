@@ -35,16 +35,20 @@ public final class DictionaryCache: ObservableObject {
     }
 
     private func loadFromDat(fileName: String) async -> [DictEntry] {
-        let fileUrl = TranslationManager.shared.translateDirectory.appendingPathComponent(fileName)
-        guard FileManager.default.fileExists(atPath: fileUrl.path) else { return [] }
+        let translateDir = TranslationManager.shared.translateDirectory
+        return await Task.detached(priority: .userInitiated) {
+            let customName = "Custom" + fileName
+            let fileUrl = translateDir.appendingPathComponent(customName)
+            guard FileManager.default.fileExists(atPath: fileUrl.path) else { return [] }
 
-        let dat = DoubleArrayTrie()
-        try? dat.load(from: fileUrl)
-        guard dat.isLoaded else { return [] }
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: fileUrl)
+            guard dat.isLoaded else { return [] }
 
-        let raw = dat.allEntries()
-        return raw.map { DictEntry(key: $0.key, value: $0.value) }
-            .sorted { $0.key.localizedCompare($1.key) == .orderedAscending }
+            let raw = dat.allEntries()
+            return raw.map { DictEntry(key: $0.key, value: $0.value) }
+                .sorted { $0.key.localizedCompare($1.key) == .orderedAscending }
+        }.value
     }
 
     // MARK: - CRUD
@@ -63,19 +67,23 @@ public final class DictionaryCache: ObservableObject {
         try await persistAndUpdate(entries: entries, type: type)
     }
 
-    /// Update key: remove old key, insert with new key (upsert semantics).
+    /// Update key: if newKey != oldKey, keep oldKey, upsert newKey.
     public func updateKey(oldKey: String, newKey: String, newValue: String, type: DictType) async throws {
         var entries = currentEntries(for: type)
 
-        // Remove old entry
-        entries.removeAll { $0.key == oldKey }
-
-        // Upsert new key
-        if let idx = entries.firstIndex(where: { $0.key == newKey }) {
-            entries[idx] = DictEntry(key: newKey, value: newValue)
+        if newKey != oldKey {
+            // Keep oldKey (do not remove it), just upsert newKey with newValue
+            if let idx = entries.firstIndex(where: { $0.key == newKey }) {
+                entries[idx] = DictEntry(key: newKey, value: newValue)
+            } else {
+                entries.append(DictEntry(key: newKey, value: newValue))
+                entries.sort { $0.key.localizedCompare($1.key) == .orderedAscending }
+            }
         } else {
-            entries.append(DictEntry(key: newKey, value: newValue))
-            entries.sort { $0.key.localizedCompare($1.key) == .orderedAscending }
+            // Just update the value of oldKey
+            if let idx = entries.firstIndex(where: { $0.key == oldKey }) {
+                entries[idx] = DictEntry(key: oldKey, value: newValue)
+            }
         }
 
         try await persistAndUpdate(entries: entries, type: type)
@@ -91,10 +99,44 @@ public final class DictionaryCache: ObservableObject {
     }
 
     public func importEntries(from url: URL, type: DictType) async throws {
-        let fileName = type == .vietPhrase ? "VietPhrase.dat" : "Names.dat"
-        let datUrl = TranslationManager.shared.translateDirectory.appendingPathComponent(fileName)
-
-        try DoubleArrayTrieBuilder().build(fromTxtFile: url, toDatFile: datUrl)
+        let content = try String(contentsOf: url, encoding: .utf8)
+        let lines = content.components(separatedBy: .newlines)
+        
+        var newCustomEntries: [DictEntry] = []
+        var newlyDeleted: Set<String> = []
+        
+        for line in lines {
+            let parts = line.split(separator: "=", maxSplits: 1)
+            if parts.count == 2 {
+                let k = String(parts[0]).trimmingCharacters(in: .whitespacesAndNewlines)
+                let v = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !k.isEmpty {
+                    if v.isEmpty {
+                        newlyDeleted.insert(k)
+                    } else {
+                        newCustomEntries.append(DictEntry(key: k, value: v))
+                    }
+                }
+            } else if parts.count == 1, line.contains("=") {
+                let k = String(parts[0]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !k.isEmpty {
+                    newlyDeleted.insert(k)
+                }
+            }
+        }
+        
+        // Save custom entries
+        try await persistAndUpdate(entries: newCustomEntries, type: type)
+        
+        // Save deleted list
+        let isName = type == .names
+        if !newlyDeleted.isEmpty {
+            TranslationManager.shared.addDeletedWords(newlyDeleted, isName: isName)
+        }
+        let customKeys = newCustomEntries.map { $0.key }
+        if !customKeys.isEmpty {
+            TranslationManager.shared.removeDeletedWords(customKeys, isName: isName)
+        }
 
         // Reload cache
         invalidate(type: type)
@@ -125,16 +167,19 @@ public final class DictionaryCache: ObservableObject {
     }
 
     private func persistAndUpdate(entries: [DictEntry], type: DictType) async throws {
-        let fileName = type == .vietPhrase ? "VietPhrase.dat" : "Names.dat"
-        let datUrl = TranslationManager.shared.translateDirectory.appendingPathComponent(fileName)
+        let fileName = type == .vietPhrase ? "CustomVietPhrase.dat" : "CustomNames.dat"
+        let translateDir = TranslationManager.shared.translateDirectory
+        let datUrl = translateDir.appendingPathComponent(fileName)
 
         let raw = entries.map { (key: $0.key, value: $0.value) }
 
-        if raw.isEmpty {
-            try? FileManager.default.removeItem(at: datUrl)
-        } else {
-            try DoubleArrayTrieBuilder().build(fromEntries: raw, toDatFile: datUrl)
-        }
+        try await Task.detached(priority: .userInitiated) {
+            if raw.isEmpty {
+                try? FileManager.default.removeItem(at: datUrl)
+            } else {
+                try DoubleArrayTrieBuilder().build(fromEntries: raw, toDatFile: datUrl)
+            }
+        }.value
 
         // Update in-memory cache
         switch type {

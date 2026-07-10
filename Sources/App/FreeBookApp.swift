@@ -19,6 +19,7 @@ struct FreeBookApp: App {
 struct AppLaunchRootView: View {
     @ObservedObject private var translationManager = TranslationManager.shared
     @ObservedObject private var ttsManager = TTSManager.shared
+    @ObservedObject private var toastManager = ToastManager.shared
     
     var body: some View {
         ZStack {
@@ -36,6 +37,28 @@ struct AppLaunchRootView: View {
             if translationManager.isInitialized && ttsManager.showFloatingWidget {
                 TTSFloatingWidgetView()
                     .zIndex(999)
+            }
+            
+            // Global Toast Notification
+            if toastManager.showingToast {
+                VStack {
+                    Spacer()
+                    Text(toastManager.toastMessage)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule()
+                                .fill(Color(red: 0.1, green: 0.1, blue: 0.1).opacity(0.92))
+                                .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
+                        )
+                        .padding(.bottom, 100)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                .animation(.easeInOut(duration: 0.25), value: toastManager.showingToast)
+                .zIndex(1000)
             }
         }
     }

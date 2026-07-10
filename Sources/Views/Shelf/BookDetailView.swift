@@ -30,6 +30,11 @@ struct BookDetailView: View {
     @State private var navigateToReader = false
     @State private var targetChapterIndex = 0
     
+    // Quản lý tác vụ tải/xuất
+    @State private var showingOptionsSheet = false
+    @State private var selectedTaskType: TaskType = .download
+    @State private var selectedBookForTask: Book? = nil
+    
     // Tìm sách local trong database
     private var localBook: Book? {
         allBooks.first(where: { $0.bookId == bookId })
@@ -119,47 +124,78 @@ struct BookDetailView: View {
                                 Spacer()
                                 
                                 // Nút Thêm Kệ Sách / Bắt đầu đọc
-                                HStack {
-                                    if let book = localBook, book.isOnShelf {
-                                        Button(action: {
-                                            removeFromShelf(book)
-                                        }) {
-                                            Label("Đã ở kệ", systemImage: "checkmark.circle.fill")
-                                                .font(.caption)
-                                                .foregroundColor(.green)
-                                                .padding(.horizontal, 12)
-                                                .padding(.vertical, 8)
-                                                .background(Color.green.opacity(0.1))
-                                                .cornerRadius(6)
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        if let book = localBook, book.isOnShelf {
+                                            Button(action: {
+                                                removeFromShelf(book)
+                                            }) {
+                                                Label("Đã ở kệ", systemImage: "checkmark.circle.fill")
+                                                    .font(.caption)
+                                                    .foregroundColor(.green)
+                                                    .padding(.horizontal, 12)
+                                                    .padding(.vertical, 8)
+                                                    .background(Color.green.opacity(0.1))
+                                                    .cornerRadius(6)
+                                            }
+                                        } else {
+                                            Button(action: addToShelf) {
+                                                Label("Thêm vào kệ", systemImage: "plus")
+                                                    .font(.caption)
+                                                    .foregroundColor(.white)
+                                                    .padding(.horizontal, 12)
+                                                    .padding(.vertical, 8)
+                                                    .background(Color.accentColor)
+                                                    .cornerRadius(6)
+                                            }
                                         }
-                                    } else {
-                                        Button(action: addToShelf) {
-                                            Label("Thêm vào kệ", systemImage: "plus")
-                                                .font(.caption)
-                                                .foregroundColor(.white)
-                                                .padding(.horizontal, 12)
-                                                .padding(.vertical, 8)
-                                                .background(Color.accentColor)
-                                                .cornerRadius(6)
+                                        
+                                        let activeChapterIndex = localBook?.currentChapterIndex ?? 0
+                                        let totalChaps = localBook?.chapters.count ?? onlineChapters.count
+                                        
+                                        if totalChaps > 0 {
+                                            Button(action: {
+                                                targetChapterIndex = activeChapterIndex
+                                                startReading()
+                                            }) {
+                                                Text(localBook == nil ? "Đọc ngay" : "Đọc tiếp")
+                                                    .font(.caption)
+                                                    .fontWeight(.bold)
+                                                    .foregroundColor(.white)
+                                                    .padding(.horizontal, 16)
+                                                    .padding(.vertical, 8)
+                                                    .background(Color.blue)
+                                                    .cornerRadius(6)
+                                            }
                                         }
                                     }
                                     
-                                    let activeChapterIndex = localBook?.currentChapterIndex ?? 0
                                     let totalChaps = localBook?.chapters.count ?? onlineChapters.count
-                                    
                                     if totalChaps > 0 {
-                                        Button(action: {
-                                            targetChapterIndex = activeChapterIndex
-                                            startReading()
-                                        }) {
-                                            Text(localBook == nil ? "Đọc ngay" : "Đọc tiếp")
-                                                .font(.caption)
-                                                .fontWeight(.bold)
-                                                .foregroundColor(.white)
-                                                .padding(.horizontal, 16)
-                                                .padding(.vertical, 8)
-                                                .background(Color.blue)
-                                                .cornerRadius(6)
+                                        HStack(spacing: 8) {
+                                            Button(action: {
+                                                prepareForTask(taskType: .download)
+                                            }) {
+                                                Label("Tải truyện", systemImage: "arrow.down.circle")
+                                                    .font(.caption)
+                                                    .foregroundColor(.white)
+                                                    .padding(.horizontal, 12)
+                                                    .padding(.vertical, 8)
+                                                    .background(Color.green)
+                                                    .cornerRadius(6)
+                                            }
+                                            
+                                            Button(action: {
+                                                prepareForTask(taskType: .exportTxt)
+                                            }) {
+                                                Label("Xuất TXT", systemImage: "square.and.arrow.up")
+                                                    .font(.caption)
+                                                    .foregroundColor(.white)
+                                                    .padding(.horizontal, 12)
+                                                    .padding(.vertical, 8)
+                                                    .background(Color.orange)
+                                                    .cornerRadius(6)
+                                            }
                                         }
                                     }
                                 }
@@ -173,7 +209,7 @@ struct BookDetailView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Giới thiệu")
                                 .font(.headline)
-                            Text(desc)
+                            Text(translateMetaIfNeeded(desc))
                                 .font(.body)
                                 .foregroundColor(.secondary)
                         }
@@ -329,6 +365,11 @@ struct BookDetailView: View {
             }
         }
         .toolbar(.hidden, for: .tabBar)
+        .sheet(isPresented: $showingOptionsSheet) {
+            if let book = selectedBookForTask {
+                TaskOptionsSheet(book: book, taskType: selectedTaskType)
+            }
+        }
     }
     
     private func loadBookData() {
@@ -580,6 +621,59 @@ struct BookDetailView: View {
             }
         } else {
             self.navigateToReader = true
+        }
+    }
+    private func prepareForTask(taskType: TaskType) {
+        if tocPages.count > 1 && !remainingPagesLoaded {
+            isLoadingRemainingPages = true
+            errorMessage = ""
+            
+            Task {
+                do {
+                    let remainingChaps = try await loadAllRemainingPages()
+                    await MainActor.run {
+                        self.onlineChapters.append(contentsOf: remainingChaps)
+                        
+                        if let book = localBook {
+                            let startIdx = book.chapters.count
+                            for (index, item) in remainingChaps.enumerated() {
+                                let chapId = "\(bookId)_\(item.url)"
+                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx + index)
+                                newChap.book = book
+                                modelContext.insert(newChap)
+                            }
+                            try? modelContext.save()
+                        } else {
+                            let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
+                            createBookOnShelf(savedDesc: savedDesc)
+                        }
+                        
+                        self.remainingPagesLoaded = true
+                        self.isLoadingRemainingPages = false
+                        
+                        if let book = localBook {
+                            self.selectedTaskType = taskType
+                            self.selectedBookForTask = book
+                            self.showingOptionsSheet = true
+                        }
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.errorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
+                        self.isLoadingRemainingPages = false
+                    }
+                }
+            }
+        } else {
+            if localBook == nil {
+                let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
+                createBookOnShelf(savedDesc: savedDesc)
+            }
+            if let book = localBook {
+                self.selectedTaskType = taskType
+                self.selectedBookForTask = book
+                self.showingOptionsSheet = true
+            }
         }
     }
     

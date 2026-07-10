@@ -15,6 +15,7 @@ struct SearchView: View {
     @State private var isSearching = false
     @State private var searchAllSources = false
     @State private var searchResults: [SearchNovelResultWithExt] = []
+    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @State private var searchStatusMessage = ""
     
     var body: some View {
@@ -100,13 +101,13 @@ struct SearchView: View {
                                 .clipped()
                                 
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(item.result.name)
+                                    Text(translateIfNeeded(item.result.name))
                                         .font(.subheadline)
                                         .fontWeight(.bold)
                                         .lineLimit(2)
                                     
                                     let descText = !item.result.description.isEmpty ? item.result.description : item.result.author
-                                    Text(descText)
+                                    Text(translateIfNeeded(descText))
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                         .lineLimit(2)
@@ -144,6 +145,13 @@ struct SearchView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
     
+    private func translateIfNeeded(_ text: String) -> String {
+        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
+            return text
+        }
+        return TranslateUtils.translateMeta(text)
+    }
+
     private func performSearch() {
         let trimmedQuery = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else { return }

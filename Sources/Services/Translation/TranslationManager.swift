@@ -8,6 +8,8 @@ public final class TranslationManager: ObservableObject {
     @Published public var isNamesLoaded = false
     @Published public var isPronounsLoaded = false
     @Published public var isLuatNhanLoaded = false
+    @Published public var isCustomVietPhraseLoaded = false
+    @Published public var isCustomNamesLoaded = false
     @Published public var isInitialized = false
     @Published public var isDownloading = false
     @Published public var downloadProgress: Double = 0.0
@@ -18,6 +20,11 @@ public final class TranslationManager: ObservableObject {
     public private(set) var pronounsDict: TrieDictionary?
     public private(set) var luatNhanDict: TrieDictionary?
     public private(set) var phienAmMap: [String: String] = [:]
+    
+    public private(set) var customVietPhraseDict: TrieDictionary?
+    public private(set) var customNamesDict: TrieDictionary?
+    public private(set) var deletedVietPhrase: Set<String> = []
+    public private(set) var deletedNames: Set<String> = []
     
     private var bookDicts: [String: (vietPhrase: TrieDictionary?, names: TrieDictionary?)] = [:]
     private var txtWordCountsCache: [String: Int] = [:]
@@ -83,8 +90,21 @@ public final class TranslationManager: ObservableObject {
         return result
     }
     
+    private func saveDeletedList(isName: Bool) {
+        let fileName = isName ? "DeletedNames.txt" : "DeletedVietPhrase.txt"
+        let fileUrl = translateDirectory.appendingPathComponent(fileName)
+        let list = isName ? deletedNames : deletedVietPhrase
+        let content = list.joined(separator: "\n")
+        try? content.write(to: fileUrl, encoding: .utf8)
+    }
+
     public func saveCustomEntry(word: String, meaning: String, isName: Bool, bookId: String?) async throws {
-        let fileName = isName ? "Names.dat" : "VietPhrase.dat"
+        let fileName: String
+        if bookId != nil {
+            fileName = isName ? "Names.dat" : "VietPhrase.dat"
+        } else {
+            fileName = isName ? "CustomNames.dat" : "CustomVietPhrase.dat"
+        }
         
         let fileUrl: URL
         if let bid = bookId {
@@ -122,7 +142,22 @@ public final class TranslationManager: ObservableObject {
         // 3. Biên dịch trực tiếp ra file .dat ghi đè lên vị trí cũ
         try DoubleArrayTrieBuilder().build(fromEntries: entries, toDatFile: fileUrl)
         
-        // 4. Reset cache và load lại
+        // 4. Nếu là global, kiểm tra và gỡ khỏi danh sách bị xóa (nếu có)
+        if bookId == nil {
+            if isName {
+                if deletedNames.contains(word) {
+                    deletedNames.remove(word)
+                    saveDeletedList(isName: true)
+                }
+            } else {
+                if deletedVietPhrase.contains(word) {
+                    deletedVietPhrase.remove(word)
+                    saveDeletedList(isName: false)
+                }
+            }
+        }
+        
+        // 5. Reset cache và load lại
         TranslateUtils.clearCache()
         if let bid = bookId {
             bookDicts.removeValue(forKey: bid)
@@ -136,7 +171,12 @@ public final class TranslationManager: ObservableObject {
     }
     
     public func deleteCustomEntry(word: String, isName: Bool, bookId: String?) async throws {
-        let fileName = isName ? "Names.dat" : "VietPhrase.dat"
+        let fileName: String
+        if bookId != nil {
+            fileName = isName ? "Names.dat" : "VietPhrase.dat"
+        } else {
+            fileName = isName ? "CustomNames.dat" : "CustomVietPhrase.dat"
+        }
         
         let fileUrl: URL
         if let bid = bookId {
@@ -146,38 +186,82 @@ public final class TranslationManager: ObservableObject {
             fileUrl = translateDirectory.appendingPathComponent(fileName)
         }
         
-        guard FileManager.default.fileExists(atPath: fileUrl.path) else { return }
-        
-        // 1. Đọc ngược các từ từ file .dat
-        let dat = DoubleArrayTrie()
-        try? dat.load(from: fileUrl)
-        guard dat.isLoaded else { return }
-        
-        var entries = dat.allEntries()
-        
-        // 2. Xóa từ
-        let initialCount = entries.count
-        entries.removeAll { $0.key == word }
-        
-        // 3. Nếu danh sách thay đổi, ghi đè file .dat mới
-        if entries.count < initialCount {
-            if entries.isEmpty {
-                // Nếu rỗng, xóa luôn file .dat
-                try? FileManager.default.removeItem(at: fileUrl)
-            } else {
-                try DoubleArrayTrieBuilder().build(fromEntries: entries, toDatFile: fileUrl)
-            }
-            
-            TranslateUtils.clearCache()
-            if let bid = bookId {
-                bookDicts.removeValue(forKey: bid)
-            } else {
-                // Invalidate global dictionary cache
-                await MainActor.run {
-                    DictionaryCache.shared.invalidate(type: isName ? .names : .vietPhrase)
+        // 1. Xóa từ trong file Custom (hoặc file Book) nếu tồn tại
+        if FileManager.default.fileExists(atPath: fileUrl.path) {
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: fileUrl)
+            if dat.isLoaded {
+                var entries = dat.allEntries()
+                let initialCount = entries.count
+                entries.removeAll { $0.key == word }
+                if entries.count < initialCount {
+                    if entries.isEmpty {
+                        try? FileManager.default.removeItem(at: fileUrl)
+                    } else {
+                        try DoubleArrayTrieBuilder().build(fromEntries: entries, toDatFile: fileUrl)
+                    }
                 }
             }
-            try await loadAllDictionaries()
+        }
+        
+        // 2. Nếu là global (bookId == nil), kiểm tra xem từ này có nằm trong từ điển gốc không.
+        // Nếu có, thêm vào danh sách bị xóa (blacklist) để ẩn nó đi.
+        if bookId == nil {
+            let baseFile = isName ? "Names.dat" : "VietPhrase.dat"
+            let baseFileUrl = translateDirectory.appendingPathComponent(baseFile)
+            var existsInBase = false
+            
+            if FileManager.default.fileExists(atPath: baseFileUrl.path) {
+                let dat = DoubleArrayTrie()
+                try? dat.load(from: baseFileUrl)
+                if dat.isLoaded {
+                    if let match = dat.findLongestMatch(text: word, startIndex: 0), match.length == word.count {
+                        existsInBase = true
+                    }
+                }
+            }
+            
+            if existsInBase {
+                if isName {
+                    deletedNames.insert(word)
+                    saveDeletedList(isName: true)
+                } else {
+                    deletedVietPhrase.insert(word)
+                    saveDeletedList(isName: false)
+                }
+            }
+        }
+        
+        // 3. Reset cache và load lại
+        TranslateUtils.clearCache()
+        if let bid = bookId {
+            bookDicts.removeValue(forKey: bid)
+        } else {
+            // Invalidate global dictionary cache
+            await MainActor.run {
+                DictionaryCache.shared.invalidate(type: isName ? .names : .vietPhrase)
+            }
+        }
+        try await loadAllDictionaries()
+    }
+    
+    public func addDeletedWords(_ words: Set<String>, isName: Bool) {
+        if isName {
+            deletedNames.formUnion(words)
+            saveDeletedList(isName: true)
+        } else {
+            deletedVietPhrase.formUnion(words)
+            saveDeletedList(isName: false)
+        }
+    }
+    
+    public func removeDeletedWords(_ words: [String], isName: Bool) {
+        if isName {
+            for w in words { deletedNames.remove(w) }
+            saveDeletedList(isName: true)
+        } else {
+            for w in words { deletedVietPhrase.remove(w) }
+            saveDeletedList(isName: false)
         }
     }
     
@@ -227,6 +311,18 @@ public final class TranslationManager: ObservableObject {
         let namesLoaded = tempNames != nil
         await MainActor.run { self.isNamesLoaded = namesLoaded }
         
+        // 1.1 Load Custom Names (Optional)
+        let customNamesDatUrl = translateDirectory.appendingPathComponent("CustomNames.dat")
+        var tempCustomNames: TrieDictionary? = nil
+        if FileManager.default.fileExists(atPath: customNamesDatUrl.path) {
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: customNamesDatUrl)
+            if dat.isLoaded { tempCustomNames = dat }
+        }
+        self.customNamesDict = tempCustomNames
+        let customNamesLoaded = tempCustomNames != nil
+        await MainActor.run { self.isCustomNamesLoaded = customNamesLoaded }
+        
         // 2. Load VietPhrase (Required)
         let vpDatUrl = translateDirectory.appendingPathComponent("VietPhrase.dat")
         let vpTxtUrl = translateDirectory.appendingPathComponent("VietPhrase.txt")
@@ -249,6 +345,18 @@ public final class TranslationManager: ObservableObject {
         self.vietPhraseDict = tempVP
         let vpLoaded = tempVP != nil
         await MainActor.run { self.isVietPhraseLoaded = vpLoaded }
+        
+        // 2.1 Load Custom VietPhrase (Optional)
+        let customVpDatUrl = translateDirectory.appendingPathComponent("CustomVietPhrase.dat")
+        var tempCustomVP: TrieDictionary? = nil
+        if FileManager.default.fileExists(atPath: customVpDatUrl.path) {
+            let dat = DoubleArrayTrie()
+            try? dat.load(from: customVpDatUrl)
+            if dat.isLoaded { tempCustomVP = dat }
+        }
+        self.customVietPhraseDict = tempCustomVP
+        let customVPLoaded = tempCustomVP != nil
+        await MainActor.run { self.isCustomVietPhraseLoaded = customVPLoaded }
         
         // 3. Load Pronouns (Optional)
         let pronounsDatUrl = translateDirectory.appendingPathComponent("Pronouns.dat")
@@ -312,6 +420,29 @@ public final class TranslationManager: ObservableObject {
         }
         self.phienAmMap = tempPA
         await MainActor.run { self.isPhienAmLoaded = paLoaded }
+        
+        // 6. Load Deleted lists
+        let delVPUrl = translateDirectory.appendingPathComponent("DeletedVietPhrase.txt")
+        var delVP: Set<String> = []
+        if let content = try? String(contentsOf: delVPUrl, encoding: .utf8) {
+            let lines = content.components(separatedBy: .newlines)
+            for line in lines {
+                let clean = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !clean.isEmpty { delVP.insert(clean) }
+            }
+        }
+        self.deletedVietPhrase = delVP
+
+        let delNamesUrl = translateDirectory.appendingPathComponent("DeletedNames.txt")
+        var delNames: Set<String> = []
+        if let content = try? String(contentsOf: delNamesUrl, encoding: .utf8) {
+            let lines = content.components(separatedBy: .newlines)
+            for line in lines {
+                let clean = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !clean.isEmpty { delNames.insert(clean) }
+            }
+        }
+        self.deletedNames = delNames
     }
     
     private func loadPhoneticMap(from fileURL: URL) throws -> [String: String] {

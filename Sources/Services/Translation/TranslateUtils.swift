@@ -198,9 +198,13 @@ public final class TranslateUtils {
         
         var translatedWords: [String] = []
         let names = TranslationManager.shared.namesDict
+        let customNames = TranslationManager.shared.customNamesDict
+        let deletedNames = TranslationManager.shared.deletedNames
         let pronouns = TranslationManager.shared.pronounsDict
         let luatNhan = TranslationManager.shared.luatNhanDict
         let vp = TranslationManager.shared.vietPhraseDict
+        let customVP = TranslationManager.shared.customVietPhraseDict
+        let deletedVP = TranslationManager.shared.deletedVietPhrase
         let phienAm = TranslationManager.shared.phienAmMap
         
         var bookVP: TrieDictionary? = nil
@@ -214,19 +218,31 @@ public final class TranslateUtils {
         for token in tokens {            
             var translation: String? = nil
             
+            // 1. Book Names
             if let bookNames = bookNames,
                let match = bookNames.findLongestMatch(text: token, startIndex: 0),
                match.length == token.count {
                 translation = match.value
             }
             
+            // 2. Custom Names
             if translation == nil,
+               let customNames = customNames,
+               let match = customNames.findLongestMatch(text: token, startIndex: 0),
+               match.length == token.count {
+                translation = match.value
+            }
+            
+            // 3. Base Names (exclude deleted)
+            if translation == nil,
+               !deletedNames.contains(token),
                let names = names,
                let match = names.findLongestMatch(text: token, startIndex: 0),
                match.length == token.count {
                 translation = match.value
             }
             
+            // 4. Pronouns
             if translation == nil,
                let pronouns = pronouns,
                let match = pronouns.findLongestMatch(text: token, startIndex: 0),
@@ -234,6 +250,7 @@ public final class TranslateUtils {
                 translation = match.value
             }
             
+            // 5. LuatNhan
             if translation == nil,
                let luatNhan = luatNhan,
                let match = luatNhan.findLongestMatch(text: token, startIndex: 0),
@@ -241,6 +258,7 @@ public final class TranslateUtils {
                 translation = match.value
             }
             
+            // 6. Book VietPhrase
             if translation == nil,
                let bookVP = bookVP,
                let match = bookVP.findLongestMatch(text: token, startIndex: 0),
@@ -248,7 +266,17 @@ public final class TranslateUtils {
                 translation = match.value
             }
             
+            // 7. Custom VietPhrase
             if translation == nil,
+               let customVP = customVP,
+               let match = customVP.findLongestMatch(text: token, startIndex: 0),
+               match.length == token.count {
+                translation = match.value
+            }
+            
+            // 8. Base VietPhrase (exclude deleted)
+            if translation == nil,
+               !deletedVP.contains(token),
                let vp = vp,
                let match = vp.findLongestMatch(text: token, startIndex: 0),
                match.length == token.count {
@@ -286,9 +314,13 @@ public final class TranslateUtils {
         var currentIndex = 0
         
         let names = TranslationManager.shared.namesDict
+        let customNames = TranslationManager.shared.customNamesDict
+        let deletedNames = TranslationManager.shared.deletedNames
         let pronouns = TranslationManager.shared.pronounsDict
         let luatNhan = TranslationManager.shared.luatNhanDict
         let vp = TranslationManager.shared.vietPhraseDict
+        let customVP = TranslationManager.shared.customVietPhraseDict
+        let deletedVP = TranslationManager.shared.deletedVietPhrase
         
         var bookVP: TrieDictionary? = nil
         var bookNames: TrieDictionary? = nil
@@ -304,45 +336,67 @@ public final class TranslateUtils {
             let limit = min(length - currentIndex, 20)
             let checkText = String(chars[currentIndex..<(currentIndex + limit)])
             
+            // 1. Book Names
             if let bookNames = bookNames,
                let match = bookNames.findLongestMatch(text: checkText, startIndex: 0) {
                 longestMatchLen = match.length
             }
             
-            if longestMatchLen == 0 {
-                if let names = names,
-                   let match = names.findLongestMatch(text: checkText, startIndex: 0) {
-                    if match.length > longestMatchLen {
-                        longestMatchLen = match.length
-                    }
+            // 2. Custom Names
+            if let customNames = customNames,
+               let match = customNames.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
                 }
-                
-                if let pronouns = pronouns,
-                   let match = pronouns.findLongestMatch(text: checkText, startIndex: 0) {
-                    if match.length > longestMatchLen {
-                        longestMatchLen = match.length
-                    }
+            }
+            
+            // 3. Base Names (exclude deleted)
+            if let names = names,
+               let match = names.findLongestMatch(text: checkText, startIndex: 0) {
+                let matchedStr = String(chars[currentIndex..<(currentIndex + match.length)])
+                if !deletedNames.contains(matchedStr) && match.length > longestMatchLen {
+                    longestMatchLen = match.length
                 }
-                
-                if let luatNhan = luatNhan,
-                   let match = luatNhan.findLongestMatch(text: checkText, startIndex: 0) {
-                    if match.length > longestMatchLen {
-                        longestMatchLen = match.length
-                    }
+            }
+            
+            // 4. Pronouns
+            if let pronouns = pronouns,
+               let match = pronouns.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
                 }
-                
-                if let bookVP = bookVP,
-                   let match = bookVP.findLongestMatch(text: checkText, startIndex: 0) {
-                    if match.length > longestMatchLen {
-                        longestMatchLen = match.length
-                    }
+            }
+            
+            // 5. LuatNhan
+            if let luatNhan = luatNhan,
+               let match = luatNhan.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
                 }
-                
-                if let vp = vp,
-                   let match = vp.findLongestMatch(text: checkText, startIndex: 0) {
-                    if match.length > longestMatchLen {
-                        longestMatchLen = match.length
-                    }
+            }
+            
+            // 6. Book VietPhrase
+            if let bookVP = bookVP,
+               let match = bookVP.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
+                }
+            }
+            
+            // 7. Custom VietPhrase
+            if let customVP = customVP,
+               let match = customVP.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
+                }
+            }
+            
+            // 8. Base VietPhrase (exclude deleted)
+            if let vp = vp,
+               let match = vp.findLongestMatch(text: checkText, startIndex: 0) {
+                let matchedStr = String(chars[currentIndex..<(currentIndex + match.length)])
+                if !deletedVP.contains(matchedStr) && match.length > longestMatchLen {
+                    longestMatchLen = match.length
                 }
             }
             
@@ -494,9 +548,13 @@ public final class TranslateUtils {
         var currentIndex = 0
         
         let names = TranslationManager.shared.namesDict
+        let customNames = TranslationManager.shared.customNamesDict
+        let deletedNames = TranslationManager.shared.deletedNames
         let pronouns = TranslationManager.shared.pronounsDict
         let luatNhan = TranslationManager.shared.luatNhanDict
         let vp = TranslationManager.shared.vietPhraseDict
+        let customVP = TranslationManager.shared.customVietPhraseDict
+        let deletedVP = TranslationManager.shared.deletedVietPhrase
         let phienAm = TranslationManager.shared.phienAmMap
         
         var bookVP: TrieDictionary? = nil
@@ -513,45 +571,67 @@ public final class TranslateUtils {
             let limit = min(length - currentIndex, 20)
             let checkText = String(chars[currentIndex..<(currentIndex + limit)])
             
+            // 1. Book Names
             if let bookNames = bookNames,
                let match = bookNames.findLongestMatch(text: checkText, startIndex: 0) {
                 longestMatchLen = match.length
             }
             
-            if longestMatchLen == 0 {
-                if let names = names,
-                   let match = names.findLongestMatch(text: checkText, startIndex: 0) {
-                    if match.length > longestMatchLen {
-                        longestMatchLen = match.length
-                    }
+            // 2. Custom Names
+            if let customNames = customNames,
+               let match = customNames.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
                 }
-                
-                if let pronouns = pronouns,
-                   let match = pronouns.findLongestMatch(text: checkText, startIndex: 0) {
-                    if match.length > longestMatchLen {
-                        longestMatchLen = match.length
-                    }
+            }
+            
+            // 3. Base Names (exclude deleted)
+            if let names = names,
+               let match = names.findLongestMatch(text: checkText, startIndex: 0) {
+                let matchedStr = String(chars[currentIndex..<(currentIndex + match.length)])
+                if !deletedNames.contains(matchedStr) && match.length > longestMatchLen {
+                    longestMatchLen = match.length
                 }
-                
-                if let luatNhan = luatNhan,
-                   let match = luatNhan.findLongestMatch(text: checkText, startIndex: 0) {
-                    if match.length > longestMatchLen {
-                        longestMatchLen = match.length
-                    }
+            }
+            
+            // 4. Pronouns
+            if let pronouns = pronouns,
+               let match = pronouns.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
                 }
-                
-                if let bookVP = bookVP,
-                   let match = bookVP.findLongestMatch(text: checkText, startIndex: 0) {
-                    if match.length > longestMatchLen {
-                        longestMatchLen = match.length
-                    }
+            }
+            
+            // 5. LuatNhan
+            if let luatNhan = luatNhan,
+               let match = luatNhan.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
                 }
-                
-                if let vp = vp,
-                   let match = vp.findLongestMatch(text: checkText, startIndex: 0) {
-                    if match.length > longestMatchLen {
-                        longestMatchLen = match.length
-                    }
+            }
+            
+            // 6. Book VietPhrase
+            if let bookVP = bookVP,
+               let match = bookVP.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
+                }
+            }
+            
+            // 7. Custom VietPhrase
+            if let customVP = customVP,
+               let match = customVP.findLongestMatch(text: checkText, startIndex: 0) {
+                if match.length > longestMatchLen {
+                    longestMatchLen = match.length
+                }
+            }
+            
+            // 8. Base VietPhrase (exclude deleted)
+            if let vp = vp,
+               let match = vp.findLongestMatch(text: checkText, startIndex: 0) {
+                let matchedStr = String(chars[currentIndex..<(currentIndex + match.length)])
+                if !deletedVP.contains(matchedStr) && match.length > longestMatchLen {
+                    longestMatchLen = match.length
                 }
             }
             

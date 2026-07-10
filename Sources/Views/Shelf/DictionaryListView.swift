@@ -250,42 +250,46 @@ struct DictionaryListView: View {
             await cache.loadIfNeeded(type: type)
         } else {
             isLoadingBook = true
-            let entries = loadBookEntries()
+            let entries = await loadBookEntries()
             bookEntries = entries
             isLoadingBook = false
         }
     }
 
-    private func loadBookEntries() -> [DictEntry] {
+    private func loadBookEntries() async -> [DictEntry] {
         guard let bid = bookId else { return [] }
-        let bookDir = TranslationManager.shared.translateDirectory
-            .appendingPathComponent("books").appendingPathComponent(bid)
-        let datUrl = bookDir.appendingPathComponent("\(type.fileName).dat")
-        let txtUrl = bookDir.appendingPathComponent("\(type.fileName).txt")
+        let translateDir = TranslationManager.shared.translateDirectory
+        let typeFileName = type.fileName
 
-        var result: [DictEntry] = []
+        return await Task.detached(priority: .userInitiated) {
+            let bookDir = translateDir.appendingPathComponent("books").appendingPathComponent(bid)
+            let datUrl = bookDir.appendingPathComponent("\(typeFileName).dat")
+            let txtUrl = bookDir.appendingPathComponent("\(typeFileName).txt")
 
-        if FileManager.default.fileExists(atPath: datUrl.path) {
-            let dat = DoubleArrayTrie()
-            try? dat.load(from: datUrl)
-            if dat.isLoaded {
-                result = dat.allEntries().map { DictEntry(key: $0.key, value: $0.value) }
-            }
-        } else if let content = try? String(contentsOf: txtUrl, encoding: .utf8) {
-            let lines = content.components(separatedBy: .newlines)
-            for line in lines {
-                let parts = line.split(separator: "=", maxSplits: 1)
-                if parts.count == 2 {
-                    let k = String(parts[0]).trimmingCharacters(in: .whitespacesAndNewlines)
-                    let v = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !k.isEmpty && !v.isEmpty {
-                        result.append(DictEntry(key: k, value: v))
+            var result: [DictEntry] = []
+
+            if FileManager.default.fileExists(atPath: datUrl.path) {
+                let dat = DoubleArrayTrie()
+                try? dat.load(from: datUrl)
+                if dat.isLoaded {
+                    result = dat.allEntries().map { DictEntry(key: $0.key, value: $0.value) }
+                }
+            } else if let content = try? String(contentsOf: txtUrl, encoding: .utf8) {
+                let lines = content.components(separatedBy: .newlines)
+                for line in lines {
+                    let parts = line.split(separator: "=", maxSplits: 1)
+                    if parts.count == 2 {
+                        let k = String(parts[0]).trimmingCharacters(in: .whitespacesAndNewlines)
+                        let v = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !k.isEmpty && !v.isEmpty {
+                            result.append(DictEntry(key: k, value: v))
+                        }
                     }
                 }
             }
-        }
 
-        return result.sorted { $0.key.localizedCompare($1.key) == .orderedAscending }
+            return result.sorted { $0.key.localizedCompare($1.key) == .orderedAscending }
+        }.value
     }
 
     private func upsertEntry(key: String, value: String) {
@@ -298,7 +302,8 @@ struct DictionaryListView: View {
                     try await TranslationManager.shared.saveCustomEntry(
                         word: key, meaning: value, isName: isName, bookId: bookId
                     )
-                    bookEntries = loadBookEntries()
+                    let entries = await loadBookEntries()
+                    bookEntries = entries
                 }
                 showToast("Đã lưu: \(key)", isError: false)
             } catch {
@@ -314,14 +319,19 @@ struct DictionaryListView: View {
                     try await cache.updateKey(oldKey: oldKey, newKey: newKey, newValue: newValue, type: type)
                 } else {
                     let isName = type == .names
-                    // Delete old, then save new
-                    try await TranslationManager.shared.deleteCustomEntry(
-                        word: oldKey, isName: isName, bookId: bookId
-                    )
-                    try await TranslationManager.shared.saveCustomEntry(
-                        word: newKey, meaning: newValue, isName: isName, bookId: bookId
-                    )
-                    bookEntries = loadBookEntries()
+                    if newKey != oldKey {
+                        // Keep oldKey (do not delete), just save newKey
+                        try await TranslationManager.shared.saveCustomEntry(
+                            word: newKey, meaning: newValue, isName: isName, bookId: bookId
+                        )
+                    } else {
+                        // Save (update) oldKey
+                        try await TranslationManager.shared.saveCustomEntry(
+                            word: oldKey, meaning: newValue, isName: isName, bookId: bookId
+                        )
+                    }
+                    let entries = await loadBookEntries()
+                    bookEntries = entries
                 }
                 showToast("Đã cập nhật: \(oldKey) → \(newKey)", isError: false)
             } catch {
@@ -340,7 +350,8 @@ struct DictionaryListView: View {
                     try await TranslationManager.shared.deleteCustomEntry(
                         word: entry.key, isName: isName, bookId: bookId
                     )
-                    bookEntries = loadBookEntries()
+                    let entries = await loadBookEntries()
+                    bookEntries = entries
                 }
                 showToast("Đã xóa: \(entry.key)", isError: false)
             } catch {
@@ -360,7 +371,9 @@ struct DictionaryListView: View {
                         .appendingPathComponent("books").appendingPathComponent(bid)
                     try FileManager.default.createDirectory(at: bookDir, withIntermediateDirectories: true)
                     let datUrl = bookDir.appendingPathComponent("\(type.fileName).dat")
-                    try DoubleArrayTrieBuilder().build(fromTxtFile: url, toDatFile: datUrl)
+                    try await Task.detached(priority: .userInitiated) {
+                        try DoubleArrayTrieBuilder().build(fromTxtFile: url, toDatFile: datUrl)
+                    }.value
 
                     // Clean up .txt if exists
                     let txtUrl = bookDir.appendingPathComponent("\(type.fileName).txt")
@@ -368,7 +381,8 @@ struct DictionaryListView: View {
 
                     TranslateUtils.clearCache()
                     TranslationManager.shared.clearBookDictCache(for: bid)
-                    bookEntries = loadBookEntries()
+                    let entries = await loadBookEntries()
+                    bookEntries = entries
                 }
                 showToast("Import thành công!", isError: false)
             } catch {

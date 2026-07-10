@@ -77,15 +77,11 @@ struct DictionaryHubView: View {
     private func globalStatusText(type: DictType) -> String {
         switch type {
         case .vietPhrase:
-            if let count = translationManager.getWordCount(for: "vietphrase") {
-                return "\(count) từ"
-            }
-            return translationManager.isVietPhraseLoaded ? "Đã tải" : "Chưa thiết lập"
+            let count = translationManager.customVietPhraseDict?.wordCount ?? 0
+            return "\(count) từ chỉnh sửa"
         case .names:
-            if let count = translationManager.getWordCount(for: "names") {
-                return "\(count) từ"
-            }
-            return translationManager.isNamesLoaded ? "Đã tải" : "Chưa thiết lập"
+            let count = translationManager.customNamesDict?.wordCount ?? 0
+            return "\(count) từ chỉnh sửa"
         }
     }
 }

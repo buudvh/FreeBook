@@ -1,0 +1,340 @@
+import Foundation
+import SwiftData
+import UIKit
+
+public enum ChapterLimitOption: Int, CaseIterable, Codable {
+    case all = 0
+    case fifty = 50
+    case oneHundred = 100
+    case twoHundred = 200
+    case fiveHundred = 500
+    case oneThousand = 1000
+    
+    public var title: String {
+        switch self {
+        case .all: return "Tất cả"
+        default: return "\(self.rawValue) chương"
+        }
+    }
+    
+    public var limitValue: Int? {
+        switch self {
+        case .all: return nil
+        default: return self.rawValue
+        }
+    }
+}
+
+public enum TaskType: String, Codable, Identifiable {
+    case download = "Tải truyện"
+    case exportTxt = "Xuất ebook TXT"
+    public var id: String { self.rawValue }
+}
+
+public enum TaskStatus: String, Codable {
+    case pending = "Đang chờ"
+    case running = "Đang chạy"
+    case completed = "Hoàn thành"
+    case failed = "Thất bại"
+    case cancelled = "Đã hủy"
+}
+
+public struct DownloadTask: Identifiable {
+    public let id: UUID
+    public let bookId: String
+    public let bookTitle: String
+    public let bookCoverUrl: String
+    public let taskType: TaskType
+    public var status: TaskStatus
+    public var progressCount: Int
+    public var totalCount: Int
+    public var errorMessage: String?
+    public var isCancelled: Bool = false
+    
+    public let extensionPackageId: String
+    public let detailUrl: String
+    public let startFromCurrent: Bool
+    public let limit: ChapterLimitOption
+    public let translate: Bool
+    public let onlyExportCached: Bool
+}
+
+public final class DownloadManager: ObservableObject {
+    public static let shared = DownloadManager()
+    
+    @Published public var tasks: [DownloadTask] = []
+    
+    private init() {}
+    
+    public func enqueueTask(
+        book: Book,
+        taskType: TaskType,
+        startFromCurrent: Bool,
+        limit: ChapterLimitOption,
+        translate: Bool,
+        onlyExportCached: Bool = false,
+        container: ModelContainer
+    ) {
+        let taskId = UUID()
+        let bookId = book.bookId
+        let title = book.title
+        let cover = book.coverUrl
+        let extPkgId = book.extensionPackageId
+        let detailUrl = book.detailUrl
+        
+        let newTask = DownloadTask(
+            id: taskId,
+            bookId: bookId,
+            bookTitle: title,
+            bookCoverUrl: cover,
+            taskType: taskType,
+            status: .pending,
+            progressCount: 0,
+            totalCount: 0,
+            extensionPackageId: extPkgId,
+            detailUrl: detailUrl,
+            startFromCurrent: startFromCurrent,
+            limit: limit,
+            translate: translate,
+            onlyExportCached: onlyExportCached
+        )
+        
+        self.tasks.append(newTask)
+        self.runNextTaskIfNeeded(container: container)
+    }
+    
+    public func cancelTask(taskId: UUID) {
+        if let index = tasks.firstIndex(where: { $0.id == taskId }) {
+            tasks[index].status = .cancelled
+            tasks[index].isCancelled = true
+        }
+    }
+    
+    public func clearFinishedTasks() {
+        tasks.removeAll { task in
+            task.status == .completed || task.status == .failed || task.status == .cancelled
+        }
+    }
+    
+    public func isTaskCancelled(taskId: UUID) -> Bool {
+        return tasks.first(where: { $0.id == taskId })?.isCancelled ?? false
+    }
+    
+    @MainActor
+    private func updateProgress(taskId: UUID, progress: Int, total: Int) {
+        if let index = tasks.firstIndex(where: { $0.id == taskId }) {
+            tasks[index].progressCount = progress
+            tasks[index].totalCount = total
+            tasks[index].status = .running
+        }
+    }
+    
+    @MainActor
+    private func markCompleted(taskId: UUID) {
+        if let index = tasks.firstIndex(where: { $0.id == taskId }) {
+            tasks[index].status = .completed
+            let title = tasks[index].bookTitle
+            let type = tasks[index].taskType.rawValue
+            ToastManager.shared.show(message: "Đã xong: \(type) '\(title)' thành công!")
+        }
+    }
+    
+    @MainActor
+    private func markFailed(taskId: UUID, error: String) {
+        if let index = tasks.firstIndex(where: { $0.id == taskId }) {
+            tasks[index].status = .failed
+            tasks[index].errorMessage = error
+            let title = tasks[index].bookTitle
+            let type = tasks[index].taskType.rawValue
+            ToastManager.shared.show(message: "Lỗi \(type) '\(title)': \(error)")
+        }
+    }
+    
+    @MainActor
+    private func markCancelled(taskId: UUID) {
+        if let index = tasks.firstIndex(where: { $0.id == taskId }) {
+            tasks[index].status = .cancelled
+            let title = tasks[index].bookTitle
+            let type = tasks[index].taskType.rawValue
+            ToastManager.shared.show(message: "Đã hủy tác vụ: \(type) '\(title)'")
+        }
+    }
+    
+    private func runNextTaskIfNeeded(container: ModelContainer) {
+        // Find the first pending task
+        guard let nextTaskIndex = tasks.firstIndex(where: { $0.status == .pending }) else {
+            return
+        }
+        
+        // If there's already a task running, wait
+        guard !tasks.contains(where: { $0.status == .running }) else {
+            return
+        }
+        
+        tasks[nextTaskIndex].status = .running
+        let taskToRun = tasks[nextTaskIndex]
+        
+        Task.detached(priority: .background) {
+            await self.executeTask(taskToRun, container: container)
+        }
+    }
+    
+    private func executeTask(_ task: DownloadTask, container: ModelContainer) async {
+        let bgContext = ModelContext(container)
+        let taskId = task.id
+        
+        do {
+            // 1. Fetch Book by filtering in memory to avoid SwiftData #Predicate compiler bugs
+            let allBooks = (try? bgContext.fetch(FetchDescriptor<Book>())) ?? []
+            guard let bgBook = allBooks.first(where: { $0.bookId == task.bookId }) else {
+                throw NSError(domain: "DownloadManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Không tìm thấy truyện trong cơ sở dữ liệu."])
+            }
+            
+            // 2. Fetch Extension by filtering in memory
+            let allExts = (try? bgContext.fetch(FetchDescriptor<Extension>())) ?? []
+            guard let bgExt = allExts.first(where: { $0.packageId == task.extensionPackageId }) else {
+                throw NSError(domain: "DownloadManager", code: -2, userInfo: [NSLocalizedDescriptionKey: "Không tìm thấy tiện ích bóc tách cho truyện này."])
+            }
+            
+            // 3. Prepare chapters to process
+            let sortedChapters = bgBook.chapters.sorted(by: { $0.index < $1.index })
+            let startIdx = task.startFromCurrent ? bgBook.currentChapterIndex : 0
+            
+            guard startIdx < sortedChapters.count else {
+                throw NSError(domain: "DownloadManager", code: -3, userInfo: [NSLocalizedDescriptionKey: "Chỉ mục chương bắt đầu vượt quá số lượng chương hiện có."])
+            }
+            
+            let limitVal = task.limit.limitValue
+            let endIdx = limitVal == nil ? sortedChapters.count : min(startIdx + limitVal!, sortedChapters.count)
+            let chapsToProcess = Array(sortedChapters[startIdx..<endIdx])
+            
+            let total = chapsToProcess.count
+            await MainActor.run {
+                self.updateProgress(taskId: taskId, progress: 0, total: total)
+            }
+            
+            var processedCount = 0
+            var txtAccumulator = ""
+            
+            for chapter in chapsToProcess {
+                // Check if cancelled
+                let isCancelled = await MainActor.run {
+                    self.isTaskCancelled(taskId: taskId)
+                }
+                if isCancelled {
+                    await MainActor.run {
+                        self.markCancelled(taskId: taskId)
+                        self.runNextTaskIfNeeded(container: container)
+                    }
+                    return
+                }
+                
+                var originalContent = ""
+                
+                if chapter.isCached, let existingContent = chapter.content, !existingContent.isEmpty {
+                    originalContent = existingContent
+                } else {
+                    if task.taskType == .exportTxt && task.onlyExportCached {
+                        // Skip this chapter as it is not cached
+                        processedCount += 1
+                        continue
+                    }
+                    
+                    // Download from extension
+                    let content = try await ExtensionManager.shared.chap(
+                        localPath: bgExt.localPath,
+                        downloadUrl: bgExt.downloadUrl,
+                        url: chapter.url,
+                        configJson: bgExt.configJson
+                    )
+                    let cleaned = content.cleanHTML()
+                    chapter.content = cleaned
+                    chapter.isCached = true
+                    try? bgContext.save()
+                    originalContent = cleaned
+                }
+                
+                if task.taskType == .exportTxt {
+                    // Format for TXT
+                    var titleToExport = chapter.title
+                    var contentToExport = originalContent
+                    
+                    if task.translate {
+                        titleToExport = TranslateUtils.translateChapterTitle(titleToExport, bookId: bgBook.bookId)
+                        contentToExport = TranslateUtils.translateContent(contentToExport, bookId: bgBook.bookId)
+                    }
+                    
+                    let formatted = formatChapter(title: titleToExport, content: contentToExport)
+                    if !txtAccumulator.isEmpty {
+                        txtAccumulator += "\n\n"
+                    }
+                    txtAccumulator += formatted
+                }
+                
+                processedCount += 1
+                await MainActor.run {
+                    self.updateProgress(taskId: taskId, progress: processedCount, total: total)
+                }
+            }
+            
+            // 4. Save and finish
+            if task.taskType == .exportTxt {
+                let tempDir = FileManager.default.temporaryDirectory
+                let sanitizedTitle = bgBook.title.replacingOccurrences(of: "[\\\\/:*?\"<>|]", with: "_", options: .regularExpression)
+                let fileName = "\(sanitizedTitle).txt"
+                let fileURL = tempDir.appendingPathComponent(fileName)
+                try txtAccumulator.write(to: fileURL, atomically: true, encoding: .utf8)
+                
+                await MainActor.run {
+                    self.markCompleted(taskId: taskId)
+                    self.presentShareSheet(for: fileURL)
+                    self.runNextTaskIfNeeded(container: container)
+                }
+            } else {
+                await MainActor.run {
+                    self.markCompleted(taskId: taskId)
+                    self.runNextTaskIfNeeded(container: container)
+                }
+            }
+            
+        } catch {
+            await MainActor.run {
+                self.markFailed(taskId: taskId, error: error.localizedDescription)
+                self.runNextTaskIfNeeded(container: container)
+            }
+        }
+    }
+    
+    private func formatChapter(title: String, content: String) -> String {
+        let paragraphs = content.components(separatedBy: .newlines)
+        let formattedParagraphs = paragraphs
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map { "    " + $0 }
+            .joined(separator: "\n\n")
+        return "\(title)\n\n\(formattedParagraphs)"
+    }
+    
+    @MainActor
+    private func presentShareSheet(for fileURL: URL) {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController else {
+            return
+        }
+        
+        var topVC = rootVC
+        while let presented = topVC.presentedViewController {
+            topVC = presented
+        }
+        
+        let activityVC = UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)
+        
+        if let popoverController = activityVC.popoverPresentationController {
+            popoverController.sourceView = topVC.view
+            popoverController.sourceRect = CGRect(x: topVC.view.bounds.midX, y: topVC.view.bounds.midY, width: 0, height: 0)
+            popoverController.permittedArrowDirections = []
+        }
+        
+        topVC.present(activityVC, animated: true, completion: nil)
+    }
+}

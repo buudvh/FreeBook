@@ -244,11 +244,7 @@ public final class ExtensionManager {
                     
                     guard !link.isEmpty else { continue }
                     
-                    if TranslateUtils.isTranslationEnabled {
-                        if TranslateUtils.containsChinese(name) { name = TranslateUtils.translateMeta(name) }
-                        if TranslateUtils.containsChinese(author) { author = TranslateUtils.translateMeta(author) }
-                        if TranslateUtils.containsChinese(description) { description = TranslateUtils.translateMeta(description) }
-                    }
+                    // No on-the-fly translation during parsing to preserve raw Chinese in memory/DB
                     
                     results.append(SearchNovelResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
                 }
@@ -293,11 +289,7 @@ public final class ExtensionManager {
             let host = dict["host"] as? String ?? ""
             let link = dict["link"] as? String ?? dict["url"] as? String ?? url
             
-            if TranslateUtils.isTranslationEnabled {
-                if TranslateUtils.containsChinese(name) { name = TranslateUtils.translateMeta(name) }
-                if TranslateUtils.containsChinese(author) { author = TranslateUtils.translateMeta(author) }
-                if TranslateUtils.containsChinese(description) { description = TranslateUtils.translateMeta(description) }
-            }
+            // No on-the-fly translation during parsing to preserve raw Chinese in memory/DB
             
             let result = NovelDetailResult(name: name, author: author, cover: cover, description: description, detail: detail, host: host, link: link)
             // AppLogger.shared.log("✅ [ExtensionManager] detail parsed info: \(result.name) by \(result.author)")
@@ -336,9 +328,7 @@ public final class ExtensionManager {
                     ?? ""
                 let host = dict["host"]?.toString() ?? ""
  
-                if TranslateUtils.isTranslationEnabled && TranslateUtils.containsChinese(name) {
-                    name = TranslateUtils.translateChapterTitle(name)
-                }
+                // No on-the-fly translation during parsing to preserve raw Chinese in memory/DB
  
                 results.append(
                     ChapterResult(
@@ -430,9 +420,6 @@ public final class ExtensionManager {
         // AppLogger.shared.log("🔍 [ExtensionManager] genre called. localPath: \(localPath)")
         
         let translateTitle: (String) -> String = { title in
-            if TranslateUtils.isTranslationEnabled && TranslateUtils.containsChinese(title) {
-                return TranslateUtils.translateMeta(title)
-            }
             return title
         }
         
@@ -491,9 +478,6 @@ public final class ExtensionManager {
         // AppLogger.shared.log("🔍 [ExtensionManager] home called. localPath: \(localPath)")
         
         let translateTitle: (String) -> String = { title in
-            if TranslateUtils.isTranslationEnabled && TranslateUtils.containsChinese(title) {
-                return TranslateUtils.translateMeta(title)
-            }
             return title
         }
         

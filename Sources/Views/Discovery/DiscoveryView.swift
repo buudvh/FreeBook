@@ -171,7 +171,7 @@ struct DiscoveryView: View {
                                         ForEach(homeItems) { item in
                                             let isSelected = selectedCategory?.id == item.id
                                             Button(action: { selectCategory(item) }) {
-                                                Text(item.title)
+                                                Text(translateIfNeeded(item.title))
                                                     .font(.subheadline)
                                                     .fontWeight(isSelected ? .bold : .regular)
                                                     .padding(.horizontal, 14)
@@ -260,13 +260,13 @@ struct DiscoveryView: View {
                                                 .clipped()
                                                 
                                                 VStack(alignment: .leading, spacing: 4) {
-                                                    Text(novel.name)
+                                                    Text(translateIfNeeded(novel.name))
                                                         .font(.subheadline)
                                                         .fontWeight(.bold)
                                                         .lineLimit(2)
                                                     
                                                     let descText = !novel.description.isEmpty ? novel.description : novel.author
-                                                    Text(descText)
+                                                    Text(translateIfNeeded(descText))
                                                         .font(.caption)
                                                         .foregroundColor(.secondary)
                                                         .lineLimit(2)
@@ -329,7 +329,7 @@ struct DiscoveryView: View {
                                         showingGenresSheet = false
                                         selectCategory(item)
                                     }) {
-                                        Text(item.title)
+                                        Text(translateIfNeeded(item.title))
                                             .font(.subheadline)
                                             .fontWeight(.medium)
                                             .frame(maxWidth: .infinity)
@@ -405,6 +405,13 @@ struct DiscoveryView: View {
         }
     }
     
+    private func translateIfNeeded(_ text: String) -> String {
+        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
+            return text
+        }
+        return TranslateUtils.translateMeta(text)
+    }
+
     private func selectCategory(_ category: CategoryResult) {
         selectedCategory = category
         currentPage = 1

@@ -5,7 +5,7 @@ struct ShelfView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Book.lastReadDate, order: .reverse) private var allBooks: [Book]
     
-    @State private var selectedTab = 0 // 0: Kệ Sách, 1: Lịch Sử
+    @State private var selectedTab = 1 // 0: Tải trước, 1: Kệ Sách, 2: Lịch Sử
     @State private var showingClearHistoryAlert = false
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     
@@ -20,6 +20,11 @@ struct ShelfView: View {
     @State private var navigateToPlayingDetailUrl: String = ""
     @State private var navigateToPlayingSourceName: String = ""
     @State private var triggerNavigation = false
+    
+    // Tùy chọn tác vụ
+    @State private var showingOptionsSheet = false
+    @State private var selectedTaskType: TaskType = .download
+    @State private var selectedBookForTask: Book? = nil
     
     private var shelfBooks: [Book] {
         allBooks.filter { $0.isOnShelf }
@@ -42,8 +47,9 @@ struct ShelfView: View {
             VStack(spacing: 0) {
                 // Segmented control to switch tabs
                 Picker("Phân loại", selection: $selectedTab) {
-                    Text("Kệ Sách").tag(0)
-                    Text("Lịch Sử").tag(1)
+                    Text("Tải trước").tag(0)
+                    Text("Kệ Sách").tag(1)
+                    Text("Lịch Sử").tag(2)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
@@ -53,6 +59,9 @@ struct ShelfView: View {
                 
                 Group {
                     if selectedTab == 0 {
+                        // TAB TẢI TRƯỚC
+                        DownloadTrackerView()
+                    } else if selectedTab == 1 {
                         // TAB KỆ SÁCH
                         if shelfBooks.isEmpty {
                             VStack(spacing: 20) {
@@ -98,6 +107,18 @@ struct ShelfView: View {
                                             sourceName: book.sourceName
                                         )) {
                                             Label("Xem chi tiết", systemImage: "info.circle")
+                                        }
+                                        
+                                        Button {
+                                            prepareTaskForBook(book, type: .download)
+                                        } label: {
+                                            Label("Tải truyện", systemImage: "arrow.down.circle")
+                                        }
+                                        
+                                        Button {
+                                            prepareTaskForBook(book, type: .exportTxt)
+                                        } label: {
+                                            Label("Xuất ebook TXT", systemImage: "square.and.arrow.up")
                                         }
                                         
                                         Button(role: .destructive) {
@@ -172,6 +193,18 @@ struct ShelfView: View {
                                             Label("Xem chi tiết", systemImage: "info.circle")
                                         }
                                         
+                                        Button {
+                                            prepareTaskForBook(book, type: .download)
+                                        } label: {
+                                            Label("Tải truyện", systemImage: "arrow.down.circle")
+                                        }
+                                        
+                                        Button {
+                                            prepareTaskForBook(book, type: .exportTxt)
+                                        } label: {
+                                            Label("Xuất ebook TXT", systemImage: "square.and.arrow.up")
+                                        }
+                                        
                                         Button(role: .destructive) {
                                             removeFromHistory(book)
                                         } label: {
@@ -199,7 +232,7 @@ struct ShelfView: View {
                     }
                 }
             }
-            .navigationTitle(selectedTab == 0 ? "Kệ Sách" : "Lịch Sử Đọc")
+            .navigationTitle(selectedTab == 0 ? "Tải Trước" : (selectedTab == 1 ? "Kệ Sách" : "Lịch Sử Đọc"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
@@ -209,7 +242,7 @@ struct ShelfView: View {
                         Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
                     }
                     
-                    if selectedTab == 1 && !historyBooks.isEmpty {
+                    if selectedTab == 2 && !historyBooks.isEmpty {
                         Button(action: {
                             showingClearHistoryAlert = true
                         }) {
@@ -253,12 +286,18 @@ struct ShelfView: View {
                 }
                 let bookId = ttsManager.playingBookId
                 if !bookId.isEmpty {
+                    self.selectedTab = 1 // Switch to Shelf tab
                     self.navigateToPlayingBookId = bookId
                     self.navigateToPlayingExtensionId = ttsManager.extensionInfo?.localPath ?? ""
                     self.navigateToPlayingChapterIndex = ttsManager.playingChapterIndex
                     self.navigateToPlayingDetailUrl = ttsManager.extensionInfo?.downloadUrl ?? ""
                     self.navigateToPlayingSourceName = ttsManager.extensionInfo?.configJson ?? ""
                     self.triggerNavigation = true
+                }
+            }
+            .sheet(isPresented: $showingOptionsSheet) {
+                if let book = selectedBookForTask {
+                    TaskOptionsSheet(book: book, taskType: selectedTaskType)
                 }
             }
         }
@@ -282,7 +321,7 @@ struct ShelfView: View {
                         .lineLimit(1)
                 }
                 
-                if selectedTab == 1 {
+                if selectedTab == 2 {
                     let chapterTitle = book.displayChapterTitle
                     if !chapterTitle.isEmpty {
                         Text("Đã đọc: \(translateIfNeeded(chapterTitle))")
@@ -301,6 +340,12 @@ struct ShelfView: View {
             return text
         }
         return TranslateUtils.translateMeta(text)
+    }
+    
+    private func prepareTaskForBook(_ book: Book, type: TaskType) {
+        self.selectedBookForTask = book
+        self.selectedTaskType = type
+        self.showingOptionsSheet = true
     }
     
     private func removeFromShelf(_ book: Book) {
