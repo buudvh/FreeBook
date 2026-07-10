@@ -1,266 +1,142 @@
 import SwiftUI
-import AVFoundation
 
 struct TTSFloatingWidgetView: View {
+    @StateObject private var viewModel = FloatingWidgetViewModel()
+    @GestureState private var dragTranslation: CGSize = .zero
     @ObservedObject var ttsManager = TTSManager.shared
-    
-    // Khởi tạo mặc định ở giữa chiều dọc, sát mép phải
-    @State private var position: CGPoint = CGPoint(
-        x: UIScreen.main.bounds.width - 55 / 2 - 10,
-        y: UIScreen.main.bounds.height / 2
-    )
-    @State private var isCollapsed = true
-    @State private var isHiddenAtEdge = false
-    @State private var edgeDirection: EdgeDirection = .right
     @State private var showingTTSSettings = false
-    @State private var autoHideWorkItem: DispatchWorkItem? = nil
-    @State private var dragOffset: CGSize = .zero
     
-    // Lưu trữ vị trí widget
-    @AppStorage("ttsWidgetPositionX") private var storedPositionX: Double = -1.0
-    @AppStorage("ttsWidgetPositionY") private var storedPositionY: Double = -1.0
+    static let widgetAnimation = Animation.spring(response: 0.35, dampingFraction: 0.75)
     
-    enum EdgeDirection {
-        case left, right
-    }
-    
-    private let screenWidth = UIScreen.main.bounds.width
-    private let screenHeight = UIScreen.main.bounds.height
-    private let size: CGFloat = 55
-    private let expandedWidth: CGFloat = 260
-    
-    var currentX: CGFloat {
-        if isHiddenAtEdge {
-            return edgeDirection == .left ? -size / 2 + 15 : screenWidth + size / 2 - 15
-        } else {
-            return position.x
-        }
-    }
-    
-    var currentY: CGFloat {
-        return position.y
-    }
-    
-    var expandedX: CGFloat {
-        if edgeDirection == .left {
-            return 10 + expandedWidth / 2
-        } else {
-            return screenWidth - 10 - expandedWidth / 2
-        }
+    enum Layout {
+        static let buttonSize: CGFloat = 55
+        static let expandedWidth: CGFloat = 260
+        static let margin: CGFloat = 10
+        static let edgeOffset: CGFloat = 15
     }
     
     var body: some View {
-        ZStack {
-            // Vùng nhận diện tap ngoài để thu nhỏ lại khi đang mở rộng
-            if !isCollapsed {
-                Color.black.opacity(0.001)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                            isCollapsed = true
-                        }
-                        startAutoHideTimer()
-                    }
-            }
+        GeometryReader { geometry in
+            let screenWidth = geometry.size.width
+            let screenHeight = geometry.size.height
             
-            Group {
-                if isCollapsed {
-                    // Nút tròn thu gọn (Sử dụng ZStack thay cho Button để tránh xung đột cử chỉ kéo thả)
-                    ZStack {
-                        Circle()
-                            .fill(Color.black.opacity(0.6))
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.white.opacity(0.6), lineWidth: 2)
-                            )
-                            .shadow(color: Color.black.opacity(0.3), radius: 8, x: 0, y: 3)
-                        
-                        if ttsManager.isPlaying {
-                            Image(systemName: "waveform")
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(.white)
-                        } else {
-                            Image(systemName: "play.fill")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white)
-                                .offset(x: 1.5)
-                        }
-                    }
-                    .frame(width: size, height: size)
-                    .contentShape(Circle())
-                    .opacity(isHiddenAtEdge ? 0.4 : 1.0)
-                    .onTapGesture {
-                        if isHiddenAtEdge {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                                isHiddenAtEdge = false
-                            }
-                            startAutoHideTimer()
-                        } else {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                                isCollapsed = false
-                            }
-                        }
-                    }
-                    .gesture(
-                        DragGesture(minimumDistance: 3)
-                            .onChanged { value in
-                                if isHiddenAtEdge {
-                                    // Cập nhật vị trí X cơ sở về vị trí hiển thị hiện tại ở mép để tránh bị giật nhảy hình
-                                    let visualX = edgeDirection == .left ? -size / 2 + 15 : screenWidth + size / 2 - 15
-                                    position.x = visualX
-                                    isHiddenAtEdge = false
-                                }
-                                dragOffset = value.translation
-                            }
-                            .onEnded { value in
-                                let finalX = position.x + value.translation.width
-                                let finalY = position.y + value.translation.height
-                                
-                                let leftDistance = finalX
-                                let rightDistance = screenWidth - finalX
-                                
-                                let targetX: CGFloat
-                                if leftDistance < rightDistance {
-                                    targetX = size / 2 + 10
-                                    edgeDirection = .left
-                                } else {
-                                    targetX = screenWidth - size / 2 - 10
-                                    edgeDirection = .right
-                                }
-                                
-                                // Giới hạn vị trí Y trong phạm vi hiển thị an toàn
-                                let minY: CGFloat = size / 2 + 100
-                                let maxY: CGFloat = screenHeight - size / 2 - 120
-                                let targetY = min(max(finalY, minY), maxY)
-                                
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
-                                    position = CGPoint(x: targetX, y: targetY)
-                                    dragOffset = .zero
-                                    isHiddenAtEdge = false
-                                }
-                                // Lưu vị trí mới vào AppStorage
-                                storedPositionX = Double(targetX)
-                                storedPositionY = Double(targetY)
-                                startAutoHideTimer()
-                            }
-                    )
-                    .position(
-                        x: currentX + dragOffset.width,
-                        y: currentY + dragOffset.height
-                    )
+            // Tính toán vị trí X tĩnh nghỉ
+            let currentX: CGFloat = {
+                if viewModel.mode == .hidden {
+                    return viewModel.edgeDirection == .left 
+                        ? -Layout.buttonSize / 2 + Layout.edgeOffset 
+                        : screenWidth + Layout.buttonSize / 2 - Layout.edgeOffset
                 } else {
-                    // Thanh ngang mở rộng điều khiển
-                    HStack(spacing: 0) {
-                        // Nút Xem (Mở màn hình đọc truyện đang phát)
-                        Button(action: {
-                            NotificationCenter.default.post(name: NSNotification.Name("openCurrentlyPlayingReader"), object: nil)
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                isCollapsed = true
-                            }
-                            startAutoHideTimer()
-                        }) {
-                            VStack(spacing: 2) {
-                                Image(systemName: "book.fill")
-                                    .font(.system(size: 16))
-                                Text("Xem")
-                                        .font(.system(size: 8))
-                            }
-                            .foregroundColor(.blue)
-                            .frame(width: 44, height: 44)
+                    return viewModel.edgeDirection == .left 
+                        ? Layout.buttonSize / 2 + Layout.margin 
+                        : screenWidth - Layout.buttonSize / 2 - Layout.margin
+                }
+            }()
+            
+            let currentY = viewModel.verticalRatio * screenHeight
+            
+            // Vị trí render thực tế dựa trên dragTranslation
+            let renderPosition: CGPoint = {
+                if viewModel.mode == .expanded {
+                    let expandedX = viewModel.edgeDirection == .left 
+                        ? Layout.margin + Layout.expandedWidth / 2 
+                        : screenWidth - Layout.margin - Layout.expandedWidth / 2
+                    return CGPoint(x: expandedX, y: currentY)
+                } else {
+                    return CGPoint(
+                        x: currentX + dragTranslation.width,
+                        y: currentY + dragTranslation.height
+                    )
+                }
+            }()
+            
+            ZStack {
+                // Vùng nhận diện tap ngoài để thu nhỏ lại khi đang mở rộng
+                if viewModel.mode == .expanded {
+                    Color.black.opacity(0.001)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            viewModel.handleOutsideTap(buttonSize: Layout.buttonSize, screenWidth: screenWidth)
                         }
-                        
-                        Divider().frame(height: 24)
-                        
-                        // Nút Phát / Tạm dừng
-                        Button(action: {
-                            if ttsManager.isPlaying {
-                                ttsManager.pause()
-                            } else {
-                                ttsManager.resume()
-                            }
-                        }) {
-                            Image(systemName: ttsManager.isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 18))
-                                .foregroundColor(.primary)
-                                .frame(width: 48, height: 44)
+                }
+                
+                // 1. Nút tròn thu gọn
+                CollapsedCircleView(
+                    isPlaying: ttsManager.isPlaying,
+                    isHiddenMode: viewModel.mode == .hidden
+                ) {
+                    viewModel.handleTapCircle(buttonSize: Layout.buttonSize, screenWidth: screenWidth)
+                }
+                .gesture(
+                    DragGesture(minimumDistance: 3)
+                        .updating($dragTranslation) { value, state, _ in
+                            state = value.translation
                         }
-                        
-                        // Nút đọc đoạn tiếp theo (Skip Forward)
-                        Button(action: {
-                            ttsManager.skipForward()
-                        }) {
-                            Image(systemName: "forward.fill")
-                                .font(.system(size: 18))
-                                .foregroundColor(ttsManager.isPlaying ? .primary : .secondary)
-                                .frame(width: 48, height: 44)
+                        .onChanged { _ in
+                            viewModel.handleDragStart()
                         }
-                        .disabled(!ttsManager.isPlaying)
-                        
-                        // Nút Cài đặt đọc
-                        Button(action: {
-                            showingTTSSettings = true
-                        }) {
-                            Image(systemName: "gearshape.fill")
-                                .font(.system(size: 18))
-                                .foregroundColor(.blue)
-                                .frame(width: 48, height: 44)
+                        .onEnded { value in
+                            viewModel.handleDragEnd(
+                                translation: value.translation,
+                                buttonSize: Layout.buttonSize,
+                                screenWidth: screenWidth,
+                                screenHeight: screenHeight
+                            )
                         }
-                        
-                        Divider().frame(height: 24)
-                        
-                        // Nút X để dừng hẳn và tắt trình đọc nổi
-                        Button(action: {
-                            ttsManager.stop()
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                isCollapsed = true
-                            }
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 18))
-                                .foregroundColor(.red)
-                                .frame(width: 44, height: 44)
+                )
+                .position(renderPosition)
+                .opacity(viewModel.mode == .expanded ? 0.0 : 1.0)
+                .scaleEffect(viewModel.mode == .expanded ? 0.8 : 1.0)
+                .allowsHitTesting(viewModel.mode != .expanded)
+                
+                // 2. Thanh điều khiển mở rộng
+                ExpandedControlPanel(
+                    isPlaying: ttsManager.isPlaying,
+                    onBackToReader: {
+                        NotificationCenter.default.post(name: NSNotification.Name("openCurrentlyPlayingReader"), object: nil)
+                        withAnimation(TTSFloatingWidgetView.widgetAnimation) {
+                            viewModel.mode = .collapsed
                         }
-                    }
-                    .frame(width: expandedWidth, height: 48)
-                    .background(Color(uiColor: .systemBackground))
-                    .cornerRadius(24)
-                    .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
-                    .position(x: expandedX, y: position.y)
-                    .sheet(isPresented: $showingTTSSettings, onDismiss: {
+                        viewModel.startAutoHideTimer(buttonSize: Layout.buttonSize, screenWidth: screenWidth)
+                    },
+                    onPlayPause: {
                         if ttsManager.isPlaying {
-                            ttsManager.restartCurrentParagraph()
+                            ttsManager.pause()
+                        } else {
+                            ttsManager.resume()
                         }
-                    }) {
-                        TTSSettingsSheet()
+                    },
+                    onSkipForward: {
+                        ttsManager.skipForward()
+                    },
+                    onShowSettings: {
+                        showingTTSSettings = true
+                    },
+                    onStop: {
+                        ttsManager.stop()
+                        withAnimation(TTSFloatingWidgetView.widgetAnimation) {
+                            viewModel.mode = .collapsed
+                        }
                     }
+                )
+                .position(renderPosition)
+                .opacity(viewModel.mode == .expanded ? 1.0 : 0.0)
+                .scaleEffect(viewModel.mode == .expanded ? 1.0 : 0.8)
+                .allowsHitTesting(viewModel.mode == .expanded)
+                .sheet(isPresented: $showingTTSSettings, onDismiss: {
+                    if ttsManager.isPlaying {
+                        ttsManager.restartCurrentParagraph()
+                    }
+                }) {
+                    TTSSettingsSheet()
                 }
             }
-        }
-        .onAppear {
-            if storedPositionX > 0 && storedPositionY > 0 {
-                position = CGPoint(x: storedPositionX, y: storedPositionY)
-                edgeDirection = position.x < screenWidth / 2 ? .left : .right
-            } else {
-                storedPositionX = Double(position.x)
-                storedPositionY = Double(position.y)
+            .onAppear {
+                viewModel.startAutoHideTimer(buttonSize: Layout.buttonSize, screenWidth: screenWidth)
             }
-            startAutoHideTimer()
         }
         .onDisappear {
-            autoHideWorkItem?.cancel()
+            viewModel.cancelTasks()
         }
-    }
-    
-    private func startAutoHideTimer() {
-        autoHideWorkItem?.cancel()
-        
-        let item = DispatchWorkItem {
-            guard isCollapsed else { return }
-            withAnimation(.easeInOut(duration: 0.5)) {
-                isHiddenAtEdge = true
-            }
-        }
-        autoHideWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: item)
     }
 }
