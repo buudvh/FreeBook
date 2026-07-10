@@ -126,6 +126,11 @@ public final class TranslationManager: ObservableObject {
         TranslateUtils.clearCache()
         if let bid = bookId {
             bookDicts.removeValue(forKey: bid)
+        } else {
+            // Invalidate global dictionary cache
+            await MainActor.run {
+                DictionaryCache.shared.invalidate(type: isName ? .names : .vietPhrase)
+            }
         }
         try await loadAllDictionaries()
     }
@@ -166,6 +171,11 @@ public final class TranslationManager: ObservableObject {
             TranslateUtils.clearCache()
             if let bid = bookId {
                 bookDicts.removeValue(forKey: bid)
+            } else {
+                // Invalidate global dictionary cache
+                await MainActor.run {
+                    DictionaryCache.shared.invalidate(type: isName ? .names : .vietPhrase)
+                }
             }
             try await loadAllDictionaries()
         }

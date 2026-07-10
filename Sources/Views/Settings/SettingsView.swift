@@ -136,6 +136,9 @@ struct SettingsView: View {
                             Button(action: {
                                 Task {
                                     await translationManager.downloadDefaultDictionaries()
+                                    await MainActor.run {
+                                        DictionaryCache.shared.invalidateAll()
+                                    }
                                 }
                             }) {
                                 Label(translationManager.isDownloaded() ? "Tải lại từ điển mặc định" : "Tải từ điển mặc định", systemImage: "arrow.down.circle")
@@ -151,6 +154,7 @@ struct SettingsView: View {
                                     translationManager.clearBookDictCache()
                                     TranslateUtils.clearCache()
                                     await MainActor.run {
+                                        DictionaryCache.shared.invalidateAll()
                                         importingTypes.remove("refresh")
                                         showToast("Đã làm mới dữ liệu dịch thành công")
                                     }
@@ -294,6 +298,12 @@ struct SettingsView: View {
                             do {
                                 try await translationManager.importDictionary(from: selectedUrl, type: currentType)
                                 await MainActor.run {
+                                    // Invalidate DictionaryCache so it reloads from new .dat
+                                    if currentType == "vietphrase" {
+                                        DictionaryCache.shared.invalidate(type: .vietPhrase)
+                                    } else if currentType == "names" {
+                                        DictionaryCache.shared.invalidate(type: .names)
+                                    }
                                     showToast("Nhập dữ liệu từ điển thành công!")
                                 }
                             } catch {
