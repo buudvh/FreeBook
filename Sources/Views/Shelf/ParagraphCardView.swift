@@ -15,10 +15,11 @@ struct ParagraphCardView: View {
     var body: some View {
         ReaderTextView(
             text: isTranslationEnabled ? item.translated : item.original,
-            fontSize: fontSize,
+            fontSize: item.isTitle ? fontSize * 1.25 : fontSize,
             lineSpacing: lineSpacing,
             theme: theme,
             highlightRange: highlightRange,
+            isBold: item.isTitle,
             triggerGetVisibleIndex: $triggerGetVisibleIndex,
             onGetVisibleIndex: onGetVisibleIndex,
             onSelectionChange: onSelectionChange,
@@ -33,10 +34,12 @@ public struct ParagraphItem: Identifiable, Codable, Equatable {
     public let id: Int
     public let original: String
     public let translated: String
+    public let isTitle: Bool
     
-    public init(id: Int, original: String, translated: String) {
+    public init(id: Int, original: String, translated: String, isTitle: Bool = false) {
         self.id = id
         self.original = original
         self.translated = translated
+        self.isTitle = isTitle
     }
 }

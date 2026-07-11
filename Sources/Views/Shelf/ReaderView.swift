@@ -53,6 +53,7 @@ struct ReaderView: View {
     @State private var errorMessage = ""
     @State private var chapterTitle = ""
     @State private var chapterContent = ""
+    @State private var showChapterTitle = true
     
     @State private var originalTitle = ""
     @State private var originalContent = ""
@@ -247,6 +248,13 @@ struct ReaderView: View {
         }
 
         .onAppear {
+            let key = "showChapterTitle_\(bookId)"
+            if UserDefaults.standard.object(forKey: key) != nil {
+                showChapterTitle = UserDefaults.standard.bool(forKey: key)
+            } else {
+                showChapterTitle = true
+            }
+            
             ReaderView.activeBookId = bookId
             ReaderView.activeChapterIndex = chapterIndex
             
@@ -452,6 +460,56 @@ struct ReaderView: View {
             list.append(phienAm[String(char)] ?? String(char))
         }
         return list.joined(separator: " ").capitalized
+    }
+    
+    private func formatMeaning(_ input: String, style: String) -> String {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return input }
+        
+        let words = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+        guard !words.isEmpty else { return input }
+        
+        var formattedWords: [String] = []
+        
+        switch style {
+        case "aa": // viết thường hoàn toàn
+            formattedWords = words.map { $0.lowercased() }
+            
+        case "Aa¹": // viết hoa từ đầu tiên
+            for (index, word) in words.enumerated() {
+                if index == 0 {
+                    formattedWords.append(word.prefix(1).uppercased() + word.dropFirst().lowercased())
+                } else {
+                    formattedWords.append(word.lowercased())
+                }
+            }
+            
+        case "Aa²": // viết hoa 2 từ đầu tiên
+            for (index, word) in words.enumerated() {
+                if index < 2 {
+                    formattedWords.append(word.prefix(1).uppercased() + word.dropFirst().lowercased())
+                } else {
+                    formattedWords.append(word.lowercased())
+                }
+            }
+            
+        case "Aa": // viết hoa tất cả các từ trừ từ cuối cùng
+            for (index, word) in words.enumerated() {
+                if index < words.count - 1 {
+                    formattedWords.append(word.prefix(1).uppercased() + word.dropFirst().lowercased())
+                } else {
+                    formattedWords.append(word.lowercased())
+                }
+            }
+            
+        case "AA": // viết kiểu title
+            formattedWords = words.map { $0.prefix(1).uppercased() + $0.dropFirst().lowercased() }
+            
+        default:
+            return input
+        }
+        
+        return formattedWords.joined(separator: " ")
     }
     
     private var suggestionChips: [String] {
@@ -779,12 +837,22 @@ struct ReaderView: View {
         let originalLines = originalContent.components(separatedBy: "\n")
         let translatedLines = chapterContent.components(separatedBy: "\n")
         var items: [ParagraphItem] = []
+        
+        let key = "showChapterTitle_\(bookId)"
+        let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+        
+        if showTitle {
+            let origTitle = originalTitle.isEmpty ? (currentChapterInfo?.title ?? "") : originalTitle
+            let transTitle = chapterTitle
+            items.append(ParagraphItem(id: -1, original: origTitle, translated: transTitle, isTitle: true))
+        }
+        
         let maxLines = max(originalLines.count, translatedLines.count)
         
         for i in 0..<maxLines {
             let orig = i < originalLines.count ? originalLines[i] : ""
             let trans = i < translatedLines.count ? translatedLines[i] : ""
-            items.append(ParagraphItem(id: i, original: orig, translated: trans))
+            items.append(ParagraphItem(id: i, original: orig, translated: trans, isTitle: false))
         }
         return items
     }
@@ -1392,10 +1460,14 @@ struct TTSSettingsSheet: View {
                          }
                     }
                     
-                    Picker("Độ dài phân đoạn", selection: $ttsManager.chunkLength) {
-                        Text("250 ký tự").tag(250)
-                        Text("500 ký tự").tag(500)
-                        Text("1000 ký tự (Mặc định)").tag(1000)
+                    HStack {
+                        Text("Độ dài phân đoạn (ký tự)")
+                        Spacer()
+                        TextField("200", value: $ttsManager.chunkLength, formatter: NumberFormatter())
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 80)
+                            .textFieldStyle(.roundedBorder)
                     }
                 }
             }
@@ -1510,12 +1582,6 @@ extension ReaderView {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text(chapterTitle)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(selectedTheme.textColor)
-                        .padding(.top, 16)
-                    
                     chapterContentView
                         .frame(maxWidth: .infinity, alignment: .leading)
                     
@@ -1657,10 +1723,31 @@ extension ReaderView {
                             .frame(width: 36, height: 44)
                     }
                     
-                    // Dấu ba chấm
-                    Button(action: {
-                        showingSettings.toggle()
-                    }) {
+                    // Dấu ba chấm nâng cấp thành Menu Dropdown
+                    Menu {
+                        Button(action: {
+                            showChapterTitle.toggle()
+                            let key = "showChapterTitle_\(bookId)"
+                            UserDefaults.standard.set(showChapterTitle, forKey: key)
+                        }) {
+                            Label(
+                                "Hiện tên chương trong nội dung",
+                                systemImage: showChapterTitle ? "checkmark.square" : "square"
+                            )
+                        }
+                        
+                        Button(action: {
+                            showingBookDictionary = true
+                        }) {
+                            Label("Từ điển truyện", systemImage: "book.closed")
+                        }
+                        
+                        Button(action: {
+                            showingSettings = true
+                        }) {
+                            Label("Cài đặt trình đọc", systemImage: "gearshape")
+                        }
+                    } label: {
                         Image(systemName: "ellipsis")
                             .rotationEffect(.degrees(90))
                             .font(.system(size: 18))
@@ -1719,7 +1806,7 @@ extension ReaderView {
                 
                 Spacer()
                 
-                Text(currentChapterInfo?.title ?? "")
+                Text(chapterTitle.isEmpty ? (currentChapterInfo?.title ?? "") : chapterTitle)
                     .font(.system(size: 12))
                     .foregroundColor(.white)
                     .lineLimit(1)
@@ -1767,9 +1854,9 @@ extension ReaderView {
             }
             .padding(.horizontal, 16)
             
-            // Hàng 3: Các nút chức năng dưới cùng
+            // Hàng 3: Các nút chức năng dưới cùng (Chỉ giữ lại Mục lục và Nghe truyện)
             HStack(spacing: 0) {
-                // Xem danh sách chương
+                // Xem danh sách chương (Mục lục)
                 Button(action: {
                     showingChapterList = true
                 }) {
@@ -1777,20 +1864,6 @@ extension ReaderView {
                         Image(systemName: "list.bullet")
                             .font(.system(size: 20))
                         Text("Mục lục")
-                            .font(.system(size: 9))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                }
-                
-                // Từ điển truyện
-                Button(action: {
-                    showingBookDictionary = true
-                }) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "book.closed")
-                            .font(.system(size: 20))
-                        Text("Từ điển")
                             .font(.system(size: 9))
                     }
                     .foregroundColor(.white)
@@ -1812,20 +1885,6 @@ extension ReaderView {
                         Text("Nghe truyện")
                             .font(.system(size: 9))
                     }
-                    .frame(maxWidth: .infinity)
-                }
-                
-                // Cài đặt
-                Button(action: {
-                    showingSettings = true
-                }) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 20))
-                        Text("Cài đặt")
-                            .font(.system(size: 9))
-                    }
-                    .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                 }
             }
@@ -2020,34 +2079,11 @@ extension ReaderView {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
-            // Hàng 5: Nhóm nút định dạng chữ aa, Aa1, Aa2, AA
+            // Hàng 5: Nhóm nút định dạng chữ aa, Aa¹, Aa², Aa, AA
             HStack(spacing: 8) {
                 ForEach(["aa", "Aa¹", "Aa²", "Aa", "AA"], id: \.self) { format in
                     Button(action: {
-                        switch format {
-                        case "aa":
-                            customMeaning = customMeaning.lowercased()
-                        case "Aa¹":
-                            if let first = customMeaning.first {
-                                customMeaning = first.uppercased() + customMeaning.dropFirst().lowercased()
-                            }
-                        case "Aa²":
-                            if customMeaning.count >= 2 {
-                                customMeaning = customMeaning.prefix(2).uppercased()
-                                    + customMeaning.dropFirst(2).lowercased()
-                            } else {
-                                customMeaning = customMeaning.uppercased()
-                            }
-                        case "Aa":
-                            customMeaning = customMeaning.prefix(1).uppercased()
-                                + customMeaning.dropFirst().lowercased()
-                        case "Title":
-                            customMeaning = customMeaning.capitalized
-                        case "AA":
-                            customMeaning = customMeaning.uppercased()
-                        default:
-                            break
-                        }
+                        customMeaning = formatMeaning(customMeaning, style: format)
                     }) {
                         Text(format)
                             .font(.body)

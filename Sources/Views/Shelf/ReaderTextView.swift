@@ -7,10 +7,35 @@ struct ReaderTextView: UIViewRepresentable {
     let lineSpacing: Double
     let theme: ReaderTheme
     let highlightRange: NSRange?
+    let isBold: Bool
     @Binding var triggerGetVisibleIndex: UUID?
     let onGetVisibleIndex: (Int) -> Void
     let onSelectionChange: (String, String, Int, Int) -> Void
     let onSpeakFromHere: (Int) -> Void
+    
+    init(
+        text: String,
+        fontSize: Double,
+        lineSpacing: Double,
+        theme: ReaderTheme,
+        highlightRange: NSRange?,
+        isBold: Bool = false,
+        triggerGetVisibleIndex: Binding<UUID?>,
+        onGetVisibleIndex: @escaping (Int) -> Void,
+        onSelectionChange: @escaping (String, String, Int, Int) -> Void,
+        onSpeakFromHere: @escaping (Int) -> Void
+    ) {
+        self.text = text
+        self.fontSize = fontSize
+        self.lineSpacing = lineSpacing
+        self.theme = theme
+        self.highlightRange = highlightRange
+        self.isBold = isBold
+        self._triggerGetVisibleIndex = triggerGetVisibleIndex
+        self.onGetVisibleIndex = onGetVisibleIndex
+        self.onSelectionChange = onSelectionChange
+        self.onSpeakFromHere = onSpeakFromHere
+    }
 
     func sizeThatFits(
         _ proposal: ProposedViewSize,
@@ -67,12 +92,19 @@ struct ReaderTextView: UIViewRepresentable {
         let fullRange = NSRange(location: 0, length: nsText.length)
         
         let attributedText = NSMutableAttributedString(string: text)
-        attributedText.addAttribute(.font, value: UIFont.systemFont(ofSize: CGFloat(fontSize)), range: fullRange)
+        let font = isBold 
+            ? UIFont.boldSystemFont(ofSize: CGFloat(fontSize))
+            : UIFont.systemFont(ofSize: CGFloat(fontSize))
+        attributedText.addAttribute(.font, value: font, range: fullRange)
         attributedText.addAttribute(.foregroundColor, value: UIColor(theme.textColor), range: fullRange)
         
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.lineSpacing = CGFloat(lineSpacing)
         attributedText.addAttribute(.paragraphStyle, value: paragraphStyle, range: fullRange)
+        
+        let isHighlightedNow = highlightRange != nil
+        let shouldScroll = isHighlightedNow && !context.coordinator.wasHighlighted
+        context.coordinator.wasHighlighted = isHighlightedNow
         
         // Tô màu nền cho đoạn văn đang đọc (Highlight)
         if let highlight = highlightRange, highlight.location != NSNotFound && highlight.location + highlight.length <= nsText.length {
@@ -81,20 +113,24 @@ struct ReaderTextView: UIViewRepresentable {
                 : UIColor.yellow.withAlphaComponent(0.28)
             attributedText.addAttribute(.backgroundColor, value: highlightBgColor, range: highlight)
             
-            // Tự động cuộn màn hình (Auto-scroll) để đưa đoạn highlight vào khung hình
-            DispatchQueue.main.async {
-                if let scrollView = uiView.parentScrollView {
-                    uiView.layoutManager.ensureLayout(for: uiView.textContainer)
-                    let start = uiView.position(from: uiView.beginningOfDocument, offset: highlight.location) ?? uiView.beginningOfDocument
-                    let end = uiView.position(from: start, offset: highlight.length) ?? start
-                    if let textRange = uiView.textRange(from: start, to: end) {
-                        let rect = uiView.firstRect(for: textRange)
-                        let rectInScrollView = uiView.convert(rect, to: scrollView)
+            // Tự động cuộn màn hình (Auto-scroll) để đưa đoạn highlight vào chính giữa màn hình
+            if shouldScroll {
+                DispatchQueue.main.async {
+                    if let scrollView = uiView.parentScrollView {
+                        // Chỉ tự động cuộn nếu người dùng không tương tác vuốt chạm bằng tay
+                        guard !scrollView.isDragging && !scrollView.isDecelerating && !scrollView.isTracking else {
+                            return
+                        }
                         
-                        let visibleHeight = scrollView.bounds.height
-                        // Chỉ cuộn nếu nằm ngoài vùng nhìn thấy hiện tại
-                        if rectInScrollView.minY < scrollView.contentOffset.y || rectInScrollView.maxY > scrollView.contentOffset.y + visibleHeight {
-                            let targetY = max(0, rectInScrollView.minY - 100) // Lùi lên 100px
+                        uiView.layoutManager.ensureLayout(for: uiView.textContainer)
+                        let start = uiView.position(from: uiView.beginningOfDocument, offset: highlight.location) ?? uiView.beginningOfDocument
+                        let end = uiView.position(from: start, offset: highlight.length) ?? start
+                        if let textRange = uiView.textRange(from: start, to: end) {
+                            let rect = uiView.firstRect(for: textRange)
+                            let rectInScrollView = uiView.convert(rect, to: scrollView)
+                            
+                            let visibleHeight = scrollView.bounds.height
+                            let targetY = max(0, rectInScrollView.midY - (visibleHeight / 2))
                             scrollView.setContentOffset(CGPoint(x: 0, y: targetY), animated: true)
                         }
                     }
@@ -133,6 +169,7 @@ struct ReaderTextView: UIViewRepresentable {
         var parent: ReaderTextView
         weak var parentTextView: UITextView?
         var lastTriggeredId: UUID?
+        var wasHighlighted: Bool = false
         
         init(_ parent: ReaderTextView) {
             self.parent = parent

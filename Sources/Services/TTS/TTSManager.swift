@@ -70,6 +70,9 @@ public final class TTSManager: NSObject, ObservableObject {
     private var preloadedNextChapterContent: String? = nil
     private var isPreloading: Bool = false
     private var currentPlaybackId: String? = nil
+    private var currentUtterance: AVSpeechUtterance? = nil
+    private var lastStoppedParagraphIndex: Int? = nil
+    private var wasPlayingBeforeStop = false
     
     // Cache lưu trữ dữ liệu âm thanh đã được tổng hợp trước cho các đoạn văn
     private var preloadedWavs: [Int: AVAudioPCMBuffer] = [:]
@@ -122,7 +125,7 @@ public final class TTSManager: NSObject, ObservableObject {
             self.selectedVoice = UserDefaults.standard.string(forKey: "nghittsVoice") ?? (UserDefaults.standard.string(forKey: "ttsVoice") ?? "Ngọc Huyền (mới)")
         }
         
-        self.chunkLength = UserDefaults.standard.object(forKey: "ttsChunkLength") != nil ? UserDefaults.standard.integer(forKey: "ttsChunkLength") : 1000
+        self.chunkLength = UserDefaults.standard.object(forKey: "ttsChunkLength") != nil ? UserDefaults.standard.integer(forKey: "ttsChunkLength") : 200
         
         super.init()
         
@@ -245,9 +248,23 @@ public final class TTSManager: NSObject, ObservableObject {
         self.paragraphs = parseParagraphs(chapterContent)
         
         // Tìm chunk đầu tiên có paragraphIndex khớp với chỉ số đoạn văn yêu cầu
-        let targetIdx = paragraphs.firstIndex(where: {
+        var targetIdx = paragraphs.firstIndex(where: {
             $0.paragraphIndex == startParagraphIndex
         }) ?? 0
+        
+        // Kiểm tra cấu hình hiện tên chương trong nội dung của truyện hiện tại (mặc định bật)
+        let key = "showChapterTitle_\(playingBookId ?? "")"
+        let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+        
+        if startParagraphIndex == 0 && showTitle && !chapterTitle.isEmpty {
+            let titleParagraph = TTSParagraph(
+                text: chapterTitle,
+                range: NSRange(location: 0, length: chapterTitle.count),
+                paragraphIndex: -1
+            )
+            self.paragraphs.insert(titleParagraph, at: 0)
+            targetIdx = 0
+        }
         
         self.currentParagraphIndex = targetIdx
         self.isPlaying = true
@@ -313,6 +330,53 @@ public final class TTSManager: NSObject, ObservableObject {
         MPNowPlayingInfoCenter.default().playbackState = .stopped
     }
     
+    public func stopAndSaveState() {
+        wasPlayingBeforeStop = isPlaying
+        if isPlaying {
+            let currentParagraph = paragraphs[currentParagraphIndex]
+            lastStoppedParagraphIndex = currentParagraph.paragraphIndex
+            stop()
+        }
+    }
+    
+    public func resumeWithNewSettings() {
+        guard wasPlayingBeforeStop, let lastIndex = lastStoppedParagraphIndex else { return }
+        wasPlayingBeforeStop = false
+        lastStoppedParagraphIndex = nil
+        
+        self.paragraphs = parseParagraphs(chapterContent)
+        
+        var targetIdx = paragraphs.firstIndex(where: {
+            $0.paragraphIndex == lastIndex
+        }) ?? 0
+        
+        let key = "showChapterTitle_\(playingBookId)"
+        let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+        
+        if lastIndex == -1 && showTitle && !chapterTitle.isEmpty {
+            let titleParagraph = TTSParagraph(
+                text: chapterTitle,
+                range: NSRange(location: 0, length: chapterTitle.count),
+                paragraphIndex: -1
+            )
+            self.paragraphs.insert(titleParagraph, at: 0)
+            targetIdx = 0
+        } else if showTitle && !chapterTitle.isEmpty {
+            let titleParagraph = TTSParagraph(
+                text: chapterTitle,
+                range: NSRange(location: 0, length: chapterTitle.count),
+                paragraphIndex: -1
+            )
+            self.paragraphs.insert(titleParagraph, at: 0)
+            targetIdx = (paragraphs.firstIndex(where: { $0.paragraphIndex == lastIndex }) ?? 1)
+        }
+        
+        self.currentParagraphIndex = targetIdx
+        self.isPlaying = true
+        
+        speakCurrent()
+    }
+    
     public func restartCurrentParagraph() {
         guard isPlaying else { return }
         stopCurrentPlayback()
@@ -351,6 +415,8 @@ public final class TTSManager: NSObject, ObservableObject {
         AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] stopCurrentPlayback() được gọi.")
         if tool == "system" {
             systemSynthesizer?.stopSpeaking(at: .immediate)
+            systemSynthesizer = nil // Làm sạch hàng đợi phát của iOS
+            currentUtterance = nil
         } else {
             playerNode?.stop()
         }
@@ -402,6 +468,7 @@ public final class TTSManager: NSObject, ObservableObject {
     
     private func playSystemTTS(_ text: String) {
         let utterance = AVSpeechUtterance(string: text)
+        self.currentUtterance = utterance
         
         // Cấu hình giọng đọc hệ thống
         if let voice = AVSpeechSynthesisVoice.speechVoices().first(where: { $0.identifier == selectedVoice || $0.name == selectedVoice }) {
@@ -734,7 +801,7 @@ public final class TTSManager: NSObject, ObservableObject {
                 paragraphRange = NSRange(location: currentOffset, length: trimmed.count)
             }
             
-            let maxLen = max(chunkLength, 1000)
+            let maxLen = max(chunkLength, 10)
             if trimmed.count > maxLen {
                 let subParagraphs = splitSentence(trimmed, maxLength: maxLen, baseOffset: paragraphRange.location, paragraphIndex: i)
                 result.append(contentsOf: subParagraphs)
@@ -920,6 +987,13 @@ public final class TTSManager: NSObject, ObservableObject {
 extension TTSManager: @preconcurrency AVSpeechSynthesizerDelegate {
     public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         guard isPlaying else { return }
+        
+        // Kiểm tra khớp chính xác utterance hiện tại để tránh callback trùng lặp/mồ côi làm lệch highlight
+        guard utterance == currentUtterance else {
+            AppLogger.shared.log("🔊 [TTSManager] Bỏ qua didFinish vì utterance hoàn thành không khớp với currentUtterance.")
+            return
+        }
+        
         nextParagraph()
     }
 }

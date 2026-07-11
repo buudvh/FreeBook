@@ -7,10 +7,33 @@ struct ManageDefinitionsView: View {
     let onChanged: () -> Void
     @Environment(\.dismiss) private var dismiss
     
-    private var filteredMatches: [DictionaryMatchInfo] {
-        matches.filter { match in
-            !match.source.contains("Pronouns") && !match.source.contains("LuatNhan")
+    // State nhập nghĩa ở cuối section
+    @State private var newNamesRieng = ""
+    @State private var newNamesChung = ""
+    @State private var newVPRieng = ""
+    @State private var newVPChung = ""
+    
+    // State dùng cho việc chèn nghĩa mới trước một nghĩa hiện tại
+    @State private var showingInsertAlert = false
+    @State private var insertMeaningText = ""
+    @State private var targetSource = ""
+    @State private var targetIndex = 0
+    @State private var targetMeaningName = ""
+    
+    private func getHanViet(for word: String) -> String {
+        let phienAm = TranslationManager.shared.phienAmMap
+        var list: [String] = []
+        for char in word {
+            list.append(phienAm[String(char)] ?? String(char))
         }
+        return list.joined(separator: " ").lowercased()
+    }
+    
+    private func splitMeanings(_ translation: String) -> [String] {
+        let clean = translation.replacingOccurrences(of: "¦", with: "/")
+        return clean.components(separatedBy: "/")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
     
     var body: some View {
@@ -22,37 +45,15 @@ struct ManageDefinitionsView: View {
                         .fontWeight(.bold)
                 }
                 
-                Section(header: Text("Các nghĩa hiện tại")) {
-                    if filteredMatches.isEmpty {
-                        Text("Chưa có định nghĩa nào")
-                            .foregroundColor(.secondary)
-                    } else {
-                        ForEach(filteredMatches) { match in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(match.source)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                        .fontWeight(.bold)
-                                    Text(match.translation)
-                                        .font(.body)
-                                }
-                                
-                                Spacer()
-                                
-                                if isEditableSource(match.source) {
-                                    Button(role: .destructive, action: {
-                                        deleteMatch(match)
-                                    }) {
-                                        Image(systemName: "trash")
-                                            .foregroundColor(.red)
-                                    }
-                                    .buttonStyle(.borderless)
-                                }
-                            }
-                        }
-                    }
+                Section(header: Text("Phiên âm")) {
+                    Text(getHanViet(for: word))
+                        .font(.body)
                 }
+                
+                makeDictionarySection(title: "Name (Riêng)", source: "Names (Riêng)")
+                makeDictionarySection(title: "Name (Chung)", source: "Names (Chung)")
+                makeDictionarySection(title: "VietPhrase (Riêng)", source: "VietPhrase (Riêng)")
+                makeDictionarySection(title: "VietPhrase (Chung)", source: "VietPhrase (Chung)")
             }
             .navigationTitle("Quản lý nghĩa từ")
             .navigationBarTitleDisplayMode(.inline)
@@ -63,26 +64,227 @@ struct ManageDefinitionsView: View {
                     }
                 }
             }
+            // Hộp thoại nhập nghĩa mới chèn trước một nghĩa hiện tại
+            .alert("Thêm nghĩa mới", isPresented: $showingInsertAlert) {
+                TextField("Nhập nghĩa...", text: $insertMeaningText)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                Button("Thêm", action: {
+                    insertMeaningAtTarget()
+                })
+                Button("Hủy", role: .cancel, action: {})
+            } message: {
+                Text("Nghĩa mới sẽ được chèn trước '\(targetMeaningName)'")
+            }
         }
     }
     
-    private func isEditableSource(_ source: String) -> Bool {
-        return source == "Names (Riêng)" || source == "Names (Chung)" ||
-               source == "VietPhrase (Riêng)" || source == "VietPhrase (Chung)"
+    @ViewBuilder
+    private func makeDictionarySection(title: String, source: String) -> some View {
+        let match = matches.first(where: { $0.source == source })
+        let meanings = match != nil ? splitMeanings(match!.translation) : []
+        
+        Section(header: Text(title)) {
+            if meanings.isEmpty {
+                Text("Chưa có định nghĩa nào")
+                    .foregroundColor(.secondary)
+                    .italic()
+            } else {
+                ForEach(Array(meanings.enumerated()), id: \.offset) { index, meaning in
+                    HStack {
+                        Text(meaning)
+                            .font(.body)
+                        
+                        Spacer()
+                        
+                        // Nút thêm trước nghĩa này
+                        Button(action: {
+                            targetSource = source
+                            targetIndex = index
+                            targetMeaningName = meaning
+                            insertMeaningText = ""
+                            showingInsertAlert = true
+                        }) {
+                            Image(systemName: "plus")
+                                .foregroundColor(.blue)
+                                .padding(.horizontal, 6)
+                        }
+                        .buttonStyle(.borderless)
+                        
+                        // Nút xóa nghĩa này
+                        Button(role: .destructive, action: {
+                            deleteSingleMeaning(meaningToRemove: meaning, source: source)
+                        }) {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red)
+                                .padding(.horizontal, 6)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+            }
+            
+            // Hàng nhập thêm nghĩa ở cuối section
+            HStack {
+                if source == "Names (Riêng)" {
+                    TextField("Thêm nghĩa ở cuối...", text: $newNamesRieng)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .onSubmit {
+                            addSingleMeaning(newMeaning: newNamesRieng, source: source)
+                        }
+                    Button(action: {
+                        addSingleMeaning(newMeaning: newNamesRieng, source: source)
+                    }) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.title3)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(newNamesRieng.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                } else if source == "Names (Chung)" {
+                    TextField("Thêm nghĩa ở cuối...", text: $newNamesChung)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .onSubmit {
+                            addSingleMeaning(newMeaning: newNamesChung, source: source)
+                        }
+                    Button(action: {
+                        addSingleMeaning(newMeaning: newNamesChung, source: source)
+                    }) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.title3)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(newNamesChung.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                } else if source == "VietPhrase (Riêng)" {
+                    TextField("Thêm nghĩa ở cuối...", text: $newVPRieng)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .onSubmit {
+                            addSingleMeaning(newMeaning: newVPRieng, source: source)
+                        }
+                    Button(action: {
+                        addSingleMeaning(newMeaning: newVPRieng, source: source)
+                    }) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.title3)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(newVPRieng.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                } else if source == "VietPhrase (Chung)" {
+                    TextField("Thêm nghĩa ở cuối...", text: $newVPChung)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .onSubmit {
+                            addSingleMeaning(newMeaning: newVPChung, source: source)
+                        }
+                    Button(action: {
+                        addSingleMeaning(newMeaning: newVPChung, source: source)
+                    }) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.title3)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(newVPChung.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
     }
     
-    private func deleteMatch(_ match: DictionaryMatchInfo) {
-        let isName = match.source.contains("Names")
-        let bid = match.source.contains("Riêng") ? bookId : nil
+    private func deleteSingleMeaning(meaningToRemove: String, source: String) {
+        let isName = source.contains("Names")
+        let isRieng = source.contains("Riêng")
+        let bid = isRieng ? bookId : nil
+        
+        guard let match = matches.first(where: { $0.source == source }) else { return }
+        var currentMeanings = splitMeanings(match.translation)
+        currentMeanings.removeAll { $0 == meaningToRemove }
         
         Task {
             do {
-                try await TranslationManager.shared.deleteCustomEntry(word: word, isName: isName, bookId: bid)
+                if currentMeanings.isEmpty {
+                    try await TranslationManager.shared.deleteCustomEntry(word: word, isName: isName, bookId: bid)
+                } else {
+                    let newTranslation = currentMeanings.joined(separator: "/")
+                    try await TranslationManager.shared.saveCustomEntry(word: word, meaning: newTranslation, isName: isName, bookId: bid)
+                }
                 await MainActor.run {
                     onChanged()
                 }
             } catch {
-                // AppLogger.shared.log("❌ Lỗi xóa định nghĩa từ: \(error.localizedDescription)")
+                // Log error
+            }
+        }
+    }
+    
+    private func addSingleMeaning(newMeaning: String, source: String) {
+        let trimmed = newMeaning.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        
+        let isName = source.contains("Names")
+        let isRieng = source.contains("Riêng")
+        let bid = isRieng ? bookId : nil
+        
+        let currentTranslation = matches.first(where: { $0.source == source })?.translation ?? ""
+        var currentMeanings = splitMeanings(currentTranslation)
+        
+        if !currentMeanings.contains(trimmed) {
+            currentMeanings.append(trimmed)
+        }
+        
+        let newTranslation = currentMeanings.joined(separator: "/")
+        
+        Task {
+            do {
+                try await TranslationManager.shared.saveCustomEntry(word: word, meaning: newTranslation, isName: isName, bookId: bid)
+                await MainActor.run {
+                    switch source {
+                    case "Names (Riêng)": newNamesRieng = ""
+                    case "Names (Chung)": newNamesChung = ""
+                    case "VietPhrase (Riêng)": newVPRieng = ""
+                    case "VietPhrase (Chung)": newVPChung = ""
+                    default: break
+                    }
+                    onChanged()
+                }
+            } catch {
+                // Log error
+            }
+        }
+    }
+    
+    private func insertMeaningAtTarget() {
+        let trimmed = insertMeaningText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        
+        let isName = targetSource.contains("Names")
+        let isRieng = targetSource.contains("Riêng")
+        let bid = isRieng ? bookId : nil
+        
+        guard let match = matches.first(where: { $0.source == targetSource }) else { return }
+        var currentMeanings = splitMeanings(match.translation)
+        
+        if targetIndex >= 0 && targetIndex <= currentMeanings.count {
+            currentMeanings.insert(trimmed, at: targetIndex)
+        } else {
+            currentMeanings.append(trimmed)
+        }
+        
+        let newTranslation = currentMeanings.joined(separator: "/")
+        
+        Task {
+            do {
+                try await TranslationManager.shared.saveCustomEntry(word: word, meaning: newTranslation, isName: isName, bookId: bid)
+                await MainActor.run {
+                    insertMeaningText = ""
+                    onChanged()
+                }
+            } catch {
+                // Log error
             }
         }
     }

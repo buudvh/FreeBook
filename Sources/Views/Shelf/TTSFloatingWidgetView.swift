@@ -66,6 +66,7 @@ struct TTSFloatingWidgetView: View {
                             TTSManager.shared.skipForward()
                         },
                         onShowSettings: {
+                            TTSManager.shared.stopAndSaveState()
                             showingTTSSettings = true
                         },
                         onStop: {
@@ -85,9 +86,7 @@ struct TTSFloatingWidgetView: View {
                         )
                     )
                     .sheet(isPresented: $showingTTSSettings, onDismiss: {
-                        if TTSManager.shared.isPlaying {
-                            TTSManager.shared.restartCurrentParagraph()
-                        }
+                        TTSManager.shared.resumeWithNewSettings()
                     }) {
                         TTSSettingsSheet()
                     }
