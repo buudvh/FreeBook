@@ -1839,8 +1839,9 @@ extension ReaderView {
                 Spacer()
                 
                 Button(action: {
-                    isAutoScrollDisabled.toggle()
-                    UserDefaults.standard.set(isAutoScrollDisabled, forKey: "disableAutoScroll_\(bookId)")
+                    let newValue = !isAutoScrollDisabled
+                    isAutoScrollDisabled = newValue
+                    UserDefaults.standard.set(newValue, forKey: "disableAutoScroll_\(bookId)")
                 }) {
                     Image(systemName: isAutoScrollDisabled ? "lock.fill" : "lock.open.fill")
                         .font(.system(size: 14))

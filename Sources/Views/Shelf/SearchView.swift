@@ -10,6 +10,7 @@ struct SearchNovelResultWithExt: Identifiable {
 struct SearchView: View {
     let activeExtensions: [Extension]
     let selectedExtension: Extension?
+    let initialSearchQuery: String
     
     @State private var searchQuery = ""
     @State private var isSearching = false
@@ -17,6 +18,25 @@ struct SearchView: View {
     @State private var searchResults: [SearchNovelResultWithExt] = []
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @State private var searchStatusMessage = ""
+    
+    init(activeExtensions: [Extension], selectedExtension: Extension?, initialSearchQuery: String = "") {
+        self.activeExtensions = activeExtensions
+        self.selectedExtension = selectedExtension
+        self.initialSearchQuery = initialSearchQuery
+        
+        // Mặc định tìm tất cả nguồn nếu chưa chọn nguồn cụ thể
+        _searchAllSources = State(initialValue: selectedExtension == nil)
+    }
+    
+    // Nhóm kết quả theo nguồn (chỉ lấy các nguồn có kết quả)
+    private var resultsByExtension: [(ext: Extension, results: [SearchNovelResult])] {
+        var grouped: [Extension: [SearchNovelResult]] = [:]
+        for item in searchResults {
+            grouped[item.ext, default: []].append(item.result)
+        }
+        return grouped.map { (key: $0.key, value: $0.value) }
+            .sorted(by: { $0.ext.name < $1.ext.name })
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -81,51 +101,128 @@ struct SearchView: View {
                             .background(Color(.secondarySystemBackground))
                     }
                     
-                    List(searchResults) { item in
-                        NavigationLink(destination: BookDetailView(
-                            bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
-                            extensionPackageId: item.ext.packageId,
-                            initialDetailUrl: item.result.link,
-                            sourceName: item.ext.name
-                        )) {
-                            HStack(spacing: 12) {
-                                AsyncImage(url: URL(string: item.result.cover)) { image in
-                                    image.resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                } placeholder: {
-                                    Color.gray.opacity(0.3)
-                                        .overlay(Image(systemName: "book"))
-                                }
-                                .frame(width: 50, height: 70)
-                                .cornerRadius(6)
-                                .clipped()
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(translateIfNeeded(item.result.name))
-                                        .font(.subheadline)
-                                        .fontWeight(.bold)
-                                        .lineLimit(2)
-                                    
-                                    let descText = !item.result.description.isEmpty ? item.result.description : item.result.author
-                                    Text(translateIfNeeded(descText))
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(2)
-                                    
-                                    Text(item.ext.name)
-                                        .font(.system(size: 9))
-                                        .fontWeight(.semibold)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.accentColor.opacity(0.1))
-                                        .foregroundColor(.accentColor)
-                                        .cornerRadius(4)
+                    if searchAllSources {
+                        // Hiển thị dạng phân chia nguồn - hàng ngang
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 24) {
+                                ForEach(resultsByExtension, id: \.ext.packageId) { group in
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        HStack {
+                                            Text(group.ext.name)
+                                                .font(.headline)
+                                                .fontWeight(.bold)
+                                            
+                                            Spacer()
+                                            
+                                            NavigationLink(destination: SearchView(
+                                                activeExtensions: activeExtensions,
+                                                selectedExtension: group.ext,
+                                                initialSearchQuery: searchQuery
+                                            )) {
+                                                HStack(spacing: 4) {
+                                                    Text("Xem thêm")
+                                                    Image(systemName: "chevron.right")
+                                                }
+                                                .font(.subheadline)
+                                                .foregroundColor(.accentColor)
+                                            }
+                                        }
+                                        .padding(.horizontal)
+                                        
+                                        ScrollView(.horizontal, showsIndicators: false) {
+                                            HStack(spacing: 16) {
+                                                ForEach(group.results, id: \.link) { result in
+                                                    NavigationLink(destination: BookDetailView(
+                                                        bookId: "\(group.ext.name.lowercased())_\(result.link)",
+                                                        extensionPackageId: group.ext.packageId,
+                                                        initialDetailUrl: result.link,
+                                                        sourceName: group.ext.name
+                                                    )) {
+                                                        VStack(alignment: .leading, spacing: 6) {
+                                                            AsyncImage(url: URL(string: result.cover)) { image in
+                                                                image.resizable()
+                                                                    .aspectRatio(contentMode: .fill)
+                                                            } placeholder: {
+                                                                Color.gray.opacity(0.3)
+                                                                    .overlay(Image(systemName: "book"))
+                                                            }
+                                                            .frame(width: 90, height: 125)
+                                                            .cornerRadius(6)
+                                                            .clipped()
+                                                            
+                                                            Text(translateIfNeeded(result.name))
+                                                                .font(.caption)
+                                                                .fontWeight(.semibold)
+                                                                .foregroundColor(.primary)
+                                                                .lineLimit(2)
+                                                                .multilineTextAlignment(.leading)
+                                                                .frame(width: 90, alignment: .leading)
+                                                            
+                                                            let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
+                                                            Text(translateIfNeeded(authorText))
+                                                                .font(.system(size: 10))
+                                                                .foregroundColor(.secondary)
+                                                                .lineLimit(1)
+                                                                .frame(width: 90, alignment: .leading)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            .padding(.horizontal)
+                                        }
+                                    }
                                 }
                             }
-                            .padding(.vertical, 4)
+                            .padding(.vertical)
                         }
+                    } else {
+                        // Hiển thị danh sách dọc truyền thống cho 1 nguồn duy nhất
+                        List(searchResults) { item in
+                            NavigationLink(destination: BookDetailView(
+                                bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
+                                extensionPackageId: item.ext.packageId,
+                                initialDetailUrl: item.result.link,
+                                sourceName: item.ext.name
+                            )) {
+                                HStack(spacing: 12) {
+                                    AsyncImage(url: URL(string: item.result.cover)) { image in
+                                        image.resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                    } placeholder: {
+                                        Color.gray.opacity(0.3)
+                                            .overlay(Image(systemName: "book"))
+                                    }
+                                    .frame(width: 50, height: 70)
+                                    .cornerRadius(6)
+                                    .clipped()
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(translateIfNeeded(item.result.name))
+                                            .font(.subheadline)
+                                            .fontWeight(.bold)
+                                            .lineLimit(2)
+                                        
+                                        let descText = !item.result.description.isEmpty ? item.result.description : item.result.author
+                                        Text(translateIfNeeded(descText))
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(2)
+                                        
+                                        Text(item.ext.name)
+                                            .font(.system(size: 9))
+                                            .fontWeight(.semibold)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.accentColor.opacity(0.1))
+                                            .foregroundColor(.accentColor)
+                                            .cornerRadius(4)
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
+                        .listStyle(.plain)
                     }
-                    .listStyle(.plain)
                 }
             } else {
                 VStack(spacing: 12) {
@@ -143,6 +240,15 @@ struct SearchView: View {
         }
         .navigationTitle("Tìm Kiếm")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            if !initialSearchQuery.isEmpty && searchQuery.isEmpty {
+                searchQuery = initialSearchQuery
+                if selectedExtension != nil {
+                    searchAllSources = false
+                }
+                performSearch()
+            }
+        }
     }
     
     private func translateIfNeeded(_ text: String) -> String {
@@ -233,7 +339,6 @@ struct SearchView: View {
                         self.searchStatusMessage = "Tìm thấy \(results.count) truyện trên nguồn \(ext.name)."
                     }
                 } catch {
-                    // AppLogger.shared.log("❌ Lỗi tìm kiếm trên \(ext.name): \(error.localizedDescription)")
                     await MainActor.run {
                         self.isSearching = false
                         self.searchStatusMessage = "Lỗi khi tìm kiếm: \(error.localizedDescription)"
