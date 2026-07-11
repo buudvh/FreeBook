@@ -73,6 +73,22 @@ public final class TranslateUtils {
         }
     }
     
+    public static func translateAuthorHanViet(_ author: String) -> String {
+        guard !author.isEmpty else { return author }
+        guard containsChinese(author) else { return author }
+        let phienAm = TranslationManager.shared.phienAmMap
+        var list: [String] = []
+        for char in author {
+            let charStr = String(char)
+            if let mapped = phienAm[charStr] {
+                list.append(mapped)
+            } else {
+                list.append(charStr)
+            }
+        }
+        return list.joined(separator: " ").capitalized
+    }
+    
     public static func translateMeta(_ text: String?, bookId: String? = nil) -> String {
         return translateText(text, isMeta: true, bookId: bookId)
     }
@@ -189,7 +205,6 @@ public final class TranslateUtils {
         cacheLock.unlock()
         
         return translated
-    }
     }
     
     private static func translateText(_ text: String?, isMeta: Bool, bookId: String?) -> String {

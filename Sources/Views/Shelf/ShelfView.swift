@@ -31,7 +31,7 @@ struct ShelfView: View {
     }
     
     private var historyBooks: [Book] {
-        allBooks.filter { $0.isHistory }
+        allBooks.filter { $0.isHistory && !$0.isOnShelf }
     }
     
     private var displayedShelfBooks: [Book] {
@@ -326,21 +326,29 @@ struct ShelfView: View {
                     .font(.headline)
                     .lineLimit(1)
                 
-                if !book.author.isEmpty {
-                    Text(translateIfNeeded(book.author))
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
-                
-                if selectedTab == 2 {
-                    let chapterTitle = book.displayChapterTitle
-                    if !chapterTitle.isEmpty {
-                        Text("Đã đọc: \(translateIfNeeded(chapterTitle))")
-                            .font(.caption)
-                            .foregroundColor(.blue)
+                HStack(spacing: 8) {
+                    if !book.author.isEmpty {
+                        Text(TranslateUtils.translateAuthorHanViet(book.author))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
                             .lineLimit(1)
                     }
+                    
+                    Text(book.sourceName)
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.1))
+                        .foregroundColor(.blue)
+                        .cornerRadius(4)
+                }
+                
+                let chapterTitle = book.displayChapterTitle
+                if !chapterTitle.isEmpty {
+                    Text("Đang đọc: \(translateIfNeeded(chapterTitle))")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                        .lineLimit(1)
                 }
             }
             Spacer()

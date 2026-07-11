@@ -106,7 +106,7 @@ struct BookDetailView: View {
                                     .fontWeight(.bold)
                                     .lineLimit(3)
                                 
-                                Text("Tác giả: \(translateMetaIfNeeded(author))")
+                                Text("Tác giả: \(TranslateUtils.translateAuthorHanViet(author))")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                                 
