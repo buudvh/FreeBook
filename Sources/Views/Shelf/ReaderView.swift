@@ -1672,6 +1672,12 @@ extension ReaderView {
                 }
                 
                 Button(action: {
+                    // Chưa làm chức năng
+                }) {
+                    Label("Mở bằng trình duyệt", systemImage: "safari")
+                }
+                
+                Button(action: {
                     showingSettings.toggle()
                 }) {
                     Label("Cài đặt trình đọc", systemImage: "gearshape")
@@ -1687,6 +1693,7 @@ extension ReaderView {
     @ViewBuilder
     private var topOverlayBar: some View {
         VStack(spacing: 0) {
+            // Hàng 1: Các nút điều khiển
             HStack(alignment: .center, spacing: 0) {
                 // Nút Đóng X
                 Button(action: {
@@ -1696,30 +1703,6 @@ extension ReaderView {
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(width: 44, height: 44)
-                }
-                .padding(.leading, 8)
-                
-                // Tiêu đề sách & Chương
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(translateMetaIfNeeded(localBook?.title ?? bookTitle ?? "FreeBook"))
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-                    
-                    HStack(spacing: 4) {
-                        Text(chapterTitle.isEmpty ? (currentChapterInfo?.title ?? "Chương \(chapterIndex + 1)") : chapterTitle)
-                            .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.8))
-                            .lineLimit(1)
-                        
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 10))
-                            .foregroundColor(.white.opacity(0.8))
-                    }
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    showingChapterList = true
                 }
                 .padding(.leading, 8)
                 
@@ -1767,6 +1750,12 @@ extension ReaderView {
                         }
                         
                         Button(action: {
+                            // Chưa làm chức năng
+                        }) {
+                            Label("Mở bằng trình duyệt", systemImage: "safari")
+                        }
+                        
+                        Button(action: {
                             showingSettings = true
                         }) {
                             Label("Cài đặt trình đọc", systemImage: "gearshape")
@@ -1781,7 +1770,33 @@ extension ReaderView {
                 }
                 .padding(.trailing, 8)
             }
-            .frame(height: 50)
+            .frame(height: 44)
+            
+            // Hàng 2: Tiêu đề sách & Chương
+            VStack(alignment: .leading, spacing: 2) {
+                Text(translateMetaIfNeeded(localBook?.title ?? bookTitle ?? "FreeBook"))
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                
+                HStack(spacing: 4) {
+                    Text(chapterTitle.isEmpty ? (currentChapterInfo?.title ?? "Chương \(chapterIndex + 1)") : chapterTitle)
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.8))
+                        .lineLimit(1)
+                    
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.8))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                showingChapterList = true
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
             
             // Subheader: Chọn nhanh dịch & Tỷ lệ chương
             HStack {

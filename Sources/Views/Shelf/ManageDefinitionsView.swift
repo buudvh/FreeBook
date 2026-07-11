@@ -7,6 +7,18 @@ struct ManageDefinitionsView: View {
     let onChanged: () -> Void
     @Environment(\.dismiss) private var dismiss
     
+    @State private var localMatches: [DictionaryMatchInfo] = []
+    @State private var deletedMeanings: [String: Set<String>] = [:]
+    @State private var hasSaved = false
+    
+    init(word: String, bookId: String, matches: Binding<[DictionaryMatchInfo]>, onChanged: @escaping () -> Void) {
+        self.word = word
+        self.bookId = bookId
+        self._matches = matches
+        self.onChanged = onChanged
+        self._localMatches = State(initialValue: matches.wrappedValue)
+    }
+    
     // State nhập nghĩa ở cuối section
     @State private var newNamesRieng = ""
     @State private var newNamesChung = ""
@@ -76,12 +88,15 @@ struct ManageDefinitionsView: View {
             } message: {
                 Text("Nghĩa mới sẽ được chèn trước '\(targetMeaningName)'")
             }
+            .onDisappear {
+                saveAllChangesToDisk()
+            }
         }
     }
     
     @ViewBuilder
     private func makeDictionarySection(title: String, source: String) -> some View {
-        let match = matches.first(where: { $0.source == source })
+        let match = localMatches.first(where: { $0.source == source })
         let meanings = match != nil ? splitMeanings(match!.translation) : []
         
         Section(header: Text(title)) {
@@ -91,35 +106,49 @@ struct ManageDefinitionsView: View {
                     .italic()
             } else {
                 ForEach(Array(meanings.enumerated()), id: \.offset) { index, meaning in
+                    let isDeleted = deletedMeanings[source]?.contains(meaning) ?? false
                     HStack {
                         Text(meaning)
                             .font(.body)
+                            .strikethrough(isDeleted)
+                            .foregroundColor(isDeleted ? .secondary : .primary)
                         
                         Spacer()
                         
-                        // Nút thêm trước nghĩa này
-                        Button(action: {
-                            targetSource = source
-                            targetIndex = index
-                            targetMeaningName = meaning
-                            insertMeaningText = ""
-                            showingInsertAlert = true
-                        }) {
-                            Image(systemName: "plus")
-                                .foregroundColor(.blue)
-                                .padding(.horizontal, 6)
+                        if isDeleted {
+                            Button(action: {
+                                restoreSingleMeaning(meaningToRestore: meaning, source: source)
+                            }) {
+                                Image(systemName: "arrow.uturn.backward")
+                                    .foregroundColor(.green)
+                                    .padding(.horizontal, 6)
+                            }
+                            .buttonStyle(.borderless)
+                        } else {
+                            // Nút thêm trước nghĩa này
+                            Button(action: {
+                                targetSource = source
+                                targetIndex = index
+                                targetMeaningName = meaning
+                                insertMeaningText = ""
+                                showingInsertAlert = true
+                            }) {
+                                Image(systemName: "plus")
+                                    .foregroundColor(.blue)
+                                    .padding(.horizontal, 6)
+                            }
+                            .buttonStyle(.borderless)
+                            
+                            // Nút xóa nghĩa này
+                            Button(role: .destructive, action: {
+                                deleteSingleMeaning(meaningToRemove: meaning, source: source)
+                            }) {
+                                Image(systemName: "trash")
+                                    .foregroundColor(.red)
+                                    .padding(.horizontal, 6)
+                            }
+                            .buttonStyle(.borderless)
                         }
-                        .buttonStyle(.borderless)
-                        
-                        // Nút xóa nghĩa này
-                        Button(role: .destructive, action: {
-                            deleteSingleMeaning(meaningToRemove: meaning, source: source)
-                        }) {
-                            Image(systemName: "trash")
-                                .foregroundColor(.red)
-                                .padding(.horizontal, 6)
-                        }
-                        .buttonStyle(.borderless)
                     }
                 }
             }
@@ -195,65 +224,49 @@ struct ManageDefinitionsView: View {
         }
     }
     
-    private func deleteSingleMeaning(meaningToRemove: String, source: String) {
-        let isName = source.contains("Names")
-        let isRieng = source.contains("Riêng")
-        let bid = isRieng ? bookId : nil
-        
-        guard let match = matches.first(where: { $0.source == source }) else { return }
-        var currentMeanings = splitMeanings(match.translation)
-        currentMeanings.removeAll { $0 == meaningToRemove }
-        
-        Task {
-            do {
-                if currentMeanings.isEmpty {
-                    try await TranslationManager.shared.deleteCustomEntry(word: word, isName: isName, bookId: bid)
-                } else {
-                    let newTranslation = currentMeanings.joined(separator: "/")
-                    try await TranslationManager.shared.saveCustomEntry(word: word, meaning: newTranslation, isName: isName, bookId: bid)
-                }
-                await MainActor.run {
-                    onChanged()
-                }
-            } catch {
-                // Log error
-            }
+    private func getMeanings(for source: String) -> [String] {
+        guard let match = localMatches.first(where: { $0.source == source }) else { return [] }
+        return splitMeanings(match.translation)
+    }
+    
+    private func setMeanings(for source: String, meanings: [String]) {
+        let newTranslation = meanings.joined(separator: "/")
+        if let idx = localMatches.firstIndex(where: { $0.source == source }) {
+            localMatches[idx] = DictionaryMatchInfo(source: source, translation: newTranslation)
+        } else {
+            localMatches.append(DictionaryMatchInfo(source: source, translation: newTranslation))
         }
+    }
+    
+    private func deleteSingleMeaning(meaningToRemove: String, source: String) {
+        if deletedMeanings[source] == nil {
+            deletedMeanings[source] = []
+        }
+        deletedMeanings[source]?.insert(meaningToRemove)
+    }
+    
+    private func restoreSingleMeaning(meaningToRestore: String, source: String) {
+        deletedMeanings[source]?.remove(meaningToRestore)
     }
     
     private func addSingleMeaning(newMeaning: String, source: String) {
         let trimmed = newMeaning.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         
-        let isName = source.contains("Names")
-        let isRieng = source.contains("Riêng")
-        let bid = isRieng ? bookId : nil
-        
-        let currentTranslation = matches.first(where: { $0.source == source })?.translation ?? ""
-        var currentMeanings = splitMeanings(currentTranslation)
-        
+        var currentMeanings = getMeanings(for: source)
         if !currentMeanings.contains(trimmed) {
             currentMeanings.append(trimmed)
         }
         
-        let newTranslation = currentMeanings.joined(separator: "/")
+        deletedMeanings[source]?.remove(trimmed)
+        setMeanings(for: source, meanings: currentMeanings)
         
-        Task {
-            do {
-                try await TranslationManager.shared.saveCustomEntry(word: word, meaning: newTranslation, isName: isName, bookId: bid)
-                await MainActor.run {
-                    switch source {
-                    case "Names (Riêng)": newNamesRieng = ""
-                    case "Names (Chung)": newNamesChung = ""
-                    case "VietPhrase (Riêng)": newVPRieng = ""
-                    case "VietPhrase (Chung)": newVPChung = ""
-                    default: break
-                    }
-                    onChanged()
-                }
-            } catch {
-                // Log error
-            }
+        switch source {
+        case "Names (Riêng)": newNamesRieng = ""
+        case "Names (Chung)": newNamesChung = ""
+        case "VietPhrase (Riêng)": newVPRieng = ""
+        case "VietPhrase (Chung)": newVPChung = ""
+        default: break
         }
     }
     
@@ -261,30 +274,59 @@ struct ManageDefinitionsView: View {
         let trimmed = insertMeaningText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         
-        let isName = targetSource.contains("Names")
-        let isRieng = targetSource.contains("Riêng")
-        let bid = isRieng ? bookId : nil
-        
-        guard let match = matches.first(where: { $0.source == targetSource }) else { return }
-        var currentMeanings = splitMeanings(match.translation)
-        
+        var currentMeanings = getMeanings(for: targetSource)
         if targetIndex >= 0 && targetIndex <= currentMeanings.count {
             currentMeanings.insert(trimmed, at: targetIndex)
         } else {
             currentMeanings.append(trimmed)
         }
         
-        let newTranslation = currentMeanings.joined(separator: "/")
+        deletedMeanings[targetSource]?.remove(trimmed)
+        setMeanings(for: targetSource, meanings: currentMeanings)
+        insertMeaningText = ""
+    }
+    
+    private func saveAllChangesToDisk() {
+        guard !hasSaved else { return }
+        hasSaved = true
         
         Task {
-            do {
-                try await TranslationManager.shared.saveCustomEntry(word: word, meaning: newTranslation, isName: isName, bookId: bid)
-                await MainActor.run {
-                    insertMeaningText = ""
-                    onChanged()
+            let sources = ["Names (Riêng)", "Names (Chung)", "VietPhrase (Riêng)", "VietPhrase (Chung)"]
+            
+            for source in sources {
+                let isName = source.contains("Names")
+                let isRieng = source.contains("Riêng")
+                let bid = isRieng ? bookId : nil
+                
+                let originalMatch = matches.first(where: { $0.source == source })
+                let originalMeanings = originalMatch != nil ? splitMeanings(originalMatch!.translation) : []
+                
+                let currentMeanings = getMeanings(for: source)
+                let deletedForSource = deletedMeanings[source] ?? []
+                let finalMeanings = currentMeanings.filter { !deletedForSource.contains($0) }
+                
+                if finalMeanings != originalMeanings {
+                    do {
+                        if finalMeanings.isEmpty {
+                            try await TranslationManager.shared.deleteCustomEntry(word: word, isName: isName, bookId: bid)
+                        } else {
+                            let newTranslation = finalMeanings.joined(separator: "/")
+                            try await TranslationManager.shared.saveCustomEntry(word: word, meaning: newTranslation, isName: isName, bookId: bid)
+                        }
+                    } catch {
+                        // Log error
+                    }
                 }
-            } catch {
-                // Log error
+            }
+            
+            await MainActor.run {
+                self.matches = self.localMatches.map { match in
+                    let deletedForSource = self.deletedMeanings[match.source] ?? []
+                    let currentMeanings = self.splitMeanings(match.translation)
+                    let finalMeanings = currentMeanings.filter { !deletedForSource.contains($0) }
+                    return DictionaryMatchInfo(source: match.source, translation: finalMeanings.joined(separator: "/"))
+                }
+                onChanged()
             }
         }
     }

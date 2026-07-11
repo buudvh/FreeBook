@@ -8,9 +8,15 @@ struct SearchNovelResultWithExt: Identifiable {
 }
 
 struct SearchView: View {
-    let activeExtensions: [Extension]
-    let selectedExtension: Extension?
-    let initialSearchQuery: String
+    let changeSourceTargetBook: Book?
+    let onSourceChanged: (() -> Void)?
+    
+    @Environment(\.modelContext) private var modelContext
+    
+    @State private var changeSourceTargetResult: SearchNovelResult? = nil
+    @State private var changeSourceTargetExtension: Extension? = nil
+    @State private var showingChangeSourceAlert = false
+    @State private var isChangingSource = false
     
     @State private var searchQuery = ""
     @State private var isSearching = false
@@ -19,27 +25,46 @@ struct SearchView: View {
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @State private var searchStatusMessage = ""
     
-    init(activeExtensions: [Extension], selectedExtension: Extension?, initialSearchQuery: String = "") {
+    init(activeExtensions: [Extension], selectedExtension: Extension?, initialSearchQuery: String = "", changeSourceTargetBook: Book? = nil, onSourceChanged: (() -> Void)? = nil) {
         self.activeExtensions = activeExtensions
         self.selectedExtension = selectedExtension
         self.initialSearchQuery = initialSearchQuery
+        self.changeSourceTargetBook = changeSourceTargetBook
+        self.onSourceChanged = onSourceChanged
         
-        // Mặc định tìm tất cả nguồn nếu chưa chọn nguồn cụ thể
-        _searchAllSources = State(initialValue: selectedExtension == nil)
+        // Mặc định tìm tất cả nguồn nếu chưa chọn nguồn cụ thể hoặc khi đang đổi nguồn
+        _searchAllSources = State(initialValue: selectedExtension == nil || changeSourceTargetBook != nil)
     }
     
-    // Nhóm kết quả theo nguồn (chỉ lấy các nguồn có kết quả)
-    private var resultsByExtension: [(ext: Extension, results: [SearchNovelResult])] {
-        var grouped: [Extension: [SearchNovelResult]] = [:]
-        for item in searchResults {
-            grouped[item.ext, default: []].append(item.result)
+    enum SourceSearchState {
+        case searching
+        case found(results: [SearchNovelResult])
+        case noResults
+    }
+    
+    @State private var sourceStates: [String: SourceSearchState] = [:]
+    
+    private var hasAnyResults: Bool {
+        sourceStates.values.contains { state in
+            if case .found(let results) = state, !results.isEmpty {
+                return true
+            }
+            return false
         }
-        return grouped.map { (key: $0.key, value: $0.value) }
-            .sorted(by: { $0.ext.name < $1.ext.name })
+    }
+    
+    private var isAnySourceSearching: Bool {
+        sourceStates.values.contains { state in
+            if case .searching = state {
+                return true
+            }
+            return false
+        }
     }
     
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack {
+            VStack(spacing: 0) {
             // Thanh Tìm Kiếm
             HStack(spacing: 8) {
                 HStack(spacing: 6) {
@@ -53,6 +78,7 @@ struct SearchView: View {
                         Button(action: {
                             searchQuery = ""
                             searchResults.removeAll()
+                            sourceStates.removeAll()
                             searchStatusMessage = ""
                         }) {
                             Image(systemName: "xmark.circle.fill")
@@ -86,144 +112,285 @@ struct SearchView: View {
             
             Divider()
             
-            if isSearching {
-                ProgressView(searchAllSources ? "Đang tìm trên các nguồn..." : "Đang tìm trên nguồn hiện tại...")
+            if !searchStatusMessage.isEmpty {
+                Text(searchStatusMessage)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal)
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(.secondarySystemBackground))
+            }
+            
+            if !searchAllSources && isSearching {
+                ProgressView("Đang tìm trên nguồn hiện tại...")
                     .frame(maxHeight: .infinity)
-            } else if !searchResults.isEmpty {
-                VStack(alignment: .leading, spacing: 0) {
-                    if !searchStatusMessage.isEmpty {
-                        Text(searchStatusMessage)
-                            .font(.caption)
+            } else if searchAllSources && !sourceStates.isEmpty {
+                if !hasAnyResults && !isAnySourceSearching {
+                    VStack(spacing: 12) {
+                        Spacer()
+                        Image(systemName: "magnifyingglass")
+                            .font(.largeTitle)
                             .foregroundColor(.secondary)
-                            .padding(.horizontal)
-                            .padding(.vertical, 6)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color(.secondarySystemBackground))
+                        Text("Không tìm thấy truyện nào trên các nguồn")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Spacer()
                     }
-                    
-                    if searchAllSources {
-                        // Hiển thị dạng phân chia nguồn - hàng ngang
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 24) {
-                                ForEach(resultsByExtension, id: \.ext.packageId) { group in
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        HStack {
-                                            Text(group.ext.name)
-                                                .font(.headline)
-                                                .fontWeight(.bold)
-                                            
-                                            Spacer()
-                                            
-                                            NavigationLink(destination: SearchView(
-                                                activeExtensions: activeExtensions,
-                                                selectedExtension: group.ext,
-                                                initialSearchQuery: searchQuery
-                                            )) {
-                                                HStack(spacing: 4) {
-                                                    Text("Xem thêm")
-                                                    Image(systemName: "chevron.right")
+                    .frame(maxHeight: .infinity)
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 24) {
+                            ForEach(activeExtensions.sorted(by: { $0.name < $1.name }), id: \.packageId) { ext in
+                                if let state = sourceStates[ext.packageId] {
+                                    Group {
+                                        switch state {
+                                        case .searching:
+                                            VStack(alignment: .leading, spacing: 8) {
+                                                HStack {
+                                                    Text(ext.name)
+                                                        .font(.headline)
+                                                        .fontWeight(.bold)
+                                                    Spacer()
+                                                    ProgressView()
+                                                        .scaleEffect(0.8)
                                                 }
-                                                .font(.subheadline)
-                                                .foregroundColor(.accentColor)
-                                            }
-                                        }
-                                        .padding(.horizontal)
-                                        
-                                        ScrollView(.horizontal, showsIndicators: false) {
-                                            HStack(spacing: 16) {
-                                                ForEach(group.results, id: \.link) { result in
-                                                    NavigationLink(destination: BookDetailView(
-                                                        bookId: "\(group.ext.name.lowercased())_\(result.link)",
-                                                        extensionPackageId: group.ext.packageId,
-                                                        initialDetailUrl: result.link,
-                                                        sourceName: group.ext.name
-                                                    )) {
-                                                        VStack(alignment: .leading, spacing: 6) {
-                                                            AsyncImage(url: URL(string: result.cover)) { image in
-                                                                image.resizable()
-                                                                    .aspectRatio(contentMode: .fill)
-                                                            } placeholder: {
-                                                                Color.gray.opacity(0.3)
-                                                                    .overlay(Image(systemName: "book"))
+                                                .padding(.horizontal)
+                                                
+                                                ScrollView(.horizontal, showsIndicators: false) {
+                                                    HStack(spacing: 16) {
+                                                        ForEach(0..<3, id: \.self) { _ in
+                                                            VStack(alignment: .leading, spacing: 6) {
+                                                                Color.gray.opacity(0.1)
+                                                                    .frame(width: 90, height: 125)
+                                                                    .cornerRadius(6)
+                                                                
+                                                                Color.gray.opacity(0.1)
+                                                                    .frame(width: 90, height: 12)
+                                                                    .cornerRadius(3)
+                                                                
+                                                                Color.gray.opacity(0.1)
+                                                                    .frame(width: 60, height: 10)
+                                                                    .cornerRadius(3)
                                                             }
-                                                            .frame(width: 90, height: 125)
-                                                            .cornerRadius(6)
-                                                            .clipped()
-                                                            
-                                                            Text(translateIfNeeded(result.name))
-                                                                .font(.caption)
-                                                                .fontWeight(.semibold)
-                                                                .foregroundColor(.primary)
-                                                                .lineLimit(2)
-                                                                .multilineTextAlignment(.leading)
-                                                                .frame(width: 90, alignment: .leading)
-                                                            
-                                                            let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
-                                                            Text(translateIfNeeded(authorText))
-                                                                .font(.system(size: 10))
-                                                                .foregroundColor(.secondary)
-                                                                .lineLimit(1)
-                                                                .frame(width: 90, alignment: .leading)
                                                         }
+                                                    }
+                                                    .padding(.horizontal)
+                                                }
+                                                .redacted(reason: .placeholder)
+                                            }
+                                            
+                                        case .found(let results):
+                                            if !results.isEmpty {
+                                                VStack(alignment: .leading, spacing: 8) {
+                                                    HStack {
+                                                        Text(ext.name)
+                                                            .font(.headline)
+                                                            .fontWeight(.bold)
+                                                        
+                                                        Spacer()
+                                                        
+                                                        NavigationLink(destination: SearchView(
+                                                            activeExtensions: activeExtensions,
+                                                            selectedExtension: ext,
+                                                            initialSearchQuery: searchQuery
+                                                        )) {
+                                                            HStack(spacing: 4) {
+                                                                Text("Xem thêm")
+                                                                    .foregroundColor(.accentColor)
+                                                                Image(systemName: "chevron.right")
+                                                                    .foregroundColor(.accentColor)
+                                                            }
+                                                            .font(.subheadline)
+                                                        }
+                                                    }
+                                                    .padding(.horizontal)
+                                                    
+                                                    ScrollView(.horizontal, showsIndicators: false) {
+                                                        HStack(spacing: 16) {
+                                                            ForEach(results, id: \.link) { result in
+                                                                if changeSourceTargetBook != nil {
+                                                                    Button(action: {
+                                                                        changeSourceTargetResult = result
+                                                                        changeSourceTargetExtension = ext
+                                                                        showingChangeSourceAlert = true
+                                                                    }) {
+                                                                        VStack(alignment: .leading, spacing: 6) {
+                                                                            AsyncImage(url: URL(string: result.cover)) { image in
+                                                                                image.resizable()
+                                                                                    .aspectRatio(contentMode: .fill)
+                                                                            } placeholder: {
+                                                                                Color.gray.opacity(0.3)
+                                                                                    .overlay(Image(systemName: "book"))
+                                                                            }
+                                                                            .frame(width: 90, height: 125)
+                                                                            .cornerRadius(6)
+                                                                            .clipped()
+                                                                            
+                                                                            Text(translateIfNeeded(result.name))
+                                                                                .font(.caption)
+                                                                                .fontWeight(.semibold)
+                                                                                .foregroundColor(.primary)
+                                                                                .lineLimit(2)
+                                                                                .multilineTextAlignment(.leading)
+                                                                                .frame(width: 90, alignment: .leading)
+                                                                            
+                                                                            let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
+                                                                            Text(translateIfNeeded(authorText))
+                                                                                .font(.system(size: 10))
+                                                                                .foregroundColor(.secondary)
+                                                                                .lineLimit(1)
+                                                                                .frame(width: 90, alignment: .leading)
+                                                                        }
+                                                                    }
+                                                                    .buttonStyle(.plain)
+                                                                } else {
+                                                                    NavigationLink(destination: BookDetailView(
+                                                                        bookId: "\(ext.name.lowercased())_\(result.link)",
+                                                                        extensionPackageId: ext.packageId,
+                                                                        initialDetailUrl: result.link,
+                                                                        sourceName: ext.name
+                                                                    )) {
+                                                                        VStack(alignment: .leading, spacing: 6) {
+                                                                            AsyncImage(url: URL(string: result.cover)) { image in
+                                                                                image.resizable()
+                                                                                    .aspectRatio(contentMode: .fill)
+                                                                            } placeholder: {
+                                                                                Color.gray.opacity(0.3)
+                                                                                    .overlay(Image(systemName: "book"))
+                                                                            }
+                                                                            .frame(width: 90, height: 125)
+                                                                            .cornerRadius(6)
+                                                                            .clipped()
+                                                                            
+                                                                            Text(translateIfNeeded(result.name))
+                                                                                .font(.caption)
+                                                                                .fontWeight(.semibold)
+                                                                                .foregroundColor(.primary)
+                                                                                .lineLimit(2)
+                                                                                .multilineTextAlignment(.leading)
+                                                                                .frame(width: 90, alignment: .leading)
+                                                                            
+                                                                            let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
+                                                                            Text(translateIfNeeded(authorText))
+                                                                                .font(.system(size: 10))
+                                                                                .foregroundColor(.secondary)
+                                                                                .lineLimit(1)
+                                                                                .frame(width: 90, alignment: .leading)
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                        .padding(.horizontal)
                                                     }
                                                 }
                                             }
-                                            .padding(.horizontal)
+                                            
+                                        case .noResults:
+                                            EmptyView()
                                         }
                                     }
                                 }
                             }
-                            .padding(.vertical)
                         }
-                    } else {
-                        // Hiển thị danh sách dọc truyền thống cho 1 nguồn duy nhất
-                        List(searchResults) { item in
-                            NavigationLink(destination: BookDetailView(
-                                bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
-                                extensionPackageId: item.ext.packageId,
-                                initialDetailUrl: item.result.link,
-                                sourceName: item.ext.name
-                            )) {
-                                HStack(spacing: 12) {
-                                    AsyncImage(url: URL(string: item.result.cover)) { image in
-                                        image.resizable()
-                                            .aspectRatio(contentMode: .fill)
-                                    } placeholder: {
-                                        Color.gray.opacity(0.3)
-                                            .overlay(Image(systemName: "book"))
-                                    }
-                                    .frame(width: 50, height: 70)
-                                    .cornerRadius(6)
-                                    .clipped()
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(translateIfNeeded(item.result.name))
-                                            .font(.subheadline)
-                                            .fontWeight(.bold)
-                                            .lineLimit(2)
-                                        
-                                        let descText = !item.result.description.isEmpty ? item.result.description : item.result.author
-                                        Text(translateIfNeeded(descText))
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                            .lineLimit(2)
-                                        
-                                        Text(item.ext.name)
-                                            .font(.system(size: 9))
-                                            .fontWeight(.semibold)
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .background(Color.accentColor.opacity(0.1))
-                                            .foregroundColor(.accentColor)
-                                            .cornerRadius(4)
-                                    }
-                                }
-                                .padding(.vertical, 4)
-                            }
-                        }
-                        .listStyle(.plain)
+                        .padding(.vertical)
                     }
                 }
+            } else if !searchAllSources && !searchResults.isEmpty {
+                List(searchResults) { item in
+                    if changeSourceTargetBook != nil {
+                        Button(action: {
+                            changeSourceTargetResult = item.result
+                            changeSourceTargetExtension = item.ext
+                            showingChangeSourceAlert = true
+                        }) {
+                            HStack(spacing: 12) {
+                                AsyncImage(url: URL(string: item.result.cover)) { image in
+                                    image.resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    Color.gray.opacity(0.3)
+                                        .overlay(Image(systemName: "book"))
+                                }
+                                .frame(width: 50, height: 70)
+                                .cornerRadius(6)
+                                .clipped()
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(translateIfNeeded(item.result.name))
+                                        .font(.subheadline)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.primary)
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.leading)
+                                    
+                                    let descText = !item.result.description.isEmpty ? item.result.description : item.result.author
+                                    Text(translateIfNeeded(descText))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.leading)
+                                    
+                                    Text(item.ext.name)
+                                        .font(.system(size: 9))
+                                        .fontWeight(.semibold)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.accentColor.opacity(0.1))
+                                        .foregroundColor(.accentColor)
+                                        .cornerRadius(4)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        NavigationLink(destination: BookDetailView(
+                            bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
+                            extensionPackageId: item.ext.packageId,
+                            initialDetailUrl: item.result.link,
+                            sourceName: item.ext.name
+                        )) {
+                            HStack(spacing: 12) {
+                                AsyncImage(url: URL(string: item.result.cover)) { image in
+                                    image.resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    Color.gray.opacity(0.3)
+                                        .overlay(Image(systemName: "book"))
+                                }
+                                .frame(width: 50, height: 70)
+                                .cornerRadius(6)
+                                .clipped()
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(translateIfNeeded(item.result.name))
+                                        .font(.subheadline)
+                                        .fontWeight(.bold)
+                                        .lineLimit(2)
+                                    
+                                    let descText = !item.result.description.isEmpty ? item.result.description : item.result.author
+                                    Text(translateIfNeeded(descText))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                    
+                                    Text(item.ext.name)
+                                        .font(.system(size: 9))
+                                        .fontWeight(.semibold)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.accentColor.opacity(0.1))
+                                        .foregroundColor(.accentColor)
+                                        .cornerRadius(4)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
+                .listStyle(.plain)
             } else {
                 VStack(spacing: 12) {
                     Spacer()
@@ -237,17 +404,136 @@ struct SearchView: View {
                 }
                 .frame(maxHeight: .infinity)
             }
-        }
-        .navigationTitle("Tìm Kiếm")
-        .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            if !initialSearchQuery.isEmpty && searchQuery.isEmpty {
-                searchQuery = initialSearchQuery
-                if selectedExtension != nil {
-                    searchAllSources = false
-                }
-                performSearch()
             }
+            .navigationTitle("Tìm Kiếm")
+            .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                if !initialSearchQuery.isEmpty && searchQuery.isEmpty {
+                    searchQuery = initialSearchQuery
+                    if selectedExtension != nil {
+                        searchAllSources = false
+                    }
+                    performSearch()
+                }
+            }
+            
+            if isChangingSource {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(1.3)
+                    Text("Đang thực hiện chuyển nguồn...")
+                        .foregroundColor(.white)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+                .padding(20)
+                .background(Color.black.opacity(0.75))
+                .cornerRadius(12)
+            }
+        }
+        .alert("Xác nhận thay đổi nguồn", isPresented: $showingChangeSourceAlert, presenting: changeSourceTargetResult) { result in
+            Button("Đồng ý", role: .none) {
+                if let ext = changeSourceTargetExtension {
+                    isChangingSource = true
+                    Task {
+                        await executeSourceChange(to: result, ext: ext)
+                        await MainActor.run {
+                            isChangingSource = false
+                        }
+                    }
+                }
+            }
+            Button("Hủy", role: .cancel) {}
+        } message: { result in
+            let extName = changeSourceTargetExtension?.name ?? "Nguồn mới"
+            Text("Bạn có chắc chắn muốn thay đổi nguồn cho truyện sang '\(extName)' không?\nSách cũ trên kệ sẽ bị xóa và các cài đặt dịch riêng, từ điển riêng cũng như tiến độ đọc chương sẽ được chuyển qua sách mới.")
+        }
+    }
+    
+    private func executeSourceChange(to result: SearchNovelResult, ext: Extension) async {
+        guard let oldBook = changeSourceTargetBook else { return }
+        
+        let oldBookId = oldBook.bookId
+        let newBookId = "\(ext.name.lowercased())_\(result.link)"
+        let oldChapterIndex = oldBook.currentChapterIndex
+        
+        do {
+            let path = ext.localPath
+            let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, configJson: ext.configJson)
+            
+            var firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, configJson: ext.configJson)
+            
+            if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
+                let pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, configJson: ext.configJson)
+                if pages.count > 1 {
+                    for pageUrl in pages.dropFirst() {
+                        let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, configJson: ext.configJson)
+                        firstPageChapters.append(contentsOf: pageChaps)
+                    }
+                }
+            }
+            
+            try await MainActor.run {
+                let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(detailResult.detail.cleanHTML())"
+                
+                let newBook = Book(
+                    bookId: newBookId,
+                    title: detailResult.name,
+                    author: detailResult.author,
+                    coverUrl: detailResult.cover,
+                    desc: savedDesc,
+                    detailUrl: result.link,
+                    sourceName: ext.name,
+                    sourceUrl: ext.sourceUrl,
+                    extensionPackageId: ext.packageId,
+                    currentChapterIndex: min(oldChapterIndex, max(0, firstPageChapters.count - 1)),
+                    currentChapterTitle: firstPageChapters.isEmpty ? "" : firstPageChapters[min(oldChapterIndex, max(0, firstPageChapters.count - 1))].name,
+                    isOnShelf: true,
+                    isHistory: oldBook.isHistory
+                )
+                
+                modelContext.insert(newBook)
+                
+                for (index, item) in firstPageChapters.enumerated() {
+                    let chapId = "\(newBookId)_\(item.url)"
+                    let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index)
+                    newChap.book = newBook
+                    modelContext.insert(newChap)
+                }
+                
+                let translateDir = TranslationManager.shared.translateDirectory
+                let oldDir = translateDir.appendingPathComponent("books").appendingPathComponent(oldBookId)
+                let newDir = translateDir.appendingPathComponent("books").appendingPathComponent(newBookId)
+                
+                if FileManager.default.fileExists(atPath: oldDir.path) {
+                    try? FileManager.default.createDirectory(at: newDir, withIntermediateDirectories: true)
+                    let fileNames = ["VietPhrase.dat", "Names.dat", "VietPhrase.txt", "Names.txt"]
+                    for name in fileNames {
+                        let oldFile = oldDir.appendingPathComponent(name)
+                        let newFile = newDir.appendingPathComponent(name)
+                        if FileManager.default.fileExists(atPath: oldFile.path) {
+                            try? FileManager.default.removeItem(at: newFile)
+                            try? FileManager.default.copyItem(at: oldFile, to: newFile)
+                        }
+                    }
+                    try? FileManager.default.removeItem(at: oldDir)
+                }
+                
+                modelContext.delete(oldBook)
+                
+                try? modelContext.save()
+                
+                TranslateUtils.clearCache()
+                TranslationManager.shared.bookDicts.removeValue(forKey: oldBookId)
+                TranslationManager.shared.bookDicts.removeValue(forKey: newBookId)
+                
+                onSourceChanged?()
+            }
+        } catch {
+            print("❌ Lỗi đổi nguồn truyện: \(error.localizedDescription)")
         }
     }
     
@@ -264,6 +550,7 @@ struct SearchView: View {
         
         isSearching = true
         searchResults.removeAll()
+        sourceStates.removeAll()
         
         if searchAllSources {
             let extensionsToSearch = activeExtensions
@@ -274,6 +561,13 @@ struct SearchView: View {
             }
             
             searchStatusMessage = "Đang tìm kiếm trên \(extensionsToSearch.count) nguồn..."
+            
+            // Khởi tạo trạng thái đang tìm kiếm cho tất cả các nguồn
+            var initialStates: [String: SourceSearchState] = [:]
+            for ext in extensionsToSearch {
+                initialStates[ext.packageId] = .searching
+            }
+            sourceStates = initialStates
             
             Task {
                 await withTaskGroup(of: (String, [SearchNovelResult]?).self) { group in
@@ -299,12 +593,12 @@ struct SearchView: View {
                         }
                     }
                     
-                    for await (packageId, searchResults) in group {
-                        if let searchResults = searchResults,
-                           let ext = extensionsToSearch.first(where: { $0.packageId == packageId }) {
-                            let wrapped = searchResults.map { SearchNovelResultWithExt(result: $0, ext: ext) }
-                            await MainActor.run {
-                                self.searchResults.append(contentsOf: wrapped)
+                    for await (packageId, results) in group {
+                        await MainActor.run {
+                            if let results = results, !results.isEmpty {
+                                self.sourceStates[packageId] = .found(results: results)
+                            } else {
+                                self.sourceStates[packageId] = .noResults
                             }
                         }
                     }
@@ -312,7 +606,13 @@ struct SearchView: View {
                 
                 await MainActor.run {
                     self.isSearching = false
-                    self.searchStatusMessage = "Tìm thấy \(searchResults.count) truyện trên các nguồn."
+                    let foundCount = sourceStates.values.reduce(0) { count, state in
+                        if case .found(let results) = state {
+                            return count + results.count
+                        }
+                        return count
+                    }
+                    self.searchStatusMessage = "Tìm thấy \(foundCount) truyện trên các nguồn."
                 }
             }
         } else {

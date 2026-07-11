@@ -28,6 +28,8 @@ struct BookDetailView: View {
     @State private var remainingPagesLoaded = false
     @State private var isLoadingRemainingPages = false
     @State private var navigateToReader = false
+    @State private var navigateToDictionary = false
+    @State private var navigateToChangeSource = false
     @State private var targetChapterIndex = 0
     
     // Quản lý tác vụ tải/xuất
@@ -308,17 +310,46 @@ struct BookDetailView: View {
             .navigationTitle("Chi Tiết Truyện")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        isTranslationEnabled.toggle()
-                    }) {
-                        Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
-                    }
-                    
-                    if localBook != nil {
-                        NavigationLink(destination: BookDictionaryView(bookId: bookId)) {
-                            Image(systemName: "character.book.closed")
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button(action: {
+                            isTranslationEnabled.toggle()
+                        }) {
+                            Label(
+                                isTranslationEnabled ? "Tắt dịch" : "Bật dịch",
+                                systemImage: isTranslationEnabled ? "character.bubble.fill" : "character.bubble"
+                            )
                         }
+                        
+                        if localBook != nil {
+                            Button(action: {
+                                navigateToDictionary = true
+                            }) {
+                                Label("Từ điển", systemImage: "character.book.closed")
+                            }
+                        }
+                        
+                        if localBook != nil {
+                            Button(action: {
+                                navigateToChangeSource = true
+                            }) {
+                                Label("Thay đổi nguồn", systemImage: "arrow.2.squarepath")
+                            }
+                        }
+                        
+                        Button(action: {
+                            // Chưa làm chức năng
+                        }) {
+                            Label("Mở bằng trình duyệt", systemImage: "safari")
+                        }
+                        
+                        Button(action: {
+                            // Chưa làm chức năng
+                        }) {
+                            Label("Chia sẻ", systemImage: "square.and.arrow.up")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
                 }
             }
@@ -341,6 +372,28 @@ struct BookDetailView: View {
                     bookSourceName: sourceName
                 ),
                 isActive: $navigateToReader
+            ) {
+                EmptyView()
+            }
+            
+            NavigationLink(
+                destination: BookDictionaryView(bookId: bookId),
+                isActive: $navigateToDictionary
+            ) {
+                EmptyView()
+            }
+            
+            NavigationLink(
+                destination: SearchView(
+                    activeExtensions: Array(allExtensions),
+                    selectedExtension: nil,
+                    initialSearchQuery: title,
+                    changeSourceTargetBook: localBook,
+                    onSourceChanged: {
+                        dismiss()
+                    }
+                ),
+                isActive: $navigateToChangeSource
             ) {
                 EmptyView()
             }
