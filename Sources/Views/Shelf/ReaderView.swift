@@ -92,6 +92,7 @@ struct ReaderView: View {
     @State private var prefetchTask: Task<Void, Never>? = nil
     @State private var editingParagraphIndex: Int? = nil
     @State private var scrollTargetParagraphIndex: Int? = nil
+    @State private var isAutoScrollDisabled = false
     
     // State variables for overlay HUD controls
     @State private var showControls = false
@@ -255,6 +256,9 @@ struct ReaderView: View {
                 showChapterTitle = true
             }
             
+            let autoScrollKey = "disableAutoScroll_\(bookId)"
+            self.isAutoScrollDisabled = UserDefaults.standard.bool(forKey: autoScrollKey)
+            
             ReaderView.activeBookId = bookId
             ReaderView.activeChapterIndex = chapterIndex
             
@@ -307,6 +311,14 @@ struct ReaderView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleReaderControls"))) { _ in
             withAnimation(.easeInOut(duration: 0.2)) {
                 showControls.toggle()
+            }
+        }
+        .onChange(of: ttsManager.currentParentParagraphIndex) { _, newValue in
+            guard !isAutoScrollDisabled else { return }
+            guard isCurrentlyPlayingThisChapter && newValue >= 0 else { return }
+            
+            withAnimation {
+                scrollTargetParagraphIndex = newValue
             }
         }
         .toolbar(.hidden, for: .tabBar)
@@ -399,6 +411,7 @@ struct ReaderView: View {
                     }
                     
                     prefetchNextChapter()
+                    self.scrollToTTSHighlightIfNeeded()
                 }
             }
         } else {
@@ -427,6 +440,7 @@ struct ReaderView: View {
             }
             
             prefetchNextChapter()
+            self.scrollToTTSHighlightIfNeeded()
         }
     }
     
@@ -1510,6 +1524,16 @@ struct TTSSettingsSheet: View {
 // MARK: - View Helpers Extension
 extension ReaderView {
     
+    private func scrollToTTSHighlightIfNeeded() {
+        guard !isAutoScrollDisabled else { return }
+        if isCurrentlyPlayingThisChapter && ttsManager.currentParentParagraphIndex >= 0 {
+            let targetIdx = ttsManager.currentParentParagraphIndex
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                self.scrollTargetParagraphIndex = targetIdx
+            }
+        }
+    }
+    
     @ViewBuilder
     private var readerContentView: some View {
         if isLoading {
@@ -1815,11 +1839,12 @@ extension ReaderView {
                 Spacer()
                 
                 Button(action: {
-                    // Aesthetic switch layout
+                    isAutoScrollDisabled.toggle()
+                    UserDefaults.standard.set(isAutoScrollDisabled, forKey: "disableAutoScroll_\(bookId)")
                 }) {
-                    Image(systemName: ext?.type == "comic" ? "square.fill.text.grid.1x2" : "doc.plaintext")
+                    Image(systemName: isAutoScrollDisabled ? "lock.fill" : "lock.open.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(.white)
+                        .foregroundColor(isAutoScrollDisabled ? .yellow : .white)
                 }
             }
             .padding(.horizontal, 16)

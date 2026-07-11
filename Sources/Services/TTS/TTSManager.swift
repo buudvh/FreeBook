@@ -73,6 +73,7 @@ public final class TTSManager: NSObject, ObservableObject {
     private var currentUtterance: AVSpeechUtterance? = nil
     private var lastStoppedParagraphIndex: Int? = nil
     private var wasPlayingBeforeStop = false
+    private var wasPlayingBeforeSettings = false
     
     // Cache lưu trữ dữ liệu âm thanh đã được tổng hợp trước cho các đoạn văn
     private var preloadedWavs: [Int: AVAudioPCMBuffer] = [:]
@@ -310,14 +311,17 @@ public final class TTSManager: NSObject, ObservableObject {
         updateNowPlayingInfo()
     }
     
-    public func stop() {
+    private func stopPlayback(keepWidget: Bool = false) {
         let pid = currentPlaybackId ?? "NONE"
-        AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] stop() được gọi.")
+        AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] stopPlayback(keepWidget=\(keepWidget)) được gọi.")
         self.isPlaying = false
-        self.currentParagraphIndex = -1
-        self.currentParentParagraphIndex = -1
-        self.highlightRange = nil
-        self.showFloatingWidget = false
+        
+        if !keepWidget {
+            self.currentParagraphIndex = -1
+            self.currentParentParagraphIndex = -1
+            self.highlightRange = nil
+            self.showFloatingWidget = false
+        }
         
         clearPrefetchCache()
         
@@ -330,30 +334,45 @@ public final class TTSManager: NSObject, ObservableObject {
         MPNowPlayingInfoCenter.default().playbackState = .stopped
     }
     
+    public func stop() {
+        stopPlayback(keepWidget: false)
+    }
+    
     public func stopAndSaveState() {
         wasPlayingBeforeStop = isPlaying
         if isPlaying {
             let currentParagraph = paragraphs[currentParagraphIndex]
             lastStoppedParagraphIndex = currentParagraph.paragraphIndex
-            stop()
+            stopPlayback(keepWidget: true)
         }
     }
     
-    public func resumeWithNewSettings() {
-        guard wasPlayingBeforeStop, let lastIndex = lastStoppedParagraphIndex else { return }
-        wasPlayingBeforeStop = false
-        lastStoppedParagraphIndex = nil
+    public func prepareForSettings() {
+        wasPlayingBeforeSettings = isPlaying
+        if isPlaying {
+            pause()
+        }
+    }
+    
+    public func resumeAfterSettings() {
+        let savedIndex = currentParagraphIndex
+        let wasPlaying = wasPlayingBeforeSettings
+        wasPlayingBeforeSettings = false
         
+        // Dừng engine cũ để áp dụng cài đặt mới (nhưng giữ widget nổi)
+        stopPlayback(keepWidget: true)
+        
+        // Nạp lại phân đoạn
         self.paragraphs = parseParagraphs(chapterContent)
         
         var targetIdx = paragraphs.firstIndex(where: {
-            $0.paragraphIndex == lastIndex
+            $0.paragraphIndex == savedIndex
         }) ?? 0
         
         let key = "showChapterTitle_\(playingBookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
         
-        if lastIndex == -1 && showTitle && !chapterTitle.isEmpty {
+        if savedIndex == -1 && showTitle && !chapterTitle.isEmpty {
             let titleParagraph = TTSParagraph(
                 text: chapterTitle,
                 range: NSRange(location: 0, length: chapterTitle.count),
@@ -368,13 +387,16 @@ public final class TTSManager: NSObject, ObservableObject {
                 paragraphIndex: -1
             )
             self.paragraphs.insert(titleParagraph, at: 0)
-            targetIdx = (paragraphs.firstIndex(where: { $0.paragraphIndex == lastIndex }) ?? 1)
+            targetIdx = (paragraphs.firstIndex(where: { $0.paragraphIndex == savedIndex }) ?? 1)
         }
         
         self.currentParagraphIndex = targetIdx
-        self.isPlaying = true
         
-        speakCurrent()
+        // Nếu trước đó đang phát, tiếp tục phát đoạn đó với cài đặt mới
+        if wasPlaying {
+            self.isPlaying = true
+            speakCurrent()
+        }
     }
     
     public func restartCurrentParagraph() {
@@ -941,11 +963,30 @@ public final class TTSManager: NSObject, ObservableObject {
     
     private func updateNowPlayingInfo() {
         var info: [String: Any] = [:]
-        info[MPMediaItemPropertyTitle] = bookTitle
         
-        let chapTitle = chapterTitle.isEmpty ? "Chương hiện tại" : chapterTitle
+        let displayBookTitle: String
+        let displayChapterTitle: String
+        
+        if TranslateUtils.isTranslationEnabled {
+            // Dịch tên truyện nếu chứa chữ Trung Quốc
+            displayBookTitle = TranslateUtils.containsChinese(bookTitle)
+                ? TranslateUtils.translateMeta(bookTitle, bookId: playingBookId)
+                : bookTitle
+            
+            // Dịch tên chương nếu chứa chữ Trung Quốc
+            let rawChapterTitle = chapterTitle.isEmpty ? "Chương hiện tại" : chapterTitle
+            displayChapterTitle = TranslateUtils.containsChinese(rawChapterTitle)
+                ? TranslateUtils.translateChapterTitle(rawChapterTitle, bookId: playingBookId)
+                : rawChapterTitle
+        } else {
+            displayBookTitle = bookTitle
+            displayChapterTitle = chapterTitle.isEmpty ? "Chương hiện tại" : chapterTitle
+        }
+        
+        info[MPMediaItemPropertyTitle] = displayBookTitle
+        
         let currentPart = paragraphs.isEmpty ? "" : " (Đoạn \(currentParagraphIndex + 1)/\(paragraphs.count))"
-        info[MPMediaItemPropertyArtist] = chapTitle + currentPart
+        info[MPMediaItemPropertyArtist] = displayChapterTitle + currentPart
         
         info[MPNowPlayingInfoPropertyIsLiveStream] = true
         info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? speed : 0.0
