@@ -248,23 +248,31 @@ public final class TTSManager: NSObject, ObservableObject {
         // Phân đoạn văn bản sạch
         self.paragraphs = parseParagraphs(chapterContent)
         
-        // Tìm chunk đầu tiên có paragraphIndex khớp với chỉ số đoạn văn yêu cầu
-        var targetIdx = paragraphs.firstIndex(where: {
-            $0.paragraphIndex == startParagraphIndex
-        }) ?? 0
-        
         // Kiểm tra cấu hình hiện tên chương trong nội dung của truyện hiện tại (mặc định bật)
         let key = "showChapterTitle_\(playingBookId ?? "")"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
         
-        if startParagraphIndex == 0 && showTitle && !chapterTitle.isEmpty {
+        var titleInserted = false
+        if showTitle && !chapterTitle.isEmpty {
             let titleParagraph = TTSParagraph(
                 text: chapterTitle,
                 range: NSRange(location: 0, length: chapterTitle.count),
                 paragraphIndex: -1
             )
             self.paragraphs.insert(titleParagraph, at: 0)
+            titleInserted = true
+        }
+        
+        // Tìm chunk đầu tiên có paragraphIndex khớp với chỉ số đoạn văn yêu cầu
+        var targetIdx = 0
+        if startParagraphIndex == -1 {
             targetIdx = 0
+        } else {
+            if let idx = paragraphs.firstIndex(where: { $0.paragraphIndex == startParagraphIndex }) {
+                targetIdx = idx
+            } else {
+                targetIdx = titleInserted ? 1 : 0
+            }
         }
         
         self.currentParagraphIndex = targetIdx

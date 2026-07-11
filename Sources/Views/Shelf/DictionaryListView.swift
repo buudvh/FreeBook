@@ -13,6 +13,7 @@ struct DictionaryListView: View {
     @State private var editingEntry: DictEntry? = nil
     @State private var showingAddSheet = false
     @State private var showingFileImporter = false
+    @State private var showingDeleteAllAlert = false
     @State private var toastMessage = ""
     @State private var showingToast = false
     @State private var isToastError = false
@@ -167,26 +168,48 @@ struct DictionaryListView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 16) {
-                        // Export
-                        if !allEntries.isEmpty {
-                            ShareLink(item: exportText()) {
-                                Image(systemName: "square.and.arrow.up")
-                            }
-                        }
-                        // Import
-                        Button {
-                            showingFileImporter = true
-                        } label: {
-                            Image(systemName: "square.and.arrow.down")
-                        }
-                        // Add
+                    Menu {
                         Button {
                             showingAddSheet = true
                         } label: {
-                            Image(systemName: "plus")
+                            Label("Thêm từ mới", systemImage: "plus")
                         }
+                        
+                        Button {
+                            showingFileImporter = true
+                        } label: {
+                            Label("Nhập từ điển (\(type.displayName))", systemImage: "square.and.arrow.down")
+                        }
+                        
+                        if !allEntries.isEmpty {
+                            ShareLink(
+                                item: exportText(),
+                                preview: SharePreview("Từ điển \(navTitle)", image: Image(systemName: "book"))
+                            ) {
+                                Label("Xuất từ điển (\(type.displayName))", systemImage: "square.and.arrow.up")
+                            }
+                        }
+                        
+                        Button(role: .destructive) {
+                            showingDeleteAllAlert = true
+                        } label: {
+                            Label("Xóa tất cả", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
+                }
+            }
+            .alert("Xác nhận xóa tất cả", isPresented: $showingDeleteAllAlert) {
+                Button("Xóa tất cả", role: .destructive) {
+                    deleteAllEntries()
+                }
+                Button("Hủy", role: .cancel) {}
+            } message: {
+                if isGlobal {
+                    Text("Bạn có chắc chắn muốn xóa tất cả các từ tự thêm/chỉnh sửa trong từ điển chung \(type.displayName) không?\nDữ liệu mặc định gốc của hệ thống sẽ được giữ nguyên.")
+                } else {
+                    Text("Bạn có chắc chắn muốn xóa toàn bộ từ điển riêng của truyện này không?\nHành động này không thể hoàn tác.")
                 }
             }
             .sheet(isPresented: $showingAddSheet) {
@@ -354,6 +377,34 @@ struct DictionaryListView: View {
                     bookEntries = entries
                 }
                 showToast("Đã xóa: \(entry.key)", isError: false)
+            } catch {
+                showToast("Lỗi: \(error.localizedDescription)", isError: true)
+            }
+        }
+    }
+    
+    private func deleteAllEntries() {
+        Task {
+            do {
+                if isGlobal {
+                    try await cache.clearAllEntries(type: type)
+                } else {
+                    guard let bid = bookId else { return }
+                    let translateDir = TranslationManager.shared.translateDirectory
+                    let bookDir = translateDir.appendingPathComponent("books").appendingPathComponent(bid)
+                    let datUrl = bookDir.appendingPathComponent("\(type.fileName).dat")
+                    let txtUrl = bookDir.appendingPathComponent("\(type.fileName).txt")
+                    
+                    try? FileManager.default.removeItem(at: datUrl)
+                    try? FileManager.default.removeItem(at: txtUrl)
+                    
+                    TranslateUtils.clearCache()
+                    TranslationManager.shared.clearBookDictCache(for: bid)
+                    
+                    let entries = await loadBookEntries()
+                    bookEntries = entries
+                }
+                showToast("Đã xóa tất cả từ", isError: false)
             } catch {
                 showToast("Lỗi: \(error.localizedDescription)", isError: true)
             }

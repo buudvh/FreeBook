@@ -156,6 +156,10 @@ public final class DictionaryCache: ObservableObject {
         vietPhraseEntries = nil
         namesEntries = nil
     }
+    
+    public func clearAllEntries(type: DictType) async throws {
+        try await persistAndUpdate(entries: [], type: type)
+    }
 
     // MARK: - Helpers
 
