@@ -1677,10 +1677,11 @@ extension ReaderView {
     
     private func scrollToTTSHighlightIfNeeded() {
         guard !isAutoScrollDisabled else { return }
-        if isCurrentlyPlayingThisChapter && ttsManager.currentParentParagraphIndex >= 0 {
+        if ttsManager.isPlaying && ttsManager.playingBookId == bookId && ttsManager.currentParentParagraphIndex >= 0 {
             let targetIdx = ttsManager.currentParentParagraphIndex
+            let chapIdx = ttsManager.playingChapterIndex
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                self.scrollTargetParagraphIndex = targetIdx
+                self.scrollTarget = ScrollTarget(chapterIndex: chapIdx, paragraphIndex: targetIdx)
             }
         }
     }
