@@ -119,8 +119,14 @@ struct ReaderView: View {
         if let book = localBook {
             let sorted = book.chapters.sorted(by: { $0.index < $1.index })
             return sorted.map { chap in
-                TTSChapterInfo(
-                    title: chap.title,
+                let titleToUse: String
+                if isTranslationEnabled && TranslateUtils.containsChinese(chap.title) {
+                    titleToUse = TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
+                } else {
+                    titleToUse = chap.title
+                }
+                return TTSChapterInfo(
+                    title: titleToUse,
                     url: chap.url,
                     index: chap.index,
                     cachedContent: chap.isCached ? chap.content : nil
@@ -128,8 +134,14 @@ struct ReaderView: View {
             }
         } else {
             return currentOnlineChapters.enumerated().map { (index, chap) in
-                TTSChapterInfo(
-                    title: chap.name,
+                let titleToUse: String
+                if isTranslationEnabled && TranslateUtils.containsChinese(chap.name) {
+                    titleToUse = TranslateUtils.translateChapterTitle(chap.name, bookId: bookId)
+                } else {
+                    titleToUse = chap.name
+                }
+                return TTSChapterInfo(
+                    title: titleToUse,
                     url: chap.url,
                     index: index,
                     cachedContent: index == chapterIndex ? chapterContent : nil
@@ -234,6 +246,7 @@ struct ReaderView: View {
                     chapterContent: isTranslationEnabled ? chapterContent : originalContent,
                     startParagraphIndex: resumeParagraphIdx,
                     bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+                    coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
                     extensionInfo: ttsExtensionInfo
                 )
                 ttsResumeParagraphIndex = nil
@@ -406,6 +419,7 @@ struct ReaderView: View {
                             chapterContent: translatedContent,
                             startParagraphIndex: 0,
                             bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+                            coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
                             extensionInfo: ttsExtensionInfo
                         )
                     }
@@ -435,6 +449,7 @@ struct ReaderView: View {
                     chapterContent: originalContent,
                     startParagraphIndex: 0,
                     bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+                    coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
                     extensionInfo: ttsExtensionInfo
                 )
             }
@@ -557,8 +572,18 @@ struct ReaderView: View {
             addTranslation(match.value)
         }
         
-        // 2. Global Names
-        if let names = manager.namesDict,
+        // 1.1 Custom Names (custom.dat)
+        var hasCustomName = false
+        if let customNames = manager.customNamesDict,
+           let match = customNames.findLongestMatch(text: word, startIndex: 0),
+           match.length == word.count {
+            addTranslation(match.value)
+            hasCustomName = true
+        }
+        
+        // 2. Global Names (chỉ hiện nếu không có trong Custom Names)
+        if !hasCustomName,
+           let names = manager.namesDict,
            let match = names.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
             addTranslation(match.value)
@@ -585,8 +610,18 @@ struct ReaderView: View {
             addTranslation(match.value)
         }
         
-        // 6. Global VietPhrase (Chung)
-        if let vp = manager.vietPhraseDict,
+        // 5.1 Custom VietPhrase (custom.dat)
+        var hasCustomVP = false
+        if let customVP = manager.customVietPhraseDict,
+           let match = customVP.findLongestMatch(text: word, startIndex: 0),
+           match.length == word.count {
+            addTranslation(match.value)
+            hasCustomVP = true
+        }
+        
+        // 6. Global VietPhrase (Chung - chỉ hiện nếu không có trong Custom VietPhrase)
+        if !hasCustomVP,
+           let vp = manager.vietPhraseDict,
            let match = vp.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
             if match.value.count < 100 {
@@ -818,6 +853,7 @@ struct ReaderView: View {
                             chapterContent: isTranslationEnabled ? chapterContent : originalContent,
                             startParagraphIndex: item.id,
                             bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+                            coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
                             extensionInfo: ttsExtensionInfo
                         )
                     },
@@ -838,6 +874,7 @@ struct ReaderView: View {
                             chapterContent: isTranslationEnabled ? chapterContent : originalContent,
                             startParagraphIndex: item.id,
                             bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+                            coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
                             extensionInfo: ttsExtensionInfo
                         )
                     }

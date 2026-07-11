@@ -3,6 +3,7 @@ import AVFoundation
 import MediaPlayer
 import Combine
 import QuartzCore
+import UIKit
 
 @MainActor
 public final class TTSManager: NSObject, ObservableObject {
@@ -62,6 +63,7 @@ public final class TTSManager: NSObject, ObservableObject {
     
     // Thông tin phát nhạc độc lập toàn cục
     @Published public private(set) var playingBookId: String = ""
+    @Published public private(set) var playingCoverUrl: String = ""
     @Published public private(set) var playingChapterUrl: String = ""
     @Published public private(set) var playingChapterIndex: Int = -1
     @Published public private(set) var extensionInfo: TTSExtensionInfo? = nil
@@ -216,6 +218,7 @@ public final class TTSManager: NSObject, ObservableObject {
         chapterContent: String,
         startParagraphIndex: Int,
         bookTitle: String,
+        coverUrl: String = "",
         extensionInfo: TTSExtensionInfo?
     ) {
         // Dọn dẹp trình phát cũ trước tiên để tránh xung đột luồng và callback lặp
@@ -223,6 +226,7 @@ public final class TTSManager: NSObject, ObservableObject {
         
         self.configureAudioSession()
         self.playingBookId = bookId
+        self.playingCoverUrl = coverUrl
         self.chaptersQueue = chapters
         self.playingChapterIndex = currentIndex
         self.bookTitle = bookTitle
@@ -338,7 +342,7 @@ public final class TTSManager: NSObject, ObservableObject {
         audioEngine?.stop()
         cleanUpTempFile()
         
-        updateNowPlayingInfo()
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         MPNowPlayingInfoCenter.default().playbackState = .stopped
     }
     
@@ -998,6 +1002,23 @@ public final class TTSManager: NSObject, ObservableObject {
         
         info[MPNowPlayingInfoPropertyIsLiveStream] = true
         info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? speed : 0.0
+        
+        // Thiết lập ảnh bìa nếu có
+        let bid = playingBookId
+        if let image = ImageCacheManager.shared.loadLocalCover(for: bid) {
+            let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in
+                return image
+            }
+            info[MPMediaItemPropertyArtwork] = artwork
+        } else if !playingCoverUrl.isEmpty {
+            ImageCacheManager.shared.downloadAndSaveCover(urlStr: playingCoverUrl, bookId: bid) { [weak self] image in
+                guard image != nil else { return }
+                DispatchQueue.main.async {
+                    guard let self = self, self.playingBookId == bid else { return }
+                    self.updateNowPlayingInfo()
+                }
+            }
+        }
         
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
         MPNowPlayingInfoCenter.default().playbackState = isPlaying ? .playing : .paused

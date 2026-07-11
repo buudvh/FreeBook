@@ -11,6 +11,9 @@ public struct TOCRule: Codable, Identifiable {
 public final class TranslateUtils {
     
     private static let translationCache = NSCache<NSString, NSString>()
+    private static let cacheLock = NSLock()
+    private static var chapterTitleCacheDict: [String: [String: String]] = [:]
+    private static var cachedTOCRules: [TOCRule]? = nil
     
     public static func getFirstMeaning(of rawTranslation: String) -> String {
         let clean = rawTranslation.replacingOccurrences(of: "¦", with: "/")
@@ -82,6 +85,17 @@ public final class TranslateUtils {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return "" }
         
+        let bid = bookId ?? "global"
+        
+        cacheLock.lock()
+        let cached = chapterTitleCacheDict[bid]?[trimmed]
+        cacheLock.unlock()
+        
+        if let cached = cached {
+            return cached
+        }
+        
+        let translated: String
         let enabledRules = getActiveTOCRules()
         var matchedRule = false
         
@@ -128,12 +142,12 @@ public final class TranslateUtils {
                 let translatedPre = preMatch.isEmpty ? "" : translateMeta(preMatch, bookId: bookId) + " "
                 let translatedPost = postMatch.isEmpty ? "" : ": " + translateMeta(postMatch, bookId: bookId)
                 
-                return "\(translatedPre)\(unitVal) \(numberVal)\(translatedPost)".trimmingCharacters(in: .whitespacesAndNewlines)
+                translated = "\(translatedPre)\(unitVal) \(numberVal)\(translatedPost)".trimmingCharacters(in: .whitespacesAndNewlines)
+            } else {
+                translated = translateMeta(trimmed, bookId: bookId)
             }
-        }
-        
-        if let match = titleNumberRegex.firstMatch(in: trimmed, options: [], range: range),
-           let matchRange = Range(match.range(at: 1), in: trimmed) {
+        } else if let match = titleNumberRegex.firstMatch(in: trimmed, options: [], range: range),
+                  let matchRange = Range(match.range(at: 1), in: trimmed) {
             let matchedPrefix = String(trimmed[matchRange])
             
             let numberPartRegex = try! NSRegularExpression(pattern: #"([0-9一二三四五六七八九十百千零〇两壹贰叁肆伍陆柒捌玖拾佰仟]+)"#, options: [])
@@ -162,10 +176,20 @@ public final class TranslateUtils {
             let translatedPre = preMatch.isEmpty ? "" : translateMeta(preMatch, bookId: bookId) + " "
             let translatedPost = postMatch.isEmpty ? "" : ": " + translateMeta(postMatch, bookId: bookId)
             
-            return "\(translatedPre)\(unitVal) \(numberVal)\(translatedPost)".trimmingCharacters(in: .whitespacesAndNewlines)
+            translated = "\(translatedPre)\(unitVal) \(numberVal)\(translatedPost)".trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            translated = translateMeta(trimmed, bookId: bookId)
         }
         
-        return translateMeta(trimmed, bookId: bookId)
+        cacheLock.lock()
+        if chapterTitleCacheDict[bid] == nil {
+            chapterTitleCacheDict[bid] = [:]
+        }
+        chapterTitleCacheDict[bid]?[trimmed] = translated
+        cacheLock.unlock()
+        
+        return translated
+    }
     }
     
     private static func translateText(_ text: String?, isMeta: Bool, bookId: String?) -> String {
@@ -513,10 +537,15 @@ public final class TranslateUtils {
     }
     
     public static func getActiveTOCRules() -> [TOCRule] {
+        if let cached = cachedTOCRules {
+            return cached
+        }
         let url = TranslationManager.shared.translateDirectory.appendingPathComponent("toc_rules.json")
         if let data = try? Data(contentsOf: url),
            let list = try? JSONDecoder().decode([TOCRule].self, from: data) {
-            return list.filter { $0.enabled }
+            let active = list.filter { $0.enabled }
+            cachedTOCRules = active
+            return active
         }
         
         if !FileManager.default.fileExists(atPath: url.path) {
@@ -525,18 +554,34 @@ public final class TranslateUtils {
             }
         }
         
-        return defaultTOCRules.filter { $0.enabled }
+        let active = defaultTOCRules.filter { $0.enabled }
+        cachedTOCRules = active
+        return active
     }
     
     public static func saveTOCRules(_ rules: [TOCRule]) {
+        cachedTOCRules = nil // Invalidate memory cache
         let url = TranslationManager.shared.translateDirectory.appendingPathComponent("toc_rules.json")
         if let data = try? JSONEncoder().encode(rules) {
             try? data.write(to: url)
         }
     }
     
+    public static func clearChapterTitleCache(for bookId: String) {
+        cacheLock.lock()
+        chapterTitleCacheDict.removeValue(forKey: bookId)
+        cacheLock.unlock()
+    }
+    
+    public static func clearChapterTitleCache() {
+        cacheLock.lock()
+        chapterTitleCacheDict.removeAll()
+        cacheLock.unlock()
+    }
+    
     public static func clearCache() {
         translationCache.removeAllObjects()
+        clearChapterTitleCache()
     }
     
     // MARK: - Tokenizer for interactive reader selection

@@ -121,6 +121,12 @@ struct ShelfView: View {
                                             Label("Xuất ebook TXT", systemImage: "square.and.arrow.up")
                                         }
                                         
+                                        Button {
+                                            TranslateUtils.clearChapterTitleCache(for: book.bookId)
+                                        } label: {
+                                            Label("Dịch lại tên chương", systemImage: "arrow.clockwise.circle")
+                                        }
+                                        
                                         Button(role: .destructive) {
                                             removeFromShelf(book)
                                         } label: {
@@ -203,6 +209,12 @@ struct ShelfView: View {
                                             prepareTaskForBook(book, type: .exportTxt)
                                         } label: {
                                             Label("Xuất ebook TXT", systemImage: "square.and.arrow.up")
+                                        }
+                                        
+                                        Button {
+                                            TranslateUtils.clearChapterTitleCache(for: book.bookId)
+                                        } label: {
+                                            Label("Dịch lại tên chương", systemImage: "arrow.clockwise.circle")
                                         }
                                         
                                         Button(role: .destructive) {
