@@ -8,6 +8,10 @@ struct SearchNovelResultWithExt: Identifiable {
 }
 
 struct SearchView: View {
+    let activeExtensions: [Extension]
+    let selectedExtension: Extension?
+    let initialSearchQuery: String
+    
     let changeSourceTargetBook: Book?
     let onSourceChanged: (() -> Void)?
     
@@ -527,8 +531,8 @@ struct SearchView: View {
                 try? modelContext.save()
                 
                 TranslateUtils.clearCache()
-                TranslationManager.shared.bookDicts.removeValue(forKey: oldBookId)
-                TranslationManager.shared.bookDicts.removeValue(forKey: newBookId)
+                TranslationManager.shared.clearBookDictCache(for: oldBookId)
+                TranslationManager.shared.clearBookDictCache(for: newBookId)
                 
                 onSourceChanged?()
             }

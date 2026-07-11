@@ -249,7 +249,7 @@ public final class TTSManager: NSObject, ObservableObject {
         self.paragraphs = parseParagraphs(chapterContent)
         
         // Kiểm tra cấu hình hiện tên chương trong nội dung của truyện hiện tại (mặc định bật)
-        let key = "showChapterTitle_\(playingBookId ?? "")"
+        let key = "showChapterTitle_\(playingBookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
         
         var titleInserted = false
