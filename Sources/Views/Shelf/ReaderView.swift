@@ -219,13 +219,8 @@ struct ReaderView: View {
                 }
                 .ignoresSafeArea(edges: .bottom)
             }
-        }
-        .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
-        .sheet(isPresented: $showingSettings) {
-            ReaderSettingsView(fontSize: $fontSize, lineSpacing: $lineSpacing, selectedTheme: $selectedTheme, isTranslationEnabled: $isTranslationEnabled)
-                .presentationDetents([.height(250)])
-        }
-        .sheet(isPresented: $showingChapterList) {
+            
+            // Chapter List Overlay (luôn nằm trong hierarchy nhưng ẩn đi bằng offset/opacity)
             ReaderChapterListView(
                 bookId: bookId,
                 extensionPackageId: extensionPackageId,
@@ -234,10 +229,25 @@ struct ReaderView: View {
                 isTranslationEnabled: isTranslationEnabled,
                 theme: selectedTheme,
                 onlineChapters: $currentOnlineChapters,
+                isVisible: showingChapterList,
                 onSelectChapter: { selectedIdx in
                     selectChapter(at: selectedIdx)
+                },
+                onClose: {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        showingChapterList = false
+                    }
                 }
             )
+            .offset(x: showingChapterList ? 0 : -UIScreen.main.bounds.width)
+            .opacity(showingChapterList ? 1 : 0)
+            .animation(.easeInOut(duration: 0.25), value: showingChapterList)
+            .zIndex(10)
+        }
+        .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
+        .sheet(isPresented: $showingSettings) {
+            ReaderSettingsView(fontSize: $fontSize, lineSpacing: $lineSpacing, selectedTheme: $selectedTheme, isTranslationEnabled: $isTranslationEnabled)
+                .presentationDetents([.height(250)])
         }
         .sheet(isPresented: $showingBookDictionary) {
             NavigationStack {
@@ -1120,8 +1130,7 @@ struct ReaderView: View {
         
         for (idx, item) in currentOnlineChapters.enumerated() {
             let chapId = "\(newBook.bookId)_\(item.url)"
-            let trans = TranslateUtils.translateChapterTitle(item.name, bookId: newBook.bookId)
-            let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: idx, titleTrans: trans)
+            let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: idx)
             newChap.book = newBook
             if idx == currentIndex {
                 newChap.content = cleanedContent
@@ -2081,7 +2090,9 @@ extension ReaderView {
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .onTapGesture {
-                showingChapterList = true
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showingChapterList = true
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
@@ -2185,7 +2196,9 @@ extension ReaderView {
             HStack(spacing: 0) {
                 // Xem danh sách chương (Mục lục)
                 Button(action: {
-                    showingChapterList = true
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        showingChapterList = true
+                    }
                 }) {
                     VStack(spacing: 4) {
                         Image(systemName: "list.bullet")

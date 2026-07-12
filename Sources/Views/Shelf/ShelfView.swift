@@ -345,16 +345,8 @@ struct ShelfView: View {
                 
                 let chapterTitle: String = {
                     if let currentChap = book.chapters.first(where: { $0.index == book.currentChapterIndex }) {
-                        if isTranslationEnabled {
-                            if let trans = currentChap.titleTrans, !trans.isEmpty {
-                                return trans
-                            }
-                            if TranslateUtils.containsChinese(currentChap.title) {
-                                let trans = TranslateUtils.translateChapterTitle(currentChap.title, bookId: book.bookId)
-                                currentChap.titleTrans = trans
-                                try? modelContext.save()
-                                return trans
-                            }
+                        if isTranslationEnabled && TranslateUtils.containsChinese(currentChap.title) {
+                            return TranslateUtils.translateChapterTitle(currentChap.title, bookId: book.bookId)
                         } else {
                             return currentChap.title
                         }
@@ -390,11 +382,6 @@ struct ShelfView: View {
     
     private func retranslateChapterTitles(for book: Book) {
         TranslateUtils.clearChapterTitleCache(for: book.bookId)
-        let sortedChapters = book.chapters.sorted(by: { $0.index < $1.index })
-        for chap in sortedChapters {
-            chap.titleTrans = TranslateUtils.translateChapterTitle(chap.title, bookId: book.bookId)
-        }
-        try? modelContext.save()
     }
     
     private func prepareTaskForBook(_ book: Book, type: TaskType) {

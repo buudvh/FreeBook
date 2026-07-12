@@ -503,8 +503,7 @@ struct SearchView: View {
                 
                 for (index, item) in firstPageChapters.enumerated() {
                     let chapId = "\(newBookId)_\(item.url)"
-                    let trans = TranslateUtils.translateChapterTitle(item.name, bookId: newBookId)
-                    let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index, titleTrans: trans)
+                    let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index)
                     newChap.book = newBook
                     modelContext.insert(newChap)
                 }

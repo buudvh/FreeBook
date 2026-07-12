@@ -1,6 +1,15 @@
 import SwiftUI
 import SwiftData
 
+struct ChapterRowInfo: Identifiable {
+    var id: Int { index }
+    let title: String
+    let displayTitle: String
+    let url: String
+    let index: Int
+    let isCached: Bool
+}
+
 struct ReaderChapterListView: View {
     let bookId: String
     let extensionPackageId: String
@@ -9,15 +18,16 @@ struct ReaderChapterListView: View {
     let isTranslationEnabled: Bool
     let theme: ReaderTheme
     @Binding var onlineChapters: [ChapterResult]
+    let isVisible: Bool
     let onSelectChapter: (Int) -> Void
+    let onClose: () -> Void
     
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query private var allBooks: [Book]
     @Query private var allExtensions: [Extension]
     
     @State private var searchQuery = ""
-    @State private var chaptersList: [TTSChapterInfo] = []
+    @State private var chaptersList: [ChapterRowInfo] = []
     @State private var isUpdating = false
     @State private var errorMessage = ""
     
@@ -33,13 +43,13 @@ struct ReaderChapterListView: View {
         allExtensions.first(where: { $0.packageId == extensionPackageId })
     }
     
-    var filteredChapters: [TTSChapterInfo] {
+    var filteredChapters: [ChapterRowInfo] {
         if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return chaptersList
         }
         return chaptersList.filter { chap in
-            let displayTitle = displayTitle(for: chap.title, index: chap.index)
-            return displayTitle.localizedCaseInsensitiveContains(searchQuery)
+            chap.displayTitle.localizedCaseInsensitiveContains(searchQuery) ||
+            chap.title.localizedCaseInsensitiveContains(searchQuery)
         }
     }
     
@@ -86,13 +96,13 @@ struct ReaderChapterListView: View {
                     // Danh sách chương
                     ScrollViewReader { proxy in
                         List {
-                            ForEach(filteredChapters, id: \.index) { chap in
+                            ForEach(filteredChapters) { chap in
                                 let isCurrent = chap.index == currentChapterIndex
-                                let titleText = displayTitle(for: chap.title, index: chap.index)
+                                let titleText = chap.displayTitle
                                 
                                 Button(action: {
                                     onSelectChapter(chap.index)
-                                    dismiss()
+                                    onClose()
                                 }) {
                                     HStack {
                                         Text(titleText)
@@ -103,7 +113,7 @@ struct ReaderChapterListView: View {
                                         
                                         Spacer()
                                         
-                                        if chap.cachedContent != nil {
+                                        if chap.isCached {
                                             Image(systemName: "arrow.down.circle.fill")
                                                 .font(.caption)
                                                 .foregroundColor(.green)
@@ -128,6 +138,18 @@ struct ReaderChapterListView: View {
                                 }
                             }
                         }
+                        .onChange(of: isVisible) { _, newValue in
+                            if newValue {
+                                // Tự động cuộn đến chương hiện tại khi danh sách được mở ra
+                                if searchQuery.isEmpty {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                        withAnimation {
+                                            proxy.scrollTo("chap-\(currentChapterIndex)", anchor: .center)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 .background(theme.backgroundColor)
@@ -148,7 +170,7 @@ struct ReaderChapterListView: View {
                     
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Đóng") {
-                            dismiss()
+                            onClose()
                         }
                         .foregroundColor(theme.textColor)
                     }
@@ -190,46 +212,33 @@ struct ReaderChapterListView: View {
         if let book = localBook {
             let sorted = book.chapters.sorted(by: { $0.index < $1.index })
             self.chaptersList = sorted.map { chap in
-                TTSChapterInfo(
+                let displayTitle = (isTranslationEnabled && TranslateUtils.containsChinese(chap.title))
+                    ? TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
+                    : chap.title
+                
+                return ChapterRowInfo(
                     title: chap.title,
+                    displayTitle: displayTitle,
                     url: chap.url,
                     index: chap.index,
-                    cachedContent: chap.isCached ? chap.content : nil
+                    isCached: chap.isCached
                 )
             }
         } else {
             self.chaptersList = onlineChapters.enumerated().map { (index, chap) in
-                TTSChapterInfo(
+                let displayTitle = (isTranslationEnabled && TranslateUtils.containsChinese(chap.name))
+                    ? TranslateUtils.translateChapterTitle(chap.name, bookId: bookId)
+                    : chap.name
+                
+                return ChapterRowInfo(
                     title: chap.name,
+                    displayTitle: displayTitle,
                     url: chap.url,
                     index: index,
-                    cachedContent: nil
+                    isCached: false
                 )
             }
         }
-    }
-    
-    private func displayTitle(for rawTitle: String, index: Int) -> String {
-        if isTranslationEnabled {
-            if let book = localBook {
-                let sorted = book.chapters.sorted(by: { $0.index < $1.index })
-                if index < sorted.count {
-                    let dbChap = sorted[index]
-                    if let trans = dbChap.titleTrans, !trans.isEmpty {
-                        return trans
-                    } else if TranslateUtils.containsChinese(rawTitle) {
-                        let trans = TranslateUtils.translateChapterTitle(rawTitle, bookId: bookId)
-                        dbChap.titleTrans = trans
-                        try? modelContext.save()
-                        return trans
-                    }
-                }
-            }
-            if TranslateUtils.containsChinese(rawTitle) {
-                return TranslateUtils.translateChapterTitle(rawTitle, bookId: bookId)
-            }
-        }
-        return rawTitle
     }
     
     private func showToast(_ message: String, isError: Bool) {
@@ -303,12 +312,10 @@ struct ReaderChapterListView: View {
                             if let existing = existingMap[item.url] {
                                 existing.title = item.name
                                 existing.index = index
-                                existing.titleTrans = TranslateUtils.translateChapterTitle(item.name, bookId: bookId)
                                 newChapters.append(existing)
                             } else {
                                 let chapId = "\(bookId)_\(item.url)"
-                                let transTitle = TranslateUtils.translateChapterTitle(item.name, bookId: bookId)
-                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index, titleTrans: transTitle)
+                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index)
                                 newChap.book = book
                                 modelContext.insert(newChap)
                                 newChapters.append(newChap)
