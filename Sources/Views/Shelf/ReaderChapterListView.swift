@@ -38,7 +38,7 @@ struct ReaderChapterListView: View {
             return chaptersList
         }
         return chaptersList.filter { chap in
-            let displayTitle = displayTitle(for: chap.title)
+            let displayTitle = displayTitle(for: chap.title, index: chap.index)
             return displayTitle.localizedCaseInsensitiveContains(searchQuery)
         }
     }
@@ -88,7 +88,7 @@ struct ReaderChapterListView: View {
                         List {
                             ForEach(filteredChapters, id: \.index) { chap in
                                 let isCurrent = chap.index == currentChapterIndex
-                                let titleText = displayTitle(for: chap.title)
+                                let titleText = displayTitle(for: chap.title, index: chap.index)
                                 
                                 Button(action: {
                                     onSelectChapter(chap.index)
@@ -209,9 +209,25 @@ struct ReaderChapterListView: View {
         }
     }
     
-    private func displayTitle(for rawTitle: String) -> String {
-        if isTranslationEnabled && TranslateUtils.containsChinese(rawTitle) {
-            return TranslateUtils.translateChapterTitle(rawTitle, bookId: bookId)
+    private func displayTitle(for rawTitle: String, index: Int) -> String {
+        if isTranslationEnabled {
+            if let book = localBook {
+                let sorted = book.chapters.sorted(by: { $0.index < $1.index })
+                if index < sorted.count {
+                    let dbChap = sorted[index]
+                    if let trans = dbChap.titleTrans, !trans.isEmpty {
+                        return trans
+                    } else if TranslateUtils.containsChinese(rawTitle) {
+                        let trans = TranslateUtils.translateChapterTitle(rawTitle, bookId: bookId)
+                        dbChap.titleTrans = trans
+                        try? modelContext.save()
+                        return trans
+                    }
+                }
+            }
+            if TranslateUtils.containsChinese(rawTitle) {
+                return TranslateUtils.translateChapterTitle(rawTitle, bookId: bookId)
+            }
         }
         return rawTitle
     }
@@ -287,10 +303,12 @@ struct ReaderChapterListView: View {
                             if let existing = existingMap[item.url] {
                                 existing.title = item.name
                                 existing.index = index
+                                existing.titleTrans = TranslateUtils.translateChapterTitle(item.name, bookId: bookId)
                                 newChapters.append(existing)
                             } else {
                                 let chapId = "\(bookId)_\(item.url)"
-                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index)
+                                let transTitle = TranslateUtils.translateChapterTitle(item.name, bookId: bookId)
+                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index, titleTrans: transTitle)
                                 newChap.book = book
                                 modelContext.insert(newChap)
                                 newChapters.append(newChap)

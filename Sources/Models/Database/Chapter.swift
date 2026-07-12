@@ -9,15 +9,17 @@ public final class Chapter {
     public var index: Int
     public var content: String? // Đối với truyện tranh, content chứa danh sách ảnh cách nhau bởi dấu xuống dòng (\n)
     public var isCached: Bool = false
+    public var titleTrans: String?
     
     public var book: Book?
     
-    public init(id: String, title: String, url: String, index: Int, content: String? = nil, isCached: Bool = false) {
+    public init(id: String, title: String, url: String, index: Int, content: String? = nil, isCached: Bool = false, titleTrans: String? = nil) {
         self.id = id
         self.title = title
         self.url = url
         self.index = index
         self.content = content
         self.isCached = isCached
+        self.titleTrans = titleTrans
     }
 }

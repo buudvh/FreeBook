@@ -96,8 +96,7 @@ struct ReaderView: View {
     @State private var isAutoScrollDisabled = false
     
     @State private var loadedChapters: [LoadedChapter] = []
-    @State private var visibleChapters: Set<Int> = []
-    @State private var oldFirstIndex: Int? = nil
+    @State private var hasScrolledToTop = false
     
     // State variables for overlay HUD controls
     @State private var showControls = false
@@ -284,25 +283,7 @@ struct ReaderView: View {
                 currentOnlineChapters = onlineChapters
             }
             
-            // Khởi tạo các chương ban đầu (chương hiện tại và chương trước/sau nếu có)
-            var initialList: [LoadedChapter] = []
-            
-            // Chương trước
-            if chapterIndex > 0 {
-                let prevIdx = chapterIndex - 1
-                let prevChapter = LoadedChapter(
-                    index: prevIdx,
-                    title: "Chương \(prevIdx + 1)",
-                    originalTitle: "Chương \(prevIdx + 1)",
-                    originalContent: "",
-                    chapterContent: "",
-                    paragraphItems: [],
-                    isLoading: true
-                )
-                initialList.append(prevChapter)
-            }
-            
-            // Chương hiện tại
+            // Khởi tạo chương hiện tại
             let currentChapter = LoadedChapter(
                 index: chapterIndex,
                 title: "Chương \(chapterIndex + 1)",
@@ -312,35 +293,11 @@ struct ReaderView: View {
                 paragraphItems: [],
                 isLoading: true
             )
-            initialList.append(currentChapter)
+            self.loadedChapters = [currentChapter]
+            self.hasScrolledToTop = false
             
-            // Chương sau
-            if chapterIndex < totalChaptersCount - 1 {
-                let nextIdx = chapterIndex + 1
-                let nextChapter = LoadedChapter(
-                    index: nextIdx,
-                    title: "Chương \(nextIdx + 1)",
-                    originalTitle: "Chương \(nextIdx + 1)",
-                    originalContent: "",
-                    chapterContent: "",
-                    paragraphItems: [],
-                    isLoading: true
-                )
-                initialList.append(nextChapter)
-            }
-            
-            self.loadedChapters = initialList
-            self.visibleChapters = [chapterIndex]
-            
-            // Kích hoạt tải song song nội dung của cả 3 chương
-            for chap in initialList {
-                loadChapterContent(index: chap.index)
-            }
-            
-            // Cuộn màn hình đến chương hiện tại
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                self.scrollTarget = ScrollTarget(chapterIndex: chapterIndex, paragraphIndex: -1)
-            }
+            // Kích hoạt tải nội dung chương hiện tại
+            loadChapterContent(index: chapterIndex)
             
             ttsManager.onChapterFinished = {
                 let nextIdx = chapterIndex + 1
@@ -378,13 +335,6 @@ struct ReaderView: View {
             if ReaderView.activeBookId == bookId {
                 ReaderView.activeChapterIndex = newValue
             }
-            
-            // Tải chương đệm khi người dùng lướt đến chương biên của bộ đệm hiện tại
-            if newValue == loadedChapters.first?.index {
-                loadPreviousChapter()
-            } else if newValue == loadedChapters.last?.index {
-                loadNextChapter()
-            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ttsDidAdvanceToNextChapter"))) { notification in
             guard let userInfo = notification.userInfo,
@@ -403,7 +353,10 @@ struct ReaderView: View {
         }
         .onChange(of: ttsManager.currentParentParagraphIndex) { _, newValue in
             guard !isAutoScrollDisabled else { return }
-            guard ttsManager.isPlaying && ttsManager.playingBookId == bookId && newValue >= 0 else { return }
+            guard ttsManager.isPlaying &&
+                  ttsManager.playingBookId == bookId &&
+                  ttsManager.playingChapterIndex == chapterIndex &&
+                  newValue >= 0 else { return }
             
             withAnimation {
                 scrollTarget = ScrollTarget(chapterIndex: ttsManager.playingChapterIndex, paragraphIndex: newValue)
@@ -1131,7 +1084,8 @@ struct ReaderView: View {
         
         for (idx, item) in currentOnlineChapters.enumerated() {
             let chapId = "\(newBook.bookId)_\(item.url)"
-            let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: idx)
+            let trans = TranslateUtils.translateChapterTitle(item.name, bookId: newBook.bookId)
+            let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: idx, titleTrans: trans)
             newChap.book = newBook
             if idx == currentIndex {
                 newChap.content = cleanedContent
@@ -1183,6 +1137,8 @@ struct ReaderView: View {
         loadedChapters[idx].chapterContent = translatedContent
         loadedChapters[idx].isLoading = false
         loadedChapters[idx].errorMessage = ""
+        
+        saveReadProgress(index: index)
         
         if self.ttsShouldAutoPlayNextChapter && index == chapterIndex {
             self.ttsShouldAutoPlayNextChapter = false
@@ -1271,22 +1227,6 @@ struct ReaderView: View {
     private func selectChapter(at index: Int, scroll: Bool = true) {
         guard index >= 0 && index < totalChaptersCount else { return }
         
-        var initialList: [LoadedChapter] = []
-        
-        if index > 0 {
-            let prevIdx = index - 1
-            let prevChapter = LoadedChapter(
-                index: prevIdx,
-                title: "Chương \(prevIdx + 1)",
-                originalTitle: "Chương \(prevIdx + 1)",
-                originalContent: "",
-                chapterContent: "",
-                paragraphItems: [],
-                isLoading: true
-            )
-            initialList.append(prevChapter)
-        }
-        
         let currentChapter = LoadedChapter(
             index: index,
             title: "Chương \(index + 1)",
@@ -1296,79 +1236,14 @@ struct ReaderView: View {
             paragraphItems: [],
             isLoading: true
         )
-        initialList.append(currentChapter)
-        
-        if index < totalChaptersCount - 1 {
-            let nextIdx = index + 1
-            let nextChapter = LoadedChapter(
-                index: nextIdx,
-                title: "Chương \(nextIdx + 1)",
-                originalTitle: "Chương \(nextIdx + 1)",
-                originalContent: "",
-                chapterContent: "",
-                paragraphItems: [],
-                isLoading: true
-            )
-            initialList.append(nextChapter)
-        }
-        
-        self.visibleChapters = [index]
         self.chapterIndex = index
-        self.loadedChapters = initialList
+        self.loadedChapters = [currentChapter]
+        self.hasScrolledToTop = false
         
-        for chap in initialList {
-            loadChapterContent(index: chap.index)
-        }
-        
-        if scroll {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                self.scrollTarget = ScrollTarget(chapterIndex: index, paragraphIndex: -1)
-            }
-        }
+        loadChapterContent(index: index)
     }
     
-    private func loadPreviousChapter() {
-        guard let firstChapter = loadedChapters.first, firstChapter.index > 0 else { return }
-        let prevIndex = firstChapter.index - 1
-        
-        guard !loadedChapters.contains(where: { $0.index == prevIndex }) else { return }
-        
-        let placeholder = LoadedChapter(
-            index: prevIndex,
-            title: "Chương \(prevIndex + 1)",
-            originalTitle: "Chương \(prevIndex + 1)",
-            originalContent: "",
-            chapterContent: "",
-            paragraphItems: [],
-            isLoading: true
-        )
-        
-        oldFirstIndex = firstChapter.index
-        loadedChapters.insert(placeholder, at: 0)
-        
-        loadChapterContent(index: prevIndex)
-    }
-    
-    private func loadNextChapter() {
-        guard let lastChapter = loadedChapters.last, lastChapter.index < totalChaptersCount - 1 else { return }
-        let nextIndex = lastChapter.index + 1
-        
-        guard !loadedChapters.contains(where: { $0.index == nextIndex }) else { return }
-        
-        let placeholder = LoadedChapter(
-            index: nextIndex,
-            title: "Chương \(nextIndex + 1)",
-            originalTitle: "Chương \(nextIndex + 1)",
-            originalContent: "",
-            chapterContent: "",
-            paragraphItems: [],
-            isLoading: true
-        )
-        
-        loadedChapters.append(placeholder)
-        
-        loadChapterContent(index: nextIndex)
-    }
+
     
     private func startTTS(at index: Int, paragraphIndex: Int) {
         guard index >= 0 && index < totalChaptersCount else { return }
@@ -1421,15 +1296,7 @@ struct ReaderView: View {
             }
         }
     }
-    
-    private func updateCurrentChapterIndex() {
-        if let minIndex = visibleChapters.min() {
-            if minIndex != chapterIndex {
-                self.chapterIndex = minIndex
-                saveReadProgress(index: minIndex)
-            }
-        }
-    }
+
     
     private func prefetchNextChapter() {
         prefetchTask?.cancel()
@@ -1771,8 +1638,10 @@ extension ReaderView {
         if ttsManager.isPlaying && ttsManager.playingBookId == bookId && ttsManager.currentParentParagraphIndex >= 0 {
             let targetIdx = ttsManager.currentParentParagraphIndex
             let chapIdx = ttsManager.playingChapterIndex
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                self.scrollTarget = ScrollTarget(chapterIndex: chapIdx, paragraphIndex: targetIdx)
+            if chapIdx == chapterIndex {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    self.scrollTarget = ScrollTarget(chapterIndex: chapIdx, paragraphIndex: targetIdx)
+                }
             }
         }
     }
@@ -1796,25 +1665,6 @@ extension ReaderView {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    if let firstChap = loadedChapters.first, firstChap.index > 0 {
-                        GeometryReader { geo in
-                            let y = geo.frame(in: .named("scroll")).minY
-                            HStack {
-                                Spacer()
-                                ProgressView("Đang tải chương trước...")
-                                    .tint(selectedTheme.textColor)
-                                Spacer()
-                            }
-                            .padding(.vertical, 20)
-                            .onChange(of: y) { _, newValue in
-                                if newValue > 70 {
-                                    loadPreviousChapter()
-                                }
-                            }
-                        }
-                        .frame(height: 50)
-                    }
-                    
                     ForEach(loadedChapters) { chapter in
                         VStack(spacing: 0) {
                             if chapter.isLoading {
@@ -1855,28 +1705,26 @@ extension ReaderView {
                             }
                         }
                         .id("chapter-\(chapter.index)")
-                        .onAppear {
-                            visibleChapters.insert(chapter.index)
-                            updateCurrentChapterIndex()
-                        }
-                        .onDisappear {
-                            visibleChapters.remove(chapter.index)
-                            updateCurrentChapterIndex()
-                        }
                     }
                     
-                    if let lastChap = loadedChapters.last, lastChap.index < totalChaptersCount - 1 {
-                        HStack {
-                            Spacer()
-                            ProgressView("Đang tải chương sau...")
-                                .tint(selectedTheme.textColor)
-                            Spacer()
-                        }
-                        .padding(.vertical, 20)
-                        .onAppear {
-                            loadNextChapter()
-                        }
+                    // Dòng hướng dẫn chuyển chương bằng vuốt ngang ở cuối trang hình ảnh
+                    VStack(spacing: 8) {
+                        Divider()
+                            .background(selectedTheme.textColor.opacity(0.15))
+                            .padding(.vertical, 16)
+                        
+                        Text("Hết chương \(chapterIndex + 1)")
+                            .font(.subheadline)
+                            .foregroundColor(selectedTheme.textColor.opacity(0.6))
+                        
+                        Text("← Vuốt phải để xem chương trước | Vuốt trái để sang chương sau →")
+                            .font(.caption)
+                            .foregroundColor(selectedTheme.textColor.opacity(0.4))
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 4)
                     }
+                    .padding(.bottom, 60)
+                    .frame(maxWidth: .infinity)
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
@@ -1886,12 +1734,28 @@ extension ReaderView {
                 }
             }
             .coordinateSpace(name: "scroll")
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 30, coordinateSpace: .local)
+                    .onEnded { value in
+                        let horizontalDistance = value.translation.width
+                        let verticalDistance = value.translation.height
+                        
+                        if abs(horizontalDistance) > 80 && abs(verticalDistance) < 80 {
+                            if horizontalDistance < 0 {
+                                nextChapter()
+                            } else {
+                                prevChapter()
+                            }
+                        }
+                    }
+            )
             .onChange(of: loadedChapters) { oldVal, newVal in
-                if let oldFirst = oldFirstIndex {
-                    if newVal.first?.index == oldFirst - 1 {
+                if !hasScrolledToTop {
+                    if let currentChap = newVal.first(where: { $0.index == chapterIndex }),
+                       !currentChap.isLoading {
                         DispatchQueue.main.async {
-                            proxy.scrollTo("chapter-\(oldFirst)", anchor: .top)
-                            oldFirstIndex = nil
+                            proxy.scrollTo("chapter-\(chapterIndex)", anchor: .top)
+                            hasScrolledToTop = true
                         }
                     }
                 }
@@ -1904,25 +1768,6 @@ extension ReaderView {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 24) {
-                    if let firstChap = loadedChapters.first, firstChap.index > 0 {
-                        GeometryReader { geo in
-                            let y = geo.frame(in: .named("scroll")).minY
-                            HStack {
-                                Spacer()
-                                ProgressView("Kéo thêm để tải chương trước...")
-                                    .tint(selectedTheme.textColor)
-                                Spacer()
-                            }
-                            .padding(.vertical, 20)
-                            .onChange(of: y) { _, newValue in
-                                if newValue > 70 {
-                                    loadPreviousChapter()
-                                }
-                            }
-                        }
-                        .frame(height: 50)
-                    }
-                    
                     ForEach(loadedChapters) { chapter in
                         VStack(alignment: .leading, spacing: 20) {
                             if chapter.isLoading {
@@ -1951,28 +1796,26 @@ extension ReaderView {
                             }
                         }
                         .id("chapter-\(chapter.index)")
-                        .onAppear {
-                            visibleChapters.insert(chapter.index)
-                            updateCurrentChapterIndex()
-                        }
-                        .onDisappear {
-                            visibleChapters.remove(chapter.index)
-                            updateCurrentChapterIndex()
-                        }
                     }
                     
-                    if let lastChap = loadedChapters.last, lastChap.index < totalChaptersCount - 1 {
-                        HStack {
-                            Spacer()
-                            ProgressView("Đang tải chương sau...")
-                                .tint(selectedTheme.textColor)
-                            Spacer()
-                        }
-                        .padding(.vertical, 20)
-                        .onAppear {
-                            loadNextChapter()
-                        }
+                    // Dòng hướng dẫn chuyển chương bằng vuốt ngang ở cuối trang
+                    VStack(spacing: 8) {
+                        Divider()
+                            .background(selectedTheme.textColor.opacity(0.15))
+                            .padding(.vertical, 16)
+                        
+                        Text("Hết chương \(chapterIndex + 1)")
+                            .font(.subheadline)
+                            .foregroundColor(selectedTheme.textColor.opacity(0.6))
+                        
+                        Text("← Vuốt phải để xem chương trước | Vuốt trái để sang chương sau →")
+                            .font(.caption)
+                            .foregroundColor(selectedTheme.textColor.opacity(0.4))
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 4)
                     }
+                    .padding(.bottom, 60)
+                    .frame(maxWidth: .infinity)
                 }
                 .padding(.horizontal, 18)
                 .contentShape(Rectangle())
@@ -1983,6 +1826,21 @@ extension ReaderView {
                 }
             }
             .coordinateSpace(name: "scroll")
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 30, coordinateSpace: .local)
+                    .onEnded { value in
+                        let horizontalDistance = value.translation.width
+                        let verticalDistance = value.translation.height
+                        
+                        if abs(horizontalDistance) > 80 && abs(verticalDistance) < 80 {
+                            if horizontalDistance < 0 {
+                                nextChapter()
+                            } else {
+                                prevChapter()
+                            }
+                        }
+                    }
+            )
             .onChange(of: scrollTarget) { _, newValue in
                 if let target = newValue {
                     withAnimation {
@@ -1996,11 +1854,12 @@ extension ReaderView {
                 }
             }
             .onChange(of: loadedChapters) { oldVal, newVal in
-                if let oldFirst = oldFirstIndex {
-                    if newVal.first?.index == oldFirst - 1 {
+                if !hasScrolledToTop {
+                    if let currentChap = newVal.first(where: { $0.index == chapterIndex }),
+                       !currentChap.isLoading {
                         DispatchQueue.main.async {
-                            proxy.scrollTo("chapter-\(oldFirst)", anchor: .top)
-                            oldFirstIndex = nil
+                            proxy.scrollTo("chapter-\(chapterIndex)", anchor: .top)
+                            hasScrolledToTop = true
                         }
                     }
                 }

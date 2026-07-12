@@ -70,6 +70,21 @@ struct BookDetailView: View {
         return TranslateUtils.translateChapterTitle(text, bookId: bookId)
     }
     
+    private func translateChapterTitleIfNeeded(_ chap: Chapter) -> String {
+        if isTranslationEnabled {
+            if let trans = chap.titleTrans, !trans.isEmpty {
+                return trans
+            }
+            if TranslateUtils.containsChinese(chap.title) {
+                let trans = TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
+                chap.titleTrans = trans
+                try? modelContext.save()
+                return trans
+            }
+        }
+        return chap.title
+    }
+    
     var body: some View {
         ZStack {
             VStack {
@@ -242,7 +257,7 @@ struct BookDetailView: View {
                                                 startReading()
                                             }) {
                                                 HStack {
-                                                    Text(translateTitleIfNeeded(chap.title))
+                                                    Text(translateChapterTitleIfNeeded(chap))
                                                         .foregroundColor(book.currentChapterIndex == chap.index ? .accentColor : .primary)
                                                         .font(.subheadline)
                                                         .lineLimit(1)
@@ -526,7 +541,8 @@ struct BookDetailView: View {
                             let startIdx = book.chapters.count
                             for (index, item) in remainingChaps.enumerated() {
                                 let chapId = "\(bookId)_\(item.url)"
-                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx + index)
+                                let transTitle = TranslateUtils.translateChapterTitle(item.name, bookId: bookId)
+                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx + index, titleTrans: transTitle)
                                 newChap.book = book
                                 modelContext.insert(newChap)
                             }
@@ -620,7 +636,8 @@ struct BookDetailView: View {
                         let startIdx = book.chapters.count
                         for (index, item) in remainingChaps.enumerated() {
                             let chapId = "\(bookId)_\(item.url)"
-                            let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx + index)
+                            let transTitle = TranslateUtils.translateChapterTitle(item.name, bookId: bookId)
+                            let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx + index, titleTrans: transTitle)
                             newChap.book = book
                             modelContext.insert(newChap)
                         }
@@ -654,7 +671,8 @@ struct BookDetailView: View {
                             let startIdx = book.chapters.count
                             for (index, item) in remainingChaps.enumerated() {
                                 let chapId = "\(bookId)_\(item.url)"
-                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx + index)
+                                let transTitle = TranslateUtils.translateChapterTitle(item.name, bookId: bookId)
+                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx + index, titleTrans: transTitle)
                                 newChap.book = book
                                 modelContext.insert(newChap)
                             }
@@ -692,7 +710,8 @@ struct BookDetailView: View {
                             let startIdx = book.chapters.count
                             for (index, item) in remainingChaps.enumerated() {
                                 let chapId = "\(bookId)_\(item.url)"
-                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx + index)
+                                let transTitle = TranslateUtils.translateChapterTitle(item.name, bookId: bookId)
+                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx + index, titleTrans: transTitle)
                                 newChap.book = book
                                 modelContext.insert(newChap)
                             }
@@ -748,7 +767,8 @@ struct BookDetailView: View {
         // Thêm chương mới
         for (index, item) in results.enumerated() {
             let chapId = "\(book.bookId)_\(item.url)"
-            let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index)
+            let transTitle = TranslateUtils.translateChapterTitle(item.name, bookId: book.bookId)
+            let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index, titleTrans: transTitle)
             newChap.book = book
             modelContext.insert(newChap)
         }

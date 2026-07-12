@@ -122,7 +122,7 @@ struct ShelfView: View {
                                         }
                                         
                                         Button {
-                                            TranslateUtils.clearChapterTitleCache(for: book.bookId)
+                                            retranslateChapterTitles(for: book)
                                         } label: {
                                             Label("Dịch lại tên chương", systemImage: "arrow.clockwise.circle")
                                         }
@@ -212,7 +212,7 @@ struct ShelfView: View {
                                         }
                                         
                                         Button {
-                                            TranslateUtils.clearChapterTitleCache(for: book.bookId)
+                                            retranslateChapterTitles(for: book)
                                         } label: {
                                             Label("Dịch lại tên chương", systemImage: "arrow.clockwise.circle")
                                         }
@@ -322,7 +322,7 @@ struct ShelfView: View {
                 .cornerRadius(4)
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(translateIfNeeded(book.title))
+                Text(translateIfNeeded(book.title, bookId: book.bookId))
                     .font(.headline)
                     .lineLimit(1)
                 
@@ -343,9 +343,28 @@ struct ShelfView: View {
                         .cornerRadius(4)
                 }
                 
-                let chapterTitle = book.displayChapterTitle
+                let chapterTitle: String = {
+                    if let currentChap = book.chapters.first(where: { $0.index == book.currentChapterIndex }) {
+                        if isTranslationEnabled {
+                            if let trans = currentChap.titleTrans, !trans.isEmpty {
+                                return trans
+                            }
+                            if TranslateUtils.containsChinese(currentChap.title) {
+                                let trans = TranslateUtils.translateChapterTitle(currentChap.title, bookId: book.bookId)
+                                currentChap.titleTrans = trans
+                                try? modelContext.save()
+                                return trans
+                            }
+                        } else {
+                            return currentChap.title
+                        }
+                    }
+                    let rawTitle = book.displayChapterTitle
+                    return isTranslationEnabled ? translateChapterTitleIfNeeded(rawTitle, bookId: book.bookId) : rawTitle
+                }()
+                
                 if !chapterTitle.isEmpty {
-                    Text("Đang đọc: \(translateIfNeeded(chapterTitle))")
+                    Text("Đang đọc: \(chapterTitle)")
                         .font(.caption)
                         .foregroundColor(.blue)
                         .lineLimit(1)
@@ -355,11 +374,27 @@ struct ShelfView: View {
         }
     }
     
-    private func translateIfNeeded(_ text: String) -> String {
+    private func translateIfNeeded(_ text: String, bookId: String? = nil) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }
-        return TranslateUtils.translateMeta(text)
+        return TranslateUtils.translateMeta(text, bookId: bookId)
+    }
+    
+    private func translateChapterTitleIfNeeded(_ text: String, bookId: String) -> String {
+        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
+            return text
+        }
+        return TranslateUtils.translateChapterTitle(text, bookId: bookId)
+    }
+    
+    private func retranslateChapterTitles(for book: Book) {
+        TranslateUtils.clearChapterTitleCache(for: book.bookId)
+        let sortedChapters = book.chapters.sorted(by: { $0.index < $1.index })
+        for chap in sortedChapters {
+            chap.titleTrans = TranslateUtils.translateChapterTitle(chap.title, bookId: book.bookId)
+        }
+        try? modelContext.save()
     }
     
     private func prepareTaskForBook(_ book: Book, type: TaskType) {
