@@ -284,8 +284,26 @@ struct ReaderView: View {
                 currentOnlineChapters = onlineChapters
             }
             
-            // Khởi tạo chương ban đầu
-            let initialChapter = LoadedChapter(
+            // Khởi tạo các chương ban đầu (chương hiện tại và chương trước/sau nếu có)
+            var initialList: [LoadedChapter] = []
+            
+            // Chương trước
+            if chapterIndex > 0 {
+                let prevIdx = chapterIndex - 1
+                let prevChapter = LoadedChapter(
+                    index: prevIdx,
+                    title: "Chương \(prevIdx + 1)",
+                    originalTitle: "Chương \(prevIdx + 1)",
+                    originalContent: "",
+                    chapterContent: "",
+                    paragraphItems: [],
+                    isLoading: true
+                )
+                initialList.append(prevChapter)
+            }
+            
+            // Chương hiện tại
+            let currentChapter = LoadedChapter(
                 index: chapterIndex,
                 title: "Chương \(chapterIndex + 1)",
                 originalTitle: "Chương \(chapterIndex + 1)",
@@ -294,9 +312,35 @@ struct ReaderView: View {
                 paragraphItems: [],
                 isLoading: true
             )
-            self.loadedChapters = [initialChapter]
+            initialList.append(currentChapter)
+            
+            // Chương sau
+            if chapterIndex < totalChaptersCount - 1 {
+                let nextIdx = chapterIndex + 1
+                let nextChapter = LoadedChapter(
+                    index: nextIdx,
+                    title: "Chương \(nextIdx + 1)",
+                    originalTitle: "Chương \(nextIdx + 1)",
+                    originalContent: "",
+                    chapterContent: "",
+                    paragraphItems: [],
+                    isLoading: true
+                )
+                initialList.append(nextChapter)
+            }
+            
+            self.loadedChapters = initialList
             self.visibleChapters = [chapterIndex]
-            loadChapterContent(index: chapterIndex)
+            
+            // Kích hoạt tải song song nội dung của cả 3 chương
+            for chap in initialList {
+                loadChapterContent(index: chap.index)
+            }
+            
+            // Cuộn màn hình đến chương hiện tại
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.scrollTarget = ScrollTarget(chapterIndex: chapterIndex, paragraphIndex: -1)
+            }
             
             ttsManager.onChapterFinished = {
                 let nextIdx = chapterIndex + 1
@@ -334,6 +378,13 @@ struct ReaderView: View {
             if ReaderView.activeBookId == bookId {
                 ReaderView.activeChapterIndex = newValue
             }
+            
+            // Tải chương đệm khi người dùng lướt đến chương biên của bộ đệm hiện tại
+            if newValue == loadedChapters.first?.index {
+                loadPreviousChapter()
+            } else if newValue == loadedChapters.last?.index {
+                loadNextChapter()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ttsDidAdvanceToNextChapter"))) { notification in
             guard let userInfo = notification.userInfo,
@@ -368,6 +419,13 @@ struct ReaderView: View {
             return text
         }
         return TranslateUtils.translateMeta(text, bookId: bookId)
+    }
+    
+    private func translateChapterTitleIfNeeded(_ text: String) -> String {
+        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
+            return text
+        }
+        return TranslateUtils.translateChapterTitle(text, bookId: bookId)
     }
 
     private func applyTranslation() {
@@ -1213,7 +1271,23 @@ struct ReaderView: View {
     private func selectChapter(at index: Int, scroll: Bool = true) {
         guard index >= 0 && index < totalChaptersCount else { return }
         
-        let placeholder = LoadedChapter(
+        var initialList: [LoadedChapter] = []
+        
+        if index > 0 {
+            let prevIdx = index - 1
+            let prevChapter = LoadedChapter(
+                index: prevIdx,
+                title: "Chương \(prevIdx + 1)",
+                originalTitle: "Chương \(prevIdx + 1)",
+                originalContent: "",
+                chapterContent: "",
+                paragraphItems: [],
+                isLoading: true
+            )
+            initialList.append(prevChapter)
+        }
+        
+        let currentChapter = LoadedChapter(
             index: index,
             title: "Chương \(index + 1)",
             originalTitle: "Chương \(index + 1)",
@@ -1222,12 +1296,29 @@ struct ReaderView: View {
             paragraphItems: [],
             isLoading: true
         )
+        initialList.append(currentChapter)
+        
+        if index < totalChaptersCount - 1 {
+            let nextIdx = index + 1
+            let nextChapter = LoadedChapter(
+                index: nextIdx,
+                title: "Chương \(nextIdx + 1)",
+                originalTitle: "Chương \(nextIdx + 1)",
+                originalContent: "",
+                chapterContent: "",
+                paragraphItems: [],
+                isLoading: true
+            )
+            initialList.append(nextChapter)
+        }
         
         self.visibleChapters = [index]
         self.chapterIndex = index
-        self.loadedChapters = [placeholder]
+        self.loadedChapters = initialList
         
-        loadChapterContent(index: index)
+        for chap in initialList {
+            loadChapterContent(index: chap.index)
+        }
         
         if scroll {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -1834,15 +1925,6 @@ extension ReaderView {
                     
                     ForEach(loadedChapters) { chapter in
                         VStack(alignment: .leading, spacing: 20) {
-                            if showChapterTitle {
-                                Text(chapter.title)
-                                    .font(.title2)
-                                    .bold()
-                                    .foregroundColor(selectedTheme.textColor)
-                                    .padding(.top, 24)
-                                    .id("chapter-title-\(chapter.index)")
-                            }
-                            
                             if chapter.isLoading {
                                 HStack {
                                     Spacer()
@@ -1921,6 +2003,19 @@ extension ReaderView {
                             oldFirstIndex = nil
                         }
                     }
+                }
+            }
+            .onChange(of: showChapterTitle) { _, _ in
+                for idx in 0..<loadedChapters.count {
+                    let chap = loadedChapters[idx]
+                    let items = generateParagraphItems(
+                        chapterIndex: chap.index,
+                        originalTitle: chap.originalTitle,
+                        originalContent: chap.originalContent,
+                        translatedTitle: chap.title,
+                        translatedContent: chap.chapterContent
+                    )
+                    loadedChapters[idx].paragraphItems = items
                 }
             }
         }
@@ -2072,7 +2167,7 @@ extension ReaderView {
                     .lineLimit(1)
                 
                 HStack(spacing: 4) {
-                    Text(chapterTitle.isEmpty ? (currentChapterInfo?.title ?? "Chương \(chapterIndex + 1)") : chapterTitle)
+                    Text(translateChapterTitleIfNeeded(chapterTitle.isEmpty ? (currentChapterInfo?.title ?? "Chương \(chapterIndex + 1)") : chapterTitle))
                         .font(.system(size: 12))
                         .foregroundColor(.white.opacity(0.8))
                         .lineLimit(1)
@@ -2137,7 +2232,7 @@ extension ReaderView {
                 
                 Spacer()
                 
-                Text(chapterTitle.isEmpty ? (currentChapterInfo?.title ?? "") : chapterTitle)
+                Text(translateChapterTitleIfNeeded(chapterTitle.isEmpty ? (currentChapterInfo?.title ?? "") : chapterTitle))
                     .font(.system(size: 12))
                     .foregroundColor(.white)
                     .lineLimit(1)
