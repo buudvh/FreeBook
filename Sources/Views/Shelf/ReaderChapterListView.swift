@@ -55,132 +55,149 @@ struct ReaderChapterListView: View {
     
     var body: some View {
         ZStack {
-            NavigationStack {
-                VStack(spacing: 0) {
-                    // Hiển thị lỗi nếu có
-                    if !errorMessage.isEmpty {
-                        Text(errorMessage)
-                            .font(.caption)
-                            .foregroundColor(.red)
-                            .padding(.horizontal)
-                            .padding(.top, 4)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.center)
+            VStack(spacing: 0) {
+                // Custom Navigation Bar / Header
+                HStack {
+                    // Nút Tải lại bên trái
+                    if isUpdating {
+                        ProgressView()
+                            .tint(theme.textColor)
+                            .frame(width: 44, height: 44)
+                    } else {
+                        Button(action: refreshChapters) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.body)
+                                .foregroundColor(theme.textColor)
+                                .frame(width: 44, height: 44)
+                        }
                     }
                     
-                    // Thanh tìm kiếm chương
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(theme.textColor.opacity(0.6))
-                        
-                        TextField("Tìm kiếm chương...", text: $searchQuery)
-                            .textFieldStyle(.plain)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
+                    Spacer()
+                    
+                    // Tiêu đề ở giữa
+                    Text("Danh sách chương (\(chaptersList.count))")
+                        .font(.headline)
+                        .foregroundColor(theme.textColor)
+                    
+                    Spacer()
+                    
+                    // Nút Đóng bên phải
+                    Button(action: onClose) {
+                        Text("Đóng")
+                            .font(.body)
+                            .fontWeight(.medium)
                             .foregroundColor(theme.textColor)
-                        
-                        if !searchQuery.isEmpty {
-                            Button(action: { searchQuery = "" }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(theme.textColor.opacity(0.6))
+                            .frame(width: 60, height: 44)
+                    }
+                }
+                .padding(.horizontal)
+                .frame(height: 50)
+                .background(theme.backgroundColor)
+                
+                Divider()
+                    .background(theme.textColor.opacity(0.1))
+                
+                // Hiển thị lỗi nếu có
+                if !errorMessage.isEmpty {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(.horizontal)
+                        .padding(.top, 4)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                    
+                    Divider()
+                        .background(theme.textColor.opacity(0.1))
+                }
+                
+                // Thanh tìm kiếm chương
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(theme.textColor.opacity(0.6))
+                    
+                    TextField("Tìm kiếm chương...", text: $searchQuery)
+                        .textFieldStyle(.plain)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .foregroundColor(theme.textColor)
+                    
+                    if !searchQuery.isEmpty {
+                        Button(action: { searchQuery = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(theme.textColor.opacity(0.6))
+                        }
+                    }
+                }
+                .padding(10)
+                .background(theme.textColor.opacity(0.08))
+                .cornerRadius(10)
+                .padding(.horizontal)
+                .padding(.top, 10)
+                .padding(.bottom, 6)
+                
+                // Danh sách chương
+                ScrollViewReader { proxy in
+                    List {
+                        ForEach(filteredChapters) { chap in
+                            let isCurrent = chap.index == currentChapterIndex
+                            let titleText = chap.displayTitle
+                            
+                            Button(action: {
+                                onSelectChapter(chap.index)
+                                onClose()
+                            }) {
+                                HStack {
+                                    Text(titleText)
+                                        .font(.body)
+                                        .foregroundColor(isCurrent ? Color.blue : theme.textColor)
+                                        .fontWeight(isCurrent ? .semibold : .regular)
+                                        .lineLimit(1)
+                                    
+                                    Spacer()
+                                    
+                                    if chap.isCached {
+                                        Image(systemName: "arrow.down.circle.fill")
+                                            .font(.caption)
+                                            .foregroundColor(.green)
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
+                            .listRowBackground(isCurrent ? Color.blue.opacity(0.08) : theme.backgroundColor)
+                            .id("chap-\(chap.index)")
+                        }
+                    }
+                    .listStyle(.plain)
+                    .background(theme.backgroundColor)
+                    .scrollContentBackground(.hidden)
+                    .onAppear {
+                        // Tự động cuộn đến chương hiện tại
+                        if searchQuery.isEmpty {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                withAnimation {
+                                    proxy.scrollTo("chap-\(currentChapterIndex)", anchor: .center)
+                                }
                             }
                         }
                     }
-                    .padding(10)
-                    .background(theme.textColor.opacity(0.08))
-                    .cornerRadius(10)
-                    .padding(.horizontal)
-                    .padding(.top, 10)
-                    .padding(.bottom, 6)
-                    
-                    // Danh sách chương
-                    ScrollViewReader { proxy in
-                        List {
-                            ForEach(filteredChapters) { chap in
-                                let isCurrent = chap.index == currentChapterIndex
-                                let titleText = chap.displayTitle
-                                
-                                Button(action: {
-                                    onSelectChapter(chap.index)
-                                    onClose()
-                                }) {
-                                    HStack {
-                                        Text(titleText)
-                                            .font(.body)
-                                            .foregroundColor(isCurrent ? Color.blue : theme.textColor)
-                                            .fontWeight(isCurrent ? .semibold : .regular)
-                                            .lineLimit(1)
-                                        
-                                        Spacer()
-                                        
-                                        if chap.isCached {
-                                            Image(systemName: "arrow.down.circle.fill")
-                                                .font(.caption)
-                                                .foregroundColor(.green)
-                                        }
-                                    }
-                                    .padding(.vertical, 4)
-                                }
-                                .listRowBackground(isCurrent ? Color.blue.opacity(0.08) : theme.backgroundColor)
-                                .id("chap-\(chap.index)")
-                            }
-                        }
-                        .listStyle(.plain)
-                        .background(theme.backgroundColor)
-                        .scrollContentBackground(.hidden)
-                        .onAppear {
-                            // Tự động cuộn đến chương hiện tại
+                    .onChange(of: isVisible) { _, newValue in
+                        if newValue {
+                            // Tự động cuộn đến chương hiện tại khi danh sách được mở ra
                             if searchQuery.isEmpty {
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                                     withAnimation {
                                         proxy.scrollTo("chap-\(currentChapterIndex)", anchor: .center)
                                     }
                                 }
                             }
                         }
-                        .onChange(of: isVisible) { _, newValue in
-                            if newValue {
-                                // Tự động cuộn đến chương hiện tại khi danh sách được mở ra
-                                if searchQuery.isEmpty {
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                        withAnimation {
-                                            proxy.scrollTo("chap-\(currentChapterIndex)", anchor: .center)
-                                        }
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
-                .background(theme.backgroundColor)
-                .navigationTitle("Danh sách chương (\(chaptersList.count))")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        if isUpdating {
-                            ProgressView()
-                                .tint(theme.textColor)
-                        } else {
-                            Button(action: refreshChapters) {
-                                Image(systemName: "arrow.clockwise")
-                                    .foregroundColor(theme.textColor)
-                            }
-                        }
-                    }
-                    
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Đóng") {
-                            onClose()
-                        }
-                        .foregroundColor(theme.textColor)
-                    }
-                }
-                .toolbarColorScheme(theme == .dark ? .dark : .light, for: .navigationBar)
-                .toolbarBackground(theme.backgroundColor, for: .navigationBar)
-                .toolbarBackground(.visible, for: .navigationBar)
-                .onAppear {
-                    loadChapters()
-                }
+            }
+            .background(theme.backgroundColor.ignoresSafeArea())
+            .onAppear {
+                loadChapters()
             }
             
             if showingToast {
