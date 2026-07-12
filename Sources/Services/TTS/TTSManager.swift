@@ -938,47 +938,131 @@ public final class TTSManager: NSObject, ObservableObject {
         return result
     }
     
-    private func splitSentence(_ text: String, maxLength: Int, baseOffset: Int, paragraphIndex: Int) -> [TTSParagraph] {
-        var result: [TTSParagraph] = []
-        
-        var tempText = text
-        tempText = tempText.replacingOccurrences(of: "...", with: ",,,")
-        tempText = tempText.replacingOccurrences(of: "..", with: ",,")
-        
-        let nsText = text as NSString
-        let nsTempText = tempText as NSString
-        
-        let pattern = "[^.!?。！？]+[.!?。！？]?"
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
-            return [TTSParagraph(text: text, range: NSRange(location: baseOffset, length: text.count), paragraphIndex: paragraphIndex)]
+    private func splitSentence(
+        _ text: String,
+        maxLength: Int,
+        baseOffset: Int,
+        paragraphIndex: Int
+    ) -> [TTSParagraph] {
+    
+        guard text.utf16.count > maxLength else {
+            return [
+                TTSParagraph(
+                    text: text.trimmingCharacters(in: .whitespacesAndNewlines),
+                    range: NSRange(location: baseOffset, length: text.utf16.count),
+                    paragraphIndex: paragraphIndex
+                )
+            ]
         }
-        
-        let matches = regex.matches(in: tempText, options: [], range: NSRange(location: 0, length: nsTempText.length))
-        var currentSubText = ""
-        var currentSubRange = NSRange(location: baseOffset, length: 0)
-        
-        for match in matches {
-            let matchText = nsText.substring(with: match.range)
-            if currentSubText.count + matchText.count <= maxLength {
-                if currentSubText.isEmpty {
-                    currentSubRange.location = baseOffset + match.range.location
+    
+        let chars = Array(text)
+        var result: [TTSParagraph] = []
+    
+        var start = 0
+    
+        while start < chars.count {
+    
+            let remain = chars.count - start
+    
+            if remain <= maxLength {
+    
+                let part = String(chars[start...])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+    
+                if !part.isEmpty {
+    
+                    let leading = String(chars[start...])
+                        .prefix { $0.isWhitespace }
+                        .count
+    
+                    let offset = start + leading
+    
+                    result.append(
+                        TTSParagraph(
+                            text: part,
+                            range: NSRange(
+                                location: baseOffset + offset,
+                                length: part.utf16.count
+                            ),
+                            paragraphIndex: paragraphIndex
+                        )
+                    )
                 }
-                currentSubText += matchText
-                currentSubRange.length += match.range.length
-            } else {
-                if !currentSubText.isEmpty {
-                    result.append(TTSParagraph(text: currentSubText.trimmed, range: currentSubRange, paragraphIndex: paragraphIndex))
-                }
-                currentSubText = matchText
-                currentSubRange = NSRange(location: baseOffset + match.range.location, length: match.range.length)
+    
+                break
+            }
+    
+            let split = findSplitPosition(
+                chars: chars,
+                start: start,
+                maxLength: maxLength
+            )
+    
+            let raw = String(chars[start..<split])
+    
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    
+            if !trimmed.isEmpty {
+    
+                let leading = raw.prefix { $0.isWhitespace }.count
+                let offset = start + leading
+    
+                result.append(
+                    TTSParagraph(
+                        text: trimmed,
+                        range: NSRange(
+                            location: baseOffset + offset,
+                            length: trimmed.utf16.count
+                        ),
+                        paragraphIndex: paragraphIndex
+                    )
+                )
+            }
+    
+            start = split
+    
+            while start < chars.count && chars[start].isWhitespace {
+                start += 1
             }
         }
-        
-        if !currentSubText.isEmpty {
-            result.append(TTSParagraph(text: currentSubText.trimmed, range: currentSubRange, paragraphIndex: paragraphIndex))
-        }
-        
+    
         return result
+    }
+    
+    private func findSplitPosition(
+        chars: [Character],
+        start: Int,
+        maxLength: Int
+    ) -> Int {
+    
+        let end = min(start + maxLength, chars.count)
+    
+        let sentenceMarks: Set<Character> = [".", "!", "?", "。", "！", "？"]
+        let clauseMarks: Set<Character> = [",", "，", ";", "；", ":", "："]
+    
+        // 1. Ưu tiên dấu kết thúc câu
+        if let idx = stride(from: end - 1, through: start, by: -1)
+            .first(where: { sentenceMarks.contains(chars[$0]) }) {
+    
+            return idx + 1
+        }
+    
+        // 2. Dấu ngắt mệnh đề
+        if let idx = stride(from: end - 1, through: start, by: -1)
+            .first(where: { clauseMarks.contains(chars[$0]) }) {
+    
+            return idx + 1
+        }
+    
+        // 3. Khoảng trắng
+        if let idx = stride(from: end - 1, through: start, by: -1)
+            .first(where: { chars[$0].isWhitespace }) {
+    
+            return idx + 1
+        }
+    
+        // 4. Cắt cứng
+        return end
     }
     
     // MARK: - Lock Screen & Remote Control Sync
