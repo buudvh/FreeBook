@@ -253,7 +253,7 @@ struct ReaderView: View {
         }
         .sheet(isPresented: $showingBookDictionary) {
             NavigationStack {
-                BookDictionaryView(bookId: bookId)
+                BookDictionaryView(bookId: bookId, bookName: bookTitle ?? "")
                     .toolbar {
                         ToolbarItem(placement: .navigationBarTrailing) {
                             Button("Đóng") {
@@ -297,12 +297,6 @@ struct ReaderView: View {
                     importedSourceName = sourceName
                     navigateToBookDetail = true
                 }
-            )
-        }
-        .fullScreenCover(isPresented: $showingLookupBrowser) {
-            BypassWebView(
-                urlString: lookupUrlString,
-                localPath: nil
             )
         }
         .background(
@@ -1213,7 +1207,7 @@ struct ReaderView: View {
         
         if self.ttsShouldAutoPlayNextChapter && index == chapterIndex {
             self.ttsShouldAutoPlayNextChapter = false
-            startTTS(at: index, paragraphIndex: 0)
+            startTTS(at: index, paragraphIndex: -1)
         }
         
         prefetchNextChapter()
@@ -1545,20 +1539,6 @@ struct TTSSettingsSheet: View {
         return !FileManager.default.fileExists(atPath: path)
     }
     
-    private func hasConfig(localPath: String) -> Bool {
-        guard !localPath.isEmpty else { return false }
-        let extUrl = URL(fileURLWithPath: localPath)
-        let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
-        guard FileManager.default.fileExists(atPath: pluginJsonUrl.path) else { return false }
-        
-        guard let data = try? Data(contentsOf: pluginJsonUrl),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let config = json["config"] as? [String: Any] else {
-            return false
-        }
-        return !config.isEmpty
-    }
-    
     private func loadExtensionVoices(packageId: String) {
         guard let ext = allExtensions.first(where: { $0.packageId == packageId }) else { return }
         isLoadingVoices = true
@@ -1702,7 +1682,7 @@ struct TTSSettingsSheet: View {
                 
                 if ttsManager.tool != "system" && ttsManager.tool != "nghitts" {
                     if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }),
-                       hasConfig(localPath: ext.localPath) {
+                       ExtensionManager.shared.hasConfig(localPath: ext.localPath) {
                         Section("Cấu hình") {
                             NavigationLink(destination: ExtensionConfigView(ext: ext)) {
                                 Label("Cấu hình \(ext.name)", systemImage: "gearshape")
@@ -1837,15 +1817,77 @@ extension ReaderView {
     @ViewBuilder
     private var readerContentView: some View {
         if loadedChapters.isEmpty {
-            ProgressView()
-                .tint(selectedTheme.textColor)
-                .scaleEffect(1.2)
-                .frame(maxHeight: .infinity)
+            chapterLoadingView
         } else if ext?.type == "comic" {
             comicReaderView
         } else {
             textReaderView
         }
+    }
+    
+    @ViewBuilder
+    private var chapterLoadingView: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            
+            ProgressView()
+                .scaleEffect(1.5)
+                .tint(selectedTheme.textColor.opacity(0.8))
+            
+            VStack(spacing: 8) {
+                if let info = currentChapterInfo {
+                    let displayTitle = isTranslationEnabled && TranslateUtils.containsChinese(info.title)
+                        ? TranslateUtils.translateChapterTitle(info.title, bookId: bookId)
+                        : info.title
+                    Text(displayTitle)
+                        .font(.headline)
+                        .foregroundColor(selectedTheme.textColor)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(3)
+                        .padding(.horizontal, 40)
+                }
+                
+                Text("Đang tải nội dung chương...")
+                    .font(.subheadline)
+                    .foregroundColor(selectedTheme.textColor.opacity(0.6))
+            }
+            
+            if !errorMessage.isEmpty {
+                VStack(spacing: 12) {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                    
+                    Button("Thử lại") {
+                        loadChapterContent(index: chapterIndex)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(selectedTheme.textColor)
+                }
+            }
+            
+            Spacer()
+            
+            Button(action: {
+                dismiss()
+            }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                    Text("Thoát")
+                        .fontWeight(.medium)
+                }
+                .foregroundColor(selectedTheme.textColor.opacity(0.7))
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(selectedTheme.textColor.opacity(0.1))
+                .cornerRadius(25)
+            }
+            .padding(.bottom, 40)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     @ViewBuilder
@@ -2101,7 +2143,7 @@ extension ReaderView {
                 }
                 
                 if localBook != nil {
-                    NavigationLink(destination: BookDictionaryView(bookId: bookId)) {
+                    NavigationLink(destination: BookDictionaryView(bookId: bookId, bookName: bookTitle ?? "")) {
                         Label("Từ điển truyện", systemImage: "character.book.closed")
                     }
                 }
@@ -2660,6 +2702,12 @@ extension ReaderView {
                     }
                     applyTranslation()
                 }
+            )
+        }
+        .fullScreenCover(isPresented: $showingLookupBrowser) {
+            BypassWebView(
+                urlString: lookupUrlString,
+                localPath: nil
             )
         }
     }

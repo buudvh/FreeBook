@@ -422,7 +422,7 @@ struct BookDetailView: View {
             }
             
             NavigationLink(
-                destination: BookDictionaryView(bookId: bookId),
+                destination: BookDictionaryView(bookId: bookId, bookName: title),
                 isActive: $navigateToDictionary
             ) {
                 EmptyView()

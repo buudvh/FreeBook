@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct DictionaryListView: View {
     let type: DictType
     let bookId: String?
+    var bookName: String = ""
 
     @ObservedObject private var cache = DictionaryCache.shared
     @State private var bookEntries: [DictEntry] = []
@@ -455,9 +456,19 @@ struct DictionaryListView: View {
         return content
     }
 
+    private func normalizeFileName(_ name: String) -> String {
+        let invalidChars = CharacterSet(charactersIn: "/\\:*?\"<>|")
+        var result = name.components(separatedBy: invalidChars).joined(separator: "_")
+        result = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        if result.isEmpty { result = "Unknown" }
+        return result
+    }
+
     private func exportURL() -> URL? {
         let tempDir = FileManager.default.temporaryDirectory
-        let fileName = "\(type.displayName)_\(bookId ?? "Chung").txt"
+        let scope = bookName.isEmpty ? (bookId ?? "Chung") : bookName
+        let safeName = normalizeFileName(scope)
+        let fileName = "\(type.displayName)_\(safeName).txt"
         let fileURL = tempDir.appendingPathComponent(fileName)
         let content = exportText()
         do {

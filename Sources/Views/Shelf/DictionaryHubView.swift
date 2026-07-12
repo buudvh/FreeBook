@@ -2,13 +2,14 @@ import SwiftUI
 
 struct DictionaryHubView: View {
     let bookId: String
+    var bookName: String = ""
 
     @ObservedObject private var translationManager = TranslationManager.shared
 
     var body: some View {
         List {
             Section(header: Text("Từ Điển Riêng (Truyện)")) {
-                NavigationLink(destination: DictionaryListView(type: .vietPhrase, bookId: bookId)) {
+                NavigationLink(destination: DictionaryListView(type: .vietPhrase, bookId: bookId, bookName: bookName)) {
                     DictionaryNavRow(
                         title: "VietPhrase Riêng",
                         icon: "doc.text",
@@ -16,7 +17,7 @@ struct DictionaryHubView: View {
                         subtitle: bookEntryCount(type: .vietPhrase)
                     )
                 }
-                NavigationLink(destination: DictionaryListView(type: .names, bookId: bookId)) {
+                NavigationLink(destination: DictionaryListView(type: .names, bookId: bookId, bookName: bookName)) {
                     DictionaryNavRow(
                         title: "Names Riêng",
                         icon: "person.text.rectangle",

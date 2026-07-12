@@ -48,6 +48,9 @@ struct DiscoveryView: View {
     @State private var extensionSearchQuery = ""
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     
+    // Trình duyệt trang chủ extension
+    @State private var showingHeaderWeb = false
+    
     private var selectedExtension: Extension? {
         activeExtensions.first(where: { $0.packageId == selectedExtensionId })
     }
@@ -99,6 +102,20 @@ struct DiscoveryView: View {
                         }
                         
                         Spacer()
+                        
+                        // Mở nhanh trang chủ tiện ích
+                        if let ext = selectedExtension, !ext.sourceUrl.isEmpty {
+                            Button(action: {
+                                showingHeaderWeb = true
+                            }) {
+                                Image(systemName: "safari")
+                                    .font(.title3)
+                                    .foregroundColor(.primary)
+                                    .padding(10)
+                                    .background(Color(.secondarySystemBackground))
+                                    .clipShape(Circle())
+                            }
+                        }
                         
                         // Toggle dịch
                         Button(action: {
@@ -210,7 +227,7 @@ struct DiscoveryView: View {
                         
                         if let cat = selectedCategory {
                             HStack {
-                                Text(cat.title)
+                                Text(translateIfNeeded(cat.title))
                                     .font(.headline)
                                     .fontWeight(.bold)
                                     .foregroundColor(.accentColor)
@@ -363,6 +380,14 @@ struct DiscoveryView: View {
                     modelContext: modelContext
                 )
             }
+            .fullScreenCover(isPresented: $showingHeaderWeb) {
+                if let ext = selectedExtension {
+                    BypassWebView(
+                        urlString: ext.sourceUrl,
+                        localPath: ext.localPath
+                    )
+                }
+            }
             .onChange(of: isTranslationEnabled) { _, _ in
                 loadDiscoveryData()
             }
@@ -507,6 +532,9 @@ struct ExtensionSelectorView: View {
     let modelContext: ModelContext
     
     @State private var configExtension: Extension? = nil
+    @State private var showingListWeb = false
+    @State private var listWebUrl = ""
+    @State private var listWebLocalPath = ""
     
     private var filteredExtensions: [Extension] {
         let baseList: [Extension]
@@ -559,6 +587,21 @@ struct ExtensionSelectorView: View {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundColor(.accentColor)
                                 .padding(.trailing, 4)
+                        }
+                        
+                        // Nút Trình duyệt trang chủ
+                        if !ext.sourceUrl.isEmpty {
+                            Button(action: {
+                                listWebUrl = ext.sourceUrl
+                                listWebLocalPath = ext.localPath
+                                showingListWeb = true
+                            }) {
+                                Image(systemName: "safari")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                                    .padding(8)
+                            }
+                            .buttonStyle(.plain)
                         }
                         
                         // Nút cấu hình (Bánh răng)
@@ -628,6 +671,12 @@ struct ExtensionSelectorView: View {
             }
             .sheet(item: $configExtension) { ext in
                 ExtensionConfigView(ext: ext)
+            }
+            .fullScreenCover(isPresented: $showingListWeb) {
+                BypassWebView(
+                    urlString: listWebUrl,
+                    localPath: listWebLocalPath
+                )
             }
         }
     }

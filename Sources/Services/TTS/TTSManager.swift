@@ -603,10 +603,12 @@ public final class TTSManager: NSObject, ObservableObject {
         }
     }
     
+
     private func startPrefetchTask(for index: Int) {
         guard index >= 0 && index < paragraphs.count else { return }
         let text = paragraphs[index].text
         let voice = selectedVoice
+        let toolBeforeStart = tool
         
         if tool == "nghitts" {
             guard let service = nghiTTSService else { return }
@@ -619,7 +621,7 @@ public final class TTSManager: NSObject, ObservableObject {
                     AppLogger.shared.log("🔊 [TTSManager] Bắt đầu tải trước cho đoạn \(index)...")
                     let wavData = try await service.synthesize(text: text, voice: voice, speed: 1.0)
                     
-                    if !Task.isCancelled && self.selectedVoice == voice && self.tool == "nghitts" {
+                    if !Task.isCancelled && self.selectedVoice == voice && self.tool == toolBeforeStart {
                         if let buffer = self.makePCMBuffer(fromWavData: wavData, targetFormat: targetFormat) {
                             self.preloadedWavs[index] = buffer
                             AppLogger.shared.log("🔊 [TTSManager] Đã tải trước và lưu cache PCMBuffer thành công cho đoạn \(index).")
@@ -647,7 +649,7 @@ public final class TTSManager: NSObject, ObservableObject {
                     AppLogger.shared.log("🔊 [TTSManager] Bắt đầu tải trước (extension tts) cho đoạn \(index)...")
                     let buffer = try await self.synthesizeExtensionTTS(text: text, voice: voice, localPath: localPath, configJson: configJson, targetFormat: targetFormat)
                     
-                    if !Task.isCancelled && self.selectedVoice == voice && self.tool == extToolId(localPath: localPath) {
+                    if !Task.isCancelled && self.selectedVoice == voice && self.tool == toolBeforeStart {
                         self.preloadedWavs[index] = buffer
                         AppLogger.shared.log("🔊 [TTSManager] Đã tải trước và lưu cache PCMBuffer thành công (extension tts) cho đoạn \(index).")
                     }
@@ -659,10 +661,6 @@ public final class TTSManager: NSObject, ObservableObject {
             }
             prefetchTasks[index] = task
         }
-    }
-    
-    private func extToolId(localPath: String) -> String {
-        return URL(fileURLWithPath: localPath).lastPathComponent
     }
     
     private func playNghiTTS(_ text: String) {
@@ -843,8 +841,12 @@ public final class TTSManager: NSObject, ObservableObject {
         player.stop()
         AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Gọi player.stop() xong.")
         
-        // Thiết lập lại kết nối giữa player và pitchNode để khớp chính xác format của buffer (tránh lỗi kênh và sample rate)
+        // Thiết lập lại toàn bộ kết nối để tránh lỗi định dạng và sample rate
+        engine.disconnectNodeOutput(player)
+        engine.disconnectNodeOutput(pitchNode)
+        
         engine.connect(player, to: pitchNode, format: buffer.format)
+        engine.connect(pitchNode, to: engine.mainMixerNode, format: buffer.format)
         
         AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Bắt đầu chạy Audio Engine nếu chưa chạy...")
         if !engine.isRunning {

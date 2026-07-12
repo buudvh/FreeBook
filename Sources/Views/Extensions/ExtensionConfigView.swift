@@ -138,9 +138,16 @@ struct ExtensionConfigView: View {
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                let configSection = json["config"] as? [String: Any] {
                 
-                // Parse các định nghĩa cấu hình
-                let configData = try JSONSerialization.data(withJSONObject: configSection)
-                self.configDefinitions = try JSONDecoder().decode([String: ConfigItem].self, from: configData)
+                var definitions: [String: ConfigItem] = [:]
+                for (key, value) in configSection {
+                    if let dict = value as? [String: Any] {
+                        if let dictData = try? JSONSerialization.data(withJSONObject: dict),
+                           let item = try? JSONDecoder().decode(ConfigItem.self, from: dictData) {
+                            definitions[key] = item
+                        }
+                    }
+                }
+                self.configDefinitions = definitions
             }
             
             // Đọc các giá trị người dùng đã lưu trước đó trong Extension

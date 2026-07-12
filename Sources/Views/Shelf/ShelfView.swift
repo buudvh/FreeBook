@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct ShelfView: View {
     @Environment(\.modelContext) private var modelContext
@@ -9,6 +10,7 @@ struct ShelfView: View {
     @State private var showingClearHistoryAlert = false
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @State private var showingBypassBrowser = false
+    @State private var showingFilePicker = false
     
     @State private var shelfLimit = 50
     @State private var historyLimit = 50
@@ -260,6 +262,12 @@ struct ShelfView: View {
                         }
                         
                         Button(action: {
+                            showingFilePicker = true
+                        }) {
+                            Label("Nhập truyện TXT", systemImage: "square.and.arrow.down")
+                        }
+                        
+                        Button(action: {
                             showingBypassBrowser = true
                         }) {
                             Label("Mở trình duyệt web", systemImage: "globe")
@@ -330,6 +338,19 @@ struct ShelfView: View {
                     urlString: "https://google.com",
                     localPath: nil
                 )
+            }
+            .fileImporter(
+                isPresented: $showingFilePicker,
+                allowedContentTypes: [.plainText],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    guard let selectedUrl = urls.first else { return }
+                    importTxtBook(from: selectedUrl)
+                case .failure(let error):
+                    AppLogger.shared.log("Lỗi chọn file TXT: \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -453,6 +474,137 @@ struct ShelfView: View {
                 }
             }
             try? bgContext.save()
+        }
+    }
+    
+    private struct ParserChapter {
+        let title: String
+        var content: String
+    }
+    
+    private struct ParsedBook {
+        let title: String
+        let chapters: [ParserChapter]
+    }
+    
+    private func parseTxtBook(content: String, fileName: String) -> ParsedBook {
+        let lines = content.components(separatedBy: "\n")
+        var chapters: [ParserChapter] = []
+        var currentChapterTitle = "Mở đầu"
+        var currentChapterLines: [String] = []
+        
+        let chapterKeywords = ["chương", "chapter", "quyển", "tập", "tiết", "hồi", "phần", "tự", "vĩ thanh", "mở đầu", "lời mở đầu", "phiên ngoại", "mục"]
+        
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            
+            let hasIndentation = line.hasPrefix(" ") || line.hasPrefix("\t") || line.hasPrefix("　")
+            let isShort = trimmed.count < 100
+            
+            var isChapterTitle = false
+            if !hasIndentation && isShort {
+                let lowerTrimmed = trimmed.lowercased()
+                for keyword in chapterKeywords {
+                    if lowerTrimmed.hasPrefix(keyword) {
+                        isChapterTitle = true
+                        break
+                    }
+                }
+                
+                if !isChapterTitle {
+                    let firstWord = lowerTrimmed.components(separatedBy: .whitespaces).first ?? ""
+                    if firstWord.rangeOfCharacter(from: CharacterSet.decimalDigits) != nil {
+                        isChapterTitle = true
+                    }
+                }
+            }
+            
+            if isChapterTitle {
+                if !currentChapterLines.isEmpty || currentChapterTitle != "Mở đầu" {
+                    chapters.append(ParserChapter(
+                        title: currentChapterTitle,
+                        content: currentChapterLines.joined(separator: "\n")
+                    ))
+                }
+                currentChapterTitle = trimmed
+                currentChapterLines.removeAll()
+            } else {
+                currentChapterLines.append(trimmed)
+            }
+        }
+        
+        if !currentChapterLines.isEmpty || currentChapterTitle != "Mở đầu" {
+            chapters.append(ParserChapter(
+                title: currentChapterTitle,
+                content: currentChapterLines.joined(separator: "\n")
+            ))
+        }
+        
+        var bookTitle = fileName.replacingOccurrences(of: ".txt", with: "", options: .caseInsensitive)
+        if bookTitle.isEmpty {
+            bookTitle = "Truyện nhập cục bộ"
+        }
+        
+        return ParsedBook(title: bookTitle, chapters: chapters)
+    }
+    
+    private func importTxtBook(from url: URL) {
+        guard url.startAccessingSecurityScopedResource() else {
+            AppLogger.shared.log("❌ Không có quyền truy cập file: \(url.path)")
+            return
+        }
+        defer { url.stopAccessingSecurityScopedResource() }
+        
+        do {
+            let content = try String(contentsOf: url, encoding: .utf8)
+            let fileName = url.lastPathComponent
+            
+            let parsed = parseTxtBook(content: content, fileName: fileName)
+            guard !parsed.chapters.isEmpty else {
+                AppLogger.shared.log("❌ File TXT không có nội dung chương hợp lệ.")
+                return
+            }
+            
+            let newBookId = "local_\(UUID().uuidString)"
+            let newBook = Book(
+                bookId: newBookId,
+                title: parsed.title,
+                author: "Local",
+                coverUrl: "",
+                desc: "Truyện nhập cục bộ từ file \(fileName).",
+                detailUrl: "local://\(newBookId)",
+                sourceName: "Local",
+                sourceUrl: "local://",
+                extensionPackageId: "local",
+                currentChapterIndex: 0,
+                currentChapterPage: 0,
+                currentChapterTitle: parsed.chapters.first?.title ?? "",
+                isOnShelf: true,
+                isHistory: false
+            )
+            modelContext.insert(newBook)
+            
+            for (idx, chapData) in parsed.chapters.enumerated() {
+                let chapId = "\(newBookId)_chapter_\(idx)"
+                let newChap = Chapter(
+                    id: chapId,
+                    title: chapData.title,
+                    url: "local://chapter/\(idx)",
+                    index: idx,
+                    content: chapData.content,
+                    isCached: true
+                )
+                newChap.book = newBook
+                modelContext.insert(newChap)
+            }
+            
+            try modelContext.save()
+            AppLogger.shared.log("✅ Đã nhập thành công truyện: \(parsed.title) (\(parsed.chapters.count) chương)")
+            selectedTab = 1
+            
+        } catch {
+            AppLogger.shared.log("❌ Lỗi nhập file TXT: \(error.localizedDescription)")
         }
     }
 }

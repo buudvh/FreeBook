@@ -153,8 +153,8 @@ public final class ExtensionManager {
         
         let data = try Data(contentsOf: pluginJsonUrl)
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let script = json["script"] as? [String: String],
-              let scriptFileName = script[scriptKey] else {
+              let script = json["script"] as? [String: Any],
+              let scriptFileName = script[scriptKey] as? String else {
             throw NSError(domain: "ExtensionManager", code: -4, userInfo: [NSLocalizedDescriptionKey: "Script key '\(scriptKey)' not defined"])
         }
         
@@ -175,6 +175,20 @@ public final class ExtensionManager {
     }
     
     // MARK: - Helper Cấu hình
+    public func hasConfig(localPath: String) -> Bool {
+        guard !localPath.isEmpty else { return false }
+        let extUrl = URL(fileURLWithPath: localPath)
+        let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
+        guard FileManager.default.fileExists(atPath: pluginJsonUrl.path) else { return false }
+        
+        guard let data = try? Data(contentsOf: pluginJsonUrl),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let config = json["config"] as? [String: Any] else {
+            return false
+        }
+        return config.values.contains { $0 is [String: Any] }
+    }
+    
     private func getCombinedConfigs(localPath: String, configJson: String) -> [String: Any] {
         var combined: [String: Any] = [:]
         
@@ -224,7 +238,7 @@ public final class ExtensionManager {
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [query, String(page)])
             let stringified = stringify(jsValue)
-            // AppLogger.shared.log("📝 [ExtensionManager] search raw JS result: \(stringified)")
+            AppLogger.shared.log("📝 [ExtensionManager] search raw JS result: \(stringified)")
             
             guard let jsArray = jsValue.toArray() else {
                 // AppLogger.shared.log("⚠️ [ExtensionManager] search returned non-array result or null")
@@ -272,7 +286,7 @@ public final class ExtensionManager {
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
             let stringified = stringify(jsValue)
-            // AppLogger.shared.log("📝 [ExtensionManager] detail raw JS result: \(stringified)")
+            AppLogger.shared.log("📝 [ExtensionManager] detail raw JS result: \(stringified)")
             
             guard let dict = jsValue.toDictionary() as? [String: Any] else {
                 // AppLogger.shared.log("❌ [ExtensionManager] detail returned non-dictionary result or null")
@@ -315,7 +329,7 @@ public final class ExtensionManager {
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
             let stringified = stringify(jsValue)
-            // AppLogger.shared.log("📝 [ExtensionManager] toc raw JS result: \(stringified)")
+            AppLogger.shared.log("📝 [ExtensionManager] toc raw JS result: \(stringified)")
             
             let jsArray = toDictionaryArray(jsValue)
 
@@ -395,7 +409,7 @@ public final class ExtensionManager {
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
             let stringified = stringify(jsValue)
-            // AppLogger.shared.log("📝 [ExtensionManager] chap raw JS result length: \(stringified.count)")
+            AppLogger.shared.log("📝 [ExtensionManager] chap raw JS result length: \(stringified.count)")
             
             var resultStr = ""
             if jsValue.isArray {
@@ -433,7 +447,7 @@ public final class ExtensionManager {
             
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
             let stringified = stringify(jsValue)
-            // AppLogger.shared.log("📝 [ExtensionManager] genre raw JS result: \(stringified)")
+            AppLogger.shared.log("📝 [ExtensionManager] genre raw JS result: \(stringified)")
             
             var results: [CategoryResult] = []
             
@@ -491,7 +505,7 @@ public final class ExtensionManager {
             
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
             let stringified = stringify(jsValue)
-            // AppLogger.shared.log("📝 [ExtensionManager] home raw JS result: \(stringified)")
+            AppLogger.shared.log("📝 [ExtensionManager] home raw JS result: \(stringified)")
             
             var results: [CategoryResult] = []
             
@@ -556,7 +570,7 @@ public final class ExtensionManager {
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [formattedInput, pageArg])
             let stringified = stringify(jsValue)
-            // AppLogger.shared.log("📝 [ExtensionManager] custom script raw JS result: \(stringified)")
+            AppLogger.shared.log("📝 [ExtensionManager] custom script raw JS result: \(stringified)")
             
             guard let jsArray = jsValue.toArray() else {
                 // AppLogger.shared.log("⚠️ [ExtensionManager] custom script returned non-array result or null")
