@@ -88,9 +88,18 @@ public final class DoubleArrayTrie: TrieDictionary {
         self.base = Array(repeating: 0, count: baseLen)
         self.check = Array(repeating: 0, count: baseLen)
         
-        for i in 0..<baseLen {
-            self.base[i] = fileData.readInt32BE(at: baseByteOffset + i * 4)
-            self.check[i] = fileData.readInt32BE(at: checkByteOffset + i * 4)
+        fileData.withUnsafeBytes { rawBufferPointer in
+            guard let baseAddress = rawBufferPointer.baseAddress else { return }
+            for i in 0..<baseLen {
+                let baseOffset = baseByteOffset + i * 4
+                let checkOffset = checkByteOffset + i * 4
+                
+                let rawBase = baseAddress.load(fromByteOffset: baseOffset, as: Int32.self)
+                self.base[i] = Int32(bigEndian: rawBase)
+                
+                let rawCheck = baseAddress.load(fromByteOffset: checkOffset, as: Int32.self)
+                self.check[i] = Int32(bigEndian: rawCheck)
+            }
         }
         
         let poolSize = Int(fileData.readInt32BE(at: afterCheckOffset))

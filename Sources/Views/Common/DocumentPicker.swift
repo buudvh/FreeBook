@@ -103,9 +103,9 @@ struct DocumentPickerPresenter: UIViewControllerRepresentable {
             host.allowsMultipleSelection = allowsMultipleSelection
             host.onPick = onPick
             host.onCancel = onCancel
-            host.onFinished = {
-                context.coordinator.isPresented.wrappedValue = false
-                context.coordinator.host = nil
+            host.onFinished = { [weak coordinator = context.coordinator] in
+                coordinator?.isPresented.wrappedValue = false
+                coordinator?.host = nil
             }
             host.modalPresentationStyle = .overFullScreen
             host.view.backgroundColor = .clear

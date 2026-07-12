@@ -171,6 +171,7 @@ struct TTSDictionaryEditView: View {
                                 allowedContentTypes: [.propertyList, .json, .commaSeparatedText, .plainText],
                                 allowsMultipleSelection: false,
                                 onPick: { urls in
+                                    showingFileImporter = false
                                     guard let selectedURL = urls.first else { return }
                                     let ext = selectedURL.pathExtension.lowercased()
                                     if ext != "plist" && ext != "json" && ext != "csv" && ext != "txt" {

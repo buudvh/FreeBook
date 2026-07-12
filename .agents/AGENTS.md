@@ -19,15 +19,40 @@ This document defines coding guidelines, runtime specifications, and constraints
 - When syncing repository files (`RepositoryManagerView.swift`), save the raw `path` from `plugin.json` directly into `downloadUrl` to ensure correct package downloads.
 - Do not use hardcoded string replacements to generate zip URLs.
 
-### 3. Codebase File & Folder Organization (Views, Services, Models)
+### 3. Codebase File & Folder Organization (Common, Views, Services, Models)
 - **Rule:** Maintain the following directory structure for codebase integrity:
+  - **Common (`Sources/Common`)**: Chứa các thành phần dùng chung cho toàn dự án.
+    - `Extensions/`: Các phần mở rộng (Extensions/Helpers) dùng chung (`String+HTML.swift`, `View+Keyboard.swift`, `String+Crypto.swift`...).
+    - `Services/`: Các Service/Manager dùng chung cho toàn bộ ứng dụng (`ImageCacheManager.swift`, `ToastManager.swift`...).
   - **Models (`Sources/Models`)**:
     - `Database/`: All SwiftData persistable model classes (`Book`, `Chapter`, `Extension`, `Repository`).
-    - `Dictionaries/`: All translation lookup data structure classes (`DoubleArrayTrie`, `TextDictionary`).
-  - **Views (`Sources/Views`)**:
-    - Organized in subfolders by application tab: `Shelf/` (Shelf & Reader), `Discovery/` (Discovery), `Extensions/` (Repository manager & config), and `Settings/` (General & translation configuration).
-  - **Services (`Sources/Services`)**:
-    - Organized in subfolders by functional domain: `Extensions/` (JS engine and extension executor), `Translation/` (Translation manager and utilities), and `Logging/` (App logger).
+    - `Dictionaries/`: All translation lookup data structure classes (`DoubleArrayTrie`, `TextDictionary`, `SearchEngine`).
+  - **Views (`Sources/Views`)**: Tổ chức thành các thư mục con theo module chức năng độc lập:
+    - `Shelf/ShelfMain/`: Chỉ chứa kệ sách chính (`ShelfView.swift`).
+    - `Discovery/`: Tab Khám phá (`DiscoveryView.swift`).
+    - `BookDetail/`: Chi tiết sách (`BookDetailView.swift`).
+    - `Search/`: Tìm kiếm truyện (`SearchView.swift`).
+    - `Reader/`: Trình đọc truyện (`ReaderView.swift` và các view phụ trợ).
+    - `TTSWidget/`: Floating widget điều khiển giọng đọc trên trình đọc.
+    - `Dictionary/`: Tra cứu từ điển (`DictionaryHubView.swift`, `DictionaryListView.swift`...).
+    - `Download/`: Quản lý tiến trình tải sách (`DownloadTrackerView.swift`, `TaskOptionsSheet.swift`).
+    - `Extensions/`: Quản lý extension, chia làm các thư mục con `Config/`, `Store/`, `Manager/`.
+    - `Settings/`: Cấu hình hệ thống, chia làm các thư mục con `Main/`, `Search/`, `TTS/`.
+    - `Common/`: Các view phụ trợ dùng chung (`BypassWebView.swift`, `DocumentPicker.swift`, `BookCoverView.swift`...).
+  - **Services (`Sources/Services`)**: Tổ chức thành các thư mục con theo mảng dịch vụ chức năng:
+    - `TTS/`: Dịch vụ phát âm TTS.
+      - Thư mục gốc `TTS/`: Các bộ điều khiển và định nghĩa dùng chung (`TTSManager.swift`, `EspeakPhonemizer.swift`, `WAVEncoder`...) và thư mục `Preprocessing/`.
+      - `NghiTTS/`: Chứa client NghiTTS và lõi Piper offline (`ONNXPiperEngine.swift`, `PiperTTSService.swift`, `ModelStore.swift`).
+      - `Siri/`: Chứa dịch vụ phát âm native Siri (`SiriTTSService.swift`).
+      - `Ext/`: Chứa dịch vụ phát âm qua Extension JS (`ExtTTSService.swift`).
+    - `Extensions/`: Engine chạy extension javascript.
+      - `Engine/`: Core thực thi JS (`JSExecutor.swift`, `JSDom.swift`, `JSCrypto.swift`).
+      - `Manager/`: `ExtensionManager.swift`.
+    - `Translation/`: Dịch thuật tự động.
+      - `Manager/`: `TranslationManager.swift`.
+      - `Utils/`: `TranslateUtils.swift`, `DictionaryCache.swift`.
+    - `Download/`: `DownloadManager.swift`.
+    - `Logging/`: `AppLogger.swift`.
 
 ---
 

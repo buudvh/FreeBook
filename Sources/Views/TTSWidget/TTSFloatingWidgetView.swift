@@ -5,7 +5,7 @@ struct TTSFloatingWidgetView: View {
     @StateObject private var playState = TTSPlayStateReader()
     @State private var visualPosition: CGPoint? = nil
     @State private var dragOrigin: CGPoint? = nil
-    @State private var showingTTSSettings = false
+    @ObservedObject private var ttsManager = TTSManager.shared
 
     static let widgetAnimation = Animation.spring(response: 0.35, dampingFraction: 0.75)
 
@@ -66,8 +66,7 @@ struct TTSFloatingWidgetView: View {
                             TTSManager.shared.skipForward()
                         },
                         onShowSettings: {
-                            TTSManager.shared.prepareForSettings()
-                            showingTTSSettings = true
+                            ttsManager.showingSettingsSheet = true
                         },
                         onStop: {
                             TTSManager.shared.stop()
@@ -85,10 +84,10 @@ struct TTSFloatingWidgetView: View {
                             preserveMode: true
                         )
                     )
-                    .sheet(isPresented: $showingTTSSettings, onDismiss: {
-                        TTSManager.shared.resumeAfterSettings()
-                    }) {
-                        TTSSettingsSheet()
+                    .sheet(isPresented: $ttsManager.showingSettingsSheet) {
+                        NavigationStack {
+                            TTSSettingsView(isPresentedAsSheet: true)
+                        }
                     }
                 } else {
                     let renderPosition = visualPosition ?? restingPosition

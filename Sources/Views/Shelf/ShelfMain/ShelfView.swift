@@ -29,6 +29,13 @@ struct ShelfView: View {
     @State private var selectedTaskType: TaskType = .download
     @State private var selectedBookForTask: Book? = nil
     
+    // Import từ trình duyệt
+    @State private var importedBookId: String = ""
+    @State private var importedExtensionPackageId: String = ""
+    @State private var importedDetailUrl: String = ""
+    @State private var importedSourceName: String = ""
+    @State private var navigateToImportedBook = false
+    
     private var shelfBooks: [Book] {
         allBooks.filter { $0.isOnShelf }
     }
@@ -60,12 +67,13 @@ struct ShelfView: View {
                 
                 Divider()
                 
-                Group {
-                    if selectedTab == 0 {
-                        // TAB TẢI TRƯỚC
-                        DownloadTrackerView()
-                    } else if selectedTab == 1 {
-                        // TAB KỆ SÁCH
+                TabView(selection: $selectedTab) {
+                    // TAB TẢI TRƯỚC
+                    DownloadTrackerView()
+                        .tag(0)
+                    
+                    // TAB KỆ SÁCH
+                    Group {
                         if shelfBooks.isEmpty {
                             VStack(spacing: 20) {
                                 Image(systemName: "books.vertical")
@@ -154,8 +162,11 @@ struct ShelfView: View {
                             }
                             .listStyle(.plain)
                         }
-                    } else {
-                        // TAB LỊCH SỬ
+                    }
+                    .tag(1)
+                    
+                    // TAB LỊCH SỬ
+                    Group {
                         if historyBooks.isEmpty {
                             VStack(spacing: 20) {
                                 Image(systemName: "clock.arrow.circlepath")
@@ -245,7 +256,9 @@ struct ShelfView: View {
                             .listStyle(.plain)
                         }
                     }
+                    .tag(2)
                 }
+                .tabViewStyle(.page(indexDisplayMode: .never))
             }
             .navigationTitle(selectedTab == 0 ? "Tải Trước" : (selectedTab == 1 ? "Kệ Sách" : "Lịch Sử Đọc"))
             .navigationBarTitleDisplayMode(.inline)
@@ -336,21 +349,37 @@ struct ShelfView: View {
             .fullScreenCover(isPresented: $showingBypassBrowser) {
                 BypassWebView(
                     urlString: "https://google.com",
-                    localPath: nil
+                    localPath: nil,
+                    onImport: { detailUrl, packageId, sourceName in
+                        importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                        importedExtensionPackageId = packageId
+                        importedDetailUrl = detailUrl
+                        importedSourceName = sourceName
+                        navigateToImportedBook = true
+                    }
                 )
             }
-            .fileImporter(
-                isPresented: $showingFilePicker,
-                allowedContentTypes: [.plainText],
-                allowsMultipleSelection: false
-            ) { result in
-                switch result {
-                case .success(let urls):
-                    guard let selectedUrl = urls.first else { return }
-                    importTxtBook(from: selectedUrl)
-                case .failure(let error):
-                    AppLogger.shared.log("Lỗi chọn file TXT: \(error.localizedDescription)")
-                }
+            .navigationDestination(isPresented: $navigateToImportedBook) {
+                BookDetailView(
+                    bookId: importedBookId,
+                    extensionPackageId: importedExtensionPackageId,
+                    initialDetailUrl: importedDetailUrl,
+                    sourceName: importedSourceName
+                )
+            }
+            .sheet(isPresented: $showingFilePicker) {
+                DocumentPicker(
+                    allowedContentTypes: [.plainText],
+                    allowsMultipleSelection: false,
+                    onPick: { urls in
+                        showingFilePicker = false
+                        guard let selectedUrl = urls.first else { return }
+                        importTxtBook(from: selectedUrl)
+                    },
+                    onCancel: {
+                        showingFilePicker = false
+                    }
+                )
             }
         }
     }
@@ -554,57 +583,76 @@ struct ShelfView: View {
             AppLogger.shared.log("❌ Không có quyền truy cập file: \(url.path)")
             return
         }
-        defer { url.stopAccessingSecurityScopedResource() }
         
+        let tempFileUrl = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".txt")
         do {
-            let content = try String(contentsOf: url, encoding: .utf8)
-            let fileName = url.lastPathComponent
-            
-            let parsed = parseTxtBook(content: content, fileName: fileName)
-            guard !parsed.chapters.isEmpty else {
-                AppLogger.shared.log("❌ File TXT không có nội dung chương hợp lệ.")
-                return
+            if FileManager.default.fileExists(atPath: tempFileUrl.path) {
+                try FileManager.default.removeItem(at: tempFileUrl)
             }
-            
-            let newBookId = "local_\(UUID().uuidString)"
-            let newBook = Book(
-                bookId: newBookId,
-                title: parsed.title,
-                author: "Local",
-                coverUrl: "",
-                desc: "Truyện nhập cục bộ từ file \(fileName).",
-                detailUrl: "local://\(newBookId)",
-                sourceName: "Local",
-                sourceUrl: "local://",
-                extensionPackageId: "local",
-                currentChapterIndex: 0,
-                currentChapterPage: 0,
-                currentChapterTitle: parsed.chapters.first?.title ?? "",
-                isOnShelf: true,
-                isHistory: false
-            )
-            modelContext.insert(newBook)
-            
-            for (idx, chapData) in parsed.chapters.enumerated() {
-                let chapId = "\(newBookId)_chapter_\(idx)"
-                let newChap = Chapter(
-                    id: chapId,
-                    title: chapData.title,
-                    url: "local://chapter/\(idx)",
-                    index: idx,
-                    content: chapData.content,
-                    isCached: true
-                )
-                newChap.book = newBook
-                modelContext.insert(newChap)
-            }
-            
-            try modelContext.save()
-            AppLogger.shared.log("✅ Đã nhập thành công truyện: \(parsed.title) (\(parsed.chapters.count) chương)")
-            selectedTab = 1
-            
+            try FileManager.default.copyItem(at: url, to: tempFileUrl)
+            url.stopAccessingSecurityScopedResource()
         } catch {
-            AppLogger.shared.log("❌ Lỗi nhập file TXT: \(error.localizedDescription)")
+            url.stopAccessingSecurityScopedResource()
+            AppLogger.shared.log("❌ Lỗi sao chép file tạm: \(error.localizedDescription)")
+            return
+        }
+        
+        let container = modelContext.container
+        Task.detached(priority: .userInitiated) {
+            defer {
+                try? FileManager.default.removeItem(at: tempFileUrl)
+            }
+            do {
+                let content = try String(contentsOf: tempFileUrl, encoding: .utf8)
+                let fileName = url.lastPathComponent
+                let parsed = self.parseTxtBook(content: content, fileName: fileName)
+                guard !parsed.chapters.isEmpty else {
+                    AppLogger.shared.log("❌ File TXT không có nội dung chương hợp lệ.")
+                    return
+                }
+                
+                let bgContext = ModelContext(container)
+                let newBookId = "local_\(UUID().uuidString)"
+                let newBook = Book(
+                    bookId: newBookId,
+                    title: parsed.title,
+                    author: "Local",
+                    coverUrl: "",
+                    desc: "Truyện nhập cục bộ từ file \(fileName).",
+                    detailUrl: "local://\(newBookId)",
+                    sourceName: "Local",
+                    sourceUrl: "local://",
+                    extensionPackageId: "local",
+                    currentChapterIndex: 0,
+                    currentChapterPage: 0,
+                    currentChapterTitle: parsed.chapters.first?.title ?? "",
+                    isOnShelf: true,
+                    isHistory: false
+                )
+                bgContext.insert(newBook)
+                
+                for (idx, chapData) in parsed.chapters.enumerated() {
+                    let chapId = "\(newBookId)_chapter_\(idx)"
+                    let newChap = Chapter(
+                        id: chapId,
+                        title: chapData.title,
+                        url: "local://chapter/\(idx)",
+                        index: idx,
+                        content: chapData.content,
+                        isCached: true
+                    )
+                    newChap.book = newBook
+                    bgContext.insert(newChap)
+                }
+                
+                try bgContext.save()
+                AppLogger.shared.log("✅ Đã nhập thành công truyện: \(parsed.title) (\(parsed.chapters.count) chương)")
+                await MainActor.run {
+                    self.selectedTab = 1
+                }
+            } catch {
+                AppLogger.shared.log("❌ Lỗi xử lý file TXT: \(error.localizedDescription)")
+            }
         }
     }
 }

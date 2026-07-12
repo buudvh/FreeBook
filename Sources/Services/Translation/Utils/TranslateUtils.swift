@@ -215,7 +215,7 @@ public final class TranslateUtils {
             return text
         }
         
-        let md5 = JSCrypto.md5(text)
+        let md5 = text.md5()
         let cacheKey = "translate|vietphrase|v2|\(isMeta ? "meta" : "content")|\(bookId ?? "global")|\(md5)" as NSString
         
         if let cached = translationCache.object(forKey: cacheKey) {

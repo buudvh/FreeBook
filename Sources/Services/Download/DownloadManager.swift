@@ -217,6 +217,12 @@ public final class DownloadManager: ObservableObject {
             var txtAccumulator = ""
             
             for chapter in chapsToProcess {
+                let targetChapterId = chapter.id
+                let targetChapterTitle = chapter.title
+                let targetChapterUrl = chapter.url
+                let isChapterCached = chapter.isCached
+                let cachedContent = chapter.content
+                
                 // Check if cancelled
                 let isCancelled = await MainActor.run {
                     self.isTaskCancelled(taskId: taskId)
@@ -231,7 +237,7 @@ public final class DownloadManager: ObservableObject {
                 
                 var originalContent = ""
                 
-                if chapter.isCached, let existingContent = chapter.content, !existingContent.isEmpty {
+                if isChapterCached, let existingContent = cachedContent, !existingContent.isEmpty {
                     originalContent = existingContent
                 } else {
                     if task.taskType == .exportTxt && task.onlyExportCached {
@@ -244,19 +250,24 @@ public final class DownloadManager: ObservableObject {
                     let content = try await ExtensionManager.shared.chap(
                         localPath: bgExt.localPath,
                         downloadUrl: bgExt.downloadUrl,
-                        url: chapter.url,
+                        url: targetChapterUrl,
                         configJson: bgExt.configJson
                     )
                     let cleaned = content.cleanHTML()
-                    chapter.content = cleaned
-                    chapter.isCached = true
-                    try? bgContext.save()
+                    
+                    // Ghi DB an toàn bằng cách fetch lại fresh object trên thread hiện tại của Context
+                    let allChaps = (try? bgContext.fetch(FetchDescriptor<Chapter>())) ?? []
+                    if let freshChapter = allChaps.first(where: { $0.id == targetChapterId }) {
+                        freshChapter.content = cleaned
+                        freshChapter.isCached = true
+                        try? bgContext.save()
+                    }
                     originalContent = cleaned
                 }
                 
                 if task.taskType == .exportTxt {
                     // Format for TXT
-                    var titleToExport = chapter.title
+                    var titleToExport = targetChapterTitle
                     var contentToExport = originalContent
                     
                     if task.translate {

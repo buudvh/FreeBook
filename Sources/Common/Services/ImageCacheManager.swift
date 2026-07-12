@@ -58,7 +58,7 @@ public final class ImageCacheManager {
         URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
             guard let self = self, let data = data, error == nil,
                   let image = UIImage(data: data) else {
-                completion(nil)
+                DispatchQueue.main.async { completion(nil) }
                 return
             }
             
@@ -67,13 +67,13 @@ public final class ImageCacheManager {
                 do {
                     try jpegData.write(to: destinationURL)
                     AppLogger.shared.log("💾 Đã tải và lưu ảnh bìa offline thành công cho sách: \(bookId)")
-                    completion(image)
+                    DispatchQueue.main.async { completion(image) }
                 } catch {
                     AppLogger.shared.log("❌ Lỗi ghi tệp ảnh bìa local: \(error.localizedDescription)")
-                    completion(nil)
+                    DispatchQueue.main.async { completion(nil) }
                 }
             } else {
-                completion(nil)
+                DispatchQueue.main.async { completion(nil) }
             }
         }.resume()
     }

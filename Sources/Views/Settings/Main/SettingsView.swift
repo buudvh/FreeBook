@@ -183,7 +183,10 @@ struct SettingsView: View {
                     }
                 }
                 
-                Section(header: Text("NghiTTS (Piper Offline)")) {
+                Section(header: Text("Đọc Thành Tiếng (TTS)")) {
+                    NavigationLink(destination: TTSSettingsView(isPresentedAsSheet: false)) {
+                        Label("Cài đặt TTS", systemImage: "waveform")
+                    }
                     NavigationLink(destination: TTSModelManagerView()) {
                         Label("Quản lý Model", systemImage: "waveform.and.mic")
                     }

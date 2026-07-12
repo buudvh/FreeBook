@@ -495,7 +495,10 @@ struct BookDetailView: View {
                         importedExtensionPackageId = packageId
                         importedDetailUrl = detailUrl
                         importedSourceName = sourceName
-                        navigateToImportedBook = true
+                        // Trì hoãn push để tránh xung đột với dismiss animation của fullScreenCover
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            navigateToImportedBook = true
+                        }
                     }
                 }
             )
@@ -821,7 +824,11 @@ struct BookDetailView: View {
     }
     
     private func updateLocalChapters(for book: Book, with results: [ChapterResult]) {
-        // Xóa chương cũ
+        // Xóa chương cũ (sao chép mảng phụ trước để tránh crash lặp mảng)
+        let chapsToDelete = Array(book.chapters)
+        for chap in chapsToDelete {
+            modelContext.delete(chap)
+        }
         book.chapters.removeAll()
         
         // Thêm chương mới

@@ -22,16 +22,12 @@ import CryptoKit
     
     /// Băm chuỗi đầu vào theo thuật toán MD5 và trả về chuỗi Hex.
     public static func md5(_ input: String) -> String {
-        guard let data = input.data(using: .utf8) else { return "" }
-        let digest = Insecure.MD5.hash(data: data)
-        return digest.map { String(format: "%02hhx", $0) }.joined()
+        return input.md5()
     }
     
     /// Băm chuỗi đầu vào theo thuật toán SHA-256 và trả về chuỗi Hex.
     public static func sha256(_ input: String) -> String {
-        guard let data = input.data(using: .utf8) else { return "" }
-        let digest = SHA256.hash(data: data)
-        return digest.map { String(format: "%02hhx", $0) }.joined()
+        return input.sha256()
     }
 }
 

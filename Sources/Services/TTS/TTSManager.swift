@@ -73,6 +73,7 @@ public final class TTSManager: NSObject, ObservableObject {
     @Published public var currentParentParagraphIndex: Int = -1
     @Published public var highlightRange: NSRange? = nil
     @Published public var showFloatingWidget: Bool = false
+    @Published public var showingSettingsSheet: Bool = false
     
     // Thông tin phát nhạc độc lập toàn cục
     @Published public private(set) var playingBookId: String = ""
@@ -85,7 +86,6 @@ public final class TTSManager: NSObject, ObservableObject {
     private var preloadedNextChapterContent: String? = nil
     private var isPreloading: Bool = false
     private var currentPlaybackId: String? = nil
-    private var currentUtterance: AVSpeechUtterance? = nil
     private var lastStoppedParagraphIndex: Int? = nil
     private var wasPlayingBeforeStop = false
     private var wasPlayingBeforeSettings = false
@@ -112,7 +112,8 @@ public final class TTSManager: NSObject, ObservableObject {
     private var chapterContent: String = ""
     
     // Trình phát & Engine
-    private var systemSynthesizer: AVSpeechSynthesizer?
+    private let siriService = SiriTTSService()
+    private let extService = ExtTTSService()
     private var nghiTTSService: PiperTTSService?
     public private(set) var nghiTTSClient: NghiTTSClient?
     private var modelStore: ModelStore?
@@ -121,7 +122,6 @@ public final class TTSManager: NSObject, ObservableObject {
     private var audioEngine: AVAudioEngine?
     private var playerNode: AVAudioPlayerNode?
     private var timePitchNode: AVAudioUnitTimePitch?
-    private var currentTempFileUrl: URL?
     
     private override init() {
         // Nạp cấu hình từ UserDefaults
@@ -317,7 +317,7 @@ public final class TTSManager: NSObject, ObservableObject {
         self.isPlaying = false
         
         if tool == "system" {
-            systemSynthesizer?.pauseSpeaking(at: .immediate)
+            siriService.pause()
         } else {
             playerNode?.pause()
         }
@@ -332,8 +332,8 @@ public final class TTSManager: NSObject, ObservableObject {
         self.isPlaying = true
         
         if tool == "system" {
-            if systemSynthesizer?.isPaused == true {
-                systemSynthesizer?.continueSpeaking()
+            if siriService.isPaused {
+                siriService.resume()
             } else {
                 speakCurrent()
             }
@@ -350,6 +350,7 @@ public final class TTSManager: NSObject, ObservableObject {
         let pid = currentPlaybackId ?? "NONE"
         AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] stopPlayback(keepWidget=\(keepWidget)) được gọi.")
         self.isPlaying = false
+        self.wasPlayingBeforeSettings = false
         
         if !keepWidget {
             self.currentParagraphIndex = -1
@@ -360,7 +361,7 @@ public final class TTSManager: NSObject, ObservableObject {
         
         clearPrefetchCache()
         
-        systemSynthesizer?.stopSpeaking(at: .immediate)
+        siriService.stop()
         playerNode?.stop()
         audioEngine?.stop()
         cleanUpTempFile()
@@ -383,13 +384,19 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     public func prepareForSettings() {
-        wasPlayingBeforeSettings = isPlaying
+        if !wasPlayingBeforeSettings {
+            wasPlayingBeforeSettings = isPlaying
+        }
         if isPlaying {
             pause()
         }
     }
     
     public func resumeAfterSettings() {
+        guard !chapterContent.isEmpty else {
+            stopPlayback(keepWidget: false)
+            return
+        }
         let savedIndex = currentParagraphIndex
         let wasPlaying = wasPlayingBeforeSettings
         wasPlayingBeforeSettings = false
@@ -470,10 +477,9 @@ public final class TTSManager: NSObject, ObservableObject {
     private func stopCurrentPlayback() {
         let pid = currentPlaybackId ?? "NONE"
         AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] stopCurrentPlayback() được gọi.")
+        self.currentPlaybackId = nil
         if tool == "system" {
-            systemSynthesizer?.stopSpeaking(at: .immediate)
-            systemSynthesizer = nil // Làm sạch hàng đợi phát của iOS
-            currentUtterance = nil
+            siriService.stop()
         } else {
             playerNode?.stop()
         }
@@ -526,33 +532,10 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     private func playSystemTTS(_ text: String) {
-        let utterance = AVSpeechUtterance(string: text)
-        self.currentUtterance = utterance
-        
-        // Cấu hình giọng đọc hệ thống
-        if let voice = AVSpeechSynthesisVoice.speechVoices().first(where: { $0.identifier == selectedVoice || $0.name == selectedVoice }) {
-            utterance.voice = voice
-        } else {
-            utterance.voice = AVSpeechSynthesisVoice(language: "vi-VN")
+        siriService.speak(text: text, voiceName: selectedVoice, speed: speed, pitch: pitch) { [weak self] in
+            guard let self = self, self.isPlaying else { return }
+            self.nextParagraph()
         }
-        
-        // Ánh xạ dải speed 0.5x - 5.0x sang AVSpeechUtterance rate (0.0 - 1.0)
-        let utteranceRate: Float
-        if speed <= 1.0 {
-            utteranceRate = Float(0.25 + (speed - 0.5) * 0.5)
-        } else {
-            utteranceRate = Float(0.5 + (speed - 1.0) * (0.5 / 4.0))
-        }
-        utterance.rate = utteranceRate
-        utterance.pitchMultiplier = Float(pitch)
-        
-        if systemSynthesizer == nil {
-            let synth = AVSpeechSynthesizer()
-            synth.delegate = self
-            systemSynthesizer = synth
-        }
-        
-        systemSynthesizer?.speak(utterance)
         updateNowPlayingInfo()
     }
     
@@ -647,7 +630,7 @@ public final class TTSManager: NSObject, ObservableObject {
                 
                 do {
                     AppLogger.shared.log("🔊 [TTSManager] Bắt đầu tải trước (extension tts) cho đoạn \(index)...")
-                    let buffer = try await self.synthesizeExtensionTTS(text: text, voice: voice, localPath: localPath, configJson: configJson, targetFormat: targetFormat)
+                    let buffer = try await self.extService.synthesize(text: text, voice: voice, localPath: localPath, configJson: configJson, targetFormat: targetFormat)
                     
                     if !Task.isCancelled && self.selectedVoice == voice && self.tool == toolBeforeStart {
                         self.preloadedWavs[index] = buffer
@@ -753,10 +736,10 @@ public final class TTSManager: NSObject, ObservableObject {
                     if let cached = preloadedWavs[index] {
                         buffer = cached
                     } else {
-                        buffer = try await synthesizeExtensionTTS(text: text, voice: voice, localPath: localPath, configJson: configJson, targetFormat: targetFormat)
+                        buffer = try await extService.synthesize(text: text, voice: voice, localPath: localPath, configJson: configJson, targetFormat: targetFormat)
                     }
                 } else {
-                    buffer = try await synthesizeExtensionTTS(text: text, voice: voice, localPath: localPath, configJson: configJson, targetFormat: targetFormat)
+                    buffer = try await extService.synthesize(text: text, voice: voice, localPath: localPath, configJson: configJson, targetFormat: targetFormat)
                 }
                 
                 guard self.isPlaying && self.currentParagraphIndex == index else {
@@ -773,54 +756,6 @@ public final class TTSManager: NSObject, ObservableObject {
                 }
             }
         }
-    }
-    
-    private func synthesizeExtensionTTS(
-        text: String,
-        voice: String,
-        localPath: String,
-        configJson: String,
-        targetFormat: AVAudioFormat
-    ) async throws -> AVAudioPCMBuffer {
-        AppLogger.shared.log("🔊 [TTSManager] Bắt đầu tổng hợp extension tts cho: \(text.prefix(20))...")
-        
-        // 1. Chạy script JS để sinh base64 audio data
-        let base64String = try await ExtensionManager.shared.ttsGenerate(
-            localPath: localPath,
-            text: text,
-            voice: voice,
-            configJson: configJson
-        )
-        
-        guard let audioData = Data(base64Encoded: base64String.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-            throw NSError(domain: "TTSManager", code: -20, userInfo: [NSLocalizedDescriptionKey: "Dữ liệu âm thanh Base64 không hợp lệ từ extension"])
-        }
-        
-        // 2. Ghi ra tệp tạm
-        let tempDir = FileManager.default.temporaryDirectory
-        let tempFileUrl = tempDir.appendingPathComponent(UUID().uuidString + ".mp3")
-        try audioData.write(to: tempFileUrl)
-        
-        // Lưu đường dẫn tệp tạm để dọn dẹp sau khi chơi xong
-        await MainActor.run {
-            self.currentTempFileUrl = tempFileUrl
-        }
-        
-        // 3. Đọc tệp audio tạm bằng AVAudioFile và chuyển sang PCM Buffer
-        let audioFile = try AVAudioFile(forReading: tempFileUrl)
-        let fileFormat = audioFile.processingFormat
-        let frameCount = AVAudioFrameCount(audioFile.length)
-        
-        guard frameCount > 0 else {
-            throw NSError(domain: "TTSManager", code: -21, userInfo: [NSLocalizedDescriptionKey: "Tệp âm thanh trống sau khi giải mã"])
-        }
-        
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: fileFormat, frameCapacity: frameCount) else {
-            throw NSError(domain: "TTSManager", code: -22, userInfo: [NSLocalizedDescriptionKey: "Không thể khởi tạo AVAudioPCMBuffer"])
-        }
-        
-        try audioFile.read(into: buffer)
-        return buffer
     }
     
     private func playAudioBuffer(_ buffer: AVAudioPCMBuffer) {
@@ -846,7 +781,7 @@ public final class TTSManager: NSObject, ObservableObject {
         engine.disconnectNodeOutput(pitchNode)
         
         engine.connect(player, to: pitchNode, format: buffer.format)
-        engine.connect(pitchNode, to: engine.mainMixerNode, format: buffer.format)
+        engine.connect(pitchNode, to: engine.mainMixerNode, format: nil)
         
         AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Bắt đầu chạy Audio Engine nếu chưa chạy...")
         if !engine.isRunning {
@@ -963,10 +898,7 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     private func cleanUpTempFile() {
-        if let url = currentTempFileUrl {
-            try? FileManager.default.removeItem(at: url)
-            currentTempFileUrl = nil
-        }
+        // File tạm được dọn dẹp trực tiếp trong ExtTTSService.synthesize
     }
     
     // MARK: - Text Segmentation (Phân đoạn văn bản)
@@ -1205,18 +1137,4 @@ public final class TTSManager: NSObject, ObservableObject {
     }
 }
 
-// MARK: - AVSpeechSynthesizerDelegate
 
-extension TTSManager: @preconcurrency AVSpeechSynthesizerDelegate {
-    public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        guard isPlaying else { return }
-        
-        // Kiểm tra khớp chính xác utterance hiện tại để tránh callback trùng lặp/mồ côi làm lệch highlight
-        guard utterance == currentUtterance else {
-            AppLogger.shared.log("🔊 [TTSManager] Bỏ qua didFinish vì utterance hoàn thành không khớp với currentUtterance.")
-            return
-        }
-        
-        nextParagraph()
-    }
-}

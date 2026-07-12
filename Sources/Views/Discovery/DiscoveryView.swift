@@ -51,6 +51,13 @@ struct DiscoveryView: View {
     // Trình duyệt trang chủ extension
     @State private var showingHeaderWeb = false
     
+    // Import từ trình duyệt
+    @State private var importedBookId: String = ""
+    @State private var importedExtensionPackageId: String = ""
+    @State private var importedDetailUrl: String = ""
+    @State private var importedSourceName: String = ""
+    @State private var navigateToImportedBook = false
+    
     private var selectedExtension: Extension? {
         activeExtensions.first(where: { $0.packageId == selectedExtensionId })
     }
@@ -225,6 +232,7 @@ struct DiscoveryView: View {
                         
                         Divider()
                         
+                        VStack(spacing: 0) {
                         if let cat = selectedCategory {
                             HStack {
                                 Text(translateIfNeeded(cat.title))
@@ -313,6 +321,14 @@ struct DiscoveryView: View {
                                 await reloadCurrentCategory()
                             }
                         }
+                        }
+                        .simultaneousGesture(
+                            DragGesture(minimumDistance: 80)
+                                .onEnded { value in
+                                    guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                                    switchCategory(forward: value.translation.width < 0)
+                                }
+                        )
                     }
                 }
             }
@@ -371,22 +387,43 @@ struct DiscoveryView: View {
                     }
                 }
             }
-            // Sheet chọn nguồn "Phần mở rộng" nâng cao
             .sheet(isPresented: $showingExtensionSelector) {
                 ExtensionSelectorView(
                     activeExtensions: activeExtensions,
                     selectedExtensionId: $selectedExtensionId,
                     extensionSearchQuery: $extensionSearchQuery,
-                    modelContext: modelContext
+                    modelContext: modelContext,
+                    onImport: { detailUrl, packageId, sourceName in
+                        importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                        importedExtensionPackageId = packageId
+                        importedDetailUrl = detailUrl
+                        importedSourceName = sourceName
+                        navigateToImportedBook = true
+                    }
                 )
             }
             .fullScreenCover(isPresented: $showingHeaderWeb) {
                 if let ext = selectedExtension {
                     BypassWebView(
                         urlString: ext.sourceUrl,
-                        localPath: ext.localPath
+                        localPath: ext.localPath,
+                        onImport: { detailUrl, packageId, sourceName in
+                            importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                            importedExtensionPackageId = packageId
+                            importedDetailUrl = detailUrl
+                            importedSourceName = sourceName
+                            navigateToImportedBook = true
+                        }
                     )
                 }
+            }
+            .navigationDestination(isPresented: $navigateToImportedBook) {
+                BookDetailView(
+                    bookId: importedBookId,
+                    extensionPackageId: importedExtensionPackageId,
+                    initialDetailUrl: importedDetailUrl,
+                    sourceName: importedSourceName
+                )
             }
             .onChange(of: isTranslationEnabled) { _, _ in
                 loadDiscoveryData()
@@ -450,6 +487,19 @@ struct DiscoveryView: View {
         }
         
         loadNovels(page: 1)
+    }
+    
+    private var currentCategoryIndex: Int {
+        guard let cat = selectedCategory else { return -1 }
+        return homeItems.firstIndex(where: { $0.id == cat.id }) ?? -1
+    }
+    
+    private func switchCategory(forward: Bool) {
+        let idx = currentCategoryIndex
+        guard idx >= 0 else { return }
+        let newIdx = forward ? idx + 1 : idx - 1
+        guard newIdx >= 0 && newIdx < homeItems.count else { return }
+        withAnimation { selectCategory(homeItems[newIdx]) }
     }
     
     private func loadNovels(page: Int) {
@@ -530,6 +580,7 @@ struct ExtensionSelectorView: View {
     @Binding var selectedExtensionId: String
     @Binding var extensionSearchQuery: String
     let modelContext: ModelContext
+    var onImport: ((_ detailUrl: String, _ extensionPackageId: String, _ sourceName: String) -> Void)? = nil
     
     @State private var configExtension: Extension? = nil
     @State private var showingListWeb = false
@@ -675,7 +726,12 @@ struct ExtensionSelectorView: View {
             .fullScreenCover(isPresented: $showingListWeb) {
                 BypassWebView(
                     urlString: listWebUrl,
-                    localPath: listWebLocalPath
+                    localPath: listWebLocalPath,
+                    onImport: { detailUrl, packageId, sourceName in
+                        showingListWeb = false
+                        dismiss()
+                        onImport?(detailUrl, packageId, sourceName)
+                    }
                 )
             }
         }

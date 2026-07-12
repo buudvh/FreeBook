@@ -1,6 +1,7 @@
 import Foundation
 import ZIPFoundation
 import JavaScriptCore
+import Combine
 
 // MARK: - Helper Structs for Registry
 public struct RegistryResponse: Codable {
@@ -53,8 +54,10 @@ public struct ChapterResult {
 }
 
 // MARK: - Extension Manager
-public final class ExtensionManager {
+public final class ExtensionManager: ObservableObject {
     public static let shared = ExtensionManager()
+    
+    @Published public var loadingStates: [String: Bool] = [:]
     
     private init() {}
     

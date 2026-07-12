@@ -5,7 +5,7 @@ struct ExtensionStoreView: View {
     @Environment(\.modelContext) private var modelContext
     var repository: Repository
     
-    @State private var loadingStates: [String: Bool] = [:] // packageId: isDownloading
+    @ObservedObject private var extensionManager = ExtensionManager.shared
     @State private var errorMessage = ""
     @State private var selectedExtensionForConfig: Extension? = nil
     
@@ -88,7 +88,7 @@ struct ExtensionStoreView: View {
                             Spacer()
                             
                             // Nút Trạng Thái / Cài Đặt
-                            if loadingStates[ext.packageId] == true {
+                            if extensionManager.loadingStates[ext.packageId] == true {
                                 ProgressView()
                                     .frame(width: 60)
                             } else {
@@ -175,7 +175,7 @@ struct ExtensionStoreView: View {
             locale: ext.locale
         )
         
-        loadingStates[ext.packageId] = true
+        extensionManager.loadingStates[ext.packageId] = true
         errorMessage = ""
         
         Task {
@@ -184,12 +184,12 @@ struct ExtensionStoreView: View {
                 await MainActor.run {
                     ext.localPath = localFolder
                     try? modelContext.save()
-                    loadingStates[ext.packageId] = false
+                    extensionManager.loadingStates[ext.packageId] = false
                 }
             } catch {
                 await MainActor.run {
                     errorMessage = "Lỗi cài đặt \(ext.name): \(error.localizedDescription)"
-                    loadingStates[ext.packageId] = false
+                    extensionManager.loadingStates[ext.packageId] = false
                 }
             }
         }

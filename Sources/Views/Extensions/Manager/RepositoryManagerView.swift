@@ -18,7 +18,7 @@ struct RepositoryManagerView: View {
     @State private var selectedRepoId: String = "all" // "all" hoặc repository.url
     @State private var selectedAuthor: String = "all" // "all" hoặc tên tác giả
     @State private var storeSearchQuery: String = ""
-    @State private var loadingStates: [String: Bool] = [:] // packageId: isDownloading
+    @ObservedObject private var extensionManager = ExtensionManager.shared
     @State private var errorMessage = ""
     @State private var selectedExtensionForConfig: Extension? = nil
     
@@ -284,7 +284,7 @@ struct RepositoryManagerView: View {
                                     Spacer()
                                     
                                     // Nút hành động
-                                    if loadingStates[ext.packageId] == true {
+                                    if extensionManager.loadingStates[ext.packageId] == true {
                                         ProgressView()
                                             .frame(width: 60)
                                     } else {
@@ -519,7 +519,7 @@ struct RepositoryManagerView: View {
             locale: ext.locale
         )
         
-        loadingStates[ext.packageId] = true
+        extensionManager.loadingStates[ext.packageId] = true
         errorMessage = ""
         
         Task {
@@ -528,12 +528,12 @@ struct RepositoryManagerView: View {
                 await MainActor.run {
                     ext.localPath = localFolder
                     try? modelContext.save()
-                    loadingStates[ext.packageId] = false
+                    extensionManager.loadingStates[ext.packageId] = false
                 }
             } catch {
                 await MainActor.run {
                     errorMessage = "Lỗi cài đặt \(ext.name): \(error.localizedDescription)"
-                    loadingStates[ext.packageId] = false
+                    extensionManager.loadingStates[ext.packageId] = false
                 }
             }
         }

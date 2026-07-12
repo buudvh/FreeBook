@@ -280,33 +280,31 @@ public final class JSExecutor {
         // Đăng ký các block chạy browser thực tế bằng WKWebView duy trì thực thể
         let browserNewBlock: @convention(block) (String) -> Void = { [weak self] browserId in
             guard let self = self else { return }
-            DispatchQueue.main.async {
+            if Thread.isMainThread {
                 let loader = WebViewLoader()
                 self.activeBrowsers[browserId] = loader
+            } else {
+                DispatchQueue.main.sync {
+                    let loader = WebViewLoader()
+                    self.activeBrowsers[browserId] = loader
+                }
             }
         }
         context.setObject(browserNewBlock, forKeyedSubscript: "_nativeBrowserNew" as NSCopying & NSObjectProtocol)
         
         let browserLaunchBlock: @convention(block) (String, String, Double) -> String = { [weak self] browserId, urlString, timeoutMs in
             guard let self = self else { return "" }
-            let resolvedUrlString = self.cleanAndResolveUrl(urlString)
-            // AppLogger.shared.log("🤖 [JSExecutor.Browser] Launching: \(resolvedUrlString)")
-            guard let url = URL(string: resolvedUrlString) else { return "" }
-            
-            let semaphore = DispatchSemaphore(value: 0)
+            let url = URL(string: self.cleanAndResolveUrl(urlString))!
             var resultHtml = ""
             
+            let semaphore = DispatchSemaphore(value: 0)
             DispatchQueue.main.async {
-                guard let loader = self.activeBrowsers[browserId] else {
-                    semaphore.signal()
-                    return
-                }
+                guard let loader = self.activeBrowsers[browserId] else { semaphore.signal(); return }
                 loader.load(url: url, timeout: timeoutMs / 1000.0) { html in
                     resultHtml = html ?? ""
                     semaphore.signal()
                 }
             }
-            
             _ = semaphore.wait(timeout: .now() + (timeoutMs / 1000.0) + 1.0)
             return resultHtml
         }
@@ -314,20 +312,16 @@ public final class JSExecutor {
         
         let browserGetHtmlBlock: @convention(block) (String) -> String = { [weak self] browserId in
             guard let self = self else { return "" }
-            let semaphore = DispatchSemaphore(value: 0)
             var resultHtml = ""
             
+            let semaphore = DispatchSemaphore(value: 0)
             DispatchQueue.main.async {
-                guard let loader = self.activeBrowsers[browserId] else {
-                    semaphore.signal()
-                    return
-                }
+                guard let loader = self.activeBrowsers[browserId] else { semaphore.signal(); return }
                 loader.getHtml { html in
                     resultHtml = html ?? ""
                     semaphore.signal()
                 }
             }
-            
             _ = semaphore.wait(timeout: .now() + 5.0)
             return resultHtml
         }
@@ -335,28 +329,16 @@ public final class JSExecutor {
         
         let browserCallJsBlock: @convention(block) (String, String, Double) -> String = { [weak self] browserId, script, waitTimeMs in
             guard let self = self else { return "" }
-            let semaphore = DispatchSemaphore(value: 0)
             var resultStr = ""
             
+            let semaphore = DispatchSemaphore(value: 0)
             DispatchQueue.main.async {
-                guard let loader = self.activeBrowsers[browserId] else {
-                    semaphore.signal()
-                    return
-                }
-                loader.callJs(script: script, waitTime: waitTimeMs / 1000.0) { res, err in
+                guard let loader = self.activeBrowsers[browserId] else { semaphore.signal(); return }
+                loader.callJs(script: script, waitTime: waitTimeMs / 1000.0) { res, _ in
                     resultStr = res ?? ""
-                    if let err = err {
-                        let nsErr = err as NSError
-                        if nsErr.domain == WKErrorDomain && nsErr.code == WKError.javaScriptResultTypeIsUnsupported.rawValue {
-                            // AppLogger.shared.log("💬 [JSExecutor.Browser] callJs returned unsupported type (ignored)")
-                        } else {
-                            // AppLogger.shared.log("❌ [JSExecutor.Browser] callJs error: \(err.localizedDescription)")
-                        }
-                    }
                     semaphore.signal()
                 }
             }
-            
             _ = semaphore.wait(timeout: .now() + (waitTimeMs / 1000.0) + 5.0)
             return resultStr
         }
@@ -364,20 +346,16 @@ public final class JSExecutor {
         
         let browserWaitUrlBlock: @convention(block) (String, String, Double) -> Bool = { [weak self] browserId, targetUrl, timeoutMs in
             guard let self = self else { return false }
-            let semaphore = DispatchSemaphore(value: 0)
             var waitSuccess = false
             
+            let semaphore = DispatchSemaphore(value: 0)
             DispatchQueue.main.async {
-                guard let loader = self.activeBrowsers[browserId] else {
-                    semaphore.signal()
-                    return
-                }
+                guard let loader = self.activeBrowsers[browserId] else { semaphore.signal(); return }
                 loader.waitUrl(targetUrl: targetUrl, timeout: timeoutMs / 1000.0) { success in
                     waitSuccess = success
                     semaphore.signal()
                 }
             }
-            
             _ = semaphore.wait(timeout: .now() + (timeoutMs / 1000.0) + 1.0)
             return waitSuccess
         }
@@ -386,8 +364,10 @@ public final class JSExecutor {
         let browserCloseBlock: @convention(block) (String) -> Void = { [weak self] browserId in
             guard let self = self else { return }
             DispatchQueue.main.async {
+                if let loader = self.activeBrowsers[browserId] {
+                    loader.cleanUp()
+                }
                 self.activeBrowsers.removeValue(forKey: browserId)
-                // AppLogger.shared.log("🤖 [JSExecutor.Browser] Closed & deallocated: \(browserId)")
             }
         }
         context.setObject(browserCloseBlock, forKeyedSubscript: "_nativeBrowserClose" as NSCopying & NSObjectProtocol)
@@ -597,6 +577,19 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
     private var completion: ((String?) -> Void)?
     private var waitUrlCompletion: ((Bool) -> Void)?
     private var targetUrlToWait: String?
+    
+    deinit {
+        cleanUp()
+    }
+    
+    func cleanUp() {
+        DispatchQueue.main.async { [weak self] in
+            self?.webView.navigationDelegate = nil
+            self?.webView.stopLoading()
+            self?.completion = nil
+            self?.waitUrlCompletion = nil
+        }
+    }
     
     override init() {
         let config = WKWebViewConfiguration()

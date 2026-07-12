@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 public final class ToastManager: ObservableObject {
     public static let shared = ToastManager()
