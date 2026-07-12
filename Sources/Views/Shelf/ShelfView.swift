@@ -8,6 +8,7 @@ struct ShelfView: View {
     @State private var selectedTab = 1 // 0: Tải trước, 1: Kệ Sách, 2: Lịch Sử
     @State private var showingClearHistoryAlert = false
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    @State private var showingBypassBrowser = false
     
     @State private var shelfLimit = 50
     @State private var historyLimit = 50
@@ -247,20 +248,32 @@ struct ShelfView: View {
             .navigationTitle(selectedTab == 0 ? "Tải Trước" : (selectedTab == 1 ? "Kệ Sách" : "Lịch Sử Đọc"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        isTranslationEnabled.toggle()
-                    }) {
-                        Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
-                    }
-                    
-                    if selectedTab == 2 && !historyBooks.isEmpty {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
                         Button(action: {
-                            showingClearHistoryAlert = true
+                            isTranslationEnabled.toggle()
                         }) {
-                            Image(systemName: "trash")
-                                .foregroundColor(.red)
+                            Label(
+                                isTranslationEnabled ? "Tắt Dịch Nghĩa" : "Bật Dịch Nghĩa",
+                                systemImage: isTranslationEnabled ? "character.bubble.fill" : "character.bubble"
+                            )
                         }
+                        
+                        Button(action: {
+                            showingBypassBrowser = true
+                        }) {
+                            Label("Mở trình duyệt web", systemImage: "globe")
+                        }
+                        
+                        if selectedTab == 2 && !historyBooks.isEmpty {
+                            Button(role: .destructive, action: {
+                                showingClearHistoryAlert = true
+                            }) {
+                                Label("Xóa tất cả lịch sử", systemImage: "trash")
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
                 }
             }
@@ -311,6 +324,12 @@ struct ShelfView: View {
                 if let book = selectedBookForTask {
                     TaskOptionsSheet(book: book, taskType: selectedTaskType)
                 }
+            }
+            .fullScreenCover(isPresented: $showingBypassBrowser) {
+                BypassWebView(
+                    urlString: "https://google.com",
+                    localPath: nil
+                )
             }
         }
     }

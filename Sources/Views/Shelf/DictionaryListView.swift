@@ -17,6 +17,7 @@ struct DictionaryListView: View {
     @State private var toastMessage = ""
     @State private var showingToast = false
     @State private var isToastError = false
+    @State private var showingShareSheet = false
 
     private var isGlobal: Bool { bookId == nil }
 
@@ -182,10 +183,9 @@ struct DictionaryListView: View {
                         }
                         
                         if !allEntries.isEmpty {
-                            ShareLink(
-                                item: exportText(),
-                                preview: SharePreview("Từ điển \(navTitle)", image: Image(systemName: "book"))
-                            ) {
+                            Button {
+                                showingShareSheet = true
+                            } label: {
                                 Label("Xuất từ điển (\(type.displayName))", systemImage: "square.and.arrow.up")
                             }
                         }
@@ -262,6 +262,11 @@ struct DictionaryListView: View {
                     .padding(.bottom, 20)
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .sheet(isPresented: $showingShareSheet) {
+            if let url = exportURL() {
+                ShareSheet(activityItems: [url])
             }
         }
     }
@@ -450,6 +455,19 @@ struct DictionaryListView: View {
         return content
     }
 
+    private func exportURL() -> URL? {
+        let tempDir = FileManager.default.temporaryDirectory
+        let fileName = "\(type.displayName)_\(bookId ?? "Chung").txt"
+        let fileURL = tempDir.appendingPathComponent(fileName)
+        let content = exportText()
+        do {
+            try content.write(to: fileURL, atomically: true, encoding: .utf8)
+            return fileURL
+        } catch {
+            return nil
+        }
+    }
+
     private func showToast(_ message: String, isError: Bool) {
         toastMessage = message
         isToastError = isError
@@ -545,4 +563,15 @@ struct DictEntrySheet: View {
             }
         }
     }
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    var applicationActivities: [UIActivity]? = nil
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }

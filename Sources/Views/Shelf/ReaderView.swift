@@ -713,10 +713,19 @@ struct ReaderView: View {
         }
         
         // 2. Global Names
-        if let names = manager.namesDict,
-           let match = names.findLongestMatch(text: word, startIndex: 0),
+        var namesTranslation: String? = nil
+        if let customNames = manager.customNamesDict,
+           let match = customNames.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
-            matches.append(DictionaryMatchInfo(source: "Names (Chung)", translation: match.value))
+            namesTranslation = match.value
+        } else if !manager.deletedNames.contains(word),
+                  let names = manager.namesDict,
+                  let match = names.findLongestMatch(text: word, startIndex: 0),
+                  match.length == word.count {
+            namesTranslation = match.value
+        }
+        if let trans = namesTranslation {
+            matches.append(DictionaryMatchInfo(source: "Names (Chung)", translation: trans))
         }
         
         // 3. Pronouns
@@ -741,10 +750,19 @@ struct ReaderView: View {
         }
         
         // 6. Global VietPhrase
-        if let vp = manager.vietPhraseDict,
-           let match = vp.findLongestMatch(text: word, startIndex: 0),
+        var vpTranslation: String? = nil
+        if let customVP = manager.customVietPhraseDict,
+           let match = customVP.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
-            matches.append(DictionaryMatchInfo(source: "VietPhrase (Chung)", translation: match.value))
+            vpTranslation = match.value
+        } else if !manager.deletedVietPhrase.contains(word),
+                  let vp = manager.vietPhraseDict,
+                  let match = vp.findLongestMatch(text: word, startIndex: 0),
+                  match.length == word.count {
+            vpTranslation = match.value
+        }
+        if let trans = vpTranslation {
+            matches.append(DictionaryMatchInfo(source: "VietPhrase (Chung)", translation: trans))
         }
         
         // 7. PhienAm
