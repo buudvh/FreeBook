@@ -27,21 +27,26 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
 }
 
 struct ReaderView: View {
+    // static variables: Dùng làm biến toàn cục của class để lưu trạng thái chương/sách đang phát TTS
     public static var activeBookId: String? = nil
     public static var activeChapterIndex: Int = -1
 
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
-    @Query private var allBooks: [Book]
-    @Query private var allExtensions: [Extension]
+    // @Environment: Lấy các biến môi trường của hệ thống
+    @Environment(\.modelContext) private var modelContext // Context quản lý dữ liệu SwiftData
+    @Environment(\.dismiss) private var dismiss // Hàm dùng để đóng màn hình hiện tại và quay về màn hình trước
     
-    let bookId: String
-    let extensionPackageId: String
+    // @Query: Tự động tải dữ liệu từ database SwiftData
+    @Query private var allBooks: [Book] // Tất cả sách trong máy
+    @Query private var allExtensions: [Extension] // Tất cả các tiện ích (extensions) đã cài đặt
     
-    @State var chapterIndex: Int
-    let onlineChapters: [ChapterResult] // Truyền vào nếu đang đọc online
+    let bookId: String // ID cuốn sách đang đọc
+    let extensionPackageId: String // ID extension phụ trách bóc tách nội dung cuốn sách này
     
-    // Thông tin sách để tự tạo trong DB nếu chưa có (khi đọc online)
+    // @State: Biến trạng thái nội bộ của View, khi thay đổi sẽ tự động cập nhật giao diện
+    @State var chapterIndex: Int // Chỉ mục chương hiện tại đang đọc
+    let onlineChapters: [ChapterResult] // Danh sách chương nếu đang đọc trực tuyến (online)
+    
+    // Các thông tin sách truyền vào khi đọc trực tuyến để tự động tạo sách trong Database khi cần thiết
     let bookTitle: String?
     let bookAuthor: String?
     let bookCoverUrl: String?
@@ -49,41 +54,41 @@ struct ReaderView: View {
     let bookDetailUrl: String?
     let bookSourceName: String?
     
-    @State private var isLoading = true
-    @State private var errorMessage = ""
-    @State private var chapterTitle = ""
-    @State private var chapterContent = ""
-    @State private var showChapterTitle = true
+    @State private var isLoading = true // Trạng thái đang tải nội dung
+    @State private var errorMessage = "" // Thông báo lỗi nếu tải chương thất bại
+    @State private var chapterTitle = "" // Tiêu đề chương hiển thị
+    @State private var chapterContent = "" // Nội dung chương hiển thị
+    @State private var showChapterTitle = true // Ẩn/Hiện tiêu đề chương trên đầu màn hình đọc
     
-    @State private var originalTitle = ""
-    @State private var originalContent = ""
+    @State private var originalTitle = "" // Tiêu đề chương gốc (thường là tiếng Trung)
+    @State private var originalContent = "" // Nội dung chương gốc
     
-    // Highlight & Define
-    @State private var selectedTextForDefinition = ""
-    @State private var showingDefinitionSheet = false
-    @State private var customMeaning = ""
+    // Các biến trạng thái hỗ trợ bôi đen từ/câu để tra cứu từ điển
+    @State private var selectedTextForDefinition = "" // Từ/Câu đang được bôi đen chọn tra từ
+    @State private var showingDefinitionSheet = false // Hiện hộp thoại tra nghĩa từ điển
+    @State private var customMeaning = "" // Nghĩa tự định nghĩa của người dùng lưu lại
     @AppStorage("saveToBookSpecific") private var saveToBookSpecific = true
     @AppStorage("saveAsNameType") private var saveAsNameType = false
     
-    // Advanced Highlight Translation Editor
+    // Các cấu hình tra từ nâng cao và hiển thị
     @State private var originalSentence = ""
     @State private var selectedWordOffset = 0
     @State private var selectedWordLength = 0
     @State private var searchEngines: [SearchEngine] = []
-    @State private var translationMode: String = "VP" // "VP" or "HV"
+    @State private var translationMode: String = "VP" // Dịch dạng: "VP" (Vietphrase) hoặc "HV" (Hán Việt)
     @State private var translationTokens: [TranslationWordToken] = []
     @State private var dictionaryMatches: [DictionaryMatchInfo] = []
     @State private var showingManageDefinitionsSheet = false
     
-    // Tùy chọn giao diện đọc (Novel)
-    @AppStorage("readerFontSize") private var fontSize: Double = 20.0
-    @AppStorage("readerLineSpacing") private var lineSpacing: Double = 10.0
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
-    @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
+    // Cấu hình giao diện đọc (lưu trữ lâu dài qua UserDefaults nhờ @AppStorage)
+    @AppStorage("readerFontSize") private var fontSize: Double = 20.0 // Cỡ chữ của văn bản đọc
+    @AppStorage("readerLineSpacing") private var lineSpacing: Double = 10.0 // Khoảng cách giữa các dòng
+    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false // Trạng thái bật/tắt tự động dịch thuật
+    @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark // Theme giao diện đọc (Sáng, Trầm ấm, Tối)
     @AppStorage("hasOpenedReader") private var hasOpenedReader = false
-    @State private var showingSettings = false
+    @State private var showingSettings = false // Hiện bảng cài đặt font chữ, màu nền
     
-    // Trình duyệt bypass Cloudflare & Import
+    // Trạng thái bypass Cloudflare và import sách
     @State private var showingBypassBrowser = false
     @State private var showingLookupBrowser = false
     @State private var lookupUrlString = ""
@@ -94,9 +99,9 @@ struct ReaderView: View {
     @State private var navigateToBookDetail = false
     @State private var isGoingNext = true
     
-    // TTS Configurations & State
+    // TTS (Giọng đọc): Sử dụng @StateObject để giữ vòng đời của đối tượng TTSManager.shared không bị hủy khi đổi chương
     @StateObject private var ttsManager = TTSManager.shared
-    @State private var ttsShouldAutoPlayNextChapter = false
+    @State private var ttsShouldAutoPlayNextChapter = false // Tự động phát tiếp khi chuyển chương
     @State private var ttsResumeParagraphIndex: Int? = nil
     @State private var triggerGetVisibleIndex: UUID? = nil
     @State private var prefetchTask: Task<Void, Never>? = nil
@@ -1020,21 +1025,25 @@ struct ReaderView: View {
             .joined(separator: "\n")
     }
 
+    // loadChapterContent: Hàm tải nội dung chương truyện (hỗ trợ đọc offline từ DB hoặc tải trực tuyến thông qua extension JS)
     private func loadChapterContent(index: Int) {
         guard index >= 0 && index < totalChaptersCount else { return }
         
         let info: (title: String, url: String)
         if let book = localBook {
+            // Sách local: Lấy chương tương ứng trong cơ sở dữ liệu
             let sorted = book.chapters.sorted(by: { $0.index < $1.index })
             guard index < sorted.count else { return }
             let chap = sorted[index]
             info = (chap.title, chap.url)
         } else {
+            // Sách đọc online: Lấy chương từ danh sách onlineChapters
             guard index < currentOnlineChapters.count else { return }
             let chap = currentOnlineChapters[index]
             info = (chap.name, chap.url)
         }
         
+        // Cập nhật trạng thái loading của chương truyện trong danh sách đang hiển thị
         if let idx = loadedChapters.firstIndex(where: { $0.index == index }) {
             loadedChapters[idx].isLoading = true
             loadedChapters[idx].errorMessage = ""
@@ -1057,11 +1066,13 @@ struct ReaderView: View {
             }
         }
         
+        // Nếu sách đã được lưu local, kiểm tra xem nội dung chương đã được tải về (isCached) chưa
         if let book = localBook {
             let sorted = book.chapters.sorted(by: { $0.index < $1.index })
             if index < sorted.count {
                 let chap = sorted[index]
                 if chap.isCached, let content = chap.content, !content.isEmpty {
+                    // Nếu đã tải offline, làm sạch mã HTML dư thừa và tiến hành áp dụng dịch tự động (Hán Việt/Vietphrase)
                     let cleanedContent = cleanBlankLines(in: content.cleanHTML())
                     applyTranslationForChapter(index: index, originalTitle: info.title, originalContent: cleanedContent)
                     return
@@ -1069,18 +1080,23 @@ struct ReaderView: View {
             }
         }
         
+        // Nếu chưa tải offline, kiểm tra xem có extension để cào web không
         guard let ext = ext else {
             updateChapterError(index: index, message: "Không tìm thấy tiện ích bóc tách!")
             return
         }
         
+        // Task: Chạy tiến trình nền không đồng bộ để tải nội dung từ internet bằng extension JS mà không gây đơ ứng dụng
         Task {
             do {
+                // Gọi extension JS bóc tách nội dung chương từ nguồn web
                 let content = try await ExtensionManager.shared.chap(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: info.url, configJson: ext.configJson)
                 let cleanedContent = cleanBlankLines(in: content.cleanHTML())
                 
+                // Trở về Main Thread để cập nhật dữ liệu và UI một cách an toàn
                 await MainActor.run {
                     if let book = localBook {
+                        // Lưu lại nội dung chương vừa tải vào Database để lần sau đọc offline
                         let sorted = book.chapters.sorted(by: { $0.index < $1.index })
                         if index < sorted.count {
                             let chap = sorted[index]
@@ -1089,13 +1105,16 @@ struct ReaderView: View {
                             try? modelContext.save()
                         }
                     } else {
+                        // Tải online lần đầu, tự động lưu thông tin sách vào database nếu người dùng muốn lưu
                         saveOnlineBookIfNeeded(currentIndex: index, cleanedContent: cleanedContent, info: info)
                     }
                     
+                    // Thực hiện dịch thuật tự động hiển thị lên màn hình
                     applyTranslationForChapter(index: index, originalTitle: info.title, originalContent: cleanedContent)
                 }
             } catch {
                 await MainActor.run {
+                    // Cập nhật thông báo lỗi nếu quá trình tải thất bại (hết mạng, lỗi script...)
                     updateChapterError(index: index, message: error.localizedDescription)
                 }
             }
@@ -1858,7 +1877,7 @@ extension ReaderView {
                 Button(action: {
                     showingBypassBrowser = true
                 }) {
-                    Label("Mở bằng trình duyệt (Bypass)", systemImage: "safari")
+                    Label("Mở bằng trình duyệt", systemImage: "safari")
                 }
                 
                 Button(action: {
@@ -1936,7 +1955,7 @@ extension ReaderView {
                         Button(action: {
                             showingBypassBrowser = true
                         }) {
-                            Label("Mở bằng trình duyệt (Bypass)", systemImage: "safari")
+                            Label("Mở bằng trình duyệt", systemImage: "safari")
                         }
                         
                         Button(action: {

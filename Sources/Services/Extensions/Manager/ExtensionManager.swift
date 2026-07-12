@@ -145,15 +145,18 @@ public final class ExtensionManager: ObservableObject {
         try? FileManager.default.removeItem(at: url)
     }
     
-    // Đọc cấu trúc plugin.json nội bộ để lấy đường dẫn file script JS
+    // getScriptPath: Đọc cấu trúc tệp cấu hình plugin.json để xác định đường dẫn thực tế của file script JS cần chạy
+    // Hỗ trợ tìm kiếm dự phòng (fallback) cả ở thư mục gốc của extension lẫn thư mục src/
     private func getScriptPath(extensionPath: String, scriptKey: String) throws -> URL {
         let extUrl = URL(fileURLWithPath: extensionPath)
         let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
         
+        // Kiểm tra sự tồn tại của file cấu hình plugin.json
         guard FileManager.default.fileExists(atPath: pluginJsonUrl.path) else {
             throw NSError(domain: "ExtensionManager", code: -3, userInfo: [NSLocalizedDescriptionKey: "plugin.json not found inside extension"])
         }
         
+        // Đọc nội dung plugin.json và lấy tên file script tương ứng với scriptKey (ví dụ: search, detail, chap)
         let data = try Data(contentsOf: pluginJsonUrl)
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let script = json["script"] as? [String: Any],
@@ -161,19 +164,19 @@ public final class ExtensionManager: ObservableObject {
             throw NSError(domain: "ExtensionManager", code: -4, userInfo: [NSLocalizedDescriptionKey: "Script key '\(scriptKey)' not defined"])
         }
         
-        // 1. Thử đường dẫn gốc
+        // Cách 1: Thử tìm trực tiếp ở thư mục gốc của extension
         let scriptUrl = extUrl.appendingPathComponent(scriptFileName)
         if FileManager.default.fileExists(atPath: scriptUrl.path) {
             return scriptUrl
         }
         
-        // 2. Thử đường dẫn trong thư mục src/
+        // Cách 2: Tìm dự phòng bên trong thư mục con src/ (cấu trúc phổ biến của VBook Extension)
         let srcScriptUrl = extUrl.appendingPathComponent("src").appendingPathComponent(scriptFileName)
         if FileManager.default.fileExists(atPath: srcScriptUrl.path) {
             return srcScriptUrl
         }
         
-        // Không tìm thấy ở cả hai nơi
+        // Trả về lỗi nếu không tìm thấy file script ở cả 2 vị trí trên
         throw NSError(domain: "ExtensionManager", code: -5, userInfo: [NSLocalizedDescriptionKey: "Script file '\(scriptFileName)' not found in root or src/"])
     }
     
@@ -228,27 +231,33 @@ public final class ExtensionManager: ObservableObject {
     
     // MARK: - Chạy Script JS bóc tách dữ liệu
     
-    // Tìm kiếm truyện
+    // search: Gọi script JS tìm kiếm sách từ nguồn truyện.
+    // Trả về một mảng chứa thông tin sách tìm kiếm được [SearchNovelResult]
     public func search(localPath: String, downloadUrl: String = "", query: String, page: Int, configJson: String = "{}") async throws -> [SearchNovelResult] {
-        // AppLogger.shared.log("🔍 [ExtensionManager] search called. localPath: \(localPath), query: \(query), page: \(page)")
+        // Lấy đường dẫn file script JS tìm kiếm ("search")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "search")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
+        // Khởi tạo bộ thực thi Javascript (JSExecutor)
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
+        // Nạp và gộp các cấu hình của extension (mặc định + người dùng tuỳ chỉnh)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
-        executor.injectGlobals(configs)
+        executor.injectGlobals(configs) // Tiêm các hàm global (Html, fetch, Response, Console) vào JSContext
         
         do {
+            // Chạy hàm "execute(query, page)" bất đồng bộ bên trong JS Engine
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [query, String(page)])
             let stringified = stringify(jsValue)
-            AppLogger.shared.log("📝 [ExtensionManager] search raw JS result: \(stringified)")
+            // AppLogger.shared.log("📝 [ExtensionManager] search raw JS result: \(stringified)")
             
+            // Ép kiểu kết quả trả về của JS thành mảng
             guard let jsArray = jsValue.toArray() else {
                 // AppLogger.shared.log("⚠️ [ExtensionManager] search returned non-array result or null")
                 updateDiagnostics(action: "search", input: "query: \(query), page: \(page)", status: "Success (Empty)", details: "Returned non-array result")
                 return []
             }
             
+            // Duyệt qua mảng kết quả JS để ánh xạ sang cấu trúc dữ liệu SearchNovelResult của Swift
             var results: [SearchNovelResult] = []
             for item in jsArray {
                 if let dict = item as? [String: Any] {
@@ -260,8 +269,6 @@ public final class ExtensionManager: ObservableObject {
                     let host = dict["host"] as? String ?? ""
                     
                     guard !link.isEmpty else { continue }
-                    
-                    // No on-the-fly translation during parsing to preserve raw Chinese in memory/DB
                     
                     results.append(SearchNovelResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
                 }
@@ -289,7 +296,7 @@ public final class ExtensionManager: ObservableObject {
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
             let stringified = stringify(jsValue)
-            AppLogger.shared.log("📝 [ExtensionManager] detail raw JS result: \(stringified)")
+            // AppLogger.shared.log("📝 [ExtensionManager] detail raw JS result: \(stringified)")
             
             guard let dict = jsValue.toDictionary() as? [String: Any] else {
                 // AppLogger.shared.log("❌ [ExtensionManager] detail returned non-dictionary result or null")
@@ -332,7 +339,7 @@ public final class ExtensionManager: ObservableObject {
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
             let stringified = stringify(jsValue)
-            AppLogger.shared.log("📝 [ExtensionManager] toc raw JS result: \(stringified)")
+            // AppLogger.shared.log("📝 [ExtensionManager] toc raw JS result: \(stringified)")
             
             let jsArray = toDictionaryArray(jsValue)
 
@@ -412,7 +419,7 @@ public final class ExtensionManager: ObservableObject {
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
             let stringified = stringify(jsValue)
-            AppLogger.shared.log("📝 [ExtensionManager] chap raw JS result length: \(stringified.count)")
+            // AppLogger.shared.log("📝 [ExtensionManager] chap raw JS result length: \(stringified.count)")
             
             var resultStr = ""
             if jsValue.isArray {
@@ -450,7 +457,7 @@ public final class ExtensionManager: ObservableObject {
             
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
             let stringified = stringify(jsValue)
-            AppLogger.shared.log("📝 [ExtensionManager] genre raw JS result: \(stringified)")
+            // AppLogger.shared.log("📝 [ExtensionManager] genre raw JS result: \(stringified)")
             
             var results: [CategoryResult] = []
             
@@ -508,7 +515,7 @@ public final class ExtensionManager: ObservableObject {
             
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
             let stringified = stringify(jsValue)
-            AppLogger.shared.log("📝 [ExtensionManager] home raw JS result: \(stringified)")
+            // AppLogger.shared.log("📝 [ExtensionManager] home raw JS result: \(stringified)")
             
             var results: [CategoryResult] = []
             
@@ -573,7 +580,7 @@ public final class ExtensionManager: ObservableObject {
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [formattedInput, pageArg])
             let stringified = stringify(jsValue)
-            AppLogger.shared.log("📝 [ExtensionManager] custom script raw JS result: \(stringified)")
+            // AppLogger.shared.log("📝 [ExtensionManager] custom script raw JS result: \(stringified)")
             
             guard let jsArray = jsValue.toArray() else {
                 // AppLogger.shared.log("⚠️ [ExtensionManager] custom script returned non-array result or null")

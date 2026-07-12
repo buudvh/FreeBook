@@ -135,9 +135,12 @@ final class ONNXPiperEngine: PiperEngine {
         }
     }
 
+    /// synthesize: Hàm tổng hợp giọng nói từ văn bản bằng mô hình Piper và ONNX Runtime offline.
+    /// Đầu ra trả về là dữ liệu nhị phân (Data) của file WAV âm thanh hoàn chỉnh.
     func synthesize(text: String, modelONNX: URL, modelConfig: URL, speed: Double) async throws -> Data {
-        AppLogger.shared.log("🤖 [ONNXPiperEngine] Bắt đầu tổng hợp âm thanh...")
-        // 1. Đọc và phân tích cú pháp tệp cấu hình JSON
+        // AppLogger.shared.log("🤖 [ONNXPiperEngine] Bắt đầu tổng hợp âm thanh...")
+        
+        // 1. Đọc và phân tích cú pháp tệp cấu hình JSON của Piper
         guard let configData = try? Data(contentsOf: modelConfig) else {
             AppLogger.shared.log("🤖 [ONNXPiperEngine] LỖI: Không thể đọc cấu hình mô hình tại \(modelConfig.lastPathComponent)")
             throw TTSError.internalError("Cannot read Piper config file: \(modelConfig.lastPathComponent)")
@@ -149,18 +152,19 @@ final class ONNXPiperEngine: PiperEngine {
             throw TTSError.internalError("Failed to parse Piper config file: \(modelConfig.lastPathComponent)")
         }
         
+        // Tần số mẫu (Sample Rate) mặc định của Piper thường là 22050Hz
         let sampleRate = config.audio?.sample_rate ?? 22050
-        AppLogger.shared.log("🤖 [ONNXPiperEngine] Tần số mẫu: \(sampleRate)")
+        // AppLogger.shared.log("🤖 [ONNXPiperEngine] Tần số mẫu: \(sampleRate)")
         
-        // Xác định các ký tự đặc biệt
-        let padId = phonemeIdMap["_"]?.first ?? 0
-        let bosId = phonemeIdMap["^"]?.first ?? 1
-        let eosId = phonemeIdMap["$"]?.first ?? 2
+        // Xác định các ký tự đặc biệt theo quy chuẩn mô hình VITS:
+        let padId = phonemeIdMap["_"]?.first ?? 0  // Ký tự đệm trống (Padding ID)
+        let bosId = phonemeIdMap["^"]?.first ?? 1  // Ký tự bắt đầu câu (Beginning of Sentence ID)
+        let eosId = phonemeIdMap["$"]?.first ?? 2  // Ký tự kết thúc câu (End of Sentence ID)
         
-        // Lấy môi trường và Session từ cache (hoặc khởi tạo mới nếu đổi model)
-        AppLogger.shared.log("🤖 [ONNXPiperEngine] Đang nạp session cho model: \(modelONNX.lastPathComponent)...")
+        // 2. Lấy môi trường và Session từ cache (hoặc khởi tạo mới nếu đổi model)
+        // AppLogger.shared.log("🤖 [ONNXPiperEngine] Đang nạp session cho model: \(modelONNX.lastPathComponent)...")
         let (_, session) = try getSession(modelONNX: modelONNX)
-        AppLogger.shared.log("🤖 [ONNXPiperEngine] Đã nạp session thành công.")
+        // AppLogger.shared.log("🤖 [ONNXPiperEngine] Đã nạp session thành công.")
         
         let inputNames = try session.inputNames()
         let outputNames = try session.outputNames()
@@ -169,36 +173,38 @@ final class ONNXPiperEngine: PiperEngine {
             throw TTSError.internalError("Model has no output names.")
         }
         
-        // Tách câu để xử lý tuần tự kèm theo thông tin dấu câu để chèn khoảng lặng tĩnh
+        // 3. Tách đoạn văn bản thành các câu nhỏ dựa trên dấu câu (ví dụ: chấm, phẩy, chấm hỏi)
+        // Việc tổng hợp tuần tự từng câu nhỏ giúp mô hình xử lý nhanh hơn và hạn chế lỗi ngắt chữ
         let chunks = chunkTextWithPunctuation(text)
         guard !chunks.isEmpty else {
-            AppLogger.shared.log("🤖 [ONNXPiperEngine] Văn bản rỗng hoặc chỉ toàn dấu câu, trả về khoảng lặng.")
+            // AppLogger.shared.log("🤖 [ONNXPiperEngine] Văn bản rỗng hoặc chỉ toàn dấu câu, trả về khoảng lặng.")
             return WAVEncoder.encodePCM16(samples: [], sampleRate: sampleRate, channels: 1)
         }
         
-        var mergedSamples: [Float] = []
-        let minSamples = Int(Double(sampleRate) * 0.02) // 20ms safety margin
+        var mergedSamples: [Float] = [] // Mảng PCM chứa toàn bộ âm thanh của đoạn sau khi ghép các câu
+        let minSamples = Int(Double(sampleRate) * 0.02) // Giới hạn biên độ an toàn 20ms
         
         for (index, chunk) in chunks.enumerated() {
-            // Chuyển văn bản sang âm vị sử dụng eSpeak NG cho từng câu
+            // Chuyển văn bản của câu hiện tại sang âm vị (Phonemes) tiếng Việt bằng eSpeak NG
             let processedText = chunk.text
-            AppLogger.shared.log("🤖 [ONNXPiperEngine] Đang xử lý câu \(index + 1)/\(chunks.count): '\(processedText)'")
+            // AppLogger.shared.log("🤖 [ONNXPiperEngine] Đang xử lý câu \(index + 1)/\(chunks.count): '\(processedText)'")
             
-            AppLogger.shared.log("🤖 [ONNXPiperEngine] Gọi EspeakPhonemizer.phonemize...")
+            // AppLogger.shared.log("🤖 [ONNXPiperEngine] Gọi EspeakPhonemizer.phonemize...")
             let rawPhonemes = try EspeakPhonemizer.phonemize(text: processedText)
-            AppLogger.shared.log("🤖 [ONNXPiperEngine] Gọi EspeakPhonemizer.phonemize xong: '\(rawPhonemes)'")
+            // AppLogger.shared.log("🤖 [ONNXPiperEngine] Gọi EspeakPhonemizer.phonemize xong: '\(rawPhonemes)'")
             
-            // Làm sạch các ký tự điều khiển của eSpeak
+            // Loại bỏ các ký hiệu ngôn ngữ dư thừa sinh ra từ eSpeak
             let phonemes = rawPhonemes
                 .replacingOccurrences(of: "(en)", with: "")
                 .replacingOccurrences(of: "(vi)", with: "")
             
-            // Ánh xạ âm vị sang mảng Phoneme IDs theo chuẩn VITS (BOS, PAD, P1, PAD, P2, ..., EOS)
+            // Ánh xạ chuỗi âm vị sang mảng Phoneme IDs theo chuẩn VITS (quy tắc: xen kẽ ký tự đệm PAD)
+            // Cấu trúc mảng IDs: [BOS, PAD, P1, PAD, P2, ..., PAD, EOS]
             var phonemeIds: [Int64] = []
             phonemeIds.append(Int64(bosId))
             phonemeIds.append(Int64(padId))
             
-            // Duyệt theo từng Unicode Scalar để tránh tách sai các ký tự ghép trong IPA
+            // Duyệt theo từng ký tự Unicode Scalar của chuỗi âm vị
             for scalar in phonemes.unicodeScalars {
                 let phonemeStr = String(scalar)
                 if let ids = phonemeIdMap[phonemeStr] {
@@ -212,8 +218,9 @@ final class ONNXPiperEngine: PiperEngine {
             }
             phonemeIds.append(Int64(eosId))
             
-            // Chuẩn bị các Tensor đầu vào
-            // Input 1: "input" -> shape [1, phoneme_count]
+            // 4. Khởi tạo các Tensors đầu vào cho mô hình ONNX
+            
+            // Tensor 1: "input" -> shape [1, phoneme_count] chứa danh sách Phoneme IDs
             let inputShape: [NSNumber] = [1, NSNumber(value: phonemeIds.count)]
             let inputData = phonemeIds.withUnsafeBufferPointer { buffer in
                 guard let baseAddress = buffer.baseAddress else { return Data() }
@@ -226,7 +233,7 @@ final class ONNXPiperEngine: PiperEngine {
                 shape: inputShape
             )
             
-            // Input 2: "input_lengths" -> shape [1]
+            // Tensor 2: "input_lengths" -> shape [1] chứa độ dài thực tế của mảng Phoneme IDs
             let inputLengthValue: Int64 = Int64(phonemeIds.count)
             let lengthShape: [NSNumber] = [1]
             let lengthData = withUnsafePointer(to: inputLengthValue) { ptr in
@@ -239,7 +246,8 @@ final class ONNXPiperEngine: PiperEngine {
                 shape: lengthShape
             )
             
-            // Input 3: "scales" -> shape [3] -> [noise_scale, length_scale, noise_w]
+            // Tensor 3: "scales" -> shape [3] chứa các tham số: [noise_scale, length_scale, noise_w]
+            // length_scale được tính bằng 1.0 / speed để thay đổi tốc độ đọc phù hợp
             let noiseScale: Float = 0.667
             let lengthScale: Float = Float(1.0 / speed)
             let noiseW: Float = 0.8
@@ -262,7 +270,7 @@ final class ONNXPiperEngine: PiperEngine {
                 "scales": scalesTensor
             ]
             
-            // Hỗ trợ model đa giọng đọc (Multi-speaker) nếu có yêu cầu "sid" (Speaker ID)
+            // Hỗ trợ model đa giọng đọc (Multi-speaker) bằng cách tiêm thêm tensor "sid" (Speaker ID) nếu mô hình yêu cầu
             var sidNSMutableData: NSMutableData? = nil
             if inputNames.contains("sid") {
                 let speakerId: Int64 = 0
@@ -280,16 +288,16 @@ final class ONNXPiperEngine: PiperEngine {
                 feeds["sid"] = sidTensor
             }
             
-            // Chạy suy luận (Run Inference)
-            AppLogger.shared.log("🤖 [ONNXPiperEngine] Đang chạy session.run cho câu \(index + 1)...")
+            // 5. Chạy suy luận (Run Inference) bằng ONNX Runtime để sinh âm thanh
+            // AppLogger.shared.log("🤖 [ONNXPiperEngine] Đang chạy session.run cho câu \(index + 1)...")
             let outputs = try session.run(
                 withInputs: feeds,
                 outputNames: Set([firstOutputName]),
                 runOptions: nil
             )
-            AppLogger.shared.log("🤖 [ONNXPiperEngine] session.run thành công cho câu \(index + 1).")
+            // AppLogger.shared.log("🤖 [ONNXPiperEngine] session.run thành công cho câu \(index + 1).")
             
-            // Kéo dài vòng đời của NSMutableData thủ công để tránh ARC giải phóng trước session.run kết thúc
+            // Giữ lại tham chiếu của NSMutableData để tránh ARC giải phóng bộ nhớ trước khi session.run kết thúc
             _ = inputNSMutableData
             _ = lengthNSMutableData
             _ = scalesNSMutableData
@@ -302,20 +310,19 @@ final class ONNXPiperEngine: PiperEngine {
                 throw TTSError.internalError("Model did not return speech '\(firstOutputName)' tensor.")
             }
             
+            // 6. Trích xuất dữ liệu nhịp Float PCM [-1.0, 1.0] thu được từ mô hình
             let outputData = try outputValue.tensorData() as Data
-            
-            // Chuyển đổi dữ liệu sang mảng PCM Float [-1.0, 1.0]
             let samplesCount = outputData.count / MemoryLayout<Float>.size
             var chunkSamples = [Float](repeating: 0.0, count: samplesCount)
             _ = chunkSamples.withUnsafeMutableBytes { samplesBuffer in
                 outputData.copyBytes(to: samplesBuffer)
             }
             
-            // Cắt khoảng lặng cho phân đoạn
+            // Cắt bớt phần khoảng lặng thừa ở đầu và cuối của câu tự phát sinh bởi AI
             let trimmedChunk = trimSilence(chunkSamples, threshold: 0.002, minSamples: minSamples)
             mergedSamples.append(contentsOf: trimmedChunk)
             
-            // Chèn khoảng lặng tĩnh dựa theo dấu câu và tốc độ (chỉ chèn nếu chưa phải là chunk cuối)
+            // Chèn thêm khoảng lặng tĩnh dựa theo dấu câu thực tế (ví dụ: dấu phẩy nghỉ ngắn, dấu chấm nghỉ dài hơn)
             if index < chunks.count - 1 {
                 let pauseDurationSec = self.pauseDuration(for: chunk.punctuation)
                 if pauseDurationSec > 0.0 {
@@ -329,7 +336,8 @@ final class ONNXPiperEngine: PiperEngine {
             }
         }
         
-        // Chèn khoảng lặng tĩnh ở cuối đoạn (paragraph pause) để tạo khoảng nghỉ tự nhiên và tránh bị cắt chữ khi player dừng đột ngột
+        // 7. Chèn khoảng lặng tĩnh bổ sung ở cuối đoạn văn bản (Paragraph Pause)
+        // Tạo quãng nghỉ tự nhiên và giúp AVAudioEngine không bị dừng đột ngột cắt cụt chữ cuối
         let paragraphPauseSec = UserDefaults.standard.double(forKey: "paragraphPauseDuration")
         let actualParagraphPause = paragraphPauseSec > 0 ? paragraphPauseSec : 0.5
         let scaledParagraphPause = actualParagraphPause / max(0.1, speed)
@@ -339,20 +347,20 @@ final class ONNXPiperEngine: PiperEngine {
             mergedSamples.append(contentsOf: silenceSamples)
         }
         
-        // Chuẩn bị kết quả
-        AppLogger.shared.log("🤖 [ONNXPiperEngine] Chuẩn hóa đỉnh âm lượng...")
-        // Chuẩn hóa đỉnh âm lượng
+        // 8. Chuẩn hóa đỉnh âm lượng (Peak Normalization) lên ngưỡng 0.9
+        // Đảm bảo biên độ âm lượng của các đoạn đọc đều nhau, không bị rè hoặc quá nhỏ
+        // AppLogger.shared.log("🤖 [ONNXPiperEngine] Chuẩn hóa đỉnh âm lượng...")
         normalizePeak(&mergedSamples, target: 0.9)
         
-        AppLogger.shared.log("🤖 [ONNXPiperEngine] Đang đóng gói thành tệp WAV...")
-        // Đóng gói thành tệp WAV
+        // 9. Đóng gói chuỗi Float PCM thành file WAV 16-bit Mono tiêu chuẩn
+        // AppLogger.shared.log("🤖 [ONNXPiperEngine] Đang đóng gói thành tệp WAV...")
         let wavData = WAVEncoder.encodePCM16(
             samples: mergedSamples,
             sampleRate: sampleRate,
             channels: 1
         )
         
-        AppLogger.shared.log("🤖 [ONNXPiperEngine] Tổng hợp hoàn tất. Dung lượng: \(wavData.count) bytes")
+        // AppLogger.shared.log("🤖 [ONNXPiperEngine] Tổng hợp hoàn tất. Dung lượng: \(wavData.count) bytes")
         return wavData
     }
 }

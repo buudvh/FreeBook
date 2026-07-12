@@ -41,10 +41,30 @@ struct BypassWebView: View {
     private func generateHomeHtml() -> String {
         let bookExts = bookExtensions
         var extsHtml = ""
+        
+        let fallbackIconBase64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDdhZmYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMjEgMTZWOGEyIDIgMCAwIDAtMS0xLjczbC03LTRhMiAyIDAgMCAwLTIgMGwtNyA0QTIgMiAwIDAgMCAzIDh2OGEyIDIgMCAwIDAgMSAxLjczbDcgNGEyIDIgMCAwIDAgMiAwbDctNGEyIDIgMCAwIDAgMS0xLzczeiI+PC9wYXRoPjwvc3ZnPg=="
+        
         for ext in bookExts {
+            var iconSrc = fallbackIconBase64
+            if !ext.localPath.isEmpty {
+                let iconPath = URL(fileURLWithPath: ext.localPath).appendingPathComponent("icon.png").path
+                if FileManager.default.fileExists(atPath: iconPath),
+                   let data = try? Data(contentsOf: URL(fileURLWithPath: iconPath)) {
+                    let base64 = data.base64EncodedString()
+                    iconSrc = "data:image/png;base64,\(base64)"
+                } else if let iconUrl = ext.iconUrl, !iconUrl.isEmpty {
+                    iconSrc = iconUrl
+                }
+            } else if let iconUrl = ext.iconUrl, !iconUrl.isEmpty {
+                iconSrc = iconUrl
+            }
+            
             extsHtml += """
             <a class="card" href="\(ext.sourceUrl)">
-                <div class="ext-name">\(ext.name)</div>
+                <div class="ext-header">
+                    <img class="ext-icon" src="\(iconSrc)" onerror="this.onerror=null; this.src='\(fallbackIconBase64)';"/>
+                    <div class="ext-name">\(ext.name)</div>
+                </div>
                 <div class="ext-url">\(ext.sourceUrl)</div>
             </a>
             """
@@ -109,11 +129,26 @@ struct BypassWebView: View {
                     color: #8e8e93;
                     word-break: break-all;
                 }
+                .ext-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin-bottom: 6px;
+                }
+                .ext-icon {
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 5px;
+                    object-fit: cover;
+                    flex-shrink: 0;
+                }
                 .ext-name {
                     font-size: 16px;
                     font-weight: 600;
                     color: #1c1c1e;
-                    margin-bottom: 4px;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }
                 .ext-url {
                     font-size: 12px;
@@ -349,7 +384,7 @@ struct BypassWebView: View {
                 }
             }
             .onAppear {
-                if currentUrlString.isEmpty || urlString == "home" {
+                if urlString == "home" {
                     loadHomeHtml()
                 } else {
                     currentUrlString = resolvedUrl?.absoluteString ?? ""
