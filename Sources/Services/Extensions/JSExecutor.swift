@@ -471,7 +471,7 @@ public final class JSExecutor {
         return ""
     }
     
-    private func cleanAndResolveUrl(_ urlString: String) -> String {
+    public static func cleanAndResolveUrl(_ urlString: String, localPath: String?) -> String {
         var cleaned = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         
         // 1. Nếu chứa nhiều hơn 1 http:// hoặc https://, lấy cái cuối cùng
@@ -490,30 +490,37 @@ public final class JSExecutor {
         
         if let idx = lastIndex, idx != cleaned.startIndex {
             cleaned = String(cleaned[idx...])
-            // AppLogger.shared.log("⚠️ [JSExecutor] Cleaned duplicate hosts URL to: \(cleaned)")
         }
         
         // 2. Nếu là URL tương đối (không bắt đầu bằng http:// hoặc https://)
         if !cleaned.lowercased().hasPrefix("http://") && !cleaned.lowercased().hasPrefix("https://") {
             // Đọc BASE_URL từ config của extension
-            if let localPath = self.localPath {
+            if let localPath = localPath, !localPath.isEmpty {
                 let extUrl = URL(fileURLWithPath: localPath)
                 let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
                 if let data = try? Data(contentsOf: pluginJsonUrl),
                    let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let configSection = json["config"] as? [String: [String: Any]],
-                   let baseUrlConfig = configSection["BASE_URL"],
-                   let defaultValue = baseUrlConfig["default"] as? String {
+                   let configSection = json["config"] as? [String: Any] {
                     
-                    let baseUrl = defaultValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let separator = cleaned.hasPrefix("/") || baseUrl.hasSuffix("/") ? "" : "/"
-                    cleaned = baseUrl + separator + cleaned
-                    // AppLogger.shared.log("🌐 [JSExecutor] Resolved relative URL to: \(cleaned)")
+                    if let baseUrlConfig = configSection["BASE_URL"] as? [String: Any],
+                       let defaultValue = baseUrlConfig["default"] as? String {
+                        let baseUrl = defaultValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let separator = cleaned.hasPrefix("/") || baseUrl.hasSuffix("/") ? "" : "/"
+                        cleaned = baseUrl + separator + cleaned
+                    } else if let defaultValue = configSection["BASE_URL"] as? String {
+                        let baseUrl = defaultValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let separator = cleaned.hasPrefix("/") || baseUrl.hasSuffix("/") ? "" : "/"
+                        cleaned = baseUrl + separator + cleaned
+                    }
                 }
             }
         }
         
         return cleaned
+    }
+    
+    private func cleanAndResolveUrl(_ urlString: String) -> String {
+        return JSExecutor.cleanAndResolveUrl(urlString, localPath: self.localPath)
     }
     
     /// Inject các cấu hình dưới dạng biến toàn cục vào JSContext

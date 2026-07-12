@@ -3,9 +3,9 @@ import SwiftData
 import AVFoundation
 
 enum ReaderTheme: String, CaseIterable, Identifiable {
-    case paper = "Mặc định"
+    case paper = "Sáng"
     case sepia = "Trầm ấm"
-    case dark = "Chế độ tối"
+    case dark = "Tối"
     
     var id: String { self.rawValue }
     
@@ -76,12 +76,21 @@ struct ReaderView: View {
     @State private var showingManageDefinitionsSheet = false
     
     // Tùy chọn giao diện đọc (Novel)
-    @AppStorage("readerFontSize") private var fontSize: Double = 18.0
-    @AppStorage("readerLineSpacing") private var lineSpacing: Double = 6.0
+    @AppStorage("readerFontSize") private var fontSize: Double = 20.0
+    @AppStorage("readerLineSpacing") private var lineSpacing: Double = 10.0
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
     @AppStorage("hasOpenedReader") private var hasOpenedReader = false
     @State private var showingSettings = false
+    
+    // Trình duyệt bypass Cloudflare & Import
+    @State private var showingBypassBrowser = false
+    @State private var importedBookId = ""
+    @State private var importedExtensionPackageId = ""
+    @State private var importedDetailUrl = ""
+    @State private var importedSourceName = ""
+    @State private var navigateToBookDetail = false
+    @State private var isGoingNext = true
     
     // TTS Configurations & State
     @StateObject private var ttsManager = TTSManager.shared
@@ -198,8 +207,9 @@ struct ReaderView: View {
             
             VStack(spacing: 0) {
                 readerContentView
+                    .id(chapterIndex)
+                    .transition(isGoingNext ? .pageFlipNext : .pageFlipPrev)
             }
-            
             // Top/Bottom overlay controls
             if showControls {
                 VStack(spacing: 0) {
@@ -264,6 +274,32 @@ struct ReaderView: View {
         .sheet(isPresented: $showingDefinitionSheet) {
             definitionSheetContent
         }
+        .fullScreenCover(isPresented: $showingBypassBrowser) {
+            BypassWebView(
+                urlString: currentChapterInfo?.url ?? bookDetailUrl ?? "",
+                localPath: ext?.localPath,
+                onImport: { detailUrl, packageId, sourceName in
+                    importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                    importedExtensionPackageId = packageId
+                    importedDetailUrl = detailUrl
+                    importedSourceName = sourceName
+                    navigateToBookDetail = true
+                }
+            )
+        }
+        .background(
+            NavigationLink(
+                destination: BookDetailView(
+                    bookId: importedBookId,
+                    extensionPackageId: importedExtensionPackageId,
+                    initialDetailUrl: importedDetailUrl,
+                    sourceName: importedSourceName
+                ),
+                isActive: $navigateToBookDetail
+            ) {
+                EmptyView()
+            }
+        )
 
         .onAppear {
             let key = "showChapterTitle_\(bookId)"
@@ -1227,6 +1263,8 @@ struct ReaderView: View {
     private func selectChapter(at index: Int, scroll: Bool = true) {
         guard index >= 0 && index < totalChaptersCount else { return }
         
+        self.isGoingNext = index >= self.chapterIndex
+        
         let currentChapter = LoadedChapter(
             index: index,
             title: "Chương \(index + 1)",
@@ -1236,9 +1274,12 @@ struct ReaderView: View {
             paragraphItems: [],
             isLoading: true
         )
-        self.chapterIndex = index
-        self.loadedChapters = [currentChapter]
-        self.hasScrolledToTop = false
+        
+        withAnimation(.easeInOut(duration: 0.45)) {
+            self.chapterIndex = index
+            self.loadedChapters = [currentChapter]
+            self.hasScrolledToTop = false
+        }
         
         loadChapterContent(index: index)
     }
@@ -1818,6 +1859,7 @@ extension ReaderView {
                     .frame(maxWidth: .infinity)
                 }
                 .padding(.horizontal, 18)
+                .padding(.vertical, 24)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -1918,9 +1960,9 @@ extension ReaderView {
                 }
                 
                 Button(action: {
-                    // Chưa làm chức năng
+                    showingBypassBrowser = true
                 }) {
-                    Label("Mở bằng trình duyệt", systemImage: "safari")
+                    Label("Mở bằng trình duyệt (Bypass)", systemImage: "safari")
                 }
                 
                 Button(action: {
@@ -1996,9 +2038,9 @@ extension ReaderView {
                         }
                         
                         Button(action: {
-                            // Chưa làm chức năng
+                            showingBypassBrowser = true
                         }) {
-                            Label("Mở bằng trình duyệt", systemImage: "safari")
+                            Label("Mở bằng trình duyệt (Bypass)", systemImage: "safari")
                         }
                         
                         Button(action: {
@@ -2021,13 +2063,13 @@ extension ReaderView {
             // Hàng 2: Tiêu đề sách & Chương
             VStack(alignment: .leading, spacing: 2) {
                 Text(translateMetaIfNeeded(localBook?.title ?? bookTitle ?? "FreeBook"))
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.white)
                     .lineLimit(1)
                 
                 HStack(spacing: 4) {
                     Text(translateChapterTitleIfNeeded(chapterTitle.isEmpty ? (currentChapterInfo?.title ?? "Chương \(chapterIndex + 1)") : chapterTitle))
-                        .font(.system(size: 12))
+                        .font(.system(size: 15))
                         .foregroundColor(.white.opacity(0.8))
                         .lineLimit(1)
                     
@@ -2048,11 +2090,9 @@ extension ReaderView {
             HStack {
                 HStack(spacing: 4) {
                     Image(systemName: "character.bubble.fill")
-                        .font(.system(size: 12))
+                        .font(.system(size: 15))
                     Text(isTranslationEnabled ? "Việt (VP)" : "Trung (Gốc)")
-                        .font(.system(size: 12))
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 8))
+                        .font(.system(size: 15))
                 }
                 .foregroundColor(.white)
                 .padding(.horizontal, 10)
@@ -2092,7 +2132,7 @@ extension ReaderView {
                 Spacer()
                 
                 Text(translateChapterTitleIfNeeded(chapterTitle.isEmpty ? (currentChapterInfo?.title ?? "") : chapterTitle))
-                    .font(.system(size: 12))
+                    .font(.system(size: 15))
                     .foregroundColor(.white)
                     .lineLimit(1)
                     .frame(maxWidth: 180)
@@ -2202,16 +2242,23 @@ extension ReaderView {
             
             // Hàng 1: Đoạn dịch gốc và nút điều chỉnh 2 bên (Token-based)
             HStack(spacing: 8) {
-                HStack(spacing: 4) {
+                HStack(spacing: 12) {
                     Button(action: expandSelectionLeft) {
                         Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .bold))
+                            .frame(width: 36, height: 36)
+                            .background(Color.blue.opacity(0.1))
+                            .clipShape(Circle())
                     }
                     Button(action: shrinkSelectionLeft) {
                         Image(systemName: "chevron.right")
+                            .font(.system(size: 16, weight: .bold))
+                            .frame(width: 36, height: 36)
+                            .background(Color.blue.opacity(0.1))
+                            .clipShape(Circle())
                     }
                 }
                 .foregroundColor(.blue)
-                .font(.subheadline)
                 
                 Spacer()
                 
@@ -2252,16 +2299,23 @@ extension ReaderView {
                 
                 Spacer()
                 
-                HStack(spacing: 4) {
+                HStack(spacing: 12) {
                     Button(action: shrinkSelectionRight) {
                         Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .bold))
+                            .frame(width: 36, height: 36)
+                            .background(Color.blue.opacity(0.1))
+                            .clipShape(Circle())
                     }
                     Button(action: expandSelectionRight) {
                         Image(systemName: "chevron.right")
+                            .font(.system(size: 16, weight: .bold))
+                            .frame(width: 36, height: 36)
+                            .background(Color.blue.opacity(0.1))
+                            .clipShape(Circle())
                     }
                 }
                 .foregroundColor(.blue)
-                .font(.subheadline)
             }
             .padding(10)
             .frame(maxWidth: .infinity)
@@ -2479,4 +2533,36 @@ struct LoadedChapter: Identifiable, Equatable {
 struct ScrollTarget: Equatable {
     let chapterIndex: Int
     let paragraphIndex: Int
+}
+
+// MARK: - 3D Page Flip Transition
+struct PageFlipModifier: ViewModifier {
+    var amount: Double
+    
+    func body(content: Content) -> some View {
+        content
+            .rotation3DEffect(
+                .degrees(amount),
+                axis: (x: 0.0, y: 1.0, z: 0.0),
+                anchor: .leading,
+                perspective: 0.5
+            )
+            .shadow(color: Color.black.opacity(abs(amount) > 0 ? 0.2 : 0), radius: 5, x: -5, y: 0)
+    }
+}
+
+extension AnyTransition {
+    static var pageFlipNext: AnyTransition {
+        .modifier(
+            active: PageFlipModifier(amount: -90),
+            identity: PageFlipModifier(amount: 0)
+        )
+    }
+    
+    static var pageFlipPrev: AnyTransition {
+        .modifier(
+            active: PageFlipModifier(amount: 90),
+            identity: PageFlipModifier(amount: 0)
+        )
+    }
 }
