@@ -769,7 +769,7 @@ public final class TTSManager: NSObject, ObservableObject {
             } catch {
                 await MainActor.run {
                     AppLogger.shared.log("🔊 [TTSManager] Chơi trực tiếp extension tts thất bại cho đoạn \(index): \(error.localizedDescription)")
-                    self.stop()
+                    self.pause()
                 }
             }
         }
