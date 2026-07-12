@@ -15,6 +15,9 @@ struct BypassWebView: View {
     @State private var progress: Double = 0.0
     @State private var title = "Trình duyệt"
     @State private var currentUrlString = ""
+    @State private var inputUrl = ""
+    @State private var canGoBack = false
+    @State private var canGoForward = false
     
     private var activeExtensions: [Extension] {
         allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
@@ -29,17 +32,104 @@ struct BypassWebView: View {
         findMatchingExtension(for: currentUrlString)
     }
     
+    private func loadEnteredUrl() {
+        var cleanUrl = inputUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanUrl.isEmpty else { return }
+        
+        if !cleanUrl.lowercased().hasPrefix("http://") && !cleanUrl.lowercased().hasPrefix("https://") {
+            cleanUrl = "https://" + cleanUrl
+        }
+        
+        if let url = URL(string: cleanUrl) {
+            let request = URLRequest(url: url)
+            webView.load(request)
+        }
+    }
+    
     var body: some View {
         NavigationView {
             ZStack(alignment: .bottom) {
                 VStack(spacing: 0) {
+                    // Thanh địa chỉ URL & Điều hướng
+                    HStack(spacing: 8) {
+                        // Nút Quay lại (Back/Previous)
+                        Button(action: {
+                            webView.goBack()
+                        }) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(canGoBack ? .blue : .gray)
+                                .frame(width: 36, height: 36)
+                                .background(Color(.systemGray6))
+                                .clipShape(Circle())
+                        }
+                        .disabled(!canGoBack)
+                        
+                        // Nút Tiếp tục (Forward)
+                        Button(action: {
+                            webView.goForward()
+                        }) {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(canGoForward ? .blue : .gray)
+                                .frame(width: 36, height: 36)
+                                .background(Color(.systemGray6))
+                                .clipShape(Circle())
+                        }
+                        .disabled(!canGoForward)
+                        
+                        // Ô nhập URL
+                        HStack(spacing: 6) {
+                            Image(systemName: "lock.fill")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            TextField("Nhập địa chỉ web...", text: $inputUrl, onCommit: {
+                                loadEnteredUrl()
+                            })
+                            .font(.system(size: 15))
+                            .keyboardType(.URL)
+                            .autocapitalization(.none)
+                            .disableAutocorrection(true)
+                            
+                            if !inputUrl.isEmpty {
+                                Button(action: {
+                                    inputUrl = ""
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
+                        
+                        // Nút Reload / Go
+                        Button(action: {
+                            if inputUrl == currentUrlString {
+                                webView.reload()
+                            } else {
+                                loadEnteredUrl()
+                            }
+                        }) {
+                            Image(systemName: inputUrl == currentUrlString ? "arrow.clockwise" : "arrow.right.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(Color(.systemBackground))
+                    
                     if isLoading {
                         ProgressView(value: progress, total: 1.0)
                             .tint(.blue)
                             .progressViewStyle(LinearProgressViewStyle())
                             .frame(height: 3)
                     } else {
-                        Spacer().frame(height: 3)
+                        Divider()
                     }
                     
                     SwiftUIWebView(
@@ -48,7 +138,9 @@ struct BypassWebView: View {
                         isLoading: $isLoading,
                         progress: $progress,
                         title: $title,
-                        currentUrlString: $currentUrlString
+                        currentUrlString: $currentUrlString,
+                        canGoBack: $canGoBack,
+                        canGoForward: $canGoForward
                     )
                 }
                 
@@ -96,30 +188,6 @@ struct BypassWebView: View {
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    HStack(spacing: 16) {
-                        Button(action: {
-                            webView.goBack()
-                        }) {
-                            Image(systemName: "chevron.left")
-                        }
-                        .disabled(!webView.canGoBack)
-                        
-                        Button(action: {
-                            webView.goForward()
-                        }) {
-                            Image(systemName: "chevron.right")
-                        }
-                        .disabled(!webView.canGoForward)
-                        
-                        Button(action: {
-                            webView.reload()
-                        }) {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                    }
-                }
-                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Xong") {
                         dismiss()
@@ -131,6 +199,10 @@ struct BypassWebView: View {
                 if currentUrlString.isEmpty {
                     currentUrlString = resolvedUrl?.absoluteString ?? ""
                 }
+                inputUrl = currentUrlString
+            }
+            .onChange(of: currentUrlString) { _, newValue in
+                inputUrl = newValue
             }
         }
     }
@@ -174,6 +246,8 @@ struct SwiftUIWebView: UIViewRepresentable {
     @Binding var progress: Double
     @Binding var title: String
     @Binding var currentUrlString: String
+    @Binding var canGoBack: Bool
+    @Binding var canGoForward: Bool
     
     func makeUIView(context: Context) -> WKWebView {
         webView.navigationDelegate = context.coordinator
@@ -237,7 +311,21 @@ struct SwiftUIWebView: UIViewRepresentable {
                 }
             }
             
-            self.observers = [loadingObserver, progressObserver, titleObserver, urlObserver]
+            let canGoBackObserver = webView.observe(\.canGoBack, options: .new) { [weak self] webView, change in
+                guard let self = self else { return }
+                DispatchQueue.main.async {
+                    self.parent.canGoBack = webView.canGoBack
+                }
+            }
+            
+            let canGoForwardObserver = webView.observe(\.canGoForward, options: .new) { [weak self] webView, change in
+                guard let self = self else { return }
+                DispatchQueue.main.async {
+                    self.parent.canGoForward = webView.canGoForward
+                }
+            }
+            
+            self.observers = [loadingObserver, progressObserver, titleObserver, urlObserver, canGoBackObserver, canGoForwardObserver]
         }
         
         deinit {
