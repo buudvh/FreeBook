@@ -643,6 +643,59 @@ public final class ExtensionManager {
         }
     }
     
+    // Lấy danh sách giọng đọc từ extension TTS
+    public func ttsVoices(localPath: String, downloadUrl: String = "", configJson: String = "{}") async throws -> [[String: String]] {
+        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "voice")
+        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+        
+        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
+        let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
+        executor.injectGlobals(configs)
+        
+        do {
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
+            var results: [[String: String]] = []
+            
+            if let jsArray = jsValue.toArray() {
+                for item in jsArray {
+                    if let dict = item as? [String: Any] {
+                        var voiceDict: [String: String] = [:]
+                        for (key, val) in dict {
+                            voiceDict[key] = String(describing: val)
+                        }
+                        results.append(voiceDict)
+                    }
+                }
+            }
+            
+            updateDiagnostics(action: "voice", input: "", status: "Success", details: "Found \(results.count) voices")
+            return results
+        } catch {
+            updateDiagnostics(action: "voice", input: "", status: "Error", details: error.localizedDescription)
+            throw error
+        }
+    }
+    
+    // Tạo âm thanh TTS từ extension
+    public func ttsGenerate(localPath: String, downloadUrl: String = "", text: String, voice: String, configJson: String = "{}") async throws -> String {
+        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "tts")
+        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+        
+        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
+        let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
+        executor.injectGlobals(configs)
+        
+        do {
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [text, voice])
+            let resultStr = jsValue.toString() ?? ""
+            updateDiagnostics(action: "tts", input: text, status: "Success", details: "Base64 string length: \(resultStr.count)")
+            return resultStr
+        } catch {
+            updateDiagnostics(action: "tts", input: text, status: "Error", details: error.localizedDescription)
+            throw error
+        }
+    }
+    
     private func stringify(_ jsValue: JSValue) -> String {
         if let jsonModule = jsValue.context.objectForKeyedSubscript("JSON"),
            let stringifyFunc = jsonModule.objectForKeyedSubscript("stringify"),

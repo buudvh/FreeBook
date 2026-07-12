@@ -85,6 +85,8 @@ struct ReaderView: View {
     
     // Trình duyệt bypass Cloudflare & Import
     @State private var showingBypassBrowser = false
+    @State private var showingLookupBrowser = false
+    @State private var lookupUrlString = ""
     @State private var importedBookId = ""
     @State private var importedExtensionPackageId = ""
     @State private var importedDetailUrl = ""
@@ -295,6 +297,12 @@ struct ReaderView: View {
                     importedSourceName = sourceName
                     navigateToBookDetail = true
                 }
+            )
+        }
+        .fullScreenCover(isPresented: $showingLookupBrowser) {
+            BypassWebView(
+                urlString: lookupUrlString,
+                localPath: nil
             )
         }
         .background(
@@ -779,10 +787,10 @@ struct ReaderView: View {
         guard !word.isEmpty else { return }
         
         let rawUrl = engine.urlTemplate.replacingOccurrences(of: "%s", with: word)
-        guard let encoded = rawUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: encoded) else { return }
+        guard let encoded = rawUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return }
         
-        UIApplication.shared.open(url)
+        self.lookupUrlString = encoded
+        self.showingLookupBrowser = true
     }
 
     private func isEditableSource(_ source: String) -> Bool {
@@ -1518,13 +1526,67 @@ struct DictionaryMatchInfo: Identifiable {
 
 struct TTSSettingsSheet: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.modelContext) private var modelContext
     @ObservedObject var ttsManager = TTSManager.shared
     @State private var availableVoices: [Voice] = []
     @State private var systemVoices: [AVSpeechSynthesisVoice] = []
     
+    @Query private var allExtensions: [Extension]
+    
+    private var ttsExtensions: [Extension] {
+        allExtensions.filter { $0.type == "tts" && !$0.localPath.isEmpty && $0.isEnabled }
+    }
+    
+    @State private var extensionVoices: [[String: String]] = []
+    @State private var isLoadingVoices = false
+    
     private var hasNoDictionary: Bool {
         let path = (try? ModelStore())?.rootURL.appendingPathComponent("non-vietnamese-words.plist").path ?? ""
         return !FileManager.default.fileExists(atPath: path)
+    }
+    
+    private func hasConfig(localPath: String) -> Bool {
+        guard !localPath.isEmpty else { return false }
+        let extUrl = URL(fileURLWithPath: localPath)
+        let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
+        guard FileManager.default.fileExists(atPath: pluginJsonUrl.path) else { return false }
+        
+        guard let data = try? Data(contentsOf: pluginJsonUrl),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let config = json["config"] as? [String: Any] else {
+            return false
+        }
+        return !config.isEmpty
+    }
+    
+    private func loadExtensionVoices(packageId: String) {
+        guard let ext = allExtensions.first(where: { $0.packageId == packageId }) else { return }
+        isLoadingVoices = true
+        Task {
+            do {
+                let voices = try await ExtensionManager.shared.ttsVoices(
+                    localPath: ext.localPath,
+                    downloadUrl: ext.downloadUrl,
+                    configJson: ext.configJson
+                )
+                await MainActor.run {
+                    self.extensionVoices = voices
+                    self.isLoadingVoices = false
+                    
+                    let voiceIds = voices.compactMap { $0["id"] }
+                    if !voiceIds.contains(ttsManager.selectedVoice) {
+                        if let firstVoice = voiceIds.first {
+                            ttsManager.selectedVoice = firstVoice
+                        }
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.extensionVoices = []
+                    self.isLoadingVoices = false
+                }
+            }
+        }
     }
     
     var body: some View {
@@ -1534,6 +1596,9 @@ struct TTSSettingsSheet: View {
                     Picker("Trình đọc", selection: $ttsManager.tool) {
                         Text("Siri (Hệ thống Apple)").tag("system")
                         Text("NghiTTS (Piper Offline)").tag("nghitts")
+                        ForEach(ttsExtensions) { ext in
+                            Text(ext.name).tag(ext.packageId)
+                        }
                     }
                     .pickerStyle(.menu)
                 }
@@ -1547,7 +1612,7 @@ struct TTSSettingsSheet: View {
                             }
                         }
                         .pickerStyle(.menu)
-                    } else {
+                    } else if ttsManager.tool == "nghitts" {
                         let downloadedVoices = availableVoices.filter { isModelDownloaded($0) }
                         let hasNoModels = downloadedVoices.isEmpty
                         let missingDict = hasNoDictionary
@@ -1613,6 +1678,36 @@ struct TTSSettingsSheet: View {
                                 Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
                             }
                         }
+                    } else {
+                        // Trình đọc từ Extension
+                        if isLoadingVoices {
+                            ProgressView("Đang tải giọng đọc...")
+                        } else if extensionVoices.isEmpty {
+                            Text("Không có giọng đọc nào")
+                                .foregroundColor(.secondary)
+                        } else {
+                            Picker("Giọng đọc Extension", selection: $ttsManager.selectedVoice) {
+                                ForEach(0..<extensionVoices.count, id: \.self) { idx in
+                                    let voice = extensionVoices[idx]
+                                    let id = voice["id"] ?? ""
+                                    let name = voice["name"] ?? id
+                                    let lang = voice["language"] ?? ""
+                                    Text("\(name) (\(lang))").tag(id)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                        }
+                    }
+                }
+                
+                if ttsManager.tool != "system" && ttsManager.tool != "nghitts" {
+                    if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }),
+                       hasConfig(localPath: ext.localPath) {
+                        Section("Cấu hình") {
+                            NavigationLink(destination: ExtensionConfigView(ext: ext)) {
+                                Label("Cấu hình \(ext.name)", systemImage: "gearshape")
+                            }
+                        }
                     }
                 }
                 
@@ -1666,7 +1761,12 @@ struct TTSSettingsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Xong") { dismiss() }
+                    Button("Xong") {
+                        if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
+                            ttsManager.extensionConfigJson = ext.configJson
+                        }
+                        dismiss()
+                    }
                 }
             }
             .onAppear {
@@ -1676,8 +1776,28 @@ struct TTSSettingsSheet: View {
                     ttsManager.selectedVoice = systemVoices.first?.identifier ?? ""
                 }
                 
+                if ttsManager.tool != "system" && ttsManager.tool != "nghitts" {
+                    if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
+                        ttsManager.extensionLocalPath = ext.localPath
+                        ttsManager.extensionConfigJson = ext.configJson
+                    }
+                    loadExtensionVoices(packageId: ttsManager.tool)
+                }
+                
                 Task {
                     self.availableVoices = (try? await ttsManager.nghiTTSClient?.getAllVoices(forceRefresh: false)) ?? NghiTTSClient.fallbackVietnameseVoices
+                }
+            }
+            .onChange(of: ttsManager.tool) { _, newVal in
+                if newVal != "system" && newVal != "nghitts" {
+                    if let ext = allExtensions.first(where: { $0.packageId == newVal }) {
+                        ttsManager.extensionLocalPath = ext.localPath
+                        ttsManager.extensionConfigJson = ext.configJson
+                    }
+                    loadExtensionVoices(packageId: newVal)
+                } else {
+                    ttsManager.extensionLocalPath = ""
+                    ttsManager.extensionConfigJson = "{}"
                 }
             }
         }

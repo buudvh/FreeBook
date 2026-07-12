@@ -22,8 +22,10 @@ public final class TTSManager: NSObject, ObservableObject {
             UserDefaults.standard.set(speed, forKey: "ttsRate")
             if tool == "system" {
                 UserDefaults.standard.set(speed, forKey: "systemRate")
-            } else {
+            } else if tool == "nghitts" {
                 UserDefaults.standard.set(speed, forKey: "nghittsRate")
+            } else {
+                UserDefaults.standard.set(speed, forKey: "extRate_\(tool)")
             }
             updatePlaybackParams()
         }
@@ -33,8 +35,10 @@ public final class TTSManager: NSObject, ObservableObject {
             UserDefaults.standard.set(pitch, forKey: "ttsPitch")
             if tool == "system" {
                 UserDefaults.standard.set(pitch, forKey: "systemPitch")
-            } else {
+            } else if tool == "nghitts" {
                 UserDefaults.standard.set(pitch, forKey: "nghittsPitch")
+            } else {
+                UserDefaults.standard.set(pitch, forKey: "extPitch_\(tool)")
             }
             updatePlaybackParams()
         }
@@ -44,14 +48,23 @@ public final class TTSManager: NSObject, ObservableObject {
             UserDefaults.standard.set(selectedVoice, forKey: "ttsVoice")
             if tool == "system" {
                 UserDefaults.standard.set(selectedVoice, forKey: "systemVoice")
-            } else {
+            } else if tool == "nghitts" {
                 UserDefaults.standard.set(selectedVoice, forKey: "nghittsVoice")
+            } else {
+                UserDefaults.standard.set(selectedVoice, forKey: "extVoice_\(tool)")
             }
             clearPrefetchCache()
         }
     }
     @Published public var chunkLength: Int {
         didSet { UserDefaults.standard.set(chunkLength, forKey: "ttsChunkLength") }
+    }
+    
+    @Published public var extensionLocalPath: String {
+        didSet { UserDefaults.standard.set(extensionLocalPath, forKey: "ttsExtensionLocalPath") }
+    }
+    @Published public var extensionConfigJson: String {
+        didSet { UserDefaults.standard.set(extensionConfigJson, forKey: "ttsExtensionConfigJson") }
     }
     
     // Trạng thái playback
@@ -122,13 +135,19 @@ public final class TTSManager: NSObject, ObservableObject {
             self.speed = UserDefaults.standard.double(forKey: "systemRate") > 0 ? UserDefaults.standard.double(forKey: "systemRate") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "systemPitch") > 0 ? UserDefaults.standard.double(forKey: "systemPitch") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "systemVoice") ?? (UserDefaults.standard.string(forKey: "ttsVoice") ?? "")
-        } else {
+        } else if toolVal == "nghitts" {
             self.speed = UserDefaults.standard.double(forKey: "nghittsRate") > 0 ? UserDefaults.standard.double(forKey: "nghittsRate") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "nghittsPitch") > 0 ? UserDefaults.standard.double(forKey: "nghittsPitch") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "nghittsVoice") ?? (UserDefaults.standard.string(forKey: "ttsVoice") ?? "Ngọc Huyền (mới)")
+        } else {
+            self.speed = UserDefaults.standard.double(forKey: "extRate_\(toolVal)") > 0 ? UserDefaults.standard.double(forKey: "extRate_\(toolVal)") : defaultRate
+            self.pitch = UserDefaults.standard.double(forKey: "extPitch_\(toolVal)") > 0 ? UserDefaults.standard.double(forKey: "extPitch_\(toolVal)") : defaultPitch
+            self.selectedVoice = UserDefaults.standard.string(forKey: "extVoice_\(toolVal)") ?? ""
         }
         
         self.chunkLength = UserDefaults.standard.object(forKey: "ttsChunkLength") != nil ? UserDefaults.standard.integer(forKey: "ttsChunkLength") : 200
+        self.extensionLocalPath = UserDefaults.standard.string(forKey: "ttsExtensionLocalPath") ?? ""
+        self.extensionConfigJson = UserDefaults.standard.string(forKey: "ttsExtensionConfigJson") ?? "{}"
         
         super.init()
         
@@ -145,10 +164,14 @@ public final class TTSManager: NSObject, ObservableObject {
             self.speed = UserDefaults.standard.double(forKey: "systemRate") > 0 ? UserDefaults.standard.double(forKey: "systemRate") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "systemPitch") > 0 ? UserDefaults.standard.double(forKey: "systemPitch") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "systemVoice") ?? ""
-        } else {
+        } else if tool == "nghitts" {
             self.speed = UserDefaults.standard.double(forKey: "nghittsRate") > 0 ? UserDefaults.standard.double(forKey: "nghittsRate") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "nghittsPitch") > 0 ? UserDefaults.standard.double(forKey: "nghittsPitch") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "nghittsVoice") ?? "Ngọc Huyền (mới)"
+        } else {
+            self.speed = UserDefaults.standard.double(forKey: "extRate_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extRate_\(tool)") : defaultRate
+            self.pitch = UserDefaults.standard.double(forKey: "extPitch_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extPitch_\(tool)") : defaultPitch
+            self.selectedVoice = UserDefaults.standard.string(forKey: "extVoice_\(tool)") ?? ""
         }
     }
     
@@ -495,8 +518,10 @@ public final class TTSManager: NSObject, ObservableObject {
         
         if tool == "system" {
             playSystemTTS(paragraph.text)
-        } else {
+        } else if tool == "nghitts" {
             playNghiTTS(paragraph.text)
+        } else {
+            playExtensionTTS(paragraph.text)
         }
     }
     
@@ -583,31 +608,61 @@ public final class TTSManager: NSObject, ObservableObject {
         let text = paragraphs[index].text
         let voice = selectedVoice
         
-        guard let service = nghiTTSService else { return }
-        
-        let task = Task { [weak self] in
-            guard let self = self, let player = self.playerNode else { return }
-            let targetFormat = player.outputFormat(forBus: 0)
+        if tool == "nghitts" {
+            guard let service = nghiTTSService else { return }
             
-            do {
-                AppLogger.shared.log("🔊 [TTSManager] Bắt đầu tải trước cho đoạn \(index)...")
-                let wavData = try await service.synthesize(text: text, voice: voice, speed: 1.0)
+            let task = Task { [weak self] in
+                guard let self = self, let player = self.playerNode else { return }
+                let targetFormat = player.outputFormat(forBus: 0)
                 
-                if !Task.isCancelled && self.selectedVoice == voice && self.tool != "system" {
-                    if let buffer = self.makePCMBuffer(fromWavData: wavData, targetFormat: targetFormat) {
-                        self.preloadedWavs[index] = buffer
-                        AppLogger.shared.log("🔊 [TTSManager] Đã tải trước và lưu cache PCMBuffer thành công cho đoạn \(index).")
-                    } else {
-                        AppLogger.shared.log("❌ [TTSManager] Lỗi chuyển đổi WAV sang PCMBuffer cho đoạn \(index).")
+                do {
+                    AppLogger.shared.log("🔊 [TTSManager] Bắt đầu tải trước cho đoạn \(index)...")
+                    let wavData = try await service.synthesize(text: text, voice: voice, speed: 1.0)
+                    
+                    if !Task.isCancelled && self.selectedVoice == voice && self.tool == "nghitts" {
+                        if let buffer = self.makePCMBuffer(fromWavData: wavData, targetFormat: targetFormat) {
+                            self.preloadedWavs[index] = buffer
+                            AppLogger.shared.log("🔊 [TTSManager] Đã tải trước và lưu cache PCMBuffer thành công cho đoạn \(index).")
+                        } else {
+                            AppLogger.shared.log("❌ [TTSManager] Lỗi chuyển đổi WAV sang PCMBuffer cho đoạn \(index).")
+                        }
                     }
+                    self.prefetchTasks.removeValue(forKey: index)
+                } catch {
+                    self.prefetchTasks.removeValue(forKey: index)
+                    AppLogger.shared.log("🔊 [TTSManager] Tải trước thất bại cho đoạn \(index): \(error.localizedDescription)")
                 }
-                self.prefetchTasks.removeValue(forKey: index)
-            } catch {
-                self.prefetchTasks.removeValue(forKey: index)
-                AppLogger.shared.log("🔊 [TTSManager] Tải trước thất bại cho đoạn \(index): \(error.localizedDescription)")
             }
+            prefetchTasks[index] = task
+        } else {
+            // Extension TTS
+            let localPath = extensionLocalPath
+            let configJson = extensionConfigJson
+            
+            let task = Task { [weak self] in
+                guard let self = self, let player = self.playerNode else { return }
+                let targetFormat = player.outputFormat(forBus: 0)
+                
+                do {
+                    AppLogger.shared.log("🔊 [TTSManager] Bắt đầu tải trước (extension tts) cho đoạn \(index)...")
+                    let buffer = try await self.synthesizeExtensionTTS(text: text, voice: voice, localPath: localPath, configJson: configJson, targetFormat: targetFormat)
+                    
+                    if !Task.isCancelled && self.selectedVoice == voice && self.tool == extToolId(localPath: localPath) {
+                        self.preloadedWavs[index] = buffer
+                        AppLogger.shared.log("🔊 [TTSManager] Đã tải trước và lưu cache PCMBuffer thành công (extension tts) cho đoạn \(index).")
+                    }
+                    self.prefetchTasks.removeValue(forKey: index)
+                } catch {
+                    self.prefetchTasks.removeValue(forKey: index)
+                    AppLogger.shared.log("🔊 [TTSManager] Tải trước thất bại (extension tts) cho đoạn \(index): \(error.localizedDescription)")
+                }
+            }
+            prefetchTasks[index] = task
         }
-        prefetchTasks[index] = task
+    }
+    
+    private func extToolId(localPath: String) -> String {
+        return URL(fileURLWithPath: localPath).lastPathComponent
     }
     
     private func playNghiTTS(_ text: String) {
@@ -629,8 +684,6 @@ public final class TTSManager: NSObject, ObservableObject {
             return
         }
         
-        // Nếu chưa có cache (ví dụ người dùng bấm nhảy đoạn thủ công quá nhanh hoặc lỗi), ta đợi task prefetch đang chạy (nếu có)
-        // hoặc tự động tạo task tổng hợp mới
         Task {
             do {
                 let buffer: AVAudioPCMBuffer
@@ -672,6 +725,104 @@ public final class TTSManager: NSObject, ObservableObject {
                 }
             }
         }
+    }
+    
+    private func playExtensionTTS(_ text: String) {
+        let index = currentParagraphIndex
+        let voice = selectedVoice
+        let localPath = extensionLocalPath
+        let configJson = extensionConfigJson
+        
+        // Cập nhật cửa sổ prefetch gối đầu ngay khi bắt đầu phát đoạn mới
+        updatePrefetchWindow()
+        
+        // Kiểm tra xem dữ liệu của đoạn index hiện tại đã có sẵn trong cache chưa
+        if let cachedBuffer = preloadedWavs[index] {
+            AppLogger.shared.log("🔊 [TTSManager] Phát hiện cache PCMBuffer cho đoạn \(index) từ extension tts, phát lập tức.")
+            self.playAudioBuffer(cachedBuffer)
+            return
+        }
+        
+        Task {
+            do {
+                let buffer: AVAudioPCMBuffer
+                guard let player = self.playerNode else { return }
+                let targetFormat = player.outputFormat(forBus: 0)
+                
+                if let activeTask = prefetchTasks[index] {
+                    // Chờ task đang chạy hoàn thành
+                    _ = await activeTask.value
+                    if let cached = preloadedWavs[index] {
+                        buffer = cached
+                    } else {
+                        buffer = try await synthesizeExtensionTTS(text: text, voice: voice, localPath: localPath, configJson: configJson, targetFormat: targetFormat)
+                    }
+                } else {
+                    buffer = try await synthesizeExtensionTTS(text: text, voice: voice, localPath: localPath, configJson: configJson, targetFormat: targetFormat)
+                }
+                
+                guard self.isPlaying && self.currentParagraphIndex == index else {
+                    return
+                }
+                
+                await MainActor.run {
+                    self.playAudioBuffer(buffer)
+                }
+            } catch {
+                await MainActor.run {
+                    AppLogger.shared.log("🔊 [TTSManager] Chơi trực tiếp extension tts thất bại cho đoạn \(index): \(error.localizedDescription)")
+                    self.stop()
+                }
+            }
+        }
+    }
+    
+    private func synthesizeExtensionTTS(
+        text: String,
+        voice: String,
+        localPath: String,
+        configJson: String,
+        targetFormat: AVAudioFormat
+    ) async throws -> AVAudioPCMBuffer {
+        AppLogger.shared.log("🔊 [TTSManager] Bắt đầu tổng hợp extension tts cho: \(text.prefix(20))...")
+        
+        // 1. Chạy script JS để sinh base64 audio data
+        let base64String = try await ExtensionManager.shared.ttsGenerate(
+            localPath: localPath,
+            text: text,
+            voice: voice,
+            configJson: configJson
+        )
+        
+        guard let audioData = Data(base64Encoded: base64String.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            throw NSError(domain: "TTSManager", code: -20, userInfo: [NSLocalizedDescriptionKey: "Dữ liệu âm thanh Base64 không hợp lệ từ extension"])
+        }
+        
+        // 2. Ghi ra tệp tạm
+        let tempDir = FileManager.default.temporaryDirectory
+        let tempFileUrl = tempDir.appendingPathComponent(UUID().uuidString + ".mp3")
+        try audioData.write(to: tempFileUrl)
+        
+        // Lưu đường dẫn tệp tạm để dọn dẹp sau khi chơi xong
+        await MainActor.run {
+            self.currentTempFileUrl = tempFileUrl
+        }
+        
+        // 3. Đọc tệp audio tạm bằng AVAudioFile và chuyển sang PCM Buffer
+        let audioFile = try AVAudioFile(forReading: tempFileUrl)
+        let fileFormat = audioFile.processingFormat
+        let frameCount = AVAudioFrameCount(audioFile.length)
+        
+        guard frameCount > 0 else {
+            throw NSError(domain: "TTSManager", code: -21, userInfo: [NSLocalizedDescriptionKey: "Tệp âm thanh trống sau khi giải mã"])
+        }
+        
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: fileFormat, frameCapacity: frameCount) else {
+            throw NSError(domain: "TTSManager", code: -22, userInfo: [NSLocalizedDescriptionKey: "Không thể khởi tạo AVAudioPCMBuffer"])
+        }
+        
+        try audioFile.read(into: buffer)
+        return buffer
     }
     
     private func playAudioBuffer(_ buffer: AVAudioPCMBuffer) {
