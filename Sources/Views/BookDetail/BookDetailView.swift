@@ -94,10 +94,7 @@ struct BookDetailView: View {
     var body: some View {
         ZStack {
             VStack {
-            if isLoadingDetail && title.isEmpty {
-                ProgressView("Đang tải chi tiết truyện...")
-                    .frame(maxHeight: .infinity)
-            } else if !detailErrorMessage.isEmpty && title.isEmpty {
+            if !detailErrorMessage.isEmpty && title.isEmpty {
                 VStack(spacing: 16) {
                     Text("Có lỗi xảy ra")
                         .font(.headline)
@@ -116,7 +113,37 @@ struct BookDetailView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         // 1. PHẦN CHI TIẾT TRUYỆN (DETAIL INFO)
-                        if isLoadingDetail {
+                        if isLoadingDetail && title.isEmpty {
+                            // SƯỜN DETAIL LOADING (SKELETON PLACEHOLDER)
+                            VStack(alignment: .leading, spacing: 16) {
+                                HStack(alignment: .top, spacing: 16) {
+                                    SkeletonView(width: 100, height: 140)
+                                    
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        SkeletonView(width: 180, height: 22)
+                                        SkeletonView(width: 120, height: 16)
+                                        SkeletonView(width: 80, height: 16)
+                                        
+                                        Spacer()
+                                        
+                                        HStack {
+                                            SkeletonView(width: 90, height: 28)
+                                            SkeletonView(width: 80, height: 28)
+                                        }
+                                    }
+                                }
+                                
+                                Divider()
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    SkeletonView(width: 80, height: 18)
+                                    SkeletonView(width: nil, height: 14)
+                                    SkeletonView(width: nil, height: 14)
+                                    SkeletonView(width: 200, height: 14)
+                                }
+                            }
+                            .padding(.horizontal)
+                        } else if isLoadingDetail {
                             HStack {
                                 Spacer()
                                 ProgressView("Đang tải chi tiết truyện...")
@@ -284,7 +311,22 @@ struct BookDetailView: View {
                         }
                         
                         // 2. PHẦN TRUYỆN GỢI Ý (SUGGESTS)
-                        if !suggests.isEmpty {
+                        if isLoadingDetail && title.isEmpty {
+                            // Gợi ý mờ
+                            Divider()
+                            VStack(alignment: .leading, spacing: 8) {
+                                SkeletonView(width: 120, height: 18)
+                                HStack(spacing: 14) {
+                                    ForEach(0..<4) { _ in
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            SkeletonView(width: 80, height: 110)
+                                            SkeletonView(width: 80, height: 12)
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal)
+                        } else if !suggests.isEmpty {
                             Divider()
                             ForEach(suggests) { suggest in
                                 VStack(alignment: .leading, spacing: 8) {
@@ -305,7 +347,26 @@ struct BookDetailView: View {
                         }
                         
                         // 3. PHẦN BÌNH LUẬN (COMMENTS)
-                        if !comments.isEmpty {
+                        if isLoadingDetail && title.isEmpty {
+                            // Bình luận mờ
+                            Divider()
+                            VStack(alignment: .leading, spacing: 8) {
+                                SkeletonView(width: 100, height: 18)
+                                VStack(alignment: .leading, spacing: 12) {
+                                    ForEach(0..<3) { _ in
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            HStack(spacing: 8) {
+                                                SkeletonView(width: 20, height: 20)
+                                                SkeletonView(width: 100, height: 14)
+                                            }
+                                            SkeletonView(width: nil, height: 12)
+                                                .padding(.leading, 28)
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal)
+                        } else if !comments.isEmpty {
                             Divider()
                             ForEach(comments) { comment in
                                 VStack(alignment: .leading, spacing: 8) {
@@ -317,7 +378,9 @@ struct BookDetailView: View {
                                         category: comment,
                                         localPath: ext?.localPath ?? "",
                                         downloadUrl: ext?.downloadUrl ?? "",
-                                        configJson: ext?.configJson ?? "{}"
+                                        configJson: ext?.configJson ?? "{}",
+                                        extensionPackageId: extensionPackageId,
+                                        sourceName: sourceName
                                     )
                                 }
                             }
@@ -786,7 +849,7 @@ struct BookDetailView: View {
                         }
                     } catch {
                         await MainActor.run {
-                            self.errorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
+                            self.tocErrorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
                             self.isLoadingRemainingPages = false
                         }
                     }
@@ -806,7 +869,7 @@ struct BookDetailView: View {
                         }
                     } catch {
                         await MainActor.run {
-                            self.errorMessage = "Lỗi tải thêm chương khi lưu kệ: \(error.localizedDescription)"
+                            self.tocErrorMessage = "Lỗi tải thêm chương khi lưu kệ: \(error.localizedDescription)"
                             self.isLoadingRemainingPages = false
                             createBookOnShelf(savedDesc: savedDesc)
                         }
@@ -858,7 +921,7 @@ struct BookDetailView: View {
     private func loadMoreChapters() {
         guard !isLoadingRemainingPages else { return }
         isLoadingRemainingPages = true
-        errorMessage = ""
+        tocErrorMessage = ""
         
         Task {
             do {
@@ -882,7 +945,7 @@ struct BookDetailView: View {
                 }
             } catch {
                 await MainActor.run {
-                    self.errorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
+                    self.tocErrorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
                     self.isLoadingRemainingPages = false
                 }
             }
@@ -892,7 +955,7 @@ struct BookDetailView: View {
     private func startReading() {
         if tocPages.count > 1 && !remainingPagesLoaded {
             isLoadingRemainingPages = true
-            errorMessage = ""
+            tocErrorMessage = ""
             
             Task {
                 do {
@@ -917,7 +980,7 @@ struct BookDetailView: View {
                     }
                 } catch {
                     await MainActor.run {
-                        self.errorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
+                        self.tocErrorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
                         self.isLoadingRemainingPages = false
                         self.navigateToReader = true
                     }

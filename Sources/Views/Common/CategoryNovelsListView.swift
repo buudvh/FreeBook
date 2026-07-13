@@ -14,6 +14,7 @@ struct CategoryNovelsListView: View {
     @State private var errorMessage = ""
     @State private var currentPage = 1
     @State private var nextPageUrl: String? = nil
+    @State private var retryCount = 0
     
     var body: some View {
         VStack {
@@ -118,6 +119,7 @@ struct CategoryNovelsListView: View {
             await MainActor.run {
                 isLoading = true
                 errorMessage = ""
+                retryCount = 0
             }
         } else {
             await MainActor.run {
@@ -146,12 +148,25 @@ struct CategoryNovelsListView: View {
                 self.currentPage = page
                 self.isLoading = false
                 self.isLoadingMore = false
+                self.retryCount = 0 // Reset khi thành công
             }
         } catch {
+            AppLogger.shared.log("❌ [CategoryNovelsListView] loadNovels error page \(page): \(error.localizedDescription)")
             await MainActor.run {
-                self.errorMessage = error.localizedDescription
-                self.isLoading = false
-                self.isLoadingMore = false
+                if page == 1 {
+                    self.errorMessage = error.localizedDescription
+                    self.isLoading = false
+                } else {
+                    self.isLoadingMore = false
+                    if self.retryCount < 3 {
+                        self.retryCount += 1
+                        AppLogger.shared.log("🔄 Tự động tải lại trang \(page) (Lần thử \(self.retryCount))...")
+                        Task {
+                            try? await Task.sleep(nanoseconds: 2_000_000_000) // Đợi 2 giây
+                            await self.loadNovels(page: page)
+                        }
+                    }
+                }
             }
         }
     }

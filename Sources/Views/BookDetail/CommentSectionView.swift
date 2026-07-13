@@ -5,10 +5,13 @@ struct CommentSectionView: View {
     let localPath: String
     let downloadUrl: String
     let configJson: String
+    let extensionPackageId: String
+    let sourceName: String
     
     @State private var comments: [SearchNovelResult] = []
     @State private var isLoading = true
     @State private var errorMessage = ""
+    @State private var nextPageUrl: String? = nil
     
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -47,8 +50,9 @@ struct CommentSectionView: View {
                     .padding(.horizontal)
                     .padding(.vertical, 8)
             } else {
+                let displayComments = Array(comments.prefix(3))
                 VStack(alignment: .leading, spacing: 14) {
-                    ForEach(comments) { comment in
+                    ForEach(displayComments) { comment in
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 8) {
                                 Image(systemName: "person.circle.fill")
@@ -74,6 +78,28 @@ struct CommentSectionView: View {
                         Divider()
                             .padding(.leading, 32)
                     }
+                    
+                    if comments.count > 3 || nextPageUrl != nil {
+                        NavigationLink(destination: AllCommentsView(
+                            category: category,
+                            localPath: localPath,
+                            downloadUrl: downloadUrl,
+                            configJson: configJson
+                        )) {
+                            HStack {
+                                Spacer()
+                                Text("Xem tất cả bình luận")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.accentColor)
+                                Spacer()
+                            }
+                            .padding(.vertical, 8)
+                            .background(Color.secondary.opacity(0.05))
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
                 .padding(.horizontal)
             }
@@ -90,7 +116,7 @@ struct CommentSectionView: View {
         }
         
         do {
-            let (results, _) = try await ExtensionManager.shared.executeCustomScript(
+            let (results, nextPage) = try await ExtensionManager.shared.executeCustomScript(
                 localPath: localPath,
                 downloadUrl: downloadUrl,
                 scriptFileName: category.script,
@@ -102,6 +128,7 @@ struct CommentSectionView: View {
             
             await MainActor.run {
                 self.comments = results
+                self.nextPageUrl = nextPage
                 self.isLoading = false
             }
         } catch {
