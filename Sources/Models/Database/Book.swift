@@ -61,3 +61,7 @@ public final class Book {
         self.lastReadDate = Date()
     }
 }
+
+extension Book: Identifiable {
+    public var id: String { bookId }
+}

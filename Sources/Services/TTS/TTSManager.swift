@@ -89,6 +89,8 @@ public final class TTSManager: NSObject, ObservableObject {
     private var lastStoppedParagraphIndex: Int? = nil
     private var wasPlayingBeforeStop = false
     private var wasPlayingBeforeSettings = false
+    private var wasPlayingBeforeInterruption = false
+    private var cancellables = Set<AnyCancellable>()
     
     // Cache lưu trữ dữ liệu âm thanh đã được tổng hợp trước cho các đoạn văn
     private var preloadedWavs: [Int: AVAudioPCMBuffer] = [:]
@@ -154,6 +156,7 @@ public final class TTSManager: NSObject, ObservableObject {
         setupEngines()
         setupAudioEngine()
         setupRemoteCommandCenter()
+        setupInterruptionObserver()
     }
     
     private func loadParamsForCurrentTool() {
@@ -246,6 +249,7 @@ public final class TTSManager: NSObject, ObservableObject {
     ) {
         // Dọn dẹp trình phát cũ trước tiên để tránh xung đột luồng và callback lặp
         self.stopCurrentPlayback()
+        self.wasPlayingBeforeInterruption = false
         
         self.configureAudioSession()
         self.playingBookId = bookId
@@ -351,6 +355,7 @@ public final class TTSManager: NSObject, ObservableObject {
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] stopPlayback(keepWidget=\(keepWidget)) được gọi.")
         self.isPlaying = false
         self.wasPlayingBeforeSettings = false
+        self.wasPlayingBeforeInterruption = false
         
         if !keepWidget {
             self.currentParagraphIndex = -1
@@ -1236,6 +1241,61 @@ public final class TTSManager: NSObject, ObservableObject {
                 self.downloadingMessages.removeValue(forKey: voice.name)
                 AppLogger.shared.log("Lỗi tải model NghiTTS \(voice.name): \(error.localizedDescription)")
             }
+        }
+    }
+    
+    // MARK: - Audio Session Interruption Handling
+    
+    private func setupInterruptionObserver() {
+        NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                guard let self = self else { return }
+                self.handleInterruption(notification: notification)
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func handleInterruption(notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
+            return
+        }
+        
+        switch type {
+        case .began:
+            AppLogger.shared.log("🔊 [TTSManager] Audio session interruption began. isPlaying = \(self.isPlaying)")
+            if isPlaying {
+                self.wasPlayingBeforeInterruption = true
+                self.pause()
+            }
+        case .ended:
+            AppLogger.shared.log("🔊 [TTSManager] Audio session interruption ended. wasPlayingBeforeInterruption = \(self.wasPlayingBeforeInterruption)")
+            
+            var shouldResumePlayback = false
+            if let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt {
+                let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
+                if options.contains(.shouldResume) {
+                    shouldResumePlayback = true
+                }
+            }
+            
+            // Đối với ứng dụng đọc truyện, hầu như luôn muốn khôi phục nếu trước đó đang đọc
+            if self.wasPlayingBeforeInterruption {
+                self.wasPlayingBeforeInterruption = false
+                
+                // Trì hoãn một chút để hệ thống nhả hoàn toàn Audio Session
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                    guard let self = self else { return }
+                    if !self.isPlaying {
+                        AppLogger.shared.log("🔊 [TTSManager] Resuming TTS playback after interruption.")
+                        self.resume()
+                    }
+                }
+            }
+        @unknown default:
+            break
         }
     }
 }

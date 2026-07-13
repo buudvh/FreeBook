@@ -43,7 +43,6 @@ struct BookDetailView: View {
     @State private var chapterSearchQuery = ""
     
     // Quản lý tác vụ tải/xuất
-    @State private var showingOptionsSheet = false
     @State private var selectedTaskType: TaskType = .download
     @State private var selectedBookForTask: Book? = nil
     
@@ -475,10 +474,8 @@ struct BookDetailView: View {
             }
         }
         .toolbar(.hidden, for: .tabBar)
-        .sheet(isPresented: $showingOptionsSheet) {
-            if let book = selectedBookForTask {
-                TaskOptionsSheet(book: book, taskType: selectedTaskType)
-            }
+        .sheet(item: $selectedBookForTask) { book in
+            TaskOptionsSheet(book: book, taskType: selectedTaskType)
         }
         .fullScreenCover(isPresented: $showingBypassBrowser) {
             BypassWebView(
@@ -790,7 +787,6 @@ struct BookDetailView: View {
                         if let book = localBook {
                             self.selectedTaskType = taskType
                             self.selectedBookForTask = book
-                            self.showingOptionsSheet = true
                         }
                     }
                 } catch {
@@ -808,7 +804,6 @@ struct BookDetailView: View {
             if let book = localBook {
                 self.selectedTaskType = taskType
                 self.selectedBookForTask = book
-                self.showingOptionsSheet = true
             }
         }
     }

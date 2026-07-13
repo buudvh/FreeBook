@@ -11,7 +11,8 @@ struct FreeBookApp: App {
             Repository.self,
             Extension.self,
             Book.self,
-            Chapter.self
+            Chapter.self,
+            DownloadTaskModel.self
         ])
     }
 }

@@ -134,6 +134,28 @@ public final class JSExecutor {
         """
         context.evaluateScript(userAgentBootstrap)
         
+        // 6.6. Đăng ký đối tượng Script toàn cục (hỗ trợ thực thi script động tương thích VBook)
+        let scriptBootstrap = """
+        var Script = {
+            execute: function(scriptContent, functionName) {
+                var args = Array.prototype.slice.call(arguments, 2);
+                try {
+                    eval(scriptContent);
+                    var fn = eval(functionName);
+                    if (typeof fn === 'function') {
+                        return fn.apply(null, args);
+                    } else {
+                        throw new Error("Function '" + functionName + "' is not defined or not a function.");
+                    }
+                } catch (e) {
+                    console.log("❌ Script.execute error: " + e.message);
+                    throw e;
+                }
+            }
+        };
+        """
+        context.evaluateScript(scriptBootstrap)
+        
         let syncFetchBlock: @convention(block) (String, JSValue?) -> [String: Any] = { [weak self] urlString, optionsVal in
             guard let self = self else {
                 return ["html": "", "status": 500, "raw": "", "headers": [String: String]()]
@@ -579,15 +601,27 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
     private var targetUrlToWait: String?
     
     deinit {
-        cleanUp()
+        let wv = self.webView
+        DispatchQueue.main.async {
+            wv.navigationDelegate = nil
+            wv.stopLoading()
+        }
     }
     
     func cleanUp() {
-        DispatchQueue.main.async { [weak self] in
-            self?.webView.navigationDelegate = nil
-            self?.webView.stopLoading()
-            self?.completion = nil
-            self?.waitUrlCompletion = nil
+        if Thread.isMainThread {
+            self.webView.navigationDelegate = nil
+            self.webView.stopLoading()
+            self.completion = nil
+            self.waitUrlCompletion = nil
+        } else {
+            let wv = self.webView
+            DispatchQueue.main.async {
+                wv.navigationDelegate = nil
+                wv.stopLoading()
+            }
+            self.completion = nil
+            self.waitUrlCompletion = nil
         }
     }
     

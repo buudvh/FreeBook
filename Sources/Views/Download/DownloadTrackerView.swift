@@ -128,9 +128,7 @@ struct DownloadTrackerView: View {
             }
             
             Button(role: .destructive) {
-                if let idx = downloadManager.tasks.firstIndex(where: { $0.id == task.id }) {
-                    downloadManager.tasks.remove(at: idx)
-                }
+                downloadManager.deleteTask(taskId: task.id)
             } label: {
                 Label("Xóa khỏi danh sách", systemImage: "trash")
             }

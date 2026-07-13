@@ -76,7 +76,7 @@ struct BypassWebView: View {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-            <title>Trang chủ Bypass</title>
+            <title>Home</title>
             <style>
                 body {
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -168,7 +168,7 @@ struct BypassWebView: View {
             </style>
         </head>
         <body>
-            <h1>Trang chủ Bypass</h1>
+            <h1>Home</h1>
             
             <div class="section-title">Công cụ Tìm kiếm</div>
             <div class="grid">
@@ -200,8 +200,8 @@ struct BypassWebView: View {
         let html = generateHomeHtml()
         webView.loadHTMLString(html, baseURL: URL(string: "about:blank"))
         currentUrlString = "about:blank"
-        inputUrl = "Trang chủ Bypass"
-        title = "Trang chủ Bypass"
+        inputUrl = "Home"
+        title = "Home"
     }
     
     private func loadEnteredUrl() {
@@ -393,8 +393,8 @@ struct BypassWebView: View {
             }
             .onChange(of: currentUrlString) { _, newValue in
                 if newValue == "about:blank" || newValue.isEmpty {
-                    inputUrl = "Trang chủ Bypass"
-                    title = "Trang chủ Bypass"
+                    inputUrl = "Home"
+                    title = "Home"
                 } else {
                     inputUrl = newValue
                 }

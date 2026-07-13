@@ -35,7 +35,6 @@ struct ShelfView: View {
     @State private var triggerNavigation = false
     
     // Tùy chọn tác vụ
-    @State private var showingOptionsSheet = false
     @State private var selectedTaskType: TaskType = .download
     @State private var selectedBookForTask: Book? = nil
     
@@ -67,7 +66,7 @@ struct ShelfView: View {
             VStack(spacing: 0) {
                 // Segmented control to switch tabs
                 Picker("Phân loại", selection: $selectedTab) {
-                    Text("Tải trước").tag(0)
+                    Text("Downloads").tag(0)
                     Text("Kệ Sách").tag(1)
                     Text("Lịch Sử").tag(2)
                 }
@@ -351,10 +350,8 @@ struct ShelfView: View {
                     self.triggerNavigation = true
                 }
             }
-            .sheet(isPresented: $showingOptionsSheet) {
-                if let book = selectedBookForTask {
-                    TaskOptionsSheet(book: book, taskType: selectedTaskType)
-                }
+            .sheet(item: $selectedBookForTask) { book in
+                TaskOptionsSheet(book: book, taskType: selectedTaskType)
             }
             .fullScreenCover(isPresented: $showingBypassBrowser) {
                 BypassWebView(
@@ -464,9 +461,8 @@ struct ShelfView: View {
     }
     
     private func prepareTaskForBook(_ book: Book, type: TaskType) {
-        self.selectedBookForTask = book
         self.selectedTaskType = type
-        self.showingOptionsSheet = true
+        self.selectedBookForTask = book
     }
     
     private func removeFromShelf(_ book: Book) {

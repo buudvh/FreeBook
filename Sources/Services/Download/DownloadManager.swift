@@ -63,8 +63,79 @@ public final class DownloadManager: ObservableObject {
     public static let shared = DownloadManager()
     
     @Published public var tasks: [DownloadTask] = []
+    private var container: ModelContainer?
     
     private init() {}
+    
+    public func initialize(container: ModelContainer) {
+        self.container = container
+        
+        let context = ModelContext(container)
+        do {
+            let descriptor = FetchDescriptor<DownloadTaskModel>(sortBy: [SortDescriptor(\.createdAt, order: .forward)])
+            let models = try context.fetch(descriptor)
+            
+            var loadedTasks: [DownloadTask] = []
+            for model in models {
+                var task = DownloadTask(
+                    id: model.id,
+                    bookId: model.bookId,
+                    bookTitle: model.bookTitle,
+                    bookCoverUrl: model.bookCoverUrl,
+                    taskType: TaskType(rawValue: model.taskTypeRaw) ?? .download,
+                    status: TaskStatus(rawValue: model.statusRaw) ?? .pending,
+                    progressCount: model.progressCount,
+                    totalCount: model.totalCount,
+                    errorMessage: model.errorMessage,
+                    isCancelled: model.isCancelled,
+                    extensionPackageId: model.extensionPackageId,
+                    detailUrl: model.detailUrl,
+                    startFromCurrent: model.startFromCurrent,
+                    limit: ChapterLimitOption(rawValue: model.limitRaw) ?? .all,
+                    translate: model.translate,
+                    onlyExportCached: model.onlyExportCached
+                )
+                
+                if task.status == .running || task.status == .pending {
+                    task.status = .failed
+                    task.errorMessage = "Tác vụ bị dừng đột ngột (ứng dụng khởi động lại)"
+                    
+                    model.statusRaw = TaskStatus.failed.rawValue
+                    model.errorMessage = "Tác vụ bị dừng đột ngột (ứng dụng khởi động lại)"
+                }
+                
+                loadedTasks.append(task)
+            }
+            try? context.save()
+            self.tasks = loadedTasks
+        } catch {
+            AppLogger.shared.log("Error loading download tasks from DB: \(error.localizedDescription)")
+        }
+    }
+    
+    public func deleteTask(taskId: UUID) {
+        guard let container = container else { return }
+        let context = ModelContext(container)
+        let allModels = (try? context.fetch(FetchDescriptor<DownloadTaskModel>())) ?? []
+        if let model = allModels.first(where: { $0.id == taskId }) {
+            context.delete(model)
+            try? context.save()
+        }
+        
+        if let idx = tasks.firstIndex(where: { $0.id == taskId }) {
+            tasks.remove(at: idx)
+        }
+    }
+    
+    private func updateTaskInDB(taskId: UUID, updateBlock: (DownloadTaskModel) -> Void) {
+        guard let container = container else { return }
+        let context = ModelContext(container)
+        let allModels = (try? context.fetch(FetchDescriptor<DownloadTaskModel>())) ?? []
+        if let model = allModels.first(where: { $0.id == taskId }) {
+            updateBlock(model)
+            try? context.save()
+        }
+    }
     
     public func enqueueTask(
         book: Book,
@@ -99,6 +170,29 @@ public final class DownloadManager: ObservableObject {
             onlyExportCached: onlyExportCached
         )
         
+        self.container = container
+        
+        let dbModel = DownloadTaskModel(
+            id: taskId,
+            bookId: bookId,
+            bookTitle: title,
+            bookCoverUrl: cover,
+            taskTypeRaw: taskType.rawValue,
+            statusRaw: TaskStatus.pending.rawValue,
+            progressCount: 0,
+            totalCount: 0,
+            extensionPackageId: extPkgId,
+            detailUrl: detailUrl,
+            startFromCurrent: startFromCurrent,
+            limitRaw: limit.rawValue,
+            translate: translate,
+            onlyExportCached: onlyExportCached
+        )
+        
+        let context = ModelContext(container)
+        context.insert(dbModel)
+        try? context.save()
+        
         self.tasks.append(newTask)
         self.runNextTaskIfNeeded(container: container)
     }
@@ -107,12 +201,32 @@ public final class DownloadManager: ObservableObject {
         if let index = tasks.firstIndex(where: { $0.id == taskId }) {
             tasks[index].status = .cancelled
             tasks[index].isCancelled = true
+            
+            updateTaskInDB(taskId: taskId) { model in
+                model.statusRaw = TaskStatus.cancelled.rawValue
+                model.isCancelled = true
+            }
         }
     }
     
     public func clearFinishedTasks() {
-        tasks.removeAll { task in
+        let taskIdsToRemove = tasks.filter { task in
             task.status == .completed || task.status == .failed || task.status == .cancelled
+        }.map { $0.id }
+        
+        tasks.removeAll { task in
+            taskIdsToRemove.contains(task.id)
+        }
+        
+        if let container = container {
+            let context = ModelContext(container)
+            let allModels = (try? context.fetch(FetchDescriptor<DownloadTaskModel>())) ?? []
+            for model in allModels {
+                if taskIdsToRemove.contains(model.id) {
+                    context.delete(model)
+                }
+            }
+            try? context.save()
         }
     }
     
@@ -126,6 +240,12 @@ public final class DownloadManager: ObservableObject {
             tasks[index].progressCount = progress
             tasks[index].totalCount = total
             tasks[index].status = .running
+            
+            updateTaskInDB(taskId: taskId) { model in
+                model.progressCount = progress
+                model.totalCount = total
+                model.statusRaw = TaskStatus.running.rawValue
+            }
         }
     }
     
@@ -133,6 +253,11 @@ public final class DownloadManager: ObservableObject {
     private func markCompleted(taskId: UUID) {
         if let index = tasks.firstIndex(where: { $0.id == taskId }) {
             tasks[index].status = .completed
+            
+            updateTaskInDB(taskId: taskId) { model in
+                model.statusRaw = TaskStatus.completed.rawValue
+            }
+            
             let title = tasks[index].bookTitle
             let type = tasks[index].taskType.rawValue
             ToastManager.shared.show(message: "Đã xong: \(type) '\(title)' thành công!")
@@ -144,6 +269,12 @@ public final class DownloadManager: ObservableObject {
         if let index = tasks.firstIndex(where: { $0.id == taskId }) {
             tasks[index].status = .failed
             tasks[index].errorMessage = error
+            
+            updateTaskInDB(taskId: taskId) { model in
+                model.statusRaw = TaskStatus.failed.rawValue
+                model.errorMessage = error
+            }
+            
             let title = tasks[index].bookTitle
             let type = tasks[index].taskType.rawValue
             ToastManager.shared.show(message: "Lỗi \(type) '\(title)': \(error)")
@@ -154,6 +285,11 @@ public final class DownloadManager: ObservableObject {
     private func markCancelled(taskId: UUID) {
         if let index = tasks.firstIndex(where: { $0.id == taskId }) {
             tasks[index].status = .cancelled
+            
+            updateTaskInDB(taskId: taskId) { model in
+                model.statusRaw = TaskStatus.cancelled.rawValue
+            }
+            
             let title = tasks[index].bookTitle
             let type = tasks[index].taskType.rawValue
             ToastManager.shared.show(message: "Đã hủy tác vụ: \(type) '\(title)'")
@@ -188,6 +324,12 @@ public final class DownloadManager: ObservableObject {
             let allBooks = (try? bgContext.fetch(FetchDescriptor<Book>())) ?? []
             guard let bgBook = allBooks.first(where: { $0.bookId == task.bookId }) else {
                 throw NSError(domain: "DownloadManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Không tìm thấy truyện trong cơ sở dữ liệu."])
+            }
+            
+            // Đảm bảo truyện được lưu vào kệ sách khi tải xuống hoặc xuất
+            if !bgBook.isOnShelf {
+                bgBook.isOnShelf = true
+                try? bgContext.save()
             }
             
             // 2. Fetch Extension by filtering in memory

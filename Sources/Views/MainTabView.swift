@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct MainTabView: View {
+    @Environment(\.modelContext) private var modelContext
     @State private var selectedTab = 0
     
     var body: some View {
@@ -32,6 +33,9 @@ struct MainTabView: View {
         .tint(.accentColor)
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openCurrentlyPlayingReader"))) { _ in
             selectedTab = 0
+        }
+        .onAppear {
+            DownloadManager.shared.initialize(container: modelContext.container)
         }
     }
 }
