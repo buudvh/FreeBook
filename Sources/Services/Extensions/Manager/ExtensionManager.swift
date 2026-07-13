@@ -705,20 +705,27 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
-            let stringified = stringify(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue)
+            let stringified = stringify(cleanVal)
             
             var results: [String] = []
-            if jsValue.isArray {
-                if let array = jsValue.toArray() as? [String] {
-                    results = array
+            if cleanVal.isArray {
+                let length = Int(cleanVal.forProperty("length").toInt32())
+                for i in 0..<length {
+                    if let itemVal = cleanVal.atIndex(i), !itemVal.isUndefined && !itemVal.isNull {
+                        results.append(itemVal.toString() ?? "")
+                    }
                 }
-            } else if let str = jsValue.toString() {
-                results = [str]
+            } else if !cleanVal.isUndefined && !cleanVal.isNull {
+                if let str = cleanVal.toString() {
+                    results = [str]
+                }
             }
             
             updateDiagnostics(action: "page", input: url, status: "Success", details: "Parsed \(results.count) pages:\n\(stringified)")
             return results
         } catch {
+            AppLogger.shared.log("❌ [ExtensionManager] page script error: \(error.localizedDescription)")
             updateDiagnostics(action: "page", input: url, status: "Error", details: error.localizedDescription)
             throw error
         }
@@ -788,10 +795,14 @@ public final class ExtensionManager: ObservableObject {
             if !success {
                 let msgVal = jsValue.objectForKeyedSubscript("message")
                 let msg = (msgVal != nil && !msgVal!.isUndefined && !msgVal!.isNull) ? msgVal!.toString() ?? "Lỗi từ nguồn truyện" : "Lỗi từ nguồn truyện"
+                AppLogger.shared.log("❌ [ExtensionManager] Response.error: \(msg)")
                 throw NSError(domain: "ExtensionManager", code: -999, userInfo: [NSLocalizedDescriptionKey: msg])
             }
             if let dataVal = jsValue.objectForKeyedSubscript("data"),
                !dataVal.isUndefined {
+                let dataStr = stringify(dataVal)
+                let preview = dataStr.count > 200 ? String(dataStr.prefix(200)) + "..." : dataStr
+                AppLogger.shared.log("✅ [ExtensionManager] Response.success: \(preview)")
                 return dataVal
             }
         }

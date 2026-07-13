@@ -26,6 +26,9 @@ struct BookDetailView: View {
     @State private var author = ""
     @State private var coverUrl = ""
     @State private var desc = ""
+    @State private var isDescExpanded = false
+    @State private var isTocAscending = true
+    @State private var renderedTab = 0
     @State private var detail = ""
     @State private var onlineChapters: [ChapterResult] = []
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
@@ -158,9 +161,10 @@ struct BookDetailView: View {
                     
                     Divider()
                     
-                    if selectedTab == 0 {
+                    TabView(selection: $selectedTab) {
                         // TAB CHI TIẾT
                         ScrollView {
+                            if renderedTab == 0 {
                             VStack(alignment: .leading, spacing: 16) {
                                 if isLoadingDetail && title.isEmpty {
                                     // SƯỜN DETAIL LOADING (SKELETON PLACEHOLDER)
@@ -284,6 +288,25 @@ struct BookDetailView: View {
                                         Text(translateMetaIfNeeded(desc))
                                             .font(.body)
                                             .foregroundColor(.secondary)
+                                            .lineLimit(isDescExpanded ? nil : 4)
+                                        
+                                        if desc.count > 150 {
+                                            Button(action: {
+                                                withAnimation(.easeInOut(duration: 0.2)) {
+                                                    isDescExpanded.toggle()
+                                                }
+                                            }) {
+                                                HStack(spacing: 4) {
+                                                    Text(isDescExpanded ? "Thu gọn" : "Xem thêm")
+                                                        .font(.subheadline)
+                                                        .fontWeight(.medium)
+                                                    Image(systemName: isDescExpanded ? "chevron.up" : "chevron.down")
+                                                        .font(.caption)
+                                                }
+                                                .foregroundColor(.accentColor)
+                                            }
+                                            .padding(.top, 2)
+                                        }
                                     }
                                     .padding(.horizontal)
                                 }
@@ -307,9 +330,27 @@ struct BookDetailView: View {
                                     Divider()
                                     ForEach(suggests) { suggest in
                                         VStack(alignment: .leading, spacing: 8) {
-                                            Text(TranslateUtils.translateMeta(suggest.title))
-                                                .font(.headline)
-                                                .padding(.horizontal)
+                                            HStack {
+                                                Text(TranslateUtils.translateMeta(suggest.title))
+                                                    .font(.headline)
+                                                Spacer()
+                                                NavigationLink(destination: CategoryNovelsListView(
+                                                    category: suggest,
+                                                    extensionPackageId: extensionPackageId,
+                                                    localPath: ext?.localPath ?? "",
+                                                    downloadUrl: ext?.downloadUrl ?? "",
+                                                    configJson: ext?.configJson ?? "{}",
+                                                    sourceName: sourceName
+                                                )) {
+                                                    HStack(spacing: 4) {
+                                                        Text("Xem thêm")
+                                                        Image(systemName: "chevron.right")
+                                                    }
+                                                    .font(.subheadline)
+                                                    .foregroundColor(.accentColor)
+                                                }
+                                            }
+                                            .padding(.horizontal)
                                             
                                             SuggestRowView(
                                                 category: suggest,
@@ -363,13 +404,18 @@ struct BookDetailView: View {
                                 }
                             }
                             .padding(.vertical)
+                            } else {
+                                Spacer()
+                            }
                         }
                         .refreshable {
                             await reloadBookData()
                         }
-                    } else {
+                        .tag(0)
+                        
                         // TAB MỤC LỤC
                         VStack(spacing: 0) {
+                            if renderedTab == 1 {
                             let totalChaps = localBook?.chapters.count ?? onlineChapters.count
                             
                             if totalChaps > 0 {
@@ -397,6 +443,18 @@ struct BookDetailView: View {
                                     HStack {
                                         Text("Danh sách chương (\(totalChaps))")
                                             .font(.headline)
+                                        
+                                        Button(action: {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                isTocAscending.toggle()
+                                            }
+                                        }) {
+                                            Image(systemName: isTocAscending ? "arrow.down.circle" : "arrow.up.circle")
+                                                .font(.subheadline)
+                                                .foregroundColor(.accentColor)
+                                        }
+                                        .padding(.leading, 4)
+                                        
                                         Spacer()
                                         if totalChaps > 0 && !tocErrorMessage.isEmpty {
                                             Button(action: loadTOCDataOnly) {
@@ -442,7 +500,7 @@ struct BookDetailView: View {
                                     } else {
                                         LazyVStack(alignment: .leading, spacing: 0) {
                                             if let book = localBook {
-                                                let sortedChaps = book.chapters.sorted(by: { $0.index < $1.index })
+                                                let sortedChaps = book.chapters.sorted(by: { isTocAscending ? ($0.index < $1.index) : ($0.index > $1.index) })
                                                 let filteredChaps = sortedChaps.filter { chap in
                                                     chapterSearchQuery.isEmpty ||
                                                     chap.title.localizedCaseInsensitiveContains(chapterSearchQuery) ||
@@ -473,7 +531,9 @@ struct BookDetailView: View {
                                                     .buttonStyle(.plain)
                                                 }
                                             } else {
-                                                let filteredOnline = Array(onlineChapters.enumerated()).filter { index, chap in
+                                                let enumeratedChaps = Array(onlineChapters.enumerated())
+                                                let sortedOnline = isTocAscending ? enumeratedChaps : Array(enumeratedChaps.reversed())
+                                                let filteredOnline = sortedOnline.filter { index, chap in
                                                     chapterSearchQuery.isEmpty ||
                                                     chap.name.localizedCaseInsensitiveContains(chapterSearchQuery) ||
                                                     TranslateUtils.translateChapterTitle(chap.name, bookId: bookId).localizedCaseInsensitiveContains(chapterSearchQuery)
@@ -519,10 +579,19 @@ struct BookDetailView: View {
                                     }
                                 }
                                 .padding(.vertical)
+                            } else {
+                                Spacer()
                             }
                             .refreshable {
                                 await reloadBookData()
                             }
+                            .tag(1)
+                        }
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .onChange(of: selectedTab) { oldVal, newVal in
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            renderedTab = newVal
                         }
                     }
                 }
@@ -575,6 +644,7 @@ struct BookDetailView: View {
                 }
             }
             .onAppear {
+                renderedTab = selectedTab
                 loadBookData()
             }
             

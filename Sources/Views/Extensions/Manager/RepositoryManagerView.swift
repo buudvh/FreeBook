@@ -8,6 +8,7 @@ struct RepositoryManagerView: View {
     
     // Quản lý Tab chính của view
     @State private var selectedTab = 0 // 0: Tất cả tiện ích, 1: Danh sách kho
+    @State private var renderedTab = 0
     
     // Trạng thái cho Tab 0: Danh sách kho
     @State private var showingAddRepo = false
@@ -77,71 +78,10 @@ struct RepositoryManagerView: View {
                 .padding(.vertical, 6)
                 .background(Color(.systemGroupedBackground))
                 
-                if selectedTab == 1 {
-                    // TAB 1: QUẢN LÝ KHO TIỆN ÍCH (Danh sách kho)
-                    List {
-                        if !statusMessage.isEmpty {
-                            Section {
-                                Text(statusMessage)
-                                    .font(.caption)
-                                    .foregroundColor(.blue)
-                            }
-                        }
-                        
-                        Section(header: Text("Danh sách kho tiện ích")) {
-                            if repositories.isEmpty {
-                                VStack(alignment: .leading, spacing: 10) {
-                                    Text("Chưa nhập kho tiện ích nào.")
-                                        .font(.headline)
-                                        .foregroundColor(.gray)
-                                    Text("Bạn có thể nhập link kho truyện VBook (định dạng plugin.json) để bắt đầu tải các nguồn bóc tách truyện.")
-                                        .font(.subheadline)
-                                        .foregroundColor(.gray)
-                                    
-                                    Button(action: {
-                                        addSampleRepository()
-                                    }) {
-                                        Text("Nhập kho tiện ích mặc định (buudvh)")
-                                            .font(.subheadline)
-                                            .fontWeight(.semibold)
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    .padding(.top, 5)
-                                }
-                                .padding(.vertical)
-                            } else {
-                                ForEach(repositories) { repo in
-                                    NavigationLink(destination: ExtensionStoreView(repository: repo)) {
-                                        HStack {
-                                            VStack(alignment: .leading, spacing: 4) {
-                                                Text(repo.name)
-                                                    .font(.headline)
-                                                Text(repo.url)
-                                                    .font(.caption)
-                                                    .foregroundColor(.gray)
-                                                    .lineLimit(1)
-                                            }
-                                            Spacer()
-                                            
-                                            Toggle("", isOn: Binding(
-                                                get: { repo.isEnabled },
-                                                set: { val in
-                                                    repo.isEnabled = val
-                                                    try? modelContext.save()
-                                                }
-                                            ))
-                                            .labelsHidden()
-                                        }
-                                    }
-                                }
-                                .onDelete(perform: deleteRepository)
-                            }
-                        }
-                    }
-                    .listStyle(.insetGrouped)
-                } else {
-                    // TAB 1: CỬA HÀNG TIỆN ÍCH GỘP (HIỂN THỊ HẾT & BỘ LỌC)
+                TabView(selection: $selectedTab) {
+                    // TAB 0: CỬA HÀNG TIỆN ÍCH GỘP (HIỂN THỊ HẾT & BỘ LỌC)
                     VStack(spacing: 8) {
+                        if renderedTab == 0 {
                         // Thanh bộ lọc ngang
                         HStack(spacing: 12) {
                             // Lọc theo Kho
@@ -340,6 +280,77 @@ struct RepositoryManagerView: View {
                         }
                     }
                     .background(Color(.systemGroupedBackground).opacity(0.3))
+                    .tag(0)
+                    
+                    // TAB 1: QUẢN LÝ KHO TIỆN ÍCH (Danh sách kho)
+                    List {
+                        if renderedTab == 1 {
+                        if !statusMessage.isEmpty {
+                            Section {
+                                Text(statusMessage)
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                        
+                        Section(header: Text("Danh sách kho tiện ích")) {
+                            if repositories.isEmpty {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Text("Chưa nhập kho tiện ích nào.")
+                                        .font(.headline)
+                                        .foregroundColor(.gray)
+                                    Text("Bạn có thể nhập link kho truyện VBook (định dạng plugin.json) để bắt đầu tải các nguồn bóc tách truyện.")
+                                        .font(.subheadline)
+                                        .foregroundColor(.gray)
+                                    
+                                    Button(action: {
+                                        addSampleRepository()
+                                    }) {
+                                        Text("Nhập kho tiện ích mặc định (buudvh)")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .padding(.top, 5)
+                                }
+                                .padding(.vertical)
+                            } else {
+                                ForEach(repositories) { repo in
+                                    NavigationLink(destination: ExtensionStoreView(repository: repo)) {
+                                        HStack {
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text(repo.name)
+                                                    .font(.headline)
+                                                Text(repo.url)
+                                                    .font(.caption)
+                                                    .foregroundColor(.gray)
+                                                    .lineLimit(1)
+                                            }
+                                            Spacer()
+                                            
+                                            Toggle("", isOn: Binding(
+                                                get: { repo.isEnabled },
+                                                set: { val in
+                                                    repo.isEnabled = val
+                                                    try? modelContext.save()
+                                                }
+                                            ))
+                                            .labelsHidden()
+                                        }
+                                    }
+                                }
+                                .onDelete(perform: deleteRepository)
+                            }
+                        }
+                    }
+                    .listStyle(.insetGrouped)
+                    .tag(1)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .onChange(of: selectedTab) { oldVal, newVal in
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        renderedTab = newVal
+                    }
                 }
             }
             .navigationTitle("Kho Tiện Ích")
@@ -372,6 +383,7 @@ struct RepositoryManagerView: View {
                 ExtensionConfigView(ext: ext)
             }
             .onAppear {
+                renderedTab = selectedTab
                 if repositories.isEmpty {
                     addSampleRepository()
                 }

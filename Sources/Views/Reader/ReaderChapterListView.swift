@@ -27,6 +27,7 @@ struct ReaderChapterListView: View {
     @Query private var allExtensions: [Extension]
     
     @State private var searchQuery = ""
+    @State private var isAscending = true
     @State private var chaptersList: [ChapterRowInfo] = []
     @State private var isUpdating = false
     @State private var errorMessage = ""
@@ -44,10 +45,11 @@ struct ReaderChapterListView: View {
     }
     
     var filteredChapters: [ChapterRowInfo] {
+        let baseList = isAscending ? chaptersList : Array(chaptersList.reversed())
         if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return chaptersList
+            return baseList
         }
-        return chaptersList.filter { chap in
+        return baseList.filter { chap in
             chap.displayTitle.localizedCaseInsensitiveContains(searchQuery) ||
             chap.title.localizedCaseInsensitiveContains(searchQuery)
         }
@@ -70,6 +72,17 @@ struct ReaderChapterListView: View {
                                 .foregroundColor(theme.textColor)
                                 .frame(width: 44, height: 44)
                         }
+                    }
+                    
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isAscending.toggle()
+                        }
+                    }) {
+                        Image(systemName: isAscending ? "arrow.down.circle" : "arrow.up.circle")
+                            .font(.title3)
+                            .foregroundColor(theme.textColor)
+                            .frame(width: 44, height: 44)
                     }
                     
                     Spacer()
