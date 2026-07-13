@@ -247,11 +247,12 @@ public final class ExtensionManager: ObservableObject {
         do {
             // Chạy hàm "execute(query, page)" bất đồng bộ bên trong JS Engine
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [query, String(page)])
-            let stringified = stringify(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue)
+            let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] search raw JS result: \(stringified)")
             
             // Ép kiểu kết quả trả về của JS thành mảng
-            guard let jsArray = jsValue.toArray() else {
+            guard let jsArray = cleanVal.toArray() else {
                 // AppLogger.shared.log("⚠️ [ExtensionManager] search returned non-array result or null")
                 updateDiagnostics(action: "search", input: "query: \(query), page: \(page)", status: "Success (Empty)", details: "Returned non-array result")
                 return []
@@ -295,10 +296,11 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
-            let stringified = stringify(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue)
+            let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] detail raw JS result: \(stringified)")
             
-            guard let dict = jsValue.toDictionary() as? [String: Any] else {
+            guard let dict = cleanVal.toDictionary() as? [String: Any] else {
                 // AppLogger.shared.log("❌ [ExtensionManager] detail returned non-dictionary result or null")
                 let errorDesc = "Failed to parse novel detail: result is not dictionary"
                 updateDiagnostics(action: "detail", input: url, status: "Error", details: errorDesc)
@@ -338,10 +340,11 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
-            let stringified = stringify(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue)
+            let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] toc raw JS result: \(stringified)")
             
-            let jsArray = toDictionaryArray(jsValue)
+            let jsArray = toDictionaryArray(cleanVal)
 
             var results: [ChapterResult] = []
  
@@ -418,16 +421,17 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
-            let stringified = stringify(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue)
+            let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] chap raw JS result length: \(stringified.count)")
             
             var resultStr = ""
-            if jsValue.isArray {
-                if let array = jsValue.toArray() as? [String] {
+            if cleanVal.isArray {
+                if let array = cleanVal.toArray() as? [String] {
                     resultStr = array.joined(separator: "\n")
                 }
             } else {
-                resultStr = jsValue.toString() ?? ""
+                resultStr = cleanVal.toString() ?? ""
             }
             
             updateDiagnostics(action: "chap", input: url, status: "Success", details: "Length: \(resultStr.count) characters\n\(stringified)")
@@ -456,12 +460,13 @@ public final class ExtensionManager: ObservableObject {
             executor.injectGlobals(configs)
             
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
-            let stringified = stringify(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue)
+            let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] genre raw JS result: \(stringified)")
             
             var results: [CategoryResult] = []
             
-            if let jsArray = jsValue.toArray() {
+            if let jsArray = cleanVal.toArray() {
                 for item in jsArray {
                     if let itemDict = item as? [String: Any] {
                         if let title = itemDict["title"] as? String,
@@ -475,11 +480,11 @@ public final class ExtensionManager: ObservableObject {
                         }
                     }
                 }
-            } else if let dict = jsValue.toDictionary() as? [String: String] {
+            } else if let dict = cleanVal.toDictionary() as? [String: String] {
                 for (key, val) in dict {
                     results.append(CategoryResult(title: translateTitle(key), input: val, script: "search.js"))
                 }
-            } else if let dict = jsValue.toDictionary() as? [String: Any] {
+            } else if let dict = cleanVal.toDictionary() as? [String: Any] {
                 for (key, val) in dict {
                     if let valStr = val as? String {
                         results.append(CategoryResult(title: translateTitle(key), input: valStr, script: "search.js"))
@@ -493,7 +498,7 @@ public final class ExtensionManager: ObservableObject {
         } catch {
             // AppLogger.shared.log("❌ [ExtensionManager] genre script failed or not supported: \(error.localizedDescription)")
             updateDiagnostics(action: "genre", input: "localPath: \(localPath)", status: "Error", details: error.localizedDescription)
-            return []
+            throw error
         }
     }
     
@@ -514,12 +519,13 @@ public final class ExtensionManager: ObservableObject {
             executor.injectGlobals(configs)
             
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
-            let stringified = stringify(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue)
+            let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] home raw JS result: \(stringified)")
             
             var results: [CategoryResult] = []
             
-            if let jsArray = jsValue.toArray() {
+            if let jsArray = cleanVal.toArray() {
                 for item in jsArray {
                     if let itemDict = item as? [String: Any] {
                         if let title = itemDict["title"] as? String,
@@ -579,10 +585,11 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [formattedInput, pageArg])
-            let stringified = stringify(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue)
+            let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] custom script raw JS result: \(stringified)")
             
-            guard let jsArray = jsValue.toArray() else {
+            guard let jsArray = cleanVal.toArray() else {
                 // AppLogger.shared.log("⚠️ [ExtensionManager] custom script returned non-array result or null")
                 updateDiagnostics(action: scriptFileName, input: "input: \(input), page: \(page)", status: "Success (Empty)", details: "Returned non-array result")
                 return ([], nil)
@@ -719,7 +726,25 @@ public final class ExtensionManager: ObservableObject {
             throw error
         }
     }
-    
+    private func verifyJSResponse(_ jsValue: JSValue) throws -> JSValue {
+        guard jsValue.isObject else { return jsValue }
+        
+        let successVal = jsValue.objectForKeyedSubscript("success")
+        if !successVal.isUndefined && !successVal.isNull {
+            let success = successVal.toBool()
+            if !success {
+                let msgVal = jsValue.objectForKeyedSubscript("message")
+                let msg = (!msgVal.isUndefined && !msgVal.isNull) ? msgVal.toString() ?? "Lỗi từ nguồn truyện" : "Lỗi từ nguồn truyện"
+                throw NSError(domain: "ExtensionManager", code: -999, userInfo: [NSLocalizedDescriptionKey: msg])
+            }
+            let dataVal = jsValue.objectForKeyedSubscript("data")
+            if !dataVal.isUndefined {
+                return dataVal
+            }
+        }
+        return jsValue
+    }
+
     private func stringify(_ jsValue: JSValue) -> String {
         if let jsonModule = jsValue.context.objectForKeyedSubscript("JSON"),
            let stringifyFunc = jsonModule.objectForKeyedSubscript("stringify"),

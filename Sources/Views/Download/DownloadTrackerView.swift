@@ -115,10 +115,28 @@ struct DownloadTrackerView: View {
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.plain)
+            } else if task.status == .failed || task.status == .cancelled {
+                Button(action: {
+                    downloadManager.retryTask(taskId: task.id)
+                }) {
+                    Image(systemName: "arrow.clockwise.circle.fill")
+                        .resizable()
+                        .frame(width: 22, height: 22)
+                        .foregroundColor(.blue.opacity(0.8))
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.vertical, 4)
         .contextMenu {
+            if task.status == .failed || task.status == .cancelled {
+                Button {
+                    downloadManager.retryTask(taskId: task.id)
+                } label: {
+                    Label("Tải lại tác vụ", systemImage: "arrow.clockwise")
+                }
+            }
+            
             if task.status == .completed && task.taskType == .download {
                 Button {
                     exportFromCached(task)

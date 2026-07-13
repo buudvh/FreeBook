@@ -114,10 +114,17 @@ public final class JSExecutor {
             nextPage: null,
             success: function(data, hasNext) {
                 Response.nextPage = hasNext || null;
-                return data;
+                return {
+                    success: true,
+                    data: data,
+                    next: hasNext || null
+                };
             },
             error: function(message) {
-                throw new Error(message);
+                return {
+                    success: false,
+                    message: message || "Lỗi không xác định từ nguồn truyện"
+                };
             }
         };
         """
@@ -134,7 +141,7 @@ public final class JSExecutor {
         """
         context.evaluateScript(userAgentBootstrap)
         
-        // 6.6. Đăng ký đối tượng Script toàn cục (hỗ trợ thực thi script động tương thích VBook)
+        // 6.6. Đăng ký đối tượng Script toàn cục (hỗ trợ thực thi script động tương thích VBook) và đối tượng Http
         let scriptBootstrap = """
         var Script = {
             execute: function(scriptContent, functionName) {
@@ -151,6 +158,100 @@ public final class JSExecutor {
                     console.log("❌ Script.execute error: " + e.message);
                     throw e;
                 }
+            }
+        };
+
+        var Http = {
+            _request: function(method, url) {
+                var req = {
+                    _url: url,
+                    _method: method,
+                    _headers: {},
+                    _params: {},
+                    _body: null,
+                    
+                    header: function(key, value) {
+                        this._headers[key] = value;
+                        return this;
+                    },
+                    
+                    headers: function(dict) {
+                        if (dict) {
+                            for (var key in dict) {
+                                this._headers[key] = dict[key];
+                            }
+                        }
+                        return this;
+                    },
+                    
+                    param: function(key, value) {
+                        this._params[key] = value;
+                        return this;
+                    },
+                    
+                    params: function(dict) {
+                        if (dict) {
+                            for (var key in dict) {
+                                this._params[key] = dict[key];
+                            }
+                        }
+                        return this;
+                    },
+                    
+                    body: function(content) {
+                        this._body = content;
+                        return this;
+                    },
+                    
+                    _execute: function() {
+                        var finalUrl = this._url;
+                        var paramKeys = Object.keys(this._params);
+                        if (paramKeys.length > 0) {
+                            var queryString = paramKeys.map(function(key) {
+                                var val = req._params[key];
+                                return encodeURIComponent(key) + "=" + encodeURIComponent(val !== null && val !== undefined ? val : "");
+                            }).join("&");
+                            
+                            if (this._method.toUpperCase() === "GET") {
+                                finalUrl += (finalUrl.indexOf("?") >= 0 ? "&" : "?") + queryString;
+                            } else if (!this._body) {
+                                this._body = queryString;
+                                if (!this._headers["Content-Type"]) {
+                                    this._headers["Content-Type"] = "application/x-www-form-urlencoded";
+                                }
+                            }
+                        }
+                        
+                        var options = {
+                            method: this._method,
+                            headers: this._headers,
+                            body: this._body
+                        };
+                        
+                        return fetch(finalUrl, options);
+                    },
+                    
+                    html: function(encoding) {
+                        return this._execute().html(encoding);
+                    },
+                    
+                    string: function(encoding) {
+                        return this._execute().text(encoding);
+                    },
+                    
+                    code: function() {
+                        return this._execute().status;
+                    }
+                };
+                return req;
+            },
+            
+            get: function(url) {
+                return this._request("GET", url);
+            },
+            
+            post: function(url) {
+                return this._request("POST", url);
             }
         };
         """
@@ -259,6 +360,30 @@ public final class JSExecutor {
         // 8. Đăng ký fetch đồng bộ ghi đè fetch Promise mặc định
         let fetchBootstrap = """
         var fetch = function(url, options) {
+            if (options && options.body && typeof options.body === 'object') {
+                var params = [];
+                for (var key in options.body) {
+                    if (options.body.hasOwnProperty(key)) {
+                        var val = options.body[key];
+                        params.push(encodeURIComponent(key) + "=" + encodeURIComponent(val !== null && val !== undefined ? val : ""));
+                    }
+                }
+                options.body = params.join("&");
+                if (!options.headers) {
+                    options.headers = {};
+                }
+                var hasContentType = false;
+                for (var h in options.headers) {
+                    if (h.toLowerCase() === 'content-type') {
+                        hasContentType = true;
+                        break;
+                    }
+                }
+                if (!hasContentType) {
+                    options.headers["Content-Type"] = "application/x-www-form-urlencoded";
+                }
+            }
+            
             var res = _nativeSyncFetch(url, options || null);
             var headersMap = res.headers || {};
             return {

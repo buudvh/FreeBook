@@ -127,6 +127,25 @@ public final class DownloadManager: ObservableObject {
         }
     }
     
+    public func retryTask(taskId: UUID) {
+        guard let idx = tasks.firstIndex(where: { $0.id == taskId }) else { return }
+        let task = tasks[idx]
+        guard task.status == .failed || task.status == .cancelled else { return }
+        
+        tasks[idx].status = .pending
+        tasks[idx].progressCount = 0
+        tasks[idx].errorMessage = nil
+        
+        if let container = self.container {
+            updateTaskInDB(taskId: taskId) { model in
+                model.statusVal = "pending"
+                model.progressCount = 0
+                model.errorMessage = nil
+            }
+            runNextTaskIfNeeded(container: container)
+        }
+    }
+    
     private func updateTaskInDB(taskId: UUID, updateBlock: (DownloadTaskModel) -> Void) {
         guard let container = container else { return }
         let context = ModelContext(container)

@@ -170,11 +170,18 @@ struct DiscoveryView: View {
                         ProgressView("Đang tải cấu trúc danh mục...")
                             .frame(maxHeight: .infinity)
                     } else if !errorMessage.isEmpty {
-                        Text(errorMessage)
-                            .foregroundColor(.red)
-                            .font(.subheadline)
-                            .padding()
-                            .frame(maxHeight: .infinity)
+                        VStack(spacing: 12) {
+                            Text(errorMessage)
+                                .foregroundColor(.red)
+                                .font(.subheadline)
+                                .multilineTextAlignment(.center)
+                            Button("Thử lại") {
+                                loadDiscoveryData()
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .padding()
+                        .frame(maxHeight: .infinity)
                     } else {
                         // 3. Menu danh mục & Home tabs
                         HStack(spacing: 0) {
@@ -250,6 +257,21 @@ struct DiscoveryView: View {
                         if isLoadingNovels {
                             ProgressView("Đang tải danh sách truyện...")
                                 .frame(maxHeight: .infinity)
+                        } else if !errorMessage.isEmpty {
+                            VStack(spacing: 12) {
+                                Spacer()
+                                Text(errorMessage)
+                                    .foregroundColor(.red)
+                                    .font(.subheadline)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                                Button("Thử lại") {
+                                    loadNovels(page: 1)
+                                }
+                                .buttonStyle(.bordered)
+                                Spacer()
+                            }
+                            .frame(maxHeight: .infinity)
                         } else if novels.isEmpty {
                             VStack(spacing: 12) {
                                 Spacer()
