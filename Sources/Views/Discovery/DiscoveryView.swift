@@ -28,29 +28,20 @@ struct DiscoveryView: View {
     @State private var homeItems: [CategoryResult] = []
     @State private var genreItems: [CategoryResult] = []
     
-    // Danh mục / Tab đang được chọn hiển thị
-    @State private var selectedCategory: CategoryResult? = nil
+    // ID danh mục / Tab đang được chọn hiển thị
+    @State private var selectedCategoryId: String = ""
     
-    // Trạng thái truyện hiển thị
-    @State private var novels: [SearchNovelResult] = []
-    @State private var isLoadingNovels = false
-    @State private var currentPage = 1
-    @State private var isLoadingMore = false
-    @State private var canLoadMore = true
-    @State private var nextNovelPageUrl: String? = nil
+    // Thể loại được chọn để điều hướng đẩy view chuyên biệt
+    @State private var selectedGenre: CategoryResult? = nil
+    @State private var navigateToGenre = false
     
     // Hiển thị danh mục thể loại dạng sheet trượt
     @State private var showingGenresSheet = false
-    @State private var novelsError = ""
-    @State private var retryCount = 0
     
     // Sheet chọn nguồn "Phần mở rộng" nâng cao
     @State private var showingExtensionSelector = false
     @State private var extensionSearchQuery = ""
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
-    
-    // Trình duyệt trang chủ extension
-    @State private var showingHeaderWeb = false
     
     // Import từ trình duyệt
     @State private var importedBookId: String = ""
@@ -58,6 +49,9 @@ struct DiscoveryView: View {
     @State private var importedDetailUrl: String = ""
     @State private var importedSourceName: String = ""
     @State private var navigateToImportedBook = false
+    
+    // Trình duyệt trang chủ extension
+    @State private var showingHeaderWeb = false
     
     private var selectedExtension: Extension? {
         activeExtensions.first(where: { $0.packageId == selectedExtensionId })
@@ -92,6 +86,7 @@ struct DiscoveryView: View {
                                     ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 24)
                                     Text(ext.name)
                                         .fontWeight(.semibold)
+                                        .lineLimit(1)
                                 } else {
                                     Image(systemName: "puzzlepiece.extension")
                                         .resizable()
@@ -108,6 +103,7 @@ struct DiscoveryView: View {
                             .background(Color(.secondarySystemBackground))
                             .cornerRadius(18)
                         }
+                        .layoutPriority(1) // Đảm bảo nút chọn nguồn được hiển thị trọn vẹn nhất có thể
                         
                         Spacer()
                         
@@ -160,8 +156,7 @@ struct DiscoveryView: View {
                         } else {
                             homeItems.removeAll()
                             genreItems.removeAll()
-                            selectedCategory = nil
-                            novels.removeAll()
+                            selectedCategoryId = ""
                         }
                     }
                     
@@ -184,8 +179,10 @@ struct DiscoveryView: View {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
                                     ForEach(homeItems) { item in
-                                        let isSelected = selectedCategory?.id == item.id
-                                        Button(action: { selectCategory(item) }) {
+                                        let isSelected = selectedCategoryId == item.id
+                                        Button(action: {
+                                            selectedCategoryId = item.id
+                                        }) {
                                             Text(translateIfNeeded(item.title))
                                                 .font(.subheadline)
                                                 .fontWeight(isSelected ? .bold : .regular)
@@ -200,18 +197,19 @@ struct DiscoveryView: View {
                                 }
                                 .padding(.horizontal, 8)
                             }
-                            .onChange(of: selectedCategory?.id) { _, newValue in
-                                if let id = newValue {
+                            .onChange(of: selectedCategoryId) { _, newValue in
+                                if !newValue.isEmpty {
                                     withAnimation {
-                                        proxy.scrollTo(id, anchor: .center)
+                                        proxy.scrollTo(newValue, anchor: .center)
                                     }
+                                    lastSelectedCategoryId = newValue
                                 }
                             }
                             .onAppear {
-                                if let id = selectedCategory?.id {
+                                if !selectedCategoryId.isEmpty {
                                     DispatchQueue.main.async {
                                         withAnimation {
-                                            proxy.scrollTo(id, anchor: .center)
+                                            proxy.scrollTo(selectedCategoryId, anchor: .center)
                                         }
                                     }
                                 }
@@ -229,118 +227,27 @@ struct DiscoveryView: View {
                             ProgressView("Đang tải danh mục...")
                                 .padding(.vertical, 40)
                         } else {
-                            if let cat = selectedCategory {
-                                HStack {
-                                    Text(translateIfNeeded(cat.title))
-                                        .font(.headline)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.accentColor)
-                                    Spacer()
-                                }
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
-                                .background(Color(.secondarySystemBackground).opacity(0.5))
-                            }
-                            
-                            // Danh sách truyện của danh mục
-                            if isLoadingNovels {
-                                ProgressView("Đang tải danh sách truyện...")
-                                    .frame(maxHeight: .infinity)
-                            } else if !novelsError.isEmpty {
-                                VStack(spacing: 12) {
-                                    Spacer()
-                                    Text(novelsError)
-                                        .foregroundColor(.red)
-                                        .font(.subheadline)
-                                        .multilineTextAlignment(.center)
-                                        .padding(.horizontal)
-                                    Button("Thử lại") {
-                                        loadNovels(page: 1)
-                                    }
-                                    .buttonStyle(.bordered)
-                                    Spacer()
-                                }
-                                .frame(maxHeight: .infinity)
-                            } else if novels.isEmpty {
-                                VStack(spacing: 12) {
-                                    Spacer()
-                                    Image(systemName: "book.closed")
-                                        .font(.largeTitle)
-                                        .foregroundColor(.secondary)
-                                    Text("Không tìm thấy truyện nào")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                    Spacer()
-                                }
-                                .frame(maxHeight: .infinity)
-                            } else {
-                            List {
-                                ForEach(novels) { novel in
+                            // TabView vuốt ngang trang gốc
+                            TabView(selection: $selectedCategoryId) {
+                                ForEach(homeItems) { item in
                                     if let ext = selectedExtension {
-                                        NavigationLink(destination: BookDetailView(
-                                            bookId: "\(ext.name.lowercased())_\(novel.link)",
+                                        DiscoveryCategoryTabView(
+                                            category: item,
                                             extensionPackageId: ext.packageId,
-                                            initialDetailUrl: novel.link,
-                                            sourceName: ext.name
-                                        )) {
-                                            HStack(spacing: 12) {
-                                                AsyncImage(url: URL(string: novel.cover)) { image in
-                                                    image.resizable()
-                                                        .aspectRatio(contentMode: .fill)
-                                                } placeholder: {
-                                                    Color.gray.opacity(0.3)
-                                                        .overlay(Image(systemName: "book"))
-                                                }
-                                                .frame(width: 50, height: 70)
-                                                .cornerRadius(6)
-                                                .clipped()
-                                                
-                                                VStack(alignment: .leading, spacing: 4) {
-                                                    Text(translateIfNeeded(novel.name))
-                                                        .font(.subheadline)
-                                                        .fontWeight(.bold)
-                                                        .lineLimit(2)
-                                                    
-                                                    let descText = !novel.description.isEmpty ? novel.description : novel.author
-                                                    Text(translateIfNeeded(descText))
-                                                        .font(.caption)
-                                                        .foregroundColor(.secondary)
-                                                        .lineLimit(2)
-                                                }
-                                            }
-                                        }
+                                            localPath: ext.localPath,
+                                            downloadUrl: ext.downloadUrl,
+                                            configJson: ext.configJson,
+                                            sourceName: ext.name,
+                                            isTranslationEnabled: isTranslationEnabled,
+                                            selectedCategoryId: $selectedCategoryId
+                                        )
+                                        .tag(item.id)
                                     }
                                 }
-                                
-                                if canLoadMore {
-                                    HStack {
-                                        Spacer()
-                                        ProgressView()
-                                            .onAppear {
-                                                if !isLoadingMore && !isLoadingNovels {
-                                                    currentPage += 1
-                                                    loadNovels(page: currentPage)
-                                                }
-                                            }
-                                        Spacer()
-                                    }
-                                    .listRowSeparator(.hidden)
-                                }
                             }
-                            .listStyle(.plain)
-                            .refreshable {
-                                await reloadCurrentCategory()
-                            }
-                        }
+                            .tabViewStyle(.page(indexDisplayMode: .never))
                         }
                     }
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 80)
-                            .onEnded { value in
-                                guard abs(value.translation.width) > abs(value.translation.height) else { return }
-                                switchCategory(forward: value.translation.width < 0)
-                            }
-                    )
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -371,13 +278,19 @@ struct DiscoveryView: View {
                                 ForEach(genreItems) { item in
                                     Button(action: {
                                         showingGenresSheet = false
-                                        selectCategory(item)
+                                        if homeItems.contains(where: { $0.id == item.id }) {
+                                            selectedCategoryId = item.id
+                                        } else {
+                                            selectedGenre = item
+                                            navigateToGenre = true
+                                        }
                                     }) {
                                         Text(translateIfNeeded(item.title))
                                             .font(.subheadline)
                                             .fontWeight(.medium)
-                                            .frame(maxWidth: .infinity)
-                                            .padding(.vertical, 14)
+                                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                            .padding(.horizontal, 4)
+                                            .frame(height: 50) // Chiều cao cố định đảm bảo bằng nhau tuyệt đối
                                             .background(Color.accentColor.opacity(0.1))
                                             .foregroundColor(.accentColor)
                                             .cornerRadius(10)
@@ -436,6 +349,18 @@ struct DiscoveryView: View {
                     sourceName: importedSourceName
                 )
             }
+            .navigationDestination(isPresented: $navigateToGenre) {
+                if let genre = selectedGenre {
+                    CategoryNovelsListView(
+                        category: genre,
+                        extensionPackageId: selectedExtensionId,
+                        localPath: selectedExtension?.localPath ?? "",
+                        downloadUrl: selectedExtension?.downloadUrl ?? "",
+                        configJson: selectedExtension?.configJson ?? "{}",
+                        sourceName: selectedExtension?.name ?? ""
+                    )
+                }
+            }
             .onChange(of: isTranslationEnabled) { _, _ in
                 loadDiscoveryData()
             }
@@ -445,7 +370,6 @@ struct DiscoveryView: View {
     private func loadDiscoveryData() {
         guard let ext = selectedExtension else { return }
         isLoading = true
-        novelsError = ""
         
         Task {
             do {
@@ -460,14 +384,13 @@ struct DiscoveryView: View {
                     // Khôi phục Home tab cuối cùng
                     if !lastSelectedCategoryId.isEmpty,
                        let savedCat = homeRes.first(where: { $0.id == lastSelectedCategoryId }) {
-                        selectCategory(savedCat)
+                        selectedCategoryId = savedCat.id
                     } else if let firstHome = homeRes.first {
-                        selectCategory(firstHome)
+                        selectedCategoryId = firstHome.id
                     }
                 }
             } catch {
                 await MainActor.run {
-                    self.novelsError = "Không thể tải cấu trúc khám phá: \(error.localizedDescription)"
                     self.isLoading = false
                 }
             }
@@ -480,37 +403,142 @@ struct DiscoveryView: View {
         }
         return TranslateUtils.translateMeta(text)
     }
+}
 
-    private func selectCategory(_ category: CategoryResult) {
-        selectedCategory = category
-        currentPage = 1
-        nextNovelPageUrl = nil
-        novels.removeAll()
-        canLoadMore = true
-        
-        // Khi chọn một danh mục, nếu nó thuộc homeItems (Home tab) thì lưu trạng thái
-        if homeItems.contains(where: { $0.id == category.id }) {
-            lastSelectedCategoryId = category.id
+// MARK: - Subviews
+
+struct DiscoveryCategoryTabView: View {
+    let category: CategoryResult
+    let extensionPackageId: String
+    let localPath: String
+    let downloadUrl: String
+    let configJson: String
+    let sourceName: String
+    let isTranslationEnabled: Bool
+    @Binding var selectedCategoryId: String
+    
+    @State private var novels: [SearchNovelResult] = []
+    @State private var isLoadingNovels = false
+    @State private var novelsError = ""
+    @State private var currentPage = 1
+    @State private var canLoadMore = false
+    @State private var isLoadingMore = false
+    @State private var nextNovelPageUrl: String? = nil
+    @State private var retryCount = 0
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            if isLoadingNovels && novels.isEmpty {
+                ProgressView("Đang tải danh sách truyện...")
+                    .frame(maxHeight: .infinity)
+            } else if !novelsError.isEmpty && novels.isEmpty {
+                VStack(spacing: 12) {
+                    Spacer()
+                    Text(novelsError)
+                        .foregroundColor(.red)
+                        .font(.subheadline)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                    Button("Thử lại") {
+                        loadNovels(page: 1)
+                    }
+                    .buttonStyle(.bordered)
+                    Spacer()
+                }
+                .frame(maxHeight: .infinity)
+            } else if novels.isEmpty {
+                VStack(spacing: 12) {
+                    Spacer()
+                    Image(systemName: "book.closed")
+                        .font(.largeTitle)
+                        .foregroundColor(.secondary)
+                    Text("Không tìm thấy truyện nào")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .frame(maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(novels) { novel in
+                        NavigationLink(destination: BookDetailView(
+                            bookId: "\(sourceName.lowercased())_\(novel.link)",
+                            extensionPackageId: extensionPackageId,
+                            initialDetailUrl: novel.link,
+                            sourceName: sourceName
+                        )) {
+                            HStack(spacing: 12) {
+                                AsyncImage(url: URL(string: novel.cover)) { image in
+                                    image.resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    Color.gray.opacity(0.3)
+                                        .overlay(Image(systemName: "book"))
+                                }
+                                .frame(width: 50, height: 70)
+                                .cornerRadius(6)
+                                .clipped()
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(translateIfNeeded(novel.name))
+                                        .font(.subheadline)
+                                        .fontWeight(.bold)
+                                        .lineLimit(2)
+                                    
+                                    let descText = !novel.description.isEmpty ? novel.description : novel.author
+                                    Text(translateIfNeeded(descText))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                }
+                            }
+                        }
+                    }
+                    
+                    if canLoadMore {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                                .onAppear {
+                                    if !isLoadingMore && !isLoadingNovels {
+                                        currentPage += 1
+                                        loadNovels(page: currentPage)
+                                    }
+                                }
+                            Spacer()
+                        }
+                        .listRowSeparator(.hidden)
+                    }
+                }
+                .listStyle(.plain)
+                .refreshable {
+                    await reloadCurrentCategory()
+                }
+            }
         }
-        
+        .onAppear {
+            checkAndLoadData()
+        }
+        .onChange(of: selectedCategoryId) { _, _ in
+            checkAndLoadData()
+        }
+    }
+    
+    private func checkAndLoadData() {
+        // Chỉ nạp dữ liệu khi tab này thực sự là tab được chọn VÀ chưa có dữ liệu
+        guard selectedCategoryId == category.id else { return }
+        guard novels.isEmpty && !isLoadingNovels && novelsError.isEmpty else { return }
         loadNovels(page: 1)
     }
     
-    private var currentCategoryIndex: Int {
-        guard let cat = selectedCategory else { return -1 }
-        return homeItems.firstIndex(where: { $0.id == cat.id }) ?? -1
-    }
-    
-    private func switchCategory(forward: Bool) {
-        let idx = currentCategoryIndex
-        guard idx >= 0 else { return }
-        let newIdx = forward ? idx + 1 : idx - 1
-        guard newIdx >= 0 && newIdx < homeItems.count else { return }
-        withAnimation { selectCategory(homeItems[newIdx]) }
+    private func translateIfNeeded(_ text: String) -> String {
+        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
+            return text
+        }
+        return TranslateUtils.translateMeta(text)
     }
     
     private func loadNovels(page: Int) {
-        guard let ext = selectedExtension, let cat = selectedCategory else { return }
         if page == 1 {
             isLoadingNovels = true
             novelsError = ""
@@ -522,13 +550,13 @@ struct DiscoveryView: View {
         Task {
             do {
                 let (results, nextPage) = try await ExtensionManager.shared.executeCustomScript(
-                    localPath: ext.localPath,
-                    downloadUrl: ext.downloadUrl,
-                    scriptFileName: cat.script,
-                    input: cat.input,
+                    localPath: localPath,
+                    downloadUrl: downloadUrl,
+                    scriptFileName: category.script,
+                    input: category.input,
                     page: page,
                     pageUrl: page == 1 ? nil : self.nextNovelPageUrl,
-                    configJson: ext.configJson
+                    configJson: configJson
                 )
                 
                 await MainActor.run {
@@ -540,11 +568,11 @@ struct DiscoveryView: View {
                         self.novels.append(contentsOf: results)
                         self.isLoadingMore = false
                     }
-                    self.canLoadMore = results.count >= 10 && (nextPage != nil || cat.input.contains("{0}"))
-                    self.retryCount = 0 // Reset khi thành công
+                    self.canLoadMore = results.count >= 10 && (nextPage != nil || category.input.contains("{0}"))
+                    self.retryCount = 0
                 }
             } catch {
-                AppLogger.shared.log("❌ [DiscoveryView] loadNovels error page \(page): \(error.localizedDescription)")
+                AppLogger.shared.log("❌ [DiscoveryCategoryTabView] loadNovels error page \(page): \(error.localizedDescription)")
                 await MainActor.run {
                     if page == 1 {
                         self.novelsError = error.localizedDescription
@@ -556,7 +584,7 @@ struct DiscoveryView: View {
                             self.retryCount += 1
                             AppLogger.shared.log("🔄 Tự động tải lại trang \(page) (Lần thử \(self.retryCount))...")
                             Task {
-                                try? await Task.sleep(nanoseconds: 2_000_000_000) // Đợi 2 giây
+                                try? await Task.sleep(nanoseconds: 2_000_000_000)
                                 self.loadNovels(page: page)
                             }
                         }
@@ -567,22 +595,20 @@ struct DiscoveryView: View {
     }
     
     private func reloadCurrentCategory() async {
-        guard let ext = selectedExtension, let cat = selectedCategory else { return }
-        currentPage = 1
         do {
             let (results, nextPage) = try await ExtensionManager.shared.executeCustomScript(
-                localPath: ext.localPath,
-                downloadUrl: ext.downloadUrl,
-                scriptFileName: cat.script,
-                input: cat.input,
+                localPath: localPath,
+                downloadUrl: downloadUrl,
+                scriptFileName: category.script,
+                input: category.input,
                 page: 1,
                 pageUrl: nil,
-                configJson: ext.configJson
+                configJson: configJson
             )
             await MainActor.run {
                 self.nextNovelPageUrl = nextPage
                 self.novels = results
-                self.canLoadMore = results.count >= 10 && (nextPage != nil || cat.input.contains("{0}"))
+                self.canLoadMore = results.count >= 10 && (nextPage != nil || category.input.contains("{0}"))
             }
         } catch {
             await MainActor.run {
@@ -591,7 +617,6 @@ struct DiscoveryView: View {
         }
     }
 }
-// MARK: - Subviews
 
 struct ExtensionSelectorView: View {
     @Environment(\.dismiss) private var dismiss
@@ -635,6 +660,28 @@ struct ExtensionSelectorView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                // Ô tìm kiếm tích hợp di chuyển lên trên cùng của danh sách để dễ sử dụng
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                    TextField("Tìm kiếm phần mở rộng", text: $extensionSearchQuery)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.none)
+                    
+                    if !extensionSearchQuery.isEmpty {
+                        Button(action: { extensionSearchQuery = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                .padding(10)
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(10)
+                .padding()
+                
+                Divider()
+                
                 // Danh sách phần mở rộng
                 List(filteredExtensions) { ext in
                     let isSelected = ext.packageId == selectedExtensionId
@@ -646,6 +693,7 @@ struct ExtensionSelectorView: View {
                             Text(ext.name)
                                 .font(.body)
                                 .fontWeight(isSelected ? .bold : .semibold)
+                                .lineLimit(1) // Tránh tên tiện ích rớt dòng, tự động thu gọn bằng dấu ba chấm (...)
                             Text(ext.sourceUrl)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -705,30 +753,6 @@ struct ExtensionSelectorView: View {
                     .listRowBackground(isSelected ? Color.accentColor.opacity(0.08) : Color(.systemBackground))
                 }
                 .listStyle(.plain)
-                
-                // Ô tìm kiếm tích hợp ở dưới cùng
-                VStack(spacing: 0) {
-                    Divider()
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.secondary)
-                        TextField("Tìm kiếm phần mở rộng", text: $extensionSearchQuery)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.none)
-                        
-                        if !extensionSearchQuery.isEmpty {
-                            Button(action: { extensionSearchQuery = "" }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                    .padding(10)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(10)
-                    .padding()
-                }
-                .background(Color(.systemBackground))
             }
             .navigationTitle("Phần mở rộng")
             .navigationBarTitleDisplayMode(.inline)
@@ -760,45 +784,5 @@ struct ExtensionSelectorView: View {
     private func togglePin(_ ext: Extension) {
         ext.isPinned.toggle()
         try? modelContext.save()
-    }
-}
-
-// MARK: - ExtensionIconView
-struct ExtensionIconView: View {
-    let localPath: String
-    let iconUrl: String?
-    let size: CGFloat
-    
-    var body: some View {
-        if !localPath.isEmpty,
-           let uiImage = UIImage(contentsOfFile: URL(fileURLWithPath: localPath).appendingPathComponent("icon.png").path) {
-            Image(uiImage: uiImage)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: size, height: size)
-                .cornerRadius(size * 0.18)
-        } else if let iconUrl = iconUrl, let url = URL(string: iconUrl) {
-            AsyncImage(url: url) { image in
-                image.resizable()
-            } placeholder: {
-                fallbackIcon
-            }
-            .aspectRatio(contentMode: .fit)
-            .frame(width: size, height: size)
-            .cornerRadius(size * 0.18)
-        } else {
-            fallbackIcon
-        }
-    }
-    
-    private var fallbackIcon: some View {
-        Image(systemName: "puzzlepiece.extension")
-            .resizable()
-            .aspectRatio(contentMode: .fit)
-            .frame(width: size * 0.7, height: size * 0.7)
-            .padding(size * 0.15)
-            .background(Color.accentColor.opacity(0.1))
-            .foregroundColor(.accentColor)
-            .cornerRadius(size * 0.18)
     }
 }

@@ -269,7 +269,7 @@ struct ShelfView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }
-            .navigationTitle(selectedTab == 0 ? "Tải Trước" : (selectedTab == 1 ? "Kệ Sách" : "Lịch Sử Đọc"))
+            .navigationTitle(selectedTab == 0 ? "Downloads" : (selectedTab == 1 ? "Kệ Sách" : "Lịch Sử Đọc"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -293,6 +293,14 @@ struct ShelfView: View {
                             showingBypassBrowser = true
                         }) {
                             Label("Mở trình duyệt web", systemImage: "globe")
+                        }
+                        
+                        if selectedTab == 0 && !DownloadManager.shared.tasks.isEmpty {
+                            Button(action: {
+                                DownloadManager.shared.clearFinishedTasks()
+                            }) {
+                                Label("Dọn dẹp tác vụ", systemImage: "trash")
+                            }
                         }
                         
                         if selectedTab == 2 && !historyBooks.isEmpty {

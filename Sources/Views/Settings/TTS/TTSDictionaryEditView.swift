@@ -143,11 +143,26 @@ struct TTSDictionaryEditView: View {
                     }
                 }
             }
-            .navigationTitle("Sửa từ điển")
+            .navigationTitle("Sửa từ điển phiên âm NghiTTS")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 16) {
+                    Menu {
+                        // 1. Thêm từ mới
+                        Button {
+                            showingAddSheet = true
+                        } label: {
+                            Label("Thêm từ mới", systemImage: "plus")
+                        }
+                        
+                        // 2. Nhập từ điển
+                        Button {
+                            showingFileImporter = true
+                        } label: {
+                            Label("Nhập từ điển", systemImage: "square.and.arrow.down")
+                        }
+                        
+                        // 3. Xuất từ điển (Submenu)
                         Menu {
                             if let plistURL = exportURL {
                                 ShareLink("Property List (.plist)", item: plistURL)
@@ -159,60 +174,52 @@ struct TTSDictionaryEditView: View {
                                 ShareLink("CSV (.csv)", item: csvURL)
                             }
                         } label: {
-                            Image(systemName: "square.and.arrow.up")
+                            Label("Xuất từ điển", systemImage: "square.and.arrow.up")
                         }
-                        Button {
-                            showingFileImporter = true
-                        } label: {
-                            Image(systemName: "square.and.arrow.down")
-                        }
-                        .sheet(isPresented: $showingFileImporter) {
-                            DocumentPicker(
-                                allowedContentTypes: [.propertyList, .json, .commaSeparatedText, .plainText],
-                                allowsMultipleSelection: false,
-                                onPick: { urls in
-                                    showingFileImporter = false
-                                    guard let selectedURL = urls.first else { return }
-                                    let ext = selectedURL.pathExtension.lowercased()
-                                    if ext != "plist" && ext != "json" && ext != "csv" && ext != "txt" {
-                                        showToast("Vui lòng chọn tệp từ điển (.plist, .json, hoặc .csv/.txt).", isError: true)
-                                        return
-                                    }
-                                    let hasAccess = selectedURL.startAccessingSecurityScopedResource()
-                                    importDictionary(from: selectedURL, hasAccess: hasAccess)
-                                },
-                                onCancel: {
-                                    showingFileImporter = false
-                                }
-                            )
-                        }
-
-                        Button {
+                        
+                        // 4. Tải lại từ điển gốc
+                        Button(role: .destructive) {
                             showingDownloadConfirmation = true
                         } label: {
-                            Image(systemName: "arrow.down.to.line")
+                            Label("Tải lại từ điển gốc", systemImage: "arrow.down.to.line")
                         }
-                        .alert("Xác nhận tải lại", isPresented: $showingDownloadConfirmation) {
-                            Button("Hủy", role: .cancel) {}
-                            Button("Tải lại", role: .destructive) {
-                                downloadDictionaries()
-                            }
-                        } message: {
-                            Text("Hành động này sẽ tải lại từ điển gốc từ HuggingFace và ghi đè tất cả các từ vựng tùy chỉnh bạn đã thêm. Bạn có chắc chắn muốn tiếp tục?")
-                        }
-
-                        Button {
-                            showingAddSheet = true
-                        } label: {
-                            Image(systemName: "plus")
-                        }
-                        .sheet(isPresented: $showingAddSheet) {
-                            AddWordSheet(onAdd: { key, val in
-                                addWord(key: key, value: val)
-                            })
-                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
                 }
+            }
+            .sheet(isPresented: $showingAddSheet) {
+                AddWordSheet(onAdd: { key, val in
+                    addWord(key: key, value: val)
+                })
+            }
+            .sheet(isPresented: $showingFileImporter) {
+                DocumentPicker(
+                    allowedContentTypes: [.propertyList, .json, .commaSeparatedText, .plainText],
+                    allowsMultipleSelection: false,
+                    onPick: { urls in
+                        showingFileImporter = false
+                        guard let selectedURL = urls.first else { return }
+                        let ext = selectedURL.pathExtension.lowercased()
+                        if ext != "plist" && ext != "json" && ext != "csv" && ext != "txt" {
+                            showToast("Vui lòng chọn tệp từ điển (.plist, .json, hoặc .csv/.txt).", isError: true)
+                            return
+                        }
+                        let hasAccess = selectedURL.startAccessingSecurityScopedResource()
+                        importDictionary(from: selectedURL, hasAccess: hasAccess)
+                    },
+                    onCancel: {
+                        showingFileImporter = false
+                    }
+                )
+            }
+            .alert("Xác nhận tải lại", isPresented: $showingDownloadConfirmation) {
+                Button("Hủy", role: .cancel) {}
+                Button("Tải lại", role: .destructive) {
+                    downloadDictionaries()
+                }
+            } message: {
+                Text("Hành động này sẽ tải lại từ điển gốc từ HuggingFace và ghi đè tất cả các từ vựng tùy chỉnh bạn đã thêm. Bạn có chắc chắn muốn tiếp tục?")
             }
             .sheet(item: Binding(
                 get: { editingKey.map { EditingEntry(key: $0, value: editingValue) } },

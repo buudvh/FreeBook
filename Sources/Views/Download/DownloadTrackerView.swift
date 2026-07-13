@@ -40,14 +40,6 @@ struct DownloadTrackerView: View {
                 .listStyle(.plain)
             }
         }
-        .toolbar {
-            if !downloadManager.tasks.isEmpty {
-                Button("Dọn dẹp") {
-                    downloadManager.clearFinishedTasks()
-                }
-                .foregroundColor(.blue)
-            }
-        }
         .sheet(isPresented: $showingOptionsSheet) {
             if let book = selectedBookForTask {
                 TaskOptionsSheet(book: book, taskType: selectedTaskType, defaultOnlyExportCached: defaultOnlyExportCached)

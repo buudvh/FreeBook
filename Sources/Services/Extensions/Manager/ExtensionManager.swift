@@ -735,9 +735,10 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
+            let cleanVal = try verifyJSResponse(jsValue)
             var results: [[String: String]] = []
             
-            if let jsArray = jsValue.toArray() {
+            if let jsArray = cleanVal.toArray() {
                 for item in jsArray {
                     if let dict = item as? [String: Any] {
                         var voiceDict: [String: String] = [:]
@@ -768,7 +769,8 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [text, voice])
-            let resultStr = jsValue.toString() ?? ""
+            let cleanVal = try verifyJSResponse(jsValue)
+            let resultStr = cleanVal.toString() ?? ""
             updateDiagnostics(action: "tts", input: text, status: "Success", details: "Base64 string length: \(resultStr.count)")
             return resultStr
         } catch {
