@@ -45,6 +45,10 @@ public struct NovelDetailResult {
     public let detail: String
     public let host: String
     public let link: String
+    
+    public let genres: [CategoryResult]
+    public let suggests: [CategoryResult]
+    public let comments: [CategoryResult]
 }
 
 public struct ChapterResult {
@@ -317,7 +321,50 @@ public final class ExtensionManager: ObservableObject {
             
             // No on-the-fly translation during parsing to preserve raw Chinese in memory/DB
             
-            let result = NovelDetailResult(name: name, author: author, cover: cover, description: description, detail: detail, host: host, link: link)
+            // Parse genres
+            var genres: [CategoryResult] = []
+            if let genresArray = dict["genres"] as? [[String: Any]] {
+                for item in genresArray {
+                    let gTitle = item["title"] as? String ?? ""
+                    let gInput = item["input"] as? String ?? ""
+                    let gScript = item["script"] as? String ?? "search.js"
+                    if !gTitle.isEmpty && !gInput.isEmpty {
+                        genres.append(CategoryResult(title: gTitle, input: gInput, script: gScript))
+                    }
+                }
+            } else if let genresDict = dict["genres"] as? [String: String] {
+                for (key, val) in genresDict {
+                    genres.append(CategoryResult(title: key, input: val, script: "search.js"))
+                }
+            }
+            
+            // Parse suggests
+            var suggests: [CategoryResult] = []
+            if let suggestsArray = dict["suggests"] as? [[String: Any]] {
+                for item in suggestsArray {
+                    let sTitle = item["title"] as? String ?? ""
+                    let sInput = item["input"] as? String ?? ""
+                    let sScript = item["script"] as? String ?? "search.js"
+                    if !sTitle.isEmpty && !sInput.isEmpty {
+                        suggests.append(CategoryResult(title: sTitle, input: sInput, script: sScript))
+                    }
+                }
+            }
+            
+            // Parse comments
+            var comments: [CategoryResult] = []
+            if let commentsArray = dict["comments"] as? [[String: Any]] {
+                for item in commentsArray {
+                    let cTitle = item["title"] as? String ?? ""
+                    let cInput = item["input"] as? String ?? ""
+                    let cScript = item["script"] as? String ?? "comment.js"
+                    if !cTitle.isEmpty && !cInput.isEmpty {
+                        comments.append(CategoryResult(title: cTitle, input: cInput, script: cScript))
+                    }
+                }
+            }
+            
+            let result = NovelDetailResult(name: name, author: author, cover: cover, description: description, detail: detail, host: host, link: link, genres: genres, suggests: suggests, comments: comments)
             // AppLogger.shared.log("✅ [ExtensionManager] detail parsed info: \(result.name) by \(result.author)")
             updateDiagnostics(action: "detail", input: url, status: "Success", details: "Name: \(result.name), Author: \(result.author)\n\(stringified)")
             return result
@@ -598,14 +645,17 @@ public final class ExtensionManager: ObservableObject {
             var results: [SearchNovelResult] = []
             for item in jsArray {
                 if let dict = item as? [String: Any] {
-                    var name = dict["name"] as? String ?? ""
+                    var name = dict["name"] as? String ?? dict["username"] as? String ?? dict["author"] as? String ?? ""
                     var author = dict["author"] as? String ?? "Không rõ"
-                    var description = dict["description"] as? String ?? dict["desc"] as? String ?? ""
+                    var description = dict["description"] as? String ?? dict["desc"] as? String ?? dict["content"] as? String ?? ""
                     let cover = dict["cover"] as? String ?? ""
                     let link = dict["link"] as? String ?? dict["url"] as? String ?? ""
                     let host = dict["host"] as? String ?? ""
                     
-                    guard !link.isEmpty else { continue }
+                    let isCommentScript = scriptFileName.localizedCaseInsensitiveContains("comment")
+                    if !isCommentScript {
+                        guard !link.isEmpty else { continue }
+                    }
                     
                     if TranslateUtils.isTranslationEnabled {
                         if TranslateUtils.containsChinese(name) { name = TranslateUtils.translateMeta(name) }

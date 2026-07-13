@@ -12,8 +12,14 @@ struct BookDetailView: View {
     let initialDetailUrl: String
     let sourceName: String
     
-    @State private var isLoading = true
-    @State private var errorMessage = ""
+    @State private var isLoadingDetail = true
+    @State private var isLoadingTOC = true
+    @State private var detailErrorMessage = ""
+    @State private var tocErrorMessage = ""
+    
+    @State private var genres: [CategoryResult] = []
+    @State private var suggests: [CategoryResult] = []
+    @State private var comments: [CategoryResult] = []
     
     // Dữ liệu tạm thời khi xem online (chưa thêm vào kệ)
     @State private var title = ""
@@ -88,19 +94,19 @@ struct BookDetailView: View {
     var body: some View {
         ZStack {
             VStack {
-            if isLoading {
+            if isLoadingDetail && title.isEmpty {
                 ProgressView("Đang tải chi tiết truyện...")
                     .frame(maxHeight: .infinity)
-            } else if !errorMessage.isEmpty {
+            } else if !detailErrorMessage.isEmpty && title.isEmpty {
                 VStack(spacing: 16) {
                     Text("Có lỗi xảy ra")
                         .font(.headline)
-                    Text(errorMessage)
+                    Text(detailErrorMessage)
                         .font(.subheadline)
                         .foregroundColor(.red)
                         .multilineTextAlignment(.center)
                     Button("Thử lại") {
-                        loadBookData()
+                        loadBookDetailOnly()
                     }
                     .buttonStyle(.bordered)
                 }
@@ -109,134 +115,236 @@ struct BookDetailView: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        // Phần Header truyện
-                        HStack(alignment: .top, spacing: 16) {
-                            BookCoverView(bookId: bookId, coverUrl: coverUrl, width: 100, height: 140)
-                                .cornerRadius(8)
-                                .shadow(radius: 2)
-                            
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(translateMetaIfNeeded(title))
-                                    .font(.title3)
-                                    .fontWeight(.bold)
-                                    .lineLimit(3)
-                                
-                                Text("Tác giả: \(TranslateUtils.translateAuthorHanViet(author))")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                
-                                Text("Nguồn: \(sourceName)")
-                                    .font(.caption)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color.secondary.opacity(0.2))
-                                    .cornerRadius(6)
-                                
-                                if !detail.isEmpty {
-                                    Text(translateMetaIfNeeded(cleanedDetailText))
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(4)
-                                }
-                                
+                        // 1. PHẦN CHI TIẾT TRUYỆN (DETAIL INFO)
+                        if isLoadingDetail {
+                            HStack {
                                 Spacer()
+                                ProgressView("Đang tải chi tiết truyện...")
+                                    .padding(.vertical, 30)
+                                Spacer()
+                            }
+                        } else if !detailErrorMessage.isEmpty {
+                            VStack(spacing: 12) {
+                                Text(detailErrorMessage)
+                                    .foregroundColor(.red)
+                                    .font(.caption)
+                                    .multilineTextAlignment(.center)
+                                Button("Thử lại chi tiết") {
+                                    loadBookDetailOnly()
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                            .padding(.vertical, 20)
+                            .frame(maxWidth: .infinity)
+                        } else {
+                            HStack(alignment: .top, spacing: 16) {
+                                BookCoverView(bookId: bookId, coverUrl: coverUrl, width: 100, height: 140)
+                                    .cornerRadius(8)
+                                    .shadow(radius: 2)
                                 
-                                // Nút Thêm Kệ Sách / Bắt đầu đọc
-                                let totalChaps = localBook?.chapters.count ?? onlineChapters.count
-                                if totalChaps > 0 {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        HStack {
-                                            if let book = localBook, book.isOnShelf {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(translateMetaIfNeeded(title))
+                                        .font(.title3)
+                                        .fontWeight(.bold)
+                                        .lineLimit(3)
+                                    
+                                    Text("Tác giả: \(TranslateUtils.translateAuthorHanViet(author))")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                    
+                                    Text("Nguồn: \(sourceName)")
+                                        .font(.caption)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(Color.secondary.opacity(0.2))
+                                        .cornerRadius(6)
+                                    
+                                    if !detail.isEmpty {
+                                        Text(translateMetaIfNeeded(cleanedDetailText))
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(4)
+                                    }
+                                    
+                                    // Genres chip list
+                                    if !genres.isEmpty {
+                                        ScrollView(.horizontal, showsIndicators: false) {
+                                            HStack(spacing: 8) {
+                                                ForEach(genres) { genre in
+                                                    NavigationLink(destination: CategoryNovelsListView(
+                                                        category: genre,
+                                                        extensionPackageId: extensionPackageId,
+                                                        localPath: ext?.localPath ?? "",
+                                                        downloadUrl: ext?.downloadUrl ?? "",
+                                                        configJson: ext?.configJson ?? "{}",
+                                                        sourceName: sourceName
+                                                    )) {
+                                                        Text(TranslateUtils.translateMeta(genre.title))
+                                                            .font(.caption2)
+                                                            .padding(.horizontal, 8)
+                                                            .padding(.vertical, 4)
+                                                            .background(Color.blue.opacity(0.1))
+                                                            .foregroundColor(.blue)
+                                                            .cornerRadius(8)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    // Nút Thêm Kệ Sách / Bắt đầu đọc
+                                    let totalChaps = localBook?.chapters.count ?? onlineChapters.count
+                                    if totalChaps > 0 {
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            HStack {
+                                                if let book = localBook, book.isOnShelf {
+                                                    Button(action: {
+                                                        removeFromShelf(book)
+                                                    }) {
+                                                        Label("Đã ở kệ", systemImage: "checkmark.circle.fill")
+                                                            .font(.caption)
+                                                            .foregroundColor(.green)
+                                                            .padding(.horizontal, 12)
+                                                            .padding(.vertical, 8)
+                                                            .background(Color.green.opacity(0.1))
+                                                            .cornerRadius(6)
+                                                    }
+                                                } else {
+                                                    Button(action: addToShelf) {
+                                                        Label("Thêm vào kệ", systemImage: "plus")
+                                                            .font(.caption)
+                                                            .foregroundColor(.white)
+                                                            .padding(.horizontal, 12)
+                                                            .padding(.vertical, 8)
+                                                            .background(Color.accentColor)
+                                                            .cornerRadius(6)
+                                                    }
+                                                }
+                                                
+                                                let activeChapterIndex = localBook?.currentChapterIndex ?? 0
                                                 Button(action: {
-                                                    removeFromShelf(book)
+                                                    targetChapterIndex = activeChapterIndex
+                                                    startReading()
                                                 }) {
-                                                    Label("Đã ở kệ", systemImage: "checkmark.circle.fill")
+                                                    Text(localBook == nil ? "Đọc ngay" : "Đọc tiếp")
                                                         .font(.caption)
-                                                        .foregroundColor(.green)
-                                                        .padding(.horizontal, 12)
+                                                        .fontWeight(.bold)
+                                                        .foregroundColor(.white)
+                                                        .padding(.horizontal, 16)
                                                         .padding(.vertical, 8)
-                                                        .background(Color.green.opacity(0.1))
+                                                        .background(Color.blue)
                                                         .cornerRadius(6)
                                                 }
-                                            } else {
-                                                Button(action: addToShelf) {
-                                                    Label("Thêm vào kệ", systemImage: "plus")
+                                            }
+                                            
+                                            HStack(spacing: 8) {
+                                                Button(action: {
+                                                    prepareForTask(taskType: .download)
+                                                }) {
+                                                    Label("Tải truyện", systemImage: "arrow.down.circle")
                                                         .font(.caption)
                                                         .foregroundColor(.white)
                                                         .padding(.horizontal, 12)
                                                         .padding(.vertical, 8)
-                                                        .background(Color.accentColor)
+                                                        .background(Color.green)
                                                         .cornerRadius(6)
                                                 }
-                                            }
-                                            
-                                            let activeChapterIndex = localBook?.currentChapterIndex ?? 0
-                                            Button(action: {
-                                                targetChapterIndex = activeChapterIndex
-                                                startReading()
-                                            }) {
-                                                Text(localBook == nil ? "Đọc ngay" : "Đọc tiếp")
-                                                    .font(.caption)
-                                                    .fontWeight(.bold)
-                                                    .foregroundColor(.white)
-                                                    .padding(.horizontal, 16)
-                                                    .padding(.vertical, 8)
-                                                    .background(Color.blue)
-                                                    .cornerRadius(6)
-                                            }
-                                        }
-                                        
-                                        HStack(spacing: 8) {
-                                            Button(action: {
-                                                prepareForTask(taskType: .download)
-                                            }) {
-                                                Label("Tải truyện", systemImage: "arrow.down.circle")
-                                                    .font(.caption)
-                                                    .foregroundColor(.white)
-                                                    .padding(.horizontal, 12)
-                                                    .padding(.vertical, 8)
-                                                    .background(Color.green)
-                                                    .cornerRadius(6)
-                                            }
-                                            
-                                            Button(action: {
-                                                prepareForTask(taskType: .exportTxt)
-                                            }) {
-                                                Label("Xuất TXT", systemImage: "square.and.arrow.up")
-                                                    .font(.caption)
-                                                    .foregroundColor(.white)
-                                                    .padding(.horizontal, 12)
-                                                    .padding(.vertical, 8)
-                                                    .background(Color.orange)
-                                                    .cornerRadius(6)
+                                                
+                                                Button(action: {
+                                                    prepareForTask(taskType: .exportTxt)
+                                                }) {
+                                                    Label("Xuất TXT", systemImage: "square.and.arrow.up")
+                                                        .font(.caption)
+                                                        .foregroundColor(.white)
+                                                        .padding(.horizontal, 12)
+                                                        .padding(.vertical, 8)
+                                                        .background(Color.orange)
+                                                        .cornerRadius(6)
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
+                            .padding(.horizontal)
+                            
+                            Divider()
+                            
+                            // Phần mô tả giới thiệu
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Giới thiệu")
+                                    .font(.headline)
+                                Text(translateMetaIfNeeded(desc))
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.horizontal)
                         }
-                        .padding(.horizontal)
+                        
+                        // 2. PHẦN TRUYỆN GỢI Ý (SUGGESTS)
+                        if !suggests.isEmpty {
+                            Divider()
+                            ForEach(suggests) { suggest in
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(TranslateUtils.translateMeta(suggest.title))
+                                        .font(.headline)
+                                        .padding(.horizontal)
+                                    
+                                    SuggestRowView(
+                                        category: suggest,
+                                        localPath: ext?.localPath ?? "",
+                                        downloadUrl: ext?.downloadUrl ?? "",
+                                        configJson: ext?.configJson ?? "{}",
+                                        extensionPackageId: extensionPackageId,
+                                        sourceName: sourceName
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // 3. PHẦN BÌNH LUẬN (COMMENTS)
+                        if !comments.isEmpty {
+                            Divider()
+                            ForEach(comments) { comment in
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(TranslateUtils.translateMeta(comment.title))
+                                        .font(.headline)
+                                        .padding(.horizontal)
+                                    
+                                    CommentSectionView(
+                                        category: comment,
+                                        localPath: ext?.localPath ?? "",
+                                        downloadUrl: ext?.downloadUrl ?? "",
+                                        configJson: ext?.configJson ?? "{}"
+                                    )
+                                }
+                            }
+                        }
                         
                         Divider()
                         
-                        // Phần mô tả giới thiệu
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Giới thiệu")
-                                .font(.headline)
-                            Text(translateMetaIfNeeded(desc))
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.horizontal)
-                        
-                        Divider()
-                        
-                        // Phần danh sách chương
+                        // 4. PHẦN DANH SÁCH CHƯƠNG (TOC)
                         VStack(alignment: .leading, spacing: 8) {
                             let totalChaps = localBook?.chapters.count ?? onlineChapters.count
-                            Text("Danh sách chương (\(totalChaps))")
-                                .font(.headline)
-                                .padding(.horizontal)
+                            
+                            HStack {
+                                Text("Danh sách chương (\(totalChaps))")
+                                    .font(.headline)
+                                Spacer()
+                                if totalChaps > 0 && !tocErrorMessage.isEmpty {
+                                    Button(action: loadTOCDataOnly) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "exclamationmark.circle.fill")
+                                            Text("Tải lại lỗi")
+                                        }
+                                        .font(.caption)
+                                        .foregroundColor(.red)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal)
                             
                             if totalChaps > 0 {
                                 HStack {
@@ -257,10 +365,33 @@ struct BookDetailView: View {
                                 .padding(.bottom, 4)
                             }
                             
-                            if totalChaps == 0 {
-                                Text("Không tìm thấy chương nào hoặc lỗi tải chương")
-                                    .foregroundColor(.gray)
-                                    .padding()
+                            if isLoadingTOC && totalChaps == 0 {
+                                HStack {
+                                    Spacer()
+                                    ProgressView("Đang tải danh sách chương...")
+                                        .padding(.vertical, 30)
+                                    Spacer()
+                                }
+                            } else if totalChaps == 0 {
+                                if !tocErrorMessage.isEmpty {
+                                    VStack(spacing: 12) {
+                                        Text(tocErrorMessage)
+                                            .foregroundColor(.red)
+                                            .font(.subheadline)
+                                            .multilineTextAlignment(.center)
+                                            .padding(.horizontal)
+                                        Button("Tải lại mục lục") {
+                                            loadTOCDataOnly()
+                                        }
+                                        .buttonStyle(.bordered)
+                                    }
+                                    .padding(.vertical, 20)
+                                    .frame(maxWidth: .infinity)
+                                } else {
+                                    Text("Không tìm thấy chương nào hoặc lỗi tải chương")
+                                        .foregroundColor(.gray)
+                                        .padding()
+                                }
                             } else {
                                 LazyVStack(alignment: .leading, spacing: 0) {
                                     if let book = localBook {
@@ -511,77 +642,117 @@ struct BookDetailView: View {
             self.desc = book.desc
             if !book.chapters.isEmpty {
                 self.remainingPagesLoaded = true
-                self.isLoading = false
+                self.isLoadingDetail = false
+                self.isLoadingTOC = false
                 return
             }
         }
         
+        isLoadingDetail = true
+        isLoadingTOC = true
+        detailErrorMessage = ""
+        tocErrorMessage = ""
+        
+        loadBookDetailOnly()
+        loadTOCDataOnly()
+    }
+    
+    private func loadBookDetailOnly() {
         guard let ext = ext else {
-            errorMessage = "Không tìm thấy tiện ích bóc tách của truyện này!"
-            self.isLoading = false
+            detailErrorMessage = "Không tìm thấy tiện ích bóc tách của truyện này!"
+            self.isLoadingDetail = false
             return
         }
         
         guard !ext.localPath.isEmpty else {
-            errorMessage = "Vui lòng cài đặt tiện ích '\(ext.name)' trong phần Tiện Ích trước khi bóc tách nguồn này!"
-            self.isLoading = false
+            detailErrorMessage = "Vui lòng cài đặt tiện ích '\(ext.name)' trong phần Tiện Ích trước khi bóc tách nguồn này!"
+            self.isLoadingDetail = false
             return
         }
         
-        isLoading = true
-        errorMessage = ""
+        isLoadingDetail = true
+        detailErrorMessage = ""
         
         Task {
             do {
                 let path = ext.localPath
-                // Chạy chi tiết truyện
                 let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
                 
-                
-                var firstPageChapters: [ChapterResult] = []
-                var pages: [String] = []
-                
-                do {
-                    if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
-                        pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
-                        if !pages.isEmpty {
-                            firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages[0], configJson: ext.configJson)
-                        } else {
-                            firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
-                        }
-                    } else {
-                        firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
-                    }
-                } catch {
-                    AppLogger.shared.log("❌ [BookDetailView] Lỗi tải mục lục chương: \(error.localizedDescription)")
-                }
                 await MainActor.run {
                     self.title = detailResult.name
                     self.author = detailResult.author
                     self.coverUrl = detailResult.cover
                     self.desc = detailResult.description.cleanHTML()
                     self.detail = detailResult.detail
-                    self.onlineChapters = firstPageChapters
-                    self.tocPages = pages
+                    self.genres = detailResult.genres
+                    self.suggests = detailResult.suggests
+                    self.comments = detailResult.comments
                     
-                    // Nếu sách đã ở local nhưng rỗng chương (hoặc cần update), cập nhật lại
                     if let book = localBook {
                         book.title = detailResult.name
                         book.author = detailResult.author
                         book.coverUrl = detailResult.cover
                         let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(self.cleanDetailText(detailResult.detail))"
                         book.desc = savedDesc
-                        
-                        // Cập nhật chương
-                        updateLocalChapters(for: book, with: firstPageChapters)
                     }
-                    
-                    self.isLoading = false
+                    self.isLoadingDetail = false
                 }
             } catch {
                 await MainActor.run {
-                    self.errorMessage = error.localizedDescription
-                    self.isLoading = false
+                    self.detailErrorMessage = error.localizedDescription
+                    self.isLoadingDetail = false
+                }
+            }
+        }
+    }
+    
+    private func loadTOCDataOnly() {
+        guard let ext = ext else {
+            tocErrorMessage = "Không tìm thấy tiện ích bóc tách!"
+            self.isLoadingTOC = false
+            return
+        }
+        
+        guard !ext.localPath.isEmpty else {
+            tocErrorMessage = "Vui lòng cài đặt tiện ích '\(ext.name)'!"
+            self.isLoadingTOC = false
+            return
+        }
+        
+        isLoadingTOC = true
+        tocErrorMessage = ""
+        
+        Task {
+            do {
+                let path = ext.localPath
+                var firstPageChapters: [ChapterResult] = []
+                var pages: [String] = []
+                
+                if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
+                    pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
+                    if !pages.isEmpty {
+                        firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages[0], configJson: ext.configJson)
+                    } else {
+                        firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
+                    }
+                } else {
+                    firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
+                }
+                
+                await MainActor.run {
+                    self.onlineChapters = firstPageChapters
+                    self.tocPages = pages
+                    
+                    if let book = localBook {
+                        updateLocalChapters(for: book, with: firstPageChapters)
+                        try? modelContext.save()
+                    }
+                    self.isLoadingTOC = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.tocErrorMessage = error.localizedDescription
+                    self.isLoadingTOC = false
                 }
             }
         }
@@ -759,7 +930,7 @@ struct BookDetailView: View {
     private func prepareForTask(taskType: TaskType) {
         if tocPages.count > 1 && !remainingPagesLoaded {
             isLoadingRemainingPages = true
-            errorMessage = ""
+            tocErrorMessage = ""
             
             Task {
                 do {
@@ -791,7 +962,7 @@ struct BookDetailView: View {
                     }
                 } catch {
                     await MainActor.run {
-                        self.errorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
+                        self.tocErrorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
                         self.isLoadingRemainingPages = false
                     }
                 }
@@ -839,10 +1010,42 @@ struct BookDetailView: View {
         guard let ext = ext else { return }
         guard !ext.localPath.isEmpty else { return }
         
+        await MainActor.run {
+            self.detailErrorMessage = ""
+            self.tocErrorMessage = ""
+        }
+        
+        // Chạy song song detail và toc
+        async let detailTask = ExtensionManager.shared.detail(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
+        
+        do {
+            let detailResult = try await detailTask
+            await MainActor.run {
+                self.title = detailResult.name
+                self.author = detailResult.author
+                self.coverUrl = detailResult.cover
+                self.desc = detailResult.description.cleanHTML()
+                self.detail = detailResult.detail
+                self.genres = detailResult.genres
+                self.suggests = detailResult.suggests
+                self.comments = detailResult.comments
+                
+                if let book = localBook {
+                    book.title = detailResult.name
+                    book.author = detailResult.author
+                    book.coverUrl = detailResult.cover
+                    let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(self.cleanDetailText(detailResult.detail))"
+                    book.desc = savedDesc
+                }
+            }
+        } catch {
+            await MainActor.run {
+                self.detailErrorMessage = "Lỗi tải chi tiết: \(error.localizedDescription)"
+            }
+        }
+        
         do {
             let path = ext.localPath
-            let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
-            
             var allChapters: [ChapterResult] = []
             if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
                 let pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, configJson: ext.configJson)
@@ -863,27 +1066,15 @@ struct BookDetailView: View {
             }
             
             await MainActor.run {
-                self.title = detailResult.name
-                self.author = detailResult.author
-                self.coverUrl = detailResult.cover
-                self.desc = detailResult.description.cleanHTML()
-                self.detail = detailResult.detail
                 self.onlineChapters = allChapters
-                
                 if let book = localBook {
-                    book.title = detailResult.name
-                    book.author = detailResult.author
-                    book.coverUrl = detailResult.cover
-                    let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(self.cleanDetailText(detailResult.detail))"
-                    book.desc = savedDesc
-                    
                     updateLocalChapters(for: book, with: allChapters)
                     try? modelContext.save()
                 }
             }
         } catch {
             await MainActor.run {
-                self.errorMessage = error.localizedDescription
+                self.tocErrorMessage = "Lỗi tải mục lục: \(error.localizedDescription)"
             }
         }
     }
