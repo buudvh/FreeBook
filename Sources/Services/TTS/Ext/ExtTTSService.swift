@@ -47,6 +47,45 @@ public final class ExtTTSService {
         }
         
         try audioFile.read(into: buffer)
-        return buffer
+        
+        // Nếu fileFormat trùng khớp với targetFormat, trả về trực tiếp
+        if fileFormat == targetFormat {
+            return buffer
+        }
+        
+        // Chuyển đổi sang targetFormat bằng AVAudioConverter
+        guard let converter = AVAudioConverter(from: fileFormat, to: targetFormat) else {
+            AppLogger.shared.log("❌ [ExtTTSService] Không thể tạo AVAudioConverter từ \(fileFormat) sang \(targetFormat)")
+            return buffer
+        }
+        
+        let ratio = targetFormat.sampleRate / fileFormat.sampleRate
+        let targetFrameCapacity = AVAudioFrameCount(Double(frameCount) * ratio) + 16
+        
+        guard let targetBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: targetFrameCapacity) else {
+            return buffer
+        }
+        
+        var error: NSError? = nil
+        var isDataProvided = false
+        let inputBlock: AVAudioConverterInputBlock = { inNumPackets, outStatus in
+            if isDataProvided {
+                outStatus.pointee = .noDataNow
+                return nil
+            }
+            isDataProvided = true
+            outStatus.pointee = .haveData
+            return buffer
+        }
+        
+        let status = converter.convert(to: targetBuffer, error: &error, withInputFrom: inputBlock)
+        if status == .error {
+            if let error = error {
+                AppLogger.shared.log("❌ [ExtTTSService] Lỗi convert định dạng sang targetFormat: \(error.localizedDescription)")
+            }
+            return buffer
+        }
+        
+        return targetBuffer
     }
 }

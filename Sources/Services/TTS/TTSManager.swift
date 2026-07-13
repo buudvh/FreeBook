@@ -96,6 +96,9 @@ public final class TTSManager: NSObject, ObservableObject {
     private var preloadedWavs: [Int: AVAudioPCMBuffer] = [:]
     private var prefetchTasks: [Int: Task<Void, Never>] = [:]
     
+    // Theo dõi format buffer cuối cùng để tránh rebuild node graph không cần thiết
+    private var lastBufferFormat: AVAudioFormat? = nil
+    
     // Tiến trình tải model NghiTTS
     @Published public var downloadingVoices: [String: Double] = [:] // voiceName -> progress (0.0 ... 1.0)
     @Published public var downloadingMessages: [String: String] = [:] // voiceName -> message
@@ -315,7 +318,7 @@ public final class TTSManager: NSObject, ObservableObject {
     
     
     public func pause() {
-        let pid = currentPlaybackId ?? "NONE"
+        // let pid = currentPlaybackId ?? "NONE"
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] pause() được gọi.")
         guard isPlaying else { return }
         self.isPlaying = false
@@ -329,7 +332,7 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     public func resume() {
-        let pid = currentPlaybackId ?? "NONE"
+        // let pid = currentPlaybackId ?? "NONE"
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] resume() được gọi.")
         guard !isPlaying else { return }
         self.configureAudioSession()
@@ -343,15 +346,30 @@ public final class TTSManager: NSObject, ObservableObject {
             }
         } else {
             if let engine = audioEngine, !engine.isRunning {
-                try? engine.start()
+                do {
+                    try engine.start()
+                } catch {
+                    AppLogger.shared.log("🔊 [TTSManager] resume: Engine start failed: \(error.localizedDescription). Restarting paragraph.")
+                    speakCurrent()
+                    updateNowPlayingInfo()
+                    return
+                }
             }
-            playerNode?.play()
+            
+            // Kiểm tra playerNode còn buffer pending không.
+            // Nếu engine đã bị restart do route change/config change, buffer cũ đã flush → cần phát lại từ đầu.
+            if currentPlaybackId == nil {
+                // Không có playback đang active, phát lại đoạn hiện tại
+                speakCurrent()
+            } else {
+                playerNode?.play()
+            }
         }
         updateNowPlayingInfo()
     }
     
     private func stopPlayback(keepWidget: Bool = false) {
-        let pid = currentPlaybackId ?? "NONE"
+        // let pid = currentPlaybackId ?? "NONE"
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] stopPlayback(keepWidget=\(keepWidget)) được gọi.")
         self.isPlaying = false
         self.wasPlayingBeforeSettings = false
@@ -373,6 +391,11 @@ public final class TTSManager: NSObject, ObservableObject {
         
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         MPNowPlayingInfoCenter.default().playbackState = .stopped
+        
+        // Giải phóng Audio Session khi dừng hoàn toàn để ứng dụng khác có thể phát âm thanh
+        if !keepWidget {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
     }
     
     public func stop() {
@@ -402,7 +425,14 @@ public final class TTSManager: NSObject, ObservableObject {
             stopPlayback(keepWidget: false)
             return
         }
-        let savedIndex = currentParagraphIndex
+        
+        // Lưu paragraph identity (số thứ tự dòng gốc) thay vì array index
+        let savedParagraphIdentity: Int
+        if currentParagraphIndex >= 0 && currentParagraphIndex < paragraphs.count {
+            savedParagraphIdentity = paragraphs[currentParagraphIndex].paragraphIndex
+        } else {
+            savedParagraphIdentity = -1
+        }
         let wasPlaying = wasPlayingBeforeSettings
         wasPlayingBeforeSettings = false
         
@@ -413,13 +443,13 @@ public final class TTSManager: NSObject, ObservableObject {
         self.paragraphs = parseParagraphs(chapterContent)
         
         var targetIdx = paragraphs.firstIndex(where: {
-            $0.paragraphIndex == savedIndex
+            $0.paragraphIndex == savedParagraphIdentity
         }) ?? 0
         
         let key = "showChapterTitle_\(playingBookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
         
-        if savedIndex == -1 && showTitle && !chapterTitle.isEmpty {
+        if savedParagraphIdentity == -1 && showTitle && !chapterTitle.isEmpty {
             let titleParagraph = TTSParagraph(
                 text: chapterTitle,
                 range: NSRange(location: 0, length: chapterTitle.count),
@@ -434,7 +464,7 @@ public final class TTSManager: NSObject, ObservableObject {
                 paragraphIndex: -1
             )
             self.paragraphs.insert(titleParagraph, at: 0)
-            targetIdx = (paragraphs.firstIndex(where: { $0.paragraphIndex == savedIndex }) ?? 1)
+            targetIdx = (paragraphs.firstIndex(where: { $0.paragraphIndex == savedParagraphIdentity }) ?? 1)
         }
         
         self.currentParagraphIndex = targetIdx
@@ -454,7 +484,7 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     public func skipForward() {
-        let pid = currentPlaybackId ?? "NONE"
+        // let pid = currentPlaybackId ?? "NONE"
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] skipForward() được gọi.")
         guard isPlaying else { return }
         if currentParagraphIndex + 1 < paragraphs.count {
@@ -469,7 +499,7 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     public func skipBackward() {
-        let pid = currentPlaybackId ?? "NONE"
+        // let pid = currentPlaybackId ?? "NONE"
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] skipBackward() được gọi.")
         guard isPlaying else { return }
         if currentParagraphIndex > 0 {
@@ -480,19 +510,20 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     private func stopCurrentPlayback() {
-        let pid = currentPlaybackId ?? "NONE"
+        // let pid = currentPlaybackId ?? "NONE"
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] stopCurrentPlayback() được gọi.")
         self.currentPlaybackId = nil
         if tool == "system" {
             siriService.stop()
         } else {
             playerNode?.stop()
+            playerNode?.reset() // Xóa toàn bộ buffer pending để tránh completion handler cũ gây nhiễu
         }
         cleanUpTempFile()
     }
     
     private func nextParagraph() {
-        let pid = currentPlaybackId ?? "NONE"
+        // let pid = currentPlaybackId ?? "NONE"
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] nextParagraph() được gọi.")
         guard isPlaying else { return }
         if currentParagraphIndex + 1 < paragraphs.count {
@@ -520,7 +551,7 @@ public final class TTSManager: NSObject, ObservableObject {
     
     // speakCurrent: Bắt đầu phát âm thanh của đoạn văn bản hiện tại (index = currentParagraphIndex)
     private func speakCurrent() {
-        let pid = currentPlaybackId ?? "NONE"
+        // let pid = currentPlaybackId ?? "NONE"
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] speakCurrent() được gọi. index=\(currentParagraphIndex)")
         
         // Đảm bảo trạng thái đang phát hợp lệ và index nằm trong phạm vi của mảng paragraphs
@@ -667,6 +698,8 @@ public final class TTSManager: NSObject, ObservableObject {
         }
         
         let index = currentParagraphIndex
+        let playbackId = String(UUID().uuidString.prefix(4))
+        self.currentPlaybackId = playbackId
         
         // Cập nhật cửa sổ prefetch gối đầu ngay khi bắt đầu phát đoạn mới
         updatePrefetchWindow()
@@ -674,7 +707,7 @@ public final class TTSManager: NSObject, ObservableObject {
         // Kiểm tra xem dữ liệu của đoạn index hiện tại đã có sẵn trong cache chưa
         if let cachedBuffer = preloadedWavs[index] {
             // AppLogger.shared.log("🔊 [TTSManager] Phát hiện cache PCMBuffer cho đoạn \(index), phát lập tức.")
-            self.playAudioBuffer(cachedBuffer)
+            self.playAudioBuffer(cachedBuffer, withId: playbackId)
             return
         }
         
@@ -705,15 +738,16 @@ public final class TTSManager: NSObject, ObservableObject {
                     buffer = b
                 }
                 
-                guard self.isPlaying && self.currentParagraphIndex == index else {
+                guard self.isPlaying && self.currentPlaybackId == playbackId else {
                     return
                 }
                 
                 await MainActor.run {
-                    self.playAudioBuffer(buffer)
+                    self.playAudioBuffer(buffer, withId: playbackId)
                 }
             } catch {
                 await MainActor.run {
+                    guard self.currentPlaybackId == playbackId else { return }
                     AppLogger.shared.log("🔊 [TTSManager] Chơi trực tiếp thất bại cho đoạn \(index): \(error.localizedDescription)")
                     self.stop()
                 }
@@ -726,6 +760,8 @@ public final class TTSManager: NSObject, ObservableObject {
         let voice = selectedVoice
         let localPath = extensionLocalPath
         let configJson = extensionConfigJson
+        let playbackId = String(UUID().uuidString.prefix(4))
+        self.currentPlaybackId = playbackId
         
         // Cập nhật cửa sổ prefetch gối đầu ngay khi bắt đầu phát đoạn mới
         updatePrefetchWindow()
@@ -733,7 +769,7 @@ public final class TTSManager: NSObject, ObservableObject {
         // Kiểm tra xem dữ liệu của đoạn index hiện tại đã có sẵn trong cache chưa
         if let cachedBuffer = preloadedWavs[index] {
             // AppLogger.shared.log("🔊 [TTSManager] Phát hiện cache PCMBuffer cho đoạn \(index) từ extension tts, phát lập tức.")
-            self.playAudioBuffer(cachedBuffer)
+            self.playAudioBuffer(cachedBuffer, withId: playbackId)
             return
         }
         
@@ -755,15 +791,16 @@ public final class TTSManager: NSObject, ObservableObject {
                     buffer = try await extService.synthesize(text: text, voice: voice, localPath: localPath, configJson: configJson, targetFormat: targetFormat)
                 }
                 
-                guard self.isPlaying && self.currentParagraphIndex == index else {
+                guard self.isPlaying && self.currentPlaybackId == playbackId else {
                     return
                 }
                 
                 await MainActor.run {
-                    self.playAudioBuffer(buffer)
+                    self.playAudioBuffer(buffer, withId: playbackId)
                 }
             } catch {
                 await MainActor.run {
+                    guard self.currentPlaybackId == playbackId else { return }
                     AppLogger.shared.log("🔊 [TTSManager] Chơi trực tiếp extension tts thất bại cho đoạn \(index): \(error.localizedDescription)")
                     self.pause()
                 }
@@ -771,11 +808,9 @@ public final class TTSManager: NSObject, ObservableObject {
         }
     }
     
-    private func playAudioBuffer(_ buffer: AVAudioPCMBuffer) {
-        let playbackId = String(UUID().uuidString.prefix(4))
+    private func playAudioBuffer(_ buffer: AVAudioPCMBuffer, withId customId: String? = nil) {
+        let playbackId = customId ?? String(UUID().uuidString.prefix(4))
         self.currentPlaybackId = playbackId
-        let paragraphIndex = self.currentParagraphIndex
-        let startTime = CACurrentMediaTime()
         
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Bắt đầu playAudioBuffer, paragraphIndex: \(paragraphIndex)")
         guard let engine = audioEngine, let player = playerNode, let pitchNode = timePitchNode else { 
@@ -789,23 +824,18 @@ public final class TTSManager: NSObject, ObservableObject {
         player.stop()
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Gọi player.stop() xong.")
         
-        // Thiết lập lại toàn bộ kết nối để tránh lỗi định dạng và sample rate
-        engine.disconnectNodeOutput(player)
-        engine.disconnectNodeOutput(pitchNode)
-        
-        // Log các định dạng trước khi kết nối và chạy engine
-        let mixerOutFormat = engine.mainMixerNode.outputFormat(forBus: 0)
-        let outputInFormat = engine.outputNode.inputFormat(forBus: 0)
-        AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Trước kết nối: Buffer format=\(buffer.format), Mixer output format=\(mixerOutFormat), Engine output input format=\(outputInFormat)")
-        
-        engine.connect(player, to: pitchNode, format: buffer.format)
-        engine.connect(pitchNode, to: engine.mainMixerNode, format: buffer.format)
-        
-        // Log các định dạng sau khi kết nối
-        let playerOutFormat = player.outputFormat(forBus: 0)
-        let pitchInFormat = pitchNode.inputFormat(forBus: 0)
-        let pitchOutFormat = pitchNode.outputFormat(forBus: 0)
-        AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Sau kết nối: Player output format=\(playerOutFormat), Pitch input format=\(pitchInFormat), Pitch output format=\(pitchOutFormat)")
+        // Chỉ ngắt và kết nối lại nếu format thay đổi để tránh tiếng nổ/rè (pop/click) do re-sync codec
+        if lastBufferFormat == nil || lastBufferFormat != buffer.format {
+            AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Định dạng buffer thay đổi (\(lastBufferFormat?.description ?? "nil") -> \(buffer.format.description)). Rebuilding node graph connections...")
+            
+            engine.disconnectNodeOutput(player)
+            engine.disconnectNodeOutput(pitchNode)
+            
+            engine.connect(player, to: pitchNode, format: buffer.format)
+            engine.connect(pitchNode, to: engine.mainMixerNode, format: buffer.format)
+            
+            lastBufferFormat = buffer.format
+        }
         
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Bắt đầu chạy Audio Engine nếu chưa chạy...")
         if !engine.isRunning {
@@ -824,7 +854,7 @@ public final class TTSManager: NSObject, ObservableObject {
         
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Đang lập lịch phát buffer âm thanh (scheduleBuffer)... t=\(startTime)")
         player.scheduleBuffer(buffer, at: nil, options: [], completionHandler: { [weak self] in
-            let completionTime = CACurrentMediaTime()
+            // let completionTime = CACurrentMediaTime()
             // AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] scheduleBuffer completion callback: paragraph=\(paragraphIndex) t=\(completionTime)")
             
             DispatchQueue.main.async {
@@ -844,27 +874,6 @@ public final class TTSManager: NSObject, ObservableObject {
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Phát buffer hoàn tất thiết lập.")
     }
     
-    private func resample(_ samples: [Float], from sourceRate: Double, to targetRate: Double) -> [Float] {
-        guard sourceRate != targetRate else { return samples }
-        let ratio = targetRate / sourceRate
-        let targetLength = Int(Double(samples.count) * ratio)
-        var resampled = [Float](repeating: 0.0, count: targetLength)
-        
-        for i in 0..<targetLength {
-            let srcIndex = Double(i) / ratio
-            let indexFloor = Int(floor(srcIndex))
-            let indexCeil = min(indexFloor + 1, samples.count - 1)
-            let weight = srcIndex - Double(indexFloor)
-            
-            let sampleFloor = samples[indexFloor]
-            let sampleCeil = samples[indexCeil]
-            
-            resampled[i] = sampleFloor + Float(weight) * (sampleCeil - sampleFloor)
-        }
-        
-        return resampled
-    }
-    
     private func makePCMBuffer(fromWavData wavData: Data, targetFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
         guard wavData.count >= 44 else { return nil }
         
@@ -875,50 +884,78 @@ public final class TTSManager: NSObject, ObservableObject {
         guard wavData.count >= 44 + payloadSize else { return nil }
         
         let srcSampleCount = payloadSize / 2
-        var srcFloatSamples = [Float](repeating: 0.0, count: srcSampleCount)
         
+        // 1. Tạo định dạng nguồn Float32 standard non-interleaved
+        guard let srcFormat = AVAudioFormat(standardFormatWithSampleRate: srcSampleRate, channels: AVAudioChannelCount(srcChannels)) else {
+            return nil
+        }
+        
+        let srcFrameCount = AVAudioFrameCount(srcSampleCount / srcChannels)
+        guard let srcBuffer = AVAudioPCMBuffer(pcmFormat: srcFormat, frameCapacity: srcFrameCount) else {
+            return nil
+        }
+        srcBuffer.frameLength = srcFrameCount
+        
+        // 2. Chuyển đổi Int16 sang Float32 nạp vào srcBuffer
         wavData.withUnsafeBytes { rawBuffer in
             if let baseAddress = rawBuffer.baseAddress {
                 let srcPointer = baseAddress.advanced(by: 44).assumingMemoryBound(to: Int16.self)
-                for i in 0..<srcSampleCount {
-                    let intVal = srcPointer[i]
-                    srcFloatSamples[i] = Float(intVal) / (intVal < 0 ? 32768.0 : 32767.0)
-                }
-            }
-        }
-        
-        let targetSampleRate = targetFormat.sampleRate
-        let resampledFloatSamples: [Float]
-        if srcSampleRate != targetSampleRate {
-            resampledFloatSamples = resample(srcFloatSamples, from: srcSampleRate, to: targetSampleRate)
-        } else {
-            resampledFloatSamples = srcFloatSamples
-        }
-        
-        let targetFrameCount = AVAudioFrameCount(resampledFloatSamples.count / srcChannels)
-        
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: targetFrameCount) else {
-            return nil
-        }
-        buffer.frameLength = targetFrameCount
-        
-        let targetChannels = Int(targetFormat.channelCount)
-        if let floatChannelData = buffer.floatChannelData {
-            for channel in 0..<targetChannels {
-                let destPointer = floatChannelData[channel]
-                for frame in 0..<Int(targetFrameCount) {
-                    let srcChannel = min(channel, srcChannels - 1)
-                    let srcIndex = frame * srcChannels + srcChannel
-                    if srcIndex < resampledFloatSamples.count {
-                        destPointer[frame] = resampledFloatSamples[srcIndex]
-                    } else {
-                        destPointer[frame] = 0.0
+                if let floatChannelData = srcBuffer.floatChannelData {
+                    for channel in 0..<srcChannels {
+                        let destPointer = floatChannelData[channel]
+                        for frame in 0..<Int(srcFrameCount) {
+                            let srcIndex = frame * srcChannels + channel
+                            if srcIndex < srcSampleCount {
+                                let intVal = srcPointer[srcIndex]
+                                destPointer[frame] = Float(intVal) / (intVal < 0 ? 32768.0 : 32767.0)
+                            } else {
+                                destPointer[frame] = 0.0
+                            }
+                        }
                     }
                 }
             }
         }
         
-        return buffer
+        // Nếu trùng định dạng, trả về luôn srcBuffer
+        if srcFormat == targetFormat {
+            return srcBuffer
+        }
+        
+        // 3. Sử dụng AVAudioConverter chuyển đổi chất lượng cao (resampling + channel mapping)
+        guard let converter = AVAudioConverter(from: srcFormat, to: targetFormat) else {
+            AppLogger.shared.log("❌ [TTSManager] Không thể tạo AVAudioConverter từ \(srcFormat) sang \(targetFormat)")
+            return nil
+        }
+        
+        let ratio = targetFormat.sampleRate / srcSampleRate
+        let targetFrameCapacity = AVAudioFrameCount(Double(srcFrameCount) * ratio) + 16
+        
+        guard let targetBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: targetFrameCapacity) else {
+            return nil
+        }
+        
+        var error: NSError? = nil
+        var isDataProvided = false
+        let inputBlock: AVAudioConverterInputBlock = { inNumPackets, outStatus in
+            if isDataProvided {
+                outStatus.pointee = .noDataNow
+                return nil
+            }
+            isDataProvided = true
+            outStatus.pointee = .haveData
+            return srcBuffer
+        }
+        
+        let status = converter.convert(to: targetBuffer, error: &error, withInputFrom: inputBlock)
+        if status == .error {
+            if let error = error {
+                AppLogger.shared.log("❌ [TTSManager] Lỗi convert định dạng buffer: \(error.localizedDescription)")
+            }
+            return nil
+        }
+        
+        return targetBuffer
     }
     
     private func cleanUpTempFile() {
@@ -1244,9 +1281,10 @@ public final class TTSManager: NSObject, ObservableObject {
         }
     }
     
-    // MARK: - Audio Session Interruption Handling
+    // MARK: - Audio Session & Engine Notification Handling
     
     private func setupInterruptionObserver() {
+        // 1. Audio Session Interruption (cuộc gọi, Siri, ứng dụng khác chiếm audio)
         NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)
             .receive(on: RunLoop.main)
             .sink { [weak self] notification in
@@ -1254,6 +1292,35 @@ public final class TTSManager: NSObject, ObservableObject {
                 self.handleInterruption(notification: notification)
             }
             .store(in: &cancellables)
+        
+        // 2. Route Change (rút/cắm tai nghe, bật/tắt Bluetooth, đổi thiết bị phát)
+        NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                guard let self = self else { return }
+                self.handleRouteChange(notification: notification)
+            }
+            .store(in: &cancellables)
+        
+        // 3. Media Services Reset (media daemon crash, thiết bị hết bộ nhớ)
+        NotificationCenter.default.publisher(for: AVAudioSession.mediaServicesWereResetNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self = self else { return }
+                self.handleMediaServicesReset()
+            }
+            .store(in: &cancellables)
+        
+        // 4. Engine Configuration Change (hardware sample rate/channel thay đổi)
+        if let engine = audioEngine {
+            NotificationCenter.default.publisher(for: .AVAudioEngineConfigurationChange, object: engine)
+                .receive(on: RunLoop.main)
+                .sink { [weak self] _ in
+                    guard let self = self else { return }
+                    self.handleEngineConfigChange()
+                }
+                .store(in: &cancellables)
+        }
     }
     
     private func handleInterruption(notification: Notification) {
@@ -1273,15 +1340,7 @@ public final class TTSManager: NSObject, ObservableObject {
         case .ended:
             AppLogger.shared.log("🔊 [TTSManager] Audio session interruption ended. wasPlayingBeforeInterruption = \(self.wasPlayingBeforeInterruption)")
             
-            var shouldResumePlayback = false
-            if let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt {
-                let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
-                if options.contains(.shouldResume) {
-                    shouldResumePlayback = true
-                }
-            }
-            
-            // Đối với ứng dụng đọc truyện, hầu như luôn muốn khôi phục nếu trước đó đang đọc
+            // Đối với ứng dụng đọc truyện, luôn khôi phục nếu trước đó đang đọc
             if self.wasPlayingBeforeInterruption {
                 self.wasPlayingBeforeInterruption = false
                 
@@ -1297,6 +1356,90 @@ public final class TTSManager: NSObject, ObservableObject {
         @unknown default:
             break
         }
+    }
+    
+    private func handleRouteChange(notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
+            return
+        }
+        
+        AppLogger.shared.log("🔊 [TTSManager] Route change: reason=\(reason.rawValue)")
+        
+        switch reason {
+        case .oldDeviceUnavailable:
+            // Thiết bị phát cũ bị ngắt (rút tai nghe, tắt Bluetooth)
+            // AVAudioEngine tự dừng khi route thay đổi, cần restart
+            if isPlaying {
+                AppLogger.shared.log("🔊 [TTSManager] Old device unavailable. Reconfiguring and restarting current paragraph.")
+                let currentIdx = currentParagraphIndex
+                
+                // Dừng playback hiện tại
+                stopCurrentPlayback()
+                
+                // Reconfigure audio session cho thiết bị mới
+                configureAudioSession()
+                
+                // Phát lại đoạn hiện tại
+                currentParagraphIndex = currentIdx
+                speakCurrent()
+            }
+            
+        case .newDeviceAvailable:
+            // Thiết bị phát mới được kết nối (cắm tai nghe, bật Bluetooth)
+            // AVAudioEngine sẽ tự động chuyển đổi, chỉ cần đảm bảo session đúng
+            if isPlaying {
+                configureAudioSession()
+            }
+            
+        default:
+            break
+        }
+    }
+    
+    private func handleMediaServicesReset() {
+        // Media services bị reset: tất cả AVAudioEngine/PlayerNode đều trở thành invalid
+        AppLogger.shared.log("🔊 [TTSManager] Media services were reset. Rebuilding audio engine.")
+        let wasPlaying = isPlaying
+        let currentIdx = currentParagraphIndex
+        
+        // Tạo mới hoàn toàn engine, player, pitchNode
+        setupAudioEngine()
+        
+        // Đăng ký lại engine configuration change observer cho engine mới
+        if let engine = audioEngine {
+            NotificationCenter.default.publisher(for: .AVAudioEngineConfigurationChange, object: engine)
+                .receive(on: RunLoop.main)
+                .sink { [weak self] _ in
+                    guard let self = self else { return }
+                    self.handleEngineConfigChange()
+                }
+                .store(in: &cancellables)
+        }
+        
+        // Khôi phục playback nếu trước đó đang phát
+        if wasPlaying && currentIdx >= 0 && currentIdx < paragraphs.count {
+            configureAudioSession()
+            self.isPlaying = true
+            speakCurrent()
+        }
+    }
+    
+    private func handleEngineConfigChange() {
+        // Hardware configuration thay đổi (sample rate, channel count)
+        // Engine tự dừng, cần restart
+        AppLogger.shared.log("🔊 [TTSManager] Engine configuration changed.")
+        
+        guard isPlaying else { return }
+        let currentIdx = currentParagraphIndex
+        
+        stopCurrentPlayback()
+        configureAudioSession()
+        
+        // Phát lại đoạn hiện tại
+        currentParagraphIndex = currentIdx
+        speakCurrent()
     }
 }
 

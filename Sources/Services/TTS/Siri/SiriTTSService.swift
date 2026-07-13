@@ -54,6 +54,7 @@ public final class SiriTTSService: NSObject, @preconcurrency AVSpeechSynthesizer
         systemSynthesizer?.stopSpeaking(at: .immediate)
         systemSynthesizer = nil
         currentUtterance = nil
+        onFinishCallback = nil
     }
     
     public var isPaused: Bool {
@@ -68,7 +69,10 @@ public final class SiriTTSService: NSObject, @preconcurrency AVSpeechSynthesizer
     
     public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         if utterance == currentUtterance {
-            onFinishCallback?()
+            let callback = onFinishCallback
+            onFinishCallback = nil
+            currentUtterance = nil
+            callback?()
         }
     }
 }

@@ -333,14 +333,14 @@ struct DiscoveryView: View {
                             }
                         }
                         }
-                        .simultaneousGesture(
-                            DragGesture(minimumDistance: 80)
-                                .onEnded { value in
-                                    guard abs(value.translation.width) > abs(value.translation.height) else { return }
-                                    switchCategory(forward: value.translation.width < 0)
-                                }
-                        )
                     }
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 80)
+                            .onEnded { value in
+                                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                                switchCategory(forward: value.translation.width < 0)
+                            }
+                    )
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
