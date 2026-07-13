@@ -342,6 +342,7 @@ struct RepositoryManagerView: View {
                                 .onDelete(perform: deleteRepository)
                             }
                         }
+                        }
                     }
                     .listStyle(.insetGrouped)
                     .tag(1)

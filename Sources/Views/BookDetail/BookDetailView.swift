@@ -579,14 +579,15 @@ struct BookDetailView: View {
                                     }
                                 }
                                 .padding(.vertical)
+                            }
                             } else {
                                 Spacer()
                             }
-                            .refreshable {
-                                await reloadBookData()
-                            }
-                            .tag(1)
                         }
+                        .refreshable {
+                            await reloadBookData()
+                        }
+                        .tag(1)
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
                     .onChange(of: selectedTab) { oldVal, newVal in
@@ -618,18 +619,16 @@ struct BookDetailView: View {
                             }
                         }
                         
-                        if localBook != nil {
-                            Button(action: {
-                                navigateToChangeSource = true
-                            }) {
-                                Label("Thay đổi nguồn", systemImage: "arrow.2.squarepath")
-                            }
+                        Button(action: {
+                            navigateToChangeSource = true
+                        }) {
+                            Label("Thay đổi nguồn", systemImage: "arrow.2.squarepath")
                         }
                         
                         Button(action: {
                             showingBypassBrowser = true
                         }) {
-                            Label("Mở bằng trình duyệt (Bypass)", systemImage: "safari")
+                            Label("Mở bằng trình duyệt", systemImage: "safari")
                         }
                         
                         Button(action: {
