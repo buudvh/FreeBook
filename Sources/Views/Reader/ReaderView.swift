@@ -34,6 +34,7 @@ struct ReaderView: View {
     // @Environment: Lấy các biến môi trường của hệ thống
     @Environment(\.modelContext) private var modelContext // Context quản lý dữ liệu SwiftData
     @Environment(\.dismiss) private var dismiss // Hàm dùng để đóng màn hình hiện tại và quay về màn hình trước
+    @Environment(\.scenePhase) private var scenePhase
     
     // @Query: Tự động tải dữ liệu từ database SwiftData
     @Query private var allBooks: [Book] // Tất cả sách trong máy
@@ -110,6 +111,7 @@ struct ReaderView: View {
     @State private var editingChapterIndex: Int? = nil
     @State private var scrollTarget: ScrollTarget? = nil
     @State private var isAutoScrollDisabled = false
+    @State private var viewModel: ReaderViewModel? = nil
     
     @State private var loadedChapters: [LoadedChapter] = []
     @State private var hasScrolledToTop = false
@@ -326,21 +328,43 @@ struct ReaderView: View {
                 currentOnlineChapters = onlineChapters
             }
             
-            // Khởi tạo chương hiện tại
-            let currentChapter = LoadedChapter(
-                index: chapterIndex,
-                title: "Chương \(chapterIndex + 1)",
-                originalTitle: "Chương \(chapterIndex + 1)",
-                originalContent: "",
-                chapterContent: "",
-                paragraphItems: [],
-                isLoading: true
-            )
-            self.loadedChapters = [currentChapter]
-            self.hasScrolledToTop = false
-            
-            // Kích hoạt tải nội dung chương hiện tại
-            loadChapterContent(index: chapterIndex)
+            if ext?.type != "comic" {
+                if viewModel == nil {
+                    let savedPIdx = getSavedParagraphIndex()
+                    viewModel = ReaderViewModel(
+                        bookId: bookId,
+                        extensionPackageId: extensionPackageId,
+                        initialChapterIndex: chapterIndex,
+                        initialParagraphIndex: savedPIdx,
+                        totalChaptersCount: totalChaptersCount,
+                        modelContext: modelContext,
+                        onlineChapters: currentOnlineChapters,
+                        isTranslationEnabled: isTranslationEnabled,
+                        bookTitle: bookTitle,
+                        bookAuthor: bookAuthor,
+                        bookCoverUrl: bookCoverUrl,
+                        bookDesc: bookDesc,
+                        bookDetailUrl: bookDetailUrl,
+                        bookSourceName: bookSourceName
+                    )
+                }
+            } else {
+                // Khởi tạo chương hiện tại cho truyện tranh
+                let currentChapter = LoadedChapter(
+                    index: chapterIndex,
+                    title: "Chương \(chapterIndex + 1)",
+                    originalTitle: "Chương \(chapterIndex + 1)",
+                    originalContent: "",
+                    chapterContent: "",
+                    paragraphItems: [],
+                    isLoading: true
+                )
+                self.loadedChapters = [currentChapter]
+                self.hasScrolledToTop = false
+                
+                // Kích hoạt tải nội dung chương hiện tại
+                loadChapterContent(index: chapterIndex)
+            }
             
             ttsManager.onChapterFinished = {
                 let nextIdx = chapterIndex + 1
@@ -373,6 +397,12 @@ struct ReaderView: View {
                 ReaderView.activeChapterIndex = -1
             }
             prefetchTask?.cancel()
+            viewModel?.saveProgressImmediately()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background {
+                viewModel?.saveProgressImmediately()
+            }
         }
         .onChange(of: chapterIndex) { _, newValue in
             if ReaderView.activeBookId == bookId {
@@ -429,8 +459,12 @@ struct ReaderView: View {
     }
 
     private func applyTranslation() {
-        for chapter in loadedChapters {
-            applyTranslationForChapter(index: chapter.index, originalTitle: chapter.originalTitle, originalContent: chapter.originalContent)
+        if let vm = viewModel {
+            vm.toggleTranslation(enabled: isTranslationEnabled)
+        } else {
+            for chapter in loadedChapters {
+                applyTranslationForChapter(index: chapter.index, originalTitle: chapter.originalTitle, originalContent: chapter.originalContent)
+            }
         }
     }
     
@@ -818,6 +852,59 @@ struct ReaderView: View {
     
     @ViewBuilder
     private func chapterContentView(for chapter: LoadedChapter) -> some View {
+        LazyVStack(alignment: .leading, spacing: fontSize * 0.8) {
+            ForEach(chapter.paragraphItems) { item in
+                let textLen = (isTranslationEnabled ? item.translated : item.original).count
+                let relativeHighlightRange: NSRange? = {
+                    if ttsManager.isPlaying &&
+                       ttsManager.playingBookId == bookId &&
+                       ttsManager.playingChapterIndex == chapter.index &&
+                       item.id == ttsManager.currentParentParagraphIndex {
+                        return NSRange(location: 0, length: textLen)
+                    }
+                    return nil
+                }()
+                
+                ParagraphCardView(
+                    item: item,
+                    isTranslationEnabled: isTranslationEnabled,
+                    fontSize: fontSize,
+                    lineSpacing: lineSpacing,
+                    theme: selectedTheme,
+                    highlightRange: relativeHighlightRange,
+                    triggerGetVisibleIndex: $triggerGetVisibleIndex,
+                    onGetVisibleIndex: { visibleOffset in
+                        guard !ttsManager.isPlaying else { return }
+                        startTTS(at: chapter.index, paragraphIndex: item.id)
+                    },
+                    onSelectionChange: { selectedText, sentence, offset, absoluteOffset in
+                        self.onSelectionChangeInParagraph(
+                            selectedText: selectedText,
+                            sentence: sentence,
+                            offset: offset,
+                            absoluteOffset: absoluteOffset,
+                            item: item,
+                            chapterIndex: chapter.index
+                        )
+                    },
+                    onSpeakFromHere: { _ in
+                        startTTS(at: chapter.index, paragraphIndex: item.id)
+                    }
+                )
+                .id("paragraph-\(chapter.index)-\(item.id)")
+                .onAppear {
+                    visibleParagraphs.insert(item.id)
+                }
+                .onDisappear {
+                    visibleParagraphs.remove(item.id)
+                    updateScrollReadingProgress()
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func chapterContentView(for chapter: CachedChapter) -> some View {
         LazyVStack(alignment: .leading, spacing: fontSize * 0.8) {
             ForEach(chapter.paragraphItems) { item in
                 let textLen = (isTranslationEnabled ? item.translated : item.original).count
@@ -1271,6 +1358,14 @@ struct ReaderView: View {
     private func reloadChapterContent() {
         let index = chapterIndex
         guard index >= 0 && index < totalChaptersCount else { return }
+        
+        if let vm = viewModel {
+            Task {
+                try? await vm.loadChapterContentFromExtension(index)
+            }
+            return
+        }
+        
         guard let info = currentChapterInfo else { return }
         guard let ext = ext else { return }
         
@@ -1324,6 +1419,13 @@ struct ReaderView: View {
         
         self.visibleParagraphs.removeAll()
         
+        if let vm = viewModel {
+            vm.onTabSelectionChanged(newIndex: index)
+            self.chapterIndex = index
+            self.isTransitioning = false
+            return
+        }
+        
         let currentChapter = LoadedChapter(
             index: index,
             title: "Chương \(index + 1)",
@@ -1348,7 +1450,9 @@ struct ReaderView: View {
         guard index >= 0 && index < totalChaptersCount else { return }
         
         let chapterContentToUse: String
-        if let loaded = loadedChapters.first(where: { $0.index == index }) {
+        if let vm = viewModel {
+            chapterContentToUse = vm.cache.get(index)?.content ?? ""
+        } else if let loaded = loadedChapters.first(where: { $0.index == index }) {
             chapterContentToUse = isTranslationEnabled ? loaded.chapterContent : loaded.originalContent
         } else {
             chapterContentToUse = ""
@@ -1380,7 +1484,9 @@ struct ReaderView: View {
         guard index >= 0 && index < totalChaptersCount else { return }
         
         let chapterContentToUse: String
-        if let loaded = loadedChapters.first(where: { $0.index == index }) {
+        if let vm = viewModel {
+            chapterContentToUse = vm.cache.get(index)?.content ?? ""
+        } else if let loaded = loadedChapters.first(where: { $0.index == index }) {
             chapterContentToUse = isTranslationEnabled ? loaded.chapterContent : loaded.originalContent
         } else {
             chapterContentToUse = ""
@@ -1406,7 +1512,11 @@ struct ReaderView: View {
         guard !ttsManager.isPlaying else { return }
         guard let topIndex = visibleParagraphs.min() else { return }
         
-        saveReadProgress(index: chapterIndex, paragraphIndex: topIndex)
+        if let vm = viewModel {
+            vm.updateProgress(chapterIndex: chapterIndex, paragraphIndex: topIndex)
+        } else {
+            saveReadProgress(index: chapterIndex, paragraphIndex: topIndex)
+        }
         
         // Đồng bộ vị trí con trỏ phát TTS mà không phát nhạc
         ttsManager.updateParagraphPositionWithoutPlaying(paragraphIndex: topIndex)
@@ -1630,7 +1740,9 @@ extension ReaderView {
     
     @ViewBuilder
     private var readerContentView: some View {
-        if loadedChapters.isEmpty {
+        if viewModel != nil {
+            textReaderView
+        } else if loadedChapters.isEmpty {
             chapterLoadingView
         } else if ext?.type == "comic" {
             comicReaderView
@@ -1809,119 +1921,108 @@ extension ReaderView {
     
     @ViewBuilder
     private var textReaderView: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 24) {
-                    ForEach(loadedChapters) { chapter in
-                        VStack(alignment: .leading, spacing: 20) {
-                            if chapter.isLoading {
-                                HStack {
-                                    Spacer()
-                                    ProgressView()
-                                        .tint(selectedTheme.textColor)
-                                    Spacer()
-                                }
-                                .padding()
-                            } else if !chapter.errorMessage.isEmpty {
-                                VStack(spacing: 12) {
-                                    Text(chapter.errorMessage)
-                                        .font(.subheadline)
-                                        .foregroundColor(.red)
-                                        .multilineTextAlignment(.center)
-                                    Button("Thử lại") {
-                                        loadChapterContent(index: chapter.index)
+        if let vm = viewModel {
+            TabView(selection: Binding(
+                get: { vm.tabSelection },
+                set: { newIndex in
+                    vm.onTabSelectionChanged(newIndex: newIndex)
+                    self.chapterIndex = newIndex
+                }
+            )) {
+                ForEach(vm.visibleIndexes, id: \.self) { idx in
+                    if let cached = vm.cache.get(idx) {
+                        ScrollViewReader { proxy in
+                            ScrollView {
+                                LazyVStack(alignment: .leading, spacing: fontSize * 0.8) {
+                                    if cached.state == .loading || cached.state == .prefetching {
+                                        HStack {
+                                            Spacer()
+                                            ProgressView()
+                                                .tint(selectedTheme.textColor)
+                                            Spacer()
+                                        }
+                                        .padding()
+                                    } else if case .failed(let message) = cached.state {
+                                        VStack(spacing: 12) {
+                                            Text(message)
+                                                .font(.subheadline)
+                                                .foregroundColor(.red)
+                                                .multilineTextAlignment(.center)
+                                            Button("Thử lại") {
+                                                Task {
+                                                    try? await vm.loadChapterContentFromExtension(idx)
+                                                }
+                                            }
+                                            .buttonStyle(.bordered)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                    } else {
+                                        chapterContentView(for: cached)
                                     }
-                                    .buttonStyle(.bordered)
                                 }
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                            } else {
-                                chapterContentView(for: chapter)
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 24)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        showControls.toggle()
+                                    }
+                                }
+                            }
+                            .id("scroll-view-\(idx)")
+                            .onChange(of: scrollTarget) { _, newValue in
+                                if let target = newValue, target.chapterIndex == idx {
+                                    withAnimation {
+                                        if target.paragraphIndex == -1 {
+                                            proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
+                                        } else {
+                                            proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
+                                        }
+                                    }
+                                    scrollTarget = nil
+                                }
+                            }
+                            .onChange(of: cached.state) { _, state in
+                                if state == .loaded && idx == chapterIndex {
+                                    let savedPIdx = getSavedParagraphIndex()
+                                    let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
+                                    if savedPIdx >= 0 && hasValidParagraph {
+                                        proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
+                                    } else {
+                                        proxy.scrollTo("chapter-\(idx)", anchor: .top)
+                                    }
+                                    if !ttsManager.isPlaying {
+                                        prepareTTSForCurrentState()
+                                    }
+                                }
+                            }
+                            .onAppear {
+                                if cached.state == .loaded && idx == chapterIndex {
+                                    let savedPIdx = getSavedParagraphIndex()
+                                    let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
+                                    if savedPIdx >= 0 && hasValidParagraph {
+                                        proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
+                                    }
+                                    if !ttsManager.isPlaying {
+                                        prepareTTSForCurrentState()
+                                    }
+                                }
                             }
                         }
-                        .id("chapter-\(chapter.index)")
-                    }
-                    
-                    // Dòng hướng dẫn chuyển chương bằng vuốt ngang ở cuối trang
-                    VStack(spacing: 8) {
-                        Divider()
-                            .background(selectedTheme.textColor.opacity(0.15))
-                            .padding(.vertical, 16)
-                        
-                        Text("Hết chương \(chapterIndex + 1)")
-                            .font(.subheadline)
-                            .foregroundColor(selectedTheme.textColor.opacity(0.6))
-                        
-                        Text("← Vuốt phải để xem chương trước | Vuốt trái để sang chương sau →")
-                            .font(.caption)
-                            .foregroundColor(selectedTheme.textColor.opacity(0.4))
-                            .multilineTextAlignment(.center)
-                            .padding(.top, 4)
-                    }
-                    .padding(.bottom, 60)
-                    .frame(maxWidth: .infinity)
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 24)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showControls.toggle()
-                    }
-                }
-            }
-            .coordinateSpace(name: "scroll")
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 30, coordinateSpace: .local)
-                    .onEnded { value in
-                        let horizontalDistance = value.translation.width
-                        let verticalDistance = value.translation.height
-                        
-                        if abs(horizontalDistance) > 80 && abs(verticalDistance) < 80 {
-                            if horizontalDistance < 0 {
-                                nextChapter()
-                            } else {
-                                prevChapter()
-                            }
-                        }
-                    }
-            )
-            .onChange(of: scrollTarget) { _, newValue in
-                if let target = newValue {
-                    withAnimation {
-                        if target.paragraphIndex == -1 {
-                            proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
-                        } else {
-                            proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
-                        }
-                    }
-                    scrollTarget = nil
-                }
-            }
-            .onChange(of: loadedChapters) { oldVal, newVal in
-                if !hasScrolledToTop {
-                    if let currentChap = newVal.first(where: { $0.index == chapterIndex }),
-                       !currentChap.isLoading {
-                        DispatchQueue.main.async {
-                            let savedPIdx = getSavedParagraphIndex()
-                            let items = currentChap.paragraphItems
-                            let hasValidParagraph = items.contains(where: { $0.id == savedPIdx })
-                            
-                            if savedPIdx >= 0 && hasValidParagraph {
-                                proxy.scrollTo("paragraph-\(chapterIndex)-\(savedPIdx)", anchor: .top)
-                            } else {
-                                proxy.scrollTo("chapter-\(chapterIndex)", anchor: .top)
-                            }
-                            hasScrolledToTop = true
-                            
-                            if !ttsManager.isPlaying {
-                                prepareTTSForCurrentState()
-                            }
-                        }
+                        .tag(idx)
                     }
                 }
             }
-            .onChange(of: showChapterTitle) { _, _ in
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .indexViewStyle(.page(backgroundDisplayMode: .never))
+        } else {
+            ProgressView()
+        }
+        .onChange(of: showChapterTitle) { _, _ in
+            if let vm = viewModel {
+                vm.refreshParagraphItems()
+            } else {
                 for idx in 0..<loadedChapters.count {
                     let chap = loadedChapters[idx]
                     let items = generateParagraphItems(
