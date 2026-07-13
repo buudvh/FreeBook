@@ -26,6 +26,17 @@ class ReaderViewModel: ObservableObject {
     private var dbSaveTask: Task<Void, Never>? = nil
     private var lastActiveIndex: Int = 0
     private var memoryWarningSubscription: AnyCancellable?
+    private var cachedSortedChapters: [Chapter]? = nil
+    
+    private func getSortedChapters() -> [Chapter] {
+        if let cached = cachedSortedChapters {
+            return cached
+        }
+        guard let book = localBook else { return [] }
+        let sorted = book.chapters.sorted(by: { $0.index < $1.index })
+        self.cachedSortedChapters = sorted
+        return sorted
+    }
     
     // Đọc tiến hay đọc lùi để tối ưu hàng đợi prefetch
     private var isReadingForward: Bool {
@@ -265,8 +276,8 @@ class ReaderViewModel: ObservableObject {
         let title: String
         let urlString: String
         
-        if let book = localBook {
-            let sorted = book.chapters.sorted(by: { $0.index < $1.index })
+        if localBook != nil {
+            let sorted = getSortedChapters()
             guard index < sorted.count else { return }
             let chap = sorted[index]
             title = chap.title
@@ -282,8 +293,8 @@ class ReaderViewModel: ObservableObject {
         cache.set(index, state: .loading)
         
         // 2. Kiểm tra Cache Local trước
-        if let book = localBook {
-            let sorted = book.chapters.sorted(by: { $0.index < $1.index })
+        if localBook != nil {
+            let sorted = getSortedChapters()
             if index < sorted.count {
                 let chap = sorted[index]
                 if chap.isCached, let content = chap.content, !content.isEmpty {
@@ -310,8 +321,8 @@ class ReaderViewModel: ObservableObject {
         let cleanedContent = cleanBlankLines(in: content.cleanHTML())
         
         // Lưu vào DB
-        if let book = localBook {
-            let sorted = book.chapters.sorted(by: { $0.index < $1.index })
+        if localBook != nil {
+            let sorted = getSortedChapters()
             if index < sorted.count {
                 let chap = sorted[index]
                 chap.content = cleanedContent
@@ -359,6 +370,7 @@ class ReaderViewModel: ObservableObject {
         newBook.chapters = chaps
         modelContext.insert(newBook)
         try? modelContext.save()
+        self.cachedSortedChapters = chaps.sorted(by: { $0.index < $1.index })
     }
     
     // Xử lý dịch thuật và lưu vào RAM Cache

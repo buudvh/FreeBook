@@ -112,6 +112,7 @@ struct ReaderView: View {
     @State private var scrollTarget: ScrollTarget? = nil
     @State private var isAutoScrollDisabled = false
     @State private var viewModel: ReaderViewModel? = nil
+    @State private var updateProgressWorkItem: DispatchWorkItem? = nil
     
     @State private var loadedChapters: [LoadedChapter] = []
     @State private var hasScrolledToTop = false
@@ -405,6 +406,9 @@ struct ReaderView: View {
             }
         }
         .onChange(of: chapterIndex) { _, newValue in
+            updateProgressWorkItem?.cancel()
+            visibleParagraphs.removeAll()
+            
             if ReaderView.activeBookId == bookId {
                 ReaderView.activeChapterIndex = newValue
             }
@@ -1510,16 +1514,23 @@ struct ReaderView: View {
     
     private func updateScrollReadingProgress() {
         guard !ttsManager.isPlaying else { return }
-        guard let topIndex = visibleParagraphs.min() else { return }
         
-        if let vm = viewModel {
-            vm.updateProgress(chapterIndex: chapterIndex, paragraphIndex: topIndex)
-        } else {
-            saveReadProgress(index: chapterIndex, paragraphIndex: topIndex)
+        updateProgressWorkItem?.cancel()
+        
+        let workItem = DispatchWorkItem { [weak viewModel] in
+            guard let topIndex = self.visibleParagraphs.min() else { return }
+            
+            if let vm = viewModel {
+                vm.updateProgress(chapterIndex: self.chapterIndex, paragraphIndex: topIndex)
+            } else {
+                self.saveReadProgress(index: self.chapterIndex, paragraphIndex: topIndex)
+            }
+            
+            self.ttsManager.updateParagraphPositionWithoutPlaying(paragraphIndex: topIndex)
         }
         
-        // Đồng bộ vị trí con trỏ phát TTS mà không phát nhạc
-        ttsManager.updateParagraphPositionWithoutPlaying(paragraphIndex: topIndex)
+        self.updateProgressWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
     }
     
     private func saveReadProgress(index: Int, paragraphIndex: Int) {
