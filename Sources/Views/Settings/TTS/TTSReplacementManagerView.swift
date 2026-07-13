@@ -87,36 +87,34 @@ struct TTSReplacementManagerView: View {
         .sheet(isPresented: $showingEditSheet) {
             editRuleSheet
         }
-        // File Importer
-        .fileImporter(
-            isPresented: $showingFileImporter,
-            allowedContentTypes: [.json],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let url):
-                guard url.startAccessingSecurityScopedResource() else { return }
-                defer { url.stopAccessingSecurityScopedResource() }
-                
-                do {
-                    let data = try Data(contentsOf: url)
-                    if let jsonString = String(data: data, encoding: .utf8) {
-                        // Kiểm tra tính hợp lệ sơ bộ của JSON
-                        let decoder = JSONDecoder()
-                        _ = try decoder.decode([TTSReplacementRule].self, from: data)
-                        
-                        self.pendingImportJSON = jsonString
-                        self.showingImportOptions = true
+        .background(
+            DocumentPickerPresenter(
+                isPresented: $showingFileImporter,
+                allowedContentTypes: [.json],
+                allowsMultipleSelection: false,
+                onPick: { urls in
+                    guard let url = urls.first else { return }
+                    let accessing = url.startAccessingSecurityScopedResource()
+                    defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+                    
+                    do {
+                        let data = try Data(contentsOf: url)
+                        if let jsonString = String(data: data, encoding: .utf8) {
+                            // Kiểm tra tính hợp lệ sơ bộ của JSON
+                            let decoder = JSONDecoder()
+                            _ = try decoder.decode([TTSReplacementRule].self, from: data)
+                            
+                            self.pendingImportJSON = jsonString
+                            self.showingImportOptions = true
+                        }
+                    } catch {
+                        self.alertMessage = "File JSON không đúng định dạng quy tắc thay thế TTS: \(error.localizedDescription)"
+                        self.showingAlert = true
                     }
-                } catch {
-                    self.alertMessage = "File JSON không đúng định dạng quy tắc thay thế TTS: \(error.localizedDescription)"
-                    self.showingAlert = true
-                }
-            case .failure(let error):
-                self.alertMessage = "Không thể mở file: \(error.localizedDescription)"
-                self.showingAlert = true
-            }
-        }
+                },
+                onCancel: nil
+            )
+        )
         // Chọn phương thức nhập (Gộp hoặc Ghi đè)
         .confirmationDialog("Chọn phương thức nhập cấu hình", isPresented: $showingImportOptions, titleVisibility: .visible) {
             Button("Gộp với dữ liệu hiện có") {
