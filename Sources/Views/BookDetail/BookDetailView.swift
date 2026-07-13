@@ -1170,6 +1170,12 @@ struct BookDetailView: View {
     
     private func startReading() {
         if tocPages.count > 1 && !remainingPagesLoaded {
+            // Điều hướng người dùng sang màn hình đọc ngay lập tức không bắt chờ
+            self.navigateToReader = true
+            
+            // Nếu đã có tác vụ đang chạy thì không chạy trùng lặp
+            guard loadingTask == nil else { return }
+            
             isLoadingRemainingPages = true
             tocErrorMessage = ""
             
@@ -1181,19 +1187,22 @@ struct BookDetailView: View {
                         self.onlineChapters.append(contentsOf: remainingChaps)
                         
                         if let book = localBook {
-                            let startIdx = book.chapters.count
-                            for (index, item) in remainingChaps.enumerated() {
-                                let chapId = "\(bookId)_\(item.url)"
-                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx + index)
-                                newChap.book = book
-                                modelContext.insert(newChap)
+                            let existingUrls = Set(book.chapters.map { $0.url })
+                            var startIdx = book.chapters.count
+                            for item in remainingChaps {
+                                if !existingUrls.contains(item.url) {
+                                    let chapId = "\(bookId)_\(item.url)"
+                                    let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx)
+                                    newChap.book = book
+                                    modelContext.insert(newChap)
+                                    startIdx += 1
+                                }
                             }
                             try? modelContext.save()
                         }
                         
                         self.remainingPagesLoaded = true
                         self.isLoadingRemainingPages = false
-                        self.navigateToReader = true
                         self.loadingTask = nil
                     }
                 } catch {
@@ -1201,7 +1210,6 @@ struct BookDetailView: View {
                         await MainActor.run {
                             self.tocErrorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
                             self.isLoadingRemainingPages = false
-                            self.navigateToReader = true
                             self.loadingTask = nil
                         }
                     }

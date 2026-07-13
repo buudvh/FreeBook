@@ -193,6 +193,9 @@ struct SettingsView: View {
                     NavigationLink(destination: TTSDictionaryEditView()) {
                         Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
                     }
+                    NavigationLink(destination: TTSReplacementManagerView()) {
+                        Label("Quản lý thay thế ký tự", systemImage: "pencil.and.outline")
+                    }
                     NavigationLink(destination: NghiTTSSettingsView()) {
                         Label("Cấu hình tiền xử lý & ngắt nghỉ", systemImage: "slider.horizontal.3")
                     }

@@ -50,7 +50,7 @@ public final class ExtTTSService {
         
         // Nếu fileFormat trùng khớp với targetFormat, trả về trực tiếp
         if fileFormat == targetFormat {
-            return buffer
+            return preprocessBufferForExtTTS(buffer)
         }
         
         // Chuyển đổi sang targetFormat bằng AVAudioConverter
@@ -83,9 +83,55 @@ public final class ExtTTSService {
             if let error = error {
                 AppLogger.shared.log("❌ [ExtTTSService] Lỗi convert định dạng sang targetFormat: \(error.localizedDescription)")
             }
-            return buffer
+            return preprocessBufferForExtTTS(buffer)
         }
         
-        return targetBuffer
+        return preprocessBufferForExtTTS(targetBuffer)
+    }
+    
+    func preprocessBufferForExtTTS(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer {
+        guard buffer.frameLength > 0 else { return buffer }
+        guard let channelData = buffer.floatChannelData else { return buffer }
+        
+        let frameCount = Int(buffer.frameLength)
+        let channelCount = Int(buffer.format.channelCount)
+        var peakAmplitude: Float = 0
+        
+        for channel in 0..<channelCount {
+            guard let data = channelData[channel] else { continue }
+            for frame in 0..<frameCount {
+                peakAmplitude = max(peakAmplitude, abs(data[frame]))
+            }
+        }
+        
+        let targetPeak: Float = 0.85
+        let gain: Float
+        if peakAmplitude > targetPeak {
+            gain = targetPeak / peakAmplitude
+        } else {
+            gain = 1.0
+        }
+        
+        let fadeFrames = min(frameCount / 10, 220)
+        let fadeFramesClamped = max(fadeFrames, 1)
+        
+        for channel in 0..<channelCount {
+            guard let data = channelData[channel] else { continue }
+            for frame in 0..<frameCount {
+                var sample = data[frame] * gain
+                
+                if frame < fadeFramesClamped {
+                    let t = Float(frame) / Float(fadeFramesClamped)
+                    sample *= t
+                } else if frame >= frameCount - fadeFramesClamped {
+                    let t = Float(frameCount - 1 - frame) / Float(fadeFramesClamped)
+                    sample *= max(t, 0)
+                }
+                
+                data[frame] = sample
+            }
+        }
+        
+        return buffer
     }
 }

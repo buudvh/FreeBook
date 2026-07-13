@@ -98,6 +98,7 @@ struct ReaderView: View {
     @State private var importedSourceName = ""
     @State private var navigateToBookDetail = false
     @State private var isGoingNext = true
+    @State private var isTransitioning = false
     
     // TTS (Giọng đọc): Sử dụng @StateObject để giữ vòng đời của đối tượng TTSManager.shared không bị hủy khi đổi chương
     @StateObject private var ttsManager = TTSManager.shared
@@ -112,6 +113,7 @@ struct ReaderView: View {
     
     @State private var loadedChapters: [LoadedChapter] = []
     @State private var hasScrolledToTop = false
+    @State private var visibleParagraphs: Set<Int> = []
     
     // State variables for overlay HUD controls
     @State private var showControls = false
@@ -394,11 +396,15 @@ struct ReaderView: View {
             }
         }
         .onChange(of: ttsManager.currentParentParagraphIndex) { _, newValue in
-            guard !isAutoScrollDisabled else { return }
             guard ttsManager.isPlaying &&
                   ttsManager.playingBookId == bookId &&
                   ttsManager.playingChapterIndex == chapterIndex &&
                   newValue >= 0 else { return }
+            
+            // Lưu vị trí TTS đang phát vào database
+            saveReadProgress(index: chapterIndex, paragraphIndex: newValue)
+            
+            guard !isAutoScrollDisabled else { return }
             
             withAnimation {
                 scrollTarget = ScrollTarget(chapterIndex: ttsManager.playingChapterIndex, paragraphIndex: newValue)
@@ -853,6 +859,13 @@ struct ReaderView: View {
                     }
                 )
                 .id("paragraph-\(chapter.index)-\(item.id)")
+                .onAppear {
+                    visibleParagraphs.insert(item.id)
+                }
+                .onDisappear {
+                    visibleParagraphs.remove(item.id)
+                    updateScrollReadingProgress()
+                }
             }
         }
     }
@@ -1194,6 +1207,13 @@ struct ReaderView: View {
     }
     
     private func updateChapterData(index: Int, originalTitle: String, originalContent: String, translatedTitle: String, translatedContent: String) {
+        if self.isTransitioning {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.updateChapterData(index: index, originalTitle: originalTitle, originalContent: originalContent, translatedTitle: translatedTitle, translatedContent: translatedContent)
+            }
+            return
+        }
+        
         guard let idx = loadedChapters.firstIndex(where: { $0.index == index }) else { return }
         
         if ext?.type == "comic" {
@@ -1211,14 +1231,14 @@ struct ReaderView: View {
         loadedChapters[idx].isLoading = false
         loadedChapters[idx].errorMessage = ""
         
-        saveReadProgress(index: index)
+        saveReadProgress(index: index, paragraphIndex: getSavedParagraphIndex())
         
         if self.ttsShouldAutoPlayNextChapter && index == chapterIndex {
             self.ttsShouldAutoPlayNextChapter = false
             startTTS(at: index, paragraphIndex: -1)
         }
         
-        prefetchNextChapter()
+        prefetchAdjacentChapters()
         scrollToTTSHighlightIfNeeded()
     }
     
@@ -1301,6 +1321,9 @@ struct ReaderView: View {
         guard index >= 0 && index < totalChaptersCount else { return }
         
         self.isGoingNext = index >= self.chapterIndex
+        self.isTransitioning = true
+        
+        self.visibleParagraphs.removeAll()
         
         let currentChapter = LoadedChapter(
             index: index,
@@ -1316,6 +1339,10 @@ struct ReaderView: View {
             self.chapterIndex = index
             self.loadedChapters = [currentChapter]
             self.hasScrolledToTop = false
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+            self.isTransitioning = false
         }
         
         loadChapterContent(index: index)
@@ -1345,7 +1372,53 @@ struct ReaderView: View {
         )
     }
     
-    private func saveReadProgress(index: Int) {
+    private func getSavedParagraphIndex() -> Int {
+        if let book = localBook {
+            return book.currentChapterPage
+        }
+        return UserDefaults.standard.integer(forKey: "lastParagraphIndex_\(bookId)")
+    }
+    
+    private func prepareTTSForCurrentState() {
+        guard !ttsManager.isPlaying else { return }
+        
+        let index = chapterIndex
+        guard index >= 0 && index < totalChaptersCount else { return }
+        
+        let chapterContentToUse: String
+        if let loaded = loadedChapters.first(where: { $0.index == index }) {
+            chapterContentToUse = isTranslationEnabled ? loaded.chapterContent : loaded.originalContent
+        } else {
+            chapterContentToUse = ""
+        }
+        
+        guard !chapterContentToUse.isEmpty else { return }
+        
+        let savedPIdx = getSavedParagraphIndex()
+        
+        ttsManager.prepareSpeaking(
+            bookId: bookId,
+            chapters: ttsChaptersQueue,
+            currentIndex: index,
+            chapterContent: chapterContentToUse,
+            startParagraphIndex: savedPIdx,
+            bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+            coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
+            extensionInfo: ttsExtensionInfo
+        )
+    }
+    
+    private func updateScrollReadingProgress() {
+        guard !ttsManager.isPlaying else { return }
+        guard let topIndex = visibleParagraphs.min() else { return }
+        
+        saveReadProgress(index: chapterIndex, paragraphIndex: topIndex)
+        
+        // Đồng bộ vị trí con trỏ phát TTS mà không phát nhạc
+        ttsManager.updateParagraphPositionWithoutPlaying(paragraphIndex: topIndex)
+    }
+    
+    private func saveReadProgress(index: Int, paragraphIndex: Int) {
         guard index >= 0 && index < totalChaptersCount else { return }
         
         let title: String
@@ -1356,6 +1429,7 @@ struct ReaderView: View {
             title = chap.title
             
             book.currentChapterIndex = index
+            book.currentChapterPage = paragraphIndex
             book.currentChapterTitle = title
             book.isHistory = true
             book.lastReadDate = Date()
@@ -1367,68 +1441,88 @@ struct ReaderView: View {
             
             if let book = allBooks.first(where: { $0.bookId == bookId }) {
                 book.currentChapterIndex = index
+                book.currentChapterPage = paragraphIndex
                 book.currentChapterTitle = title
                 book.isHistory = true
                 book.lastReadDate = Date()
                 try? modelContext.save()
             }
         }
+        
+        UserDefaults.standard.set(index, forKey: "lastChapterIndex_\(bookId)")
+        UserDefaults.standard.set(paragraphIndex, forKey: "lastParagraphIndex_\(bookId)")
     }
 
     
-    private func prefetchNextChapter() {
+    private func prefetchAdjacentChapters() {
         prefetchTask?.cancel()
         
-        let nextIdx = chapterIndex + 1
-        guard nextIdx < totalChaptersCount else { return }
-        
         prefetchTask = Task {
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            // Chờ 1.5 giây sau khi lật trang rồi mới tải trước để tránh chiếm dụng băng thông và CPU khi đang lướt nhanh
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
             guard !Task.isCancelled else { return }
             
-            let sortedChapters: [Chapter]
-            let targetUrl: String
-            let targetTitle: String
-            
-            if let book = localBook {
-                sortedChapters = book.chapters.sorted(by: { $0.index < $1.index })
-                guard nextIdx < sortedChapters.count else { return }
-                let nextChap = sortedChapters[nextIdx]
-                if nextChap.isCached && nextChap.content?.isEmpty == false {
-                    return
-                }
-                targetUrl = nextChap.url
-                targetTitle = nextChap.title
-            } else {
-                guard nextIdx < currentOnlineChapters.count else { return }
-                let nextChap = currentOnlineChapters[nextIdx]
-                targetUrl = nextChap.url
-                targetTitle = nextChap.name
+            // 1. Tải trước chương tiếp theo (Next Chapter)
+            let nextIdx = chapterIndex + 1
+            if nextIdx < totalChaptersCount {
+                await prefetchChapter(at: nextIdx)
             }
             
-            guard let ext = ext else { return }
+            guard !Task.isCancelled else { return }
             
-            do {
-                AppLogger.shared.log("Tải trước chương \(nextIdx): \(targetTitle)")
-                let content = try await ExtensionManager.shared.chap(
-                    localPath: ext.localPath,
-                    downloadUrl: ext.downloadUrl,
-                    url: targetUrl,
-                    configJson: ext.configJson
-                )
-                let cleanedContent = content.cleanHTML()
-                
-                if let book = localBook {
-                    let sorted = book.chapters.sorted(by: { $0.index < $1.index })
-                    let chap = sorted[nextIdx]
+            // 2. Tải trước chương trước đó (Previous Chapter)
+            let prevIdx = chapterIndex - 1
+            if prevIdx >= 0 {
+                await prefetchChapter(at: prevIdx)
+            }
+        }
+    }
+    
+    private func prefetchChapter(at index: Int) async {
+        let sortedChapters: [Chapter]
+        let targetUrl: String
+        let targetTitle: String
+        
+        if let book = localBook {
+            sortedChapters = book.chapters.sorted(by: { $0.index < $1.index })
+            guard index < sortedChapters.count else { return }
+            let chap = sortedChapters[index]
+            if chap.isCached && chap.content?.isEmpty == false {
+                return
+            }
+            targetUrl = chap.url
+            targetTitle = chap.title
+        } else {
+            guard index < currentOnlineChapters.count else { return }
+            let chap = currentOnlineChapters[index]
+            targetUrl = chap.url
+            targetTitle = chap.name
+        }
+        
+        guard let ext = ext else { return }
+        
+        do {
+            AppLogger.shared.log("Tải trước chương \(index): \(targetTitle)")
+            let content = try await ExtensionManager.shared.chap(
+                localPath: ext.localPath,
+                downloadUrl: ext.downloadUrl,
+                url: targetUrl,
+                configJson: ext.configJson
+            )
+            let cleanedContent = content.cleanHTML()
+            
+            if let book = localBook {
+                let sorted = book.chapters.sorted(by: { $0.index < $1.index })
+                if index < sorted.count {
+                    let chap = sorted[index]
                     chap.content = cleanedContent
                     chap.isCached = true
                     try? modelContext.save()
-                    AppLogger.shared.log("Tải trước thành công và cache chương \(nextIdx)")
+                    AppLogger.shared.log("Tải trước thành công và cache chương \(index)")
                 }
-            } catch {
-                AppLogger.shared.log("Lỗi tải trước chương \(nextIdx): \(error.localizedDescription)")
             }
+        } catch {
+            AppLogger.shared.log("Lỗi tải trước chương \(index): \(error.localizedDescription)")
         }
     }
 }
@@ -1815,8 +1909,20 @@ extension ReaderView {
                     if let currentChap = newVal.first(where: { $0.index == chapterIndex }),
                        !currentChap.isLoading {
                         DispatchQueue.main.async {
-                            proxy.scrollTo("chapter-\(chapterIndex)", anchor: .top)
+                            let savedPIdx = getSavedParagraphIndex()
+                            let items = currentChap.paragraphItems
+                            let hasValidParagraph = items.contains(where: { $0.id == savedPIdx })
+                            
+                            if savedPIdx >= 0 && hasValidParagraph {
+                                proxy.scrollTo("paragraph-\(chapterIndex)-\(savedPIdx)", anchor: .top)
+                            } else {
+                                proxy.scrollTo("chapter-\(chapterIndex)", anchor: .top)
+                            }
                             hasScrolledToTop = true
+                            
+                            if !ttsManager.isPlaying {
+                                prepareTTSForCurrentState()
+                            }
                         }
                     }
                 }

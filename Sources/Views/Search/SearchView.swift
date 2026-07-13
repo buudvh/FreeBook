@@ -28,6 +28,23 @@ struct SearchView: View {
     @State private var searchResults: [SearchNovelResultWithExt] = []
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @State private var searchStatusMessage = ""
+    @AppStorage("search_history") private var searchHistoryJSON = "[]"
+    
+    private var searchHistory: [String] {
+        get {
+            guard let data = searchHistoryJSON.data(using: .utf8),
+                  let history = try? JSONDecoder().decode([String].self, from: data) else {
+                return []
+            }
+            return history
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue),
+               let jsonString = String(data: data, encoding: .utf8) {
+                searchHistoryJSON = jsonString
+            }
+        }
+    }
     
     init(activeExtensions: [Extension], selectedExtension: Extension?, initialSearchQuery: String = "", changeSourceTargetBook: Book? = nil, onSourceChanged: (() -> Void)? = nil) {
         self.activeExtensions = activeExtensions
@@ -396,17 +413,78 @@ struct SearchView: View {
                 }
                 .listStyle(.plain)
             } else {
-                VStack(spacing: 12) {
-                    Spacer()
-                    Image(systemName: "magnifyingglass")
-                        .font(.largeTitle)
-                        .foregroundColor(.secondary)
-                    Text("Nhập từ khóa để tìm kiếm truyện")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    Spacer()
+                if !searchHistory.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("Lịch sử tìm kiếm")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Button(action: {
+                                searchHistory = []
+                            }) {
+                                Text("Xóa tất cả")
+                                    .font(.subheadline)
+                                    .foregroundColor(.accentColor)
+                            }
+                        }
+                        .padding(.horizontal)
+                        
+                        ScrollView {
+                            VStack(spacing: 0) {
+                                ForEach(searchHistory, id: \.self) { item in
+                                    HStack(spacing: 12) {
+                                        Button(action: {
+                                            searchQuery = item
+                                            performSearch()
+                                        }) {
+                                            HStack(spacing: 12) {
+                                                Image(systemName: "clock")
+                                                    .foregroundColor(.secondary)
+                                                
+                                                Text(item)
+                                                    .foregroundColor(.primary)
+                                                    .lineLimit(1)
+                                                
+                                                Spacer()
+                                            }
+                                        }
+                                        .buttonStyle(.plain)
+                                        
+                                        Button(action: {
+                                            var currentHistory = searchHistory
+                                            currentHistory.removeAll { $0 == item }
+                                            searchHistory = currentHistory
+                                        }) {
+                                            Image(systemName: "xmark")
+                                                .foregroundColor(.secondary)
+                                                .padding(8)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    .padding(.horizontal)
+                                    .padding(.vertical, 6)
+                                    
+                                    Divider()
+                                        .padding(.leading, 44)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.top)
+                } else {
+                    VStack(spacing: 12) {
+                        Spacer()
+                        Image(systemName: "magnifyingglass")
+                            .font(.largeTitle)
+                            .foregroundColor(.secondary)
+                        Text("Nhập từ khóa để tìm kiếm truyện")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                    .frame(maxHeight: .infinity)
                 }
-                .frame(maxHeight: .infinity)
             }
             }
             .navigationTitle("Tìm Kiếm")
@@ -548,9 +626,24 @@ struct SearchView: View {
         return TranslateUtils.translateMeta(text)
     }
 
+    private func saveQueryToHistory(_ query: String) {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        
+        var currentHistory = searchHistory
+        currentHistory.removeAll { $0 == trimmed }
+        currentHistory.insert(trimmed, at: 0)
+        if currentHistory.count > 15 {
+            currentHistory = Array(currentHistory.prefix(15))
+        }
+        searchHistory = currentHistory
+    }
+
     private func performSearch() {
         let trimmedQuery = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else { return }
+        
+        saveQueryToHistory(trimmedQuery)
         
         isSearching = true
         searchResults.removeAll()

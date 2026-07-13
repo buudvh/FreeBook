@@ -186,6 +186,10 @@ struct TTSSettingsView: View {
                 }
                 
                 Section("Cấu hình giọng nói") {
+                    NavigationLink(destination: TTSReplacementManagerView()) {
+                        Label("Quản lý thay thế ký tự", systemImage: "pencil.and.outline")
+                    }
+                    
                     VStack(alignment: .leading) {
                          HStack {
                              Text("Tốc độ:")

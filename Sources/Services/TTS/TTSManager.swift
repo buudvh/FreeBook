@@ -4,6 +4,7 @@ import MediaPlayer
 import Combine
 import QuartzCore
 import UIKit
+import SwiftData
 
 @MainActor
 public final class TTSManager: NSObject, ObservableObject {
@@ -122,6 +123,35 @@ public final class TTSManager: NSObject, ObservableObject {
     private var nghiTTSService: PiperTTSService?
     public private(set) var nghiTTSClient: NghiTTSClient?
     private var modelStore: ModelStore?
+    private var container: ModelContainer? = nil
+    
+    public func initialize(container: ModelContainer) {
+        self.container = container
+    }
+    
+    private func saveTTSProgressToDatabase(chapterIndex: Int, paragraphIndex: Int) {
+        guard let container = container else { return }
+        let context = ModelContext(container)
+        let bookId = self.playingBookId
+        guard !bookId.isEmpty else { return }
+        
+        do {
+            let descriptor = FetchDescriptor<Book>()
+            let books = try context.fetch(descriptor)
+            if let book = books.first(where: { $0.bookId == bookId }) {
+                book.currentChapterIndex = chapterIndex
+                book.currentChapterPage = paragraphIndex
+                if chapterIndex >= 0 && chapterIndex < chaptersQueue.count {
+                    book.currentChapterTitle = chaptersQueue[chapterIndex].title
+                }
+                book.isHistory = true
+                book.lastReadDate = Date()
+                try context.save()
+            }
+        } catch {
+            AppLogger.shared.log("❌ Lỗi lưu vị trí TTS dở vào database: \(error.localizedDescription)")
+        }
+    }
     
     // AVAudioEngine cho NghiTTS
     private var audioEngine: AVAudioEngine?
@@ -238,7 +268,92 @@ public final class TTSManager: NSObject, ObservableObject {
         }
     }
     
-    // MARK: - Playback Control
+    public func prepareSpeaking(
+        bookId: String,
+        chapters: [TTSChapterInfo],
+        currentIndex: Int,
+        chapterContent: String,
+        startParagraphIndex: Int,
+        bookTitle: String,
+        coverUrl: String = "",
+        extensionInfo: TTSExtensionInfo?
+    ) {
+        guard !isPlaying else { return }
+        
+        self.playingBookId = bookId
+        self.playingCoverUrl = coverUrl
+        self.chaptersQueue = chapters
+        self.playingChapterIndex = currentIndex
+        self.bookTitle = bookTitle
+        self.extensionInfo = extensionInfo
+        self.chapterContent = chapterContent
+        
+        self.preloadedNextChapterContent = nil
+        self.clearPrefetchCache()
+        
+        guard currentIndex >= 0 && currentIndex < chapters.count else { return }
+        let currentChapter = chapters[currentIndex]
+        self.playingChapterUrl = currentChapter.url
+        self.chapterTitle = currentChapter.title
+        
+        self.paragraphs = parseParagraphs(chapterContent)
+        
+        let key = "showChapterTitle_\(playingBookId)"
+        let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+        
+        var titleInserted = false
+        if showTitle && !chapterTitle.isEmpty {
+            let titleParagraph = TTSParagraph(
+                text: chapterTitle,
+                range: NSRange(location: 0, length: chapterTitle.count),
+                paragraphIndex: -1
+            )
+            self.paragraphs.insert(titleParagraph, at: 0)
+            titleInserted = true
+        }
+        
+        var targetIdx = 0
+        if startParagraphIndex == -1 {
+            targetIdx = 0
+        } else {
+            if let idx = paragraphs.firstIndex(where: { $0.paragraphIndex == startParagraphIndex }) {
+                targetIdx = idx
+            } else {
+                targetIdx = titleInserted ? 1 : 0
+            }
+        }
+        
+        if targetIdx >= 0 && targetIdx < paragraphs.count {
+            self.currentParagraphIndex = targetIdx
+            let paragraph = paragraphs[targetIdx]
+            self.highlightRange = paragraph.range
+            self.currentParentParagraphIndex = paragraph.paragraphIndex
+        }
+        
+        updateNowPlayingInfo()
+    }
+    
+    public func updateParagraphPositionWithoutPlaying(paragraphIndex: Int) {
+        guard !isPlaying else { return }
+        
+        let titleInserted = paragraphs.first?.paragraphIndex == -1
+        var targetIdx = -1
+        if paragraphIndex == -1 {
+            targetIdx = 0
+        } else if let idx = paragraphs.firstIndex(where: { $0.paragraphIndex == paragraphIndex }) {
+            targetIdx = idx
+        } else {
+            targetIdx = titleInserted ? 1 : 0
+        }
+        
+        if targetIdx >= 0 && targetIdx < paragraphs.count {
+            self.currentParagraphIndex = targetIdx
+            let paragraph = paragraphs[targetIdx]
+            self.highlightRange = paragraph.range
+            self.currentParentParagraphIndex = paragraph.paragraphIndex
+            updateNowPlayingInfo()
+        }
+    }
     
     public func startSpeaking(
         bookId: String,
@@ -255,6 +370,7 @@ public final class TTSManager: NSObject, ObservableObject {
         self.wasPlayingBeforeInterruption = false
         
         self.configureAudioSession()
+        self.setRemoteCommandsEnabled(true) // Kích hoạt Media Remote
         self.playingBookId = bookId
         self.playingCoverUrl = coverUrl
         self.chaptersQueue = chapters
@@ -335,7 +451,14 @@ public final class TTSManager: NSObject, ObservableObject {
         // let pid = currentPlaybackId ?? "NONE"
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] resume() được gọi.")
         guard !isPlaying else { return }
+        
+        // Đảm bảo có dữ liệu hợp lệ để tiếp tục phát
+        guard currentParagraphIndex >= 0 && currentParagraphIndex < paragraphs.count else {
+            return
+        }
+        
         self.configureAudioSession()
+        self.setRemoteCommandsEnabled(true) // Bật lại remote commands
         self.isPlaying = true
         
         if tool == "system" {
@@ -391,6 +514,7 @@ public final class TTSManager: NSObject, ObservableObject {
         
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         MPNowPlayingInfoCenter.default().playbackState = .stopped
+        self.setRemoteCommandsEnabled(false) // Vô hiệu hóa remote commands khi dừng hẳn
         
         // Giải phóng Audio Session khi dừng hoàn toàn để ứng dụng khác có thể phát âm thanh
         if !keepWidget {
@@ -561,13 +685,18 @@ public final class TTSManager: NSObject, ObservableObject {
         self.highlightRange = paragraph.range // Cập nhật vùng bôi đen chữ đang đọc trên giao diện đọc truyện
         self.currentParentParagraphIndex = paragraph.paragraphIndex
         
+        self.saveTTSProgressToDatabase(chapterIndex: playingChapterIndex, paragraphIndex: paragraph.paragraphIndex)
+        
+        // Áp dụng các quy tắc thay thế ký tự trước khi đọc
+        let textToSpeak = TTSReplacementManager.shared.applyReplacements(to: paragraph.text)
+        
         // Điều hướng luồng phát âm thanh sang Engine tương ứng:
         if tool == "system" {
-            playSystemTTS(paragraph.text) // Phát bằng Siri mặc định của iOS (không tốn dung lượng bộ nhớ)
+            playSystemTTS(textToSpeak) // Phát bằng Siri mặc định của iOS (không tốn dung lượng bộ nhớ)
         } else if tool == "nghitts" {
-            playNghiTTS(paragraph.text) // Phát bằng Piper TTS offline (giọng đọc chất lượng cao tự nhiên hơn)
+            playNghiTTS(textToSpeak) // Phát bằng Piper TTS offline (giọng đọc chất lượng cao tự nhiên hơn)
         } else {
-            playExtensionTTS(paragraph.text) // Phát thông qua Extension JavaScript tự định nghĩa
+            playExtensionTTS(textToSpeak) // Phát thông qua Extension JavaScript tự định nghĩa
         }
     }
     
@@ -633,7 +762,8 @@ public final class TTSManager: NSObject, ObservableObject {
 
     private func startPrefetchTask(for index: Int) {
         guard index >= 0 && index < paragraphs.count else { return }
-        let text = paragraphs[index].text
+        let rawText = paragraphs[index].text
+        let text = TTSReplacementManager.shared.applyReplacements(to: rawText)
         let voice = selectedVoice
         let toolBeforeStart = tool
         
@@ -1128,79 +1258,78 @@ public final class TTSManager: NSObject, ObservableObject {
     
     // MARK: - Lock Screen & Remote Control Sync
     
+    private func setRemoteCommandsEnabled(_ enabled: Bool) {
+        let commandCenter = MPRemoteCommandCenter.shared()
+        commandCenter.playCommand.isEnabled = enabled
+        commandCenter.pauseCommand.isEnabled = enabled
+        commandCenter.togglePlayPauseCommand.isEnabled = enabled
+        commandCenter.nextTrackCommand.isEnabled = enabled
+        commandCenter.previousTrackCommand.isEnabled = enabled
+        
+        commandCenter.skipForwardCommand.isEnabled = false
+        commandCenter.skipBackwardCommand.isEnabled = false
+        
+        if enabled {
+            UIApplication.shared.beginReceivingRemoteControlEvents()
+        } else {
+            UIApplication.shared.endReceivingRemoteControlEvents()
+        }
+    }
+    
     private func setupRemoteCommandCenter() {
         let commandCenter = MPRemoteCommandCenter.shared()
         
-        // Bắt đầu nhận sự kiện điều khiển từ xa
-        UIApplication.shared.beginReceivingRemoteControlEvents()
-        
         // Play
-        commandCenter.playCommand.isEnabled = true
         commandCenter.playCommand.addTarget { [weak self] _ in
             guard let self = self else { return .commandFailed }
-            self.resume()
-            return .success
-        }
-        
-        // Pause
-        commandCenter.pauseCommand.isEnabled = true
-        commandCenter.pauseCommand.addTarget { [weak self] _ in
-            guard let self = self else { return .commandFailed }
-            self.pause()
-            return .success
-        }
-        
-        // Toggle Play/Pause (Tai nghe / AirPods / Thiết bị Bluetooth)
-        commandCenter.togglePlayPauseCommand.isEnabled = true
-        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
-            guard let self = self else { return .commandFailed }
-            if self.isPlaying {
-                self.pause()
-            } else {
+            DispatchQueue.main.async {
                 self.resume()
             }
             return .success
         }
         
-        // Next Chapter
-        commandCenter.nextTrackCommand.isEnabled = true
+        // Pause
+        commandCenter.pauseCommand.addTarget { [weak self] _ in
+            guard let self = self else { return .commandFailed }
+            DispatchQueue.main.async {
+                self.pause()
+            }
+            return .success
+        }
+        
+        // Toggle Play/Pause (Tai nghe / AirPods / Thiết bị Bluetooth)
+        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
+            guard let self = self else { return .commandFailed }
+            DispatchQueue.main.async {
+                if self.isPlaying {
+                    self.pause()
+                } else {
+                    self.resume()
+                }
+            }
+            return .success
+        }
+        
+        // Next Track (Đoạn sau)
         commandCenter.nextTrackCommand.addTarget { [weak self] _ in
             guard let self = self else { return .commandFailed }
-            if let onNext = self.onChapterNext {
-                onNext()
-                return .success
+            DispatchQueue.main.async {
+                self.skipForward()
             }
-            return .noSuchContent
+            return .success
         }
         
-        // Prev Chapter
-        commandCenter.previousTrackCommand.isEnabled = true
+        // Prev Track (Đoạn trước)
         commandCenter.previousTrackCommand.addTarget { [weak self] _ in
             guard let self = self else { return .commandFailed }
-            if let onPrev = self.onChapterPrev {
-                onPrev()
-                return .success
+            DispatchQueue.main.async {
+                self.skipBackward()
             }
-            return .noSuchContent
-        }
-        
-        // Skip Forward (Đoạn sau)
-        commandCenter.skipForwardCommand.preferredIntervals = [15]
-        commandCenter.skipForwardCommand.isEnabled = true
-        commandCenter.skipForwardCommand.addTarget { [weak self] _ in
-            guard let self = self else { return .commandFailed }
-            self.skipForward()
             return .success
         }
         
-        // Skip Backward (Đoạn trước)
-        commandCenter.skipBackwardCommand.preferredIntervals = [15]
-        commandCenter.skipBackwardCommand.isEnabled = true
-        commandCenter.skipBackwardCommand.addTarget { [weak self] _ in
-            guard let self = self else { return .commandFailed }
-            self.skipBackward()
-            return .success
-        }
+        // Mặc định ban đầu vô hiệu hóa các remote commands cho đến khi bắt đầu phát thực sự
+        self.setRemoteCommandsEnabled(false)
     }
     
     private func updateNowPlayingInfo() {
@@ -1232,6 +1361,7 @@ public final class TTSManager: NSObject, ObservableObject {
         
         info[MPNowPlayingInfoPropertyIsLiveStream] = true
         info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? speed : 0.0
+        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = Double(max(0, currentParagraphIndex))
         
         // Thiết lập ảnh bìa nếu có
         let bid = playingBookId

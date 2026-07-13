@@ -36,6 +36,7 @@ struct MainTabView: View {
         }
         .onAppear {
             DownloadManager.shared.initialize(container: modelContext.container)
+            TTSManager.shared.initialize(container: modelContext.container)
         }
     }
 }
