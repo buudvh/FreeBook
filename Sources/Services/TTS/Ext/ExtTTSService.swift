@@ -56,14 +56,14 @@ public final class ExtTTSService {
         // Chuyển đổi sang targetFormat bằng AVAudioConverter
         guard let converter = AVAudioConverter(from: fileFormat, to: targetFormat) else {
             AppLogger.shared.log("❌ [ExtTTSService] Không thể tạo AVAudioConverter từ \(fileFormat) sang \(targetFormat)")
-            return buffer
+            return preprocessBufferForExtTTS(buffer)
         }
         
         let ratio = targetFormat.sampleRate / fileFormat.sampleRate
         let targetFrameCapacity = AVAudioFrameCount(Double(frameCount) * ratio) + 16
         
         guard let targetBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: targetFrameCapacity) else {
-            return buffer
+            return preprocessBufferForExtTTS(buffer)
         }
         
         var error: NSError? = nil
@@ -75,10 +75,16 @@ public final class ExtTTSService {
             }
             isDataProvided = true
             outStatus.pointee = .haveData
-            return buffer
+            return preprocessBufferForExtTTS(buffer)
         }
         
         let status = converter.convert(to: targetBuffer, error: &error, withInputFrom: inputBlock)
+
+        guard targetBuffer.frameLength > 0 else {
+            AppLogger.shared.log("❌ [ExtTTSService] Convert tạo buffer rỗng")
+            return preprocessBufferForExtTTS(buffer)
+        }
+
         if status == .error {
             if let error = error {
                 AppLogger.shared.log("❌ [ExtTTSService] Lỗi convert định dạng sang targetFormat: \(error.localizedDescription)")
@@ -98,7 +104,7 @@ public final class ExtTTSService {
         var peakAmplitude: Float = 0
         
         for channel in 0..<channelCount {
-            guard let data = channelData[channel] else { continue }
+            let data = channelData[channel]
             for frame in 0..<frameCount {
                 peakAmplitude = max(peakAmplitude, abs(data[frame]))
             }
@@ -116,10 +122,10 @@ public final class ExtTTSService {
         let fadeFramesClamped = max(fadeFrames, 1)
         
         for channel in 0..<channelCount {
-            guard let data = channelData[channel] else { continue }
+            let data = channelData[channel]
             for frame in 0..<frameCount {
                 var sample = data[frame] * gain
-                
+
                 if frame < fadeFramesClamped {
                     let t = Float(frame) / Float(fadeFramesClamped)
                     sample *= t
@@ -127,7 +133,7 @@ public final class ExtTTSService {
                     let t = Float(frameCount - 1 - frame) / Float(fadeFramesClamped)
                     sample *= max(t, 0)
                 }
-                
+
                 data[frame] = sample
             }
         }
