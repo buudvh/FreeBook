@@ -102,9 +102,19 @@ import SwiftSoup
 // MARK: - Concrete Implementations
 
 @objc public final class JSHtml: NSObject, JSHtmlExport {
+    private static func fixUnclosedATags(_ html: String) -> String {
+        let pattern = "(<a[^>]*class=\\s*[\"'](?:imgbox|img-box|cover|book-cover|bookcover|picbox|imagebox)[\"'][^>]*>\\s*<img[^>]*>)"
+        if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
+            let range = NSRange(location: 0, length: html.utf16.count)
+            return regex.stringByReplacingMatches(in: html, options: [], range: range, withTemplate: "$1</a>")
+        }
+        return html
+    }
+
     public static func parse(_ html: String) -> JSDocument {
         do {
-            let doc = try SwiftSoup.parse(html)
+            let fixedHtml = fixUnclosedATags(html)
+            let doc = try SwiftSoup.parse(fixedHtml)
             cleanAds(from: doc)
             return JSDocument(doc)
         } catch {
@@ -115,7 +125,8 @@ import SwiftSoup
     
     public static func parseWithBase(_ html: String, _ baseUri: String) -> JSDocument {
         do {
-            let doc = try SwiftSoup.parse(html, baseUri)
+            let fixedHtml = fixUnclosedATags(html)
+            let doc = try SwiftSoup.parse(fixedHtml, baseUri)
             cleanAds(from: doc)
             return JSDocument(doc)
         } catch {
@@ -147,6 +158,48 @@ import SwiftSoup
             }
         }
     }
+
+    public static func selectElements(from element: Element, selector: String) -> Elements {
+        do {
+            let els = try element.select(selector)
+            if els.isEmpty() && selector.contains(":nth-child(2)") {
+                let fallback1 = selector.replacingOccurrences(of: ":nth-child(2)", with: "")
+                let els1 = try element.select(fallback1)
+                if !els1.isEmpty() {
+                    return els1
+                }
+                let fallback2 = selector.replacingOccurrences(of: ":nth-child(2)", with: ":first-child")
+                let els2 = try element.select(fallback2)
+                if !els2.isEmpty() {
+                    return els2
+                }
+            }
+            return els
+        } catch {
+            return Elements()
+        }
+    }
+    
+    public static func selectElements(from elements: Elements, selector: String) -> Elements {
+        do {
+            let els = try elements.select(selector)
+            if els.isEmpty() && selector.contains(":nth-child(2)") {
+                let fallback1 = selector.replacingOccurrences(of: ":nth-child(2)", with: "")
+                let els1 = try elements.select(fallback1)
+                if !els1.isEmpty() {
+                    return els1
+                }
+                let fallback2 = selector.replacingOccurrences(of: ":nth-child(2)", with: ":first-child")
+                let els2 = try elements.select(fallback2)
+                if !els2.isEmpty() {
+                    return els2
+                }
+            }
+            return els
+        } catch {
+            return Elements()
+        }
+    }
     
     public static func clean(_ html: String, _ tags: [String]) -> String {
         do {
@@ -170,13 +223,7 @@ import SwiftSoup
     }
     
     public func select(_ selector: String) -> JSElements {
-        do {
-            let elements = try doc.select(selector)
-            return JSElements(elements)
-        } catch {
-            // print("JSDocument select error: \(error)")
-            return JSElements(Elements())
-        }
+        return JSElements(JSHtml.selectElements(from: doc, selector: selector))
     }
     
     public func text() -> String {
@@ -218,13 +265,7 @@ import SwiftSoup
     
     public func select(_ selector: String) -> JSElements {
         guard let element = element else { return JSElements(Elements()) }
-        do {
-            let elements = try element.select(selector)
-            return JSElements(elements)
-        } catch {
-            // print("JSElement select error: \(error)")
-            return JSElements(Elements())
-        }
+        return JSElements(JSHtml.selectElements(from: element, selector: selector))
     }
     
     public func text() -> String {
@@ -404,13 +445,7 @@ import SwiftSoup
     }
     
     public func select(_ selector: String) -> JSElements {
-        do {
-            let selected = try elements.select(selector)
-            return JSElements(selected)
-        } catch {
-            // print("JSElements select error: \(error)")
-            return JSElements(Elements())
-        }
+        return JSElements(JSHtml.selectElements(from: elements, selector: selector))
     }
     
     public func text() -> String {

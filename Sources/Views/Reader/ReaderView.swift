@@ -216,7 +216,6 @@ struct ReaderView: View {
             VStack(spacing: 0) {
                 readerContentView
                     .id(chapterIndex)
-                    .transition(isGoingNext ? .pageFlipNext : .pageFlipPrev)
             }
             // Top/Bottom overlay controls
             if showControls {
@@ -1335,15 +1334,10 @@ struct ReaderView: View {
             isLoading: true
         )
         
-        withAnimation(.easeInOut(duration: 0.45)) {
-            self.chapterIndex = index
-            self.loadedChapters = [currentChapter]
-            self.hasScrolledToTop = false
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-            self.isTransitioning = false
-        }
+        self.chapterIndex = index
+        self.loadedChapters = [currentChapter]
+        self.hasScrolledToTop = false
+        self.isTransitioning = false
         
         loadChapterContent(index: index)
     }
