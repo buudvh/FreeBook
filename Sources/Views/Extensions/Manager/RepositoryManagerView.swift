@@ -279,8 +279,9 @@ struct RepositoryManagerView: View {
                             .listStyle(.plain)
                         }
                     }
-                    .background(Color(.systemGroupedBackground).opacity(0.3))
-                    .tag(0)
+                }
+                .background(Color(.systemGroupedBackground).opacity(0.3))
+                .tag(0)
                     
                     // TAB 1: QUẢN LÝ KHO TIỆN ÍCH (Danh sách kho)
                     List {

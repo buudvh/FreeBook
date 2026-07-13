@@ -530,7 +530,7 @@ struct ShelfView: View {
         let chapters: [ParserChapter]
     }
     
-    private func parseTxtBook(content: String, fileName: String) -> ParsedBook {
+    nonisolated private func parseTxtBook(content: String, fileName: String) -> ParsedBook {
         let lines = content.components(separatedBy: "\n")
         var chapters: [ParserChapter] = []
         var currentChapterTitle = "Mở đầu"
