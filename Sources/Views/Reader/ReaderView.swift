@@ -1921,103 +1921,105 @@ extension ReaderView {
     
     @ViewBuilder
     private var textReaderView: some View {
-        if let vm = viewModel {
-            TabView(selection: Binding(
-                get: { vm.tabSelection },
-                set: { newIndex in
-                    vm.onTabSelectionChanged(newIndex: newIndex)
-                    self.chapterIndex = newIndex
-                }
-            )) {
-                ForEach(vm.visibleIndexes, id: \.self) { idx in
-                    if let cached = vm.cache.get(idx) {
-                        ScrollViewReader { proxy in
-                            ScrollView {
-                                LazyVStack(alignment: .leading, spacing: fontSize * 0.8) {
-                                    if cached.state == .loading || cached.state == .prefetching {
-                                        HStack {
-                                            Spacer()
-                                            ProgressView()
-                                                .tint(selectedTheme.textColor)
-                                            Spacer()
-                                        }
-                                        .padding()
-                                    } else if case .failed(let message) = cached.state {
-                                        VStack(spacing: 12) {
-                                            Text(message)
-                                                .font(.subheadline)
-                                                .foregroundColor(.red)
-                                                .multilineTextAlignment(.center)
-                                            Button("Thử lại") {
-                                                Task {
-                                                    try? await vm.loadChapterContentFromExtension(idx)
-                                                }
+        Group {
+            if let vm = viewModel {
+                TabView(selection: Binding(
+                    get: { vm.tabSelection },
+                    set: { newIndex in
+                        vm.onTabSelectionChanged(newIndex: newIndex)
+                        self.chapterIndex = newIndex
+                    }
+                )) {
+                    ForEach(vm.visibleIndexes, id: \.self) { idx in
+                        if let cached = vm.cache.get(idx) {
+                            ScrollViewReader { proxy in
+                                ScrollView {
+                                    LazyVStack(alignment: .leading, spacing: fontSize * 0.8) {
+                                        if cached.state == .loading || cached.state == .prefetching {
+                                            HStack {
+                                                Spacer()
+                                                ProgressView()
+                                                    .tint(selectedTheme.textColor)
+                                                Spacer()
                                             }
-                                            .buttonStyle(.bordered)
-                                        }
-                                        .frame(maxWidth: .infinity)
-                                        .padding()
-                                    } else {
-                                        chapterContentView(for: cached)
-                                    }
-                                }
-                                .padding(.horizontal, 18)
-                                .padding(.vertical, 24)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        showControls.toggle()
-                                    }
-                                }
-                            }
-                            .id("scroll-view-\(idx)")
-                            .onChange(of: scrollTarget) { _, newValue in
-                                if let target = newValue, target.chapterIndex == idx {
-                                    withAnimation {
-                                        if target.paragraphIndex == -1 {
-                                            proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
+                                            .padding()
+                                        } else if case .failed(let message) = cached.state {
+                                            VStack(spacing: 12) {
+                                                Text(message)
+                                                    .font(.subheadline)
+                                                    .foregroundColor(.red)
+                                                    .multilineTextAlignment(.center)
+                                                Button("Thử lại") {
+                                                    Task {
+                                                        try? await vm.loadChapterContentFromExtension(idx)
+                                                    }
+                                                }
+                                                .buttonStyle(.bordered)
+                                            }
+                                            .frame(maxWidth: .infinity)
+                                            .padding()
                                         } else {
-                                            proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
+                                            chapterContentView(for: cached)
                                         }
                                     }
-                                    scrollTarget = nil
-                                }
-                            }
-                            .onChange(of: cached.state) { _, state in
-                                if state == .loaded && idx == chapterIndex {
-                                    let savedPIdx = getSavedParagraphIndex()
-                                    let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
-                                    if savedPIdx >= 0 && hasValidParagraph {
-                                        proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
-                                    } else {
-                                        proxy.scrollTo("chapter-\(idx)", anchor: .top)
-                                    }
-                                    if !ttsManager.isPlaying {
-                                        prepareTTSForCurrentState()
+                                    .padding(.horizontal, 18)
+                                    .padding(.vertical, 24)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            showControls.toggle()
+                                        }
                                     }
                                 }
-                            }
-                            .onAppear {
-                                if cached.state == .loaded && idx == chapterIndex {
-                                    let savedPIdx = getSavedParagraphIndex()
-                                    let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
-                                    if savedPIdx >= 0 && hasValidParagraph {
-                                        proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
+                                .id("scroll-view-\(idx)")
+                                .onChange(of: scrollTarget) { _, newValue in
+                                    if let target = newValue, target.chapterIndex == idx {
+                                        withAnimation {
+                                            if target.paragraphIndex == -1 {
+                                                proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
+                                            } else {
+                                                proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
+                                            }
+                                        }
+                                        scrollTarget = nil
                                     }
-                                    if !ttsManager.isPlaying {
-                                        prepareTTSForCurrentState()
+                                }
+                                .onChange(of: cached.state) { _, state in
+                                    if state == .loaded && idx == chapterIndex {
+                                        let savedPIdx = getSavedParagraphIndex()
+                                        let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
+                                        if savedPIdx >= 0 && hasValidParagraph {
+                                            proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
+                                        } else {
+                                            proxy.scrollTo("chapter-\(idx)", anchor: .top)
+                                        }
+                                        if !ttsManager.isPlaying {
+                                            prepareTTSForCurrentState()
+                                        }
+                                    }
+                                }
+                                .onAppear {
+                                    if cached.state == .loaded && idx == chapterIndex {
+                                        let savedPIdx = getSavedParagraphIndex()
+                                        let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
+                                        if savedPIdx >= 0 && hasValidParagraph {
+                                            proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
+                                        }
+                                        if !ttsManager.isPlaying {
+                                            prepareTTSForCurrentState()
+                                        }
                                     }
                                 }
                             }
+                            .tag(idx)
                         }
-                        .tag(idx)
                     }
                 }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .indexViewStyle(.page(backgroundDisplayMode: .never))
+            } else {
+                ProgressView()
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .indexViewStyle(.page(backgroundDisplayMode: .never))
-        } else {
-            ProgressView()
         }
         .onChange(of: showChapterTitle) { _, _ in
             if let vm = viewModel {

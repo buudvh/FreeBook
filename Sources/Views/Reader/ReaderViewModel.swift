@@ -45,14 +45,16 @@ class ReaderViewModel: ObservableObject {
     var bookSourceName: String?
     
     private var localBook: Book? {
-        let predicate = #Predicate<Book> { $0.bookId == bookId }
+        let targetBookId = bookId
+        let predicate = #Predicate<Book> { $0.bookId == targetBookId }
         var descriptor = FetchDescriptor<Book>(predicate: predicate)
         descriptor.fetchLimit = 1
         return try? modelContext.fetch(descriptor).first
     }
     
     private var ext: Extension? {
-        let predicate = #Predicate<Extension> { $0.packageId == extensionPackageId }
+        let targetPackageId = extensionPackageId
+        let predicate = #Predicate<Extension> { $0.packageId == targetPackageId }
         var descriptor = FetchDescriptor<Extension>(predicate: predicate)
         descriptor.fetchLimit = 1
         return try? modelContext.fetch(descriptor).first
@@ -320,7 +322,7 @@ class ReaderViewModel: ObservableObject {
             saveOnlineBookIfNeeded(currentIndex: index, cleanedContent: cleanedContent, title: title, url: urlString)
         }
         
-        try await Task.checkCancellation()
+        try Task.checkCancellation()
         await processAndSaveChapter(index: index, originalTitle: title, originalContent: cleanedContent)
     }
     

@@ -113,4 +113,14 @@ class ChapterCache {
             queueRelease(key, delaySeconds: 5) // Đưa vào hàng đợi xóa sau 5 giây
         }
     }
+    
+    // Giải phóng khẩn cấp lập tức (khi nhận Memory Warning)
+    func releaseAllNonVisible(keepIndexes: Set<Int>) {
+        let keysToRemove = cache.keys.filter { !keepIndexes.contains($0) }
+        for key in keysToRemove {
+            cache.removeValue(forKey: key)
+            releaseTasks[key]?.cancel()
+            releaseTasks.removeValue(forKey: key)
+        }
+    }
 }
