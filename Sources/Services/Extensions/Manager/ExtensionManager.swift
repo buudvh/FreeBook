@@ -262,9 +262,9 @@ public final class ExtensionManager: ObservableObject {
             var results: [SearchNovelResult] = []
             for item in jsArray {
                 if let dict = item as? [String: Any] {
-                    var name = dict["name"] as? String ?? ""
-                    var author = dict["author"] as? String ?? "Không rõ"
-                    var description = dict["description"] as? String ?? dict["desc"] as? String ?? ""
+                    let name = dict["name"] as? String ?? ""
+                    let author = dict["author"] as? String ?? "Không rõ"
+                    let description = dict["description"] as? String ?? dict["desc"] as? String ?? ""
                     let cover = dict["cover"] as? String ?? ""
                     let link = dict["link"] as? String ?? dict["url"] as? String ?? ""
                     let host = dict["host"] as? String ?? ""
@@ -307,10 +307,10 @@ public final class ExtensionManager: ObservableObject {
                 throw NSError(domain: "ExtensionManager", code: -6, userInfo: [NSLocalizedDescriptionKey: errorDesc])
             }
             
-            var name = dict["name"] as? String ?? ""
-            var author = dict["author"] as? String ?? "Không rõ"
+            let name = dict["name"] as? String ?? ""
+            let author = dict["author"] as? String ?? "Không rõ"
             let cover = dict["cover"] as? String ?? ""
-            var description = dict["description"] as? String ?? ""
+            let description = dict["description"] as? String ?? ""
             let detail = dict["detail"] as? String ?? ""
             let host = dict["host"] as? String ?? ""
             let link = dict["link"] as? String ?? dict["url"] as? String ?? url
@@ -349,7 +349,7 @@ public final class ExtensionManager: ObservableObject {
             var results: [ChapterResult] = []
  
             for dict in jsArray {
-                var name = dict["name"]?.toString() ?? ""
+                let name = dict["name"]?.toString() ?? ""
                 let url = dict["url"]?.toString()
                     ?? dict["link"]?.toString()
                     ?? ""
@@ -729,16 +729,17 @@ public final class ExtensionManager: ObservableObject {
     private func verifyJSResponse(_ jsValue: JSValue) throws -> JSValue {
         guard jsValue.isObject else { return jsValue }
         
-        let successVal = jsValue.objectForKeyedSubscript("success")
-        if !successVal.isUndefined && !successVal.isNull {
+        if let successVal = jsValue.objectForKeyedSubscript("success"),
+           !successVal.isUndefined,
+           !successVal.isNull {
             let success = successVal.toBool()
             if !success {
                 let msgVal = jsValue.objectForKeyedSubscript("message")
-                let msg = (!msgVal.isUndefined && !msgVal.isNull) ? msgVal.toString() ?? "Lỗi từ nguồn truyện" : "Lỗi từ nguồn truyện"
+                let msg = (msgVal != nil && !msgVal!.isUndefined && !msgVal!.isNull) ? msgVal!.toString() ?? "Lỗi từ nguồn truyện" : "Lỗi từ nguồn truyện"
                 throw NSError(domain: "ExtensionManager", code: -999, userInfo: [NSLocalizedDescriptionKey: msg])
             }
-            let dataVal = jsValue.objectForKeyedSubscript("data")
-            if !dataVal.isUndefined {
+            if let dataVal = jsValue.objectForKeyedSubscript("data"),
+               !dataVal.isUndefined {
                 return dataVal
             }
         }

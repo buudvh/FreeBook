@@ -138,7 +138,7 @@ public final class DownloadManager: ObservableObject {
         
         if let container = self.container {
             updateTaskInDB(taskId: taskId) { model in
-                model.statusVal = "pending"
+                model.statusRaw = "pending"
                 model.progressCount = 0
                 model.errorMessage = nil
             }
