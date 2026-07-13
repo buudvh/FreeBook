@@ -38,7 +38,7 @@ struct SearchView: View {
             }
             return history
         }
-        set {
+        nonmutating set {
             if let data = try? JSONEncoder().encode(newValue),
                let jsonString = String(data: data, encoding: .utf8) {
                 searchHistoryJSON = jsonString
@@ -86,406 +86,25 @@ struct SearchView: View {
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
-            // Thanh Tìm Kiếm
-            HStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-                    TextField("Tìm truyện hoặc tác giả...", text: $searchQuery, onCommit: performSearch)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.none)
-                    
-                    if !searchQuery.isEmpty {
-                        Button(action: {
-                            searchQuery = ""
-                            searchResults.removeAll()
-                            sourceStates.removeAll()
-                            searchStatusMessage = ""
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .background(Color(.secondarySystemBackground))
-                .cornerRadius(10)
+                // Thanh Tìm Kiếm
+                searchBarView
                 
-                Button(action: performSearch) {
-                    Text("Tìm")
-                        .bold()
-                }
-                .buttonStyle(.borderedProminent)
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .background(Color(.systemBackground))
-            
-            Toggle(isOn: $searchAllSources) {
-                Text("Tìm trên tất cả nguồn đã cài")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            .toggleStyle(SwitchToggleStyle(tint: .accentColor))
-            .padding(.horizontal)
-            .padding(.vertical, 6)
-            
-            Divider()
-            
-            if !searchStatusMessage.isEmpty {
-                Text(searchStatusMessage)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal)
-                    .padding(.vertical, 6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.secondarySystemBackground))
-            }
-            
-            if !searchAllSources && isSearching {
-                ProgressView("Đang tìm trên nguồn hiện tại...")
-                    .frame(maxHeight: .infinity)
-            } else if searchAllSources && !sourceStates.isEmpty {
-                if !hasAnyResults && !isAnySourceSearching {
-                    VStack(spacing: 12) {
-                        Spacer()
-                        Image(systemName: "magnifyingglass")
-                            .font(.largeTitle)
-                            .foregroundColor(.secondary)
-                        Text("Không tìm thấy truyện nào trên các nguồn")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                    }
-                    .frame(maxHeight: .infinity)
+                searchOptionsView
+                
+                Divider()
+                
+                searchStatusView
+                
+                if !searchAllSources && isSearching {
+                    ProgressView("Đang tìm trên nguồn hiện tại...")
+                        .frame(maxHeight: .infinity)
+                } else if searchAllSources && !sourceStates.isEmpty {
+                    searchAllSourcesResultsView
+                } else if !searchAllSources && !searchResults.isEmpty {
+                    singleSourceResultsView
                 } else {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 24) {
-                            ForEach(activeExtensions.sorted(by: { $0.name < $1.name }), id: \.packageId) { ext in
-                                if let state = sourceStates[ext.packageId] {
-                                    Group {
-                                        switch state {
-                                        case .searching:
-                                            VStack(alignment: .leading, spacing: 8) {
-                                                HStack {
-                                                    Text(ext.name)
-                                                        .font(.headline)
-                                                        .fontWeight(.bold)
-                                                    Spacer()
-                                                    ProgressView()
-                                                        .scaleEffect(0.8)
-                                                }
-                                                .padding(.horizontal)
-                                                
-                                                ScrollView(.horizontal, showsIndicators: false) {
-                                                    HStack(spacing: 16) {
-                                                        ForEach(0..<3, id: \.self) { _ in
-                                                            VStack(alignment: .leading, spacing: 6) {
-                                                                Color.gray.opacity(0.1)
-                                                                    .frame(width: 90, height: 125)
-                                                                    .cornerRadius(6)
-                                                                
-                                                                Color.gray.opacity(0.1)
-                                                                    .frame(width: 90, height: 12)
-                                                                    .cornerRadius(3)
-                                                                
-                                                                Color.gray.opacity(0.1)
-                                                                    .frame(width: 60, height: 10)
-                                                                    .cornerRadius(3)
-                                                            }
-                                                        }
-                                                    }
-                                                    .padding(.horizontal)
-                                                }
-                                                .redacted(reason: .placeholder)
-                                            }
-                                            
-                                        case .found(let results):
-                                            if !results.isEmpty {
-                                                VStack(alignment: .leading, spacing: 8) {
-                                                    HStack {
-                                                        Text(ext.name)
-                                                            .font(.headline)
-                                                            .fontWeight(.bold)
-                                                        
-                                                        Spacer()
-                                                        
-                                                        NavigationLink(destination: SearchView(
-                                                            activeExtensions: activeExtensions,
-                                                            selectedExtension: ext,
-                                                            initialSearchQuery: searchQuery
-                                                        )) {
-                                                            HStack(spacing: 4) {
-                                                                Text("Xem thêm")
-                                                                    .foregroundColor(.accentColor)
-                                                                Image(systemName: "chevron.right")
-                                                                    .foregroundColor(.accentColor)
-                                                            }
-                                                            .font(.subheadline)
-                                                        }
-                                                    }
-                                                    .padding(.horizontal)
-                                                    
-                                                    ScrollView(.horizontal, showsIndicators: false) {
-                                                        HStack(spacing: 16) {
-                                                            ForEach(results, id: \.link) { result in
-                                                                if changeSourceTargetBook != nil {
-                                                                    Button(action: {
-                                                                        changeSourceTargetResult = result
-                                                                        changeSourceTargetExtension = ext
-                                                                        showingChangeSourceAlert = true
-                                                                    }) {
-                                                                        VStack(alignment: .leading, spacing: 6) {
-                                                                            AsyncImage(url: URL(string: result.cover)) { image in
-                                                                                image.resizable()
-                                                                                    .aspectRatio(contentMode: .fill)
-                                                                            } placeholder: {
-                                                                                Color.gray.opacity(0.3)
-                                                                                    .overlay(Image(systemName: "book"))
-                                                                            }
-                                                                            .frame(width: 90, height: 125)
-                                                                            .cornerRadius(6)
-                                                                            .clipped()
-                                                                            
-                                                                            Text(translateIfNeeded(result.name))
-                                                                                .font(.caption)
-                                                                                .fontWeight(.semibold)
-                                                                                .foregroundColor(.primary)
-                                                                                .lineLimit(2)
-                                                                                .multilineTextAlignment(.leading)
-                                                                                .frame(width: 90, alignment: .leading)
-                                                                            
-                                                                            let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
-                                                                            Text(translateIfNeeded(authorText))
-                                                                                .font(.system(size: 10))
-                                                                                .foregroundColor(.secondary)
-                                                                                .lineLimit(1)
-                                                                                .frame(width: 90, alignment: .leading)
-                                                                        }
-                                                                    }
-                                                                    .buttonStyle(.plain)
-                                                                } else {
-                                                                    NavigationLink(destination: BookDetailView(
-                                                                        bookId: "\(ext.name.lowercased())_\(result.link)",
-                                                                        extensionPackageId: ext.packageId,
-                                                                        initialDetailUrl: result.link,
-                                                                        sourceName: ext.name
-                                                                    )) {
-                                                                        VStack(alignment: .leading, spacing: 6) {
-                                                                            AsyncImage(url: URL(string: result.cover)) { image in
-                                                                                image.resizable()
-                                                                                    .aspectRatio(contentMode: .fill)
-                                                                            } placeholder: {
-                                                                                Color.gray.opacity(0.3)
-                                                                                    .overlay(Image(systemName: "book"))
-                                                                            }
-                                                                            .frame(width: 90, height: 125)
-                                                                            .cornerRadius(6)
-                                                                            .clipped()
-                                                                            
-                                                                            Text(translateIfNeeded(result.name))
-                                                                                .font(.caption)
-                                                                                .fontWeight(.semibold)
-                                                                                .foregroundColor(.primary)
-                                                                                .lineLimit(2)
-                                                                                .multilineTextAlignment(.leading)
-                                                                                .frame(width: 90, alignment: .leading)
-                                                                            
-                                                                            let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
-                                                                            Text(translateIfNeeded(authorText))
-                                                                                .font(.system(size: 10))
-                                                                                .foregroundColor(.secondary)
-                                                                                .lineLimit(1)
-                                                                                .frame(width: 90, alignment: .leading)
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                        .padding(.horizontal)
-                                                    }
-                                                }
-                                            }
-                                            
-                                        case .noResults:
-                                            EmptyView()
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.vertical)
-                    }
+                    searchHistoryView
                 }
-            } else if !searchAllSources && !searchResults.isEmpty {
-                List(searchResults) { item in
-                    if changeSourceTargetBook != nil {
-                        Button(action: {
-                            changeSourceTargetResult = item.result
-                            changeSourceTargetExtension = item.ext
-                            showingChangeSourceAlert = true
-                        }) {
-                            HStack(spacing: 12) {
-                                AsyncImage(url: URL(string: item.result.cover)) { image in
-                                    image.resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                } placeholder: {
-                                    Color.gray.opacity(0.3)
-                                        .overlay(Image(systemName: "book"))
-                                }
-                                .frame(width: 50, height: 70)
-                                .cornerRadius(6)
-                                .clipped()
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(translateIfNeeded(item.result.name))
-                                        .font(.subheadline)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.primary)
-                                        .lineLimit(2)
-                                        .multilineTextAlignment(.leading)
-                                    
-                                    let descText = !item.result.description.isEmpty ? item.result.description : item.result.author
-                                    Text(translateIfNeeded(descText))
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(2)
-                                        .multilineTextAlignment(.leading)
-                                    
-                                    Text(item.ext.name)
-                                        .font(.system(size: 9))
-                                        .fontWeight(.semibold)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.accentColor.opacity(0.1))
-                                        .foregroundColor(.accentColor)
-                                        .cornerRadius(4)
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                        .buttonStyle(.plain)
-                    } else {
-                        NavigationLink(destination: BookDetailView(
-                            bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
-                            extensionPackageId: item.ext.packageId,
-                            initialDetailUrl: item.result.link,
-                            sourceName: item.ext.name
-                        )) {
-                            HStack(spacing: 12) {
-                                AsyncImage(url: URL(string: item.result.cover)) { image in
-                                    image.resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                } placeholder: {
-                                    Color.gray.opacity(0.3)
-                                        .overlay(Image(systemName: "book"))
-                                }
-                                .frame(width: 50, height: 70)
-                                .cornerRadius(6)
-                                .clipped()
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(translateIfNeeded(item.result.name))
-                                        .font(.subheadline)
-                                        .fontWeight(.bold)
-                                        .lineLimit(2)
-                                    
-                                    let descText = !item.result.description.isEmpty ? item.result.description : item.result.author
-                                    Text(translateIfNeeded(descText))
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(2)
-                                    
-                                    Text(item.ext.name)
-                                        .font(.system(size: 9))
-                                        .fontWeight(.semibold)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.accentColor.opacity(0.1))
-                                        .foregroundColor(.accentColor)
-                                        .cornerRadius(4)
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                }
-                .listStyle(.plain)
-            } else {
-                if !searchHistory.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("Lịch sử tìm kiếm")
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                            Spacer()
-                            Button(action: {
-                                searchHistory = []
-                            }) {
-                                Text("Xóa tất cả")
-                                    .font(.subheadline)
-                                    .foregroundColor(.accentColor)
-                            }
-                        }
-                        .padding(.horizontal)
-                        
-                        ScrollView {
-                            VStack(spacing: 0) {
-                                ForEach(searchHistory, id: \.self) { item in
-                                    HStack(spacing: 12) {
-                                        Button(action: {
-                                            searchQuery = item
-                                            performSearch()
-                                        }) {
-                                            HStack(spacing: 12) {
-                                                Image(systemName: "clock")
-                                                    .foregroundColor(.secondary)
-                                                
-                                                Text(item)
-                                                    .foregroundColor(.primary)
-                                                    .lineLimit(1)
-                                                
-                                                Spacer()
-                                            }
-                                        }
-                                        .buttonStyle(.plain)
-                                        
-                                        Button(action: {
-                                            var currentHistory = searchHistory
-                                            currentHistory.removeAll { $0 == item }
-                                            searchHistory = currentHistory
-                                        }) {
-                                            Image(systemName: "xmark")
-                                                .foregroundColor(.secondary)
-                                                .padding(8)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                    .padding(.horizontal)
-                                    .padding(.vertical, 6)
-                                    
-                                    Divider()
-                                        .padding(.leading, 44)
-                                }
-                            }
-                        }
-                    }
-                    .padding(.top)
-                } else {
-                    VStack(spacing: 12) {
-                        Spacer()
-                        Image(systemName: "magnifyingglass")
-                            .font(.largeTitle)
-                            .foregroundColor(.secondary)
-                        Text("Nhập từ khóa để tìm kiếm truyện")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                    }
-                    .frame(maxHeight: .infinity)
-                }
-            }
             }
             .navigationTitle("Tìm Kiếm")
             .navigationBarTitleDisplayMode(.inline)
@@ -532,6 +151,417 @@ struct SearchView: View {
         } message: { result in
             let extName = changeSourceTargetExtension?.name ?? "Nguồn mới"
             Text("Bạn có chắc chắn muốn thay đổi nguồn cho truyện sang '\(extName)' không?\nSách cũ trên kệ sẽ bị xóa và các cài đặt dịch riêng, từ điển riêng cũng như tiến độ đọc chương sẽ được chuyển qua sách mới.")
+        }
+    }
+    
+    @ViewBuilder
+    private var searchBarView: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                TextField("Tìm truyện hoặc tác giả...", text: $searchQuery, onCommit: performSearch)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.none)
+                
+                if !searchQuery.isEmpty {
+                    Button(action: {
+                        searchQuery = ""
+                        searchResults.removeAll()
+                        sourceStates.removeAll()
+                        searchStatusMessage = ""
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(Color(.secondarySystemBackground))
+            .cornerRadius(10)
+            
+            Button(action: performSearch) {
+                Text("Tìm")
+                    .bold()
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .background(Color(.systemBackground))
+    }
+    
+    @ViewBuilder
+    private var searchOptionsView: some View {
+        Toggle(isOn: $searchAllSources) {
+            Text("Tìm trên tất cả nguồn đã cài")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+        .padding(.horizontal)
+        .padding(.vertical, 6)
+    }
+    
+    @ViewBuilder
+    private var searchStatusView: some View {
+        if !searchStatusMessage.isEmpty {
+            Text(searchStatusMessage)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.horizontal)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(.secondarySystemBackground))
+        }
+    }
+    
+    @ViewBuilder
+    private var searchAllSourcesResultsView: some View {
+        if !hasAnyResults && !isAnySourceSearching {
+            VStack(spacing: 12) {
+                Spacer()
+                Image(systemName: "magnifyingglass")
+                    .font(.largeTitle)
+                    .foregroundColor(.secondary)
+                Text("Không tìm thấy truyện nào trên các nguồn")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+            .frame(maxHeight: .infinity)
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    ForEach(activeExtensions.sorted(by: { $0.name < $1.name }), id: \.packageId) { ext in
+                        if let state = sourceStates[ext.packageId] {
+                            Group {
+                                switch state {
+                                case .searching:
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        HStack {
+                                            Text(ext.name)
+                                                .font(.headline)
+                                                .fontWeight(.bold)
+                                            Spacer()
+                                            ProgressView()
+                                                .scaleEffect(0.8)
+                                        }
+                                        .padding(.horizontal)
+                                        
+                                        ScrollView(.horizontal, showsIndicators: false) {
+                                            HStack(spacing: 16) {
+                                                ForEach(0..<3, id: \.self) { _ in
+                                                    VStack(alignment: .leading, spacing: 6) {
+                                                        Color.gray.opacity(0.1)
+                                                            .frame(width: 90, height: 125)
+                                                            .cornerRadius(6)
+                                                        
+                                                        Color.gray.opacity(0.1)
+                                                            .frame(width: 90, height: 12)
+                                                            .cornerRadius(3)
+                                                        
+                                                        Color.gray.opacity(0.1)
+                                                            .frame(width: 60, height: 10)
+                                                            .cornerRadius(3)
+                                                    }
+                                                }
+                                            }
+                                            .padding(.horizontal)
+                                        }
+                                        .redacted(reason: .placeholder)
+                                    }
+                                    
+                                case .found(let results):
+                                    if !results.isEmpty {
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            HStack {
+                                                Text(ext.name)
+                                                    .font(.headline)
+                                                    .fontWeight(.bold)
+                                                
+                                                Spacer()
+                                                
+                                                NavigationLink(destination: SearchView(
+                                                    activeExtensions: activeExtensions,
+                                                    selectedExtension: ext,
+                                                    initialSearchQuery: searchQuery
+                                                )) {
+                                                    HStack(spacing: 4) {
+                                                        Text("Xem thêm")
+                                                            .foregroundColor(.accentColor)
+                                                        Image(systemName: "chevron.right")
+                                                            .foregroundColor(.accentColor)
+                                                    }
+                                                    .font(.subheadline)
+                                                }
+                                            }
+                                            .padding(.horizontal)
+                                            
+                                            ScrollView(.horizontal, showsIndicators: false) {
+                                                HStack(spacing: 16) {
+                                                    ForEach(results, id: \.link) { result in
+                                                        if changeSourceTargetBook != nil {
+                                                            Button(action: {
+                                                                changeSourceTargetResult = result
+                                                                changeSourceTargetExtension = ext
+                                                                showingChangeSourceAlert = true
+                                                            }) {
+                                                                VStack(alignment: .leading, spacing: 6) {
+                                                                    AsyncImage(url: URL(string: result.cover)) { image in
+                                                                        image.resizable()
+                                                                            .aspectRatio(contentMode: .fill)
+                                                                    } placeholder: {
+                                                                        Color.gray.opacity(0.3)
+                                                                            .overlay(Image(systemName: "book"))
+                                                                    }
+                                                                    .frame(width: 90, height: 125)
+                                                                    .cornerRadius(6)
+                                                                    .clipped()
+                                                                    
+                                                                    Text(translateIfNeeded(result.name))
+                                                                        .font(.caption)
+                                                                        .fontWeight(.semibold)
+                                                                        .foregroundColor(.primary)
+                                                                        .lineLimit(2)
+                                                                        .multilineTextAlignment(.leading)
+                                                                        .frame(width: 90, alignment: .leading)
+                                                                    
+                                                                    let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
+                                                                    Text(translateIfNeeded(authorText))
+                                                                        .font(.system(size: 10))
+                                                                        .foregroundColor(.secondary)
+                                                                        .lineLimit(1)
+                                                                        .frame(width: 90, alignment: .leading)
+                                                                }
+                                                            }
+                                                            .buttonStyle(.plain)
+                                                        } else {
+                                                            NavigationLink(destination: BookDetailView(
+                                                                bookId: "\(ext.name.lowercased())_\(result.link)",
+                                                                extensionPackageId: ext.packageId,
+                                                                initialDetailUrl: result.link,
+                                                                sourceName: ext.name
+                                                            )) {
+                                                                VStack(alignment: .leading, spacing: 6) {
+                                                                    AsyncImage(url: URL(string: result.cover)) { image in
+                                                                        image.resizable()
+                                                                            .aspectRatio(contentMode: .fill)
+                                                                    } placeholder: {
+                                                                        Color.gray.opacity(0.3)
+                                                                            .overlay(Image(systemName: "book"))
+                                                                    }
+                                                                    .frame(width: 90, height: 125)
+                                                                    .cornerRadius(6)
+                                                                    .clipped()
+                                                                    
+                                                                    Text(translateIfNeeded(result.name))
+                                                                        .font(.caption)
+                                                                        .fontWeight(.semibold)
+                                                                        .foregroundColor(.primary)
+                                                                        .lineLimit(2)
+                                                                        .multilineTextAlignment(.leading)
+                                                                        .frame(width: 90, alignment: .leading)
+                                                                    
+                                                                    let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
+                                                                    Text(translateIfNeeded(authorText))
+                                                                        .font(.system(size: 10))
+                                                                        .foregroundColor(.secondary)
+                                                                        .lineLimit(1)
+                                                                        .frame(width: 90, alignment: .leading)
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                .padding(.horizontal)
+                                            }
+                                        }
+                                    }
+                                    
+                                case .noResults:
+                                    EmptyView()
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var singleSourceResultsView: some View {
+        List(searchResults) { item in
+            if changeSourceTargetBook != nil {
+                Button(action: {
+                    changeSourceTargetResult = item.result
+                    changeSourceTargetExtension = item.ext
+                    showingChangeSourceAlert = true
+                }) {
+                    HStack(spacing: 12) {
+                        AsyncImage(url: URL(string: item.result.cover)) { image in
+                            image.resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Color.gray.opacity(0.3)
+                                .overlay(Image(systemName: "book"))
+                        }
+                        .frame(width: 50, height: 70)
+                        .cornerRadius(6)
+                        .clipped()
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(translateIfNeeded(item.result.name))
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.primary)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                            
+                            let descText = !item.result.description.isEmpty ? item.result.description : item.result.author
+                            Text(translateIfNeeded(descText))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                            
+                            Text(item.ext.name)
+                                .font(.system(size: 9))
+                                .fontWeight(.semibold)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.accentColor.opacity(0.1))
+                                .foregroundColor(.accentColor)
+                                .cornerRadius(4)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
+            } else {
+                NavigationLink(destination: BookDetailView(
+                    bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
+                    extensionPackageId: item.ext.packageId,
+                    initialDetailUrl: item.result.link,
+                    sourceName: item.ext.name
+                )) {
+                    HStack(spacing: 12) {
+                        AsyncImage(url: URL(string: item.result.cover)) { image in
+                            image.resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Color.gray.opacity(0.3)
+                                .overlay(Image(systemName: "book"))
+                        }
+                        .frame(width: 50, height: 70)
+                        .cornerRadius(6)
+                        .clipped()
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(translateIfNeeded(item.result.name))
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                                .lineLimit(2)
+                            
+                            let descText = !item.result.description.isEmpty ? item.result.description : item.result.author
+                            Text(translateIfNeeded(descText))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(2)
+                            
+                            Text(item.ext.name)
+                                .font(.system(size: 9))
+                                .fontWeight(.semibold)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.accentColor.opacity(0.1))
+                                .foregroundColor(.accentColor)
+                                .cornerRadius(4)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .listStyle(.plain)
+    }
+    
+    @ViewBuilder
+    private var searchHistoryView: some View {
+        if !searchHistory.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Lịch sử tìm kiếm")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Button(action: {
+                        searchHistory = []
+                    }) {
+                        Text("Xóa tất cả")
+                            .font(.subheadline)
+                            .foregroundColor(.accentColor)
+                    }
+                }
+                .padding(.horizontal)
+                
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(searchHistory, id: \.self) { item in
+                            HStack(spacing: 12) {
+                                Button(action: {
+                                    searchQuery = item
+                                    performSearch()
+                                }) {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "clock")
+                                            .foregroundColor(.secondary)
+                                        
+                                        Text(item)
+                                            .foregroundColor(.primary)
+                                            .lineLimit(1)
+                                        
+                                        Spacer()
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                
+                                Button(action: {
+                                    var currentHistory = searchHistory
+                                    currentHistory.removeAll { $0 == item }
+                                    searchHistory = currentHistory
+                                }) {
+                                    Image(systemName: "xmark")
+                                        .foregroundColor(.secondary)
+                                        .padding(8)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 6)
+                            
+                            Divider()
+                                .padding(.leading, 44)
+                        }
+                    }
+                }
+            }
+            .padding(.top)
+        } else {
+            VStack(spacing: 12) {
+                Spacer()
+                Image(systemName: "magnifyingglass")
+                    .font(.largeTitle)
+                    .foregroundColor(.secondary)
+                Text("Nhập từ khóa để tìm kiếm truyện")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+            .frame(maxHeight: .infinity)
         }
     }
     

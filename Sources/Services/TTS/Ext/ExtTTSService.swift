@@ -75,7 +75,7 @@ public final class ExtTTSService {
             }
             isDataProvided = true
             outStatus.pointee = .haveData
-            return preprocessBufferForExtTTS(buffer)
+            return self.preprocessBufferForExtTTS(buffer)
         }
         
         let status = converter.convert(to: targetBuffer, error: &error, withInputFrom: inputBlock)

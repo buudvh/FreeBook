@@ -48,47 +48,7 @@ struct TTSReplacementManagerView: View {
             } else {
                 Section {
                     ForEach(manager.rules) { rule in
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text("\"\(rule.pattern)\"")
-                                        .font(.system(.body, design: .monospaced))
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(rule.isEnabled ? .primary : .secondary)
-                                    
-                                    Image(systemName: "arrow.right")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    
-                                    Text(rule.replacement.isEmpty ? "(rỗng)" : "\"\(rule.replacement)\"")
-                                        .font(.system(.body, design: .monospaced))
-                                        .foregroundColor(rule.replacement.isEmpty ? .secondary : (rule.isEnabled ? .primary : .secondary))
-                                }
-                            }
-                            
-                            Spacer()
-                            
-                            Toggle("", isOn: Binding(
-                                get: { rule.isEnabled },
-                                set: { newValue in
-                                    var updated = rule
-                                    updated.isEnabled = newValue
-                                    manager.updateRule(updated)
-                                }
-                            ))
-                            .labelsHidden()
-                            
-                            // Nút nhấn để sửa
-                            Button(action: {
-                                prepareForEdit(rule)
-                            }) {
-                                Image(systemName: "pencil")
-                                    .foregroundColor(.accentColor)
-                                    .padding(8)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .contentShape(Rectangle())
+                        ruleRow(for: rule)
                     }
                     .onDelete(perform: deleteRules)
                     .onMove(perform: moveRules)
@@ -125,37 +85,7 @@ struct TTSReplacementManagerView: View {
         }
         // Sheet Thêm/Sửa quy tắc
         .sheet(isPresented: $showingEditSheet) {
-            NavigationStack {
-                Form {
-                    Section(header: Text("Thông tin quy tắc")) {
-                        TextField("Ký tự / Chuỗi cần thay thế", text: $patternInput)
-                            .textInputAutocapitalization(.never)
-                            .disableAutocorrection(true)
-                        
-                        TextField("Chuỗi thay thế (để trống nếu muốn xóa bỏ)", text: $replacementInput)
-                            .textInputAutocapitalization(.never)
-                            .disableAutocorrection(true)
-                        
-                        Toggle("Kích hoạt quy tắc", isOn: $isEnabledInput)
-                    }
-                }
-                .navigationTitle(selectedRule == nil ? "Thêm quy tắc mới" : "Sửa quy tắc")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Hủy") {
-                            showingEditSheet = false
-                        }
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Lưu") {
-                            saveRule()
-                        }
-                        .disabled(patternInput.isEmpty)
-                    }
-                }
-            }
-            .presentationDetents([.height(280)])
+            editRuleSheet
         }
         // File Importer
         .fileImporter(
@@ -218,6 +148,86 @@ struct TTSReplacementManagerView: View {
         } message: {
             Text(alertMessage)
         }
+    }
+    
+    @ViewBuilder
+    private func ruleRow(for rule: TTSReplacementRule) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("\"\(rule.pattern)\"")
+                        .font(.system(.body, design: .monospaced))
+                        .fontWeight(.semibold)
+                        .foregroundColor(rule.isEnabled ? .primary : .secondary)
+                    
+                    Image(systemName: "arrow.right")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text(rule.replacement.isEmpty ? "(rỗng)" : "\"\(rule.replacement)\"")
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundColor(rule.replacement.isEmpty ? .secondary : (rule.isEnabled ? .primary : .secondary))
+                }
+            }
+            
+            Spacer()
+            
+            Toggle("", isOn: Binding(
+                get: { rule.isEnabled },
+                set: { newValue in
+                    var updated = rule
+                    updated.isEnabled = newValue
+                    manager.updateRule(updated)
+                }
+            ))
+            .labelsHidden()
+            
+            // Nút nhấn để sửa
+            Button(action: {
+                prepareForEdit(rule)
+            }) {
+                Image(systemName: "pencil")
+                    .foregroundColor(.accentColor)
+                    .padding(8)
+            }
+            .buttonStyle(.plain)
+        }
+        .contentShape(Rectangle())
+    }
+    
+    @ViewBuilder
+    private var editRuleSheet: some View {
+        NavigationStack {
+            Form {
+                Section(header: Text("Thông tin quy tắc")) {
+                    TextField("Ký tự / Chuỗi cần thay thế", text: $patternInput)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                    
+                    TextField("Chuỗi thay thế (để trống nếu muốn xóa bỏ)", text: $replacementInput)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                    
+                    Toggle("Kích hoạt quy tắc", isOn: $isEnabledInput)
+                }
+            }
+            .navigationTitle(selectedRule == nil ? "Thêm quy tắc mới" : "Sửa quy tắc")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Hủy") {
+                        showingEditSheet = false
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Lưu") {
+                        saveRule()
+                    }
+                    .disabled(patternInput.isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.height(280)])
     }
     
     // Sửa/Xóa/Di chuyển
