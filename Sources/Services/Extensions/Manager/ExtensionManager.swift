@@ -255,28 +255,22 @@ public final class ExtensionManager: ObservableObject {
             let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] search raw JS result: \(stringified)")
             
-            // Ép kiểu kết quả trả về của JS thành mảng
-            guard let jsArray = cleanVal.toArray() else {
-                // AppLogger.shared.log("⚠️ [ExtensionManager] search returned non-array result or null")
-                updateDiagnostics(action: "search", input: "query: \(query), page: \(page)", status: "Success (Empty)", details: "Returned non-array result")
-                return []
-            }
+            // Ép kiểu kết quả trả về của JS thành mảng bằng toDictionaryArray
+            let jsArray = toDictionaryArray(cleanVal)
             
             // Duyệt qua mảng kết quả JS để ánh xạ sang cấu trúc dữ liệu SearchNovelResult của Swift
             var results: [SearchNovelResult] = []
-            for item in jsArray {
-                if let dict = item as? [String: Any] {
-                    let name = dict["name"] as? String ?? ""
-                    let author = dict["author"] as? String ?? "Không rõ"
-                    let description = dict["description"] as? String ?? dict["desc"] as? String ?? ""
-                    let cover = dict["cover"] as? String ?? ""
-                    let link = dict["link"] as? String ?? dict["url"] as? String ?? ""
-                    let host = dict["host"] as? String ?? ""
-                    
-                    guard !link.isEmpty else { continue }
-                    
-                    results.append(SearchNovelResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
-                }
+            for dict in jsArray {
+                let name = dict["name"]?.toString() ?? ""
+                let author = dict["author"]?.toString() ?? "Không rõ"
+                let description = dict["description"]?.toString() ?? dict["desc"]?.toString() ?? ""
+                let cover = dict["cover"]?.toString() ?? ""
+                let link = dict["link"]?.toString() ?? dict["url"]?.toString() ?? ""
+                let host = dict["host"]?.toString() ?? ""
+                
+                guard !link.isEmpty else { continue }
+                
+                results.append(SearchNovelResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
             }
             // AppLogger.shared.log("✅ [ExtensionManager] search parsed \(results.count) results")
             updateDiagnostics(action: "search", input: "query: \(query), page: \(page)", status: "Success", details: "Parsed \(results.count) results:\n\(stringified)")
@@ -635,36 +629,30 @@ public final class ExtensionManager: ObservableObject {
             let cleanVal = try verifyJSResponse(jsValue)
             let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] custom script raw JS result: \(stringified)")
-            
-            guard let jsArray = cleanVal.toArray() else {
-                // AppLogger.shared.log("⚠️ [ExtensionManager] custom script returned non-array result or null")
-                updateDiagnostics(action: scriptFileName, input: "input: \(input), page: \(page)", status: "Success (Empty)", details: "Returned non-array result")
-                return ([], nil)
-            }
+            // Ép kiểu kết quả trả về của JS thành mảng bằng toDictionaryArray
+            let jsArray = toDictionaryArray(cleanVal)
             
             var results: [SearchNovelResult] = []
-            for item in jsArray {
-                if let dict = item as? [String: Any] {
-                    var name = dict["name"] as? String ?? dict["username"] as? String ?? dict["author"] as? String ?? ""
-                    var author = dict["author"] as? String ?? "Không rõ"
-                    var description = dict["description"] as? String ?? dict["desc"] as? String ?? dict["content"] as? String ?? ""
-                    let cover = dict["cover"] as? String ?? ""
-                    let link = dict["link"] as? String ?? dict["url"] as? String ?? ""
-                    let host = dict["host"] as? String ?? ""
-                    
-                    let isCommentScript = scriptFileName.localizedCaseInsensitiveContains("comment")
-                    if !isCommentScript {
-                        guard !link.isEmpty else { continue }
-                    }
-                    
-                    if TranslateUtils.isTranslationEnabled {
-                        if TranslateUtils.containsChinese(name) { name = TranslateUtils.translateMeta(name) }
-                        if TranslateUtils.containsChinese(author) { author = TranslateUtils.translateMeta(author) }
-                        if TranslateUtils.containsChinese(description) { description = TranslateUtils.translateMeta(description) }
-                    }
-                    
-                    results.append(SearchNovelResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
+            for dict in jsArray {
+                var name = dict["name"]?.toString() ?? dict["username"]?.toString() ?? dict["author"]?.toString() ?? ""
+                var author = dict["author"]?.toString() ?? "Không rõ"
+                var description = dict["description"]?.toString() ?? dict["desc"]?.toString() ?? dict["content"]?.toString() ?? ""
+                let cover = dict["cover"]?.toString() ?? ""
+                let link = dict["link"]?.toString() ?? dict["url"]?.toString() ?? ""
+                let host = dict["host"]?.toString() ?? ""
+                
+                let isCommentScript = scriptFileName.localizedCaseInsensitiveContains("comment")
+                if !isCommentScript {
+                    guard !link.isEmpty else { continue }
                 }
+                
+                if TranslateUtils.isTranslationEnabled {
+                    if TranslateUtils.containsChinese(name) { name = TranslateUtils.translateMeta(name) }
+                    if TranslateUtils.containsChinese(author) { author = TranslateUtils.translateMeta(author) }
+                    if TranslateUtils.containsChinese(description) { description = TranslateUtils.translateMeta(description) }
+                }
+                
+                results.append(SearchNovelResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
             }
             
             var nextPageVal: String? = nil
@@ -801,8 +789,7 @@ public final class ExtensionManager: ObservableObject {
             if let dataVal = jsValue.objectForKeyedSubscript("data"),
                !dataVal.isUndefined {
                 let dataStr = stringify(dataVal)
-                let preview = dataStr.count > 200 ? String(dataStr.prefix(200)) + "..." : dataStr
-                AppLogger.shared.log("✅ [ExtensionManager] Response.success: \(preview)")
+                AppLogger.shared.log("✅ [ExtensionManager] Response.success: \(dataStr)")
                 return dataVal
             }
         }

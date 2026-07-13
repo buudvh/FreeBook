@@ -74,30 +74,18 @@ struct CategoryNovelsListView: View {
                         }
                     }
                     
-                    // Phân trang
+                    // Phân trang tự động (Cuộn vô hạn)
                     if nextPageUrl != nil || currentPage == 1 {
-                        if isLoadingMore {
-                            HStack {
-                                Spacer()
-                                ProgressView()
-                                Spacer()
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                        .onAppear {
+                            Task {
+                                await loadMoreNovels()
                             }
-                            .padding(.vertical, 8)
-                        } else {
-                            Button(action: {
-                                Task {
-                                    await loadMoreNovels()
-                                }
-                            }) {
-                                HStack {
-                                    Spacer()
-                                    Text("Xem thêm truyện")
-                                        .font(.subheadline)
-                                        .foregroundColor(.accentColor)
-                                    Spacer()
-                                }
-                            }
-                            .padding(.vertical, 8)
                         }
                     }
                 }
@@ -171,8 +159,10 @@ struct CategoryNovelsListView: View {
         }
     }
     
+    @MainActor
     private func loadMoreNovels() async {
         guard !isLoadingMore else { return }
+        isLoadingMore = true
         await loadNovels(page: currentPage + 1)
     }
 }

@@ -102,9 +102,19 @@ import SwiftSoup
 // MARK: - Concrete Implementations
 
 @objc public final class JSHtml: NSObject, JSHtmlExport {
+    private static func fixUnclosedATags(_ html: String) -> String {
+        let pattern = "(<a[^>]*class=\\s*[\"'](?:imgbox|img-box|cover|book-cover|bookcover|picbox|imagebox)[\"'][^>]*>\\s*<img[^>]*>)"
+        if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
+            let range = NSRange(location: 0, length: html.utf16.count)
+            return regex.stringByReplacingMatches(in: html, options: [], range: range, withTemplate: "$1</a>")
+        }
+        return html
+    }
+
     public static func parse(_ html: String) -> JSDocument {
         do {
-            let doc = try SwiftSoup.parse(html)
+            let fixedHtml = fixUnclosedATags(html)
+            let doc = try SwiftSoup.parse(fixedHtml)
             cleanAds(from: doc)
             return JSDocument(doc)
         } catch {
@@ -115,7 +125,8 @@ import SwiftSoup
     
     public static func parseWithBase(_ html: String, _ baseUri: String) -> JSDocument {
         do {
-            let doc = try SwiftSoup.parse(html, baseUri)
+            let fixedHtml = fixUnclosedATags(html)
+            let doc = try SwiftSoup.parse(fixedHtml, baseUri)
             cleanAds(from: doc)
             return JSDocument(doc)
         } catch {
