@@ -1,0 +1,21 @@
+name: Cleanup Old Workflow Runs
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Chạy tự động vào lúc 00:00 UTC hằng ngày (07:00 giờ Việt Nam)
+  workflow_dispatch: # Cho phép kích hoạt chạy thủ công từ trang GitHub Actions
+
+jobs:
+  cleanup:
+    name: Delete Runs Older Than 3 Days
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write # Cấp quyền ghi để có thể thực hiện lệnh xóa các run
+    steps:
+      - name: Delete Old Runs
+        uses: Mattraiano/delete-old-runs-action@v0.6.10
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 3 # Xóa các lượt chạy cũ hơn 3 ngày
+          keep_minimum_runs: 1 # Giữ lại ít nhất 1 lượt chạy mới nhất để tránh trang trống trơn

@@ -147,9 +147,38 @@ jobs:
         zip -r FreeBook.ipa Payload
         echo "IPA packaged successfully at build/FreeBook.ipa"
 
-    - name: Upload IPA Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: FreeBook-Unsigned-IPA
-        path: build/FreeBook.ipa
-        if-no-files-found: error
+    - name: Send IPA to Telegram
+      env:
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TO_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_TO_CHAT_ID }}
+      run: |
+        IPA_PATH="build/FreeBook.ipa"
+        if [ ! -f "$IPA_PATH" ]; then
+          echo "Error: IPA file not found at $IPA_PATH"
+          exit 1
+        fi
+        
+        FILE_SIZE=$(wc -c < "$IPA_PATH")
+        MAX_SIZE=50000000 # ~47.6 MB để đảm bảo an toàn cho giới hạn 50MB của Telegram Bot
+        
+        echo "IPA File Size: $FILE_SIZE bytes"
+        
+        if [ "$FILE_SIZE" -lt "$MAX_SIZE" ]; then
+          echo "File size is under 50MB. Uploading directly to Telegram..."
+          curl -F chat_id="${TELEGRAM_CHAT_ID}" \
+               -F document=@"$IPA_PATH" \
+               -F caption="📦 *FreeBook Build Thành Công!* 🚀%0AGithub Run ID: ${{ github.run_id }}" \
+               -F parse_mode="Markdown" \
+               https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendDocument
+        else
+          echo "File size is over 50MB ($FILE_SIZE bytes). Uploading to transfer.sh..."
+          # Tải lên transfer.sh làm link dự phòng
+          UPLOAD_URL=$(curl --upload-file "$IPA_PATH" "https://transfer.sh/FreeBook.ipa")
+          echo "Uploaded to: $UPLOAD_URL"
+          
+          curl -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+               -d "chat_id=${TELEGRAM_CHAT_ID}" \
+               -d "text=📦 *FreeBook Build Thành Công!* (File vượt quá 50MB)%0A%0ATải IPA tại đây: $UPLOAD_URL" \
+               -d "parse_mode=Markdown"
+        fi
+
