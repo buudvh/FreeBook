@@ -668,9 +668,7 @@ struct ShelfView: View {
                 
                 // Hỗ trợ giải mã với nhiều bảng mã khác nhau (Encoding Fallback)
                 var content: String? = nil
-                let windowsCP1258Raw = CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.windowsCP1258.rawValue))
-                let windowsCP1258 = String.Encoding(rawValue: windowsCP1258Raw)
-                let encodings: [String.Encoding] = [.utf8, .utf16, windowsCP1258, .ascii, .isoLatin1]
+                let encodings: [String.Encoding] = [.utf8, .utf16, .ascii, .isoLatin1]
                 for encoding in encodings {
                     if let decoded = try? String(contentsOf: tempFileUrl, encoding: encoding) {
                         content = decoded
