@@ -6,14 +6,12 @@ public final class JSExecutor {
     public let context: JSContext
     public let localPath: String?
     public let downloadUrl: String?
-    public let host: String?
     private var activeBrowsers: [String: WebViewLoader] = [:]
     
-    public init(localPath: String? = nil, downloadUrl: String? = nil, host: String? = nil) {
+    public init(localPath: String? = nil, downloadUrl: String? = nil) {
         self.context = JSContext()
         self.localPath = localPath
         self.downloadUrl = downloadUrl
-        self.host = host
         
         // 1. Cấu hình Exception Handler
         context.exceptionHandler = { context, exception in
