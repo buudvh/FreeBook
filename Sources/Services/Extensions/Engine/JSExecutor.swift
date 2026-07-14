@@ -263,7 +263,7 @@ public final class JSExecutor {
             guard let self = self else {
                 return ["html": "", "status": 500, "raw": "", "headers": [String: String]()]
             }
-            let resolvedUrlString = self.cleanAndResolveUrl(urlString)
+            let resolvedUrlString = urlString
             if isDomainBlocked(resolvedUrlString) {
                 // AppLogger.shared.log("🚫 [JSExecutor] Blocked network fetch to: \(resolvedUrlString)")
                 return ["html": "", "status": 403, "raw": "", "headers": [String: String]()]
@@ -443,7 +443,7 @@ public final class JSExecutor {
         
         let browserLaunchBlock: @convention(block) (String, String, Double) -> String = { [weak self] browserId, urlString, timeoutMs in
             guard let self = self else { return "" }
-            let url = URL(string: self.cleanAndResolveUrl(urlString))!
+            let url = URL(string: urlString)!
             var resultHtml = ""
             
             let semaphore = DispatchSemaphore(value: 0)
@@ -600,7 +600,7 @@ public final class JSExecutor {
         return ""
     }
     
-    public static func cleanAndResolveUrl(_ urlString: String, host: String?) -> String {
+    public static func cleanAndResolveUrl(_ urlString: String, host: String? = nil) -> String {
         var cleaned = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         
         // 1. Nếu chứa nhiều hơn 1 http:// hoặc https://, lấy cái cuối cùng
@@ -623,35 +623,7 @@ public final class JSExecutor {
         
         // 2. Nếu là URL tương đối (không bắt đầu bằng http:// hoặc https://)
         if !cleaned.lowercased().hasPrefix("http://") && !cleaned.lowercased().hasPrefix("https://") {
-            var foundHost = host?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            
-            // Thử lấy từ JSContext đang chạy nếu host truyền vào trống
-            if foundHost.isEmpty, let jsContext = JSContext.current() {
-                // Ưu tiên 1: book.host
-                if let bookVal = jsContext.objectForKeyedSubscript("book"),
-                   !bookVal.isUndefined && !bookVal.isNull {
-                    if let hostVal = bookVal.objectForKeyedSubscript("host"),
-                       !hostVal.isUndefined && !hostVal.isNull,
-                       let str = hostVal.toString()?.trimmingCharacters(in: .whitespacesAndNewlines),
-                       !str.isEmpty {
-                        foundHost = str
-                    }
-                }
-                
-                // Ưu tiên 2: BASE_URL hoặc base_url
-                if foundHost.isEmpty {
-                    for key in ["BASE_URL", "base_url", "host", "HOST", "domain", "DOMAIN", "origin", "ORIGIN"] {
-                        if let val = jsContext.objectForKeyedSubscript(key),
-                           !val.isUndefined && !val.isNull,
-                           let str = val.toString()?.trimmingCharacters(in: .whitespacesAndNewlines),
-                           !str.isEmpty {
-                            foundHost = str
-                            break
-                        }
-                    }
-                }
-            }
-            
+            let foundHost = host?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             if !foundHost.isEmpty {
                 let separator = cleaned.hasPrefix("/") || foundHost.hasSuffix("/") ? "" : "/"
                 cleaned = foundHost + separator + cleaned
@@ -659,10 +631,6 @@ public final class JSExecutor {
         }
         
         return cleaned
-    }
-    
-    private func cleanAndResolveUrl(_ urlString: String) -> String {
-        return JSExecutor.cleanAndResolveUrl(urlString, host: nil)
     }
     
     /// Inject các cấu hình dưới dạng biến toàn cục vào JSContext

@@ -330,7 +330,6 @@ struct DiscoveryView: View {
                 if let ext = selectedExtension {
                     BypassWebView(
                         urlString: ext.sourceUrl,
-                        localPath: ext.localPath,
                         onImport: { detailUrl, packageId, sourceName in
                             importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
                             importedExtensionPackageId = packageId
@@ -770,7 +769,6 @@ struct ExtensionSelectorView: View {
             .fullScreenCover(isPresented: $showingListWeb) {
                 BypassWebView(
                     urlString: listWebUrl,
-                    localPath: listWebLocalPath,
                     onImport: { detailUrl, packageId, sourceName in
                         showingListWeb = false
                         dismiss()

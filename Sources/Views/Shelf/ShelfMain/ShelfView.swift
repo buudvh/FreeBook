@@ -364,7 +364,6 @@ struct ShelfView: View {
             .fullScreenCover(isPresented: $showingBypassBrowser) {
                 BypassWebView(
                     urlString: "home",
-                    localPath: nil,
                     onImport: { detailUrl, packageId, sourceName in
                         importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
                         importedExtensionPackageId = packageId

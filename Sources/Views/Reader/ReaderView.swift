@@ -135,6 +135,18 @@ struct ReaderView: View {
         allExtensions.first(where: { $0.packageId == extensionPackageId })
     }
     
+    private var currentChapterHost: String? {
+        if chapterIndex < currentOnlineChapters.count {
+            return currentOnlineChapters[chapterIndex].host
+        } else if let book = localBook {
+            let sorted = book.chapters.sorted(by: { $0.index < $1.index })
+            if chapterIndex < sorted.count {
+                return sorted[chapterIndex].host
+            }
+        }
+        return localBook?.host ?? ext?.sourceUrl
+    }
+    
     private var isCurrentlyPlayingThisChapter: Bool {
         ttsManager.isPlaying &&
         ttsManager.playingBookId == bookId &&
@@ -289,7 +301,7 @@ struct ReaderView: View {
         .fullScreenCover(isPresented: $showingBypassBrowser) {
             BypassWebView(
                 urlString: currentChapterInfo?.url ?? bookDetailUrl ?? "",
-                localPath: ext?.localPath,
+                host: currentChapterHost,
                 onImport: { detailUrl, packageId, sourceName in
                     importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
                     importedExtensionPackageId = packageId
@@ -2754,8 +2766,7 @@ extension ReaderView {
         }
         .fullScreenCover(isPresented: $showingLookupBrowser) {
             BypassWebView(
-                urlString: lookupUrlString,
-                localPath: nil
+                urlString: lookupUrlString
             )
         }
     }

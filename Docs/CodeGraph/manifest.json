@@ -3,7 +3,7 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-07-14T11:21:49.349968",
+  "generatedAt": "2026-07-14T11:49:55.907710",
   "gitCommit": "UNKNOWN",
   "sourceFileCount": 87,
   "documentCount": 16,
@@ -28,7 +28,7 @@
     },
     {
       "filename": "02_file_graph.md",
-      "sourceHash": "95268e0e0a70e214f3d632849543c63306dbadf1899c6994c233b46a28272257",
+      "sourceHash": "c724d6b157564b4aeda25b5d76d561c1d77dc372249fbdfc4b1e8e4462b36fb0",
       "generatedHash": "81c7d0733585ef2aafb3a1ac73f9c501d9556fe6bc26e166bda13758a094201f",
       "generatedAt": "2026-07-14T09:15:25.699931",
       "sourceFiles": [
@@ -124,7 +124,7 @@
     },
     {
       "filename": "03_type_graph.md",
-      "sourceHash": "95268e0e0a70e214f3d632849543c63306dbadf1899c6994c233b46a28272257",
+      "sourceHash": "c724d6b157564b4aeda25b5d76d561c1d77dc372249fbdfc4b1e8e4462b36fb0",
       "generatedHash": "e436cf2129bdfbb8b66963b92595d2521bb4de3123514b32a73b8f5c75ab1231",
       "generatedAt": "2026-07-14T09:15:32.036605",
       "sourceFiles": [
@@ -220,7 +220,7 @@
     },
     {
       "filename": "04_call_graph.md",
-      "sourceHash": "4bff428219f9d0014f834bd818be34392510fb67523d5dd096cab329f6cca96b",
+      "sourceHash": "f2cce957f43fc4f0151b83fbb297e7ca312d85efde67a5f3f8fc602ba54642e6",
       "generatedHash": "ba265f7f6addba06623a9e4edbf159941e41fa358c36210f603e87da2c2efef9",
       "generatedAt": "2026-07-14T09:15:54.022444",
       "sourceFiles": [
@@ -246,7 +246,7 @@
     },
     {
       "filename": "06_event_graph.md",
-      "sourceHash": "e3d147ebea924386cf8d7fb131557a8c144b75680fdea05dadc708028d10292d",
+      "sourceHash": "877838920e751d134629c7287f15ff1f6582c01de2533102750e81c93d795713",
       "generatedHash": "f1ffaaa21683a42c04478c384cc80b377a386ae920f71cf37a224762b3984e93",
       "generatedAt": "2026-07-14T09:16:00.653868",
       "sourceFiles": [
@@ -271,7 +271,7 @@
     },
     {
       "filename": "08_lifecycle.md",
-      "sourceHash": "710d97c87b140b48461ed04d5f69c33ab12f2d20208edd61d7c209c8739f0bb3",
+      "sourceHash": "19d8f26d44cf6be92f8ff53c8bb7a1f900ba236b87c41a3a4ccf3a7b75c4c7a6",
       "generatedHash": "b3d5e97036ad49fc7b1edffe63fb986c2265ec1f11f2fb5382642dc8c046c648",
       "generatedAt": "2026-07-14T09:16:07.186173",
       "sourceFiles": [
@@ -291,7 +291,7 @@
     },
     {
       "filename": "10_risk_report.md",
-      "sourceHash": "e3d147ebea924386cf8d7fb131557a8c144b75680fdea05dadc708028d10292d",
+      "sourceHash": "877838920e751d134629c7287f15ff1f6582c01de2533102750e81c93d795713",
       "generatedHash": "bb4af5c467e53157b8aa513b48106a7176ec0ad4fcb2958425b3b2c05cc55f44",
       "generatedAt": "2026-07-14T09:16:14.915060",
       "sourceFiles": [
@@ -317,7 +317,7 @@
     },
     {
       "filename": "12_ownership_graph.md",
-      "sourceHash": "2a80b959f9988ce270cb6f10e99d2632cabeec97f5ffb4b5cafc57a60c197a9e",
+      "sourceHash": "f13dfa6fc8f4cc7c111d83f5ff99fbad9016248ad635b7359aa850b5a99a8327",
       "generatedHash": "7bbe2e49102e67421973c1a2f85302bd6e908137bbe63df3ac09ce8af0ab4599",
       "generatedAt": "2026-07-14T09:15:49.311385",
       "sourceFiles": [
@@ -330,7 +330,7 @@
     },
     {
       "filename": "13_resource_lifecycle.md",
-      "sourceHash": "e3d147ebea924386cf8d7fb131557a8c144b75680fdea05dadc708028d10292d",
+      "sourceHash": "877838920e751d134629c7287f15ff1f6582c01de2533102750e81c93d795713",
       "generatedHash": "69a5d5decffb62ab68359afd4cbf42063bdd4f0a7d00eb716f960ea48746d710",
       "generatedAt": "2026-07-14T09:16:17.745638",
       "sourceFiles": [
@@ -342,7 +342,7 @@
     },
     {
       "filename": "14_complexity_report.md",
-      "sourceHash": "95268e0e0a70e214f3d632849543c63306dbadf1899c6994c233b46a28272257",
+      "sourceHash": "c724d6b157564b4aeda25b5d76d561c1d77dc372249fbdfc4b1e8e4462b36fb0",
       "generatedHash": "8348d419c112cbd2201298831dff328c3e2bf2d8d6018b1aa522339a2ad81ba5",
       "generatedAt": "2026-07-14T09:15:33.963255",
       "sourceFiles": [

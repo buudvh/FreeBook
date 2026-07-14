@@ -4,8 +4,14 @@ import SwiftData
 
 struct BypassWebView: View {
     let urlString: String
-    let localPath: String?
+    let host: String?
     var onImport: ((_ detailUrl: String, _ extensionPackageId: String, _ sourceName: String) -> Void)? = nil
+    
+    init(urlString: String, host: String? = nil, onImport: ((_ detailUrl: String, _ extensionPackageId: String, _ sourceName: String) -> Void)? = nil) {
+        self.urlString = urlString
+        self.host = host
+        self.onImport = onImport
+    }
     
     @Environment(\.dismiss) private var dismiss
     @Query private var allExtensions: [Extension]
@@ -26,7 +32,7 @@ struct BypassWebView: View {
     
     var resolvedUrl: URL? {
         if urlString == "home" { return nil }
-        let resolvedString = JSExecutor.cleanAndResolveUrl(urlString, localPath: localPath)
+        let resolvedString = JSExecutor.cleanAndResolveUrl(urlString, host: host)
         return URL(string: resolvedString)
     }
     

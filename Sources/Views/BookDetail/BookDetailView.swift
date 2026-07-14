@@ -875,7 +875,7 @@ struct BookDetailView: View {
         .fullScreenCover(isPresented: $showingBypassBrowser) {
             BypassWebView(
                 urlString: initialDetailUrl,
-                localPath: ext?.localPath,
+                host: localBook?.host ?? ext?.sourceUrl,
                 onImport: { detailUrl, packageId, sourceName in
                     let checkUrl = JSExecutor.cleanAndResolveUrl(detailUrl, host: ext?.sourceUrl)
                     let currentResolved = JSExecutor.cleanAndResolveUrl(initialDetailUrl, host: ext?.sourceUrl)
@@ -1324,7 +1324,8 @@ struct BookDetailView: View {
         }
         
         // Chạy song song detail và toc
-        async let detailTask = ExtensionManager.shared.detail(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: localBook?.host, configJson: ext.configJson)
+        let bookHost = localBook?.host
+        async let detailTask = ExtensionManager.shared.detail(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: bookHost, configJson: ext.configJson)
         
         do {
             let detailResult = try await detailTask
