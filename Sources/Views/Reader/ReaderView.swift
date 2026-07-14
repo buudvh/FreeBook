@@ -333,7 +333,7 @@ struct ReaderView: View {
             
             if ext?.type != "comic" {
                 if viewModel == nil {
-                    let savedPIdx = getSavedParagraphIndex()
+                    let savedPIdx = getSavedParagraphIndex(for: chapterIndex)
                     viewModel = ReaderViewModel(
                         bookId: bookId,
                         extensionPackageId: extensionPackageId,
@@ -1334,7 +1334,7 @@ struct ReaderView: View {
         loadedChapters[idx].isLoading = false
         loadedChapters[idx].errorMessage = ""
         
-        saveReadProgress(index: index, paragraphIndex: getSavedParagraphIndex())
+        saveReadProgress(index: index, paragraphIndex: getSavedParagraphIndex(for: index))
         
         if self.ttsShouldAutoPlayNextChapter && index == chapterIndex {
             self.ttsShouldAutoPlayNextChapter = false
@@ -1487,11 +1487,25 @@ struct ReaderView: View {
         )
     }
     
-    private func getSavedParagraphIndex() -> Int {
+    private func getSavedParagraphIndex(for idx: Int) -> Int {
         if let book = localBook {
-            return book.currentChapterPage
+            if idx == book.currentChapterIndex {
+                return book.currentChapterPage
+            }
+        } else {
+            let lastChapIdx = UserDefaults.standard.integer(forKey: "lastChapterIndex_\(bookId)")
+            if idx == lastChapIdx {
+                return UserDefaults.standard.integer(forKey: "lastParagraphIndex_\(bookId)")
+            }
         }
-        return UserDefaults.standard.integer(forKey: "lastParagraphIndex_\(bookId)")
+        
+        if let vm = viewModel, let cached = vm.cache.get(idx) {
+            if cached.scrollParagraphIndex >= 0 {
+                return cached.scrollParagraphIndex
+            }
+        }
+        
+        return -1
     }
     
     private func prepareTTSForCurrentState() {
@@ -1511,7 +1525,7 @@ struct ReaderView: View {
         
         guard !chapterContentToUse.isEmpty else { return }
         
-        let savedPIdx = getSavedParagraphIndex()
+        let savedPIdx = getSavedParagraphIndex(for: index)
         
         ttsManager.prepareSpeaking(
             bookId: bookId,
@@ -2037,13 +2051,15 @@ extension ReaderView {
                                         if !cached.isPositionRestored {
                                             cached.isPositionRestored = true
                                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                                let savedPIdx = getSavedParagraphIndex()
+                                                let savedPIdx = getSavedParagraphIndex(for: idx)
                                                 let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
                                                 withAnimation(.easeOut(duration: 0.25)) {
                                                     if savedPIdx >= 0 && hasValidParagraph {
                                                         proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
                                                     } else {
-                                                        proxy.scrollTo("chapter-\(idx)", anchor: .top)
+                                                        if cached.paragraphItems.contains(where: { $0.id == -1 }) {
+                                                            proxy.scrollTo("paragraph-\(idx)--1", anchor: .top)
+                                                        }
                                                     }
                                                 }
                                                 schedulePrepareTTS()
@@ -2058,11 +2074,15 @@ extension ReaderView {
                                         if !cached.isPositionRestored {
                                             cached.isPositionRestored = true
                                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                                let savedPIdx = getSavedParagraphIndex()
+                                                let savedPIdx = getSavedParagraphIndex(for: idx)
                                                 let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
                                                 withAnimation(.easeOut(duration: 0.25)) {
                                                     if savedPIdx >= 0 && hasValidParagraph {
                                                         proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
+                                                    } else {
+                                                        if cached.paragraphItems.contains(where: { $0.id == -1 }) {
+                                                            proxy.scrollTo("paragraph-\(idx)--1", anchor: .top)
+                                                        }
                                                     }
                                                 }
                                                 schedulePrepareTTS()

@@ -37,7 +37,7 @@ struct TaskOptionsSheet: View {
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                             
-                            Text("Nguồn: \(book.sourceName)")
+                            Text("\(book.sourceName)")
                                 .font(.caption)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 3)
