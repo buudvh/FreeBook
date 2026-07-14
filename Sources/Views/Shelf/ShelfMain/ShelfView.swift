@@ -429,7 +429,6 @@ struct ShelfView: View {
                 }
             }
         }
-    }
     
     @ViewBuilder
     private func bookItemView(_ book: Book) -> some View {
