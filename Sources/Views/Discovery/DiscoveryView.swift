@@ -22,7 +22,7 @@ struct DiscoveryView: View {
     }
     
     @State private var selectedExtensionId: String = ""
-    @State private var isLoading = false
+    @State private var isLoading = true
     
     // Nguồn dữ liệu danh mục của tiện ích
     @State private var homeItems: [CategoryResult] = []
@@ -30,6 +30,7 @@ struct DiscoveryView: View {
     
     // ID danh mục / Tab đang được chọn hiển thị
     @State private var selectedCategoryId: String = ""
+    @State private var discoveryError: String = ""
     
     // Thể loại được chọn để điều hướng đẩy view chuyên biệt
     @State private var selectedGenre: CategoryResult? = nil
@@ -151,101 +152,140 @@ struct DiscoveryView: View {
                     .background(Color(.systemBackground))
                     .onChange(of: selectedExtensionId) { _, newValue in
                         lastSelectedExtensionId = newValue
+                        // Xóa sạch dữ liệu cũ khi đổi extension để tránh rác hiển thị
+                        homeItems.removeAll()
+                        genreItems.removeAll()
+                        selectedCategoryId = ""
+                        discoveryError = ""
                         if !newValue.isEmpty {
                             loadDiscoveryData()
                         } else {
-                            homeItems.removeAll()
-                            genreItems.removeAll()
-                            selectedCategoryId = ""
+                            isLoading = false
                         }
                     }
                     
-                    Divider()
-                    
-                    // 3. Menu danh mục & Home tabs luôn hiển thị
-                    HStack(spacing: 0) {
-                        Button(action: { showingGenresSheet = true }) {
-                            Image(systemName: "circle.grid.2x2.fill")
-                                .font(.title3)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
-                                .background(Color.accentColor.opacity(0.1))
-                                .foregroundColor(.accentColor)
-                                .cornerRadius(8)
+                    if isLoading && homeItems.isEmpty && genreItems.isEmpty && discoveryError.isEmpty {
+                        // Hiển thị Skeleton UI toàn trang khám phá khi tải lần đầu
+                        DiscoveryMainSkeletonView()
+                    } else {
+                        // 3. Menu danh mục & Home tabs hiển thị khi có dữ liệu
+                        if !homeItems.isEmpty {
+                            HStack(spacing: 0) {
+                                Button(action: { showingGenresSheet = true }) {
+                                    Image(systemName: "circle.grid.2x2.fill")
+                                        .font(.title3)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 10)
+                                        .background(Color.accentColor.opacity(0.1))
+                                        .foregroundColor(.accentColor)
+                                        .cornerRadius(8)
+                                }
+                                .padding(.leading)
+                                
+                                ScrollViewReader { proxy in
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 8) {
+                                            ForEach(homeItems) { item in
+                                                let isSelected = selectedCategoryId == item.id
+                                                Button(action: {
+                                                    selectedCategoryId = item.id
+                                                }) {
+                                                    Text(translateIfNeeded(item.title))
+                                                        .font(.subheadline)
+                                                        .fontWeight(isSelected ? .bold : .regular)
+                                                        .padding(.horizontal, 14)
+                                                        .padding(.vertical, 8)
+                                                        .background(isSelected ? Color.accentColor : Color.gray.opacity(0.1))
+                                                        .foregroundColor(isSelected ? .white : .primary)
+                                                        .cornerRadius(20)
+                                                }
+                                                .id(item.id)
+                                            }
+                                        }
+                                        .padding(.horizontal, 8)
+                                    }
+                                    .onChange(of: selectedCategoryId) { _, newValue in
+                                        if !newValue.isEmpty {
+                                            withAnimation {
+                                                proxy.scrollTo(newValue, anchor: .center)
+                                            }
+                                            lastSelectedCategoryId = newValue
+                                        }
+                                    }
+                                    .onAppear {
+                                        if !selectedCategoryId.isEmpty {
+                                            DispatchQueue.main.async {
+                                                withAnimation {
+                                                    proxy.scrollTo(selectedCategoryId, anchor: .center)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 10)
+                            .background(Color(.systemBackground))
+                            
+                            Divider()
                         }
-                        .padding(.leading)
                         
-                        ScrollViewReader { proxy in
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
+                        VStack(spacing: 0) {
+                            if !discoveryError.isEmpty {
+                                // Hiển thị thông báo thiếu home và genres ở khám phá
+                                VStack(spacing: 16) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .font(.system(size: 48))
+                                        .foregroundColor(.orange)
+                                    Text(discoveryError)
+                                        .font(.headline)
+                                        .foregroundColor(.secondary)
+                                        .multilineTextAlignment(.center)
+                                        .padding(.horizontal)
+                                }
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .padding(.vertical, 80)
+                            } else if homeItems.isEmpty && !genreItems.isEmpty {
+                                // Chỉ có genres, gợi ý người dùng bấm nút thể loại
+                                VStack(spacing: 16) {
+                                    Image(systemName: "circle.grid.2x2")
+                                        .font(.system(size: 48))
+                                        .foregroundColor(.accentColor)
+                                    Text("Nguồn truyện này chỉ hỗ trợ xem theo Thể loại.")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                    Button(action: { showingGenresSheet = true }) {
+                                        Text("Mở danh sách Thể loại")
+                                            .fontWeight(.semibold)
+                                            .padding(.horizontal, 20)
+                                            .padding(.vertical, 10)
+                                            .background(Color.accentColor)
+                                            .foregroundColor(.white)
+                                            .cornerRadius(20)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .padding(.vertical, 80)
+                            } else {
+                                // TabView vuốt ngang trang gốc
+                                TabView(selection: $selectedCategoryId) {
                                     ForEach(homeItems) { item in
-                                        let isSelected = selectedCategoryId == item.id
-                                        Button(action: {
-                                            selectedCategoryId = item.id
-                                        }) {
-                                            Text(translateIfNeeded(item.title))
-                                                .font(.subheadline)
-                                                .fontWeight(isSelected ? .bold : .regular)
-                                                .padding(.horizontal, 14)
-                                                .padding(.vertical, 8)
-                                                .background(isSelected ? Color.accentColor : Color.gray.opacity(0.1))
-                                                .foregroundColor(isSelected ? .white : .primary)
-                                                .cornerRadius(20)
-                                        }
-                                        .id(item.id)
-                                    }
-                                }
-                                .padding(.horizontal, 8)
-                            }
-                            .onChange(of: selectedCategoryId) { _, newValue in
-                                if !newValue.isEmpty {
-                                    withAnimation {
-                                        proxy.scrollTo(newValue, anchor: .center)
-                                    }
-                                    lastSelectedCategoryId = newValue
-                                }
-                            }
-                            .onAppear {
-                                if !selectedCategoryId.isEmpty {
-                                    DispatchQueue.main.async {
-                                        withAnimation {
-                                            proxy.scrollTo(selectedCategoryId, anchor: .center)
+                                        if let ext = selectedExtension {
+                                            DiscoveryCategoryTabView(
+                                                category: item,
+                                                extensionPackageId: ext.packageId,
+                                                localPath: ext.localPath,
+                                                downloadUrl: ext.downloadUrl,
+                                                configJson: ext.configJson,
+                                                sourceName: ext.name,
+                                                isTranslationEnabled: isTranslationEnabled,
+                                                selectedCategoryId: $selectedCategoryId
+                                            )
+                                            .tag(item.id)
                                         }
                                     }
                                 }
+                                .tabViewStyle(.page(indexDisplayMode: .never))
                             }
-                        }
-                    }
-                    .padding(.vertical, 10)
-                    .background(Color(.systemBackground))
-                    
-                    Divider()
-                    
-                    VStack(spacing: 0) {
-                        if isLoading && homeItems.isEmpty && genreItems.isEmpty {
-                            // Chỉ hiển thị loading nhỏ của cấu trúc nếu lần đầu mở mà chưa có gì cả
-                            ProgressView("Đang tải danh mục...")
-                                .padding(.vertical, 40)
-                        } else {
-                            // TabView vuốt ngang trang gốc
-                            TabView(selection: $selectedCategoryId) {
-                                ForEach(homeItems) { item in
-                                    if let ext = selectedExtension {
-                                        DiscoveryCategoryTabView(
-                                            category: item,
-                                            extensionPackageId: ext.packageId,
-                                            localPath: ext.localPath,
-                                            downloadUrl: ext.downloadUrl,
-                                            configJson: ext.configJson,
-                                            sourceName: ext.name,
-                                            isTranslationEnabled: isTranslationEnabled,
-                                            selectedCategoryId: $selectedCategoryId
-                                        )
-                                        .tag(item.id)
-                                    }
-                                }
-                            }
-                            .tabViewStyle(.page(indexDisplayMode: .never))
                         }
                     }
                 }
@@ -258,11 +298,16 @@ struct DiscoveryView: View {
                         selectedExtensionId = lastSelectedExtensionId
                     } else if let first = activeExtensions.first {
                         selectedExtensionId = first.packageId
+                    } else {
+                        // Không có extension hoạt động, tắt loading
+                        isLoading = false
                     }
                 }
                 
-                if !selectedExtensionId.isEmpty && homeItems.isEmpty {
+                if !selectedExtensionId.isEmpty && homeItems.isEmpty && genreItems.isEmpty && discoveryError.isEmpty {
                     loadDiscoveryData()
+                } else if selectedExtensionId.isEmpty {
+                    isLoading = false
                 }
             }
             // Sheet hiển thị danh sách thể loại đầy đủ (Genres)
@@ -369,28 +414,56 @@ struct DiscoveryView: View {
     private func loadDiscoveryData() {
         guard let ext = selectedExtension else { return }
         isLoading = true
+        discoveryError = ""
         
         Task {
+            var loadedHome: [CategoryResult] = []
+            var loadedGenre: [CategoryResult] = []
+            
+            // Tải Home song song độc lập
             do {
-                let homeRes = try await ExtensionManager.shared.home(localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
-                let genreRes = try await ExtensionManager.shared.genre(localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
+                loadedHome = try await ExtensionManager.shared.home(localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
+            } catch {
+                #if DEBUG
+                AppLogger.shared.log("⚠️ [DiscoveryView] Không có hoặc lỗi chạy script home: \(error.localizedDescription)")
+                #endif
+            }
+            
+            // Tải Genre song song độc lập
+            do {
+                loadedGenre = try await ExtensionManager.shared.genre(localPath: ext.localPath, downloadUrl: ext.downloadUrl, configJson: ext.configJson)
+            } catch {
+                #if DEBUG
+                AppLogger.shared.log("⚠️ [DiscoveryView] Không có hoặc lỗi chạy script genre: \(error.localizedDescription)")
+                #endif
+            }
+            
+            await MainActor.run {
+                self.homeItems = loadedHome
+                self.genreItems = loadedGenre
+                self.isLoading = false
                 
-                await MainActor.run {
-                    self.homeItems = homeRes
-                    self.genreItems = genreRes
-                    self.isLoading = false
-                    
-                    // Khôi phục Home tab cuối cùng
+                let hasHome = !loadedHome.isEmpty
+                let hasGenre = !loadedGenre.isEmpty
+                
+                if !hasHome && !hasGenre {
+                    // Nếu không có cả hai: Báo lỗi thiếu home và genres
+                    self.discoveryError = "Extension thiếu home và genres"
+                } else {
+                    self.discoveryError = ""
+                }
+                
+                if hasHome {
+                    // Khôi phục hoặc chọn Home tab đầu tiên nếu có
                     if !lastSelectedCategoryId.isEmpty,
-                       let savedCat = homeRes.first(where: { $0.id == lastSelectedCategoryId }) {
+                       let savedCat = loadedHome.first(where: { $0.id == lastSelectedCategoryId }) {
                         selectedCategoryId = savedCat.id
-                    } else if let firstHome = homeRes.first {
+                    } else if let firstHome = loadedHome.first {
                         selectedCategoryId = firstHome.id
                     }
-                }
-            } catch {
-                await MainActor.run {
-                    self.isLoading = false
+                } else {
+                    // Không có home thì không tự chọn mục home
+                    selectedCategoryId = ""
                 }
             }
         }
@@ -428,7 +501,7 @@ struct DiscoveryCategoryTabView: View {
     var body: some View {
         VStack(spacing: 0) {
             if isLoadingNovels && novels.isEmpty {
-                ProgressView("Đang tải danh sách truyện...")
+                DiscoverySkeletonListView()
                     .frame(maxHeight: .infinity)
             } else if !novelsError.isEmpty && novels.isEmpty {
                 VStack(spacing: 12) {
@@ -782,5 +855,59 @@ struct ExtensionSelectorView: View {
     private func togglePin(_ ext: Extension) {
         ext.isPinned.toggle()
         try? modelContext.save()
+    }
+}
+
+// MARK: - Skeleton UI Components
+
+struct DiscoverySkeletonListView: View {
+    var body: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 16) {
+                ForEach(0..<8) { _ in
+                    HStack(spacing: 12) {
+                        SkeletonView(width: 50, height: 70)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            SkeletonView(width: 160, height: 16)
+                            SkeletonView(width: nil, height: 12)
+                            SkeletonView(width: 100, height: 12)
+                        }
+                    }
+                    .padding(.horizontal)
+                    Divider()
+                        .padding(.leading, 74)
+                }
+            }
+            .padding(.top, 10)
+        }
+    }
+}
+
+struct DiscoveryMainSkeletonView: View {
+    var body: some View {
+        VStack(spacing: 0) {
+            // Category pills horizontal scroll skeleton
+            HStack(spacing: 8) {
+                SkeletonView(width: 44, height: 40)
+                    .cornerRadius(8)
+                
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(0..<5) { _ in
+                            SkeletonView(width: CGFloat.random(in: 75...115), height: 32)
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 10)
+            
+            Divider()
+            
+            // Novels list skeleton
+            DiscoverySkeletonListView()
+        }
     }
 }

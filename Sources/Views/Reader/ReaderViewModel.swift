@@ -196,6 +196,9 @@ class ReaderViewModel: ObservableObject {
         self.activeChapterIndex = newIndex
         self.tabSelection = newIndex
         
+        // Cập nhật ngay lập tức tiến trình hiện tại sang chương mới (đoạn 0)
+        self.currentProgress = ReadingProgress(chapterIndex: newIndex, paragraphIndex: 0)
+        
         updateVisibleChaptersWindow()
     }
     

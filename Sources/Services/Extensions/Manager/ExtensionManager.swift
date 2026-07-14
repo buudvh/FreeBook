@@ -507,18 +507,17 @@ public final class ExtensionManager: ObservableObject {
             
             var results: [CategoryResult] = []
             
-            if let jsArray = cleanVal.toArray() {
-                for item in jsArray {
-                    if let itemDict = item as? [String: Any] {
-                        if let title = itemDict["title"] as? String,
-                           let input = itemDict["input"] as? String {
-                            let script = itemDict["script"] as? String ?? "search.js"
-                            results.append(CategoryResult(title: translateTitle(title), input: input, script: script))
-                        } else if let title = itemDict["name"] as? String,
-                                  let input = itemDict["link"] as? String {
-                            let script = itemDict["script"] as? String ?? "search.js"
-                            results.append(CategoryResult(title: translateTitle(title), input: input, script: script))
-                        }
+            if cleanVal.isArray {
+                let jsArray = toDictionaryArray(cleanVal)
+                for itemDict in jsArray {
+                    if let title = itemDict["title"]?.toString(),
+                       let input = itemDict["input"]?.toString() {
+                        let script = itemDict["script"]?.toString() ?? "search.js"
+                        results.append(CategoryResult(title: translateTitle(title), input: input, script: script))
+                    } else if let title = itemDict["name"]?.toString(),
+                              let input = itemDict["link"]?.toString() {
+                        let script = itemDict["script"]?.toString() ?? "search.js"
+                        results.append(CategoryResult(title: translateTitle(title), input: input, script: script))
                     }
                 }
             } else if let dict = cleanVal.toDictionary() as? [String: String] {
@@ -551,48 +550,42 @@ public final class ExtensionManager: ObservableObject {
             return title
         }
         
-        do {
-            let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "home")
-            let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
-            
-            let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
-            let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
-            executor.injectGlobals(configs)
-            
-            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
-            let cleanVal = try verifyJSResponse(jsValue)
-            let stringified = stringify(cleanVal)
-            // AppLogger.shared.log("📝 [ExtensionManager] home raw JS result: \(stringified)")
-            
-            var results: [CategoryResult] = []
-            
-            if let jsArray = cleanVal.toArray() {
-                for item in jsArray {
-                    if let itemDict = item as? [String: Any] {
-                        if let title = itemDict["title"] as? String,
-                           let input = itemDict["input"] as? String {
-                            let script = itemDict["script"] as? String ?? "search.js"
-                            results.append(CategoryResult(title: translateTitle(title), input: input, script: script))
-                        } else if let title = itemDict["name"] as? String,
-                                  let input = itemDict["link"] as? String {
-                            let script = itemDict["script"] as? String ?? "search.js"
-                            results.append(CategoryResult(title: translateTitle(title), input: input, script: script))
-                        }
-                    }
+        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "home")
+        let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
+        
+        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
+        let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
+        executor.injectGlobals(configs)
+        
+        let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
+        let cleanVal = try verifyJSResponse(jsValue)
+        let stringified = stringify(cleanVal)
+        // AppLogger.shared.log("📝 [ExtensionManager] home raw JS result: \(stringified)")
+        
+        var results: [CategoryResult] = []
+        
+        if cleanVal.isArray {
+            let jsArray = toDictionaryArray(cleanVal)
+            for itemDict in jsArray {
+                if let title = itemDict["title"]?.toString(),
+                   let input = itemDict["input"]?.toString() {
+                    let script = itemDict["script"]?.toString() ?? "search.js"
+                    results.append(CategoryResult(title: translateTitle(title), input: input, script: script))
+                } else if let title = itemDict["name"]?.toString(),
+                          let input = itemDict["link"]?.toString() {
+                    let script = itemDict["script"]?.toString() ?? "search.js"
+                    results.append(CategoryResult(title: translateTitle(title), input: input, script: script))
                 }
             }
-            
-            // AppLogger.shared.log("✅ [ExtensionManager] home parsed \(results.count) tabs")
-            if !results.isEmpty {
-                updateDiagnostics(action: "home", input: "localPath: \(localPath)", status: "Success", details: "Parsed \(results.count) tabs:\n\(stringified)")
-                return results
-            }
-        } catch {
-            // AppLogger.shared.log("⚠️ [ExtensionManager] home script failed or missing, trying fallback to genre...")
         }
         
-        // Fallback to genre
-        return try await genre(localPath: localPath, downloadUrl: downloadUrl, configJson: configJson)
+        // AppLogger.shared.log("✅ [ExtensionManager] home parsed \(results.count) tabs")
+        if !results.isEmpty {
+            updateDiagnostics(action: "home", input: "localPath: \(localPath)", status: "Success", details: "Parsed \(results.count) tabs:\n\(stringified)")
+            return results
+        } else {
+            throw NSError(domain: "ExtensionManager", code: -7, userInfo: [NSLocalizedDescriptionKey: "Home script returned empty or invalid response"])
+        }
     }
     
     // Thực thi một script tùy chọn (ví dụ: gen.js, tag.js...) với input và page
