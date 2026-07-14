@@ -1353,9 +1353,10 @@ struct ReaderView: View {
     
     private func applyTranslationForChapter(index: Int, originalTitle: String, originalContent: String) {
         let titleToUse = originalTitle
+        let bookId = self.bookId
         
         if isTranslationEnabled {
-            Task {
+            Task.detached(priority: .userInitiated) {
                 var translatedTitle = titleToUse
                 if TranslateUtils.containsChinese(titleToUse) {
                     translatedTitle = TranslateUtils.translateChapterTitle(titleToUse, bookId: bookId)

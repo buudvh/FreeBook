@@ -635,11 +635,7 @@ struct ShelfView: View {
     // importTxtBook: Thực hiện đọc tệp văn bản TXT từ bộ nhớ và nhập vào cơ sở dữ liệu của app dưới dạng một cuốn sách
     private func importTxtBook(from url: URL) {
         // startAccessingSecurityScopedResource: iOS yêu cầu cấp quyền tạm thời để truy cập các tệp tin ngoài sandbox của ứng dụng (ví dụ từ app Files)
-        guard url.startAccessingSecurityScopedResource() else {
-            AppLogger.shared.log("❌ Không có quyền truy cập file: \(url.path)")
-            ToastManager.shared.show(message: "Lỗi: Không có quyền truy cập tệp tin.")
-            return
-        }
+        let accessing = url.startAccessingSecurityScopedResource()
         
         // Hiện overlay tiến trình và Toast ban đầu trên Main Thread
         self.isImporting = true
@@ -655,9 +651,13 @@ struct ShelfView: View {
             // Sao chép tệp gốc vào thư mục tạm thời của ứng dụng để xử lý an toàn
             try FileManager.default.copyItem(at: url, to: tempFileUrl)
             // Ngừng yêu cầu quyền truy cập bảo mật sau khi sao chép xong
-            url.stopAccessingSecurityScopedResource()
+            if accessing {
+                url.stopAccessingSecurityScopedResource()
+            }
         } catch {
-            url.stopAccessingSecurityScopedResource()
+            if accessing {
+                url.stopAccessingSecurityScopedResource()
+            }
             self.isImporting = false
             AppLogger.shared.log("❌ Lỗi sao chép file tạm: \(error.localizedDescription)")
             ToastManager.shared.show(message: "Lỗi sao chép file: \(error.localizedDescription)")

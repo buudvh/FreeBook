@@ -26,6 +26,8 @@ class ReaderViewModel: ObservableObject {
     private var dbSaveTask: Task<Void, Never>? = nil
     private var lastActiveIndex: Int = 0
     private var memoryWarningSubscription: AnyCancellable?
+    private var cachedLocalBook: Book? = nil
+    private var cachedExt: Extension? = nil
     private var cachedSortedChapters: [Chapter]? = nil
     
     func getSortedChapters() -> [Chapter] {
@@ -56,15 +58,23 @@ class ReaderViewModel: ObservableObject {
     var bookSourceName: String?
     
     private var localBook: Book? {
+        if let cached = cachedLocalBook {
+            return cached
+        }
         let descriptor = FetchDescriptor<Book>()
         let allBooks = (try? modelContext.fetch(descriptor)) ?? []
-        return allBooks.first(where: { $0.bookId == bookId })
+        cachedLocalBook = allBooks.first(where: { $0.bookId == bookId })
+        return cachedLocalBook
     }
     
     private var ext: Extension? {
+        if let cached = cachedExt {
+            return cached
+        }
         let descriptor = FetchDescriptor<Extension>()
         let allExts = (try? modelContext.fetch(descriptor)) ?? []
-        return allExts.first(where: { $0.packageId == extensionPackageId })
+        cachedExt = allExts.first(where: { $0.packageId == extensionPackageId })
+        return cachedExt
     }
     
     init(
@@ -210,6 +220,9 @@ class ReaderViewModel: ObservableObject {
             self.activeChapterIndex = 0
             self.tabSelection = 0
             self.lastActiveIndex = 0
+            self.cachedLocalBook = nil
+            self.cachedExt = nil
+            self.cachedSortedChapters = nil
         }
     }
     
@@ -410,38 +423,52 @@ class ReaderViewModel: ObservableObject {
         let isStillVisible = visibleIndexes.contains(index)
         guard isStillVisible else { return }
         
-        var translatedTitle = originalTitle
-        var translatedContent = originalContent
+        let isTranslationEnabled = self.isTranslationEnabled
+        let bookId = self.bookId
         
-        if isTranslationEnabled {
-            if TranslateUtils.containsChinese(originalTitle) {
-                translatedTitle = TranslateUtils.translateChapterTitle(originalTitle, bookId: bookId)
+        // Chuyển tác vụ dịch thuật và phân tích dòng xuống luồng chạy nền (Task.detached)
+        let (translatedTitle, translatedContent, items) = await Task.detached(priority: .userInitiated) {
+            var transTitle = originalTitle
+            var transContent = originalContent
+            
+            if isTranslationEnabled {
+                if TranslateUtils.containsChinese(originalTitle) {
+                    transTitle = TranslateUtils.translateChapterTitle(originalTitle, bookId: bookId)
+                }
+                if TranslateUtils.containsChinese(originalContent) {
+                    transContent = TranslateUtils.translateContent(originalContent, bookId: bookId)
+                }
             }
-            if TranslateUtils.containsChinese(originalContent) {
-                translatedContent = TranslateUtils.translateContent(originalContent, bookId: bookId)
+            
+            // Cắt dòng đoạn văn
+            let originalLines = originalContent.components(separatedBy: "\n")
+            let translatedLines = transContent.components(separatedBy: "\n")
+            var paragraphItems: [ParagraphItem] = []
+            
+            let showTitleKey = "showChapterTitle_\(bookId)"
+            let showTitle = UserDefaults.standard.object(forKey: showTitleKey) != nil ? UserDefaults.standard.bool(forKey: showTitleKey) : true
+            
+            if showTitle {
+                paragraphItems.append(ParagraphItem(id: -1, original: originalTitle, translated: transTitle, isTitle: true))
             }
-        }
+            
+            let maxLines = max(originalLines.count, translatedLines.count)
+            for i in 0..<maxLines {
+                let orig = i < originalLines.count ? originalLines[i] : ""
+                let trans = i < translatedLines.count ? translatedLines[i] : ""
+                paragraphItems.append(ParagraphItem(id: i, original: orig, translated: trans, isTitle: false))
+            }
+            
+            return (transTitle, transContent, paragraphItems)
+        }.value
         
-        // Cắt dòng đoạn văn
-        let originalLines = originalContent.components(separatedBy: "\n")
-        let translatedLines = translatedContent.components(separatedBy: "\n")
-        var items: [ParagraphItem] = []
+        guard !Task.isCancelled else { return }
         
-        let showTitleKey = "showChapterTitle_\(bookId)"
-        let showTitle = UserDefaults.standard.object(forKey: showTitleKey) != nil ? UserDefaults.standard.bool(forKey: showTitleKey) : true
+        // Kiểm tra lại sau khi hoàn thành tác vụ nền
+        let isStillVisibleAfter = visibleIndexes.contains(index)
+        guard isStillVisibleAfter else { return }
         
-        if showTitle {
-            items.append(ParagraphItem(id: -1, original: originalTitle, translated: translatedTitle, isTitle: true))
-        }
-        
-        let maxLines = max(originalLines.count, translatedLines.count)
-        for i in 0..<maxLines {
-            let orig = i < originalLines.count ? originalLines[i] : ""
-            let trans = i < translatedLines.count ? translatedLines[i] : ""
-            items.append(ParagraphItem(id: i, original: orig, translated: trans, isTitle: false))
-        }
-        
-        // Lưu vào cache
+        // Lưu vào cache trên MainActor
         if let cached = cache.cache[index] {
             cached.originalTitle = originalTitle
             cached.originalContent = originalContent

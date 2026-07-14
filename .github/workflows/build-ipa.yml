@@ -161,14 +161,23 @@ jobs:
         FILE_SIZE=$(wc -c < "$IPA_PATH")
         MAX_SIZE=50000000 # ~47.6 MB để đảm bảo an toàn cho giới hạn 50MB của Telegram Bot
         
+        # Lấy toàn bộ nội dung commit message gần nhất
+        COMMIT_MSG=$(git log -1 --pretty=format:"%B")
+        
         echo "IPA File Size: $FILE_SIZE bytes"
         
         if [ "$FILE_SIZE" -lt "$MAX_SIZE" ]; then
           echo "File size is under 50MB. Uploading directly to Telegram..."
+          
+          # Nội dung caption cho file
+          CAPTION="📦 FreeBook Build Thành Công! 🚀
+
+💬 Commit Message:
+$COMMIT_MSG"
+
           curl -F chat_id="${TELEGRAM_CHAT_ID}" \
                -F document=@"$IPA_PATH" \
-               -F caption="📦 *FreeBook Build Thành Công!* 🚀%0AGithub Run ID: ${{ github.run_id }}" \
-               -F parse_mode="Markdown" \
+               -F caption="$CAPTION" \
                https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendDocument
         else
           echo "File size is over 50MB ($FILE_SIZE bytes). Uploading to transfer.sh..."
@@ -176,9 +185,31 @@ jobs:
           UPLOAD_URL=$(curl --upload-file "$IPA_PATH" "https://transfer.sh/FreeBook.ipa")
           echo "Uploaded to: $UPLOAD_URL"
           
+          # Gửi tin nhắn an toàn qua --data-urlencode để tự động mã hóa xuống dòng và ký tự đặc biệt
           curl -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-               -d "chat_id=${TELEGRAM_CHAT_ID}" \
-               -d "text=📦 *FreeBook Build Thành Công!* (File vượt quá 50MB)%0A%0ATải IPA tại đây: $UPLOAD_URL" \
-               -d "parse_mode=Markdown"
+               --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+               --data-urlencode "text=📦 FreeBook Build Thành Công! (File vượt quá 50MB)
+
+💬 Commit Message:
+$COMMIT_MSG
+
         fi
+
+    - name: Send Failure Notification to Telegram
+      if: failure()
+      env:
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TO_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_TO_CHAT_ID }}
+      run: |
+        COMMIT_MSG=$(git log -1 --pretty=format:"%B")
+        
+        curl -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+             --data-urlencode "text=❌ FreeBook Build Thất Bại! 🛑
+
+💬 Commit Message:
+$COMMIT_MSG
+
+🔍 Chi tiết lỗi xem tại: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
 
