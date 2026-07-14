@@ -6,12 +6,14 @@ public final class JSExecutor {
     public let context: JSContext
     public let localPath: String?
     public let downloadUrl: String?
+    public let host: String?
     private var activeBrowsers: [String: WebViewLoader] = [:]
     
-    public init(localPath: String? = nil, downloadUrl: String? = nil) {
+    public init(localPath: String? = nil, downloadUrl: String? = nil, host: String? = nil) {
         self.context = JSContext()
         self.localPath = localPath
         self.downloadUrl = downloadUrl
+        self.host = host
         
         // 1. Cấu hình Exception Handler
         context.exceptionHandler = { context, exception in
@@ -598,7 +600,7 @@ public final class JSExecutor {
         return ""
     }
     
-    public static func cleanAndResolveUrl(_ urlString: String, localPath: String?) -> String {
+    public static func cleanAndResolveUrl(_ urlString: String, host: String?) -> String {
         var cleaned = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         
         // 1. Nếu chứa nhiều hơn 1 http:// hoặc https://, lấy cái cuối cùng
@@ -621,25 +623,38 @@ public final class JSExecutor {
         
         // 2. Nếu là URL tương đối (không bắt đầu bằng http:// hoặc https://)
         if !cleaned.lowercased().hasPrefix("http://") && !cleaned.lowercased().hasPrefix("https://") {
-            // Đọc BASE_URL từ config của extension
-            if let localPath = localPath, !localPath.isEmpty {
-                let extUrl = URL(fileURLWithPath: localPath)
-                let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
-                if let data = try? Data(contentsOf: pluginJsonUrl),
-                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let configSection = json["config"] as? [String: Any] {
-                    
-                    if let baseUrlConfig = configSection["BASE_URL"] as? [String: Any],
-                       let defaultValue = baseUrlConfig["default"] as? String {
-                        let baseUrl = defaultValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let separator = cleaned.hasPrefix("/") || baseUrl.hasSuffix("/") ? "" : "/"
-                        cleaned = baseUrl + separator + cleaned
-                    } else if let defaultValue = configSection["BASE_URL"] as? String {
-                        let baseUrl = defaultValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let separator = cleaned.hasPrefix("/") || baseUrl.hasSuffix("/") ? "" : "/"
-                        cleaned = baseUrl + separator + cleaned
+            var foundHost = host?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            
+            // Thử lấy từ JSContext đang chạy nếu host truyền vào trống
+            if foundHost.isEmpty, let jsContext = JSContext.current() {
+                // Ưu tiên 1: book.host
+                if let bookVal = jsContext.objectForKeyedSubscript("book"),
+                   !bookVal.isUndefined && !bookVal.isNull {
+                    if let hostVal = bookVal.objectForKeyedSubscript("host"),
+                       !hostVal.isUndefined && !hostVal.isNull,
+                       let str = hostVal.toString()?.trimmingCharacters(in: .whitespacesAndNewlines),
+                       !str.isEmpty {
+                        foundHost = str
                     }
                 }
+                
+                // Ưu tiên 2: BASE_URL hoặc base_url
+                if foundHost.isEmpty {
+                    for key in ["BASE_URL", "base_url", "host", "HOST", "domain", "DOMAIN", "origin", "ORIGIN"] {
+                        if let val = jsContext.objectForKeyedSubscript(key),
+                           !val.isUndefined && !val.isNull,
+                           let str = val.toString()?.trimmingCharacters(in: .whitespacesAndNewlines),
+                           !str.isEmpty {
+                            foundHost = str
+                            break
+                        }
+                    }
+                }
+            }
+            
+            if !foundHost.isEmpty {
+                let separator = cleaned.hasPrefix("/") || foundHost.hasSuffix("/") ? "" : "/"
+                cleaned = foundHost + separator + cleaned
             }
         }
         
@@ -647,7 +662,7 @@ public final class JSExecutor {
     }
     
     private func cleanAndResolveUrl(_ urlString: String) -> String {
-        return JSExecutor.cleanAndResolveUrl(urlString, localPath: self.localPath)
+        return JSExecutor.cleanAndResolveUrl(urlString, host: nil)
     }
     
     /// Inject các cấu hình dưới dạng biến toàn cục vào JSContext

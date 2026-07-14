@@ -243,7 +243,8 @@ class ReaderViewModel: ObservableObject {
     private func enqueuePrefetch(_ window: Set<Int>) {
         for idx in window {
             if idx == activeChapterIndex {
-                if let cached = cache.cache[idx], cached.state != .loaded && cached.state != .loading {
+                let cached = cache.cache[idx] ?? cache.setPlaceholder(idx)
+                if cached.state != .loaded && cached.state != .loading {
                     cached.state = .loading
                 }
             } else {
@@ -256,8 +257,14 @@ class ReaderViewModel: ObservableObject {
         let activeIdx = activeChapterIndex
         Task {
             await prefetcher.updateQueue(withVisibleIndexes: window, activeIndex: activeIdx) { [weak self] index in
-                if let self = self {
+                guard let self = self else { return }
+                do {
                     try await self.loadChapterContentFromExtension(index)
+                } catch {
+                    await MainActor.run {
+                        self.cache.set(index, state: .failed(message: "Không tải được chương: \(error.localizedDescription)"))
+                    }
+                    throw error
                 }
             }
         }
@@ -310,12 +317,21 @@ class ReaderViewModel: ObservableObject {
             return
         }
         
-        try Task.checkCancellation()
+        var chapHost: String? = nil
+        if index < onlineChapters.count {
+            chapHost = onlineChapters[index].host
+        } else if localBook != nil {
+            let sorted = getSortedChapters()
+            if index < sorted.count {
+                chapHost = sorted[index].host
+            }
+        }
         
         let content = try await ExtensionManager.shared.chap(
             localPath: ext.localPath,
             downloadUrl: ext.downloadUrl,
             url: urlString,
+            host: chapHost,
             configJson: ext.configJson
         )
         
@@ -354,7 +370,8 @@ class ReaderViewModel: ObservableObject {
             detailUrl: bookDetailUrl ?? "",
             sourceName: bookSourceName ?? "Không rõ",
             sourceUrl: bookDetailUrl ?? "",
-            extensionPackageId: extensionPackageId
+            extensionPackageId: extensionPackageId,
+            host: onlineChapters.first?.host
         )
         
         // Nạp các chương
@@ -367,7 +384,8 @@ class ReaderViewModel: ObservableObject {
                 url: c.url,
                 index: i,
                 content: i == currentIndex ? cleanedContent : nil,
-                isCached: i == currentIndex
+                isCached: i == currentIndex,
+                host: c.host
             )
             chaps.append(chap)
         }

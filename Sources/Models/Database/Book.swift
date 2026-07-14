@@ -16,6 +16,7 @@ public final class Book {
     public var sourceName: String // Tên nguồn truyện (ví dụ: TangThuVien, TruyenFull...)
     public var sourceUrl: String // Đường dẫn gốc của nguồn truyện
     public var extensionPackageId: String // ID của extension (plugin JS) phụ trách nguồn truyện này
+    public var host: String? // Host cấu hình gốc của nguồn truyện (lấy từ JS extension)
     public var currentChapterIndex: Int = 0 // Chỉ mục chương đang đọc dở (bắt đầu từ 0)
     public var currentChapterPage: Int = 0 // Vị trí trang hiện tại hoặc vị trí cuộn khi đọc dở
     public var currentChapterTitle: String = "" // Tiêu đề chương đang đọc dở
@@ -43,7 +44,7 @@ public final class Book {
     }
     
     // Hàm khởi tạo (Constructor) để tạo đối tượng Book mới.
-    public init(bookId: String, title: String, author: String, coverUrl: String, desc: String, detailUrl: String, sourceName: String, sourceUrl: String, extensionPackageId: String, currentChapterIndex: Int = 0, currentChapterPage: Int = 0, currentChapterTitle: String = "", isOnShelf: Bool = true, isHistory: Bool = false) {
+    public init(bookId: String, title: String, author: String, coverUrl: String, desc: String, detailUrl: String, sourceName: String, sourceUrl: String, extensionPackageId: String, currentChapterIndex: Int = 0, currentChapterPage: Int = 0, currentChapterTitle: String = "", isOnShelf: Bool = true, isHistory: Bool = false, host: String? = nil) {
         self.bookId = bookId
         self.title = title
         self.author = author
@@ -58,6 +59,7 @@ public final class Book {
         self.currentChapterTitle = currentChapterTitle
         self.isOnShelf = isOnShelf
         self.isHistory = isHistory
+        self.host = host
         self.lastReadDate = Date()
     }
 }

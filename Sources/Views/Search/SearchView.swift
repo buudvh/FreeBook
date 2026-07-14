@@ -574,15 +574,15 @@ struct SearchView: View {
         
         do {
             let path = ext.localPath
-            let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, configJson: ext.configJson)
+            let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: ext.sourceUrl, configJson: ext.configJson)
             
-            var firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, configJson: ext.configJson)
+            var firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: detailResult.host, configJson: ext.configJson)
             
             if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
-                let pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, configJson: ext.configJson)
+                let pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: result.link, host: detailResult.host, configJson: ext.configJson)
                 if pages.count > 1 {
                     for pageUrl in pages.dropFirst() {
-                        let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, configJson: ext.configJson)
+                        let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, host: detailResult.host, configJson: ext.configJson)
                         firstPageChapters.append(contentsOf: pageChaps)
                     }
                 }
@@ -604,14 +604,15 @@ struct SearchView: View {
                     currentChapterIndex: min(oldChapterIndex, max(0, firstPageChapters.count - 1)),
                     currentChapterTitle: firstPageChapters.isEmpty ? "" : firstPageChapters[min(oldChapterIndex, max(0, firstPageChapters.count - 1))].name,
                     isOnShelf: true,
-                    isHistory: oldBook.isHistory
+                    isHistory: oldBook.isHistory,
+                    host: detailResult.host
                 )
                 
                 modelContext.insert(newBook)
                 
                 for (index, item) in firstPageChapters.enumerated() {
                     let chapId = "\(newBookId)_\(item.url)"
-                    let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index)
+                    let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index, host: item.host)
                     newChap.book = newBook
                     modelContext.insert(newChap)
                 }

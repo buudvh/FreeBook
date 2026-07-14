@@ -310,6 +310,7 @@ struct ReaderChapterListView: View {
                         localPath: ext.localPath,
                         downloadUrl: ext.downloadUrl,
                         url: url,
+                        host: localBook?.host,
                         configJson: ext.configJson
                     )
                     for pageUrl in pages {
@@ -317,6 +318,7 @@ struct ReaderChapterListView: View {
                             localPath: ext.localPath,
                             downloadUrl: ext.downloadUrl,
                             url: pageUrl,
+                            host: localBook?.host,
                             configJson: ext.configJson
                         )
                         allChapters.append(contentsOf: pageChaps)
@@ -326,6 +328,7 @@ struct ReaderChapterListView: View {
                         localPath: ext.localPath,
                         downloadUrl: ext.downloadUrl,
                         url: url,
+                        host: localBook?.host,
                         configJson: ext.configJson
                     )
                     allChapters = tocResult
@@ -333,35 +336,58 @@ struct ReaderChapterListView: View {
                 
                 await MainActor.run {
                     if let book = localBook {
-                        // Tránh mất cache của chương cũ bằng cách gộp chương thông minh
-                        let existingChaps = book.chapters
-                        let existingMap = Dictionary(uniqueKeysWithValues: existingChaps.map { ($0.url, $0) })
+                        // Cập nhật host của truyện nếu trống
+                        if (book.host == nil || book.host!.isEmpty), let firstHost = allChapters.first?.host, !firstHost.isEmpty {
+                            book.host = firstHost
+                        }
                         
-                        var newChapters: [Chapter] = []
-                        for (index, item) in allChapters.enumerated() {
-                            if let existing = existingMap[item.url] {
-                                existing.title = item.name
-                                existing.index = index
-                                newChapters.append(existing)
-                            } else {
+                        let existingChaps = book.chapters
+                        let existingUrls = Set(existingChaps.map { $0.url })
+                        
+                        // Lọc ra các chương chưa có trong DB
+                        let newChaptersFromTOC = allChapters.filter { !existingUrls.contains($0.url) }
+                        
+                        if !newChaptersFromTOC.isEmpty {
+                            var addedChapters: [Chapter] = []
+                            for item in newChaptersFromTOC {
+                                let originalIndex = allChapters.firstIndex(where: { $0.url == item.url }) ?? existingChaps.count
+                                
                                 let chapId = "\(bookId)_\(item.url)"
-                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index)
+                                let newChap = Chapter(
+                                    id: chapId,
+                                    title: item.name,
+                                    url: item.url,
+                                    index: originalIndex,
+                                    host: item.host
+                                )
                                 newChap.book = book
                                 modelContext.insert(newChap)
-                                newChapters.append(newChap)
+                                addedChapters.append(newChap)
                             }
+                            
+                            book.chapters.append(contentsOf: addedChapters)
+                            try? modelContext.save()
+                            
+                            loadChapters()
+                            showToast("Đã cập nhật thêm \(newChaptersFromTOC.count) chương mới!", isError: false)
+                        } else {
+                            showToast("Mục lục đã là mới nhất, không có chương mới!", isError: false)
                         }
-                        book.chapters = newChapters
-                        try? modelContext.save()
                     } else {
-                        // Cập nhật onlineChapters binding
+                        // Đối với truyện online, chỉ đè onlineChapters
+                        let oldOnlineCount = self.onlineChapters.count
                         self.onlineChapters = allChapters
+                        loadChapters()
+                        
+                        let newAdded = allChapters.count - oldOnlineCount
+                        if newAdded > 0 {
+                            showToast("Đã cập nhật thêm \(newAdded) chương mới!", isError: false)
+                        } else {
+                            showToast("Mục lục đã là mới nhất, không có chương mới!", isError: false)
+                        }
                     }
                     
-                    // Nạp lại danh sách chương
-                    loadChapters()
                     isUpdating = false
-                    showToast("Cập nhật danh sách chương thành công!", isError: false)
                 }
             } catch {
                 await MainActor.run {

@@ -283,18 +283,17 @@ public final class ExtensionManager: ObservableObject {
     }
     
     // Lấy thông tin chi tiết truyện
-    public func detail(localPath: String, downloadUrl: String = "", url: String, configJson: String = "{}") async throws -> NovelDetailResult {
-        let resolvedUrl = JSExecutor.cleanAndResolveUrl(url, localPath: localPath)
-        // AppLogger.shared.log("🔍 [ExtensionManager] detail called. localPath: \(localPath), url: \(resolvedUrl)")
+    public func detail(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> NovelDetailResult {
+        // AppLogger.shared.log("🔍 [ExtensionManager] detail called. localPath: \(localPath), url: \(url)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "detail")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
-        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
+        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl, host: host)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         executor.injectGlobals(configs)
         
         do {
-            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [resolvedUrl])
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
             let cleanVal = try verifyJSResponse(jsValue)
             let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] detail raw JS result: \(stringified)")
@@ -371,18 +370,17 @@ public final class ExtensionManager: ObservableObject {
     }
     
     // Lấy mục lục chương
-    public func toc(localPath: String, downloadUrl: String = "", url: String, configJson: String = "{}") async throws -> [ChapterResult] {
-        let resolvedUrl = JSExecutor.cleanAndResolveUrl(url, localPath: localPath)
-        // AppLogger.shared.log("🔍 [ExtensionManager] toc called. localPath: \(localPath), url: \(resolvedUrl)")
+    public func toc(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> [ChapterResult] {
+        // AppLogger.shared.log("🔍 [ExtensionManager] toc called. localPath: \(localPath), url: \(url)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "toc")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
-        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
+        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl, host: host)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         executor.injectGlobals(configs)
         
         do {
-            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [resolvedUrl])
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
             let cleanVal = try verifyJSResponse(jsValue)
             let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] toc raw JS result: \(stringified)")
@@ -453,18 +451,17 @@ public final class ExtensionManager: ObservableObject {
     }
     
     // Lấy nội dung chương (có thể là Text hoặc danh sách URL ảnh cho truyện tranh)
-    public func chap(localPath: String, downloadUrl: String = "", url: String, configJson: String = "{}") async throws -> String {
-        let resolvedUrl = JSExecutor.cleanAndResolveUrl(url, localPath: localPath)
-        // AppLogger.shared.log("🔍 [ExtensionManager] chap called. localPath: \(localPath), url: \(resolvedUrl)")
+    public func chap(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> String {
+        // AppLogger.shared.log("🔍 [ExtensionManager] chap called. localPath: \(localPath), url: \(url)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "chap")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
-        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
+        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl, host: host)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         executor.injectGlobals(configs)
         
         do {
-            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [resolvedUrl])
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
             let cleanVal = try verifyJSResponse(jsValue)
             let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] chap raw JS result length: \(stringified.count)")
@@ -686,17 +683,16 @@ public final class ExtensionManager: ObservableObject {
         return script[scriptKey] != nil
     }
     
-    public func page(localPath: String, downloadUrl: String = "", url: String, configJson: String = "{}") async throws -> [String] {
-        let resolvedUrl = JSExecutor.cleanAndResolveUrl(url, localPath: localPath)
+    public func page(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> [String] {
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "page")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
-        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
+        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl, host: host)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         executor.injectGlobals(configs)
         
         do {
-            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [resolvedUrl])
+            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
             let cleanVal = try verifyJSResponse(jsValue)
             let stringified = stringify(cleanVal)
             

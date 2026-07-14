@@ -412,6 +412,7 @@ public final class DownloadManager: ObservableObject {
                         localPath: bgExt.localPath,
                         downloadUrl: bgExt.downloadUrl,
                         url: targetChapterUrl,
+                        host: chapter.host,
                         configJson: bgExt.configJson
                     )
                     let cleaned = content.cleanHTML()

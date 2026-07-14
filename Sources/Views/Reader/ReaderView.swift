@@ -1204,9 +1204,25 @@ struct ReaderView: View {
         
         // Task: Chạy tiến trình nền không đồng bộ để tải nội dung từ internet bằng extension JS mà không gây đơ ứng dụng
         Task {
+            var chapHost: String? = nil
+            if index < currentOnlineChapters.count {
+                chapHost = currentOnlineChapters[index].host
+            } else if let book = localBook {
+                let sorted = book.chapters.sorted(by: { $0.index < $1.index })
+                if index < sorted.count {
+                    chapHost = sorted[index].host
+                }
+            }
+            
             do {
                 // Gọi extension JS bóc tách nội dung chương từ nguồn web
-                let content = try await ExtensionManager.shared.chap(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: info.url, configJson: ext.configJson)
+                let content = try await ExtensionManager.shared.chap(
+                    localPath: ext.localPath,
+                    downloadUrl: ext.downloadUrl,
+                    url: info.url,
+                    host: chapHost,
+                    configJson: ext.configJson
+                )
                 let cleanedContent = cleanBlankLines(in: content.cleanHTML())
                 
                 // Trở về Main Thread để cập nhật dữ liệu và UI một cách an toàn
@@ -1268,13 +1284,14 @@ struct ReaderView: View {
             currentChapterIndex: currentIndex,
             currentChapterTitle: info.title,
             isOnShelf: false,
-            isHistory: true
+            isHistory: true,
+            host: currentOnlineChapters.first?.host
         )
         modelContext.insert(newBook)
         
         for (idx, item) in currentOnlineChapters.enumerated() {
             let chapId = "\(newBook.bookId)_\(item.url)"
-            let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: idx)
+            let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: idx, host: item.host)
             newChap.book = newBook
             if idx == currentIndex {
                 newChap.content = cleanedContent
@@ -1392,8 +1409,24 @@ struct ReaderView: View {
         }
         
         Task {
+            var chapHost: String? = nil
+            if index < currentOnlineChapters.count {
+                chapHost = currentOnlineChapters[index].host
+            } else if let book = localBook {
+                let sorted = book.chapters.sorted(by: { $0.index < $1.index })
+                if index < sorted.count {
+                    chapHost = sorted[index].host
+                }
+            }
+            
             do {
-                let content = try await ExtensionManager.shared.chap(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: info.url, configJson: ext.configJson)
+                let content = try await ExtensionManager.shared.chap(
+                    localPath: ext.localPath,
+                    downloadUrl: ext.downloadUrl,
+                    url: info.url,
+                    host: chapHost,
+                    configJson: ext.configJson
+                )
                 let cleanedContent = cleanBlankLines(in: content.cleanHTML())
                 
                 await MainActor.run {
@@ -1648,6 +1681,7 @@ struct ReaderView: View {
         let sortedChapters: [Chapter]
         let targetUrl: String
         let targetTitle: String
+        let targetHost: String?
         
         if let book = localBook {
             sortedChapters = book.chapters.sorted(by: { $0.index < $1.index })
@@ -1658,11 +1692,13 @@ struct ReaderView: View {
             }
             targetUrl = chap.url
             targetTitle = chap.title
+            targetHost = chap.host
         } else {
             guard index < currentOnlineChapters.count else { return }
             let chap = currentOnlineChapters[index]
             targetUrl = chap.url
             targetTitle = chap.name
+            targetHost = chap.host
         }
         
         guard let ext = ext else { return }
@@ -1673,6 +1709,7 @@ struct ReaderView: View {
                 localPath: ext.localPath,
                 downloadUrl: ext.downloadUrl,
                 url: targetUrl,
+                host: targetHost,
                 configJson: ext.configJson
             )
             let cleanedContent = content.cleanHTML()
