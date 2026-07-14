@@ -4,6 +4,15 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.1.7] - 2026-07-14
+
+### Khắc phục lỗi cú pháp YAML trong workflow build-ipa.yml
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 1 file workflow (.github/workflows/build-ipa.yml)
+*   **Mô tả**:
+    *   Khắc phục lỗi `Invalid workflow file` do định dạng chuỗi xuống dòng trực tiếp trong khối `run: |` gây sai lệch thụt lề YAML.
+    *   Sử dụng lệnh `printf` của Bash để định dạng chuỗi chứa ký tự xuống dòng `\n` một cách năng động và an toàn.
+
 ## [1.1.6] - 2026-07-14
 
 ### Khắc phục lỗi báo quyền truy cập sai khi nhập sách từ file TXT

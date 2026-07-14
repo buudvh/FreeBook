@@ -169,11 +169,8 @@ jobs:
         if [ "$FILE_SIZE" -lt "$MAX_SIZE" ]; then
           echo "File size is under 50MB. Uploading directly to Telegram..."
           
-          # Nội dung caption cho file
-          CAPTION="📦 FreeBook Build Thành Công! 🚀
-
-💬 Commit Message:
-$COMMIT_MSG"
+          # Dùng printf để định dạng chuỗi xuống dòng an toàn cho YAML
+          CAPTION=$(printf "📦 FreeBook Build Thành Công! 🚀\n\n💬 Commit Message:\n%s" "$COMMIT_MSG")
 
           curl -F chat_id="${TELEGRAM_CHAT_ID}" \
                -F document=@"$IPA_PATH" \
@@ -185,14 +182,12 @@ $COMMIT_MSG"
           UPLOAD_URL=$(curl --upload-file "$IPA_PATH" "https://transfer.sh/FreeBook.ipa")
           echo "Uploaded to: $UPLOAD_URL"
           
-          # Gửi tin nhắn an toàn qua --data-urlencode để tự động mã hóa xuống dòng và ký tự đặc biệt
+          # Định dạng nội dung tin nhắn bằng printf
+          TEXT=$(printf "📦 FreeBook Build Thành Công! (File vượt quá 50MB)\n\n💬 Commit Message:\n%s\n\nTải IPA tại đây: %s" "$COMMIT_MSG" "$UPLOAD_URL")
+          
           curl -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
                --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
-               --data-urlencode "text=📦 FreeBook Build Thành Công! (File vượt quá 50MB)
-
-💬 Commit Message:
-$COMMIT_MSG
-
+               --data-urlencode "text=$TEXT"
         fi
 
     - name: Send Failure Notification to Telegram
@@ -203,13 +198,9 @@ $COMMIT_MSG
       run: |
         COMMIT_MSG=$(git log -1 --pretty=format:"%B")
         
+        # Định dạng tin nhắn lỗi bằng printf
+        TEXT=$(printf "❌ FreeBook Build Thất Bại! 🛑\n\n💬 Commit Message:\n%s\n\n🔍 Chi tiết lỗi xem tại: https://github.com/%s/actions/runs/%s" "$COMMIT_MSG" "${{ github.repository }}" "${{ github.run_id }}")
+        
         curl -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
-             --data-urlencode "text=❌ FreeBook Build Thất Bại! 🛑
-
-💬 Commit Message:
-$COMMIT_MSG
-
-🔍 Chi tiết lỗi xem tại: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-
+             --data-urlencode "text=$TEXT"
