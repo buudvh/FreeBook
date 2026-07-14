@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CodeGraphManifestSchema",
+  "description": "Schema định nghĩa cấu trúc manifest.json cho hệ thống tài liệu CodeGraph sống của FreeBook",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "description": "Phiên bản schema của manifest"
+    },
+    "project": {
+      "type": "string",
+      "description": "Tên dự án"
+    },
+    "generator": {
+      "type": "string",
+      "description": "Công cụ đã tạo ra tài liệu này"
+    },
+    "generatorVersion": {
+      "type": "string",
+      "description": "Phiên bản của công cụ tạo tài liệu"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Thời điểm tạo/cập nhật manifest"
+    },
+    "gitCommit": {
+      "type": "string",
+      "description": "Mã commit Git hiện tại của dự án"
+    },
+    "sourceFileCount": {
+      "type": "integer",
+      "description": "Tổng số lượng file mã nguồn Swift đã quét"
+    },
+    "documentCount": {
+      "type": "integer",
+      "description": "Tổng số tài liệu CodeGraph được quản lý"
+    },
+    "documents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string",
+            "description": "Tên file tài liệu (ví dụ: 00_index.md)"
+          },
+          "sourceHash": {
+            "type": "string",
+            "description": "Mã băm SHA-256 của các file nguồn Swift liên quan trực tiếp đến tài liệu này"
+          },
+          "generatedHash": {
+            "type": "string",
+            "description": "Mã băm SHA-256 chỉ của vùng nội dung nằm giữa <!-- GENERATED START --> và <!-- GENERATED END -->"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Thời điểm tạo/cập nhật tài liệu này"
+          },
+          "sourceFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Danh sách đường dẫn tương đối của các file nguồn liên quan trực tiếp"
+          },
+          "documentVersion": {
+            "type": "integer",
+            "description": "Phiên bản hiện tại của tài liệu này"
+          }
+        },
+        "required": ["filename", "sourceHash", "generatedHash", "generatedAt", "sourceFiles", "documentVersion"]
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "project",
+    "generator",
+    "generatorVersion",
+    "generatedAt",
+    "gitCommit",
+    "sourceFileCount",
+    "documentCount",
+    "documents"
+  ]
+}

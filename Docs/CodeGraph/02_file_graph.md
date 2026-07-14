@@ -1,0 +1,1348 @@
+---
+generated_by: Antigravity
+generator_version: 1.0
+generated_at: 2026-07-14T09:15:00+07:00
+git_commit: UNKNOWN
+source_files: 87
+document_version: 1
+---
+
+# Đồ thị File & Quan hệ Import (File & Import Graph)
+
+Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc giữa 87 file mã nguồn Swift trong dự án FreeBook, tách biệt rõ ràng giữa Import Graph và Dependency Graph cho từng tệp.
+
+## Ghi chú thủ công (Human Notes)
+*Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
+
+<!-- GENERATED START -->
+## Đánh giá mức độ tin cậy (Confidence Level)
+
+*   **Mức độ tin cậy**: **High**
+*   **Lý do**: Được trích xuất hoàn toàn tự động thông qua việc phân tích từ khóa kiểu dữ liệu khớp chính xác trên cây thư mục nguồn.
+
+---
+
+## Chi tiết Quan hệ cho từng File (Tổng cộng 87 Files)
+
+### 1. [FreeBookApp.swift](../../Sources/App/FreeBookApp.swift)
+
+*   **Đường dẫn**: `App/FreeBookApp.swift`
+*   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [ToastManager.swift](../../Sources/Common/Services/ToastManager.swift)
+    *   [Book.swift](../../Sources/Models/Database/Book.swift)
+    *   [Chapter.swift](../../Sources/Models/Database/Chapter.swift)
+    *   [DownloadTaskModel.swift](../../Sources/Models/Database/DownloadTaskModel.swift)
+    *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
+    *   [Repository.swift](../../Sources/Models/Database/Repository.swift)
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
+    *   [AppLoadingView.swift](../../Sources/Views/AppLoadingView.swift)
+    *   [MainTabView.swift](../../Sources/Views/MainTabView.swift)
+    *   [TTSFloatingWidgetView.swift](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift)
+*   **Được sử dụng bởi (Used by)**: Không được tham chiếu trực tiếp từ file khác
+
+---
+
+### 2. [String+Crypto.swift](../../Sources/Common/Extensions/String+Crypto.swift)
+
+*   **Đường dẫn**: `Common/Extensions/String+Crypto.swift`
+*   **Imports (Import Graph)**: `CryptoKit`, `Foundation`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**: Không được tham chiếu trực tiếp từ file khác
+
+---
+
+### 3. [String+HTML.swift](../../Sources/Common/Extensions/String+HTML.swift)
+
+*   **Đường dẫn**: `Common/Extensions/String+HTML.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**: Không được tham chiếu trực tiếp từ file khác
+
+---
+
+### 4. [View+Keyboard.swift](../../Sources/Common/Extensions/View+Keyboard.swift)
+
+*   **Đường dẫn**: `Common/Extensions/View+Keyboard.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**: Không được tham chiếu trực tiếp từ file khác
+
+---
+
+### 5. [ImageCacheManager.swift](../../Sources/Common/Services/ImageCacheManager.swift)
+
+*   **Đường dẫn**: `Common/Services/ImageCacheManager.swift`
+*   **Imports (Import Graph)**: `Foundation`, `UIKit`
+*   **Sử dụng (Uses)**:
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [BookCoverView.swift](../../Sources/Views/Common/BookCoverView.swift)
+
+---
+
+### 6. [ToastManager.swift](../../Sources/Common/Services/ToastManager.swift)
+
+*   **Đường dẫn**: `Common/Services/ToastManager.swift`
+*   **Imports (Import Graph)**: `Combine`, `Foundation`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [FreeBookApp.swift](../../Sources/App/FreeBookApp.swift)
+    *   [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
+    *   [TaskOptionsSheet.swift](../../Sources/Views/Download/TaskOptionsSheet.swift)
+
+---
+
+### 7. [Book.swift](../../Sources/Models/Database/Book.swift)
+
+*   **Đường dẫn**: `Models/Database/Book.swift`
+*   **Imports (Import Graph)**: `Foundation`, `SwiftData`
+*   **Sử dụng (Uses)**:
+    *   [Chapter.swift](../../Sources/Models/Database/Chapter.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [FreeBookApp.swift](../../Sources/App/FreeBookApp.swift)
+    *   [Chapter.swift](../../Sources/Models/Database/Chapter.swift)
+    *   [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [DownloadTrackerView.swift](../../Sources/Views/Download/DownloadTrackerView.swift)
+    *   [TaskOptionsSheet.swift](../../Sources/Views/Download/TaskOptionsSheet.swift)
+    *   [ReaderChapterListView.swift](../../Sources/Views/Reader/ReaderChapterListView.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+    *   [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
+    *   [ReadingProgressRepository.swift](../../Sources/Views/Reader/ReadingProgressRepository.swift)
+    *   [SearchView.swift](../../Sources/Views/Search/SearchView.swift)
+    *   [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
+
+---
+
+### 8. [Chapter.swift](../../Sources/Models/Database/Chapter.swift)
+
+*   **Đường dẫn**: `Models/Database/Chapter.swift`
+*   **Imports (Import Graph)**: `Foundation`, `SwiftData`
+*   **Sử dụng (Uses)**:
+    *   [Book.swift](../../Sources/Models/Database/Book.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [FreeBookApp.swift](../../Sources/App/FreeBookApp.swift)
+    *   [Book.swift](../../Sources/Models/Database/Book.swift)
+    *   [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [ReaderChapterListView.swift](../../Sources/Views/Reader/ReaderChapterListView.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+    *   [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
+    *   [SearchView.swift](../../Sources/Views/Search/SearchView.swift)
+    *   [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
+
+---
+
+### 9. [DownloadTaskModel.swift](../../Sources/Models/Database/DownloadTaskModel.swift)
+
+*   **Đường dẫn**: `Models/Database/DownloadTaskModel.swift`
+*   **Imports (Import Graph)**: `Foundation`, `SwiftData`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [FreeBookApp.swift](../../Sources/App/FreeBookApp.swift)
+    *   [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
+
+---
+
+### 10. [Extension.swift](../../Sources/Models/Database/Extension.swift)
+
+*   **Đường dẫn**: `Models/Database/Extension.swift`
+*   **Imports (Import Graph)**: `Foundation`, `SwiftData`
+*   **Sử dụng (Uses)**:
+    *   [Repository.swift](../../Sources/Models/Database/Repository.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [FreeBookApp.swift](../../Sources/App/FreeBookApp.swift)
+    *   [Repository.swift](../../Sources/Models/Database/Repository.swift)
+    *   [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [BypassWebView.swift](../../Sources/Views/Common/BypassWebView.swift)
+    *   [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
+    *   [ExtensionConfigView.swift](../../Sources/Views/Extensions/Config/ExtensionConfigView.swift)
+    *   [RepositoryManagerView.swift](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift)
+    *   [ExtensionStoreView.swift](../../Sources/Views/Extensions/Store/ExtensionStoreView.swift)
+    *   [ReaderChapterListView.swift](../../Sources/Views/Reader/ReaderChapterListView.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+    *   [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
+    *   [SearchView.swift](../../Sources/Views/Search/SearchView.swift)
+    *   [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
+
+---
+
+### 11. [Repository.swift](../../Sources/Models/Database/Repository.swift)
+
+*   **Đường dẫn**: `Models/Database/Repository.swift`
+*   **Imports (Import Graph)**: `Foundation`, `SwiftData`
+*   **Sử dụng (Uses)**:
+    *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [FreeBookApp.swift](../../Sources/App/FreeBookApp.swift)
+    *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
+    *   [RepositoryManagerView.swift](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift)
+    *   [ExtensionStoreView.swift](../../Sources/Views/Extensions/Store/ExtensionStoreView.swift)
+
+---
+
+### 12. [DoubleArrayTrie.swift](../../Sources/Models/Dictionaries/DoubleArrayTrie.swift)
+
+*   **Đường dẫn**: `Models/Dictionaries/DoubleArrayTrie.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [TextDictionary.swift](../../Sources/Models/Dictionaries/TextDictionary.swift)
+    *   [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
+    *   [DictionaryCache.swift](../../Sources/Services/Translation/Utils/DictionaryCache.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+    *   [DictionaryListView.swift](../../Sources/Views/Dictionary/DictionaryListView.swift)
+
+---
+
+### 13. [DoubleArrayTrieBuilder.swift](../../Sources/Models/Dictionaries/DoubleArrayTrieBuilder.swift)
+
+*   **Đường dẫn**: `Models/Dictionaries/DoubleArrayTrieBuilder.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
+    *   [DictionaryCache.swift](../../Sources/Services/Translation/Utils/DictionaryCache.swift)
+    *   [DictionaryListView.swift](../../Sources/Views/Dictionary/DictionaryListView.swift)
+
+---
+
+### 14. [SearchEngine.swift](../../Sources/Models/Dictionaries/SearchEngine.swift)
+
+*   **Đường dẫn**: `Models/Dictionaries/SearchEngine.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+    *   [SearchEnginesConfigView.swift](../../Sources/Views/Settings/Search/SearchEnginesConfigView.swift)
+
+---
+
+### 15. [TextDictionary.swift](../../Sources/Models/Dictionaries/TextDictionary.swift)
+
+*   **Đường dẫn**: `Models/Dictionaries/TextDictionary.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**:
+    *   [DoubleArrayTrie.swift](../../Sources/Models/Dictionaries/DoubleArrayTrie.swift)
+*   **Được sử dụng bởi (Used by)**: Không được tham chiếu trực tiếp từ file khác
+
+---
+
+### 16. [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
+
+*   **Đường dẫn**: `Services/Download/DownloadManager.swift`
+*   **Imports (Import Graph)**: `Foundation`, `SwiftData`, `UIKit`
+*   **Sử dụng (Uses)**:
+    *   [ToastManager.swift](../../Sources/Common/Services/ToastManager.swift)
+    *   [Book.swift](../../Sources/Models/Database/Book.swift)
+    *   [Chapter.swift](../../Sources/Models/Database/Chapter.swift)
+    *   [DownloadTaskModel.swift](../../Sources/Models/Database/DownloadTaskModel.swift)
+    *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [DownloadTrackerView.swift](../../Sources/Views/Download/DownloadTrackerView.swift)
+    *   [TaskOptionsSheet.swift](../../Sources/Views/Download/TaskOptionsSheet.swift)
+    *   [MainTabView.swift](../../Sources/Views/MainTabView.swift)
+    *   [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
+
+---
+
+### 17. [JSCrypto.swift](../../Sources/Services/Extensions/Engine/JSCrypto.swift)
+
+*   **Đường dẫn**: `Services/Extensions/Engine/JSCrypto.swift`
+*   **Imports (Import Graph)**: `CryptoKit`, `Foundation`, `JavaScriptCore`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**: Không được tham chiếu trực tiếp từ file khác
+
+---
+
+### 18. [JSDom.swift](../../Sources/Services/Extensions/Engine/JSDom.swift)
+
+*   **Đường dẫn**: `Services/Extensions/Engine/JSDom.swift`
+*   **Imports (Import Graph)**: `Foundation`, `JavaScriptCore`, `SwiftSoup`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**: Không được tham chiếu trực tiếp từ file khác
+
+---
+
+### 19. [JSExecutor.swift](../../Sources/Services/Extensions/Engine/JSExecutor.swift)
+
+*   **Đường dẫn**: `Services/Extensions/Engine/JSExecutor.swift`
+*   **Imports (Import Graph)**: `Foundation`, `JavaScriptCore`, `WebKit`
+*   **Sử dụng (Uses)**:
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [BypassWebView.swift](../../Sources/Views/Common/BypassWebView.swift)
+
+---
+
+### 20. [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+
+*   **Đường dẫn**: `Services/Extensions/Manager/ExtensionManager.swift`
+*   **Imports (Import Graph)**: `Combine`, `Foundation`, `JavaScriptCore`, `ZIPFoundation`
+*   **Sử dụng (Uses)**:
+    *   [JSExecutor.swift](../../Sources/Services/Extensions/Engine/JSExecutor.swift)
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
+    *   [ExtTTSService.swift](../../Sources/Services/TTS/Ext/ExtTTSService.swift)
+    *   [AllCommentsView.swift](../../Sources/Views/BookDetail/AllCommentsView.swift)
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [CommentSectionView.swift](../../Sources/Views/BookDetail/CommentSectionView.swift)
+    *   [SuggestRowView.swift](../../Sources/Views/BookDetail/SuggestRowView.swift)
+    *   [CategoryNovelsListView.swift](../../Sources/Views/Common/CategoryNovelsListView.swift)
+    *   [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
+    *   [RepositoryManagerView.swift](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift)
+    *   [ExtensionStoreView.swift](../../Sources/Views/Extensions/Store/ExtensionStoreView.swift)
+    *   [ReaderChapterListView.swift](../../Sources/Views/Reader/ReaderChapterListView.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+    *   [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
+    *   [SearchView.swift](../../Sources/Views/Search/SearchView.swift)
+    *   [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
+
+---
+
+### 21. [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+
+*   **Đường dẫn**: `Services/Logging/AppLogger.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [ImageCacheManager.swift](../../Sources/Common/Services/ImageCacheManager.swift)
+    *   [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
+    *   [JSExecutor.swift](../../Sources/Services/Extensions/Engine/JSExecutor.swift)
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [BackgroundTaskSession.swift](../../Sources/Services/TTS/BackgroundTaskSession.swift)
+    *   [EspeakPhonemizer.swift](../../Sources/Services/TTS/EspeakPhonemizer.swift)
+    *   [ExtTTSService.swift](../../Sources/Services/TTS/Ext/ExtTTSService.swift)
+    *   [NghiTTSClient.swift](../../Sources/Services/TTS/NghiTTS/NghiTTSClient.swift)
+    *   [ONNXPiperEngine.swift](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift)
+    *   [TTSReplacementManager.swift](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager.swift)
+    *   [TextPreprocessor.swift](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift)
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [AllCommentsView.swift](../../Sources/Views/BookDetail/AllCommentsView.swift)
+    *   [CategoryNovelsListView.swift](../../Sources/Views/Common/CategoryNovelsListView.swift)
+    *   [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
+    *   [ChapterCache.swift](../../Sources/Views/Reader/ChapterCache.swift)
+    *   [PrefetchManager.swift](../../Sources/Views/Reader/PrefetchManager.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+    *   [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
+    *   [ReadingProgressRepository.swift](../../Sources/Views/Reader/ReadingProgressRepository.swift)
+    *   [SettingsView.swift](../../Sources/Views/Settings/Main/SettingsView.swift)
+    *   [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
+
+---
+
+### 22. [BackgroundTaskSession.swift](../../Sources/Services/TTS/BackgroundTaskSession.swift)
+
+*   **Đường dẫn**: `Services/TTS/BackgroundTaskSession.swift`
+*   **Imports (Import Graph)**: `Foundation`, `UIKit`
+*   **Sử dụng (Uses)**:
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [NghiTTSClient.swift](../../Sources/Services/TTS/NghiTTS/NghiTTSClient.swift)
+
+---
+
+### 23. [EspeakPhonemizer.swift](../../Sources/Services/TTS/EspeakPhonemizer.swift)
+
+*   **Đường dẫn**: `Services/TTS/EspeakPhonemizer.swift`
+*   **Imports (Import Graph)**: `Foundation`, `libespeak_ng`
+*   **Sử dụng (Uses)**:
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+    *   [TTSModels.swift](../../Sources/Services/TTS/TTSModels.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [ONNXPiperEngine.swift](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift)
+
+---
+
+### 24. [ExtTTSService.swift](../../Sources/Services/TTS/Ext/ExtTTSService.swift)
+
+*   **Đường dẫn**: `Services/TTS/Ext/ExtTTSService.swift`
+*   **Imports (Import Graph)**: `AVFoundation`, `Foundation`
+*   **Sử dụng (Uses)**:
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+
+---
+
+### 25. [ModelStore.swift](../../Sources/Services/TTS/NghiTTS/ModelStore.swift)
+
+*   **Đường dẫn**: `Services/TTS/NghiTTS/ModelStore.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [NghiTTSClient.swift](../../Sources/Services/TTS/NghiTTS/NghiTTSClient.swift)
+    *   [PiperTTSService.swift](../../Sources/Services/TTS/NghiTTS/PiperTTSService.swift)
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [TTSModelManagerView.swift](../../Sources/Views/Settings/TTS/TTSModelManagerView.swift)
+    *   [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
+
+---
+
+### 26. [NghiTTSClient.swift](../../Sources/Services/TTS/NghiTTS/NghiTTSClient.swift)
+
+*   **Đường dẫn**: `Services/TTS/NghiTTS/NghiTTSClient.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**:
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+    *   [BackgroundTaskSession.swift](../../Sources/Services/TTS/BackgroundTaskSession.swift)
+    *   [ModelStore.swift](../../Sources/Services/TTS/NghiTTS/ModelStore.swift)
+    *   [TextPreprocessor.swift](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift)
+    *   [TTSModels.swift](../../Sources/Services/TTS/TTSModels.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [TTSModelManagerView.swift](../../Sources/Views/Settings/TTS/TTSModelManagerView.swift)
+    *   [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
+
+---
+
+### 27. [ONNXPiperEngine.swift](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift)
+
+*   **Đường dẫn**: `Services/TTS/NghiTTS/ONNXPiperEngine.swift`
+*   **Imports (Import Graph)**: `Foundation`, `OnnxRuntimeBindings`
+*   **Sử dụng (Uses)**:
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+    *   [EspeakPhonemizer.swift](../../Sources/Services/TTS/EspeakPhonemizer.swift)
+    *   [PiperTTSService.swift](../../Sources/Services/TTS/NghiTTS/PiperTTSService.swift)
+    *   [TTSModels.swift](../../Sources/Services/TTS/TTSModels.swift)
+    *   [WAVEncoder.swift](../../Sources/Services/TTS/WAVEncoder.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [PiperTTSService.swift](../../Sources/Services/TTS/NghiTTS/PiperTTSService.swift)
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+
+---
+
+### 28. [PiperTTSService.swift](../../Sources/Services/TTS/NghiTTS/PiperTTSService.swift)
+
+*   **Đường dẫn**: `Services/TTS/NghiTTS/PiperTTSService.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**:
+    *   [ModelStore.swift](../../Sources/Services/TTS/NghiTTS/ModelStore.swift)
+    *   [ONNXPiperEngine.swift](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift)
+    *   [TextPreprocessor.swift](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift)
+    *   [TTSModels.swift](../../Sources/Services/TTS/TTSModels.swift)
+    *   [WAVEncoder.swift](../../Sources/Services/TTS/WAVEncoder.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [ONNXPiperEngine.swift](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift)
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+
+---
+
+### 29. [EnglishTransliterator.swift](../../Sources/Services/TTS/Preprocessing/EnglishTransliterator.swift)
+
+*   **Đường dẫn**: `Services/TTS/Preprocessing/EnglishTransliterator.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**:
+    *   [RegexRule.swift](../../Sources/Services/TTS/Preprocessing/RegexRule.swift)
+    *   [TextPreprocessor.swift](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [TextPreprocessor.swift](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift)
+
+---
+
+### 30. [JapaneseTransliterator.swift](../../Sources/Services/TTS/Preprocessing/JapaneseTransliterator.swift)
+
+*   **Đường dẫn**: `Services/TTS/Preprocessing/JapaneseTransliterator.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**:
+    *   [TextPreprocessor.swift](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [TextPreprocessor.swift](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift)
+
+---
+
+### 31. [RegexRule.swift](../../Sources/Services/TTS/Preprocessing/RegexRule.swift)
+
+*   **Đường dẫn**: `Services/TTS/Preprocessing/RegexRule.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [EnglishTransliterator.swift](../../Sources/Services/TTS/Preprocessing/EnglishTransliterator.swift)
+
+---
+
+### 32. [TTSReplacementManager.swift](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager.swift)
+
+*   **Đường dẫn**: `Services/TTS/Preprocessing/TTSReplacementManager.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**:
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [TTSReplacementManagerView.swift](../../Sources/Views/Settings/TTS/TTSReplacementManagerView.swift)
+
+---
+
+### 33. [TextPreprocessor.swift](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift)
+
+*   **Đường dẫn**: `Services/TTS/Preprocessing/TextPreprocessor.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**:
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+    *   [EnglishTransliterator.swift](../../Sources/Services/TTS/Preprocessing/EnglishTransliterator.swift)
+    *   [JapaneseTransliterator.swift](../../Sources/Services/TTS/Preprocessing/JapaneseTransliterator.swift)
+    *   [VietnameseNumberSpeller.swift](../../Sources/Services/TTS/Preprocessing/VietnameseNumberSpeller.swift)
+    *   [VietnameseWordChecker.swift](../../Sources/Services/TTS/Preprocessing/VietnameseWordChecker.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [NghiTTSClient.swift](../../Sources/Services/TTS/NghiTTS/NghiTTSClient.swift)
+    *   [PiperTTSService.swift](../../Sources/Services/TTS/NghiTTS/PiperTTSService.swift)
+    *   [EnglishTransliterator.swift](../../Sources/Services/TTS/Preprocessing/EnglishTransliterator.swift)
+    *   [JapaneseTransliterator.swift](../../Sources/Services/TTS/Preprocessing/JapaneseTransliterator.swift)
+    *   [NghiTTSSettingsView.swift](../../Sources/Views/Settings/TTS/NghiTTSSettingsView.swift)
+    *   [TTSDictionaryEditView.swift](../../Sources/Views/Settings/TTS/TTSDictionaryEditView.swift)
+
+---
+
+### 34. [VietnameseNumberSpeller.swift](../../Sources/Services/TTS/Preprocessing/VietnameseNumberSpeller.swift)
+
+*   **Đường dẫn**: `Services/TTS/Preprocessing/VietnameseNumberSpeller.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [TextPreprocessor.swift](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift)
+
+---
+
+### 35. [VietnameseWordChecker.swift](../../Sources/Services/TTS/Preprocessing/VietnameseWordChecker.swift)
+
+*   **Đường dẫn**: `Services/TTS/Preprocessing/VietnameseWordChecker.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [TextPreprocessor.swift](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift)
+
+---
+
+### 36. [SiriTTSService.swift](../../Sources/Services/TTS/Siri/SiriTTSService.swift)
+
+*   **Đường dẫn**: `Services/TTS/Siri/SiriTTSService.swift`
+*   **Imports (Import Graph)**: `AVFoundation`, `Foundation`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+
+---
+
+### 37. [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+
+*   **Đường dẫn**: `Services/TTS/TTSManager.swift`
+*   **Imports (Import Graph)**: `AVFoundation`, `Combine`, `Foundation`, `MediaPlayer`, `QuartzCore`, `SwiftData`, `UIKit`
+*   **Sử dụng (Uses)**:
+    *   [ImageCacheManager.swift](../../Sources/Common/Services/ImageCacheManager.swift)
+    *   [Book.swift](../../Sources/Models/Database/Book.swift)
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+    *   [ExtTTSService.swift](../../Sources/Services/TTS/Ext/ExtTTSService.swift)
+    *   [ModelStore.swift](../../Sources/Services/TTS/NghiTTS/ModelStore.swift)
+    *   [NghiTTSClient.swift](../../Sources/Services/TTS/NghiTTS/NghiTTSClient.swift)
+    *   [ONNXPiperEngine.swift](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift)
+    *   [PiperTTSService.swift](../../Sources/Services/TTS/NghiTTS/PiperTTSService.swift)
+    *   [TTSReplacementManager.swift](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager.swift)
+    *   [SiriTTSService.swift](../../Sources/Services/TTS/Siri/SiriTTSService.swift)
+    *   [TTSModels.swift](../../Sources/Services/TTS/TTSModels.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [FreeBookApp.swift](../../Sources/App/FreeBookApp.swift)
+    *   [MainTabView.swift](../../Sources/Views/MainTabView.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+    *   [TTSDictionaryEditView.swift](../../Sources/Views/Settings/TTS/TTSDictionaryEditView.swift)
+    *   [TTSModelManagerView.swift](../../Sources/Views/Settings/TTS/TTSModelManagerView.swift)
+    *   [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
+    *   [TTSFloatingWidgetView.swift](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift)
+    *   [TTSPlayStateReader.swift](../../Sources/Views/TTSWidget/TTSPlayStateReader.swift)
+    *   [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
+
+---
+
+### 38. [TTSModels.swift](../../Sources/Services/TTS/TTSModels.swift)
+
+*   **Đường dẫn**: `Services/TTS/TTSModels.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [EspeakPhonemizer.swift](../../Sources/Services/TTS/EspeakPhonemizer.swift)
+    *   [NghiTTSClient.swift](../../Sources/Services/TTS/NghiTTS/NghiTTSClient.swift)
+    *   [ONNXPiperEngine.swift](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift)
+    *   [PiperTTSService.swift](../../Sources/Services/TTS/NghiTTS/PiperTTSService.swift)
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+    *   [TTSModelManagerView.swift](../../Sources/Views/Settings/TTS/TTSModelManagerView.swift)
+    *   [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
+
+---
+
+### 39. [WAVEncoder.swift](../../Sources/Services/TTS/WAVEncoder.swift)
+
+*   **Đường dẫn**: `Services/TTS/WAVEncoder.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [ONNXPiperEngine.swift](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift)
+    *   [PiperTTSService.swift](../../Sources/Services/TTS/NghiTTS/PiperTTSService.swift)
+
+---
+
+### 40. [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
+
+*   **Đường dẫn**: `Services/Translation/Manager/TranslationManager.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**:
+    *   [DoubleArrayTrie.swift](../../Sources/Models/Dictionaries/DoubleArrayTrie.swift)
+    *   [DoubleArrayTrieBuilder.swift](../../Sources/Models/Dictionaries/DoubleArrayTrieBuilder.swift)
+    *   [DictionaryCache.swift](../../Sources/Services/Translation/Utils/DictionaryCache.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [FreeBookApp.swift](../../Sources/App/FreeBookApp.swift)
+    *   [DictionaryCache.swift](../../Sources/Services/Translation/Utils/DictionaryCache.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+    *   [DictionaryHubView.swift](../../Sources/Views/Dictionary/DictionaryHubView.swift)
+    *   [DictionaryListView.swift](../../Sources/Views/Dictionary/DictionaryListView.swift)
+    *   [ManageDefinitionsView.swift](../../Sources/Views/Dictionary/ManageDefinitionsView.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+    *   [SearchView.swift](../../Sources/Views/Search/SearchView.swift)
+    *   [SettingsView.swift](../../Sources/Views/Settings/Main/SettingsView.swift)
+
+---
+
+### 41. [DictionaryCache.swift](../../Sources/Services/Translation/Utils/DictionaryCache.swift)
+
+*   **Đường dẫn**: `Services/Translation/Utils/DictionaryCache.swift`
+*   **Imports (Import Graph)**: `Combine`, `Foundation`
+*   **Sử dụng (Uses)**:
+    *   [DoubleArrayTrie.swift](../../Sources/Models/Dictionaries/DoubleArrayTrie.swift)
+    *   [DoubleArrayTrieBuilder.swift](../../Sources/Models/Dictionaries/DoubleArrayTrieBuilder.swift)
+    *   [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
+    *   [DictionaryHubView.swift](../../Sources/Views/Dictionary/DictionaryHubView.swift)
+    *   [DictionaryListView.swift](../../Sources/Views/Dictionary/DictionaryListView.swift)
+    *   [SettingsView.swift](../../Sources/Views/Settings/Main/SettingsView.swift)
+
+---
+
+### 42. [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+
+*   **Đường dẫn**: `Services/Translation/Utils/TranslateUtils.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**:
+    *   [DoubleArrayTrie.swift](../../Sources/Models/Dictionaries/DoubleArrayTrie.swift)
+    *   [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
+    *   [DictionaryCache.swift](../../Sources/Services/Translation/Utils/DictionaryCache.swift)
+    *   [AllCommentsView.swift](../../Sources/Views/BookDetail/AllCommentsView.swift)
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [CommentSectionView.swift](../../Sources/Views/BookDetail/CommentSectionView.swift)
+    *   [SuggestRowView.swift](../../Sources/Views/BookDetail/SuggestRowView.swift)
+    *   [CategoryNovelsListView.swift](../../Sources/Views/Common/CategoryNovelsListView.swift)
+    *   [DictionaryListView.swift](../../Sources/Views/Dictionary/DictionaryListView.swift)
+    *   [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
+    *   [ReaderChapterListView.swift](../../Sources/Views/Reader/ReaderChapterListView.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+    *   [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
+    *   [SearchView.swift](../../Sources/Views/Search/SearchView.swift)
+    *   [SettingsView.swift](../../Sources/Views/Settings/Main/SettingsView.swift)
+    *   [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
+
+---
+
+### 43. [AppLoadingView.swift](../../Sources/Views/AppLoadingView.swift)
+
+*   **Đường dẫn**: `Views/AppLoadingView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [FreeBookApp.swift](../../Sources/App/FreeBookApp.swift)
+
+---
+
+### 44. [AllCommentsView.swift](../../Sources/Views/BookDetail/AllCommentsView.swift)
+
+*   **Đường dẫn**: `Views/BookDetail/AllCommentsView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [CommentSectionView.swift](../../Sources/Views/BookDetail/CommentSectionView.swift)
+
+---
+
+### 45. [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+
+*   **Đường dẫn**: `Views/BookDetail/BookDetailView.swift`
+*   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [Book.swift](../../Sources/Models/Database/Book.swift)
+    *   [Chapter.swift](../../Sources/Models/Database/Chapter.swift)
+    *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
+    *   [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
+    *   [JSExecutor.swift](../../Sources/Services/Extensions/Engine/JSExecutor.swift)
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+    *   [CommentSectionView.swift](../../Sources/Views/BookDetail/CommentSectionView.swift)
+    *   [SuggestRowView.swift](../../Sources/Views/BookDetail/SuggestRowView.swift)
+    *   [BookCoverView.swift](../../Sources/Views/Common/BookCoverView.swift)
+    *   [BypassWebView.swift](../../Sources/Views/Common/BypassWebView.swift)
+    *   [CategoryNovelsListView.swift](../../Sources/Views/Common/CategoryNovelsListView.swift)
+    *   [ExtensionIconView.swift](../../Sources/Views/Common/ExtensionIconView.swift)
+    *   [SkeletonView.swift](../../Sources/Views/Common/SkeletonView.swift)
+    *   [BookDictionaryView.swift](../../Sources/Views/Dictionary/BookDictionaryView.swift)
+    *   [TaskOptionsSheet.swift](../../Sources/Views/Download/TaskOptionsSheet.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+    *   [SearchView.swift](../../Sources/Views/Search/SearchView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [SuggestRowView.swift](../../Sources/Views/BookDetail/SuggestRowView.swift)
+    *   [CategoryNovelsListView.swift](../../Sources/Views/Common/CategoryNovelsListView.swift)
+    *   [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+    *   [SearchView.swift](../../Sources/Views/Search/SearchView.swift)
+    *   [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
+
+---
+
+### 46. [CommentSectionView.swift](../../Sources/Views/BookDetail/CommentSectionView.swift)
+
+*   **Đường dẫn**: `Views/BookDetail/CommentSectionView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+    *   [AllCommentsView.swift](../../Sources/Views/BookDetail/AllCommentsView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+
+---
+
+### 47. [SuggestRowView.swift](../../Sources/Views/BookDetail/SuggestRowView.swift)
+
+*   **Đường dẫn**: `Views/BookDetail/SuggestRowView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [BookCoverView.swift](../../Sources/Views/Common/BookCoverView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+
+---
+
+### 48. [BookCoverView.swift](../../Sources/Views/Common/BookCoverView.swift)
+
+*   **Đường dẫn**: `Views/Common/BookCoverView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [ImageCacheManager.swift](../../Sources/Common/Services/ImageCacheManager.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [SuggestRowView.swift](../../Sources/Views/BookDetail/SuggestRowView.swift)
+    *   [CategoryNovelsListView.swift](../../Sources/Views/Common/CategoryNovelsListView.swift)
+    *   [DownloadTrackerView.swift](../../Sources/Views/Download/DownloadTrackerView.swift)
+    *   [TaskOptionsSheet.swift](../../Sources/Views/Download/TaskOptionsSheet.swift)
+    *   [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
+
+---
+
+### 49. [BypassWebView.swift](../../Sources/Views/Common/BypassWebView.swift)
+
+*   **Đường dẫn**: `Views/Common/BypassWebView.swift`
+*   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`, `WebKit`
+*   **Sử dụng (Uses)**:
+    *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
+    *   [JSExecutor.swift](../../Sources/Services/Extensions/Engine/JSExecutor.swift)
+    *   [ReaderTextView.swift](../../Sources/Views/Reader/ReaderTextView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+    *   [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
+
+---
+
+### 50. [CategoryNovelsListView.swift](../../Sources/Views/Common/CategoryNovelsListView.swift)
+
+*   **Đường dẫn**: `Views/Common/CategoryNovelsListView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [BookCoverView.swift](../../Sources/Views/Common/BookCoverView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
+
+---
+
+### 51. [DocumentPicker.swift](../../Sources/Views/Common/DocumentPicker.swift)
+
+*   **Đường dẫn**: `Views/Common/DocumentPicker.swift`
+*   **Imports (Import Graph)**: `SwiftUI`, `UIKit`, `UniformTypeIdentifiers`
+*   **Sử dụng (Uses)**:
+    *   [ReaderTextView.swift](../../Sources/Views/Reader/ReaderTextView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [DictionaryListView.swift](../../Sources/Views/Dictionary/DictionaryListView.swift)
+    *   [SettingsView.swift](../../Sources/Views/Settings/Main/SettingsView.swift)
+    *   [TTSDictionaryEditView.swift](../../Sources/Views/Settings/TTS/TTSDictionaryEditView.swift)
+    *   [TTSModelManagerView.swift](../../Sources/Views/Settings/TTS/TTSModelManagerView.swift)
+    *   [TTSReplacementManagerView.swift](../../Sources/Views/Settings/TTS/TTSReplacementManagerView.swift)
+    *   [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
+
+---
+
+### 52. [ExtensionIconView.swift](../../Sources/Views/Common/ExtensionIconView.swift)
+
+*   **Đường dẫn**: `Views/Common/ExtensionIconView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
+
+---
+
+### 53. [SkeletonView.swift](../../Sources/Views/Common/SkeletonView.swift)
+
+*   **Đường dẫn**: `Views/Common/SkeletonView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+
+---
+
+### 54. [BookDictionaryView.swift](../../Sources/Views/Dictionary/BookDictionaryView.swift)
+
+*   **Đường dẫn**: `Views/Dictionary/BookDictionaryView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`, `UniformTypeIdentifiers`
+*   **Sử dụng (Uses)**:
+    *   [DictionaryHubView.swift](../../Sources/Views/Dictionary/DictionaryHubView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+
+---
+
+### 55. [DictionaryHubView.swift](../../Sources/Views/Dictionary/DictionaryHubView.swift)
+
+*   **Đường dẫn**: `Views/Dictionary/DictionaryHubView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
+    *   [DictionaryCache.swift](../../Sources/Services/Translation/Utils/DictionaryCache.swift)
+    *   [DictionaryListView.swift](../../Sources/Views/Dictionary/DictionaryListView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [BookDictionaryView.swift](../../Sources/Views/Dictionary/BookDictionaryView.swift)
+
+---
+
+### 56. [DictionaryListView.swift](../../Sources/Views/Dictionary/DictionaryListView.swift)
+
+*   **Đường dẫn**: `Views/Dictionary/DictionaryListView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`, `UniformTypeIdentifiers`
+*   **Sử dụng (Uses)**:
+    *   [DoubleArrayTrie.swift](../../Sources/Models/Dictionaries/DoubleArrayTrie.swift)
+    *   [DoubleArrayTrieBuilder.swift](../../Sources/Models/Dictionaries/DoubleArrayTrieBuilder.swift)
+    *   [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
+    *   [DictionaryCache.swift](../../Sources/Services/Translation/Utils/DictionaryCache.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+    *   [DocumentPicker.swift](../../Sources/Views/Common/DocumentPicker.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [DictionaryHubView.swift](../../Sources/Views/Dictionary/DictionaryHubView.swift)
+
+---
+
+### 57. [ManageDefinitionsView.swift](../../Sources/Views/Dictionary/ManageDefinitionsView.swift)
+
+*   **Đường dẫn**: `Views/Dictionary/ManageDefinitionsView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+
+---
+
+### 58. [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
+
+*   **Đường dẫn**: `Views/Discovery/DiscoveryView.swift`
+*   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [BypassWebView.swift](../../Sources/Views/Common/BypassWebView.swift)
+    *   [CategoryNovelsListView.swift](../../Sources/Views/Common/CategoryNovelsListView.swift)
+    *   [ExtensionIconView.swift](../../Sources/Views/Common/ExtensionIconView.swift)
+    *   [ExtensionConfigView.swift](../../Sources/Views/Extensions/Config/ExtensionConfigView.swift)
+    *   [SearchView.swift](../../Sources/Views/Search/SearchView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [MainTabView.swift](../../Sources/Views/MainTabView.swift)
+
+---
+
+### 59. [DownloadTrackerView.swift](../../Sources/Views/Download/DownloadTrackerView.swift)
+
+*   **Đường dẫn**: `Views/Download/DownloadTrackerView.swift`
+*   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [Book.swift](../../Sources/Models/Database/Book.swift)
+    *   [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
+    *   [BookCoverView.swift](../../Sources/Views/Common/BookCoverView.swift)
+    *   [TaskOptionsSheet.swift](../../Sources/Views/Download/TaskOptionsSheet.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
+
+---
+
+### 60. [TaskOptionsSheet.swift](../../Sources/Views/Download/TaskOptionsSheet.swift)
+
+*   **Đường dẫn**: `Views/Download/TaskOptionsSheet.swift`
+*   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [ToastManager.swift](../../Sources/Common/Services/ToastManager.swift)
+    *   [Book.swift](../../Sources/Models/Database/Book.swift)
+    *   [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
+    *   [BookCoverView.swift](../../Sources/Views/Common/BookCoverView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [DownloadTrackerView.swift](../../Sources/Views/Download/DownloadTrackerView.swift)
+    *   [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
+
+---
+
+### 61. [ExtensionConfigView.swift](../../Sources/Views/Extensions/Config/ExtensionConfigView.swift)
+
+*   **Đường dẫn**: `Views/Extensions/Config/ExtensionConfigView.swift`
+*   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
+    *   [RepositoryManagerView.swift](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift)
+    *   [ExtensionStoreView.swift](../../Sources/Views/Extensions/Store/ExtensionStoreView.swift)
+    *   [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
+
+---
+
+### 62. [RepositoryManagerView.swift](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift)
+
+*   **Đường dẫn**: `Views/Extensions/Manager/RepositoryManagerView.swift`
+*   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
+    *   [Repository.swift](../../Sources/Models/Database/Repository.swift)
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [ExtensionConfigView.swift](../../Sources/Views/Extensions/Config/ExtensionConfigView.swift)
+    *   [ExtensionStoreView.swift](../../Sources/Views/Extensions/Store/ExtensionStoreView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [MainTabView.swift](../../Sources/Views/MainTabView.swift)
+
+---
+
+### 63. [ExtensionStoreView.swift](../../Sources/Views/Extensions/Store/ExtensionStoreView.swift)
+
+*   **Đường dẫn**: `Views/Extensions/Store/ExtensionStoreView.swift`
+*   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
+    *   [Repository.swift](../../Sources/Models/Database/Repository.swift)
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [ExtensionConfigView.swift](../../Sources/Views/Extensions/Config/ExtensionConfigView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [RepositoryManagerView.swift](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift)
+
+---
+
+### 64. [MainTabView.swift](../../Sources/Views/MainTabView.swift)
+
+*   **Đường dẫn**: `Views/MainTabView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
+    *   [RepositoryManagerView.swift](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift)
+    *   [SettingsView.swift](../../Sources/Views/Settings/Main/SettingsView.swift)
+    *   [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [FreeBookApp.swift](../../Sources/App/FreeBookApp.swift)
+
+---
+
+### 65. [ChapterCache.swift](../../Sources/Views/Reader/ChapterCache.swift)
+
+*   **Đường dẫn**: `Views/Reader/ChapterCache.swift`
+*   **Imports (Import Graph)**: `Observation`, `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+    *   [ParagraphCardView.swift](../../Sources/Views/Reader/ParagraphCardView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+    *   [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
+    *   [ReadingProgressRepository.swift](../../Sources/Views/Reader/ReadingProgressRepository.swift)
+
+---
+
+### 66. [CollapsedCircleView.swift](../../Sources/Views/Reader/CollapsedCircleView.swift)
+
+*   **Đường dẫn**: `Views/Reader/CollapsedCircleView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [TTSFloatingWidgetView.swift](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift)
+
+---
+
+### 67. [ExpandedControlPanel.swift](../../Sources/Views/Reader/ExpandedControlPanel.swift)
+
+*   **Đường dẫn**: `Views/Reader/ExpandedControlPanel.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [TTSFloatingWidgetView.swift](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift)
+
+---
+
+### 68. [ParagraphCardView.swift](../../Sources/Views/Reader/ParagraphCardView.swift)
+
+*   **Đường dẫn**: `Views/Reader/ParagraphCardView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [ReaderTextView.swift](../../Sources/Views/Reader/ReaderTextView.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [ChapterCache.swift](../../Sources/Views/Reader/ChapterCache.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+    *   [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
+
+---
+
+### 69. [PrefetchManager.swift](../../Sources/Views/Reader/PrefetchManager.swift)
+
+*   **Đường dẫn**: `Views/Reader/PrefetchManager.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**:
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
+
+---
+
+### 70. [ReaderChapterListView.swift](../../Sources/Views/Reader/ReaderChapterListView.swift)
+
+*   **Đường dẫn**: `Views/Reader/ReaderChapterListView.swift`
+*   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [Book.swift](../../Sources/Models/Database/Book.swift)
+    *   [Chapter.swift](../../Sources/Models/Database/Chapter.swift)
+    *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+
+---
+
+### 71. [ReaderTextView.swift](../../Sources/Views/Reader/ReaderTextView.swift)
+
+*   **Đường dẫn**: `Views/Reader/ReaderTextView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`, `UIKit`
+*   **Sử dụng (Uses)**:
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [BypassWebView.swift](../../Sources/Views/Common/BypassWebView.swift)
+    *   [DocumentPicker.swift](../../Sources/Views/Common/DocumentPicker.swift)
+    *   [ParagraphCardView.swift](../../Sources/Views/Reader/ParagraphCardView.swift)
+
+---
+
+### 72. [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+
+*   **Đường dẫn**: `Views/Reader/ReaderView.swift`
+*   **Imports (Import Graph)**: `AVFoundation`, `SwiftData`, `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [Book.swift](../../Sources/Models/Database/Book.swift)
+    *   [Chapter.swift](../../Sources/Models/Database/Chapter.swift)
+    *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
+    *   [SearchEngine.swift](../../Sources/Models/Dictionaries/SearchEngine.swift)
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [TTSModels.swift](../../Sources/Services/TTS/TTSModels.swift)
+    *   [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [BypassWebView.swift](../../Sources/Views/Common/BypassWebView.swift)
+    *   [BookDictionaryView.swift](../../Sources/Views/Dictionary/BookDictionaryView.swift)
+    *   [ManageDefinitionsView.swift](../../Sources/Views/Dictionary/ManageDefinitionsView.swift)
+    *   [ChapterCache.swift](../../Sources/Views/Reader/ChapterCache.swift)
+    *   [ParagraphCardView.swift](../../Sources/Views/Reader/ParagraphCardView.swift)
+    *   [ReaderChapterListView.swift](../../Sources/Views/Reader/ReaderChapterListView.swift)
+    *   [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [ManageDefinitionsView.swift](../../Sources/Views/Dictionary/ManageDefinitionsView.swift)
+    *   [ParagraphCardView.swift](../../Sources/Views/Reader/ParagraphCardView.swift)
+    *   [ReaderChapterListView.swift](../../Sources/Views/Reader/ReaderChapterListView.swift)
+    *   [ReaderTextView.swift](../../Sources/Views/Reader/ReaderTextView.swift)
+    *   [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
+
+---
+
+### 73. [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
+
+*   **Đường dẫn**: `Views/Reader/ReaderViewModel.swift`
+*   **Imports (Import Graph)**: `Combine`, `Observation`, `SwiftData`, `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [Book.swift](../../Sources/Models/Database/Book.swift)
+    *   [Chapter.swift](../../Sources/Models/Database/Chapter.swift)
+    *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+    *   [ChapterCache.swift](../../Sources/Views/Reader/ChapterCache.swift)
+    *   [ParagraphCardView.swift](../../Sources/Views/Reader/ParagraphCardView.swift)
+    *   [PrefetchManager.swift](../../Sources/Views/Reader/PrefetchManager.swift)
+    *   [ReadingProgressRepository.swift](../../Sources/Views/Reader/ReadingProgressRepository.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+
+---
+
+### 74. [ReadingProgressRepository.swift](../../Sources/Views/Reader/ReadingProgressRepository.swift)
+
+*   **Đường dẫn**: `Views/Reader/ReadingProgressRepository.swift`
+*   **Imports (Import Graph)**: `Foundation`, `SwiftData`
+*   **Sử dụng (Uses)**:
+    *   [Book.swift](../../Sources/Models/Database/Book.swift)
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+    *   [ChapterCache.swift](../../Sources/Views/Reader/ChapterCache.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
+
+---
+
+### 75. [SearchView.swift](../../Sources/Views/Search/SearchView.swift)
+
+*   **Đường dẫn**: `Views/Search/SearchView.swift`
+*   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [Book.swift](../../Sources/Models/Database/Book.swift)
+    *   [Chapter.swift](../../Sources/Models/Database/Chapter.swift)
+    *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
+
+---
+
+### 76. [SettingsView.swift](../../Sources/Views/Settings/Main/SettingsView.swift)
+
+*   **Đường dẫn**: `Views/Settings/Main/SettingsView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`, `UniformTypeIdentifiers`
+*   **Sử dụng (Uses)**:
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+    *   [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
+    *   [DictionaryCache.swift](../../Sources/Services/Translation/Utils/DictionaryCache.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+    *   [DocumentPicker.swift](../../Sources/Views/Common/DocumentPicker.swift)
+    *   [SearchEnginesConfigView.swift](../../Sources/Views/Settings/Search/SearchEnginesConfigView.swift)
+    *   [NghiTTSSettingsView.swift](../../Sources/Views/Settings/TTS/NghiTTSSettingsView.swift)
+    *   [TTSDictionaryEditView.swift](../../Sources/Views/Settings/TTS/TTSDictionaryEditView.swift)
+    *   [TTSModelManagerView.swift](../../Sources/Views/Settings/TTS/TTSModelManagerView.swift)
+    *   [TTSReplacementManagerView.swift](../../Sources/Views/Settings/TTS/TTSReplacementManagerView.swift)
+    *   [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [MainTabView.swift](../../Sources/Views/MainTabView.swift)
+
+---
+
+### 77. [SearchEnginesConfigView.swift](../../Sources/Views/Settings/Search/SearchEnginesConfigView.swift)
+
+*   **Đường dẫn**: `Views/Settings/Search/SearchEnginesConfigView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [SearchEngine.swift](../../Sources/Models/Dictionaries/SearchEngine.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [SettingsView.swift](../../Sources/Views/Settings/Main/SettingsView.swift)
+
+---
+
+### 78. [NghiTTSSettingsView.swift](../../Sources/Views/Settings/TTS/NghiTTSSettingsView.swift)
+
+*   **Đường dẫn**: `Views/Settings/TTS/NghiTTSSettingsView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [TextPreprocessor.swift](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [SettingsView.swift](../../Sources/Views/Settings/Main/SettingsView.swift)
+    *   [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
+
+---
+
+### 79. [TTSDictionaryEditView.swift](../../Sources/Views/Settings/TTS/TTSDictionaryEditView.swift)
+
+*   **Đường dẫn**: `Views/Settings/TTS/TTSDictionaryEditView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`, `UniformTypeIdentifiers`
+*   **Sử dụng (Uses)**:
+    *   [TextPreprocessor.swift](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift)
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [DocumentPicker.swift](../../Sources/Views/Common/DocumentPicker.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [SettingsView.swift](../../Sources/Views/Settings/Main/SettingsView.swift)
+    *   [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
+
+---
+
+### 80. [TTSModelManagerView.swift](../../Sources/Views/Settings/TTS/TTSModelManagerView.swift)
+
+*   **Đường dẫn**: `Views/Settings/TTS/TTSModelManagerView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`, `UniformTypeIdentifiers`
+*   **Sử dụng (Uses)**:
+    *   [ModelStore.swift](../../Sources/Services/TTS/NghiTTS/ModelStore.swift)
+    *   [NghiTTSClient.swift](../../Sources/Services/TTS/NghiTTS/NghiTTSClient.swift)
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [TTSModels.swift](../../Sources/Services/TTS/TTSModels.swift)
+    *   [DocumentPicker.swift](../../Sources/Views/Common/DocumentPicker.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [SettingsView.swift](../../Sources/Views/Settings/Main/SettingsView.swift)
+    *   [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
+
+---
+
+### 81. [TTSReplacementManagerView.swift](../../Sources/Views/Settings/TTS/TTSReplacementManagerView.swift)
+
+*   **Đường dẫn**: `Views/Settings/TTS/TTSReplacementManagerView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`, `UniformTypeIdentifiers`
+*   **Sử dụng (Uses)**:
+    *   [TTSReplacementManager.swift](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager.swift)
+    *   [DocumentPicker.swift](../../Sources/Views/Common/DocumentPicker.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [SettingsView.swift](../../Sources/Views/Settings/Main/SettingsView.swift)
+    *   [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
+
+---
+
+### 82. [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
+
+*   **Đường dẫn**: `Views/Shelf/ShelfMain/ShelfView.swift`
+*   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`, `UniformTypeIdentifiers`
+*   **Sử dụng (Uses)**:
+    *   [Book.swift](../../Sources/Models/Database/Book.swift)
+    *   [Chapter.swift](../../Sources/Models/Database/Chapter.swift)
+    *   [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
+    *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+    *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+    *   [BookCoverView.swift](../../Sources/Views/Common/BookCoverView.swift)
+    *   [BypassWebView.swift](../../Sources/Views/Common/BypassWebView.swift)
+    *   [DocumentPicker.swift](../../Sources/Views/Common/DocumentPicker.swift)
+    *   [DownloadTrackerView.swift](../../Sources/Views/Download/DownloadTrackerView.swift)
+    *   [TaskOptionsSheet.swift](../../Sources/Views/Download/TaskOptionsSheet.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [MainTabView.swift](../../Sources/Views/MainTabView.swift)
+
+---
+
+### 83. [FloatingWidgetViewModel.swift](../../Sources/Views/TTSWidget/FloatingWidgetViewModel.swift)
+
+*   **Đường dẫn**: `Views/TTSWidget/FloatingWidgetViewModel.swift`
+*   **Imports (Import Graph)**: `Combine`, `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [WidgetState.swift](../../Sources/Views/TTSWidget/WidgetState.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [TTSFloatingWidgetView.swift](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift)
+
+---
+
+### 84. [TTSFloatingWidgetView.swift](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift)
+
+*   **Đường dẫn**: `Views/TTSWidget/TTSFloatingWidgetView.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [CollapsedCircleView.swift](../../Sources/Views/Reader/CollapsedCircleView.swift)
+    *   [ExpandedControlPanel.swift](../../Sources/Views/Reader/ExpandedControlPanel.swift)
+    *   [FloatingWidgetViewModel.swift](../../Sources/Views/TTSWidget/FloatingWidgetViewModel.swift)
+    *   [TTSPlayStateReader.swift](../../Sources/Views/TTSWidget/TTSPlayStateReader.swift)
+    *   [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [FreeBookApp.swift](../../Sources/App/FreeBookApp.swift)
+
+---
+
+### 85. [TTSPlayStateReader.swift](../../Sources/Views/TTSWidget/TTSPlayStateReader.swift)
+
+*   **Đường dẫn**: `Views/TTSWidget/TTSPlayStateReader.swift`
+*   **Imports (Import Graph)**: `Combine`, `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [TTSFloatingWidgetView.swift](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift)
+
+---
+
+### 86. [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
+
+*   **Đường dẫn**: `Views/TTSWidget/TTSSettingsView.swift`
+*   **Imports (Import Graph)**: `AVFoundation`, `SwiftData`, `SwiftUI`
+*   **Sử dụng (Uses)**:
+    *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+    *   [ModelStore.swift](../../Sources/Services/TTS/NghiTTS/ModelStore.swift)
+    *   [NghiTTSClient.swift](../../Sources/Services/TTS/NghiTTS/NghiTTSClient.swift)
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [TTSModels.swift](../../Sources/Services/TTS/TTSModels.swift)
+    *   [ExtensionConfigView.swift](../../Sources/Views/Extensions/Config/ExtensionConfigView.swift)
+    *   [NghiTTSSettingsView.swift](../../Sources/Views/Settings/TTS/NghiTTSSettingsView.swift)
+    *   [TTSDictionaryEditView.swift](../../Sources/Views/Settings/TTS/TTSDictionaryEditView.swift)
+    *   [TTSModelManagerView.swift](../../Sources/Views/Settings/TTS/TTSModelManagerView.swift)
+    *   [TTSReplacementManagerView.swift](../../Sources/Views/Settings/TTS/TTSReplacementManagerView.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [SettingsView.swift](../../Sources/Views/Settings/Main/SettingsView.swift)
+    *   [TTSFloatingWidgetView.swift](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift)
+
+---
+
+### 87. [WidgetState.swift](../../Sources/Views/TTSWidget/WidgetState.swift)
+
+*   **Đường dẫn**: `Views/TTSWidget/WidgetState.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [FloatingWidgetViewModel.swift](../../Sources/Views/TTSWidget/FloatingWidgetViewModel.swift)
+
+---
+
+<!-- GENERATED END -->

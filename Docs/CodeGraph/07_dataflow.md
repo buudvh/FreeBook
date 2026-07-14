@@ -1,0 +1,114 @@
+---
+generated_by: Antigravity
+generator_version: 1.0
+generated_at: 2026-07-14T09:15:00+07:00
+git_commit: UNKNOWN
+source_files: 87
+document_version: 1
+---
+
+# Dòng chảy Dữ liệu & Cơ chế Cache (Data Flow & Caching)
+
+Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các tầng kiến trúc (Input -> View -> ViewModel -> Manager -> Repository -> Database) và làm rõ toàn bộ các cơ chế bộ nhớ đệm (Cache) đang vận hành trong dự án FreeBook.
+
+## Ghi chú thủ công (Human Notes)
+*Ghi chú thủ công của con người.*
+
+<!-- GENERATED START -->
+## 1. Dòng chảy dữ liệu chính (Core Data Flows)
+
+### 1.1. Luồng tải chương truyện (Reader Chapter Loading Flow)
+
+Luồng đi của dữ liệu khi người dùng chuyển chương truyện:
+
+```mermaid
+graph TD
+    User["Người dùng chọn chương"] --> View["ReaderView (UI)"]
+    View -->|Yêu cầu chương| VM["ReaderViewModel"]
+    
+    VM -->|1. Kiểm tra RAM Cache| Cache["ChapterCache (RAM)"]
+    Cache -->|Có| ReturnVM["Trả nội dung hiển thị"]
+    
+    Cache -->|Không có| DB["SwiftData (Book/Chapter Models)"]
+    DB -->|2. Đã tải offline (isCached)| SaveCache["Lưu vào ChapterCache"]
+    
+    DB -->|3. Chưa tải offline| ExtManager["ExtensionManager.shared.chap(...)"]
+    ExtManager -->|Nạp script bóc tách| JS["JSExecutor (JavaScriptCore)"]
+    JS -->|Tải mạng hoặc load web ngầm| Web["Nguồn truyện (HTML)"]
+    
+    Web -->|Trả về HTML thô| JS
+    JS -->|Html.parse / Trích xuất nội dung| ExtResult["JSON kết quả chương"]
+    ExtResult -->|Làm sạch mã HTML| Clean["cleanHTML()"]
+    
+    Clean -->|Tiền xử lý dịch thuật| Translation["TranslateUtils.translateContent(...)"]
+    Translation -->|Nạp từ từ điển nhị phân| Trie["TranslationManager (VietPhrase.dat)"]
+    
+    Trie -->|Nội dung tiếng Việt sạch| SaveDB["Cập nhật Model Chapter & isCached = true"]
+    SaveDB -->|modelContext.save()| Disk["Lưu xuống đĩa (SQLite)"]
+    SaveDB --> SaveCache
+    SaveCache --> ReturnVM
+    ReturnVM -->|Phân đoạn hiển thị| ReaderText["ReaderTextView (Giao diện)"]
+```
+
+---
+
+### 1.2. Luồng phát âm thanh TTS (TTS Audio Generation Flow)
+
+Luồng dữ liệu chuyển đổi văn bản sang âm thanh nền:
+
+```mermaid
+graph TD
+    TextSource["Văn bản chương truyện"] --> Prep["TTSReplacementManager (Thay thế từ viết tắt/tên riêng)"]
+    Prep --> Preprocess["TextPreprocessor (Chuẩn hóa số, từ phiên âm, transliteration)"]
+    Preprocess --> Paragraphs["Phân đoạn đoạn văn (paragraphs)"]
+    
+    Paragraphs --> EngineSelect{"Lựa chọn Engine phát?"}
+    
+    %% Engine Siri
+    EngineSelect -->|Siri| Siri["SiriTTSService (Native)"]
+    Siri -->|AVSpeechSynthesizer| AudioOut["Loa / Tai nghe (Âm thanh phát)"]
+    
+    %% Engine NghiTTS
+    EngineSelect -->|NghiTTS| Nghi["PiperTTSService (Piper Engine offline)"]
+    Nghi -->|Tổng hợp nhị phân| WavData["Dữ liệu WAV thô"]
+    WavData -->|Giải mã PCM nhị phân| PCMBuffer["AVAudioPCMBuffer (RAM)"]
+    
+    %% Engine JS Extension
+    EngineSelect -->|Extension JS| ExtTTS["ExtTTSService"]
+    ExtTTS -->|Gọi executeCustomScript| JS["JSExecutor (Script JS của extension)"]
+    JS -->|Tải file âm thanh online| PCMBuffer
+    
+    PCMBuffer -->|Lưu bộ đệm gối đầu| PreWav["preloadedWavs (RAM Cache: N, N+1)"]
+    PreWav -->|Lập lịch phát| PlayerNode["AVAudioPlayerNode.scheduleBuffer(...)"]
+    PlayerNode -->|Chỉnh tốc độ/tone| TimePitch["AVAudioUnitTimePitch"]
+    TimePitch -->|Trộn âm thanh| Mixer["AVAudioEngine.mainMixerNode"]
+    Mixer --> AudioOut
+    
+    %% Ghi nhận trạng thái
+    PlayerNode -->|Completion Handler| DBProgress["Save TTS progress to SQLite (Main Thread)"]
+```
+
+---
+
+## 2. Các Cơ chế Bộ nhớ Đệm (Caching Systems)
+
+### 2.1. Bộ đệm Chương truyện (`ChapterCache`)
+*   **Vị trí**: Nằm trong `ReaderViewModel.swift` (`let cache = ChapterCache()`).
+*   **Mục tiêu**: Lưu trữ các đoạn văn đã định dạng trên RAM của chương hiện tại (N), chương trước (N-1) và chương sau (N+1).
+*   **Giải phóng**: Tự giải phóng khi đổi sang chương xa hơn cửa sổ N±1 hoặc khi nhận cảnh báo bộ nhớ `didReceiveMemoryWarningNotification`.
+
+### 2.2. Bộ đệm Âm thanh gối đầu (`preloadedWavs`)
+*   **Vị trí**: Nằm trong `TTSManager.swift` (`private var preloadedWavs: [Int: AVAudioPCMBuffer]`).
+*   **Mục tiêu**: Lưu trữ buffer âm thanh PCM của đoạn hiện tại đang nghe và đoạn tiếp theo (N+1) đã được tổng hợp trước trong nền để triệt tiêu độ trễ khi chuyển đoạn.
+*   **Giải phóng**: Mỗi khi chuyển đoạn thành công, tự động xóa tất cả các buffer có index nằm ngoài cửa sổ `[N, N+1]` để tiết kiệm RAM.
+
+### 2.3. Bộ đệm Từ điển (`DictionaryCache` & `bookDicts`)
+*   **Vị trí**: Nằm trong `TranslationManager.swift` (`private var bookDicts: [String: (vietPhrase: TrieDictionary?, names: TrieDictionary?)]`).
+*   **Mục tiêu**: Lưu cache các từ điển VietPhrase/Names nhị phân đã tải của các cuốn sách mở gần nhất.
+*   **Giải phóng**: Xóa sạch toàn bộ từ điển trong RAM bằng hàm `clearBookDictCache()` khi hệ thống cảnh báo cạn kiệt RAM.
+
+### 2.4. Bộ đệm Hình ảnh bìa sách (`ImageCacheManager`)
+*   **Vị trí**: Nằm trong `Sources/Common/Services/ImageCacheManager.swift`.
+*   **Mục tiêu**: Cache ảnh bìa truyện tải từ các URL web về đĩa/RAM để tránh tải trùng lặp khi người dùng cuộn kệ sách.
+*   **Cơ chế**: Sử dụng `NSCache` tích hợp của Apple.
+<!-- GENERATED END -->

@@ -16,10 +16,10 @@ actor ReadingProgressRepository: ModelActor {
     // Ghi tiến trình đọc chạy ngầm hoàn toàn trên Background Thread của ModelActor
     func saveProgress(bookId: String, progress: ReadingProgress) async throws {
         let context = modelContext
-        let predicate = #Predicate<Book> { $0.bookId == bookId }
-        let descriptor = FetchDescriptor<Book>(predicate: predicate)
+        let descriptor = FetchDescriptor<Book>()
+        let allBooks = (try? context.fetch(descriptor)) ?? []
         
-        if let book = try context.fetch(descriptor).first {
+        if let book = allBooks.first(where: { $0.bookId == bookId }) {
             book.currentChapterIndex = progress.chapterIndex
             book.currentChapterPage = progress.paragraphIndex
             book.lastReadDate = Date()

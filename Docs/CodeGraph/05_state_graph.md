@@ -1,0 +1,115 @@
+---
+generated_by: Antigravity
+generator_version: 1.0
+generated_at: 2026-07-14T09:15:00+07:00
+git_commit: UNKNOWN
+source_files: 87
+document_version: 1
+---
+
+# Máy Trạng thái (State Graph)
+
+Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) đang vận hành trong dự án FreeBook.
+
+## Ghi chú thủ công (Human Notes)
+*Ghi chú thủ công của con người.*
+
+<!-- GENERATED START -->
+## 1. Máy Trạng thái Phát Giọng đọc (TTS Playback State Machine)
+
+Máy trạng thái này điều khiển việc phát âm thanh trong `TTSManager.swift`, đồng bộ hóa với Floating Widget (`FloatingWidgetViewModel` và `WidgetState`).
+
+### 1.1. Sơ đồ Máy Trạng thái TTS
+
+```mermaid
+stateDiagram-v2
+    [*] --> Stopped : Khởi động App
+    
+    Stopped --> Preparing : prepareSpeaking() / Nạp dữ liệu
+    Stopped --> Playing : startSpeaking() / Phát lập tức
+    
+    Preparing --> Playing : playAudioBuffer() / Nạp buffer thành công
+    Preparing --> Stopped : stop() / Xóa cache
+    
+    Playing --> Paused : pause() hoặc Audio Interruption (Bắt đầu)
+    Playing --> Stopped : stop() hoặc Kết thúc chương (onChapterFinished)
+    Playing --> Failed : Lỗi Engine / Mạng / Chuyển WAV hỏng
+    
+    Paused --> Playing : resume() hoặc Audio Interruption (Kết thúc)
+    Paused --> Stopped : stop()
+    
+    Failed --> Stopped : Tự động dọn dẹp tài nguyên
+```
+
+### 1.2. Triggers & Transitions (Chuyển đổi trạng thái)
+*   **`Stopped` -> `Preparing`**: Được kích hoạt khi gọi `prepareSpeaking(...)`. Trình phát nạp danh sách chương, phân đoạn văn bản sạch, định vị trang hiện tại nhưng không phát ra tiếng.
+*   **`Stopped` / `Preparing` -> `Playing`**: Kích hoạt qua `startSpeaking(...)`. Cấu hình `AVAudioSession`, khởi động `AVAudioEngine`, bắt đầu phát ra âm thanh và cập nhật Now Playing.
+*   **`Playing` -> `Paused`**: Kích hoạt qua `pause()` hoặc khi nhận thông báo ngắt `AVAudioSession.interruptionNotification`. Tạm dừng phát của playerNode nhưng giữ trạng thái session.
+*   **`Paused` -> `Playing`**: Kích hoạt qua `resume()` hoặc khi cuộc gọi kết thúc (interruption ended). Tiếp tục phát đoạn âm thanh từ vị trí cũ.
+*   **`Playing` / `Paused` -> `Stopped`**: Kích hoạt qua `stop()`. Gọi `playerNode.stop()`, hủy tất cả các task prefetch WAV, làm rỗng RAM cache `preloadedWavs` và set `isPlaying = false`.
+
+### 1.3. Invalid Transitions (Chuyển đổi không hợp lệ)
+*   `Stopped` -> `pause()` / `resume()`: Không thể tạm dừng hoặc tiếp tục phát khi chưa có sách nào được chuẩn bị.
+*   `Paused` -> `prepareSpeaking()`: Không được phép nạp chương mới khi đang trong trạng thái tạm dừng phát chương cũ (phải gọi `stopCurrentPlayback` trước).
+
+---
+
+## 2. Máy Trạng thái Tác vụ Tải xuống (Download Task State Machine)
+
+Định nghĩa qua enum `TaskStatus` trong `DownloadManager.swift`, quản lý vòng đời của các tác vụ chạy nền tải truyện offline hoặc xuất tệp TXT.
+
+### 2.1. Sơ đồ Máy Trạng thái Tác vụ
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending : Đăng ký Task mới / Retry Task
+    
+    Pending --> Running : runNextTaskIfNeeded() (Task bốc lên chạy)
+    Running --> Completed : executeTask() hoàn thành / Xuất file thành công
+    Running --> Failed : Gặp lỗi ngoại lệ
+    Running --> Cancelled : Người dùng nhấn Hủy tác vụ
+    
+    Failed --> Pending : retryTask()
+    Cancelled --> Pending : retryTask()
+    
+    Completed --> [*] : Xóa task khỏi danh sách
+```
+
+### 2.2. Triggers & Transitions (Chuyển đổi trạng thái)
+*   **`[*] -> Pending`**: Người dùng bấm tải sách hoặc xuất TXT. Task được lưu xuống DB dưới dạng `pending`.
+*   **`Pending -> Running`**: Hàng đợi chạy tác vụ kiểm tra nếu không có task nào đang chạy, sẽ chọn task `pending` đầu tiên, chuyển trạng thái sang `running` và kích hoạt `Task.detached` để chạy nền.
+*   **`Running -> Completed`**: Tải xong tất cả các chương được chỉ định, lưu cache thành công, chuyển trạng thái sang `completed`.
+*   **`Running -> Failed`**: Phát sinh lỗi trong quá trình chạy. Ghi nhận `errorMessage` và đánh dấu `failed`.
+*   **`Running -> Cancelled`**: Người dùng nhấn nút hủy trên giao diện `DownloadTrackerView`. Tiến trình nền phát hiện cờ hủy, dừng vòng lặp tải và đánh dấu `cancelled`.
+*   **`Failed / Cancelled -> Pending`**: Gọi `retryTask(taskId:)`, reset số lượng chương đã tải về 0 và đưa trở lại trạng thái `pending` để chạy lại.
+
+### 2.3. Invalid Transitions (Chuyển đổi không hợp lệ)
+*   `Completed` -> `Running` / `Failed`: Tác vụ đã hoàn thành là trạng thái cuối cùng, không thể chuyển sang chạy lại hoặc báo lỗi.
+*   `Pending` -> `Completed` / `Cancelled`: Không thể hoàn thành hoặc hủy một tác vụ chưa từng bắt đầu chạy.
+
+---
+
+## 3. Máy Trạng thái Nạp Chương Trình đọc (Book/Chapter Loading State Machine)
+
+Quản lý luồng tải nội dung chương truyện để hiển thị trên trình đọc (`ReaderViewModel.swift`).
+
+### 3.1. Sơ đồ Máy Trạng thái Nạp Chương
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle : Mở Trình đọc
+    
+    Idle --> Loading : loadChapterContent() / Tải nội dung chương
+    
+    Loading --> Success : Tải thành công (từ offline DB hoặc online JS)
+    Loading --> Error : Lỗi kết nối / Extension bị lỗi
+    
+    Error --> Loading : Nhấn thử lại (Retry)
+    Success --> Loading : Chuyển chương tiếp theo / Quay lại chương trước
+```
+
+### 3.2. Triggers & Transitions (Chuyển đổi trạng thái)
+*   **`Idle -> Loading`**: Mở chương truyện lần đầu tiên hoặc chuyển chương. Kích hoạt cờ loading của chương đó.
+*   **`Loading -> Success`**: Đọc thành công dữ liệu từ DB (truyện offline) hoặc chạy JS bóc tách thành công (truyện online). Nội dung chương được hiển thị lên màn hình.
+*   **`Loading -> Error`**: Tải thất bại. Hiển thị view thông báo lỗi kèm nút "Thử lại".
+<!-- GENERATED END -->

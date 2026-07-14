@@ -1,84 +1,131 @@
-# FreeBook - Project Rules
+# FreeBook - AI Agent Development Workflow
 
-This document defines coding guidelines, runtime specifications, and constraints for developers and agentic models working on the **FreeBook** codebase.
-
-## Codebase Guidelines & Swift Architecture
-
-### 1. Persistence & SwiftData Queries
-- **Constraint:** Avoid using SwiftData `#Predicate` filters on string properties (e.g., `!localPath.isEmpty`) in SwiftUI `@Query` declarations. SwiftData's SQLite query compiler has translation bugs that may fail to filter correctly.
-- **Rule:** Query the complete list and filter in memory using a computed property:
-  ```swift
-  @Query private var allExtensions: [Extension]
-  private var activeExtensions: [Extension] {
-      allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
-  }
-  ```
-
-### 2. Extension Registry & Installation URL
-- The `Extension` model includes a `downloadUrl` property.
-- When syncing repository files (`RepositoryManagerView.swift`), save the raw `path` from `plugin.json` directly into `downloadUrl` to ensure correct package downloads.
-- Do not use hardcoded string replacements to generate zip URLs.
-
-### 3. Codebase File & Folder Organization (Common, Views, Services, Models)
-- **Rule:** Maintain the following directory structure for codebase integrity:
-  - **Common (`Sources/Common`)**: Chứa các thành phần dùng chung cho toàn dự án.
-    - `Extensions/`: Các phần mở rộng (Extensions/Helpers) dùng chung (`String+HTML.swift`, `View+Keyboard.swift`, `String+Crypto.swift`...).
-    - `Services/`: Các Service/Manager dùng chung cho toàn bộ ứng dụng (`ImageCacheManager.swift`, `ToastManager.swift`...).
-  - **Models (`Sources/Models`)**:
-    - `Database/`: All SwiftData persistable model classes (`Book`, `Chapter`, `Extension`, `Repository`).
-    - `Dictionaries/`: All translation lookup data structure classes (`DoubleArrayTrie`, `TextDictionary`, `SearchEngine`).
-  - **Views (`Sources/Views`)**: Tổ chức thành các thư mục con theo module chức năng độc lập:
-    - `Shelf/ShelfMain/`: Chỉ chứa kệ sách chính (`ShelfView.swift`).
-    - `Discovery/`: Tab Khám phá (`DiscoveryView.swift`).
-    - `BookDetail/`: Chi tiết sách (`BookDetailView.swift`).
-    - `Search/`: Tìm kiếm truyện (`SearchView.swift`).
-    - `Reader/`: Trình đọc truyện (`ReaderView.swift` và các view phụ trợ).
-    - `TTSWidget/`: Floating widget điều khiển giọng đọc trên trình đọc.
-    - `Dictionary/`: Tra cứu từ điển (`DictionaryHubView.swift`, `DictionaryListView.swift`...).
-    - `Download/`: Quản lý tiến trình tải sách (`DownloadTrackerView.swift`, `TaskOptionsSheet.swift`).
-    - `Extensions/`: Quản lý extension, chia làm các thư mục con `Config/`, `Store/`, `Manager/`.
-    - `Settings/`: Cấu hình hệ thống, chia làm các thư mục con `Main/`, `Search/`, `TTS/`.
-    - `Common/`: Các view phụ trợ dùng chung (`BypassWebView.swift`, `DocumentPicker.swift`, `BookCoverView.swift`...).
-  - **Services (`Sources/Services`)**: Tổ chức thành các thư mục con theo mảng dịch vụ chức năng:
-    - `TTS/`: Dịch vụ phát âm TTS.
-      - Thư mục gốc `TTS/`: Các bộ điều khiển và định nghĩa dùng chung (`TTSManager.swift`, `EspeakPhonemizer.swift`, `WAVEncoder`...) và thư mục `Preprocessing/`.
-      - `NghiTTS/`: Chứa client NghiTTS và lõi Piper offline (`ONNXPiperEngine.swift`, `PiperTTSService.swift`, `ModelStore.swift`).
-      - `Siri/`: Chứa dịch vụ phát âm native Siri (`SiriTTSService.swift`).
-      - `Ext/`: Chứa dịch vụ phát âm qua Extension JS (`ExtTTSService.swift`).
-    - `Extensions/`: Engine chạy extension javascript.
-      - `Engine/`: Core thực thi JS (`JSExecutor.swift`, `JSDom.swift`, `JSCrypto.swift`).
-      - `Manager/`: `ExtensionManager.swift`.
-    - `Translation/`: Dịch thuật tự động.
-      - `Manager/`: `TranslationManager.swift`.
-      - `Utils/`: `TranslateUtils.swift`, `DictionaryCache.swift`.
-    - `Download/`: `DownloadManager.swift`.
-    - `Logging/`: `AppLogger.swift`.
+> **AGENTS.md defines AI workflow only. Project-specific architecture, coding standards, runtime constraints, subsystem rules and implementation details must reside in `Docs/CodeGraph/rules.md`. AGENTS.md should reference those documents instead of duplicating their contents.**
 
 ---
 
-## JavaScript Core Runtime & VBook Extensions Integration
+## 1. Trước mỗi nhiệm vụ (Before Every Task)
+Trước khi chỉnh sửa mã nguồn, mọi AI assistant bắt buộc phải:
+1.  Đọc `.agents/AGENTS.md` (Workflow và quy trình hành vi này).
+2.  Đọc `Docs/CodeGraph/00_index.md` (Mục lục và cấu trúc CodeGraph).
+3.  Đọc tất cả các tài liệu CodeGraph liên quan đến phần sắp sửa đổi.
+4.  Đọc `Docs/CodeGraph/rules.md` (Toàn bộ tri thức dự án, quy tắc viết code, kiến trúc, API và checklist).
+5.  Hiểu rõ kiến trúc hiện tại và cách phân hệ vận hành trước khi đưa ra các thay đổi.
 
-### 1. Script Entrypoint
-- All JavaScript extensions are structured as isolated modules.
-- **Rule:** The entry point function inside ALL script files (`search.js`, `detail.js`, `toc.js`, `chap.js`, `genre.js`, `home.js`) is named `execute(...)`. Always invoke `"execute"` via `runAsync` in `ExtensionManager.swift`.
+---
 
-### 2. Script File Path Resolution
-- Scripts may be stored in the root folder of the extension package or inside a `src/` subdirectory.
-- `ExtensionManager.swift`'s `getScriptPath` is configured to search both the root folder and the `src/` subfolder. Respect this fallback search sequence.
+## 2. Quy trình chuẩn cho AI Assistant (Core Workflow Router)
 
-### 3. Injected Global JS Objects
-The `JSExecutor` injects the following global namespaces/functions into the `JSContext`:
-- `Html`: Dom parser bridge (`Html.parse(...)`).
-- `console`: Redirects `console.log(...)` to Xcode print logs.
-- `fetch`: Asynchronous Promise-based fetch API.
-- `Response`: Global response helper namespace:
-  - `Response.success(data)` returns the raw data directly.
-  - `Response.error(message)` throws an Error.
-- `Engine`: Simulates a synchronous headless browser:
-  - `Engine.newBrowser()` returns a mocked `Browser` instance supporting `.launch(url, timeout)` (sync network request), `.html()`, and `.close()`.
+AI phải thực hiện nhiệm vụ một cách nhất quán theo luồng 8 bước sau:
 
-### 4. Logging & Diagnostics
-- **Environment Constraint:** The primary developer does not own a Mac. The application is built using GitHub Actions (CI) and installed on a physical iOS device inside **LiveContainer** to be run. Direct Xcode console attachment is unavailable.
-- **Rule:** Write all runtime logs to a file named `app_logs.txt` inside the app's `Documents/` directory using the `AppLogger` utility. This allows logs to be read directly on the device or exported.
-- Log all JS exception details including `desc`, `line`, `column`, and `stack` (JS Stacktrace) into both standard output and `app_logs.txt`.
-- Keep detailed trace logs of inputs, JS outputs, and parser results in `ExtensionManager` actions to ensure traceability during debugging.
+```mermaid
+graph TD
+    1[1. Đọc AGENTS.md] --> 2[2. Đọc Docs/CodeGraph/00_index.md & rules.md]
+    2 --> 3[3. Xác định tài liệu bị ảnh hưởng]
+    3 --> 4[4. Sửa đổi Source Code]
+    4 --> 5[5. Cập nhật các tài liệu bị ảnh hưởng]
+    5 --> 6[6. Cập nhật manifest.json & CHANGELOG.md]
+    6 --> 7[7. Chạy kịch bản validation]
+    7 --> 8[8. Hoàn thành nhiệm vụ]
+```
+
+1.  **Đọc AGENTS.md**: Nắm rõ workflow AI.
+2.  **Định vị tài liệu**: Đọc mục lục `00_index.md` và quy tắc `rules.md` để tìm đúng subsystem bị ảnh hưởng.
+3.  **Xác định phạm vi cập nhật**: Tìm xem file tài liệu nào trong `Docs/CodeGraph/` cần cập nhật.
+4.  **Thay đổi Source Code**: Thực hiện viết mã nguồn và tự kiểm tra chức năng.
+5.  **Cập nhật CodeGraph tăng dần**: Chỉ cập nhật các tài liệu bị ảnh hưởng trực tiếp (cập nhật trong vùng comment `GENERATED`).
+6.  **Cập nhật Metadata**: Cập nhật `manifest.json` (tính toán lại `sourceHash` và `generatedHash`) và ghi nhận vào `Docs/CodeGraph/CHANGELOG.md`.
+7.  **Xác thực**: Chạy kịch bản `validate_links.py` để đảm bảo không lỗi link, không mồ côi.
+8.  **Kết thúc**: Phản hồi với cụm từ kết quả tiêu chuẩn.
+
+---
+
+## 3. Thứ tự Ưu tiên Thẩm quyền (Priority of Authority / Source of Truth Hierarchy)
+
+Thứ tự ưu tiên thẩm quyền của tài liệu và mã nguồn khi xảy ra xung đột thông tin được định nghĩa theo cấp bậc sau:
+1.  **`Docs/CodeGraph/rules.md`** (Normative Specification / The current approved technical specification. Unless explicitly changed by the user or project maintainers, AI must treat it as the authoritative technical standard).
+2.  **`Source Code`** (Actual Implementation / Triển khai thực tế - những gì code đang thực thi).
+3.  **`Docs/CodeGraph/*`** (Descriptive Documentation / Tài liệu mô tả - những gì tài liệu mô tả về mã nguồn).
+4.  **Các tài liệu khác** (Other documentation).
+
+> [!NOTE]
+> **This authority order is only used to resolve conflicts between artifacts. It does not define the normal development workflow.**
+> *(Thứ tự ưu tiên thẩm quyền này chỉ được sử dụng khi xảy ra xung đột giữa các tài liệu hoặc mã nguồn. Nó không định nghĩa hay thay thế quy trình phát triển thông thường).*
+
+*   **Bản chất**: `rules.md` là tài liệu quy phạm (những gì dự án cần tuân thủ), trong khi `Docs/CodeGraph/*` là tài liệu mô tả (những gì mã nguồn đang thực thi hiện tại).
+*   **Quy trình xử lý sai lệch (Deviation Handling)**: AI phải thực hiện quy trình sau khi phát hiện sự sai lệch:
+    *   **Xác minh**: Kiểm tra xem sai lệch là **chủ ý thiết kế mới** (intentional change) hay là **lỗi lập trình** (stale/bug).
+    *   **Lỗi / Sai lệch**: Tiến hành sửa đổi `Source Code` để tuân thủ quy chuẩn trong `rules.md`.
+    *   **Quy tắc cũ / Thay đổi kiến trúc**: Cập nhật `rules.md` trước (chỉ khi bản thân quy chuẩn kỹ thuật của dự án thay đổi) để ghi nhận quy tắc mới $\rightarrow$ Đồng bộ `Source Code` (nếu cần) $\rightarrow$ Cập nhật `Docs/CodeGraph/*` tương ứng để phản ánh trạng thái thực tế mới.
+    *   **Yêu cầu trực tiếp từ người dùng (User-directed change)**: Nếu người dùng hoặc maintainer yêu cầu thay đổi tính năng, kiến trúc hoặc quy tắc (chỉ áp dụng khi yêu cầu của người dùng có sửa code):
+        1. Thực hiện thay đổi theo yêu cầu trên **Source Code**.
+        2. Đánh giá xem thay đổi đó có làm thay đổi quy chuẩn của dự án (**`rules.md`**) hay không.
+        3. Nếu có, cập nhật **`rules.md`**.
+        4. Cuối cùng cập nhật **`Docs/CodeGraph/*`** để phản ánh trạng thái mới.
+    *   **Trường hợp không rõ (UNKNOWN)**: Nếu AI không đủ bằng chứng để xác định liệu sai lệch là chủ ý hay lỗi, **bắt buộc phải đánh dấu UNKNOWN** và yêu cầu người dùng xác nhận thay vì tự suy đoán.
+    *   **Không tự ý sửa**: Tuyệt đối không tự ý sửa `Source Code` chỉ để khớp với `rules.md` khi chưa xác minh `rules.md` vẫn là quy tắc hiện hành.
+
+*   **Lưu ý**: Đa số các tính năng thông thường (ordinary features) không cần sửa `rules.md`.
+
+*   **Ví dụ minh họa (Examples)**:
+    *   *Code khác CodeGraph* $\rightarrow$ Cập nhật CodeGraph.
+    *   *Code khác rules.md vì rules.md cũ* $\rightarrow$ 1. Cập nhật rules.md; 2. Đồng bộ Source Code (nếu cần); 3. Cập nhật Docs/CodeGraph/* để phản ánh trạng thái mới.
+    *   *Code khác rules.md do bug* $\rightarrow$ Sửa Source Code để tuân thủ rules.md.
+    *   *Người dùng yêu cầu thay đổi tính năng/kiến trúc* $\rightarrow$ 1. Sửa Source Code; 2. Đánh giá và cập nhật rules.md (nếu đổi quy chuẩn); 3. Cập nhật Docs/CodeGraph/*.
+
+---
+
+## 4. Quy tắc Bảo trì & Cập nhật tăng dần (Maintenance Rules)
+*   **Không tạo lại toàn bộ (No Full Regeneration)**: Chỉ phân tích và chỉnh sửa các tài liệu bị ảnh hưởng trực tiếp. Giữ nguyên các tài liệu khác.
+*   **Bảo vệ ghi chú của con người (Preserve Human Edits)**:
+    *   Tất cả nội dung tự động sinh bởi AI nằm trong khối comment:
+        `<!-- GENERATED START -->`
+        ...
+        `<!-- GENERATED END -->`
+    *   AI **chỉ được phép sửa đổi nội dung bên trong vùng này**.
+    *   **Tuyệt đối không ghi đè, xóa hoặc sửa đổi** bất kỳ nội dung nào nằm ngoài vùng này (đó là các ghi chú, lưu ý thủ công của con người).
+*   **Đồng bộ khi Rename / Delete / Move file**:
+    *   Nếu một file Swift bị đổi tên, di chuyển hoặc xóa, AI phải quét toàn bộ các file trong `Docs/CodeGraph/` để cập nhật mọi đường dẫn tương đối và xóa bỏ các tham chiếu mồ côi (orphan references).
+
+---
+
+## 5. Quy tắc Kích hoạt Cập nhật (Trigger Rules)
+CodeGraph bắt buộc phải được cập nhật khi có bất kỳ thay đổi nào sau đây trong mã nguồn:
+*   Thêm file mới, xóa file hoặc di chuyển/đổi tên file Swift.
+*   Thay đổi Public API của các Manager, Service, hoặc ViewModel.
+*   Thay đổi định nghĩa Protocol hoặc SwiftData Model (`@Model`).
+*   Thay đổi mối quan hệ phụ thuộc (Dependency) giữa các thành phần.
+*   Thay đổi Máy trạng thái (State Machine) hoặc luồng sự kiện.
+*   Thay đổi quan hệ sở hữu đối tượng (Ownership Graph) hoặc Audio/TTS Pipeline.
+
+---
+
+## 6. Tiêu chí Hoàn thành (Completion Criteria / Definition of Synchronized)
+Một nhiệm vụ phát triển chỉ được coi là hoàn thành khi:
+1.  Source Code đã được cập nhật thành công và chạy ổn định.
+2.  Mọi tài liệu CodeGraph bị ảnh hưởng đã được cập nhật chính xác (ở cả YAML Front Matter và vùng `GENERATED`).
+3.  Tệp `manifest.json` đã được cập nhật chính xác `sourceHash` và `generatedHash`.
+4.  Tệp `CHANGELOG.md` đã được ghi nhận lịch sử thay đổi.
+5.  Kịch bản Validation (`validate_links.py`) chạy **PASS 100%**, không còn liên kết chết hay cảnh báo nghiêm trọng.
+
+**Response cuối cùng của AI bắt buộc phải chứa một trong hai cụm từ:**
+*   `"CodeGraph updated."` (nếu có cập nhật tài liệu CodeGraph).
+*   `"No CodeGraph update required."` (nếu không cần cập nhật tài liệu CodeGraph).
+
+---
+
+## 7. Phạm vi chỉnh sửa cho phép (Modification Scope)
+*   AI có quyền tự cập nhật:
+    *   `Docs/CodeGraph/*` (Các tài liệu phân tích)
+    *   `Docs/CodeGraph/manifest.json`
+    *   `Docs/CodeGraph/CHANGELOG.md`
+*   AI **Chỉ được phép chỉnh sửa `.agents/AGENTS.md` khi có yêu cầu trực tiếp và rõ ràng từ người dùng**.
+
+---
+
+## 8. Khả năng tương thích tương lai (Future Compatibility)
+Khi giới thiệu các phân hệ mới trong tương lai, AI cần cập nhật:
+*   Đồ thị CodeGraph và phân hệ tương ứng trong `Docs/CodeGraph/`.
+*   Quy tắc kỹ thuật trong `Docs/CodeGraph/rules.md`.
+*   File kê khai `manifest.json`.
+*   Chỉ cập nhật `.agents/AGENTS.md` khi bản thân quy trình workflow phát triển của AI thay đổi, không cập nhật cho các chi tiết triển khai tính năng thông thường.

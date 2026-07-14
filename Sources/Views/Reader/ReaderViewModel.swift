@@ -56,19 +56,15 @@ class ReaderViewModel: ObservableObject {
     var bookSourceName: String?
     
     private var localBook: Book? {
-        let targetBookId = bookId
-        let predicate = #Predicate<Book> { $0.bookId == targetBookId }
-        var descriptor = FetchDescriptor<Book>(predicate: predicate)
-        descriptor.fetchLimit = 1
-        return try? modelContext.fetch(descriptor).first
+        let descriptor = FetchDescriptor<Book>()
+        let allBooks = (try? modelContext.fetch(descriptor)) ?? []
+        return allBooks.first(where: { $0.bookId == bookId })
     }
     
     private var ext: Extension? {
-        let targetPackageId = extensionPackageId
-        let predicate = #Predicate<Extension> { $0.packageId == targetPackageId }
-        var descriptor = FetchDescriptor<Extension>(predicate: predicate)
-        descriptor.fetchLimit = 1
-        return try? modelContext.fetch(descriptor).first
+        let descriptor = FetchDescriptor<Extension>()
+        let allExts = (try? modelContext.fetch(descriptor)) ?? []
+        return allExts.first(where: { $0.packageId == extensionPackageId })
     }
     
     init(
@@ -257,8 +253,9 @@ class ReaderViewModel: ObservableObject {
             }
         }
         
+        let activeIdx = activeChapterIndex
         Task {
-            await prefetcher.updateQueue(withVisibleIndexes: window) { [weak self] index in
+            await prefetcher.updateQueue(withVisibleIndexes: window, activeIndex: activeIdx) { [weak self] index in
                 if let self = self {
                     try await self.loadChapterContentFromExtension(index)
                 }
