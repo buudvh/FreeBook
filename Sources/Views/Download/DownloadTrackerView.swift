@@ -52,7 +52,9 @@ struct DownloadTrackerView: View {
                 .shadow(color: Color.black.opacity(0.08), radius: 2, x: 0, y: 1)
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(task.bookTitle)
+                Text(TranslateUtils.isTranslationEnabled && TranslateUtils.containsChinese(task.bookTitle)
+                     ? TranslateUtils.translateMeta(task.bookTitle, bookId: task.bookId)
+                     : task.bookTitle)
                     .font(.headline)
                     .lineLimit(1)
                 
@@ -165,9 +167,16 @@ struct DownloadTrackerView: View {
     private func exportFromCached(_ task: DownloadTask) {
         let allBooks = (try? modelContext.fetch(FetchDescriptor<Book>())) ?? []
         if let book = allBooks.first(where: { $0.bookId == task.bookId }) {
-            self.selectedTaskType = .exportTxt
-            self.defaultOnlyExportCached = true
-            self.selectedBookForTask = book
+            DownloadManager.shared.enqueueTask(
+                book: book,
+                taskType: .exportTxt,
+                startFromCurrent: false,
+                limit: .all,
+                translate: false,
+                onlyExportCached: true,
+                container: modelContext.container
+            )
+            ToastManager.shared.show(message: "Đã thêm tác vụ xuất '\(book.title)' từ các chương đã tải.")
         }
     }
 }

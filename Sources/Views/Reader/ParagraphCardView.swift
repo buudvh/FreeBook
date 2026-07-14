@@ -15,17 +15,19 @@ struct ParagraphCardView: View {
     var body: some View {
         ReaderTextView(
             text: isTranslationEnabled ? item.translated : item.original,
-            fontSize: item.isTitle ? fontSize * 1.25 : fontSize,
+            fontSize: item.isTitle ? fontSize * 1.5 : fontSize,
             lineSpacing: lineSpacing,
             theme: theme,
             highlightRange: highlightRange,
             isBold: item.isTitle,
+            isCentered: item.isTitle,
             triggerGetVisibleIndex: $triggerGetVisibleIndex,
             onGetVisibleIndex: onGetVisibleIndex,
             onSelectionChange: onSelectionChange,
             onSpeakFromHere: onSpeakFromHere
         )
         .frame(minHeight: 20)
+        .padding(.top, item.isTitle ? 32 : 0)
     }
 }
 

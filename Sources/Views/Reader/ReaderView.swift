@@ -220,6 +220,52 @@ struct ReaderView: View {
         }
     }
     
+    private func getChapterTitle(at index: Int) -> String {
+        guard index >= 0 && index < totalChaptersCount else { return "Chương \(index + 1)" }
+        
+        let title: String
+        if let book = localBook {
+            let sorted = book.chapters.sorted(by: { $0.index < $1.index })
+            if index < sorted.count {
+                title = sorted[index].title
+            } else {
+                title = "Chương \(index + 1)"
+            }
+        } else {
+            if index < currentOnlineChapters.count {
+                title = currentOnlineChapters[index].name
+            } else {
+                title = "Chương \(index + 1)"
+            }
+        }
+        
+        return isTranslationEnabled && TranslateUtils.containsChinese(title)
+            ? TranslateUtils.translateChapterTitle(title, bookId: bookId)
+            : title
+    }
+    
+    private var isChapterLoadingOrFailed: Bool {
+        if let vm = viewModel {
+            if let cached = vm.cache.get(chapterIndex) {
+                switch cached.state {
+                case .loading, .prefetching, .failed:
+                    return true
+                default:
+                    return false
+                }
+            }
+            return true
+        } else {
+            if loadedChapters.isEmpty {
+                return true
+            }
+            if let currentLoaded = loadedChapters.first(where: { $0.index == chapterIndex }) {
+                return currentLoaded.isLoading || !currentLoaded.errorMessage.isEmpty
+            }
+            return isLoading || !errorMessage.isEmpty
+        }
+    }
+    
     var body: some View {
         ZStack {
             // Nền theo theme
@@ -236,7 +282,7 @@ struct ReaderView: View {
                     .id(chapterIndex)
             }
             // Top/Bottom overlay controls
-            if showControls {
+            if showControls || isChapterLoadingOrFailed {
                 VStack(spacing: 0) {
                     topOverlayBar
                     Spacer()
@@ -1846,46 +1892,72 @@ extension ReaderView {
         }
     }
     
-    @ViewBuilder
     private var chapterLoadingView: some View {
         VStack(spacing: 24) {
             Spacer()
             
-            ProgressView()
-                .scaleEffect(1.5)
-                .tint(selectedTheme.textColor.opacity(0.8))
-            
-            VStack(spacing: 8) {
-                if let info = currentChapterInfo {
-                    let displayTitle = isTranslationEnabled && TranslateUtils.containsChinese(info.title)
-                        ? TranslateUtils.translateChapterTitle(info.title, bookId: bookId)
-                        : info.title
-                    Text(displayTitle)
-                        .font(.headline)
-                        .foregroundColor(selectedTheme.textColor)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(3)
-                        .padding(.horizontal, 40)
-                }
-                
-                Text("Đang tải nội dung chương...")
-                    .font(.subheadline)
-                    .foregroundColor(selectedTheme.textColor.opacity(0.6))
-            }
-            
             if !errorMessage.isEmpty {
-                VStack(spacing: 12) {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundColor(.red)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                    
-                    Button("Thử lại") {
-                        loadChapterContent(index: chapterIndex)
+                VStack(spacing: 24) {
+                    if let info = currentChapterInfo {
+                        let displayTitle = isTranslationEnabled && TranslateUtils.containsChinese(info.title)
+                            ? TranslateUtils.translateChapterTitle(info.title, bookId: bookId)
+                            : info.title
+                        Text(displayTitle)
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(selectedTheme.textColor)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(3)
+                            .padding(.horizontal, 40)
+                            .padding(.top, 16)
                     }
-                    .buttonStyle(.bordered)
-                    .tint(selectedTheme.textColor)
+                    
+                    VStack(spacing: 16) {
+                        Text(errorMessage)
+                            .font(.subheadline)
+                            .foregroundColor(.red)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                        
+                        Button(action: {
+                            loadChapterContent(index: chapterIndex)
+                        }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.clockwise")
+                                Text("Thử lại")
+                            }
+                            .fontWeight(.medium)
+                            .foregroundColor(selectedTheme.textColor)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(selectedTheme.textColor.opacity(0.1))
+                            .cornerRadius(20)
+                        }
+                    }
+                }
+            } else {
+                VStack(spacing: 24) {
+                    if let info = currentChapterInfo {
+                        let displayTitle = isTranslationEnabled && TranslateUtils.containsChinese(info.title)
+                            ? TranslateUtils.translateChapterTitle(info.title, bookId: bookId)
+                            : info.title
+                        Text(displayTitle)
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(selectedTheme.textColor)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(3)
+                            .padding(.horizontal, 40)
+                            .padding(.top, 16)
+                    }
+                    
+                    ProgressView()
+                        .scaleEffect(1.5)
+                        .tint(selectedTheme.textColor.opacity(0.8))
+                    
+                    Text("Đang tải nội dung chương...")
+                        .font(.subheadline)
+                        .foregroundColor(selectedTheme.textColor.opacity(0.6))
                 }
             }
             
@@ -1927,45 +1999,101 @@ extension ReaderView {
                     ForEach(vm.visibleIndexes, id: \.self) { idx in
                         if let cached = vm.cache.get(idx) {
                             ScrollViewReader { proxy in
-                                ScrollView {
-                                    LazyVStack(alignment: .leading, spacing: fontSize * 0.8) {
-                                        if cached.state == .loading || cached.state == .prefetching {
-                                            HStack {
-                                                Spacer()
-                                                ProgressView()
-                                                    .tint(selectedTheme.textColor)
-                                                Spacer()
+                                Group {
+                                    if cached.state == .loading || cached.state == .prefetching {
+                                        VStack(spacing: 24) {
+                                            Spacer()
+                                            
+                                            Text(getChapterTitle(at: idx))
+                                                .font(.title2)
+                                                .fontWeight(.bold)
+                                                .foregroundColor(selectedTheme.textColor)
+                                                .multilineTextAlignment(.center)
+                                                .lineLimit(3)
+                                                .padding(.horizontal, 40)
+                                                .padding(.top, 16)
+                                            
+                                            ProgressView()
+                                                .scaleEffect(1.5)
+                                                .tint(selectedTheme.textColor.opacity(0.8))
+                                            
+                                            Text("Đang tải nội dung chương...")
+                                                .font(.subheadline)
+                                                .foregroundColor(selectedTheme.textColor.opacity(0.6))
+                                            
+                                            Spacer()
+                                        }
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        .contentShape(Rectangle())
+                                        .onTapGesture {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                showControls.toggle()
                                             }
-                                            .padding()
-                                        } else if case .failed(let message) = cached.state {
-                                            VStack(spacing: 12) {
+                                        }
+                                    } else if case .failed(let message) = cached.state {
+                                        VStack(spacing: 24) {
+                                            Spacer()
+                                            
+                                            Text(getChapterTitle(at: idx))
+                                                .font(.title2)
+                                                .fontWeight(.bold)
+                                                .foregroundColor(selectedTheme.textColor)
+                                                .multilineTextAlignment(.center)
+                                                .lineLimit(3)
+                                                .padding(.horizontal, 40)
+                                                .padding(.top, 16)
+                                            
+                                            VStack(spacing: 16) {
                                                 Text(message)
                                                     .font(.subheadline)
                                                     .foregroundColor(.red)
                                                     .multilineTextAlignment(.center)
-                                                Button("Thử lại") {
+                                                    .padding(.horizontal, 40)
+                                                
+                                                Button(action: {
                                                     Task {
                                                         try? await vm.loadChapterContentFromExtension(idx)
                                                     }
+                                                }) {
+                                                    HStack(spacing: 8) {
+                                                        Image(systemName: "arrow.clockwise")
+                                                        Text("Thử lại")
+                                                    }
+                                                    .fontWeight(.medium)
+                                                    .foregroundColor(selectedTheme.textColor)
+                                                    .padding(.horizontal, 20)
+                                                    .padding(.vertical, 10)
+                                                    .background(selectedTheme.textColor.opacity(0.1))
+                                                    .cornerRadius(20)
                                                 }
-                                                .buttonStyle(.bordered)
                                             }
-                                            .frame(maxWidth: .infinity)
-                                            .padding()
-                                        } else {
-                                            chapterContentView(for: cached)
+                                            
+                                            Spacer()
                                         }
-                                    }
-                                    .padding(.horizontal, 18)
-                                    .padding(.vertical, 24)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture {
-                                        withAnimation(.easeInOut(duration: 0.2)) {
-                                            showControls.toggle()
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        .contentShape(Rectangle())
+                                        .onTapGesture {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                showControls.toggle()
+                                            }
                                         }
+                                    } else {
+                                        ScrollView {
+                                            LazyVStack(alignment: .leading, spacing: fontSize * 0.8) {
+                                                chapterContentView(for: cached)
+                                            }
+                                            .padding(.horizontal, 18)
+                                            .padding(.vertical, 24)
+                                            .contentShape(Rectangle())
+                                            .onTapGesture {
+                                                withAnimation(.easeInOut(duration: 0.2)) {
+                                                    showControls.toggle()
+                                                }
+                                            }
+                                        }
+                                        .id("scroll-view-\(idx)")
                                     }
                                 }
-                                .id("scroll-view-\(idx)")
                                 .onChange(of: scrollTarget) { _, newValue in
                                     if let target = newValue, target.chapterIndex == idx {
                                         withAnimation {

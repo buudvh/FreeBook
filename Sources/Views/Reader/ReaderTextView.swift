@@ -8,6 +8,7 @@ struct ReaderTextView: UIViewRepresentable {
     let theme: ReaderTheme
     let highlightRange: NSRange?
     let isBold: Bool
+    let isCentered: Bool
     @Binding var triggerGetVisibleIndex: UUID?
     let onGetVisibleIndex: (Int) -> Void
     let onSelectionChange: (String, String, Int, Int) -> Void
@@ -20,6 +21,7 @@ struct ReaderTextView: UIViewRepresentable {
         theme: ReaderTheme,
         highlightRange: NSRange?,
         isBold: Bool = false,
+        isCentered: Bool = false,
         triggerGetVisibleIndex: Binding<UUID?>,
         onGetVisibleIndex: @escaping (Int) -> Void,
         onSelectionChange: @escaping (String, String, Int, Int) -> Void,
@@ -31,6 +33,7 @@ struct ReaderTextView: UIViewRepresentable {
         self.theme = theme
         self.highlightRange = highlightRange
         self.isBold = isBold
+        self.isCentered = isCentered
         self._triggerGetVisibleIndex = triggerGetVisibleIndex
         self.onGetVisibleIndex = onGetVisibleIndex
         self.onSelectionChange = onSelectionChange
@@ -111,7 +114,8 @@ struct ReaderTextView: UIViewRepresentable {
                               context.coordinator.lastFontSize != fontSize ||
                               context.coordinator.lastLineSpacing != lineSpacing ||
                               context.coordinator.lastThemeName != theme.rawValue ||
-                              context.coordinator.lastHighlightRange != highlightRange
+                              context.coordinator.lastHighlightRange != highlightRange ||
+                              context.coordinator.lastIsCentered != isCentered
                               
         if isConfigChanged {
             context.coordinator.cachedWidth = nil
@@ -121,6 +125,7 @@ struct ReaderTextView: UIViewRepresentable {
             context.coordinator.lastLineSpacing = lineSpacing
             context.coordinator.lastThemeName = theme.rawValue
             context.coordinator.lastHighlightRange = highlightRange
+            context.coordinator.lastIsCentered = isCentered
             
             let nsText = text as NSString
             let fullRange = NSRange(location: 0, length: nsText.length)
@@ -130,6 +135,9 @@ struct ReaderTextView: UIViewRepresentable {
             
             let paragraphStyle = NSMutableParagraphStyle()
             paragraphStyle.lineSpacing = CGFloat(lineSpacing)
+            if isCentered {
+                paragraphStyle.alignment = .center
+            }
             attributedText.addAttribute(.paragraphStyle, value: paragraphStyle, range: fullRange)
             
             // Tô màu nền cho đoạn văn đang đọc (Highlight)
@@ -223,6 +231,7 @@ struct ReaderTextView: UIViewRepresentable {
         var lastLineSpacing: Double? = nil
         var lastThemeName: String? = nil
         var lastHighlightRange: NSRange? = nil
+        var lastIsCentered: Bool? = nil
         var cachedWidth: CGFloat? = nil
         var cachedHeight: CGFloat? = nil
         
