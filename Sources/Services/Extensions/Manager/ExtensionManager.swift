@@ -377,7 +377,7 @@ public final class ExtensionManager: ObservableObject {
     public func toc(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> [ChapterResult] {
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "toc")
         let scriptName = scriptUrl.lastPathComponent
-        let resolvedUrl = JSExecutor.cleanAndResolveUrl(url, host: host)
+        let resolvedUrl = hasScript(localPath: localPath, scriptKey: "page") ? url : JSExecutor.cleanAndResolveUrl(url, host: host)
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[\(resolvedUrl)], url=\(url), host=\(host ?? "nil"), configJson=\(configJson)")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         

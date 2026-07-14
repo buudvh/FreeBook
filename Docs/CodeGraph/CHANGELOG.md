@@ -4,6 +4,14 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.1.1] - 2026-07-14
+
+### Khắc phục lỗi chuẩn hóa URL mục lục (TOC) khi có script phân trang (page)
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 1 file Swift
+*   **Mô tả**:
+    *   **ExtensionManager**: Khắc phục lỗi cú pháp tại dòng 380 của `ExtensionManager.swift` trong hàm `toc`. Tích hợp thêm logic kiểm tra `hasScript(localPath:scriptKey:)` cho script `"page"`. Nếu extension có hỗ trợ script phân trang, hàm `toc` sẽ bỏ qua việc gọi `JSExecutor.cleanAndResolveUrl` và sử dụng trực tiếp URL ban đầu để bảo toàn cấu trúc URL đặc thù phục vụ phân trang.
+
 ## [1.1.0] - 2026-07-14
 
 ### Triển khai UI Reader nâng cao và Tự động hóa Xuất Truyện
