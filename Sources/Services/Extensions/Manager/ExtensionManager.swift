@@ -240,6 +240,8 @@ public final class ExtensionManager: ObservableObject {
     public func search(localPath: String, downloadUrl: String = "", query: String, page: Int, configJson: String = "{}") async throws -> [SearchNovelResult] {
         // Lấy đường dẫn file script JS tìm kiếm ("search")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "search")
+        let scriptName = scriptUrl.lastPathComponent
+        AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: localPath=\(localPath), downloadUrl=\(downloadUrl), query=\(query), page=\(page), configJson=\(configJson)")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
         // Khởi tạo bộ thực thi Javascript (JSExecutor)
@@ -284,8 +286,9 @@ public final class ExtensionManager: ObservableObject {
     
     // Lấy thông tin chi tiết truyện
     public func detail(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> NovelDetailResult {
-        // AppLogger.shared.log("🔍 [ExtensionManager] detail called. localPath: \(localPath), url: \(url)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "detail")
+        let scriptName = scriptUrl.lastPathComponent
+        AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: localPath=\(localPath), downloadUrl=\(downloadUrl), url=\(url), host=\(host ?? "nil"), configJson=\(configJson)")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl, host: host)
@@ -371,8 +374,9 @@ public final class ExtensionManager: ObservableObject {
     
     // Lấy mục lục chương
     public func toc(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> [ChapterResult] {
-        // AppLogger.shared.log("🔍 [ExtensionManager] toc called. localPath: \(localPath), url: \(url)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "toc")
+        let scriptName = scriptUrl.lastPathComponent
+        AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: localPath=\(localPath), downloadUrl=\(downloadUrl), url=\(url), host=\(host ?? "nil"), configJson=\(configJson)")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl, host: host)
@@ -452,8 +456,9 @@ public final class ExtensionManager: ObservableObject {
     
     // Lấy nội dung chương (có thể là Text hoặc danh sách URL ảnh cho truyện tranh)
     public func chap(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> String {
-        // AppLogger.shared.log("🔍 [ExtensionManager] chap called. localPath: \(localPath), url: \(url)")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "chap")
+        let scriptName = scriptUrl.lastPathComponent
+        AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: localPath=\(localPath), downloadUrl=\(downloadUrl), url=\(url), host=\(host ?? "nil"), configJson=\(configJson)")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl, host: host)
@@ -486,14 +491,15 @@ public final class ExtensionManager: ObservableObject {
     
     // Lấy danh mục thể loại (Khám phá)
     public func genre(localPath: String, downloadUrl: String = "", configJson: String = "{}") async throws -> [CategoryResult] {
-        // AppLogger.shared.log("🔍 [ExtensionManager] genre called. localPath: \(localPath)")
+        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "genre")
+        let scriptName = scriptUrl.lastPathComponent
+        AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: localPath=\(localPath), downloadUrl=\(downloadUrl), configJson=\(configJson)")
         
         let translateTitle: (String) -> String = { title in
             return title
         }
         
         do {
-            let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "genre")
             let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
             
             let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
@@ -544,13 +550,14 @@ public final class ExtensionManager: ObservableObject {
     
     // Lấy danh sách tab trang chủ (Home)
     public func home(localPath: String, downloadUrl: String = "", configJson: String = "{}") async throws -> [CategoryResult] {
-        // AppLogger.shared.log("🔍 [ExtensionManager] home called. localPath: \(localPath)")
+        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "home")
+        let scriptName = scriptUrl.lastPathComponent
+        AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: localPath=\(localPath), downloadUrl=\(downloadUrl), configJson=\(configJson)")
         
         let translateTitle: (String) -> String = { title in
             return title
         }
         
-        let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "home")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
@@ -590,7 +597,7 @@ public final class ExtensionManager: ObservableObject {
     
     // Thực thi một script tùy chọn (ví dụ: gen.js, tag.js...) với input và page
     public func executeCustomScript(localPath: String, downloadUrl: String = "", scriptFileName: String, input: String, page: Int, pageUrl: String?, configJson: String = "{}") async throws -> (results: [SearchNovelResult], nextPage: String?) {
-        // AppLogger.shared.log("🔍 [ExtensionManager] executeCustomScript called. localPath: \(localPath), scriptFileName: \(scriptFileName), input: \(input), page: \(page), pageUrl: \(pageUrl ?? "nil")")
+        AppLogger.shared.log("🔍 [ExtensionManager][\(scriptFileName)]: localPath=\(localPath), downloadUrl=\(downloadUrl), input=\(input), page=\(page), pageUrl=\(pageUrl ?? "nil"), configJson=\(configJson)")
         
         let extUrl = URL(fileURLWithPath: localPath)
         // Tìm file script trong thư mục gốc hoặc src/
@@ -678,6 +685,8 @@ public final class ExtensionManager: ObservableObject {
     
     public func page(localPath: String, downloadUrl: String = "", url: String, host: String? = nil, configJson: String = "{}") async throws -> [String] {
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "page")
+        let scriptName = scriptUrl.lastPathComponent
+        AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: localPath=\(localPath), downloadUrl=\(downloadUrl), url=\(url), host=\(host ?? "nil"), configJson=\(configJson)")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl, host: host)
@@ -715,6 +724,8 @@ public final class ExtensionManager: ObservableObject {
     // Lấy danh sách giọng đọc từ extension TTS
     public func ttsVoices(localPath: String, downloadUrl: String = "", configJson: String = "{}") async throws -> [[String: String]] {
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "voice")
+        let scriptName = scriptUrl.lastPathComponent
+        AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: localPath=\(localPath), downloadUrl=\(downloadUrl), configJson=\(configJson)")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
@@ -749,6 +760,8 @@ public final class ExtensionManager: ObservableObject {
     // Tạo âm thanh TTS từ extension
     public func ttsGenerate(localPath: String, downloadUrl: String = "", text: String, voice: String, configJson: String = "{}") async throws -> String {
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "tts")
+        let scriptName = scriptUrl.lastPathComponent
+        AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: localPath=\(localPath), downloadUrl=\(downloadUrl), text=\(text), voice=\(voice), configJson=\(configJson)")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
