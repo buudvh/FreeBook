@@ -328,12 +328,12 @@ struct SearchView: View {
                                                                         .multilineTextAlignment(.leading)
                                                                         .frame(width: 90, alignment: .leading)
                                                                     
-                                                                    let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
-                                                                    Text(translateIfNeeded(authorText))
-                                                                        .font(.system(size: 10))
-                                                                        .foregroundColor(.secondary)
-                                                                        .lineLimit(1)
-                                                                        .frame(width: 90, alignment: .leading)
+                                                                    // let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
+                                                                    // Text(translateIfNeeded(authorText))
+                                                                    //     .font(.system(size: 10))
+                                                                    //     .foregroundColor(.secondary)
+                                                                    //     .lineLimit(1)
+                                                                    //     .frame(width: 90, alignment: .leading)
                                                                 }
                                                             }
                                                             .buttonStyle(.plain)
@@ -364,12 +364,12 @@ struct SearchView: View {
                                                                         .multilineTextAlignment(.leading)
                                                                         .frame(width: 90, alignment: .leading)
                                                                     
-                                                                    let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
-                                                                    Text(translateIfNeeded(authorText))
-                                                                        .font(.system(size: 10))
-                                                                        .foregroundColor(.secondary)
-                                                                        .lineLimit(1)
-                                                                        .frame(width: 90, alignment: .leading)
+                                                                    // let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
+                                                                    // Text(translateIfNeeded(authorText))
+                                                                    //     .font(.system(size: 10))
+                                                                    //     .foregroundColor(.secondary)
+                                                                    //     .lineLimit(1)
+                                                                    //     .frame(width: 90, alignment: .leading)
                                                                 }
                                                             }
                                                         }

@@ -865,7 +865,7 @@ struct ReaderView: View {
         let spacing = lineSpacing
         let theme = selectedTheme
         
-        return LazyVStack(alignment: .leading, spacing: size * 0.8) {
+        LazyVStack(alignment: .leading, spacing: size * 0.8) {
             ForEach(chapter.paragraphItems) { item in
                 let textLen = (isTrans ? item.translated : item.original).count
                 let relativeHighlightRange: NSRange? = {
@@ -923,7 +923,7 @@ struct ReaderView: View {
         let spacing = lineSpacing
         let theme = selectedTheme
         
-        return ForEach(chapter.paragraphItems) { item in
+        ForEach(chapter.paragraphItems) { item in
             let textLen = (isTrans ? item.translated : item.original).count
             let relativeHighlightRange: NSRange? = {
                 if ttsManager.isPlaying &&

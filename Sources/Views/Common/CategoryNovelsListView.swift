@@ -57,10 +57,10 @@ struct CategoryNovelsListView: View {
                                         .foregroundColor(.primary)
                                         .lineLimit(2)
                                     
-                                    Text(TranslateUtils.translateAuthorHanViet(novel.author))
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(1)
+                                    // Text(TranslateUtils.translateAuthorHanViet(novel.author))
+                                    //     .font(.caption)
+                                    //     .foregroundColor(.secondary)
+                                    //     .lineLimit(1)
                                     
                                     if !novel.description.isEmpty {
                                         Text(TranslateUtils.translateMeta(novel.description.cleanHTML()))

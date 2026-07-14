@@ -28,7 +28,7 @@ class ReaderViewModel: ObservableObject {
     private var memoryWarningSubscription: AnyCancellable?
     private var cachedSortedChapters: [Chapter]? = nil
     
-    private func getSortedChapters() -> [Chapter] {
+    func getSortedChapters() -> [Chapter] {
         if let cached = cachedSortedChapters {
             return cached
         }
