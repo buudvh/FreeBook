@@ -43,7 +43,8 @@ struct CategoryNovelsListView: View {
                             bookId: novel.link,
                             extensionPackageId: extensionPackageId,
                             initialDetailUrl: novel.link,
-                            sourceName: sourceName
+                            sourceName: sourceName,
+                            initialHost: novel.host
                         )) {
                             HStack(alignment: .top, spacing: 12) {
                                 BookCoverView(bookId: novel.link, coverUrl: novel.cover, width: 60, height: 80)

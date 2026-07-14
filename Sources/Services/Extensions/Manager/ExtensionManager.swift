@@ -251,7 +251,7 @@ public final class ExtensionManager: ObservableObject {
         do {
             // Chạy hàm "execute(query, page)" bất đồng bộ bên trong JS Engine
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [query, String(page)])
-            let cleanVal = try verifyJSResponse(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "search")
             let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] search raw JS result: \(stringified)")
             
@@ -294,7 +294,7 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
-            let cleanVal = try verifyJSResponse(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "detail")
             let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] detail raw JS result: \(stringified)")
             
@@ -381,7 +381,7 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
-            let cleanVal = try verifyJSResponse(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "toc")
             let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] toc raw JS result: \(stringified)")
             
@@ -462,7 +462,7 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
-            let cleanVal = try verifyJSResponse(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "chap")
             let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] chap raw JS result length: \(stringified.count)")
             
@@ -501,7 +501,7 @@ public final class ExtensionManager: ObservableObject {
             executor.injectGlobals(configs)
             
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
-            let cleanVal = try verifyJSResponse(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "genre")
             let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] genre raw JS result: \(stringified)")
             
@@ -558,7 +558,7 @@ public final class ExtensionManager: ObservableObject {
         executor.injectGlobals(configs)
         
         let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
-        let cleanVal = try verifyJSResponse(jsValue)
+        let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "home")
         let stringified = stringify(cleanVal)
         // AppLogger.shared.log("📝 [ExtensionManager] home raw JS result: \(stringified)")
         
@@ -619,7 +619,7 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [formattedInput, pageArg])
-            let cleanVal = try verifyJSResponse(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: scriptFileName)
             let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] custom script raw JS result: \(stringified)")
             // Ép kiểu kết quả trả về của JS thành mảng bằng toDictionaryArray
@@ -686,7 +686,7 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [url])
-            let cleanVal = try verifyJSResponse(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "page")
             let stringified = stringify(cleanVal)
             
             var results: [String] = []
@@ -723,7 +723,7 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [])
-            let cleanVal = try verifyJSResponse(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "voice")
             var results: [[String: String]] = []
             
             if let jsArray = cleanVal.toArray() {
@@ -757,7 +757,7 @@ public final class ExtensionManager: ObservableObject {
         
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [text, voice])
-            let cleanVal = try verifyJSResponse(jsValue)
+            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "tts")
             let resultStr = cleanVal.toString() ?? ""
             updateDiagnostics(action: "tts", input: text, status: "Success", details: "Base64 string length: \(resultStr.count)")
             return resultStr
@@ -766,9 +766,10 @@ public final class ExtensionManager: ObservableObject {
             throw error
         }
     }
-    private func verifyJSResponse(_ jsValue: JSValue) throws -> JSValue {
+    private func verifyJSResponse(_ jsValue: JSValue, extName: String = "", scriptName: String = "") throws -> JSValue {
         guard jsValue.isObject else { return jsValue }
         
+        let logPrefix = extName.isEmpty ? "ExtensionManager" : "\(extName)\(scriptName.isEmpty ? "" : " - ")\(scriptName)"
         if let successVal = jsValue.objectForKeyedSubscript("success"),
            !successVal.isUndefined,
            !successVal.isNull {
@@ -776,13 +777,13 @@ public final class ExtensionManager: ObservableObject {
             if !success {
                 let msgVal = jsValue.objectForKeyedSubscript("message")
                 let msg = (msgVal != nil && !msgVal!.isUndefined && !msgVal!.isNull) ? msgVal!.toString() ?? "Lỗi từ nguồn truyện" : "Lỗi từ nguồn truyện"
-                AppLogger.shared.log("❌ [ExtensionManager] Response.error: \(msg)")
+                AppLogger.shared.log("❌ [\(logPrefix)] Response.error: \(msg)")
                 throw NSError(domain: "ExtensionManager", code: -999, userInfo: [NSLocalizedDescriptionKey: msg])
             }
             if let dataVal = jsValue.objectForKeyedSubscript("data"),
                !dataVal.isUndefined {
                 let dataStr = stringify(dataVal)
-                AppLogger.shared.log("✅ [ExtensionManager] Response.success: \(dataStr)")
+                AppLogger.shared.log("✅ [\(logPrefix)] Response.success: \(dataStr)")
                 return dataVal
             }
         }

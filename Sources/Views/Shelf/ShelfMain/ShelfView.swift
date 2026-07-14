@@ -48,6 +48,7 @@ struct ShelfView: View {
     @State private var importedExtensionPackageId: String = ""
     @State private var importedDetailUrl: String = ""
     @State private var importedSourceName: String = ""
+    @State private var importedHost: String = ""
     @State private var navigateToImportedBook = false
     
     private var shelfBooks: [Book] {
@@ -130,7 +131,8 @@ struct ShelfView: View {
                                             bookId: book.bookId,
                                             extensionPackageId: book.extensionPackageId,
                                             initialDetailUrl: book.detailUrl,
-                                            sourceName: book.sourceName
+                                            sourceName: book.sourceName,
+                                            initialHost: book.host
                                         )) {
                                             Label("Xem chi tiết", systemImage: "info.circle")
                                         }
@@ -223,7 +225,8 @@ struct ShelfView: View {
                                             bookId: book.bookId,
                                             extensionPackageId: book.extensionPackageId,
                                             initialDetailUrl: book.detailUrl,
-                                            sourceName: book.sourceName
+                                            sourceName: book.sourceName,
+                                            initialHost: book.host
                                         )) {
                                             Label("Xem chi tiết", systemImage: "info.circle")
                                         }
@@ -375,6 +378,11 @@ struct ShelfView: View {
                         importedExtensionPackageId = packageId
                         importedDetailUrl = detailUrl
                         importedSourceName = sourceName
+                        if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
+                            importedHost = "\(scheme)://\(host)"
+                        } else {
+                            importedHost = ""
+                        }
                         navigateToImportedBook = true
                     }
                 )
@@ -384,7 +392,8 @@ struct ShelfView: View {
                     bookId: importedBookId,
                     extensionPackageId: importedExtensionPackageId,
                     initialDetailUrl: importedDetailUrl,
-                    sourceName: importedSourceName
+                    sourceName: importedSourceName,
+                    initialHost: importedHost
                 )
             }
             .sheet(isPresented: $showingFilePicker) {

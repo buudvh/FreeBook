@@ -134,24 +134,37 @@ struct RepositoryManagerView: View {
                         .padding(.vertical, 6)
                         .background(Color(.systemBackground))
                         
-                        // Thanh Tìm kiếm tiện ích
-                        HStack {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundColor(.secondary)
-                            TextField("Tìm tên tiện ích hoặc URL...", text: $storeSearchQuery)
-                                .autocorrectionDisabled()
-                                .textInputAutocapitalization(.none)
-                            
-                            if !storeSearchQuery.isEmpty {
-                                Button(action: { storeSearchQuery = "" }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.secondary)
+                        // Thanh Tìm kiếm tiện ích + Nút Filter
+                        HStack(spacing: 8) {
+                            HStack {
+                                Image(systemName: "magnifyingglass")
+                                    .foregroundColor(.secondary)
+                                TextField("Tìm tên tiện ích hoặc URL...", text: $storeSearchQuery)
+                                    .autocorrectionDisabled()
+                                    .textInputAutocapitalization(.none)
+                                
+                                if !storeSearchQuery.isEmpty {
+                                    Button(action: { storeSearchQuery = "" }) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.secondary)
+                                    }
                                 }
                             }
+                            .padding(8)
+                            .background(Color(.secondarySystemBackground))
+                            .cornerRadius(10)
+                            
+                            // Nút Filter bên cạnh ô tìm kiếm
+                            Button(action: { showingFilterSheet = true }) {
+                                let isFiltering = filterType != "all" || filterLocale != "all" || filterAuthor != "all" || filterRepoUrl != "all"
+                                Image(systemName: isFiltering ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                                    .font(.title3)
+                                    .foregroundColor(isFiltering ? .orange : .accentColor)
+                                    .padding(8)
+                                    .background(Color(.secondarySystemBackground))
+                                    .cornerRadius(10)
+                            }
                         }
-                        .padding(8)
-                        .background(Color(.secondarySystemBackground))
-                        .cornerRadius(10)
                         .padding(.horizontal)
                         
                         Divider()
@@ -388,10 +401,6 @@ struct RepositoryManagerView: View {
             .toolbar {
                 if selectedTab == 0 {
                     ToolbarItemGroup(placement: .navigationBarTrailing) {
-                        Button(action: { showingFilterSheet = true }) {
-                            Image(systemName: "line.3.horizontal.decrease.circle")
-                        }
-                        
                         Button(role: .destructive, action: { showingUninstallAllAlert = true }) {
                             Text("Xóa tất cả")
                                 .foregroundColor(.red)

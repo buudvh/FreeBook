@@ -11,6 +11,16 @@ struct BookDetailView: View {
     let extensionPackageId: String
     let initialDetailUrl: String
     let sourceName: String
+    let initialHost: String?
+    
+    init(bookId: String, extensionPackageId: String, initialDetailUrl: String, sourceName: String, initialHost: String? = nil) {
+        self.bookId = bookId
+        self.extensionPackageId = extensionPackageId
+        self.initialDetailUrl = initialDetailUrl
+        self.sourceName = sourceName
+        self.initialHost = initialHost
+        self._host = State(initialValue: initialHost ?? "")
+    }
     
     @State private var isLoadingDetail = true
     @State private var isLoadingTOC = true
@@ -54,6 +64,7 @@ struct BookDetailView: View {
     @State private var importedExtensionPackageId = ""
     @State private var importedDetailUrl = ""
     @State private var importedSourceName = ""
+    @State private var importedHost = ""
     @State private var navigateToImportedBook = false
     @State private var chapterSearchQuery = ""
     
@@ -69,6 +80,17 @@ struct BookDetailView: View {
     // Tìm extension cục bộ để chạy script
     private var ext: Extension? {
         allExtensions.first(where: { $0.packageId == extensionPackageId })
+    }
+    
+    // Host đã phân giải (ưu tiên localBook.host -> self.host -> ext.sourceUrl)
+    private var resolvedHost: String? {
+        if let localHost = localBook?.host, !localHost.isEmpty {
+            return localHost
+        }
+        if !self.host.isEmpty {
+            return self.host
+        }
+        return ext?.sourceUrl
     }
     
     private func cleanDetailText(_ html: String) -> String {
@@ -694,7 +716,8 @@ struct BookDetailView: View {
                     bookId: importedBookId,
                     extensionPackageId: importedExtensionPackageId,
                     initialDetailUrl: importedDetailUrl,
-                    sourceName: importedSourceName
+                    sourceName: importedSourceName,
+                    initialHost: importedHost
                 ),
                 isActive: $navigateToImportedBook
             ) {
@@ -875,7 +898,7 @@ struct BookDetailView: View {
         .fullScreenCover(isPresented: $showingBypassBrowser) {
             BypassWebView(
                 urlString: initialDetailUrl,
-                host: localBook?.host ?? ext?.sourceUrl,
+                host: resolvedHost,
                 onImport: { detailUrl, packageId, sourceName in
                     let checkUrl = JSExecutor.cleanAndResolveUrl(detailUrl, host: ext?.sourceUrl)
                     let currentResolved = JSExecutor.cleanAndResolveUrl(initialDetailUrl, host: ext?.sourceUrl)
@@ -887,6 +910,13 @@ struct BookDetailView: View {
                         importedExtensionPackageId = packageId
                         importedDetailUrl = detailUrl
                         importedSourceName = sourceName
+                        
+                        if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
+                            importedHost = "\(scheme)://\(host)"
+                        } else {
+                            importedHost = ""
+                        }
+                        
                         // Trì hoãn push để tránh xung đột với dismiss animation của fullScreenCover
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                             navigateToImportedBook = true
@@ -940,7 +970,7 @@ struct BookDetailView: View {
         Task {
             do {
                 let path = ext.localPath
-                let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: localBook?.host, configJson: ext.configJson)
+                let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
                 
                 await MainActor.run {
                     self.title = detailResult.name
@@ -995,14 +1025,14 @@ struct BookDetailView: View {
                 var pages: [String] = []
                 
                 if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
-                    pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: localBook?.host, configJson: ext.configJson)
+                    pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
                     if !pages.isEmpty {
-                        firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages[0], host: localBook?.host, configJson: ext.configJson)
+                        firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages[0], host: resolvedHost, configJson: ext.configJson)
                     } else {
-                        firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: localBook?.host, configJson: ext.configJson)
+                        firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
                     }
                 } else {
-                    firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: localBook?.host, configJson: ext.configJson)
+                    firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
                 }
                 
                 await MainActor.run {
@@ -1126,7 +1156,7 @@ struct BookDetailView: View {
                 localPath: ext.localPath,
                 downloadUrl: ext.downloadUrl,
                 url: pageUrl,
-                host: localBook?.host,
+                host: resolvedHost,
                 configJson: ext.configJson
             )
             allChapters.append(contentsOf: pageChaps)
@@ -1324,7 +1354,7 @@ struct BookDetailView: View {
         }
         
         // Chạy song song detail và toc
-        let bookHost = localBook?.host
+        let bookHost = resolvedHost
         async let detailTask = ExtensionManager.shared.detail(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: bookHost, configJson: ext.configJson)
         
         do {
@@ -1359,13 +1389,13 @@ struct BookDetailView: View {
             let path = ext.localPath
             var allChapters: [ChapterResult] = []
             if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
-                let pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: localBook?.host, configJson: ext.configJson)
+                let pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
                 await MainActor.run {
                     self.tocPages = pages
                 }
                 
                 for pageUrl in pages {
-                    let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, host: localBook?.host, configJson: ext.configJson)
+                    let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, host: resolvedHost, configJson: ext.configJson)
                     allChapters.append(contentsOf: pageChaps)
                 }
                 await MainActor.run {

@@ -342,7 +342,8 @@ struct SearchView: View {
                                                                 bookId: "\(ext.name.lowercased())_\(result.link)",
                                                                 extensionPackageId: ext.packageId,
                                                                 initialDetailUrl: result.link,
-                                                                sourceName: ext.name
+                                                                sourceName: ext.name,
+                                                                initialHost: result.host
                                                             )) {
                                                                 VStack(alignment: .leading, spacing: 6) {
                                                                     AsyncImage(url: URL(string: result.cover)) { image in
@@ -446,7 +447,8 @@ struct SearchView: View {
                     bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
                     extensionPackageId: item.ext.packageId,
                     initialDetailUrl: item.result.link,
-                    sourceName: item.ext.name
+                    sourceName: item.ext.name,
+                    initialHost: item.result.host
                 )) {
                     HStack(spacing: 12) {
                         AsyncImage(url: URL(string: item.result.cover)) { image in

@@ -97,6 +97,7 @@ struct ReaderView: View {
     @State private var importedExtensionPackageId = ""
     @State private var importedDetailUrl = ""
     @State private var importedSourceName = ""
+    @State private var importedHost = ""
     @State private var navigateToBookDetail = false
     @State private var isGoingNext = true
     @State private var isTransitioning = false
@@ -307,6 +308,13 @@ struct ReaderView: View {
                     importedExtensionPackageId = packageId
                     importedDetailUrl = detailUrl
                     importedSourceName = sourceName
+                    
+                    if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
+                        importedHost = "\(scheme)://\(host)"
+                    } else {
+                        importedHost = ""
+                    }
+                    
                     navigateToBookDetail = true
                 }
             )
@@ -317,7 +325,8 @@ struct ReaderView: View {
                     bookId: importedBookId,
                     extensionPackageId: importedExtensionPackageId,
                     initialDetailUrl: importedDetailUrl,
-                    sourceName: importedSourceName
+                    sourceName: importedSourceName,
+                    initialHost: importedHost
                 ),
                 isActive: $navigateToBookDetail
             ) {

@@ -49,6 +49,7 @@ struct DiscoveryView: View {
     @State private var importedExtensionPackageId: String = ""
     @State private var importedDetailUrl: String = ""
     @State private var importedSourceName: String = ""
+    @State private var importedHost: String = ""
     @State private var navigateToImportedBook = false
     
     // Trình duyệt trang chủ extension
@@ -367,6 +368,11 @@ struct DiscoveryView: View {
                         importedExtensionPackageId = packageId
                         importedDetailUrl = detailUrl
                         importedSourceName = sourceName
+                        if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
+                            importedHost = "\(scheme)://\(host)"
+                        } else {
+                            importedHost = ""
+                        }
                         navigateToImportedBook = true
                     }
                 )
@@ -380,6 +386,11 @@ struct DiscoveryView: View {
                             importedExtensionPackageId = packageId
                             importedDetailUrl = detailUrl
                             importedSourceName = sourceName
+                            if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
+                                importedHost = "\(scheme)://\(host)"
+                            } else {
+                                importedHost = ""
+                            }
                             navigateToImportedBook = true
                         }
                     )
@@ -390,7 +401,8 @@ struct DiscoveryView: View {
                     bookId: importedBookId,
                     extensionPackageId: importedExtensionPackageId,
                     initialDetailUrl: importedDetailUrl,
-                    sourceName: importedSourceName
+                    sourceName: importedSourceName,
+                    initialHost: importedHost
                 )
             }
             .navigationDestination(isPresented: $navigateToGenre) {
@@ -537,7 +549,8 @@ struct DiscoveryCategoryTabView: View {
                             bookId: "\(sourceName.lowercased())_\(novel.link)",
                             extensionPackageId: extensionPackageId,
                             initialDetailUrl: novel.link,
-                            sourceName: sourceName
+                            sourceName: sourceName,
+                            initialHost: novel.host
                         )) {
                             HStack(spacing: 12) {
                                 AsyncImage(url: URL(string: novel.cover)) { image in

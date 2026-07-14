@@ -55,7 +55,8 @@ struct SuggestRowView: View {
                                 bookId: novel.link,
                                 extensionPackageId: extensionPackageId,
                                 initialDetailUrl: novel.link,
-                                sourceName: sourceName
+                                sourceName: sourceName,
+                                initialHost: novel.host
                             )) {
                                 VStack(alignment: .leading, spacing: 6) {
                                     BookCoverView(bookId: novel.link, coverUrl: novel.cover, width: 80, height: 110)
