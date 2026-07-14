@@ -2111,10 +2111,20 @@ extension ReaderView {
                                                         }
                                                     }
                                                 }
-                                                schedulePrepareTTS()
+                                                if self.ttsShouldAutoPlayNextChapter {
+                                                    self.ttsShouldAutoPlayNextChapter = false
+                                                    startTTS(at: idx, paragraphIndex: -1)
+                                                } else {
+                                                    schedulePrepareTTS()
+                                                }
                                             }
                                         } else {
-                                            schedulePrepareTTS()
+                                            if self.ttsShouldAutoPlayNextChapter {
+                                                self.ttsShouldAutoPlayNextChapter = false
+                                                startTTS(at: idx, paragraphIndex: -1)
+                                            } else {
+                                                schedulePrepareTTS()
+                                            }
                                         }
                                     }
                                 }
@@ -2134,10 +2144,53 @@ extension ReaderView {
                                                         }
                                                     }
                                                 }
-                                                schedulePrepareTTS()
+                                                if self.ttsShouldAutoPlayNextChapter {
+                                                    self.ttsShouldAutoPlayNextChapter = false
+                                                    startTTS(at: idx, paragraphIndex: -1)
+                                                } else {
+                                                    schedulePrepareTTS()
+                                                }
                                             }
                                         } else {
-                                            schedulePrepareTTS()
+                                            if self.ttsShouldAutoPlayNextChapter {
+                                                self.ttsShouldAutoPlayNextChapter = false
+                                                startTTS(at: idx, paragraphIndex: -1)
+                                            } else {
+                                                schedulePrepareTTS()
+                                            }
+                                        }
+                                    }
+                                }
+                                .onChange(of: chapterIndex) { _, newChapterIndex in
+                                    if newChapterIndex == idx && cached.state == .loaded {
+                                        if !cached.isPositionRestored {
+                                            cached.isPositionRestored = true
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                                let savedPIdx = getSavedParagraphIndex(for: idx)
+                                                let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
+                                                withAnimation(.easeOut(duration: 0.25)) {
+                                                    if savedPIdx >= 0 && hasValidParagraph {
+                                                        proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
+                                                    } else {
+                                                        if cached.paragraphItems.contains(where: { $0.id == -1 }) {
+                                                            proxy.scrollTo("paragraph-\(idx)--1", anchor: .top)
+                                                        }
+                                                    }
+                                                }
+                                                if self.ttsShouldAutoPlayNextChapter {
+                                                    self.ttsShouldAutoPlayNextChapter = false
+                                                    startTTS(at: idx, paragraphIndex: -1)
+                                                } else {
+                                                    schedulePrepareTTS()
+                                                }
+                                            }
+                                        } else {
+                                            if self.ttsShouldAutoPlayNextChapter {
+                                                self.ttsShouldAutoPlayNextChapter = false
+                                                startTTS(at: idx, paragraphIndex: -1)
+                                            } else {
+                                                schedulePrepareTTS()
+                                            }
                                         }
                                     }
                                 }

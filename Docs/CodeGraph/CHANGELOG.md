@@ -8,9 +8,10 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ### Sửa lỗi crash CALayer bounds contains NaN khi chuyển chương trong lúc chạy TTS
 *   **Người thực hiện**: Trợ lý AI Antigravity
-*   **Tổng số file nguồn ảnh hưởng**: 1 file Swift
+*   **Tổng số file nguồn ảnh hưởng**: 2 file Swift
 *   **Mô tả**:
     *   Cập nhật `ReaderTextView.swift` để bổ sung các kiểm tra an toàn (guard clauses) cho giá trị `NaN` và `Infinite` đối với rect, rectInScrollView, visibleHeight, và targetY trước khi gán `contentOffset` cho `UIScrollView`. Điều này ngăn chặn việc gán giá trị không hợp lệ vào scroll view của trang cũ trong lúc giao diện đang tháo dỡ hoặc cập nhật luồng đọc khi chuyển sang chương mới.
+    *   Cập nhật `ReaderView.swift` tại `textReaderView` để bổ sung sự kiện `.onChange(of: chapterIndex)` cho từng trang và liên kết cờ `ttsShouldAutoPlayNextChapter`. Thay đổi này giúp tự động phát tiếp TTS và khôi phục vị trí đọc chính xác khi chuyển sang chương mới đã được preload/prefetch trước từ bộ đệm của `ReaderViewModel`.
 
 ## [1.0.2] - 2026-07-14
 
