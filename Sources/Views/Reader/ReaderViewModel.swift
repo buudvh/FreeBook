@@ -374,6 +374,10 @@ class ReaderViewModel: ObservableObject {
             sourceName: bookSourceName ?? "Không rõ",
             sourceUrl: bookDetailUrl ?? "",
             extensionPackageId: extensionPackageId,
+            currentChapterIndex: currentIndex,
+            currentChapterTitle: title,
+            isOnShelf: false,
+            isHistory: true,
             host: onlineChapters.first?.host
         )
         

@@ -183,7 +183,7 @@ struct SettingsView: View {
                     }
                 }
                 
-                Section(header: Text("Đọc Thành Tiếng (TTS)")) {
+                Section(header: Text("Nghe Truyện (TTS)")) {
                     NavigationLink(destination: TTSSettingsView(isPresentedAsSheet: false)) {
                         Label("Cài đặt TTS", systemImage: "waveform")
                     }

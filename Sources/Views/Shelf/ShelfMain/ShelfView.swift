@@ -20,6 +20,11 @@ struct ShelfView: View {
     @State private var showingBypassBrowser = false // Hiện WebView để bypass Cloudflare (nếu có)
     @State private var showingFilePicker = false // Hiện hộp thoại chọn tệp tin TXT cục bộ
     
+    // Trạng thái hiển thị tiến độ import file TXT
+    @State private var isImporting = false
+    @State private var importProgress: Double = 0.0
+    @State private var importStatusText = ""
+    
     @State private var shelfLimit = 50 // Giới hạn số lượng sách hiển thị trên kệ để tối ưu hiệu năng cuộn
     @State private var historyLimit = 50 // Giới hạn số lượng sách hiển thị trong lịch sử đọc
     
@@ -63,7 +68,8 @@ struct ShelfView: View {
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
+            ZStack {
+                VStack(spacing: 0) {
                 // Segmented control to switch tabs
                 Picker("Phân loại", selection: $selectedTab) {
                     Text("Downloads").tag(0)
@@ -395,6 +401,33 @@ struct ShelfView: View {
                     }
                 )
             }
+                }
+                
+                if isImporting {
+                    Color.black.opacity(0.4)
+                        .edgesIgnoringSafeArea(.all)
+                        .transition(.opacity)
+                    
+                    VStack(spacing: 20) {
+                        ProgressView(value: importProgress)
+                            .progressViewStyle(.linear)
+                            .frame(width: 220)
+                            .tint(.blue)
+                        
+                        Text(importStatusText)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.white)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(30)
+                    .background(
+                        RoundedRectangle(cornerRadius: 15)
+                            .fill(Color(red: 0.15, green: 0.15, blue: 0.15).opacity(0.95))
+                    )
+                    .transition(.scale)
+                }
+            }
         }
     }
     
@@ -596,8 +629,14 @@ struct ShelfView: View {
         // startAccessingSecurityScopedResource: iOS yêu cầu cấp quyền tạm thời để truy cập các tệp tin ngoài sandbox của ứng dụng (ví dụ từ app Files)
         guard url.startAccessingSecurityScopedResource() else {
             AppLogger.shared.log("❌ Không có quyền truy cập file: \(url.path)")
+            ToastManager.shared.show(message: "Lỗi: Không có quyền truy cập tệp tin.")
             return
         }
+        
+        // Hiện overlay tiến trình và Toast ban đầu trên Main Thread
+        self.isImporting = true
+        self.importProgress = 0.0
+        self.importStatusText = "Đang chuẩn bị file..."
         
         // Tạo một đường dẫn tệp tạm thời trong thư mục temp của ứng dụng
         let tempFileUrl = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".txt")
@@ -611,75 +650,120 @@ struct ShelfView: View {
             url.stopAccessingSecurityScopedResource()
         } catch {
             url.stopAccessingSecurityScopedResource()
+            self.isImporting = false
             AppLogger.shared.log("❌ Lỗi sao chép file tạm: \(error.localizedDescription)")
+            ToastManager.shared.show(message: "Lỗi sao chép file: \(error.localizedDescription)")
             return
         }
         
-        let container = modelContext.container
-        // Task.detached: Chạy một tiến trình nền hoàn toàn độc lập (background thread) để không gây đơ/treo giao diện của người dùng (UI Thread) khi parse file dung lượng lớn
+        // Chạy tiến trình nền để đọc và parse file TXT
         Task.detached(priority: .userInitiated) {
             defer {
                 // Tự động xóa file tạm sau khi đã xử lý xong (dù thành công hay gặp lỗi)
                 try? FileManager.default.removeItem(at: tempFileUrl)
             }
             do {
-                // Đọc toàn bộ nội dung file TXT dưới dạng chuỗi UTF-8
-                let content = try String(contentsOf: tempFileUrl, encoding: .utf8)
+                await MainActor.run {
+                    self.importStatusText = "Đang đọc nội dung file..."
+                }
+                
+                // Hỗ trợ giải mã với nhiều bảng mã khác nhau (Encoding Fallback)
+                var content: String? = nil
+                let encodings: [String.Encoding] = [.utf8, .utf16, .windowsCP1258, .ascii, .isoLatin1]
+                for encoding in encodings {
+                    if let decoded = try? String(contentsOf: tempFileUrl, encoding: encoding) {
+                        content = decoded
+                        break
+                    }
+                }
+                
+                guard let decodedContent = content else {
+                    throw NSError(domain: "ImportError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Định dạng file không hỗ trợ hoặc lỗi mã hóa ký tự."])
+                }
+                
                 let fileName = url.lastPathComponent
                 
-                // Thực hiện phân tích nội dung thành các chương
-                let parsed = self.parseTxtBook(content: content, fileName: fileName)
-                guard !parsed.chapters.isEmpty else {
-                    AppLogger.shared.log("❌ File TXT không có nội dung chương hợp lệ.")
-                    return
-                }
-                
-                // ModelContext: Để ghi dữ liệu từ thread chạy nền vào SwiftData, ta phải tạo một Context phụ trợ từ Container chính.
-                let bgContext = ModelContext(container)
-                let newBookId = "local_\(UUID().uuidString)"
-                let newBook = Book(
-                    bookId: newBookId,
-                    title: parsed.title,
-                    author: "Local",
-                    coverUrl: "",
-                    desc: "Truyện nhập cục bộ từ file \(fileName).",
-                    detailUrl: "local://\(newBookId)",
-                    sourceName: "Local",
-                    sourceUrl: "local://",
-                    extensionPackageId: "local",
-                    currentChapterIndex: 0,
-                    currentChapterPage: 0,
-                    currentChapterTitle: parsed.chapters.first?.title ?? "",
-                    isOnShelf: true,
-                    isHistory: false
-                )
-                bgContext.insert(newBook) // Thêm cuốn sách vào context chạy nền
-                
-                // Thêm từng chương tương ứng vào cuốn sách
-                for (idx, chapData) in parsed.chapters.enumerated() {
-                    let chapId = "\(newBookId)_chapter_\(idx)"
-                    let newChap = Chapter(
-                        id: chapId,
-                        title: chapData.title,
-                        url: "local://chapter/\(idx)",
-                        index: idx,
-                        content: chapData.content,
-                        isCached: true
-                    )
-                    newChap.book = newBook // Thiết lập quan hệ N-1 (Chương thuộc về Sách)
-                    bgContext.insert(newChap)
-                }
-                
-                // Lưu tất cả thay đổi từ context chạy nền vào SQLite Database
-                try bgContext.save()
-                AppLogger.shared.log("✅ Đã nhập thành công truyện: \(parsed.title) (\(parsed.chapters.count) chương)")
-                
-                // Quay lại luồng chính (Main Thread) để cập nhật giao diện hiển thị cho người dùng
                 await MainActor.run {
-                    self.selectedTab = 1 // Chuyển sang Tab Kệ Sách để thấy truyện vừa nhập
+                    self.importStatusText = "Đang phân tích cấu trúc chương..."
+                }
+                
+                // Thực hiện phân tích nội dung thành các chương (Parser)
+                let parsed = self.parseTxtBook(content: decodedContent, fileName: fileName)
+                guard !parsed.chapters.isEmpty else {
+                    throw NSError(domain: "ImportError", code: 2, userInfo: [NSLocalizedDescriptionKey: "File văn bản không chứa nội dung hoặc cấu trúc chương hợp lệ."])
+                }
+                
+                let newBookId = "local_\(UUID().uuidString)"
+                let totalChapters = parsed.chapters.count
+                
+                // Quay lại Main Thread để chèn dữ liệu trực tiếp bằng modelContext chính, giúp UI đồng bộ lập tức và cập nhật progress bar mượt mà
+                await MainActor.run {
+                    self.importStatusText = "Đang tạo cuốn sách mới..."
+                    
+                    let newBook = Book(
+                        bookId: newBookId,
+                        title: parsed.title,
+                        author: "Local",
+                        coverUrl: "",
+                        desc: "Truyện nhập cục bộ từ file \(fileName).",
+                        detailUrl: "local://\(newBookId)",
+                        sourceName: "Local",
+                        sourceUrl: "local://",
+                        extensionPackageId: "local",
+                        currentChapterIndex: 0,
+                        currentChapterPage: 0,
+                        currentChapterTitle: parsed.chapters.first?.title ?? "",
+                        isOnShelf: true,
+                        isHistory: false
+                    )
+                    self.modelContext.insert(newBook)
+                    
+                    // Thực hiện chèn từng chương vào database
+                    Task {
+                        do {
+                            for (idx, chapData) in parsed.chapters.enumerated() {
+                                let chapId = "\(newBookId)_chapter_\(idx)"
+                                let newChap = Chapter(
+                                    id: chapId,
+                                    title: chapData.title,
+                                    url: "local://chapter/\(idx)",
+                                    index: idx,
+                                    content: chapData.content,
+                                    isCached: true
+                                )
+                                newChap.book = newBook
+                                self.modelContext.insert(newChap)
+                                
+                                // Cập nhật tiến độ sau mỗi 50 chương và nhường thread (sleep 1ms) để tránh treo/khựng UI
+                                if idx % 50 == 0 || idx == totalChapters - 1 {
+                                    let progress = Double(idx + 1) / Double(totalChapters)
+                                    self.importProgress = progress
+                                    self.importStatusText = "Đang nhập chương \(idx + 1)/\(totalChapters) (\(Int(progress * 100))%)"
+                                    try? await Task.sleep(nanoseconds: 1_000_000) // Sleep 1ms
+                                }
+                            }
+                            
+                            self.importStatusText = "Đang ghi dữ liệu xuống bộ nhớ..."
+                            try self.modelContext.save()
+                            
+                            AppLogger.shared.log("✅ Đã nhập thành công truyện: \(parsed.title) (\(totalChapters) chương)")
+                            ToastManager.shared.show(message: "Đã nhập thành công: \(parsed.title)")
+                            
+                            self.isImporting = false
+                            self.selectedTab = 1 // Chuyển sang Tab Kệ Sách để thấy truyện vừa nhập
+                        } catch {
+                            self.isImporting = false
+                            AppLogger.shared.log("❌ Lỗi khi lưu vào database: \(error.localizedDescription)")
+                            ToastManager.shared.show(message: "Lỗi khi lưu dữ liệu: \(error.localizedDescription)")
+                        }
+                    }
                 }
             } catch {
-                AppLogger.shared.log("❌ Lỗi xử lý file TXT: \(error.localizedDescription)")
+                await MainActor.run {
+                    self.isImporting = false
+                    AppLogger.shared.log("❌ Lỗi xử lý file TXT: \(error.localizedDescription)")
+                    ToastManager.shared.show(message: "Lỗi import: \(error.localizedDescription)")
+                }
             }
         }
     }

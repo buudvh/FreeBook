@@ -343,42 +343,24 @@ struct ReaderView: View {
                 currentOnlineChapters = onlineChapters
             }
             
-            if ext?.type != "comic" {
-                if viewModel == nil {
-                    let savedPIdx = getSavedParagraphIndex(for: chapterIndex)
-                    viewModel = ReaderViewModel(
-                        bookId: bookId,
-                        extensionPackageId: extensionPackageId,
-                        initialChapterIndex: chapterIndex,
-                        initialParagraphIndex: savedPIdx,
-                        totalChaptersCount: totalChaptersCount,
-                        modelContext: modelContext,
-                        onlineChapters: currentOnlineChapters,
-                        isTranslationEnabled: isTranslationEnabled,
-                        bookTitle: bookTitle,
-                        bookAuthor: bookAuthor,
-                        bookCoverUrl: bookCoverUrl,
-                        bookDesc: bookDesc,
-                        bookDetailUrl: bookDetailUrl,
-                        bookSourceName: bookSourceName
-                    )
-                }
-            } else {
-                // Khởi tạo chương hiện tại cho truyện tranh
-                let currentChapter = LoadedChapter(
-                    index: chapterIndex,
-                    title: "Chương \(chapterIndex + 1)",
-                    originalTitle: "Chương \(chapterIndex + 1)",
-                    originalContent: "",
-                    chapterContent: "",
-                    paragraphItems: [],
-                    isLoading: true
+            if viewModel == nil {
+                let savedPIdx = getSavedParagraphIndex(for: chapterIndex)
+                viewModel = ReaderViewModel(
+                    bookId: bookId,
+                    extensionPackageId: extensionPackageId,
+                    initialChapterIndex: chapterIndex,
+                    initialParagraphIndex: savedPIdx,
+                    totalChaptersCount: totalChaptersCount,
+                    modelContext: modelContext,
+                    onlineChapters: currentOnlineChapters,
+                    isTranslationEnabled: isTranslationEnabled,
+                    bookTitle: bookTitle,
+                    bookAuthor: bookAuthor,
+                    bookCoverUrl: bookCoverUrl,
+                    bookDesc: bookDesc,
+                    bookDetailUrl: bookDetailUrl,
+                    bookSourceName: bookSourceName
                 )
-                self.loadedChapters = [currentChapter]
-                self.hasScrolledToTop = false
-                
-                // Kích hoạt tải nội dung chương hiện tại
-                loadChapterContent(index: chapterIndex)
             }
             
             ttsManager.onChapterFinished = {
@@ -1348,13 +1330,8 @@ struct ReaderView: View {
         
         guard let idx = loadedChapters.firstIndex(where: { $0.index == index }) else { return }
         
-        if ext?.type == "comic" {
-            let urls = translatedContent.components(separatedBy: "\n").filter { !$0.isEmpty }
-            loadedChapters[idx].imageUrls = urls
-        } else {
-            let items = generateParagraphItems(chapterIndex: index, originalTitle: originalTitle, originalContent: originalContent, translatedTitle: translatedTitle, translatedContent: translatedContent)
-            loadedChapters[idx].paragraphItems = items
-        }
+        let items = generateParagraphItems(chapterIndex: index, originalTitle: originalTitle, originalContent: originalContent, translatedTitle: translatedTitle, translatedContent: translatedContent)
+        loadedChapters[idx].paragraphItems = items
         
         loadedChapters[idx].originalTitle = originalTitle
         loadedChapters[idx].originalContent = originalContent
@@ -1855,8 +1832,6 @@ extension ReaderView {
             textReaderView
         } else if loadedChapters.isEmpty {
             chapterLoadingView
-        } else if ext?.type == "comic" {
-            comicReaderView
         } else {
             textReaderView
         }
@@ -1927,108 +1902,7 @@ extension ReaderView {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    @ViewBuilder
-    private var comicReaderView: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(loadedChapters) { chapter in
-                        VStack(spacing: 0) {
-                            if chapter.isLoading {
-                                HStack {
-                                    Spacer()
-                                    ProgressView()
-                                        .tint(selectedTheme.textColor)
-                                    Spacer()
-                                }
-                                .padding(.vertical, 40)
-                            } else if !chapter.errorMessage.isEmpty {
-                                VStack(spacing: 12) {
-                                    Text(chapter.errorMessage)
-                                        .font(.subheadline)
-                                        .foregroundColor(.red)
-                                        .multilineTextAlignment(.center)
-                                    Button("Thử lại") {
-                                        loadChapterContent(index: chapter.index)
-                                    }
-                                    .buttonStyle(.bordered)
-                                }
-                                .padding(.vertical, 40)
-                            } else {
-                                ForEach(chapter.imageUrls, id: \.self) { urlString in
-                                    AsyncImage(url: URL(string: urlString)) { image in
-                                        image.resizable()
-                                            .aspectRatio(contentMode: .fit)
-                                    } placeholder: {
-                                        HStack {
-                                            Spacer()
-                                            ProgressView()
-                                                .padding(.vertical, 40)
-                                            Spacer()
-                                        }
-                                        .background(Color.gray.opacity(0.1))
-                                    }
-                                }
-                            }
-                        }
-                        .id("chapter-\(chapter.index)")
-                    }
-                    
-                    // Dòng hướng dẫn chuyển chương bằng vuốt ngang ở cuối trang hình ảnh
-                    VStack(spacing: 8) {
-                        Divider()
-                            .background(selectedTheme.textColor.opacity(0.15))
-                            .padding(.vertical, 16)
-                        
-                        Text("Hết chương \(chapterIndex + 1)")
-                            .font(.subheadline)
-                            .foregroundColor(selectedTheme.textColor.opacity(0.6))
-                        
-                        Text("← Vuốt phải để xem chương trước | Vuốt trái để sang chương sau →")
-                            .font(.caption)
-                            .foregroundColor(selectedTheme.textColor.opacity(0.4))
-                            .multilineTextAlignment(.center)
-                            .padding(.top, 4)
-                    }
-                    .padding(.bottom, 60)
-                    .frame(maxWidth: .infinity)
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showControls.toggle()
-                    }
-                }
-            }
-            .coordinateSpace(name: "scroll")
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 30, coordinateSpace: .local)
-                    .onEnded { value in
-                        let horizontalDistance = value.translation.width
-                        let verticalDistance = value.translation.height
-                        
-                        if abs(horizontalDistance) > 80 && abs(verticalDistance) < 80 {
-                            if horizontalDistance < 0 {
-                                nextChapter()
-                            } else {
-                                prevChapter()
-                            }
-                        }
-                    }
-            )
-            .onChange(of: loadedChapters) { oldVal, newVal in
-                if !hasScrolledToTop {
-                    if let currentChap = newVal.first(where: { $0.index == chapterIndex }),
-                       !currentChap.isLoading {
-                        DispatchQueue.main.async {
-                            proxy.scrollTo("chapter-\(chapterIndex)", anchor: .top)
-                            hasScrolledToTop = true
-                        }
-                    }
-                }
-            }
-        }
-    }
+
     
     @ViewBuilder
     private var textReaderView: some View {
@@ -2226,56 +2100,54 @@ extension ReaderView {
     
     @ViewBuilder
     private var readerToolbarContent: some View {
-        if ext?.type != "comic" {
-            // Translation Toggle Button
+        // Translation Toggle Button
+        Button(action: {
+            isTranslationEnabled.toggle()
+        }) {
+            Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
+                .foregroundColor(selectedTheme.textColor)
+        }
+        
+        // TTS Button
+        Button(action: {
+            if ttsManager.isPlaying {
+                ttsManager.stop()
+            } else {
+                triggerGetVisibleIndex = UUID()
+            }
+        }) {
+            Image(systemName: ttsManager.isPlaying ? "stop.circle.fill" : "play.circle")
+                .foregroundColor(ttsManager.isPlaying ? .red : selectedTheme.textColor)
+        }
+        
+        // Dictionary Manager, Reload, and Settings Menu
+        Menu {
             Button(action: {
-                isTranslationEnabled.toggle()
+                reloadChapterContent()
             }) {
-                Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
-                    .foregroundColor(selectedTheme.textColor)
+                Label("Tải lại chương", systemImage: "arrow.clockwise")
             }
             
-            // TTS Button
-            Button(action: {
-                if ttsManager.isPlaying {
-                    ttsManager.stop()
-                } else {
-                    triggerGetVisibleIndex = UUID()
+            if localBook != nil {
+                NavigationLink(destination: BookDictionaryView(bookId: bookId, bookName: bookTitle ?? "")) {
+                    Label("Từ điển truyện", systemImage: "character.book.closed")
                 }
-            }) {
-                Image(systemName: ttsManager.isPlaying ? "stop.circle.fill" : "play.circle")
-                    .foregroundColor(ttsManager.isPlaying ? .red : selectedTheme.textColor)
             }
             
-            // Dictionary Manager, Reload, and Settings Menu
-            Menu {
-                Button(action: {
-                    reloadChapterContent()
-                }) {
-                    Label("Tải lại chương", systemImage: "arrow.clockwise")
-                }
-                
-                if localBook != nil {
-                    NavigationLink(destination: BookDictionaryView(bookId: bookId, bookName: bookTitle ?? "")) {
-                        Label("Từ điển truyện", systemImage: "character.book.closed")
-                    }
-                }
-                
-                Button(action: {
-                    showingBypassBrowser = true
-                }) {
-                    Label("Mở bằng trình duyệt", systemImage: "safari")
-                }
-                
-                Button(action: {
-                    showingSettings.toggle()
-                }) {
-                    Label("Cài đặt trình đọc", systemImage: "gearshape")
-                }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-                    .foregroundColor(selectedTheme.textColor)
+            Button(action: {
+                showingBypassBrowser = true
+            }) {
+                Label("Mở bằng trình duyệt", systemImage: "safari")
             }
+            
+            Button(action: {
+                showingSettings.toggle()
+            }) {
+                Label("Cài đặt trình đọc", systemImage: "gearshape")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .foregroundColor(selectedTheme.textColor)
         }
     }
     

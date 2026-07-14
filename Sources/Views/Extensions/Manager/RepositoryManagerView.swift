@@ -10,18 +10,22 @@ struct RepositoryManagerView: View {
     @State private var selectedTab = 0 // 0: Tất cả tiện ích, 1: Danh sách kho
     @State private var renderedTab = 0
     
-    // Trạng thái cho Tab 0: Danh sách kho
+    // Trạng thái cho Tab 1: Cửa hàng tiện ích gộp
     @State private var showingAddRepo = false
     @State private var isRefreshingAll = false
     @State private var statusMessage = ""
-    
-    // Trạng thái cho Tab 1: Cửa hàng tiện ích gộp
-    @State private var selectedRepoId: String = "all" // "all" hoặc repository.url
-    @State private var selectedAuthor: String = "all" // "all" hoặc tên tác giả
     @State private var storeSearchQuery: String = ""
     @ObservedObject private var extensionManager = ExtensionManager.shared
     @State private var errorMessage = ""
     @State private var selectedExtensionForConfig: Extension? = nil
+    
+    // Bộ lọc và Trạng thái Sheet/Alert mới
+    @State private var showingFilterSheet = false
+    @State private var showingUninstallAllAlert = false
+    @State private var filterType: String = "all"
+    @State private var filterLocale: String = "all"
+    @State private var filterAuthor: String = "all"
+    @State private var filterRepoUrl: String = "all"
     
     // Lọc danh sách tác giả động từ database
     private var allAuthors: [String] {
@@ -29,21 +33,43 @@ struct RepositoryManagerView: View {
         return Array(Set(authors)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
     
+    // Lọc danh sách ngôn ngữ động từ database
+    private var allLocales: [String] {
+        let locales = allExtensions.map { $0.locale }
+        return Array(Set(locales)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+    
+    // Lọc danh sách loại tiện ích động từ database (loại trừ comic)
+    private var allTypes: [String] {
+        let types = allExtensions.map { $0.type }.filter { $0 != "comic" }
+        return Array(Set(types)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+    
     // Danh sách tiện ích sau khi lọc theo các tiêu chí và tìm kiếm
     private var filteredExtensions: [Extension] {
-        var result = allExtensions
+        var result = allExtensions.filter { $0.type != "comic" } // Loại bỏ hoàn toàn comic
         
         // 1. Lọc theo Kho
-        if selectedRepoId != "all" {
-            result = result.filter { $0.repository?.url == selectedRepoId }
+        if filterRepoUrl != "all" {
+            result = result.filter { $0.repository?.url == filterRepoUrl }
         }
         
         // 2. Lọc theo Tác giả
-        if selectedAuthor != "all" {
-            result = result.filter { $0.author == selectedAuthor }
+        if filterAuthor != "all" {
+            result = result.filter { $0.author == filterAuthor }
         }
         
-        // 3. Lọc theo Từ khóa tìm kiếm
+        // 3. Lọc theo Loại tiện ích (Type Ext)
+        if filterType != "all" {
+            result = result.filter { $0.type == filterType }
+        }
+        
+        // 4. Lọc theo Ngôn ngữ (Locale)
+        if filterLocale != "all" {
+            result = result.filter { $0.locale == filterLocale }
+        }
+        
+        // 5. Lọc theo Từ khóa tìm kiếm
         let trimmedQuery = storeSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedQuery.isEmpty {
             result = result.filter {
@@ -53,7 +79,7 @@ struct RepositoryManagerView: View {
             }
         }
         
-        // 4. Sắp xếp: đã cài đặt lên đầu, tiếp đến A-Z
+        // 6. Sắp xếp: đã cài đặt lên đầu, tiếp đến A-Z
         return result.sorted { ext1, ext2 in
             let isInstalled1 = !ext1.localPath.isEmpty
             let isInstalled2 = !ext2.localPath.isEmpty
@@ -82,42 +108,26 @@ struct RepositoryManagerView: View {
                     // TAB 0: CỬA HÀNG TIỆN ÍCH GỘP (HIỂN THỊ HẾT & BỘ LỌC)
                     VStack(spacing: 8) {
                         if renderedTab == 0 {
-                        // Thanh bộ lọc ngang
-                        HStack(spacing: 12) {
-                            // Lọc theo Kho
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Kho tiện ích")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                Picker("Kho", selection: $selectedRepoId) {
-                                    Text("Tất cả kho").tag("all")
-                                    ForEach(repositories) { repo in
-                                        Text(repo.name).tag(repo.url)
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                                .labelsHidden()
-                                .background(Color(.secondarySystemBackground))
-                                .cornerRadius(8)
-                            }
-                            
+                        // Thanh hiển thị trạng thái bộ lọc
+                        HStack {
+                            Text("Đang hiển thị \(filteredExtensions.count) tiện ích")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                             Spacer()
-                            
-                            // Lọc theo Tác giả
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Tác giả")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                Picker("Tác giả", selection: $selectedAuthor) {
-                                    Text("Tất cả tác giả").tag("all")
-                                    ForEach(allAuthors, id: \.self) { author in
-                                        Text(author).tag(author)
+                            if filterType != "all" || filterLocale != "all" || filterAuthor != "all" || filterRepoUrl != "all" {
+                                Button(action: {
+                                    filterType = "all"
+                                    filterLocale = "all"
+                                    filterAuthor = "all"
+                                    filterRepoUrl = "all"
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "trash.circle")
+                                        Text("Đặt lại bộ lọc")
                                     }
+                                    .font(.caption)
+                                    .foregroundColor(.red)
                                 }
-                                .pickerStyle(.menu)
-                                .labelsHidden()
-                                .background(Color(.secondarySystemBackground))
-                                .cornerRadius(8)
                             }
                         }
                         .padding(.horizontal)
@@ -178,7 +188,7 @@ struct RepositoryManagerView: View {
                                         .frame(width: 44, height: 44)
                                         .cornerRadius(8)
                                     } else {
-                                        Image(systemName: ext.type == "comic" ? "comicbook" : (ext.type == "tts" ? "waveform" : "book.closed"))
+                                        Image(systemName: ext.type == "tts" ? "waveform" : "book.closed")
                                             .resizable()
                                             .aspectRatio(contentMode: .fit)
                                             .frame(width: 32, height: 32)
@@ -188,12 +198,12 @@ struct RepositoryManagerView: View {
                                             .cornerRadius(8)
                                     }
                                     
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        HStack {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        HStack(spacing: 6) {
                                             Text(ext.name)
                                                 .font(.headline)
                                             Text("v\(ext.version)")
-                                                .font(.caption)
+                                                .font(.caption2)
                                                 .padding(.horizontal, 6)
                                                 .padding(.vertical, 2)
                                                 .background(Color.blue.opacity(0.1))
@@ -201,26 +211,44 @@ struct RepositoryManagerView: View {
                                                 .cornerRadius(4)
                                         }
                                         
-                                        Text(ext.sourceUrl)
-                                            .font(.caption)
-                                            .foregroundColor(.gray)
-                                            .lineLimit(1)
-                                        
-                                        HStack(spacing: 8) {
+                                        // Badge Type, Kho, Tác giả
+                                        HStack(spacing: 6) {
+                                            // Badge Type
+                                            Text(translateType(ext.type))
+                                                .font(.system(size: 9, weight: .semibold))
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(ext.type == "tts" ? Color.orange.opacity(0.12) : Color.purple.opacity(0.12))
+                                                .foregroundColor(ext.type == "tts" ? .orange : .purple)
+                                                .cornerRadius(4)
+                                            
+                                            // Badge Kho
                                             if let repo = ext.repository {
                                                 Text(repo.name)
-                                                    .font(.system(size: 10))
-                                                    .foregroundColor(.secondary)
-                                                    .padding(.horizontal, 4)
+                                                    .font(.system(size: 9))
+                                                    .padding(.horizontal, 6)
                                                     .padding(.vertical, 2)
                                                     .background(Color.gray.opacity(0.1))
+                                                    .foregroundColor(.secondary)
                                                     .cornerRadius(4)
                                             }
-                                            Text("Tác giả: \(ext.author)")
-                                                .font(.system(size: 10))
-                                                .foregroundColor(.secondary)
+                                            
+                                            // Badge Tác giả
+                                            Text(ext.author)
+                                                .font(.system(size: 9))
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(Color.green.opacity(0.1))
+                                                .foregroundColor(.green)
+                                                .cornerRadius(4)
                                         }
+                                        
+                                        Text(ext.sourceUrl)
+                                            .font(.caption2)
+                                            .foregroundColor(.gray)
+                                            .lineLimit(1)
                                     }
+                                    
                                     Spacer()
                                     
                                     // Nút hành động
@@ -358,6 +386,20 @@ struct RepositoryManagerView: View {
             .navigationTitle("Kho Tiện Ích")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if selectedTab == 0 {
+                    ToolbarItemGroup(placement: .navigationBarTrailing) {
+                        Button(action: { showingFilterSheet = true }) {
+                            Image(systemName: "line.3.horizontal.decrease.circle")
+                        }
+                        
+                        Button(role: .destructive, action: { showingUninstallAllAlert = true }) {
+                            Text("Xóa tất cả")
+                                .foregroundColor(.red)
+                        }
+                        .disabled(allExtensions.filter { !$0.localPath.isEmpty }.isEmpty)
+                    }
+                }
+                
                 if selectedTab == 1 {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button(action: { showingAddRepo = true }) {
@@ -375,6 +417,26 @@ struct RepositoryManagerView: View {
                         .disabled(isRefreshingAll || repositories.isEmpty)
                     }
                 }
+            }
+            .alert("Xóa tất cả tiện ích?", isPresented: $showingUninstallAllAlert) {
+                Button("Hủy", role: .cancel) { }
+                Button("Xóa sạch", role: .destructive) {
+                    uninstallAllExtensions()
+                }
+            } message: {
+                Text("Hành động này sẽ gỡ cài đặt toàn bộ các tiện ích đã cài trong ứng dụng. Bạn có chắc chắn không?")
+            }
+            .sheet(isPresented: $showingFilterSheet) {
+                FilterSheet(
+                    repositories: repositories,
+                    allAuthors: allAuthors,
+                    allLocales: allLocales,
+                    allTypes: allTypes,
+                    filterType: $filterType,
+                    filterLocale: $filterLocale,
+                    filterAuthor: $filterAuthor,
+                    filterRepoUrl: $filterRepoUrl
+                )
             }
             .sheet(isPresented: $showingAddRepo) {
                 AddRepositoryView { name, url in
@@ -558,6 +620,117 @@ struct RepositoryManagerView: View {
         ExtensionManager.shared.uninstall(localPath: ext.localPath)
         ext.localPath = ""
         try? modelContext.save()
+    }
+    
+    private func uninstallAllExtensions() {
+        let installed = allExtensions.filter { !$0.localPath.isEmpty }
+        for ext in installed {
+            ExtensionManager.shared.uninstall(localPath: ext.localPath)
+            ext.localPath = ""
+        }
+        try? modelContext.save()
+    }
+    
+    private func translateType(_ type: String) -> String {
+        switch type {
+        case "novel": return "Truyện chữ"
+        case "chinese_novel": return "Truyện Trung"
+        case "tts": return "Giọng đọc (TTS)"
+        default: return type.capitalized
+        }
+    }
+}
+
+// MARK: - FilterSheet
+struct FilterSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let repositories: [Repository]
+    let allAuthors: [String]
+    let allLocales: [String]
+    let allTypes: [String]
+    
+    @Binding var filterType: String
+    @Binding var filterLocale: String
+    @Binding var filterAuthor: String
+    @Binding var filterRepoUrl: String
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(header: Text("Loại tiện ích")) {
+                    Picker("Loại", selection: $filterType) {
+                        Text("Tất cả").tag("all")
+                        ForEach(allTypes, id: \.self) { type in
+                            Text(translateType(type)).tag(type)
+                        }
+                    }
+                }
+                
+                Section(header: Text("Ngôn ngữ")) {
+                    Picker("Ngôn ngữ", selection: $filterLocale) {
+                        Text("Tất cả").tag("all")
+                        ForEach(allLocales, id: \.self) { locale in
+                            Text(translateLocale(locale)).tag(locale)
+                        }
+                    }
+                }
+                
+                Section(header: Text("Tác giả")) {
+                    Picker("Tác giả", selection: $filterAuthor) {
+                        Text("Tất cả").tag("all")
+                        ForEach(allAuthors, id: \.self) { author in
+                            Text(author).tag(author)
+                        }
+                    }
+                }
+                
+                Section(header: Text("Kho tiện ích")) {
+                    Picker("Kho", selection: $filterRepoUrl) {
+                        Text("Tất cả").tag("all")
+                        ForEach(repositories) { repo in
+                            Text(repo.name).tag(repo.url)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Bộ lọc tiện ích")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Xong") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Đặt lại") {
+                        filterType = "all"
+                        filterLocale = "all"
+                        filterAuthor = "all"
+                        filterRepoUrl = "all"
+                        dismiss()
+                    }
+                    .foregroundColor(.red)
+                }
+            }
+        }
+    }
+    
+    private func translateType(_ type: String) -> String {
+        switch type {
+        case "novel": return "Truyện chữ (Novel)"
+        case "chinese_novel": return "Truyện Trung Quốc (Chinese)"
+        case "tts": return "Giọng đọc (TTS)"
+        default: return type.capitalized
+        }
+    }
+    
+    private func translateLocale(_ locale: String) -> String {
+        switch locale {
+        case "vi_VN": return "Tiếng Việt"
+        case "zh_CN": return "Tiếng Trung"
+        case "en_US": return "Tiếng Anh"
+        default: return locale
+        }
     }
 }
 

@@ -51,7 +51,7 @@ struct ExtensionStoreView: View {
                                 .frame(width: 44, height: 44)
                                 .cornerRadius(8)
                             } else {
-                                Image(systemName: ext.type == "comic" ? "comicbook" : (ext.type == "tts" ? "waveform" : "book.closed"))
+                                Image(systemName: ext.type == "tts" ? "waveform" : "book.closed")
                                     .resizable()
                                     .aspectRatio(contentMode: .fit)
                                     .frame(width: 32, height: 32)

@@ -11,7 +11,7 @@ struct DiscoveryView: View {
     
     private var activeExtensions: [Extension] {
         allExtensions
-            .filter { !$0.localPath.isEmpty && $0.isEnabled }
+            .filter { !$0.localPath.isEmpty && $0.isEnabled && ($0.type == "novel" || $0.type == "chinese_novel") }
             .sorted { ext1, ext2 in
                 // Nguồn được ghim lên đầu, sau đó sắp xếp theo A-Z
                 if ext1.isPinned != ext2.isPinned {

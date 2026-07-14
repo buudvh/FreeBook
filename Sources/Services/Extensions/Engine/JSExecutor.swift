@@ -61,6 +61,7 @@ public final class JSExecutor {
         let console = JSValue(newObjectIn: context)
         console?.setObject(logBlock, forKeyedSubscript: "log" as NSCopying & NSObjectProtocol)
         context.setObject(console, forKeyedSubscript: "console" as NSCopying & NSObjectProtocol)
+        context.setObject(console, forKeyedSubscript: "Console" as NSCopying & NSObjectProtocol)
         
         // Đăng ký atob và btoa chuẩn Web
         let atobBlock: @convention(block) (String) -> String = { base64Str in
@@ -362,6 +363,28 @@ public final class JSExecutor {
         // 8. Đăng ký fetch đồng bộ ghi đè fetch Promise mặc định
         let fetchBootstrap = """
         var fetch = function(url, options) {
+            if (options && options.queries && typeof options.queries === 'object') {
+                var qParams = [];
+                for (var qKey in options.queries) {
+                    if (options.queries.hasOwnProperty(qKey)) {
+                        var qVal = options.queries[qKey];
+                        qParams.push(encodeURIComponent(qKey) + "=" + encodeURIComponent(qVal !== null && qVal !== undefined ? qVal : ""));
+                    }
+                }
+                if (qParams.length > 0) {
+                    var queryString = qParams.join("&");
+                    if (url.indexOf("?") === -1) {
+                        url = url + "?" + queryString;
+                    } else {
+                        if (url.endsWith("?") || url.endsWith("&")) {
+                            url = url + queryString;
+                        } else {
+                            url = url + "&" + queryString;
+                        }
+                    }
+                }
+            }
+
             if (options && options.body && typeof options.body === 'object') {
                 var params = [];
                 for (var key in options.body) {

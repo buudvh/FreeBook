@@ -5,7 +5,6 @@ struct DownloadTrackerView: View {
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var downloadManager = DownloadManager.shared
     
-    @State private var showingOptionsSheet = false
     @State private var selectedBookForTask: Book? = nil
     @State private var selectedTaskType: TaskType = .download
     @State private var defaultOnlyExportCached = false
@@ -40,10 +39,8 @@ struct DownloadTrackerView: View {
                 .listStyle(.plain)
             }
         }
-        .sheet(isPresented: $showingOptionsSheet) {
-            if let book = selectedBookForTask {
-                TaskOptionsSheet(book: book, taskType: selectedTaskType, defaultOnlyExportCached: defaultOnlyExportCached)
-            }
+        .sheet(item: $selectedBookForTask) { book in
+            TaskOptionsSheet(book: book, taskType: selectedTaskType, defaultOnlyExportCached: defaultOnlyExportCached)
         }
     }
     
@@ -168,10 +165,9 @@ struct DownloadTrackerView: View {
     private func exportFromCached(_ task: DownloadTask) {
         let allBooks = (try? modelContext.fetch(FetchDescriptor<Book>())) ?? []
         if let book = allBooks.first(where: { $0.bookId == task.bookId }) {
-            self.selectedBookForTask = book
             self.selectedTaskType = .exportTxt
             self.defaultOnlyExportCached = true
-            self.showingOptionsSheet = true
+            self.selectedBookForTask = book
         }
     }
 }
