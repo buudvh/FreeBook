@@ -153,11 +153,32 @@ struct ReaderTextView: UIViewRepresentable {
                             let end = uiView.position(from: start, offset: highlight.length) ?? start
                             if let textRange = uiView.textRange(from: start, to: end) {
                                 let rect = uiView.firstRect(for: textRange)
+                                guard !rect.isNull && !rect.isEmpty &&
+                                      !rect.origin.x.isNaN && !rect.origin.y.isNaN &&
+                                      !rect.origin.x.isInfinite && !rect.origin.y.isInfinite &&
+                                      !rect.size.width.isNaN && !rect.size.height.isNaN else {
+                                    return
+                                }
+                                
                                 let rectInScrollView = uiView.convert(rect, to: scrollView)
+                                guard !rectInScrollView.origin.x.isNaN && !rectInScrollView.origin.y.isNaN &&
+                                      !rectInScrollView.origin.x.isInfinite && !rectInScrollView.origin.y.isInfinite &&
+                                      !rectInScrollView.size.width.isNaN && !rectInScrollView.size.height.isNaN else {
+                                    return
+                                }
                                 
                                 let visibleHeight = scrollView.bounds.height
-                                let targetY = max(0, rectInScrollView.midY - (visibleHeight / 2))
-                                scrollView.setContentOffset(CGPoint(x: 0, y: targetY), animated: true)
+                                guard !visibleHeight.isNaN && !visibleHeight.isInfinite && visibleHeight > 0 else {
+                                    return
+                                }
+                                
+                                let targetY = rectInScrollView.midY - (visibleHeight / 2)
+                                guard !targetY.isNaN && !targetY.isInfinite else {
+                                    return
+                                }
+                                
+                                let safeTargetY = max(0, targetY)
+                                scrollView.setContentOffset(CGPoint(x: 0, y: safeTargetY), animated: true)
                             }
                         }
                     }
