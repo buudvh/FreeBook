@@ -29,6 +29,7 @@ class CachedChapter: Identifiable {
     var originalContent: String = ""
     var scrollParagraphIndex: Int = -1
     var paragraphItems: [ParagraphItem] = []
+    var isPositionRestored: Bool = false
     
     init(index: Int) {
         self.index = index
@@ -39,7 +40,7 @@ class CachedChapter: Identifiable {
 @Observable
 class ChapterCache {
     var cache: [Int: CachedChapter] = [:]
-    private var releaseTasks: [Int: Task<Void, Never>] = [:]
+    @ObservationIgnored private var releaseTasks: [Int: Task<Void, Never>] = [:]
     
     func get(_ index: Int) -> CachedChapter? {
         if let item = cache[index] {

@@ -327,7 +327,9 @@ class ReaderViewModel: ObservableObject {
                 let chap = sorted[index]
                 chap.content = cleanedContent
                 chap.isCached = true
-                try? modelContext.save()
+                Task {
+                    try? modelContext.save()
+                }
             }
         } else {
             saveOnlineBookIfNeeded(currentIndex: index, cleanedContent: cleanedContent, title: title, url: urlString)

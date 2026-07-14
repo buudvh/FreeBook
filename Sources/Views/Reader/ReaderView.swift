@@ -909,53 +909,51 @@ struct ReaderView: View {
     
     @ViewBuilder
     private func chapterContentView(for chapter: CachedChapter) -> some View {
-        LazyVStack(alignment: .leading, spacing: fontSize * 0.8) {
-            ForEach(chapter.paragraphItems) { item in
-                let textLen = (isTranslationEnabled ? item.translated : item.original).count
-                let relativeHighlightRange: NSRange? = {
-                    if ttsManager.isPlaying &&
-                       ttsManager.playingBookId == bookId &&
-                       ttsManager.playingChapterIndex == chapter.index &&
-                       item.id == ttsManager.currentParentParagraphIndex {
-                        return NSRange(location: 0, length: textLen)
-                    }
-                    return nil
-                }()
-                
-                ParagraphCardView(
-                    item: item,
-                    isTranslationEnabled: isTranslationEnabled,
-                    fontSize: fontSize,
-                    lineSpacing: lineSpacing,
-                    theme: selectedTheme,
-                    highlightRange: relativeHighlightRange,
-                    triggerGetVisibleIndex: $triggerGetVisibleIndex,
-                    onGetVisibleIndex: { visibleOffset in
-                        guard !ttsManager.isPlaying else { return }
-                        startTTS(at: chapter.index, paragraphIndex: item.id)
-                    },
-                    onSelectionChange: { selectedText, sentence, offset, absoluteOffset in
-                        self.onSelectionChangeInParagraph(
-                            selectedText: selectedText,
-                            sentence: sentence,
-                            offset: offset,
-                            absoluteOffset: absoluteOffset,
-                            item: item,
-                            chapterIndex: chapter.index
-                        )
-                    },
-                    onSpeakFromHere: { _ in
-                        startTTS(at: chapter.index, paragraphIndex: item.id)
-                    }
-                )
-                .id("paragraph-\(chapter.index)-\(item.id)")
-                .onAppear {
-                    visibleParagraphs.insert(item.id)
+        ForEach(chapter.paragraphItems) { item in
+            let textLen = (isTranslationEnabled ? item.translated : item.original).count
+            let relativeHighlightRange: NSRange? = {
+                if ttsManager.isPlaying &&
+                   ttsManager.playingBookId == bookId &&
+                   ttsManager.playingChapterIndex == chapter.index &&
+                   item.id == ttsManager.currentParentParagraphIndex {
+                    return NSRange(location: 0, length: textLen)
                 }
-                .onDisappear {
-                    visibleParagraphs.remove(item.id)
-                    updateScrollReadingProgress()
+                return nil
+            }()
+            
+            ParagraphCardView(
+                item: item,
+                isTranslationEnabled: isTranslationEnabled,
+                fontSize: fontSize,
+                lineSpacing: lineSpacing,
+                theme: selectedTheme,
+                highlightRange: relativeHighlightRange,
+                triggerGetVisibleIndex: $triggerGetVisibleIndex,
+                onGetVisibleIndex: { visibleOffset in
+                    guard !ttsManager.isPlaying else { return }
+                    startTTS(at: chapter.index, paragraphIndex: item.id)
+                },
+                onSelectionChange: { selectedText, sentence, offset, absoluteOffset in
+                    self.onSelectionChangeInParagraph(
+                        selectedText: selectedText,
+                        sentence: sentence,
+                        offset: offset,
+                        absoluteOffset: absoluteOffset,
+                        item: item,
+                        chapterIndex: chapter.index
+                    )
+                },
+                onSpeakFromHere: { _ in
+                    startTTS(at: chapter.index, paragraphIndex: item.id)
                 }
+            )
+            .id("paragraph-\(chapter.index)-\(item.id)")
+            .onAppear {
+                visibleParagraphs.insert(item.id)
+            }
+            .onDisappear {
+                visibleParagraphs.remove(item.id)
+                updateScrollReadingProgress()
             }
         }
     }
@@ -1997,12 +1995,15 @@ extension ReaderView {
                                 }
                                 .onChange(of: cached.state) { _, state in
                                     if state == .loaded && idx == chapterIndex {
-                                        let savedPIdx = getSavedParagraphIndex()
-                                        let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
-                                        if savedPIdx >= 0 && hasValidParagraph {
-                                            proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
-                                        } else {
-                                            proxy.scrollTo("chapter-\(idx)", anchor: .top)
+                                        if !cached.isPositionRestored {
+                                            cached.isPositionRestored = true
+                                            let savedPIdx = getSavedParagraphIndex()
+                                            let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
+                                            if savedPIdx >= 0 && hasValidParagraph {
+                                                proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
+                                            } else {
+                                                proxy.scrollTo("chapter-\(idx)", anchor: .top)
+                                            }
                                         }
                                         if !ttsManager.isPlaying {
                                             prepareTTSForCurrentState()
@@ -2011,10 +2012,13 @@ extension ReaderView {
                                 }
                                 .onAppear {
                                     if cached.state == .loaded && idx == chapterIndex {
-                                        let savedPIdx = getSavedParagraphIndex()
-                                        let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
-                                        if savedPIdx >= 0 && hasValidParagraph {
-                                            proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
+                                        if !cached.isPositionRestored {
+                                            cached.isPositionRestored = true
+                                            let savedPIdx = getSavedParagraphIndex()
+                                            let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
+                                            if savedPIdx >= 0 && hasValidParagraph {
+                                                proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
+                                            }
                                         }
                                         if !ttsManager.isPlaying {
                                             prepareTTSForCurrentState()
