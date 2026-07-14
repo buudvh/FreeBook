@@ -29,6 +29,18 @@ struct ParagraphCardView: View {
     }
 }
 
+extension ParagraphCardView: Equatable {
+    static func == (lhs: ParagraphCardView, rhs: ParagraphCardView) -> Bool {
+        return lhs.item == rhs.item &&
+               lhs.isTranslationEnabled == rhs.isTranslationEnabled &&
+               lhs.fontSize == rhs.fontSize &&
+               lhs.lineSpacing == rhs.lineSpacing &&
+               lhs.theme == rhs.theme &&
+               lhs.highlightRange == rhs.highlightRange &&
+               lhs.triggerGetVisibleIndex == rhs.triggerGetVisibleIndex
+    }
+}
+
 // Cấu trúc dữ liệu dòng text song hành
 public struct ParagraphItem: Identifiable, Codable, Equatable {
     public let id: Int

@@ -113,10 +113,12 @@ struct ReaderView: View {
     @State private var isAutoScrollDisabled = false
     @State private var viewModel: ReaderViewModel? = nil
     @State private var updateProgressWorkItem: DispatchWorkItem? = nil
+    @State private var updateTTSPositionWorkItem: DispatchWorkItem? = nil
+    @State private var prepareTTSTask: DispatchWorkItem? = nil
     
     @State private var loadedChapters: [LoadedChapter] = []
     @State private var hasScrolledToTop = false
-    @State private var visibleParagraphs: Set<Int> = []
+    @State private var paragraphTracker = ParagraphTracker()
     
     // State variables for overlay HUD controls
     @State private var showControls = false
@@ -407,7 +409,9 @@ struct ReaderView: View {
         }
         .onChange(of: chapterIndex) { _, newValue in
             updateProgressWorkItem?.cancel()
-            visibleParagraphs.removeAll()
+            updateTTSPositionWorkItem?.cancel()
+            prepareTTSTask?.cancel()
+            paragraphTracker.visibleParagraphs.removeAll()
             
             if ReaderView.activeBookId == bookId {
                 ReaderView.activeChapterIndex = newValue
@@ -856,9 +860,14 @@ struct ReaderView: View {
     
     @ViewBuilder
     private func chapterContentView(for chapter: LoadedChapter) -> some View {
-        LazyVStack(alignment: .leading, spacing: fontSize * 0.8) {
+        let isTrans = isTranslationEnabled
+        let size = fontSize
+        let spacing = lineSpacing
+        let theme = selectedTheme
+        
+        return LazyVStack(alignment: .leading, spacing: size * 0.8) {
             ForEach(chapter.paragraphItems) { item in
-                let textLen = (isTranslationEnabled ? item.translated : item.original).count
+                let textLen = (isTrans ? item.translated : item.original).count
                 let relativeHighlightRange: NSRange? = {
                     if ttsManager.isPlaying &&
                        ttsManager.playingBookId == bookId &&
@@ -871,10 +880,10 @@ struct ReaderView: View {
                 
                 ParagraphCardView(
                     item: item,
-                    isTranslationEnabled: isTranslationEnabled,
-                    fontSize: fontSize,
-                    lineSpacing: lineSpacing,
-                    theme: selectedTheme,
+                    isTranslationEnabled: isTrans,
+                    fontSize: size,
+                    lineSpacing: spacing,
+                    theme: theme,
                     highlightRange: relativeHighlightRange,
                     triggerGetVisibleIndex: $triggerGetVisibleIndex,
                     onGetVisibleIndex: { visibleOffset in
@@ -897,10 +906,10 @@ struct ReaderView: View {
                 )
                 .id("paragraph-\(chapter.index)-\(item.id)")
                 .onAppear {
-                    visibleParagraphs.insert(item.id)
+                    paragraphTracker.visibleParagraphs.insert(item.id)
                 }
                 .onDisappear {
-                    visibleParagraphs.remove(item.id)
+                    paragraphTracker.visibleParagraphs.remove(item.id)
                     updateScrollReadingProgress()
                 }
             }
@@ -909,8 +918,13 @@ struct ReaderView: View {
     
     @ViewBuilder
     private func chapterContentView(for chapter: CachedChapter) -> some View {
-        ForEach(chapter.paragraphItems) { item in
-            let textLen = (isTranslationEnabled ? item.translated : item.original).count
+        let isTrans = isTranslationEnabled
+        let size = fontSize
+        let spacing = lineSpacing
+        let theme = selectedTheme
+        
+        return ForEach(chapter.paragraphItems) { item in
+            let textLen = (isTrans ? item.translated : item.original).count
             let relativeHighlightRange: NSRange? = {
                 if ttsManager.isPlaying &&
                    ttsManager.playingBookId == bookId &&
@@ -923,10 +937,10 @@ struct ReaderView: View {
             
             ParagraphCardView(
                 item: item,
-                isTranslationEnabled: isTranslationEnabled,
-                fontSize: fontSize,
-                lineSpacing: lineSpacing,
-                theme: selectedTheme,
+                isTranslationEnabled: isTrans,
+                fontSize: size,
+                lineSpacing: spacing,
+                theme: theme,
                 highlightRange: relativeHighlightRange,
                 triggerGetVisibleIndex: $triggerGetVisibleIndex,
                 onGetVisibleIndex: { visibleOffset in
@@ -947,12 +961,13 @@ struct ReaderView: View {
                     startTTS(at: chapter.index, paragraphIndex: item.id)
                 }
             )
+            .equatable()
             .id("paragraph-\(chapter.index)-\(item.id)")
             .onAppear {
-                visibleParagraphs.insert(item.id)
+                paragraphTracker.visibleParagraphs.insert(item.id)
             }
             .onDisappear {
-                visibleParagraphs.remove(item.id)
+                paragraphTracker.visibleParagraphs.remove(item.id)
                 updateScrollReadingProgress()
             }
         }
@@ -1419,7 +1434,7 @@ struct ReaderView: View {
         self.isGoingNext = index >= self.chapterIndex
         self.isTransitioning = true
         
-        self.visibleParagraphs.removeAll()
+        self.paragraphTracker.visibleParagraphs.removeAll()
         
         if let vm = viewModel {
             vm.onTabSelectionChanged(newIndex: index)
@@ -1510,54 +1525,78 @@ struct ReaderView: View {
         )
     }
     
+    private func schedulePrepareTTS() {
+        guard !ttsManager.isPlaying else { return }
+        prepareTTSTask?.cancel()
+        
+        let workItem = DispatchWorkItem {
+            self.prepareTTSForCurrentState()
+        }
+        self.prepareTTSTask = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: workItem)
+    }
+    
     private func updateScrollReadingProgress() {
         guard !ttsManager.isPlaying else { return }
         
+        // 1. Debounce 200ms cho việc cập nhật tiến trình lưu trữ
         updateProgressWorkItem?.cancel()
-        
-        let workItem = DispatchWorkItem { [weak viewModel] in
-            guard let topIndex = self.visibleParagraphs.min() else { return }
+        let progressWork = DispatchWorkItem { [weak viewModel] in
+            guard let topIndex = self.paragraphTracker.visibleParagraphs.min() else { return }
             
             if let vm = viewModel {
                 vm.updateProgress(chapterIndex: self.chapterIndex, paragraphIndex: topIndex)
             } else {
                 self.saveReadProgress(index: self.chapterIndex, paragraphIndex: topIndex)
             }
-            
+        }
+        self.updateProgressWorkItem = progressWork
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: progressWork)
+        
+        // 2. Debounce 1.5 giây cho việc đồng bộ con trỏ TTS (tránh re-render ttsManager khi cuộn nhanh)
+        updateTTSPositionWorkItem?.cancel()
+        let ttsWork = DispatchWorkItem {
+            guard let topIndex = self.paragraphTracker.visibleParagraphs.min() else { return }
             self.ttsManager.updateParagraphPositionWithoutPlaying(paragraphIndex: topIndex)
         }
-        
-        self.updateProgressWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
+        self.updateTTSPositionWorkItem = ttsWork
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: ttsWork)
     }
     
     private func saveReadProgress(index: Int, paragraphIndex: Int) {
         guard index >= 0 && index < totalChaptersCount else { return }
         
         let title: String
-        if let book = localBook {
+        if let vm = viewModel {
+            let sorted = vm.getSortedChapters()
+            guard index < sorted.count else { return }
+            title = sorted[index].title
+        } else if let book = localBook {
             let sorted = book.chapters.sorted(by: { $0.index < $1.index })
             guard index < sorted.count else { return }
-            let chap = sorted[index]
-            title = chap.title
-            
+            title = sorted[index].title
+        } else {
+            guard index < currentOnlineChapters.count else { return }
+            let chap = currentOnlineChapters[index]
+            title = chap.name
+        }
+        
+        if let book = localBook {
             book.currentChapterIndex = index
             book.currentChapterPage = paragraphIndex
             book.currentChapterTitle = title
             book.isHistory = true
             book.lastReadDate = Date()
-            try? modelContext.save()
-        } else {
-            guard index < currentOnlineChapters.count else { return }
-            let chap = currentOnlineChapters[index]
-            title = chap.name
-            
-            if let book = allBooks.first(where: { $0.bookId == bookId }) {
-                book.currentChapterIndex = index
-                book.currentChapterPage = paragraphIndex
-                book.currentChapterTitle = title
-                book.isHistory = true
-                book.lastReadDate = Date()
+            Task {
+                try? modelContext.save()
+            }
+        } else if let book = allBooks.first(where: { $0.bookId == bookId }) {
+            book.currentChapterIndex = index
+            book.currentChapterPage = paragraphIndex
+            book.currentChapterTitle = title
+            book.isHistory = true
+            book.lastReadDate = Date()
+            Task {
                 try? modelContext.save()
             }
         }
@@ -1997,16 +2036,20 @@ extension ReaderView {
                                     if state == .loaded && idx == chapterIndex {
                                         if !cached.isPositionRestored {
                                             cached.isPositionRestored = true
-                                            let savedPIdx = getSavedParagraphIndex()
-                                            let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
-                                            if savedPIdx >= 0 && hasValidParagraph {
-                                                proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
-                                            } else {
-                                                proxy.scrollTo("chapter-\(idx)", anchor: .top)
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                                let savedPIdx = getSavedParagraphIndex()
+                                                let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
+                                                withAnimation(.easeOut(duration: 0.25)) {
+                                                    if savedPIdx >= 0 && hasValidParagraph {
+                                                        proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
+                                                    } else {
+                                                        proxy.scrollTo("chapter-\(idx)", anchor: .top)
+                                                    }
+                                                }
+                                                schedulePrepareTTS()
                                             }
-                                        }
-                                        if !ttsManager.isPlaying {
-                                            prepareTTSForCurrentState()
+                                        } else {
+                                            schedulePrepareTTS()
                                         }
                                     }
                                 }
@@ -2014,14 +2057,18 @@ extension ReaderView {
                                     if cached.state == .loaded && idx == chapterIndex {
                                         if !cached.isPositionRestored {
                                             cached.isPositionRestored = true
-                                            let savedPIdx = getSavedParagraphIndex()
-                                            let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
-                                            if savedPIdx >= 0 && hasValidParagraph {
-                                                proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                                let savedPIdx = getSavedParagraphIndex()
+                                                let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
+                                                withAnimation(.easeOut(duration: 0.25)) {
+                                                    if savedPIdx >= 0 && hasValidParagraph {
+                                                        proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
+                                                    }
+                                                }
+                                                schedulePrepareTTS()
                                             }
-                                        }
-                                        if !ttsManager.isPlaying {
-                                            prepareTTSForCurrentState()
+                                        } else {
+                                            schedulePrepareTTS()
                                         }
                                     }
                                 }
@@ -2708,4 +2755,8 @@ extension AnyTransition {
             identity: PageFlipModifier(amount: 0)
         )
     }
+}
+
+class ParagraphTracker {
+    var visibleParagraphs: Set<Int> = []
 }

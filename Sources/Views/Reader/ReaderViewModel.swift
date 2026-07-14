@@ -245,18 +245,20 @@ class ReaderViewModel: ObservableObject {
     }
     
     private func enqueuePrefetch(_ window: Set<Int>) {
-        var prefetchIndexes = Set<Int>()
         for idx in window {
-            if let cached = cache.cache[idx], cached.state == .placeholder {
-                cached.state = .prefetching
-                prefetchIndexes.insert(idx)
+            if idx == activeChapterIndex {
+                if let cached = cache.cache[idx], cached.state != .loaded && cached.state != .loading {
+                    cached.state = .loading
+                }
+            } else {
+                if let cached = cache.cache[idx], cached.state == .placeholder {
+                    cached.state = .prefetching
+                }
             }
         }
         
-        guard !prefetchIndexes.isEmpty else { return }
-        
         Task {
-            await prefetcher.updateQueue(withVisibleIndexes: prefetchIndexes) { [weak self] index in
+            await prefetcher.updateQueue(withVisibleIndexes: window) { [weak self] index in
                 if let self = self {
                     try await self.loadChapterContentFromExtension(index)
                 }
@@ -311,6 +313,8 @@ class ReaderViewModel: ObservableObject {
             return
         }
         
+        try Task.checkCancellation()
+        
         let content = try await ExtensionManager.shared.chap(
             localPath: ext.localPath,
             downloadUrl: ext.downloadUrl,
@@ -318,6 +322,7 @@ class ReaderViewModel: ObservableObject {
             configJson: ext.configJson
         )
         
+        try Task.checkCancellation()
         let cleanedContent = cleanBlankLines(in: content.cleanHTML())
         
         // Lưu vào DB
