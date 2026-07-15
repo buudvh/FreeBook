@@ -724,7 +724,7 @@ public final class TTSManager: NSObject, ObservableObject {
                     downloadUrl: extInfo.downloadUrl,
                     url: nextChapter.url,
                     host: nextChapter.host,
-                    configJson: extInfo.configJson
+                    configJson: extInfo.configJson ?? ""
                 )
                 let cleaned = raw.cleanHTML()
                 await MainActor.run {
