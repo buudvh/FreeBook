@@ -1656,6 +1656,7 @@ struct ReaderView: View {
     
     private func schedulePrepareTTS() {
         guard !ttsManager.isPlaying else { return }
+        guard ttsManager.showFloatingWidget else { return }
         prepareTTSTask?.cancel()
         
         let workItem = DispatchWorkItem {
@@ -1683,6 +1684,8 @@ struct ReaderView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: progressWork)
         
         // 2. Debounce 1.5 giây cho việc đồng bộ con trỏ TTS (tránh re-render ttsManager khi cuộn nhanh)
+        guard ttsManager.isPlaying || ttsManager.showFloatingWidget else { return }
+        
         updateTTSPositionWorkItem?.cancel()
         let ttsWork = DispatchWorkItem {
             guard let topIndex = self.paragraphTracker.visibleParagraphs.min() else { return }
@@ -2013,48 +2016,25 @@ extension ReaderView {
                 }
             } else {
                 // Trạng thái ĐANG TẢI (Loading)
-                VStack(spacing: 24) {
+                VStack(spacing: 32) {
                     ProgressView()
                         .scaleEffect(1.5)
                         .tint(selectedTheme.textColor.opacity(0.8))
                     
-                    Text("Đang tải nội dung chương...")
-                        .font(.subheadline)
-                        .foregroundColor(selectedTheme.textColor.opacity(0.6))
-                    
-                    VStack(spacing: 12) {
-                        // Nút Tải lại thủ công (ở trên)
-                        Button(action: {
-                            loadChapterContent(index: chapterIndex)
-                        }) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "arrow.clockwise")
-                                Text("Tải lại")
-                            }
-                            .font(.footnote)
-                            .foregroundColor(selectedTheme.textColor.opacity(0.7))
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(selectedTheme.textColor.opacity(0.08))
-                            .cornerRadius(16)
+                    // Nút Quay lại
+                    Button(action: {
+                        dismiss()
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.left")
+                            Text("Quay lại")
                         }
-                        
-                        // Nút Quay lại (ở dưới)
-                        Button(action: {
-                            dismiss()
-                        }) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "arrow.left")
-                                Text("Quay lại")
-                            }
-                            .fontWeight(.medium)
-                            .foregroundColor(selectedTheme.textColor)
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 10)
-                            .background(selectedTheme.textColor.opacity(0.1))
-                            .cornerRadius(20)
-                        }
-                        .padding(.top, 4)
+                        .fontWeight(.medium)
+                        .foregroundColor(selectedTheme.textColor)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 10)
+                        .background(selectedTheme.textColor.opacity(0.1))
+                        .cornerRadius(20)
                     }
                 }
             }
@@ -2093,51 +2073,26 @@ extension ReaderView {
                                                 .lineLimit(3)
                                                 .padding(.horizontal, 40)
                                             
-                                            VStack(spacing: 24) {
+                                            VStack(spacing: 32) {
                                                 ProgressView()
                                                     .scaleEffect(1.5)
                                                     .tint(selectedTheme.textColor.opacity(0.8))
                                                 
-                                                Text("Đang tải nội dung chương...")
+                                                // Nút Quay lại
+                                                Button(action: {
+                                                    dismiss()
+                                                }) {
+                                                    HStack(spacing: 8) {
+                                                        Image(systemName: "arrow.left")
+                                                        Text("Quay lại")
+                                                    }
                                                     .font(.subheadline)
-                                                    .foregroundColor(selectedTheme.textColor.opacity(0.6))
-                                                
-                                                VStack(spacing: 12) {
-                                                    // Nút Tải lại thủ công
-                                                    Button(action: {
-                                                        Task {
-                                                            try? await vm.loadChapterContentFromExtension(idx)
-                                                        }
-                                                    }) {
-                                                        HStack(spacing: 8) {
-                                                            Image(systemName: "arrow.clockwise")
-                                                            Text("Tải lại")
-                                                        }
-                                                        .font(.footnote)
-                                                        .foregroundColor(selectedTheme.textColor.opacity(0.7))
-                                                        .padding(.horizontal, 16)
-                                                        .padding(.vertical, 8)
-                                                        .background(selectedTheme.textColor.opacity(0.08))
-                                                        .cornerRadius(16)
-                                                    }
-                                                    
-                                                    // Nút Quay lại
-                                                    Button(action: {
-                                                        dismiss()
-                                                    }) {
-                                                        HStack(spacing: 8) {
-                                                            Image(systemName: "arrow.left")
-                                                            Text("Quay lại")
-                                                        }
-                                                        .font(.subheadline)
-                                                        .fontWeight(.medium)
-                                                        .foregroundColor(selectedTheme.textColor)
-                                                        .padding(.horizontal, 24)
-                                                        .padding(.vertical, 10)
-                                                        .background(selectedTheme.textColor.opacity(0.1))
-                                                        .cornerRadius(20)
-                                                    }
-                                                    .padding(.top, 4)
+                                                    .fontWeight(.medium)
+                                                    .foregroundColor(selectedTheme.textColor)
+                                                    .padding(.horizontal, 24)
+                                                    .padding(.vertical, 10)
+                                                    .background(selectedTheme.textColor.opacity(0.1))
+                                                    .cornerRadius(20)
                                                 }
                                             }
                                             

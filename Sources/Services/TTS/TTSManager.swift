@@ -92,6 +92,8 @@ public final class TTSManager: NSObject, ObservableObject {
     private var wasPlayingBeforeSettings = false
     private var wasPlayingBeforeInterruption = false
     private var cancellables = Set<AnyCancellable>()
+    private var prepareSpeakingTask: Task<Void, Never>? = nil
+    private var nextChapterPrefetchTask: Task<Void, Never>? = nil
     
     // Cache lưu trữ dữ liệu âm thanh đã được tổng hợp trước cho các đoạn văn
     private var preloadedWavs: [Int: AVAudioPCMBuffer] = [:]
@@ -304,41 +306,51 @@ public final class TTSManager: NSObject, ObservableObject {
         self.playingChapterUrl = currentChapter.url
         self.chapterTitle = currentChapter.title
         
-        self.paragraphs = parseParagraphs(chapterContent)
-        
-        let key = "showChapterTitle_\(playingBookId)"
-        let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
-        
-        var titleInserted = false
-        if showTitle && !chapterTitle.isEmpty {
-            let titleParagraph = TTSParagraph(
-                text: chapterTitle,
-                range: NSRange(location: 0, length: chapterTitle.count),
-                paragraphIndex: -1
-            )
-            self.paragraphs.insert(titleParagraph, at: 0)
-            titleInserted = true
-        }
-        
-        var targetIdx = 0
-        if startParagraphIndex == -1 {
-            targetIdx = 0
-        } else {
-            if let idx = paragraphs.firstIndex(where: { $0.paragraphIndex == startParagraphIndex }) {
-                targetIdx = idx
-            } else {
-                targetIdx = titleInserted ? 1 : 0
+        self.prepareSpeakingTask?.cancel()
+        self.prepareSpeakingTask = Task {
+            let parsed = await Task.detached(priority: .userInitiated) { [weak self] in
+                guard let self = self else { return [] }
+                return self.parseParagraphs(chapterContent)
+            }.value
+            
+            guard !Task.isCancelled else { return }
+            
+            self.paragraphs = parsed
+            
+            let key = "showChapterTitle_\(playingBookId)"
+            let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+            
+            var titleInserted = false
+            if showTitle && !chapterTitle.isEmpty {
+                let titleParagraph = TTSParagraph(
+                    text: chapterTitle,
+                    range: NSRange(location: 0, length: chapterTitle.count),
+                    paragraphIndex: -1
+                )
+                self.paragraphs.insert(titleParagraph, at: 0)
+                titleInserted = true
             }
+            
+            var targetIdx = 0
+            if startParagraphIndex == -1 {
+                targetIdx = 0
+            } else {
+                if let idx = paragraphs.firstIndex(where: { $0.paragraphIndex == startParagraphIndex }) {
+                    targetIdx = idx
+                } else {
+                    targetIdx = titleInserted ? 1 : 0
+                }
+            }
+            
+            if targetIdx >= 0 && targetIdx < paragraphs.count {
+                self.currentParagraphIndex = targetIdx
+                let paragraph = paragraphs[targetIdx]
+                self.highlightRange = paragraph.range
+                self.currentParentParagraphIndex = paragraph.paragraphIndex
+            }
+            
+            self.updateNowPlayingInfo()
         }
-        
-        if targetIdx >= 0 && targetIdx < paragraphs.count {
-            self.currentParagraphIndex = targetIdx
-            let paragraph = paragraphs[targetIdx]
-            self.highlightRange = paragraph.range
-            self.currentParentParagraphIndex = paragraph.paragraphIndex
-        }
-        
-        updateNowPlayingInfo()
     }
     
     public func updateParagraphPositionWithoutPlaying(paragraphIndex: Int) {
@@ -400,6 +412,7 @@ public final class TTSManager: NSObject, ObservableObject {
         self.chapterTitle = currentChapter.title
         
         self.continueStartSpeaking(startParagraphIndex: startParagraphIndex)
+        self.triggerNextChapterPrefetch()
     }
     
     private func continueStartSpeaking(startParagraphIndex: Int) {
@@ -782,6 +795,60 @@ public final class TTSManager: NSObject, ObservableObject {
             object: nil,
             userInfo: ["bookId": self.playingBookId, "chapterIndex": index]
         )
+        self.triggerNextChapterPrefetch()
+    }
+    
+    private func triggerNextChapterPrefetch() {
+        let nextIdx = playingChapterIndex + 1
+        guard nextIdx >= 0 && nextIdx < chaptersQueue.count else { return }
+        
+        let nextChapter = chaptersQueue[nextIdx]
+        guard nextChapter.cachedContent == nil || nextChapter.cachedContent?.isEmpty == true else { return }
+        
+        nextChapterPrefetchTask?.cancel()
+        
+        let bid = playingBookId
+        let extInfo = extensionInfo
+        
+        nextChapterPrefetchTask = Task {
+            // 1. DB cache
+            if let dbContent = await fetchChapterContentFromDB(chapterUrl: nextChapter.url),
+               !dbContent.isEmpty {
+                guard !Task.isCancelled else { return }
+                self.updateChapterCache(at: nextIdx, content: dbContent)
+                #if DEBUG
+                AppLogger.shared.log("🔊 [TTSManager] Đã tải trước chương tiếp theo \(nextIdx) từ DB cache.")
+                #endif
+                return
+            }
+            
+            // 2. Fetch online
+            guard let ext = extInfo else { return }
+            
+            #if DEBUG
+            AppLogger.shared.log("🔊 [TTSManager] Bắt đầu tải trước online chương tiếp theo \(nextIdx) qua Extension.")
+            #endif
+            
+            do {
+                let raw = try await ExtensionManager.shared.chap(
+                    localPath: ext.localPath,
+                    downloadUrl: ext.downloadUrl,
+                    url: nextChapter.url,
+                    host: nextChapter.host,
+                    configJson: ext.configJson ?? ""
+                )
+                guard !Task.isCancelled else { return }
+                let cleaned = raw.cleanHTML()
+                self.updateChapterCache(at: nextIdx, content: cleaned)
+                #if DEBUG
+                AppLogger.shared.log("🔊 [TTSManager] Đã tải trước online chương tiếp theo \(nextIdx) thành công.")
+                #endif
+            } catch {
+                #if DEBUG
+                AppLogger.shared.log("⚠️ [TTSManager] Tải trước online chương tiếp theo \(nextIdx) thất bại: \(error.localizedDescription)")
+                #endif
+            }
+        }
     }
     
     // speakCurrent: Bắt đầu phát âm thanh của đoạn văn bản hiện tại (index = currentParagraphIndex)
@@ -820,6 +887,9 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     private func clearPrefetchCache() {
+        nextChapterPrefetchTask?.cancel()
+        nextChapterPrefetchTask = nil
+        
         for task in prefetchTasks.values {
             task.cancel()
         }
@@ -1444,55 +1514,67 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     private func updateNowPlayingInfo() {
-        var info: [String: Any] = [:]
-        
-        let displayBookTitle: String
-        let displayChapterTitle: String
-        
-        if TranslateUtils.isTranslationEnabled {
-            // Dịch tên truyện nếu chứa chữ Trung Quốc
-            displayBookTitle = TranslateUtils.containsChinese(bookTitle)
-                ? TranslateUtils.translateMeta(bookTitle, bookId: playingBookId)
-                : bookTitle
-            
-            // Dịch tên chương nếu chứa chữ Trung Quốc
-            let rawChapterTitle = chapterTitle.isEmpty ? "Chương hiện tại" : chapterTitle
-            displayChapterTitle = TranslateUtils.containsChinese(rawChapterTitle)
-                ? TranslateUtils.translateChapterTitle(rawChapterTitle, bookId: playingBookId)
-                : rawChapterTitle
-        } else {
-            displayBookTitle = bookTitle
-            displayChapterTitle = chapterTitle.isEmpty ? "Chương hiện tại" : chapterTitle
-        }
-        
-        info[MPMediaItemPropertyTitle] = displayBookTitle
-        
-        let currentPart = paragraphs.isEmpty ? "" : " (Đoạn \(currentParagraphIndex + 1)/\(paragraphs.count))"
-        info[MPMediaItemPropertyArtist] = displayChapterTitle + currentPart
-        
-        info[MPNowPlayingInfoPropertyIsLiveStream] = true
-        info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? speed : 0.0
-        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = Double(max(0, currentParagraphIndex))
-        
-        // Thiết lập ảnh bìa nếu có
         let bid = playingBookId
-        if let image = ImageCacheManager.shared.loadLocalCover(for: bid) {
-            let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in
-                return image
-            }
-            info[MPMediaItemPropertyArtwork] = artwork
-        } else if !playingCoverUrl.isEmpty {
-            ImageCacheManager.shared.downloadAndSaveCover(urlStr: playingCoverUrl, bookId: bid) { [weak self] image in
-                guard image != nil else { return }
-                DispatchQueue.main.async {
-                    guard let self = self, self.playingBookId == bid else { return }
-                    self.updateNowPlayingInfo()
+        let bTitle = bookTitle
+        let cTitle = chapterTitle
+        let isTransEnabled = TranslateUtils.isTranslationEnabled
+        let pIndex = currentParagraphIndex
+        let pCount = paragraphs.count
+        let isPlayingVal = isPlaying
+        let speedVal = speed
+        let coverUrlVal = playingCoverUrl
+        
+        Task {
+            let (displayBookTitle, displayChapterTitle, image) = await Task.detached(priority: .background) {
+                let displayBookTitle: String
+                let displayChapterTitle: String
+                
+                if isTransEnabled {
+                    displayBookTitle = TranslateUtils.containsChinese(bTitle)
+                        ? TranslateUtils.translateMeta(bTitle, bookId: bid)
+                        : bTitle
+                    
+                    let rawChapterTitle = cTitle.isEmpty ? "Chương hiện tại" : cTitle
+                    displayChapterTitle = TranslateUtils.containsChinese(rawChapterTitle)
+                        ? TranslateUtils.translateChapterTitle(rawChapterTitle, bookId: bid)
+                        : rawChapterTitle
+                } else {
+                    displayBookTitle = bTitle
+                    displayChapterTitle = cTitle.isEmpty ? "Chương hiện tại" : cTitle
+                }
+                
+                let img = ImageCacheManager.shared.loadLocalCover(for: bid)
+                return (displayBookTitle, displayChapterTitle, img)
+            }.value
+            
+            var info: [String: Any] = [:]
+            info[MPMediaItemPropertyTitle] = displayBookTitle
+            
+            let currentPart = pCount == 0 ? "" : " (Đoạn \(pIndex + 1)/\(pCount))"
+            info[MPMediaItemPropertyArtist] = displayChapterTitle + currentPart
+            
+            info[MPNowPlayingInfoPropertyIsLiveStream] = true
+            info[MPNowPlayingInfoPropertyPlaybackRate] = isPlayingVal ? speedVal : 0.0
+            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = Double(max(0, pIndex))
+            
+            if let img = image {
+                let artwork = MPMediaItemArtwork(boundsSize: img.size) { _ in
+                    return img
+                }
+                info[MPMediaItemPropertyArtwork] = artwork
+            } else if !coverUrlVal.isEmpty {
+                ImageCacheManager.shared.downloadAndSaveCover(urlStr: coverUrlVal, bookId: bid) { [weak self] image in
+                    guard image != nil else { return }
+                    DispatchQueue.main.async {
+                        guard let self = self, self.playingBookId == bid else { return }
+                        self.updateNowPlayingInfo()
+                    }
                 }
             }
+            
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+            MPNowPlayingInfoCenter.default().playbackState = isPlayingVal ? .playing : .paused
         }
-        
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
-        MPNowPlayingInfoCenter.default().playbackState = isPlaying ? .playing : .paused
     }
     
     // MARK: - NghiTTS Downloader Wrapper
