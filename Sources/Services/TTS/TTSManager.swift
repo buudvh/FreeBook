@@ -418,7 +418,7 @@ public final class TTSManager: NSObject, ObservableObject {
     
     private func continueStartSpeaking(startParagraphIndex: Int) {
         // Phân đoạn văn bản sạch
-        self.paragraphs = parseParagraphs(chapterContent)
+        self.paragraphs = parseParagraphs(chapterContent, chunkLength: chunkLength)
         
         // Kiểm tra cấu hình hiện tên chương trong nội dung của truyện hiện tại (mặc định bật)
         let key = "showChapterTitle_\(playingBookId)"
@@ -586,7 +586,7 @@ public final class TTSManager: NSObject, ObservableObject {
         stopPlayback(keepWidget: true)
         
         // Nạp lại phân đoạn
-        self.paragraphs = parseParagraphs(chapterContent)
+        self.paragraphs = parseParagraphs(chapterContent, chunkLength: chunkLength)
         
         var targetIdx = paragraphs.firstIndex(where: {
             $0.paragraphIndex == savedParagraphIdentity
