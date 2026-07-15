@@ -16,7 +16,7 @@ class ReaderViewModel: ObservableObject {
     
     let bookId: String
     let extensionPackageId: String
-    let totalChaptersCount: Int
+    @Published var totalChaptersCount: Int
     
     let cache = ChapterCache()
     let prefetcher = PrefetchManager()
@@ -240,6 +240,7 @@ class ReaderViewModel: ObservableObject {
     }
     
     private func computeWindowRange() -> Set<Int> {
+        guard totalChaptersCount > 0 else { return [] }
         let range: ClosedRange<Int>
         if isReadingForward {
             range = max(0, activeChapterIndex - 1)...min(totalChaptersCount - 1, activeChapterIndex + 2)

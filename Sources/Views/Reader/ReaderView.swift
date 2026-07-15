@@ -379,6 +379,14 @@ struct ReaderView: View {
                 EmptyView()
             }
         )
+        .onChange(of: localBook?.chapters.count) { _, newCount in
+            if let vm = viewModel, let count = newCount {
+                if vm.totalChaptersCount != count {
+                    vm.totalChaptersCount = count
+                    vm.updateVisibleChaptersWindow()
+                }
+            }
+        }
 
         .onAppear {
             let key = "showChapterTitle_\(bookId)"

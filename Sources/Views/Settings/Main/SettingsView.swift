@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct SettingsView: View {
-    @AppStorage("isLoggingEnabled") private var isLoggingEnabled = true
+    @AppStorage("isLoggingEnabled") private var isLoggingEnabled = false
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @ObservedObject private var translationManager = TranslationManager.shared
     

@@ -22,6 +22,9 @@ public final class AppLogger {
     }
     
     private init() {
+        // Tự động tắt ghi log hệ thống khi khởi chạy lại ứng dụng
+        UserDefaults.standard.set(false, forKey: "isLoggingEnabled")
+        
         // Tự động xóa log cũ nếu file quá lớn (> 5MB) để tránh đầy bộ nhớ
         if let attributes = try? FileManager.default.attributesOfItem(atPath: logFileUrl.path),
            let fileSize = attributes[.size] as? UInt64,
