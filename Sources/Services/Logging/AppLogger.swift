@@ -34,8 +34,7 @@ public final class AppLogger {
     }
     
     public func log(_ message: String) {
-        // Tạm thời comment điều kiện kiểm tra log để chẩn đoán crash
-        // guard isLoggingEnabled else { return }
+        guard isLoggingEnabled else { return }
         
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"

@@ -1208,7 +1208,6 @@ struct BookDetailView: View {
     }
     
     private func startReading() {
-        AppLogger.shared.log("[FreeBookDebug] BookDetailView.startReading: bookId=\(bookId), targetChapterIndex=\(targetChapterIndex), localBook is \(localBook == nil ? "nil" : "not nil"), onlineChapters.count=\(onlineChapters.count)")
         if tocPages.count > 1 && !remainingPagesLoaded {
             // Điều hướng người dùng sang màn hình đọc ngay lập tức không bắt chờ
             self.navigateToReader = true
@@ -1224,7 +1223,6 @@ struct BookDetailView: View {
                     let remainingChaps = try await loadAllRemainingPages()
                     try Task.checkCancellation()
                     await MainActor.run {
-                        AppLogger.shared.log("[FreeBookDebug] BookDetailView.startReading: loaded remaining pages, chaps count=\(remainingChaps.count)")
                         self.onlineChapters.append(contentsOf: remainingChaps)
                         
                         if let book = localBook {
@@ -1249,7 +1247,6 @@ struct BookDetailView: View {
                 } catch {
                     if !Task.isCancelled {
                         await MainActor.run {
-                            AppLogger.shared.log("[FreeBookDebug] BookDetailView.startReading ERROR loading remaining: \(error.localizedDescription)")
                             self.tocErrorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
                             self.isLoadingRemainingPages = false
                             self.loadingTask = nil

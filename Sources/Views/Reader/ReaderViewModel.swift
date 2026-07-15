@@ -93,7 +93,6 @@ class ReaderViewModel: ObservableObject {
         bookDetailUrl: String? = nil,
         bookSourceName: String? = nil
     ) {
-        AppLogger.shared.log("[FreeBookDebug] ReaderViewModel.init started: bookId=\(bookId), initialChapterIndex=\(initialChapterIndex), totalChaptersCount=\(totalChaptersCount)")
         self.bookId = bookId
         self.extensionPackageId = extensionPackageId
         self.totalChaptersCount = totalChaptersCount
@@ -117,7 +116,6 @@ class ReaderViewModel: ObservableObject {
         
         setupSubscriptions()
         updateVisibleChaptersWindow()
-        AppLogger.shared.log("[FreeBookDebug] ReaderViewModel.init completed: activeChapterIndex=\(activeChapterIndex), visibleIndexes=\(visibleIndexes)")
     }
     
     private func setupSubscriptions() {
@@ -245,17 +243,13 @@ class ReaderViewModel: ObservableObject {
     private func clampActiveIndex() {
         guard totalChaptersCount > 0 else { return }
         if activeChapterIndex >= totalChaptersCount {
-            AppLogger.shared.log("[FreeBookDebug] ReaderViewModel.clampActiveIndex: clamp index from \(activeChapterIndex) to \(totalChaptersCount - 1)")
             activeChapterIndex = totalChaptersCount - 1
             tabSelection = totalChaptersCount - 1
         }
     }
     
     private func computeWindowRange() -> Set<Int> {
-        guard totalChaptersCount > 0 else {
-            AppLogger.shared.log("[FreeBookDebug] ReaderViewModel.computeWindowRange: totalChaptersCount is 0, returning []")
-            return []
-        }
+        guard totalChaptersCount > 0 else { return [] }
         
         let lower: Int
         let upper: Int
@@ -267,11 +261,7 @@ class ReaderViewModel: ObservableObject {
             upper = min(totalChaptersCount - 1, activeChapterIndex + 1)
         }
         
-        AppLogger.shared.log("[FreeBookDebug] ReaderViewModel.computeWindowRange: activeChapterIndex=\(activeChapterIndex), totalChaptersCount=\(totalChaptersCount) -> range \(lower)...\(upper)")
-        guard lower <= upper else {
-            AppLogger.shared.log("[FreeBookDebug] ReaderViewModel.computeWindowRange WARNING: lower (\(lower)) > upper (\(upper)), returning []")
-            return []
-        }
+        guard lower <= upper else { return [] }
         return Set(lower...upper)
     }
     

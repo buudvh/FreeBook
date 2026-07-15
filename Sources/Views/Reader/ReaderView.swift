@@ -282,7 +282,7 @@ struct ReaderView: View {
                     .id(chapterIndex)
             }
             // Top/Bottom overlay controls
-            if showControls || isChapterLoadingOrFailed {
+            if showControls {
                 VStack(spacing: 0) {
                     topOverlayBar
                     Spacer()
@@ -382,7 +382,6 @@ struct ReaderView: View {
             }
         )
         .onChange(of: localBook?.chapters.count) { _, newCount in
-            AppLogger.shared.log("[FreeBookDebug] ReaderView.onChange(localBook.chapters.count): \(newCount ?? -1)")
             if let vm = viewModel, let count = newCount {
                 if vm.totalChaptersCount != count {
                     vm.totalChaptersCount = count
@@ -391,7 +390,6 @@ struct ReaderView: View {
             }
         }
         .onChange(of: currentOnlineChapters.count) { _, newCount in
-            AppLogger.shared.log("[FreeBookDebug] ReaderView.onChange(currentOnlineChapters.count): \(newCount)")
             if let vm = viewModel, newCount > 0 {
                 if vm.totalChaptersCount != newCount {
                     vm.totalChaptersCount = newCount
@@ -414,8 +412,6 @@ struct ReaderView: View {
             ReaderView.activeBookId = bookId
             ReaderView.activeChapterIndex = chapterIndex
             
-            AppLogger.shared.log("[FreeBookDebug] ReaderView.onAppear: bookId=\(bookId), chapterIndex=\(chapterIndex), localBook is \(localBook == nil ? "nil" : "not nil"), onlineChapters.count=\(onlineChapters.count)")
-            
             if currentOnlineChapters.isEmpty {
                 currentOnlineChapters = onlineChapters
             }
@@ -431,7 +427,6 @@ struct ReaderView: View {
                     initialTotalCount = onlineChapters.count
                 }
                 
-                AppLogger.shared.log("[FreeBookDebug] ReaderView.onAppear init viewModel: initialTotalCount=\(initialTotalCount), savedPIdx=\(savedPIdx)")
                 viewModel = ReaderViewModel(
                     bookId: bookId,
                     extensionPackageId: extensionPackageId,
@@ -1918,80 +1913,97 @@ extension ReaderView {
     private var readerContentView: some View {
         if let vm = viewModel {
             if vm.totalChaptersCount > 0 && !vm.visibleIndexes.isEmpty {
-                let _ = AppLogger.shared.log("[FreeBookDebug] ReaderView readerContentView: displaying textReaderView (totalChaptersCount=\(vm.totalChaptersCount), visibleIndexes=\(vm.visibleIndexes))")
                 textReaderView
             } else {
-                let _ = AppLogger.shared.log("[FreeBookDebug] ReaderView readerContentView: displaying chapterLoadingView (totalChaptersCount=\(vm.totalChaptersCount), visibleIndexes is empty)")
                 chapterLoadingView
             }
         } else if loadedChapters.isEmpty {
-            let _ = AppLogger.shared.log("[FreeBookDebug] ReaderView readerContentView: displaying chapterLoadingView (viewModel is nil, loadedChapters is empty)")
             chapterLoadingView
         } else {
-            let _ = AppLogger.shared.log("[FreeBookDebug] ReaderView readerContentView: displaying textReaderView (viewModel is nil, loadedChapters is not empty)")
             textReaderView
         }
     }
     
     private var chapterLoadingView: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 32) {
             Spacer()
             
+            // Tiêu đề chương nếu có
+            if let info = currentChapterInfo {
+                let displayTitle = isTranslationEnabled && TranslateUtils.containsChinese(info.title)
+                    ? TranslateUtils.translateChapterTitle(info.title, bookId: bookId)
+                    : info.title
+                Text(displayTitle)
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(selectedTheme.textColor)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .padding(.horizontal, 40)
+            }
+            
             if !errorMessage.isEmpty {
-                VStack(spacing: 24) {
-                    if let info = currentChapterInfo {
-                        let displayTitle = isTranslationEnabled && TranslateUtils.containsChinese(info.title)
-                            ? TranslateUtils.translateChapterTitle(info.title, bookId: bookId)
-                            : info.title
-                        Text(displayTitle)
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(selectedTheme.textColor)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(3)
-                            .padding(.horizontal, 40)
-                            .padding(.top, 16)
-                    }
+                // Trạng thái LỖI
+                VStack(spacing: 20) {
+                    Text(errorMessage)
+                        .font(.subheadline)
+                        .foregroundColor(.red)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
                     
-                    VStack(spacing: 16) {
-                        Text(errorMessage)
-                            .font(.subheadline)
-                            .foregroundColor(.red)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
-                        
+                    VStack(spacing: 12) {
+                        // Nút Tải lại (ở trên)
                         Button(action: {
                             loadChapterContent(index: chapterIndex)
                         }) {
                             HStack(spacing: 8) {
                                 Image(systemName: "arrow.clockwise")
-                                Text("Thử lại")
+                                Text("Tải lại")
                             }
-                            .fontWeight(.medium)
+                            .fontWeight(.semibold)
                             .foregroundColor(selectedTheme.textColor)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 10)
+                            .frame(width: 160)
+                            .padding(.vertical, 12)
                             .background(selectedTheme.textColor.opacity(0.1))
-                            .cornerRadius(20)
+                            .cornerRadius(24)
+                        }
+                        
+                        // Nút Xem nguồn (ở giữa)
+                        Button(action: {
+                            showingBypassBrowser = true
+                        }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "safari")
+                                Text("Xem nguồn")
+                            }
+                            .fontWeight(.semibold)
+                            .foregroundColor(selectedTheme.textColor)
+                            .frame(width: 160)
+                            .padding(.vertical, 12)
+                            .background(selectedTheme.textColor.opacity(0.1))
+                            .cornerRadius(24)
+                        }
+                        
+                        // Nút Quay lại (ở dưới cùng)
+                        Button(action: {
+                            dismiss()
+                        }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.left")
+                                Text("Quay lại")
+                            }
+                            .fontWeight(.semibold)
+                            .foregroundColor(selectedTheme.textColor)
+                            .frame(width: 160)
+                            .padding(.vertical, 12)
+                            .background(selectedTheme.textColor.opacity(0.08))
+                            .cornerRadius(24)
                         }
                     }
                 }
             } else {
+                // Trạng thái ĐANG TẢI (Loading)
                 VStack(spacing: 24) {
-                    if let info = currentChapterInfo {
-                        let displayTitle = isTranslationEnabled && TranslateUtils.containsChinese(info.title)
-                            ? TranslateUtils.translateChapterTitle(info.title, bookId: bookId)
-                            : info.title
-                        Text(displayTitle)
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(selectedTheme.textColor)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(3)
-                            .padding(.horizontal, 40)
-                            .padding(.top, 16)
-                    }
-                    
                     ProgressView()
                         .scaleEffect(1.5)
                         .tint(selectedTheme.textColor.opacity(0.8))
@@ -1999,27 +2011,45 @@ extension ReaderView {
                     Text("Đang tải nội dung chương...")
                         .font(.subheadline)
                         .foregroundColor(selectedTheme.textColor.opacity(0.6))
+                    
+                    VStack(spacing: 12) {
+                        // Nút Tải lại thủ công (ở trên)
+                        Button(action: {
+                            loadChapterContent(index: chapterIndex)
+                        }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.clockwise")
+                                Text("Tải lại")
+                            }
+                            .font(.footnote)
+                            .foregroundColor(selectedTheme.textColor.opacity(0.7))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(selectedTheme.textColor.opacity(0.08))
+                            .cornerRadius(16)
+                        }
+                        
+                        // Nút Quay lại (ở dưới)
+                        Button(action: {
+                            dismiss()
+                        }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.left")
+                                Text("Quay lại")
+                            }
+                            .fontWeight(.medium)
+                            .foregroundColor(selectedTheme.textColor)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 10)
+                            .background(selectedTheme.textColor.opacity(0.1))
+                            .cornerRadius(20)
+                        }
+                        .padding(.top, 4)
+                    }
                 }
             }
             
             Spacer()
-            
-            Button(action: {
-                dismiss()
-            }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title3)
-                    Text("Thoát")
-                        .fontWeight(.medium)
-                }
-                .foregroundColor(selectedTheme.textColor.opacity(0.7))
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(selectedTheme.textColor.opacity(0.1))
-                .cornerRadius(25)
-            }
-            .padding(.bottom, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
