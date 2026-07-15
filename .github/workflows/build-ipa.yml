@@ -3,8 +3,16 @@ name: Build Unsigned IPA
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'Sources/**'
+      - 'project.yml'
+      - '.github/workflows/build-ipa.yml'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'Sources/**'
+      - 'project.yml'
+      - '.github/workflows/build-ipa.yml'
   workflow_dispatch:
 
 jobs:

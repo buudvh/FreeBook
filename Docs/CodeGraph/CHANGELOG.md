@@ -4,6 +4,33 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.2.2] - 2026-07-15
+
+### Khắc phục lỗi crash do TabView rỗng và thêm cơ chế Clamp Index
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 2 file Swift
+*   **Mô tả**:
+    *   **ReaderViewModel**: Bổ sung hàm `clampActiveIndex()` tự động điều chỉnh chỉ mục chương đang hiển thị (`activeChapterIndex` và `tabSelection`) về chương cuối cùng hợp lệ nếu nó vượt quá số chương thực tế của sách, giải quyết triệt để lỗi crash do khởi tạo range sai `9...4` khi dữ liệu biên bị lệch chỉ mục.
+    *   **ReaderView**: Sửa đổi `readerContentView` để hiển thị màn hình tải (`chapterLoadingView`) thay vì cố render `textReaderView` khi `totalChaptersCount == 0` hoặc `visibleIndexes` trống, tránh lỗi SwiftUI crash do `TabView` rỗng.
+
+## [1.2.1] - 2026-07-15
+
+### Tối ưu hóa trigger tự động chạy build IPA
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 1 file workflow (.github/workflows/build-ipa.yml)
+*   **Mô tả**:
+    *   Bổ sung bộ lọc đường dẫn (`paths`) cho các sự kiện `push` và `pull_request`.
+    *   Giới hạn workflow chỉ tự động build IPA khi có sự thay đổi trong thư mục mã nguồn `Sources/`, tệp cấu hình dự án `project.yml` hoặc chính tệp workflow build, giúp tiết kiệm thời gian chạy và tài nguyên chạy của GitHub Actions.
+
+## [1.2.0] - 2026-07-15
+
+### Khắc phục lỗi build GitHub Actions do action dọn dẹp workflow runs cũ bị lỗi
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 1 file workflow (.github/workflows/cleanup-runs.yml)
+*   **Mô tả**:
+    *   Thay thế action bên thứ ba `Mattraiano/delete-old-runs-action` (bị xóa hoặc set private trên GitHub) bằng action chính chủ `actions/github-script@v7`.
+    *   Tích hợp script gọi API của GitHub để dọn dẹp các runs cũ hơn 3 ngày của duy nhất repository hiện tại, giữ lại tối thiểu 1 run mới nhất, tăng độ tin cậy và bền vững của workflow.
+
 ## [1.1.9] - 2026-07-15
 
 ### Tự động tắt ghi log hệ thống khi khởi chạy lại ứng dụng

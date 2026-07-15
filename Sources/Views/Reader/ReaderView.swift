@@ -1892,8 +1892,12 @@ extension ReaderView {
     
     @ViewBuilder
     private var readerContentView: some View {
-        if viewModel != nil {
-            textReaderView
+        if let vm = viewModel {
+            if vm.totalChaptersCount > 0 && !vm.visibleIndexes.isEmpty {
+                textReaderView
+            } else {
+                chapterLoadingView
+            }
         } else if loadedChapters.isEmpty {
             chapterLoadingView
         } else {

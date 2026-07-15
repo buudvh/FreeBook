@@ -233,10 +233,19 @@ class ReaderViewModel: ObservableObject {
     
     // Phân rã quản lý Cửa sổ trượt
     func updateVisibleChaptersWindow() {
+        clampActiveIndex()
         let windowIndexes = computeWindowRange()
         syncVisibleIndexes(windowIndexes)
         enqueuePrefetch(windowIndexes)
         scheduleReleaseOldChapters(windowIndexes)
+    }
+    
+    private func clampActiveIndex() {
+        guard totalChaptersCount > 0 else { return }
+        if activeChapterIndex >= totalChaptersCount {
+            activeChapterIndex = totalChaptersCount - 1
+            tabSelection = totalChaptersCount - 1
+        }
     }
     
     private func computeWindowRange() -> Set<Int> {

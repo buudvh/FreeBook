@@ -13,9 +13,44 @@ jobs:
       actions: write # Cấp quyền ghi để có thể thực hiện lệnh xóa các run
     steps:
       - name: Delete Old Runs
-        uses: Mattraiano/delete-old-runs-action@v0.6.10
+        uses: actions/github-script@v7
         with:
-          token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          retain_days: 3 # Xóa các lượt chạy cũ hơn 3 ngày
-          keep_minimum_runs: 1 # Giữ lại ít nhất 1 lượt chạy mới nhất để tránh trang trống trơn
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const days_to_keep = 3;
+            const ms_keep = days_to_keep * 24 * 60 * 60 * 1000;
+            const threshold = new Date(Date.now() - ms_keep);
+            
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            
+            const response = await github.rest.actions.listWorkflowRunsForRepo({
+              owner,
+              repo,
+              per_page: 100
+            });
+            
+            const runs = response.data.workflow_runs;
+            console.log(`Found ${runs.length} runs in total.`);
+            
+            runs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            
+            const runsToDelete = runs.slice(1).filter(run => {
+              const runDate = new Date(run.created_at);
+              return runDate < threshold;
+            });
+            
+            console.log(`Deleting ${runsToDelete.length} runs older than ${days_to_keep} days.`);
+            
+            for (const run of runsToDelete) {
+              try {
+                console.log(`Deleting run ID ${run.id} (created at ${run.created_at})`);
+                await github.rest.actions.deleteWorkflowRun({
+                  owner,
+                  repo,
+                  run_id: run.id
+                });
+              } catch (err) {
+                console.error(`Failed to delete run ID ${run.id}: ${err.message}`);
+              }
+            }
