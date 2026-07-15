@@ -380,6 +380,7 @@ struct ReaderView: View {
             }
         )
         .onChange(of: localBook?.chapters.count) { _, newCount in
+            AppLogger.shared.log("[FreeBookDebug] ReaderView.onChange(localBook.chapters.count): \(newCount ?? -1)")
             if let vm = viewModel, let count = newCount {
                 if vm.totalChaptersCount != count {
                     vm.totalChaptersCount = count
@@ -388,6 +389,7 @@ struct ReaderView: View {
             }
         }
         .onChange(of: currentOnlineChapters.count) { _, newCount in
+            AppLogger.shared.log("[FreeBookDebug] ReaderView.onChange(currentOnlineChapters.count): \(newCount)")
             if let vm = viewModel, newCount > 0 {
                 if vm.totalChaptersCount != newCount {
                     vm.totalChaptersCount = newCount
@@ -410,6 +412,8 @@ struct ReaderView: View {
             ReaderView.activeBookId = bookId
             ReaderView.activeChapterIndex = chapterIndex
             
+            AppLogger.shared.log("[FreeBookDebug] ReaderView.onAppear: bookId=\(bookId), chapterIndex=\(chapterIndex), localBook is \(localBook == nil ? "nil" : "not nil"), onlineChapters.count=\(onlineChapters.count)")
+            
             if currentOnlineChapters.isEmpty {
                 currentOnlineChapters = onlineChapters
             }
@@ -425,6 +429,7 @@ struct ReaderView: View {
                     initialTotalCount = onlineChapters.count
                 }
                 
+                AppLogger.shared.log("[FreeBookDebug] ReaderView.onAppear init viewModel: initialTotalCount=\(initialTotalCount), savedPIdx=\(savedPIdx)")
                 viewModel = ReaderViewModel(
                     bookId: bookId,
                     extensionPackageId: extensionPackageId,
@@ -1911,13 +1916,17 @@ extension ReaderView {
     private var readerContentView: some View {
         if let vm = viewModel {
             if vm.totalChaptersCount > 0 && !vm.visibleIndexes.isEmpty {
+                let _ = AppLogger.shared.log("[FreeBookDebug] ReaderView readerContentView: displaying textReaderView (totalChaptersCount=\(vm.totalChaptersCount), visibleIndexes=\(vm.visibleIndexes))")
                 textReaderView
             } else {
+                let _ = AppLogger.shared.log("[FreeBookDebug] ReaderView readerContentView: displaying chapterLoadingView (totalChaptersCount=\(vm.totalChaptersCount), visibleIndexes is empty)")
                 chapterLoadingView
             }
         } else if loadedChapters.isEmpty {
+            let _ = AppLogger.shared.log("[FreeBookDebug] ReaderView readerContentView: displaying chapterLoadingView (viewModel is nil, loadedChapters is empty)")
             chapterLoadingView
         } else {
+            let _ = AppLogger.shared.log("[FreeBookDebug] ReaderView readerContentView: displaying textReaderView (viewModel is nil, loadedChapters is not empty)")
             textReaderView
         }
     }
