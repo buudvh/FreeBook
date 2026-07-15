@@ -91,4 +91,18 @@ WKWebView được sử dụng để tải các trang web chứa mã bảo vệ 
         }
     }
     ```
+
+---
+
+## 5. Vòng đời của các Callbacks/Closures trên Singleton (Tránh rò rỉ tham chiếu)
+*   **Vấn đề**: Khi một View đăng ký lắng nghe callbacks từ một dịch vụ Singleton (như `TTSManager.shared.onChapterFinished = { ... }`), dịch vụ Singleton sẽ giữ chặt tham chiếu đến View (thông qua closure gán). Điều này dẫn đến việc View không thể deinit (bị rò rỉ bộ nhớ dưới dạng Ghost Reference) ngay cả khi đã bị đóng/dismiss khỏi UI.
+*   **Giải pháp trong FreeBook**:
+    *   *Khởi tạo*: View (như `ReaderView.swift`) đăng ký callbacks cho `TTSManager` khi xuất hiện (`.onAppear` hoặc khi khởi chạy TTS).
+    *   *Giải phóng*: Khi View biến mất, modifier `.onDisappear` bắt buộc phải dọn dẹp các callbacks này:
+        ```swift
+        ttsManager.onChapterFinished = nil
+        ttsManager.onChapterNext = nil
+        ttsManager.onChapterPrev = nil
+        ```
+    *   *Độc lập hóa nghiệp vụ*: Trình quản lý singleton (`TTSManager`) tự động hóa các tiến trình nội bộ (như tự chuyển chương qua `advanceToNextChapter` mà không cần callbacks trung gian điều khiển từ View).
 <!-- GENERATED END -->

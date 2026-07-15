@@ -168,7 +168,8 @@ struct ReaderView: View {
                     title: titleToUse,
                     url: chap.url,
                     index: chap.index,
-                    cachedContent: chap.isCached ? chap.content : nil
+                    cachedContent: chap.isCached ? chap.content : nil,
+                    host: chap.host
                 )
             }
         } else {
@@ -183,7 +184,8 @@ struct ReaderView: View {
                     title: titleToUse,
                     url: chap.url,
                     index: index,
-                    cachedContent: index == chapterIndex ? chapterContent : nil
+                    cachedContent: index == chapterIndex ? chapterContent : nil,
+                    host: chap.host
                 )
             }
         }
@@ -478,6 +480,11 @@ struct ReaderView: View {
             }
             prefetchTask?.cancel()
             viewModel?.saveProgressImmediately()
+            // Clear callbacks để tránh ghost reference trên view đã dismiss.
+            // TTSManager tự advance chapter độc lập, không cần callbacks từ ReaderView.
+            ttsManager.onChapterFinished = nil
+            ttsManager.onChapterNext = nil
+            ttsManager.onChapterPrev = nil
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .background {
@@ -500,7 +507,9 @@ struct ReaderView: View {
                   let nextIdx = userInfo["chapterIndex"] as? Int else { return }
             
             if bid == bookId && nextIdx != chapterIndex {
-                self.ttsShouldAutoPlayNextChapter = true
+                // TTSManager đã tự advance và đang phát chương mới.
+                // ReaderView chỉ cần sync UI (chuyển tab, scroll) — không trigger startTTS thêm.
+                self.ttsShouldAutoPlayNextChapter = false
                 selectChapter(at: nextIdx, scroll: true)
             }
         }

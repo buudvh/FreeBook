@@ -1,12 +1,3 @@
----
-generated_by: Antigravity
-generator_version: 1.0
-generated_at: 2026-07-14T09:15:00+07:00
-git_commit: UNKNOWN
-source_files: 87
-document_version: 1
----
-
 # Đồ thị File & Quan hệ Import (File & Import Graph)
 
 Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc giữa 87 file mã nguồn Swift trong dự án FreeBook, tách biệt rõ ràng giữa Import Graph và Dependency Graph cho từng tệp.
@@ -22,7 +13,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-## Chi tiết Quan hệ cho từng File (Tổng cộng 87 Files)
+## Chi tiết Quan hệ cho từng File (Tổng cộng 86 Files)
 
 ### 1. [FreeBookApp.swift](../../Sources/App/FreeBookApp.swift)
 
@@ -44,7 +35,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 2. [String+Crypto.swift](../../Sources/Common/Extensions/String+Crypto.swift)
+### 1. [String+Crypto.swift](../../Sources/Common/Extensions/String+Crypto.swift)
 
 *   **Đường dẫn**: `Common/Extensions/String+Crypto.swift`
 *   **Imports (Import Graph)**: `CryptoKit`, `Foundation`
@@ -53,7 +44,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 3. [String+HTML.swift](../../Sources/Common/Extensions/String+HTML.swift)
+### 2. [String+HTML.swift](../../Sources/Common/Extensions/String+HTML.swift)
 
 *   **Đường dẫn**: `Common/Extensions/String+HTML.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -62,7 +53,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 4. [View+Keyboard.swift](../../Sources/Common/Extensions/View+Keyboard.swift)
+### 3. [View+Keyboard.swift](../../Sources/Common/Extensions/View+Keyboard.swift)
 
 *   **Đường dẫn**: `Common/Extensions/View+Keyboard.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -71,7 +62,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 5. [ImageCacheManager.swift](../../Sources/Common/Services/ImageCacheManager.swift)
+### 4. [ImageCacheManager.swift](../../Sources/Common/Services/ImageCacheManager.swift)
 
 *   **Đường dẫn**: `Common/Services/ImageCacheManager.swift`
 *   **Imports (Import Graph)**: `Foundation`, `UIKit`
@@ -83,7 +74,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 6. [ToastManager.swift](../../Sources/Common/Services/ToastManager.swift)
+### 5. [ToastManager.swift](../../Sources/Common/Services/ToastManager.swift)
 
 *   **Đường dẫn**: `Common/Services/ToastManager.swift`
 *   **Imports (Import Graph)**: `Combine`, `Foundation`
@@ -95,7 +86,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 7. [Book.swift](../../Sources/Models/Database/Book.swift)
+### 6. [Book.swift](../../Sources/Models/Database/Book.swift)
 
 *   **Đường dẫn**: `Models/Database/Book.swift`
 *   **Imports (Import Graph)**: `Foundation`, `SwiftData`
@@ -118,7 +109,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 8. [Chapter.swift](../../Sources/Models/Database/Chapter.swift)
+### 7. [Chapter.swift](../../Sources/Models/Database/Chapter.swift)
 
 *   **Đường dẫn**: `Models/Database/Chapter.swift`
 *   **Imports (Import Graph)**: `Foundation`, `SwiftData`
@@ -137,7 +128,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 9. [DownloadTaskModel.swift](../../Sources/Models/Database/DownloadTaskModel.swift)
+### 8. [DownloadTaskModel.swift](../../Sources/Models/Database/DownloadTaskModel.swift)
 
 *   **Đường dẫn**: `Models/Database/DownloadTaskModel.swift`
 *   **Imports (Import Graph)**: `Foundation`, `SwiftData`
@@ -148,7 +139,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 10. [Extension.swift](../../Sources/Models/Database/Extension.swift)
+### 9. [Extension.swift](../../Sources/Models/Database/Extension.swift)
 
 *   **Đường dẫn**: `Models/Database/Extension.swift`
 *   **Imports (Import Graph)**: `Foundation`, `SwiftData`
@@ -172,7 +163,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 11. [Repository.swift](../../Sources/Models/Database/Repository.swift)
+### 10. [Repository.swift](../../Sources/Models/Database/Repository.swift)
 
 *   **Đường dẫn**: `Models/Database/Repository.swift`
 *   **Imports (Import Graph)**: `Foundation`, `SwiftData`
@@ -186,7 +177,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 12. [DoubleArrayTrie.swift](../../Sources/Models/Dictionaries/DoubleArrayTrie.swift)
+### 11. [DoubleArrayTrie.swift](../../Sources/Models/Dictionaries/DoubleArrayTrie.swift)
 
 *   **Đường dẫn**: `Models/Dictionaries/DoubleArrayTrie.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -200,7 +191,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 13. [DoubleArrayTrieBuilder.swift](../../Sources/Models/Dictionaries/DoubleArrayTrieBuilder.swift)
+### 12. [DoubleArrayTrieBuilder.swift](../../Sources/Models/Dictionaries/DoubleArrayTrieBuilder.swift)
 
 *   **Đường dẫn**: `Models/Dictionaries/DoubleArrayTrieBuilder.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -212,7 +203,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 14. [SearchEngine.swift](../../Sources/Models/Dictionaries/SearchEngine.swift)
+### 13. [SearchEngine.swift](../../Sources/Models/Dictionaries/SearchEngine.swift)
 
 *   **Đường dẫn**: `Models/Dictionaries/SearchEngine.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -223,7 +214,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 15. [TextDictionary.swift](../../Sources/Models/Dictionaries/TextDictionary.swift)
+### 14. [TextDictionary.swift](../../Sources/Models/Dictionaries/TextDictionary.swift)
 
 *   **Đường dẫn**: `Models/Dictionaries/TextDictionary.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -233,7 +224,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 16. [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
+### 15. [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
 
 *   **Đường dẫn**: `Services/Download/DownloadManager.swift`
 *   **Imports (Import Graph)**: `Foundation`, `SwiftData`, `UIKit`
@@ -255,7 +246,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 17. [JSCrypto.swift](../../Sources/Services/Extensions/Engine/JSCrypto.swift)
+### 16. [JSCrypto.swift](../../Sources/Services/Extensions/Engine/JSCrypto.swift)
 
 *   **Đường dẫn**: `Services/Extensions/Engine/JSCrypto.swift`
 *   **Imports (Import Graph)**: `CryptoKit`, `Foundation`, `JavaScriptCore`
@@ -264,7 +255,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 18. [JSDom.swift](../../Sources/Services/Extensions/Engine/JSDom.swift)
+### 17. [JSDom.swift](../../Sources/Services/Extensions/Engine/JSDom.swift)
 
 *   **Đường dẫn**: `Services/Extensions/Engine/JSDom.swift`
 *   **Imports (Import Graph)**: `Foundation`, `JavaScriptCore`, `SwiftSoup`
@@ -273,7 +264,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 19. [JSExecutor.swift](../../Sources/Services/Extensions/Engine/JSExecutor.swift)
+### 18. [JSExecutor.swift](../../Sources/Services/Extensions/Engine/JSExecutor.swift)
 
 *   **Đường dẫn**: `Services/Extensions/Engine/JSExecutor.swift`
 *   **Imports (Import Graph)**: `Foundation`, `JavaScriptCore`, `WebKit`
@@ -286,7 +277,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 20. [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
+### 19. [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
 
 *   **Đường dẫn**: `Services/Extensions/Manager/ExtensionManager.swift`
 *   **Imports (Import Graph)**: `Combine`, `Foundation`, `JavaScriptCore`, `ZIPFoundation`
@@ -295,6 +286,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
     *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
     *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
 *   **Được sử dụng bởi (Used by)**:
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
     *   [DownloadManager.swift](../../Sources/Services/Download/DownloadManager.swift)
     *   [ExtTTSService.swift](../../Sources/Services/TTS/Ext/ExtTTSService.swift)
     *   [AllCommentsView.swift](../../Sources/Views/BookDetail/AllCommentsView.swift)
@@ -303,9 +295,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
     *   [SuggestRowView.swift](../../Sources/Views/BookDetail/SuggestRowView.swift)
     *   [CategoryNovelsListView.swift](../../Sources/Views/Common/CategoryNovelsListView.swift)
     *   [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
-    *   [RepositoryManagerView.swift](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift)
-    *   [ExtensionStoreView.swift](../../Sources/Views/Extensions/Store/ExtensionStoreView.swift)
-    *   [ReaderChapterListView.swift](../../Sources/Views/Reader/ReaderChapterListView.swift)
+    *   [RepositoryManagerView.swift](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift)    *   [ReaderChapterListView.swift](../../Sources/Views/Reader/ReaderChapterListView.swift)
     *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
     *   [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
     *   [SearchView.swift](../../Sources/Views/Search/SearchView.swift)
@@ -313,7 +303,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 21. [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
+### 20. [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
 
 *   **Đường dẫn**: `Services/Logging/AppLogger.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -344,7 +334,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 22. [BackgroundTaskSession.swift](../../Sources/Services/TTS/BackgroundTaskSession.swift)
+### 21. [BackgroundTaskSession.swift](../../Sources/Services/TTS/BackgroundTaskSession.swift)
 
 *   **Đường dẫn**: `Services/TTS/BackgroundTaskSession.swift`
 *   **Imports (Import Graph)**: `Foundation`, `UIKit`
@@ -355,7 +345,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 23. [EspeakPhonemizer.swift](../../Sources/Services/TTS/EspeakPhonemizer.swift)
+### 22. [EspeakPhonemizer.swift](../../Sources/Services/TTS/EspeakPhonemizer.swift)
 
 *   **Đường dẫn**: `Services/TTS/EspeakPhonemizer.swift`
 *   **Imports (Import Graph)**: `Foundation`, `libespeak_ng`
@@ -367,7 +357,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 24. [ExtTTSService.swift](../../Sources/Services/TTS/Ext/ExtTTSService.swift)
+### 23. [ExtTTSService.swift](../../Sources/Services/TTS/Ext/ExtTTSService.swift)
 
 *   **Đường dẫn**: `Services/TTS/Ext/ExtTTSService.swift`
 *   **Imports (Import Graph)**: `AVFoundation`, `Foundation`
@@ -379,7 +369,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 25. [ModelStore.swift](../../Sources/Services/TTS/NghiTTS/ModelStore.swift)
+### 24. [ModelStore.swift](../../Sources/Services/TTS/NghiTTS/ModelStore.swift)
 
 *   **Đường dẫn**: `Services/TTS/NghiTTS/ModelStore.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -393,7 +383,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 26. [NghiTTSClient.swift](../../Sources/Services/TTS/NghiTTS/NghiTTSClient.swift)
+### 25. [NghiTTSClient.swift](../../Sources/Services/TTS/NghiTTS/NghiTTSClient.swift)
 
 *   **Đường dẫn**: `Services/TTS/NghiTTS/NghiTTSClient.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -410,7 +400,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 27. [ONNXPiperEngine.swift](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift)
+### 26. [ONNXPiperEngine.swift](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift)
 
 *   **Đường dẫn**: `Services/TTS/NghiTTS/ONNXPiperEngine.swift`
 *   **Imports (Import Graph)**: `Foundation`, `OnnxRuntimeBindings`
@@ -426,7 +416,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 28. [PiperTTSService.swift](../../Sources/Services/TTS/NghiTTS/PiperTTSService.swift)
+### 27. [PiperTTSService.swift](../../Sources/Services/TTS/NghiTTS/PiperTTSService.swift)
 
 *   **Đường dẫn**: `Services/TTS/NghiTTS/PiperTTSService.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -442,7 +432,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 29. [EnglishTransliterator.swift](../../Sources/Services/TTS/Preprocessing/EnglishTransliterator.swift)
+### 28. [EnglishTransliterator.swift](../../Sources/Services/TTS/Preprocessing/EnglishTransliterator.swift)
 
 *   **Đường dẫn**: `Services/TTS/Preprocessing/EnglishTransliterator.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -454,7 +444,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 30. [JapaneseTransliterator.swift](../../Sources/Services/TTS/Preprocessing/JapaneseTransliterator.swift)
+### 29. [JapaneseTransliterator.swift](../../Sources/Services/TTS/Preprocessing/JapaneseTransliterator.swift)
 
 *   **Đường dẫn**: `Services/TTS/Preprocessing/JapaneseTransliterator.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -465,7 +455,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 31. [RegexRule.swift](../../Sources/Services/TTS/Preprocessing/RegexRule.swift)
+### 30. [RegexRule.swift](../../Sources/Services/TTS/Preprocessing/RegexRule.swift)
 
 *   **Đường dẫn**: `Services/TTS/Preprocessing/RegexRule.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -475,7 +465,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 32. [TTSReplacementManager.swift](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager.swift)
+### 31. [TTSReplacementManager.swift](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager.swift)
 
 *   **Đường dẫn**: `Services/TTS/Preprocessing/TTSReplacementManager.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -487,7 +477,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 33. [TextPreprocessor.swift](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift)
+### 32. [TextPreprocessor.swift](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift)
 
 *   **Đường dẫn**: `Services/TTS/Preprocessing/TextPreprocessor.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -507,7 +497,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 34. [VietnameseNumberSpeller.swift](../../Sources/Services/TTS/Preprocessing/VietnameseNumberSpeller.swift)
+### 33. [VietnameseNumberSpeller.swift](../../Sources/Services/TTS/Preprocessing/VietnameseNumberSpeller.swift)
 
 *   **Đường dẫn**: `Services/TTS/Preprocessing/VietnameseNumberSpeller.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -517,7 +507,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 35. [VietnameseWordChecker.swift](../../Sources/Services/TTS/Preprocessing/VietnameseWordChecker.swift)
+### 34. [VietnameseWordChecker.swift](../../Sources/Services/TTS/Preprocessing/VietnameseWordChecker.swift)
 
 *   **Đường dẫn**: `Services/TTS/Preprocessing/VietnameseWordChecker.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -527,7 +517,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 36. [SiriTTSService.swift](../../Sources/Services/TTS/Siri/SiriTTSService.swift)
+### 35. [SiriTTSService.swift](../../Sources/Services/TTS/Siri/SiriTTSService.swift)
 
 *   **Đường dẫn**: `Services/TTS/Siri/SiriTTSService.swift`
 *   **Imports (Import Graph)**: `AVFoundation`, `Foundation`
@@ -537,11 +527,13 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 37. [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+### 36. [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
 
 *   **Đường dẫn**: `Services/TTS/TTSManager.swift`
 *   **Imports (Import Graph)**: `AVFoundation`, `Combine`, `Foundation`, `MediaPlayer`, `QuartzCore`, `SwiftData`, `UIKit`
 *   **Sử dụng (Uses)**:
+    *   [Chapter.swift](../../Sources/Models/Database/Chapter.swift)
+    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
     *   [ImageCacheManager.swift](../../Sources/Common/Services/ImageCacheManager.swift)
     *   [Book.swift](../../Sources/Models/Database/Book.swift)
     *   [AppLogger.swift](../../Sources/Services/Logging/AppLogger.swift)
@@ -567,7 +559,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 38. [TTSModels.swift](../../Sources/Services/TTS/TTSModels.swift)
+### 37. [TTSModels.swift](../../Sources/Services/TTS/TTSModels.swift)
 
 *   **Đường dẫn**: `Services/TTS/TTSModels.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -584,7 +576,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 39. [WAVEncoder.swift](../../Sources/Services/TTS/WAVEncoder.swift)
+### 38. [WAVEncoder.swift](../../Sources/Services/TTS/WAVEncoder.swift)
 
 *   **Đường dẫn**: `Services/TTS/WAVEncoder.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -595,7 +587,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 40. [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
+### 39. [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
 
 *   **Đường dẫn**: `Services/Translation/Manager/TranslationManager.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -617,7 +609,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 41. [DictionaryCache.swift](../../Sources/Services/Translation/Utils/DictionaryCache.swift)
+### 40. [DictionaryCache.swift](../../Sources/Services/Translation/Utils/DictionaryCache.swift)
 
 *   **Đường dẫn**: `Services/Translation/Utils/DictionaryCache.swift`
 *   **Imports (Import Graph)**: `Combine`, `Foundation`
@@ -634,7 +626,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 42. [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+### 41. [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
 
 *   **Đường dẫn**: `Services/Translation/Utils/TranslateUtils.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -663,7 +655,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 43. [AppLoadingView.swift](../../Sources/Views/AppLoadingView.swift)
+### 42. [AppLoadingView.swift](../../Sources/Views/AppLoadingView.swift)
 
 *   **Đường dẫn**: `Views/AppLoadingView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -673,7 +665,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 44. [AllCommentsView.swift](../../Sources/Views/BookDetail/AllCommentsView.swift)
+### 43. [AllCommentsView.swift](../../Sources/Views/BookDetail/AllCommentsView.swift)
 
 *   **Đường dẫn**: `Views/BookDetail/AllCommentsView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -686,7 +678,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 45. [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+### 44. [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
 
 *   **Đường dẫn**: `Views/BookDetail/BookDetailView.swift`
 *   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
@@ -719,7 +711,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 46. [CommentSectionView.swift](../../Sources/Views/BookDetail/CommentSectionView.swift)
+### 45. [CommentSectionView.swift](../../Sources/Views/BookDetail/CommentSectionView.swift)
 
 *   **Đường dẫn**: `Views/BookDetail/CommentSectionView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -732,7 +724,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 47. [SuggestRowView.swift](../../Sources/Views/BookDetail/SuggestRowView.swift)
+### 46. [SuggestRowView.swift](../../Sources/Views/BookDetail/SuggestRowView.swift)
 
 *   **Đường dẫn**: `Views/BookDetail/SuggestRowView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -746,7 +738,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 48. [BookCoverView.swift](../../Sources/Views/Common/BookCoverView.swift)
+### 47. [BookCoverView.swift](../../Sources/Views/Common/BookCoverView.swift)
 
 *   **Đường dẫn**: `Views/Common/BookCoverView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -762,7 +754,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 49. [BypassWebView.swift](../../Sources/Views/Common/BypassWebView.swift)
+### 48. [BypassWebView.swift](../../Sources/Views/Common/BypassWebView.swift)
 
 *   **Đường dẫn**: `Views/Common/BypassWebView.swift`
 *   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`, `WebKit`
@@ -778,7 +770,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 50. [CategoryNovelsListView.swift](../../Sources/Views/Common/CategoryNovelsListView.swift)
+### 49. [CategoryNovelsListView.swift](../../Sources/Views/Common/CategoryNovelsListView.swift)
 
 *   **Đường dẫn**: `Views/Common/CategoryNovelsListView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -794,7 +786,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 51. [DocumentPicker.swift](../../Sources/Views/Common/DocumentPicker.swift)
+### 50. [DocumentPicker.swift](../../Sources/Views/Common/DocumentPicker.swift)
 
 *   **Đường dẫn**: `Views/Common/DocumentPicker.swift`
 *   **Imports (Import Graph)**: `SwiftUI`, `UIKit`, `UniformTypeIdentifiers`
@@ -810,7 +802,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 52. [ExtensionIconView.swift](../../Sources/Views/Common/ExtensionIconView.swift)
+### 51. [ExtensionIconView.swift](../../Sources/Views/Common/ExtensionIconView.swift)
 
 *   **Đường dẫn**: `Views/Common/ExtensionIconView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -821,7 +813,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 53. [SkeletonView.swift](../../Sources/Views/Common/SkeletonView.swift)
+### 52. [SkeletonView.swift](../../Sources/Views/Common/SkeletonView.swift)
 
 *   **Đường dẫn**: `Views/Common/SkeletonView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -831,7 +823,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 54. [BookDictionaryView.swift](../../Sources/Views/Dictionary/BookDictionaryView.swift)
+### 53. [BookDictionaryView.swift](../../Sources/Views/Dictionary/BookDictionaryView.swift)
 
 *   **Đường dẫn**: `Views/Dictionary/BookDictionaryView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`, `UniformTypeIdentifiers`
@@ -843,7 +835,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 55. [DictionaryHubView.swift](../../Sources/Views/Dictionary/DictionaryHubView.swift)
+### 54. [DictionaryHubView.swift](../../Sources/Views/Dictionary/DictionaryHubView.swift)
 
 *   **Đường dẫn**: `Views/Dictionary/DictionaryHubView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -856,7 +848,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 56. [DictionaryListView.swift](../../Sources/Views/Dictionary/DictionaryListView.swift)
+### 55. [DictionaryListView.swift](../../Sources/Views/Dictionary/DictionaryListView.swift)
 
 *   **Đường dẫn**: `Views/Dictionary/DictionaryListView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`, `UniformTypeIdentifiers`
@@ -872,7 +864,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 57. [ManageDefinitionsView.swift](../../Sources/Views/Dictionary/ManageDefinitionsView.swift)
+### 56. [ManageDefinitionsView.swift](../../Sources/Views/Dictionary/ManageDefinitionsView.swift)
 
 *   **Đường dẫn**: `Views/Dictionary/ManageDefinitionsView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -884,7 +876,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 58. [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
+### 57. [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
 
 *   **Đường dẫn**: `Views/Discovery/DiscoveryView.swift`
 *   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
@@ -904,7 +896,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 59. [DownloadTrackerView.swift](../../Sources/Views/Download/DownloadTrackerView.swift)
+### 58. [DownloadTrackerView.swift](../../Sources/Views/Download/DownloadTrackerView.swift)
 
 *   **Đường dẫn**: `Views/Download/DownloadTrackerView.swift`
 *   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
@@ -918,7 +910,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 60. [TaskOptionsSheet.swift](../../Sources/Views/Download/TaskOptionsSheet.swift)
+### 59. [TaskOptionsSheet.swift](../../Sources/Views/Download/TaskOptionsSheet.swift)
 
 *   **Đường dẫn**: `Views/Download/TaskOptionsSheet.swift`
 *   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
@@ -934,7 +926,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 61. [ExtensionConfigView.swift](../../Sources/Views/Extensions/Config/ExtensionConfigView.swift)
+### 60. [ExtensionConfigView.swift](../../Sources/Views/Extensions/Config/ExtensionConfigView.swift)
 
 *   **Đường dẫn**: `Views/Extensions/Config/ExtensionConfigView.swift`
 *   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
@@ -948,7 +940,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 62. [RepositoryManagerView.swift](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift)
+### 61. [RepositoryManagerView.swift](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift)
 
 *   **Đường dẫn**: `Views/Extensions/Manager/RepositoryManagerView.swift`
 *   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
@@ -956,28 +948,12 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
     *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
     *   [Repository.swift](../../Sources/Models/Database/Repository.swift)
     *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
-    *   [ExtensionConfigView.swift](../../Sources/Views/Extensions/Config/ExtensionConfigView.swift)
-    *   [ExtensionStoreView.swift](../../Sources/Views/Extensions/Store/ExtensionStoreView.swift)
-*   **Được sử dụng bởi (Used by)**:
+    *   [ExtensionConfigView.swift](../../Sources/Views/Extensions/Config/ExtensionConfigView.swift)*   **Được sử dụng bởi (Used by)**:
     *   [MainTabView.swift](../../Sources/Views/MainTabView.swift)
 
 ---
 
-### 63. [ExtensionStoreView.swift](../../Sources/Views/Extensions/Store/ExtensionStoreView.swift)
-
-*   **Đường dẫn**: `Views/Extensions/Store/ExtensionStoreView.swift`
-*   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
-*   **Sử dụng (Uses)**:
-    *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
-    *   [Repository.swift](../../Sources/Models/Database/Repository.swift)
-    *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
-    *   [ExtensionConfigView.swift](../../Sources/Views/Extensions/Config/ExtensionConfigView.swift)
-*   **Được sử dụng bởi (Used by)**:
-    *   [RepositoryManagerView.swift](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift)
-
----
-
-### 64. [MainTabView.swift](../../Sources/Views/MainTabView.swift)
+### 62. [MainTabView.swift](../../Sources/Views/MainTabView.swift)
 
 *   **Đường dẫn**: `Views/MainTabView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -993,7 +969,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 65. [ChapterCache.swift](../../Sources/Views/Reader/ChapterCache.swift)
+### 63. [ChapterCache.swift](../../Sources/Views/Reader/ChapterCache.swift)
 
 *   **Đường dẫn**: `Views/Reader/ChapterCache.swift`
 *   **Imports (Import Graph)**: `Observation`, `SwiftUI`
@@ -1007,7 +983,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 66. [CollapsedCircleView.swift](../../Sources/Views/Reader/CollapsedCircleView.swift)
+### 64. [CollapsedCircleView.swift](../../Sources/Views/Reader/CollapsedCircleView.swift)
 
 *   **Đường dẫn**: `Views/Reader/CollapsedCircleView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -1017,7 +993,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 67. [ExpandedControlPanel.swift](../../Sources/Views/Reader/ExpandedControlPanel.swift)
+### 65. [ExpandedControlPanel.swift](../../Sources/Views/Reader/ExpandedControlPanel.swift)
 
 *   **Đường dẫn**: `Views/Reader/ExpandedControlPanel.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -1027,7 +1003,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 68. [ParagraphCardView.swift](../../Sources/Views/Reader/ParagraphCardView.swift)
+### 66. [ParagraphCardView.swift](../../Sources/Views/Reader/ParagraphCardView.swift)
 
 *   **Đường dẫn**: `Views/Reader/ParagraphCardView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -1041,7 +1017,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 69. [PrefetchManager.swift](../../Sources/Views/Reader/PrefetchManager.swift)
+### 67. [PrefetchManager.swift](../../Sources/Views/Reader/PrefetchManager.swift)
 
 *   **Đường dẫn**: `Views/Reader/PrefetchManager.swift`
 *   **Imports (Import Graph)**: `Foundation`
@@ -1052,7 +1028,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 70. [ReaderChapterListView.swift](../../Sources/Views/Reader/ReaderChapterListView.swift)
+### 68. [ReaderChapterListView.swift](../../Sources/Views/Reader/ReaderChapterListView.swift)
 
 *   **Đường dẫn**: `Views/Reader/ReaderChapterListView.swift`
 *   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
@@ -1068,7 +1044,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 71. [ReaderTextView.swift](../../Sources/Views/Reader/ReaderTextView.swift)
+### 69. [ReaderTextView.swift](../../Sources/Views/Reader/ReaderTextView.swift)
 
 *   **Đường dẫn**: `Views/Reader/ReaderTextView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`, `UIKit`
@@ -1081,7 +1057,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 72. [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+### 70. [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
 
 *   **Đường dẫn**: `Views/Reader/ReaderView.swift`
 *   **Imports (Import Graph)**: `AVFoundation`, `SwiftData`, `SwiftUI`
@@ -1114,7 +1090,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 73. [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
+### 71. [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
 
 *   **Đường dẫn**: `Views/Reader/ReaderViewModel.swift`
 *   **Imports (Import Graph)**: `Combine`, `Observation`, `SwiftData`, `SwiftUI`
@@ -1134,7 +1110,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 74. [ReadingProgressRepository.swift](../../Sources/Views/Reader/ReadingProgressRepository.swift)
+### 72. [ReadingProgressRepository.swift](../../Sources/Views/Reader/ReadingProgressRepository.swift)
 
 *   **Đường dẫn**: `Views/Reader/ReadingProgressRepository.swift`
 *   **Imports (Import Graph)**: `Foundation`, `SwiftData`
@@ -1147,7 +1123,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 75. [SearchView.swift](../../Sources/Views/Search/SearchView.swift)
+### 73. [SearchView.swift](../../Sources/Views/Search/SearchView.swift)
 
 *   **Đường dẫn**: `Views/Search/SearchView.swift`
 *   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
@@ -1165,7 +1141,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 76. [SettingsView.swift](../../Sources/Views/Settings/Main/SettingsView.swift)
+### 74. [SettingsView.swift](../../Sources/Views/Settings/Main/SettingsView.swift)
 
 *   **Đường dẫn**: `Views/Settings/Main/SettingsView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`, `UniformTypeIdentifiers`
@@ -1186,7 +1162,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 77. [SearchEnginesConfigView.swift](../../Sources/Views/Settings/Search/SearchEnginesConfigView.swift)
+### 75. [SearchEnginesConfigView.swift](../../Sources/Views/Settings/Search/SearchEnginesConfigView.swift)
 
 *   **Đường dẫn**: `Views/Settings/Search/SearchEnginesConfigView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -1197,7 +1173,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 78. [NghiTTSSettingsView.swift](../../Sources/Views/Settings/TTS/NghiTTSSettingsView.swift)
+### 76. [NghiTTSSettingsView.swift](../../Sources/Views/Settings/TTS/NghiTTSSettingsView.swift)
 
 *   **Đường dẫn**: `Views/Settings/TTS/NghiTTSSettingsView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -1209,7 +1185,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 79. [TTSDictionaryEditView.swift](../../Sources/Views/Settings/TTS/TTSDictionaryEditView.swift)
+### 77. [TTSDictionaryEditView.swift](../../Sources/Views/Settings/TTS/TTSDictionaryEditView.swift)
 
 *   **Đường dẫn**: `Views/Settings/TTS/TTSDictionaryEditView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`, `UniformTypeIdentifiers`
@@ -1223,7 +1199,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 80. [TTSModelManagerView.swift](../../Sources/Views/Settings/TTS/TTSModelManagerView.swift)
+### 78. [TTSModelManagerView.swift](../../Sources/Views/Settings/TTS/TTSModelManagerView.swift)
 
 *   **Đường dẫn**: `Views/Settings/TTS/TTSModelManagerView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`, `UniformTypeIdentifiers`
@@ -1239,7 +1215,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 81. [TTSReplacementManagerView.swift](../../Sources/Views/Settings/TTS/TTSReplacementManagerView.swift)
+### 79. [TTSReplacementManagerView.swift](../../Sources/Views/Settings/TTS/TTSReplacementManagerView.swift)
 
 *   **Đường dẫn**: `Views/Settings/TTS/TTSReplacementManagerView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`, `UniformTypeIdentifiers`
@@ -1252,7 +1228,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 82. [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
+### 80. [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
 
 *   **Đường dẫn**: `Views/Shelf/ShelfMain/ShelfView.swift`
 *   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`, `UniformTypeIdentifiers`
@@ -1275,7 +1251,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 83. [FloatingWidgetViewModel.swift](../../Sources/Views/TTSWidget/FloatingWidgetViewModel.swift)
+### 81. [FloatingWidgetViewModel.swift](../../Sources/Views/TTSWidget/FloatingWidgetViewModel.swift)
 
 *   **Đường dẫn**: `Views/TTSWidget/FloatingWidgetViewModel.swift`
 *   **Imports (Import Graph)**: `Combine`, `SwiftUI`
@@ -1286,7 +1262,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 84. [TTSFloatingWidgetView.swift](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift)
+### 82. [TTSFloatingWidgetView.swift](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift)
 
 *   **Đường dẫn**: `Views/TTSWidget/TTSFloatingWidgetView.swift`
 *   **Imports (Import Graph)**: `SwiftUI`
@@ -1302,7 +1278,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 85. [TTSPlayStateReader.swift](../../Sources/Views/TTSWidget/TTSPlayStateReader.swift)
+### 83. [TTSPlayStateReader.swift](../../Sources/Views/TTSWidget/TTSPlayStateReader.swift)
 
 *   **Đường dẫn**: `Views/TTSWidget/TTSPlayStateReader.swift`
 *   **Imports (Import Graph)**: `Combine`, `SwiftUI`
@@ -1313,7 +1289,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 86. [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
+### 84. [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
 
 *   **Đường dẫn**: `Views/TTSWidget/TTSSettingsView.swift`
 *   **Imports (Import Graph)**: `AVFoundation`, `SwiftData`, `SwiftUI`
@@ -1335,7 +1311,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 87. [WidgetState.swift](../../Sources/Views/TTSWidget/WidgetState.swift)
+### 85. [WidgetState.swift](../../Sources/Views/TTSWidget/WidgetState.swift)
 
 *   **Đường dẫn**: `Views/TTSWidget/WidgetState.swift`
 *   **Imports (Import Graph)**: `Foundation`

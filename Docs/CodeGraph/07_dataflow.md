@@ -111,4 +111,9 @@ graph TD
 *   **Vị trí**: Nằm trong `Sources/Common/Services/ImageCacheManager.swift`.
 *   **Mục tiêu**: Cache ảnh bìa truyện tải từ các URL web về đĩa/RAM để tránh tải trùng lặp khi người dùng cuộn kệ sách.
 *   **Cơ chế**: Sử dụng `NSCache` tích hợp của Apple.
+
+### 2.5. Bộ đệm Chương truyện cho TTS (`chaptersQueue.cachedContent`)
+*   **Vị trí**: Nằm trong `TTSManager.swift` (`chaptersQueue: [TTSChapterInfo]`).
+*   **Mục tiêu**: Lưu trữ tạm thời nội dung văn bản thô trên RAM của danh sách chương để TTS có thể tự động chuyển tiếp và phát ngay mà không cần tải lại từ mạng. RAM cache này được `ReaderViewModel.processAndSaveChapter` cập nhật qua hàm `TTSManager.shared.updateChapterCache(at:content:)`.
+*   **Giải phóng**: Được dọn dẹp khi xoá prefetch cache hoặc khi dừng phát hoàn toàn.
 <!-- GENERATED END -->

@@ -531,6 +531,12 @@ class ReaderViewModel: ObservableObject {
             cached.paragraphItems = items
             cached.state = .loaded
         }
+        
+        // Thông báo TTSManager cập nhật cachedContent cho chương này trong chaptersQueue,
+        // để advanceToNextChapter có thể dùng ngay mà không fetch lại mạng.
+        if TTSManager.shared.playingBookId == bookId {
+            TTSManager.shared.updateChapterCache(at: index, content: originalContent)
+        }
     }
     
     // Bật/tắt dịch thuật nhanh từ RAM

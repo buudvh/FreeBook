@@ -65,6 +65,9 @@ graph TD
     *   *Xử lý (`ReaderViewModel` / `TranslationManager`)*: 
         *   `ReaderViewModel` giải phóng bộ đệm chương truyện `cache.clear()`.
         *   `TranslationManager` giải phóng cache từ điển của sách `clearBookDictCache()`.
+*   **`ttsDidAdvanceToNextChapter`**:
+    *   *Mục đích*: Nhận biết khi `TTSManager` tự chuyển sang chương tiếp theo độc lập.
+    *   *Xử lý (`ReaderView.swift`)*: Nhận thông báo chứa `bookId` và `chapterIndex` để thực hiện đồng bộ giao diện hiển thị (chuyển tab, cuộn) mà không trigger lệnh phát TTS lặp lại.
 
 ### 2.3. Sự kiện Combine (Publishers)
 *   **`@Published` Properties**:
@@ -79,8 +82,8 @@ graph TD
 *   `playCommand` / `resumeCommand` -> Kích hoạt `TTSManager.resume()`.
 *   `pauseCommand` -> Kích hoạt `TTSManager.pause()`.
 *   `togglePlayPauseCommand` -> Đảo ngược trạng thái phát.
-*   `nextTrackCommand` -> Chuyển sang chương tiếp theo (`onChapterNext`).
-*   `previousTrackCommand` -> Quay lại chương trước (`onChapterPrev`).
+*   `nextTrackCommand` -> Gọi `TTSManager.skipForward()` (tự chuyển chương qua `advanceToNextChapter` nếu hết đoạn cuối chương).
+*   `previousTrackCommand` -> Gọi `TTSManager.skipBackward()` (tua lùi đoạn).
 *   `skipForwardCommand` -> Tua tiến đoạn văn (`skipForward()`).
 *   `skipBackwardCommand` -> Tua lùi đoạn văn (`skipBackward()`).
 

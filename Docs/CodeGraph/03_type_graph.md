@@ -1,12 +1,3 @@
----
-generated_by: Antigravity
-generator_version: 1.0
-generated_at: 2026-07-14T09:15:00+07:00
-git_commit: UNKNOWN
-source_files: 87
-document_version: 1
----
-
 # Đồ thị Kiểu dữ liệu (Type Graph)
 
 Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa các kiểu dữ liệu (Class, Struct, Enum, Protocol, Actor, Extension) trong dự án FreeBook.
@@ -43,7 +34,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 2. AddWordSheet (STRUCT)
+### 1. AddWordSheet (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Settings/TTS/TTSDictionaryEditView.swift:496](../../Sources/Views/Settings/TTS/TTSDictionaryEditView.swift#L496)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -52,7 +43,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 3. AllCommentsView (STRUCT)
+### 2. AllCommentsView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/BookDetail/AllCommentsView.swift:2](../../Sources/Views/BookDetail/AllCommentsView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -61,7 +52,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 4. AppDiagnostics (CLASS)
+### 3. AppDiagnostics (CLASS)
 
 *   **Định nghĩa tại**: [Services/Logging/AppLogger.swift:83](../../Sources/Services/Logging/AppLogger.swift#L83)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `ObservableObject`
@@ -70,7 +61,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 5. AppLaunchRootView (STRUCT)
+### 4. AppLaunchRootView (STRUCT)
 
 *   **Định nghĩa tại**: [App/FreeBookApp.swift:19](../../Sources/App/FreeBookApp.swift#L19)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -79,7 +70,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 6. AppLoadingView (STRUCT)
+### 5. AppLoadingView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/AppLoadingView.swift:2](../../Sources/Views/AppLoadingView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -88,7 +79,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 7. AppLogger (CLASS)
+### 6. AppLogger (CLASS)
 
 *   **Định nghĩa tại**: [Services/Logging/AppLogger.swift:2](../../Sources/Services/Logging/AppLogger.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -97,7 +88,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 8. AudioConfig (STRUCT)
+### 7. AudioConfig (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/NghiTTS/ONNXPiperEngine.swift:6](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift#L6)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Decodable`
@@ -106,7 +97,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 9. AutoSizingTextView (CLASS)
+### 8. AutoSizingTextView (CLASS)
 
 *   **Định nghĩa tại**: [Views/Reader/ReaderTextView.swift:319](../../Sources/Views/Reader/ReaderTextView.swift#L319)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `ReaderUITextView`
@@ -115,7 +106,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 10. BackgroundTaskSession (STRUCT)
+### 9. BackgroundTaskSession (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/BackgroundTaskSession.swift:5](../../Sources/Services/TTS/BackgroundTaskSession.swift#L5)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -124,7 +115,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 11. Book (CLASS)
+### 10. Book (CLASS)
 
 *   **Định nghĩa tại**: [Models/Database/Book.swift:7](../../Sources/Models/Database/Book.swift#L7)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -135,7 +126,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 12. BookCoverView (STRUCT)
+### 11. BookCoverView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Common/BookCoverView.swift:2](../../Sources/Views/Common/BookCoverView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -144,7 +135,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 13. BookDetailView (STRUCT)
+### 12. BookDetailView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/BookDetail/BookDetailView.swift:3](../../Sources/Views/BookDetail/BookDetailView.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -153,7 +144,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 14. BookDictionaryView (STRUCT)
+### 13. BookDictionaryView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Dictionary/BookDictionaryView.swift:7](../../Sources/Views/Dictionary/BookDictionaryView.swift#L7)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -162,7 +153,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 15. BypassWebView (STRUCT)
+### 14. BypassWebView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Common/BypassWebView.swift:4](../../Sources/Views/Common/BypassWebView.swift#L4)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -171,7 +162,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 16. CacheSummary (STRUCT)
+### 15. CacheSummary (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/NghiTTS/ModelStore.swift:2](../../Sources/Services/TTS/NghiTTS/ModelStore.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Codable`
@@ -180,7 +171,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 17. CachedChapter (CLASS)
+### 16. CachedChapter (CLASS)
 
 *   **Định nghĩa tại**: [Views/Reader/ChapterCache.swift:23](../../Sources/Views/Reader/ChapterCache.swift#L23)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Identifiable`
@@ -189,7 +180,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 18. CachedSession (STRUCT)
+### 17. CachedSession (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/NghiTTS/ONNXPiperEngine.swift:12](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift#L12)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -198,7 +189,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 19. CallInfo (STRUCT)
+### 18. CallInfo (STRUCT)
 
 *   **Định nghĩa tại**: [Services/Logging/AppLogger.swift:89](../../Sources/Services/Logging/AppLogger.swift#L89)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Identifiable`
@@ -207,7 +198,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 20. CategoryNovelsListView (STRUCT)
+### 19. CategoryNovelsListView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Common/CategoryNovelsListView.swift:2](../../Sources/Views/Common/CategoryNovelsListView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -216,7 +207,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 21. CategoryResult (STRUCT)
+### 20. CategoryResult (STRUCT)
 
 *   **Định nghĩa tại**: [Services/Extensions/Manager/ExtensionManager.swift:821](../../Sources/Services/Extensions/Manager/ExtensionManager.swift#L821)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Identifiable`, `Codable`
@@ -225,7 +216,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 22. Chapter (CLASS)
+### 21. Chapter (CLASS)
 
 *   **Định nghĩa tại**: [Models/Database/Chapter.swift:5](../../Sources/Models/Database/Chapter.swift#L5)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -234,7 +225,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 23. ChapterCache (CLASS)
+### 22. ChapterCache (CLASS)
 
 *   **Định nghĩa tại**: [Views/Reader/ChapterCache.swift:41](../../Sources/Views/Reader/ChapterCache.swift#L41)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -243,7 +234,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 24. ChapterLimitOption (ENUM)
+### 23. ChapterLimitOption (ENUM)
 
 *   **Định nghĩa tại**: [Services/Download/DownloadManager.swift:4](../../Sources/Services/Download/DownloadManager.swift#L4)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Int`, `CaseIterable`, `Codable`
@@ -252,7 +243,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 25. ChapterLoadState (ENUM)
+### 24. ChapterLoadState (ENUM)
 
 *   **Định nghĩa tại**: [Views/Reader/ChapterCache.swift:12](../../Sources/Views/Reader/ChapterCache.swift#L12)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Equatable`
@@ -261,7 +252,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 26. ChapterResult (STRUCT)
+### 25. ChapterResult (STRUCT)
 
 *   **Định nghĩa tại**: [Services/Extensions/Manager/ExtensionManager.swift:53](../../Sources/Services/Extensions/Manager/ExtensionManager.swift#L53)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -270,7 +261,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 27. ChapterRowInfo (STRUCT)
+### 26. ChapterRowInfo (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Reader/ReaderChapterListView.swift:3](../../Sources/Views/Reader/ReaderChapterListView.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Identifiable`
@@ -279,7 +270,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 28. CollapsedCircleView (STRUCT)
+### 27. CollapsedCircleView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Reader/CollapsedCircleView.swift:2](../../Sources/Views/Reader/CollapsedCircleView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -288,7 +279,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 29. CommentSectionView (STRUCT)
+### 28. CommentSectionView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/BookDetail/CommentSectionView.swift:2](../../Sources/Views/BookDetail/CommentSectionView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -297,7 +288,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 30. ConfigItem (STRUCT)
+### 29. ConfigItem (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Extensions/Config/ExtensionConfigView.swift:17](../../Sources/Views/Extensions/Config/ExtensionConfigView.swift#L17)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Codable`
@@ -306,7 +297,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 31. Coordinator (CLASS)
+### 30. Coordinator (CLASS)
 
 *   **Định nghĩa tại**: [Views/Reader/ReaderTextView.swift:194](../../Sources/Views/Reader/ReaderTextView.swift#L194)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `NSObject`, `UITextViewDelegate`, `UIGestureRecognizerDelegate`
@@ -315,7 +306,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 32. DictEntry (STRUCT)
+### 31. DictEntry (STRUCT)
 
 *   **Định nghĩa tại**: [Services/Translation/Utils/DictionaryCache.swift:220](../../Sources/Services/Translation/Utils/DictionaryCache.swift#L220)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Identifiable`, `Hashable`
@@ -324,7 +315,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 33. DictEntrySheet (STRUCT)
+### 32. DictEntrySheet (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Dictionary/DictionaryListView.swift:508](../../Sources/Views/Dictionary/DictionaryListView.swift#L508)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -333,7 +324,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 34. DictSheetMode (ENUM)
+### 33. DictSheetMode (ENUM)
 
 *   **Định nghĩa tại**: [Views/Dictionary/DictionaryListView.swift:496](../../Sources/Views/Dictionary/DictionaryListView.swift#L496)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Identifiable`
@@ -342,7 +333,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 35. DictType (ENUM)
+### 34. DictType (ENUM)
 
 *   **Định nghĩa tại**: [Services/Translation/Utils/DictionaryCache.swift:201](../../Sources/Services/Translation/Utils/DictionaryCache.swift#L201)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `String`
@@ -351,7 +342,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 36. DictionaryCache (CLASS)
+### 35. DictionaryCache (CLASS)
 
 *   **Định nghĩa tại**: [Services/Translation/Utils/DictionaryCache.swift:8](../../Sources/Services/Translation/Utils/DictionaryCache.swift#L8)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `ObservableObject`
@@ -360,7 +351,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 37. DictionaryCard (STRUCT)
+### 36. DictionaryCard (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Settings/Main/SettingsView.swift:376](../../Sources/Views/Settings/Main/SettingsView.swift#L376)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -369,7 +360,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 38. DictionaryHubView (STRUCT)
+### 37. DictionaryHubView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Dictionary/DictionaryHubView.swift:2](../../Sources/Views/Dictionary/DictionaryHubView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -378,7 +369,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 39. DictionaryListView (STRUCT)
+### 38. DictionaryListView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Dictionary/DictionaryListView.swift:3](../../Sources/Views/Dictionary/DictionaryListView.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -387,7 +378,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 40. DictionaryMatchInfo (STRUCT)
+### 39. DictionaryMatchInfo (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Reader/ReaderView.swift:1780](../../Sources/Views/Reader/ReaderView.swift#L1780)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Identifiable`
@@ -396,7 +387,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 41. DictionaryNavRow (STRUCT)
+### 40. DictionaryNavRow (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Dictionary/DictionaryHubView.swift:91](../../Sources/Views/Dictionary/DictionaryHubView.swift#L91)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -405,7 +396,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 42. DictionaryType (ENUM)
+### 41. DictionaryType (ENUM)
 
 *   **Định nghĩa tại**: [Services/TTS/Preprocessing/TextPreprocessor.swift:873](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift#L873)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -414,7 +405,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 43. DiscoveryCategoryTabView (STRUCT)
+### 42. DiscoveryCategoryTabView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Discovery/DiscoveryView.swift:409](../../Sources/Views/Discovery/DiscoveryView.swift#L409)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -423,7 +414,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 44. DiscoveryView (STRUCT)
+### 43. DiscoveryView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Discovery/DiscoveryView.swift:3](../../Sources/Views/Discovery/DiscoveryView.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -432,7 +423,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 45. DocumentPicker (STRUCT)
+### 44. DocumentPicker (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Common/DocumentPicker.swift:136](../../Sources/Views/Common/DocumentPicker.swift#L136)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `UIViewControllerRepresentable`
@@ -441,7 +432,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 46. DocumentPickerHostViewController (CLASS)
+### 45. DocumentPickerHostViewController (CLASS)
 
 *   **Định nghĩa tại**: [Views/Common/DocumentPicker.swift:15](../../Sources/Views/Common/DocumentPicker.swift#L15)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `UIViewController`, `UIDocumentPickerDelegate`
@@ -450,7 +441,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 47. DocumentPickerPresenter (STRUCT)
+### 46. DocumentPickerPresenter (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Common/DocumentPicker.swift:79](../../Sources/Views/Common/DocumentPicker.swift#L79)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `UIViewControllerRepresentable`
@@ -459,7 +450,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 48. DoubleArrayTrie (CLASS)
+### 47. DoubleArrayTrie (CLASS)
 
 *   **Định nghĩa tại**: [Models/Dictionaries/DoubleArrayTrie.swift:25](../../Sources/Models/Dictionaries/DoubleArrayTrie.swift#L25)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `TrieDictionary`
@@ -468,7 +459,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 49. DoubleArrayTrieBuilder (CLASS)
+### 48. DoubleArrayTrieBuilder (CLASS)
 
 *   **Định nghĩa tại**: [Models/Dictionaries/DoubleArrayTrieBuilder.swift:2](../../Sources/Models/Dictionaries/DoubleArrayTrieBuilder.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -477,7 +468,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 50. DownloadManager (CLASS)
+### 49. DownloadManager (CLASS)
 
 *   **Định nghĩa tại**: [Services/Download/DownloadManager.swift:61](../../Sources/Services/Download/DownloadManager.swift#L61)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `ObservableObject`
@@ -486,7 +477,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 51. DownloadTask (STRUCT)
+### 50. DownloadTask (STRUCT)
 
 *   **Định nghĩa tại**: [Services/Download/DownloadManager.swift:41](../../Sources/Services/Download/DownloadManager.swift#L41)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Identifiable`
@@ -495,7 +486,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 52. DownloadTaskModel (CLASS)
+### 51. DownloadTaskModel (CLASS)
 
 *   **Định nghĩa tại**: [Models/Database/DownloadTaskModel.swift:5](../../Sources/Models/Database/DownloadTaskModel.swift#L5)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -504,7 +495,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 53. DownloadTrackerView (STRUCT)
+### 52. DownloadTrackerView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Download/DownloadTrackerView.swift:3](../../Sources/Views/Download/DownloadTrackerView.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -513,7 +504,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 54. EdgeDirection (ENUM)
+### 53. EdgeDirection (ENUM)
 
 *   **Định nghĩa tại**: [Views/TTSWidget/WidgetState.swift:8](../../Sources/Views/TTSWidget/WidgetState.swift#L8)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `String`, `Codable`
@@ -522,7 +513,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 55. EditWordSheet (STRUCT)
+### 54. EditWordSheet (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Settings/TTS/TTSDictionaryEditView.swift:558](../../Sources/Views/Settings/TTS/TTSDictionaryEditView.swift#L558)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -531,7 +522,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 56. EditingEntry (STRUCT)
+### 55. EditingEntry (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Settings/TTS/TTSDictionaryEditView.swift:484](../../Sources/Views/Settings/TTS/TTSDictionaryEditView.swift#L484)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Identifiable`
@@ -540,7 +531,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 57. EnglishTransliterator (CLASS)
+### 56. EnglishTransliterator (CLASS)
 
 *   **Định nghĩa tại**: [Services/TTS/Preprocessing/EnglishTransliterator.swift:2](../../Sources/Services/TTS/Preprocessing/EnglishTransliterator.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -549,7 +540,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 58. EspeakPhonemizer (CLASS)
+### 57. EspeakPhonemizer (CLASS)
 
 *   **Định nghĩa tại**: [Services/TTS/EspeakPhonemizer.swift:6](../../Sources/Services/TTS/EspeakPhonemizer.swift#L6)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -558,7 +549,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 59. ExpandedControlPanel (STRUCT)
+### 58. ExpandedControlPanel (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Reader/ExpandedControlPanel.swift:2](../../Sources/Views/Reader/ExpandedControlPanel.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -567,7 +558,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 60. ExtTTSService (CLASS)
+### 59. ExtTTSService (CLASS)
 
 *   **Định nghĩa tại**: [Services/TTS/Ext/ExtTTSService.swift:3](../../Sources/Services/TTS/Ext/ExtTTSService.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -576,25 +567,25 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 61. Extension (CLASS)
+### 60. Extension (CLASS)
 
 *   **Định nghĩa tại**: [Models/Database/Extension.swift:5](../../Sources/Models/Database/Extension.swift#L5)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
 *   **Sử dụng (Uses)**: `Repository`
-*   **Được sử dụng bởi (Used by)**: `AddRepositoryView`, `AppLaunchRootView`, `BookDetailView`, `BypassWebView`, `ChapterLimitOption`, `ChapterRowInfo`, `ConfigItem`, `Coordinator`, `DictionaryMatchInfo`, `DiscoveryCategoryTabView`, `DiscoveryView`, `DownloadManager`, `DownloadTask`, `ExtensionConfigView`, `ExtensionSelectorView`, `ExtensionStoreView`, `FreeBookApp`, `LoadedChapter`, `PageFlipModifier`, `ParagraphTracker`, `ReaderChapterListView`, `ReaderSettingsView`, `ReaderTheme`, `ReaderView`, `ReaderViewModel`, `Repository`, `RepositoryManagerView`, `ScrollTarget`, `SearchNovelResultWithExt`, `SearchView`, `SourceSearchState`, `SwiftUIWebView`, `TTSSettingsView`, `TaskStatus`, `TaskType`, `WebViewStore`
+*   **Được sử dụng bởi (Used by)**: `AddRepositoryView`, `AppLaunchRootView`, `BookDetailView`, `BypassWebView`, `ChapterLimitOption`, `ChapterRowInfo`, `ConfigItem`, `Coordinator`, `DictionaryMatchInfo`, `DiscoveryCategoryTabView`, `DiscoveryView`, `DownloadManager`, `DownloadTask`, `ExtensionConfigView`, `ExtensionSelectorView`, `FreeBookApp`, `LoadedChapter`, `PageFlipModifier`, `ParagraphTracker`, `ReaderChapterListView`, `ReaderSettingsView`, `ReaderTheme`, `ReaderView`, `ReaderViewModel`, `Repository`, `RepositoryManagerView`, `ScrollTarget`, `SearchNovelResultWithExt`, `SearchView`, `SourceSearchState`, `SwiftUIWebView`, `TTSSettingsView`, `TaskStatus`, `TaskType`, `WebViewStore`
 
 ---
 
-### 62. ExtensionConfigView (STRUCT)
+### 61. ExtensionConfigView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Extensions/Config/ExtensionConfigView.swift:3](../../Sources/Views/Extensions/Config/ExtensionConfigView.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
 *   **Sử dụng (Uses)**: `Extension`
-*   **Được sử dụng bởi (Used by)**: `AddRepositoryView`, `DiscoveryCategoryTabView`, `DiscoveryView`, `ExtensionSelectorView`, `ExtensionStoreView`, `RepositoryManagerView`, `TTSSettingsView`
+*   **Được sử dụng bởi (Used by)**: `AddRepositoryView`, `DiscoveryCategoryTabView`, `DiscoveryView`, `ExtensionSelectorView`, `RepositoryManagerView`, `TTSSettingsView`
 
 ---
 
-### 63. ExtensionIconView (STRUCT)
+### 62. ExtensionIconView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Common/ExtensionIconView.swift:2](../../Sources/Views/Common/ExtensionIconView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -603,25 +594,25 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 64. ExtensionManager (CLASS)
+### 63. ExtensionManager (CLASS)
 
 *   **Định nghĩa tại**: [Services/Extensions/Manager/ExtensionManager.swift:61](../../Sources/Services/Extensions/Manager/ExtensionManager.swift#L61)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `ObservableObject`
 *   **Sử dụng (Uses)**: `AppDiagnostics`, `AppLogger`, `CallInfo`, `JSExecutor`, `TranslateUtils`
-*   **Được sử dụng bởi (Used by)**: `AddRepositoryView`, `AllCommentsView`, `BookDetailView`, `CategoryNovelsListView`, `ChapterLimitOption`, `ChapterRowInfo`, `CommentSectionView`, `DictionaryMatchInfo`, `DiscoveryCategoryTabView`, `DiscoveryView`, `DownloadManager`, `DownloadTask`, `ExtTTSService`, `ExtensionSelectorView`, `ExtensionStoreView`, `LoadedChapter`, `PageFlipModifier`, `ParagraphTracker`, `ReaderChapterListView`, `ReaderSettingsView`, `ReaderTheme`, `ReaderView`, `ReaderViewModel`, `RepositoryManagerView`, `ScrollTarget`, `SearchNovelResultWithExt`, `SearchView`, `SourceSearchState`, `SuggestRowView`, `TTSSettingsView`, `TaskStatus`, `TaskType`
+*   **Được sử dụng bởi (Used by)**: `AddRepositoryView`, `AllCommentsView`, `BookDetailView`, `CategoryNovelsListView`, `ChapterLimitOption`, `ChapterRowInfo`, `CommentSectionView`, `DictionaryMatchInfo`, `DiscoveryCategoryTabView`, `DiscoveryView`, `DownloadManager`, `DownloadTask`, `ExtTTSService`, `ExtensionSelectorView`, `LoadedChapter`, `PageFlipModifier`, `ParagraphTracker`, `ReaderChapterListView`, `ReaderSettingsView`, `ReaderTheme`, `ReaderView`, `ReaderViewModel`, `RepositoryManagerView`, `ScrollTarget`, `SearchNovelResultWithExt`, `SearchView`, `SourceSearchState`, `SuggestRowView`, `TTSSettingsView`, `TaskStatus`, `TaskType`
 
 ---
 
-### 65. ExtensionRegistryItem (STRUCT)
+### 64. ExtensionRegistryItem (STRUCT)
 
 *   **Định nghĩa tại**: [Services/Extensions/Manager/ExtensionManager.swift:16](../../Sources/Services/Extensions/Manager/ExtensionManager.swift#L16)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Codable`
 *   **Sử dụng (Uses)**: `AppDiagnostics`, `AppLogger`, `CallInfo`, `JSExecutor`, `TranslateUtils`
-*   **Được sử dụng bởi (Used by)**: `AddRepositoryView`, `ExtensionStoreView`, `RepositoryManagerView`
+*   **Được sử dụng bởi (Used by)**: `AddRepositoryView`, `RepositoryManagerView`
 
 ---
 
-### 66. ExtensionSelectorView (STRUCT)
+### 65. ExtensionSelectorView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Discovery/DiscoveryView.swift:620](../../Sources/Views/Discovery/DiscoveryView.swift#L620)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -630,16 +621,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 67. ExtensionStoreView (STRUCT)
-
-*   **Định nghĩa tại**: [Views/Extensions/Store/ExtensionStoreView.swift:3](../../Sources/Views/Extensions/Store/ExtensionStoreView.swift#L3)
-*   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
-*   **Sử dụng (Uses)**: `Extension`, `ExtensionConfigView`, `ExtensionManager`, `ExtensionRegistryItem`, `Repository`
-*   **Được sử dụng bởi (Used by)**: `AddRepositoryView`, `RepositoryManagerView`
-
----
-
-### 68. FloatingWidgetViewModel (CLASS)
+### 66. FloatingWidgetViewModel (CLASS)
 
 *   **Định nghĩa tại**: [Views/TTSWidget/FloatingWidgetViewModel.swift:5](../../Sources/Views/TTSWidget/FloatingWidgetViewModel.swift#L5)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `ObservableObject`
@@ -648,7 +630,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 69. FreeBookApp (STRUCT)
+### 67. FreeBookApp (STRUCT)
 
 *   **Định nghĩa tại**: [App/FreeBookApp.swift:5](../../Sources/App/FreeBookApp.swift#L5)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `App`
@@ -657,7 +639,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 70. ImageCacheManager (CLASS)
+### 68. ImageCacheManager (CLASS)
 
 *   **Định nghĩa tại**: [Common/Services/ImageCacheManager.swift:3](../../Sources/Common/Services/ImageCacheManager.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -666,7 +648,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 71. ImportMode (ENUM)
+### 69. ImportMode (ENUM)
 
 *   **Định nghĩa tại**: [Services/TTS/Preprocessing/TTSReplacementManager.swift:144](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager.swift#L144)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -675,7 +657,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 72. JSExecutor (CLASS)
+### 70. JSExecutor (CLASS)
 
 *   **Định nghĩa tại**: [Services/Extensions/Engine/JSExecutor.swift:4](../../Sources/Services/Extensions/Engine/JSExecutor.swift#L4)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -684,7 +666,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 73. JapaneseTransliterator (CLASS)
+### 71. JapaneseTransliterator (CLASS)
 
 *   **Định nghĩa tại**: [Services/TTS/Preprocessing/JapaneseTransliterator.swift:2](../../Sources/Services/TTS/Preprocessing/JapaneseTransliterator.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -693,7 +675,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 74. Layout (ENUM)
+### 72. Layout (ENUM)
 
 *   **Định nghĩa tại**: [Views/TTSWidget/TTSFloatingWidgetView.swift:11](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift#L11)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -702,7 +684,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 75. LoadedChapter (STRUCT)
+### 73. LoadedChapter (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Reader/ReaderView.swift:2728](../../Sources/Views/Reader/ReaderView.swift#L2728)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Identifiable`, `Equatable`
@@ -711,7 +693,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 76. MainTabView (STRUCT)
+### 74. MainTabView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/MainTabView.swift:2](../../Sources/Views/MainTabView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -720,7 +702,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 77. ManageDefinitionsView (STRUCT)
+### 75. ManageDefinitionsView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Dictionary/ManageDefinitionsView.swift:2](../../Sources/Views/Dictionary/ManageDefinitionsView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -729,7 +711,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 78. ModelStore (CLASS)
+### 76. ModelStore (CLASS)
 
 *   **Định nghĩa tại**: [Services/TTS/NghiTTS/ModelStore.swift:8](../../Sources/Services/TTS/NghiTTS/ModelStore.swift#L8)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -738,7 +720,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 79. ModelsResponse (STRUCT)
+### 77. ModelsResponse (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/NghiTTS/NghiTTSClient.swift:27](../../Sources/Services/TTS/NghiTTS/NghiTTSClient.swift#L27)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Codable`
@@ -747,7 +729,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 80. NghiTTSClient (CLASS)
+### 78. NghiTTSClient (CLASS)
 
 *   **Định nghĩa tại**: [Services/TTS/NghiTTS/NghiTTSClient.swift:2](../../Sources/Services/TTS/NghiTTS/NghiTTSClient.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -756,7 +738,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 81. NghiTTSSettingsView (STRUCT)
+### 79. NghiTTSSettingsView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Settings/TTS/NghiTTSSettingsView.swift:2](../../Sources/Views/Settings/TTS/NghiTTSSettingsView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -765,7 +747,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 82. NovelDetailResult (STRUCT)
+### 80. NovelDetailResult (STRUCT)
 
 *   **Định nghĩa tại**: [Services/Extensions/Manager/ExtensionManager.swift:39](../../Sources/Services/Extensions/Manager/ExtensionManager.swift#L39)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -774,7 +756,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 83. ONNXPiperEngine (CLASS)
+### 81. ONNXPiperEngine (CLASS)
 
 *   **Định nghĩa tại**: [Services/TTS/NghiTTS/ONNXPiperEngine.swift:3](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `PiperEngine`
@@ -783,7 +765,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 84. PageFlipModifier (STRUCT)
+### 82. PageFlipModifier (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Reader/ReaderView.swift:2749](../../Sources/Views/Reader/ReaderView.swift#L2749)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `ViewModifier`
@@ -792,7 +774,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 85. ParagraphCardView (STRUCT)
+### 83. ParagraphCardView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Reader/ParagraphCardView.swift:2](../../Sources/Views/Reader/ParagraphCardView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -803,7 +785,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 86. ParagraphItem (STRUCT)
+### 84. ParagraphItem (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Reader/ParagraphCardView.swift:45](../../Sources/Views/Reader/ParagraphCardView.swift#L45)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Identifiable`, `Codable`, `Equatable`
@@ -812,7 +794,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 87. ParagraphTracker (CLASS)
+### 85. ParagraphTracker (CLASS)
 
 *   **Định nghĩa tại**: [Views/Reader/ReaderView.swift:2779](../../Sources/Views/Reader/ReaderView.swift#L2779)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -821,7 +803,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 88. ParsedBook (STRUCT)
+### 86. ParsedBook (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Shelf/ShelfMain/ShelfView.swift:527](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift#L527)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -830,7 +812,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 89. ParserChapter (STRUCT)
+### 87. ParserChapter (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Shelf/ShelfMain/ShelfView.swift:522](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift#L522)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -839,7 +821,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 90. PiperConfig (STRUCT)
+### 88. PiperConfig (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/NghiTTS/ONNXPiperEngine.swift:5](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift#L5)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Decodable`
@@ -848,7 +830,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 91. PiperEngine (PROTOCOL)
+### 89. PiperEngine (PROTOCOL)
 
 *   **Định nghĩa tại**: [Services/TTS/NghiTTS/PiperTTSService.swift:2](../../Sources/Services/TTS/NghiTTS/PiperTTSService.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -857,7 +839,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 92. PiperTTSService (CLASS)
+### 90. PiperTTSService (CLASS)
 
 *   **Định nghĩa tại**: [Services/TTS/NghiTTS/PiperTTSService.swift:6](../../Sources/Services/TTS/NghiTTS/PiperTTSService.swift#L6)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -866,7 +848,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 93. PrecisionSliderView (STRUCT)
+### 91. PrecisionSliderView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Settings/TTS/NghiTTSSettingsView.swift:47](../../Sources/Views/Settings/TTS/NghiTTSSettingsView.swift#L47)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -875,7 +857,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 94. PrefetchManager (ACTOR)
+### 92. PrefetchManager (ACTOR)
 
 *   **Định nghĩa tại**: [Views/Reader/PrefetchManager.swift:2](../../Sources/Views/Reader/PrefetchManager.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -884,7 +866,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 95. PrefetchResult (STRUCT)
+### 93. PrefetchResult (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/NghiTTS/NghiTTSClient.swift:221](../../Sources/Services/TTS/NghiTTS/NghiTTSClient.swift#L221)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Codable`
@@ -893,7 +875,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 96. PreprocessorConfig (ENUM)
+### 94. PreprocessorConfig (ENUM)
 
 *   **Định nghĩa tại**: [Services/TTS/Preprocessing/TextPreprocessor.swift:8](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift#L8)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -902,7 +884,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 97. PreprocessorRegex (ENUM)
+### 95. PreprocessorRegex (ENUM)
 
 *   **Định nghĩa tại**: [Services/TTS/Preprocessing/TextPreprocessor.swift:36](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift#L36)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -911,7 +893,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 98. PreprocessorRuntimeConfig (STRUCT)
+### 96. PreprocessorRuntimeConfig (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/Preprocessing/TextPreprocessor.swift:14](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift#L14)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -920,7 +902,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 99. PreprocessorSettingKey (ENUM)
+### 97. PreprocessorSettingKey (ENUM)
 
 *   **Định nghĩa tại**: [Services/TTS/Preprocessing/TextPreprocessor.swift:2](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -929,7 +911,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 100. ReaderChapterListView (STRUCT)
+### 98. ReaderChapterListView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Reader/ReaderChapterListView.swift:12](../../Sources/Views/Reader/ReaderChapterListView.swift#L12)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -938,7 +920,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 101. ReaderSettingsView (STRUCT)
+### 99. ReaderSettingsView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Reader/ReaderView.swift:1697](../../Sources/Views/Reader/ReaderView.swift#L1697)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -947,7 +929,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 102. ReaderTextView (STRUCT)
+### 100. ReaderTextView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Reader/ReaderTextView.swift:3](../../Sources/Views/Reader/ReaderTextView.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `UIViewRepresentable`
@@ -956,7 +938,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 103. ReaderTheme (ENUM)
+### 101. ReaderTheme (ENUM)
 
 *   **Định nghĩa tại**: [Views/Reader/ReaderView.swift:4](../../Sources/Views/Reader/ReaderView.swift#L4)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `String`, `CaseIterable`, `Identifiable`
@@ -965,7 +947,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 104. ReaderUITextView (CLASS)
+### 102. ReaderUITextView (CLASS)
 
 *   **Định nghĩa tại**: [Views/Reader/ReaderTextView.swift:289](../../Sources/Views/Reader/ReaderTextView.swift#L289)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `UITextView`
@@ -974,7 +956,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 105. ReaderView (STRUCT)
+### 103. ReaderView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Reader/ReaderView.swift:28](../../Sources/Views/Reader/ReaderView.swift#L28)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -985,7 +967,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 106. ReaderViewModel (CLASS)
+### 104. ReaderViewModel (CLASS)
 
 *   **Định nghĩa tại**: [Views/Reader/ReaderViewModel.swift:8](../../Sources/Views/Reader/ReaderViewModel.swift#L8)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `ObservableObject`
@@ -994,7 +976,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 107. ReadingProgress (STRUCT)
+### 105. ReadingProgress (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Reader/ChapterCache.swift:3](../../Sources/Views/Reader/ChapterCache.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -1003,7 +985,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 108. ReadingProgressRepository (ACTOR)
+### 106. ReadingProgressRepository (ACTOR)
 
 *   **Định nghĩa tại**: [Views/Reader/ReadingProgressRepository.swift:5](../../Sources/Views/Reader/ReadingProgressRepository.swift#L5)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `ModelActor`
@@ -1012,7 +994,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 109. RegexRule (STRUCT)
+### 107. RegexRule (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/Preprocessing/RegexRule.swift:2](../../Sources/Services/TTS/Preprocessing/RegexRule.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -1021,7 +1003,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 110. RegistryMetadata (STRUCT)
+### 108. RegistryMetadata (STRUCT)
 
 *   **Định nghĩa tại**: [Services/Extensions/Manager/ExtensionManager.swift:11](../../Sources/Services/Extensions/Manager/ExtensionManager.swift#L11)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Codable`
@@ -1030,7 +1012,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 111. RegistryResponse (STRUCT)
+### 109. RegistryResponse (STRUCT)
 
 *   **Định nghĩa tại**: [Services/Extensions/Manager/ExtensionManager.swift:7](../../Sources/Services/Extensions/Manager/ExtensionManager.swift#L7)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Codable`
@@ -1039,25 +1021,25 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 112. Repository (CLASS)
+### 110. Repository (CLASS)
 
 *   **Định nghĩa tại**: [Models/Database/Repository.swift:5](../../Sources/Models/Database/Repository.swift#L5)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
 *   **Sử dụng (Uses)**: `Extension`
-*   **Được sử dụng bởi (Used by)**: `AddRepositoryView`, `AppLaunchRootView`, `Extension`, `ExtensionStoreView`, `FreeBookApp`, `RepositoryManagerView`
+*   **Được sử dụng bởi (Used by)**: `AddRepositoryView`, `AppLaunchRootView`, `Extension`, `FreeBookApp`, `RepositoryManagerView`
 
 ---
 
-### 113. RepositoryManagerView (STRUCT)
+### 111. RepositoryManagerView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Extensions/Manager/RepositoryManagerView.swift:3](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
-*   **Sử dụng (Uses)**: `Extension`, `ExtensionConfigView`, `ExtensionManager`, `ExtensionRegistryItem`, `ExtensionStoreView`, `Repository`
+*   **Sử dụng (Uses)**: `Extension`, `ExtensionConfigView`, `ExtensionManager`, `ExtensionRegistryItem`, `Repository`
 *   **Được sử dụng bởi (Used by)**: `MainTabView`
 
 ---
 
-### 114. ScrollTarget (STRUCT)
+### 112. ScrollTarget (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Reader/ReaderView.swift:2742](../../Sources/Views/Reader/ReaderView.swift#L2742)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Equatable`
@@ -1066,7 +1048,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 115. SearchBar (STRUCT)
+### 113. SearchBar (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Dictionary/BookDictionaryView.swift:17](../../Sources/Views/Dictionary/BookDictionaryView.swift#L17)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -1075,7 +1057,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 116. SearchEngine (STRUCT)
+### 114. SearchEngine (STRUCT)
 
 *   **Định nghĩa tại**: [Models/Dictionaries/SearchEngine.swift:2](../../Sources/Models/Dictionaries/SearchEngine.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Codable`, `Identifiable`, `Hashable`
@@ -1086,7 +1068,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 117. SearchEnginesConfigView (STRUCT)
+### 115. SearchEnginesConfigView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Settings/Search/SearchEnginesConfigView.swift:2](../../Sources/Views/Settings/Search/SearchEnginesConfigView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -1095,7 +1077,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 118. SearchNovelResult (STRUCT)
+### 116. SearchNovelResult (STRUCT)
 
 *   **Định nghĩa tại**: [Services/Extensions/Manager/ExtensionManager.swift:30](../../Sources/Services/Extensions/Manager/ExtensionManager.swift#L30)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Identifiable`
@@ -1104,7 +1086,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 119. SearchNovelResultWithExt (STRUCT)
+### 117. SearchNovelResultWithExt (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Search/SearchView.swift:3](../../Sources/Views/Search/SearchView.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Identifiable`
@@ -1113,7 +1095,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 120. SearchView (STRUCT)
+### 118. SearchView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Search/SearchView.swift:9](../../Sources/Views/Search/SearchView.swift#L9)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -1122,7 +1104,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 121. SentenceRange (STRUCT)
+### 119. SentenceRange (STRUCT)
 
 *   **Định nghĩa tại**: [Services/Translation/Utils/TranslateUtils.swift:821](../../Sources/Services/Translation/Utils/TranslateUtils.swift#L821)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -1131,7 +1113,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 122. SettingsView (STRUCT)
+### 120. SettingsView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Settings/Main/SettingsView.swift:3](../../Sources/Views/Settings/Main/SettingsView.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -1140,7 +1122,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 123. ShareSheet (STRUCT)
+### 121. ShareSheet (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Dictionary/DictionaryListView.swift:578](../../Sources/Views/Dictionary/DictionaryListView.swift#L578)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `UIViewControllerRepresentable`
@@ -1149,7 +1131,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 124. ShelfView (STRUCT)
+### 122. ShelfView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Shelf/ShelfMain/ShelfView.swift:4](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift#L4)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -1158,7 +1140,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 125. Sibling (STRUCT)
+### 123. Sibling (STRUCT)
 
 *   **Định nghĩa tại**: [Models/Dictionaries/DoubleArrayTrieBuilder.swift:5](../../Sources/Models/Dictionaries/DoubleArrayTrieBuilder.swift#L5)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -1167,7 +1149,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 126. SiriTTSService (CLASS)
+### 124. SiriTTSService (CLASS)
 
 *   **Định nghĩa tại**: [Services/TTS/Siri/SiriTTSService.swift:3](../../Sources/Services/TTS/Siri/SiriTTSService.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `NSObject`, `@preconcurrency AVSpeechSynthesizerDelegate`
@@ -1176,7 +1158,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 127. SkeletonView (STRUCT)
+### 125. SkeletonView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Common/SkeletonView.swift:2](../../Sources/Views/Common/SkeletonView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -1185,7 +1167,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 128. SourceSearchState (ENUM)
+### 126. SourceSearchState (ENUM)
 
 *   **Định nghĩa tại**: [Views/Search/SearchView.swift:59](../../Sources/Views/Search/SearchView.swift#L59)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -1194,7 +1176,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 129. SuggestRowView (STRUCT)
+### 127. SuggestRowView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/BookDetail/SuggestRowView.swift:2](../../Sources/Views/BookDetail/SuggestRowView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -1203,7 +1185,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 130. SwiftUIWebView (STRUCT)
+### 128. SwiftUIWebView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Common/BypassWebView.swift:445](../../Sources/Views/Common/BypassWebView.swift#L445)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `UIViewRepresentable`
@@ -1212,7 +1194,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 131. TOCRule (STRUCT)
+### 129. TOCRule (STRUCT)
 
 *   **Định nghĩa tại**: [Services/Translation/Utils/TranslateUtils.swift:2](../../Sources/Services/Translation/Utils/TranslateUtils.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Codable`, `Identifiable`
@@ -1221,7 +1203,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 132. TTSChapterInfo (STRUCT)
+### 130. TTSChapterInfo (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/TTSModels.swift:83](../../Sources/Services/TTS/TTSModels.swift#L83)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Codable`, `Equatable`
@@ -1230,7 +1212,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 133. TTSDictionaryEditView (STRUCT)
+### 131. TTSDictionaryEditView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Settings/TTS/TTSDictionaryEditView.swift:5](../../Sources/Views/Settings/TTS/TTSDictionaryEditView.swift#L5)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -1239,7 +1221,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 134. TTSError (ENUM)
+### 132. TTSError (ENUM)
 
 *   **Định nghĩa tại**: [Services/TTS/TTSModels.swift:64](../../Sources/Services/TTS/TTSModels.swift#L64)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `LocalizedError`
@@ -1248,7 +1230,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 135. TTSExtensionInfo (STRUCT)
+### 133. TTSExtensionInfo (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/TTSModels.swift:97](../../Sources/Services/TTS/TTSModels.swift#L97)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Codable`, `Equatable`
@@ -1257,7 +1239,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 136. TTSFloatingWidgetView (STRUCT)
+### 134. TTSFloatingWidgetView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/TTSWidget/TTSFloatingWidgetView.swift:2](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -1266,7 +1248,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 137. TTSManager (CLASS)
+### 135. TTSManager (CLASS)
 
 *   **Định nghĩa tại**: [Services/TTS/TTSManager.swift:10](../../Sources/Services/TTS/TTSManager.swift#L10)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `NSObject`, `ObservableObject`
@@ -1275,7 +1257,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 138. TTSModelManagerView (STRUCT)
+### 136. TTSModelManagerView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Settings/TTS/TTSModelManagerView.swift:3](../../Sources/Views/Settings/TTS/TTSModelManagerView.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -1284,7 +1266,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 139. TTSParagraph (STRUCT)
+### 137. TTSParagraph (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/TTSModels.swift:52](../../Sources/Services/TTS/TTSModels.swift#L52)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Codable`, `Hashable`
@@ -1293,7 +1275,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 140. TTSPlayStateReader (CLASS)
+### 138. TTSPlayStateReader (CLASS)
 
 *   **Định nghĩa tại**: [Views/TTSWidget/TTSPlayStateReader.swift:9](../../Sources/Views/TTSWidget/TTSPlayStateReader.swift#L9)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `ObservableObject`
@@ -1302,7 +1284,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 141. TTSReplacementManager (CLASS)
+### 139. TTSReplacementManager (CLASS)
 
 *   **Định nghĩa tại**: [Services/TTS/Preprocessing/TTSReplacementManager.swift:16](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager.swift#L16)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `ObservableObject`
@@ -1311,7 +1293,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 142. TTSReplacementManagerView (STRUCT)
+### 140. TTSReplacementManagerView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Settings/TTS/TTSReplacementManagerView.swift:3](../../Sources/Views/Settings/TTS/TTSReplacementManagerView.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -1320,7 +1302,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 143. TTSReplacementRule (STRUCT)
+### 141. TTSReplacementRule (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/Preprocessing/TTSReplacementManager.swift:2](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Codable`, `Identifiable`, `Equatable`
@@ -1329,7 +1311,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 144. TTSSettingsView (STRUCT)
+### 142. TTSSettingsView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/TTSWidget/TTSSettingsView.swift:4](../../Sources/Views/TTSWidget/TTSSettingsView.swift#L4)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -1338,7 +1320,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 145. TaskOptionsSheet (STRUCT)
+### 143. TaskOptionsSheet (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Download/TaskOptionsSheet.swift:3](../../Sources/Views/Download/TaskOptionsSheet.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
@@ -1347,7 +1329,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 146. TaskStatus (ENUM)
+### 144. TaskStatus (ENUM)
 
 *   **Định nghĩa tại**: [Services/Download/DownloadManager.swift:33](../../Sources/Services/Download/DownloadManager.swift#L33)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `String`, `Codable`
@@ -1356,7 +1338,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 147. TaskType (ENUM)
+### 145. TaskType (ENUM)
 
 *   **Định nghĩa tại**: [Services/Download/DownloadManager.swift:27](../../Sources/Services/Download/DownloadManager.swift#L27)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `String`, `Codable`, `Identifiable`
@@ -1365,7 +1347,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 148. TextChunk (STRUCT)
+### 146. TextChunk (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/NghiTTS/ONNXPiperEngine.swift:37](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift#L37)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -1374,7 +1356,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 149. TextDictionary (CLASS)
+### 147. TextDictionary (CLASS)
 
 *   **Định nghĩa tại**: [Models/Dictionaries/TextDictionary.swift:2](../../Sources/Models/Dictionaries/TextDictionary.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `TrieDictionary`
@@ -1383,7 +1365,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 150. TextPreprocessor (ACTOR)
+### 148. TextPreprocessor (ACTOR)
 
 *   **Định nghĩa tại**: [Services/TTS/Preprocessing/TextPreprocessor.swift:114](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift#L114)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -1392,7 +1374,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 151. ToastManager (CLASS)
+### 149. ToastManager (CLASS)
 
 *   **Định nghĩa tại**: [Common/Services/ToastManager.swift:3](../../Sources/Common/Services/ToastManager.swift#L3)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `ObservableObject`
@@ -1401,7 +1383,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 152. TranslateUtils (CLASS)
+### 150. TranslateUtils (CLASS)
 
 *   **Định nghĩa tại**: [Services/Translation/Utils/TranslateUtils.swift:10](../../Sources/Services/Translation/Utils/TranslateUtils.swift#L10)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -1410,7 +1392,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 153. TranslationManager (CLASS)
+### 151. TranslationManager (CLASS)
 
 *   **Định nghĩa tại**: [Services/Translation/Manager/TranslationManager.swift:2](../../Sources/Services/Translation/Manager/TranslationManager.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `ObservableObject`
@@ -1419,7 +1401,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 154. TranslationWordToken (STRUCT)
+### 152. TranslationWordToken (STRUCT)
 
 *   **Định nghĩa tại**: [Services/Translation/Utils/TranslateUtils.swift:806](../../Sources/Services/Translation/Utils/TranslateUtils.swift#L806)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Identifiable`, `Hashable`
@@ -1428,7 +1410,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 155. TrieDictionary (PROTOCOL)
+### 153. TrieDictionary (PROTOCOL)
 
 *   **Định nghĩa tại**: [Models/Dictionaries/DoubleArrayTrie.swift:2](../../Sources/Models/Dictionaries/DoubleArrayTrie.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -1437,7 +1419,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 156. UnavailablePiperEngine (STRUCT)
+### 154. UnavailablePiperEngine (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/NghiTTS/PiperTTSService.swift:67](../../Sources/Services/TTS/NghiTTS/PiperTTSService.swift#L67)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `PiperEngine`
@@ -1446,7 +1428,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 157. UnitPatternSpec (STRUCT)
+### 155. UnitPatternSpec (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/Preprocessing/TextPreprocessor.swift:123](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift#L123)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -1455,7 +1437,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 158. VietnameseNumberSpeller (CLASS)
+### 156. VietnameseNumberSpeller (CLASS)
 
 *   **Định nghĩa tại**: [Services/TTS/Preprocessing/VietnameseNumberSpeller.swift:2](../../Sources/Services/TTS/Preprocessing/VietnameseNumberSpeller.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -1464,7 +1446,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 159. VietnameseWordChecker (CLASS)
+### 157. VietnameseWordChecker (CLASS)
 
 *   **Định nghĩa tại**: [Services/TTS/Preprocessing/VietnameseWordChecker.swift:4](../../Sources/Services/TTS/Preprocessing/VietnameseWordChecker.swift#L4)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -1473,7 +1455,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 160. Voice (STRUCT)
+### 158. Voice (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/TTSModels.swift:2](../../Sources/Services/TTS/TTSModels.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Codable`, `Identifiable`, `Hashable`
@@ -1484,7 +1466,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 161. WAVEncoder (ENUM)
+### 159. WAVEncoder (ENUM)
 
 *   **Định nghĩa tại**: [Services/TTS/WAVEncoder.swift:2](../../Sources/Services/TTS/WAVEncoder.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
@@ -1493,7 +1475,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 162. WebViewLoader (CLASS)
+### 160. WebViewLoader (CLASS)
 
 *   **Định nghĩa tại**: [Services/Extensions/Engine/JSExecutor.swift:722](../../Sources/Services/Extensions/Engine/JSExecutor.swift#L722)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `NSObject`, `WKNavigationDelegate`
@@ -1502,7 +1484,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 163. WebViewStore (CLASS)
+### 161. WebViewStore (CLASS)
 
 *   **Định nghĩa tại**: [Views/Common/BypassWebView.swift:573](../../Sources/Views/Common/BypassWebView.swift#L573)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `ObservableObject`
@@ -1511,7 +1493,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 164. WidgetMode (ENUM)
+### 162. WidgetMode (ENUM)
 
 *   **Định nghĩa tại**: [Views/TTSWidget/WidgetState.swift:2](../../Sources/Views/TTSWidget/WidgetState.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `String`, `Codable`
@@ -1520,7 +1502,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 165. WordToken (STRUCT)
+### 163. WordToken (STRUCT)
 
 *   **Định nghĩa tại**: [Services/TTS/Preprocessing/TextPreprocessor.swift:894](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift#L894)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào

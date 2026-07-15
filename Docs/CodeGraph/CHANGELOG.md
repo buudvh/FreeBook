@@ -4,6 +4,50 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.3] - 2026-07-15
+
+### Fix TTS tự chuyển chương khi thoát Reader & cải thiện cache lookup
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 4 file Swift
+*   **Mô tả**:
+    *   **TTSModels**: Bổ sung field `host: String?` vào `TTSChapterInfo` để `TTSManager` có đủ thông tin tự fetch nội dung chương khi không có cache.
+    *   **TTSManager**:
+        *   Thêm hàm `advanceToNextChapter(nextIdx:)` với thứ tự ưu tiên cache: **RAM** (`chaptersQueue.cachedContent`) → **DB** (`Chapter.isCached + content` qua SwiftData) → **fetch online** (`ExtensionManager`). TTSManager giờ tự advance chapter độc lập, không cần `ReaderView` làm trung gian.
+        *   Thêm hàm `applyNextChapter(index:content:chapter:)` apply nội dung chương mới, gọi `continueStartSpeaking`, và post notification `ttsDidAdvanceToNextChapter` để sync UI.
+        *   Thêm hàm `fetchChapterContentFromDB(chapterUrl:)` query SwiftData trực tiếp để lấy content đã cache.
+        *   Thêm hàm `updateChapterCache(at:content:)` cho phép `ReaderViewModel` cập nhật `cachedContent` trong `chaptersQueue` sau mỗi chương load xong.
+        *   `nextParagraph()`: khi hết chương gọi `advanceToNextChapter` thay vì post notification trực tiếp.
+        *   `skipForward()`: khi hết chương gọi `advanceToNextChapter` thay vì `onChapterFinished?()`.
+    *   **ReaderViewModel**: Sau khi `processAndSaveChapter` hoàn thành, gọi `TTSManager.shared.updateChapterCache(at:content:)` để RAM cache luôn sẵn sàng cho TTS advance.
+    *   **ReaderView**:
+        *   `ttsChaptersQueue`: truyền `host` từ `Chapter.host` / `ChapterResult.host` vào `TTSChapterInfo`.
+        *   `.onDisappear`: clear 3 callbacks (`onChapterFinished`, `onChapterNext`, `onChapterPrev`) để tránh ghost reference.
+        *   `.onReceive("ttsDidAdvanceToNextChapter")`: đổi `ttsShouldAutoPlayNextChapter = false` — TTS đã tự phát, ReaderView chỉ sync UI (chuyển tab, scroll).
+
+## [1.3.2] - 2026-07-15
+
+### Fix TabView sliding window jump khi vuốt chương liên tục & các vấn đề hiệu năng liên quan
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 3 file Swift
+*   **Mô tả**:
+    *   **ReaderViewModel**:
+        *   Thêm `stableIndexes: [Int]` — array `TabView` bind vào, chỉ update sau khi animation swipe kết thúc.
+        *   Thêm `pendingWindowSlide: Bool` flag và `commitWindowSlide()` — gọi từ `.onAppear` của tab đích để slide window và ghi tiến trình sau animation.
+        *   `onTabSelectionChanged` thêm `immediate: Bool` — swipe dùng `false` (deferred), jump từ chapter list/TTS dùng `true` (sync ngay).
+        *   `processAndSaveChapter`: đổi guard check sang `visibleIndexes.contains(index) || index == activeChapterIndex` để tránh drop chương đang swipe đến.
+        *   `saveProgressImmediately()` được defer sang `commitWindowSlide()` trong swipe path, tránh I/O tranh chấp main thread giữa animation.
+        *   `computeWindowRange()` và `enqueuePrefetch()` đổi sang `internal`.
+    *   **ReaderView**:
+        *   `ForEach(vm.visibleIndexes)` → `ForEach(vm.stableIndexes)`.
+        *   Thêm `vm.commitWindowSlide()` vào đầu `.onAppear` của mỗi tab.
+        *   Thêm `.onChange(of: vm.tabSelection)` safety net đảm bảo `commitWindowSlide()` được gọi dù `onAppear` không fire.
+        *   Xoá `.id(chapterIndex)` khỏi `readerContentView`.
+        *   `selectChapter(at:)` gọi `onTabSelectionChanged(immediate: true)`.
+        *   `onChange` của chapter count sync `stableIndexes` ngay sau `updateVisibleChaptersWindow()`.
+    *   **TTSModels**: Thêm field `host: String?` vào `TTSChapterInfo` (dùng chung với [1.3.3]).
+
+---
+
 ## [1.3.1] - 2026-07-15
 
 ### Đọc metadata local sau cài đặt tiện ích & Hiển thị hình cờ quốc gia bên cạnh version

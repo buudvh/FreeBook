@@ -113,6 +113,14 @@ public final class TTSManager: NSObject, ObservableObject {
     public var onChapterPrev: (() -> Void)?
     public var onChapterNext: (() -> Void)?
     
+    /// Cập nhật cachedContent cho một chương trong chaptersQueue.
+    /// Gọi từ ReaderViewModel sau khi chương được load xong vào ChapterCache,
+    /// để advanceToNextChapter có thể dùng ngay mà không cần fetch lại.
+    public func updateChapterCache(at index: Int, content: String) {
+        guard index >= 0, index < chaptersQueue.count else { return }
+        chaptersQueue[index].cachedContent = content
+    }
+    
     // Dữ liệu phân đoạn
     public private(set) var paragraphs: [TTSParagraph] = []
     private var chapterContent: String = ""
@@ -608,8 +616,6 @@ public final class TTSManager: NSObject, ObservableObject {
     }
     
     public func skipForward() {
-        // let pid = currentPlaybackId ?? "NONE"
-        // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] skipForward() được gọi.")
         guard isPlaying else { return }
         if currentParagraphIndex + 1 < paragraphs.count {
             stopCurrentPlayback()
@@ -618,7 +624,12 @@ public final class TTSManager: NSObject, ObservableObject {
         } else {
             // Đã hết chương, chuyển chương mới
             stopCurrentPlayback()
-            onChapterFinished?()
+            let nextIdx = playingChapterIndex + 1
+            if nextIdx < chaptersQueue.count {
+                advanceToNextChapter(nextIdx: nextIdx)
+            } else {
+                onChapterFinished?()
+            }
         }
     }
     
@@ -654,23 +665,120 @@ public final class TTSManager: NSObject, ObservableObject {
             currentParagraphIndex += 1
             speakCurrent()
         } else {
-            // Hết chương, báo cho ReaderView chuyển chương mới
+            // Hết chương → tự advance sang chương tiếp theo, không phụ thuộc ReaderView
             let nextIdx = playingChapterIndex + 1
             if nextIdx < chaptersQueue.count {
                 stopCurrentPlayback()
-                
-                // Gửi thông báo chuyển chương mới để ReaderView làm sạch và dịch chương mới
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("ttsDidAdvanceToNextChapter"),
-                    object: nil,
-                    userInfo: ["bookId": playingBookId, "chapterIndex": nextIdx]
-                )
+                advanceToNextChapter(nextIdx: nextIdx)
             } else {
                 // Đã hết sách hoàn toàn
                 stop()
                 onChapterFinished?()
             }
         }
+    }
+    
+    /// Tự tải và phát chương tiếp theo mà không cần ReaderView làm trung gian.
+    /// Thứ tự ưu tiên: RAM cache (chaptersQueue.cachedContent) → DB cache → fetch online.
+    /// Sau khi bắt đầu phát, post notification để ReaderView sync UI nếu đang visible.
+    private func advanceToNextChapter(nextIdx: Int) {
+        guard nextIdx >= 0, nextIdx < chaptersQueue.count else { return }
+        
+        let nextChapter = chaptersQueue[nextIdx]
+        
+        // 1. RAM cache — được update bởi ReaderViewModel.processAndSaveChapter
+        if let cached = nextChapter.cachedContent, !cached.isEmpty {
+            AppLogger.shared.log("🔊 [TTSManager] advanceToNextChapter: dùng RAM cache cho chương \(nextIdx)")
+            self.applyNextChapter(index: nextIdx, content: cached, chapter: nextChapter)
+            return
+        }
+        
+        Task { [weak self] in
+            guard let self = self else { return }
+            
+            // 2. DB cache — query SwiftData trực tiếp
+            if let dbContent = await self.fetchChapterContentFromDB(chapterUrl: nextChapter.url),
+               !dbContent.isEmpty {
+                AppLogger.shared.log("🔊 [TTSManager] advanceToNextChapter: dùng DB cache cho chương \(nextIdx)")
+                await MainActor.run {
+                    guard self.isPlaying else { return }
+                    self.applyNextChapter(index: nextIdx, content: dbContent, chapter: nextChapter)
+                }
+                return
+            }
+            
+            // 3. Fetch online — fallback khi không có cache nào
+            guard let extInfo = self.extensionInfo else {
+                AppLogger.shared.log("❌ [TTSManager] advanceToNextChapter: Không có extensionInfo để fetch chương \(nextIdx)")
+                await MainActor.run {
+                    self.stop()
+                    self.onChapterFinished?()
+                }
+                return
+            }
+            
+            AppLogger.shared.log("🔊 [TTSManager] advanceToNextChapter: fetch online chương \(nextIdx)")
+            do {
+                let raw = try await ExtensionManager.shared.chap(
+                    localPath: extInfo.localPath,
+                    downloadUrl: extInfo.downloadUrl,
+                    url: nextChapter.url,
+                    host: nextChapter.host,
+                    configJson: extInfo.configJson
+                )
+                let cleaned = raw.cleanHTML()
+                await MainActor.run {
+                    guard self.isPlaying else { return }
+                    self.applyNextChapter(index: nextIdx, content: cleaned, chapter: nextChapter)
+                }
+            } catch {
+                AppLogger.shared.log("❌ [TTSManager] advanceToNextChapter: Fetch chương \(nextIdx) thất bại: \(error.localizedDescription)")
+                await MainActor.run {
+                    self.stop()
+                    self.onChapterFinished?()
+                }
+            }
+        }
+    }
+    
+    /// Query SwiftData để lấy content của chương theo URL (nếu đã được cache vào DB).
+    private func fetchChapterContentFromDB(chapterUrl: String) async -> String? {
+        guard let container = self.container else { return nil }
+        let context = ModelContext(container)
+        let bookId = self.playingBookId
+        guard !bookId.isEmpty else { return nil }
+        
+        do {
+            let descriptor = FetchDescriptor<Book>()
+            let books = try context.fetch(descriptor)
+            guard let book = books.first(where: { $0.bookId == bookId }) else { return nil }
+            guard let chap = book.chapters.first(where: { $0.url == chapterUrl }) else { return nil }
+            guard chap.isCached, let content = chap.content, !content.isEmpty else { return nil }
+            return content
+        } catch {
+            AppLogger.shared.log("❌ [TTSManager] fetchChapterContentFromDB thất bại: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    /// Apply nội dung chương mới đã tải xong, bắt đầu phát và notify ReaderView.
+    private func applyNextChapter(index: Int, content: String, chapter: TTSChapterInfo) {
+        self.playingChapterIndex = index
+        self.playingChapterUrl = chapter.url
+        self.chapterTitle = chapter.title
+        self.chapterContent = content
+        self.preloadedNextChapterContent = nil
+        self.clearPrefetchCache()
+        
+        // Parse và phát từ đầu chương
+        self.continueStartSpeaking(startParagraphIndex: -1)
+        
+        // Notify ReaderView để sync UI (chuyển tab, scroll) nếu đang visible
+        NotificationCenter.default.post(
+            name: NSNotification.Name("ttsDidAdvanceToNextChapter"),
+            object: nil,
+            userInfo: ["bookId": self.playingBookId, "chapterIndex": index]
+        )
     }
     
     // speakCurrent: Bắt đầu phát âm thanh của đoạn văn bản hiện tại (index = currentParagraphIndex)

@@ -32,7 +32,8 @@ stateDiagram-v2
     Preparing --> Stopped : stop() / Xóa cache
     
     Playing --> Paused : pause() hoặc Audio Interruption (Bắt đầu)
-    Playing --> Stopped : stop() hoặc Kết thúc chương (onChapterFinished)
+    Playing --> Stopped : stop() hoặc Hết sách hoàn toàn (onChapterFinished)
+    Playing --> Playing : advanceToNextChapter() / Tự động chuyển chương mới
     Playing --> Failed : Lỗi Engine / Mạng / Chuyển WAV hỏng
     
     Paused --> Playing : resume() hoặc Audio Interruption (Kết thúc)
@@ -46,7 +47,9 @@ stateDiagram-v2
 *   **`Stopped` / `Preparing` -> `Playing`**: Kích hoạt qua `startSpeaking(...)`. Cấu hình `AVAudioSession`, khởi động `AVAudioEngine`, bắt đầu phát ra âm thanh và cập nhật Now Playing.
 *   **`Playing` -> `Paused`**: Kích hoạt qua `pause()` hoặc khi nhận thông báo ngắt `AVAudioSession.interruptionNotification`. Tạm dừng phát của playerNode nhưng giữ trạng thái session.
 *   **`Paused` -> `Playing`**: Kích hoạt qua `resume()` hoặc khi cuộc gọi kết thúc (interruption ended). Tiếp tục phát đoạn âm thanh từ vị trí cũ.
+*   **`Playing` -> `Playing`**: Kích hoạt qua `advanceToNextChapter(nextIdx:)` khi phát hết chương và chaptersQueue còn chương tiếp theo. TTSManager tự nạp RAM/DB cache hoặc fetch online và tiếp tục phát không gián đoạn.
 *   **`Playing` / `Paused` -> `Stopped`**: Kích hoạt qua `stop()`. Gọi `playerNode.stop()`, hủy tất cả các task prefetch WAV, làm rỗng RAM cache `preloadedWavs` và set `isPlaying = false`.
+*   **`Playing` -> `Stopped`**: Khi phát hết chương cuối cùng của sách, chuyển về trạng thái `Stopped` và gọi `onChapterFinished?()`.
 
 ### 1.3. Invalid Transitions (Chuyển đổi không hợp lệ)
 *   `Stopped` -> `pause()` / `resume()`: Không thể tạm dừng hoặc tiếp tục phát khi chưa có sách nào được chuẩn bị.
