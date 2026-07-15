@@ -10,6 +10,14 @@ class ReaderViewModel: ObservableObject {
     @Published var activeChapterIndex: Int = 0
     @Published var visibleIndexes: [Int] = []
     
+    /// Array ổn định mà TabView bind vào — chỉ được cập nhật sau khi
+    /// animation swipe kết thúc (qua commitWindowSlide) để tránh TabView
+    /// relayout giữa chừng gây nhảy/skip chương.
+    @Published var stableIndexes: [Int] = []
+    
+    /// Flag báo hiệu cần slide window khi tab đích đã onAppear xong.
+    private(set) var pendingWindowSlide: Bool = false
+    
     // Vị trí đọc hiện tại trên RAM
     @Published var currentProgress: ReadingProgress
     private var lastSavedProgress: ReadingProgress?
@@ -116,6 +124,8 @@ class ReaderViewModel: ObservableObject {
         
         setupSubscriptions()
         updateVisibleChaptersWindow()
+        // Lần đầu khởi tạo: stableIndexes đồng bộ ngay với visibleIndexes
+        self.stableIndexes = self.visibleIndexes
     }
     
     private func setupSubscriptions() {
@@ -196,11 +206,11 @@ class ReaderViewModel: ObservableObject {
         }
     }
     
-    func onTabSelectionChanged(newIndex: Int) {
+    // FIX 1: saveProgressImmediately() bị bỏ ra khỏi onTabSelectionChanged (swipe path)
+    // để tránh I/O tranh chấp main thread giữa chừng animation. Thay vào đó nó được
+    // gọi trong commitWindowSlide() — sau khi animation kết thúc.
+    func onTabSelectionChanged(newIndex: Int, immediate: Bool = false) {
         guard newIndex != activeChapterIndex, newIndex >= 0, newIndex < totalChaptersCount else { return }
-        
-        // Trước khi chuyển chương, ghi khẩn cấp tiến trình chương cũ vào DB
-        saveProgressImmediately()
         
         self.lastActiveIndex = self.activeChapterIndex
         self.activeChapterIndex = newIndex
@@ -209,7 +219,31 @@ class ReaderViewModel: ObservableObject {
         // Cập nhật ngay lập tức tiến trình hiện tại sang chương mới (đoạn 0)
         self.currentProgress = ReadingProgress(chapterIndex: newIndex, paragraphIndex: 0)
         
+        if immediate {
+            // Jump từ chapter list hoặc TTS: ghi tiến trình ngay, update window ngay
+            saveProgressImmediately()
+            updateVisibleChaptersWindow()
+            self.stableIndexes = self.visibleIndexes
+            self.pendingWindowSlide = false
+        } else {
+            // Swipe tay: chỉ set flag. commitWindowSlide() sẽ chạy sau khi onAppear
+            // của tab đích fire, lúc đó animation đã xong mới ghi DB và slide window.
+            self.pendingWindowSlide = true
+            // Vẫn cần enqueue prefetch cho chương mới ngay lập tức
+            let window = computeWindowRange()
+            enqueuePrefetch(window)
+        }
+    }
+    
+    /// Gọi từ `.onAppear` của tab đích sau khi animation swipe kết thúc.
+    /// Ghi tiến trình, slide window, và sync stableIndexes để chuẩn bị swipe tiếp theo.
+    func commitWindowSlide() {
+        guard pendingWindowSlide else { return }
+        pendingWindowSlide = false
+        // FIX 1: Ghi tiến trình sau animation — tránh I/O giữa chừng swipe
+        saveProgressImmediately()
         updateVisibleChaptersWindow()
+        self.stableIndexes = self.visibleIndexes
     }
     
     func onBookChanged() {
@@ -217,6 +251,8 @@ class ReaderViewModel: ObservableObject {
             await prefetcher.cancelAll()
             cache.clearAll()
             self.visibleIndexes.removeAll()
+            self.stableIndexes.removeAll()
+            self.pendingWindowSlide = false
             self.activeChapterIndex = 0
             self.tabSelection = 0
             self.lastActiveIndex = 0
@@ -248,7 +284,7 @@ class ReaderViewModel: ObservableObject {
         }
     }
     
-    private func computeWindowRange() -> Set<Int> {
+    func computeWindowRange() -> Set<Int> {
         guard totalChaptersCount > 0 else { return [] }
         
         let lower: Int
@@ -272,7 +308,7 @@ class ReaderViewModel: ObservableObject {
         }
     }
     
-    private func enqueuePrefetch(_ window: Set<Int>) {
+    func enqueuePrefetch(_ window: Set<Int>) {
         for idx in window {
             if idx == activeChapterIndex {
                 let cached = cache.cache[idx] ?? cache.setPlaceholder(idx)
@@ -435,9 +471,11 @@ class ReaderViewModel: ObservableObject {
     private func processAndSaveChapter(index: Int, originalTitle: String, originalContent: String) async {
         guard !Task.isCancelled else { return }
         
-        // Kiểm tra xem index này có còn trong visibleIndexes không
-        let isStillVisible = visibleIndexes.contains(index)
-        guard isStillVisible else { return }
+        // FIX 3: Trong khoảng thời gian swipe đang diễn ra, visibleIndexes chưa được
+        // update (deferred đến commitWindowSlide). Vì vậy check cả activeChapterIndex
+        // để chương đang swipe đến không bị guard out sớm trước khi tải xong.
+        let isRelevant = visibleIndexes.contains(index) || index == activeChapterIndex
+        guard isRelevant else { return }
         
         let isTranslationEnabled = self.isTranslationEnabled
         let bookId = self.bookId
@@ -480,9 +518,9 @@ class ReaderViewModel: ObservableObject {
         
         guard !Task.isCancelled else { return }
         
-        // Kiểm tra lại sau khi hoàn thành tác vụ nền
-        let isStillVisibleAfter = visibleIndexes.contains(index)
-        guard isStillVisibleAfter else { return }
+        // FIX 3: Kiểm tra lại sau khi tác vụ nền hoàn thành — vẫn check cả activeChapterIndex
+        let isStillRelevant = visibleIndexes.contains(index) || index == activeChapterIndex
+        guard isStillRelevant else { return }
         
         // Lưu vào cache trên MainActor
         if let cached = cache.cache[index] {

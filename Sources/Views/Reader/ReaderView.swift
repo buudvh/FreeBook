@@ -385,6 +385,7 @@ struct ReaderView: View {
                 if vm.totalChaptersCount != count {
                     vm.totalChaptersCount = count
                     vm.updateVisibleChaptersWindow()
+                    vm.stableIndexes = vm.visibleIndexes
                 }
             }
         }
@@ -393,6 +394,7 @@ struct ReaderView: View {
                 if vm.totalChaptersCount != newCount {
                     vm.totalChaptersCount = newCount
                     vm.updateVisibleChaptersWindow()
+                    vm.stableIndexes = vm.visibleIndexes
                 }
             }
         }
@@ -1541,7 +1543,7 @@ struct ReaderView: View {
         self.paragraphTracker.visibleParagraphs.removeAll()
         
         if let vm = viewModel {
-            vm.onTabSelectionChanged(newIndex: index)
+            vm.onTabSelectionChanged(newIndex: index, immediate: true)
             self.chapterIndex = index
             self.isTransitioning = false
             return
@@ -2066,7 +2068,7 @@ extension ReaderView {
                         self.chapterIndex = newIndex
                     }
                 )) {
-                    ForEach(vm.visibleIndexes, id: \.self) { idx in
+                    ForEach(vm.stableIndexes, id: \.self) { idx in
                         if let cached = vm.cache.get(idx) {
                             ScrollViewReader { proxy in
                                 Group {
@@ -2283,6 +2285,11 @@ extension ReaderView {
                                     }
                                 }
                                 .onAppear {
+                                    // Tab đích đã onAppear → animation swipe kết thúc.
+                                    // Slide window và sync stableIndexes để chuẩn bị swipe tiếp theo.
+                                    if idx == chapterIndex {
+                                        vm.commitWindowSlide()
+                                    }
                                     if cached.state == .loaded && idx == chapterIndex {
                                         if !cached.isPositionRestored {
                                             cached.isPositionRestored = true
@@ -2346,6 +2353,13 @@ extension ReaderView {
                                                 schedulePrepareTTS()
                                             }
                                         }
+                                    }
+                                }
+                                // FIX 2: Safety net — nếu onAppear không fire (tab đã tồn tại trong hierarchy),
+                                // onChange của tabSelection sẽ đảm bảo commitWindowSlide được gọi.
+                                .onChange(of: vm.tabSelection) { _, newTabSelection in
+                                    if newTabSelection == idx && idx == chapterIndex {
+                                        vm.commitWindowSlide()
                                     }
                                 }
                             }
