@@ -306,11 +306,12 @@ public final class TTSManager: NSObject, ObservableObject {
         self.playingChapterUrl = currentChapter.url
         self.chapterTitle = currentChapter.title
         
+        let currentChunkLen = self.chunkLength
         self.prepareSpeakingTask?.cancel()
         self.prepareSpeakingTask = Task {
             let parsed = await Task.detached(priority: .userInitiated) { [weak self] () -> [TTSParagraph] in
                 guard let self = self else { return [] }
-                return self.parseParagraphs(chapterContent)
+                return self.parseParagraphs(chapterContent, chunkLength: currentChunkLen)
             }.value
             
             guard !Task.isCancelled else { return }
@@ -1274,7 +1275,7 @@ public final class TTSManager: NSObject, ObservableObject {
     
     // MARK: - Text Segmentation (Phân đoạn văn bản)
     
-    private func parseParagraphs(_ content: String) -> [TTSParagraph] {
+    nonisolated private func parseParagraphs(_ content: String, chunkLength: Int) -> [TTSParagraph] {
         var result: [TTSParagraph] = []
         let lines = content.components(separatedBy: "\n")
         var currentOffset = 0
@@ -1309,7 +1310,7 @@ public final class TTSManager: NSObject, ObservableObject {
         return result
     }
     
-    private func splitSentence(
+    nonisolated private func splitSentence(
         _ text: String,
         maxLength: Int,
         baseOffset: Int,
@@ -1400,7 +1401,7 @@ public final class TTSManager: NSObject, ObservableObject {
         return result
     }
     
-    private func findSplitPosition(
+    nonisolated private func findSplitPosition(
         chars: [Character],
         start: Int,
         maxLength: Int
