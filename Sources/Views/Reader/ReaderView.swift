@@ -279,7 +279,6 @@ struct ReaderView: View {
             
             VStack(spacing: 0) {
                 readerContentView
-                    .id(chapterIndex)
             }
             // Top/Bottom overlay controls
             if showControls {

@@ -4,6 +4,14 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.2] - 2026-07-15
+
+### Khắc phục lag vuốt chuyển chương do rebuild toàn bộ TabView mỗi lần swiping
+*   **Người thực hiện**: Trợ lý AI ZCode
+*   **Tổng số file nguồn ảnh hưởng**: 1 file Swift
+*   **Mô tả**:
+    *   **ReaderView**: Gỡ bỏ modifier `.id(chapterIndex)` ở `readerContentView` (`ReaderView.swift:282`). Modifier này ép SwiftUI teardown và dựng lại toàn bộ cây `TabView` + `ScrollView` + `LazyVStack` + hàng chục `ParagraphCardView`/`ReaderTextView` trên **mỗi lần vuốt chuyển chương**, gây lag nặng và đôi khi gesture bị rơi (vuốt không nhạy). `TabView(.page)` vốn có selection riêng (`vm.tabSelection`) qua `ForEach` + `.tag`, không cần đổi identity của container. Logic chuyển chương, restore vị trí đọc, prefetch/eviction và TTS đều không phụ thuộc vào việc rebuild.
+
 ## [1.3.1] - 2026-07-15
 
 ### Đọc metadata local sau cài đặt tiện ích & Hiển thị hình cờ quốc gia bên cạnh version

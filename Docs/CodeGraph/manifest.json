@@ -28,7 +28,7 @@
     },
     {
       "filename": "02_file_graph.md",
-      "sourceHash": "89b2298d884886a470f0216cdf310961ebdb5f8078491bbf14648f8ede6c5e60",
+      "sourceHash": "da1799cb40637aeb4ed60caee0c50034b7850b9a042382585277800c67fc1844",
       "generatedHash": "81c7d0733585ef2aafb3a1ac73f9c501d9556fe6bc26e166bda13758a094201f",
       "generatedAt": "2026-07-14T09:15:25.699931",
       "sourceFiles": [
@@ -124,7 +124,7 @@
     },
     {
       "filename": "03_type_graph.md",
-      "sourceHash": "89b2298d884886a470f0216cdf310961ebdb5f8078491bbf14648f8ede6c5e60",
+      "sourceHash": "da1799cb40637aeb4ed60caee0c50034b7850b9a042382585277800c67fc1844",
       "generatedHash": "e436cf2129bdfbb8b66963b92595d2521bb4de3123514b32a73b8f5c75ab1231",
       "generatedAt": "2026-07-14T09:15:32.036605",
       "sourceFiles": [
@@ -271,7 +271,7 @@
     },
     {
       "filename": "08_lifecycle.md",
-      "sourceHash": "00646c87169e2b7c1720cb7a73e848b682dc9e9c5236aca396dc2f28d911e9e4",
+      "sourceHash": "fee4bdcd3329ce4d620fb4a2d57a42e3be1fbaf84e74ea3b4b2e29bb5853cbcf",
       "generatedHash": "b3d5e97036ad49fc7b1edffe63fb986c2265ec1f11f2fb5382642dc8c046c648",
       "generatedAt": "2026-07-14T09:16:07.186173",
       "sourceFiles": [
@@ -342,7 +342,7 @@
     },
     {
       "filename": "14_complexity_report.md",
-      "sourceHash": "89b2298d884886a470f0216cdf310961ebdb5f8078491bbf14648f8ede6c5e60",
+      "sourceHash": "da1799cb40637aeb4ed60caee0c50034b7850b9a042382585277800c67fc1844",
       "generatedHash": "8348d419c112cbd2201298831dff328c3e2bf2d8d6018b1aa522339a2ad81ba5",
       "generatedAt": "2026-07-14T09:15:33.963255",
       "sourceFiles": [
