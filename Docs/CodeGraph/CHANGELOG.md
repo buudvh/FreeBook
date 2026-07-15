@@ -4,6 +4,37 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.1] - 2026-07-15
+
+### Đọc metadata local sau cài đặt tiện ích & Hiển thị hình cờ quốc gia bên cạnh version
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 1 file Swift
+*   **Mô tả**:
+    *   **RepositoryManagerView**:
+        *   Cập nhật hàm `installExtension`: Sau khi giải nén tiện ích thành công, tiến hành đọc tệp cấu hình `plugin.json` nội bộ của tiện ích đó để lấy thông tin thực tế (`locale`, `type`, `version`, `author`) và cập nhật ngược lại vào database SwiftData. Giải quyết triệt để lỗi mất thuộc tính ngôn ngữ tiếng Trung của các tiện ích Trung Quốc (do file plugin.json tổng hợp trên kho GitHub không khai báo trường này).
+        *   Thêm emoji lá cờ đại diện quốc gia tương ứng với ngôn ngữ (ví dụ 🇻🇳 cho tiếng Việt, 🇨🇳 cho tiếng Trung, 🇺🇸 cho tiếng Anh) ngay bên cạnh badge hiển thị phiên bản tiện ích.
+
+## [1.3.0] - 2026-07-15
+
+### Cải tiến giao diện và lưu trữ cấu hình tiện ích (Extensions)
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 2 file Swift
+*   **Mô tả**:
+    *   **ExtensionStoreView**: [DELETE] Xóa hoàn toàn tệp `ExtensionStoreView.swift` vì không còn được sử dụng.
+    *   **RepositoryManagerView**:
+        *   Chuyển các biến bộ lọc (`filterType`, `filterLocale`, `filterAuthor`) sang `@AppStorage` để lưu trạng thái bộ lọc tiện ích khi thoát/mở lại màn hình.
+        *   Xóa bỏ hoàn toàn bộ lọc theo Kho tiện ích (`filterRepoUrl`) và badge tên kho hiển thị trên mỗi dòng tiện ích.
+        *   Ẩn dòng chữ "Đã cài" hiển thị bên cạnh các nút chức năng của tiện ích đã cài đặt.
+        *   Tại danh sách kho, loại bỏ `NavigationLink` chuyển sang trang chi tiết kho, hiển thị kho dạng dòng thông tin bình thường và hỗ trợ vuốt trái để xóa kho.
+
+## [1.2.9] - 2026-07-15
+
+### Đồng bộ giao diện nạp trang chương bên trong TabView để hiển thị đầy đủ nút điều khiển ở trung tâm
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 1 file Swift
+*   **Mô tả**:
+    *   **ReaderView**: Cập nhật logic hiển thị trạng thái đang tải (`loading`/`prefetching`) và lỗi (`failed`) của từng trang chương riêng lẻ bên trong `TabView` (`textReaderView`). Bổ sung nút **"Quay lại"**, **"Tải lại"**, và **"Xem nguồn"** xếp dọc ở chính giữa màn hình giống hệt như màn hình nạp chung để người dùng không bị kẹt khi app đang tải nội dung chương.
+
 ## [1.2.8] - 2026-07-15
 
 ### Đưa nút "Quay lại" có chữ vào giữa màn hình dưới cụm loading và cụm lỗi

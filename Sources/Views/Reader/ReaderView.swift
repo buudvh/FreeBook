@@ -2072,7 +2072,7 @@ extension ReaderView {
                             ScrollViewReader { proxy in
                                 Group {
                                     if cached.state == .loading || cached.state == .prefetching {
-                                        VStack(spacing: 24) {
+                                        VStack(spacing: 32) {
                                             Spacer()
                                             
                                             Text(getChapterTitle(at: idx))
@@ -2082,15 +2082,54 @@ extension ReaderView {
                                                 .multilineTextAlignment(.center)
                                                 .lineLimit(3)
                                                 .padding(.horizontal, 40)
-                                                .padding(.top, 16)
                                             
-                                            ProgressView()
-                                                .scaleEffect(1.5)
-                                                .tint(selectedTheme.textColor.opacity(0.8))
-                                            
-                                            Text("Đang tải nội dung chương...")
-                                                .font(.subheadline)
-                                                .foregroundColor(selectedTheme.textColor.opacity(0.6))
+                                            VStack(spacing: 24) {
+                                                ProgressView()
+                                                    .scaleEffect(1.5)
+                                                    .tint(selectedTheme.textColor.opacity(0.8))
+                                                
+                                                Text("Đang tải nội dung chương...")
+                                                    .font(.subheadline)
+                                                    .foregroundColor(selectedTheme.textColor.opacity(0.6))
+                                                
+                                                VStack(spacing: 12) {
+                                                    // Nút Tải lại thủ công
+                                                    Button(action: {
+                                                        Task {
+                                                            try? await vm.loadChapterContentFromExtension(idx)
+                                                        }
+                                                    }) {
+                                                        HStack(spacing: 8) {
+                                                            Image(systemName: "arrow.clockwise")
+                                                            Text("Tải lại")
+                                                        }
+                                                        .font(.footnote)
+                                                        .foregroundColor(selectedTheme.textColor.opacity(0.7))
+                                                        .padding(.horizontal, 16)
+                                                        .padding(.vertical, 8)
+                                                        .background(selectedTheme.textColor.opacity(0.08))
+                                                        .cornerRadius(16)
+                                                    }
+                                                    
+                                                    // Nút Quay lại
+                                                    Button(action: {
+                                                        dismiss()
+                                                    }) {
+                                                        HStack(spacing: 8) {
+                                                            Image(systemName: "arrow.left")
+                                                            Text("Quay lại")
+                                                        }
+                                                        .font(.subheadline)
+                                                        .fontWeight(.medium)
+                                                        .foregroundColor(selectedTheme.textColor)
+                                                        .padding(.horizontal, 24)
+                                                        .padding(.vertical, 10)
+                                                        .background(selectedTheme.textColor.opacity(0.1))
+                                                        .cornerRadius(20)
+                                                    }
+                                                    .padding(.top, 4)
+                                                }
+                                            }
                                             
                                             Spacer()
                                         }
@@ -2102,7 +2141,7 @@ extension ReaderView {
                                             }
                                         }
                                     } else if case .failed(let message) = cached.state {
-                                        VStack(spacing: 24) {
+                                        VStack(spacing: 32) {
                                             Spacer()
                                             
                                             Text(getChapterTitle(at: idx))
@@ -2112,30 +2151,64 @@ extension ReaderView {
                                                 .multilineTextAlignment(.center)
                                                 .lineLimit(3)
                                                 .padding(.horizontal, 40)
-                                                .padding(.top, 16)
                                             
-                                            VStack(spacing: 16) {
+                                            VStack(spacing: 20) {
                                                 Text(message)
                                                     .font(.subheadline)
                                                     .foregroundColor(.red)
                                                     .multilineTextAlignment(.center)
                                                     .padding(.horizontal, 40)
                                                 
-                                                Button(action: {
-                                                    Task {
-                                                        try? await vm.loadChapterContentFromExtension(idx)
+                                                VStack(spacing: 12) {
+                                                    // Nút Tải lại (ở trên)
+                                                    Button(action: {
+                                                        Task {
+                                                            try? await vm.loadChapterContentFromExtension(idx)
+                                                        }
+                                                    }) {
+                                                        HStack(spacing: 8) {
+                                                            Image(systemName: "arrow.clockwise")
+                                                            Text("Tải lại")
+                                                        }
+                                                        .fontWeight(.semibold)
+                                                        .foregroundColor(selectedTheme.textColor)
+                                                        .frame(width: 160)
+                                                        .padding(.vertical, 12)
+                                                        .background(selectedTheme.textColor.opacity(0.1))
+                                                        .cornerRadius(24)
                                                     }
-                                                }) {
-                                                    HStack(spacing: 8) {
-                                                        Image(systemName: "arrow.clockwise")
-                                                        Text("Thử lại")
+                                                    
+                                                    // Nút Xem nguồn (ở giữa)
+                                                    Button(action: {
+                                                        showingBypassBrowser = true
+                                                    }) {
+                                                        HStack(spacing: 8) {
+                                                            Image(systemName: "safari")
+                                                            Text("Xem nguồn")
+                                                        }
+                                                        .fontWeight(.semibold)
+                                                        .foregroundColor(selectedTheme.textColor)
+                                                        .frame(width: 160)
+                                                        .padding(.vertical, 12)
+                                                        .background(selectedTheme.textColor.opacity(0.1))
+                                                        .cornerRadius(24)
                                                     }
-                                                    .fontWeight(.medium)
-                                                    .foregroundColor(selectedTheme.textColor)
-                                                    .padding(.horizontal, 20)
-                                                    .padding(.vertical, 10)
-                                                    .background(selectedTheme.textColor.opacity(0.1))
-                                                    .cornerRadius(20)
+                                                    
+                                                    // Nút Quay lại (ở dưới cùng)
+                                                    Button(action: {
+                                                        dismiss()
+                                                    }) {
+                                                        HStack(spacing: 8) {
+                                                            Image(systemName: "arrow.left")
+                                                            Text("Quay lại")
+                                                        }
+                                                        .fontWeight(.semibold)
+                                                        .foregroundColor(selectedTheme.textColor)
+                                                        .frame(width: 160)
+                                                        .padding(.vertical, 12)
+                                                        .background(selectedTheme.textColor.opacity(0.08))
+                                                        .cornerRadius(24)
+                                                    }
                                                 }
                                             }
                                             
