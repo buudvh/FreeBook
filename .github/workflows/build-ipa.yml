@@ -5,14 +5,10 @@ on:
     branches: [ main ]
     paths:
       - 'Sources/**'
-      - 'project.yml'
-      - '.github/workflows/build-ipa.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'Sources/**'
-      - 'project.yml'
-      - '.github/workflows/build-ipa.yml'
   workflow_dispatch:
 
 jobs:
@@ -40,12 +36,12 @@ jobs:
 
     - name: Generate Xcode Project
       run: |
-        xcodegen generate
+        xcodegen generate 2>&1 | tee build_error.log
 
     - name: Resolve and patch Package dependencies
       run: |
         set -euo pipefail
-        xcodebuild -resolvePackageDependencies -project FreeBook.xcodeproj -scheme FreeBook -derivedDataPath build_dd
+        xcodebuild -resolvePackageDependencies -project FreeBook.xcodeproj -scheme FreeBook -derivedDataPath build_dd 2>&1 | tee -a build_error.log
         python3 -c '
         import os
         p = "build_dd/SourcePackages/checkouts/espeak-ng-spm/Package.swift"
@@ -70,6 +66,7 @@ jobs:
 
     - name: Build and Archive App (Unsigned)
       run: |
+        set -euo pipefail
         xcodebuild archive \
           -scheme FreeBook \
           -configuration Release \
@@ -80,13 +77,13 @@ jobs:
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGN_IDENTITY="" \
           PROVISIONING_PROFILE_SPECIFIER="" \
-          DEVELOPMENT_TEAM=""
+          DEVELOPMENT_TEAM="" 2>&1 | tee -a build_error.log
 
     - name: Package IPA
       run: |
         set -euo pipefail
         mkdir -p build/Payload
-        cp -r build/FreeBook.xcarchive/Products/Applications/FreeBook.app build/Payload/
+        cp -r build/FreeBook.xcarchive/Products/Applications/FreeBook.app build/Payload/ 2>&1 | tee -a build_error.log
         
         # 1. Cài đặt espeak-ng trên máy chủ macOS của Github để lấy dữ liệu âm vị đã biên dịch nhị phân
         HOMEBREW_NO_AUTO_UPDATE=1 brew install espeak-ng
@@ -206,8 +203,34 @@ jobs:
       run: |
         COMMIT_MSG=$(git log -1 --pretty=format:"%B")
         
+        # Trích xuất chi tiết lỗi từ file log qua Python inline
+        python3 -c '
+        import os, re
+        errors = []
+        if os.path.exists("build_error.log"):
+            with open("build_error.log", "r", encoding="utf-8", errors="ignore") as f:
+                lines = f.readlines()
+            for line in lines:
+                # Lọc các dòng chứa error hoặc failed có khoảng trắng trước nó
+                if re.search(r"\s+(error|failed)", line, re.IGNORECASE):
+                    errors.append(line.strip())
+        
+        # Gộp và loại bỏ dòng trùng lặp
+        unique_errors = list(dict.fromkeys(errors))
+        summary = "\n".join(unique_errors[-20:]) # Lấy tối đa 20 dòng cuối cùng
+        
+        with open("summary_error.txt", "w", encoding="utf-8") as f:
+            f.write(summary)
+        '
+        
+        if [ -f "summary_error.txt" ] && [ -s "summary_error.txt" ]; then
+          ERROR_SUMMARY=$(cat summary_error.txt | head -c 2000)
+        else
+          ERROR_SUMMARY="Không tìm thấy chi tiết lỗi cụ thể."
+        fi
+        
         # Định dạng tin nhắn lỗi bằng printf
-        TEXT=$(printf "❌ FreeBook Build Thất Bại! 🛑\n\n💬 Commit Message:\n%s\n\n🔍 Chi tiết lỗi xem tại: https://github.com/%s/actions/runs/%s" "$COMMIT_MSG" "${{ github.repository }}" "${{ github.run_id }}")
+        TEXT=$(printf "❌ FreeBook Build Thất Bại! 🛑\n\n💬 Commit Message:\n%s\n\n🔍 Chi tiết lỗi:\n%s\n\n🔗 Xem toàn bộ log tại: https://github.com/%s/actions/runs/%s" "$COMMIT_MSG" "$ERROR_SUMMARY" "${{ github.repository }}" "${{ github.run_id }}")
         
         curl -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \

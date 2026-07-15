@@ -689,7 +689,8 @@ public final class TTSManager: NSObject, ObservableObject {
         // 1. RAM cache — được update bởi ReaderViewModel.processAndSaveChapter
         if let cached = nextChapter.cachedContent, !cached.isEmpty {
             AppLogger.shared.log("🔊 [TTSManager] advanceToNextChapter: dùng RAM cache cho chương \(nextIdx)")
-            self.applyNextChapter(index: nextIdx, content: cached, chapter: nextChapter)
+            let contentToUse = TranslateUtils.isTranslationEnabled ? TranslateUtils.translateContent(cached, bookId: self.playingBookId) : cached
+            self.applyNextChapter(index: nextIdx, content: contentToUse, chapter: nextChapter)
             return
         }
         
@@ -700,9 +701,10 @@ public final class TTSManager: NSObject, ObservableObject {
             if let dbContent = await self.fetchChapterContentFromDB(chapterUrl: nextChapter.url),
                !dbContent.isEmpty {
                 AppLogger.shared.log("🔊 [TTSManager] advanceToNextChapter: dùng DB cache cho chương \(nextIdx)")
+                let contentToUse = TranslateUtils.isTranslationEnabled ? TranslateUtils.translateContent(dbContent, bookId: self.playingBookId) : dbContent
                 await MainActor.run {
                     guard self.isPlaying else { return }
-                    self.applyNextChapter(index: nextIdx, content: dbContent, chapter: nextChapter)
+                    self.applyNextChapter(index: nextIdx, content: contentToUse, chapter: nextChapter)
                 }
                 return
             }
@@ -727,9 +729,10 @@ public final class TTSManager: NSObject, ObservableObject {
                     configJson: extInfo.configJson ?? ""
                 )
                 let cleaned = raw.cleanHTML()
+                let contentToUse = TranslateUtils.isTranslationEnabled ? TranslateUtils.translateContent(cleaned, bookId: self.playingBookId) : cleaned
                 await MainActor.run {
                     guard self.isPlaying else { return }
-                    self.applyNextChapter(index: nextIdx, content: cleaned, chapter: nextChapter)
+                    self.applyNextChapter(index: nextIdx, content: contentToUse, chapter: nextChapter)
                 }
             } catch {
                 AppLogger.shared.log("❌ [TTSManager] advanceToNextChapter: Fetch chương \(nextIdx) thất bại: \(error.localizedDescription)")
