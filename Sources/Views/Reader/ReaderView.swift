@@ -387,6 +387,14 @@ struct ReaderView: View {
                 }
             }
         }
+        .onChange(of: currentOnlineChapters.count) { _, newCount in
+            if let vm = viewModel, newCount > 0 {
+                if vm.totalChaptersCount != newCount {
+                    vm.totalChaptersCount = newCount
+                    vm.updateVisibleChaptersWindow()
+                }
+            }
+        }
 
         .onAppear {
             let key = "showChapterTitle_\(bookId)"
@@ -408,14 +416,23 @@ struct ReaderView: View {
             
             if viewModel == nil {
                 let savedPIdx = getSavedParagraphIndex(for: chapterIndex)
+                
+                // Tính toán số lượng chương khởi tạo an toàn bằng cách dùng trực tiếp tham số onlineChapters
+                let initialTotalCount: Int
+                if let book = localBook {
+                    initialTotalCount = book.chapters.count
+                } else {
+                    initialTotalCount = onlineChapters.count
+                }
+                
                 viewModel = ReaderViewModel(
                     bookId: bookId,
                     extensionPackageId: extensionPackageId,
                     initialChapterIndex: chapterIndex,
                     initialParagraphIndex: savedPIdx,
-                    totalChaptersCount: totalChaptersCount,
+                    totalChaptersCount: initialTotalCount,
                     modelContext: modelContext,
-                    onlineChapters: currentOnlineChapters,
+                    onlineChapters: onlineChapters,
                     isTranslationEnabled: isTranslationEnabled,
                     bookTitle: bookTitle,
                     bookAuthor: bookAuthor,

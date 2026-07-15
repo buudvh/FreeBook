@@ -250,13 +250,19 @@ class ReaderViewModel: ObservableObject {
     
     private func computeWindowRange() -> Set<Int> {
         guard totalChaptersCount > 0 else { return [] }
-        let range: ClosedRange<Int>
+        
+        let lower: Int
+        let upper: Int
         if isReadingForward {
-            range = max(0, activeChapterIndex - 1)...min(totalChaptersCount - 1, activeChapterIndex + 2)
+            lower = max(0, activeChapterIndex - 1)
+            upper = min(totalChaptersCount - 1, activeChapterIndex + 2)
         } else {
-            range = max(0, activeChapterIndex - 2)...min(totalChaptersCount - 1, activeChapterIndex + 1)
+            lower = max(0, activeChapterIndex - 2)
+            upper = min(totalChaptersCount - 1, activeChapterIndex + 1)
         }
-        return Set(range)
+        
+        guard lower <= upper else { return [] }
+        return Set(lower...upper)
     }
     
     private func syncVisibleIndexes(_ window: Set<Int>) {
