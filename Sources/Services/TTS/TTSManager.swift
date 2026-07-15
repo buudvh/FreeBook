@@ -308,7 +308,7 @@ public final class TTSManager: NSObject, ObservableObject {
         
         self.prepareSpeakingTask?.cancel()
         self.prepareSpeakingTask = Task {
-            let parsed = await Task.detached(priority: .userInitiated) { [weak self] in
+            let parsed = await Task.detached(priority: .userInitiated) { [weak self] -> [TTSParagraph] in
                 guard let self = self else { return [] }
                 return self.parseParagraphs(chapterContent)
             }.value
@@ -807,7 +807,6 @@ public final class TTSManager: NSObject, ObservableObject {
         
         nextChapterPrefetchTask?.cancel()
         
-        let bid = playingBookId
         let extInfo = extensionInfo
         
         nextChapterPrefetchTask = Task {
