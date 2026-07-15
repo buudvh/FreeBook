@@ -346,6 +346,11 @@ class ReaderViewModel: ObservableObject {
     func loadChapterContentFromExtension(_ index: Int) async throws {
         guard index >= 0 && index < totalChaptersCount else { return }
         
+        // Nếu chương đã được tải xong trong RAM cache, bỏ qua không làm gì cả
+        if let cached = cache.cache[index], cached.state == .loaded {
+            return
+        }
+        
         // 1. Xác định Title và URL của chương
         let title: String
         let urlString: String
