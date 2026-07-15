@@ -308,7 +308,7 @@ public final class TTSManager: NSObject, ObservableObject {
         
         self.prepareSpeakingTask?.cancel()
         self.prepareSpeakingTask = Task {
-            let parsed = await Task.detached(priority: .userInitiated) { [weak self] -> [TTSParagraph] in
+            let parsed = await Task.detached(priority: .userInitiated) { [weak self] () -> [TTSParagraph] in
                 guard let self = self else { return [] }
                 return self.parseParagraphs(chapterContent)
             }.value
