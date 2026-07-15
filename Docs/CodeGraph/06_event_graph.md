@@ -81,7 +81,7 @@ graph TD
 Đăng ký trong `TTSManager.setupRemoteCommandCenter()` qua thư viện `MediaPlayer`:
 *   `playCommand` / `resumeCommand` -> Cập nhật đồng bộ `playbackState = .playing` và kích hoạt `TTSManager.resume()`.
 *   `pauseCommand` -> Cập nhật đồng bộ `playbackState = .paused` và kích hoạt `TTSManager.pause()`.
-*   `togglePlayPauseCommand` -> Cập nhật đồng bộ `playbackState` tiếp theo và đảo ngược trạng thái phát.
+*   `togglePlayPauseCommand` -> Đã được vô hiệu hóa để tránh xung đột sự kiện trùng lặp từ iOS (OS sẽ tự động chuyển đổi các nhấn nút trên tai nghe thành `playCommand` hoặc `pauseCommand` dựa vào `playbackState`).
 *   `nextTrackCommand` -> Gọi `TTSManager.skipForward()` (tự chuyển chương qua `advanceToNextChapter` nếu hết đoạn cuối chương).
 *   `previousTrackCommand` -> Gọi `TTSManager.skipBackward()` (tua lùi đoạn).
 *   `skipForwardCommand` -> Tua tiến đoạn văn (`skipForward()`).

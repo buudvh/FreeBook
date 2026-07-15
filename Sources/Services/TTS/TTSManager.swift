@@ -91,6 +91,7 @@ public final class TTSManager: NSObject, ObservableObject {
     private var wasPlayingBeforeStop = false
     private var wasPlayingBeforeSettings = false
     private var wasPlayingBeforeInterruption = false
+    private var lastPausedTime: Date? = nil
     private var cancellables = Set<AnyCancellable>()
     private var prepareSpeakingTask: Task<Void, Never>? = nil
     private var nextChapterPrefetchTask: Task<Void, Never>? = nil
@@ -460,6 +461,7 @@ public final class TTSManager: NSObject, ObservableObject {
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] pause() được gọi.")
         guard isPlaying else { return }
         self.isPlaying = false
+        self.lastPausedTime = Date()
         MPNowPlayingInfoCenter.default().playbackState = .paused
         
         if tool == "system" {
@@ -503,9 +505,16 @@ public final class TTSManager: NSObject, ObservableObject {
                 }
             }
             
-            // Luôn gọi speakCurrent() thay vì playerNode?.play() để tránh việc mất/trôi buffer của playerNode
-            // sau thời gian dài bị tạm dừng (OS giải phóng tài nguyên).
-            speakCurrent()
+            // Tính toán thời gian đã tạm dừng
+            let timeSincePause = lastPausedTime.map { Date().timeIntervalSince($0) } ?? 0.0
+            
+            // Nếu đã tạm dừng quá 5 giây hoặc chưa có playback hoạt động, phát lại từ đầu câu.
+            // Ngược lại, tiếp tục phát tiếp tục (resume) để có trải nghiệm mượt mà.
+            if timeSincePause > 5.0 || currentPlaybackId == nil {
+                speakCurrent()
+            } else {
+                playerNode?.play()
+            }
         }
         updateNowPlayingInfo()
     }
@@ -1440,7 +1449,7 @@ public final class TTSManager: NSObject, ObservableObject {
         let commandCenter = MPRemoteCommandCenter.shared()
         commandCenter.playCommand.isEnabled = enabled
         commandCenter.pauseCommand.isEnabled = enabled
-        commandCenter.togglePlayPauseCommand.isEnabled = enabled
+        commandCenter.togglePlayPauseCommand.isEnabled = false // Vô hiệu hóa để tránh xung đột, bắt buộc OS dùng play/pause
         commandCenter.nextTrackCommand.isEnabled = enabled
         commandCenter.previousTrackCommand.isEnabled = enabled
         
@@ -1473,21 +1482,6 @@ public final class TTSManager: NSObject, ObservableObject {
             MPNowPlayingInfoCenter.default().playbackState = .paused
             DispatchQueue.main.async {
                 self.pause()
-            }
-            return .success
-        }
-        
-        // Toggle Play/Pause (Tai nghe / AirPods / Thiết bị Bluetooth)
-        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
-            guard let self = self else { return .commandFailed }
-            let nextState: MPNowPlayingPlaybackState = self.isPlaying ? .paused : .playing
-            MPNowPlayingInfoCenter.default().playbackState = nextState
-            DispatchQueue.main.async {
-                if self.isPlaying {
-                    self.pause()
-                } else {
-                    self.resume()
-                }
             }
             return .success
         }

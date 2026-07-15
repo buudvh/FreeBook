@@ -6,14 +6,15 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.6] - 2026-07-15
 
-### Khắc phục lỗi điều khiển phát nhạc bằng tai nghe & Đồng bộ màn hình khóa (TTS Remote & Lock Screen Fix)
+### Khắc phục lỗi điều khiển phát nhạc bằng tai nghe, đồng bộ màn hình khóa & Khôi phục luồng chuyển chương TTS (TTS Remote & Lock Screen Fix v2)
 *   **Người thực hiện**: Trợ lý AI Antigravity
 *   **Tổng số file nguồn ảnh hưởng**: 1 tệp Swift (TTSManager.swift)
 *   **Mô tả**:
     *   **TTSManager**:
-        *   Cập nhật `setupRemoteCommandCenter()`: Thiết lập trực tiếp `MPNowPlayingInfoCenter.default().playbackState` đồng bộ (thành `.playing`, `.paused` hoặc đảo trạng thái) trước khi dispatch các tác vụ `resume()` và `pause()` lên Main Thread. Điều này giải quyết triệt để lỗi người dùng phải nhấn nút tai nghe 2 lần và lỗi màn hình khóa không hiển thị đúng nút Play/Pause tương ứng.
-        *   Cập nhật `pause()`, `resume()` và `stopPlayback()`: Đồng bộ hóa cập nhật `playbackState` của `MPNowPlayingInfoCenter.default()` ngay khi trạng thái `isPlaying` của ứng dụng thay đổi, tránh việc bị trễ do `updateNowPlayingInfo()` phải load ảnh bìa bất đồng bộ.
-        *   Cập nhật `resume()`: Trong nhánh NghiTTS và Extension TTS, thay đổi `playerNode?.play()` thành `speakCurrent()`. Khi tạm dừng lâu, OS có thể giải phóng tài nguyên của `AVAudioSession` làm trôi hết các buffer âm thanh đã schedule trên `AVAudioPlayerNode`. Bằng cách luôn gọi `speakCurrent()` khi resume, ta schedule lại một buffer mới tinh cho đoạn hiện tại (load cực nhanh từ `preloadedWavs` cache), đảm bảo luôn phát ra tiếng và không bị kẹt hàng đọc.
+        *   Cập nhật `setRemoteCommandsEnabled()` và `setupRemoteCommandCenter()`: Loại bỏ hoàn toàn sự kiện `togglePlayPauseCommand` vì gây xung đột trùng lặp sự kiện trên iOS khi người dùng bấm nút trên tai nghe. OS của iOS sẽ tự động dịch chuyển nút tai nghe thành lệnh `playCommand` hoặc `pauseCommand` dựa trên giá trị của `playbackState`.
+        *   Cập nhật `pause()`, `resume()` và `stopPlayback()`: Đồng bộ hóa cập nhật `playbackState` của `MPNowPlayingInfoCenter.default()` ngay khi trạng thái `isPlaying` của ứng dụng thay đổi, loại bỏ độ trễ và giúp lockscreen hiển thị đúng nút Pause/Play tương ứng tức thì.
+        *   Cập nhật `pause()`: Ghi nhận thời điểm tạm dừng vào biến `lastPausedTime = Date()`.
+        *   Cập nhật `resume()`: Tích hợp bộ đếm thời gian chờ (timeout) 5 giây thông minh. Nếu thời gian từ lúc tạm dừng đến lúc tiếp tục phát vượt quá 5.0 giây hoặc chưa có `currentPlaybackId`, sẽ gọi `speakCurrent()` để tái tạo một buffer mới tinh (tránh cạn kiệt/mất tiếng do OS giải phóng bộ đệm của AVAudioPlayerNode trong nền). Nếu dưới 5.0 giây, ứng dụng sẽ gọi tiếp `playerNode?.play()` để phát tiếp tục liền mạch tại vị trí cũ. Tránh được lỗi lặp lại đoạn hoặc đứng luồng không tự động chuyển chương trong ReaderView.
 
 ## [1.3.5] - 2026-07-15
 
