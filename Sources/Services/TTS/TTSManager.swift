@@ -460,6 +460,7 @@ public final class TTSManager: NSObject, ObservableObject {
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] pause() được gọi.")
         guard isPlaying else { return }
         self.isPlaying = false
+        MPNowPlayingInfoCenter.default().playbackState = .paused
         
         if tool == "system" {
             siriService.pause()
@@ -482,6 +483,7 @@ public final class TTSManager: NSObject, ObservableObject {
         self.configureAudioSession()
         self.setRemoteCommandsEnabled(true) // Bật lại remote commands
         self.isPlaying = true
+        MPNowPlayingInfoCenter.default().playbackState = .playing
         
         if tool == "system" {
             if siriService.isPaused {
@@ -501,14 +503,9 @@ public final class TTSManager: NSObject, ObservableObject {
                 }
             }
             
-            // Kiểm tra playerNode còn buffer pending không.
-            // Nếu engine đã bị restart do route change/config change, buffer cũ đã flush → cần phát lại từ đầu.
-            if currentPlaybackId == nil {
-                // Không có playback đang active, phát lại đoạn hiện tại
-                speakCurrent()
-            } else {
-                playerNode?.play()
-            }
+            // Luôn gọi speakCurrent() thay vì playerNode?.play() để tránh việc mất/trôi buffer của playerNode
+            // sau thời gian dài bị tạm dừng (OS giải phóng tài nguyên).
+            speakCurrent()
         }
         updateNowPlayingInfo()
     }
@@ -1463,6 +1460,7 @@ public final class TTSManager: NSObject, ObservableObject {
         // Play
         commandCenter.playCommand.addTarget { [weak self] _ in
             guard let self = self else { return .commandFailed }
+            MPNowPlayingInfoCenter.default().playbackState = .playing
             DispatchQueue.main.async {
                 self.resume()
             }
@@ -1472,6 +1470,7 @@ public final class TTSManager: NSObject, ObservableObject {
         // Pause
         commandCenter.pauseCommand.addTarget { [weak self] _ in
             guard let self = self else { return .commandFailed }
+            MPNowPlayingInfoCenter.default().playbackState = .paused
             DispatchQueue.main.async {
                 self.pause()
             }
@@ -1481,6 +1480,8 @@ public final class TTSManager: NSObject, ObservableObject {
         // Toggle Play/Pause (Tai nghe / AirPods / Thiết bị Bluetooth)
         commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
             guard let self = self else { return .commandFailed }
+            let nextState: MPNowPlayingPlaybackState = self.isPlaying ? .paused : .playing
+            MPNowPlayingInfoCenter.default().playbackState = nextState
             DispatchQueue.main.async {
                 if self.isPlaying {
                     self.pause()

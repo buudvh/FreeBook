@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-14T09:15:00+07:00
+generated_at: 2026-07-15T16:18:00+07:00
 git_commit: UNKNOWN
 source_files: 87
-document_version: 1
+document_version: 2
 ---
 
 # Bản đồ Sự kiện & Cơ chế Giao tiếp (Event Graph)
@@ -79,9 +79,9 @@ graph TD
 
 ### 2.4. Sự kiện Hệ thống Remote (Remote Command Center)
 Đăng ký trong `TTSManager.setupRemoteCommandCenter()` qua thư viện `MediaPlayer`:
-*   `playCommand` / `resumeCommand` -> Kích hoạt `TTSManager.resume()`.
-*   `pauseCommand` -> Kích hoạt `TTSManager.pause()`.
-*   `togglePlayPauseCommand` -> Đảo ngược trạng thái phát.
+*   `playCommand` / `resumeCommand` -> Cập nhật đồng bộ `playbackState = .playing` và kích hoạt `TTSManager.resume()`.
+*   `pauseCommand` -> Cập nhật đồng bộ `playbackState = .paused` và kích hoạt `TTSManager.pause()`.
+*   `togglePlayPauseCommand` -> Cập nhật đồng bộ `playbackState` tiếp theo và đảo ngược trạng thái phát.
 *   `nextTrackCommand` -> Gọi `TTSManager.skipForward()` (tự chuyển chương qua `advanceToNextChapter` nếu hết đoạn cuối chương).
 *   `previousTrackCommand` -> Gọi `TTSManager.skipBackward()` (tua lùi đoạn).
 *   `skipForwardCommand` -> Tua tiến đoạn văn (`skipForward()`).

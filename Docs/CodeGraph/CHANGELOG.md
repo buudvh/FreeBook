@@ -4,6 +4,17 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.6] - 2026-07-15
+
+### Khắc phục lỗi điều khiển phát nhạc bằng tai nghe & Đồng bộ màn hình khóa (TTS Remote & Lock Screen Fix)
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 1 tệp Swift (TTSManager.swift)
+*   **Mô tả**:
+    *   **TTSManager**:
+        *   Cập nhật `setupRemoteCommandCenter()`: Thiết lập trực tiếp `MPNowPlayingInfoCenter.default().playbackState` đồng bộ (thành `.playing`, `.paused` hoặc đảo trạng thái) trước khi dispatch các tác vụ `resume()` và `pause()` lên Main Thread. Điều này giải quyết triệt để lỗi người dùng phải nhấn nút tai nghe 2 lần và lỗi màn hình khóa không hiển thị đúng nút Play/Pause tương ứng.
+        *   Cập nhật `pause()`, `resume()` và `stopPlayback()`: Đồng bộ hóa cập nhật `playbackState` của `MPNowPlayingInfoCenter.default()` ngay khi trạng thái `isPlaying` của ứng dụng thay đổi, tránh việc bị trễ do `updateNowPlayingInfo()` phải load ảnh bìa bất đồng bộ.
+        *   Cập nhật `resume()`: Trong nhánh NghiTTS và Extension TTS, thay đổi `playerNode?.play()` thành `speakCurrent()`. Khi tạm dừng lâu, OS có thể giải phóng tài nguyên của `AVAudioSession` làm trôi hết các buffer âm thanh đã schedule trên `AVAudioPlayerNode`. Bằng cách luôn gọi `speakCurrent()` khi resume, ta schedule lại một buffer mới tinh cho đoạn hiện tại (load cực nhanh từ `preloadedWavs` cache), đảm bảo luôn phát ra tiếng và không bị kẹt hàng đọc.
+
 ## [1.3.5] - 2026-07-15
 
 ### Tối ưu hóa hiệu năng, prefetch TTS, Đơn giản hóa UI Loading, Tinh gọn Telegram & Fix bug nháy Loading
