@@ -672,18 +672,20 @@ struct BookDetailView: View {
             
             // Hidden navigation link for programmatic reader routing
             NavigationLink(
-                destination: ReaderView(
-                    bookId: bookId,
-                    extensionPackageId: extensionPackageId,
-                    chapterIndex: targetChapterIndex,
-                    onlineChapters: localBook == nil ? onlineChapters : [],
-                    bookTitle: title,
-                    bookAuthor: author,
-                    bookCoverUrl: coverUrl,
-                    bookDesc: desc.isEmpty ? nil : desc,
-                    bookDetailUrl: initialDetailUrl,
-                    bookSourceName: sourceName
-                ),
+                destination: LazyView {
+                    ReaderView(
+                        bookId: bookId,
+                        extensionPackageId: extensionPackageId,
+                        chapterIndex: targetChapterIndex,
+                        onlineChapters: localBook == nil ? onlineChapters : [],
+                        bookTitle: title,
+                        bookAuthor: author,
+                        bookCoverUrl: coverUrl,
+                        bookDesc: desc.isEmpty ? nil : desc,
+                        bookDetailUrl: initialDetailUrl,
+                        bookSourceName: sourceName
+                    )
+                },
                 isActive: $navigateToReader
             ) {
                 EmptyView()
@@ -712,13 +714,15 @@ struct BookDetailView: View {
             }
             
             NavigationLink(
-                destination: BookDetailView(
-                    bookId: importedBookId,
-                    extensionPackageId: importedExtensionPackageId,
-                    initialDetailUrl: importedDetailUrl,
-                    sourceName: importedSourceName,
-                    initialHost: importedHost
-                ),
+                destination: LazyView {
+                    BookDetailView(
+                        bookId: importedBookId,
+                        extensionPackageId: importedExtensionPackageId,
+                        initialDetailUrl: importedDetailUrl,
+                        sourceName: importedSourceName,
+                        initialHost: importedHost
+                    )
+                },
                 isActive: $navigateToImportedBook
             ) {
                 EmptyView()

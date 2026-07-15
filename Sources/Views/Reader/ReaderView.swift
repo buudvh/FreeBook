@@ -367,13 +367,15 @@ struct ReaderView: View {
         }
         .background(
             NavigationLink(
-                destination: BookDetailView(
-                    bookId: importedBookId,
-                    extensionPackageId: importedExtensionPackageId,
-                    initialDetailUrl: importedDetailUrl,
-                    sourceName: importedSourceName,
-                    initialHost: importedHost
-                ),
+                destination: LazyView {
+                    BookDetailView(
+                        bookId: importedBookId,
+                        extensionPackageId: importedExtensionPackageId,
+                        initialDetailUrl: importedDetailUrl,
+                        sourceName: importedSourceName,
+                        initialHost: importedHost
+                    )
+                },
                 isActive: $navigateToBookDetail
             ) {
                 EmptyView()
