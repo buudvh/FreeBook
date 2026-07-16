@@ -2075,106 +2075,132 @@ extension ReaderView {
     private var textReaderView: some View {
         Group {
             if let vm = viewModel {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 0) {
-                            ForEach(0..<totalChaptersCount, id: \.self) { idx in
-                                VStack(alignment: .leading, spacing: fontSize * 0.8) {
-                                    if let cached = vm.cache.get(idx) {
-                                        if cached.state == .loading || cached.state == .prefetching {
-                                            VStack(spacing: 16) {
+                GeometryReader { geometry in
+                    let readerHeight = geometry.size.height // Chiều cao thực tế khả dụng của vùng đọc
+                    
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 0) {
+                                ForEach(0..<totalChaptersCount, id: \.self) { idx in
+                                    VStack(alignment: .leading, spacing: fontSize * 0.8) {
+                                        if let cached = vm.cache.get(idx) {
+                                            if cached.state == .loading || cached.state == .prefetching {
+                                                VStack(spacing: 16) {
+                                                    ProgressView()
+                                                        .tint(selectedTheme.textColor.opacity(0.8))
+                                                    Text("Đang tải nội dung...")
+                                                        .font(.subheadline)
+                                                        .foregroundColor(selectedTheme.textColor.opacity(0.6))
+                                                }
+                                                .frame(maxWidth: .infinity, minHeight: readerHeight) // Đảm bảo chiếm full màn hình chờ tải
+                                            } else if case .failed(let msg) = cached.state {
+                                                VStack(spacing: 16) {
+                                                    Text(msg)
+                                                        .foregroundColor(.red)
+                                                        .multilineTextAlignment(.center)
+                                                        .padding(.horizontal, 20)
+                                                    Button("Tải lại") {
+                                                        Task {
+                                                            try? await vm.loadChapterContentFromExtension(idx)
+                                                        }
+                                                    }
+                                                    .foregroundColor(selectedTheme.textColor)
+                                                    .padding(.horizontal, 20)
+                                                    .padding(.vertical, 8)
+                                                    .background(selectedTheme.textColor.opacity(0.1))
+                                                    .cornerRadius(16)
+                                                }
+                                                .frame(maxWidth: .infinity, minHeight: readerHeight)
+                                            } else {
+                                                // Đã tải xong nội dung
+                                                chapterContentView(for: cached)
+                                                    .onAppear {
+                                                        // Nếu người dùng vừa thực hiện nhảy chương tới đây, cuộn lại lần nữa để định vị chính xác đầu chương sau khi render text đầy đủ
+                                                        if self.chapterIndex == idx {
+                                                            withAnimation {
+                                                                proxy.scrollTo("chapter-\(idx)", anchor: .top)
+                                                            }
+                                                        }
+                                                    }
+                                            }
+                                        } else {
+                                            // Placeholder khi chưa có trong cache: tự động tải khi cuộn tới gần (khoảng cách <= 1)
+                                            VStack {
                                                 ProgressView()
                                                     .tint(selectedTheme.textColor.opacity(0.8))
-                                                Text("Đang tải nội dung...")
-                                                    .font(.subheadline)
-                                                    .foregroundColor(selectedTheme.textColor.opacity(0.6))
                                             }
-                                            .frame(maxWidth: .infinity, minHeight: 200)
-                                        } else if case .failed(let msg) = cached.state {
-                                            VStack(spacing: 16) {
-                                                Text(msg)
-                                                    .foregroundColor(.red)
-                                                    .multilineTextAlignment(.center)
-                                                    .padding(.horizontal, 20)
-                                                Button("Tải lại") {
-                                                    Task {
-                                                        try? await vm.loadChapterContentFromExtension(idx)
-                                                    }
+                                            .frame(maxWidth: .infinity, minHeight: readerHeight) // Đảm bảo chiếm full màn hình chờ tải
+                                            .onAppear {
+                                                Task {
+                                                    try? await vm.loadChapterContentFromExtension(idx)
                                                 }
-                                                .foregroundColor(selectedTheme.textColor)
-                                                .padding(.horizontal, 20)
-                                                .padding(.vertical, 8)
-                                                .background(selectedTheme.textColor.opacity(0.1))
-                                                .cornerRadius(16)
                                             }
-                                            .frame(maxWidth: .infinity, minHeight: 200)
-                                        } else {
-                                            chapterContentView(for: cached)
                                         }
-                                    } else {
-                                        // Placeholder khi chưa có trong cache: tự động tải khi cuộn tới gần (khoảng cách <= 1)
-                                        VStack {
-                                            ProgressView()
-                                                .tint(selectedTheme.textColor.opacity(0.8))
+                                        
+                                        // Đường gạch phân cách nghệ thuật giữa các chương
+                                        if idx < totalChaptersCount - 1 {
+                                            HStack {
+                                                Spacer()
+                                                Rectangle()
+                                                    .fill(selectedTheme.textColor.opacity(0.15))
+                                                    .frame(width: 80, height: 1)
+                                                Circle()
+                                                    .fill(selectedTheme.textColor.opacity(0.3))
+                                                    .frame(width: 6, height: 6)
+                                                Rectangle()
+                                                    .fill(selectedTheme.textColor.opacity(0.15))
+                                                    .frame(width: 80, height: 1)
+                                                Spacer()
+                                            }
+                                            .padding(.vertical, 48)
                                         }
-                                        .frame(maxWidth: .infinity, minHeight: 200)
-                                        .onAppear {
-                                            if abs(idx - chapterIndex) <= 1 {
+                                    }
+                                    .frame(maxWidth: .infinity, minHeight: readerHeight) // Căn dãn tối thiểu cho container chương
+                                    .id("chapter-\(idx)")
+                                    .onChange(of: chapterIndex) { _, newChapterIndex in
+                                        // Tải trước chủ động chương lân cận khi người dùng chuyển chương
+                                        if abs(idx - newChapterIndex) <= 1 {
+                                            if vm.cache.get(idx) == nil {
                                                 Task {
                                                     try? await vm.loadChapterContentFromExtension(idx)
                                                 }
                                             }
                                         }
                                     }
-                                    
-                                    Divider()
-                                        .padding(.vertical, 40)
-                                        .opacity(0.2)
                                 }
-                                .id("chapter-\(idx)")
-                                .onChange(of: chapterIndex) { _, newChapterIndex in
-                                    // Khi chương hiện tại thay đổi, tự động tải trước chương lân cận nếu chưa có trong cache
-                                    if abs(idx - newChapterIndex) <= 1 {
-                                        if vm.cache.get(idx) == nil {
-                                            Task {
-                                                try? await vm.loadChapterContentFromExtension(idx)
-                                            }
-                                        }
+                            }
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 24)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showControls.toggle()
+                                }
+                            }
+                        }
+                        .id("main-scroll-view")
+                        .onChange(of: scrollTarget) { _, newValue in
+                            if let target = newValue {
+                                withAnimation {
+                                    if target.paragraphIndex == -1 {
+                                        proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
+                                    } else {
+                                        proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
                                     }
                                 }
+                                scrollTarget = nil
                             }
                         }
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 24)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                showControls.toggle()
-                            }
-                        }
-                    }
-                    .id("main-scroll-view")
-                    .onChange(of: scrollTarget) { _, newValue in
-                        if let target = newValue {
-                            withAnimation {
-                                if target.paragraphIndex == -1 {
-                                    proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
+                        .onAppear {
+                            // Khôi phục vị trí đọc chính xác khi mở lại truyện
+                            let savedChapter = self.chapterIndex
+                            let savedPara = getSavedParagraphIndex(for: savedChapter)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                if savedPara >= 0 {
+                                    proxy.scrollTo("paragraph-\(savedChapter)-\(savedPara)", anchor: .top)
                                 } else {
-                                    proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
+                                    proxy.scrollTo("chapter-\(savedChapter)", anchor: .top)
                                 }
-                            }
-                            scrollTarget = nil
-                        }
-                    }
-                    .onAppear {
-                        // Khôi phục vị trí đọc chính xác khi mở lại truyện
-                        let savedChapter = self.chapterIndex
-                        let savedPara = getSavedParagraphIndex(for: savedChapter)
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            if savedPara >= 0 {
-                                proxy.scrollTo("paragraph-\(savedChapter)-\(savedPara)", anchor: .top)
-                            } else {
-                                proxy.scrollTo("chapter-\(savedChapter)", anchor: .top)
                             }
                         }
                     }
