@@ -2147,8 +2147,11 @@ extension ReaderView {
                                             }
                                             .frame(maxWidth: .infinity, minHeight: readerHeight) // Đảm bảo chiếm full màn hình chờ tải
                                             .onAppear {
-                                                Task {
-                                                    try? await vm.loadChapterContentFromExtension(idx)
+                                                // CHẶN TẢI CHƯƠNG Ở XA: Tránh nghẽn mạng khi load lịch sử ở chương lớn
+                                                if abs(idx - chapterIndex) <= 1 {
+                                                    Task {
+                                                        try? await vm.loadChapterContentFromExtension(idx)
+                                                    }
                                                 }
                                             }
                                         }
@@ -2173,6 +2176,16 @@ extension ReaderView {
                                     }
                                     .frame(maxWidth: .infinity, minHeight: readerHeight) // Căn dãn tối thiểu cho container chương
                                     .id("chapter-\(idx)")
+                                    .onChange(of: chapterIndex) { _, newChapterIndex in
+                                        // TẢI BÙ LÂN CẬN: Khắc phục lỗi cuộn nhanh bị kẹt xoay loading
+                                        if abs(idx - newChapterIndex) <= 1 {
+                                            if vm.cache.get(idx) == nil {
+                                                Task {
+                                                    try? await vm.loadChapterContentFromExtension(idx)
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             .padding(.horizontal, 18)
@@ -2198,15 +2211,13 @@ extension ReaderView {
                             }
                         }
                         .onAppear {
-                            // Khôi phục vị trí đọc chính xác khi mở lại truyện
+                            // LOẠI BỎ DELAY 0.3 GIÂY: Cuộn khôi phục vị trí đọc lập tức ngay khi render
                             let savedChapter = self.chapterIndex
                             let savedPara = getSavedParagraphIndex(for: savedChapter)
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                if savedPara >= 0 {
-                                    proxy.scrollTo("paragraph-\(savedChapter)-\(savedPara)", anchor: .top)
-                                } else {
-                                    proxy.scrollTo("chapter-\(savedChapter)", anchor: .top)
-                                }
+                            if savedPara >= 0 {
+                                proxy.scrollTo("paragraph-\(savedChapter)-\(savedPara)", anchor: .top)
+                            } else {
+                                proxy.scrollTo("chapter-\(savedChapter)", anchor: .top)
                             }
                         }
                     }
