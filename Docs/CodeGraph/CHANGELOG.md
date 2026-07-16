@@ -4,6 +4,30 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.9] - 2026-07-16
+
+### Cải tiến và sửa lỗi Chế độ lật trang (Optimize Paged Reader Mode & Fix TTS/HUD Issues)
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 6 file Swift
+*   **Mô tả**:
+    *   **ReaderChapterListView**: Chuyển đổi `chaptersList` từ biến trạng thái tĩnh `@State` thành computed property tự động đồng bộ theo SwiftData (`allBooks`) và Binding `onlineChapters`. Khắc phục hoàn toàn lỗi không hiển thị hoặc không tự cập nhật biểu tượng vòng tròn xanh "Đã tải" (`arrow.down.circle.fill`) đối với các chương mới cào về hoặc vừa tải xong.
+    *   **ReaderViewModel**: Sửa đổi hàm `computeWindowRange` để rút gọn cửa sổ prefetch trượt cố định chỉ gồm 3 chương `[N - 1, N, N + 1]` thay vì 4 chương dựa theo hướng đọc (tránh lãng phí băng thông và tài nguyên CPU/RAM khi đọc online).
+    *   **ReaderPage**: Nâng cấp thuật toán `paginate` phân trang tối ưu theo Câu (Sentence boundary) thay vì Đoạn văn nguyên vẹn. Tự động tính toán giới hạn ký tự `charLimit` động dựa trên kích thước vật lý màn hình và cỡ chữ. Giúp chữ tràn khít màn hình, loại bỏ khoảng trống lớn ở đáy trang.
+    *   **ReaderTextView**:
+        *   Bổ sung thuộc tính `titleRange: NSRange?` vào view.
+        *   Cập nhật `updateUIView` áp dụng in đậm, cỡ chữ to gấp 1.5 lần, căn giữa và tăng `paragraphSpacing` lề dưới riêng cho vùng tiêu đề chương (`titleRange`).
+    *   **ReaderPagedView**:
+        *   Tích hợp `UITapGestureRecognizer` của UIKit trực tiếp trên view của `UIPageViewController` để toggle HUD điều khiển nhạy bén tức thì mà không bị UITextView chặn hay trễ 0.35 giây của SwiftUI.
+        *   Thiết lập phân vùng chạm (Tap Zones): chạm biên trái <20% lật trang trước, chạm biên phải >80% lật trang sau, chạm giữa (20%-80%) toggle HUD. Chặn tap lật/HUD khi đang bôi đen chọn chữ.
+        *   Xác định `titleRange` trên trang đầu và truyền xuống `ReaderTextView` để vẽ tiêu đề lớn và đậm.
+        *   Cập nhật `onSelectionChange` truyền đúng `mapped.relativeOffset` (tọa độ tương đối trong đoạn văn) thay vì absolute offset của trang để khôi phục hoạt động cho trình dịch.
+        *   Tối ưu hóa `findParagraphItem` với thuật toán fallback tìm đoạn văn gần nhất nếu bôi đen rơi trúng biên hoặc ký tự xuống dòng `\n`.
+        *   Bổ sung callback `onPageChanged(Int)` chỉ báo chỉ số trang khi transition lật trang đã hoàn thành thực sự (settled).
+    *   **ReaderView**:
+        *   Thay thế Binding gán trực tiếp `currentPageIndex` bằng việc nhận cập nhật từ callback `onPageChanged`. Tránh re-render SwiftUI liên tục khi vuốt qua các trang trung gian, giải phóng Main Thread và loại bỏ giật lag (Readium-Style).
+        *   Tích hợp cơ chế Warm-up tải trước chương (Proactive Preloading) giống Yuedu-reader: tự động gọi `prefetchChapter` chạy nền tải trước chương kế tiếp khi đọc đến $\ge 80\%$ chương hiện tại hoặc chương trước khi đọc $\le 1$ trang.
+        *   Thêm hàm `startSpeakingFromCurrentPage()` xác định chính xác đoạn văn đầu tiên của trang hiện đang hiển thị để kích hoạt TTS khi người dùng bấm nút "Nghe truyện" ở Bottom Bar hoặc thanh HUD điều khiển.
+
 ## [1.3.8] - 2026-07-16
 
 ### Thiết lập Chế độ lật trang vuốt ngang (Paged Mode) thay thế cho cuộn dọc (Implement Paged Reader Mode)

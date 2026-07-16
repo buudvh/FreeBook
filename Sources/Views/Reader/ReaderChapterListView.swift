@@ -28,7 +28,6 @@ struct ReaderChapterListView: View {
     
     @State private var searchQuery = ""
     @State private var isAscending = true
-    @State private var chaptersList: [ChapterRowInfo] = []
     @State private var isUpdating = false
     @State private var errorMessage = ""
     
@@ -42,6 +41,39 @@ struct ReaderChapterListView: View {
     
     private var ext: Extension? {
         allExtensions.first(where: { $0.packageId == extensionPackageId })
+    }
+    
+    private var chaptersList: [ChapterRowInfo] {
+        if let book = localBook {
+            let sorted = book.chapters.sorted(by: { $0.index < $1.index })
+            return sorted.map { chap in
+                let displayTitle = (isTranslationEnabled && TranslateUtils.containsChinese(chap.title))
+                    ? TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
+                    : chap.title
+                
+                return ChapterRowInfo(
+                    title: chap.title,
+                    displayTitle: displayTitle,
+                    url: chap.url,
+                    index: chap.index,
+                    isCached: chap.isCached
+                )
+            }
+        } else {
+            return onlineChapters.enumerated().map { (index, chap) in
+                let displayTitle = (isTranslationEnabled && TranslateUtils.containsChinese(chap.name))
+                    ? TranslateUtils.translateChapterTitle(chap.name, bookId: bookId)
+                    : chap.name
+                
+                return ChapterRowInfo(
+                    title: chap.name,
+                    displayTitle: displayTitle,
+                    url: chap.url,
+                    index: index,
+                    isCached: false
+                )
+            }
+        }
     }
     
     var filteredChapters: [ChapterRowInfo] {
@@ -209,9 +241,6 @@ struct ReaderChapterListView: View {
                 }
             }
             .background(theme.backgroundColor.ignoresSafeArea())
-            .onAppear {
-                loadChapters()
-            }
             
             if showingToast {
                 VStack {
@@ -238,38 +267,7 @@ struct ReaderChapterListView: View {
         }
     }
     
-    private func loadChapters() {
-        if let book = localBook {
-            let sorted = book.chapters.sorted(by: { $0.index < $1.index })
-            self.chaptersList = sorted.map { chap in
-                let displayTitle = (isTranslationEnabled && TranslateUtils.containsChinese(chap.title))
-                    ? TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
-                    : chap.title
-                
-                return ChapterRowInfo(
-                    title: chap.title,
-                    displayTitle: displayTitle,
-                    url: chap.url,
-                    index: chap.index,
-                    isCached: chap.isCached
-                )
-            }
-        } else {
-            self.chaptersList = onlineChapters.enumerated().map { (index, chap) in
-                let displayTitle = (isTranslationEnabled && TranslateUtils.containsChinese(chap.name))
-                    ? TranslateUtils.translateChapterTitle(chap.name, bookId: bookId)
-                    : chap.name
-                
-                return ChapterRowInfo(
-                    title: chap.name,
-                    displayTitle: displayTitle,
-                    url: chap.url,
-                    index: index,
-                    isCached: false
-                )
-            }
-        }
-    }
+
     
     private func showToast(_ message: String, isError: Bool) {
         toastMessage = message
@@ -368,7 +366,6 @@ struct ReaderChapterListView: View {
                             book.chapters.append(contentsOf: addedChapters)
                             try? modelContext.save()
                             
-                            loadChapters()
                             showToast("Đã cập nhật thêm \(newChaptersFromTOC.count) chương mới!", isError: false)
                         } else {
                             showToast("Mục lục đã là mới nhất, không có chương mới!", isError: false)
@@ -377,7 +374,6 @@ struct ReaderChapterListView: View {
                         // Đối với truyện online, chỉ đè onlineChapters
                         let oldOnlineCount = self.onlineChapters.count
                         self.onlineChapters = allChapters
-                        loadChapters()
                         
                         let newAdded = allChapters.count - oldOnlineCount
                         if newAdded > 0 {

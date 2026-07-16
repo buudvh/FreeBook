@@ -42,7 +42,7 @@ public enum ReaderPageHelper {
         return max(contentInsets.bottom, alignedBottom)
     }
     
-    /// Chia danh sách ParagraphItem thành các ReaderPage dựa trên kích thước chữ và giới hạn ký tự ước lượng
+    /// Chia danh sách ParagraphItem thành các ReaderPage dựa trên kích thước chữ và giới hạn ký tự ước lượng hình học
     public static func paginate(
         paragraphItems: [ParagraphItem],
         fontSize: CGFloat,
@@ -52,16 +52,28 @@ public enum ReaderPageHelper {
     ) -> [ReaderPage] {
         guard !paragraphItems.isEmpty else { return [] }
         
-        // Tính toán giới hạn ký tự động trên mỗi trang tỷ lệ nghịch với fontSize.
-        // Mức cơ bản: ~800 ký tự khi fontSize = 20pt.
-        let baseFontSize: CGFloat = 20.0
-        let baseCharLimit: CGFloat = 800.0
-        let charLimit = Int(max(200.0, (baseFontSize / fontSize) * baseCharLimit))
+        // 1. Tính toán giới hạn ký tự động trên mỗi trang dựa trên kích thước màn hình thực tế và cỡ chữ
+        let rawHeight = renderSize.height - contentInsets.top - contentInsets.bottom
+        let lineHeight = max(1.0, fontSize + lineSpacing)
+        let lineCount = floor(rawHeight / lineHeight)
+        
+        let charWidth = fontSize * 0.55 // Ước lượng chiều rộng trung bình ký tự tiếng Việt
+        let rawWidth = renderSize.width - contentInsets.left - contentInsets.right
+        let charsPerLine = rawWidth / charWidth
+        
+        // charLimit = số dòng * số ký tự mỗi dòng
+        let charLimit = Int(max(200.0, lineCount * charsPerLine))
         
         var pages: [ReaderPage] = []
         var currentPageParagraphs: [ParagraphItem] = []
         var currentLength = 0
         var pageId = 0
+        
+        // Trạng thái lưu trữ tạm của đoạn văn đang chia dở giữa ranh giới trang
+        var pendingOriginalSentences: [String] = []
+        var pendingTranslatedSentences: [String] = []
+        var pendingItemId: Int? = nil
+        var pendingIsTitle = false
         
         // Hàm đóng trang hiện tại và lưu vào danh sách
         func commitCurrentPage() {
@@ -110,31 +122,123 @@ public enum ReaderPageHelper {
             pageId += 1
         }
         
-        for item in paragraphItems {
-            let itemLength = max(item.original.count, item.translated.count)
+        var i = 0
+        while i < paragraphItems.count || pendingItemId != nil {
+            let origSentences: [String]
+            let transSentences: [String]
+            let itemId: Int
+            let isTitle: Bool
             
-            // Trường hợp 1: Nếu thêm đoạn văn này vượt quá giới hạn trang
-            if currentLength + itemLength > charLimit {
-                // Nếu trang hiện tại đã có chữ, ta đóng trang đó trước
+            if let pId = pendingItemId {
+                // Nạp tiếp phần câu chưa chia xong ở trang trước
+                origSentences = pendingOriginalSentences
+                transSentences = pendingTranslatedSentences
+                itemId = pId
+                isTitle = pendingIsTitle
+                
+                pendingItemId = nil
+                pendingOriginalSentences = []
+                pendingTranslatedSentences = []
+            } else {
+                // Đọc đoạn văn tiếp theo
+                let item = paragraphItems[i]
+                origSentences = splitIntoSentences(item.original)
+                transSentences = splitIntoSentences(item.translated)
+                itemId = item.id
+                isTitle = item.isTitle
+                i += 1
+            }
+            
+            // Tiêu đề chương (nếu hiển thị) luôn nằm ở đầu trang 1
+            if isTitle {
                 if !currentPageParagraphs.isEmpty {
                     commitCurrentPage()
                 }
+                let titleLen = max(origSentences.joined(separator: " ").count, transSentences.joined(separator: " ").count)
+                // Tiêu đề to (1.5x) và spacing lớn, quy đổi sang độ dài ký tự thường để ước lượng không gian chiếm dụng
+                let equivalentLen = Int(Double(titleLen) * 2.2) + 120
                 
-                // Nếu bản thân đoạn văn này đã dài hơn giới hạn ký tự của một trang, ta phải chia nhỏ nó ra
-                if itemLength > charLimit {
-                    let subParagraphs = splitParagraph(item, charLimit: charLimit)
-                    for subItem in subParagraphs {
-                        currentPageParagraphs.append(subItem)
+                currentPageParagraphs.append(ParagraphItem(
+                    id: itemId,
+                    original: origSentences.joined(separator: " "),
+                    translated: transSentences.joined(separator: " "),
+                    isTitle: true
+                ))
+                currentLength += equivalentLen
+                continue
+            }
+            
+            var origGommed = ""
+            var transGommed = ""
+            var sentenceIdx = 0
+            let maxSentences = max(origSentences.count, transSentences.count)
+            
+            while sentenceIdx < maxSentences {
+                let origS = sentenceIdx < origSentences.count ? origSentences[sentenceIdx] : ""
+                let transS = sentenceIdx < transSentences.count ? transSentences[sentenceIdx] : ""
+                let sentenceLength = max(origS.count, transS.count)
+                
+                // Nếu thêm câu này làm tràn trang
+                if currentLength + sentenceLength > charLimit {
+                    if !currentPageParagraphs.isEmpty || !origGommed.isEmpty || !transGommed.isEmpty {
+                        // Lưu phần đã gom của đoạn văn hiện tại vào trang này trước khi đóng
+                        if !origGommed.isEmpty || !transGommed.isEmpty {
+                            currentPageParagraphs.append(ParagraphItem(
+                                id: itemId,
+                                original: origGommed,
+                                translated: transGommed,
+                                isTitle: isTitle
+                            ))
+                        }
                         commitCurrentPage()
+                        
+                        // Đẩy các câu còn lại của đoạn văn sang pending để trang sau xử lý tiếp
+                        pendingItemId = itemId
+                        pendingIsTitle = isTitle
+                        pendingOriginalSentences = Array(origSentences[sentenceIdx...])
+                        pendingTranslatedSentences = Array(transSentences[sentenceIdx...])
+                        break
+                    } else {
+                        // Trang hiện tại rỗng nhưng bản thân câu này quá dài: gom câu này vào trang và đóng ngay lập tức
+                        origGommed = origS
+                        transGommed = transS
+                        currentPageParagraphs.append(ParagraphItem(
+                            id: itemId,
+                            original: origGommed,
+                            translated: transGommed,
+                            isTitle: isTitle
+                        ))
+                        commitCurrentPage()
+                        
+                        if sentenceIdx + 1 < maxSentences {
+                            pendingItemId = itemId
+                            pendingIsTitle = isTitle
+                            pendingOriginalSentences = Array(origSentences[(sentenceIdx + 1)...])
+                            pendingTranslatedSentences = Array(transSentences[(sentenceIdx + 1)...])
+                        }
+                        break
                     }
                 } else {
-                    currentPageParagraphs.append(item)
-                    currentLength = itemLength
+                    // Gom câu vào đoạn văn hiện tại trên trang
+                    if !origGommed.isEmpty { origGommed += " " }
+                    origGommed += origS
+                    
+                    if !transGommed.isEmpty { transGommed += " " }
+                    transGommed += transS
+                    
+                    currentLength += sentenceLength + 1 // +1 ký tự space/newline
+                    sentenceIdx += 1
                 }
-            } else {
-                // Trường hợp 2: Vừa vặn, gom vào trang hiện tại
-                currentPageParagraphs.append(item)
-                currentLength += itemLength + 1 // +1 cho ký tự xuống dòng '\n'
+            }
+            
+            // Nếu đã gom hết các câu mà không bị ngắt trang giữa chừng
+            if pendingItemId == nil && (!origGommed.isEmpty || !transGommed.isEmpty) {
+                currentPageParagraphs.append(ParagraphItem(
+                    id: itemId,
+                    original: origGommed,
+                    translated: transGommed,
+                    isTitle: isTitle
+                ))
             }
         }
         
@@ -144,58 +248,6 @@ public enum ReaderPageHelper {
         }
         
         return pages
-    }
-    
-    /// Chia nhỏ một đoạn văn quá dài thành các đoạn văn con nhỏ hơn dựa trên dấu câu
-    private static func splitParagraph(_ item: ParagraphItem, charLimit: Int) -> [ParagraphItem] {
-        let originalText = item.original
-        let translatedText = item.translated
-        
-        let originalSentences = splitIntoSentences(originalText)
-        let translatedSentences = splitIntoSentences(translatedText)
-        
-        var result: [ParagraphItem] = []
-        var currentOriginal = ""
-        var currentTranslated = ""
-        var subId = 0
-        
-        let maxSentences = max(originalSentences.count, translatedSentences.count)
-        
-        for i in 0..<maxSentences {
-            let orig = i < originalSentences.count ? originalSentences[i] : ""
-            let trans = i < translatedSentences.count ? translatedSentences[i] : ""
-            
-            if currentOriginal.count + orig.count > charLimit || currentTranslated.count + trans.count > charLimit {
-                if !currentOriginal.isEmpty || !currentTranslated.isEmpty {
-                    result.append(ParagraphItem(
-                        id: item.id, // Vẫn giữ nguyên ID gốc để đồng bộ TTS/dịch
-                        original: currentOriginal,
-                        translated: currentTranslated,
-                        isTitle: item.isTitle
-                    ))
-                    currentOriginal = ""
-                    currentTranslated = ""
-                    subId += 1
-                }
-            }
-            
-            if !currentOriginal.isEmpty { currentOriginal += " " }
-            currentOriginal += orig
-            
-            if !currentTranslated.isEmpty { currentTranslated += " " }
-            currentTranslated += trans
-        }
-        
-        if !currentOriginal.isEmpty || !currentTranslated.isEmpty {
-            result.append(ParagraphItem(
-                id: item.id,
-                original: currentOriginal,
-                translated: currentTranslated,
-                isTitle: item.isTitle
-            ))
-        }
-        
-        return result
     }
     
     /// Phân tích chuỗi thành các câu dựa trên các dấu ngắt câu phổ biến

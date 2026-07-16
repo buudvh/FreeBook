@@ -1604,6 +1604,31 @@ struct ReaderView: View {
         )
     }
     
+    private func startSpeakingFromCurrentPage() {
+        guard let vm = viewModel, let cached = vm.cache.get(chapterIndex), cached.state == .loaded else {
+            startTTS(at: chapterIndex, paragraphIndex: 0)
+            return
+        }
+        
+        let readerPages = ReaderPageHelper.paginate(
+            paragraphItems: cached.paragraphItems,
+            fontSize: CGFloat(fontSize),
+            lineSpacing: CGFloat(lineSpacing),
+            renderSize: CGSize(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height),
+            contentInsets: UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+        )
+        
+        let savedPIdx = cached.scrollParagraphIndex >= 0 ? cached.scrollParagraphIndex : getSavedParagraphIndex(for: chapterIndex)
+        let pageIdx = getInitialPageIndex(for: savedPIdx, in: readerPages)
+        
+        if pageIdx >= 0 && pageIdx < readerPages.count {
+            let startParagraphId = readerPages[pageIdx].paragraphItems.first?.id ?? 0
+            startTTS(at: chapterIndex, paragraphIndex: startParagraphId)
+        } else {
+            startTTS(at: chapterIndex, paragraphIndex: 0)
+        }
+    }
+    
     private func getSavedParagraphIndex(for idx: Int) -> Int {
         if let book = localBook {
             if idx == book.currentChapterIndex {
@@ -2225,15 +2250,7 @@ extension ReaderView {
                                                     let savedPIdx = cached.scrollParagraphIndex >= 0 ? cached.scrollParagraphIndex : getSavedParagraphIndex(for: idx)
                                                     return getInitialPageIndex(for: savedPIdx, in: readerPages)
                                                 },
-                                                set: { newPageIndex in
-                                                    if newPageIndex >= 0 && newPageIndex < readerPages.count {
-                                                        let pIdx = readerPages[newPageIndex].paragraphItems.first?.id ?? 0
-                                                        cached.scrollParagraphIndex = pIdx
-                                                        if idx == chapterIndex {
-                                                            vm.updateProgress(chapterIndex: idx, paragraphIndex: pIdx)
-                                                        }
-                                                    }
-                                                }
+                                                set: { _ in }
                                             ),
                                             onSelectionChange: { selectedText, sentence, offset, absoluteOffset, item in
                                                 self.onSelectionChangeInParagraph(
@@ -2266,14 +2283,38 @@ extension ReaderView {
                                                         }
                                                     }
                                                 }
+                                            },
+                                            onPageChanged: { newPageIndex in
+                                                guard newPageIndex >= 0 && newPageIndex < readerPages.count else { return }
+                                                let pIdx = readerPages[newPageIndex].paragraphItems.first?.id ?? 0
+                                                cached.scrollParagraphIndex = pIdx
+                                                
+                                                if idx == chapterIndex {
+                                                    // Cập nhật tiến độ đọc chỉ khi lật trang đã settled
+                                                    vm.updateProgress(chapterIndex: idx, paragraphIndex: pIdx)
+                                                    
+                                                    // Dự báo và tải trước chương tiếp theo/chương trước chạy nền (Warm-up Preloading)
+                                                    let totalPages = readerPages.count
+                                                    if totalPages > 1 {
+                                                        if newPageIndex >= totalPages - 2 {
+                                                            let nextIdx = idx + 1
+                                                            if nextIdx < totalChaptersCount {
+                                                                Task {
+                                                                    await prefetchChapter(at: nextIdx)
+                                                                }
+                                                            }
+                                                        } else if newPageIndex <= 1 {
+                                                            let prevIdx = idx - 1
+                                                            if prevIdx >= 0 {
+                                                                Task {
+                                                                    await prefetchChapter(at: prevIdx)
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
                                             }
                                         )
-                                        .contentShape(Rectangle())
-                                        .onTapGesture {
-                                            withAnimation(.easeInOut(duration: 0.2)) {
-                                                showControls.toggle()
-                                            }
-                                        }
                                     }
                                 }
                                 .onChange(of: scrollTarget) { _, newValue in
@@ -2444,7 +2485,7 @@ extension ReaderView {
             if ttsManager.isPlaying {
                 ttsManager.stop()
             } else {
-                triggerGetVisibleIndex = UUID()
+                startSpeakingFromCurrentPage()
             }
         }) {
             Image(systemName: ttsManager.isPlaying ? "stop.circle.fill" : "play.circle")
@@ -2711,7 +2752,7 @@ extension ReaderView {
                     if ttsManager.isPlaying {
                         ttsManager.stop()
                     } else {
-                        triggerGetVisibleIndex = UUID()
+                        startSpeakingFromCurrentPage()
                     }
                 }) {
                     VStack(spacing: 4) {

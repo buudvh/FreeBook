@@ -39,6 +39,7 @@ struct ReaderPagedView: UIViewControllerRepresentable {
     let onSelectionChange: (String, String, Int, Int, ParagraphItem) -> Void
     let onSpeakFromHere: (Int, ParagraphItem) -> Void
     let onChapterBoundaryReached: (ChapterBoundaryDirection) -> Void
+    let onPageChanged: (Int) -> Void // Callback khi transition lật trang settled
     
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -46,23 +47,34 @@ struct ReaderPagedView: UIViewControllerRepresentable {
     
     func makeUIViewController(context: Context) -> UIPageViewController {
         let pvc = UIPageViewController(
-            transitionStyle: .scroll, // Trượt ngang mượt mà (có thể đổi thành .pageCurl nếu muốn lật 3D)
+            transitionStyle: .scroll, // Trượt ngang mượt mà
             navigationOrientation: .horizontal,
             options: nil
         )
         pvc.dataSource = context.coordinator
         pvc.delegate = context.coordinator
         
+        context.coordinator.pageViewController = pvc
+        
         // Thiết lập trang hiển thị ban đầu
         if let initialVC = context.coordinator.viewController(at: currentPageIndex) {
             pvc.setViewControllers([initialVC], direction: .forward, animated: false, completion: nil)
         }
+        
+        // Thêm TapGestureRecognizer để nhận diện tap biên lật trang (20%) và tap giữa hiện HUD (20%-80%)
+        let tap = UITapGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handleTap(_:))
+        )
+        tap.cancelsTouchesInView = false
+        pvc.view.addGestureRecognizer(tap)
         
         return pvc
     }
     
     func updateUIViewController(_ uiViewController: UIPageViewController, context: Context) {
         context.coordinator.parent = self
+        context.coordinator.pageViewController = uiViewController
         
         // 1. Đồng bộ trang hiển thị hiện tại nếu Binding currentPageIndex thay đổi từ bên ngoài (ví dụ nạp bookmark, TTS nhảy trang)
         if let currentVC = uiViewController.viewControllers?.first as? ReaderPageViewController {
@@ -86,9 +98,76 @@ struct ReaderPagedView: UIViewControllerRepresentable {
     
     class Coordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
         var parent: ReaderPagedView
+        weak var pageViewController: UIPageViewController?
         
         init(_ parent: ReaderPagedView) {
             self.parent = parent
+        }
+        
+        /// Nhận diện Tap và phân vùng hành động: biên trái <20% (lật về), biên phải >80% (lật đi), giữa (hiện HUD)
+        @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
+            guard recognizer.state == .ended,
+                  let view = recognizer.view,
+                  let pvc = self.pageViewController
+            else { return }
+            
+            // Nếu người dùng đang thực hiện cử chỉ bôi đen chọn chữ, chặn toggle HUD và chặn lật trang
+            if let currentVC = pvc.viewControllers?.first as? ReaderPageViewController {
+                if let textView = findTextView(in: currentVC.view), textView.selectedRange.length > 0 {
+                    return
+                }
+            }
+            
+            let point = recognizer.location(in: view)
+            let xFraction = point.x / max(view.bounds.width, 1.0)
+            
+            if xFraction < 0.2 {
+                // Tap biên trái -> Lật về trước
+                turnPage(direction: .reverse)
+            } else if xFraction > 0.8 {
+                // Tap biên phải -> Lật sang sau
+                turnPage(direction: .forward)
+            } else {
+                // Tap vùng giữa -> Hiện HUD Controls
+                NotificationCenter.default.post(name: NSNotification.Name("toggleReaderControls"), object: nil)
+            }
+        }
+        
+        /// Lật trang bằng code lập trình khi người dùng tap biên
+        private func turnPage(direction: UIPageViewController.NavigationDirection) {
+            guard let pvc = self.pageViewController else { return }
+            let currentIndex = parent.currentPageIndex
+            let targetIndex = direction == .forward ? currentIndex + 1 : currentIndex - 1
+            
+            if targetIndex >= 0 && targetIndex < parent.pages.count {
+                if let targetVC = viewController(at: targetIndex) {
+                    pvc.setViewControllers([targetVC], direction: direction, animated: true) { [weak self] completed in
+                        if completed {
+                            DispatchQueue.main.async {
+                                self?.parent.currentPageIndex = targetIndex
+                                self?.parent.onPageChanged(targetIndex)
+                            }
+                        }
+                    }
+                }
+            } else if targetIndex == parent.pages.count {
+                parent.onChapterBoundaryReached(.forward)
+            } else if targetIndex == -1 {
+                parent.onChapterBoundaryReached(.backward)
+            }
+        }
+        
+        /// Tìm UITextView đệ quy trong view hierarchy
+        private func findTextView(in view: UIView) -> UITextView? {
+            if let textView = view as? UITextView {
+                return textView
+            }
+            for subview in view.subviews {
+                if let found = findTextView(in: subview) {
+                    return found
+                }
+            }
+            return nil
         }
         
         /// Tạo giao diện trang SwiftUI bọc trong AnyView
@@ -143,6 +222,11 @@ struct ReaderPagedView: UIViewControllerRepresentable {
                 }
             }
             
+            // Tìm range của tiêu đề (paragraph ID -1) trong trang này để render to/đậm
+            let pageTitleRange: NSRange? = parent.isTranslationEnabled
+                ? page.translatedParagraphRanges[-1]
+                : page.originalParagraphRanges[-1]
+            
             return AnyView(
                 VStack(spacing: 0) {
                     ReaderTextView(
@@ -151,18 +235,20 @@ struct ReaderPagedView: UIViewControllerRepresentable {
                         lineSpacing: parent.lineSpacing,
                         theme: parent.theme,
                         highlightRange: pageHighlightRange,
+                        titleRange: pageTitleRange,
                         isBold: false,
                         isCentered: false,
                         triggerGetVisibleIndex: .constant(nil),
                         onGetVisibleIndex: { _ in },
-                        onSelectionChange: { selectedText, sentence, offset, absoluteOffset in
+                        onSelectionChange: { [weak self] selectedText, sentence, offset, absoluteOffset in
                             // Ánh xạ ngược tọa độ từ Trang về ParagraphItem gốc để dịch
-                            if let mapped = self.findParagraphItem(for: absoluteOffset, in: page) {
-                                self.parent.onSelectionChange(selectedText, sentence, offset, absoluteOffset, mapped.item)
+                            if let self = self, let mapped = self.findParagraphItem(for: absoluteOffset, in: page) {
+                                // QUAN TRỌNG: Phải truyền mapped.relativeOffset thay vì absoluteOffset của trang
+                                self.parent.onSelectionChange(selectedText, sentence, offset, mapped.relativeOffset, mapped.item)
                             }
                         },
-                        onSpeakFromHere: { absoluteOffset in
-                            if let mapped = self.findParagraphItem(for: absoluteOffset, in: page) {
+                        onSpeakFromHere: { [weak self] absoluteOffset in
+                            if let self = self, let mapped = self.findParagraphItem(for: absoluteOffset, in: page) {
                                 self.parent.onSpeakFromHere(mapped.relativeOffset, mapped.item)
                             }
                         }
@@ -184,7 +270,6 @@ struct ReaderPagedView: UIViewControllerRepresentable {
         
         /// Khởi tạo ViewController chứa trang tại index chỉ định
         func viewController(at index: Int) -> ReaderPageViewController? {
-            // Cho phép index từ -1 đến pages.count (bao gồm cả 2 trang ảo ở biên để vuốt chuyển chương)
             guard index >= -1 && index <= parent.pages.count else { return nil }
             let view = makePageView(at: index)
             return ReaderPageViewController(pageIndex: index, chapterIndex: parent.chapterIndex, rootView: AnyView(view))
@@ -194,6 +279,7 @@ struct ReaderPagedView: UIViewControllerRepresentable {
         private func findParagraphItem(for absoluteOffset: Int, in page: ReaderPage) -> (item: ParagraphItem, relativeOffset: Int)? {
             let ranges = parent.isTranslationEnabled ? page.translatedParagraphRanges : page.originalParagraphRanges
             
+            // 1. Thử so khớp chính xác trước
             for (pId, range) in ranges {
                 if absoluteOffset >= range.location && absoluteOffset < range.location + range.length {
                     if let item = page.paragraphItems.first(where: { $0.id == pId }) {
@@ -202,6 +288,32 @@ struct ReaderPagedView: UIViewControllerRepresentable {
                     }
                 }
             }
+            
+            // 2. Nếu trượt (rơi vào ranh giới \n hoặc khoảng trắng), tìm đoạn văn có khoảng cách gần nhất
+            var nearestPId: Int? = nil
+            var minDistance = Int.infinity
+            var nearestRange = NSRange(location: 0, length: 0)
+            
+            for (pId, range) in ranges {
+                let distance: Int
+                if absoluteOffset < range.location {
+                    distance = range.location - absoluteOffset
+                } else {
+                    distance = absoluteOffset - (range.location + range.length)
+                }
+                
+                if distance < minDistance {
+                    minDistance = distance
+                    nearestPId = pId
+                    nearestRange = range
+                }
+            }
+            
+            if let pId = nearestPId, let item = page.paragraphItems.first(where: { $0.id == pId }) {
+                let relativeOffset = max(0, min(absoluteOffset - nearestRange.location, nearestRange.length - 1))
+                return (item, relativeOffset)
+            }
+            
             return nil
         }
         
@@ -233,28 +345,21 @@ struct ReaderPagedView: UIViewControllerRepresentable {
             previousViewControllers: [UIViewController],
             transitionCompleted completed: Bool
         ) {
-            guard completed,
+            // QUAN TRỌNG: Chỉ thông báo cập nhật tiến độ khi transition lật trang kết thúc và settled thực sự
+            guard completed && finished,
                   let currentVC = pageViewController.viewControllers?.first as? ReaderPageViewController
             else { return }
             
-            // Xử lý khi vuốt trúng trang ảo ở biên chuyển chương
             if currentVC.pageIndex == parent.pages.count {
-                // Sang chương sau
                 parent.onChapterBoundaryReached(.forward)
             } else if currentVC.pageIndex == -1 {
-                // Về chương trước
                 parent.onChapterBoundaryReached(.backward)
             } else {
-                // Trang bình thường: Cập nhật chỉ số trang hiện tại
-                parent.currentPageIndex = currentVC.pageIndex
+                if currentVC.pageIndex >= 0 && currentVC.pageIndex < parent.pages.count {
+                    parent.currentPageIndex = currentVC.pageIndex
+                    parent.onPageChanged(currentVC.pageIndex) // Chỉ trigger update progress khi settled
+                }
             }
         }
-    }
-}
-
-// Helper chuyển đổi UIColor sang SwiftUI Color
-extension UIColor {
-    func toColor() -> Color {
-        return Color(self)
     }
 }

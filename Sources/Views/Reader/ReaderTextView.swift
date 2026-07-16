@@ -7,6 +7,7 @@ struct ReaderTextView: UIViewRepresentable {
     let lineSpacing: Double
     let theme: ReaderTheme
     let highlightRange: NSRange?
+    let titleRange: NSRange?
     let isBold: Bool
     let isCentered: Bool
     @Binding var triggerGetVisibleIndex: UUID?
@@ -20,6 +21,7 @@ struct ReaderTextView: UIViewRepresentable {
         lineSpacing: Double,
         theme: ReaderTheme,
         highlightRange: NSRange?,
+        titleRange: NSRange? = nil,
         isBold: Bool = false,
         isCentered: Bool = false,
         triggerGetVisibleIndex: Binding<UUID?>,
@@ -32,6 +34,7 @@ struct ReaderTextView: UIViewRepresentable {
         self.lineSpacing = lineSpacing
         self.theme = theme
         self.highlightRange = highlightRange
+        self.titleRange = titleRange
         self.isBold = isBold
         self.isCentered = isCentered
         self._triggerGetVisibleIndex = triggerGetVisibleIndex
@@ -115,6 +118,7 @@ struct ReaderTextView: UIViewRepresentable {
                               context.coordinator.lastLineSpacing != lineSpacing ||
                               context.coordinator.lastThemeName != theme.rawValue ||
                               context.coordinator.lastHighlightRange != highlightRange ||
+                              context.coordinator.lastTitleRange != titleRange ||
                               context.coordinator.lastIsCentered != isCentered
                               
         if isConfigChanged {
@@ -125,6 +129,7 @@ struct ReaderTextView: UIViewRepresentable {
             context.coordinator.lastLineSpacing = lineSpacing
             context.coordinator.lastThemeName = theme.rawValue
             context.coordinator.lastHighlightRange = highlightRange
+            context.coordinator.lastTitleRange = titleRange
             context.coordinator.lastIsCentered = isCentered
             
             let nsText = text as NSString
@@ -139,6 +144,18 @@ struct ReaderTextView: UIViewRepresentable {
                 paragraphStyle.alignment = .center
             }
             attributedText.addAttribute(.paragraphStyle, value: paragraphStyle, range: fullRange)
+            
+            // Vẽ riêng cho tiêu đề chương (titleRange)
+            if let tRange = titleRange, tRange.location != NSNotFound && tRange.location + tRange.length <= nsText.length {
+                let titleFont = UIFont.boldSystemFont(ofSize: CGFloat(fontSize * 1.5))
+                attributedText.addAttribute(.font, value: titleFont, range: tRange)
+                
+                let titleParagraphStyle = NSMutableParagraphStyle()
+                titleParagraphStyle.lineSpacing = CGFloat(lineSpacing)
+                titleParagraphStyle.alignment = .center
+                titleParagraphStyle.paragraphSpacing = CGFloat(fontSize * 1.0)
+                attributedText.addAttribute(.paragraphStyle, value: titleParagraphStyle, range: tRange)
+            }
             
             // Tô màu nền cho đoạn văn đang đọc (Highlight)
             if let highlight = highlightRange, highlight.location != NSNotFound && highlight.location + highlight.length <= nsText.length {
@@ -235,6 +252,7 @@ struct ReaderTextView: UIViewRepresentable {
         var lastLineSpacing: Double? = nil
         var lastThemeName: String? = nil
         var lastHighlightRange: NSRange? = nil
+        var lastTitleRange: NSRange? = nil
         var lastIsCentered: Bool? = nil
         var cachedWidth: CGFloat? = nil
         var cachedHeight: CGFloat? = nil
