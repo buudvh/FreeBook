@@ -158,12 +158,12 @@ struct ReaderPagedView: UIViewControllerRepresentable {
                         onSelectionChange: { selectedText, sentence, offset, absoluteOffset in
                             // Ánh xạ ngược tọa độ từ Trang về ParagraphItem gốc để dịch
                             if let mapped = self.findParagraphItem(for: absoluteOffset, in: page) {
-                                parent.onSelectionChange(selectedText, sentence, offset, absoluteOffset, mapped.item)
+                                self.parent.onSelectionChange(selectedText, sentence, offset, absoluteOffset, mapped.item)
                             }
                         },
                         onSpeakFromHere: { absoluteOffset in
                             if let mapped = self.findParagraphItem(for: absoluteOffset, in: page) {
-                                parent.onSpeakFromHere(mapped.relativeOffset, mapped.item)
+                                self.parent.onSpeakFromHere(mapped.relativeOffset, mapped.item)
                             }
                         }
                     )

@@ -12,7 +12,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 *   **Mô tả**:
     *   **build-ipa.yml**: Cập nhật cấu hình trigger của push và pull_request cho nhánh mới `optimize_reader` để tự động kích hoạt tiến trình build CI/CD.
     *   **ReaderPage** (NEW): Định nghĩa cấu trúc `ReaderPage` lưu trữ thông tin trang sách và `ReaderPageHelper` chứa thuật toán phân trang tĩnh, hỗ trợ căn lề lề dưới theo lưới dòng (`gridAlignedBottomInset`) để đảm bảo không bị cắt nửa chữ ở đáy trang.
-    *   **ReaderPagedView** (NEW): Viết wrapper `UIViewControllerRepresentable` bọc `UIPageViewController` của UIKit để thực hiện vuốt lật trang ngang mượt mà, hỗ trợ tự động prefetch trang và tạo trang ảo ở biên để vuốt chuyển chương liền mạch.
+    *   **ReaderPagedView** (NEW): Viết wrapper `UIViewControllerRepresentable` bọc `UIPageViewController` của UIKit để thực hiện vuốt lật trang ngang mượt mà, hỗ trợ tự động prefetch trang và tạo trang ảo ở biên để vuốt chuyển chương liền mạch (đã sửa lỗi compiler thiếu self.parent trong closures).
     *   **ChapterCache**: Thêm mảng `readerPages: [ReaderPage]` vào `CachedChapter` để cache dữ liệu phân trang.
     *   **ReaderView**: 
         *   Thay thế hoàn toàn `ScrollView` và `LazyVStack` bằng `ReaderPagedView` mới.
