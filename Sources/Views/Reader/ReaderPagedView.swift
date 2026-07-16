@@ -84,7 +84,13 @@ struct ReaderPagedView: UIViewControllerRepresentable {
                 // Đảm bảo không bị giật ngược trang khi vuốt tay:
                 // Nếu trang hiện tại của UIPageViewController đã chứa đoạn văn tiến độ hiện tại, ta không gọi setViewControllers
                 let activeId = scrollParagraphIndex
-                let currentPageContainsParagraph = pages[currentVC.pageIndex].paragraphItems.contains(where: { $0.id == activeId })
+                
+                let currentPageContainsParagraph: Bool
+                if currentVC.pageIndex >= 0 && currentVC.pageIndex < pages.count {
+                    currentPageContainsParagraph = pages[currentVC.pageIndex].paragraphItems.contains(where: { $0.id == activeId })
+                } else {
+                    currentPageContainsParagraph = false
+                }
                 
                 if currentPageContainsParagraph {
                     return

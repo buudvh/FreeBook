@@ -23,7 +23,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
         *   Cập nhật `onSelectionChange` truyền đúng `mapped.relativeOffset` (tọa độ tương đối trong đoạn văn) thay vì absolute offset của trang để khôi phục hoạt động cho trình dịch.
         *   Tối ưu hóa `findParagraphItem` với thuật toán fallback tìm đoạn văn gần nhất nếu bôi đen rơi trúng biên hoặc ký tự xuống dòng `\n`.
         *   Sửa lỗi biên dịch UIColor.toColor() (bằng cách dùng Color(uiColor:)) và Int.infinity (bằng cách dùng Int.max) để ứng dụng build thành công trên Xcode.
-        *   Áp dụng kiểm tra `currentPageContainsParagraph` trong `updateUIViewController` chặn đứng việc giật ngược trang về trang cũ khi lướt tay lật trang.
+        *   Áp dụng kiểm tra `currentPageContainsParagraph` kèm theo kiểm tra biên mảng (boundary check) trong `updateUIViewController` để chặn đứng việc giật ngược trang về trang cũ khi lướt tay lật trang, đồng thời khắc phục triệt để lỗi crash sập ứng dụng (Index out of range) khi vuốt qua biên để chuyển sang chương mới.
         *   Tính toán `topPadding` và `renderHeight` động dựa trên `safeAreaInsets` thực tế của thiết bị để nội dung luôn đẩy xuống dưới tai thỏ, tránh cắt lẹm.
         *   Bổ sung callback `onPageChanged(Int)` chỉ báo chỉ số trang khi transition lật trang đã hoàn thành thực sự (settled).
     *   **ReaderView**:
