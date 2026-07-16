@@ -22,6 +22,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
         *   Xác định `titleRange` trên trang đầu và truyền xuống `ReaderTextView` để vẽ tiêu đề lớn và đậm.
         *   Cập nhật `onSelectionChange` truyền đúng `mapped.relativeOffset` (tọa độ tương đối trong đoạn văn) thay vì absolute offset của trang để khôi phục hoạt động cho trình dịch.
         *   Tối ưu hóa `findParagraphItem` với thuật toán fallback tìm đoạn văn gần nhất nếu bôi đen rơi trúng biên hoặc ký tự xuống dòng `\n`.
+        *   Sửa lỗi biên dịch UIColor.toColor() (bằng cách dùng Color(uiColor:)) và Int.infinity (bằng cách dùng Int.max) để ứng dụng build thành công trên Xcode.
         *   Bổ sung callback `onPageChanged(Int)` chỉ báo chỉ số trang khi transition lật trang đã hoàn thành thực sự (settled).
     *   **ReaderView**:
         *   Thay thế Binding gán trực tiếp `currentPageIndex` bằng việc nhận cập nhật từ callback `onPageChanged`. Tránh re-render SwiftUI liên tục khi vuốt qua các trang trung gian, giải phóng Main Thread và loại bỏ giật lag (Readium-Style).

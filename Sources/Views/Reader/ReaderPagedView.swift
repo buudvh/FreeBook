@@ -181,11 +181,11 @@ struct ReaderPagedView: UIViewControllerRepresentable {
                             .padding(.bottom, 8)
                         Text("Đang tải chương tiếp theo...")
                             .font(.system(size: 16))
-                            .foregroundColor(UIColor(parent.theme.textColor).toColor().opacity(0.6))
+                            .foregroundColor(Color(uiColor: UIColor(parent.theme.textColor)).opacity(0.6))
                         Spacer()
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(UIColor(parent.theme.backgroundColor).toColor())
+                    .background(Color(uiColor: UIColor(parent.theme.backgroundColor)))
                 )
             }
             
@@ -198,11 +198,11 @@ struct ReaderPagedView: UIViewControllerRepresentable {
                             .padding(.bottom, 8)
                         Text("Đang tải chương trước...")
                             .font(.system(size: 16))
-                            .foregroundColor(UIColor(parent.theme.textColor).toColor().opacity(0.6))
+                            .foregroundColor(Color(uiColor: UIColor(parent.theme.textColor)).opacity(0.6))
                         Spacer()
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(UIColor(parent.theme.backgroundColor).toColor())
+                    .background(Color(uiColor: UIColor(parent.theme.backgroundColor)))
                 )
             }
             
@@ -264,7 +264,7 @@ struct ReaderPagedView: UIViewControllerRepresentable {
                     ))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(UIColor(parent.theme.backgroundColor).toColor())
+                .background(Color(uiColor: UIColor(parent.theme.backgroundColor)))
             )
         }
         
@@ -291,7 +291,7 @@ struct ReaderPagedView: UIViewControllerRepresentable {
             
             // 2. Nếu trượt (rơi vào ranh giới \n hoặc khoảng trắng), tìm đoạn văn có khoảng cách gần nhất
             var nearestPId: Int? = nil
-            var minDistance = Int.infinity
+            var minDistance = Int.max
             var nearestRange = NSRange(location: 0, length: 0)
             
             for (pId, range) in ranges {
