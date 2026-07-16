@@ -1683,8 +1683,7 @@ struct ReaderView: View {
         
         // 1. Debounce 200ms cho việc cập nhật tiến trình lưu trữ
         updateProgressWorkItem?.cancel()
-        let progressWork = DispatchWorkItem { [weak self, weak viewModel] in
-            guard let self = self else { return }
+        let progressWork = DispatchWorkItem { [weak viewModel] in
             guard let topItem = self.paragraphTracker.visibleParagraphs.min() else { return }
             
             let targetChapter = topItem.chapterIndex
@@ -1713,8 +1712,7 @@ struct ReaderView: View {
         guard ttsManager.isPlaying || ttsManager.showFloatingWidget else { return }
         
         updateTTSPositionWorkItem?.cancel()
-        let ttsWork = DispatchWorkItem { [weak self] in
-            guard let self = self else { return }
+        let ttsWork = DispatchWorkItem {
             guard let topItem = self.paragraphTracker.visibleParagraphs.min() else { return }
             self.ttsManager.updateParagraphPositionWithoutPlaying(paragraphIndex: topItem.paragraphIndex)
         }
