@@ -2080,17 +2080,6 @@ extension ReaderView {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             ForEach(0..<totalChaptersCount, id: \.self) { idx in
                                 VStack(alignment: .leading, spacing: fontSize * 0.8) {
-                                    // Tiêu đề chương hiển thị độc lập ở đầu mỗi chương
-                                    Text(getChapterTitle(at: idx))
-                                        .font(.title2)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(selectedTheme.textColor)
-                                        .multilineTextAlignment(.center)
-                                        .frame(maxWidth: .infinity, alignment: .center)
-                                        .padding(.top, 48)
-                                        .padding(.bottom, 24)
-                                        .id("chapter-header-\(idx)")
-                                    
                                     if let cached = vm.cache.get(idx) {
                                         if cached.state == .loading || cached.state == .prefetching {
                                             VStack(spacing: 16) {
@@ -2123,15 +2112,17 @@ extension ReaderView {
                                             chapterContentView(for: cached)
                                         }
                                     } else {
-                                        // Placeholder khi chưa có trong cache: tự động tải khi cuộn tới gần
+                                        // Placeholder khi chưa có trong cache: tự động tải khi cuộn tới gần (khoảng cách <= 1)
                                         VStack {
                                             ProgressView()
                                                 .tint(selectedTheme.textColor.opacity(0.8))
                                         }
                                         .frame(maxWidth: .infinity, minHeight: 200)
                                         .onAppear {
-                                            Task {
-                                                try? await vm.loadChapterContentFromExtension(idx)
+                                            if abs(idx - chapterIndex) <= 1 {
+                                                Task {
+                                                    try? await vm.loadChapterContentFromExtension(idx)
+                                                }
                                             }
                                         }
                                     }
@@ -2141,6 +2132,16 @@ extension ReaderView {
                                         .opacity(0.2)
                                 }
                                 .id("chapter-\(idx)")
+                                .onChange(of: chapterIndex) { _, newChapterIndex in
+                                    // Khi chương hiện tại thay đổi, tự động tải trước chương lân cận nếu chưa có trong cache
+                                    if abs(idx - newChapterIndex) <= 1 {
+                                        if vm.cache.get(idx) == nil {
+                                            Task {
+                                                try? await vm.loadChapterContentFromExtension(idx)
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                         .padding(.horizontal, 18)
@@ -2157,7 +2158,7 @@ extension ReaderView {
                         if let target = newValue {
                             withAnimation {
                                 if target.paragraphIndex == -1 {
-                                    proxy.scrollTo("chapter-header-\(target.chapterIndex)", anchor: .top)
+                                    proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
                                 } else {
                                     proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
                                 }
@@ -2173,7 +2174,7 @@ extension ReaderView {
                             if savedPara >= 0 {
                                 proxy.scrollTo("paragraph-\(savedChapter)-\(savedPara)", anchor: .top)
                             } else {
-                                proxy.scrollTo("chapter-header-\(savedChapter)", anchor: .top)
+                                proxy.scrollTo("chapter-\(savedChapter)", anchor: .top)
                             }
                         }
                     }
