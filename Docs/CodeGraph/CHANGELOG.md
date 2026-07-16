@@ -4,6 +4,21 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.8] - 2026-07-16
+
+### Nâng cấp Trình đọc truyện sang chế độ cuộn dọc liên tục (Continuous Vertical Scroll Reader)
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 1 file Swift (ReaderView.swift), 2 file tài liệu CodeGraph (05_state_graph.md, 11_subsystems.md)
+*   **Mô tả**:
+    *   **ReaderView**:
+        *   Thay thế cấu trúc `TabView` cuộn ngang cũ bằng một `ScrollView` dọc duy nhất và `LazyVStack` duyệt cố định qua danh sách `ForEach(0..<totalChaptersCount, id: \.self)` để tạo trải nghiệm cuộn dọc liên tục giữa các chương, loại bỏ hoàn toàn lỗi giật nảy màn hình (jump offset) khi cuộn ngược lại.
+        *   Nâng cấp cấu trúc `ParagraphTracker` và struct mới `ParagraphIdentifier` (hỗ trợ so sánh thứ tự `Comparable`) để theo dõi đoạn văn hiển thị theo cặp định danh `(chapterIndex, paragraphIndex)`.
+        *   Cập nhật hàm `updateScrollReadingProgress()` để phát hiện chính xác đoạn văn trên cùng màn hình qua `visibleParagraphs.min()`, tự động cập nhật `chapterIndex` cục bộ để đồng bộ tiêu đề HUD, thanh trượt Slider và tiến trình đọc của `viewModel`.
+        *   Cập nhật `selectChapter(at:index:scroll:)` gán `scrollTarget` để `ScrollViewReader` cuộn màn hình đến tiêu đề chương hoặc đoạn văn đích khi người dùng nhảy chương qua HUD Next/Prev hoặc Mục lục (TOC).
+    *   **CodeGraph**:
+        *   Cập nhật tài liệu `05_state_graph.md` phần Máy Trạng thái Nạp Chương để phản ánh mô hình nạp và giải phóng bộ nhớ động của trình đọc cuộn dọc liên tục.
+        *   Cập nhật tài liệu `11_subsystems.md` để tăng số phiên bản tài liệu.
+
 ## [1.3.7] - 2026-07-16
 
 ### Sửa lỗi lấy chương online của TTS do gán sai thông tin tiện ích khi mở lại màn hình đọc (Fix TTS Online Extension Resolution)

@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-15T16:18:00+07:00
+generated_at: 2026-07-16T14:38:00+07:00
 git_commit: UNKNOWN
 source_files: 87
-document_version: 2
+document_version: 3
 ---
 
 # Máy Trạng thái (State Graph)
@@ -94,25 +94,29 @@ stateDiagram-v2
 
 ## 3. Máy Trạng thái Nạp Chương Trình đọc (Book/Chapter Loading State Machine)
 
-Quản lý luồng tải nội dung chương truyện để hiển thị trên trình đọc (`ReaderViewModel.swift`).
+Quản lý luồng tải nội dung chương truyện để hiển thị trên trình đọc cuộn dọc liên tục (`ReaderViewModel.swift` và `ChapterCache`).
 
 ### 3.1. Sơ đồ Máy Trạng thái Nạp Chương
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Idle : Mở Trình đọc
+    [*] --> Placeholder : Khởi tạo danh sách chương
     
-    Idle --> Loading : loadChapterContent() / Tải nội dung chương
+    Placeholder --> Prefetching : Cuộn tới gần (nằm trong cửa sổ trượt)
+    Placeholder --> Loading : Cuộn tới trực tiếp (onAppear)
+    Prefetching --> Loading : Ưu tiên tải chương đang hiển thị
     
-    Loading --> Success : Tải thành công (từ offline DB hoặc online JS)
-    Loading --> Error : Lỗi kết nối / Extension bị lỗi
+    Loading --> Loaded : Tải thành công (từ offline DB hoặc online JS)
+    Loading --> Failed : Lỗi kết nối / Extension bị lỗi
     
-    Error --> Loading : Nhấn thử lại (Retry)
-    Success --> Loading : Chuyển chương tiếp theo / Quay lại chương trước
+    Failed --> Loading : Nhấn "Tải lại" (Retry)
+    Loaded --> Placeholder : Giải phóng bộ nhớ sau 5 giây ngoài màn hình
 ```
 
 ### 3.2. Triggers & Transitions (Chuyển đổi trạng thái)
-*   **`Idle -> Loading`**: Mở chương truyện lần đầu tiên hoặc chuyển chương. Kích hoạt cờ loading của chương đó.
-*   **`Loading -> Success`**: Đọc thành công dữ liệu từ DB (truyện offline) hoặc chạy JS bóc tách thành công (truyện online). Nội dung chương được hiển thị lên màn hình.
-*   **`Loading -> Error`**: Tải thất bại. Hiển thị view thông báo lỗi kèm nút "Thử lại".
+*   **`Placeholder -> Prefetching`**: Khi chương nằm trong cửa sổ trượt xung quanh chương hiện tại, hệ thống đưa vào hàng đợi tải trước.
+*   **`Placeholder / Prefetching -> Loading`**: Khi chương thực sự xuất hiện trên màn hình qua `.onAppear`, hệ thống lập tức nâng mức ưu tiên để tải ngay nội dung.
+*   **`Loading -> Loaded`**: Đọc thành công dữ liệu từ DB (truyện offline) hoặc chạy JS bóc tách thành công (truyện online). Nội dung chương được bóc thành các `ParagraphItem` và render lên màn hình.
+*   **`Loading -> Failed`**: Tải thất bại do lỗi mạng hoặc extension. Hiển thị thông báo lỗi cục bộ trên container chương kèm nút "Tải lại".
+*   **`Loaded -> Placeholder`**: Khi người dùng cuộn đi qua chương đó và chương nằm ngoài vùng hiển thị quá 5 giây, `ChapterCache` sẽ giải phóng nội dung chữ để tiết kiệm RAM, chuyển trạng thái về `placeholder`.
 <!-- GENERATED END -->

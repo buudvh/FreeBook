@@ -2,11 +2,11 @@ name: Build Unsigned IPA
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, vertical_reader ]
     paths:
       - 'Sources/**'
   pull_request:
-    branches: [ main ]
+    branches: [ main, vertical_reader ]
     paths:
       - 'Sources/**'
   workflow_dispatch:

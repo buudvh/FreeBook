@@ -993,10 +993,12 @@ struct ReaderView: View {
                 )
                 .id("paragraph-\(chapter.index)-\(item.id)")
                 .onAppear {
-                    paragraphTracker.visibleParagraphs.insert(item.id)
+                    let ident = ParagraphIdentifier(chapterIndex: chapter.index, paragraphIndex: item.id)
+                    paragraphTracker.visibleParagraphs.insert(ident)
                 }
                 .onDisappear {
-                    paragraphTracker.visibleParagraphs.remove(item.id)
+                    let ident = ParagraphIdentifier(chapterIndex: chapter.index, paragraphIndex: item.id)
+                    paragraphTracker.visibleParagraphs.remove(ident)
                     updateScrollReadingProgress()
                 }
             }
@@ -1051,10 +1053,12 @@ struct ReaderView: View {
             .equatable()
             .id("paragraph-\(chapter.index)-\(item.id)")
             .onAppear {
-                paragraphTracker.visibleParagraphs.insert(item.id)
+                let ident = ParagraphIdentifier(chapterIndex: chapter.index, paragraphIndex: item.id)
+                paragraphTracker.visibleParagraphs.insert(ident)
             }
             .onDisappear {
-                paragraphTracker.visibleParagraphs.remove(item.id)
+                let ident = ParagraphIdentifier(chapterIndex: chapter.index, paragraphIndex: item.id)
+                paragraphTracker.visibleParagraphs.remove(ident)
                 updateScrollReadingProgress()
             }
         }
@@ -1556,6 +1560,9 @@ struct ReaderView: View {
             vm.onTabSelectionChanged(newIndex: index, immediate: true)
             self.chapterIndex = index
             self.isTransitioning = false
+            if scroll {
+                self.scrollTarget = ScrollTarget(chapterIndex: index, paragraphIndex: -1)
+            }
             return
         }
         
@@ -1676,13 +1683,27 @@ struct ReaderView: View {
         
         // 1. Debounce 200ms cho việc cập nhật tiến trình lưu trữ
         updateProgressWorkItem?.cancel()
-        let progressWork = DispatchWorkItem { [weak viewModel] in
-            guard let topIndex = self.paragraphTracker.visibleParagraphs.min() else { return }
+        let progressWork = DispatchWorkItem { [weak self, weak viewModel] in
+            guard let self = self else { return }
+            guard let topItem = self.paragraphTracker.visibleParagraphs.min() else { return }
+            
+            let targetChapter = topItem.chapterIndex
+            let targetParagraph = topItem.paragraphIndex
+            
+            // Cập nhật lại chỉ mục chương hiện tại nếu thay đổi
+            if self.chapterIndex != targetChapter {
+                self.chapterIndex = targetChapter
+                ReaderView.activeChapterIndex = targetChapter
+                if let vm = viewModel {
+                    vm.activeChapterIndex = targetChapter
+                    vm.tabSelection = targetChapter
+                }
+            }
             
             if let vm = viewModel {
-                vm.updateProgress(chapterIndex: self.chapterIndex, paragraphIndex: topIndex)
+                vm.updateProgress(chapterIndex: targetChapter, paragraphIndex: targetParagraph)
             } else {
-                self.saveReadProgress(index: self.chapterIndex, paragraphIndex: topIndex)
+                self.saveReadProgress(index: targetChapter, paragraphIndex: targetParagraph)
             }
         }
         self.updateProgressWorkItem = progressWork
@@ -1692,9 +1713,10 @@ struct ReaderView: View {
         guard ttsManager.isPlaying || ttsManager.showFloatingWidget else { return }
         
         updateTTSPositionWorkItem?.cancel()
-        let ttsWork = DispatchWorkItem {
-            guard let topIndex = self.paragraphTracker.visibleParagraphs.min() else { return }
-            self.ttsManager.updateParagraphPositionWithoutPlaying(paragraphIndex: topIndex)
+        let ttsWork = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            guard let topItem = self.paragraphTracker.visibleParagraphs.min() else { return }
+            self.ttsManager.updateParagraphPositionWithoutPlaying(paragraphIndex: topItem.paragraphIndex)
         }
         self.updateTTSPositionWorkItem = ttsWork
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: ttsWork)
@@ -2055,289 +2077,109 @@ extension ReaderView {
     private var textReaderView: some View {
         Group {
             if let vm = viewModel {
-                TabView(selection: Binding(
-                    get: { vm.tabSelection },
-                    set: { newIndex in
-                        vm.onTabSelectionChanged(newIndex: newIndex)
-                        self.chapterIndex = newIndex
-                    }
-                )) {
-                    ForEach(vm.stableIndexes, id: \.self) { idx in
-                        if let cached = vm.cache.get(idx) {
-                            ScrollViewReader { proxy in
-                                Group {
-                                    if cached.state == .loading || cached.state == .prefetching {
-                                        VStack(spacing: 32) {
-                                            Spacer()
-                                            
-                                            Text(getChapterTitle(at: idx))
-                                                .font(.title2)
-                                                .fontWeight(.bold)
-                                                .foregroundColor(selectedTheme.textColor)
-                                                .multilineTextAlignment(.center)
-                                                .lineLimit(3)
-                                                .padding(.horizontal, 40)
-                                            
-                                            VStack(spacing: 32) {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(0..<totalChaptersCount, id: \.self) { idx in
+                                VStack(alignment: .leading, spacing: fontSize * 0.8) {
+                                    // Tiêu đề chương hiển thị độc lập ở đầu mỗi chương
+                                    Text(getChapterTitle(at: idx))
+                                        .font(.title2)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(selectedTheme.textColor)
+                                        .multilineTextAlignment(.center)
+                                        .frame(maxWidth: .infinity, alignment: .center)
+                                        .padding(.top, 48)
+                                        .padding(.bottom, 24)
+                                        .id("chapter-header-\(idx)")
+                                    
+                                    if let cached = vm.cache.get(idx) {
+                                        if cached.state == .loading || cached.state == .prefetching {
+                                            VStack(spacing: 16) {
                                                 ProgressView()
-                                                    .scaleEffect(1.5)
                                                     .tint(selectedTheme.textColor.opacity(0.8))
-                                                
-                                                // Nút Quay lại
-                                                Button(action: {
-                                                    dismiss()
-                                                }) {
-                                                    HStack(spacing: 8) {
-                                                        Image(systemName: "arrow.left")
-                                                        Text("Quay lại")
-                                                    }
+                                                Text("Đang tải nội dung...")
                                                     .font(.subheadline)
-                                                    .fontWeight(.medium)
-                                                    .foregroundColor(selectedTheme.textColor)
-                                                    .padding(.horizontal, 24)
-                                                    .padding(.vertical, 10)
-                                                    .background(selectedTheme.textColor.opacity(0.1))
-                                                    .cornerRadius(20)
-                                                }
+                                                    .foregroundColor(selectedTheme.textColor.opacity(0.6))
                                             }
-                                            
-                                            Spacer()
-                                        }
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                        .contentShape(Rectangle())
-                                        .onTapGesture {
-                                            withAnimation(.easeInOut(duration: 0.2)) {
-                                                showControls.toggle()
-                                            }
-                                        }
-                                    } else if case .failed(let message) = cached.state {
-                                        VStack(spacing: 32) {
-                                            Spacer()
-                                            
-                                            Text(getChapterTitle(at: idx))
-                                                .font(.title2)
-                                                .fontWeight(.bold)
-                                                .foregroundColor(selectedTheme.textColor)
-                                                .multilineTextAlignment(.center)
-                                                .lineLimit(3)
-                                                .padding(.horizontal, 40)
-                                            
-                                            VStack(spacing: 20) {
-                                                Text(message)
-                                                    .font(.subheadline)
+                                            .frame(maxWidth: .infinity, minHeight: 200)
+                                        } else if case .failed(let msg) = cached.state {
+                                            VStack(spacing: 16) {
+                                                Text(msg)
                                                     .foregroundColor(.red)
                                                     .multilineTextAlignment(.center)
-                                                    .padding(.horizontal, 40)
-                                                
-                                                VStack(spacing: 12) {
-                                                    // Nút Tải lại (ở trên)
-                                                    Button(action: {
-                                                        Task {
-                                                            try? await vm.loadChapterContentFromExtension(idx)
-                                                        }
-                                                    }) {
-                                                        HStack(spacing: 8) {
-                                                            Image(systemName: "arrow.clockwise")
-                                                            Text("Tải lại")
-                                                        }
-                                                        .fontWeight(.semibold)
-                                                        .foregroundColor(selectedTheme.textColor)
-                                                        .frame(width: 160)
-                                                        .padding(.vertical, 12)
-                                                        .background(selectedTheme.textColor.opacity(0.1))
-                                                        .cornerRadius(24)
-                                                    }
-                                                    
-                                                    // Nút Xem nguồn (ở giữa)
-                                                    Button(action: {
-                                                        showingBypassBrowser = true
-                                                    }) {
-                                                        HStack(spacing: 8) {
-                                                            Image(systemName: "safari")
-                                                            Text("Xem nguồn")
-                                                        }
-                                                        .fontWeight(.semibold)
-                                                        .foregroundColor(selectedTheme.textColor)
-                                                        .frame(width: 160)
-                                                        .padding(.vertical, 12)
-                                                        .background(selectedTheme.textColor.opacity(0.1))
-                                                        .cornerRadius(24)
-                                                    }
-                                                    
-                                                    // Nút Quay lại (ở dưới cùng)
-                                                    Button(action: {
-                                                        dismiss()
-                                                    }) {
-                                                        HStack(spacing: 8) {
-                                                            Image(systemName: "arrow.left")
-                                                            Text("Quay lại")
-                                                        }
-                                                        .fontWeight(.semibold)
-                                                        .foregroundColor(selectedTheme.textColor)
-                                                        .frame(width: 160)
-                                                        .padding(.vertical, 12)
-                                                        .background(selectedTheme.textColor.opacity(0.08))
-                                                        .cornerRadius(24)
+                                                    .padding(.horizontal, 20)
+                                                Button("Tải lại") {
+                                                    Task {
+                                                        try? await vm.loadChapterContentFromExtension(idx)
                                                     }
                                                 }
+                                                .foregroundColor(selectedTheme.textColor)
+                                                .padding(.horizontal, 20)
+                                                .padding(.vertical, 8)
+                                                .background(selectedTheme.textColor.opacity(0.1))
+                                                .cornerRadius(16)
                                             }
-                                            
-                                            Spacer()
-                                        }
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                        .contentShape(Rectangle())
-                                        .onTapGesture {
-                                            withAnimation(.easeInOut(duration: 0.2)) {
-                                                showControls.toggle()
-                                            }
+                                            .frame(maxWidth: .infinity, minHeight: 200)
+                                        } else {
+                                            chapterContentView(for: cached)
                                         }
                                     } else {
-                                        ScrollView {
-                                            LazyVStack(alignment: .leading, spacing: fontSize * 0.8) {
-                                                chapterContentView(for: cached)
-                                            }
-                                            .padding(.horizontal, 18)
-                                            .padding(.vertical, 24)
-                                            .contentShape(Rectangle())
-                                            .onTapGesture {
-                                                withAnimation(.easeInOut(duration: 0.2)) {
-                                                    showControls.toggle()
-                                                }
-                                            }
+                                        // Placeholder khi chưa có trong cache: tự động tải khi cuộn tới gần
+                                        VStack {
+                                            ProgressView()
+                                                .tint(selectedTheme.textColor.opacity(0.8))
                                         }
-                                        .id("scroll-view-\(idx)")
-                                    }
-                                }
-                                .onChange(of: scrollTarget) { _, newValue in
-                                    if let target = newValue, target.chapterIndex == idx {
-                                        withAnimation {
-                                            if target.paragraphIndex == -1 {
-                                                proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
-                                            } else {
-                                                proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
-                                            }
-                                        }
-                                        scrollTarget = nil
-                                    }
-                                }
-                                .onChange(of: cached.state) { _, state in
-                                    if state == .loaded && idx == chapterIndex {
-                                        if !cached.isPositionRestored {
-                                            cached.isPositionRestored = true
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                                let savedPIdx = getSavedParagraphIndex(for: idx)
-                                                let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
-                                                withAnimation(.easeOut(duration: 0.25)) {
-                                                    if savedPIdx >= 0 && hasValidParagraph {
-                                                        proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
-                                                    } else {
-                                                        if cached.paragraphItems.contains(where: { $0.id == -1 }) {
-                                                            proxy.scrollTo("paragraph-\(idx)--1", anchor: .top)
-                                                        }
-                                                    }
-                                                }
-                                                if self.ttsShouldAutoPlayNextChapter {
-                                                    self.ttsShouldAutoPlayNextChapter = false
-                                                    startTTS(at: idx, paragraphIndex: -1)
-                                                } else {
-                                                    schedulePrepareTTS()
-                                                }
-                                            }
-                                        } else {
-                                            if self.ttsShouldAutoPlayNextChapter {
-                                                self.ttsShouldAutoPlayNextChapter = false
-                                                startTTS(at: idx, paragraphIndex: -1)
-                                            } else {
-                                                schedulePrepareTTS()
+                                        .frame(maxWidth: .infinity, minHeight: 200)
+                                        .onAppear {
+                                            Task {
+                                                try? await vm.loadChapterContentFromExtension(idx)
                                             }
                                         }
                                     }
+                                    
+                                    Divider()
+                                        .padding(.vertical, 40)
+                                        .opacity(0.2)
                                 }
-                                .onAppear {
-                                    // Tab đích đã onAppear → animation swipe kết thúc.
-                                    // Slide window và sync stableIndexes để chuẩn bị swipe tiếp theo.
-                                    if idx == chapterIndex {
-                                        vm.commitWindowSlide()
-                                    }
-                                    if cached.state == .loaded && idx == chapterIndex {
-                                        if !cached.isPositionRestored {
-                                            cached.isPositionRestored = true
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                                let savedPIdx = getSavedParagraphIndex(for: idx)
-                                                let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
-                                                withAnimation(.easeOut(duration: 0.25)) {
-                                                    if savedPIdx >= 0 && hasValidParagraph {
-                                                        proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
-                                                    } else {
-                                                        if cached.paragraphItems.contains(where: { $0.id == -1 }) {
-                                                            proxy.scrollTo("paragraph-\(idx)--1", anchor: .top)
-                                                        }
-                                                    }
-                                                }
-                                                if self.ttsShouldAutoPlayNextChapter {
-                                                    self.ttsShouldAutoPlayNextChapter = false
-                                                    startTTS(at: idx, paragraphIndex: -1)
-                                                } else {
-                                                    schedulePrepareTTS()
-                                                }
-                                            }
-                                        } else {
-                                            if self.ttsShouldAutoPlayNextChapter {
-                                                self.ttsShouldAutoPlayNextChapter = false
-                                                startTTS(at: idx, paragraphIndex: -1)
-                                            } else {
-                                                schedulePrepareTTS()
-                                            }
-                                        }
-                                    }
-                                }
-                                .onChange(of: chapterIndex) { _, newChapterIndex in
-                                    if newChapterIndex == idx && cached.state == .loaded {
-                                        if !cached.isPositionRestored {
-                                            cached.isPositionRestored = true
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                                let savedPIdx = getSavedParagraphIndex(for: idx)
-                                                let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
-                                                withAnimation(.easeOut(duration: 0.25)) {
-                                                    if savedPIdx >= 0 && hasValidParagraph {
-                                                        proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
-                                                    } else {
-                                                        if cached.paragraphItems.contains(where: { $0.id == -1 }) {
-                                                            proxy.scrollTo("paragraph-\(idx)--1", anchor: .top)
-                                                        }
-                                                    }
-                                                }
-                                                if self.ttsShouldAutoPlayNextChapter {
-                                                    self.ttsShouldAutoPlayNextChapter = false
-                                                    startTTS(at: idx, paragraphIndex: -1)
-                                                } else {
-                                                    schedulePrepareTTS()
-                                                }
-                                            }
-                                        } else {
-                                            if self.ttsShouldAutoPlayNextChapter {
-                                                self.ttsShouldAutoPlayNextChapter = false
-                                                startTTS(at: idx, paragraphIndex: -1)
-                                            } else {
-                                                schedulePrepareTTS()
-                                            }
-                                        }
-                                    }
-                                }
-                                // FIX 2: Safety net — nếu onAppear không fire (tab đã tồn tại trong hierarchy),
-                                // onChange của tabSelection sẽ đảm bảo commitWindowSlide được gọi.
-                                .onChange(of: vm.tabSelection) { _, newTabSelection in
-                                    if newTabSelection == idx && idx == chapterIndex {
-                                        vm.commitWindowSlide()
-                                    }
+                                .id("chapter-\(idx)")
+                            }
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 24)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showControls.toggle()
+                            }
+                        }
+                    }
+                    .id("main-scroll-view")
+                    .onChange(of: scrollTarget) { _, newValue in
+                        if let target = newValue {
+                            withAnimation {
+                                if target.paragraphIndex == -1 {
+                                    proxy.scrollTo("chapter-header-\(target.chapterIndex)", anchor: .top)
+                                } else {
+                                    proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
                                 }
                             }
-                            .tag(idx)
+                            scrollTarget = nil
+                        }
+                    }
+                    .onAppear {
+                        // Khôi phục vị trí đọc chính xác khi mở lại truyện
+                        let savedChapter = self.chapterIndex
+                        let savedPara = getSavedParagraphIndex(for: savedChapter)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            if savedPara >= 0 {
+                                proxy.scrollTo("paragraph-\(savedChapter)-\(savedPara)", anchor: .top)
+                            } else {
+                                proxy.scrollTo("chapter-header-\(savedChapter)", anchor: .top)
+                            }
                         }
                     }
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .indexViewStyle(.page(backgroundDisplayMode: .never))
             } else {
                 ProgressView()
             }
@@ -3013,6 +2855,18 @@ extension AnyTransition {
     }
 }
 
+struct ParagraphIdentifier: Hashable, Comparable {
+    let chapterIndex: Int
+    let paragraphIndex: Int
+    
+    static func < (lhs: ParagraphIdentifier, rhs: ParagraphIdentifier) -> Bool {
+        if lhs.chapterIndex != rhs.chapterIndex {
+            return lhs.chapterIndex < rhs.chapterIndex
+        }
+        return lhs.paragraphIndex < rhs.paragraphIndex
+    }
+}
+
 class ParagraphTracker {
-    var visibleParagraphs: Set<Int> = []
+    var visibleParagraphs: Set<ParagraphIdentifier> = []
 }

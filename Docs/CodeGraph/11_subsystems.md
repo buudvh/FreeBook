@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-14T09:15:00+07:00
+generated_at: 2026-07-16T14:38:00+07:00
 git_commit: UNKNOWN
 source_files: 87
-document_version: 1
+document_version: 2
 ---
 
 # Phân tích các Phân hệ Cốt lõi (Subsystems)
