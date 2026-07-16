@@ -424,7 +424,6 @@ public final class TTSManager: NSObject, ObservableObject {
         self.chapterTitle = currentChapter.title
         
         self.continueStartSpeaking(startParagraphIndex: startParagraphIndex)
-        self.triggerNextChapterPrefetch()
     }
     
     private func continueStartSpeaking(startParagraphIndex: Int) {
@@ -812,7 +811,6 @@ public final class TTSManager: NSObject, ObservableObject {
             object: nil,
             userInfo: ["bookId": self.playingBookId, "chapterIndex": index]
         )
-        self.triggerNextChapterPrefetch()
     }
     
     private func triggerNextChapterPrefetch() {
@@ -872,8 +870,12 @@ public final class TTSManager: NSObject, ObservableObject {
         // let pid = currentPlaybackId ?? "NONE"
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] speakCurrent() được gọi. index=\(currentParagraphIndex)")
         
-        // Đảm bảo trạng thái đang phát hợp lệ và index nằm trong phạm vi của mảng paragraphs
         guard isPlaying, currentParagraphIndex >= 0 && currentParagraphIndex < paragraphs.count else { return }
+        
+        // --- THUẬT TOÁN TẢI TRƯỚC SỚM 75% CHO TTS ---
+        if currentParagraphIndex >= (paragraphs.count * 3) / 4 {
+            self.triggerNextChapterPrefetch()
+        }
         
         let paragraph = paragraphs[currentParagraphIndex]
         self.highlightRange = paragraph.range // Cập nhật vùng bôi đen chữ đang đọc trên giao diện đọc truyện

@@ -1701,6 +1701,30 @@ struct ReaderView: View {
             
             if let vm = viewModel {
                 vm.updateProgress(chapterIndex: targetChapter, paragraphIndex: targetParagraph)
+                
+                // --- THUẬT TOÁN TẢI TRƯỚC SỚM 75% KIỂU YUEDU-READER ---
+                if let cached = vm.cache.get(targetChapter), cached.state == .loaded {
+                    let totalParagraphs = cached.paragraphItems.count
+                    if totalParagraphs > 0 {
+                        // Tìm đoạn văn hiển thị lớn nhất (nằm dưới cùng màn hình) của chương hiện tại
+                        let visibleParasOfCurrentChapter = self.paragraphTracker.visibleParagraphs.filter { $0.chapterIndex == targetChapter }
+                        if let maxItem = visibleParasOfCurrentChapter.max() {
+                            let currentPara = maxItem.paragraphIndex
+                            
+                            // Nếu người dùng đã cuộn qua 75% số đoạn văn của chương hiện hành
+                            if currentPara >= (totalParagraphs * 3) / 4 {
+                                let nextChapter = targetChapter + 1
+                                // Kích hoạt tải trước chương tiếp theo nếu nó hợp lệ và chưa có trong cache
+                                if nextChapter < totalChaptersCount && vm.cache.get(nextChapter) == nil {
+                                    Task {
+                                        // Hàm này tự động ưu tiên nạp từ RAM -> Local DB -> Online Extension
+                                        try? await vm.loadChapterContentFromExtension(nextChapter)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             } else {
                 self.saveReadProgress(index: targetChapter, paragraphIndex: targetParagraph)
             }
@@ -2081,7 +2105,7 @@ extension ReaderView {
                     ScrollViewReader { proxy in
                         ScrollView {
                             LazyVStack(alignment: .leading, spacing: 0) {
-                                ForEach(0..<totalChaptersCount, id: \.self) { idx in
+                            ForEach(0..<totalChaptersCount, id: \.self) { idx in
                                     VStack(alignment: .leading, spacing: fontSize * 0.8) {
                                         if let cached = vm.cache.get(idx) {
                                             if cached.state == .loading || cached.state == .prefetching {
@@ -2114,17 +2138,9 @@ extension ReaderView {
                                             } else {
                                                 // Đã tải xong nội dung
                                                 chapterContentView(for: cached)
-                                                    .onAppear {
-                                                        // Nếu người dùng vừa thực hiện nhảy chương tới đây, cuộn lại lần nữa để định vị chính xác đầu chương sau khi render text đầy đủ
-                                                        if self.chapterIndex == idx {
-                                                            withAnimation {
-                                                                proxy.scrollTo("chapter-\(idx)", anchor: .top)
-                                                            }
-                                                        }
-                                                    }
                                             }
                                         } else {
-                                            // Placeholder khi chưa có trong cache: tự động tải khi cuộn tới gần (khoảng cách <= 1)
+                                            // Placeholder khi chưa có trong cache: tự động tải khi view chuẩn bị hiển thị trên màn hình
                                             VStack {
                                                 ProgressView()
                                                     .tint(selectedTheme.textColor.opacity(0.8))
@@ -2157,16 +2173,6 @@ extension ReaderView {
                                     }
                                     .frame(maxWidth: .infinity, minHeight: readerHeight) // Căn dãn tối thiểu cho container chương
                                     .id("chapter-\(idx)")
-                                    .onChange(of: chapterIndex) { _, newChapterIndex in
-                                        // Tải trước chủ động chương lân cận khi người dùng chuyển chương
-                                        if abs(idx - newChapterIndex) <= 1 {
-                                            if vm.cache.get(idx) == nil {
-                                                Task {
-                                                    try? await vm.loadChapterContentFromExtension(idx)
-                                                }
-                                            }
-                                        }
-                                    }
                                 }
                             }
                             .padding(.horizontal, 18)
