@@ -29,6 +29,7 @@ class CachedChapter: Identifiable {
     var originalContent: String = ""
     var scrollParagraphIndex: Int = -1
     var paragraphItems: [ParagraphItem] = []
+    var readerPages: [ReaderPage] = []
     var isPositionRestored: Bool = false
     
     init(index: Int) {

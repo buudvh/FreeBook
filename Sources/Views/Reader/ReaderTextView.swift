@@ -151,6 +151,10 @@ struct ReaderTextView: UIViewRepresentable {
                 if shouldScroll {
                     DispatchQueue.main.async {
                         if let scrollView = uiView.parentScrollView {
+                            // Chỉ cuộn nếu ScrollView thực sự có thể cuộn dọc (chiều cao content lớn hơn chiều cao hiển thị)
+                            guard scrollView.contentSize.height > scrollView.bounds.height else {
+                                return
+                            }
                             // Chỉ tự động cuộn nếu người dùng không tương tác vuốt chạm bằng tay
                             guard !scrollView.isDragging && !scrollView.isDecelerating && !scrollView.isTracking else {
                                 return

@@ -525,14 +525,13 @@ struct ReaderView: View {
                   ttsManager.playingChapterIndex == chapterIndex &&
                   newValue >= 0 else { return }
             
+            // Cập nhật scrollParagraphIndex của CachedChapter hiện tại để lật trang theo TTS
+            if let vm = viewModel, let cached = vm.cache.get(chapterIndex) {
+                cached.scrollParagraphIndex = newValue
+            }
+            
             // Lưu vị trí TTS đang phát vào database
             saveReadProgress(index: chapterIndex, paragraphIndex: newValue)
-            
-            guard !isAutoScrollDisabled else { return }
-            
-            withAnimation {
-                scrollTarget = ScrollTarget(chapterIndex: ttsManager.playingChapterIndex, paragraphIndex: newValue)
-            }
         }
         .toolbar(.hidden, for: .tabBar)
     }
@@ -1626,6 +1625,18 @@ struct ReaderView: View {
         return -1
     }
     
+    private func getInitialPageIndex(for paragraphIndex: Int, in pages: [ReaderPage]) -> Int {
+        if paragraphIndex == 999999 {
+            return max(0, pages.count - 1)
+        }
+        if let idx = pages.firstIndex(where: { page in
+            page.paragraphItems.contains(where: { $0.id == paragraphIndex })
+        }) {
+            return idx
+        }
+        return 0
+    }
+    
     private func prepareTTSForCurrentState() {
         guard !ttsManager.isPlaying else { return }
         
@@ -2192,20 +2203,77 @@ extension ReaderView {
                                             }
                                         }
                                     } else {
-                                        ScrollView {
-                                            LazyVStack(alignment: .leading, spacing: fontSize * 0.8) {
-                                                chapterContentView(for: cached)
-                                            }
-                                            .padding(.horizontal, 18)
-                                            .padding(.vertical, 24)
-                                            .contentShape(Rectangle())
-                                            .onTapGesture {
-                                                withAnimation(.easeInOut(duration: 0.2)) {
-                                                    showControls.toggle()
+                                        let readerPages = ReaderPageHelper.paginate(
+                                            paragraphItems: cached.paragraphItems,
+                                            fontSize: CGFloat(fontSize),
+                                            lineSpacing: CGFloat(lineSpacing),
+                                            renderSize: CGSize(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height),
+                                            contentInsets: UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+                                        )
+                                        
+                                        ReaderPagedView(
+                                            pages: readerPages,
+                                            chapterIndex: idx,
+                                            isTranslationEnabled: isTranslationEnabled,
+                                            fontSize: fontSize,
+                                            lineSpacing: lineSpacing,
+                                            theme: selectedTheme,
+                                            highlightRange: nil,
+                                            activeParagraphId: ttsManager.isPlaying && ttsManager.playingChapterIndex == idx ? ttsManager.currentParentParagraphIndex : nil,
+                                            currentPageIndex: Binding(
+                                                get: {
+                                                    let savedPIdx = cached.scrollParagraphIndex >= 0 ? cached.scrollParagraphIndex : getSavedParagraphIndex(for: idx)
+                                                    return getInitialPageIndex(for: savedPIdx, in: readerPages)
+                                                },
+                                                set: { newPageIndex in
+                                                    if newPageIndex >= 0 && newPageIndex < readerPages.count {
+                                                        let pIdx = readerPages[newPageIndex].paragraphItems.first?.id ?? 0
+                                                        cached.scrollParagraphIndex = pIdx
+                                                        if idx == chapterIndex {
+                                                            vm.updateProgress(chapterIndex: idx, paragraphIndex: pIdx)
+                                                        }
+                                                    }
+                                                }
+                                            ),
+                                            onSelectionChange: { selectedText, sentence, offset, absoluteOffset, item in
+                                                self.onSelectionChangeInParagraph(
+                                                    selectedText: selectedText,
+                                                    sentence: sentence,
+                                                    offset: offset,
+                                                    absoluteOffset: absoluteOffset,
+                                                    item: item,
+                                                    chapterIndex: idx
+                                                )
+                                            },
+                                            onSpeakFromHere: { offset, item in
+                                                startTTS(at: idx, paragraphIndex: item.id)
+                                            },
+                                            onChapterBoundaryReached: { direction in
+                                                if direction == .forward {
+                                                    if idx + 1 < totalChaptersCount {
+                                                        vm.onTabSelectionChanged(newIndex: idx + 1)
+                                                        self.chapterIndex = idx + 1
+                                                        if let nextCached = vm.cache.get(idx + 1) {
+                                                            nextCached.scrollParagraphIndex = 0
+                                                        }
+                                                    }
+                                                } else {
+                                                    if idx - 1 >= 0 {
+                                                        vm.onTabSelectionChanged(newIndex: idx - 1)
+                                                        self.chapterIndex = idx - 1
+                                                        if let prevCached = vm.cache.get(idx - 1) {
+                                                            prevCached.scrollParagraphIndex = 999999
+                                                        }
+                                                    }
                                                 }
                                             }
+                                        )
+                                        .contentShape(Rectangle())
+                                        .onTapGesture {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                showControls.toggle()
+                                            }
                                         }
-                                        .id("scroll-view-\(idx)")
                                     }
                                 }
                                 .onChange(of: scrollTarget) { _, newValue in

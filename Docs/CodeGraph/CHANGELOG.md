@@ -4,6 +4,22 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.8] - 2026-07-16
+
+### Thiết lập Chế độ lật trang vuốt ngang (Paged Mode) thay thế cho cuộn dọc (Implement Paged Reader Mode)
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 6 file (5 file Swift + 1 file workflow)
+*   **Mô tả**:
+    *   **build-ipa.yml**: Cập nhật cấu hình trigger của push và pull_request cho nhánh mới `optimize_reader` để tự động kích hoạt tiến trình build CI/CD.
+    *   **ReaderPage** (NEW): Định nghĩa cấu trúc `ReaderPage` lưu trữ thông tin trang sách và `ReaderPageHelper` chứa thuật toán phân trang tĩnh, hỗ trợ căn lề lề dưới theo lưới dòng (`gridAlignedBottomInset`) để đảm bảo không bị cắt nửa chữ ở đáy trang.
+    *   **ReaderPagedView** (NEW): Viết wrapper `UIViewControllerRepresentable` bọc `UIPageViewController` của UIKit để thực hiện vuốt lật trang ngang mượt mà, hỗ trợ tự động prefetch trang và tạo trang ảo ở biên để vuốt chuyển chương liền mạch.
+    *   **ChapterCache**: Thêm mảng `readerPages: [ReaderPage]` vào `CachedChapter` để cache dữ liệu phân trang.
+    *   **ReaderView**: 
+        *   Thay thế hoàn toàn `ScrollView` và `LazyVStack` bằng `ReaderPagedView` mới.
+        *   Tích hợp cử chỉ lật trang qua biên chương để chuyển chương tự động.
+        *   Đồng bộ `currentParentParagraphIndex` của `TTSManager` để tự động lật trang tương ứng khi phát âm.
+    *   **ReaderTextView**: Chặn hành vi tự động cuộn dọc đối với các ScrollView có chiều cao vừa màn hình (không thể cuộn) để giữ trang hiển thị tĩnh và ổn định trong chế độ lật trang.
+
 ## [1.3.7] - 2026-07-16
 
 ### Sửa lỗi lấy chương online của TTS do gán sai thông tin tiện ích khi mở lại màn hình đọc (Fix TTS Online Extension Resolution)
