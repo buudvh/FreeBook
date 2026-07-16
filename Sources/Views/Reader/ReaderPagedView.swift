@@ -33,6 +33,8 @@ struct ReaderPagedView: UIViewControllerRepresentable {
     let theme: ReaderTheme
     let highlightRange: NSRange? // Range highlight của paragraph đang đọc (tương đối trong trang)
     let activeParagraphId: Int? // ID của paragraph đang đọc (để xác định trang cần highlight)
+    let showChapterTitle: Bool // Ẩn/hiện tiêu đề chương
+    let scrollParagraphIndex: Int // Đoạn văn tiến độ hiện hành để đồng bộ chính xác trang
     
     @Binding var currentPageIndex: Int
     
@@ -79,6 +81,15 @@ struct ReaderPagedView: UIViewControllerRepresentable {
         // 1. Đồng bộ trang hiển thị hiện tại nếu Binding currentPageIndex thay đổi từ bên ngoài (ví dụ nạp bookmark, TTS nhảy trang)
         if let currentVC = uiViewController.viewControllers?.first as? ReaderPageViewController {
             if currentVC.pageIndex != currentPageIndex && currentPageIndex >= 0 && currentPageIndex < pages.count {
+                // Đảm bảo không bị giật ngược trang khi vuốt tay:
+                // Nếu trang hiện tại của UIPageViewController đã chứa đoạn văn tiến độ hiện tại, ta không gọi setViewControllers
+                let activeId = scrollParagraphIndex
+                let currentPageContainsParagraph = pages[currentVC.pageIndex].paragraphItems.contains(where: { $0.id == activeId })
+                
+                if currentPageContainsParagraph {
+                    return
+                }
+                
                 if let targetVC = context.coordinator.viewController(at: currentPageIndex) {
                     let direction: UIPageViewController.NavigationDirection = currentPageIndex > currentVC.pageIndex ? .forward : .reverse
                     uiViewController.setViewControllers([targetVC], direction: direction, animated: true, completion: nil)
@@ -222,10 +233,20 @@ struct ReaderPagedView: UIViewControllerRepresentable {
                 }
             }
             
-            // Tìm range của tiêu đề (paragraph ID -1) trong trang này để render to/đậm
-            let pageTitleRange: NSRange? = parent.isTranslationEnabled
-                ? page.translatedParagraphRanges[-1]
-                : page.originalParagraphRanges[-1]
+            // Tìm range của tiêu đề (paragraph ID -1) trong trang này để render to/đậm (chỉ hiện khi showChapterTitle là true và ở trang đầu)
+            let pageTitleRange: NSRange? = (parent.showChapterTitle && page.id == 0)
+                ? (parent.isTranslationEnabled ? page.translatedParagraphRanges[-1] : page.originalParagraphRanges[-1])
+                : nil
+            
+            let safeAreaTop = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first?.windows.first?.safeAreaInsets.top ?? 47
+            let safeAreaBottom = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first?.windows.first?.safeAreaInsets.bottom ?? 34
+            
+            let topPadding = max(16, safeAreaTop)
+            let renderHeight = UIScreen.main.bounds.height - safeAreaTop - safeAreaBottom
             
             return AnyView(
                 VStack(spacing: 0) {
@@ -254,13 +275,13 @@ struct ReaderPagedView: UIViewControllerRepresentable {
                         }
                     )
                     .padding(.horizontal, 16) // Lề trang sách trái phải
-                    .padding(.top, 16)        // Lề trang sách trên
+                    .padding(.top, topPadding) // Lề trang sách trên tránh tai thỏ
                     // Tự động căn lề dưới động theo Grid Alignment để chữ luôn nguyên vẹn dòng
                     .padding(.bottom, ReaderPageHelper.gridAlignedBottomInset(
-                        renderSize: CGSize(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height),
+                        renderSize: CGSize(width: UIScreen.main.bounds.width, height: renderHeight),
                         fontSize: CGFloat(parent.fontSize),
                         lineSpacing: CGFloat(parent.lineSpacing),
-                        contentInsets: UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+                        contentInsets: UIEdgeInsets(top: topPadding, left: 16, bottom: 16, right: 16)
                     ))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

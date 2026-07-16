@@ -511,6 +511,12 @@ struct ReaderView: View {
                 // TTSManager đã tự advance và đang phát chương mới.
                 // ReaderView chỉ cần sync UI (chuyển tab, scroll) — không trigger startTTS thêm.
                 self.ttsShouldAutoPlayNextChapter = false
+                
+                // Đồng bộ chỉ số hiển thị của chương mới về đầu chương (đoạn 0) để khớp với điểm bắt đầu đọc của TTS
+                if let vm = viewModel, let nextCached = vm.cache.get(nextIdx) {
+                    nextCached.scrollParagraphIndex = 0
+                }
+                
                 selectChapter(at: nextIdx, scroll: true)
             }
         }
@@ -528,6 +534,18 @@ struct ReaderView: View {
             // Cập nhật scrollParagraphIndex của CachedChapter hiện tại để lật trang theo TTS
             if let vm = viewModel, let cached = vm.cache.get(chapterIndex) {
                 cached.scrollParagraphIndex = newValue
+                
+                // Warm-up Preloading cho TTS:
+                // Tự động tải trước chương tiếp theo khi TTS phát đến 80% số đoạn văn của chương hiện tại
+                let totalItems = cached.paragraphItems.count
+                if totalItems > 0 && Double(newValue) / Double(totalItems) >= 0.8 {
+                    let nextIdx = chapterIndex + 1
+                    if nextIdx < totalChaptersCount {
+                        Task {
+                            await prefetchChapter(at: nextIdx)
+                        }
+                    }
+                }
             }
             
             // Lưu vị trí TTS đang phát vào database
@@ -1610,12 +1628,17 @@ struct ReaderView: View {
             return
         }
         
+        let renderInfo = getRenderSizeAndInsets()
+        let itemsToPaginate = showChapterTitle
+            ? cached.paragraphItems
+            : cached.paragraphItems.filter { !$0.isTitle }
+            
         let readerPages = ReaderPageHelper.paginate(
-            paragraphItems: cached.paragraphItems,
+            paragraphItems: itemsToPaginate,
             fontSize: CGFloat(fontSize),
             lineSpacing: CGFloat(lineSpacing),
-            renderSize: CGSize(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height),
-            contentInsets: UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+            renderSize: renderInfo.size,
+            contentInsets: renderInfo.insets
         )
         
         let savedPIdx = cached.scrollParagraphIndex >= 0 ? cached.scrollParagraphIndex : getSavedParagraphIndex(for: chapterIndex)
@@ -1804,6 +1827,11 @@ struct ReaderView: View {
     }
     
     private func prefetchChapter(at index: Int) async {
+        // 1. Kiểm tra nếu chương đã được nạp thành công trong RAM Cache (đọc online hoặc local)
+        if let vm = viewModel, let cached = vm.cache.get(index), cached.state == .loaded {
+            return
+        }
+        
         let sortedChapters: [Chapter]
         let targetUrl: String
         let targetTitle: String
@@ -1949,6 +1977,22 @@ struct DictionaryMatchInfo: Identifiable {
 
 // MARK: - View Helpers Extension
 extension ReaderView {
+    
+    private func getRenderSizeAndInsets() -> (size: CGSize, insets: UIEdgeInsets) {
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.windows.first
+        let safeAreaTop = window?.safeAreaInsets.top ?? 47
+        let safeAreaBottom = window?.safeAreaInsets.bottom ?? 34
+        
+        let topPadding = max(16, safeAreaTop)
+        let renderHeight = UIScreen.main.bounds.height - safeAreaTop - safeAreaBottom
+        
+        return (
+            size: CGSize(width: UIScreen.main.bounds.width, height: renderHeight),
+            insets: UIEdgeInsets(top: topPadding, left: 16, bottom: 16, right: 16)
+        )
+    }
     
     private func scrollToTTSHighlightIfNeeded() {
         guard !isAutoScrollDisabled else { return }
@@ -2228,12 +2272,17 @@ extension ReaderView {
                                             }
                                         }
                                     } else {
+                                        let renderInfo = getRenderSizeAndInsets()
+                                        let itemsToPaginate = showChapterTitle
+                                            ? cached.paragraphItems
+                                            : cached.paragraphItems.filter { !$0.isTitle }
+                                            
                                         let readerPages = ReaderPageHelper.paginate(
-                                            paragraphItems: cached.paragraphItems,
+                                            paragraphItems: itemsToPaginate,
                                             fontSize: CGFloat(fontSize),
                                             lineSpacing: CGFloat(lineSpacing),
-                                            renderSize: CGSize(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height),
-                                            contentInsets: UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+                                            renderSize: renderInfo.size,
+                                            contentInsets: renderInfo.insets
                                         )
                                         
                                         ReaderPagedView(
@@ -2245,6 +2294,8 @@ extension ReaderView {
                                             theme: selectedTheme,
                                             highlightRange: nil,
                                             activeParagraphId: ttsManager.isPlaying && ttsManager.playingChapterIndex == idx ? ttsManager.currentParentParagraphIndex : nil,
+                                            showChapterTitle: showChapterTitle,
+                                            scrollParagraphIndex: cached.scrollParagraphIndex,
                                             currentPageIndex: Binding(
                                                 get: {
                                                     let savedPIdx = cached.scrollParagraphIndex >= 0 ? cached.scrollParagraphIndex : getSavedParagraphIndex(for: idx)

@@ -23,10 +23,16 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
         *   Cập nhật `onSelectionChange` truyền đúng `mapped.relativeOffset` (tọa độ tương đối trong đoạn văn) thay vì absolute offset của trang để khôi phục hoạt động cho trình dịch.
         *   Tối ưu hóa `findParagraphItem` với thuật toán fallback tìm đoạn văn gần nhất nếu bôi đen rơi trúng biên hoặc ký tự xuống dòng `\n`.
         *   Sửa lỗi biên dịch UIColor.toColor() (bằng cách dùng Color(uiColor:)) và Int.infinity (bằng cách dùng Int.max) để ứng dụng build thành công trên Xcode.
+        *   Áp dụng kiểm tra `currentPageContainsParagraph` trong `updateUIViewController` chặn đứng việc giật ngược trang về trang cũ khi lướt tay lật trang.
+        *   Tính toán `topPadding` và `renderHeight` động dựa trên `safeAreaInsets` thực tế của thiết bị để nội dung luôn đẩy xuống dưới tai thỏ, tránh cắt lẹm.
         *   Bổ sung callback `onPageChanged(Int)` chỉ báo chỉ số trang khi transition lật trang đã hoàn thành thực sự (settled).
     *   **ReaderView**:
         *   Thay thế Binding gán trực tiếp `currentPageIndex` bằng việc nhận cập nhật từ callback `onPageChanged`. Tránh re-render SwiftUI liên tục khi vuốt qua các trang trung gian, giải phóng Main Thread và loại bỏ giật lag (Readium-Style).
         *   Tích hợp cơ chế Warm-up tải trước chương (Proactive Preloading) giống Yuedu-reader: tự động gọi `prefetchChapter` chạy nền tải trước chương kế tiếp khi đọc đến $\ge 80\%$ chương hiện tại hoặc chương trước khi đọc $\le 1$ trang.
+        *   Thêm cơ chế Warm-up preload tương tự cho TTS trong observer `currentParentParagraphIndex`: khi giọng đọc phát đến $\ge 80\%$ tổng số đoạn văn của chương, tự động gọi `prefetchChapter` chạy nền tải trước chương kế tiếp.
+        *   Tối ưu hóa hàm `prefetchChapter` kiểm tra bộ đệm RAM Cache trước khi truy cập dữ liệu DB hoặc cào mạng, tránh tải trùng lặp dữ liệu online.
+        *   Đồng bộ chỉ số hiển thị khi chuyển chương tự động dưới sự điều khiển của TTS: ép buộc gán `scrollParagraphIndex` của chương mới về `0` trước khi chuyển sang chương mới, giúp UI hiển thị từ trang đầu tiên khớp với điểm phát của TTS.
+        *   Bổ sung hàm helper `getRenderSizeAndInsets` để lấy kích thước phân trang chính xác (đã khấu trừ safe area top/bottom) và lọc bỏ tiêu đề chương khi `showChapterTitle == false` trước khi phân trang.
         *   Thêm hàm `startSpeakingFromCurrentPage()` xác định chính xác đoạn văn đầu tiên của trang hiện đang hiển thị để kích hoạt TTS khi người dùng bấm nút "Nghe truyện" ở Bottom Bar hoặc thanh HUD điều khiển.
 
 ## [1.3.8] - 2026-07-16
