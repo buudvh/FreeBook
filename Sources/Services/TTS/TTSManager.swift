@@ -81,6 +81,8 @@ public final class TTSManager: NSObject, ObservableObject {
     @Published public private(set) var playingCoverUrl: String = ""
     @Published public private(set) var playingChapterUrl: String = ""
     @Published public private(set) var playingChapterIndex: Int = -1
+    @Published public private(set) var playingBookDetailUrl: String = ""
+    @Published public private(set) var playingBookSourceName: String = ""
     @Published public private(set) var extensionInfo: TTSExtensionInfo? = nil
     
     private var chaptersQueue: [TTSChapterInfo] = []
@@ -287,6 +289,8 @@ public final class TTSManager: NSObject, ObservableObject {
         startParagraphIndex: Int,
         bookTitle: String,
         coverUrl: String = "",
+        bookDetailUrl: String = "",
+        bookSourceName: String = "",
         extensionInfo: TTSExtensionInfo?
     ) {
         guard !isPlaying else { return }
@@ -296,6 +300,8 @@ public final class TTSManager: NSObject, ObservableObject {
         self.chaptersQueue = chapters
         self.playingChapterIndex = currentIndex
         self.bookTitle = bookTitle
+        self.playingBookDetailUrl = bookDetailUrl
+        self.playingBookSourceName = bookSourceName
         self.extensionInfo = extensionInfo
         self.chapterContent = chapterContent
         
@@ -385,6 +391,8 @@ public final class TTSManager: NSObject, ObservableObject {
         startParagraphIndex: Int,
         bookTitle: String,
         coverUrl: String = "",
+        bookDetailUrl: String = "",
+        bookSourceName: String = "",
         extensionInfo: TTSExtensionInfo?
     ) {
         // Dọn dẹp trình phát cũ trước tiên để tránh xung đột luồng và callback lặp
@@ -398,6 +406,8 @@ public final class TTSManager: NSObject, ObservableObject {
         self.chaptersQueue = chapters
         self.playingChapterIndex = currentIndex
         self.bookTitle = bookTitle
+        self.playingBookDetailUrl = bookDetailUrl
+        self.playingBookSourceName = bookSourceName
         self.extensionInfo = extensionInfo
         self.chapterContent = chapterContent
         self.showFloatingWidget = true

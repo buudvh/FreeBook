@@ -1,3 +1,12 @@
+---
+generated_by: Antigravity
+generator_version: 1.0
+generated_at: 2026-07-16T08:21:00+07:00
+git_commit: UNKNOWN
+source_files: 87
+document_version: 1
+---
+
 # Đồ thị File & Quan hệ Import (File & Import Graph)
 
 Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc giữa 87 file mã nguồn Swift trong dự án FreeBook, tách biệt rõ ràng giữa Import Graph và Dependency Graph cho từng tệp.
@@ -154,7 +163,6 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
     *   [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
     *   [ExtensionConfigView.swift](../../Sources/Views/Extensions/Config/ExtensionConfigView.swift)
     *   [RepositoryManagerView.swift](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift)
-    *   [ExtensionStoreView.swift](../../Sources/Views/Extensions/Store/ExtensionStoreView.swift)
     *   [ReaderChapterListView.swift](../../Sources/Views/Reader/ReaderChapterListView.swift)
     *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
     *   [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
@@ -173,7 +181,6 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
     *   [FreeBookApp.swift](../../Sources/App/FreeBookApp.swift)
     *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
     *   [RepositoryManagerView.swift](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift)
-    *   [ExtensionStoreView.swift](../../Sources/Views/Extensions/Store/ExtensionStoreView.swift)
 
 ---
 
@@ -935,7 +942,6 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *   **Được sử dụng bởi (Used by)**:
     *   [DiscoveryView.swift](../../Sources/Views/Discovery/DiscoveryView.swift)
     *   [RepositoryManagerView.swift](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift)
-    *   [ExtensionStoreView.swift](../../Sources/Views/Extensions/Store/ExtensionStoreView.swift)
     *   [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
 
 ---

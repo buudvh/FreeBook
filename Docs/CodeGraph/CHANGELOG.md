@@ -4,6 +4,22 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.7] - 2026-07-16
+
+### Sửa lỗi lấy chương online của TTS do gán sai thông tin tiện ích khi mở lại màn hình đọc (Fix TTS Online Extension Resolution)
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 4 file Swift (TTSModels.swift, TTSManager.swift, ReaderView.swift, ShelfView.swift)
+*   **Mô tả**:
+    *   **TTSModels**: Bổ sung thuộc tính `packageId` vào struct `TTSExtensionInfo` để lưu lại định danh của extension (thay vì chỉ lưu localPath).
+    *   **TTSManager**:
+        *   Thêm các thuộc tính toàn cục `playingBookDetailUrl` và `playingBookSourceName` để lưu trữ đường dẫn chi tiết sách và tên nguồn tương ứng của chương đang phát.
+        *   Cập nhật `startSpeaking` và `prepareSpeaking` để nhận và gán hai thuộc tính này khi khởi chạy TTS.
+    *   **ReaderView**:
+        *   Truyền `packageId` thực tế khi khởi tạo `ttsExtensionInfo`.
+        *   Cập nhật các cuộc gọi tới `startSpeaking` và `prepareSpeaking` để truyền thêm thông tin `bookDetailUrl` và `bookSourceName` (ưu tiên lấy từ cơ sở dữ liệu `localBook`, dự phòng lấy từ tham số cấu hình View).
+    *   **ShelfView**:
+        *   Sửa đổi phương thức xử lý sự kiện khôi phục màn hình đọc truyện đang phát (`openCurrentlyPlayingReader`). Gán đúng thuộc tính `packageId` cho `navigateToPlayingExtensionId`, `playingBookDetailUrl` cho `navigateToPlayingDetailUrl` và `playingBookSourceName` cho `navigateToPlayingSourceName` thay vì gán nhầm các thuộc tính cấu hình nội bộ của extension (như `localPath`, `downloadUrl`, `configJson`). Đảm bảo khôi phục đầy đủ và chính xác thông tin để trình đọc tiếp tục lấy chương mới online bình thường mà không báo lỗi cạn kiệt tiện ích bóc tách.
+
 ## [1.3.6] - 2026-07-15
 
 ### Khắc phục lỗi điều khiển phát nhạc bằng tai nghe, đồng bộ màn hình khóa & Khôi phục luồng chuyển chương TTS (TTS Remote & Lock Screen Fix v2)

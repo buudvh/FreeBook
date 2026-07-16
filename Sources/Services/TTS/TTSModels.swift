@@ -99,11 +99,13 @@ public struct TTSChapterInfo: Codable, Equatable {
 }
 
 public struct TTSExtensionInfo: Codable, Equatable {
+    public let packageId: String
     public let localPath: String
     public let downloadUrl: String
     public let configJson: String?
     
-    public init(localPath: String, downloadUrl: String, configJson: String?) {
+    public init(packageId: String, localPath: String, downloadUrl: String, configJson: String?) {
+        self.packageId = packageId
         self.localPath = localPath
         self.downloadUrl = downloadUrl
         self.configJson = configJson

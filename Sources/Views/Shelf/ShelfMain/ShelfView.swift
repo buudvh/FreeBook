@@ -360,10 +360,10 @@ struct ShelfView: View {
                 if !bookId.isEmpty {
                     self.selectedTab = 1 // Switch to Shelf tab
                     self.navigateToPlayingBookId = bookId
-                    self.navigateToPlayingExtensionId = ttsManager.extensionInfo?.localPath ?? ""
+                    self.navigateToPlayingExtensionId = ttsManager.extensionInfo?.packageId ?? ""
                     self.navigateToPlayingChapterIndex = ttsManager.playingChapterIndex
-                    self.navigateToPlayingDetailUrl = ttsManager.extensionInfo?.downloadUrl ?? ""
-                    self.navigateToPlayingSourceName = ttsManager.extensionInfo?.configJson ?? ""
+                    self.navigateToPlayingDetailUrl = ttsManager.playingBookDetailUrl
+                    self.navigateToPlayingSourceName = ttsManager.playingBookSourceName
                     self.triggerNavigation = true
                 }
             }

@@ -194,6 +194,7 @@ struct ReaderView: View {
     private var ttsExtensionInfo: TTSExtensionInfo? {
         guard let ext = ext else { return nil }
         return TTSExtensionInfo(
+            packageId: ext.packageId,
             localPath: ext.localPath,
             downloadUrl: ext.downloadUrl,
             configJson: ext.configJson
@@ -1598,6 +1599,8 @@ struct ReaderView: View {
             startParagraphIndex: paragraphIndex,
             bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
             coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
+            bookDetailUrl: localBook?.detailUrl ?? bookDetailUrl ?? "",
+            bookSourceName: localBook?.sourceName ?? bookSourceName ?? "",
             extensionInfo: ttsExtensionInfo
         )
     }
@@ -1650,6 +1653,8 @@ struct ReaderView: View {
             startParagraphIndex: savedPIdx,
             bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
             coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
+            bookDetailUrl: localBook?.detailUrl ?? bookDetailUrl ?? "",
+            bookSourceName: localBook?.sourceName ?? bookSourceName ?? "",
             extensionInfo: ttsExtensionInfo
         )
     }

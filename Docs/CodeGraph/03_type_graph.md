@@ -1,3 +1,12 @@
+---
+generated_by: Antigravity
+generator_version: 1.0
+generated_at: 2026-07-16T08:21:00+07:00
+git_commit: UNKNOWN
+source_files: 87
+document_version: 1
+---
+
 # Đồ thị Kiểu dữ liệu (Type Graph)
 
 Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa các kiểu dữ liệu (Class, Struct, Enum, Protocol, Actor, Extension) trong dự án FreeBook.
