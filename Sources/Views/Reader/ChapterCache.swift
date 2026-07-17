@@ -10,7 +10,6 @@ struct ReadingProgress {
     }
 }
 
-//
 struct ReadingContext: Hashable {
     let bookId: String
     let chapterIndex: Int
@@ -92,11 +91,8 @@ class ChapterCache {
             let newItem = CachedChapter(index: index)
             newItem.state = state
             cache[index] = newItem
+        }
     }
-}
-
-@available(iOS 17.0, *)
-typealias SharedChapterCache = ChapterCache
 
     func setScrollParagraph(_ index: Int, paragraphIndex: Int) {
         if let item = cache[index] {
@@ -152,3 +148,6 @@ typealias SharedChapterCache = ChapterCache
         }
     }
 }
+
+@available(iOS 17.0, *)
+typealias SharedChapterCache = ChapterCache

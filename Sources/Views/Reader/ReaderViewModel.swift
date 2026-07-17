@@ -296,7 +296,7 @@ class ReaderViewModel: ObservableObject {
 
     private func slideWindow(toAdjacent center: Int) {
         let window = ReaderWindowManager(totalChaptersCount: totalChaptersCount).slide(toAdjacent: center)
-        applyWindow(window, cancelPrefetch: false)
+        applyWindow(window)
     }
 
     private func replaceWindow(center: Int) {
