@@ -3,6 +3,9 @@ import UIKit
 import CoreText
 import Combine
 
+// ParagraphItem được định nghĩa trong ReaderViewModel.swift, dùng lại ở đây
+// (không import thêm module vì cùng target)
+
 /// UICollectionView-backed CoreText continuous reader.
 final class CoreTextCollectionScrollViewController: UIViewController {
     
@@ -37,6 +40,13 @@ final class CoreTextCollectionScrollViewController: UIViewController {
     private var hasAppliedInitialScroll = false
     private var initialChapter: Int = 0
     private var initialParagraph: Int = 0
+    
+    // FIX BUG 1: Lưu vị trí chương đang chờ nhảy tới (khi data chưa load xong)
+    private var pendingJumpChapter: Int? = nil
+    private var pendingJumpParagraph: Int = 0
+    
+    // Track trạng thái dịch của từng chương đã được build — để rebuild khi toggle dịch
+    private var chapterTranslationStates: [Int: Bool] = [:]
     
     // Callbacks báo về SwiftUI
     var onProgressCommit: ((_ chapter: Int, _ paragraph: Int) -> Void)?
@@ -162,6 +172,7 @@ final class CoreTextCollectionScrollViewController: UIViewController {
             
             attributedStrings.removeAll()
             paginatedPages.removeAll()
+            chapterTranslationStates.removeAll()
             
             // Re-parse lại các chương cũ bằng font mới
             // Ta chỉ re-paginate, còn attributedString sẽ được sinh lại khi updateChapterCache
@@ -182,23 +193,37 @@ final class CoreTextCollectionScrollViewController: UIViewController {
     func updateChapterData(
         chapterIndex: Int,
         state: ChapterState,
-        htmlContent: String? = nil
+        paragraphs: [ParagraphItem]? = nil,
+        isTranslationEnabled: Bool = false
     ) {
         guard chapterIndex >= 0 && chapterIndex < totalChaptersCount else { return }
         chapterStates[chapterIndex] = state
         
         switch state {
         case .loaded:
-            if let html = htmlContent, !html.isEmpty {
-                // Bóc tách HTML div metadata thành NSAttributedString kèm Custom Attributes
-                let attrStr = CoreTextHTMLParser.shared.parse(
-                    html: html,
+            if let items = paragraphs, !items.isEmpty {
+                // Tối ưu: bỏ qua nếu chương đã được phân trang, trạng thái dịch không đổi và không có pending jump
+                // Tránh re-paginate tốn CPU mỗi lần SwiftUI re-render updateUIViewController
+                let alreadyPaginated = paginatedPages[chapterIndex] != nil && !paginatedPages[chapterIndex]!.isEmpty
+                let translationUnchanged = chapterTranslationStates[chapterIndex] == isTranslationEnabled
+                let hasPendingForThis = pendingJumpChapter == chapterIndex
+                if alreadyPaginated && translationUnchanged && !hasPendingForThis {
+                    return
+                }
+                
+                // FIX BUG 2: Build NSAttributedString trực tiếp từ ParagraphItem — bỏ HTML round-trip
+                let attrStr = CoreTextHTMLParser.shared.buildAttributedString(
+                    from: items,
+                    chapterIndex: chapterIndex,
                     font: readerFont,
                     textColor: themeTextColor,
                     lineSpacing: lineSpacing,
-                    paragraphSpacing: paragraphSpacing
+                    paragraphSpacing: paragraphSpacing,
+                    isTranslationEnabled: isTranslationEnabled
                 )
                 attributedStrings[chapterIndex] = attrStr
+                // Ghi nhận trạng thái dịch đã build để tránh rebuild không cần thiết
+                chapterTranslationStates[chapterIndex] = isTranslationEnabled
                 
                 // Thực hiện phân trang
                 let bounds = CGRect(
@@ -216,12 +241,22 @@ final class CoreTextCollectionScrollViewController: UIViewController {
                 
                 collectionView.reloadSections(IndexSet(integer: chapterIndex))
                 
-                // Nếu đây là chương khởi tạo đầu tiên, cuộn lại lần nữa để neo đúng vị trí chính xác sau khi phân trang xong
-                if chapterIndex == initialChapter && isJumpingToPosition {
+                // FIX BUG 1: Sau khi phân trang xong, kiểm tra xem có pending jump không
+                // (cho cả initialChapter lẫn chương mới do selectChapter yêu cầu)
+                if let pendingChap = pendingJumpChapter, pendingChap == chapterIndex {
+                    pendingJumpChapter = nil
                     isJumpingToPosition = false
-                    scrollToSavedPosition(chapter: initialChapter, paragraph: initialParagraph)
+                    DispatchQueue.main.async {
+                        self.scrollToSavedPosition(chapter: chapterIndex, paragraph: self.pendingJumpParagraph)
+                    }
+                } else if chapterIndex == initialChapter && isJumpingToPosition {
+                    isJumpingToPosition = false
+                    DispatchQueue.main.async {
+                        self.scrollToSavedPosition(chapter: self.initialChapter, paragraph: self.initialParagraph)
+                    }
                 }
             }
+        
         case .loading, .failed:
             attributedStrings.removeValue(forKey: chapterIndex)
             paginatedPages.removeValue(forKey: chapterIndex)
@@ -243,7 +278,9 @@ final class CoreTextCollectionScrollViewController: UIViewController {
         // 1. Kiểm tra xem chương đã được tải và phân trang chưa
         guard let pages = paginatedPages[chapter], !pages.isEmpty,
               let attrStr = attributedStrings[chapter] else {
-            // Nếu chưa có dữ liệu, chuyển sang trạng thái chờ và yêu cầu tải chương
+            // FIX BUG 1: Lưu pending jump để thực hiện sau khi dữ liệu chương được load xong
+            pendingJumpChapter = chapter
+            pendingJumpParagraph = paragraph
             isJumpingToPosition = true
             onChapterContentRequired?(chapter)
             return

@@ -20,6 +20,59 @@ final class CoreTextHTMLParser {
     ///   - textColor: Màu chữ hiển thị trong trình đọc
     ///   - lineSpacing: Giãn dòng
     ///   - paragraphSpacing: Khoảng cách giữa các đoạn văn
+    
+    /// Build NSAttributedString trực tiếp từ [ParagraphItem] — không qua HTML round-trip.
+    /// Đây là hàm chính được dùng thay cho parse(html:) để tránh mọi bug HTML escaping.
+    func buildAttributedString(
+        from paragraphs: [ParagraphItem],
+        chapterIndex: Int,
+        font: UIFont,
+        textColor: UIColor,
+        lineSpacing: CGFloat = 6.0,
+        paragraphSpacing: CGFloat = 16.0,
+        isTranslationEnabled: Bool = false
+    ) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineSpacing = lineSpacing
+        paragraphStyle.paragraphSpacing = paragraphSpacing
+        paragraphStyle.alignment = .left
+        
+        let baseAttributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: textColor,
+            .paragraphStyle: paragraphStyle
+        ]
+        
+        for (paraIdx, item) in paragraphs.enumerated() {
+            // Thêm newline phân cách giữa các đoạn (trừ đoạn đầu tiên)
+            if paraIdx > 0 {
+                result.append(NSAttributedString(string: "\n", attributes: baseAttributes))
+            }
+            
+            // Chọn text hiển thị dựa trên trạng thái dịch
+            let displayText = isTranslationEnabled && !item.translated.isEmpty
+                ? item.translated
+                : item.original
+            
+            guard !displayText.isEmpty else { continue }
+            
+            // Gán custom attributes cho đoạn văn này
+            let startLoc = result.length
+            result.append(NSAttributedString(string: displayText, attributes: baseAttributes))
+            let range = NSRange(location: startLoc, length: displayText.utf16.count)
+            
+            let paragraphId = "para-\(chapterIndex)-\(paraIdx)"
+            result.addAttribute(.paragraphId, value: paragraphId, range: range)
+            result.addAttribute(.originalText, value: item.original, range: range)
+            result.addAttribute(.transText, value: item.translated, range: range)
+        }
+        
+        return result
+    }
+    
+    // MARK: - Legacy HTML Parser (giữ lại cho backward compatibility)
     func parse(
         html: String,
         font: UIFont,

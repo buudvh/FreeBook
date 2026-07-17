@@ -66,7 +66,8 @@ struct CoreTextScrollHostView: UIViewControllerRepresentable {
             }
         }
         
-        // 3. Đồng bộ dữ liệu chương từ Cache của ViewModel xuống Controller ( Sliding Window [N-1, N, N+1] )
+        // 3. Đồng bộ dữ liệu chương từ Cache của ViewModel xuống Controller
+        // FIX BUG 2: Truyền thẳng [ParagraphItem] — bỏ hoàn toàn HTML round-trip
         let visibleWindow = viewModel.computeWindowRange()
         
         for idx in visibleWindow {
@@ -75,9 +76,13 @@ struct CoreTextScrollHostView: UIViewControllerRepresentable {
             if let cached = viewModel.cache.get(idx) {
                 switch cached.state {
                 case .loaded:
-                    // Dựng HTML từ danh sách ParagraphItem có sẵn trong Cache
-                    let html = convertParagraphsToHTML(paragraphs: cached.paragraphItems, chapterIndex: idx)
-                    vc.updateChapterData(chapterIndex: idx, state: .loaded, htmlContent: html)
+                    // Truyền mảng ParagraphItem trực tiếp xuống UIKit, không tạo HTML
+                    vc.updateChapterData(
+                        chapterIndex: idx,
+                        state: .loaded,
+                        paragraphs: cached.paragraphItems,
+                        isTranslationEnabled: isTranslationEnabled
+                    )
                 case .loading, .prefetching:
                     vc.updateChapterData(chapterIndex: idx, state: .loading)
                 case .failed(let msg):
@@ -90,25 +95,9 @@ struct CoreTextScrollHostView: UIViewControllerRepresentable {
             }
         }
     }
-    
-    // MARK: - Helper to Convert ParagraphItems to HTML
-    private func convertParagraphsToHTML(paragraphs: [ParagraphItem], chapterIndex: Int) -> String {
-        var htmlString = "<html><body>"
-        for (paraIdx, item) in paragraphs.enumerated() {
-            let escapedOriginal = item.original.htmlEscaped()
-            let escapedTrans = item.translated.htmlEscaped()
-            let rawDisplayText = isTranslationEnabled ? item.translated : item.original
-            let displayText = rawDisplayText.htmlEscaped()
-            
-            let divTag = "<div id=\"para-\(chapterIndex)-\(paraIdx)\" data-original=\"\(escapedOriginal)\" data-trans=\"\(escapedTrans)\">\(displayText)</div>"
-            htmlString += divTag + "\n"
-        }
-        htmlString += "</body></html>"
-        return htmlString
-    }
 }
 
-// MARK: - String HTML Escaping Extension
+// MARK: - String HTML Escaping Extension (giữ lại cho trường hợp cần thiết khác)
 private extension String {
     func htmlEscaped() -> String {
         return self.replacingOccurrences(of: "&", with: "&amp;")

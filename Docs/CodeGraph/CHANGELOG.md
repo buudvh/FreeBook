@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.4.1] - 2026-07-17
+
+### Sửa lỗi Chuyển Chương và Hiển thị Div thô trong CoreText Reader
+
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 3 file Swift (`CoreTextCollectionScrollViewController.swift`, `CoreTextHTMLParser.swift`, `CoreTextScrollHostView.swift`)
+*   **Mô tả**:
+    *   **BUG FIX 1 — Chuyển chương không hoạt động** (`CoreTextCollectionScrollViewController`):
+        *   **Nguyên nhân**: `scrollToSavedPosition` đặt `isJumpingToPosition = true` nhưng không lưu chương đích. Khi data tải xong, `updateChapterData` chỉ kiểm tra `initialChapter` nên không bao giờ cuộn đến chương mới.
+        *   **Sửa**: Thêm `pendingJumpChapter: Int?` và `pendingJumpParagraph: Int`. Khi chưa có data → lưu pending. Khi `updateChapterData(.loaded)` xử lý xong → kiểm tra pending và gọi `scrollToSavedPosition` đúng chương.
+    *   **BUG FIX 2 — Hiển thị div thô** (`CoreTextHTMLParser`, `CoreTextScrollHostView`, `CoreTextCollectionScrollViewController`):
+        *   **Nguyên nhân**: Luồng `ParagraphItem → HTML string → parse lại HTML → NSAttributedString` bị vỡ khi content chứa ký tự đặc biệt (`"`, `&`, `<`...) làm guard pattern-matching trong parser thất bại → `NSAttributedString` rỗng → CoreText hiển thị HTML thô.
+        *   **Sửa**: Bỏ hoàn toàn HTML round-trip. Thêm hàm `CoreTextHTMLParser.buildAttributedString(from:[ParagraphItem])` build `NSAttributedString` trực tiếp. `CoreTextScrollHostView` truyền `[ParagraphItem]` xuống UIKit thay vì tạo HTML.
+    *   **Tối ưu thêm**: Thêm guard skip re-paginate khi chương đã được phân trang và trạng thái dịch không đổi, tránh CPU overhead mỗi lần SwiftUI `updateUIViewController` được gọi. Thêm `chapterTranslationStates` để tự động rebuild khi người dùng toggle dịch.
+
 ## [1.4.0] - 2026-07-17
 
 ### Thay thế công cụ hiển thị trình đọc sang UIKit CoreText & UICollectionView (Lightweight CoreText Engine)
