@@ -15,12 +15,13 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Reader lifecycle updates (1.3.10)
+## Reader lifecycle updates (1.3.11, supersedes 1.3.10)
 
-* `ReaderView.onAppear` restores the caller-provided history position and does not replace it with `TTSSessionSnapshot`.
-* The chapter-list view and row translation work exist only while the overlay is open. It reuses the Reader's `Book` and `Extension` objects instead of owning duplicate SwiftData queries.
-* `ReaderView.onDisappear` cancels local work items and calls async `ReaderViewModel.shutdown(saveProgress:)`, which cancels the DB debounce and reader prefetch queue, conditionally force-saves when Reader owns progress, and clears the reader chapter cache. Active TTS progress is never overwritten by a temporary visual jump.
-* The settled-adjacent-prefetch task is canceled on every window replacement, book change, and Reader shutdown.
+* `ReaderView.onAppear` creates `ReaderChapterListStore` and mounts `ReaderChapterListView` once. Closing the overlay only changes offset, opacity, hit testing, and accessibility visibility.
+* The initial navigation request restores caller-provided history and never replaces it with a TTS snapshot.
+* The chapter list keeps search, order, scroll position, and row objects until Reader disappears.
+* `ReaderView.onDisappear` calls `ReaderViewModel.shutdown(saveProgress:)`, canceling navigation debounce/worker, DB debounce, and prefetch.
+* `ReaderTextView.dismantleUIView` clears selection activity and delegate ownership.
 
 ## 1. Bản đồ Vòng đời của Trình đọc (`ReaderView.swift`)
 

@@ -3,6 +3,60 @@ import SwiftData
 import Combine
 import Observation
 
+enum ReaderNavigationSource: Equatable {
+    case history
+    case previousButton
+    case nextButton
+    case swipe
+    case chapterList
+    case ttsSync
+    case reload
+
+    var isImmediate: Bool {
+        switch self {
+        case .history, .ttsSync, .reload:
+            return true
+        case .previousButton, .nextButton, .swipe, .chapterList:
+            return false
+        }
+    }
+}
+
+enum ReaderNavigationDirection: Equatable {
+    case backward
+    case none
+    case forward
+}
+
+struct ReaderNavigationCommit: Equatable {
+    let generation: Int
+    let chapterIndex: Int
+    let paragraphIndex: Int
+    let direction: ReaderNavigationDirection
+    let source: ReaderNavigationSource
+}
+
+struct ReaderChapterLoadFailure: Equatable {
+    let generation: Int
+    let targetChapterIndex: Int
+    let chapterTitle: String
+    let sourceMessage: String
+    let source: ReaderNavigationSource
+    let paragraphIndex: Int
+    let persistProgress: Bool
+    let forceRefresh: Bool
+}
+
+private struct ReaderNavigationRequest: Equatable {
+    let generation: Int
+    let chapterIndex: Int
+    let paragraphIndex: Int
+    let direction: ReaderNavigationDirection
+    let source: ReaderNavigationSource
+    let persistProgress: Bool
+    let forceRefresh: Bool
+}
+
 @available(iOS 17.0, *)
 @MainActor
 class ReaderViewModel: ObservableObject {
@@ -13,6 +67,11 @@ class ReaderViewModel: ObservableObject {
     /// Window chapter đang được render trong một ScrollView duy nhất.
     @Published var stableIndexes: [Int] = []
     @Published var readingContext: ReadingContext
+    @Published private(set) var displayedChapterIndex: Int
+    @Published private(set) var pendingNavigationIndex: Int?
+    @Published private(set) var navigationFailure: ReaderChapterLoadFailure?
+    @Published private(set) var navigationCommit: ReaderNavigationCommit?
+    @Published private(set) var isRetryingNavigation = false
 
     /// Giu lai de tuong thich voi caller cu; Infinite Reader thay window ngay.
     private(set) var pendingWindowSlide: Bool = false
@@ -33,11 +92,17 @@ class ReaderViewModel: ObservableObject {
     private var dbSaveTask: Task<Void, Never>? = nil
     private var prefetchQueueTask: Task<Void, Never>? = nil
     private var settledPrefetchTask: Task<Void, Never>? = nil
+    private var navigationDebounceTask: Task<Void, Never>? = nil
+    private var navigationWorkerTask: Task<Void, Never>? = nil
+    private var queuedNavigation: ReaderNavigationRequest?
+    private var navigationGeneration = 0
+    private var speculativePrefetchEnabled = true
     private var lastActiveIndex: Int = 0
     private var memoryWarningSubscription: AnyCancellable?
     private var cachedLocalBook: Book? = nil
     private var cachedExt: Extension? = nil
     private var cachedSortedChapters: [Chapter]? = nil
+    var onChapterCached: ((Int) -> Void)?
 
     func getSortedChapters() -> [Chapter] {
         if let cached = cachedSortedChapters {
@@ -121,13 +186,20 @@ class ReaderViewModel: ObservableObject {
         self.lastSavedProgress = initial
         self.readingContext = ReadingContext(bookId: bookId, chapterIndex: initialChapterIndex, paragraphIndex: initialParagraphIndex)
         self.activeChapterIndex = initialChapterIndex
+        self.displayedChapterIndex = initialChapterIndex
         self.tabSelection = initialChapterIndex
         self.lastActiveIndex = initialChapterIndex
 
         setupSubscriptions()
-        updateVisibleChaptersWindow()
-        // Lần đầu khởi tạo: stableIndexes đồng bộ ngay với visibleIndexes
-        self.stableIndexes = self.visibleIndexes
+        self.visibleIndexes = [initialChapterIndex]
+        self.stableIndexes = [initialChapterIndex]
+        _ = cache.setPlaceholder(initialChapterIndex)
+        requestChapter(
+            index: initialChapterIndex,
+            paragraphIndex: initialParagraphIndex,
+            source: .history,
+            persistProgress: false
+        )
     }
 
     private func setupSubscriptions() {
@@ -209,6 +281,224 @@ class ReaderViewModel: ObservableObject {
         }
     }
 
+    func stepChapter(
+        by offset: Int,
+        source: ReaderNavigationSource,
+        persistProgress: Bool = true
+    ) {
+        guard offset != 0 else { return }
+        let baseIndex = pendingNavigationIndex ?? displayedChapterIndex
+        requestChapter(
+            index: baseIndex + offset,
+            paragraphIndex: -1,
+            source: source,
+            persistProgress: persistProgress
+        )
+    }
+
+    func requestChapter(
+        index: Int,
+        paragraphIndex: Int = -1,
+        source: ReaderNavigationSource,
+        persistProgress: Bool = true,
+        forceRefresh: Bool = false
+    ) {
+        guard index >= 0, index < totalChaptersCount else { return }
+
+        settledPrefetchTask?.cancel()
+        settledPrefetchTask = nil
+        navigationGeneration += 1
+
+        let direction: ReaderNavigationDirection
+        if index > displayedChapterIndex {
+            direction = .forward
+        } else if index < displayedChapterIndex {
+            direction = .backward
+        } else {
+            direction = .none
+        }
+
+        let request = ReaderNavigationRequest(
+            generation: navigationGeneration,
+            chapterIndex: index,
+            paragraphIndex: paragraphIndex,
+            direction: direction,
+            source: source,
+            persistProgress: persistProgress,
+            forceRefresh: forceRefresh
+        )
+
+        activeChapterIndex = index
+        tabSelection = index
+        pendingNavigationIndex = index
+        if source != .reload {
+            navigationFailure = nil
+        }
+        isRetryingNavigation = source == .reload
+        visibleIndexes = [index]
+        stableIndexes = [index]
+        queuedNavigation = request
+
+        Task { await prefetcher.cancelAll() }
+        navigationDebounceTask?.cancel()
+        navigationDebounceTask = nil
+
+        if cache.get(index)?.state == .loaded, !forceRefresh {
+            queuedNavigation = nil
+            commitNavigation(request)
+            return
+        }
+
+        if source.isImmediate {
+            startNavigationWorkerIfNeeded()
+        } else {
+            navigationDebounceTask = Task { [weak self] in
+                do {
+                    try await Task.sleep(nanoseconds: 300_000_000)
+                    guard !Task.isCancelled else { return }
+                    self?.startNavigationWorkerIfNeeded()
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
+    func retryPendingNavigation() {
+        guard let failure = navigationFailure, !isRetryingNavigation else { return }
+        cache.remove(failure.targetChapterIndex)
+        requestChapter(
+            index: failure.targetChapterIndex,
+            paragraphIndex: failure.paragraphIndex,
+            source: .reload,
+            persistProgress: failure.persistProgress,
+            forceRefresh: failure.forceRefresh
+        )
+    }
+
+    func reloadDisplayedChapter() {
+        let index = displayedChapterIndex
+        cache.remove(index)
+        requestChapter(
+            index: index,
+            paragraphIndex: currentProgress.chapterIndex == index ? currentProgress.paragraphIndex : -1,
+            source: .reload,
+            persistProgress: false,
+            forceRefresh: true
+        )
+    }
+
+    func setSpeculativePrefetchEnabled(_ enabled: Bool) {
+        speculativePrefetchEnabled = enabled
+        if !enabled {
+            settledPrefetchTask?.cancel()
+            settledPrefetchTask = nil
+            Task { await prefetcher.cancelAll() }
+        } else {
+            scheduleSettledPrefetch(after: displayedChapterIndex, within: [displayedChapterIndex + 1])
+        }
+    }
+
+    private func startNavigationWorkerIfNeeded() {
+        guard navigationWorkerTask == nil else { return }
+        navigationWorkerTask = Task { [weak self] in
+            guard let self else { return }
+            await self.runNavigationWorker()
+        }
+    }
+
+    private func runNavigationWorker() async {
+        while let request = queuedNavigation {
+            queuedNavigation = nil
+            do {
+                await prefetcher.cancelAll()
+                try await loadChapterContentFromExtension(
+                    request.chapterIndex,
+                    forceRefresh: request.forceRefresh
+                )
+                guard request.generation == navigationGeneration else { continue }
+                guard cache.get(request.chapterIndex)?.state == .loaded else {
+                    let message = cache.get(request.chapterIndex)?.state.failureMessage ?? "Không tải được chương"
+                    failNavigation(request, message: message)
+                    continue
+                }
+                commitNavigation(request)
+            } catch is CancellationError {
+                guard request.generation == navigationGeneration else { continue }
+                failNavigation(request, message: "Yêu cầu tải chương đã bị hủy")
+            } catch {
+                guard request.generation == navigationGeneration else { continue }
+                failNavigation(request, message: error.localizedDescription)
+            }
+        }
+
+        navigationWorkerTask = nil
+        if queuedNavigation != nil {
+            startNavigationWorkerIfNeeded()
+        }
+    }
+
+    private func commitNavigation(_ request: ReaderNavigationRequest) {
+        guard request.generation == navigationGeneration else { return }
+        displayedChapterIndex = request.chapterIndex
+        activeChapterIndex = request.chapterIndex
+        tabSelection = request.chapterIndex
+        pendingNavigationIndex = nil
+        navigationFailure = nil
+        isRetryingNavigation = false
+        visibleIndexes = [request.chapterIndex]
+        stableIndexes = [request.chapterIndex]
+
+        if request.persistProgress {
+            currentProgress = ReadingProgress(
+                chapterIndex: request.chapterIndex,
+                paragraphIndex: request.paragraphIndex
+            )
+            readingContext = ReadingContext(
+                bookId: bookId,
+                chapterIndex: request.chapterIndex,
+                paragraphIndex: request.paragraphIndex
+            )
+            saveProgressImmediately()
+        }
+
+        navigationCommit = ReaderNavigationCommit(
+            generation: request.generation,
+            chapterIndex: request.chapterIndex,
+            paragraphIndex: request.paragraphIndex,
+            direction: request.direction,
+            source: request.source
+        )
+        scheduleSettledPrefetch(after: request.chapterIndex, within: [request.chapterIndex + 1])
+    }
+
+    private func failNavigation(_ request: ReaderNavigationRequest, message: String) {
+        guard request.generation == navigationGeneration else { return }
+        pendingNavigationIndex = request.chapterIndex
+        isRetryingNavigation = false
+        cache.set(request.chapterIndex, state: .failed(message: message))
+        navigationFailure = ReaderChapterLoadFailure(
+            generation: request.generation,
+            targetChapterIndex: request.chapterIndex,
+            chapterTitle: chapterTitle(at: request.chapterIndex),
+            sourceMessage: message,
+            source: request.source,
+            paragraphIndex: request.paragraphIndex,
+            persistProgress: request.persistProgress,
+            forceRefresh: request.forceRefresh
+        )
+    }
+
+    func chapterTitle(at index: Int) -> String {
+        if localBook != nil {
+            let chapters = getSortedChapters()
+            if chapters.indices.contains(index) { return chapters[index].title }
+        } else if onlineChapters.indices.contains(index) {
+            return onlineChapters[index].name
+        }
+        return "Chương \(index + 1)"
+    }
+
     func onTabSelectionChanged(newIndex: Int, immediate: Bool = false) {
         guard newIndex != activeChapterIndex, newIndex >= 0, newIndex < totalChaptersCount else { return }
 
@@ -256,16 +546,12 @@ class ReaderViewModel: ObservableObject {
         paragraphIndex: Int = -1,
         persistProgress: Bool = true
     ) {
-        guard index >= 0 && index < totalChaptersCount else { return }
-        lastActiveIndex = activeChapterIndex
-        activeChapterIndex = index
-        tabSelection = index
-        if persistProgress {
-            currentProgress = ReadingProgress(chapterIndex: index, paragraphIndex: paragraphIndex)
-            readingContext = ReadingContext(bookId: bookId, chapterIndex: index, paragraphIndex: paragraphIndex)
-            saveProgressImmediately()
-        }
-        replaceWindow(center: index)
+        requestChapter(
+            index: index,
+            paragraphIndex: paragraphIndex,
+            source: .chapterList,
+            persistProgress: persistProgress
+        )
     }
 
     func onBookChanged() {
@@ -288,7 +574,7 @@ class ReaderViewModel: ObservableObject {
     }
 
     private func handleMemoryWarning() {
-        let keepSet = Set(visibleIndexes)
+        let keepSet = Set([displayedChapterIndex, pendingNavigationIndex].compactMap { $0 })
         cache.releaseAllNonVisible(keepIndexes: keepSet)
     }
 
@@ -333,7 +619,9 @@ class ReaderViewModel: ObservableObject {
         settledPrefetchTask?.cancel()
         settledPrefetchTask = nil
 
+        guard speculativePrefetchEnabled else { return }
         let nextIndex = center + 1
+        guard nextIndex < totalChaptersCount else { return }
         guard window.contains(nextIndex) else { return }
 
         settledPrefetchTask = Task { [weak self] in
@@ -406,6 +694,11 @@ class ReaderViewModel: ObservableObject {
         prefetchQueueTask = nil
         settledPrefetchTask?.cancel()
         settledPrefetchTask = nil
+        navigationDebounceTask?.cancel()
+        navigationDebounceTask = nil
+        navigationWorkerTask?.cancel()
+        navigationWorkerTask = nil
+        queuedNavigation = nil
         await prefetcher.cancelAll()
         if saveProgress {
             await saveProgressToDatabase(force: true)
@@ -418,11 +711,11 @@ class ReaderViewModel: ObservableObject {
     }
 
     // Tải nội dung chương và bóc tách
-    func loadChapterContentFromExtension(_ index: Int) async throws {
+    func loadChapterContentFromExtension(_ index: Int, forceRefresh: Bool = false) async throws {
         guard index >= 0 && index < totalChaptersCount else { return }
 
         // Nếu chương đã được tải xong trong RAM cache, bỏ qua không làm gì cả
-        if let cached = cache.cache[index], cached.state == .loaded {
+        if !forceRefresh, let cached = cache.cache[index], cached.state == .loaded {
             return
         }
 
@@ -430,7 +723,7 @@ class ReaderViewModel: ObservableObject {
         let title: String
         let urlString: String
 
-        if localBook != nil {
+        if !forceRefresh, localBook != nil {
             let sorted = getSortedChapters()
             guard index < sorted.count else { return }
             let chap = sorted[index]
@@ -461,8 +754,13 @@ class ReaderViewModel: ObservableObject {
 
         // 3. Tải từ Extension
         guard let ext = ext else {
-            cache.set(index, state: .failed(message: "Không tìm thấy tiện ích bóc tách!"))
-            return
+            let message = "Không tìm thấy tiện ích bóc tách!"
+            cache.set(index, state: .failed(message: message))
+            throw NSError(
+                domain: "ReaderViewModel",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: message]
+            )
         }
 
         var chapHost: String? = nil
@@ -491,22 +789,33 @@ class ReaderViewModel: ObservableObject {
             let sorted = getSortedChapters()
             if index < sorted.count {
                 let chap = sorted[index]
+                let previousContent = chap.content
+                let wasCached = chap.isCached
                 chap.content = cleanedContent
                 chap.isCached = true
-                Task {
-                    try? modelContext.save()
+                do {
+                    try modelContext.save()
+                    onChapterCached?(index)
+                } catch {
+                    chap.content = previousContent
+                    chap.isCached = wasCached
+                    #if DEBUG
+                    AppLogger.shared.log("[ReaderViewModel] Không thể lưu cache chương \(index): \(error.localizedDescription)")
+                    #endif
                 }
             }
         } else {
-            saveOnlineBookIfNeeded(currentIndex: index, cleanedContent: cleanedContent, title: title, url: urlString)
+            if saveOnlineBookIfNeeded(currentIndex: index, cleanedContent: cleanedContent, title: title, url: urlString) {
+                onChapterCached?(index)
+            }
         }
 
         try Task.checkCancellation()
         await processAndSaveChapter(index: index, originalTitle: title, originalContent: cleanedContent)
     }
 
-    private func saveOnlineBookIfNeeded(currentIndex: Int, cleanedContent: String, title: String, url: String) {
-        guard let bookTitle = bookTitle, localBook == nil else { return }
+    private func saveOnlineBookIfNeeded(currentIndex: Int, cleanedContent: String, title: String, url: String) -> Bool {
+        guard let bookTitle = bookTitle, localBook == nil else { return false }
 
         // Tạo sách mới trong database
         let newBook = Book(
@@ -543,19 +852,20 @@ class ReaderViewModel: ObservableObject {
         }
         newBook.chapters = chaps
         modelContext.insert(newBook)
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.delete(newBook)
+            return false
+        }
+        self.cachedLocalBook = newBook
         self.cachedSortedChapters = chaps.sorted(by: { $0.index < $1.index })
+        return true
     }
 
     // Xử lý dịch thuật và lưu vào RAM Cache
     private func processAndSaveChapter(index: Int, originalTitle: String, originalContent: String) async {
         guard !Task.isCancelled else { return }
-
-        // FIX 3: Trong khoảng thời gian swipe đang diễn ra, visibleIndexes chưa được
-        // update (deferred đến commitWindowSlide). Vì vậy check cả activeChapterIndex
-        // để chương đang swipe đến không bị guard out sớm trước khi tải xong.
-        let isRelevant = visibleIndexes.contains(index) || index == activeChapterIndex
-        guard isRelevant else { return }
 
         let isTranslationEnabled = self.isTranslationEnabled
         let bookId = self.bookId
@@ -598,10 +908,6 @@ class ReaderViewModel: ObservableObject {
 
         guard !Task.isCancelled else { return }
 
-        // FIX 3: Kiểm tra lại sau khi tác vụ nền hoàn thành — vẫn check cả activeChapterIndex
-        let isStillRelevant = visibleIndexes.contains(index) || index == activeChapterIndex
-        guard isStillRelevant else { return }
-
         // Lưu vào cache trên MainActor
         if let cached = cache.cache[index] {
             cached.originalTitle = originalTitle
@@ -623,7 +929,7 @@ class ReaderViewModel: ObservableObject {
     func toggleTranslation(enabled: Bool) {
         self.isTranslationEnabled = enabled
 
-        for idx in visibleIndexes {
+        for idx in Set([displayedChapterIndex, pendingNavigationIndex].compactMap { $0 }) {
             if let cached = cache.cache[idx], cached.state == .loaded {
                 let origTitle = cached.originalTitle
                 let origContent = cached.originalContent
@@ -637,7 +943,7 @@ class ReaderViewModel: ObservableObject {
 
     // Cập nhật lại giao diện các đoạn văn (ví dụ khi ẩn/hiện tiêu đề chương)
     func refreshParagraphItems() {
-        for idx in visibleIndexes {
+        for idx in Set([displayedChapterIndex, pendingNavigationIndex].compactMap { $0 }) {
             if let cached = cache.cache[idx], cached.state == .loaded {
                 let origTitle = cached.originalTitle
                 let origContent = cached.originalContent

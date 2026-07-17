@@ -15,12 +15,13 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Reader event updates (1.3.10)
+## Reader event updates (1.3.11, supersedes 1.3.10)
 
-* A chapter-list jump updates the reader window but does not seek an already-running TTS session. The next `currentParentParagraphIndex` change synchronizes the display back to `playingChapterIndex` and the playing paragraph.
-* Programmatic history/TTS restores temporarily suppress geometry-based progress events so paragraph `onAppear` callbacks cannot overwrite the intended location.
-* Reader disappearance invokes `ReaderViewModel.shutdown()`, canceling reader-owned debounce and prefetch work while leaving the independent TTS playback/prefetch lifecycle intact.
-* Repeated chapter jumps cancel the delayed adjacent-prefetch timer and replace the pending queue with the newest target. Intermediate targets that have not started are discarded.
+* Footer buttons and horizontal swipe emit relative steps; chapter-list rows emit absolute targets. Both flow into the same generation-checked navigation worker.
+* Text selection activity travels from `ReaderTextView` through `ParagraphCardView` and suppresses chapter swipe recognition until selection clears.
+* A TTS paragraph event requests `.ttsSync` without persistence. A manual jump does not seek TTS; the next TTS paragraph may move the display back when auto-scroll is enabled.
+* Reader disappearance cancels navigation debounce, navigation worker, DB debounce, and Reader prefetch while leaving independent TTS playback alive.
+* Menu commands use shared handlers: title visibility rebuilds paragraph items from RAM, and reload force-fetches the displayed chapter.
 
 ## 1. Bản đồ các Luồng Sự kiện chính (Event Flow Map)
 

@@ -71,42 +71,96 @@ final class ReaderViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testVerticalReaderSlidesRenderedWindowPastTrailingBuffer() async throws {
+    func testSingleChapterReaderCoalescesRapidStepsToLatestTarget() async throws {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(
             for: Book.self,
             Chapter.self,
             configurations: configuration
         )
+        let context = ModelContext(container)
+        let book = Book(
+            bookId: "single-chapter-test-book",
+            title: "Test",
+            author: "Author",
+            coverUrl: "",
+            desc: "",
+            detailUrl: "https://example.com/book",
+            sourceName: "Test",
+            sourceUrl: "https://example.com",
+            extensionPackageId: "test-extension"
+        )
+        book.chapters = (0..<30).map { index in
+            let chapter = Chapter(
+                id: "chapter-\(index)",
+                title: "Chương \(index + 1)",
+                url: "https://example.com/chapter-\(index)",
+                index: index,
+                content: "Nội dung chương \(index)",
+                isCached: true
+            )
+            chapter.book = book
+            return chapter
+        }
+        context.insert(book)
+        try context.save()
+
         let viewModel = ReaderViewModel(
-            bookId: "window-test-book",
+            bookId: book.bookId,
             extensionPackageId: "window-test-extension",
             initialChapterIndex: 10,
             initialParagraphIndex: 0,
             totalChaptersCount: 30,
-            modelContext: ModelContext(container)
+            modelContext: context
         )
+        viewModel.setSpeculativePrefetchEnabled(false)
+        try? await Task.sleep(nanoseconds: 250_000_000)
 
-        XCTAssertEqual(viewModel.stableIndexes, [9, 10, 11, 12])
-        XCTAssertEqual(viewModel.cache.get(10)?.state, .loading)
-        XCTAssertEqual(viewModel.cache.get(11)?.state, .placeholder)
-        XCTAssertEqual(viewModel.cache.get(12)?.state, .placeholder)
+        XCTAssertEqual(viewModel.displayedChapterIndex, 10)
+        XCTAssertEqual(viewModel.stableIndexes, [10])
 
-        viewModel.updateActiveLocationFromScroll(chapterIndex: 12, paragraphIndex: 0)
+        for _ in 0..<4 {
+            viewModel.stepChapter(by: 1, source: .nextButton, persistProgress: false)
+        }
 
-        XCTAssertEqual(viewModel.stableIndexes, [11, 12, 13, 14])
-        XCTAssertTrue(viewModel.stableIndexes.contains(13))
+        XCTAssertEqual(viewModel.pendingNavigationIndex, 14)
+        try? await Task.sleep(nanoseconds: 650_000_000)
 
-        viewModel.jumpToChapter(20, persistProgress: false)
-
-        XCTAssertEqual(viewModel.stableIndexes, [19, 20, 21, 22])
-        XCTAssertEqual(viewModel.cache.get(20)?.state, .loading)
-        XCTAssertEqual(viewModel.cache.get(21)?.state, .placeholder)
-        XCTAssertEqual(viewModel.cache.get(22)?.state, .placeholder)
-        XCTAssertEqual(viewModel.currentProgress.chapterIndex, 12)
+        XCTAssertEqual(viewModel.displayedChapterIndex, 14)
+        XCTAssertEqual(viewModel.stableIndexes, [14])
+        XCTAssertNil(viewModel.cache.get(11))
+        XCTAssertNil(viewModel.cache.get(12))
+        XCTAssertNil(viewModel.cache.get(13))
+        XCTAssertEqual(viewModel.cache.get(14)?.state, .loaded)
+        XCTAssertEqual(viewModel.currentProgress.chapterIndex, 10)
         XCTAssertEqual(viewModel.currentProgress.paragraphIndex, 0)
 
         await viewModel.shutdown()
+    }
+
+    @MainActor
+    func testChapterListStoreMarksOnlyRequestedRowCached() {
+        let chapters = (0..<10_000).map { index in
+            ChapterResult(
+                name: "Chương \(index + 1)",
+                url: "https://example.com/\(index)",
+                host: "https://example.com"
+            )
+        }
+        let store = ReaderChapterListStore(localBook: nil, onlineChapters: chapters)
+        let untouchedRow = store.rows[100]
+
+        store.markCached(index: 7_777)
+
+        XCTAssertEqual(store.rows.count, 10_000)
+        XCTAssertTrue(store.rows[7_777].isCached)
+        XCTAssertFalse(store.rows[7_776].isCached)
+        XCTAssertTrue(untouchedRow === store.rows[100])
+    }
+
+    func testSourceResponseErrorPreservesMessage() {
+        let error = ExtensionManagerError.sourceResponse(message: "Nguồn đang giới hạn")
+        XCTAssertEqual(error.localizedDescription, "Nguồn đang giới hạn")
     }
 
     func testPrefetchManagerQueueBehavior() async {

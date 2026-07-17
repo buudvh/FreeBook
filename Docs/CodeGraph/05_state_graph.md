@@ -15,11 +15,14 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Reader window and TTS display state (1.3.10)
+## Reader single-chapter navigation state (1.3.11, supersedes 1.3.10)
 
-* `ReaderViewModel.updateActiveLocationFromScroll` slides both `visibleIndexes` and the rendered `stableIndexes`; reaching the old trailing buffer (`n+2`) therefore opens a new bounded window instead of leaving the reader stalled.
-* Opening a reader always starts from its supplied history location. An active TTS session owns playback independently and only moves the visible reader back to its playing chapter/paragraph on the next paragraph event when auto-scroll is enabled.
-* Render-window membership and network-loading state are separate: a jump renders the bounded window but immediately loads only its center chapter. One forward neighbor is eligible only after the center finishes and the reader remains settled.
+* Reader renders only `displayedChapterIndex`. `pendingNavigationIndex` may advance independently while the old chapter stays visible during loading.
+* Manual requests are debounced for 300 ms and replace `queuedNavigation`; one worker executes requests serially. Only the current generation may commit content or expose an error.
+* A failure replaces the reading surface with chapter title, exact source message, and retry state. Retry keeps the panel visible and disables duplicate requests.
+* Successful manual navigation opens at the top. History and TTS commits may carry a paragraph target.
+* Opening starts from history. TTS changes visual position only on a later paragraph event and never persists temporary visual sync as reading history.
+* Speculative loading is limited to N+1 after 750 ms idle and is disabled while TTS owns the same book.
 
 ## 1. Máy Trạng thái Phát Giọng đọc (TTS Playback State Machine)
 

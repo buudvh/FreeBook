@@ -15,6 +15,13 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader navigation calls (1.3.11)
+
+* `ReaderView` routes buttons, horizontal swipes, chapter-list jumps, history restore, and TTS sync through `ReaderViewModel.requestChapter(...)` or `stepChapter(...)`.
+* `requestChapter` coalesces manual targets for 300 ms. `runNavigationWorker` executes one target at a time, rejects stale generations, and calls either `commitNavigation` or `failNavigation`.
+* `reloadDisplayedChapter` bypasses RAM and SwiftData chapter content; `retryPendingNavigation` repeats the failed request with its original paragraph and persistence policy.
+* A successful persistent save invokes `onChapterCached(index)`, which calls `ReaderChapterListStore.markCached(index:)`.
+
 ## Chi tiết Đồ thị Lời gọi các Hàm Cốt lõi
 
 ### 1. `ReaderViewModel.updateProgress(chapterIndex:paragraphIndex:)`

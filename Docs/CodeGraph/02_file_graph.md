@@ -1037,13 +1037,14 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 ### 68. [ReaderChapterListView.swift](../../Sources/Views/Reader/ReaderChapterListView.swift)
 
 *   **Đường dẫn**: `Views/Reader/ReaderChapterListView.swift`
-*   **Imports (Import Graph)**: `SwiftData`, `SwiftUI`
+*   **Imports (Import Graph)**: `Observation`, `SwiftData`, `SwiftUI`
 *   **Sử dụng (Uses)**:
     *   [Book.swift](../../Sources/Models/Database/Book.swift)
     *   [Chapter.swift](../../Sources/Models/Database/Chapter.swift)
     *   [Extension.swift](../../Sources/Models/Database/Extension.swift)
     *   [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
     *   [TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift)
+    *   [BookCoverView.swift](../../Sources/Views/Common/BookCoverView.swift)
     *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
 *   **Được sử dụng bởi (Used by)**:
     *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)

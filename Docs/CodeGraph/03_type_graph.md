@@ -15,6 +15,12 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Reader type updates (1.3.11)
+
+* `ReaderNavigationSource`, `ReaderNavigationDirection`, `ReaderNavigationCommit`, and `ReaderChapterLoadFailure` define the single-chapter navigation contract and generation-checked result state.
+* `ReaderChapterListStore` owns stable `ReaderChapterRowState` objects for the Reader lifetime. `markCached(index:)` mutates one row without rebuilding the chapter list.
+* `ExtensionManagerError.sourceResponse(message:)` preserves the exact message returned by JavaScript `Response.error(message)`.
+
 ## Đánh giá mức độ tin cậy (Confidence Level)
 
 *   **Mức độ tin cậy**: **High**

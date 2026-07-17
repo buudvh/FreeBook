@@ -1,105 +1,169 @@
 import SwiftUI
 import SwiftData
+import Observation
 
-struct ChapterRowInfo: Identifiable {
-    var id: Int { index }
+@MainActor
+@Observable
+final class ReaderChapterRowState: Identifiable {
+    let id: Int
     let title: String
     let url: String
-    let index: Int
-    let isCached: Bool
+    var isCached: Bool
+
+    init(index: Int, title: String, url: String, isCached: Bool) {
+        self.id = index
+        self.title = title
+        self.url = url
+        self.isCached = isCached
+    }
+}
+
+@MainActor
+@Observable
+final class ReaderChapterListStore {
+    private(set) var rows: [ReaderChapterRowState] = []
+    private var rowsByIndex: [Int: ReaderChapterRowState] = [:]
+
+    init(localBook: Book?, onlineChapters: [ChapterResult]) {
+        replace(localBook: localBook, onlineChapters: onlineChapters)
+    }
+
+    func markCached(index: Int) {
+        rowsByIndex[index]?.isCached = true
+    }
+
+    func synchronize(localBook: Book?, onlineChapters: [ChapterResult]) {
+        let descriptors = Self.descriptors(localBook: localBook, onlineChapters: onlineChapters)
+        let commonCount = min(rows.count, descriptors.count)
+        let prefixIsStable = (0..<commonCount).allSatisfy { offset in
+            let row = rows[offset]
+            let descriptor = descriptors[offset]
+            return row.id == descriptor.index && row.url == descriptor.url && row.title == descriptor.title
+        }
+
+        guard prefixIsStable else {
+            replace(descriptors: descriptors)
+            return
+        }
+
+        for descriptor in descriptors.prefix(commonCount) where descriptor.isCached {
+            rowsByIndex[descriptor.index]?.isCached = true
+        }
+
+        if descriptors.count > rows.count {
+            for descriptor in descriptors.dropFirst(rows.count) {
+                let row = ReaderChapterRowState(
+                    index: descriptor.index,
+                    title: descriptor.title,
+                    url: descriptor.url,
+                    isCached: descriptor.isCached
+                )
+                rows.append(row)
+                rowsByIndex[descriptor.index] = row
+            }
+        } else if descriptors.count < rows.count {
+            replace(descriptors: descriptors)
+        }
+    }
+
+    private func replace(localBook: Book?, onlineChapters: [ChapterResult]) {
+        replace(descriptors: Self.descriptors(localBook: localBook, onlineChapters: onlineChapters))
+    }
+
+    private func replace(descriptors: [(index: Int, title: String, url: String, isCached: Bool)]) {
+        let newRows = descriptors.map { descriptor in
+            ReaderChapterRowState(
+                index: descriptor.index,
+                title: descriptor.title,
+                url: descriptor.url,
+                isCached: descriptor.isCached
+            )
+        }
+        rows = newRows
+        rowsByIndex = Dictionary(uniqueKeysWithValues: newRows.map { ($0.id, $0) })
+    }
+
+    private static func descriptors(
+        localBook: Book?,
+        onlineChapters: [ChapterResult]
+    ) -> [(index: Int, title: String, url: String, isCached: Bool)] {
+        if let localBook {
+            return localBook.chapters
+                .sorted { $0.index < $1.index }
+                .map { ($0.index, $0.title, $0.url, $0.isCached) }
+        }
+        return onlineChapters.enumerated().map { index, chapter in
+            (index, chapter.name, chapter.url, false)
+        }
+    }
 }
 
 struct ReaderChapterListView: View {
     let bookId: String
+    let bookTitle: String?
+    let bookAuthor: String?
+    let bookCoverUrl: String?
     let bookDetailUrl: String?
     let localBook: Book?
     let ext: Extension?
     let currentChapterIndex: Int
     let isTranslationEnabled: Bool
     let theme: ReaderTheme
+    let store: ReaderChapterListStore
     @Binding var onlineChapters: [ChapterResult]
     let onSelectChapter: (Int) -> Void
     let onClose: () -> Void
-    
+
     @Environment(\.modelContext) private var modelContext
-    
     @State private var searchQuery = ""
     @State private var isAscending = true
-    @State private var chaptersList: [ChapterRowInfo] = []
     @State private var isUpdating = false
     @State private var errorMessage = ""
-    
+    @State private var didPositionInitialChapter = false
     @State private var toastMessage = ""
     @State private var showingToast = false
     @State private var isToastError = false
-    
-    var filteredChapters: [ChapterRowInfo] {
-        let baseList = isAscending ? chaptersList : Array(chaptersList.reversed())
-        if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return baseList
+
+    private var filteredChapters: [ReaderChapterRowState] {
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        let matches: [ReaderChapterRowState]
+        if query.isEmpty {
+            matches = store.rows
+        } else {
+            matches = store.rows.filter { chapter in
+                chapter.title.localizedCaseInsensitiveContains(query) ||
+                    displayTitle(for: chapter).localizedCaseInsensitiveContains(query)
+            }
         }
-        return baseList.filter { chap in
-            chap.title.localizedCaseInsensitiveContains(searchQuery) ||
-            displayTitle(for: chap).localizedCaseInsensitiveContains(searchQuery)
-        }
+        return isAscending ? matches : Array(matches.reversed())
     }
-    
+
+    private var metadataTitle: String {
+        let original = firstNonempty(localBook?.title, bookTitle) ?? "FreeBook"
+        guard isTranslationEnabled, TranslateUtils.containsChinese(original) else {
+            return original
+        }
+        return TranslateUtils.translateMeta(original, bookId: bookId)
+    }
+
+    private var metadataAuthor: String {
+        let original = firstNonempty(localBook?.author, bookAuthor) ?? "Không rõ"
+        guard isTranslationEnabled, TranslateUtils.containsChinese(original) else {
+            return original
+        }
+        return TranslateUtils.translateAuthorHanViet(original)
+    }
+
+    private var metadataCoverUrl: String {
+        firstNonempty(localBook?.coverUrl, bookCoverUrl) ?? ""
+    }
+
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                // Custom Navigation Bar / Header
-                HStack {
-                    // Nút Tải lại bên trái
-                    if isUpdating {
-                        ProgressView()
-                            .tint(theme.textColor)
-                            .frame(width: 44, height: 44)
-                    } else {
-                        Button(action: refreshChapters) {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.body)
-                                .foregroundColor(theme.textColor)
-                                .frame(width: 44, height: 44)
-                        }
-                    }
-                    
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isAscending.toggle()
-                        }
-                    }) {
-                        Image(systemName: isAscending ? "arrow.down.circle" : "arrow.up.circle")
-                            .font(.title3)
-                            .foregroundColor(theme.textColor)
-                            .frame(width: 44, height: 44)
-                    }
-                    
-                    Spacer()
-                    
-                    // Tiêu đề ở giữa
-                    Text("Danh sách chương (\(chaptersList.count))")
-                        .font(.headline)
-                        .foregroundColor(theme.textColor)
-                    
-                    Spacer()
-                    
-                    // Nút Đóng bên phải
-                    Button(action: onClose) {
-                        Text("Đóng")
-                            .font(.body)
-                            .fontWeight(.medium)
-                            .foregroundColor(theme.textColor)
-                            .frame(width: 60, height: 44)
-                    }
-                }
-                .padding(.horizontal)
-                .frame(height: 50)
-                .background(theme.backgroundColor)
-                
-                Divider()
-                    .background(theme.textColor.opacity(0.1))
-                
-                // Hiển thị lỗi nếu có
+                header
+                Divider().background(theme.textColor.opacity(0.1))
+
                 if !errorMessage.isEmpty {
                     Text(errorMessage)
                         .font(.caption)
@@ -108,172 +172,200 @@ struct ReaderChapterListView: View {
                         .padding(.top, 4)
                         .lineLimit(2)
                         .multilineTextAlignment(.center)
-                    
-                    Divider()
-                        .background(theme.textColor.opacity(0.1))
+                    Divider().background(theme.textColor.opacity(0.1))
                 }
-                
-                // Thanh tìm kiếm chương
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(theme.textColor.opacity(0.6))
-                    
-                    TextField("Tìm kiếm chương...", text: $searchQuery)
-                        .textFieldStyle(.plain)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .foregroundColor(theme.textColor)
-                    
-                    if !searchQuery.isEmpty {
-                        Button(action: { searchQuery = "" }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(theme.textColor.opacity(0.6))
-                        }
-                    }
-                }
-                .padding(10)
-                .background(theme.textColor.opacity(0.08))
-                .cornerRadius(10)
-                .padding(.horizontal)
-                .padding(.top, 10)
-                .padding(.bottom, 6)
-                
-                // Danh sách chương
-                ScrollViewReader { proxy in
-                    List {
-                        ForEach(filteredChapters) { chap in
-                            let isCurrent = chap.index == currentChapterIndex
-                            let titleText = displayTitle(for: chap)
-                            
-                            Button(action: {
-                                onSelectChapter(chap.index)
-                                onClose()
-                            }) {
-                                HStack {
-                                    Text(titleText)
-                                        .font(.body)
-                                        .foregroundColor(isCurrent ? Color.blue : theme.textColor)
-                                        .fontWeight(isCurrent ? .semibold : .regular)
-                                        .lineLimit(1)
-                                    
-                                    Spacer()
-                                    
-                                    if chap.isCached {
-                                        Image(systemName: "arrow.down.circle.fill")
-                                            .font(.caption)
-                                            .foregroundColor(.green)
-                                    }
-                                }
-                                .padding(.vertical, 4)
-                            }
-                            .listRowBackground(isCurrent ? Color.blue.opacity(0.08) : theme.backgroundColor)
-                            .id("chap-\(chap.index)")
-                        }
-                    }
-                    .listStyle(.plain)
-                    .background(theme.backgroundColor)
-                    .scrollContentBackground(.hidden)
-                    .onAppear {
-                        // Tự động cuộn đến chương hiện tại
-                        if searchQuery.isEmpty {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                proxy.scrollTo("chap-\(currentChapterIndex)", anchor: .center)
-                            }
-                        }
-                    }
-                }
+
+                searchField
+                chapterList
             }
             .background(theme.backgroundColor.ignoresSafeArea())
-            .onAppear {
-                loadChapters()
-            }
-            
+
             if showingToast {
-                VStack {
-                    Spacer()
-                    HStack(spacing: 8) {
-                        Image(systemName: isToastError ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
-                            .foregroundColor(isToastError ? .red : .green)
-                        Text(toastMessage)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(.white)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(
-                        Capsule()
-                            .fill(Color(red: 0.1, green: 0.1, blue: 0.1).opacity(0.9))
-                    )
-                    .padding(.bottom, 30)
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(1)
-            }
-        }
-    }
-    
-    private func loadChapters() {
-        if let book = localBook {
-            let sorted = book.chapters.sorted(by: { $0.index < $1.index })
-            self.chaptersList = sorted.map { chap in
-                return ChapterRowInfo(
-                    title: chap.title,
-                    url: chap.url,
-                    index: chap.index,
-                    isCached: chap.isCached
-                )
-            }
-        } else {
-            self.chaptersList = onlineChapters.enumerated().map { (index, chap) in
-                return ChapterRowInfo(
-                    title: chap.name,
-                    url: chap.url,
-                    index: index,
-                    isCached: false
-                )
+                toast
             }
         }
     }
 
-    private func displayTitle(for chapter: ChapterRowInfo) -> String {
+    private var header: some View {
+        HStack(alignment: .top, spacing: 12) {
+            BookCoverView(
+                bookId: bookId,
+                coverUrl: metadataCoverUrl,
+                width: 72,
+                height: 100
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(metadataTitle)
+                    .font(.headline)
+                    .foregroundColor(theme.textColor)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(metadataAuthor)
+                    .font(.subheadline)
+                    .foregroundColor(theme.textColor.opacity(0.72))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 8)
+
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
+
+                    Text("\(store.rows.count) chương")
+                        .font(.caption.weight(.medium))
+                        .foregroundColor(theme.textColor.opacity(0.72))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+
+                    if isUpdating {
+                        ProgressView()
+                            .tint(theme.textColor)
+                            .frame(width: 44, height: 44)
+                            .accessibilityLabel("Đang cập nhật mục lục")
+                    } else {
+                        Button(action: refreshChapters) {
+                            Image(systemName: "arrow.clockwise")
+                                .foregroundColor(theme.textColor)
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("Cập nhật mục lục")
+                    }
+
+                    Button(action: { isAscending.toggle() }) {
+                        Image(systemName: isAscending ? "arrow.down.circle" : "arrow.up.circle")
+                            .font(.title3)
+                            .foregroundColor(theme.textColor)
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel(isAscending ? "Sắp xếp chương giảm dần" : "Sắp xếp chương tăng dần")
+
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                            .foregroundColor(theme.textColor)
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Đóng danh sách chương")
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 100, alignment: .topLeading)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(theme.backgroundColor)
+    }
+
+    private func firstNonempty(_ primary: String?, _ fallback: String?) -> String? {
+        for value in [primary, fallback] {
+            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+        return nil
+    }
+
+    private var searchField: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(theme.textColor.opacity(0.6))
+            TextField("Tìm kiếm chương...", text: $searchQuery)
+                .textFieldStyle(.plain)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .foregroundColor(theme.textColor)
+            if !searchQuery.isEmpty {
+                Button(action: { searchQuery = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(theme.textColor.opacity(0.6))
+                }
+            }
+        }
+        .padding(10)
+        .background(theme.textColor.opacity(0.08))
+        .cornerRadius(8)
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+    }
+
+    private var chapterList: some View {
+        ScrollViewReader { proxy in
+            List {
+                ForEach(filteredChapters) { chapter in
+                    ReaderChapterRowView(
+                        chapter: chapter,
+                        isCurrent: chapter.id == currentChapterIndex,
+                        displayTitle: displayTitle(for: chapter),
+                        theme: theme,
+                        onSelect: {
+                            onSelectChapter(chapter.id)
+                            onClose()
+                        }
+                    )
+                    .id(chapter.id)
+                }
+            }
+            .listStyle(.plain)
+            .background(theme.backgroundColor)
+            .scrollContentBackground(.hidden)
+            .onAppear {
+                guard !didPositionInitialChapter else { return }
+                didPositionInitialChapter = true
+                DispatchQueue.main.async {
+                    proxy.scrollTo(currentChapterIndex, anchor: .center)
+                }
+            }
+        }
+    }
+
+    private var toast: some View {
+        VStack {
+            Spacer()
+            Label(
+                toastMessage,
+                systemImage: isToastError ? "exclamationmark.circle.fill" : "checkmark.circle.fill"
+            )
+            .font(.subheadline.weight(.medium))
+            .foregroundColor(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Color.black.opacity(0.9), in: Capsule())
+            .padding(.bottom, 30)
+        }
+    }
+
+    private func displayTitle(for chapter: ReaderChapterRowState) -> String {
         guard isTranslationEnabled, TranslateUtils.containsChinese(chapter.title) else {
             return chapter.title
         }
         return TranslateUtils.translateChapterTitle(chapter.title, bookId: bookId)
     }
-    
+
     private func showToast(_ message: String, isError: Bool) {
         toastMessage = message
         isToastError = isError
-        withAnimation {
-            showingToast = true
-        }
-        
+        withAnimation { showingToast = true }
         Task {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
-            withAnimation {
-                showingToast = false
-            }
+            withAnimation { showingToast = false }
         }
     }
 
     private func refreshChapters() {
-        guard let ext = ext else {
+        guard let ext else {
             errorMessage = "Không tìm thấy tiện ích bóc tách!"
-            showToast("Lỗi: Không tìm thấy tiện ích!", isError: true)
+            showToast(errorMessage, isError: true)
             return
         }
         let url = localBook?.detailUrl ?? bookDetailUrl ?? ""
         guard !url.isEmpty else {
             errorMessage = "Đường dẫn truyện không hợp lệ!"
-            showToast("Lỗi: Đường dẫn không hợp lệ!", isError: true)
+            showToast(errorMessage, isError: true)
             return
         }
-        
+
         isUpdating = true
         errorMessage = ""
-        
         Task {
             do {
                 var allChapters: [ChapterResult] = []
@@ -285,89 +377,87 @@ struct ReaderChapterListView: View {
                         host: localBook?.host,
                         configJson: ext.configJson
                     )
-                    for pageUrl in pages {
-                        let pageChaps = try await ExtensionManager.shared.toc(
+                    for pageURL in pages {
+                        allChapters.append(contentsOf: try await ExtensionManager.shared.toc(
                             localPath: ext.localPath,
                             downloadUrl: ext.downloadUrl,
-                            url: pageUrl,
+                            url: pageURL,
                             host: localBook?.host,
                             configJson: ext.configJson
-                        )
-                        allChapters.append(contentsOf: pageChaps)
+                        ))
                     }
                 } else {
-                    let tocResult = try await ExtensionManager.shared.toc(
+                    allChapters = try await ExtensionManager.shared.toc(
                         localPath: ext.localPath,
                         downloadUrl: ext.downloadUrl,
                         url: url,
                         host: localBook?.host,
                         configJson: ext.configJson
                     )
-                    allChapters = tocResult
                 }
-                
-                await MainActor.run {
-                    if let book = localBook {
-                        // Cập nhật host của truyện nếu trống
-                        if (book.host == nil || book.host!.isEmpty), let firstHost = allChapters.first?.host, !firstHost.isEmpty {
-                            book.host = firstHost
-                        }
-                        
-                        let existingChaps = book.chapters
-                        let existingUrls = Set(existingChaps.map { $0.url })
-                        
-                        // Lọc ra các chương chưa có trong DB
-                        let newChaptersFromTOC = allChapters.filter { !existingUrls.contains($0.url) }
-                        
-                        if !newChaptersFromTOC.isEmpty {
-                            var addedChapters: [Chapter] = []
-                            for item in newChaptersFromTOC {
-                                let originalIndex = allChapters.firstIndex(where: { $0.url == item.url }) ?? existingChaps.count
-                                
-                                let chapId = "\(bookId)_\(item.url)"
-                                let newChap = Chapter(
-                                    id: chapId,
-                                    title: item.name,
-                                    url: item.url,
-                                    index: originalIndex,
-                                    host: item.host
-                                )
-                                newChap.book = book
-                                modelContext.insert(newChap)
-                                addedChapters.append(newChap)
-                            }
-                            
-                            book.chapters.append(contentsOf: addedChapters)
-                            try? modelContext.save()
-                            
-                            loadChapters()
-                            showToast("Đã cập nhật thêm \(newChaptersFromTOC.count) chương mới!", isError: false)
-                        } else {
-                            showToast("Mục lục đã là mới nhất, không có chương mới!", isError: false)
-                        }
-                    } else {
-                        // Đối với truyện online, chỉ đè onlineChapters
-                        let oldOnlineCount = self.onlineChapters.count
-                        self.onlineChapters = allChapters
-                        loadChapters()
-                        
-                        let newAdded = allChapters.count - oldOnlineCount
-                        if newAdded > 0 {
-                            showToast("Đã cập nhật thêm \(newAdded) chương mới!", isError: false)
-                        } else {
-                            showToast("Mục lục đã là mới nhất, không có chương mới!", isError: false)
-                        }
+
+                if let book = localBook {
+                    let existingURLs = Set(book.chapters.map(\.url))
+                    let additions = allChapters.enumerated().filter { !existingURLs.contains($0.element.url) }
+                    for (index, item) in additions {
+                        let chapter = Chapter(
+                            id: "\(bookId)_\(item.url)",
+                            title: item.name,
+                            url: item.url,
+                            index: index,
+                            host: item.host
+                        )
+                        chapter.book = book
+                        modelContext.insert(chapter)
+                        book.chapters.append(chapter)
                     }
-                    
-                    isUpdating = false
+                    if (book.host ?? "").isEmpty, let host = allChapters.first?.host, !host.isEmpty {
+                        book.host = host
+                    }
+                    try? modelContext.save()
+                    store.synchronize(localBook: book, onlineChapters: onlineChapters)
+                    showToast(additions.isEmpty ? "Mục lục đã mới nhất" : "Đã thêm \(additions.count) chương mới", isError: false)
+                } else {
+                    let oldCount = onlineChapters.count
+                    onlineChapters = allChapters
+                    store.synchronize(localBook: nil, onlineChapters: allChapters)
+                    let added = max(0, allChapters.count - oldCount)
+                    showToast(added == 0 ? "Mục lục đã mới nhất" : "Đã thêm \(added) chương mới", isError: false)
                 }
+                isUpdating = false
             } catch {
-                await MainActor.run {
-                    self.errorMessage = "Lỗi cập nhật: \(error.localizedDescription)"
-                    self.isUpdating = false
-                    showToast("Cập nhật thất bại: \(error.localizedDescription)", isError: true)
-                }
+                errorMessage = "Lỗi cập nhật: \(error.localizedDescription)"
+                isUpdating = false
+                showToast(errorMessage, isError: true)
             }
         }
+    }
+}
+
+private struct ReaderChapterRowView: View {
+    let chapter: ReaderChapterRowState
+    let isCurrent: Bool
+    let displayTitle: String
+    let theme: ReaderTheme
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack {
+                Text(displayTitle)
+                    .font(.body)
+                    .foregroundColor(isCurrent ? .blue : theme.textColor)
+                    .fontWeight(isCurrent ? .semibold : .regular)
+                    .lineLimit(1)
+                Spacer()
+                if chapter.isCached {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        .listRowBackground(isCurrent ? Color.blue.opacity(0.08) : theme.backgroundColor)
     }
 }

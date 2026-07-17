@@ -9,6 +9,17 @@ public struct RegistryResponse: Codable {
     public let data: [ExtensionRegistryItem]
 }
 
+public enum ExtensionManagerError: LocalizedError, Equatable {
+    case sourceResponse(message: String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .sourceResponse(let message):
+            return message
+        }
+    }
+}
+
 public struct RegistryMetadata: Codable {
     public let author: String?
     public let description: String?
@@ -793,7 +804,7 @@ public final class ExtensionManager: ObservableObject {
                 let msgVal = jsValue.objectForKeyedSubscript("message")
                 let msg = (msgVal != nil && !msgVal!.isUndefined && !msgVal!.isNull) ? msgVal!.toString() ?? "Lỗi từ nguồn truyện" : "Lỗi từ nguồn truyện"
                 AppLogger.shared.log("❌ [\(logPrefix)] Response.error: \(msg)")
-                throw NSError(domain: "ExtensionManager", code: -999, userInfo: [NSLocalizedDescriptionKey: msg])
+                throw ExtensionManagerError.sourceResponse(message: msg)
             }
             if let dataVal = jsValue.objectForKeyedSubscript("data"),
                !dataVal.isUndefined {

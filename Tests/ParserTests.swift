@@ -43,6 +43,7 @@ final class ParserTests: XCTestCase {
         } catch {
             XCTFail("Promise test failed with error: \(error.localizedDescription)")
         }
+    }
     
     // Kiểm tra tính năng inject biến config toàn cục
     func testJSBridgeConfig() throws {

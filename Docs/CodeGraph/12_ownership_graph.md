@@ -15,6 +15,10 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader ownership update (1.3.11)
+
+`ReaderView` owns one `ReaderViewModel` and one `ReaderChapterListStore` for its lifetime. The store owns stable `ReaderChapterRowState` objects. `ReaderViewModel` owns the chapter cache, navigation debounce/worker, speculative-prefetch task, and progress repository; its cache callback references the list store only to mutate one row. `TTSManager.shared` remains independent.
+
 ## 1. Sơ đồ cây Sở hữu Tổng thể
 
 ```mermaid

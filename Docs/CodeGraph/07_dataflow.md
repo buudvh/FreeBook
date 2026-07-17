@@ -15,13 +15,14 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Reader data-flow updates (1.3.10)
+## Reader data-flow updates (1.3.11, supersedes 1.3.10)
 
-* Scroll geometry updates the active chapter and bounded render window even while TTS is playing; persistent reading progress remains sourced from TTS during playback.
-* `ReaderChapterListView` is instantiated only while visible. Chapter-title translation is evaluated lazily for visible rows, or on demand for a non-empty translated-title search.
-* Canceled extension fetches remain counted as active until their underlying operation returns. A shared `ReaderPrefetchGate` preserves the two-request limit across rapid jumps and across old/new Reader instances during navigation.
-* Jump data flow is target-first: request the selected chapter, wait until it is loaded and the position remains stable, then request at most the next chapter. It no longer fetches the full four-chapter render window.
-* Chapter-list dependencies are passed from `ReaderView`; opening the overlay no longer starts duplicate all-book/all-extension SwiftData queries.
+* The reading surface consumes one `CachedChapter` selected by `displayedChapterIndex`; vertical scrolling never requests another chapter.
+* Rapid manual input updates only the latest queued target. Stale generations may populate cache but cannot change displayed state.
+* `ReaderChapterListStore` is created when Reader opens and remains mounted while hidden. Search, order, scroll position, and row identities survive repeated open/close operations.
+* Successful chapter persistence emits one index to `markCached(index:)`; no chapter reload, sorting, or full list mapping occurs for an icon update.
+* JavaScript `Response.error(message)` becomes `ExtensionManagerError.sourceResponse` and flows unchanged into `ReaderChapterLoadFailure.sourceMessage`.
+* N+1 prefetch starts only after the displayed chapter is loaded and idle for 750 ms; active same-book TTS disables Reader speculation.
 
 ## 1. Dòng chảy dữ liệu chính (Core Data Flows)
 

@@ -4,6 +4,32 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.12] - 2026-07-17
+
+### Cap nhat UI Reader va header danh sach chuong
+*   **Nguoi thuc hien**: Tro ly AI Codex
+*   **Tong so file nguon anh huong**: 2 file Swift
+*   **Mo ta**:
+    *   Header Reader dung ba hang: back/reload/dropdown, nut dich gop hai hang, ten truyen va hang ten chuong mo muc luc.
+    *   Body bo thanh cong cu thu gon, chi giu mot nut TTS noi.
+    *   Danh sach chuong truot tu duoi len, van mount trong suot vong doi Reader va ton trong Reduce Motion.
+    *   Header muc luc hien cover, ten truyen va tac gia day du; cong cu refresh/sap xep/dong nam o goc duoi ben phai metadata.
+    *   Metadata dich theo trang thai dich cua Reader va khong tai lai detail hay muc luc.
+
+## [1.3.11] - 2026-07-17
+
+### Refactor Reader mot chuong va toi uu dieu huong
+*   **Nguoi thuc hien**: Tro ly AI Codex
+*   **Tong so file nguon anh huong**: 7 file Swift, 1 file test
+*   **Mo ta**:
+    *   Reader chi render mot chuong; chuyen chuong bang swipe ngang hoac footer, khong tu dong tai/chuyen khi cuon doc den cuoi.
+    *   Dieu huong thu cong debounce 300 ms va giu target moi nhat; mot worker tai noi dung va generation check ngan request cu commit sai chuong.
+    *   Loi `Response.error` duoc giu nguyen, hien cung ten chuong va nut retry o giua man hinh.
+    *   Danh sach chuong duoc tao va mount mot lan trong vong doi Reader; cache thanh cong chi cap nhat icon cua mot row.
+    *   Dropdown dung chung command cho hien ten chuong, force reload, tu dien, browser va cai dat.
+    *   TTS sync chi thay doi vi tri hien thi, khong ghi de lich su; Reader prefetch N+1 bi tat khi TTS cung sach dang phat.
+    *   Them test cho rapid-step N+4, chapter list 10.000 row va thong diep source error.
+
 ## [1.3.10] - 2026-07-17
 
 ### Fix Reader history restore, infinite chapter loading, and jump/list lag

@@ -41,6 +41,13 @@ enum ChapterLoadState: Equatable {
     case failed(message: String)
 }
 
+extension ChapterLoadState {
+    var failureMessage: String? {
+        if case .failed(let message) = self { return message }
+        return nil
+    }
+}
+
 @available(iOS 17.0, *)
 @Observable
 class CachedChapter: Identifiable {
@@ -92,6 +99,12 @@ class ChapterCache {
             newItem.state = state
             cache[index] = newItem
         }
+    }
+
+    func remove(_ index: Int) {
+        releaseTasks[index]?.cancel()
+        releaseTasks.removeValue(forKey: index)
+        cache.removeValue(forKey: index)
     }
 
     func setScrollParagraph(_ index: Int, paragraphIndex: Int) {
