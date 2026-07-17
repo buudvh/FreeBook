@@ -2,7 +2,26 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
----
+## [1.4.0] - 2026-07-17
+
+### Thay thế công cụ hiển thị trình đọc sang UIKit CoreText & UICollectionView (Lightweight CoreText Engine)
+*   **Người thực hiện**: Trợ lý AI Antigravity
+*   **Tổng số file nguồn ảnh hưởng**: 6 file Swift mới, 2 file Swift sửa đổi (ReaderView.swift, TTSManager.swift), 2 file tài liệu CodeGraph (05_state_graph.md, 11_subsystems.md)
+*   **Mô tả**:
+    *   **CoreText Engine [NEW]**:
+        *   `CoreTextHTMLParser`: Bóc tách chuỗi HTML chứa div metadata của `ParagraphItem` sang `NSAttributedString` có gắn Custom Attributes (`.paragraphId`, `.originalText`, `.transText`) để lưu giữ metadata của từng đoạn văn.
+        *   `CoreTextPaginator`: Sử dụng `CTFramesetter` của CoreText để phân chia `NSAttributedString` của chương thành các trang có chiều cao cố định bằng màn hình (`readerHeight`).
+        *   `CoreTextPageView` & `CoreTextPageCell`: Vẽ chữ trực tiếp bằng đồ họa `CTFrameDraw` lên cell của `UICollectionView`, hỗ trợ vẽ nền màu highlight khi phát TTS.
+        *   `CoreTextCollectionScrollViewController`: Lớp điều khiển UIKit `UICollectionView` làm trình đọc cuộn dọc liên tục. Hỗ trợ tính toán tọa độ cuộn tức thì (0ms, không lag), neo chính xác đầu chương, và tự động gọi prefetch chương tiếp theo ngầm khi cuộn qua mốc 70% số trang. Tích hợp `UIEditMenuInteraction` hỗ trợ bôi đen chữ, dịch nhanh và nghe TTS từ vị trí bôi đen.
+        *   `CoreTextScrollHostView`: Cầu nối SwiftUI `UIViewControllerRepresentable` đồng bộ dữ liệu cache của `ReaderViewModel` xuống UIKit Controller, truyền binding `scrollTarget` để nhảy cuộn từ SwiftUI HUD/Slider.
+    *   **ReaderView**:
+        *   Thay thế toàn bộ `textReaderView` bằng `CoreTextScrollHostView`.
+        *   Bổ sung modifier `.onReceive` lắng nghe sự kiện `ttsRequestPlayFromPosition` từ menu bôi đen chữ để lập tức khởi chạy phát TTS từ vị trí đã chọn.
+    *   **TTSManager**:
+        *   Cập nhật `speakCurrent()` bắn notification `ttsDidUpdateParagraphPosition` báo cho UICollectionView cập nhật highlight và auto-scroll bám theo giọng đọc.
+        *   Cập nhật mốc tự động prefetch chương mới chạy nền lên 70% số đoạn của chương hiện hành.
+    *   **CodeGraph**:
+        *   Cập nhật tài liệu `05_state_graph.md` và `11_subsystems.md` phản ánh kiến trúc CoreText & UICollectionView mới.
 
 ## [1.3.8] - 2026-07-16
 

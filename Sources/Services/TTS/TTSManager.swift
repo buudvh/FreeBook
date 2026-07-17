@@ -872,12 +872,24 @@ public final class TTSManager: NSObject, ObservableObject {
         
         guard isPlaying, currentParagraphIndex >= 0 && currentParagraphIndex < paragraphs.count else { return }
         
-        // --- THUẬT TOÁN TẢI TRƯỚC SỚM 75% CHO TTS ---
-        if currentParagraphIndex >= (paragraphs.count * 3) / 4 {
+        // --- THUẬT TOÁN TẢI TRƯỚC SỚM 70% CHO TTS ---
+        if currentParagraphIndex >= (paragraphs.count * 7) / 10 {
             self.triggerNextChapterPrefetch()
         }
         
         let paragraph = paragraphs[currentParagraphIndex]
+        
+        // Bắn notification báo cho UIKit CollectionView cập nhật highlight và auto-scroll
+        NotificationCenter.default.post(
+            name: NSNotification.Name("ttsDidUpdateParagraphPosition"),
+            object: nil,
+            userInfo: [
+                "bookId": self.playingBookId,
+                "chapterIndex": self.playingChapterIndex,
+                "paragraphIndex": paragraph.paragraphIndex
+            ]
+        )
+        
         self.highlightRange = paragraph.range // Cập nhật vùng bôi đen chữ đang đọc trên giao diện đọc truyện
         self.currentParentParagraphIndex = paragraph.paragraphIndex
         

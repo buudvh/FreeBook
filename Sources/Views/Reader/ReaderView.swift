@@ -383,6 +383,31 @@ struct ReaderView: View {
                 EmptyView()
             }
         )
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ttsRequestPlayFromPosition"))) { notification in
+            guard let userInfo = notification.userInfo,
+                  let chapter = userInfo["chapterIndex"] as? Int,
+                  let paragraph = userInfo["paragraphIndex"] as? Int,
+                  let vm = viewModel else { return }
+            
+            if let cached = vm.cache.get(chapter), cached.state == .loaded {
+                let ttsChapters = vm.getSortedChapters().map { TTSChapterInfo(title: $0.title, url: $0.url, host: $0.host) }
+                let content = isTranslationEnabled ? cached.translatedContent : cached.originalContent
+                let extInfo = ttsManager.extensionInfo
+                
+                ttsManager.startSpeaking(
+                    bookId: vm.bookId,
+                    currentIndex: chapter,
+                    chapters: ttsChapters,
+                    chapterContent: content,
+                    startParagraphIndex: paragraph,
+                    bookTitle: vm.bookTitle ?? "",
+                    coverUrl: vm.bookCoverUrl ?? "",
+                    bookDetailUrl: vm.bookDetailUrl ?? "",
+                    bookSourceName: vm.bookSourceName ?? "",
+                    extensionInfo: extInfo
+                )
+            }
+        }
         .onChange(of: localBook?.chapters.count) { _, newCount in
             if let vm = viewModel, let count = newCount {
                 if vm.totalChaptersCount != count {
@@ -2099,148 +2124,35 @@ extension ReaderView {
     private var textReaderView: some View {
         Group {
             if let vm = viewModel {
-                GeometryReader { geometry in
-                    let readerHeight = geometry.size.height // Chiều cao thực tế khả dụng của vùng đọc
-                    
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            LazyVStack(alignment: .leading, spacing: 0) {
-                            ForEach(0..<totalChaptersCount, id: \.self) { idx in
-                                    VStack(alignment: .leading, spacing: fontSize * 0.8) {
-                                        if let cached = vm.cache.get(idx) {
-                                            if cached.state == .loading || cached.state == .prefetching {
-                                                VStack(spacing: 16) {
-                                                    ProgressView()
-                                                        .tint(selectedTheme.textColor.opacity(0.8))
-                                                    Text("Đang tải nội dung...")
-                                                        .font(.subheadline)
-                                                        .foregroundColor(selectedTheme.textColor.opacity(0.6))
-                                                }
-                                                .frame(maxWidth: .infinity, minHeight: readerHeight) // Đảm bảo chiếm full màn hình chờ tải
-                                            } else if case .failed(let msg) = cached.state {
-                                                VStack(spacing: 16) {
-                                                    Text(msg)
-                                                        .foregroundColor(.red)
-                                                        .multilineTextAlignment(.center)
-                                                        .padding(.horizontal, 20)
-                                                    Button("Tải lại") {
-                                                        Task {
-                                                            try? await vm.loadChapterContentFromExtension(idx)
-                                                        }
-                                                    }
-                                                    .foregroundColor(selectedTheme.textColor)
-                                                    .padding(.horizontal, 20)
-                                                    .padding(.vertical, 8)
-                                                    .background(selectedTheme.textColor.opacity(0.1))
-                                                    .cornerRadius(16)
-                                                }
-                                                .frame(maxWidth: .infinity, minHeight: readerHeight)
-                                            } else {
-                                                // Đã tải xong nội dung
-                                                chapterContentView(for: cached)
-                                            }
-                                        } else {
-                                            // Placeholder khi chưa có trong cache: tự động tải khi view chuẩn bị hiển thị trên màn hình
-                                            VStack {
-                                                ProgressView()
-                                                    .tint(selectedTheme.textColor.opacity(0.8))
-                                            }
-                                            .frame(maxWidth: .infinity, minHeight: readerHeight) // Đảm bảo chiếm full màn hình chờ tải
-                                            .onAppear {
-                                                // CHẶN TẢI CHƯƠNG Ở XA: Tránh nghẽn mạng khi load lịch sử ở chương lớn
-                                                if abs(idx - chapterIndex) <= 1 {
-                                                    Task {
-                                                        try? await vm.loadChapterContentFromExtension(idx)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        
-                                        // Đường gạch phân cách nghệ thuật giữa các chương
-                                        if idx < totalChaptersCount - 1 {
-                                            HStack {
-                                                Spacer()
-                                                Rectangle()
-                                                    .fill(selectedTheme.textColor.opacity(0.15))
-                                                    .frame(width: 80, height: 1)
-                                                Circle()
-                                                    .fill(selectedTheme.textColor.opacity(0.3))
-                                                    .frame(width: 6, height: 6)
-                                                Rectangle()
-                                                    .fill(selectedTheme.textColor.opacity(0.15))
-                                                    .frame(width: 80, height: 1)
-                                                Spacer()
-                                            }
-                                            .padding(.vertical, 48)
-                                        }
-                                    }
-                                    .frame(maxWidth: .infinity, minHeight: readerHeight) // Căn dãn tối thiểu cho container chương
-                                    .id("chapter-\(idx)")
-                                    .onChange(of: chapterIndex) { _, newChapterIndex in
-                                        // TẢI BÙ LÂN CẬN: Khắc phục lỗi cuộn nhanh bị kẹt xoay loading
-                                        if abs(idx - newChapterIndex) <= 1 {
-                                            if vm.cache.get(idx) == nil {
-                                                Task {
-                                                    try? await vm.loadChapterContentFromExtension(idx)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 24)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    showControls.toggle()
-                                }
-                            }
+                CoreTextScrollHostView(
+                    totalChapters: totalChaptersCount,
+                    initialChapter: self.chapterIndex,
+                    initialParagraph: getSavedParagraphIndex(for: self.chapterIndex),
+                    fontSize: fontSize,
+                    textColor: selectedTheme.textColor,
+                    backgroundColor: selectedTheme.backgroundColor,
+                    highlightColor: selectedTheme.textColor.opacity(0.15),
+                    lineSpacing: 6.0,
+                    paragraphSpacing: 16.0,
+                    viewModel: vm,
+                    scrollTarget: $scrollTarget,
+                    onTap: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showControls.toggle()
                         }
-                        .id("main-scroll-view")
-                        .onChange(of: scrollTarget) { _, newValue in
-                            if let target = newValue {
-                                withAnimation {
-                                    if target.paragraphIndex == -1 {
-                                        proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
-                                    } else {
-                                        proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
-                                    }
-                                }
-                                scrollTarget = nil
-                            }
-                        }
-                        .onAppear {
-                            // LOẠI BỎ DELAY 0.3 GIÂY: Cuộn khôi phục vị trí đọc lập tức ngay khi render
-                            let savedChapter = self.chapterIndex
-                            let savedPara = getSavedParagraphIndex(for: savedChapter)
-                            if savedPara >= 0 {
-                                proxy.scrollTo("paragraph-\(savedChapter)-\(savedPara)", anchor: .top)
-                            } else {
-                                proxy.scrollTo("chapter-\(savedChapter)", anchor: .top)
-                            }
-                        }
+                    },
+                    onProgressCommit: { chapter, paragraph in
+                        self.chapterIndex = chapter
+                        ReaderView.activeChapterIndex = chapter
+                        vm.activeChapterIndex = chapter
+                        vm.tabSelection = chapter
+                        
+                        vm.updateProgress(chapterIndex: chapter, paragraphIndex: paragraph)
                     }
-                }
+                )
+                .ignoresSafeArea()
             } else {
                 ProgressView()
-            }
-        }
-        .onChange(of: showChapterTitle) { _, _ in
-            if let vm = viewModel {
-                vm.refreshParagraphItems()
-            } else {
-                for idx in 0..<loadedChapters.count {
-                    let chap = loadedChapters[idx]
-                    let items = generateParagraphItems(
-                        chapterIndex: chap.index,
-                        originalTitle: chap.originalTitle,
-                        originalContent: chap.originalContent,
-                        translatedTitle: chap.title,
-                        translatedContent: chap.chapterContent
-                    )
-                    loadedChapters[idx].paragraphItems = items
-                }
             }
         }
     }

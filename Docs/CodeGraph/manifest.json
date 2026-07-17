@@ -233,7 +233,7 @@
     {
       "filename": "05_state_graph.md",
       "sourceHash": "7db0b3e3f345aa6c1cdc5c1ce19c97357651f72c18cf463b9cd53a3d4ccc355b",
-      "generatedHash": "696fb3649b38b537c2782a79225d5d17556f9f84a1da8ae120069b310102d222",
+      "generatedHash": "4e607ea67b23fa7de4e8cb18f3638bb6c417bc379f20b0e34e36f961e199f7af",
       "generatedAt": "2026-07-16T14:38:00.000000Z",
       "sourceFiles": [
         "Sources/Services/Download/DownloadManager.swift",
@@ -302,7 +302,7 @@
     {
       "filename": "11_subsystems.md",
       "sourceHash": "71a91fd1425ad9401f29dc7a113f29143eed08dc1929f2b1a5931e906b805b0a",
-      "generatedHash": "f5c9051c502cc3e19135a57b85e836eb9f63397cff8f0679b9283b6880bc1c4d",
+      "generatedHash": "8bf83fbaf7fab27fc559a7905913fa850ce8adc2800a1e1534b020f0fc0d75f3",
       "generatedAt": "2026-07-16T14:38:00.000000Z",
       "sourceFiles": [
         "Sources/Services/Download/DownloadManager.swift",

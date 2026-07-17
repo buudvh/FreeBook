@@ -114,9 +114,9 @@ stateDiagram-v2
 ```
 
 ### 3.2. Triggers & Transitions (Chuyển đổi trạng thái)
-*   **`Placeholder -> Prefetching`**: Khi chương nằm trong cửa sổ trượt xung quanh chương hiện tại, hệ thống đưa vào hàng đợi tải trước.
-*   **`Placeholder / Prefetching -> Loading`**: Khi chương thực sự xuất hiện trên màn hình qua `.onAppear`, hệ thống lập tức nâng mức ưu tiên để tải ngay nội dung.
-*   **`Loading -> Loaded`**: Đọc thành công dữ liệu từ DB (truyện offline) hoặc chạy JS bóc tách thành công (truyện online). Nội dung chương được bóc thành các `ParagraphItem` và render lên màn hình.
-*   **`Loading -> Failed`**: Tải thất bại do lỗi mạng hoặc extension. Hiển thị thông báo lỗi cục bộ trên container chương kèm nút "Tải lại".
-*   **`Loaded -> Placeholder`**: Khi người dùng cuộn đi qua chương đó và chương nằm ngoài vùng hiển thị quá 5 giây, `ChapterCache` sẽ giải phóng nội dung chữ để tiết kiệm RAM, chuyển trạng thái về `placeholder`.
+*   **`Placeholder -> Prefetching`**: Khi chương nằm trong cửa sổ trượt `[N-1, N, N+1]`, hoặc khi người dùng cuộn (hoặc nghe TTS) đạt mốc **70%** của Chương `N`, hệ thống đưa Chương `N + 1` vào hàng đợi tải trước ngầm.
+*   **`Placeholder / Prefetching -> Loading`**: Khi một trang chưa có dữ liệu chuẩn bị hiển thị trên CollectionView (yêu cầu từ `onChapterContentRequired`), hệ thống bắt đầu nạp trực tiếp nội dung chương đó.
+*   **`Loading -> Loaded`**: Đọc thành công dữ liệu từ DB (offline) hoặc JS bóc tách thành công (online). Nội dung được chuyển đổi sang `NSAttributedString` có gắn các Custom Attributes metadata và phân trang hoàn tất.
+*   **`Loading -> Failed`**: Tải thất bại do lỗi mạng hoặc extension. Hiển thị cell thông báo lỗi kèm nút "Tải lại".
+*   **`Loaded -> Placeholder`**: Khi chương nằm ngoài cửa sổ trượt 3 chương, bộ dọn dẹp giải phóng bộ nhớ RAM, chuyển trạng thái về `placeholder`.
 <!-- GENERATED END -->
