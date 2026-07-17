@@ -26,6 +26,7 @@ final class CoreTextCollectionScrollViewController: UIViewController {
     
     private var totalChaptersCount: Int = 0
     private var currentChapterIndex: Int = 0
+    private var currentPageIndex: Int = 0
     private var currentParagraphIndex: Int = 0
     
     // Trạng thái highlight cho TTS
@@ -142,8 +143,6 @@ final class CoreTextCollectionScrollViewController: UIViewController {
         paragraphSpacing: CGFloat
     ) {
         let needRepaginate = self.readerFont != font || 
-                             self.horizontalInset != horizontalInset || 
-                             self.verticalInset != verticalInset ||
                              self.lineSpacing != lineSpacing ||
                              self.paragraphSpacing != paragraphSpacing
         
@@ -161,7 +160,6 @@ final class CoreTextCollectionScrollViewController: UIViewController {
             let currentChap = currentChapterIndex
             let currentPara = currentParagraphIndex
             
-            let tempStrings = attributedStrings
             attributedStrings.removeAll()
             paginatedPages.removeAll()
             
@@ -271,6 +269,7 @@ final class CoreTextCollectionScrollViewController: UIViewController {
         
         // 3. Cuộn UICollectionView đến đúng cell (Section = chapter, Item = pageIndex)
         let indexPath = IndexPath(item: targetPageIndex, section: chapter)
+        self.currentPageIndex = targetPageIndex
         collectionView.scrollToItem(at: indexPath, at: .top, animated: false)
     }
 }
@@ -367,7 +366,7 @@ extension CoreTextCollectionScrollViewController: UIScrollViewDelegate {
         let pageIdx = indexPath.item
         
         // 2. Nếu chuyển trang hoặc chương, tiến hành tính toán cập nhật tiến trình
-        if chapterIdx != currentChapterIndex || pageIdx != currentChapterIndex {
+        if chapterIdx != currentChapterIndex || pageIdx != currentPageIndex {
             updateReadingProgress(chapterIndex: chapterIdx, pageIndex: pageIdx)
         }
         
@@ -388,6 +387,7 @@ extension CoreTextCollectionScrollViewController: UIScrollViewDelegate {
     
     private func updateReadingProgress(chapterIndex: Int, pageIndex: Int) {
         self.currentChapterIndex = chapterIndex
+        self.currentPageIndex = pageIndex
         
         guard let pages = paginatedPages[chapterIndex], pageIndex < pages.count,
               let attrStr = attributedStrings[chapterIndex] else { return }
@@ -521,11 +521,6 @@ extension CoreTextCollectionScrollViewController {
             // Reload cell đang hiển thị để cập nhật highlightColor vẽ đè lên context
             collectionView.reloadItems(at: [indexPath])
         }
-    }
-    
-    private var currentPageIndex: Int {
-        let visibleCenterPoint = CGPoint(x: collectionView.bounds.midX, y: collectionView.bounds.midY)
-        return collectionView.indexPathForItem(at: visibleCenterPoint)?.item ?? 0
     }
 }
 
