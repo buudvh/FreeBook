@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-07-17T00:00:00.000000Z",
-  "gitCommit": "f6a4173eed298f150ec42f3d3b0f60017af23f4b",
+  "generatedAt": "2026-07-17T08:05:11.5903791Z",
+  "gitCommit": "bfcbdc4bc600822504a29a1c8412bab878182415",
   "sourceFileCount": 91,
   "documentCount": 16,
   "documents": [
@@ -232,52 +232,61 @@
     },
     {
       "filename": "05_state_graph.md",
-      "sourceHash": "7db0b3e3f345aa6c1cdc5c1ce19c97357651f72c18cf463b9cd53a3d4ccc355b",
-      "generatedHash": "190d9754096ae50ea0ad5a9059bb9ce736c63e0bd49585ddfc48e457466878d2",
-      "generatedAt": "2026-07-16T01:23:05.294939Z",
+      "sourceHash": "34646d9da74f4c8a921589e24471ba783c47b5ecebc27b24ec7ea6d042d03777",
+      "generatedHash": "a9268f4d6b61214362c3920e1ddb2b5a288cc1a81bb0248737bf29342d22a828",
+      "generatedAt": "2026-07-17T08:05:11.5903791Z",
       "sourceFiles": [
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/TTS/TTSManager.swift",
+        "Sources/Views/Reader/PrefetchManager.swift",
+        "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "documentVersion": 1
+      "documentVersion": 2
     },
     {
       "filename": "06_event_graph.md",
-      "sourceHash": "ec54927f199eef5a15ec53a392bb0a8ce6aa06169a826a256b15ddd2fc5e2b81",
-      "generatedHash": "2d4ca577605895052961af190c818204d3354929da9034043ee1b60968de6561",
-      "generatedAt": "2026-07-16T01:23:05.295599Z",
+      "sourceHash": "4930d6a33f1fee6201fae6415690fc43467aff421c620d251ab57b8baa735cc5",
+      "generatedHash": "71d39522a1a9dea74a050249c9cc234fdeb05dcd44ad94409fb0278863c3e77a",
+      "generatedAt": "2026-07-17T08:05:11.5903791Z",
       "sourceFiles": [
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
         "Sources/Services/TTS/TTSManager.swift",
+        "Sources/Views/Reader/PrefetchManager.swift",
+        "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "documentVersion": 1
+      "documentVersion": 2
     },
     {
       "filename": "07_dataflow.md",
-      "sourceHash": "dbb667aff9e193cbc1fea345c7e03e686f1b43a19d9141e3c82046500ce777a3",
-      "generatedHash": "37caafd912920b3b57751c62b4097cf7888d725219877771dbe3e4c4a690912d",
-      "generatedAt": "2026-07-16T01:23:05.296331Z",
+      "sourceHash": "f0e66f8779e251bbb0324778ae09bb5ccc073c1af0c66d28a74caaa9d188a817",
+      "generatedHash": "257e7bc3f0215dd0833cabb9e50464613a6e912327a78d6698c2d1cdfb1c1882",
+      "generatedAt": "2026-07-17T08:05:11.5903791Z",
       "sourceFiles": [
         "Sources/Common/Services/ImageCacheManager.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/Translation/Manager/TranslationManager.swift",
-        "Sources/Views/Reader/ReaderViewModel.swift"
-      ],
-      "documentVersion": 1
-    },
-    {
-      "filename": "08_lifecycle.md",
-      "sourceHash": "21ac884fc991552cf22ed99ef0730083e6cb6720a04bce832344872a0ac03448",
-      "generatedHash": "7cf6ac88c9d4ff2ad36d1ebe5cba7970451cb8b143a183a886ec26bebd44babb",
-      "generatedAt": "2026-07-16T01:23:05.297076Z",
-      "sourceFiles": [
-        "Sources/Views/Common/BypassWebView.swift",
+        "Sources/Views/Reader/PrefetchManager.swift",
+        "Sources/Views/Reader/ReaderChapterListView.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "documentVersion": 1
+      "documentVersion": 2
+    },
+    {
+      "filename": "08_lifecycle.md",
+      "sourceHash": "9df090b017f3d1e354396acaaa6a3c1568a37bb6ceb94a1abaa7549e645f8fe8",
+      "generatedHash": "5a82b02b2d06740930fcfeb6c6a4cd8cf1c8b7ddedcd440a898c964344daea2e",
+      "generatedAt": "2026-07-17T08:05:11.5903791Z",
+      "sourceFiles": [
+        "Sources/Views/Common/BypassWebView.swift",
+        "Sources/Views/Reader/PrefetchManager.swift",
+        "Sources/Views/Reader/ReaderChapterListView.swift",
+        "Sources/Views/Reader/ReaderView.swift",
+        "Sources/Views/Reader/ReaderViewModel.swift"
+      ],
+      "documentVersion": 2
     },
     {
       "filename": "09_dependency_rules.md",
@@ -289,29 +298,35 @@
     },
     {
       "filename": "10_risk_report.md",
-      "sourceHash": "ec54927f199eef5a15ec53a392bb0a8ce6aa06169a826a256b15ddd2fc5e2b81",
-      "generatedHash": "e4b04bd32a018b5d64e75262eba305f024b7369ad8ca980fd9eb4c196900a691",
-      "generatedAt": "2026-07-16T01:23:05.297863Z",
+      "sourceHash": "3095be32a42e93e069fece79f120507764ce9ff7d23fcc3d04bbaa44f7077bbe",
+      "generatedHash": "66cd176e8f91f8054873264dfe0940bd6090206577d0e2ede22d75fad4e18d84",
+      "generatedAt": "2026-07-17T08:05:11.5903791Z",
       "sourceFiles": [
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
         "Sources/Services/TTS/TTSManager.swift",
+        "Sources/Views/Reader/PrefetchManager.swift",
+        "Sources/Views/Reader/ReaderChapterListView.swift",
+        "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "documentVersion": 1
+      "documentVersion": 2
     },
     {
       "filename": "11_subsystems.md",
-      "sourceHash": "71a91fd1425ad9401f29dc7a113f29143eed08dc1929f2b1a5931e906b805b0a",
-      "generatedHash": "17737c04ef67575a774cd772b87f3fa3d480e07c8b49a93aef303332d0093865",
-      "generatedAt": "2026-07-16T01:23:05.298920Z",
+      "sourceHash": "e61126f1c684fd315d8fc9d69754952c23501614fdc16aa0f7c6afffa75675a7",
+      "generatedHash": "879779b9a9c8db4b2ef1ccdd12c7d18272bd2e73b5bf45ce453f1ec63633ddae",
+      "generatedAt": "2026-07-17T08:05:11.5903791Z",
       "sourceFiles": [
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Extensions/Manager/ExtensionManager.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/Translation/Manager/TranslationManager.swift",
+        "Sources/Views/Reader/PrefetchManager.swift",
+        "Sources/Views/Reader/ReaderChapterListView.swift",
+        "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "documentVersion": 1
+      "documentVersion": 2
     },
     {
       "filename": "12_ownership_graph.md",
@@ -329,15 +344,17 @@
     },
     {
       "filename": "13_resource_lifecycle.md",
-      "sourceHash": "ec54927f199eef5a15ec53a392bb0a8ce6aa06169a826a256b15ddd2fc5e2b81",
-      "generatedHash": "de57cefe5693f92dc23105a2e01ef46ffac238e24213f506bf82517d446236d1",
-      "generatedAt": "2026-07-16T01:23:05.300555Z",
+      "sourceHash": "4930d6a33f1fee6201fae6415690fc43467aff421c620d251ab57b8baa735cc5",
+      "generatedHash": "ae797838d3d6d5e73d681158f46652f475dc67e3ac317a80ed6ee530369a2b1b",
+      "generatedAt": "2026-07-17T08:05:11.5903791Z",
       "sourceFiles": [
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
         "Sources/Services/TTS/TTSManager.swift",
+        "Sources/Views/Reader/PrefetchManager.swift",
+        "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "documentVersion": 1
+      "documentVersion": 2
     },
     {
       "filename": "14_complexity_report.md",

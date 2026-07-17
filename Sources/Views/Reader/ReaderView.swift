@@ -112,6 +112,7 @@ struct ReaderView: View {
     @State private var editingChapterIndex: Int? = nil
     @State private var scrollTarget: ScrollTarget? = nil
     @State private var readerViewportHeight: CGFloat = 360
+    @State private var isRestoringReaderPosition = true
     @State private var isAutoScrollDisabled = false
     @State private var viewModel: ReaderViewModel? = nil
     @State private var updateProgressWorkItem: DispatchWorkItem? = nil
@@ -286,29 +287,30 @@ struct ReaderView: View {
                 readerFooterView
             }
 
-            // Chapter List Overlay (luôn nằm trong hierarchy nhưng ẩn đi bằng offset/opacity)
-            ReaderChapterListView(
-                bookId: bookId,
-                extensionPackageId: extensionPackageId,
-                bookDetailUrl: bookDetailUrl,
-                currentChapterIndex: chapterIndex,
-                isTranslationEnabled: isTranslationEnabled,
-                theme: selectedTheme,
-                onlineChapters: $currentOnlineChapters,
-                isVisible: showingChapterList,
-                onSelectChapter: { selectedIdx in
-                    selectChapter(at: selectedIdx)
-                },
-                onClose: {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        showingChapterList = false
+            // Only build the chapter list while it is visible; its queries and title
+            // translation are unnecessary work during normal reading and TTS updates.
+            if showingChapterList {
+                ReaderChapterListView(
+                    bookId: bookId,
+                    bookDetailUrl: bookDetailUrl,
+                    localBook: localBook,
+                    ext: ext,
+                    currentChapterIndex: chapterIndex,
+                    isTranslationEnabled: isTranslationEnabled,
+                    theme: selectedTheme,
+                    onlineChapters: $currentOnlineChapters,
+                    onSelectChapter: { selectedIdx in
+                        selectChapter(at: selectedIdx)
+                    },
+                    onClose: {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            showingChapterList = false
+                        }
                     }
-                }
-            )
-            .offset(x: showingChapterList ? 0 : -UIScreen.main.bounds.width)
-            .opacity(showingChapterList ? 1 : 0)
-            .animation(.easeInOut(duration: 0.25), value: showingChapterList)
-            .zIndex(10)
+                )
+                .transition(.move(edge: .leading).combined(with: .opacity))
+                .zIndex(10)
+            }
         }
         .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
         .sheet(isPresented: $showingSettings) {
@@ -442,20 +444,6 @@ struct ReaderView: View {
                 )
             }
 
-            let ttsSnapshot = TTSSession.shared.snapshot
-            if ttsSnapshot.bookId == bookId,
-               ttsSnapshot.isPlaying,
-               ttsSnapshot.chapterIndex >= 0,
-               ttsSnapshot.chapterIndex < totalChaptersCount,
-               let vm = viewModel {
-                chapterIndex = ttsSnapshot.chapterIndex
-                vm.jumpToChapter(ttsSnapshot.chapterIndex, paragraphIndex: ttsSnapshot.paragraphIndex)
-                scrollTarget = ScrollTarget(
-                    chapterIndex: ttsSnapshot.chapterIndex,
-                    paragraphIndex: ttsSnapshot.paragraphIndex
-                )
-            }
-
             if !hasOpenedReader {
                 hasOpenedReader = true
             }
@@ -467,10 +455,20 @@ struct ReaderView: View {
             }
             prefetchTask?.cancel()
             readerEdgeControlsHideTask?.cancel()
-            viewModel?.saveProgressImmediately()
+            updateProgressWorkItem?.cancel()
+            updateTTSPositionWorkItem?.cancel()
+            prepareTTSTask?.cancel()
+            paragraphTracker.removeAll()
+            if let vm = viewModel {
+                let ttsOwnsProgress = ttsManager.isPlaying && ttsManager.playingBookId == bookId
+                Task {
+                    await vm.shutdown(saveProgress: !ttsOwnsProgress)
+                }
+            }
         }
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .background {
+            if newPhase == .background &&
+                !(ttsManager.isPlaying && ttsManager.playingBookId == bookId) {
                 viewModel?.saveProgressImmediately()
             }
         }
@@ -499,16 +497,29 @@ struct ReaderView: View {
         .onChange(of: ttsManager.currentParentParagraphIndex) { _, newValue in
             guard ttsManager.isPlaying &&
                   ttsManager.playingBookId == bookId &&
-                  ttsManager.playingChapterIndex == chapterIndex &&
+                  ttsManager.playingChapterIndex >= 0 &&
+                  ttsManager.playingChapterIndex < totalChaptersCount &&
                   newValue >= 0 else { return }
 
             // Lưu vị trí TTS đang phát vào database
-            saveReadProgress(index: chapterIndex, paragraphIndex: newValue)
+            let playingChapterIndex = ttsManager.playingChapterIndex
+            saveReadProgress(index: playingChapterIndex, paragraphIndex: newValue)
+            viewModel?.updateProgress(
+                chapterIndex: playingChapterIndex,
+                paragraphIndex: newValue
+            )
 
             guard !isAutoScrollDisabled else { return }
 
+            if chapterIndex != playingChapterIndex {
+                isRestoringReaderPosition = true
+                paragraphTracker.removeAll()
+                viewModel?.jumpToChapter(playingChapterIndex, paragraphIndex: newValue)
+                chapterIndex = playingChapterIndex
+            }
+
             withAnimation {
-                scrollTarget = ScrollTarget(chapterIndex: ttsManager.playingChapterIndex, paragraphIndex: newValue)
+                scrollTarget = ScrollTarget(chapterIndex: playingChapterIndex, paragraphIndex: newValue)
             }
         }
         .toolbar(.hidden, for: .tabBar)
@@ -1526,13 +1537,15 @@ struct ReaderView: View {
     private func selectChapter(at index: Int, scroll: Bool = true) {
         guard index >= 0 && index < totalChaptersCount else { return }
 
+        isRestoringReaderPosition = scroll
         self.isGoingNext = index >= self.chapterIndex
         self.isTransitioning = true
 
         self.paragraphTracker.removeAll()
 
         if let vm = viewModel {
-            vm.jumpToChapter(index)
+            let ttsOwnsProgress = ttsManager.isPlaying && ttsManager.playingBookId == bookId
+            vm.jumpToChapter(index, persistProgress: !ttsOwnsProgress)
             self.chapterIndex = index
             if scroll {
                 self.scrollTarget = ScrollTarget(chapterIndex: index, paragraphIndex: -1)
@@ -1654,19 +1667,26 @@ struct ReaderView: View {
     }
 
     private func updateScrollReadingProgress() {
-        guard !ttsManager.isPlaying else { return }
+        guard !isRestoringReaderPosition else { return }
 
         // 1. Debounce 200ms cho việc cập nhật tiến trình lưu trữ
         updateProgressWorkItem?.cancel()
         let progressWork = DispatchWorkItem { [weak viewModel] in
             guard let top = self.paragraphTracker.topVisible else { return }
+            let ttsOwnsProgress = ttsManager.isPlaying && ttsManager.playingBookId == bookId
 
             if let vm = viewModel {
                 self.chapterIndex = top.chapterIndex
-                vm.updateActiveLocationFromScroll(chapterIndex: top.chapterIndex, paragraphIndex: top.paragraphIndex)
+                vm.updateActiveLocationFromScroll(
+                    chapterIndex: top.chapterIndex,
+                    paragraphIndex: top.paragraphIndex,
+                    persistProgress: !ttsOwnsProgress
+                )
             } else {
                 self.chapterIndex = top.chapterIndex
-                self.saveReadProgress(index: top.chapterIndex, paragraphIndex: top.paragraphIndex)
+                if !ttsOwnsProgress {
+                    self.saveReadProgress(index: top.chapterIndex, paragraphIndex: top.paragraphIndex)
+                }
             }
         }
         self.updateProgressWorkItem = progressWork
@@ -2197,13 +2217,23 @@ extension ReaderView {
                     proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
                 }
             }
+            completeReaderPositionRestore(after: 0.25)
             return true
         }
 
         withAnimation {
             proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
         }
+        completeReaderPositionRestore(after: 0.25)
         return true
+    }
+
+    private func completeReaderPositionRestore(after delay: TimeInterval = 0) {
+        guard isRestoringReaderPosition else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            paragraphTracker.removeAll()
+            isRestoringReaderPosition = false
+        }
     }
 
     private func restoreReaderPositionIfNeeded(proxy: ScrollViewProxy, chapter: CachedChapter) {
@@ -2222,6 +2252,7 @@ extension ReaderView {
                     proxy.scrollTo("chapter-\(chapter.index)", anchor: .top)
                 }
             }
+            completeReaderPositionRestore(after: 0.25)
             schedulePrepareTTS()
         }
     }

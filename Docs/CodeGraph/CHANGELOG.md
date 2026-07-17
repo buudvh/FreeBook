@@ -4,6 +4,21 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.10] - 2026-07-17
+
+### Fix Reader history restore, infinite chapter loading, and jump/list lag
+*   **Nguoi thuc hien**: Tro ly AI Codex
+*   **Tong so file nguon anh huong**: 4 file Swift, 1 file test
+*   **Mo ta**:
+    *   Reader mo dung vi tri lich su; TTS dang phat khong ghi de vi tri ban dau, nhung lan chuyen paragraph ke tiep se dua giao dien ve vi tri TTS neu auto-scroll dang bat.
+    *   Window render cap nhat `stableIndexes` khi scroll qua chapter, sua loi dung tai gioi han `n+2`.
+    *   Chapter list chi duoc khoi tao khi mo va dich title theo row hien thi, giam tai MainActor.
+    *   Prefetch task da cancel van chiem local/global concurrency slot den khi fetch dong bo thuc su ket thuc; Reader cu khong the mo them batch song song voi Reader moi sau luong thoat -> Kham pha -> Doc ngay.
+    *   Reader teardown huy queue/task rieng va chi force-save khi Reader dang so huu progress.
+    *   Them test hoi quy cho window chapter va gioi han concurrency voi fetch khong phan hoi cancellation ngay.
+    *   Jump chi tai chapter dich; sau khi dich tai xong va Reader on dinh moi tai mot chapter ke tiep. Jump nhanh loai bo cac chapter trung gian chua bat dau.
+    *   Muc luc khong animate qua hang nghin row va khong tao them query toan bo Book/Extension khi mo.
+
 ## [1.3.9] - 2026-07-17
 
 ### Cap nhat UI Reader header/body/footer va TTS CD radial widget

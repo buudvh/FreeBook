@@ -1,5 +1,29 @@
 import Foundation
 
+private actor ReaderPrefetchGate {
+    static let shared = ReaderPrefetchGate(limit: 2)
+
+    private let limit: Int
+    private var activeCount = 0
+
+    init(limit: Int) {
+        self.limit = limit
+    }
+
+    func acquire() async throws {
+        while activeCount >= limit {
+            try Task.checkCancellation()
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+        try Task.checkCancellation()
+        activeCount += 1
+    }
+
+    func release() {
+        activeCount = max(0, activeCount - 1)
+    }
+}
+
 actor PrefetchManager {
     private let maxConcurrentRequests = 2
     private var queue: [Int] = []
@@ -13,7 +37,6 @@ actor PrefetchManager {
         let tasksToCancel = activeTasks.filter { !indexes.contains($0.key) }
         for (idx, task) in tasksToCancel {
             task.cancel()
-            activeTasks.removeValue(forKey: idx)
             #if DEBUG
             AppLogger.shared.log("🚫 [PrefetchManager] Hủy tác vụ tải trước lỗi thời của chương \(idx)")
             #endif
@@ -52,7 +75,16 @@ actor PrefetchManager {
         
         let task = Task {
             do {
-                try await fetcher(nextIndex)
+                try await ReaderPrefetchGate.shared.acquire()
+                do {
+                    try await fetcher(nextIndex)
+                    await ReaderPrefetchGate.shared.release()
+                } catch {
+                    await ReaderPrefetchGate.shared.release()
+                    throw error
+                }
+            } catch is CancellationError {
+                // Cancellation while waiting for the global slot is expected.
             } catch {
                 #if DEBUG
                 AppLogger.shared.log("⚠️ [PrefetchManager] Tải thất bại chương \(nextIndex): \(error.localizedDescription)")
@@ -74,6 +106,5 @@ actor PrefetchManager {
     func cancelAll() {
         queue.removeAll()
         for task in activeTasks.values { task.cancel() }
-        activeTasks.removeAll()
     }
 }

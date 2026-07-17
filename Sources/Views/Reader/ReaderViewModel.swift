@@ -31,6 +31,8 @@ class ReaderViewModel: ObservableObject {
     let modelContext: ModelContext
 
     private var dbSaveTask: Task<Void, Never>? = nil
+    private var prefetchQueueTask: Task<Void, Never>? = nil
+    private var settledPrefetchTask: Task<Void, Never>? = nil
     private var lastActiveIndex: Int = 0
     private var memoryWarningSubscription: AnyCancellable?
     private var cachedLocalBook: Book? = nil
@@ -232,7 +234,11 @@ class ReaderViewModel: ObservableObject {
         self.stableIndexes = self.visibleIndexes
     }
 
-    func updateActiveLocationFromScroll(chapterIndex: Int, paragraphIndex: Int) {
+    func updateActiveLocationFromScroll(
+        chapterIndex: Int,
+        paragraphIndex: Int,
+        persistProgress: Bool = true
+    ) {
         guard chapterIndex >= 0 && chapterIndex < totalChaptersCount else { return }
         if chapterIndex != activeChapterIndex {
             lastActiveIndex = activeChapterIndex
@@ -240,21 +246,31 @@ class ReaderViewModel: ObservableObject {
             tabSelection = chapterIndex
             slideWindow(toAdjacent: chapterIndex)
         }
-        updateProgress(chapterIndex: chapterIndex, paragraphIndex: paragraphIndex)
+        if persistProgress {
+            updateProgress(chapterIndex: chapterIndex, paragraphIndex: paragraphIndex)
+        }
     }
 
-    func jumpToChapter(_ index: Int, paragraphIndex: Int = -1) {
+    func jumpToChapter(
+        _ index: Int,
+        paragraphIndex: Int = -1,
+        persistProgress: Bool = true
+    ) {
         guard index >= 0 && index < totalChaptersCount else { return }
         lastActiveIndex = activeChapterIndex
         activeChapterIndex = index
         tabSelection = index
-        currentProgress = ReadingProgress(chapterIndex: index, paragraphIndex: paragraphIndex)
-        readingContext = ReadingContext(bookId: bookId, chapterIndex: index, paragraphIndex: paragraphIndex)
-        saveProgressImmediately()
+        if persistProgress {
+            currentProgress = ReadingProgress(chapterIndex: index, paragraphIndex: paragraphIndex)
+            readingContext = ReadingContext(bookId: bookId, chapterIndex: index, paragraphIndex: paragraphIndex)
+            saveProgressImmediately()
+        }
         replaceWindow(center: index)
     }
 
     func onBookChanged() {
+        settledPrefetchTask?.cancel()
+        settledPrefetchTask = nil
         Task {
             await prefetcher.cancelAll()
             cache.clearAll()
@@ -296,19 +312,51 @@ class ReaderViewModel: ObservableObject {
 
     private func slideWindow(toAdjacent center: Int) {
         let window = ReaderWindowManager(totalChaptersCount: totalChaptersCount).slide(toAdjacent: center)
-        applyWindow(window)
+        applyWindow(window, center: center)
+        stableIndexes = visibleIndexes
     }
 
     private func replaceWindow(center: Int) {
         let window = ReaderWindowManager(totalChaptersCount: totalChaptersCount).replaceWindow(center: center)
-        applyWindow(window)
+        applyWindow(window, center: center)
         stableIndexes = visibleIndexes
     }
 
-    private func applyWindow(_ window: Set<Int>) {
+    private func applyWindow(_ window: Set<Int>, center: Int) {
         syncVisibleIndexes(window)
-        enqueuePrefetch(window)
+        enqueuePrefetch([center])
+        scheduleSettledPrefetch(after: center, within: window)
         scheduleReleaseOldChapters(window)
+    }
+
+    private func scheduleSettledPrefetch(after center: Int, within window: Set<Int>) {
+        settledPrefetchTask?.cancel()
+        settledPrefetchTask = nil
+
+        let nextIndex = center + 1
+        guard window.contains(nextIndex) else { return }
+
+        settledPrefetchTask = Task { [weak self] in
+            guard let self else { return }
+
+            // Do not overlap speculative traffic with the selected chapter request.
+            // Rapid jumps cancel this loop before any adjacent request is enqueued.
+            for _ in 0..<8 {
+                try? await Task.sleep(nanoseconds: 750_000_000)
+                guard !Task.isCancelled, self.activeChapterIndex == center else { return }
+
+                guard let state = self.cache.get(center)?.state else { continue }
+                switch state {
+                case .loaded:
+                    self.enqueuePrefetch([nextIndex])
+                    return
+                case .failed:
+                    return
+                default:
+                    continue
+                }
+            }
+        }
     }
 
     private func syncVisibleIndexes(_ window: Set<Int>) {
@@ -333,11 +381,14 @@ class ReaderViewModel: ObservableObject {
         }
 
         let activeIdx = activeChapterIndex
-        Task {
+        prefetchQueueTask?.cancel()
+        prefetchQueueTask = Task {
             await prefetcher.updateQueue(withVisibleIndexes: window, activeIndex: activeIdx) { [weak self] index in
                 guard let self = self else { return }
                 do {
                     try await self.loadChapterContentFromExtension(index)
+                } catch is CancellationError {
+                    return
                 } catch {
                     await MainActor.run {
                         self.cache.set(index, state: .failed(message: "Không tải được chương: \(error.localizedDescription)"))
@@ -346,6 +397,20 @@ class ReaderViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    func shutdown(saveProgress: Bool = true) async {
+        dbSaveTask?.cancel()
+        dbSaveTask = nil
+        prefetchQueueTask?.cancel()
+        prefetchQueueTask = nil
+        settledPrefetchTask?.cancel()
+        settledPrefetchTask = nil
+        await prefetcher.cancelAll()
+        if saveProgress {
+            await saveProgressToDatabase(force: true)
+        }
+        cache.clearAll()
     }
 
     private func scheduleReleaseOldChapters(_ window: Set<Int>) {

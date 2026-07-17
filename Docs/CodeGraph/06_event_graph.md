@@ -15,6 +15,13 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader event updates (1.3.10)
+
+* A chapter-list jump updates the reader window but does not seek an already-running TTS session. The next `currentParentParagraphIndex` change synchronizes the display back to `playingChapterIndex` and the playing paragraph.
+* Programmatic history/TTS restores temporarily suppress geometry-based progress events so paragraph `onAppear` callbacks cannot overwrite the intended location.
+* Reader disappearance invokes `ReaderViewModel.shutdown()`, canceling reader-owned debounce and prefetch work while leaving the independent TTS playback/prefetch lifecycle intact.
+* Repeated chapter jumps cancel the delayed adjacent-prefetch timer and replace the pending queue with the newest target. Intermediate targets that have not started are discarded.
+
 ## 1. Bản đồ các Luồng Sự kiện chính (Event Flow Map)
 
 ```mermaid

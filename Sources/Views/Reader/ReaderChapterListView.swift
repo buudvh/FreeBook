@@ -4,7 +4,6 @@ import SwiftData
 struct ChapterRowInfo: Identifiable {
     var id: Int { index }
     let title: String
-    let displayTitle: String
     let url: String
     let index: Int
     let isCached: Bool
@@ -12,19 +11,17 @@ struct ChapterRowInfo: Identifiable {
 
 struct ReaderChapterListView: View {
     let bookId: String
-    let extensionPackageId: String
     let bookDetailUrl: String?
+    let localBook: Book?
+    let ext: Extension?
     let currentChapterIndex: Int
     let isTranslationEnabled: Bool
     let theme: ReaderTheme
     @Binding var onlineChapters: [ChapterResult]
-    let isVisible: Bool
     let onSelectChapter: (Int) -> Void
     let onClose: () -> Void
     
     @Environment(\.modelContext) private var modelContext
-    @Query private var allBooks: [Book]
-    @Query private var allExtensions: [Extension]
     
     @State private var searchQuery = ""
     @State private var isAscending = true
@@ -36,22 +33,14 @@ struct ReaderChapterListView: View {
     @State private var showingToast = false
     @State private var isToastError = false
     
-    private var localBook: Book? {
-        allBooks.first(where: { $0.bookId == bookId })
-    }
-    
-    private var ext: Extension? {
-        allExtensions.first(where: { $0.packageId == extensionPackageId })
-    }
-    
     var filteredChapters: [ChapterRowInfo] {
         let baseList = isAscending ? chaptersList : Array(chaptersList.reversed())
         if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return baseList
         }
         return baseList.filter { chap in
-            chap.displayTitle.localizedCaseInsensitiveContains(searchQuery) ||
-            chap.title.localizedCaseInsensitiveContains(searchQuery)
+            chap.title.localizedCaseInsensitiveContains(searchQuery) ||
+            displayTitle(for: chap).localizedCaseInsensitiveContains(searchQuery)
         }
     }
     
@@ -154,7 +143,7 @@ struct ReaderChapterListView: View {
                     List {
                         ForEach(filteredChapters) { chap in
                             let isCurrent = chap.index == currentChapterIndex
-                            let titleText = chap.displayTitle
+                            let titleText = displayTitle(for: chap)
                             
                             Button(action: {
                                 onSelectChapter(chap.index)
@@ -188,21 +177,7 @@ struct ReaderChapterListView: View {
                         // Tự động cuộn đến chương hiện tại
                         if searchQuery.isEmpty {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                withAnimation {
-                                    proxy.scrollTo("chap-\(currentChapterIndex)", anchor: .center)
-                                }
-                            }
-                        }
-                    }
-                    .onChange(of: isVisible) { _, newValue in
-                        if newValue {
-                            // Tự động cuộn đến chương hiện tại khi danh sách được mở ra
-                            if searchQuery.isEmpty {
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                    withAnimation {
-                                        proxy.scrollTo("chap-\(currentChapterIndex)", anchor: .center)
-                                    }
-                                }
+                                proxy.scrollTo("chap-\(currentChapterIndex)", anchor: .center)
                             }
                         }
                     }
@@ -242,13 +217,8 @@ struct ReaderChapterListView: View {
         if let book = localBook {
             let sorted = book.chapters.sorted(by: { $0.index < $1.index })
             self.chaptersList = sorted.map { chap in
-                let displayTitle = (isTranslationEnabled && TranslateUtils.containsChinese(chap.title))
-                    ? TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
-                    : chap.title
-                
                 return ChapterRowInfo(
                     title: chap.title,
-                    displayTitle: displayTitle,
                     url: chap.url,
                     index: chap.index,
                     isCached: chap.isCached
@@ -256,19 +226,21 @@ struct ReaderChapterListView: View {
             }
         } else {
             self.chaptersList = onlineChapters.enumerated().map { (index, chap) in
-                let displayTitle = (isTranslationEnabled && TranslateUtils.containsChinese(chap.name))
-                    ? TranslateUtils.translateChapterTitle(chap.name, bookId: bookId)
-                    : chap.name
-                
                 return ChapterRowInfo(
                     title: chap.name,
-                    displayTitle: displayTitle,
                     url: chap.url,
                     index: index,
                     isCached: false
                 )
             }
         }
+    }
+
+    private func displayTitle(for chapter: ChapterRowInfo) -> String {
+        guard isTranslationEnabled, TranslateUtils.containsChinese(chapter.title) else {
+            return chapter.title
+        }
+        return TranslateUtils.translateChapterTitle(chapter.title, bookId: bookId)
     }
     
     private func showToast(_ message: String, isError: Bool) {

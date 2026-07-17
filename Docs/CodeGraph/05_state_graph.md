@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader window and TTS display state (1.3.10)
+
+* `ReaderViewModel.updateActiveLocationFromScroll` slides both `visibleIndexes` and the rendered `stableIndexes`; reaching the old trailing buffer (`n+2`) therefore opens a new bounded window instead of leaving the reader stalled.
+* Opening a reader always starts from its supplied history location. An active TTS session owns playback independently and only moves the visible reader back to its playing chapter/paragraph on the next paragraph event when auto-scroll is enabled.
+* Render-window membership and network-loading state are separate: a jump renders the bounded window but immediately loads only its center chapter. One forward neighbor is eligible only after the center finishes and the reader remains settled.
+
 ## 1. Máy Trạng thái Phát Giọng đọc (TTS Playback State Machine)
 
 Máy trạng thái này điều khiển việc phát âm thanh trong `TTSManager.swift`, đồng bộ hóa với Floating Widget (`FloatingWidgetViewModel` và `WidgetState`).
