@@ -483,8 +483,8 @@ struct ReaderView: View {
                     
                     ttsManager.startSpeaking(
                         bookId: vm.bookId,
-                        currentIndex: chapter,
                         chapters: ttsChapters,
+                        currentIndex: chapter,
                         chapterContent: content,
                         startParagraphIndex: paragraph,
                         bookTitle: vm.bookTitle ?? "",
