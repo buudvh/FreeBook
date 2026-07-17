@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-14T09:15:00+07:00
+generated_at: 2026-07-17T22:00:00+07:00
 git_commit: UNKNOWN
-source_files: 87
-document_version: 1
+source_files: 91
+document_version: 2
 ---
 
 # Đồ thị Lời gọi Hàm (Call Graph)
@@ -15,10 +15,11 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Reader navigation calls (1.3.11)
+## Reader navigation calls (1.3.13, supersedes 1.3.11)
 
-* `ReaderView` routes buttons, horizontal swipes, chapter-list jumps, history restore, and TTS sync through `ReaderViewModel.requestChapter(...)` or `stepChapter(...)`.
+* `ReaderView` routes footer buttons, chapter-list jumps, history restore, and TTS sync through `ReaderViewModel.requestChapter(...)` or `stepChapter(...)`; horizontal drags have no navigation call.
 * `requestChapter` coalesces manual targets for 300 ms. `runNavigationWorker` executes one target at a time, rejects stale generations, and calls either `commitNavigation` or `failNavigation`.
+* While a request is pending, the reading surface and chrome derive their presentation target from `pendingNavigationIndex` and render skeleton content instead of the previously displayed chapter.
 * `reloadDisplayedChapter` bypasses RAM and SwiftData chapter content; `retryPendingNavigation` repeats the failed request with its original paragraph and persistence policy.
 * A successful persistent save invokes `onChapterCached(index)`, which calls `ReaderChapterListStore.markCached(index:)`.
 

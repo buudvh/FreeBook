@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-15T16:18:00+07:00
+generated_at: 2026-07-17T22:00:00+07:00
 git_commit: UNKNOWN
-source_files: 87
-document_version: 2
+source_files: 91
+document_version: 3
 ---
 
 # Máy Trạng thái (State Graph)
@@ -15,14 +15,15 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Reader single-chapter navigation state (1.3.11, supersedes 1.3.10)
+## Reader single-chapter navigation state (1.3.13, supersedes 1.3.11)
 
-* Reader renders only `displayedChapterIndex`. `pendingNavigationIndex` may advance independently while the old chapter stays visible during loading.
+* Reader commits only `displayedChapterIndex`, but presents `pendingNavigationIndex ?? displayedChapterIndex`. An uncached pending target immediately replaces old content with its title and skeleton rows.
 * Manual requests are debounced for 300 ms and replace `queuedNavigation`; one worker executes requests serially. Only the current generation may commit content or expose an error.
 * A failure replaces the reading surface with chapter title, exact source message, and retry state. Retry keeps the panel visible and disables duplicate requests.
 * Successful manual navigation opens at the top. History and TTS commits may carry a paragraph target.
 * Opening starts from history. TTS changes visual position only on a later paragraph event and never persists temporary visual sync as reading history.
 * Speculative loading is limited to N+1 after 750 ms idle and is disabled while TTS owns the same book.
+* Horizontal drag is not a state transition. Manual chapter changes come from footer buttons or the chapter list.
 
 ## 1. Máy Trạng thái Phát Giọng đọc (TTS Playback State Machine)
 

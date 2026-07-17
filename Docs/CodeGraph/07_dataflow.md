@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-14T09:15:00+07:00
+generated_at: 2026-07-17T22:00:00+07:00
 git_commit: UNKNOWN
-source_files: 87
-document_version: 1
+source_files: 91
+document_version: 2
 ---
 
 # Dòng chảy Dữ liệu & Cơ chế Cache (Data Flow & Caching)
@@ -15,14 +15,15 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Reader data-flow updates (1.3.11, supersedes 1.3.10)
+## Reader data-flow updates (1.3.13, supersedes 1.3.11)
 
-* The reading surface consumes one `CachedChapter` selected by `displayedChapterIndex`; vertical scrolling never requests another chapter.
+* The reading surface selects `pendingNavigationIndex ?? displayedChapterIndex`. A pending cache miss renders known chapter metadata and skeleton rows; only a successful generation commits real content and progress.
 * Rapid manual input updates only the latest queued target. Stale generations may populate cache but cannot change displayed state.
 * `ReaderChapterListStore` is created when Reader opens and remains mounted while hidden. Search, order, scroll position, and row identities survive repeated open/close operations.
 * Successful chapter persistence emits one index to `markCached(index:)`; no chapter reload, sorting, or full list mapping occurs for an icon update.
 * JavaScript `Response.error(message)` becomes `ExtensionManagerError.sourceResponse` and flows unchanged into `ReaderChapterLoadFailure.sourceMessage`.
 * N+1 prefetch starts only after the displayed chapter is loaded and idle for 750 ms; active same-book TTS disables Reader speculation.
+* Chapter changes originate from footer buttons, chapter-list selection, history, or TTS sync; horizontal content drags do not enter the ViewModel.
 
 ## 1. Dòng chảy dữ liệu chính (Core Data Flows)
 

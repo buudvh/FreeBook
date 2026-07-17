@@ -184,75 +184,90 @@ struct ReaderChapterListView: View {
                 toast
             }
         }
+        .accessibilityAction(.escape) {
+            onClose()
+        }
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 12) {
-            BookCoverView(
-                bookId: bookId,
-                coverUrl: metadataCoverUrl,
-                width: 72,
-                height: 100
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+        VStack(spacing: 8) {
+            Capsule()
+                .fill(theme.textColor.opacity(0.3))
+                .frame(width: 36, height: 5)
+                .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text(metadataTitle)
-                    .font(.headline)
-                    .foregroundColor(theme.textColor)
-                    .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .top, spacing: 12) {
+                BookCoverView(
+                    bookId: bookId,
+                    coverUrl: metadataCoverUrl,
+                    width: 72,
+                    height: 100
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 6))
 
-                Text(metadataAuthor)
-                    .font(.subheadline)
-                    .foregroundColor(theme.textColor.opacity(0.72))
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(metadataTitle)
+                        .font(.headline)
+                        .foregroundColor(theme.textColor)
+                        .lineLimit(2)
 
-                Spacer(minLength: 8)
-
-                HStack(spacing: 0) {
-                    Spacer(minLength: 0)
-
-                    Text("\(store.rows.count) chương")
-                        .font(.caption.weight(.medium))
+                    Text(metadataAuthor)
+                        .font(.subheadline)
                         .foregroundColor(theme.textColor.opacity(0.72))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.8)
 
-                    if isUpdating {
-                        ProgressView()
-                            .tint(theme.textColor)
-                            .frame(width: 44, height: 44)
-                            .accessibilityLabel("Đang cập nhật mục lục")
-                    } else {
-                        Button(action: refreshChapters) {
-                            Image(systemName: "arrow.clockwise")
+                    HStack(spacing: 0) {
+                        Text("\(store.rows.count) chương")
+                            .font(.caption.weight(.medium))
+                            .foregroundColor(theme.textColor.opacity(0.72))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+
+                        Spacer(minLength: 4)
+
+                        if isUpdating {
+                            ProgressView()
+                                .tint(theme.textColor)
+                                .frame(width: 44, height: 44)
+                                .accessibilityLabel("Đang cập nhật mục lục")
+                        } else {
+                            Button(action: refreshChapters) {
+                                Image(systemName: "arrow.clockwise")
+                                    .foregroundColor(theme.textColor)
+                                    .frame(width: 44, height: 44)
+                            }
+                            .accessibilityLabel("Cập nhật mục lục")
+                        }
+
+                        Button(action: { isAscending.toggle() }) {
+                            Image(systemName: "arrow.up.arrow.down")
+                                .font(.body.weight(.semibold))
                                 .foregroundColor(theme.textColor)
                                 .frame(width: 44, height: 44)
                         }
-                        .accessibilityLabel("Cập nhật mục lục")
+                        .accessibilityLabel(isAscending ? "Sắp xếp chương giảm dần" : "Sắp xếp chương tăng dần")
                     }
-
-                    Button(action: { isAscending.toggle() }) {
-                        Image(systemName: isAscending ? "arrow.down.circle" : "arrow.up.circle")
-                            .font(.title3)
-                            .foregroundColor(theme.textColor)
-                            .frame(width: 44, height: 44)
-                    }
-                    .accessibilityLabel(isAscending ? "Sắp xếp chương giảm dần" : "Sắp xếp chương tăng dần")
-
-                    Button(action: onClose) {
-                        Image(systemName: "xmark")
-                            .foregroundColor(theme.textColor)
-                            .frame(width: 44, height: 44)
-                    }
-                    .accessibilityLabel("Đóng danh sách chương")
                 }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-            .frame(maxWidth: .infinity, minHeight: 100, alignment: .topLeading)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
         .background(theme.backgroundColor)
+        .contentShape(Rectangle())
+        .simultaneousGesture(dismissGesture)
+    }
+
+    private var dismissGesture: some Gesture {
+        DragGesture(minimumDistance: 16)
+            .onEnded { value in
+                let horizontalDistance = abs(value.translation.width)
+                let verticalDistance = value.translation.height
+                guard verticalDistance >= 72,
+                      verticalDistance >= horizontalDistance * 1.25 else { return }
+                onClose()
+            }
     }
 
     private func firstNonempty(_ primary: String?, _ fallback: String?) -> String? {

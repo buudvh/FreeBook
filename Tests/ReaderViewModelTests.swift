@@ -124,6 +124,9 @@ final class ReaderViewModelTests: XCTestCase {
         }
 
         XCTAssertEqual(viewModel.pendingNavigationIndex, 14)
+        XCTAssertEqual(viewModel.displayedChapterIndex, 10)
+        XCTAssertEqual(viewModel.currentProgress.chapterIndex, 10)
+        XCTAssertEqual(viewModel.currentProgress.paragraphIndex, 0)
         try? await Task.sleep(nanoseconds: 650_000_000)
 
         XCTAssertEqual(viewModel.displayedChapterIndex, 14)
@@ -134,6 +137,15 @@ final class ReaderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.cache.get(14)?.state, .loaded)
         XCTAssertEqual(viewModel.currentProgress.chapterIndex, 10)
         XCTAssertEqual(viewModel.currentProgress.paragraphIndex, 0)
+
+        let cachedTarget = viewModel.cache.setPlaceholder(15)
+        cachedTarget.title = "Chương 16"
+        cachedTarget.content = "Nội dung đã có trong RAM"
+        viewModel.cache.set(15, state: .loaded)
+        viewModel.stepChapter(by: 1, source: .nextButton, persistProgress: false)
+
+        XCTAssertEqual(viewModel.displayedChapterIndex, 15)
+        XCTAssertNil(viewModel.pendingNavigationIndex)
 
         await viewModel.shutdown()
     }

@@ -7,7 +7,6 @@ enum ReaderNavigationSource: Equatable {
     case history
     case previousButton
     case nextButton
-    case swipe
     case chapterList
     case ttsSync
     case reload
@@ -16,7 +15,7 @@ enum ReaderNavigationSource: Equatable {
         switch self {
         case .history, .ttsSync, .reload:
             return true
-        case .previousButton, .nextButton, .swipe, .chapterList:
+        case .previousButton, .nextButton, .chapterList:
             return false
         }
     }

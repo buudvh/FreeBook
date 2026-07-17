@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-15T16:18:00+07:00
+generated_at: 2026-07-17T22:00:00+07:00
 git_commit: UNKNOWN
-source_files: 87
-document_version: 2
+source_files: 91
+document_version: 3
 ---
 
 # Bản đồ Sự kiện & Cơ chế Giao tiếp (Event Graph)
@@ -15,13 +15,14 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Reader event updates (1.3.11, supersedes 1.3.10)
+## Reader event updates (1.3.13, supersedes 1.3.11)
 
-* Footer buttons and horizontal swipe emit relative steps; chapter-list rows emit absolute targets. Both flow into the same generation-checked navigation worker.
-* Text selection activity travels from `ReaderTextView` through `ParagraphCardView` and suppresses chapter swipe recognition until selection clears.
+* Footer buttons emit relative steps and chapter-list rows emit absolute targets. Horizontal drags no longer emit chapter-navigation events.
+* Text selection remains local to `ReaderTextView` until the user invokes lookup/copy/speak actions; selection-activity plumbing used only by the removed swipe gesture is gone.
 * A TTS paragraph event requests `.ttsSync` without persistence. A manual jump does not seek TTS; the next TTS paragraph may move the display back when auto-scroll is enabled.
 * Reader disappearance cancels navigation debounce, navigation worker, DB debounce, and Reader prefetch while leaving independent TTS playback alive.
 * Menu commands use shared handlers: title visibility rebuilds paragraph items from RAM, and reload force-fetches the displayed chapter.
+* A downward drag of at least 72 points on the chapter-list header closes the overlay; vertical gestures inside the list continue scrolling.
 
 ## 1. Bản đồ các Luồng Sự kiện chính (Event Flow Map)
 

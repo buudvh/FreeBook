@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-16T08:21:00+07:00
+generated_at: 2026-07-17T22:00:00+07:00
 git_commit: UNKNOWN
-source_files: 87
-document_version: 1
+source_files: 91
+document_version: 2
 ---
 
 # Đồ thị Kiểu dữ liệu (Type Graph)
@@ -15,10 +15,12 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
-## Reader type updates (1.3.11)
+## Reader type updates (1.3.13, supersedes 1.3.11)
 
-* `ReaderNavigationSource`, `ReaderNavigationDirection`, `ReaderNavigationCommit`, and `ReaderChapterLoadFailure` define the single-chapter navigation contract and generation-checked result state.
+* `ReaderNavigationSource` supports history, footer buttons, chapter-list selection, TTS sync, and reload. Horizontal swipe is no longer a navigation source.
+* `ReaderNavigationDirection`, `ReaderNavigationCommit`, and `ReaderChapterLoadFailure` retain the generation-checked single-chapter navigation contract.
 * `ReaderChapterListStore` owns stable `ReaderChapterRowState` objects for the Reader lifetime. `markCached(index:)` mutates one row without rebuilding the chapter list.
+* `ParagraphCardView` and `ReaderTextView` no longer expose selection-activity callbacks; text selection itself still flows through `onSelectionChange`.
 * `ExtensionManagerError.sourceResponse(message:)` preserves the exact message returned by JavaScript `Response.error(message)`.
 
 ## Đánh giá mức độ tin cậy (Confidence Level)

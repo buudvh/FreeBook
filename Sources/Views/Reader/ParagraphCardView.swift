@@ -10,7 +10,6 @@ struct ParagraphCardView: View {
     @Binding var triggerGetVisibleIndex: UUID?
     let onGetVisibleIndex: (Int) -> Void
     let onSelectionChange: (String, String, Int, Int) -> Void
-    let onSelectionActivityChange: (Bool) -> Void
     let onSpeakFromHere: (Int) -> Void
     
     var body: some View {
@@ -25,7 +24,6 @@ struct ParagraphCardView: View {
             triggerGetVisibleIndex: $triggerGetVisibleIndex,
             onGetVisibleIndex: onGetVisibleIndex,
             onSelectionChange: onSelectionChange,
-            onSelectionActivityChange: onSelectionActivityChange,
             onSpeakFromHere: onSpeakFromHere
         )
         .frame(minHeight: 20)

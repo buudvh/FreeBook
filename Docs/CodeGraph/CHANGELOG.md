@@ -4,6 +4,17 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.13] - 2026-07-17
+
+### Phản hồi tải chương tức thì và tinh gọn tương tác Reader
+*   **Người thực hiện**: Trợ lý AI Codex
+*   **Tổng số file nguồn ảnh hưởng**: 5 file Swift, 1 file test
+*   **Mô tả**:
+    *   Reader trình bày ngay chương đích bằng tiêu đề, số chương và skeleton trong lúc vẫn giữ debounce 300 ms để gộp thao tác liên tiếp.
+    *   Bỏ vuốt ngang chuyển chương, swipe hint, state kéo biên và callback selection activity chỉ phục vụ gesture cũ; chọn chữ, tra từ, copy và TTS vẫn giữ nguyên.
+    *   Thu gọn header Reader, đổi overflow thành ba chấm dọc; header mục lục bỏ khoảng trống co giãn, đổi icon sắp xếp, bỏ nút X và hỗ trợ vuốt xuống tại tay nắm để đóng.
+    *   Bổ sung validator CodeGraph chuẩn hóa link, schema, marker, source/document inventory và SHA-256 của manifest.
+
 ## [1.3.12] - 2026-07-17
 
 ### Cap nhat UI Reader va header danh sach chuong

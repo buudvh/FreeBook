@@ -12,7 +12,6 @@ struct ReaderTextView: UIViewRepresentable {
     @Binding var triggerGetVisibleIndex: UUID?
     let onGetVisibleIndex: (Int) -> Void
     let onSelectionChange: (String, String, Int, Int) -> Void
-    let onSelectionActivityChange: (Bool) -> Void
     let onSpeakFromHere: (Int) -> Void
     
     init(
@@ -26,7 +25,6 @@ struct ReaderTextView: UIViewRepresentable {
         triggerGetVisibleIndex: Binding<UUID?>,
         onGetVisibleIndex: @escaping (Int) -> Void,
         onSelectionChange: @escaping (String, String, Int, Int) -> Void,
-        onSelectionActivityChange: @escaping (Bool) -> Void,
         onSpeakFromHere: @escaping (Int) -> Void
     ) {
         self.text = text
@@ -39,7 +37,6 @@ struct ReaderTextView: UIViewRepresentable {
         self._triggerGetVisibleIndex = triggerGetVisibleIndex
         self.onGetVisibleIndex = onGetVisibleIndex
         self.onSelectionChange = onSelectionChange
-        self.onSelectionActivityChange = onSelectionActivityChange
         self.onSpeakFromHere = onSpeakFromHere
     }
 
@@ -218,12 +215,6 @@ struct ReaderTextView: UIViewRepresentable {
     }
 
     static func dismantleUIView(_ uiView: UITextView, coordinator: Coordinator) {
-        if coordinator.isSelectionActive {
-            let onSelectionActivityChange = coordinator.parent.onSelectionActivityChange
-            DispatchQueue.main.async {
-                onSelectionActivityChange(false)
-            }
-        }
         uiView.delegate = nil
     }
     
@@ -244,21 +235,12 @@ struct ReaderTextView: UIViewRepresentable {
         var lastIsCentered: Bool? = nil
         var cachedWidth: CGFloat? = nil
         var cachedHeight: CGFloat? = nil
-        var isSelectionActive = false
-        
         init(_ parent: ReaderTextView) {
             self.parent = parent
         }
         
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
             return true
-        }
-        
-        func textViewDidChangeSelection(_ textView: UITextView) {
-            let isActive = textView.selectedRange.length > 0
-            guard isActive != isSelectionActive else { return }
-            isSelectionActive = isActive
-            parent.onSelectionActivityChange(isActive)
         }
         
         // Cấu hình Edit Menu cho iOS 16+
