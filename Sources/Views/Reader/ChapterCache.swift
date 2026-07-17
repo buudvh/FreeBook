@@ -10,6 +10,7 @@ struct ReadingProgress {
     }
 }
 
+//
 struct ReadingContext: Hashable {
     let bookId: String
     let chapterIndex: Int
