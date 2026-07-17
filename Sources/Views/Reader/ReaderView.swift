@@ -269,7 +269,8 @@ struct ReaderView: View {
         }
     }
     
-    var body: some View {
+    @ViewBuilder
+    private var mainZStack: some View {
         ZStack {
             // Nền theo theme
             selectedTheme.backgroundColor
@@ -317,7 +318,11 @@ struct ReaderView: View {
             .animation(.easeInOut(duration: 0.25), value: showingChapterList)
             .zIndex(10)
         }
-        .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
+    }
+
+    var body: some View {
+        mainZStack
+            .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
         .sheet(isPresented: $showingSettings) {
             ReaderSettingsView(fontSize: $fontSize, lineSpacing: $lineSpacing, selectedTheme: $selectedTheme, isTranslationEnabled: $isTranslationEnabled)
                 .presentationDetents([.height(250)])
