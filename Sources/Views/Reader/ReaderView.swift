@@ -320,9 +320,6 @@ struct ReaderView: View {
         }
     }
 
-    var body: some View {
-        mainZStack
-            .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
     @ViewBuilder
     private var bodyWithSheets: some View {
         mainZStack
@@ -573,7 +570,6 @@ struct ReaderView: View {
                     scrollTarget = ScrollTarget(chapterIndex: ttsManager.playingChapterIndex, paragraphIndex: newValue)
                 }
             }
-    }
     }
     
     
