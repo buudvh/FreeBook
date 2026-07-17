@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-16T08:21:00+07:00
+generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
-source_files: 87
-document_version: 1
+source_files: 93
+document_version: 2
 ---
 
 # Đồ thị File & Quan hệ Import (File & Import Graph)
@@ -15,6 +15,11 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Reader files added in 1.3.14
+
+* [`ReaderParagraphBuilder.swift`](../../Sources/Views/Reader/ReaderParagraphBuilder.swift) depends on `TranslateUtils` and `ParagraphItem`; it is called by both `ReaderViewModel` and the legacy `ReaderView` loading path.
+* [`ReaderSelectionMapper.swift`](../../Sources/Views/Reader/ReaderSelectionMapper.swift) depends on `ParagraphItem`, `TranslationSpan`, and `TranslateUtils`; it is called by `ReaderView` after a custom text-selection action.
+
 ## Đánh giá mức độ tin cậy (Confidence Level)
 
 *   **Mức độ tin cậy**: **High**

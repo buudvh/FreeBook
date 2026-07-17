@@ -983,7 +983,7 @@ struct ReaderView: View {
 
         LazyVStack(alignment: .leading, spacing: size * 0.8) {
             ForEach(chapter.paragraphItems) { item in
-                let textLen = (isTrans ? item.translated : item.original).count
+                let textLen = ((isTrans ? item.translated : item.original) as NSString).length
                 let relativeHighlightRange: NSRange? = {
                     if ttsManager.isPlaying &&
                        ttsManager.playingBookId == bookId &&
@@ -1006,14 +1006,12 @@ struct ReaderView: View {
                         guard !ttsManager.isPlaying else { return }
                         startTTS(at: chapter.index, paragraphIndex: item.id)
                     },
-                    onSelectionChange: { selectedText, sentence, offset, absoluteOffset in
+                    onSelectionChange: { paragraphID, selectionRange in
                         self.onSelectionChangeInParagraph(
-                            selectedText: selectedText,
-                            sentence: sentence,
-                            offset: offset,
-                            absoluteOffset: absoluteOffset,
-                            item: item,
-                            chapterIndex: chapter.index
+                            selectionRange: selectionRange,
+                            paragraphID: paragraphID,
+                            chapterIndex: chapter.index,
+                            paragraphItems: chapter.paragraphItems
                         )
                     },
                     onSpeakFromHere: { _ in
@@ -1041,7 +1039,7 @@ struct ReaderView: View {
         let theme = selectedTheme
 
         ForEach(chapter.paragraphItems) { item in
-            let textLen = (isTrans ? item.translated : item.original).count
+            let textLen = ((isTrans ? item.translated : item.original) as NSString).length
             let relativeHighlightRange: NSRange? = {
                 if ttsManager.isPlaying &&
                    ttsManager.playingBookId == bookId &&
@@ -1064,14 +1062,12 @@ struct ReaderView: View {
                     guard !ttsManager.isPlaying else { return }
                     startTTS(at: chapter.index, paragraphIndex: item.id)
                 },
-                onSelectionChange: { selectedText, sentence, offset, absoluteOffset in
+                onSelectionChange: { paragraphID, selectionRange in
                     self.onSelectionChangeInParagraph(
-                        selectedText: selectedText,
-                        sentence: sentence,
-                        offset: offset,
-                        absoluteOffset: absoluteOffset,
-                        item: item,
-                        chapterIndex: chapter.index
+                        selectionRange: selectionRange,
+                        paragraphID: paragraphID,
+                        chapterIndex: chapter.index,
+                        paragraphItems: chapter.paragraphItems
                     )
                 },
                 onSpeakFromHere: { _ in
@@ -1092,171 +1088,32 @@ struct ReaderView: View {
     }
 
     private func onSelectionChangeInParagraph(
-        selectedText: String,
-        sentence: String,
-        offset: Int,
-        absoluteOffset: Int,
-        item: ParagraphItem,
-        chapterIndex: Int
+        selectionRange: NSRange,
+        paragraphID: Int,
+        chapterIndex: Int,
+        paragraphItems: [ParagraphItem]
     ) {
-        self.editingParagraphIndex = item.id
+        guard let item = paragraphItems.first(where: { $0.id == paragraphID }),
+              let originalRange = ReaderSelectionMapper.mapSelection(
+                selectionRange,
+                in: item,
+                isTranslationEnabled: isTranslationEnabled,
+                bookId: bookId
+              ) else { return }
+
+        self.editingParagraphIndex = paragraphID
         self.editingChapterIndex = chapterIndex
-        if isTranslationEnabled {
-            // Khi bật dịch, bôi đen là tiếng Việt. Cần tìm câu gốc tiếng Trung tương ứng trong thẻ/div này
-            let vietSentenceRanges = TranslateUtils.getSentenceRanges(in: item.translated)
-            let chiSentenceRanges = TranslateUtils.getSentenceRanges(in: item.original)
-
-            if !vietSentenceRanges.isEmpty && !chiSentenceRanges.isEmpty {
-                var sentenceIdx = vietSentenceRanges.firstIndex(where: {
-                    $0.range.location <= absoluteOffset && absoluteOffset < $0.range.location + $0.range.length
-                })
-
-                let targetChiSentenceIdx: Int
-                let vietSentenceRange: SentenceRange
-
-                if let sIdx = sentenceIdx, sIdx < chiSentenceRanges.count {
-                    targetChiSentenceIdx = sIdx
-                    vietSentenceRange = vietSentenceRanges[sIdx]
-                } else {
-                    // Fallback: Tìm bằng tỷ lệ tương đối trong phạm vi thẻ
-                    let vietLength = Double(item.translated.count)
-                    let relativePos = vietLength > 0 ? Double(absoluteOffset) / vietLength : 0.0
-
-                    let chiLength = Double(item.original.count)
-                    var bestIdx = 0
-                    var minDiff = Double.infinity
-
-                    for (idx, chiRange) in chiSentenceRanges.enumerated() {
-                        let chiCenter = Double(chiRange.range.location) + Double(chiRange.range.length) / 2.0
-                        let chiRelativePos = chiLength > 0 ? chiCenter / chiLength : 0.0
-                        let diff = abs(chiRelativePos - relativePos)
-                        if diff < minDiff {
-                            minDiff = diff
-                            bestIdx = idx
-                        }
-                    }
-                    targetChiSentenceIdx = bestIdx
-                    let targetVietIdx = min(bestIdx, vietSentenceRanges.count - 1)
-                    vietSentenceRange = vietSentenceRanges[targetVietIdx]
-                    sentenceIdx = targetVietIdx
-                }
-
-                let offsetInVietSentence = max(0, absoluteOffset - vietSentenceRange.range.location)
-                let chiSentenceRange = chiSentenceRanges[targetChiSentenceIdx]
-                let chiSentence = chiSentenceRange.text
-                let tokens = TranslateUtils.getTranslationTokens(for: chiSentence, bookId: bookId)
-
-                let vietSentenceNS = vietSentenceRange.text as NSString
-                var vietNonSpaceMap: [Int] = []
-                var nonSpaceCount = 0
-                let whitespaceSet = CharacterSet.whitespacesAndNewlines
-
-                for i in 0..<vietSentenceNS.length {
-                    let charCode = vietSentenceNS.character(at: i)
-                    if let unicodeScalar = UnicodeScalar(charCode), whitespaceSet.contains(unicodeScalar) {
-                        vietNonSpaceMap.append(-1)
-                    } else {
-                        vietNonSpaceMap.append(nonSpaceCount)
-                        nonSpaceCount += 1
-                    }
-                }
-
-                var userStartNonSpace = -1
-                var userEndNonSpace = -1
-                for i in 0..<selectedText.count {
-                    let charIdxInSentence = offsetInVietSentence + i
-                    if charIdxInSentence < vietNonSpaceMap.count {
-                        let nsIdx = vietNonSpaceMap[charIdxInSentence]
-                        if nsIdx != -1 {
-                            if userStartNonSpace == -1 {
-                                userStartNonSpace = nsIdx
-                            }
-                            userEndNonSpace = nsIdx + 1
-                        }
-                    }
-                }
-
-                var tokenNonSpaceRanges: [NSRange] = []
-                var reconstructedNonSpaceCount = 0
-                for token in tokens {
-                    var tokenNonSpaceLen = 0
-                    let tokenNS = token.translatedText as NSString
-                    for i in 0..<tokenNS.length {
-                        let charCode = tokenNS.character(at: i)
-                        if let unicodeScalar = UnicodeScalar(charCode), whitespaceSet.contains(unicodeScalar) {
-                            // Bỏ qua
-                        } else {
-                            tokenNonSpaceLen += 1
-                        }
-                    }
-                    tokenNonSpaceRanges.append(NSRange(location: reconstructedNonSpaceCount, length: tokenNonSpaceLen))
-                    reconstructedNonSpaceCount += tokenNonSpaceLen
-                }
-
-                var overlappingIndices: [Int] = []
-                if userStartNonSpace != -1 && userEndNonSpace != -1 {
-                    let userRange = NSRange(location: userStartNonSpace, length: userEndNonSpace - userStartNonSpace)
-                    for (idx, tokenRange) in tokenNonSpaceRanges.enumerated() {
-                        let maxStart = max(tokenRange.location, userRange.location)
-                        let minEnd = min(tokenRange.location + tokenRange.length, userRange.location + userRange.length)
-                        if maxStart < minEnd {
-                            overlappingIndices.append(idx)
-                        }
-                    }
-                }
-
-                var finalChiOffset = 0
-                var finalChiLength = 1
-
-                if !overlappingIndices.isEmpty {
-                    let firstIdx = overlappingIndices.first!
-                    let lastIdx = overlappingIndices.last!
-                    finalChiOffset = tokens[firstIdx].originalOffset
-                    finalChiLength = (tokens[lastIdx].originalOffset + tokens[lastIdx].originalLength) - finalChiOffset
-                } else {
-                    let vietLen = Double(vietSentenceRange.text.count)
-                    let ratio = vietLen > 0 ? Double(offsetInVietSentence) / vietLen : 0.0
-                    let chiLen = Double(chiSentence.count)
-                    finalChiOffset = min(Int(round(ratio * chiLen)), max(0, chiSentence.count - 1))
-                    finalChiLength = 1
-                }
-
-                let snapped = TranslateUtils.snapToToken(
-                    sentence: chiSentence,
-                    selectionOffset: finalChiOffset,
-                    selectionLength: finalChiLength,
-                    bookId: bookId
-                )
-
-                self.originalSentence = chiSentence
-                self.selectedWordOffset = snapped.offset
-                self.selectedWordLength = snapped.length
-                self.updateEditorFromSelection()
-                self.showingDefinitionSheet = true
-                return
-            }
-        }
-
-        // Không bật dịch (hoặc lỗi): Tra cứu trực tiếp
-        let snapped = TranslateUtils.snapToToken(
-            sentence: sentence,
-            selectionOffset: offset,
-            selectionLength: selectedText.count,
-            bookId: bookId
-        )
-        self.originalSentence = sentence
-        self.selectedWordOffset = snapped.offset
-        self.selectedWordLength = snapped.length
+        self.originalSentence = item.original
+        self.selectedWordOffset = originalRange.location
+        self.selectedWordLength = originalRange.length
         self.updateEditorFromSelection()
         self.showingDefinitionSheet = true
     }
 
-
-    private func cleanBlankLines(in text: String) -> String {
-        return text.components(separatedBy: "\n")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .joined(separator: "\n")
+    private func normalizeLineEndings(in text: String) -> String {
+        text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
     }
 
     // loadChapterContent: Hàm tải nội dung chương truyện (hỗ trợ đọc offline từ DB hoặc tải trực tuyến thông qua extension JS)
@@ -1307,7 +1164,7 @@ struct ReaderView: View {
                 let chap = sorted[index]
                 if chap.isCached, let content = chap.content, !content.isEmpty {
                     // Nếu đã tải offline, làm sạch mã HTML dư thừa và tiến hành áp dụng dịch tự động (Hán Việt/Vietphrase)
-                    let cleanedContent = cleanBlankLines(in: content.cleanHTML())
+                    let cleanedContent = normalizeLineEndings(in: content.cleanHTML())
                     applyTranslationForChapter(index: index, originalTitle: info.title, originalContent: cleanedContent)
                     return
                 }
@@ -1341,7 +1198,7 @@ struct ReaderView: View {
                     host: chapHost,
                     configJson: ext.configJson
                 )
-                let cleanedContent = cleanBlankLines(in: content.cleanHTML())
+                let cleanedContent = normalizeLineEndings(in: content.cleanHTML())
 
                 // Trở về Main Thread để cập nhật dữ liệu và UI một cách an toàn
                 await MainActor.run {
@@ -1421,47 +1278,58 @@ struct ReaderView: View {
     }
 
     private func applyTranslationForChapter(index: Int, originalTitle: String, originalContent: String) {
-        let titleToUse = originalTitle
         let bookId = self.bookId
+        let translationEnabled = isTranslationEnabled
+        let showTitleKey = "showChapterTitle_\(bookId)"
+        let shouldShowTitle = UserDefaults.standard.object(forKey: showTitleKey) != nil
+            ? UserDefaults.standard.bool(forKey: showTitleKey)
+            : true
 
-        if isTranslationEnabled {
-            Task.detached(priority: .userInitiated) {
-                var translatedTitle = titleToUse
-                if TranslateUtils.containsChinese(titleToUse) {
-                    translatedTitle = TranslateUtils.translateChapterTitle(titleToUse, bookId: bookId)
-                }
-
-                var translatedContent = originalContent
-                if TranslateUtils.containsChinese(originalContent) {
-                    translatedContent = TranslateUtils.translateContent(originalContent, bookId: bookId)
-                }
-
-                await MainActor.run {
-                    updateChapterData(index: index, originalTitle: originalTitle, originalContent: originalContent, translatedTitle: translatedTitle, translatedContent: translatedContent)
-                }
+        Task.detached(priority: .userInitiated) {
+            let result = ReaderParagraphBuilder.build(
+                originalTitle: originalTitle,
+                originalContent: originalContent,
+                isTranslationEnabled: translationEnabled,
+                showTitle: shouldShowTitle,
+                bookId: bookId
+            )
+            await MainActor.run {
+                updateChapterData(
+                    index: index,
+                    originalTitle: originalTitle,
+                    originalContent: originalContent,
+                    result: result
+                )
             }
-        } else {
-            updateChapterData(index: index, originalTitle: originalTitle, originalContent: originalContent, translatedTitle: originalTitle, translatedContent: originalContent)
         }
     }
 
-    private func updateChapterData(index: Int, originalTitle: String, originalContent: String, translatedTitle: String, translatedContent: String) {
+    private func updateChapterData(
+        index: Int,
+        originalTitle: String,
+        originalContent: String,
+        result: ReaderParagraphBuildResult
+    ) {
         if self.isTransitioning {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                self.updateChapterData(index: index, originalTitle: originalTitle, originalContent: originalContent, translatedTitle: translatedTitle, translatedContent: translatedContent)
+                self.updateChapterData(
+                    index: index,
+                    originalTitle: originalTitle,
+                    originalContent: originalContent,
+                    result: result
+                )
             }
             return
         }
 
         guard let idx = loadedChapters.firstIndex(where: { $0.index == index }) else { return }
 
-        let items = generateParagraphItems(chapterIndex: index, originalTitle: originalTitle, originalContent: originalContent, translatedTitle: translatedTitle, translatedContent: translatedContent)
-        loadedChapters[idx].paragraphItems = items
+        loadedChapters[idx].paragraphItems = result.paragraphItems
 
         loadedChapters[idx].originalTitle = originalTitle
         loadedChapters[idx].originalContent = originalContent
-        loadedChapters[idx].title = translatedTitle
-        loadedChapters[idx].chapterContent = translatedContent
+        loadedChapters[idx].title = result.translatedTitle
+        loadedChapters[idx].chapterContent = result.translatedContent
         loadedChapters[idx].isLoading = false
         loadedChapters[idx].errorMessage = ""
 
@@ -1480,27 +1348,6 @@ struct ReaderView: View {
         guard let idx = loadedChapters.firstIndex(where: { $0.index == index }) else { return }
         loadedChapters[idx].isLoading = false
         loadedChapters[idx].errorMessage = message
-    }
-
-    private func generateParagraphItems(chapterIndex: Int, originalTitle: String, originalContent: String, translatedTitle: String, translatedContent: String) -> [ParagraphItem] {
-        let originalLines = originalContent.components(separatedBy: "\n")
-        let translatedLines = translatedContent.components(separatedBy: "\n")
-        var items: [ParagraphItem] = []
-
-        let key = "showChapterTitle_\(bookId)"
-        let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
-
-        if showTitle {
-            items.append(ParagraphItem(id: -1, original: originalTitle, translated: translatedTitle, isTitle: true))
-        }
-
-        let maxLines = max(originalLines.count, translatedLines.count)
-        for i in 0..<maxLines {
-            let orig = i < originalLines.count ? originalLines[i] : ""
-            let trans = i < translatedLines.count ? translatedLines[i] : ""
-            items.append(ParagraphItem(id: i, original: orig, translated: trans, isTitle: false))
-        }
-        return items
     }
 
     private func reloadChapterContent() {
@@ -1541,7 +1388,7 @@ struct ReaderView: View {
                     host: chapHost,
                     configJson: ext.configJson
                 )
-                let cleanedContent = cleanBlankLines(in: content.cleanHTML())
+                let cleanedContent = normalizeLineEndings(in: content.cleanHTML())
 
                 await MainActor.run {
                     if let book = localBook {
@@ -2739,16 +2586,12 @@ extension ReaderView {
             if let vm = viewModel {
                 vm.refreshParagraphItems()
             } else {
-                for idx in 0..<loadedChapters.count {
-                    let chap = loadedChapters[idx]
-                    let items = generateParagraphItems(
-                        chapterIndex: chap.index,
-                        originalTitle: chap.originalTitle,
-                        originalContent: chap.originalContent,
-                        translatedTitle: chap.title,
-                        translatedContent: chap.chapterContent
+                for chapter in loadedChapters {
+                    applyTranslationForChapter(
+                        index: chapter.index,
+                        originalTitle: chapter.originalTitle,
+                        originalContent: chapter.originalContent
                     )
-                    loadedChapters[idx].paragraphItems = items
                 }
             }
         }

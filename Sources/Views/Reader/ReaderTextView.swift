@@ -11,7 +11,7 @@ struct ReaderTextView: UIViewRepresentable {
     let isCentered: Bool
     @Binding var triggerGetVisibleIndex: UUID?
     let onGetVisibleIndex: (Int) -> Void
-    let onSelectionChange: (String, String, Int, Int) -> Void
+    let onSelectionChange: (NSRange) -> Void
     let onSpeakFromHere: (Int) -> Void
     
     init(
@@ -24,7 +24,7 @@ struct ReaderTextView: UIViewRepresentable {
         isCentered: Bool = false,
         triggerGetVisibleIndex: Binding<UUID?>,
         onGetVisibleIndex: @escaping (Int) -> Void,
-        onSelectionChange: @escaping (String, String, Int, Int) -> Void,
+        onSelectionChange: @escaping (NSRange) -> Void,
         onSpeakFromHere: @escaping (Int) -> Void
     ) {
         self.text = text
@@ -249,9 +249,7 @@ struct ReaderTextView: UIViewRepresentable {
             let customAction = UIAction(
                 title: "📖 Dịch"
             ) { [weak self] _ in
-                if let selectedText = textView.text(in: textView.selectedTextRange!) {
-                    self?.triggerCustomDefine(text: selectedText)
-                }
+                self?.triggerCustomDefine()
             }
             
             let ttsAction = UIAction(
@@ -266,38 +264,14 @@ struct ReaderTextView: UIViewRepresentable {
             return UIMenu(children: actions)
         }
         
-        func triggerCustomDefine(text: String) {
+        func triggerCustomDefine() {
             guard let textView = parentTextView else { return }
-            let fullText = textView.text ?? ""
             let nsRange = textView.selectedRange
-            let fullNSString = fullText as NSString
-            
-            // Quét ngược tìm đầu câu
-            var startLoc = nsRange.location
-            while startLoc > 0 {
-                let char = fullNSString.substring(with: NSRange(location: startLoc - 1, length: 1))
-                if char == "。" || char == "！" || char == "？" || char == "\n" || char == "\r" || char == "." || char == "!" || char == "?" {
-                    break
-                }
-                startLoc -= 1
-            }
-            
-            // Quét xuôi tìm cuối câu
-            var endLoc = nsRange.location + nsRange.length
-            let totalLen = fullNSString.length
-            while endLoc < totalLen {
-                let char = fullNSString.substring(with: NSRange(location: endLoc, length: 1))
-                if char == "。" || char == "！" || char == "？" || char == "\n" || char == "\r" || char == "." || char == "!" || char == "?" {
-                    break
-                }
-                endLoc += 1
-            }
-            
-            let sentenceRange = NSRange(location: startLoc, length: endLoc - startLoc)
-            let surroundingSentence = fullNSString.substring(with: sentenceRange).trimmingCharacters(in: .whitespacesAndNewlines)
-            let offsetInSentence = max(0, nsRange.location - startLoc)
-            
-            parent.onSelectionChange(text, surroundingSentence, offsetInSentence, nsRange.location)
+            let textLength = ((textView.text ?? "") as NSString).length
+            guard nsRange.location != NSNotFound,
+                  nsRange.length > 0,
+                  NSMaxRange(nsRange) <= textLength else { return }
+            parent.onSelectionChange(nsRange)
         }
     }
 }
@@ -318,10 +292,9 @@ class ReaderUITextView: UITextView {
     }
     
     @objc func customDefineAction() {
-        if let range = self.selectedTextRange,
-           let text = self.text(in: range),
+        if self.selectedTextRange != nil,
            let delegate = self.delegate as? ReaderTextView.Coordinator {
-            delegate.triggerCustomDefine(text: text)
+            delegate.triggerCustomDefine()
         }
     }
     

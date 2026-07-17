@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-17T22:00:00+07:00
+generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
-source_files: 91
-document_version: 3
+source_files: 93
+document_version: 4
 ---
 
 # Bản đồ Sự kiện & Cơ chế Giao tiếp (Event Graph)
@@ -15,6 +15,12 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader translation-selection events (1.3.14)
+
+* Invoking “📖 Dịch” sends the current `UITextView.selectedRange` in UTF-16, not selected text plus derived sentence offsets.
+* `ParagraphCardView` adds the paragraph id, and `ReaderView` resolves the item inside the matching chapter before opening the existing definition sheet.
+* Translation toggle, dictionary edits, and chapter-title visibility rebuild paragraph items and their mappings from original chapter data.
+
 ## Reader event updates (1.3.13, supersedes 1.3.11)
 
 * Footer buttons emit relative steps and chapter-list rows emit absolute targets. Horizontal drags no longer emit chapter-navigation events.

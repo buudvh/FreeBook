@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-17T22:00:00+07:00
+generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
-source_files: 91
-document_version: 2
+source_files: 93
+document_version: 3
 ---
 
 # Vòng đời các SwiftUI View (SwiftUI View Lifecycle)
@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader paragraph lifecycle (1.3.14)
+
+* Chapter load, translation toggle, dictionary refresh, and title-visibility refresh rebuild paragraph items from immutable original title/content and replace the RAM cache atomically on the main actor.
+* Selection ranges are read only when the custom menu action is invoked; `ReaderTextView` keeps no additional selection lifecycle or paragraph ownership state.
+* Translation spans are discarded with their `CachedChapter`/`LoadedChapter` paragraph items and require no persistent cleanup.
+
 ## Reader lifecycle updates (1.3.13, supersedes 1.3.11)
 
 * `ReaderView.onAppear` creates `ReaderChapterListStore` and mounts `ReaderChapterListView` once. Closing the overlay only changes offset, opacity, hit testing, and accessibility visibility.

@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-17T22:00:00+07:00
+generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
-source_files: 91
-document_version: 2
+source_files: 93
+document_version: 3
 ---
 
 # Đồ thị Kiểu dữ liệu (Type Graph)
@@ -15,6 +15,13 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Reader paragraph and selection types (1.3.14)
+
+* `TranslationSpan` stores original and translated UTF-16 offsets/lengths; `TranslatedTextResult` returns translated text with those spans.
+* `ParagraphItem` owns its original text, translated text, title flag, and backward-compatible translation spans.
+* `ReaderParagraphBuilder` returns `ReaderParagraphBuildResult` with one paragraph item per original line; `ReaderSelectionMapper` resolves a translated `NSRange` back to the original paragraph.
+* `ReaderTextView` emits only a UTF-16 `NSRange`; `ParagraphCardView` attaches the paragraph id before forwarding the selection.
+
 ## Reader type updates (1.3.13, supersedes 1.3.11)
 
 * `ReaderNavigationSource` supports history, footer buttons, chapter-list selection, TTS sync, and reload. Horizontal swipe is no longer a navigation source.

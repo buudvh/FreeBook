@@ -4,6 +4,18 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.14] - 2026-07-17
+
+### Chuẩn hóa paragraph 1–1 và ánh xạ vùng chọn bản dịch
+*   **Người thực hiện**: Trợ lý AI Codex
+*   **Tổng số file nguồn ảnh hưởng**: 7 file Swift, 1 file test
+*   **Mô tả**:
+    *   Tách nội dung gốc thành dòng trước khi dịch, dịch độc lập từng dòng và tạo `ParagraphItem` 1–1 với id ổn định, kể cả dòng rỗng hoặc dòng cuối trống.
+    *   Bổ sung kết quả dịch kèm span gốc/bản dịch theo UTF-16; payload `ParagraphItem` cũ vẫn decode với danh sách span rỗng.
+    *   Menu “📖 Dịch” chỉ truyền `NSRange` và paragraph id; Reader lấy đúng item trong chương, luôn dùng `item.original` cho màn hình dịch.
+    *   Ưu tiên span chính xác và giữ thuật toán câu/token của commit `3312841` làm fallback khi mapping thiếu hoặc không hợp lệ.
+    *   Thêm test cho paragraph 1–1, blank/trailing line, Codable cũ, UTF-16, multi-token và fallback lịch sử.
+
 ## [1.3.13] - 2026-07-17
 
 ### Phản hồi tải chương tức thì và tinh gọn tương tác Reader

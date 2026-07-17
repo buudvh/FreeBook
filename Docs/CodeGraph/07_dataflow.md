@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-17T22:00:00+07:00
+generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
-source_files: 91
-document_version: 2
+source_files: 93
+document_version: 3
 ---
 
 # Dòng chảy Dữ liệu & Cơ chế Cache (Data Flow & Caching)
@@ -15,6 +15,13 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader paragraph data flow (1.3.14)
+
+* `originalContent` is split first; every original line produces exactly one translated result and one stable paragraph id, including blank and trailing lines.
+* `translatedContent` is reconstructed only from the translated line array, preventing paragraph loss or line-count drift caused by translating the full chapter before splitting.
+* Each translated paragraph carries UTF-16 spans back to `item.original`. Selection uses those spans first and falls back to historical sentence/token pairing only when mapping is absent or incomplete.
+* Paragraph mappings live in Reader RAM/cache only; no SwiftData migration or persisted chapter schema changes are required.
+
 ## Reader data-flow updates (1.3.13, supersedes 1.3.11)
 
 * The reading surface selects `pendingNavigationIndex ?? displayedChapterIndex`. A pending cache miss renders known chapter metadata and skeleton rows; only a successful generation commits real content and progress.

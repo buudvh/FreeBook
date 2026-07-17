@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-17T22:00:00+07:00
+generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
-source_files: 91
-document_version: 2
+source_files: 93
+document_version: 3
 ---
 
 # Đồ thị Lời gọi Hàm (Call Graph)
@@ -15,6 +15,13 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader paragraph and selection calls (1.3.14)
+
+* `ReaderViewModel.processAndSaveChapter` and the legacy Reader path both call `ReaderParagraphBuilder.build`, which translates each original line independently and returns aligned paragraph items.
+* `translateContentWithMapping` preserves `translateContent` output, then aligns translation tokens against the post-processed output to create UTF-16 spans; an incomplete alignment returns no spans.
+* The custom “📖 Dịch” action emits `NSRange` to `ParagraphCardView`, which adds `item.id`; `ReaderView` looks up that id in the requested chapter and calls `ReaderSelectionMapper`.
+* `ReaderSelectionMapper` prefers stored spans, then uses the sentence/token algorithm from commit `3312841`; the definition editor always receives the full `item.original` and an original-text range.
+
 ## Reader navigation calls (1.3.13, supersedes 1.3.11)
 
 * `ReaderView` routes footer buttons, chapter-list jumps, history restore, and TTS sync through `ReaderViewModel.requestChapter(...)` or `stepChapter(...)`; horizontal drags have no navigation call.

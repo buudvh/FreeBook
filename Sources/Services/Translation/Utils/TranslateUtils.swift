@@ -96,6 +96,31 @@ public final class TranslateUtils {
     public static func translateContent(_ text: String?, bookId: String? = nil) -> String {
         return translateText(text, isMeta: false, bookId: bookId)
     }
+
+    public static func translateContentWithMapping(_ text: String?, bookId: String? = nil) -> TranslatedTextResult {
+        let original = text ?? ""
+        let translated = translateContent(original, bookId: bookId)
+        return TranslatedTextResult(
+            text: translated,
+            spans: buildTranslationSpans(original: original, translated: translated, bookId: bookId)
+        )
+    }
+
+    public static func translateChapterTitleWithMapping(_ text: String, bookId: String? = nil) -> TranslatedTextResult {
+        let translated = translateChapterTitle(text, bookId: bookId)
+        return TranslatedTextResult(
+            text: translated,
+            spans: buildTranslationSpans(original: text, translated: translated, bookId: bookId)
+        )
+    }
+
+    public static func untranslatedTextResult(_ text: String) -> TranslatedTextResult {
+        let length = (text as NSString).length
+        let spans = length > 0
+            ? [TranslationSpan(originalLocation: 0, originalLength: length, translatedLocation: 0, translatedLength: length)]
+            : []
+        return TranslatedTextResult(text: text, spans: spans)
+    }
     
     public static func translateChapterTitle(_ text: String, bookId: String? = nil) -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -598,6 +623,75 @@ public final class TranslateUtils {
         translationCache.removeAllObjects()
         clearChapterTitleCache()
     }
+
+    private static func buildTranslationSpans(
+        original: String,
+        translated: String,
+        bookId: String?
+    ) -> [TranslationSpan] {
+        guard !original.isEmpty, !translated.isEmpty else { return [] }
+        if original == translated {
+            return untranslatedTextResult(original).spans
+        }
+
+        let translatedNSString = translated as NSString
+        let tokens = getTranslationTokens(for: original, bookId: bookId)
+        var cursor = 0
+        var spans: [TranslationSpan] = []
+
+        for token in tokens {
+            let candidate = postProcessText(token.translatedText)
+            guard !candidate.isEmpty, cursor <= translatedNSString.length else { continue }
+
+            let searchRange = NSRange(location: cursor, length: translatedNSString.length - cursor)
+            guard let translatedRange = findTranslatedTokenRange(
+                candidate,
+                in: translated,
+                searchRange: searchRange
+            ) else {
+                return []
+            }
+
+            spans.append(TranslationSpan(
+                originalLocation: token.originalOffset,
+                originalLength: token.originalLength,
+                translatedLocation: translatedRange.location,
+                translatedLength: translatedRange.length
+            ))
+            cursor = NSMaxRange(translatedRange)
+        }
+
+        return spans
+    }
+
+    private static func findTranslatedTokenRange(
+        _ tokenText: String,
+        in translated: String,
+        searchRange: NSRange
+    ) -> NSRange? {
+        let translatedNSString = translated as NSString
+        let literalRange = translatedNSString.range(
+            of: tokenText,
+            options: [.caseInsensitive],
+            range: searchRange
+        )
+        if literalRange.location != NSNotFound {
+            return literalRange
+        }
+
+        let parts = tokenText
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+        guard !parts.isEmpty else { return nil }
+
+        let pattern = parts
+            .map(NSRegularExpression.escapedPattern(for:))
+            .joined(separator: #"\s+"#)
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+        return regex.firstMatch(in: translated, options: [], range: searchRange)?.range
+    }
     
     // MARK: - Tokenizer for interactive reader selection
     
@@ -738,11 +832,14 @@ public final class TranslateUtils {
             
             let trimmedTrans = translatedToken.trimmingCharacters(in: .whitespacesAndNewlines)
             if isMatched || !trimmedTrans.isEmpty || !tokenStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                let startIndex = sentence.index(sentence.startIndex, offsetBy: currentIndex)
+                let endIndex = sentence.index(startIndex, offsetBy: matchedLen)
+                let originalRange = NSRange(startIndex..<endIndex, in: sentence)
                 output.append(TranslationWordToken(
                     originalText: tokenStr,
                     translatedText: isMatched ? trimmedTrans : (trimmedTrans.isEmpty ? tokenStr : trimmedTrans),
-                    originalOffset: currentIndex,
-                    originalLength: matchedLen
+                    originalOffset: originalRange.location,
+                    originalLength: originalRange.length
                 ))
             }
             
@@ -816,6 +913,43 @@ public struct TranslationWordToken: Identifiable, Hashable {
         self.translatedText = translatedText
         self.originalOffset = originalOffset
         self.originalLength = originalLength
+    }
+}
+
+public struct TranslationSpan: Codable, Equatable, Hashable, Sendable {
+    public let originalLocation: Int
+    public let originalLength: Int
+    public let translatedLocation: Int
+    public let translatedLength: Int
+
+    public init(
+        originalLocation: Int,
+        originalLength: Int,
+        translatedLocation: Int,
+        translatedLength: Int
+    ) {
+        self.originalLocation = originalLocation
+        self.originalLength = originalLength
+        self.translatedLocation = translatedLocation
+        self.translatedLength = translatedLength
+    }
+
+    public var originalRange: NSRange {
+        NSRange(location: originalLocation, length: originalLength)
+    }
+
+    public var translatedRange: NSRange {
+        NSRange(location: translatedLocation, length: translatedLength)
+    }
+}
+
+public struct TranslatedTextResult: Codable, Equatable, Sendable {
+    public let text: String
+    public let spans: [TranslationSpan]
+
+    public init(text: String, spans: [TranslationSpan]) {
+        self.text = text
+        self.spans = spans
     }
 }
 

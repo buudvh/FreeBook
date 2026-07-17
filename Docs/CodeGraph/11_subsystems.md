@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-17T22:00:00+07:00
+generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
-source_files: 91
-document_version: 2
+source_files: 93
+document_version: 3
 ---
 
 # Phân tích các Phân hệ Cốt lõi (Subsystems)
@@ -15,6 +15,10 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader translation subsystem update (1.3.14)
+
+Reader paragraph creation is centralized in `ReaderParagraphBuilder`: original lines are the source of truth, translation is one-to-one, and paragraph ids never depend on translated output. `TranslateUtils` exposes mapped translation results with UTF-16 spans, while `ReaderSelectionMapper` owns exact and historical fallback range conversion. The definition editor continues to operate only on original paragraph text.
+
 ## Reader subsystem update (1.3.13, supersedes 1.3.11)
 
 The Reader runtime renders one chapter in one vertical `ScrollView`. Chapter changes come only from footer buttons, chapter list, history restore, or TTS sync. Horizontal drags and reaching the vertical end have no navigation side effect.

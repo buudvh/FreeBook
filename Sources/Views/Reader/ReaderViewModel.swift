@@ -744,7 +744,7 @@ class ReaderViewModel: ObservableObject {
             if index < sorted.count {
                 let chap = sorted[index]
                 if chap.isCached, let content = chap.content, !content.isEmpty {
-                    let cleanedContent = cleanBlankLines(in: content.cleanHTML())
+                    let cleanedContent = normalizeLineEndings(in: content.cleanHTML())
                     await processAndSaveChapter(index: index, originalTitle: title, originalContent: cleanedContent)
                     return
                 }
@@ -781,7 +781,7 @@ class ReaderViewModel: ObservableObject {
         )
 
         try Task.checkCancellation()
-        let cleanedContent = cleanBlankLines(in: content.cleanHTML())
+        let cleanedContent = normalizeLineEndings(in: content.cleanHTML())
 
         // Lưu vào DB
         if localBook != nil {
@@ -868,41 +868,20 @@ class ReaderViewModel: ObservableObject {
 
         let isTranslationEnabled = self.isTranslationEnabled
         let bookId = self.bookId
+        let showTitleKey = "showChapterTitle_\(bookId)"
+        let showTitle = UserDefaults.standard.object(forKey: showTitleKey) != nil
+            ? UserDefaults.standard.bool(forKey: showTitleKey)
+            : true
 
         // Chuyển tác vụ dịch thuật và phân tích dòng xuống luồng chạy nền (Task.detached)
-        let (translatedTitle, translatedContent, items) = await Task.detached(priority: .userInitiated) {
-            var transTitle = originalTitle
-            var transContent = originalContent
-
-            if isTranslationEnabled {
-                if TranslateUtils.containsChinese(originalTitle) {
-                    transTitle = TranslateUtils.translateChapterTitle(originalTitle, bookId: bookId)
-                }
-                if TranslateUtils.containsChinese(originalContent) {
-                    transContent = TranslateUtils.translateContent(originalContent, bookId: bookId)
-                }
-            }
-
-            // Cắt dòng đoạn văn
-            let originalLines = originalContent.components(separatedBy: "\n")
-            let translatedLines = transContent.components(separatedBy: "\n")
-            var paragraphItems: [ParagraphItem] = []
-
-            let showTitleKey = "showChapterTitle_\(bookId)"
-            let showTitle = UserDefaults.standard.object(forKey: showTitleKey) != nil ? UserDefaults.standard.bool(forKey: showTitleKey) : true
-
-            if showTitle {
-                paragraphItems.append(ParagraphItem(id: -1, original: originalTitle, translated: transTitle, isTitle: true))
-            }
-
-            let maxLines = max(originalLines.count, translatedLines.count)
-            for i in 0..<maxLines {
-                let orig = i < originalLines.count ? originalLines[i] : ""
-                let trans = i < translatedLines.count ? translatedLines[i] : ""
-                paragraphItems.append(ParagraphItem(id: i, original: orig, translated: trans, isTitle: false))
-            }
-
-            return (transTitle, transContent, paragraphItems)
+        let result = await Task.detached(priority: .userInitiated) {
+            ReaderParagraphBuilder.build(
+                originalTitle: originalTitle,
+                originalContent: originalContent,
+                isTranslationEnabled: isTranslationEnabled,
+                showTitle: showTitle,
+                bookId: bookId
+            )
         }.value
 
         guard !Task.isCancelled else { return }
@@ -911,9 +890,9 @@ class ReaderViewModel: ObservableObject {
         if let cached = cache.cache[index] {
             cached.originalTitle = originalTitle
             cached.originalContent = originalContent
-            cached.title = translatedTitle
-            cached.content = translatedContent
-            cached.paragraphItems = items
+            cached.title = result.translatedTitle
+            cached.content = result.translatedContent
+            cached.paragraphItems = result.paragraphItems
             cached.state = .loaded
         }
 
@@ -955,10 +934,10 @@ class ReaderViewModel: ObservableObject {
     }
 
     // Tiền xử lý chữ
-    private func cleanBlankLines(in text: String) -> String {
-        let lines = text.components(separatedBy: "\n")
-        let cleaned = lines.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-        return cleaned.joined(separator: "\n")
+    private func normalizeLineEndings(in text: String) -> String {
+        text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
     }
 
     deinit {

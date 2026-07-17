@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-14T09:15:00+07:00
+generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
-source_files: 87
-document_version: 1
+source_files: 93
+document_version: 2
 ---
 
 # Báo cáo Độ phức tạp & Đồ thị TODO (Complexity & TODO Report)
@@ -15,6 +15,11 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Incremental complexity update (1.3.14)
+
+* Reader paragraph creation and translated-selection mapping moved out of `ReaderView`/`ReaderViewModel` into two focused, unit-testable helpers.
+* The previous duplicated paragraph split/max-line logic and inline sentence/token selection heuristic were removed from `ReaderView`.
+
 ## Đánh giá mức độ tin cậy (Confidence Level)
 
 *   **Mức độ tin cậy**: **High**
