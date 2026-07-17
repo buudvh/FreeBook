@@ -477,7 +477,7 @@ struct ReaderView: View {
                       let vm = viewModel else { return }
                 
                 if let cached = vm.cache.get(chapter), cached.state == .loaded {
-                    let ttsChapters = vm.getSortedChapters().map { TTSChapterInfo(title: $0.title, url: $0.url, host: $0.host) }
+                    let ttsChapters = vm.getSortedChapters().map { TTSChapterInfo(title: $0.title, url: $0.url, index: $0.index, host: $0.host) }
                     let content = isTranslationEnabled ? cached.translatedContent : cached.originalContent
                     let extInfo = ttsManager.extensionInfo
                     
