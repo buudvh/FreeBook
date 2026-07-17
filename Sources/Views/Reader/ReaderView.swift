@@ -323,248 +323,257 @@ struct ReaderView: View {
     var body: some View {
         mainZStack
             .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
-        .sheet(isPresented: $showingSettings) {
-            ReaderSettingsView(fontSize: $fontSize, lineSpacing: $lineSpacing, selectedTheme: $selectedTheme, isTranslationEnabled: $isTranslationEnabled)
-                .presentationDetents([.height(250)])
-        }
-        .sheet(isPresented: $showingBookDictionary) {
-            NavigationStack {
-                BookDictionaryView(bookId: bookId, bookName: bookTitle ?? "")
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button("Đóng") {
-                                showingBookDictionary = false
+    @ViewBuilder
+    private var bodyWithSheets: some View {
+        mainZStack
+            .sheet(isPresented: $showingSettings) {
+                ReaderSettingsView(fontSize: $fontSize, lineSpacing: $lineSpacing, selectedTheme: $selectedTheme, isTranslationEnabled: $isTranslationEnabled)
+                    .presentationDetents([.height(250)])
+            }
+            .sheet(isPresented: $showingBookDictionary) {
+                NavigationStack {
+                    BookDictionaryView(bookId: bookId, bookName: bookTitle ?? "")
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Button("Đóng") {
+                                    showingBookDictionary = false
+                                }
                             }
                         }
-                    }
+                }
             }
-        }
-        .onChange(of: ttsManager.showingSettingsSheet) { _, newValue in
-            if newValue {
-                // Tự động đóng các sheet khác của ReaderView để tránh tranh chấp presentation
-                showingSettings = false
-                showingBookDictionary = false
+            .sheet(isPresented: $showingDefinitionSheet) {
+                definitionSheetContent
             }
-        }
-        .onChange(of: isTranslationEnabled) { _, _ in
-            applyTranslation()
-        }
-        .sheet(isPresented: $showingDefinitionSheet) {
-            definitionSheetContent
-        }
-        .fullScreenCover(isPresented: $showingBypassBrowser) {
-            BypassWebView(
-                urlString: currentChapterInfo?.url ?? bookDetailUrl ?? "",
-                host: currentChapterHost,
-                onImport: { detailUrl, packageId, sourceName in
-                    importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
-                    importedExtensionPackageId = packageId
-                    importedDetailUrl = detailUrl
-                    importedSourceName = sourceName
-                    
-                    if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
-                        importedHost = "\(scheme)://\(host)"
-                    } else {
-                        importedHost = ""
+            .fullScreenCover(isPresented: $showingBypassBrowser) {
+                BypassWebView(
+                    urlString: currentChapterInfo?.url ?? bookDetailUrl ?? "",
+                    host: currentChapterHost,
+                    onImport: { detailUrl, packageId, sourceName in
+                        importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                        importedExtensionPackageId = packageId
+                        importedDetailUrl = detailUrl
+                        importedSourceName = sourceName
+                        
+                        if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
+                            importedHost = "\(scheme)://\(host)"
+                        } else {
+                            importedHost = ""
+                        }
+                        
+                        navigateToBookDetail = true
                     }
-                    
-                    navigateToBookDetail = true
+                )
+            }
+    }
+
+    @ViewBuilder
+    private var bodyWithBackgrounds: some View {
+        bodyWithSheets
+            .background(
+                NavigationLink(
+                    destination: LazyView {
+                        BookDetailView(
+                            bookId: importedBookId,
+                            extensionPackageId: importedExtensionPackageId,
+                            initialDetailUrl: importedDetailUrl,
+                            sourceName: importedSourceName,
+                            initialHost: importedHost
+                        )
+                    },
+                    isActive: $navigateToBookDetail
+                ) {
+                    EmptyView()
                 }
             )
-        }
-        .background(
-            NavigationLink(
-                destination: LazyView {
-                    BookDetailView(
-                        bookId: importedBookId,
-                        extensionPackageId: importedExtensionPackageId,
-                        initialDetailUrl: importedDetailUrl,
-                        sourceName: importedSourceName,
-                        initialHost: importedHost
-                    )
-                },
-                isActive: $navigateToBookDetail
-            ) {
-                EmptyView()
-            }
-        )
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ttsRequestPlayFromPosition"))) { notification in
-            guard let userInfo = notification.userInfo,
-                  let chapter = userInfo["chapterIndex"] as? Int,
-                  let paragraph = userInfo["paragraphIndex"] as? Int,
-                  let vm = viewModel else { return }
-            
-            if let cached = vm.cache.get(chapter), cached.state == .loaded {
-                let ttsChapters = vm.getSortedChapters().map { TTSChapterInfo(title: $0.title, url: $0.url, host: $0.host) }
-                let content = isTranslationEnabled ? cached.translatedContent : cached.originalContent
-                let extInfo = ttsManager.extensionInfo
-                
-                ttsManager.startSpeaking(
-                    bookId: vm.bookId,
-                    currentIndex: chapter,
-                    chapters: ttsChapters,
-                    chapterContent: content,
-                    startParagraphIndex: paragraph,
-                    bookTitle: vm.bookTitle ?? "",
-                    coverUrl: vm.bookCoverUrl ?? "",
-                    bookDetailUrl: vm.bookDetailUrl ?? "",
-                    bookSourceName: vm.bookSourceName ?? "",
-                    extensionInfo: extInfo
-                )
-            }
-        }
-        .onChange(of: localBook?.chapters.count) { _, newCount in
-            if let vm = viewModel, let count = newCount {
-                if vm.totalChaptersCount != count {
-                    vm.totalChaptersCount = count
-                    vm.updateVisibleChaptersWindow()
-                    vm.stableIndexes = vm.visibleIndexes
-                }
-            }
-        }
-        .onChange(of: currentOnlineChapters.count) { _, newCount in
-            if let vm = viewModel, newCount > 0 {
-                if vm.totalChaptersCount != newCount {
-                    vm.totalChaptersCount = newCount
-                    vm.updateVisibleChaptersWindow()
-                    vm.stableIndexes = vm.visibleIndexes
-                }
-            }
-        }
+            .toolbar(.hidden, for: .tabBar)
+    }
 
-        .onAppear {
-            let key = "showChapterTitle_\(bookId)"
-            if UserDefaults.standard.object(forKey: key) != nil {
-                showChapterTitle = UserDefaults.standard.bool(forKey: key)
-            } else {
-                showChapterTitle = true
-            }
-            
-            let autoScrollKey = "disableAutoScroll_\(bookId)"
-            self.isAutoScrollDisabled = UserDefaults.standard.bool(forKey: autoScrollKey)
-            
-            ReaderView.activeBookId = bookId
-            ReaderView.activeChapterIndex = chapterIndex
-            
-            if currentOnlineChapters.isEmpty {
-                currentOnlineChapters = onlineChapters
-            }
-            
-            if viewModel == nil {
-                let savedPIdx = getSavedParagraphIndex(for: chapterIndex)
-                
-                // Tính toán số lượng chương khởi tạo an toàn bằng cách dùng trực tiếp tham số onlineChapters
-                let initialTotalCount: Int
-                if let book = localBook {
-                    initialTotalCount = book.chapters.count
+    @ViewBuilder
+    private var bodyWithEvents: some View {
+        bodyWithBackgrounds
+            .onAppear {
+                let key = "showChapterTitle_\(bookId)"
+                if UserDefaults.standard.object(forKey: key) != nil {
+                    showChapterTitle = UserDefaults.standard.bool(forKey: key)
                 } else {
-                    initialTotalCount = onlineChapters.count
+                    showChapterTitle = true
                 }
                 
-                viewModel = ReaderViewModel(
-                    bookId: bookId,
-                    extensionPackageId: extensionPackageId,
-                    initialChapterIndex: chapterIndex,
-                    initialParagraphIndex: savedPIdx,
-                    totalChaptersCount: initialTotalCount,
-                    modelContext: modelContext,
-                    onlineChapters: onlineChapters,
-                    isTranslationEnabled: isTranslationEnabled,
-                    bookTitle: bookTitle,
-                    bookAuthor: bookAuthor,
-                    bookCoverUrl: bookCoverUrl,
-                    bookDesc: bookDesc,
-                    bookDetailUrl: bookDetailUrl,
-                    bookSourceName: bookSourceName
-                )
-            }
-            
-            ttsManager.onChapterFinished = {
-                let nextIdx = chapterIndex + 1
-                if nextIdx < totalChaptersCount {
-                    selectChapter(at: nextIdx)
+                let autoScrollKey = "disableAutoScroll_\(bookId)"
+                self.isAutoScrollDisabled = UserDefaults.standard.bool(forKey: autoScrollKey)
+                
+                ReaderView.activeBookId = bookId
+                ReaderView.activeChapterIndex = chapterIndex
+                
+                if currentOnlineChapters.isEmpty {
+                    currentOnlineChapters = onlineChapters
+                }
+                
+                if viewModel == nil {
+                    let savedPIdx = getSavedParagraphIndex(for: chapterIndex)
+                    
+                    let initialTotalCount: Int
+                    if let book = localBook {
+                        initialTotalCount = book.chapters.count
+                    } else {
+                        initialTotalCount = onlineChapters.count
+                    }
+                    
+                    viewModel = ReaderViewModel(
+                        bookId: bookId,
+                        extensionPackageId: extensionPackageId,
+                        initialChapterIndex: chapterIndex,
+                        initialParagraphIndex: savedPIdx,
+                        totalChaptersCount: initialTotalCount,
+                        modelContext: modelContext,
+                        onlineChapters: onlineChapters,
+                        isTranslationEnabled: isTranslationEnabled,
+                        bookTitle: bookTitle,
+                        bookAuthor: bookAuthor,
+                        bookCoverUrl: bookCoverUrl,
+                        bookDesc: bookDesc,
+                        bookDetailUrl: bookDetailUrl,
+                        bookSourceName: bookSourceName
+                    )
+                }
+                
+                ttsManager.onChapterFinished = {
+                    let nextIdx = chapterIndex + 1
+                    if nextIdx < totalChaptersCount {
+                        selectChapter(at: nextIdx)
+                    }
+                }
+                ttsManager.onChapterNext = {
+                    let nextIdx = chapterIndex + 1
+                    if nextIdx < totalChaptersCount {
+                        selectChapter(at: nextIdx)
+                    }
+                }
+                ttsManager.onChapterPrev = {
+                    let prevIdx = chapterIndex - 1
+                    if prevIdx >= 0 {
+                        selectChapter(at: prevIdx)
+                    }
+                }
+                
+                if !hasOpenedReader {
+                    showControls = true
+                    hasOpenedReader = true
                 }
             }
-            ttsManager.onChapterNext = {
-                let nextIdx = chapterIndex + 1
-                if nextIdx < totalChaptersCount {
-                    selectChapter(at: nextIdx)
+            .onDisappear {
+                if ReaderView.activeBookId == bookId && ReaderView.activeChapterIndex == chapterIndex {
+                    ReaderView.activeBookId = nil
+                    ReaderView.activeChapterIndex = -1
                 }
-            }
-            ttsManager.onChapterPrev = {
-                let prevIdx = chapterIndex - 1
-                if prevIdx >= 0 {
-                    selectChapter(at: prevIdx)
-                }
-            }
-            
-            // Tự động hiển thị thanh công cụ HUD trong lần đầu mở trình đọc
-            if !hasOpenedReader {
-                showControls = true
-                hasOpenedReader = true
-            }
-        }
-        .onDisappear {
-            if ReaderView.activeBookId == bookId && ReaderView.activeChapterIndex == chapterIndex {
-                ReaderView.activeBookId = nil
-                ReaderView.activeChapterIndex = -1
-            }
-            prefetchTask?.cancel()
-            viewModel?.saveProgressImmediately()
-            // Clear callbacks để tránh ghost reference trên view đã dismiss.
-            // TTSManager tự advance chapter độc lập, không cần callbacks từ ReaderView.
-            ttsManager.onChapterFinished = nil
-            ttsManager.onChapterNext = nil
-            ttsManager.onChapterPrev = nil
-        }
-        .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .background {
+                prefetchTask?.cancel()
                 viewModel?.saveProgressImmediately()
+                ttsManager.onChapterFinished = nil
+                ttsManager.onChapterNext = nil
+                ttsManager.onChapterPrev = nil
             }
-        }
-        .onChange(of: chapterIndex) { _, newValue in
-            updateProgressWorkItem?.cancel()
-            updateTTSPositionWorkItem?.cancel()
-            prepareTTSTask?.cancel()
-            paragraphTracker.visibleParagraphs.removeAll()
-            
-            if ReaderView.activeBookId == bookId {
-                ReaderView.activeChapterIndex = newValue
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ttsRequestPlayFromPosition"))) { notification in
+                guard let userInfo = notification.userInfo,
+                      let chapter = userInfo["chapterIndex"] as? Int,
+                      let paragraph = userInfo["paragraphIndex"] as? Int,
+                      let vm = viewModel else { return }
+                
+                if let cached = vm.cache.get(chapter), cached.state == .loaded {
+                    let ttsChapters = vm.getSortedChapters().map { TTSChapterInfo(title: $0.title, url: $0.url, host: $0.host) }
+                    let content = isTranslationEnabled ? cached.translatedContent : cached.originalContent
+                    let extInfo = ttsManager.extensionInfo
+                    
+                    ttsManager.startSpeaking(
+                        bookId: vm.bookId,
+                        currentIndex: chapter,
+                        chapters: ttsChapters,
+                        chapterContent: content,
+                        startParagraphIndex: paragraph,
+                        bookTitle: vm.bookTitle ?? "",
+                        coverUrl: vm.bookCoverUrl ?? "",
+                        bookDetailUrl: vm.bookDetailUrl ?? "",
+                        bookSourceName: vm.bookSourceName ?? "",
+                        extensionInfo: extInfo
+                    )
+                }
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ttsDidAdvanceToNextChapter"))) { notification in
-            guard let userInfo = notification.userInfo,
-                  let bid = userInfo["bookId"] as? String,
-                  let nextIdx = userInfo["chapterIndex"] as? Int else { return }
-            
-            if bid == bookId && nextIdx != chapterIndex {
-                // TTSManager đã tự advance và đang phát chương mới.
-                // ReaderView chỉ cần sync UI (chuyển tab, scroll) — không trigger startTTS thêm.
-                self.ttsShouldAutoPlayNextChapter = false
-                selectChapter(at: nextIdx, scroll: true)
+    }
+
+    var body: some View {
+        bodyWithEvents
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .background {
+                    viewModel?.saveProgressImmediately()
+                }
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleReaderControls"))) { _ in
-            withAnimation(.easeInOut(duration: 0.2)) {
-                showControls.toggle()
+            .onChange(of: chapterIndex) { _, newValue in
+                updateProgressWorkItem?.cancel()
+                updateTTSPositionWorkItem?.cancel()
+                prepareTTSTask?.cancel()
+                paragraphTracker.visibleParagraphs.removeAll()
+                
+                if ReaderView.activeBookId == bookId {
+                    ReaderView.activeChapterIndex = newValue
+                }
             }
-        }
-        .onChange(of: ttsManager.currentParentParagraphIndex) { _, newValue in
-            guard ttsManager.isPlaying &&
-                  ttsManager.playingBookId == bookId &&
-                  ttsManager.playingChapterIndex == chapterIndex &&
-                  newValue >= 0 else { return }
-            
-            // Lưu vị trí TTS đang phát vào database
-            saveReadProgress(index: chapterIndex, paragraphIndex: newValue)
-            
-            guard !isAutoScrollDisabled else { return }
-            
-            withAnimation {
-                scrollTarget = ScrollTarget(chapterIndex: ttsManager.playingChapterIndex, paragraphIndex: newValue)
+            .onChange(of: ttsManager.showingSettingsSheet) { _, newValue in
+                if newValue {
+                    showingSettings = false
+                    showingBookDictionary = false
+                }
             }
-        }
-        .toolbar(.hidden, for: .tabBar)
+            .onChange(of: isTranslationEnabled) { _, _ in
+                applyTranslation()
+            }
+            .onChange(of: localBook?.chapters.count) { _, newCount in
+                if let vm = viewModel, let count = newCount {
+                    if vm.totalChaptersCount != count {
+                        vm.totalChaptersCount = count
+                        vm.updateVisibleChaptersWindow()
+                        vm.stableIndexes = vm.visibleIndexes
+                    }
+                }
+            }
+            .onChange(of: currentOnlineChapters.count) { _, newCount in
+                if let vm = viewModel, newCount > 0 {
+                    if vm.totalChaptersCount != newCount {
+                        vm.totalChaptersCount = newCount
+                        vm.updateVisibleChaptersWindow()
+                        vm.stableIndexes = vm.visibleIndexes
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ttsDidAdvanceToNextChapter"))) { notification in
+                guard let userInfo = notification.userInfo,
+                      let bid = userInfo["bookId"] as? String,
+                      let nextIdx = userInfo["chapterIndex"] as? Int else { return }
+                
+                if bid == bookId && nextIdx != chapterIndex {
+                    self.ttsShouldAutoPlayNextChapter = false
+                    selectChapter(at: nextIdx, scroll: true)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleReaderControls"))) { _ in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showControls.toggle()
+                }
+            }
+            .onChange(of: ttsManager.currentParentParagraphIndex) { _, newValue in
+                guard ttsManager.isPlaying &&
+                      ttsManager.playingBookId == bookId &&
+                      ttsManager.playingChapterIndex == chapterIndex &&
+                      newValue >= 0 else { return }
+                
+                saveReadProgress(index: chapterIndex, paragraphIndex: newValue)
+                
+                guard !isAutoScrollDisabled else { return }
+                
+                withAnimation {
+                    scrollTarget = ScrollTarget(chapterIndex: ttsManager.playingChapterIndex, paragraphIndex: newValue)
+                }
+            }
+    }
     }
     
     
