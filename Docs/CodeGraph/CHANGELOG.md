@@ -4,6 +4,19 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.8] - 2026-07-17
+
+### Refactor Reader sang Infinite Vertical Window va bo sung TTSSession snapshot
+*   **Nguoi thuc hien**: Tro ly AI Codex
+*   **Tong so file nguon anh huong**: 9 file Swift, 1 file test
+*   **Mo ta**:
+    *   **ReaderView**: Them runtime `Infinite Vertical Reader` dung mot `ScrollViewReader` + mot `ScrollView` + `LazyVStack` cho window chapter hien tai. Paragraph van render qua `ParagraphCardView`/`ReaderTextView`, giu nguyen `UITextView`, selection menu, dich, nghe doan chon va copy.
+    *   **ReaderViewModel**: Bo sung `ReadingContext`, chuyen jump/chapter selection sang thao tac replace/rebase window quanh chapter dich thay vi scroll qua toan bo truyen. Window mac dinh can bang theo `ReaderWindowManager`.
+    *   **ReaderWindowManager / ReaderCoordinator / ChapterContentProvider**: Them cac seam kien truc de tach quyet dinh window/progress/loading khoi UI va chuan bi gom cache/content provider dung chung.
+    *   **ChapterCache**: Bo sung state `notLoaded`, `ReadingContext` va alias `SharedChapterCache` de thong nhat huong cache dung chung Reader/TTS.
+    *   **TTSManager / TTSSession**: Them `TTSSessionSnapshot` va `PlaybackQueue`; TTS cap nhat session snapshot khi start/pause/resume/stop va khi phat tung paragraph, giup Reader mo lai co the sync tu session thay vi so huu playback.
+    *   **Tests**: Cap nhat `ReaderViewModelTests` theo API `PrefetchManager.updateQueue(... activeIndex:)` hien tai.
+
 ## [1.3.7] - 2026-07-16
 
 ### Sửa lỗi lấy chương online của TTS do gán sai thông tin tiện ích khi mở lại màn hình đọc (Fix TTS Online Extension Resolution)

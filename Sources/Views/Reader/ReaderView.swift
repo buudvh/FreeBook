@@ -6,9 +6,9 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
     case paper = "Sáng"
     case sepia = "Trầm ấm"
     case dark = "Tối"
-    
+
     var id: String { self.rawValue }
-    
+
     var backgroundColor: Color {
         switch self {
         case .paper: return Color(red: 0.96, green: 0.95, blue: 0.90)
@@ -16,7 +16,7 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
         case .dark: return Color(red: 0.08, green: 0.08, blue: 0.09)
         }
     }
-    
+
     var textColor: Color {
         switch self {
         case .paper: return Color(red: 0.15, green: 0.15, blue: 0.15)
@@ -35,18 +35,18 @@ struct ReaderView: View {
     @Environment(\.modelContext) private var modelContext // Context quản lý dữ liệu SwiftData
     @Environment(\.dismiss) private var dismiss // Hàm dùng để đóng màn hình hiện tại và quay về màn hình trước
     @Environment(\.scenePhase) private var scenePhase
-    
+
     // @Query: Tự động tải dữ liệu từ database SwiftData
     @Query private var allBooks: [Book] // Tất cả sách trong máy
     @Query private var allExtensions: [Extension] // Tất cả các tiện ích (extensions) đã cài đặt
-    
+
     let bookId: String // ID cuốn sách đang đọc
     let extensionPackageId: String // ID extension phụ trách bóc tách nội dung cuốn sách này
-    
+
     // @State: Biến trạng thái nội bộ của View, khi thay đổi sẽ tự động cập nhật giao diện
     @State var chapterIndex: Int // Chỉ mục chương hiện tại đang đọc
     let onlineChapters: [ChapterResult] // Danh sách chương nếu đang đọc trực tuyến (online)
-    
+
     // Các thông tin sách truyền vào khi đọc trực tuyến để tự động tạo sách trong Database khi cần thiết
     let bookTitle: String?
     let bookAuthor: String?
@@ -54,23 +54,23 @@ struct ReaderView: View {
     let bookDesc: String?
     let bookDetailUrl: String?
     let bookSourceName: String?
-    
+
     @State private var isLoading = true // Trạng thái đang tải nội dung
     @State private var errorMessage = "" // Thông báo lỗi nếu tải chương thất bại
     @State private var chapterTitle = "" // Tiêu đề chương hiển thị
     @State private var chapterContent = "" // Nội dung chương hiển thị
     @State private var showChapterTitle = true // Ẩn/Hiện tiêu đề chương trên đầu màn hình đọc
-    
+
     @State private var originalTitle = "" // Tiêu đề chương gốc (thường là tiếng Trung)
     @State private var originalContent = "" // Nội dung chương gốc
-    
+
     // Các biến trạng thái hỗ trợ bôi đen từ/câu để tra cứu từ điển
     @State private var selectedTextForDefinition = "" // Từ/Câu đang được bôi đen chọn tra từ
     @State private var showingDefinitionSheet = false // Hiện hộp thoại tra nghĩa từ điển
     @State private var customMeaning = "" // Nghĩa tự định nghĩa của người dùng lưu lại
     @AppStorage("saveToBookSpecific") private var saveToBookSpecific = true
     @AppStorage("saveAsNameType") private var saveAsNameType = false
-    
+
     // Các cấu hình tra từ nâng cao và hiển thị
     @State private var originalSentence = ""
     @State private var selectedWordOffset = 0
@@ -80,7 +80,7 @@ struct ReaderView: View {
     @State private var translationTokens: [TranslationWordToken] = []
     @State private var dictionaryMatches: [DictionaryMatchInfo] = []
     @State private var showingManageDefinitionsSheet = false
-    
+
     // Cấu hình giao diện đọc (lưu trữ lâu dài qua UserDefaults nhờ @AppStorage)
     @AppStorage("readerFontSize") private var fontSize: Double = 20.0 // Cỡ chữ của văn bản đọc
     @AppStorage("readerLineSpacing") private var lineSpacing: Double = 10.0 // Khoảng cách giữa các dòng
@@ -88,7 +88,7 @@ struct ReaderView: View {
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark // Theme giao diện đọc (Sáng, Trầm ấm, Tối)
     @AppStorage("hasOpenedReader") private var hasOpenedReader = false
     @State private var showingSettings = false // Hiện bảng cài đặt font chữ, màu nền
-    
+
     // Trạng thái bypass Cloudflare và import sách
     @State private var showingBypassBrowser = false
     @State private var showingLookupBrowser = false
@@ -101,7 +101,7 @@ struct ReaderView: View {
     @State private var navigateToBookDetail = false
     @State private var isGoingNext = true
     @State private var isTransitioning = false
-    
+
     // TTS (Giọng đọc): Sử dụng @StateObject để giữ vòng đời của đối tượng TTSManager.shared không bị hủy khi đổi chương
     @StateObject private var ttsManager = TTSManager.shared
     @State private var ttsShouldAutoPlayNextChapter = false // Tự động phát tiếp khi chuyển chương
@@ -116,26 +116,26 @@ struct ReaderView: View {
     @State private var updateProgressWorkItem: DispatchWorkItem? = nil
     @State private var updateTTSPositionWorkItem: DispatchWorkItem? = nil
     @State private var prepareTTSTask: DispatchWorkItem? = nil
-    
+
     @State private var loadedChapters: [LoadedChapter] = []
     @State private var hasScrolledToTop = false
     @State private var paragraphTracker = ParagraphTracker()
-    
+
     // State variables for overlay HUD controls
     @State private var showControls = false
     @State private var showingChapterList = false
     @State private var showingBookDictionary = false
     @State private var sliderValue: Double = 0.0
     @State private var currentOnlineChapters: [ChapterResult] = []
-    
+
     private var localBook: Book? {
         allBooks.first(where: { $0.bookId == bookId })
     }
-    
+
     private var ext: Extension? {
         allExtensions.first(where: { $0.packageId == extensionPackageId })
     }
-    
+
     private var currentChapterHost: String? {
         if chapterIndex < currentOnlineChapters.count {
             return currentOnlineChapters[chapterIndex].host
@@ -147,13 +147,13 @@ struct ReaderView: View {
         }
         return localBook?.host ?? ext?.sourceUrl
     }
-    
+
     private var isCurrentlyPlayingThisChapter: Bool {
         ttsManager.isPlaying &&
         ttsManager.playingBookId == bookId &&
         ttsManager.playingChapterIndex == chapterIndex
     }
-    
+
     private var ttsChaptersQueue: [TTSChapterInfo] {
         if let book = localBook {
             let sorted = book.chapters.sorted(by: { $0.index < $1.index })
@@ -190,7 +190,7 @@ struct ReaderView: View {
             }
         }
     }
-    
+
     private var ttsExtensionInfo: TTSExtensionInfo? {
         guard let ext = ext else { return nil }
         return TTSExtensionInfo(
@@ -200,7 +200,7 @@ struct ReaderView: View {
             configJson: ext.configJson
         )
     }
-    
+
     // Tổng số chương hiện có
     private var totalChaptersCount: Int {
         if let book = localBook {
@@ -208,11 +208,11 @@ struct ReaderView: View {
         }
         return currentOnlineChapters.count
     }
-    
+
     // Lấy thông tin chương hiện tại (Title, URL)
     private var currentChapterInfo: (title: String, url: String)? {
         guard chapterIndex >= 0 && chapterIndex < totalChaptersCount else { return nil }
-        
+
         if let book = localBook {
             let sorted = book.chapters.sorted(by: { $0.index < $1.index })
             let chap = sorted[chapterIndex]
@@ -222,10 +222,10 @@ struct ReaderView: View {
             return (chap.name, chap.url)
         }
     }
-    
+
     private func getChapterTitle(at index: Int) -> String {
         guard index >= 0 && index < totalChaptersCount else { return "Chương \(index + 1)" }
-        
+
         let title: String
         if let book = localBook {
             let sorted = book.chapters.sorted(by: { $0.index < $1.index })
@@ -241,17 +241,17 @@ struct ReaderView: View {
                 title = "Chương \(index + 1)"
             }
         }
-        
+
         return isTranslationEnabled && TranslateUtils.containsChinese(title)
             ? TranslateUtils.translateChapterTitle(title, bookId: bookId)
             : title
     }
-    
+
     private var isChapterLoadingOrFailed: Bool {
         if let vm = viewModel {
             if let cached = vm.cache.get(chapterIndex) {
                 switch cached.state {
-                case .loading, .prefetching, .failed:
+                case .notLoaded, .loading, .prefetching, .failed:
                     return true
                 default:
                     return false
@@ -268,7 +268,7 @@ struct ReaderView: View {
             return isLoading || !errorMessage.isEmpty
         }
     }
-    
+
     var body: some View {
         ZStack {
             // Nền theo theme
@@ -279,7 +279,7 @@ struct ReaderView: View {
                         showControls.toggle()
                     }
                 }
-            
+
             VStack(spacing: 0) {
                 readerContentView
             }
@@ -292,7 +292,7 @@ struct ReaderView: View {
                 }
                 .ignoresSafeArea(edges: .bottom)
             }
-            
+
             // Chapter List Overlay (luôn nằm trong hierarchy nhưng ẩn đi bằng offset/opacity)
             ReaderChapterListView(
                 bookId: bookId,
@@ -356,13 +356,13 @@ struct ReaderView: View {
                     importedExtensionPackageId = packageId
                     importedDetailUrl = detailUrl
                     importedSourceName = sourceName
-                    
+
                     if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
                         importedHost = "\(scheme)://\(host)"
                     } else {
                         importedHost = ""
                     }
-                    
+
                     navigateToBookDetail = true
                 }
             )
@@ -409,20 +409,20 @@ struct ReaderView: View {
             } else {
                 showChapterTitle = true
             }
-            
+
             let autoScrollKey = "disableAutoScroll_\(bookId)"
             self.isAutoScrollDisabled = UserDefaults.standard.bool(forKey: autoScrollKey)
-            
+
             ReaderView.activeBookId = bookId
             ReaderView.activeChapterIndex = chapterIndex
-            
+
             if currentOnlineChapters.isEmpty {
                 currentOnlineChapters = onlineChapters
             }
-            
+
             if viewModel == nil {
                 let savedPIdx = getSavedParagraphIndex(for: chapterIndex)
-                
+
                 // Tính toán số lượng chương khởi tạo an toàn bằng cách dùng trực tiếp tham số onlineChapters
                 let initialTotalCount: Int
                 if let book = localBook {
@@ -430,7 +430,7 @@ struct ReaderView: View {
                 } else {
                     initialTotalCount = onlineChapters.count
                 }
-                
+
                 viewModel = ReaderViewModel(
                     bookId: bookId,
                     extensionPackageId: extensionPackageId,
@@ -448,27 +448,22 @@ struct ReaderView: View {
                     bookSourceName: bookSourceName
                 )
             }
-            
-            ttsManager.onChapterFinished = {
-                let nextIdx = chapterIndex + 1
-                if nextIdx < totalChaptersCount {
-                    selectChapter(at: nextIdx)
-                }
+
+            let ttsSnapshot = TTSSession.shared.snapshot
+            if ttsSnapshot.bookId == bookId,
+               ttsSnapshot.isPlaying,
+               ttsSnapshot.chapterIndex >= 0,
+               ttsSnapshot.chapterIndex < totalChaptersCount,
+               let vm = viewModel {
+                chapterIndex = ttsSnapshot.chapterIndex
+                vm.jumpToChapter(ttsSnapshot.chapterIndex, paragraphIndex: ttsSnapshot.paragraphIndex)
+                scrollTarget = ScrollTarget(
+                    chapterIndex: ttsSnapshot.chapterIndex,
+                    paragraphIndex: ttsSnapshot.paragraphIndex
+                )
             }
-            ttsManager.onChapterNext = {
-                let nextIdx = chapterIndex + 1
-                if nextIdx < totalChaptersCount {
-                    selectChapter(at: nextIdx)
-                }
-            }
-            ttsManager.onChapterPrev = {
-                let prevIdx = chapterIndex - 1
-                if prevIdx >= 0 {
-                    selectChapter(at: prevIdx)
-                }
-            }
-            
-            // Tự động hiển thị thanh công cụ HUD trong lần đầu mở trình đọc
+
+            // Tu dong hien thi thanh cong cu HUD trong lan dau mo trinh doc
             if !hasOpenedReader {
                 showControls = true
                 hasOpenedReader = true
@@ -481,11 +476,6 @@ struct ReaderView: View {
             }
             prefetchTask?.cancel()
             viewModel?.saveProgressImmediately()
-            // Clear callbacks để tránh ghost reference trên view đã dismiss.
-            // TTSManager tự advance chapter độc lập, không cần callbacks từ ReaderView.
-            ttsManager.onChapterFinished = nil
-            ttsManager.onChapterNext = nil
-            ttsManager.onChapterPrev = nil
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .background {
@@ -496,8 +486,8 @@ struct ReaderView: View {
             updateProgressWorkItem?.cancel()
             updateTTSPositionWorkItem?.cancel()
             prepareTTSTask?.cancel()
-            paragraphTracker.visibleParagraphs.removeAll()
-            
+            paragraphTracker.removeAll()
+
             if ReaderView.activeBookId == bookId {
                 ReaderView.activeChapterIndex = newValue
             }
@@ -506,7 +496,7 @@ struct ReaderView: View {
             guard let userInfo = notification.userInfo,
                   let bid = userInfo["bookId"] as? String,
                   let nextIdx = userInfo["chapterIndex"] as? Int else { return }
-            
+
             if bid == bookId && nextIdx != chapterIndex {
                 // TTSManager đã tự advance và đang phát chương mới.
                 // ReaderView chỉ cần sync UI (chuyển tab, scroll) — không trigger startTTS thêm.
@@ -524,28 +514,28 @@ struct ReaderView: View {
                   ttsManager.playingBookId == bookId &&
                   ttsManager.playingChapterIndex == chapterIndex &&
                   newValue >= 0 else { return }
-            
+
             // Lưu vị trí TTS đang phát vào database
             saveReadProgress(index: chapterIndex, paragraphIndex: newValue)
-            
+
             guard !isAutoScrollDisabled else { return }
-            
+
             withAnimation {
                 scrollTarget = ScrollTarget(chapterIndex: ttsManager.playingChapterIndex, paragraphIndex: newValue)
             }
         }
         .toolbar(.hidden, for: .tabBar)
     }
-    
-    
-    
+
+
+
     private func translateMetaIfNeeded(_ text: String) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }
         return TranslateUtils.translateMeta(text, bookId: bookId)
     }
-    
+
     private func translateChapterTitleIfNeeded(_ text: String) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
@@ -562,15 +552,15 @@ struct ReaderView: View {
             }
         }
     }
-    
+
     private func saveDefinition() {
         let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
         let meaning = customMeaning.trimmingCharacters(in: .whitespacesAndNewlines)
-        
+
         guard !word.isEmpty && !meaning.isEmpty else { return }
-        
+
         let bid = saveToBookSpecific ? bookId : nil
-        
+
         Task {
             do {
                 try await TranslationManager.shared.saveCustomEntry(word: word, meaning: meaning, isName: saveAsNameType, bookId: bid)
@@ -583,9 +573,9 @@ struct ReaderView: View {
             }
         }
     }
-    
+
     // MARK: - Advanced Translation Editor Helpers
-    
+
     private func getHanViet(for word: String) -> String {
         let phienAm = TranslationManager.shared.phienAmMap
         var list: [String] = []
@@ -594,20 +584,20 @@ struct ReaderView: View {
         }
         return list.joined(separator: " ").capitalized
     }
-    
+
     private func formatMeaning(_ input: String, style: String) -> String {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return input }
-        
+
         let words = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
         guard !words.isEmpty else { return input }
-        
+
         var formattedWords: [String] = []
-        
+
         switch style {
         case "aa": // viết thường hoàn toàn
             formattedWords = words.map { $0.lowercased() }
-            
+
         case "Aa¹": // viết hoa từ đầu tiên
             for (index, word) in words.enumerated() {
                 if index == 0 {
@@ -616,7 +606,7 @@ struct ReaderView: View {
                     formattedWords.append(word.lowercased())
                 }
             }
-            
+
         case "Aa²": // viết hoa 2 từ đầu tiên
             for (index, word) in words.enumerated() {
                 if index < 2 {
@@ -625,7 +615,7 @@ struct ReaderView: View {
                     formattedWords.append(word.lowercased())
                 }
             }
-            
+
         case "Aa": // viết hoa tất cả các từ trừ từ cuối cùng
             for (index, word) in words.enumerated() {
                 if index < words.count - 1 {
@@ -634,25 +624,25 @@ struct ReaderView: View {
                     formattedWords.append(word.lowercased())
                 }
             }
-            
+
         case "AA": // viết kiểu title
             formattedWords = words.map { $0.prefix(1).uppercased() + $0.dropFirst().lowercased() }
-            
+
         default:
             return input
         }
-        
+
         return formattedWords.joined(separator: " ")
     }
-    
+
     private var suggestionChips: [String] {
         var chips: [String] = []
         let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !word.isEmpty else { return [] }
-        
+
         let manager = TranslationManager.shared
         let bookDicts = manager.getBookDictionaries(for: bookId)
-        
+
         func addTranslation(_ translation: String) {
             let clean = translation.replacingOccurrences(of: "¦", with: "/")
             let parts = clean.components(separatedBy: "/")
@@ -668,14 +658,14 @@ struct ReaderView: View {
                 }
             }
         }
-        
+
         // 1. Book Names
         if let bookNames = bookDicts.names,
            let match = bookNames.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
             addTranslation(match.value)
         }
-        
+
         // 1.1 Custom Names (custom.dat)
         var hasCustomName = false
         if let customNames = manager.customNamesDict,
@@ -684,7 +674,7 @@ struct ReaderView: View {
             addTranslation(match.value)
             hasCustomName = true
         }
-        
+
         // 2. Global Names (chỉ hiện nếu không có trong Custom Names)
         if !hasCustomName,
            let names = manager.namesDict,
@@ -692,28 +682,28 @@ struct ReaderView: View {
            match.length == word.count {
             addTranslation(match.value)
         }
-        
+
         // 3. Pronouns
         if let pronouns = manager.pronounsDict,
            let match = pronouns.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
             addTranslation(match.value)
         }
-        
+
         // 4. LuatNhan
         if let luatNhan = manager.luatNhanDict,
            let match = luatNhan.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
             addTranslation(match.value)
         }
-        
+
         // 5. Book VietPhrase
         if let bookVP = bookDicts.vietPhrase,
            let match = bookVP.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
             addTranslation(match.value)
         }
-        
+
         // 5.1 Custom VietPhrase (custom.dat)
         var hasCustomVP = false
         if let customVP = manager.customVietPhraseDict,
@@ -722,7 +712,7 @@ struct ReaderView: View {
             addTranslation(match.value)
             hasCustomVP = true
         }
-        
+
         // 6. Global VietPhrase (Chung - chỉ hiện nếu không có trong Custom VietPhrase)
         if !hasCustomVP,
            let vp = manager.vietPhraseDict,
@@ -732,7 +722,7 @@ struct ReaderView: View {
                 addTranslation(match.value)
             }
         }
-        
+
         // 7. Phiên âm Hán Việt (chỉ 1 bản viết thường duy nhất)
         let hv = getHanViet(for: word).lowercased()
         if !hv.isEmpty {
@@ -743,10 +733,10 @@ struct ReaderView: View {
                 chips.append(hv)
             }
         }
-        
+
         return chips
     }
-    
+
     private var sentenceSegments: (prefix: String, selected: String, suffix: String) {
         let ns = originalSentence as NSString
         guard selectedWordOffset >= 0 && selectedWordOffset + selectedWordLength <= ns.length else {
@@ -757,29 +747,29 @@ struct ReaderView: View {
         let suffix = ns.substring(with: NSRange(location: selectedWordOffset + selectedWordLength, length: ns.length - (selectedWordOffset + selectedWordLength)))
         return (prefix, selected, suffix)
     }
-    
+
     private var translatedSentenceSegments: (prefix: String, selected: String, suffix: String) {
         let translatedSentence = TranslateUtils.translateContent(originalSentence, bookId: bookId)
         let translatedWord = TranslateUtils.translateMeta(selectedTextForDefinition, bookId: bookId)
-        
+
         guard !translatedWord.isEmpty,
               let range = translatedSentence.range(of: translatedWord) else {
             return ("", translatedSentence, "")
         }
-        
+
         let prefix = String(translatedSentence[..<range.lowerBound])
         let selected = String(translatedSentence[range])
         let suffix = String(translatedSentence[range.upperBound...])
         return (prefix, selected, suffix)
     }
-    
+
     private var selectedTokens: [TranslationWordToken] {
         translationTokens.filter { token in
             token.originalOffset < selectedWordOffset + selectedWordLength &&
             token.originalOffset + token.originalLength > selectedWordOffset
         }
     }
-    
+
     private func expandSelectionLeft() {
         if selectedWordOffset > 0 {
             selectedWordOffset -= 1
@@ -787,7 +777,7 @@ struct ReaderView: View {
             updateEditorFromSelection()
         }
     }
-    
+
     private func shrinkSelectionLeft() {
         if selectedWordLength > 1 {
             selectedWordOffset += 1
@@ -795,14 +785,14 @@ struct ReaderView: View {
             updateEditorFromSelection()
         }
     }
-    
+
     private func shrinkSelectionRight() {
         if selectedWordLength > 1 {
             selectedWordLength -= 1
             updateEditorFromSelection()
         }
     }
-    
+
     private func expandSelectionRight() {
         let ns = originalSentence as NSString
         if selectedWordOffset + selectedWordLength < ns.length {
@@ -810,38 +800,38 @@ struct ReaderView: View {
             updateEditorFromSelection()
         }
     }
-    
+
     private func updateEditorFromSelection() {
         let ns = originalSentence as NSString
         guard selectedWordOffset >= 0 && selectedWordOffset + selectedWordLength <= ns.length else { return }
         let word = ns.substring(with: NSRange(location: selectedWordOffset, length: selectedWordLength))
         self.selectedTextForDefinition = word
-        
+
         if translationMode == "VP" {
             self.customMeaning = TranslateUtils.translateMeta(word, bookId: bookId)
         } else {
             self.customMeaning = getHanViet(for: word)
         }
-        
+
         // Cập nhật các tokens phân tách và tra cứu từ điển đa tầng
         self.translationTokens = TranslateUtils.getTranslationTokens(for: originalSentence, bookId: bookId)
         self.dictionaryMatches = getDictionaryMatches(for: word)
     }
-    
+
     private func getDictionaryMatches(for word: String) -> [DictionaryMatchInfo] {
         var matches: [DictionaryMatchInfo] = []
         guard !word.isEmpty else { return matches }
-        
+
         let manager = TranslationManager.shared
         let bookDicts = manager.getBookDictionaries(for: bookId)
-        
+
         // 1. Book Names
         if let bookNames = bookDicts.names,
            let match = bookNames.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
             matches.append(DictionaryMatchInfo(source: "Names (Riêng)", translation: match.value))
         }
-        
+
         // 2. Global Names
         var namesTranslation: String? = nil
         if let customNames = manager.customNamesDict,
@@ -857,28 +847,28 @@ struct ReaderView: View {
         if let trans = namesTranslation {
             matches.append(DictionaryMatchInfo(source: "Names (Chung)", translation: trans))
         }
-        
+
         // 3. Pronouns
         if let pronouns = manager.pronounsDict,
            let match = pronouns.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
             matches.append(DictionaryMatchInfo(source: "Xưng hô (Pronouns)", translation: match.value))
         }
-        
+
         // 4. LuatNhan
         if let luatNhan = manager.luatNhanDict,
            let match = luatNhan.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
             matches.append(DictionaryMatchInfo(source: "Luật nhân (LuatNhan)", translation: match.value))
         }
-        
+
         // 5. Book VietPhrase
         if let bookVP = bookDicts.vietPhrase,
            let match = bookVP.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
             matches.append(DictionaryMatchInfo(source: "VietPhrase (Riêng)", translation: match.value))
         }
-        
+
         // 6. Global VietPhrase
         var vpTranslation: String? = nil
         if let customVP = manager.customVietPhraseDict,
@@ -894,23 +884,23 @@ struct ReaderView: View {
         if let trans = vpTranslation {
             matches.append(DictionaryMatchInfo(source: "VietPhrase (Chung)", translation: trans))
         }
-        
+
         // 7. PhienAm
         let phienAm = getHanViet(for: word)
         if !phienAm.isEmpty {
             matches.append(DictionaryMatchInfo(source: "Phiên âm", translation: phienAm))
         }
-        
+
         return matches
     }
-    
+
     private func performQuickLookup(using engine: SearchEngine) {
         let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !word.isEmpty else { return }
-        
+
         let rawUrl = engine.urlTemplate.replacingOccurrences(of: "%s", with: word)
         guard let encoded = rawUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return }
-        
+
         self.lookupUrlString = encoded
         self.showingLookupBrowser = true
     }
@@ -919,12 +909,12 @@ struct ReaderView: View {
         return source == "Names (Riêng)" || source == "Names (Chung)" ||
                source == "VietPhrase (Riêng)" || source == "VietPhrase (Chung)"
     }
-    
+
     private func deleteMatch(_ match: DictionaryMatchInfo) {
         let isName = match.source.contains("Names")
         let bid = match.source.contains("Riêng") ? bookId : nil
         let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
-        
+
         Task {
             do {
                 try await TranslationManager.shared.deleteCustomEntry(word: word, isName: isName, bookId: bid)
@@ -942,16 +932,16 @@ struct ReaderView: View {
             }
         }
     }
-    
+
     // MARK: - Flashcard Song ngữ & Tách Đoạn văn Helpers
-    
+
     @ViewBuilder
     private func chapterContentView(for chapter: LoadedChapter) -> some View {
         let isTrans = isTranslationEnabled
         let size = fontSize
         let spacing = lineSpacing
         let theme = selectedTheme
-        
+
         LazyVStack(alignment: .leading, spacing: size * 0.8) {
             ForEach(chapter.paragraphItems) { item in
                 let textLen = (isTrans ? item.translated : item.original).count
@@ -964,7 +954,7 @@ struct ReaderView: View {
                     }
                     return nil
                 }()
-                
+
                 ParagraphCardView(
                     item: item,
                     isTranslationEnabled: isTrans,
@@ -993,23 +983,24 @@ struct ReaderView: View {
                 )
                 .id("paragraph-\(chapter.index)-\(item.id)")
                 .onAppear {
-                    paragraphTracker.visibleParagraphs.insert(item.id)
+                    paragraphTracker.insert(bookId: bookId, chapterIndex: chapter.index, paragraphIndex: item.id)
+                    updateScrollReadingProgress()
                 }
                 .onDisappear {
-                    paragraphTracker.visibleParagraphs.remove(item.id)
+                    paragraphTracker.remove(bookId: bookId, chapterIndex: chapter.index, paragraphIndex: item.id)
                     updateScrollReadingProgress()
                 }
             }
         }
     }
-    
+
     @ViewBuilder
     private func chapterContentView(for chapter: CachedChapter) -> some View {
         let isTrans = isTranslationEnabled
         let size = fontSize
         let spacing = lineSpacing
         let theme = selectedTheme
-        
+
         ForEach(chapter.paragraphItems) { item in
             let textLen = (isTrans ? item.translated : item.original).count
             let relativeHighlightRange: NSRange? = {
@@ -1021,7 +1012,7 @@ struct ReaderView: View {
                 }
                 return nil
             }()
-            
+
             ParagraphCardView(
                 item: item,
                 isTranslationEnabled: isTrans,
@@ -1051,15 +1042,16 @@ struct ReaderView: View {
             .equatable()
             .id("paragraph-\(chapter.index)-\(item.id)")
             .onAppear {
-                paragraphTracker.visibleParagraphs.insert(item.id)
+                paragraphTracker.insert(bookId: bookId, chapterIndex: chapter.index, paragraphIndex: item.id)
+                updateScrollReadingProgress()
             }
             .onDisappear {
-                paragraphTracker.visibleParagraphs.remove(item.id)
+                paragraphTracker.remove(bookId: bookId, chapterIndex: chapter.index, paragraphIndex: item.id)
                 updateScrollReadingProgress()
             }
         }
     }
-    
+
     private func onSelectionChangeInParagraph(
         selectedText: String,
         sentence: String,
@@ -1074,15 +1066,15 @@ struct ReaderView: View {
             // Khi bật dịch, bôi đen là tiếng Việt. Cần tìm câu gốc tiếng Trung tương ứng trong thẻ/div này
             let vietSentenceRanges = TranslateUtils.getSentenceRanges(in: item.translated)
             let chiSentenceRanges = TranslateUtils.getSentenceRanges(in: item.original)
-            
+
             if !vietSentenceRanges.isEmpty && !chiSentenceRanges.isEmpty {
-                var sentenceIdx = vietSentenceRanges.firstIndex(where: { 
-                    $0.range.location <= absoluteOffset && absoluteOffset < $0.range.location + $0.range.length 
+                var sentenceIdx = vietSentenceRanges.firstIndex(where: {
+                    $0.range.location <= absoluteOffset && absoluteOffset < $0.range.location + $0.range.length
                 })
-                
+
                 let targetChiSentenceIdx: Int
                 let vietSentenceRange: SentenceRange
-                
+
                 if let sIdx = sentenceIdx, sIdx < chiSentenceRanges.count {
                     targetChiSentenceIdx = sIdx
                     vietSentenceRange = vietSentenceRanges[sIdx]
@@ -1090,11 +1082,11 @@ struct ReaderView: View {
                     // Fallback: Tìm bằng tỷ lệ tương đối trong phạm vi thẻ
                     let vietLength = Double(item.translated.count)
                     let relativePos = vietLength > 0 ? Double(absoluteOffset) / vietLength : 0.0
-                    
+
                     let chiLength = Double(item.original.count)
                     var bestIdx = 0
                     var minDiff = Double.infinity
-                    
+
                     for (idx, chiRange) in chiSentenceRanges.enumerated() {
                         let chiCenter = Double(chiRange.range.location) + Double(chiRange.range.length) / 2.0
                         let chiRelativePos = chiLength > 0 ? chiCenter / chiLength : 0.0
@@ -1109,17 +1101,17 @@ struct ReaderView: View {
                     vietSentenceRange = vietSentenceRanges[targetVietIdx]
                     sentenceIdx = targetVietIdx
                 }
-                
+
                 let offsetInVietSentence = max(0, absoluteOffset - vietSentenceRange.range.location)
                 let chiSentenceRange = chiSentenceRanges[targetChiSentenceIdx]
                 let chiSentence = chiSentenceRange.text
                 let tokens = TranslateUtils.getTranslationTokens(for: chiSentence, bookId: bookId)
-                
+
                 let vietSentenceNS = vietSentenceRange.text as NSString
                 var vietNonSpaceMap: [Int] = []
                 var nonSpaceCount = 0
                 let whitespaceSet = CharacterSet.whitespacesAndNewlines
-                
+
                 for i in 0..<vietSentenceNS.length {
                     let charCode = vietSentenceNS.character(at: i)
                     if let unicodeScalar = UnicodeScalar(charCode), whitespaceSet.contains(unicodeScalar) {
@@ -1129,7 +1121,7 @@ struct ReaderView: View {
                         nonSpaceCount += 1
                     }
                 }
-                
+
                 var userStartNonSpace = -1
                 var userEndNonSpace = -1
                 for i in 0..<selectedText.count {
@@ -1144,7 +1136,7 @@ struct ReaderView: View {
                         }
                     }
                 }
-                
+
                 var tokenNonSpaceRanges: [NSRange] = []
                 var reconstructedNonSpaceCount = 0
                 for token in tokens {
@@ -1161,7 +1153,7 @@ struct ReaderView: View {
                     tokenNonSpaceRanges.append(NSRange(location: reconstructedNonSpaceCount, length: tokenNonSpaceLen))
                     reconstructedNonSpaceCount += tokenNonSpaceLen
                 }
-                
+
                 var overlappingIndices: [Int] = []
                 if userStartNonSpace != -1 && userEndNonSpace != -1 {
                     let userRange = NSRange(location: userStartNonSpace, length: userEndNonSpace - userStartNonSpace)
@@ -1173,10 +1165,10 @@ struct ReaderView: View {
                         }
                     }
                 }
-                
+
                 var finalChiOffset = 0
                 var finalChiLength = 1
-                
+
                 if !overlappingIndices.isEmpty {
                     let firstIdx = overlappingIndices.first!
                     let lastIdx = overlappingIndices.last!
@@ -1189,14 +1181,14 @@ struct ReaderView: View {
                     finalChiOffset = min(Int(round(ratio * chiLen)), max(0, chiSentence.count - 1))
                     finalChiLength = 1
                 }
-                
+
                 let snapped = TranslateUtils.snapToToken(
                     sentence: chiSentence,
                     selectionOffset: finalChiOffset,
                     selectionLength: finalChiLength,
                     bookId: bookId
                 )
-                
+
                 self.originalSentence = chiSentence
                 self.selectedWordOffset = snapped.offset
                 self.selectedWordLength = snapped.length
@@ -1205,7 +1197,7 @@ struct ReaderView: View {
                 return
             }
         }
-        
+
         // Không bật dịch (hoặc lỗi): Tra cứu trực tiếp
         let snapped = TranslateUtils.snapToToken(
             sentence: sentence,
@@ -1231,7 +1223,7 @@ struct ReaderView: View {
     // loadChapterContent: Hàm tải nội dung chương truyện (hỗ trợ đọc offline từ DB hoặc tải trực tuyến thông qua extension JS)
     private func loadChapterContent(index: Int) {
         guard index >= 0 && index < totalChaptersCount else { return }
-        
+
         let info: (title: String, url: String)
         if let book = localBook {
             // Sách local: Lấy chương tương ứng trong cơ sở dữ liệu
@@ -1245,7 +1237,7 @@ struct ReaderView: View {
             let chap = currentOnlineChapters[index]
             info = (chap.name, chap.url)
         }
-        
+
         // Cập nhật trạng thái loading của chương truyện trong danh sách đang hiển thị
         if let idx = loadedChapters.firstIndex(where: { $0.index == index }) {
             loadedChapters[idx].isLoading = true
@@ -1268,7 +1260,7 @@ struct ReaderView: View {
                 loadedChapters.append(newChapter)
             }
         }
-        
+
         // Nếu sách đã được lưu local, kiểm tra xem nội dung chương đã được tải về (isCached) chưa
         if let book = localBook {
             let sorted = book.chapters.sorted(by: { $0.index < $1.index })
@@ -1282,13 +1274,13 @@ struct ReaderView: View {
                 }
             }
         }
-        
+
         // Nếu chưa tải offline, kiểm tra xem có extension để cào web không
         guard let ext = ext else {
             updateChapterError(index: index, message: "Không tìm thấy tiện ích bóc tách!")
             return
         }
-        
+
         // Task: Chạy tiến trình nền không đồng bộ để tải nội dung từ internet bằng extension JS mà không gây đơ ứng dụng
         Task {
             var chapHost: String? = nil
@@ -1300,7 +1292,7 @@ struct ReaderView: View {
                     chapHost = sorted[index].host
                 }
             }
-            
+
             do {
                 // Gọi extension JS bóc tách nội dung chương từ nguồn web
                 let content = try await ExtensionManager.shared.chap(
@@ -1311,7 +1303,7 @@ struct ReaderView: View {
                     configJson: ext.configJson
                 )
                 let cleanedContent = cleanBlankLines(in: content.cleanHTML())
-                
+
                 // Trở về Main Thread để cập nhật dữ liệu và UI một cách an toàn
                 await MainActor.run {
                     if let book = localBook {
@@ -1327,7 +1319,7 @@ struct ReaderView: View {
                         // Tải online lần đầu, tự động lưu thông tin sách vào database nếu người dùng muốn lưu
                         saveOnlineBookIfNeeded(currentIndex: index, cleanedContent: cleanedContent, info: info)
                     }
-                    
+
                     // Thực hiện dịch thuật tự động hiển thị lên màn hình
                     applyTranslationForChapter(index: index, originalTitle: info.title, originalContent: cleanedContent)
                 }
@@ -1339,7 +1331,7 @@ struct ReaderView: View {
             }
         }
     }
-    
+
     private func saveOnlineBookIfNeeded(currentIndex: Int, cleanedContent: String, info: (title: String, url: String)) {
         guard allBooks.first(where: { $0.bookId == bookId }) == nil else {
             if let book = localBook {
@@ -1355,9 +1347,9 @@ struct ReaderView: View {
             }
             return
         }
-        
+
         guard let ext = ext else { return }
-        
+
         let newBook = Book(
             bookId: bookId,
             title: bookTitle ?? "Không rõ",
@@ -1375,7 +1367,7 @@ struct ReaderView: View {
             host: currentOnlineChapters.first?.host
         )
         modelContext.insert(newBook)
-        
+
         for (idx, item) in currentOnlineChapters.enumerated() {
             let chapId = "\(newBook.bookId)_\(item.url)"
             let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: idx, host: item.host)
@@ -1388,23 +1380,23 @@ struct ReaderView: View {
         }
         try? modelContext.save()
     }
-    
+
     private func applyTranslationForChapter(index: Int, originalTitle: String, originalContent: String) {
         let titleToUse = originalTitle
         let bookId = self.bookId
-        
+
         if isTranslationEnabled {
             Task.detached(priority: .userInitiated) {
                 var translatedTitle = titleToUse
                 if TranslateUtils.containsChinese(titleToUse) {
                     translatedTitle = TranslateUtils.translateChapterTitle(titleToUse, bookId: bookId)
                 }
-                
+
                 var translatedContent = originalContent
                 if TranslateUtils.containsChinese(originalContent) {
                     translatedContent = TranslateUtils.translateContent(originalContent, bookId: bookId)
                 }
-                
+
                 await MainActor.run {
                     updateChapterData(index: index, originalTitle: originalTitle, originalContent: originalContent, translatedTitle: translatedTitle, translatedContent: translatedContent)
                 }
@@ -1413,7 +1405,7 @@ struct ReaderView: View {
             updateChapterData(index: index, originalTitle: originalTitle, originalContent: originalContent, translatedTitle: originalTitle, translatedContent: originalContent)
         }
     }
-    
+
     private func updateChapterData(index: Int, originalTitle: String, originalContent: String, translatedTitle: String, translatedContent: String) {
         if self.isTransitioning {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -1421,48 +1413,48 @@ struct ReaderView: View {
             }
             return
         }
-        
+
         guard let idx = loadedChapters.firstIndex(where: { $0.index == index }) else { return }
-        
+
         let items = generateParagraphItems(chapterIndex: index, originalTitle: originalTitle, originalContent: originalContent, translatedTitle: translatedTitle, translatedContent: translatedContent)
         loadedChapters[idx].paragraphItems = items
-        
+
         loadedChapters[idx].originalTitle = originalTitle
         loadedChapters[idx].originalContent = originalContent
         loadedChapters[idx].title = translatedTitle
         loadedChapters[idx].chapterContent = translatedContent
         loadedChapters[idx].isLoading = false
         loadedChapters[idx].errorMessage = ""
-        
+
         saveReadProgress(index: index, paragraphIndex: getSavedParagraphIndex(for: index))
-        
+
         if self.ttsShouldAutoPlayNextChapter && index == chapterIndex {
             self.ttsShouldAutoPlayNextChapter = false
             startTTS(at: index, paragraphIndex: -1)
         }
-        
+
         prefetchAdjacentChapters()
         scrollToTTSHighlightIfNeeded()
     }
-    
+
     private func updateChapterError(index: Int, message: String) {
         guard let idx = loadedChapters.firstIndex(where: { $0.index == index }) else { return }
         loadedChapters[idx].isLoading = false
         loadedChapters[idx].errorMessage = message
     }
-    
+
     private func generateParagraphItems(chapterIndex: Int, originalTitle: String, originalContent: String, translatedTitle: String, translatedContent: String) -> [ParagraphItem] {
         let originalLines = originalContent.components(separatedBy: "\n")
         let translatedLines = translatedContent.components(separatedBy: "\n")
         var items: [ParagraphItem] = []
-        
+
         let key = "showChapterTitle_\(bookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
-        
+
         if showTitle {
             items.append(ParagraphItem(id: -1, original: originalTitle, translated: translatedTitle, isTitle: true))
         }
-        
+
         let maxLines = max(originalLines.count, translatedLines.count)
         for i in 0..<maxLines {
             let orig = i < originalLines.count ? originalLines[i] : ""
@@ -1471,26 +1463,26 @@ struct ReaderView: View {
         }
         return items
     }
-    
+
     private func reloadChapterContent() {
         let index = chapterIndex
         guard index >= 0 && index < totalChaptersCount else { return }
-        
+
         if let vm = viewModel {
             Task {
                 try? await vm.loadChapterContentFromExtension(index)
             }
             return
         }
-        
+
         guard let info = currentChapterInfo else { return }
         guard let ext = ext else { return }
-        
+
         if let idx = loadedChapters.firstIndex(where: { $0.index == index }) {
             loadedChapters[idx].isLoading = true
             loadedChapters[idx].errorMessage = ""
         }
-        
+
         Task {
             var chapHost: String? = nil
             if index < currentOnlineChapters.count {
@@ -1501,7 +1493,7 @@ struct ReaderView: View {
                     chapHost = sorted[index].host
                 }
             }
-            
+
             do {
                 let content = try await ExtensionManager.shared.chap(
                     localPath: ext.localPath,
@@ -1511,7 +1503,7 @@ struct ReaderView: View {
                     configJson: ext.configJson
                 )
                 let cleanedContent = cleanBlankLines(in: content.cleanHTML())
-                
+
                 await MainActor.run {
                     if let book = localBook {
                         let sorted = book.chapters.sorted(by: { $0.index < $1.index })
@@ -1531,34 +1523,34 @@ struct ReaderView: View {
             }
         }
     }
-    
+
     private func nextChapter() {
         if chapterIndex < totalChaptersCount - 1 {
             selectChapter(at: chapterIndex + 1)
         }
     }
-    
+
     private func prevChapter() {
         if chapterIndex > 0 {
             selectChapter(at: chapterIndex - 1)
         }
     }
-    
+
     private func selectChapter(at index: Int, scroll: Bool = true) {
         guard index >= 0 && index < totalChaptersCount else { return }
-        
+
         self.isGoingNext = index >= self.chapterIndex
         self.isTransitioning = true
-        
-        self.paragraphTracker.visibleParagraphs.removeAll()
-        
+
+        self.paragraphTracker.removeAll()
+
         if let vm = viewModel {
-            vm.onTabSelectionChanged(newIndex: index, immediate: true)
+            vm.jumpToChapter(index)
             self.chapterIndex = index
             self.isTransitioning = false
             return
         }
-        
+
         let currentChapter = LoadedChapter(
             index: index,
             title: "Chương \(index + 1)",
@@ -1568,20 +1560,20 @@ struct ReaderView: View {
             paragraphItems: [],
             isLoading: true
         )
-        
+
         self.chapterIndex = index
         self.loadedChapters = [currentChapter]
         self.hasScrolledToTop = false
         self.isTransitioning = false
-        
+
         loadChapterContent(index: index)
     }
-    
 
-    
+
+
     private func startTTS(at index: Int, paragraphIndex: Int) {
         guard index >= 0 && index < totalChaptersCount else { return }
-        
+
         let chapterContentToUse: String
         if let vm = viewModel {
             chapterContentToUse = vm.cache.get(index)?.content ?? ""
@@ -1590,7 +1582,7 @@ struct ReaderView: View {
         } else {
             chapterContentToUse = ""
         }
-        
+
         ttsManager.startSpeaking(
             bookId: bookId,
             chapters: ttsChaptersQueue,
@@ -1604,7 +1596,7 @@ struct ReaderView: View {
             extensionInfo: ttsExtensionInfo
         )
     }
-    
+
     private func getSavedParagraphIndex(for idx: Int) -> Int {
         if let book = localBook {
             if idx == book.currentChapterIndex {
@@ -1616,22 +1608,22 @@ struct ReaderView: View {
                 return UserDefaults.standard.integer(forKey: "lastParagraphIndex_\(bookId)")
             }
         }
-        
+
         if let vm = viewModel, let cached = vm.cache.get(idx) {
             if cached.scrollParagraphIndex >= 0 {
                 return cached.scrollParagraphIndex
             }
         }
-        
+
         return -1
     }
-    
+
     private func prepareTTSForCurrentState() {
         guard !ttsManager.isPlaying else { return }
-        
+
         let index = chapterIndex
         guard index >= 0 && index < totalChaptersCount else { return }
-        
+
         let chapterContentToUse: String
         if let vm = viewModel {
             chapterContentToUse = vm.cache.get(index)?.content ?? ""
@@ -1640,11 +1632,11 @@ struct ReaderView: View {
         } else {
             chapterContentToUse = ""
         }
-        
+
         guard !chapterContentToUse.isEmpty else { return }
-        
+
         let savedPIdx = getSavedParagraphIndex(for: index)
-        
+
         ttsManager.prepareSpeaking(
             bookId: bookId,
             chapters: ttsChaptersQueue,
@@ -1658,51 +1650,53 @@ struct ReaderView: View {
             extensionInfo: ttsExtensionInfo
         )
     }
-    
+
     private func schedulePrepareTTS() {
         guard !ttsManager.isPlaying else { return }
         guard ttsManager.showFloatingWidget else { return }
         prepareTTSTask?.cancel()
-        
+
         let workItem = DispatchWorkItem {
             self.prepareTTSForCurrentState()
         }
         self.prepareTTSTask = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: workItem)
     }
-    
+
     private func updateScrollReadingProgress() {
         guard !ttsManager.isPlaying else { return }
-        
+
         // 1. Debounce 200ms cho việc cập nhật tiến trình lưu trữ
         updateProgressWorkItem?.cancel()
         let progressWork = DispatchWorkItem { [weak viewModel] in
-            guard let topIndex = self.paragraphTracker.visibleParagraphs.min() else { return }
-            
+            guard let top = self.paragraphTracker.topVisible else { return }
+
             if let vm = viewModel {
-                vm.updateProgress(chapterIndex: self.chapterIndex, paragraphIndex: topIndex)
+                self.chapterIndex = top.chapterIndex
+                vm.updateActiveLocationFromScroll(chapterIndex: top.chapterIndex, paragraphIndex: top.paragraphIndex)
             } else {
-                self.saveReadProgress(index: self.chapterIndex, paragraphIndex: topIndex)
+                self.chapterIndex = top.chapterIndex
+                self.saveReadProgress(index: top.chapterIndex, paragraphIndex: top.paragraphIndex)
             }
         }
         self.updateProgressWorkItem = progressWork
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: progressWork)
-        
+
         // 2. Debounce 1.5 giây cho việc đồng bộ con trỏ TTS (tránh re-render ttsManager khi cuộn nhanh)
         guard ttsManager.isPlaying || ttsManager.showFloatingWidget else { return }
-        
+
         updateTTSPositionWorkItem?.cancel()
         let ttsWork = DispatchWorkItem {
-            guard let topIndex = self.paragraphTracker.visibleParagraphs.min() else { return }
-            self.ttsManager.updateParagraphPositionWithoutPlaying(paragraphIndex: topIndex)
+            guard let top = self.paragraphTracker.topVisible else { return }
+            self.ttsManager.updateParagraphPositionWithoutPlaying(paragraphIndex: top.paragraphIndex)
         }
         self.updateTTSPositionWorkItem = ttsWork
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: ttsWork)
     }
-    
+
     private func saveReadProgress(index: Int, paragraphIndex: Int) {
         guard index >= 0 && index < totalChaptersCount else { return }
-        
+
         let title: String
         if let vm = viewModel {
             let sorted = vm.getSortedChapters()
@@ -1717,7 +1711,7 @@ struct ReaderView: View {
             let chap = currentOnlineChapters[index]
             title = chap.name
         }
-        
+
         if let book = localBook {
             book.currentChapterIndex = index
             book.currentChapterPage = paragraphIndex
@@ -1737,28 +1731,28 @@ struct ReaderView: View {
                 try? modelContext.save()
             }
         }
-        
+
         UserDefaults.standard.set(index, forKey: "lastChapterIndex_\(bookId)")
         UserDefaults.standard.set(paragraphIndex, forKey: "lastParagraphIndex_\(bookId)")
     }
 
-    
+
     private func prefetchAdjacentChapters() {
         prefetchTask?.cancel()
-        
+
         prefetchTask = Task {
             // Chờ 1.5 giây sau khi lật trang rồi mới tải trước để tránh chiếm dụng băng thông và CPU khi đang lướt nhanh
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             guard !Task.isCancelled else { return }
-            
+
             // 1. Tải trước chương tiếp theo (Next Chapter)
             let nextIdx = chapterIndex + 1
             if nextIdx < totalChaptersCount {
                 await prefetchChapter(at: nextIdx)
             }
-            
+
             guard !Task.isCancelled else { return }
-            
+
             // 2. Tải trước chương trước đó (Previous Chapter)
             let prevIdx = chapterIndex - 1
             if prevIdx >= 0 {
@@ -1766,13 +1760,13 @@ struct ReaderView: View {
             }
         }
     }
-    
+
     private func prefetchChapter(at index: Int) async {
         let sortedChapters: [Chapter]
         let targetUrl: String
         let targetTitle: String
         let targetHost: String?
-        
+
         if let book = localBook {
             sortedChapters = book.chapters.sorted(by: { $0.index < $1.index })
             guard index < sortedChapters.count else { return }
@@ -1790,9 +1784,9 @@ struct ReaderView: View {
             targetTitle = chap.name
             targetHost = chap.host
         }
-        
+
         guard let ext = ext else { return }
-        
+
         do {
             AppLogger.shared.log("Tải trước chương \(index): \(targetTitle)")
             let content = try await ExtensionManager.shared.chap(
@@ -1803,7 +1797,7 @@ struct ReaderView: View {
                 configJson: ext.configJson
             )
             let cleanedContent = content.cleanHTML()
-            
+
             if let book = localBook {
                 let sorted = book.chapters.sorted(by: { $0.index < $1.index })
                 if index < sorted.count {
@@ -1826,13 +1820,13 @@ struct ReaderSettingsView: View {
     @Binding var lineSpacing: Double
     @Binding var selectedTheme: ReaderTheme
     @Binding var isTranslationEnabled: Bool
-    
+
     var body: some View {
         VStack(spacing: 20) {
             Text("Cài đặt trình đọc")
                 .font(.headline)
                 .padding(.top)
-            
+
             // Chỉnh cỡ chữ & giãn dòng song song
             HStack(spacing: 40) {
                 // Size chữ
@@ -1847,11 +1841,11 @@ struct ReaderSettingsView: View {
                                 .background(Color.secondary.opacity(0.15))
                                 .cornerRadius(6)
                         }
-                        
+
                         Text("\(Int(fontSize))")
                             .font(.body)
                             .frame(width: 30)
-                        
+
                         Button(action: { if fontSize < 36 { fontSize += 1 } }) {
                             Image(systemName: "plus.circle")
                                 .padding(6)
@@ -1860,7 +1854,7 @@ struct ReaderSettingsView: View {
                         }
                     }
                 }
-                
+
                 // Khoảng cách dòng
                 VStack(spacing: 4) {
                     Text("Giãn dòng")
@@ -1873,11 +1867,11 @@ struct ReaderSettingsView: View {
                                 .background(Color.secondary.opacity(0.15))
                                 .cornerRadius(6)
                         }
-                        
+
                         Text("\(Int(lineSpacing))")
                             .font(.body)
                             .frame(width: 30)
-                        
+
                         Button(action: { if lineSpacing < 20 { lineSpacing += 1 } }) {
                             Image(systemName: "plus.circle")
                                 .padding(6)
@@ -1887,18 +1881,18 @@ struct ReaderSettingsView: View {
                     }
                 }
             }
-            
+
             // Chọn theme
             Picker("Theme", selection: $selectedTheme) {
                 ForEach(ReaderTheme.allCases) { theme in
                     Text(theme.rawValue).tag(theme)
                 }
             }
-            
+
             // Toggle dịch
             Toggle("Bật dịch Quick Translate", isOn: $isTranslationEnabled)
                 .padding(.horizontal)
-            
+
             Spacer()
         }
         .padding()
@@ -1913,7 +1907,7 @@ struct DictionaryMatchInfo: Identifiable {
 
 // MARK: - View Helpers Extension
 extension ReaderView {
-    
+
     private func scrollToTTSHighlightIfNeeded() {
         guard !isAutoScrollDisabled else { return }
         if ttsManager.isPlaying && ttsManager.playingBookId == bookId && ttsManager.currentParentParagraphIndex >= 0 {
@@ -1926,7 +1920,7 @@ extension ReaderView {
             }
         }
     }
-    
+
     @ViewBuilder
     private var readerContentView: some View {
         if let vm = viewModel {
@@ -1941,11 +1935,11 @@ extension ReaderView {
             textReaderView
         }
     }
-    
+
     private var chapterLoadingView: some View {
         VStack(spacing: 32) {
             Spacer()
-            
+
             // Tiêu đề chương nếu có
             if let info = currentChapterInfo {
                 let displayTitle = isTranslationEnabled && TranslateUtils.containsChinese(info.title)
@@ -1959,7 +1953,7 @@ extension ReaderView {
                     .lineLimit(3)
                     .padding(.horizontal, 40)
             }
-            
+
             if !errorMessage.isEmpty {
                 // Trạng thái LỖI
                 VStack(spacing: 20) {
@@ -1968,7 +1962,7 @@ extension ReaderView {
                         .foregroundColor(.red)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
-                    
+
                     VStack(spacing: 12) {
                         // Nút Tải lại (ở trên)
                         Button(action: {
@@ -1985,7 +1979,7 @@ extension ReaderView {
                             .background(selectedTheme.textColor.opacity(0.1))
                             .cornerRadius(24)
                         }
-                        
+
                         // Nút Xem nguồn (ở giữa)
                         Button(action: {
                             showingBypassBrowser = true
@@ -2001,7 +1995,7 @@ extension ReaderView {
                             .background(selectedTheme.textColor.opacity(0.1))
                             .cornerRadius(24)
                         }
-                        
+
                         // Nút Quay lại (ở dưới cùng)
                         Button(action: {
                             dismiss()
@@ -2025,7 +2019,7 @@ extension ReaderView {
                     ProgressView()
                         .scaleEffect(1.5)
                         .tint(selectedTheme.textColor.opacity(0.8))
-                    
+
                     // Nút Quay lại
                     Button(action: {
                         dismiss()
@@ -2043,16 +2037,165 @@ extension ReaderView {
                     }
                 }
             }
-            
+
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    
 
-    
+
+
     @ViewBuilder
     private var textReaderView: some View {
+        if viewModel != nil {
+            infiniteTextReaderView
+        } else {
+            legacyTextReaderView
+        }
+    }
+
+    @ViewBuilder
+    private var infiniteTextReaderView: some View {
+        if let vm = viewModel {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: fontSize * 1.2) {
+                        ForEach(vm.stableIndexes, id: \.self) { idx in
+                            if let cached = vm.cache.get(idx) {
+                                VStack(alignment: .leading, spacing: fontSize * 0.8) {
+                                    if cached.state == .loading || cached.state == .prefetching || cached.state == .placeholder || cached.state == .notLoaded {
+                                        chapterInlineLoadingView(index: idx)
+                                    } else if case .failed(let message) = cached.state {
+                                        chapterInlineErrorView(index: idx, message: message)
+                                    } else {
+                                        chapterContentView(for: cached)
+                                    }
+                                }
+                                .id("chapter-\(idx)")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .onChange(of: cached.state) { _, state in
+                                    guard state == .loaded, idx == chapterIndex else { return }
+                                    restoreReaderPositionIfNeeded(proxy: proxy, chapter: cached)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 24)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showControls.toggle()
+                        }
+                    }
+                }
+                .onAppear {
+                    if let cached = vm.cache.get(chapterIndex), cached.state == .loaded {
+                        restoreReaderPositionIfNeeded(proxy: proxy, chapter: cached)
+                    }
+                }
+                .onChange(of: scrollTarget) { _, newValue in
+                    guard let target = newValue else { return }
+                    withAnimation {
+                        if target.paragraphIndex == -1 {
+                            proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
+                        } else {
+                            proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
+                        }
+                    }
+                    scrollTarget = nil
+                }
+                .onChange(of: chapterIndex) { _, newValue in
+                    guard let cached = vm.cache.get(newValue), cached.state == .loaded else { return }
+                    restoreReaderPositionIfNeeded(proxy: proxy, chapter: cached)
+                }
+            }
+        } else {
+            ProgressView()
+        }
+    }
+
+    @ViewBuilder
+    private func chapterInlineLoadingView(index: Int) -> some View {
+        VStack(spacing: 24) {
+            Text(getChapterTitle(at: index))
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(selectedTheme.textColor)
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 40)
+
+            ProgressView()
+                .scaleEffect(1.2)
+                .tint(selectedTheme.textColor.opacity(0.8))
+        }
+        .frame(maxWidth: .infinity, minHeight: 360)
+    }
+
+    @ViewBuilder
+    private func chapterInlineErrorView(index: Int, message: String) -> some View {
+        VStack(spacing: 20) {
+            Text(getChapterTitle(at: index))
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(selectedTheme.textColor)
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 40)
+
+            Text(message)
+                .font(.subheadline)
+                .foregroundColor(.red)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+
+            Button(action: {
+                Task {
+                    if let vm = viewModel {
+                        try? await vm.loadChapterContentFromExtension(index)
+                    }
+                }
+            }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Tải lại")
+                }
+                .fontWeight(.semibold)
+                .foregroundColor(selectedTheme.textColor)
+                .frame(width: 160)
+                .padding(.vertical, 12)
+                .background(selectedTheme.textColor.opacity(0.1))
+                .cornerRadius(24)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 360)
+    }
+
+    private func restoreReaderPositionIfNeeded(proxy: ScrollViewProxy, chapter: CachedChapter) {
+        guard !chapter.isPositionRestored else {
+            schedulePrepareTTS()
+            return
+        }
+        chapter.isPositionRestored = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            let savedPIdx = getSavedParagraphIndex(for: chapter.index)
+            let hasValidParagraph = chapter.paragraphItems.contains(where: { $0.id == savedPIdx })
+            withAnimation(.easeOut(duration: 0.2)) {
+                if savedPIdx >= 0 && hasValidParagraph {
+                    proxy.scrollTo("paragraph-\(chapter.index)-\(savedPIdx)", anchor: .top)
+                } else {
+                    proxy.scrollTo("chapter-\(chapter.index)", anchor: .top)
+                }
+            }
+            schedulePrepareTTS()
+        }
+    }
+
+    @ViewBuilder
+    private var legacyTextReaderView: some View {
         Group {
             if let vm = viewModel {
                 TabView(selection: Binding(
@@ -2069,7 +2212,7 @@ extension ReaderView {
                                     if cached.state == .loading || cached.state == .prefetching {
                                         VStack(spacing: 32) {
                                             Spacer()
-                                            
+
                                             Text(getChapterTitle(at: idx))
                                                 .font(.title2)
                                                 .fontWeight(.bold)
@@ -2077,12 +2220,12 @@ extension ReaderView {
                                                 .multilineTextAlignment(.center)
                                                 .lineLimit(3)
                                                 .padding(.horizontal, 40)
-                                            
+
                                             VStack(spacing: 32) {
                                                 ProgressView()
                                                     .scaleEffect(1.5)
                                                     .tint(selectedTheme.textColor.opacity(0.8))
-                                                
+
                                                 // Nút Quay lại
                                                 Button(action: {
                                                     dismiss()
@@ -2100,7 +2243,7 @@ extension ReaderView {
                                                     .cornerRadius(20)
                                                 }
                                             }
-                                            
+
                                             Spacer()
                                         }
                                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -2113,7 +2256,7 @@ extension ReaderView {
                                     } else if case .failed(let message) = cached.state {
                                         VStack(spacing: 32) {
                                             Spacer()
-                                            
+
                                             Text(getChapterTitle(at: idx))
                                                 .font(.title2)
                                                 .fontWeight(.bold)
@@ -2121,14 +2264,14 @@ extension ReaderView {
                                                 .multilineTextAlignment(.center)
                                                 .lineLimit(3)
                                                 .padding(.horizontal, 40)
-                                            
+
                                             VStack(spacing: 20) {
                                                 Text(message)
                                                     .font(.subheadline)
                                                     .foregroundColor(.red)
                                                     .multilineTextAlignment(.center)
                                                     .padding(.horizontal, 40)
-                                                
+
                                                 VStack(spacing: 12) {
                                                     // Nút Tải lại (ở trên)
                                                     Button(action: {
@@ -2147,7 +2290,7 @@ extension ReaderView {
                                                         .background(selectedTheme.textColor.opacity(0.1))
                                                         .cornerRadius(24)
                                                     }
-                                                    
+
                                                     // Nút Xem nguồn (ở giữa)
                                                     Button(action: {
                                                         showingBypassBrowser = true
@@ -2163,7 +2306,7 @@ extension ReaderView {
                                                         .background(selectedTheme.textColor.opacity(0.1))
                                                         .cornerRadius(24)
                                                     }
-                                                    
+
                                                     // Nút Quay lại (ở dưới cùng)
                                                     Button(action: {
                                                         dismiss()
@@ -2181,7 +2324,7 @@ extension ReaderView {
                                                     }
                                                 }
                                             }
-                                            
+
                                             Spacer()
                                         }
                                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -2360,7 +2503,7 @@ extension ReaderView {
             }
         }
     }
-    
+
     @ViewBuilder
     private var readerToolbarContent: some View {
         // Translation Toggle Button
@@ -2370,7 +2513,7 @@ extension ReaderView {
             Image(systemName: isTranslationEnabled ? "character.bubble.fill" : "character.bubble")
                 .foregroundColor(selectedTheme.textColor)
         }
-        
+
         // TTS Button
         Button(action: {
             if ttsManager.isPlaying {
@@ -2382,7 +2525,7 @@ extension ReaderView {
             Image(systemName: ttsManager.isPlaying ? "stop.circle.fill" : "play.circle")
                 .foregroundColor(ttsManager.isPlaying ? .red : selectedTheme.textColor)
         }
-        
+
         // Dictionary Manager, Reload, and Settings Menu
         Menu {
             Button(action: {
@@ -2390,19 +2533,19 @@ extension ReaderView {
             }) {
                 Label("Tải lại chương", systemImage: "arrow.clockwise")
             }
-            
+
             if localBook != nil {
                 NavigationLink(destination: BookDictionaryView(bookId: bookId, bookName: bookTitle ?? "")) {
                     Label("Từ điển truyện", systemImage: "character.book.closed")
                 }
             }
-            
+
             Button(action: {
                 showingBypassBrowser = true
             }) {
                 Label("Mở bằng trình duyệt", systemImage: "safari")
             }
-            
+
             Button(action: {
                 showingSettings.toggle()
             }) {
@@ -2413,7 +2556,7 @@ extension ReaderView {
                 .foregroundColor(selectedTheme.textColor)
         }
     }
-    
+
     // MARK: - Custom HUD Overlay Bars
     @ViewBuilder
     private var topOverlayBar: some View {
@@ -2430,9 +2573,9 @@ extension ReaderView {
                         .frame(width: 44, height: 44)
                 }
                 .padding(.leading, 8)
-                
+
                 Spacer()
-                
+
                 // Các phím Trailing Actions
                 HStack(spacing: 12) {
                     // Tải lại
@@ -2444,7 +2587,7 @@ extension ReaderView {
                             .foregroundColor(.white)
                             .frame(width: 36, height: 44)
                     }
-                    
+
                     // Tìm kiếm
                     Button(action: {
                         // Tính năng tìm kiếm trong chương
@@ -2454,7 +2597,7 @@ extension ReaderView {
                             .foregroundColor(.white)
                             .frame(width: 36, height: 44)
                     }
-                    
+
                     // Dấu ba chấm nâng cấp thành Menu Dropdown
                     Menu {
                         Button(action: {
@@ -2467,19 +2610,19 @@ extension ReaderView {
                                 systemImage: showChapterTitle ? "checkmark.square" : "square"
                             )
                         }
-                        
+
                         Button(action: {
                             showingBookDictionary = true
                         }) {
                             Label("Từ điển truyện", systemImage: "book.closed")
                         }
-                        
+
                         Button(action: {
                             showingBypassBrowser = true
                         }) {
                             Label("Mở bằng trình duyệt", systemImage: "safari")
                         }
-                        
+
                         Button(action: {
                             showingSettings = true
                         }) {
@@ -2496,20 +2639,20 @@ extension ReaderView {
                 .padding(.trailing, 8)
             }
             .frame(height: 44)
-            
+
             // Hàng 2: Tiêu đề sách & Chương
             VStack(alignment: .leading, spacing: 2) {
                 Text(translateMetaIfNeeded(localBook?.title ?? bookTitle ?? "FreeBook"))
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.white)
                     .lineLimit(1)
-                
+
                 HStack(spacing: 4) {
                     Text(translateChapterTitleIfNeeded(chapterTitle.isEmpty ? (currentChapterInfo?.title ?? "Chương \(chapterIndex + 1)") : chapterTitle))
                         .font(.system(size: 15))
                         .foregroundColor(.white.opacity(0.8))
                         .lineLimit(1)
-                    
+
                     Image(systemName: "chevron.down")
                         .font(.system(size: 10))
                         .foregroundColor(.white.opacity(0.8))
@@ -2524,7 +2667,7 @@ extension ReaderView {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            
+
             // Subheader: Chọn nhanh dịch & Tỷ lệ chương
             HStack {
                 HStack(spacing: 4) {
@@ -2541,9 +2684,9 @@ extension ReaderView {
                 .onTapGesture {
                     isTranslationEnabled.toggle()
                 }
-                
+
                 Spacer()
-                
+
                 Text("\(chapterIndex + 1)/\(totalChaptersCount)")
                     .font(.system(size: 12))
                     .foregroundColor(.white.opacity(0.8))
@@ -2557,7 +2700,7 @@ extension ReaderView {
                 .ignoresSafeArea(edges: .top)
         )
     }
-    
+
     @ViewBuilder
     private var bottomOverlayBar: some View {
         VStack(spacing: 12) {
@@ -2567,17 +2710,17 @@ extension ReaderView {
                 Text(String(format: "%.1f%%", progress))
                     .font(.system(size: 12))
                     .foregroundColor(.white.opacity(0.8))
-                
+
                 Spacer()
-                
+
                 Text(translateChapterTitleIfNeeded(chapterTitle.isEmpty ? (currentChapterInfo?.title ?? "") : chapterTitle))
                     .font(.system(size: 15))
                     .foregroundColor(.white)
                     .lineLimit(1)
                     .frame(maxWidth: 180)
-                
+
                 Spacer()
-                
+
                 Button(action: {
                     let newValue = !isAutoScrollDisabled
                     isAutoScrollDisabled = newValue
@@ -2589,7 +2732,7 @@ extension ReaderView {
                 }
             }
             .padding(.horizontal, 16)
-            
+
             // Hàng 2: Trước - Slider - Tiếp
             HStack(spacing: 16) {
                 Button(action: prevChapter) {
@@ -2598,7 +2741,7 @@ extension ReaderView {
                         .foregroundColor(chapterIndex > 0 ? .white : .white.opacity(0.4))
                 }
                 .disabled(chapterIndex <= 0)
-                
+
                 Slider(
                     value: $sliderValue,
                     in: 0...Double(max(0, totalChaptersCount - 1)),
@@ -2610,7 +2753,7 @@ extension ReaderView {
                     }
                 )
                 .tint(.blue)
-                
+
                 Button(action: nextChapter) {
                     Text("Tiếp")
                         .font(.system(size: 14, weight: .medium))
@@ -2619,7 +2762,7 @@ extension ReaderView {
                 .disabled(chapterIndex >= totalChaptersCount - 1)
             }
             .padding(.horizontal, 16)
-            
+
             // Hàng 3: Các nút chức năng dưới cùng (Chỉ giữ lại Mục lục và Nghe truyện)
             HStack(spacing: 0) {
                 // Xem danh sách chương (Mục lục)
@@ -2637,7 +2780,7 @@ extension ReaderView {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                 }
-                
+
                 // Nghe truyện TTS
                 Button(action: {
                     if ttsManager.isPlaying {
@@ -2665,7 +2808,7 @@ extension ReaderView {
                 .ignoresSafeArea(edges: .bottom)
         )
     }
-    
+
     @ViewBuilder
     private var definitionSheetContent: some View {
         VStack(spacing: 16) {
@@ -2680,7 +2823,7 @@ extension ReaderView {
                         .font(.title2)
                 }
             }
-            
+
             // Hàng 1: Đoạn dịch gốc và nút điều chỉnh 2 bên (Token-based)
             HStack(spacing: 8) {
                 HStack(spacing: 12) {
@@ -2700,9 +2843,9 @@ extension ReaderView {
                     }
                 }
                 .foregroundColor(.blue)
-                
+
                 Spacer()
-                
+
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 2) {
@@ -2737,9 +2880,9 @@ extension ReaderView {
                         }
                     }
                 }
-                
+
                 Spacer()
-                
+
                 HStack(spacing: 12) {
                     Button(action: shrinkSelectionRight) {
                         Image(systemName: "chevron.left")
@@ -2762,13 +2905,13 @@ extension ReaderView {
             .frame(maxWidth: .infinity)
             .background(Color.secondary.opacity(0.08))
             .cornerRadius(8)
-            
+
             // Hàng 2: Đoạn dịch (bold/underline các thẻ chứa từ đã chọn)
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(translationTokens) { token in
-                            let isSelected = (token.originalOffset < selectedWordOffset + selectedWordLength && 
+                            let isSelected = (token.originalOffset < selectedWordOffset + selectedWordLength &&
                                               token.originalOffset + token.originalLength > selectedWordOffset)
                             Text(token.translatedText)
                                 .font(.subheadline)
@@ -2790,7 +2933,7 @@ extension ReaderView {
                 }
                 .onChange(of: selectedWordOffset) { _, _ in
                     if let selectedToken = translationTokens.first(where: {
-                        $0.originalOffset < selectedWordOffset + selectedWordLength && 
+                        $0.originalOffset < selectedWordOffset + selectedWordLength &&
                         $0.originalOffset + $0.originalLength > selectedWordOffset
                     }) {
                         withAnimation {
@@ -2801,7 +2944,7 @@ extension ReaderView {
                 .onAppear {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         if let selectedToken = translationTokens.first(where: {
-                            $0.originalOffset < selectedWordOffset + selectedWordLength && 
+                            $0.originalOffset < selectedWordOffset + selectedWordLength &&
                             $0.originalOffset + $0.originalLength > selectedWordOffset
                         }) {
                             withAnimation {
@@ -2813,13 +2956,13 @@ extension ReaderView {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 4)
-            
+
             // Hàng 3: Ô nhập nghĩa dịch
             HStack {
                 TextField("Nhập nghĩa dịch...", text: $customMeaning)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
-                
+
                 if !customMeaning.isEmpty {
                     Button(action: { customMeaning = "" }) {
                         Image(systemName: "xmark.circle.fill")
@@ -2830,7 +2973,7 @@ extension ReaderView {
             .padding(10)
             .background(Color.secondary.opacity(0.1))
             .cornerRadius(8)
-            
+
             // Hàng 4: Icon Quản lý tròn và gợi ý chip ngang
             HStack(spacing: 8) {
                 Button(action: { showingManageDefinitionsSheet = true }) {
@@ -2842,7 +2985,7 @@ extension ReaderView {
                         .background(Color.blue.opacity(0.1))
                         .clipShape(Circle())
                 }
-                
+
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(suggestionChips, id: \.self) { chip in
@@ -2860,7 +3003,7 @@ extension ReaderView {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            
+
             // Hàng 5: Nhóm nút định dạng chữ aa, Aa¹, Aa², Aa, AA
             HStack(spacing: 8) {
                 ForEach(["aa", "Aa¹", "Aa²", "Aa", "AA"], id: \.self) { format in
@@ -2877,7 +3020,7 @@ extension ReaderView {
                     }
                 }
             }
-            
+
             // Hàng 6: Hai Segment chọn Loại (Names/VP) và Phạm vi (Riêng/Chung)
             HStack(spacing: 12) {
                 Picker("Loại", selection: $saveAsNameType) {
@@ -2885,14 +3028,14 @@ extension ReaderView {
                     Text("VP").tag(false)
                 }
                 .pickerStyle(.segmented)
-                
+
                 Picker("Phạm vi", selection: $saveToBookSpecific) {
                     Text("Riêng").tag(true)
                     Text("Chung").tag(false)
                 }
                 .pickerStyle(.segmented)
             }
-            
+
             // Hàng 7: Phím Cập nhật
             Button(action: saveDefinition) {
                 HStack {
@@ -2905,9 +3048,9 @@ extension ReaderView {
             }
             .buttonStyle(.borderedProminent)
             .disabled(customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            
+
             Divider()
-            
+
             // Quick Lookup Links
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
@@ -2972,7 +3115,7 @@ struct LoadedChapter: Identifiable, Equatable {
     var imageUrls: [String] = []
     var isLoading: Bool = false
     var errorMessage: String = ""
-    
+
     var id: Int { index }
 }
 
@@ -2984,7 +3127,7 @@ struct ScrollTarget: Equatable {
 // MARK: - 3D Page Flip Transition
 struct PageFlipModifier: ViewModifier {
     var amount: Double
-    
+
     func body(content: Content) -> some View {
         content
             .rotation3DEffect(
@@ -3004,7 +3147,7 @@ extension AnyTransition {
             identity: PageFlipModifier(amount: 0)
         )
     }
-    
+
     static var pageFlipPrev: AnyTransition {
         .modifier(
             active: PageFlipModifier(amount: 90),
@@ -3014,5 +3157,26 @@ extension AnyTransition {
 }
 
 class ParagraphTracker {
-    var visibleParagraphs: Set<Int> = []
+    private var visibleParagraphs: Set<ReadingContext> = []
+
+    func insert(bookId: String, chapterIndex: Int, paragraphIndex: Int) {
+        visibleParagraphs.insert(ReadingContext(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex))
+    }
+
+    func remove(bookId: String, chapterIndex: Int, paragraphIndex: Int) {
+        visibleParagraphs.remove(ReadingContext(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex))
+    }
+
+    func removeAll() {
+        visibleParagraphs.removeAll()
+    }
+
+    var topVisible: ReadingContext? {
+        visibleParagraphs.sorted {
+            if $0.chapterIndex == $1.chapterIndex {
+                return $0.paragraphIndex < $1.paragraphIndex
+            }
+            return $0.chapterIndex < $1.chapterIndex
+        }.first
+    }
 }
