@@ -302,6 +302,7 @@ class ReaderViewModel: ObservableObject {
     private func replaceWindow(center: Int) {
         let window = ReaderWindowManager(totalChaptersCount: totalChaptersCount).replaceWindow(center: center)
         applyWindow(window)
+        stableIndexes = visibleIndexes
     }
 
     private func applyWindow(_ window: Set<Int>) {

@@ -1,9 +1,8 @@
 import Foundation
 
 public enum WidgetMode: String, Codable {
-    case collapsed
-    case expanded
-    case hidden
+    case peeking
+    case revealed
 }
 
 public enum EdgeDirection: String, Codable {

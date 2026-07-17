@@ -19,66 +19,57 @@ public final class FloatingWidgetViewModel: ObservableObject {
 
         self.verticalRatio = storedRatio > 0 ? CGFloat(storedRatio) : 0.5
         self.edgeDirection = (storedEdge == "left") ? .left : .right
-        self.mode = .expanded
+        self.mode = .peeking
     }
 
-    public func handleTapCircle(buttonSize: CGFloat, screenWidth: CGFloat) {
+    public func reveal() {
         autoHideTask?.cancel()
-        if mode == .hidden || mode == .collapsed {
-            mode = .expanded
-        }
+        mode = .revealed
+        startAutoHideTimer()
     }
 
-    public func handleOutsideTap(buttonSize: CGFloat, screenWidth: CGFloat) {
-        guard mode == .expanded else { return }
+    public func hide() {
         autoHideTask?.cancel()
-        mode = .collapsed
-        startAutoHideTimer(buttonSize: buttonSize, screenWidth: screenWidth)
+        mode = .peeking
     }
 
-    public func handleDragEnd(
-        finalPosition: CGPoint,
-        buttonSize: CGFloat,
-        screenWidth: CGFloat,
-        screenHeight: CGFloat,
-        preserveMode: Bool = false
-    ) {
+    public func toggle() {
+        mode == .revealed ? hide() : reveal()
+    }
+
+    public func handleDragStart() {
+        autoHideTask?.cancel()
+        isDragging = true
+    }
+
+    public func handleDragEnd(finalPosition: CGPoint, widgetSize: CGFloat, screenWidth: CGFloat, screenHeight: CGFloat) {
         autoHideTask?.cancel()
         guard screenHeight > 0 else { return }
 
         let targetEdge: EdgeDirection = finalPosition.x < screenWidth - finalPosition.x ? .left : .right
-        let minY: CGFloat = buttonSize / 2 + 100
-        let maxY: CGFloat = screenHeight - buttonSize / 2 - 120
+        let minY: CGFloat = widgetSize / 2 + 80
+        let maxY: CGFloat = screenHeight - widgetSize / 2 - 100
         let targetY = min(max(finalPosition.y, minY), maxY)
 
-        self.verticalRatio = targetY / screenHeight
-        self.edgeDirection = targetEdge
-        if !preserveMode {
-            self.mode = .collapsed
-        }
+        verticalRatio = targetY / screenHeight
+        edgeDirection = targetEdge
+        mode = .revealed
+        isDragging = false
 
-        UserDefaults.standard.set(Double(self.verticalRatio), forKey: storedRatioKey)
+        UserDefaults.standard.set(Double(verticalRatio), forKey: storedRatioKey)
         UserDefaults.standard.set(targetEdge == .left ? "left" : "right", forKey: storedEdgeKey)
-
-        if mode == .collapsed {
-            startAutoHideTimer(buttonSize: buttonSize, screenWidth: screenWidth)
-        }
+        startAutoHideTimer()
     }
 
-    public func startAutoHideTimer(buttonSize: CGFloat, screenWidth: CGFloat) {
+    public func startAutoHideTimer() {
         autoHideTask?.cancel()
         guard !isDragging else { return }
         autoHideTask = Task {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             guard !Task.isCancelled else { return }
-            guard mode == .collapsed, !self.isDragging else { return }
-
-            mode = .hidden
+            guard mode == .revealed, !isDragging else { return }
+            mode = .peeking
         }
-    }
-
-    public func handleDragStart() {
-        autoHideTask?.cancel()
     }
 
     public func cancelTasks() {

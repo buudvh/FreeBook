@@ -111,6 +111,7 @@ struct ReaderView: View {
     @State private var editingParagraphIndex: Int? = nil
     @State private var editingChapterIndex: Int? = nil
     @State private var scrollTarget: ScrollTarget? = nil
+    @State private var readerViewportHeight: CGFloat = 360
     @State private var isAutoScrollDisabled = false
     @State private var viewModel: ReaderViewModel? = nil
     @State private var updateProgressWorkItem: DispatchWorkItem? = nil
@@ -121,8 +122,8 @@ struct ReaderView: View {
     @State private var hasScrolledToTop = false
     @State private var paragraphTracker = ParagraphTracker()
 
-    // State variables for overlay HUD controls
-    @State private var showControls = false
+    @State private var readerEdgeControlsRevealed = false
+    @State private var readerEdgeControlsHideTask: DispatchWorkItem? = nil
     @State private var showingChapterList = false
     @State private var showingBookDictionary = false
     @State private var sliderValue: Double = 0.0
@@ -271,26 +272,18 @@ struct ReaderView: View {
 
     var body: some View {
         ZStack {
-            // Nền theo theme
             selectedTheme.backgroundColor
                 .ignoresSafeArea()
-                .onTapGesture {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showControls.toggle()
-                    }
-                }
 
             VStack(spacing: 0) {
-                readerContentView
-            }
-            // Top/Bottom overlay controls
-            if showControls {
-                VStack(spacing: 0) {
-                    topOverlayBar
-                    Spacer()
-                    bottomOverlayBar
+                readerHeaderView
+
+                ZStack(alignment: .bottomTrailing) {
+                    readerContentView
+                    readerEdgeControls
                 }
-                .ignoresSafeArea(edges: .bottom)
+
+                readerFooterView
             }
 
             // Chapter List Overlay (luôn nằm trong hierarchy nhưng ẩn đi bằng offset/opacity)
@@ -463,9 +456,7 @@ struct ReaderView: View {
                 )
             }
 
-            // Tu dong hien thi thanh cong cu HUD trong lan dau mo trinh doc
             if !hasOpenedReader {
-                showControls = true
                 hasOpenedReader = true
             }
         }
@@ -475,6 +466,7 @@ struct ReaderView: View {
                 ReaderView.activeChapterIndex = -1
             }
             prefetchTask?.cancel()
+            readerEdgeControlsHideTask?.cancel()
             viewModel?.saveProgressImmediately()
         }
         .onChange(of: scenePhase) { _, newPhase in
@@ -502,11 +494,6 @@ struct ReaderView: View {
                 // ReaderView chỉ cần sync UI (chuyển tab, scroll) — không trigger startTTS thêm.
                 self.ttsShouldAutoPlayNextChapter = false
                 selectChapter(at: nextIdx, scroll: true)
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleReaderControls"))) { _ in
-            withAnimation(.easeInOut(duration: 0.2)) {
-                showControls.toggle()
             }
         }
         .onChange(of: ttsManager.currentParentParagraphIndex) { _, newValue in
@@ -1547,6 +1534,9 @@ struct ReaderView: View {
         if let vm = viewModel {
             vm.jumpToChapter(index)
             self.chapterIndex = index
+            if scroll {
+                self.scrollTarget = ScrollTarget(chapterIndex: index, paragraphIndex: -1)
+            }
             self.isTransitioning = false
             return
         }
@@ -2057,57 +2047,77 @@ extension ReaderView {
     @ViewBuilder
     private var infiniteTextReaderView: some View {
         if let vm = viewModel {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: fontSize * 1.2) {
-                        ForEach(vm.stableIndexes, id: \.self) { idx in
-                            if let cached = vm.cache.get(idx) {
-                                VStack(alignment: .leading, spacing: fontSize * 0.8) {
-                                    if cached.state == .loading || cached.state == .prefetching || cached.state == .placeholder || cached.state == .notLoaded {
-                                        chapterInlineLoadingView(index: idx)
-                                    } else if case .failed(let message) = cached.state {
-                                        chapterInlineErrorView(index: idx, message: message)
-                                    } else {
-                                        chapterContentView(for: cached)
+            GeometryReader { geometry in
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: fontSize * 1.2) {
+                            ForEach(vm.stableIndexes, id: \.self) { idx in
+                                if let cached = vm.cache.get(idx) {
+                                    VStack(alignment: .leading, spacing: fontSize * 0.8) {
+                                        if cached.state == .loading || cached.state == .prefetching || cached.state == .placeholder || cached.state == .notLoaded {
+                                            chapterInlineLoadingView(index: idx)
+                                        } else if case .failed(let message) = cached.state {
+                                            chapterInlineErrorView(index: idx, message: message)
+                                        } else {
+                                            chapterContentView(for: cached)
+                                        }
                                     }
-                                }
-                                .id("chapter-\(idx)")
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .onChange(of: cached.state) { _, state in
-                                    guard state == .loaded, idx == chapterIndex else { return }
-                                    restoreReaderPositionIfNeeded(proxy: proxy, chapter: cached)
+                                    .id("chapter-\(idx)")
+                                    .frame(
+                                        maxWidth: .infinity,
+                                        minHeight: max(readerViewportHeight, 360),
+                                        alignment: .topLeading
+                                    )
+                                    .onChange(of: cached.state) { _, state in
+                                        guard state == .loaded, idx == chapterIndex else { return }
+                                        if let target = scrollTarget, attemptScroll(to: target, proxy: proxy, vm: vm) {
+                                            scrollTarget = nil
+                                            schedulePrepareTTS()
+                                        } else {
+                                            restoreReaderPositionIfNeeded(proxy: proxy, chapter: cached)
+                                        }
+                                    }
                                 }
                             }
                         }
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 24)
                     }
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 24)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showControls.toggle()
+                    .onAppear {
+                        readerViewportHeight = max(geometry.size.height, 360)
+                        if let cached = vm.cache.get(chapterIndex), cached.state == .loaded {
+                            if let target = scrollTarget, attemptScroll(to: target, proxy: proxy, vm: vm) {
+                                scrollTarget = nil
+                                schedulePrepareTTS()
+                            } else {
+                                restoreReaderPositionIfNeeded(proxy: proxy, chapter: cached)
+                            }
                         }
                     }
-                }
-                .onAppear {
-                    if let cached = vm.cache.get(chapterIndex), cached.state == .loaded {
-                        restoreReaderPositionIfNeeded(proxy: proxy, chapter: cached)
+                    .onChange(of: geometry.size.height) { _, newHeight in
+                        readerViewportHeight = max(newHeight, 360)
                     }
-                }
-                .onChange(of: scrollTarget) { _, newValue in
-                    guard let target = newValue else { return }
-                    withAnimation {
-                        if target.paragraphIndex == -1 {
-                            proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
+                    .onChange(of: vm.stableIndexes) { _, _ in
+                        guard let target = scrollTarget else { return }
+                        if attemptScroll(to: target, proxy: proxy, vm: vm) {
+                            scrollTarget = nil
+                        }
+                    }
+                    .onChange(of: scrollTarget) { _, newValue in
+                        guard let target = newValue else { return }
+                        if attemptScroll(to: target, proxy: proxy, vm: vm) {
+                            scrollTarget = nil
+                        }
+                    }
+                    .onChange(of: chapterIndex) { _, newValue in
+                        guard let cached = vm.cache.get(newValue), cached.state == .loaded else { return }
+                        if let target = scrollTarget, attemptScroll(to: target, proxy: proxy, vm: vm) {
+                            scrollTarget = nil
+                            schedulePrepareTTS()
                         } else {
-                            proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
+                            restoreReaderPositionIfNeeded(proxy: proxy, chapter: cached)
                         }
                     }
-                    scrollTarget = nil
-                }
-                .onChange(of: chapterIndex) { _, newValue in
-                    guard let cached = vm.cache.get(newValue), cached.state == .loaded else { return }
-                    restoreReaderPositionIfNeeded(proxy: proxy, chapter: cached)
                 }
             }
         } else {
@@ -2172,6 +2182,28 @@ extension ReaderView {
             }
         }
         .frame(maxWidth: .infinity, minHeight: 360)
+    }
+
+    private func attemptScroll(to target: ScrollTarget, proxy: ScrollViewProxy, vm: ReaderViewModel) -> Bool {
+        guard vm.stableIndexes.contains(target.chapterIndex) else { return false }
+
+        if target.paragraphIndex >= 0 {
+            guard let cached = vm.cache.get(target.chapterIndex), cached.state == .loaded else { return false }
+            let hasParagraph = cached.paragraphItems.contains(where: { $0.id == target.paragraphIndex })
+            withAnimation {
+                if hasParagraph {
+                    proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
+                } else {
+                    proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
+                }
+            }
+            return true
+        }
+
+        withAnimation {
+            proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
+        }
+        return true
     }
 
     private func restoreReaderPositionIfNeeded(proxy: ScrollViewProxy, chapter: CachedChapter) {
@@ -2247,12 +2279,6 @@ extension ReaderView {
                                             Spacer()
                                         }
                                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                        .contentShape(Rectangle())
-                                        .onTapGesture {
-                                            withAnimation(.easeInOut(duration: 0.2)) {
-                                                showControls.toggle()
-                                            }
-                                        }
                                     } else if case .failed(let message) = cached.state {
                                         VStack(spacing: 32) {
                                             Spacer()
@@ -2328,12 +2354,6 @@ extension ReaderView {
                                             Spacer()
                                         }
                                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                        .contentShape(Rectangle())
-                                        .onTapGesture {
-                                            withAnimation(.easeInOut(duration: 0.2)) {
-                                                showControls.toggle()
-                                            }
-                                        }
                                     } else {
                                         ScrollView {
                                             LazyVStack(alignment: .leading, spacing: fontSize * 0.8) {
@@ -2341,12 +2361,6 @@ extension ReaderView {
                                             }
                                             .padding(.horizontal, 18)
                                             .padding(.vertical, 24)
-                                            .contentShape(Rectangle())
-                                            .onTapGesture {
-                                                withAnimation(.easeInOut(duration: 0.2)) {
-                                                    showControls.toggle()
-                                                }
-                                            }
                                         }
                                         .id("scroll-view-\(idx)")
                                     }
@@ -2502,6 +2516,193 @@ extension ReaderView {
                 }
             }
         }
+    }
+
+    private var readerBookDisplayTitle: String {
+        translateMetaIfNeeded(localBook?.title ?? bookTitle ?? "FreeBook")
+    }
+
+    private var readerChapterDisplayTitle: String {
+        let fallback = currentChapterInfo?.title ?? "Chương \(chapterIndex + 1)"
+        let title = chapterTitle.isEmpty ? fallback : chapterTitle
+        return translateChapterTitleIfNeeded(title)
+    }
+
+    private var readerProgressPercent: Double {
+        guard totalChaptersCount > 0 else { return 0 }
+        return (Double(chapterIndex + 1) / Double(totalChaptersCount)) * 100
+    }
+
+    private var readerChromeBackground: Color {
+        selectedTheme == .dark ? Color.black.opacity(0.78) : Color.white.opacity(0.72)
+    }
+
+    @ViewBuilder
+    private var readerHeaderView: some View {
+        HStack(spacing: 10) {
+            Button(action: { dismiss() }) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(selectedTheme.textColor)
+                    .frame(width: 40, height: 44)
+            }
+
+            VStack(alignment: .center, spacing: 2) {
+                Text(readerBookDisplayTitle)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(selectedTheme.textColor)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                Text(readerChapterDisplayTitle)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(selectedTheme.textColor.opacity(0.72))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .frame(maxWidth: .infinity)
+
+            Menu {
+                Button(action: {
+                    showChapterTitle.toggle()
+                    UserDefaults.standard.set(showChapterTitle, forKey: "showChapterTitle_\(bookId)")
+                }) {
+                    Label("Hiển thị tên chương trong nội dung", systemImage: showChapterTitle ? "checkmark.square" : "square")
+                }
+
+                Button(action: { reloadChapterContent() }) {
+                    Label("Tải lại chương", systemImage: "arrow.clockwise")
+                }
+
+                if localBook != nil {
+                    Button(action: { showingBookDictionary = true }) {
+                        Label("Từ điển truyện", systemImage: "book.closed")
+                    }
+                }
+
+                Button(action: { showingBypassBrowser = true }) {
+                    Label("Mở bằng trình duyệt", systemImage: "safari")
+                }
+
+                Button(action: { showingSettings = true }) {
+                    Label("Cài đặt trình đọc", systemImage: "gearshape")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(selectedTheme.textColor)
+                    .frame(width: 40, height: 44)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.top, 6)
+        .padding(.bottom, 6)
+        .background(readerChromeBackground.ignoresSafeArea(edges: .top))
+    }
+
+    @ViewBuilder
+    private var readerFooterView: some View {
+        HStack {
+            Text(String(format: "%.1f%%", readerProgressPercent))
+            Spacer()
+            Text(totalChaptersCount > 0 ? "\(chapterIndex + 1)/\(totalChaptersCount)" : "0/0")
+        }
+        .font(.system(size: 10, weight: .medium, design: .rounded))
+        .foregroundColor(selectedTheme.textColor.opacity(0.62))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 4)
+        .background(readerChromeBackground.ignoresSafeArea(edges: .bottom))
+    }
+
+    @ViewBuilder
+    private var readerEdgeControls: some View {
+        HStack(spacing: 8) {
+            Button(action: revealReaderEdgeControls) {
+                Image(systemName: readerEdgeControlsRevealed ? "chevron.right" : "chevron.left")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(width: 24, height: 52)
+                    .background(Color.black.opacity(0.42))
+                    .clipShape(Capsule())
+            }
+
+            VStack(spacing: 10) {
+                readerEdgeButton(
+                    icon: isTranslationEnabled ? "character.bubble.fill" : "character.bubble",
+                    tint: isTranslationEnabled ? .blue : selectedTheme.textColor.opacity(0.9),
+                    action: {
+                        isTranslationEnabled.toggle()
+                        scheduleReaderEdgeControlsAutoHide()
+                    }
+                )
+
+                readerEdgeButton(
+                    icon: ttsManager.isPlaying ? "stop.fill" : "headphones",
+                    tint: ttsManager.isPlaying ? .red : selectedTheme.textColor.opacity(0.9),
+                    action: {
+                        if ttsManager.isPlaying {
+                            ttsManager.stop()
+                        } else {
+                            triggerGetVisibleIndex = UUID()
+                        }
+                        scheduleReaderEdgeControlsAutoHide()
+                    }
+                )
+
+                readerEdgeButton(
+                    icon: "list.bullet",
+                    tint: selectedTheme.textColor.opacity(0.9),
+                    action: {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            showingChapterList = true
+                        }
+                        scheduleReaderEdgeControlsAutoHide()
+                    }
+                )
+            }
+            .padding(8)
+            .background(.ultraThinMaterial)
+            .clipShape(Capsule())
+            .shadow(color: Color.black.opacity(0.18), radius: 12, x: 0, y: 4)
+        }
+        .padding(.trailing, 8)
+        .padding(.bottom, 12)
+        .offset(x: readerEdgeControlsRevealed ? 0 : 72)
+        .opacity(readerEdgeControlsRevealed ? 1 : 0.76)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: readerEdgeControlsRevealed)
+    }
+
+    private func readerEdgeButton(icon: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(tint)
+                .frame(width: 38, height: 38)
+                .background(Color.black.opacity(selectedTheme == .dark ? 0.34 : 0.12))
+                .clipShape(Circle())
+        }
+    }
+
+    private func revealReaderEdgeControls() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            readerEdgeControlsRevealed.toggle()
+        }
+        if readerEdgeControlsRevealed {
+            scheduleReaderEdgeControlsAutoHide()
+        } else {
+            readerEdgeControlsHideTask?.cancel()
+        }
+    }
+
+    private func scheduleReaderEdgeControlsAutoHide() {
+        readerEdgeControlsHideTask?.cancel()
+        let task = DispatchWorkItem {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                readerEdgeControlsRevealed = false
+            }
+        }
+        readerEdgeControlsHideTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: task)
     }
 
     @ViewBuilder

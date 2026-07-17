@@ -4,6 +4,17 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.9] - 2026-07-17
+
+### Cap nhat UI Reader header/body/footer va TTS CD radial widget
+*   **Nguoi thuc hien**: Tro ly AI Codex
+*   **Tong so file nguon anh huong**: 6 file Swift
+*   **Mo ta**:
+    *   **ReaderView**: Bo HUD tap an/hien, chuyen sang layout co dinh `Header + Body + Footer`; header co back, ten truyen/ten chuong va dropdown option cu; footer hien phan tram va chi so chuong.
+    *   **ReaderTextView**: Bo gesture post `toggleReaderControls` de tap vao noi dung khong con an/hien HUD, van giu `UITextView` va text selection/custom menu; them first-line indent cho moi doan van ban ma khong chen khoang trang vao noi dung goc.
+    *   **Reader floating controls**: Them cum nut noi thu vao mep phai cho dich, TTS va danh sach chuong.
+    *   **TTSFloatingWidgetView / FloatingWidgetViewModel / WidgetState**: Thay expanded/collapsed widget bang CD radial widget co cover trung tam, play/pause overlay, cac nut radial xem reader/next/stop va nut an vao mep.
+
 ## [1.3.8] - 2026-07-17
 
 ### Refactor Reader sang Infinite Vertical Window va bo sung TTSSession snapshot
