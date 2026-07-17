@@ -269,7 +269,8 @@ struct ReaderView: View {
         }
     }
     
-    var body: some View {
+    @ViewBuilder
+    private var mainZStack: some View {
         ZStack {
             // Nền theo theme
             selectedTheme.backgroundColor
@@ -317,224 +318,258 @@ struct ReaderView: View {
             .animation(.easeInOut(duration: 0.25), value: showingChapterList)
             .zIndex(10)
         }
-        .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
-        .sheet(isPresented: $showingSettings) {
-            ReaderSettingsView(fontSize: $fontSize, lineSpacing: $lineSpacing, selectedTheme: $selectedTheme, isTranslationEnabled: $isTranslationEnabled)
-                .presentationDetents([.height(250)])
-        }
-        .sheet(isPresented: $showingBookDictionary) {
-            NavigationStack {
-                BookDictionaryView(bookId: bookId, bookName: bookTitle ?? "")
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button("Đóng") {
-                                showingBookDictionary = false
+    }
+
+    @ViewBuilder
+    private var bodyWithSheets: some View {
+        mainZStack
+            .sheet(isPresented: $showingSettings) {
+                ReaderSettingsView(fontSize: $fontSize, lineSpacing: $lineSpacing, selectedTheme: $selectedTheme, isTranslationEnabled: $isTranslationEnabled)
+                    .presentationDetents([.height(250)])
+            }
+            .sheet(isPresented: $showingBookDictionary) {
+                NavigationStack {
+                    BookDictionaryView(bookId: bookId, bookName: bookTitle ?? "")
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Button("Đóng") {
+                                    showingBookDictionary = false
+                                }
                             }
                         }
+                }
+            }
+            .sheet(isPresented: $showingDefinitionSheet) {
+                definitionSheetContent
+            }
+            .fullScreenCover(isPresented: $showingBypassBrowser) {
+                BypassWebView(
+                    urlString: currentChapterInfo?.url ?? bookDetailUrl ?? "",
+                    host: currentChapterHost,
+                    onImport: { detailUrl, packageId, sourceName in
+                        importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                        importedExtensionPackageId = packageId
+                        importedDetailUrl = detailUrl
+                        importedSourceName = sourceName
+                        
+                        if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
+                            importedHost = "\(scheme)://\(host)"
+                        } else {
+                            importedHost = ""
+                        }
+                        
+                        navigateToBookDetail = true
                     }
-            }
-        }
-        .onChange(of: ttsManager.showingSettingsSheet) { _, newValue in
-            if newValue {
-                // Tự động đóng các sheet khác của ReaderView để tránh tranh chấp presentation
-                showingSettings = false
-                showingBookDictionary = false
-            }
-        }
-        .onChange(of: isTranslationEnabled) { _, _ in
-            applyTranslation()
-        }
-        .sheet(isPresented: $showingDefinitionSheet) {
-            definitionSheetContent
-        }
-        .fullScreenCover(isPresented: $showingBypassBrowser) {
-            BypassWebView(
-                urlString: currentChapterInfo?.url ?? bookDetailUrl ?? "",
-                host: currentChapterHost,
-                onImport: { detailUrl, packageId, sourceName in
-                    importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
-                    importedExtensionPackageId = packageId
-                    importedDetailUrl = detailUrl
-                    importedSourceName = sourceName
-                    
-                    if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
-                        importedHost = "\(scheme)://\(host)"
-                    } else {
-                        importedHost = ""
-                    }
-                    
-                    navigateToBookDetail = true
-                }
-            )
-        }
-        .background(
-            NavigationLink(
-                destination: LazyView {
-                    BookDetailView(
-                        bookId: importedBookId,
-                        extensionPackageId: importedExtensionPackageId,
-                        initialDetailUrl: importedDetailUrl,
-                        sourceName: importedSourceName,
-                        initialHost: importedHost
-                    )
-                },
-                isActive: $navigateToBookDetail
-            ) {
-                EmptyView()
-            }
-        )
-        .onChange(of: localBook?.chapters.count) { _, newCount in
-            if let vm = viewModel, let count = newCount {
-                if vm.totalChaptersCount != count {
-                    vm.totalChaptersCount = count
-                    vm.updateVisibleChaptersWindow()
-                    vm.stableIndexes = vm.visibleIndexes
-                }
-            }
-        }
-        .onChange(of: currentOnlineChapters.count) { _, newCount in
-            if let vm = viewModel, newCount > 0 {
-                if vm.totalChaptersCount != newCount {
-                    vm.totalChaptersCount = newCount
-                    vm.updateVisibleChaptersWindow()
-                    vm.stableIndexes = vm.visibleIndexes
-                }
-            }
-        }
-
-        .onAppear {
-            let key = "showChapterTitle_\(bookId)"
-            if UserDefaults.standard.object(forKey: key) != nil {
-                showChapterTitle = UserDefaults.standard.bool(forKey: key)
-            } else {
-                showChapterTitle = true
-            }
-            
-            let autoScrollKey = "disableAutoScroll_\(bookId)"
-            self.isAutoScrollDisabled = UserDefaults.standard.bool(forKey: autoScrollKey)
-            
-            ReaderView.activeBookId = bookId
-            ReaderView.activeChapterIndex = chapterIndex
-            
-            if currentOnlineChapters.isEmpty {
-                currentOnlineChapters = onlineChapters
-            }
-            
-            if viewModel == nil {
-                let savedPIdx = getSavedParagraphIndex(for: chapterIndex)
-                
-                // Tính toán số lượng chương khởi tạo an toàn bằng cách dùng trực tiếp tham số onlineChapters
-                let initialTotalCount: Int
-                if let book = localBook {
-                    initialTotalCount = book.chapters.count
-                } else {
-                    initialTotalCount = onlineChapters.count
-                }
-                
-                viewModel = ReaderViewModel(
-                    bookId: bookId,
-                    extensionPackageId: extensionPackageId,
-                    initialChapterIndex: chapterIndex,
-                    initialParagraphIndex: savedPIdx,
-                    totalChaptersCount: initialTotalCount,
-                    modelContext: modelContext,
-                    onlineChapters: onlineChapters,
-                    isTranslationEnabled: isTranslationEnabled,
-                    bookTitle: bookTitle,
-                    bookAuthor: bookAuthor,
-                    bookCoverUrl: bookCoverUrl,
-                    bookDesc: bookDesc,
-                    bookDetailUrl: bookDetailUrl,
-                    bookSourceName: bookSourceName
                 )
             }
-            
-            ttsManager.onChapterFinished = {
-                let nextIdx = chapterIndex + 1
-                if nextIdx < totalChaptersCount {
-                    selectChapter(at: nextIdx)
+    }
+
+    @ViewBuilder
+    private var bodyWithBackgrounds: some View {
+        bodyWithSheets
+            .background(
+                NavigationLink(
+                    destination: LazyView {
+                        BookDetailView(
+                            bookId: importedBookId,
+                            extensionPackageId: importedExtensionPackageId,
+                            initialDetailUrl: importedDetailUrl,
+                            sourceName: importedSourceName,
+                            initialHost: importedHost
+                        )
+                    },
+                    isActive: $navigateToBookDetail
+                ) {
+                    EmptyView()
+                }
+            )
+            .toolbar(.hidden, for: .tabBar)
+    }
+
+    @ViewBuilder
+    private var bodyWithEvents: some View {
+        bodyWithBackgrounds
+            .onAppear {
+                let key = "showChapterTitle_\(bookId)"
+                if UserDefaults.standard.object(forKey: key) != nil {
+                    showChapterTitle = UserDefaults.standard.bool(forKey: key)
+                } else {
+                    showChapterTitle = true
+                }
+                
+                let autoScrollKey = "disableAutoScroll_\(bookId)"
+                self.isAutoScrollDisabled = UserDefaults.standard.bool(forKey: autoScrollKey)
+                
+                ReaderView.activeBookId = bookId
+                ReaderView.activeChapterIndex = chapterIndex
+                
+                if currentOnlineChapters.isEmpty {
+                    currentOnlineChapters = onlineChapters
+                }
+                
+                if viewModel == nil {
+                    let savedPIdx = getSavedParagraphIndex(for: chapterIndex)
+                    
+                    let initialTotalCount: Int
+                    if let book = localBook {
+                        initialTotalCount = book.chapters.count
+                    } else {
+                        initialTotalCount = onlineChapters.count
+                    }
+                    
+                    viewModel = ReaderViewModel(
+                        bookId: bookId,
+                        extensionPackageId: extensionPackageId,
+                        initialChapterIndex: chapterIndex,
+                        initialParagraphIndex: savedPIdx,
+                        totalChaptersCount: initialTotalCount,
+                        modelContext: modelContext,
+                        onlineChapters: onlineChapters,
+                        isTranslationEnabled: isTranslationEnabled,
+                        bookTitle: bookTitle,
+                        bookAuthor: bookAuthor,
+                        bookCoverUrl: bookCoverUrl,
+                        bookDesc: bookDesc,
+                        bookDetailUrl: bookDetailUrl,
+                        bookSourceName: bookSourceName
+                    )
+                }
+                
+                ttsManager.onChapterFinished = {
+                    let nextIdx = chapterIndex + 1
+                    if nextIdx < totalChaptersCount {
+                        selectChapter(at: nextIdx)
+                    }
+                }
+                ttsManager.onChapterNext = {
+                    let nextIdx = chapterIndex + 1
+                    if nextIdx < totalChaptersCount {
+                        selectChapter(at: nextIdx)
+                    }
+                }
+                ttsManager.onChapterPrev = {
+                    let prevIdx = chapterIndex - 1
+                    if prevIdx >= 0 {
+                        selectChapter(at: prevIdx)
+                    }
+                }
+                
+                if !hasOpenedReader {
+                    showControls = true
+                    hasOpenedReader = true
                 }
             }
-            ttsManager.onChapterNext = {
-                let nextIdx = chapterIndex + 1
-                if nextIdx < totalChaptersCount {
-                    selectChapter(at: nextIdx)
+            .onDisappear {
+                if ReaderView.activeBookId == bookId && ReaderView.activeChapterIndex == chapterIndex {
+                    ReaderView.activeBookId = nil
+                    ReaderView.activeChapterIndex = -1
                 }
-            }
-            ttsManager.onChapterPrev = {
-                let prevIdx = chapterIndex - 1
-                if prevIdx >= 0 {
-                    selectChapter(at: prevIdx)
-                }
-            }
-            
-            // Tự động hiển thị thanh công cụ HUD trong lần đầu mở trình đọc
-            if !hasOpenedReader {
-                showControls = true
-                hasOpenedReader = true
-            }
-        }
-        .onDisappear {
-            if ReaderView.activeBookId == bookId && ReaderView.activeChapterIndex == chapterIndex {
-                ReaderView.activeBookId = nil
-                ReaderView.activeChapterIndex = -1
-            }
-            prefetchTask?.cancel()
-            viewModel?.saveProgressImmediately()
-            // Clear callbacks để tránh ghost reference trên view đã dismiss.
-            // TTSManager tự advance chapter độc lập, không cần callbacks từ ReaderView.
-            ttsManager.onChapterFinished = nil
-            ttsManager.onChapterNext = nil
-            ttsManager.onChapterPrev = nil
-        }
-        .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .background {
+                prefetchTask?.cancel()
                 viewModel?.saveProgressImmediately()
+                ttsManager.onChapterFinished = nil
+                ttsManager.onChapterNext = nil
+                ttsManager.onChapterPrev = nil
             }
-        }
-        .onChange(of: chapterIndex) { _, newValue in
-            updateProgressWorkItem?.cancel()
-            updateTTSPositionWorkItem?.cancel()
-            prepareTTSTask?.cancel()
-            paragraphTracker.visibleParagraphs.removeAll()
-            
-            if ReaderView.activeBookId == bookId {
-                ReaderView.activeChapterIndex = newValue
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ttsRequestPlayFromPosition"))) { notification in
+                guard let userInfo = notification.userInfo,
+                      let chapter = userInfo["chapterIndex"] as? Int,
+                      let paragraph = userInfo["paragraphIndex"] as? Int,
+                      let vm = viewModel else { return }
+                
+                if let cached = vm.cache.get(chapter), cached.state == .loaded {
+                    let ttsChapters = vm.getSortedChapters().map { TTSChapterInfo(title: $0.title, url: $0.url, index: $0.index, host: $0.host) }
+                    let content = isTranslationEnabled ? cached.content : cached.originalContent
+                    let extInfo = ttsManager.extensionInfo
+                    
+                    ttsManager.startSpeaking(
+                        bookId: vm.bookId,
+                        chapters: ttsChapters,
+                        currentIndex: chapter,
+                        chapterContent: content,
+                        startParagraphIndex: paragraph,
+                        bookTitle: vm.bookTitle ?? "",
+                        coverUrl: vm.bookCoverUrl ?? "",
+                        bookDetailUrl: vm.bookDetailUrl ?? "",
+                        bookSourceName: vm.bookSourceName ?? "",
+                        extensionInfo: extInfo
+                    )
+                }
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ttsDidAdvanceToNextChapter"))) { notification in
-            guard let userInfo = notification.userInfo,
-                  let bid = userInfo["bookId"] as? String,
-                  let nextIdx = userInfo["chapterIndex"] as? Int else { return }
-            
-            if bid == bookId && nextIdx != chapterIndex {
-                // TTSManager đã tự advance và đang phát chương mới.
-                // ReaderView chỉ cần sync UI (chuyển tab, scroll) — không trigger startTTS thêm.
-                self.ttsShouldAutoPlayNextChapter = false
-                selectChapter(at: nextIdx, scroll: true)
+    }
+
+    var body: some View {
+        bodyWithEvents
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .background {
+                    viewModel?.saveProgressImmediately()
+                }
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleReaderControls"))) { _ in
-            withAnimation(.easeInOut(duration: 0.2)) {
-                showControls.toggle()
+            .onChange(of: chapterIndex) { _, newValue in
+                updateProgressWorkItem?.cancel()
+                updateTTSPositionWorkItem?.cancel()
+                prepareTTSTask?.cancel()
+                paragraphTracker.visibleParagraphs.removeAll()
+                
+                if ReaderView.activeBookId == bookId {
+                    ReaderView.activeChapterIndex = newValue
+                }
             }
-        }
-        .onChange(of: ttsManager.currentParentParagraphIndex) { _, newValue in
-            guard ttsManager.isPlaying &&
-                  ttsManager.playingBookId == bookId &&
-                  ttsManager.playingChapterIndex == chapterIndex &&
-                  newValue >= 0 else { return }
-            
-            // Lưu vị trí TTS đang phát vào database
-            saveReadProgress(index: chapterIndex, paragraphIndex: newValue)
-            
-            guard !isAutoScrollDisabled else { return }
-            
-            withAnimation {
-                scrollTarget = ScrollTarget(chapterIndex: ttsManager.playingChapterIndex, paragraphIndex: newValue)
+            .onChange(of: ttsManager.showingSettingsSheet) { _, newValue in
+                if newValue {
+                    showingSettings = false
+                    showingBookDictionary = false
+                }
             }
-        }
-        .toolbar(.hidden, for: .tabBar)
+            .onChange(of: isTranslationEnabled) { _, _ in
+                applyTranslation()
+            }
+            .onChange(of: localBook?.chapters.count) { _, newCount in
+                if let vm = viewModel, let count = newCount {
+                    if vm.totalChaptersCount != count {
+                        vm.totalChaptersCount = count
+                        vm.updateVisibleChaptersWindow()
+                        vm.stableIndexes = vm.visibleIndexes
+                    }
+                }
+            }
+            .onChange(of: currentOnlineChapters.count) { _, newCount in
+                if let vm = viewModel, newCount > 0 {
+                    if vm.totalChaptersCount != newCount {
+                        vm.totalChaptersCount = newCount
+                        vm.updateVisibleChaptersWindow()
+                        vm.stableIndexes = vm.visibleIndexes
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ttsDidAdvanceToNextChapter"))) { notification in
+                guard let userInfo = notification.userInfo,
+                      let bid = userInfo["bookId"] as? String,
+                      let nextIdx = userInfo["chapterIndex"] as? Int else { return }
+                
+                if bid == bookId && nextIdx != chapterIndex {
+                    self.ttsShouldAutoPlayNextChapter = false
+                    selectChapter(at: nextIdx, scroll: true)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleReaderControls"))) { _ in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showControls.toggle()
+                }
+            }
+            .onChange(of: ttsManager.currentParentParagraphIndex) { _, newValue in
+                guard ttsManager.isPlaying &&
+                      ttsManager.playingBookId == bookId &&
+                      ttsManager.playingChapterIndex == chapterIndex &&
+                      newValue >= 0 else { return }
+                
+                saveReadProgress(index: chapterIndex, paragraphIndex: newValue)
+                
+                guard !isAutoScrollDisabled else { return }
+                
+                withAnimation {
+                    scrollTarget = ScrollTarget(chapterIndex: ttsManager.playingChapterIndex, paragraphIndex: newValue)
+                }
+            }
     }
     
     
@@ -993,10 +1028,12 @@ struct ReaderView: View {
                 )
                 .id("paragraph-\(chapter.index)-\(item.id)")
                 .onAppear {
-                    paragraphTracker.visibleParagraphs.insert(item.id)
+                    let ident = ParagraphIdentifier(chapterIndex: chapter.index, paragraphIndex: item.id)
+                    paragraphTracker.visibleParagraphs.insert(ident)
                 }
                 .onDisappear {
-                    paragraphTracker.visibleParagraphs.remove(item.id)
+                    let ident = ParagraphIdentifier(chapterIndex: chapter.index, paragraphIndex: item.id)
+                    paragraphTracker.visibleParagraphs.remove(ident)
                     updateScrollReadingProgress()
                 }
             }
@@ -1051,10 +1088,12 @@ struct ReaderView: View {
             .equatable()
             .id("paragraph-\(chapter.index)-\(item.id)")
             .onAppear {
-                paragraphTracker.visibleParagraphs.insert(item.id)
+                let ident = ParagraphIdentifier(chapterIndex: chapter.index, paragraphIndex: item.id)
+                paragraphTracker.visibleParagraphs.insert(ident)
             }
             .onDisappear {
-                paragraphTracker.visibleParagraphs.remove(item.id)
+                let ident = ParagraphIdentifier(chapterIndex: chapter.index, paragraphIndex: item.id)
+                paragraphTracker.visibleParagraphs.remove(ident)
                 updateScrollReadingProgress()
             }
         }
@@ -1556,6 +1595,9 @@ struct ReaderView: View {
             vm.onTabSelectionChanged(newIndex: index, immediate: true)
             self.chapterIndex = index
             self.isTransitioning = false
+            if scroll {
+                self.scrollTarget = ScrollTarget(chapterIndex: index, paragraphIndex: -1)
+            }
             return
         }
         
@@ -1677,12 +1719,49 @@ struct ReaderView: View {
         // 1. Debounce 200ms cho việc cập nhật tiến trình lưu trữ
         updateProgressWorkItem?.cancel()
         let progressWork = DispatchWorkItem { [weak viewModel] in
-            guard let topIndex = self.paragraphTracker.visibleParagraphs.min() else { return }
+            guard let topItem = self.paragraphTracker.visibleParagraphs.min() else { return }
+            
+            let targetChapter = topItem.chapterIndex
+            let targetParagraph = topItem.paragraphIndex
+            
+            // Cập nhật lại chỉ mục chương hiện tại nếu thay đổi
+            if self.chapterIndex != targetChapter {
+                self.chapterIndex = targetChapter
+                ReaderView.activeChapterIndex = targetChapter
+                if let vm = viewModel {
+                    vm.activeChapterIndex = targetChapter
+                    vm.tabSelection = targetChapter
+                }
+            }
             
             if let vm = viewModel {
-                vm.updateProgress(chapterIndex: self.chapterIndex, paragraphIndex: topIndex)
+                vm.updateProgress(chapterIndex: targetChapter, paragraphIndex: targetParagraph)
+                
+                // --- THUẬT TOÁN TẢI TRƯỚC SỚM 75% KIỂU YUEDU-READER ---
+                if let cached = vm.cache.get(targetChapter), cached.state == .loaded {
+                    let totalParagraphs = cached.paragraphItems.count
+                    if totalParagraphs > 0 {
+                        // Tìm đoạn văn hiển thị lớn nhất (nằm dưới cùng màn hình) của chương hiện tại
+                        let visibleParasOfCurrentChapter = self.paragraphTracker.visibleParagraphs.filter { $0.chapterIndex == targetChapter }
+                        if let maxItem = visibleParasOfCurrentChapter.max() {
+                            let currentPara = maxItem.paragraphIndex
+                            
+                            // Nếu người dùng đã cuộn qua 75% số đoạn văn của chương hiện hành
+                            if currentPara >= (totalParagraphs * 3) / 4 {
+                                let nextChapter = targetChapter + 1
+                                // Kích hoạt tải trước chương tiếp theo nếu nó hợp lệ và chưa có trong cache
+                                if nextChapter < totalChaptersCount && vm.cache.get(nextChapter) == nil {
+                                    Task {
+                                        // Hàm này tự động ưu tiên nạp từ RAM -> Local DB -> Online Extension
+                                        try? await vm.loadChapterContentFromExtension(nextChapter)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             } else {
-                self.saveReadProgress(index: self.chapterIndex, paragraphIndex: topIndex)
+                self.saveReadProgress(index: targetChapter, paragraphIndex: targetParagraph)
             }
         }
         self.updateProgressWorkItem = progressWork
@@ -1693,8 +1772,8 @@ struct ReaderView: View {
         
         updateTTSPositionWorkItem?.cancel()
         let ttsWork = DispatchWorkItem {
-            guard let topIndex = self.paragraphTracker.visibleParagraphs.min() else { return }
-            self.ttsManager.updateParagraphPositionWithoutPlaying(paragraphIndex: topIndex)
+            guard let topItem = self.paragraphTracker.visibleParagraphs.min() else { return }
+            self.ttsManager.updateParagraphPositionWithoutPlaying(paragraphIndex: topItem.paragraphIndex)
         }
         self.updateTTSPositionWorkItem = ttsWork
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: ttsWork)
@@ -2055,308 +2134,36 @@ extension ReaderView {
     private var textReaderView: some View {
         Group {
             if let vm = viewModel {
-                TabView(selection: Binding(
-                    get: { vm.tabSelection },
-                    set: { newIndex in
-                        vm.onTabSelectionChanged(newIndex: newIndex)
-                        self.chapterIndex = newIndex
-                    }
-                )) {
-                    ForEach(vm.stableIndexes, id: \.self) { idx in
-                        if let cached = vm.cache.get(idx) {
-                            ScrollViewReader { proxy in
-                                Group {
-                                    if cached.state == .loading || cached.state == .prefetching {
-                                        VStack(spacing: 32) {
-                                            Spacer()
-                                            
-                                            Text(getChapterTitle(at: idx))
-                                                .font(.title2)
-                                                .fontWeight(.bold)
-                                                .foregroundColor(selectedTheme.textColor)
-                                                .multilineTextAlignment(.center)
-                                                .lineLimit(3)
-                                                .padding(.horizontal, 40)
-                                            
-                                            VStack(spacing: 32) {
-                                                ProgressView()
-                                                    .scaleEffect(1.5)
-                                                    .tint(selectedTheme.textColor.opacity(0.8))
-                                                
-                                                // Nút Quay lại
-                                                Button(action: {
-                                                    dismiss()
-                                                }) {
-                                                    HStack(spacing: 8) {
-                                                        Image(systemName: "arrow.left")
-                                                        Text("Quay lại")
-                                                    }
-                                                    .font(.subheadline)
-                                                    .fontWeight(.medium)
-                                                    .foregroundColor(selectedTheme.textColor)
-                                                    .padding(.horizontal, 24)
-                                                    .padding(.vertical, 10)
-                                                    .background(selectedTheme.textColor.opacity(0.1))
-                                                    .cornerRadius(20)
-                                                }
-                                            }
-                                            
-                                            Spacer()
-                                        }
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                        .contentShape(Rectangle())
-                                        .onTapGesture {
-                                            withAnimation(.easeInOut(duration: 0.2)) {
-                                                showControls.toggle()
-                                            }
-                                        }
-                                    } else if case .failed(let message) = cached.state {
-                                        VStack(spacing: 32) {
-                                            Spacer()
-                                            
-                                            Text(getChapterTitle(at: idx))
-                                                .font(.title2)
-                                                .fontWeight(.bold)
-                                                .foregroundColor(selectedTheme.textColor)
-                                                .multilineTextAlignment(.center)
-                                                .lineLimit(3)
-                                                .padding(.horizontal, 40)
-                                            
-                                            VStack(spacing: 20) {
-                                                Text(message)
-                                                    .font(.subheadline)
-                                                    .foregroundColor(.red)
-                                                    .multilineTextAlignment(.center)
-                                                    .padding(.horizontal, 40)
-                                                
-                                                VStack(spacing: 12) {
-                                                    // Nút Tải lại (ở trên)
-                                                    Button(action: {
-                                                        Task {
-                                                            try? await vm.loadChapterContentFromExtension(idx)
-                                                        }
-                                                    }) {
-                                                        HStack(spacing: 8) {
-                                                            Image(systemName: "arrow.clockwise")
-                                                            Text("Tải lại")
-                                                        }
-                                                        .fontWeight(.semibold)
-                                                        .foregroundColor(selectedTheme.textColor)
-                                                        .frame(width: 160)
-                                                        .padding(.vertical, 12)
-                                                        .background(selectedTheme.textColor.opacity(0.1))
-                                                        .cornerRadius(24)
-                                                    }
-                                                    
-                                                    // Nút Xem nguồn (ở giữa)
-                                                    Button(action: {
-                                                        showingBypassBrowser = true
-                                                    }) {
-                                                        HStack(spacing: 8) {
-                                                            Image(systemName: "safari")
-                                                            Text("Xem nguồn")
-                                                        }
-                                                        .fontWeight(.semibold)
-                                                        .foregroundColor(selectedTheme.textColor)
-                                                        .frame(width: 160)
-                                                        .padding(.vertical, 12)
-                                                        .background(selectedTheme.textColor.opacity(0.1))
-                                                        .cornerRadius(24)
-                                                    }
-                                                    
-                                                    // Nút Quay lại (ở dưới cùng)
-                                                    Button(action: {
-                                                        dismiss()
-                                                    }) {
-                                                        HStack(spacing: 8) {
-                                                            Image(systemName: "arrow.left")
-                                                            Text("Quay lại")
-                                                        }
-                                                        .fontWeight(.semibold)
-                                                        .foregroundColor(selectedTheme.textColor)
-                                                        .frame(width: 160)
-                                                        .padding(.vertical, 12)
-                                                        .background(selectedTheme.textColor.opacity(0.08))
-                                                        .cornerRadius(24)
-                                                    }
-                                                }
-                                            }
-                                            
-                                            Spacer()
-                                        }
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                        .contentShape(Rectangle())
-                                        .onTapGesture {
-                                            withAnimation(.easeInOut(duration: 0.2)) {
-                                                showControls.toggle()
-                                            }
-                                        }
-                                    } else {
-                                        ScrollView {
-                                            LazyVStack(alignment: .leading, spacing: fontSize * 0.8) {
-                                                chapterContentView(for: cached)
-                                            }
-                                            .padding(.horizontal, 18)
-                                            .padding(.vertical, 24)
-                                            .contentShape(Rectangle())
-                                            .onTapGesture {
-                                                withAnimation(.easeInOut(duration: 0.2)) {
-                                                    showControls.toggle()
-                                                }
-                                            }
-                                        }
-                                        .id("scroll-view-\(idx)")
-                                    }
-                                }
-                                .onChange(of: scrollTarget) { _, newValue in
-                                    if let target = newValue, target.chapterIndex == idx {
-                                        withAnimation {
-                                            if target.paragraphIndex == -1 {
-                                                proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
-                                            } else {
-                                                proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
-                                            }
-                                        }
-                                        scrollTarget = nil
-                                    }
-                                }
-                                .onChange(of: cached.state) { _, state in
-                                    if state == .loaded && idx == chapterIndex {
-                                        if !cached.isPositionRestored {
-                                            cached.isPositionRestored = true
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                                let savedPIdx = getSavedParagraphIndex(for: idx)
-                                                let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
-                                                withAnimation(.easeOut(duration: 0.25)) {
-                                                    if savedPIdx >= 0 && hasValidParagraph {
-                                                        proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
-                                                    } else {
-                                                        if cached.paragraphItems.contains(where: { $0.id == -1 }) {
-                                                            proxy.scrollTo("paragraph-\(idx)--1", anchor: .top)
-                                                        }
-                                                    }
-                                                }
-                                                if self.ttsShouldAutoPlayNextChapter {
-                                                    self.ttsShouldAutoPlayNextChapter = false
-                                                    startTTS(at: idx, paragraphIndex: -1)
-                                                } else {
-                                                    schedulePrepareTTS()
-                                                }
-                                            }
-                                        } else {
-                                            if self.ttsShouldAutoPlayNextChapter {
-                                                self.ttsShouldAutoPlayNextChapter = false
-                                                startTTS(at: idx, paragraphIndex: -1)
-                                            } else {
-                                                schedulePrepareTTS()
-                                            }
-                                        }
-                                    }
-                                }
-                                .onAppear {
-                                    // Tab đích đã onAppear → animation swipe kết thúc.
-                                    // Slide window và sync stableIndexes để chuẩn bị swipe tiếp theo.
-                                    if idx == chapterIndex {
-                                        vm.commitWindowSlide()
-                                    }
-                                    if cached.state == .loaded && idx == chapterIndex {
-                                        if !cached.isPositionRestored {
-                                            cached.isPositionRestored = true
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                                let savedPIdx = getSavedParagraphIndex(for: idx)
-                                                let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
-                                                withAnimation(.easeOut(duration: 0.25)) {
-                                                    if savedPIdx >= 0 && hasValidParagraph {
-                                                        proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
-                                                    } else {
-                                                        if cached.paragraphItems.contains(where: { $0.id == -1 }) {
-                                                            proxy.scrollTo("paragraph-\(idx)--1", anchor: .top)
-                                                        }
-                                                    }
-                                                }
-                                                if self.ttsShouldAutoPlayNextChapter {
-                                                    self.ttsShouldAutoPlayNextChapter = false
-                                                    startTTS(at: idx, paragraphIndex: -1)
-                                                } else {
-                                                    schedulePrepareTTS()
-                                                }
-                                            }
-                                        } else {
-                                            if self.ttsShouldAutoPlayNextChapter {
-                                                self.ttsShouldAutoPlayNextChapter = false
-                                                startTTS(at: idx, paragraphIndex: -1)
-                                            } else {
-                                                schedulePrepareTTS()
-                                            }
-                                        }
-                                    }
-                                }
-                                .onChange(of: chapterIndex) { _, newChapterIndex in
-                                    if newChapterIndex == idx && cached.state == .loaded {
-                                        if !cached.isPositionRestored {
-                                            cached.isPositionRestored = true
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                                let savedPIdx = getSavedParagraphIndex(for: idx)
-                                                let hasValidParagraph = cached.paragraphItems.contains(where: { $0.id == savedPIdx })
-                                                withAnimation(.easeOut(duration: 0.25)) {
-                                                    if savedPIdx >= 0 && hasValidParagraph {
-                                                        proxy.scrollTo("paragraph-\(idx)-\(savedPIdx)", anchor: .top)
-                                                    } else {
-                                                        if cached.paragraphItems.contains(where: { $0.id == -1 }) {
-                                                            proxy.scrollTo("paragraph-\(idx)--1", anchor: .top)
-                                                        }
-                                                    }
-                                                }
-                                                if self.ttsShouldAutoPlayNextChapter {
-                                                    self.ttsShouldAutoPlayNextChapter = false
-                                                    startTTS(at: idx, paragraphIndex: -1)
-                                                } else {
-                                                    schedulePrepareTTS()
-                                                }
-                                            }
-                                        } else {
-                                            if self.ttsShouldAutoPlayNextChapter {
-                                                self.ttsShouldAutoPlayNextChapter = false
-                                                startTTS(at: idx, paragraphIndex: -1)
-                                            } else {
-                                                schedulePrepareTTS()
-                                            }
-                                        }
-                                    }
-                                }
-                                // FIX 2: Safety net — nếu onAppear không fire (tab đã tồn tại trong hierarchy),
-                                // onChange của tabSelection sẽ đảm bảo commitWindowSlide được gọi.
-                                .onChange(of: vm.tabSelection) { _, newTabSelection in
-                                    if newTabSelection == idx && idx == chapterIndex {
-                                        vm.commitWindowSlide()
-                                    }
-                                }
-                            }
-                            .tag(idx)
+                CoreTextScrollHostView(
+                    totalChapters: totalChaptersCount,
+                    initialChapter: self.chapterIndex,
+                    initialParagraph: getSavedParagraphIndex(for: self.chapterIndex),
+                    fontSize: CGFloat(fontSize),
+                    textColor: selectedTheme.textColor,
+                    backgroundColor: selectedTheme.backgroundColor,
+                    highlightColor: selectedTheme.textColor.opacity(0.15),
+                    lineSpacing: CGFloat(lineSpacing),
+                    paragraphSpacing: CGFloat(lineSpacing * 1.6),
+                    isTranslationEnabled: isTranslationEnabled,
+                    viewModel: vm,
+                    scrollTarget: $scrollTarget,
+                    onTap: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showControls.toggle()
                         }
+                    },
+                    onProgressCommit: { chapter, paragraph in
+                        self.chapterIndex = chapter
+                        ReaderView.activeChapterIndex = chapter
+                        vm.activeChapterIndex = chapter
+                        vm.tabSelection = chapter
+                        
+                        vm.updateProgress(chapterIndex: chapter, paragraphIndex: paragraph)
                     }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .indexViewStyle(.page(backgroundDisplayMode: .never))
+                )
+                .ignoresSafeArea()
             } else {
                 ProgressView()
-            }
-        }
-        .onChange(of: showChapterTitle) { _, _ in
-            if let vm = viewModel {
-                vm.refreshParagraphItems()
-            } else {
-                for idx in 0..<loadedChapters.count {
-                    let chap = loadedChapters[idx]
-                    let items = generateParagraphItems(
-                        chapterIndex: chap.index,
-                        originalTitle: chap.originalTitle,
-                        originalContent: chap.originalContent,
-                        translatedTitle: chap.title,
-                        translatedContent: chap.chapterContent
-                    )
-                    loadedChapters[idx].paragraphItems = items
-                }
             }
         }
     }
@@ -3013,6 +2820,18 @@ extension AnyTransition {
     }
 }
 
+struct ParagraphIdentifier: Hashable, Comparable {
+    let chapterIndex: Int
+    let paragraphIndex: Int
+    
+    static func < (lhs: ParagraphIdentifier, rhs: ParagraphIdentifier) -> Bool {
+        if lhs.chapterIndex != rhs.chapterIndex {
+            return lhs.chapterIndex < rhs.chapterIndex
+        }
+        return lhs.paragraphIndex < rhs.paragraphIndex
+    }
+}
+
 class ParagraphTracker {
-    var visibleParagraphs: Set<Int> = []
+    var visibleParagraphs: Set<ParagraphIdentifier> = []
 }

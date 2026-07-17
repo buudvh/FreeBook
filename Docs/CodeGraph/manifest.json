@@ -3,7 +3,7 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-07-16T01:23:05.271894Z",
+  "generatedAt": "2026-07-17T03:27:00.000000Z",
   "gitCommit": "f6a4173eed298f150ec42f3d3b0f60017af23f4b",
   "sourceFileCount": 87,
   "documentCount": 16,
@@ -233,14 +233,14 @@
     {
       "filename": "05_state_graph.md",
       "sourceHash": "7db0b3e3f345aa6c1cdc5c1ce19c97357651f72c18cf463b9cd53a3d4ccc355b",
-      "generatedHash": "190d9754096ae50ea0ad5a9059bb9ce736c63e0bd49585ddfc48e457466878d2",
-      "generatedAt": "2026-07-16T01:23:05.294939Z",
+      "generatedHash": "4e607ea67b23fa7de4e8cb18f3638bb6c417bc379f20b0e34e36f961e199f7af",
+      "generatedAt": "2026-07-16T14:38:00.000000Z",
       "sourceFiles": [
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "documentVersion": 1
+      "documentVersion": 3
     },
     {
       "filename": "06_event_graph.md",
@@ -302,8 +302,8 @@
     {
       "filename": "11_subsystems.md",
       "sourceHash": "71a91fd1425ad9401f29dc7a113f29143eed08dc1929f2b1a5931e906b805b0a",
-      "generatedHash": "17737c04ef67575a774cd772b87f3fa3d480e07c8b49a93aef303332d0093865",
-      "generatedAt": "2026-07-16T01:23:05.298920Z",
+      "generatedHash": "8bf83fbaf7fab27fc559a7905913fa850ce8adc2800a1e1534b020f0fc0d75f3",
+      "generatedAt": "2026-07-16T14:38:00.000000Z",
       "sourceFiles": [
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Extensions/Manager/ExtensionManager.swift",
@@ -311,7 +311,7 @@
         "Sources/Services/Translation/Manager/TranslationManager.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "documentVersion": 1
+      "documentVersion": 2
     },
     {
       "filename": "12_ownership_graph.md",

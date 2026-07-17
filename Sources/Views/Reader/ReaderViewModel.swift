@@ -287,17 +287,9 @@ class ReaderViewModel: ObservableObject {
     func computeWindowRange() -> Set<Int> {
         guard totalChaptersCount > 0 else { return [] }
         
-        let lower: Int
-        let upper: Int
-        if isReadingForward {
-            lower = max(0, activeChapterIndex - 1)
-            upper = min(totalChaptersCount - 1, activeChapterIndex + 2)
-        } else {
-            lower = max(0, activeChapterIndex - 2)
-            upper = min(totalChaptersCount - 1, activeChapterIndex + 1)
-        }
+        let lower = max(0, activeChapterIndex - 1)
+        let upper = min(totalChaptersCount - 1, activeChapterIndex + 1)
         
-        guard lower <= upper else { return [] }
         return Set(lower...upper)
     }
     
