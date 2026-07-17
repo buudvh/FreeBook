@@ -166,10 +166,8 @@ final class CoreTextCollectionScrollViewController: UIViewController {
             paginatedPages.removeAll()
             
             // Re-parse lại các chương cũ bằng font mới
-            for (idx, attrStr) in tempStrings {
-                // Ta chỉ re-paginate, còn attributedString sẽ được sinh lại khi updateChapterCache
-                // Để đơn giản, ta tạm thời xóa hết, SwiftUI updateUIViewController sẽ tự động push data mới xuống.
-            }
+            // Ta chỉ re-paginate, còn attributedString sẽ được sinh lại khi updateChapterCache
+            // Để đơn giản, ta tạm thời xóa hết, SwiftUI updateUIViewController sẽ tự động push data mới xuống.
             
             collectionView.reloadData()
             
@@ -189,8 +187,6 @@ final class CoreTextCollectionScrollViewController: UIViewController {
         htmlContent: String? = nil
     ) {
         guard chapterIndex >= 0 && chapterIndex < totalChaptersCount else { return }
-        
-        let oldState = chapterStates[chapterIndex]
         chapterStates[chapterIndex] = state
         
         switch state {
@@ -473,7 +469,6 @@ extension CoreTextCollectionScrollViewController {
             .sink { [weak self] notification in
                 guard let self = self,
                       let userInfo = notification.userInfo,
-                      let bookId = userInfo["bookId"] as? String,
                       let chapterIdx = userInfo["chapterIndex"] as? Int,
                       let paragraphIdx = userInfo["paragraphIndex"] as? Int else { return }
                 

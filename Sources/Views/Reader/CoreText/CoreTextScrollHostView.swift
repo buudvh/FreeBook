@@ -13,9 +13,10 @@ struct CoreTextScrollHostView: UIViewControllerRepresentable {
     let highlightColor: Color
     let lineSpacing: CGFloat
     let paragraphSpacing: CGFloat
+    let isTranslationEnabled: Bool
     
     @ObservedObject var viewModel: ReaderViewModel
-    @Binding var scrollTarget: ReaderView.ScrollTarget?
+    @Binding var scrollTarget: ScrollTarget?
     
     var onTap: () -> Void
     var onProgressCommit: (Int, Int) -> Void
@@ -94,9 +95,10 @@ struct CoreTextScrollHostView: UIViewControllerRepresentable {
     private func convertParagraphsToHTML(paragraphs: [ParagraphItem], chapterIndex: Int) -> String {
         var htmlString = "<html><body>"
         for (paraIdx, item) in paragraphs.enumerated() {
-            let escapedOriginal = item.originalText.htmlEscaped()
-            let escapedTrans = item.translatedText.htmlEscaped()
-            let displayText = item.translatedText.htmlEscaped() // Mặc định hiển thị bản dịch tiếng Việt
+            let escapedOriginal = item.original.htmlEscaped()
+            let escapedTrans = item.translated.htmlEscaped()
+            let rawDisplayText = isTranslationEnabled ? item.translated : item.original
+            let displayText = rawDisplayText.htmlEscaped()
             
             let divTag = "<div id=\"para-\(chapterIndex)-\(paraIdx)\" data-original=\"\(escapedOriginal)\" data-trans=\"\(escapedTrans)\">\(displayText)</div>"
             htmlString += divTag + "\n"

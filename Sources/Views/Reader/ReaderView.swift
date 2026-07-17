@@ -2134,6 +2134,7 @@ extension ReaderView {
                     highlightColor: selectedTheme.textColor.opacity(0.15),
                     lineSpacing: 6.0,
                     paragraphSpacing: 16.0,
+                    isTranslationEnabled: isTranslationEnabled,
                     viewModel: vm,
                     scrollTarget: $scrollTarget,
                     onTap: {
