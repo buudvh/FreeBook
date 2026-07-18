@@ -1330,27 +1330,56 @@ struct BookDetailView: View {
     }
     
     private func updateLocalChapters(for book: Book, with results: [ChapterResult]) {
-        // Xóa chương cũ (sao chép mảng phụ trước để tránh crash lặp mảng)
-        let chapsToDelete = Array(book.chapters)
-        for chap in chapsToDelete {
-            modelContext.delete(chap)
-        }
-        book.chapters.removeAll()
-        
-        // Thêm chương mới
+        var unmatched = Array(book.chapters)
+
         for (index, item) in results.enumerated() {
-            let chapId = "\(book.bookId)_\(item.url)"
-            let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index, host: item.host)
-            newChap.book = book
-            modelContext.insert(newChap)
+            let matchIndex: Int?
+            if !item.url.isEmpty {
+                matchIndex = unmatched.firstIndex(where: { $0.url == item.url })
+                    ?? unmatched.firstIndex(where: { $0.index == index })
+            } else {
+                matchIndex = unmatched.firstIndex(where: { $0.index == index })
+            }
+
+            if let matchIndex {
+                let chapter = unmatched.remove(at: matchIndex)
+                chapter.title = item.name
+                chapter.url = item.url
+                chapter.index = index
+                chapter.host = item.host
+                if chapter.content?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+                    chapter.isCached = true
+                }
+            } else {
+                let newChapter = Chapter(
+                    id: "\(book.bookId)_\(item.url.isEmpty ? "index-\(index)" : item.url)",
+                    title: item.name,
+                    url: item.url,
+                    index: index,
+                    host: item.host
+                )
+                book.chapters.append(newChapter)
+                modelContext.insert(newChapter)
+            }
         }
-        
-        // Cập nhật host của truyện từ danh sách chương nếu host hiện tại đang trống
-        if (book.host == nil || book.host!.isEmpty), let firstHost = results.first?.host, !firstHost.isEmpty {
+
+        for stale in unmatched {
+            let isPlayingChapter = TTSManager.shared.playingBookId == book.bookId
+                && TTSManager.shared.playingChapterIndex == stale.index
+                && (stale.url.isEmpty || TTSManager.shared.playingChapterUrl == stale.url)
+            if !isPlayingChapter {
+                book.chapters.removeAll(where: { $0 === stale })
+                modelContext.delete(stale)
+            }
+        }
+
+        if (book.host == nil || book.host?.isEmpty == true),
+           let firstHost = results.first?.host,
+           !firstHost.isEmpty {
             book.host = firstHost
         }
     }
-    
+
     private func reloadBookData() async {
         guard let ext = ext else { return }
         guard !ext.localPath.isEmpty else { return }

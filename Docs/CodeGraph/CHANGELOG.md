@@ -4,6 +4,14 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.19] - 2026-07-18
+
+### Local-first Reader/TTS và quản lý kho an toàn
+* Dùng chung chapter repository theo thứ tự RAM → SwiftData → extension, coalesce in-flight load và ghi nền bằng `ChapterPersistenceStore` có retry/flush.
+* Sửa dữ liệu cũ có content nhưng sai `isCached`, upsert Book/Chapter online và giữ cache khi đồng bộ lại mục lục.
+* Cô lập session Reader/TTS theo book/chapter/session identity; Reader sách khác không prepare hoặc seek TTS đang phát hay pause.
+* Danh sách kho bỏ swipe-delete và toggle; thêm nút trash, xác nhận xóa và bảo vệ kho đang được TTS sử dụng.
+
 ## [1.3.18] - 2026-07-18
 
 ### Thu gọn và căn sát widget TTS

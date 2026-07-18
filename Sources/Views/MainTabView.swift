@@ -49,6 +49,7 @@ struct MainTabView: View {
             let backgroundSession = BackgroundTaskSession.begin(name: "Flush reading progress")
             Task(priority: .high) {
                 try? await ReadingProgressStore.shared.flushAll()
+                await ChapterContentRepository.shared.flushAll()
                 backgroundSession.end()
             }
         }

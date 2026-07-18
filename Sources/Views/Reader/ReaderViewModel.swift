@@ -92,7 +92,7 @@ private struct ReaderNavigationRequest: Equatable {
 class ReaderViewModel: ObservableObject {
     @Published var readingContext: ReadingContext
     @Published private(set) var displayedChapterIndex: Int
-    @Published private(set) var pendingNavigationIndex: Int?
+    @Published private(set) var pendingNavigationIndex: Int? = nil
     @Published private(set) var navigationFailure: ReaderChapterLoadFailure?
     @Published private(set) var navigationCommit: ReaderNavigationCommit?
     @Published private(set) var isRetryingNavigation = false
@@ -690,7 +690,7 @@ class ReaderViewModel: ObservableObject {
         let title: String
         let urlString: String
         let chapterHost: String?
-        let persistedContent: String?
+        let bookMetadata: BookMetadataSnapshot?
 
         if localBook != nil {
             let sorted = getSortedChapters()
@@ -701,7 +701,7 @@ class ReaderViewModel: ObservableObject {
             title = chap.title
             urlString = chap.url
             chapterHost = chap.host
-            persistedContent = chap.isCached ? chap.content : nil
+            bookMetadata = nil
         } else {
             guard index < onlineChapters.count else {
                 throw ReaderLoadError.missingChapterSnapshot(index)
@@ -710,7 +710,7 @@ class ReaderViewModel: ObservableObject {
             title = chap.name
             urlString = chap.url
             chapterHost = chap.host
-            persistedContent = nil
+            bookMetadata = makeBookMetadataSnapshot()
         }
 
         cache.set(index, state: .loading)
@@ -730,7 +730,7 @@ class ReaderViewModel: ObservableObject {
                 title: title,
                 url: urlString,
                 host: chapterHost,
-                cachedContent: persistedContent,
+                bookMetadata: bookMetadata,
                 extensionInfo: extensionInfo,
                 forceRefresh: forceRefresh
             )
@@ -739,16 +739,9 @@ class ReaderViewModel: ObservableObject {
         try Task.checkCancellation()
         let cleanedContent = result.document.text.content
         if result.origin == .extensionFetch {
-            if localBook != nil {
-                onChapterCached?(index)
-            } else if saveOnlineBookIfNeeded(
-                currentIndex: index,
-                cleanedContent: cleanedContent,
-                title: title,
-                url: urlString
-            ) {
-                onChapterCached?(index)
-            }
+            cachedLocalBook = nil
+            cachedSortedChapters = nil
+            onChapterCached?(index)
         }
 
         await processAndSaveChapter(index: index, originalTitle: title, originalContent: cleanedContent)
@@ -769,13 +762,14 @@ class ReaderViewModel: ObservableObject {
         )
     }
 
-    private func saveOnlineBookIfNeeded(currentIndex: Int, cleanedContent: String, title: String, url: String) -> Bool {
-        guard let bookTitle = bookTitle, localBook == nil else { return false }
+    private func makeBookMetadataSnapshot() -> BookMetadataSnapshot? {
+        guard localBook == nil, let title = bookTitle, !title.isEmpty else {
+            return nil
+        }
 
-        // Tạo sách mới trong database
-        let newBook = Book(
+        return BookMetadataSnapshot(
             bookId: bookId,
-            title: bookTitle,
+            title: title,
             author: bookAuthor ?? "Không rõ",
             coverUrl: bookCoverUrl ?? "",
             desc: bookDesc ?? "",
@@ -783,39 +777,16 @@ class ReaderViewModel: ObservableObject {
             sourceName: bookSourceName ?? "Không rõ",
             sourceUrl: bookDetailUrl ?? "",
             extensionPackageId: extensionPackageId,
-            currentChapterIndex: currentIndex,
-            currentChapterTitle: title,
-            isOnShelf: false,
-            isHistory: true,
-            host: onlineChapters.first?.host
+            host: onlineChapters.first?.host,
+            chapters: onlineChapters.enumerated().map { index, chapter in
+                ChapterMetadataSnapshot(
+                    title: chapter.name,
+                    url: chapter.url,
+                    index: index,
+                    host: chapter.host
+                )
+            }
         )
-
-        // Nạp các chương
-        var chaps: [Chapter] = []
-        for (i, c) in onlineChapters.enumerated() {
-            let chapId = "\(bookId)_\(c.url)"
-            let chap = Chapter(
-                id: chapId,
-                title: c.name,
-                url: c.url,
-                index: i,
-                content: i == currentIndex ? cleanedContent : nil,
-                isCached: i == currentIndex,
-                host: c.host
-            )
-            chaps.append(chap)
-        }
-        newBook.chapters = chaps
-        modelContext.insert(newBook)
-        do {
-            try modelContext.save()
-        } catch {
-            modelContext.delete(newBook)
-            return false
-        }
-        self.cachedLocalBook = newBook
-        self.cachedSortedChapters = chaps.sorted(by: { $0.index < $1.index })
-        return true
     }
 
     // Xử lý dịch thuật và lưu vào RAM Cache
@@ -853,11 +824,6 @@ class ReaderViewModel: ObservableObject {
             cached.state = .loaded
         }
 
-        // Thông báo TTSManager cập nhật cachedContent cho chương này trong chaptersQueue,
-        // để advanceToNextChapter có thể dùng ngay mà không fetch lại mạng.
-        if TTSManager.shared.playingBookId == bookId {
-            TTSManager.shared.updateChapterCache(at: index, content: originalContent)
-        }
     }
 
     // Bật/tắt dịch thuật nhanh từ RAM

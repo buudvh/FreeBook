@@ -215,5 +215,7 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - Widget actions call `TTSManager.pause/resume/skipForward/stop`; `skipForward` also advances the selected paragraph while paused, and Reader recovery uses the `navigateReaderToPlayingChapter` notification when the book is already visible.
+- Reader/TTS call `ChapterContentRepository.load`; it coalesces by `ChapterKey`, calls `ChapterPersistenceStore.readChapter`, falls back to the extension, then enqueues `upsert` without blocking MainActor.
+- Reader dismissal and app background call repository flush APIs. Repository deletion calls extension uninstall only after confirmation and rejects deletion while that repository owns the visible TTS session.
 
 <!-- GENERATED END -->

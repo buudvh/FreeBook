@@ -236,5 +236,7 @@ Reader chrome observes the pending target and immediately shows its title, chapt
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - The TTS widget presents a compact horizontal capsule over Reader, with a circular rotating cover, play/pause, fast-forward and close actions. Its edge-peek mode preserves the same playback and placement state and expands on drag.
+- The Chapter Text subsystem now includes `ChapterPersistenceStore`: shared Reader/TTS loads use RAM, background SwiftData, then extension, with coalesced in-flight work and cache-preserving TOC reconciliation.
+- Extension repository management removes row swipe/toggle behavior in favor of an explicit confirmed delete action compatible with the paged tab gesture.
 
 <!-- GENERATED END -->

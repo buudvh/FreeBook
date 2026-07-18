@@ -136,5 +136,8 @@ stateDiagram-v2
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - TTS widget state is `revealed` or `peeking`: drag cancels auto-hide, snapping near an edge enters peeking, and an idle revealed widget collapses without changing playback state or persisted placement.
 - Reader bootstrap no longer waits for a chapter-list presentation to discover local/late online chapter counts; snapshot availability transitions directly into the existing loading/ready state.
+- Shared chapter entries transition from missing to memory-backed immediately after fetch while persistence runs pending/retry in `ChapterPersistenceStore`; reload is the only path that bypasses local tiers.
+- Reader/TTS synchronization is enabled only when book IDs match. Opening another Reader leaves both playing and paused TTS sessions unchanged until an explicit start replaces the session.
+- Repository deletion UI transitions idle -> confirmation -> deleted/blocked; no row swipe or enable/disable state participates in the page gesture.
 
 <!-- GENERATED END -->

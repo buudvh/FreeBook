@@ -7,6 +7,7 @@ public final class Repository {
     public var name: String
     public var author: String?
     public var desc: String?
+    // Kept for SwiftData schema compatibility. Repository enable/disable UI was removed.
     public var isEnabled: Bool = true
     public var lastUpdated: Date = Date()
     

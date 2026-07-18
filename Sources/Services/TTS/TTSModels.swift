@@ -85,15 +85,13 @@ public struct TTSChapterInfo: Codable, Equatable, Sendable {
     public let title: String
     public let url: String
     public let index: Int
-    public var cachedContent: String?
-    /// Host của chương — cần thiết để TTSManager tự fetch nội dung khi chưa cache
+    /// Host của chương — cần thiết để repository fetch nội dung khi chưa cache local
     public var host: String?
     
-    public init(title: String, url: String, index: Int, cachedContent: String? = nil, host: String? = nil) {
+    public init(title: String, url: String, index: Int, host: String? = nil) {
         self.title = title
         self.url = url
         self.index = index
-        self.cachedContent = cachedContent
         self.host = host
     }
 }

@@ -1576,5 +1576,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - `TTSFloatingWidgetView` composes the capsule and `TTSCoverView`; `FloatingWidgetViewModel` owns `WidgetMode`, edge persistence, drag snapping, and the cancellable idle-collapse task.
 - `DictionaryMatchInfo` is a module-level `Identifiable/Equatable` value shared by Reader and definition management. `ReaderSettingsView` and generic `ReaderViewModelObserver` are standalone Reader UI types.
+- `ChapterKey` identifies shared loads; `BookMetadataSnapshot`, `ChapterMetadataSnapshot`, and `PersistedChapterSnapshot` cross actor boundaries; `ChapterPersistenceStore` owns pending SwiftData writes and retries.
+- `RepositoryManagerView` adds `repositoryToDelete` plus confirmation presentation state while persisted `Repository.isEnabled` remains schema-only compatibility data.
 
 <!-- GENERATED END -->

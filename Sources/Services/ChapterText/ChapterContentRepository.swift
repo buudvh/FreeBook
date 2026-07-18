@@ -13,9 +13,15 @@ struct ChapterContentRequest: Sendable, Equatable {
     let title: String
     let url: String
     let host: String?
-    let cachedContent: String?
+    let bookMetadata: BookMetadataSnapshot?
     let extensionInfo: TTSExtensionInfo?
     let forceRefresh: Bool
+}
+
+struct ChapterKey: Hashable, Sendable, Equatable {
+    let bookId: String
+    let chapterIndex: Int
+    let url: String
 }
 
 struct ChapterContentResult: Sendable, Equatable {
@@ -43,21 +49,30 @@ enum ChapterContentRepositoryError: LocalizedError {
 actor ChapterContentRepository {
     static let shared = ChapterContentRepository()
 
-    private struct CacheKey: Hashable {
-        let bookId: String
-        let chapterIndex: Int
-        let url: String
+    private struct InFlightLoad {
+        let id: UUID
+        let task: Task<ChapterContentResult, Error>
     }
 
-    private var container: ModelContainer?
-    private var memory: [CacheKey: ChapterDocument] = [:]
+    private var persistenceStore: ChapterPersistenceStore?
+    private var configuredContainerID: ObjectIdentifier?
+    private var memory: [ChapterKey: ChapterDocument] = [:]
+    private var inFlightLoads: [ChapterKey: InFlightLoad] = [:]
 
     func configure(container: ModelContainer) {
-        self.container = container
+        let containerID = ObjectIdentifier(container)
+        guard configuredContainerID != containerID else { return }
+        for load in inFlightLoads.values {
+            load.task.cancel()
+        }
+        inFlightLoads.removeAll()
+        memory.removeAll()
+        persistenceStore = ChapterPersistenceStore(container: container)
+        configuredContainerID = containerID
     }
 
     func store(_ document: ChapterDocument, bookId: String) {
-        memory[CacheKey(bookId: bookId, chapterIndex: document.chapterIndex, url: document.url)] = document
+        memory[ChapterKey(bookId: bookId, chapterIndex: document.chapterIndex, url: document.url)] = document
     }
 
     func remove(bookId: String, chapterIndex: Int) {
@@ -66,8 +81,16 @@ actor ChapterContentRepository {
         }
     }
 
+    func flush(bookId: String) async {
+        await persistenceStore?.flush(bookId: bookId)
+    }
+
+    func flushAll() async {
+        await persistenceStore?.flushAll()
+    }
+
     func load(_ request: ChapterContentRequest) async throws -> ChapterContentResult {
-        let key = CacheKey(
+        let key = ChapterKey(
             bookId: request.bookId,
             chapterIndex: request.chapterIndex,
             url: request.url
@@ -77,30 +100,99 @@ actor ChapterContentRepository {
             return ChapterContentResult(document: document, origin: .memory)
         }
 
-        if !request.forceRefresh,
-           let content = request.cachedContent,
-           !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            let document = makeDocument(request: request, rawContent: content)
-            memory[key] = document
-            return ChapterContentResult(document: document, origin: .persistentCache)
+        if !request.forceRefresh, let inFlight = inFlightLoads[key] {
+            return try await inFlight.task.value
+        }
+        if request.forceRefresh, let inFlight = inFlightLoads[key] {
+            inFlight.task.cancel()
         }
 
-        if !request.forceRefresh, let content = try fetchPersistedContent(for: request) {
-            let document = makeDocument(request: request, rawContent: content)
-            memory[key] = document
-            return ChapterContentResult(document: document, origin: .persistentCache)
+        let task = Task { [weak self] () throws -> ChapterContentResult in
+            guard let self else {
+                throw ChapterContentRepositoryError.emptyContent
+            }
+            return try await self.loadUnshared(request, key: key)
+        }
+        let loadID = UUID()
+        inFlightLoads[key] = InFlightLoad(id: loadID, task: task)
+
+        do {
+            let result = try await task.value
+            if inFlightLoads[key]?.id == loadID {
+                inFlightLoads.removeValue(forKey: key)
+            }
+            return result
+        } catch {
+            if inFlightLoads[key]?.id == loadID {
+                inFlightLoads.removeValue(forKey: key)
+            }
+            throw error
+        }
+    }
+
+    private func loadUnshared(
+        _ request: ChapterContentRequest,
+        key: ChapterKey
+    ) async throws -> ChapterContentResult {
+        if !request.forceRefresh, let document = memory[key] {
+            return ChapterContentResult(document: document, origin: .memory)
+        }
+
+        if !request.forceRefresh, let store = persistenceStore {
+            do {
+                if let persisted = try await store.readChapter(
+                    bookId: request.bookId,
+                    chapterIndex: request.chapterIndex,
+                    url: request.url
+                ) {
+                    try Task.checkCancellation()
+                    let document = makeDocument(request: request, rawContent: persisted.content)
+                    memory[key] = document
+                    return ChapterContentResult(document: document, origin: .persistentCache)
+                }
+            } catch {
+                AppLogger.shared.log(
+                    "❌ [ChapterContentRepository] Không thể đọc cache local \(request.bookId)#\(request.chapterIndex): \(error.localizedDescription)"
+                )
+            }
+        }
+
+        if let metadata = request.bookMetadata, let store = persistenceStore {
+            do {
+                try await store.ensureBook(metadata)
+            } catch {
+                AppLogger.shared.log(
+                    "❌ [ChapterContentRepository] Không thể chuẩn bị metadata local \(request.bookId): \(error.localizedDescription)"
+                )
+            }
         }
 
         guard let extensionInfo = request.extensionInfo else {
             throw ChapterContentRepositoryError.unavailableExtension
         }
         let rawContent = try await fetchFromExtension(request: request, extensionInfo: extensionInfo)
+        try Task.checkCancellation()
         let document = makeDocument(request: request, rawContent: rawContent.cleanHTML())
         guard !document.text.content.isEmpty else {
             throw ChapterContentRepositoryError.emptyContent
         }
-        try persist(document, bookId: request.bookId)
+
+        try Task.checkCancellation()
+
         memory[key] = document
+        let chapter = ChapterMetadataSnapshot(
+            title: request.title,
+            url: request.url,
+            index: request.chapterIndex,
+            host: request.host
+        )
+        await persistenceStore?.enqueueWrite(
+            key: "\(request.bookId)|\(request.chapterIndex)|\(request.url)",
+            bookId: request.bookId,
+            book: request.bookMetadata,
+            chapter: chapter,
+            content: document.text.content
+        )
         return ChapterContentResult(document: document, origin: .extensionFetch)
     }
 
@@ -115,33 +207,6 @@ actor ChapterContentRepository {
             host: request.host,
             text: ChapterTextNormalizer.normalize(rawContent)
         )
-    }
-
-    private func fetchPersistedContent(for request: ChapterContentRequest) throws -> String? {
-        guard let container else { return nil }
-        let context = ModelContext(container)
-        let books = try context.fetch(FetchDescriptor<Book>())
-        guard let book = books.first(where: { $0.bookId == request.bookId }),
-              let chapter = book.chapters.first(where: {
-                  $0.index == request.chapterIndex || $0.url == request.url
-              }),
-              chapter.isCached,
-              let content = chapter.content,
-              !content.isEmpty else { return nil }
-        return content
-    }
-
-    private func persist(_ document: ChapterDocument, bookId: String) throws {
-        guard let container else { return }
-        let context = ModelContext(container)
-        let books = try context.fetch(FetchDescriptor<Book>())
-        guard let book = books.first(where: { $0.bookId == bookId }),
-              let chapter = book.chapters.first(where: {
-                  $0.index == document.chapterIndex || $0.url == document.url
-              }) else { return }
-        chapter.content = document.text.content
-        chapter.isCached = true
-        try context.save()
     }
 
     private func fetchFromExtension(

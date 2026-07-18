@@ -113,17 +113,10 @@ public final class TTSManager: NSObject, ObservableObject {
     // Callbacks chuyển chương
     public var onChapterFinished: (() -> Void)?
 
-    /// Cập nhật cachedContent cho một chương trong chaptersQueue.
-    /// Gọi từ ReaderViewModel sau khi chương được load xong vào ChapterCache,
-    /// để advanceToNextChapter có thể dùng ngay mà không cần fetch lại.
-    public func updateChapterCache(at index: Int, content: String) {
-        guard let queueIndex = chaptersQueue.firstIndex(where: { $0.index == index }) else { return }
-        chaptersQueue[queueIndex].cachedContent = ChapterTextNormalizer.normalize(content).content
-    }
-
     // Dữ liệu phân đoạn
     public private(set) var paragraphs: [TTSParagraph] = []
     private var chapterContent: String = ""
+    private var normalizedChapterText = ChapterTextNormalizer.normalize("")
 
     // Trình phát & Engine
     private let siriService = SiriTTSService()
@@ -322,27 +315,29 @@ public final class TTSManager: NSObject, ObservableObject {
         self.playingBookDetailUrl = bookDetailUrl
         self.playingBookSourceName = bookSourceName
         self.extensionInfo = extensionInfo
-        let normalizedContent = ChapterTextNormalizer.normalize(chapterContent).content
-        self.chapterContent = normalizedContent
+        let normalizedText = ChapterTextNormalizer.normalize(chapterContent)
+        self.normalizedChapterText = normalizedText
+        self.chapterContent = normalizedText.content
 
         self.clearPrefetchCache()
 
         guard let currentChapter = chapters.first(where: { $0.index == currentIndex }) else { return }
         self.playingChapterUrl = currentChapter.url
         self.chapterTitle = currentChapter.title
+        let preparationChapterURL = currentChapter.url
 
         let currentChunkLen = self.chunkLength
         self.prepareSpeakingTask?.cancel()
         self.prepareSpeakingTask = Task {
-            let parsed = await Task.detached(priority: .userInitiated) { [weak self] () -> [TTSParagraph] in
-                guard let self = self else { return [] }
-                return self.parseParagraphs(normalizedContent, chunkLength: currentChunkLen)
+            let parsed = await Task.detached(priority: .userInitiated) { () -> [TTSParagraph] in
+                return TTSParagraphBuilder.build(from: normalizedText, chunkLength: currentChunkLen)
             }.value
 
             guard !Task.isCancelled else { return }
             guard preparationSessionID == self.sessionID,
                   bookId == self.playingBookId,
-                  currentIndex == self.playingChapterIndex else { return }
+                  currentIndex == self.playingChapterIndex,
+                  preparationChapterURL == self.playingChapterUrl else { return }
 
             self.paragraphs = parsed
 
@@ -435,7 +430,8 @@ public final class TTSManager: NSObject, ObservableObject {
         self.playingBookDetailUrl = bookDetailUrl
         self.playingBookSourceName = bookSourceName
         self.extensionInfo = extensionInfo
-        self.chapterContent = ChapterTextNormalizer.normalize(chapterContent).content
+        self.normalizedChapterText = ChapterTextNormalizer.normalize(chapterContent)
+        self.chapterContent = normalizedChapterText.content
         self.showFloatingWidget = true
         Task { await ReadingProgressStore.shared.claim(bookId: bookId, owner: .tts) }
 
@@ -454,7 +450,7 @@ public final class TTSManager: NSObject, ObservableObject {
 
     private func continueStartSpeaking(startParagraphIndex: Int) {
         // Phân đoạn văn bản sạch
-        self.paragraphs = parseParagraphs(chapterContent, chunkLength: chunkLength)
+        self.paragraphs = TTSParagraphBuilder.build(from: normalizedChapterText, chunkLength: chunkLength)
 
         // Kiểm tra cấu hình hiện tên chương trong nội dung của truyện hiện tại (mặc định bật)
         let key = "showChapterTitle_\(playingBookId)"
@@ -622,7 +618,7 @@ public final class TTSManager: NSObject, ObservableObject {
         stopPlayback(keepWidget: true)
 
         // Nạp lại phân đoạn
-        self.paragraphs = parseParagraphs(chapterContent, chunkLength: chunkLength)
+        self.paragraphs = TTSParagraphBuilder.build(from: normalizedChapterText, chunkLength: chunkLength)
 
         var targetIdx = paragraphs.firstIndex(where: {
             $0.paragraphIndex == savedParagraphIdentity
@@ -736,7 +732,7 @@ public final class TTSManager: NSObject, ObservableObject {
     }
 
     /// Tự tải và phát chương tiếp theo mà không cần ReaderView làm trung gian.
-    /// Thứ tự ưu tiên: RAM cache (chaptersQueue.cachedContent) → DB cache → fetch online.
+    /// Nội dung chương kế tiếp luôn đi qua ChapterContentRepository local-first.
     /// Sau khi bắt đầu phát, post notification để ReaderView sync UI nếu đang visible.
     private func nextChapterIndex(after index: Int) -> Int? {
         chaptersQueue
@@ -749,13 +745,14 @@ public final class TTSManager: NSObject, ObservableObject {
         guard let nextChapter = chaptersQueue.first(where: { $0.index == nextIdx }) else { return }
         let expectedSessionID = sessionID
         let expectedBookId = playingBookId
+        let expectedChapterURL = nextChapter.url
         let request = ChapterContentRequest(
             bookId: expectedBookId,
             chapterIndex: nextChapter.index,
             title: nextChapter.title,
             url: nextChapter.url,
             host: nextChapter.host,
-            cachedContent: nextChapter.cachedContent,
+            bookMetadata: nil,
             extensionInfo: extensionInfo,
             forceRefresh: false
         )
@@ -767,6 +764,7 @@ public final class TTSManager: NSObject, ObservableObject {
                       self.isPlaying,
                       self.sessionID == expectedSessionID,
                       self.playingBookId == expectedBookId,
+                      self.chaptersQueue.first(where: { $0.index == nextChapter.index })?.url == expectedChapterURL,
                       self.playingChapterIndex < nextChapter.index else { return }
                 let normalized = result.document.text.content
                 let content = TranslateUtils.isTranslationEnabled
@@ -790,7 +788,8 @@ public final class TTSManager: NSObject, ObservableObject {
         self.playingChapterIndex = index
         self.playingChapterUrl = chapter.url
         self.chapterTitle = chapter.title
-        self.chapterContent = content
+        self.normalizedChapterText = ChapterTextNormalizer.normalize(content)
+        self.chapterContent = normalizedChapterText.content
         self.clearPrefetchCache()
 
         // Parse va phat tu dau chuong
@@ -808,33 +807,32 @@ public final class TTSManager: NSObject, ObservableObject {
     private func triggerNextChapterPrefetch() {
         guard let nextIdx = nextChapterIndex(after: playingChapterIndex),
               let nextChapter = chaptersQueue.first(where: { $0.index == nextIdx }) else { return }
-        guard nextChapter.cachedContent == nil || nextChapter.cachedContent?.isEmpty == true else { return }
-
         nextChapterPrefetchTask?.cancel()
 
         let expectedSessionID = sessionID
         let expectedBookId = playingBookId
+        let expectedChapterURL = nextChapter.url
         let request = ChapterContentRequest(
             bookId: expectedBookId,
             chapterIndex: nextChapter.index,
             title: nextChapter.title,
             url: nextChapter.url,
             host: nextChapter.host,
-            cachedContent: nextChapter.cachedContent,
+            bookMetadata: nil,
             extensionInfo: extensionInfo,
             forceRefresh: false
         )
 
         nextChapterPrefetchTask = Task {
             do {
-                let result = try await ChapterContentRepository.shared.load(request)
+                _ = try await ChapterContentRepository.shared.load(request)
                 guard !Task.isCancelled,
                       sessionID == expectedSessionID,
-                      playingBookId == expectedBookId else { return }
-                updateChapterCache(at: nextChapter.index, content: result.document.text.content)
+                      playingBookId == expectedBookId,
+                      chaptersQueue.first(where: { $0.index == nextChapter.index })?.url == expectedChapterURL else { return }
             } catch {
                 #if DEBUG
-                AppLogger.shared.log("[TTSManager] Prefetch next online chapter \\(nextIdx) failed: \\(error.localizedDescription)")
+                AppLogger.shared.log("[TTSManager] Prefetch next online chapter \(nextIdx) failed: \(error.localizedDescription)")
                 #endif
             }
         }
@@ -946,6 +944,7 @@ public final class TTSManager: NSObject, ObservableObject {
         let expectedSessionID = sessionID
         let expectedBookId = playingBookId
         let expectedChapterIndex = playingChapterIndex
+        let expectedChapterURL = playingChapterUrl
 
         if tool == "nghitts" {
             guard let service = nghiTTSService else { return }
@@ -962,6 +961,7 @@ public final class TTSManager: NSObject, ObservableObject {
                        self.sessionID == expectedSessionID,
                        self.playingBookId == expectedBookId,
                        self.playingChapterIndex == expectedChapterIndex,
+                       self.playingChapterUrl == expectedChapterURL,
                        self.selectedVoice == voice,
                        self.tool == toolBeforeStart {
                         if let buffer = self.makePCMBuffer(fromWavData: wavData, targetFormat: targetFormat) {
@@ -999,6 +999,7 @@ public final class TTSManager: NSObject, ObservableObject {
                        self.sessionID == expectedSessionID,
                        self.playingBookId == expectedBookId,
                        self.playingChapterIndex == expectedChapterIndex,
+                       self.playingChapterUrl == expectedChapterURL,
                        self.selectedVoice == voice,
                        self.tool == toolBeforeStart {
                         self.preloadedWavs[index] = buffer
@@ -1291,14 +1292,6 @@ public final class TTSManager: NSObject, ObservableObject {
     }
 
     // MARK: - Text Segmentation (Phân đoạn văn bản)
-
-    nonisolated private func parseParagraphs(_ content: String, chunkLength: Int) -> [TTSParagraph] {
-        TTSParagraphBuilder.build(
-            from: ChapterTextNormalizer.normalize(content),
-            chunkLength: chunkLength
-        )
-    }
-
 
     // MARK: - Lock Screen & Remote Control Sync
 

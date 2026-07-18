@@ -157,7 +157,6 @@ struct ReaderView: View {
                     title: titleToUse,
                     url: chap.url,
                     index: chap.index,
-                    cachedContent: chap.isCached ? chap.content : nil,
                     host: chap.host
                 )
             }
@@ -173,7 +172,6 @@ struct ReaderView: View {
                     title: titleToUse,
                     url: chap.url,
                     index: index,
-                    cachedContent: index == chapterIndex ? viewModel?.cache.get(index)?.content : nil,
                     host: chap.host
                 )
             }
@@ -482,6 +480,7 @@ struct ReaderView: View {
                 let ttsOwnsProgress = ttsManager.isPlaying && ttsManager.playingBookId == bookId
                 Task {
                     await vm.shutdown(saveProgress: !ttsOwnsProgress)
+                    await ChapterContentRepository.shared.flush(bookId: bookId)
                 }
             }
         }
@@ -1153,6 +1152,7 @@ struct ReaderView: View {
     private func schedulePrepareTTS() {
         guard !ttsManager.isPlaying else { return }
         guard ttsManager.showFloatingWidget else { return }
+        guard ttsManager.playingBookId == bookId else { return }
         prepareTTSTask?.cancel()
 
         let workItem = DispatchWorkItem {
@@ -1184,6 +1184,7 @@ struct ReaderView: View {
 
         // 2. Debounce 1.5 giây cho việc đồng bộ con trỏ TTS (tránh re-render ttsManager khi cuộn nhanh)
         guard ttsManager.isPlaying || ttsManager.showFloatingWidget else { return }
+        guard ttsManager.playingBookId == bookId else { return }
 
         updateTTSPositionWorkItem?.cancel()
         let ttsWork = DispatchWorkItem {

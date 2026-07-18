@@ -123,5 +123,7 @@ graph TD
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - `TTSFloatingWidgetView` owns `FloatingWidgetViewModel` and the cover animation state; `TTSManager.shared` remains the single owner of playback, chapter identity, and stop semantics.
+- `ChapterContentRepository.shared` owns cross-consumer memory and in-flight chapter loads; `ChapterPersistenceStore` owns background contexts, pending writes, retry, and flush. Reader/TTS retain separate navigation/playback sessions.
+- `RepositoryManagerView` owns the pending repository deletion selection; `ModelContext` owns the actual cascade only after user confirmation.
 
 <!-- GENERATED END -->

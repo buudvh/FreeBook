@@ -129,10 +129,10 @@ graph TD
 *   **Mục tiêu**: Cache ảnh bìa truyện tải từ các URL web về đĩa/RAM để tránh tải trùng lặp khi người dùng cuộn kệ sách.
 *   **Cơ chế**: Sử dụng `NSCache` tích hợp của Apple.
 
-### 2.5. Bộ đệm Chương truyện cho TTS (`chaptersQueue.cachedContent`)
-*   **Vị trí**: Nằm trong `TTSManager.swift` (`chaptersQueue: [TTSChapterInfo]`).
-*   **Mục tiêu**: Lưu trữ tạm thời nội dung văn bản thô trên RAM của danh sách chương để TTS có thể tự động chuyển tiếp và phát ngay mà không cần tải lại từ mạng. RAM cache này được `ReaderViewModel.processAndSaveChapter` cập nhật qua hàm `TTSManager.shared.updateChapterCache(at:content:)`.
-*   **Giải phóng**: Được dọn dẹp khi xoá prefetch cache hoặc khi dừng phát hoàn toàn.
+### 2.5. Nội dung chương dùng chung cho TTS
+*   **Vị trí**: `ChapterContentRepository` và `ChapterPersistenceStore`; `TTSManager.chaptersQueue` chỉ giữ metadata chương.
+*   **Mục tiêu**: TTS tải chương kế tiếp qua cùng pipeline `RAM → SwiftData → extension`, tránh cache nội dung thứ hai và vẫn hoạt động độc lập khi Reader đã đóng.
+*   **Đồng bộ**: Kết quả TTS chỉ được commit nếu `sessionID + bookId + chapterIndex + url` còn hợp lệ; dữ liệu tải được repository giữ RAM và ghi nền vào SwiftData.
 
 #### Reader/TTS unified pipeline (2026-07)
 
@@ -140,5 +140,7 @@ graph TD
 - Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
+- Chapter data flows `ChapterKey -> shared memory -> ChapterPersistenceStore/SwiftData -> extension fallback`; extension output is normalized once, returned immediately, and upserted with Book/TOC metadata in the background.
+- TOC refresh reconciles by stable URL and preserves cached content/title translation for matched chapters instead of deleting and recreating the relationship.
 
 <!-- GENERATED END -->

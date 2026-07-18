@@ -18,6 +18,8 @@ struct RepositoryManagerView: View {
     @ObservedObject private var extensionManager = ExtensionManager.shared
     @State private var errorMessage = ""
     @State private var selectedExtensionForConfig: Extension? = nil
+    @State private var repositoryToDelete: Repository?
+    @State private var showingDeleteRepositoryAlert = false
     
     // Bộ lọc và Trạng thái Sheet/Alert mới
     @State private var showingFilterSheet = false
@@ -349,17 +351,22 @@ struct RepositoryManagerView: View {
                                             }
                                             Spacer()
                                             
-                                            Toggle("", isOn: Binding(
-                                                get: { repo.isEnabled },
-                                                set: { val in
-                                                    repo.isEnabled = val
-                                                    try? modelContext.save()
-                                                }
-                                            ))
-                                            .labelsHidden()
+                                            Button {
+                                                guard !isRefreshingAll else { return }
+                                                repositoryToDelete = repo
+                                                showingDeleteRepositoryAlert = true
+                                            } label: {
+                                                Image(systemName: "trash")
+                                                    .foregroundColor(.red)
+                                                    .padding(8)
+                                                    .background(Color.red.opacity(0.1))
+                                                    .clipShape(Circle())
+                                            }
+                                            .buttonStyle(.borderless)
+                                            .disabled(isRefreshingAll)
+                                            .accessibilityLabel("Xóa kho \(repo.name)")
                                         }
                                     }
-                                    .onDelete(perform: deleteRepository)
                                 }
                             }
                         }
@@ -412,6 +419,21 @@ struct RepositoryManagerView: View {
                 }
             } message: {
                 Text("Hành động này sẽ gỡ cài đặt toàn bộ các tiện ích đã cài trong ứng dụng. Bạn có chắc chắn không?")
+            }
+            .alert(
+                "Xóa kho tiện ích?",
+                isPresented: $showingDeleteRepositoryAlert,
+                presenting: repositoryToDelete
+            ) { repo in
+                Button("Hủy", role: .cancel) {
+                    repositoryToDelete = nil
+                }
+                Button("Xóa kho", role: .destructive) {
+                    deleteRepository(repo)
+                    repositoryToDelete = nil
+                }
+            } message: { repo in
+                Text("Kho \(repo.name) và các tiện ích đã cài từ kho này sẽ bị xóa khỏi ứng dụng.")
             }
             .sheet(isPresented: $showingFilterSheet) {
                 FilterSheet(
@@ -543,20 +565,27 @@ struct RepositoryManagerView: View {
         }
     }
     
-    private func deleteRepository(offsets: IndexSet) {
-        for index in offsets {
-            let repo = repositories[index]
-            for ext in repo.extensions {
-                if !ext.localPath.isEmpty {
-                    ExtensionManager.shared.uninstall(localPath: ext.localPath)
-                }
-            }
-            modelContext.delete(repo)
+    private func deleteRepository(_ repo: Repository) {
+        guard !isRefreshingAll else {
+            statusMessage = "Hãy chờ cập nhật kho hoàn tất trước khi xóa."
+            return
         }
+
+        if (TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget),
+           let playingPackageId = TTSManager.shared.extensionInfo?.packageId,
+           repo.extensions.contains(where: { $0.packageId == playingPackageId }) {
+            statusMessage = "Không thể xóa kho đang được TTS sử dụng. Hãy dừng TTS trước."
+            return
+        }
+
+        for ext in repo.extensions where !ext.localPath.isEmpty {
+            ExtensionManager.shared.uninstall(localPath: ext.localPath)
+        }
+        modelContext.delete(repo)
         try? modelContext.save()
         statusMessage = "Đã xóa kho tiện ích."
     }
-    
+
     private func installExtension(_ ext: Extension) {
         var downloadUrl = ext.downloadUrl
         if downloadUrl.isEmpty, let repo = ext.repository {
