@@ -3,8 +3,8 @@ import XCTest
 
 @MainActor
 final class FloatingWidgetViewModelTests: XCTestCase {
-    private let widgetWidth: CGFloat = 292
-    private let widgetHeight: CGFloat = 64
+    private let widgetWidth: CGFloat = 252
+    private let widgetHeight: CGFloat = 56
     private let screenWidth: CGFloat = 390
     private let screenHeight: CGFloat = 844
     private let ratioKey = "ttsWidgetVerticalRatio"
@@ -20,7 +20,7 @@ final class FloatingWidgetViewModelTests: XCTestCase {
             widgetHeight: widgetHeight,
             screenWidth: screenWidth,
             screenHeight: screenHeight,
-            edgeSnapDistance: 48
+            edgeSnapDistance: 40
         )
 
         XCTAssertEqual(model.edgeDirection, .left)
@@ -41,7 +41,7 @@ final class FloatingWidgetViewModelTests: XCTestCase {
             widgetHeight: widgetHeight,
             screenWidth: screenWidth,
             screenHeight: screenHeight,
-            edgeSnapDistance: 48
+            edgeSnapDistance: 40
         )
 
         XCTAssertEqual(model.edgeDirection, .right)
@@ -64,7 +64,7 @@ final class FloatingWidgetViewModelTests: XCTestCase {
             widgetHeight: widgetHeight,
             screenWidth: screenWidth,
             screenHeight: screenHeight,
-            edgeSnapDistance: 48
+            edgeSnapDistance: 40
         )
         XCTAssertEqual(model.verticalRatio, minY / screenHeight, accuracy: 0.0001)
 
@@ -74,7 +74,7 @@ final class FloatingWidgetViewModelTests: XCTestCase {
             widgetHeight: widgetHeight,
             screenWidth: screenWidth,
             screenHeight: screenHeight,
-            edgeSnapDistance: 48
+            edgeSnapDistance: 40
         )
         XCTAssertEqual(model.verticalRatio, maxY / screenHeight, accuracy: 0.0001)
 
@@ -98,7 +98,7 @@ final class FloatingWidgetViewModelTests: XCTestCase {
             widgetHeight: widgetHeight,
             screenWidth: screenWidth,
             screenHeight: screenHeight,
-            edgeSnapDistance: 48
+            edgeSnapDistance: 40
         )
 
         // handleDragEnd() sets mode to peeking at the nearest edge

@@ -392,6 +392,15 @@ struct ReaderView: View {
             }
             chapterListStore?.synchronize(localBook: localBook, onlineChapters: currentOnlineChapters)
         }
+        .onChange(of: onlineChapters.count) { _, newCount in
+            guard newCount > 0, newCount != currentOnlineChapters.count else { return }
+            currentOnlineChapters = onlineChapters
+            viewModel?.updateChapterSnapshot(
+                totalCount: newCount,
+                onlineChapters: onlineChapters
+            )
+            chapterListStore?.synchronize(localBook: localBook, onlineChapters: onlineChapters)
+        }
 
         .onAppear {
             let key = "showChapterTitle_\(bookId)"

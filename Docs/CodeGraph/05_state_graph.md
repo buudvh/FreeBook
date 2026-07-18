@@ -25,6 +25,8 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 * Speculative loading is limited to N+1 after 750 ms idle and is disabled while TTS owns the same book.
 * Horizontal drag is not a state transition. Manual chapter changes come from footer buttons or the chapter list.
 
+* The floating TTS widget has a compact expanded capsule (252x56) whose left/right resting centers place its bounds directly on the selected screen edge; the peeking state keeps only a 52-point half-disc visible.
+
 ## 1. Máy Trạng thái Phát Giọng đọc (TTS Playback State Machine)
 
 Máy trạng thái này điều khiển việc phát âm thanh trong `TTSManager.swift`, đồng bộ hóa với Floating Widget (`FloatingWidgetViewModel` và `WidgetState`).
@@ -133,5 +135,6 @@ stateDiagram-v2
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - TTS widget state is `revealed` or `peeking`: drag cancels auto-hide, snapping near an edge enters peeking, and an idle revealed widget collapses without changing playback state or persisted placement.
+- Reader bootstrap no longer waits for a chapter-list presentation to discover local/late online chapter counts; snapshot availability transitions directly into the existing loading/ready state.
 
 <!-- GENERATED END -->

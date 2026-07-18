@@ -4,6 +4,12 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.18] - 2026-07-18
+
+### Thu gọn và căn sát widget TTS
+* Giảm kích thước capsule và các nút điều khiển để widget che ít nội dung Reader hơn.
+* Căn trạng thái mở rộng sát mép trái/phải màn hình; trạng thái thu gọn giữ nửa hình tròn nhỏ hơn ở đúng cạnh đã chọn.
+
 ## [1.3.17] - 2026-07-18
 
 ### Sửa lỗi biên dịch sau khi dọn Reader legacy
@@ -11,6 +17,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 * Trả đúng `ReaderParagraphBuildResult` từ `Task.detached` trong `ReaderViewModel`, tránh suy luận kết quả thành `Void`.
 * Chỉ khởi chạy task cấu hình progress/repository sau khi toàn bộ stored property của `ReaderViewModel` đã được khởi tạo.
 * Dọn closure rỗng trong navigation commit và capture `self` không sử dụng của `ImageCacheManager`.
+* Reader tự lấy snapshot chương local khi `@Query` đến muộn và đồng bộ danh sách chương online cập nhật sau khi Reader đã mount; widget TTS không còn phủ vùng hit-test toàn màn hình.
 
 ## [1.3.16] - 2026-07-18
 

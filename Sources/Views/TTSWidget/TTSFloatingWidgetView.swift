@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct TTSFloatingWidgetView: View {
     @StateObject private var viewModel = FloatingWidgetViewModel()
@@ -7,49 +8,68 @@ struct TTSFloatingWidgetView: View {
 
     @State private var visualPosition: CGPoint?
     @State private var dragOrigin: CGPoint?
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     static let widgetAnimation = Animation.spring(response: 0.34, dampingFraction: 0.82)
 
     enum Layout {
-        static let width: CGFloat = 292
-        static let height: CGFloat = 64
-        static let coverSize: CGFloat = 48
-        static let playButtonSize: CGFloat = 38
-        static let actionButtonSize: CGFloat = 34
-        static let peekSize: CGFloat = 62
-        static let horizontalMargin: CGFloat = 12
+        // Keep the control compact enough to leave the Reader tappable while
+        // allowing the capsule to sit flush against either screen edge.
+        static let width: CGFloat = 252
+        static let height: CGFloat = 56
+        static let coverSize: CGFloat = 40
+        static let playButtonSize: CGFloat = 34
+        static let actionButtonSize: CGFloat = 30
+        static let peekSize: CGFloat = 52
+        static let horizontalMargin: CGFloat = 0
         static let verticalMargin: CGFloat = 92
-        static let edgeSnapDistance: CGFloat = 48
+        static let edgeSnapDistance: CGFloat = 40
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            let restingPosition = restingPosition(
-                screenWidth: geometry.size.width,
-                screenHeight: geometry.size.height
-            )
-            let renderPosition = visualPosition ?? restingPosition
+        let _ = horizontalSizeClass
+        let _ = verticalSizeClass
+        let size = screenSize
+        let restingPosition = restingPosition(
+            screenWidth: size.width,
+            screenHeight: size.height
+        )
+        let renderPosition = visualPosition ?? restingPosition
+        let widgetWidth = viewModel.mode == .peeking ? Layout.peekSize : Layout.width
+        let widgetHeight = viewModel.mode == .peeking ? Layout.peekSize : Layout.height
 
-            widgetBody
-                .frame(
-                    width: viewModel.mode == .peeking ? Layout.peekSize : Layout.width,
-                    height: viewModel.mode == .peeking ? Layout.peekSize : Layout.height
+        widgetBody
+            .frame(width: widgetWidth, height: widgetHeight)
+            // AppLaunchRootView places this view in a centered ZStack. Keeping
+            // the outer layout equal to the widget bounds prevents a full-screen
+            // GeometryReader from intercepting taps intended for Reader content.
+            .offset(
+                x: renderPosition.x - size.width / 2,
+                y: renderPosition.y - size.height / 2
+            )
+            .contentShape(Rectangle())
+            .highPriorityGesture(
+                dragGesture(
+                    restingPosition: restingPosition,
+                    screenWidth: size.width,
+                    screenHeight: size.height
                 )
-                .position(renderPosition)
-                .contentShape(Rectangle())
-                .highPriorityGesture(
-                    dragGesture(
-                        restingPosition: restingPosition,
-                        screenWidth: geometry.size.width,
-                        screenHeight: geometry.size.height
-                    )
-                )
-                .animation(Self.widgetAnimation, value: viewModel.mode)
-        }
-        .ignoresSafeArea()
-        .onDisappear {
-            viewModel.cancelTasks()
-        }
+            )
+            .animation(Self.widgetAnimation, value: viewModel.mode)
+            .onDisappear {
+                viewModel.cancelTasks()
+            }
+    }
+
+    private var screenSize: CGSize {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let windowSize = scenes
+            .flatMap { $0.windows }
+            .first(where: { $0.isKeyWindow })?
+            .bounds
+            .size
+        return windowSize ?? UIScreen.main.bounds.size
     }
 
     @ViewBuilder
@@ -62,7 +82,7 @@ struct TTSFloatingWidgetView: View {
     }
 
     private var expandedWidget: some View {
-        HStack(spacing: 9) {
+        HStack(spacing: 6) {
             Button(action: openCurrentChapter) {
                 TTSCoverView(
                     coverURL: ttsManager.playingCoverUrl,
@@ -86,7 +106,7 @@ struct TTSFloatingWidgetView: View {
 
             Button(action: togglePlayback) {
                 Image(systemName: playState.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: Layout.playButtonSize, height: Layout.playButtonSize)
                     .background(Circle().fill(Color.accentColor))
@@ -96,7 +116,7 @@ struct TTSFloatingWidgetView: View {
 
             Button(action: skipForward) {
                 Image(systemName: "forward.fill")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: Layout.actionButtonSize, height: Layout.actionButtonSize)
                     .background(Circle().fill(Color.primary.opacity(0.09)))
@@ -106,7 +126,7 @@ struct TTSFloatingWidgetView: View {
 
             Button(action: stopTTS) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(.secondary)
                     .frame(width: Layout.actionButtonSize, height: Layout.actionButtonSize)
                     .background(Circle().fill(Color.primary.opacity(0.09)))
@@ -114,7 +134,7 @@ struct TTSFloatingWidgetView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Đóng TTS")
         }
-        .padding(.horizontal, 9)
+        .padding(.horizontal, 7)
         .frame(width: Layout.width, height: Layout.height)
         .background(
             Capsule(style: .continuous)

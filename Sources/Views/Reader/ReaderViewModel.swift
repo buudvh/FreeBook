@@ -188,10 +188,21 @@ class ReaderViewModel: ObservableObject {
     ) {
         self.bookId = bookId
         self.extensionPackageId = extensionPackageId
-        self.totalChaptersCount = totalChaptersCount
         self.bootstrapChapterIndex = initialChapterIndex
         self.bootstrapParagraphIndex = initialParagraphIndex
         self.modelContext = modelContext
+
+        // The Reader can appear before its @Query in ReaderView has delivered the
+        // Book relationship. Resolve a local snapshot directly from this context
+        // so bootstrap does not remain at zero chapters until another view event.
+        let resolvedLocalChapterCount: Int = {
+            guard totalChaptersCount == 0 else { return totalChaptersCount }
+            let descriptor = FetchDescriptor<Book>()
+            let books = (try? modelContext.fetch(descriptor)) ?? []
+            let localCount = books.first(where: { $0.bookId == bookId })?.chapters.count ?? 0
+            return max(localCount, onlineChapters.count)
+        }()
+        self.totalChaptersCount = resolvedLocalChapterCount
         self.onlineChapters = onlineChapters
         self.isTranslationEnabled = isTranslationEnabled
         self.bookTitle = bookTitle
@@ -215,7 +226,7 @@ class ReaderViewModel: ObservableObject {
 
         setupSubscriptions()
         _ = cache.setPlaceholder(max(initialChapterIndex, 0))
-        if totalChaptersCount > 0 {
+        if self.totalChaptersCount > 0 {
             bootstrapReader()
         } else {
             scheduleBootstrapTimeout()
