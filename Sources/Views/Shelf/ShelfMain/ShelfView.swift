@@ -353,11 +353,21 @@ struct ShelfView: View {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openCurrentlyPlayingReader"))) { _ in
-                guard ReaderView.activeBookId != ttsManager.playingBookId || ReaderView.activeChapterIndex != ttsManager.playingChapterIndex else {
+                guard !ttsManager.playingBookId.isEmpty else {
                     return
                 }
                 let bookId = ttsManager.playingBookId
-                if !bookId.isEmpty {
+                if ReaderView.activeBookId == bookId {
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("navigateReaderToPlayingChapter"),
+                        object: nil,
+                        userInfo: [
+                            "bookId": bookId,
+                            "chapterIndex": ttsManager.playingChapterIndex,
+                            "paragraphIndex": ttsManager.currentParentParagraphIndex
+                        ]
+                    )
+                } else {
                     self.selectedTab = 1 // Switch to Shelf tab
                     self.navigateToPlayingBookId = bookId
                     self.navigateToPlayingExtensionId = ttsManager.extensionInfo?.packageId ?? ""
@@ -517,6 +527,10 @@ struct ShelfView: View {
         if book.isHistory {
             book.isOnShelf = false
         } else {
+            clearReaderFallback(for: book.bookId)
+            if ttsManager.playingBookId == book.bookId {
+                ttsManager.stop()
+            }
             modelContext.delete(book)
         }
         try? modelContext.save()
@@ -527,6 +541,10 @@ struct ShelfView: View {
         try? modelContext.save()
         
         if !book.isOnShelf {
+            clearReaderFallback(for: book.bookId)
+            if ttsManager.playingBookId == book.bookId {
+                ttsManager.stop()
+            }
             let id = book.persistentModelID
             let container = modelContext.container
             Task.detached(priority: .background) {
@@ -537,6 +555,11 @@ struct ShelfView: View {
                 }
             }
         }
+    }
+
+    private func clearReaderFallback(for bookId: String) {
+        UserDefaults.standard.removeObject(forKey: "lastChapterIndex_\(bookId)")
+        UserDefaults.standard.removeObject(forKey: "lastParagraphIndex_\(bookId)")
     }
     
     private func clearAllHistory() {

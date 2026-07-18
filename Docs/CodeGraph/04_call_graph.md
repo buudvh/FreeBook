@@ -207,4 +207,13 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 ### 3.3. Các thông báo hệ thống (Notification Center)
 *   **Cuộc gọi**: `AVAudioSession.interruptionNotification`, `routeChangeNotification`, `mediaServicesWereResetNotification`.
 *   **Phân tích tĩnh**: **UNKNOWN**. Đăng ký lắng nghe qua Combine publishers. Hệ điều hành phát thông báo và kích hoạt callback thực thi trong `TTSManager`.
+
+#### Reader/TTS unified pipeline (2026-07)
+
+- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, compact paragraph IDs, and UTF-16 ranges. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
+- Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
+- `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
+- `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
+- Widget actions call `TTSManager.pause/resume/skipForward/stop`; `skipForward` also advances the selected paragraph while paused, and Reader recovery uses the `navigateReaderToPlayingChapter` notification when the book is already visible.
+
 <!-- GENERATED END -->

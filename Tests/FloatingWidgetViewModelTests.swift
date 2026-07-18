@@ -3,7 +3,8 @@ import XCTest
 
 @MainActor
 final class FloatingWidgetViewModelTests: XCTestCase {
-    private let buttonSize: CGFloat = 55
+    private let widgetWidth: CGFloat = 292
+    private let widgetHeight: CGFloat = 64
     private let screenWidth: CGFloat = 390
     private let screenHeight: CGFloat = 844
     private let ratioKey = "ttsWidgetVerticalRatio"
@@ -14,14 +15,16 @@ final class FloatingWidgetViewModelTests: XCTestCase {
         let model = FloatingWidgetViewModel()
 
         model.handleDragEnd(
-            finalPosition: CGPoint(x: 120, y: 320),
-            buttonSize: buttonSize,
+            finalPosition: CGPoint(x: 20, y: 320),
+            widgetWidth: widgetWidth,
+            widgetHeight: widgetHeight,
             screenWidth: screenWidth,
-            screenHeight: screenHeight
+            screenHeight: screenHeight,
+            edgeSnapDistance: 48
         )
 
         XCTAssertEqual(model.edgeDirection, .left)
-        XCTAssertEqual(model.mode, .collapsed)
+        XCTAssertEqual(model.mode, .peeking)
         XCTAssertEqual(model.verticalRatio, 320 / screenHeight, accuracy: 0.0001)
         XCTAssertEqual(UserDefaults.standard.string(forKey: edgeKey), "left")
         model.cancelTasks()
@@ -33,14 +36,16 @@ final class FloatingWidgetViewModelTests: XCTestCase {
         let model = FloatingWidgetViewModel()
 
         model.handleDragEnd(
-            finalPosition: CGPoint(x: 300, y: 420),
-            buttonSize: buttonSize,
+            finalPosition: CGPoint(x: 370, y: 420),
+            widgetWidth: widgetWidth,
+            widgetHeight: widgetHeight,
             screenWidth: screenWidth,
-            screenHeight: screenHeight
+            screenHeight: screenHeight,
+            edgeSnapDistance: 48
         )
 
         XCTAssertEqual(model.edgeDirection, .right)
-        XCTAssertEqual(model.mode, .collapsed)
+        XCTAssertEqual(model.mode, .peeking)
         XCTAssertEqual(model.verticalRatio, 420 / screenHeight, accuracy: 0.0001)
         XCTAssertEqual(UserDefaults.standard.string(forKey: edgeKey), "right")
         model.cancelTasks()
@@ -50,22 +55,26 @@ final class FloatingWidgetViewModelTests: XCTestCase {
     func testDragEndClampsVerticalPositionToSafeArea() {
         resetStoredWidgetState()
         let model = FloatingWidgetViewModel()
-        let minY = buttonSize / 2 + 100
-        let maxY = screenHeight - buttonSize / 2 - 120
+        let minY = widgetHeight / 2 + 92
+        let maxY = screenHeight - widgetHeight / 2 - 92
 
         model.handleDragEnd(
-            finalPosition: CGPoint(x: 120, y: 0),
-            buttonSize: buttonSize,
+            finalPosition: CGPoint(x: 20, y: 0),
+            widgetWidth: widgetWidth,
+            widgetHeight: widgetHeight,
             screenWidth: screenWidth,
-            screenHeight: screenHeight
+            screenHeight: screenHeight,
+            edgeSnapDistance: 48
         )
         XCTAssertEqual(model.verticalRatio, minY / screenHeight, accuracy: 0.0001)
 
         model.handleDragEnd(
-            finalPosition: CGPoint(x: 120, y: screenHeight + 200),
-            buttonSize: buttonSize,
+            finalPosition: CGPoint(x: 20, y: screenHeight + 200),
+            widgetWidth: widgetWidth,
+            widgetHeight: widgetHeight,
             screenWidth: screenWidth,
-            screenHeight: screenHeight
+            screenHeight: screenHeight,
+            edgeSnapDistance: 48
         )
         XCTAssertEqual(model.verticalRatio, maxY / screenHeight, accuracy: 0.0001)
 
@@ -76,21 +85,24 @@ final class FloatingWidgetViewModelTests: XCTestCase {
     func testDragFromHiddenEndsCollapsedAndPersistsPosition() {
         resetStoredWidgetState()
         let model = FloatingWidgetViewModel()
-        model.mode = .hidden
+        model.mode = .peeking
 
         model.handleDragStart()
-        // handleDragStart() no longer changes mode — mode stays .hidden
-        XCTAssertEqual(model.mode, .hidden)
+        // handleDragStart() no longer changes mode — mode stays peeking
+        XCTAssertEqual(model.mode, .peeking)
+        model.expandForDrag()
 
         model.handleDragEnd(
-            finalPosition: CGPoint(x: 80, y: 360),
-            buttonSize: buttonSize,
+            finalPosition: CGPoint(x: 20, y: 360),
+            widgetWidth: widgetWidth,
+            widgetHeight: widgetHeight,
             screenWidth: screenWidth,
-            screenHeight: screenHeight
+            screenHeight: screenHeight,
+            edgeSnapDistance: 48
         )
 
-        // handleDragEnd() sets mode to .collapsed
-        XCTAssertEqual(model.mode, .collapsed)
+        // handleDragEnd() sets mode to peeking at the nearest edge
+        XCTAssertEqual(model.mode, .peeking)
         XCTAssertEqual(model.edgeDirection, .left)
         XCTAssertEqual(UserDefaults.standard.string(forKey: edgeKey), "left")
         XCTAssertEqual(UserDefaults.standard.double(forKey: ratioKey), Double(360 / screenHeight), accuracy: 0.0001)
@@ -101,15 +113,15 @@ final class FloatingWidgetViewModelTests: XCTestCase {
     func testAutoHideBlockedDuringDrag() {
         resetStoredWidgetState()
         let model = FloatingWidgetViewModel()
-        model.mode = .collapsed
+        model.mode = .peeking
 
         // Simulate drag in progress
         model.isDragging = true
-        model.startAutoHideTimer(buttonSize: buttonSize, screenWidth: screenWidth)
+        model.startAutoHideTimer()
 
         // Timer should not have been scheduled at all
-        // Mode should still be .collapsed immediately
-        XCTAssertEqual(model.mode, .collapsed)
+        // Mode should still be peeking immediately
+        XCTAssertEqual(model.mode, .peeking)
 
         // Clean up
         model.isDragging = false

@@ -50,7 +50,7 @@ public extension Voice {
     }
 }
 
-public struct TTSParagraph: Codable, Hashable {
+public struct TTSParagraph: Codable, Hashable, Sendable {
     public let text: String
     public let range: NSRange
     public let paragraphIndex: Int
@@ -81,7 +81,7 @@ public enum TTSError: LocalizedError {
     }
 }
 
-public struct TTSChapterInfo: Codable, Equatable {
+public struct TTSChapterInfo: Codable, Equatable, Sendable {
     public let title: String
     public let url: String
     public let index: Int
@@ -98,7 +98,7 @@ public struct TTSChapterInfo: Codable, Equatable {
     }
 }
 
-public struct TTSExtensionInfo: Codable, Equatable {
+public struct TTSExtensionInfo: Codable, Equatable, Sendable {
     public let packageId: String
     public let localPath: String
     public let downloadUrl: String

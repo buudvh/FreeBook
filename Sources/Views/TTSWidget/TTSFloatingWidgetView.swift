@@ -3,222 +3,204 @@ import SwiftUI
 struct TTSFloatingWidgetView: View {
     @StateObject private var viewModel = FloatingWidgetViewModel()
     @StateObject private var playState = TTSPlayStateReader()
-    @State private var visualPosition: CGPoint? = nil
-    @State private var dragOrigin: CGPoint? = nil
     @ObservedObject private var ttsManager = TTSManager.shared
 
-    static let widgetAnimation = Animation.spring(response: 0.35, dampingFraction: 0.78)
+    @State private var visualPosition: CGPoint?
+    @State private var dragOrigin: CGPoint?
+
+    static let widgetAnimation = Animation.spring(response: 0.34, dampingFraction: 0.82)
 
     enum Layout {
-        static let size: CGFloat = 118
-        static let coverSize: CGFloat = 68
-        static let centerButtonSize: CGFloat = 38
-        static let actionButtonSize: CGFloat = 30
-        static let actionRadius: CGFloat = 50
-        static let margin: CGFloat = 8
-        static let peekVisible: CGFloat = 36
+        static let width: CGFloat = 292
+        static let height: CGFloat = 64
+        static let coverSize: CGFloat = 48
+        static let playButtonSize: CGFloat = 38
+        static let actionButtonSize: CGFloat = 34
+        static let peekSize: CGFloat = 62
+        static let horizontalMargin: CGFloat = 12
+        static let verticalMargin: CGFloat = 92
+        static let edgeSnapDistance: CGFloat = 48
     }
 
     var body: some View {
         GeometryReader { geometry in
-            let screenWidth = geometry.size.width
-            let screenHeight = geometry.size.height
-            let restingPosition = restingPosition(screenWidth: screenWidth, screenHeight: screenHeight)
+            let restingPosition = restingPosition(
+                screenWidth: geometry.size.width,
+                screenHeight: geometry.size.height
+            )
             let renderPosition = visualPosition ?? restingPosition
 
-            cdWidget
-                .frame(width: Layout.size, height: Layout.size)
+            widgetBody
+                .frame(
+                    width: viewModel.mode == .peeking ? Layout.peekSize : Layout.width,
+                    height: viewModel.mode == .peeking ? Layout.peekSize : Layout.height
+                )
                 .position(renderPosition)
-                .highPriorityGesture(dragGesture(restingPosition: restingPosition, screenWidth: screenWidth, screenHeight: screenHeight))
-                .onTapGesture {
-                    guard !viewModel.isDragging else { return }
-                    withAnimation(TTSFloatingWidgetView.widgetAnimation) {
-                        viewModel.reveal()
-                    }
-                }
+                .contentShape(Rectangle())
+                .highPriorityGesture(
+                    dragGesture(
+                        restingPosition: restingPosition,
+                        screenWidth: geometry.size.width,
+                        screenHeight: geometry.size.height
+                    )
+                )
+                .animation(Self.widgetAnimation, value: viewModel.mode)
         }
+        .ignoresSafeArea()
         .onDisappear {
             viewModel.cancelTasks()
         }
     }
 
-    private var cdWidget: some View {
-        ZStack {
-            cdDisc
+    @ViewBuilder
+    private var widgetBody: some View {
+        if viewModel.mode == .peeking {
+            collapsedWidget
+        } else {
+            expandedWidget
+        }
+    }
 
-            coverView
-                .frame(width: Layout.coverSize, height: Layout.coverSize)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(Color.white.opacity(0.45), lineWidth: 1.5))
-                .shadow(color: Color.black.opacity(0.32), radius: 8, x: 0, y: 3)
+    private var expandedWidget: some View {
+        HStack(spacing: 9) {
+            Button(action: openCurrentChapter) {
+                TTSCoverView(
+                    coverURL: ttsManager.playingCoverUrl,
+                    isPlaying: playState.isPlaying,
+                    size: Layout.coverSize
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Mở chương đang đọc")
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(ttsManager.bookTitle.isEmpty ? "Đang đọc" : ttsManager.bookTitle)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                Text(ttsManager.chapterTitle.isEmpty ? "Chương hiện tại" : ttsManager.chapterTitle)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Button(action: togglePlayback) {
                 Image(systemName: playState.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(.white)
-                    .offset(x: playState.isPlaying ? 0 : 1.5)
-                    .frame(width: Layout.centerButtonSize, height: Layout.centerButtonSize)
-                    .background(Color.black.opacity(0.54))
-                    .clipShape(Circle())
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: Layout.playButtonSize, height: Layout.playButtonSize)
+                    .background(Circle().fill(Color.accentColor))
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(playState.isPlaying ? "Tạm dừng đọc" : "Tiếp tục đọc")
 
-            radialButton(angle: 315, icon: "book.fill", tint: .blue) {
-                NotificationCenter.default.post(name: NSNotification.Name("openCurrentlyPlayingReader"), object: nil)
-                withAnimation(TTSFloatingWidgetView.widgetAnimation) {
-                    viewModel.hide()
-                }
+            Button(action: skipForward) {
+                Image(systemName: "forward.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: Layout.actionButtonSize, height: Layout.actionButtonSize)
+                    .background(Circle().fill(Color.primary.opacity(0.09)))
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Đọc đoạn tiếp theo")
 
-            radialButton(angle: 285, icon: "forward.fill", tint: .primary) {
-                TTSManager.shared.skipForward()
-                viewModel.startAutoHideTimer()
+            Button(action: stopTTS) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: Layout.actionButtonSize, height: Layout.actionButtonSize)
+                    .background(Circle().fill(Color.primary.opacity(0.09)))
             }
-            .disabled(!playState.isPlaying)
-            .opacity(playState.isPlaying ? 1 : 0.48)
-
-            radialButton(angle: 345, icon: "xmark", tint: .red) {
-                TTSManager.shared.stop()
-                withAnimation(TTSFloatingWidgetView.widgetAnimation) {
-                    viewModel.hide()
-                }
-            }
-
-            radialButton(angle: 135, icon: "chevron.right", tint: .secondary) {
-                withAnimation(TTSFloatingWidgetView.widgetAnimation) {
-                    viewModel.hide()
-                }
-            }
-            .rotationEffect(viewModel.edgeDirection == .left ? .degrees(180) : .degrees(0))
+            .buttonStyle(.plain)
+            .accessibilityLabel("Đóng TTS")
         }
-        .contentShape(Circle())
-        .opacity(viewModel.mode == .peeking ? 0.88 : 1)
-        .scaleEffect(viewModel.mode == .peeking ? 0.96 : 1)
+        .padding(.horizontal, 9)
+        .frame(width: Layout.width, height: Layout.height)
+        .background(
+            Capsule(style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(Capsule(style: .continuous).stroke(Color.white.opacity(0.14), lineWidth: 1))
+        )
+        .shadow(color: .black.opacity(0.24), radius: 14, x: 0, y: 6)
     }
 
-    private var cdDisc: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color.black.opacity(0.78),
-                            Color(uiColor: .secondarySystemBackground).opacity(0.88),
-                            Color.black.opacity(0.72)
-                        ],
-                        center: .center,
-                        startRadius: 12,
-                        endRadius: Layout.size / 2
-                    )
-                )
-
-            Circle()
-                .stroke(Color.white.opacity(0.16), lineWidth: 7)
-                .padding(9)
-
-            Circle()
-                .trim(from: 0.02, to: 0.82)
-                .stroke(
-                    AngularGradient(
-                        colors: [.orange, .blue, .white.opacity(0.55), .orange],
-                        center: .center
-                    ),
-                    style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .padding(5)
-        }
-        .shadow(color: Color.black.opacity(0.3), radius: 12, x: 0, y: 5)
-    }
-
-    @ViewBuilder
-    private var coverView: some View {
-        if let url = URL(string: ttsManager.playingCoverUrl), !ttsManager.playingCoverUrl.isEmpty {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                default:
-                    coverFallback
-                }
-            }
-        } else {
-            coverFallback
-        }
-    }
-
-    private var coverFallback: some View {
-        ZStack {
-            LinearGradient(
-                colors: [Color.blue.opacity(0.55), Color.purple.opacity(0.45), Color.black.opacity(0.65)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+    private var collapsedWidget: some View {
+        Button(action: revealWidget) {
+            TTSCoverView(
+                coverURL: ttsManager.playingCoverUrl,
+                isPlaying: playState.isPlaying,
+                size: Layout.peekSize - 12
             )
-            Image(systemName: "book.fill")
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundColor(.white.opacity(0.86))
+            .padding(6)
+            .background(Circle().fill(.ultraThinMaterial))
+            .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
+            .shadow(color: .black.opacity(0.28), radius: 11, x: 0, y: 5)
         }
-    }
-
-    private func radialButton(angle: CGFloat, icon: String, tint: Color, action: @escaping () -> Void) -> some View {
-        let offset = radialOffset(angle: angle, radius: Layout.actionRadius)
-        return Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(tint)
-                .frame(width: Layout.actionButtonSize, height: Layout.actionButtonSize)
-                .background(Color(uiColor: .systemBackground).opacity(0.92))
-                .clipShape(Circle())
-                .shadow(color: Color.black.opacity(0.22), radius: 5, x: 0, y: 2)
-        }
-        .offset(offset)
-        .opacity(viewModel.mode == .revealed ? 1 : 0)
-        .allowsHitTesting(viewModel.mode == .revealed)
-    }
-
-    private func radialOffset(angle: CGFloat, radius: CGFloat) -> CGSize {
-        let radians = angle * .pi / 180
-        return CGSize(width: cos(radians) * radius, height: -sin(radians) * radius)
-    }
-
-    private func togglePlayback() {
-        let tts = TTSManager.shared
-        if tts.isPlaying {
-            tts.pause()
-        } else {
-            tts.resume()
-        }
-        viewModel.startAutoHideTimer()
+        .buttonStyle(.plain)
+        .accessibilityLabel("Mở điều khiển TTS")
     }
 
     private func restingPosition(screenWidth: CGFloat, screenHeight: CGFloat) -> CGPoint {
-        let visibleWidth = viewModel.mode == .peeking ? Layout.peekVisible : Layout.size
-        let x: CGFloat
-        if viewModel.edgeDirection == .left {
-            x = -Layout.size / 2 + visibleWidth + Layout.margin
-        } else {
-            x = screenWidth + Layout.size / 2 - visibleWidth - Layout.margin
+        guard screenWidth > 0, screenHeight > 0 else { return .zero }
+
+        if viewModel.mode == .peeking {
+            let x = viewModel.edgeDirection == .left ? 0 : screenWidth
+            let y = clampedY(
+                viewModel.verticalRatio * screenHeight,
+                height: Layout.peekSize,
+                screenHeight: screenHeight
+            )
+            return CGPoint(x: x, y: y)
         }
 
-        return CGPoint(x: x, y: viewModel.verticalRatio * screenHeight)
+        let halfWidth = Layout.width / 2
+        let x = viewModel.edgeDirection == .left
+            ? Layout.horizontalMargin + halfWidth
+            : screenWidth - Layout.horizontalMargin - halfWidth
+        let y = clampedY(
+            viewModel.verticalRatio * screenHeight,
+            height: Layout.height,
+            screenHeight: screenHeight
+        )
+        return CGPoint(x: x, y: y)
     }
 
-    private func dragGesture(restingPosition: CGPoint, screenWidth: CGFloat, screenHeight: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 5)
+    private func clampedY(_ value: CGFloat, height: CGFloat, screenHeight: CGFloat) -> CGFloat {
+        let minimum = Layout.verticalMargin + height / 2
+        let maximum = max(minimum, screenHeight - Layout.verticalMargin - height / 2)
+        return min(max(value, minimum), maximum)
+    }
+
+    private func dragGesture(
+        restingPosition: CGPoint,
+        screenWidth: CGFloat,
+        screenHeight: CGFloat
+    ) -> some Gesture {
+        DragGesture(minimumDistance: 4)
             .onChanged { value in
                 if !viewModel.isDragging {
-                    dragOrigin = visualPosition ?? restingPosition
                     viewModel.handleDragStart()
+                    dragOrigin = visualPosition ?? restingPosition
                 }
 
-                if let origin = dragOrigin {
-                    var transaction = Transaction()
-                    transaction.disablesAnimations = true
-                    withTransaction(transaction) {
-                        visualPosition = CGPoint(
-                            x: origin.x + value.translation.width,
-                            y: origin.y + value.translation.height
-                        )
-                    }
+                if viewModel.mode == .peeking, abs(value.translation.width) > 18 {
+                    viewModel.expandForDrag()
+                    let expandedOrigin = expandedRestingPosition(
+                        screenWidth: screenWidth,
+                        screenHeight: screenHeight
+                    )
+                    dragOrigin = expandedOrigin
+                    visualPosition = expandedOrigin
+                }
+
+                guard let origin = dragOrigin else { return }
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    visualPosition = CGPoint(
+                        x: origin.x + value.translation.width,
+                        y: origin.y + value.translation.height
+                    )
                 }
             }
             .onEnded { value in
@@ -228,16 +210,135 @@ struct TTSFloatingWidgetView: View {
                     y: origin.y + value.translation.height
                 )
 
-                withAnimation(TTSFloatingWidgetView.widgetAnimation) {
+                withAnimation(Self.widgetAnimation) {
                     viewModel.handleDragEnd(
                         finalPosition: finalPosition,
-                        widgetSize: Layout.size,
+                        widgetWidth: Layout.width,
+                        widgetHeight: Layout.height,
                         screenWidth: screenWidth,
-                        screenHeight: screenHeight
+                        screenHeight: screenHeight,
+                        edgeSnapDistance: Layout.edgeSnapDistance
                     )
                     visualPosition = nil
                 }
                 dragOrigin = nil
             }
+    }
+
+    private func expandedRestingPosition(screenWidth: CGFloat, screenHeight: CGFloat) -> CGPoint {
+        let halfWidth = Layout.width / 2
+        let x = viewModel.edgeDirection == .left
+            ? Layout.horizontalMargin + halfWidth
+            : screenWidth - Layout.horizontalMargin - halfWidth
+        let y = clampedY(
+            viewModel.verticalRatio * screenHeight,
+            height: Layout.height,
+            screenHeight: screenHeight
+        )
+        return CGPoint(x: x, y: y)
+    }
+
+    private func revealWidget() {
+        withAnimation(Self.widgetAnimation) {
+            viewModel.reveal()
+            visualPosition = nil
+        }
+    }
+
+    private func openCurrentChapter() {
+        NotificationCenter.default.post(
+            name: NSNotification.Name("openCurrentlyPlayingReader"),
+            object: nil
+        )
+        withAnimation(Self.widgetAnimation) {
+            viewModel.hide()
+            visualPosition = nil
+        }
+    }
+
+    private func togglePlayback() {
+        if ttsManager.isPlaying {
+            ttsManager.pause()
+        } else {
+            ttsManager.resume()
+        }
+        viewModel.startAutoHideTimer()
+    }
+
+    private func skipForward() {
+        ttsManager.skipForward()
+        viewModel.startAutoHideTimer()
+    }
+
+    private func stopTTS() {
+        ttsManager.stop()
+    }
+}
+
+private struct TTSCoverView: View {
+    let coverURL: String
+    let isPlaying: Bool
+    let size: CGFloat
+
+    @State private var baseAngle: Double = 0
+    @State private var rotationStartedAt: Date?
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isPlaying)) { context in
+            coverImage
+                .rotationEffect(.degrees(currentAngle(at: context.date)))
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
+        .onAppear {
+            if isPlaying, rotationStartedAt == nil {
+                rotationStartedAt = Date()
+            }
+        }
+        .onChange(of: isPlaying) { _, playing in
+            if playing {
+                rotationStartedAt = Date()
+            } else {
+                if let start = rotationStartedAt {
+                    baseAngle += Date().timeIntervalSince(start) * 45
+                }
+                baseAngle = baseAngle.truncatingRemainder(dividingBy: 360)
+                rotationStartedAt = nil
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var coverImage: some View {
+        if let url = URL(string: coverURL), !coverURL.isEmpty {
+            AsyncImage(url: url) { phase in
+                if case .success(let image) = phase {
+                    image.resizable().scaledToFill()
+                } else {
+                    fallback
+                }
+            }
+        } else {
+            fallback
+        }
+    }
+
+    private var fallback: some View {
+        ZStack {
+            LinearGradient(
+                colors: [.blue.opacity(0.7), .purple.opacity(0.6), .black.opacity(0.7)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            Image(systemName: "book.fill")
+                .font(.system(size: size * 0.36, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.88))
+        }
+    }
+
+    private func currentAngle(at date: Date) -> Double {
+        guard isPlaying, let start = rotationStartedAt else { return baseAngle }
+        return baseAngle + date.timeIntervalSince(start) * 45
     }
 }

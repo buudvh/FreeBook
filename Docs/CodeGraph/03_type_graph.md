@@ -1011,7 +1011,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ### 106. ReadingProgressRepository (ACTOR)
 
-*   **Định nghĩa tại**: [Views/Reader/ReadingProgressRepository.swift:5](../../Sources/Views/Reader/ReadingProgressRepository.swift#L5)
+*   **Định nghĩa tại**: [Services/ReadingProgress/ReadingProgressStore.swift:18](../../Sources/Services/ReadingProgress/ReadingProgressStore.swift#L18)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `ModelActor`
 *   **Sử dụng (Uses)**: `AppLogger`, `Book`, `ReadingProgress`
 *   **Được sử dụng bởi (Used by)**: `ReaderViewModel`
@@ -1566,5 +1566,14 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ### 10. Extension trên `AnyTransition`
 *   **Định nghĩa tại**: [Views/Reader/ReaderView.swift:2763](../../Sources/Views/Reader/ReaderView.swift#L2763)
+
+
+#### Reader/TTS unified pipeline (2026-07)
+
+- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, compact paragraph IDs, and UTF-16 ranges. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
+- Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
+- `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
+- `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
+- `TTSFloatingWidgetView` composes the capsule and `TTSCoverView`; `FloatingWidgetViewModel` owns `WidgetMode`, edge persistence, drag snapping, and the cancellable idle-collapse task.
 
 <!-- GENERATED END -->

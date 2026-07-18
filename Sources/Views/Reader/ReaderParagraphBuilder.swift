@@ -9,7 +9,7 @@ struct ReaderParagraphBuildResult: Equatable, Sendable {
 enum ReaderParagraphBuilder {
     static func build(
         originalTitle: String,
-        originalContent: String,
+        normalizedText: NormalizedChapterText,
         isTranslationEnabled: Bool,
         showTitle: Bool,
         bookId: String
@@ -21,12 +21,11 @@ enum ReaderParagraphBuilder {
             titleResult = TranslateUtils.untranslatedTextResult(originalTitle)
         }
 
-        let originalLines = originalContent.components(separatedBy: "\n")
-        let translatedLines = originalLines.map { line -> TranslatedTextResult in
-            guard isTranslationEnabled && TranslateUtils.containsChinese(line) else {
-                return TranslateUtils.untranslatedTextResult(line)
+        let translatedLines = normalizedText.lines.map { line -> TranslatedTextResult in
+            guard isTranslationEnabled && TranslateUtils.containsChinese(line.text) else {
+                return TranslateUtils.untranslatedTextResult(line.text)
             }
-            return TranslateUtils.translateContentWithMapping(line, bookId: bookId)
+            return TranslateUtils.translateContentWithMapping(line.text, bookId: bookId)
         }
 
         var items: [ParagraphItem] = []
@@ -40,11 +39,12 @@ enum ReaderParagraphBuilder {
             ))
         }
 
-        items.append(contentsOf: originalLines.indices.map { index in
+        items.append(contentsOf: normalizedText.lines.indices.map { index in
+            let originalLine = normalizedText.lines[index]
             let translatedLine = translatedLines[index]
             return ParagraphItem(
-                id: index,
-                original: originalLines[index],
+                id: originalLine.id,
+                original: originalLine.text,
                 translated: translatedLine.text,
                 isTitle: false,
                 translationSpans: translatedLine.spans

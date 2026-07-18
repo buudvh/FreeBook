@@ -4,6 +4,21 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.16] - 2026-07-18
+
+### Thiết kế lại widget TTS nổi
+* Thay widget radial bằng capsule ngang có cover tròn, play/pause, next đoạn và nút đóng.
+* Cover xoay liên tục khi phát, giữ góc hiện tại khi tạm dừng; thao tác cover mở đúng chương TTS đang đọc.
+* Hỗ trợ kéo vào hai cạnh, tự thu gọn thành nửa hình tròn sau khi chạm cạnh hoặc không thao tác, kéo ra để mở lại và giới hạn vị trí theo màn hình.
+* Cho phép chuyển đoạn tiếp theo khi TTS đang tạm dừng và đồng bộ điều hướng Reader khi sách đã mở.
+
+## [1.3.15] - 2026-07-18
+
+### Cải tổ pipeline Reader/TTS
+* Chuẩn hóa văn bản chương một lần bằng `ChapterTextNormalizer`, dùng chung `ChapterContentRepository` cho Reader và TTS.
+* Thêm bootstrap/load state có retry và timeout, route mục lục bất biến, checkpoint tiến độ nền, ownership TTS và session guard.
+* Xóa Reader window/tab/legacy, repository tiến độ trùng và `TTSSession` mirror.
+
 ## [1.3.14] - 2026-07-17
 
 ### Chuẩn hóa paragraph 1–1 và ánh xạ vùng chọn bản dịch

@@ -2,27 +2,28 @@ import XCTest
 @testable import FreeBook
 
 final class ReaderTranslationTests: XCTestCase {
-    func testParagraphBuilderPreservesOneToOneLinesAndBlankLines() {
+    func testParagraphBuilderUsesNormalizedOneToOneLines() {
         let originalContent = "Dòng 1\n\nDòng 😀 3\n"
+        let normalizedText = ChapterTextNormalizer.normalize(originalContent)
 
         let result = ReaderParagraphBuilder.build(
             originalTitle: "Tiêu đề",
-            originalContent: originalContent,
+            normalizedText: normalizedText,
             isTranslationEnabled: false,
             showTitle: true,
             bookId: "paragraph-builder-test"
         )
 
-        XCTAssertEqual(result.translatedContent, originalContent)
-        XCTAssertEqual(result.paragraphItems.map(\.id), [-1, 0, 1, 2, 3])
-        XCTAssertEqual(result.paragraphItems.dropFirst().map(\.original), ["Dòng 1", "", "Dòng 😀 3", ""])
-        XCTAssertEqual(result.paragraphItems.dropFirst().map(\.translated), ["Dòng 1", "", "Dòng 😀 3", ""])
+        XCTAssertEqual(result.translatedContent, "Dòng 1\nDòng 😀 3")
+        XCTAssertEqual(result.paragraphItems.map(\.id), [-1, 0, 1])
+        XCTAssertEqual(result.paragraphItems.dropFirst().map(\.original), ["Dòng 1", "Dòng 😀 3"])
+        XCTAssertEqual(result.paragraphItems.dropFirst().map(\.translated), ["Dòng 1", "Dòng 😀 3"])
     }
 
     func testParagraphBuilderCanHideTitleWithoutChangingLineIDs() {
         let result = ReaderParagraphBuilder.build(
             originalTitle: "Tiêu đề",
-            originalContent: "Một\nHai",
+            normalizedText: ChapterTextNormalizer.normalize("Một\nHai"),
             isTranslationEnabled: false,
             showTitle: false,
             bookId: "paragraph-builder-no-title-test"

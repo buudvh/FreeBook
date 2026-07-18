@@ -86,17 +86,14 @@ public final class TTSManager: NSObject, ObservableObject {
     @Published public private(set) var extensionInfo: TTSExtensionInfo? = nil
 
     private var chaptersQueue: [TTSChapterInfo] = []
-    private var preloadedNextChapterContent: String? = nil
-    private var isPreloading: Bool = false
     private var currentPlaybackId: String? = nil
-    private var lastStoppedParagraphIndex: Int? = nil
-    private var wasPlayingBeforeStop = false
     private var wasPlayingBeforeSettings = false
     private var wasPlayingBeforeInterruption = false
     private var lastPausedTime: Date? = nil
     private var cancellables = Set<AnyCancellable>()
     private var prepareSpeakingTask: Task<Void, Never>? = nil
     private var nextChapterPrefetchTask: Task<Void, Never>? = nil
+    private var sessionID = UUID()
 
     // Cache lưu trữ dữ liệu âm thanh đã được tổng hợp trước cho các đoạn văn
     private var preloadedWavs: [Int: AVAudioPCMBuffer] = [:]
@@ -115,15 +112,13 @@ public final class TTSManager: NSObject, ObservableObject {
 
     // Callbacks chuyển chương
     public var onChapterFinished: (() -> Void)?
-    public var onChapterPrev: (() -> Void)?
-    public var onChapterNext: (() -> Void)?
 
     /// Cập nhật cachedContent cho một chương trong chaptersQueue.
     /// Gọi từ ReaderViewModel sau khi chương được load xong vào ChapterCache,
     /// để advanceToNextChapter có thể dùng ngay mà không cần fetch lại.
     public func updateChapterCache(at index: Int, content: String) {
-        guard index >= 0, index < chaptersQueue.count else { return }
-        chaptersQueue[index].cachedContent = content
+        guard let queueIndex = chaptersQueue.firstIndex(where: { $0.index == index }) else { return }
+        chaptersQueue[queueIndex].cachedContent = ChapterTextNormalizer.normalize(content).content
     }
 
     // Dữ liệu phân đoạn
@@ -136,33 +131,54 @@ public final class TTSManager: NSObject, ObservableObject {
     private var nghiTTSService: PiperTTSService?
     public private(set) var nghiTTSClient: NghiTTSClient?
     private var modelStore: ModelStore?
-    private var container: ModelContainer? = nil
 
     public func initialize(container: ModelContainer) {
-        self.container = container
+        Task {
+            await ReadingProgressStore.shared.configure(container: container)
+            await ChapterContentRepository.shared.configure(container: container)
+        }
     }
 
-    private func saveTTSProgressToDatabase(chapterIndex: Int, paragraphIndex: Int) {
-        guard let container = container else { return }
-        let context = ModelContext(container)
-        let bookId = self.playingBookId
-        guard !bookId.isEmpty else { return }
+    private func progressSnapshot() -> ReadingProgressSnapshot? {
+        guard !playingBookId.isEmpty, playingChapterIndex >= 0 else { return nil }
+        return ReadingProgressSnapshot(
+            bookId: playingBookId,
+            chapterIndex: playingChapterIndex,
+            paragraphIndex: currentParentParagraphIndex,
+            chapterTitle: chaptersQueue.first(where: { $0.index == playingChapterIndex })?.title,
+            owner: .tts,
+            recordedAt: Date()
+        )
+    }
 
-        do {
-            let descriptor = FetchDescriptor<Book>()
-            let books = try context.fetch(descriptor)
-            if let book = books.first(where: { $0.bookId == bookId }) {
-                book.currentChapterIndex = chapterIndex
-                book.currentChapterPage = paragraphIndex
-                if chapterIndex >= 0 && chapterIndex < chaptersQueue.count {
-                    book.currentChapterTitle = chaptersQueue[chapterIndex].title
-                }
-                book.isHistory = true
-                book.lastReadDate = Date()
-                try context.save()
+    private func recordProgressInMemory() {
+        guard let snapshot = progressSnapshot() else { return }
+        Task { await ReadingProgressStore.shared.record(snapshot) }
+    }
+
+    private func checkpointProgressAndRelease() {
+        guard let snapshot = progressSnapshot() else { return }
+        Task(priority: .high) {
+            do {
+                try await ReadingProgressStore.shared.checkpointAndRelease(snapshot, owner: .tts)
+            } catch {
+                AppLogger.shared.log("❌ Lỗi lưu checkpoint TTS: \(error.localizedDescription)")
             }
-        } catch {
-            AppLogger.shared.log("❌ Lỗi lưu vị trí TTS dở vào database: \(error.localizedDescription)")
+        }
+    }
+
+    private func checkpointProgress() {
+        guard let snapshot = progressSnapshot() else { return }
+        Task(priority: .high) {
+            try? await ReadingProgressStore.shared.checkpoint(snapshot)
+        }
+    }
+
+    public func checkpointForBackground() {
+        guard let snapshot = progressSnapshot() else { return }
+        Task(priority: .high) {
+            await ReadingProgressStore.shared.record(snapshot)
+            try? await ReadingProgressStore.shared.flush(bookId: snapshot.bookId)
         }
     }
 
@@ -294,6 +310,9 @@ public final class TTSManager: NSObject, ObservableObject {
         extensionInfo: TTSExtensionInfo?
     ) {
         guard !isPlaying else { return }
+        guard chapters.contains(where: { $0.index == currentIndex }) else { return }
+        sessionID = UUID()
+        let preparationSessionID = sessionID
 
         self.playingBookId = bookId
         self.playingCoverUrl = coverUrl
@@ -303,13 +322,12 @@ public final class TTSManager: NSObject, ObservableObject {
         self.playingBookDetailUrl = bookDetailUrl
         self.playingBookSourceName = bookSourceName
         self.extensionInfo = extensionInfo
-        self.chapterContent = chapterContent
+        let normalizedContent = ChapterTextNormalizer.normalize(chapterContent).content
+        self.chapterContent = normalizedContent
 
-        self.preloadedNextChapterContent = nil
         self.clearPrefetchCache()
 
-        guard currentIndex >= 0 && currentIndex < chapters.count else { return }
-        let currentChapter = chapters[currentIndex]
+        guard let currentChapter = chapters.first(where: { $0.index == currentIndex }) else { return }
         self.playingChapterUrl = currentChapter.url
         self.chapterTitle = currentChapter.title
 
@@ -318,10 +336,13 @@ public final class TTSManager: NSObject, ObservableObject {
         self.prepareSpeakingTask = Task {
             let parsed = await Task.detached(priority: .userInitiated) { [weak self] () -> [TTSParagraph] in
                 guard let self = self else { return [] }
-                return self.parseParagraphs(chapterContent, chunkLength: currentChunkLen)
+                return self.parseParagraphs(normalizedContent, chunkLength: currentChunkLen)
             }.value
 
             guard !Task.isCancelled else { return }
+            guard preparationSessionID == self.sessionID,
+                  bookId == self.playingBookId,
+                  currentIndex == self.playingChapterIndex else { return }
 
             self.paragraphs = parsed
 
@@ -332,7 +353,7 @@ public final class TTSManager: NSObject, ObservableObject {
             if showTitle && !chapterTitle.isEmpty {
                 let titleParagraph = TTSParagraph(
                     text: chapterTitle,
-                    range: NSRange(location: 0, length: chapterTitle.count),
+                    range: NSRange(location: 0, length: chapterTitle.utf16.count),
                     paragraphIndex: -1
                 )
                 self.paragraphs.insert(titleParagraph, at: 0)
@@ -395,6 +416,11 @@ public final class TTSManager: NSObject, ObservableObject {
         bookSourceName: String = "",
         extensionInfo: TTSExtensionInfo?
     ) {
+        guard chapters.contains(where: { $0.index == currentIndex }) else { return }
+        checkpointProgressAndRelease()
+        prepareSpeakingTask?.cancel()
+        prepareSpeakingTask = nil
+        sessionID = UUID()
         // Dọn dẹp trình phát cũ trước tiên để tránh xung đột luồng và callback lặp
         self.stopCurrentPlayback()
         self.wasPlayingBeforeInterruption = false
@@ -409,23 +435,16 @@ public final class TTSManager: NSObject, ObservableObject {
         self.playingBookDetailUrl = bookDetailUrl
         self.playingBookSourceName = bookSourceName
         self.extensionInfo = extensionInfo
-        self.chapterContent = chapterContent
+        self.chapterContent = ChapterTextNormalizer.normalize(chapterContent).content
         self.showFloatingWidget = true
-        TTSSession.shared.start(
-            bookId: bookId,
-            chapters: chapters,
-            chapterIndex: currentIndex,
-            paragraphIndex: startParagraphIndex
-        )
+        Task { await ReadingProgressStore.shared.claim(bookId: bookId, owner: .tts) }
 
         // Huy du lieu tai truoc cu
-        self.preloadedNextChapterContent = nil
 
         // Xóa bộ đệm tải trước của đoạn văn cũ
         self.clearPrefetchCache()
 
-        guard currentIndex >= 0 && currentIndex < chapters.count else { return }
-        let currentChapter = chapters[currentIndex]
+        guard let currentChapter = chapters.first(where: { $0.index == currentIndex }) else { return }
         self.playingChapterUrl = currentChapter.url
         self.chapterTitle = currentChapter.title
 
@@ -445,7 +464,7 @@ public final class TTSManager: NSObject, ObservableObject {
         if showTitle && !chapterTitle.isEmpty {
             let titleParagraph = TTSParagraph(
                 text: chapterTitle,
-                range: NSRange(location: 0, length: chapterTitle.count),
+                range: NSRange(location: 0, length: chapterTitle.utf16.count),
                 paragraphIndex: -1
             )
             self.paragraphs.insert(titleParagraph, at: 0)
@@ -476,12 +495,8 @@ public final class TTSManager: NSObject, ObservableObject {
         // let pid = currentPlaybackId ?? "NONE"
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] pause() được gọi.")
         guard isPlaying else { return }
+        checkpointProgressAndRelease()
         self.isPlaying = false
-        TTSSession.shared.update(
-            chapterIndex: playingChapterIndex,
-            paragraphIndex: currentParentParagraphIndex,
-            isPlaying: false
-        )
         self.lastPausedTime = Date()
         MPNowPlayingInfoCenter.default().playbackState = .paused
 
@@ -506,11 +521,7 @@ public final class TTSManager: NSObject, ObservableObject {
         self.configureAudioSession()
         self.setRemoteCommandsEnabled(true) // Bật lại remote commands
         self.isPlaying = true
-        TTSSession.shared.update(
-            chapterIndex: playingChapterIndex,
-            paragraphIndex: currentParentParagraphIndex,
-            isPlaying: true
-        )
+        Task { await ReadingProgressStore.shared.claim(bookId: playingBookId, owner: .tts) }
         MPNowPlayingInfoCenter.default().playbackState = .playing
 
         if tool == "system" {
@@ -548,21 +559,17 @@ public final class TTSManager: NSObject, ObservableObject {
     private func stopPlayback(keepWidget: Bool = false) {
         // let pid = currentPlaybackId ?? "NONE"
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] stopPlayback(keepWidget=\(keepWidget)) được gọi.")
+        checkpointProgressAndRelease()
+        sessionID = UUID()
         self.isPlaying = false
         self.wasPlayingBeforeSettings = false
         self.wasPlayingBeforeInterruption = false
-        TTSSession.shared.update(
-            chapterIndex: playingChapterIndex,
-            paragraphIndex: currentParentParagraphIndex,
-            isPlaying: false
-        )
 
         if !keepWidget {
             self.currentParagraphIndex = -1
             self.currentParentParagraphIndex = -1
             self.highlightRange = nil
             self.showFloatingWidget = false
-            TTSSession.shared.stop()
         }
 
         clearPrefetchCache()
@@ -584,15 +591,6 @@ public final class TTSManager: NSObject, ObservableObject {
 
     public func stop() {
         stopPlayback(keepWidget: false)
-    }
-
-    public func stopAndSaveState() {
-        wasPlayingBeforeStop = isPlaying
-        if isPlaying {
-            let currentParagraph = paragraphs[currentParagraphIndex]
-            lastStoppedParagraphIndex = currentParagraph.paragraphIndex
-            stopPlayback(keepWidget: true)
-        }
     }
 
     public func prepareForSettings() {
@@ -636,7 +634,7 @@ public final class TTSManager: NSObject, ObservableObject {
         if savedParagraphIdentity == -1 && showTitle && !chapterTitle.isEmpty {
             let titleParagraph = TTSParagraph(
                 text: chapterTitle,
-                range: NSRange(location: 0, length: chapterTitle.count),
+                range: NSRange(location: 0, length: chapterTitle.utf16.count),
                 paragraphIndex: -1
             )
             self.paragraphs.insert(titleParagraph, at: 0)
@@ -644,7 +642,7 @@ public final class TTSManager: NSObject, ObservableObject {
         } else if showTitle && !chapterTitle.isEmpty {
             let titleParagraph = TTSParagraph(
                 text: chapterTitle,
-                range: NSRange(location: 0, length: chapterTitle.count),
+                range: NSRange(location: 0, length: chapterTitle.utf16.count),
                 paragraphIndex: -1
             )
             self.paragraphs.insert(titleParagraph, at: 0)
@@ -668,18 +666,26 @@ public final class TTSManager: NSObject, ObservableObject {
     }
 
     public func skipForward() {
-        guard isPlaying else { return }
+        guard currentParagraphIndex >= 0, currentParagraphIndex < paragraphs.count else { return }
         if currentParagraphIndex + 1 < paragraphs.count {
             stopCurrentPlayback()
             currentParagraphIndex += 1
-            speakCurrent()
+            currentParentParagraphIndex = paragraphs[currentParagraphIndex].paragraphIndex
+            highlightRange = nil
+            checkpointProgress()
+            if isPlaying {
+                speakCurrent()
+            } else {
+                updateNowPlayingInfo()
+            }
         } else {
+            guard isPlaying else { return }
             // Đã hết chương, chuyển chương mới
             stopCurrentPlayback()
-            let nextIdx = playingChapterIndex + 1
-            if nextIdx < chaptersQueue.count {
+            if let nextIdx = nextChapterIndex(after: playingChapterIndex) {
                 advanceToNextChapter(nextIdx: nextIdx)
             } else {
+                stop()
                 onChapterFinished?()
             }
         }
@@ -718,8 +724,7 @@ public final class TTSManager: NSObject, ObservableObject {
             speakCurrent()
         } else {
             // Hết chương → tự advance sang chương tiếp theo, không phụ thuộc ReaderView
-            let nextIdx = playingChapterIndex + 1
-            if nextIdx < chaptersQueue.count {
+            if let nextIdx = nextChapterIndex(after: playingChapterIndex) {
                 stopCurrentPlayback()
                 advanceToNextChapter(nextIdx: nextIdx)
             } else {
@@ -733,98 +738,60 @@ public final class TTSManager: NSObject, ObservableObject {
     /// Tự tải và phát chương tiếp theo mà không cần ReaderView làm trung gian.
     /// Thứ tự ưu tiên: RAM cache (chaptersQueue.cachedContent) → DB cache → fetch online.
     /// Sau khi bắt đầu phát, post notification để ReaderView sync UI nếu đang visible.
-    private func advanceToNextChapter(nextIdx: Int) {
-        guard nextIdx >= 0, nextIdx < chaptersQueue.count else { return }
-
-        let nextChapter = chaptersQueue[nextIdx]
-
-        // 1. RAM cache — được update bởi ReaderViewModel.processAndSaveChapter
-        if let cached = nextChapter.cachedContent, !cached.isEmpty {
-            AppLogger.shared.log("🔊 [TTSManager] advanceToNextChapter: dùng RAM cache cho chương \(nextIdx)")
-            let contentToUse = TranslateUtils.isTranslationEnabled ? TranslateUtils.translateContent(cached, bookId: self.playingBookId) : cached
-            self.applyNextChapter(index: nextIdx, content: contentToUse, chapter: nextChapter)
-            return
-        }
-
-        Task { [weak self] in
-            guard let self = self else { return }
-
-            // 2. DB cache — query SwiftData trực tiếp
-            if let dbContent = await self.fetchChapterContentFromDB(chapterUrl: nextChapter.url),
-               !dbContent.isEmpty {
-                AppLogger.shared.log("🔊 [TTSManager] advanceToNextChapter: dùng DB cache cho chương \(nextIdx)")
-                let contentToUse = TranslateUtils.isTranslationEnabled ? TranslateUtils.translateContent(dbContent, bookId: self.playingBookId) : dbContent
-                await MainActor.run {
-                    guard self.isPlaying else { return }
-                    self.applyNextChapter(index: nextIdx, content: contentToUse, chapter: nextChapter)
-                }
-                return
-            }
-
-            // 3. Fetch online — fallback khi không có cache nào
-            guard let extInfo = self.extensionInfo else {
-                AppLogger.shared.log("❌ [TTSManager] advanceToNextChapter: Không có extensionInfo để fetch chương \(nextIdx)")
-                await MainActor.run {
-                    self.stop()
-                    self.onChapterFinished?()
-                }
-                return
-            }
-
-            AppLogger.shared.log("🔊 [TTSManager] advanceToNextChapter: fetch online chương \(nextIdx)")
-            do {
-                let raw = try await ExtensionManager.shared.chap(
-                    localPath: extInfo.localPath,
-                    downloadUrl: extInfo.downloadUrl,
-                    url: nextChapter.url,
-                    host: nextChapter.host,
-                    configJson: extInfo.configJson ?? ""
-                )
-                let cleaned = raw.cleanHTML()
-                let contentToUse = TranslateUtils.isTranslationEnabled ? TranslateUtils.translateContent(cleaned, bookId: self.playingBookId) : cleaned
-                await MainActor.run {
-                    guard self.isPlaying else { return }
-                    self.applyNextChapter(index: nextIdx, content: contentToUse, chapter: nextChapter)
-                }
-            } catch {
-                AppLogger.shared.log("❌ [TTSManager] advanceToNextChapter: Fetch chương \(nextIdx) thất bại: \(error.localizedDescription)")
-                await MainActor.run {
-                    self.stop()
-                    self.onChapterFinished?()
-                }
-            }
-        }
+    private func nextChapterIndex(after index: Int) -> Int? {
+        chaptersQueue
+            .map(\.index)
+            .filter { $0 > index }
+            .min()
     }
 
-    /// Query SwiftData để lấy content của chương theo URL (nếu đã được cache vào DB).
-    private func fetchChapterContentFromDB(chapterUrl: String) async -> String? {
-        guard let container = self.container else { return nil }
-        let context = ModelContext(container)
-        let bookId = self.playingBookId
-        guard !bookId.isEmpty else { return nil }
+    private func advanceToNextChapter(nextIdx: Int) {
+        guard let nextChapter = chaptersQueue.first(where: { $0.index == nextIdx }) else { return }
+        let expectedSessionID = sessionID
+        let expectedBookId = playingBookId
+        let request = ChapterContentRequest(
+            bookId: expectedBookId,
+            chapterIndex: nextChapter.index,
+            title: nextChapter.title,
+            url: nextChapter.url,
+            host: nextChapter.host,
+            cachedContent: nextChapter.cachedContent,
+            extensionInfo: extensionInfo,
+            forceRefresh: false
+        )
 
-        do {
-            let descriptor = FetchDescriptor<Book>()
-            let books = try context.fetch(descriptor)
-            guard let book = books.first(where: { $0.bookId == bookId }) else { return nil }
-            guard let chap = book.chapters.first(where: { $0.url == chapterUrl }) else { return nil }
-            guard chap.isCached, let content = chap.content, !content.isEmpty else { return nil }
-            return content
-        } catch {
-            AppLogger.shared.log("❌ [TTSManager] fetchChapterContentFromDB thất bại: \(error.localizedDescription)")
-            return nil
+        Task { [weak self] in
+            do {
+                let result = try await ChapterContentRepository.shared.load(request)
+                guard let self,
+                      self.isPlaying,
+                      self.sessionID == expectedSessionID,
+                      self.playingBookId == expectedBookId,
+                      self.playingChapterIndex < nextChapter.index else { return }
+                let normalized = result.document.text.content
+                let content = TranslateUtils.isTranslationEnabled
+                    ? TranslateUtils.translateContent(normalized, bookId: expectedBookId)
+                    : normalized
+                self.applyNextChapter(index: nextChapter.index, content: content, chapter: nextChapter)
+            } catch {
+                guard let self,
+                      self.sessionID == expectedSessionID,
+                      self.playingBookId == expectedBookId else { return }
+                AppLogger.shared.log("❌ [TTSManager] Không tải được chương \(nextIdx): \(error.localizedDescription)")
+                self.stop()
+                self.onChapterFinished?()
+            }
         }
     }
 
     /// Apply nội dung chương mới đã tải xong, bắt đầu phát và notify ReaderView.
     private func applyNextChapter(index: Int, content: String, chapter: TTSChapterInfo) {
+        checkpointProgress()
         self.playingChapterIndex = index
         self.playingChapterUrl = chapter.url
         self.chapterTitle = chapter.title
         self.chapterContent = content
-        self.preloadedNextChapterContent = nil
         self.clearPrefetchCache()
-        TTSSession.shared.update(chapterIndex: index, paragraphIndex: -1, isPlaying: true)
 
         // Parse va phat tu dau chuong
         self.continueStartSpeaking(startParagraphIndex: -1)
@@ -839,49 +806,32 @@ public final class TTSManager: NSObject, ObservableObject {
     }
 
     private func triggerNextChapterPrefetch() {
-        let nextIdx = playingChapterIndex + 1
-        guard nextIdx >= 0 && nextIdx < chaptersQueue.count else { return }
-
-        let nextChapter = chaptersQueue[nextIdx]
+        guard let nextIdx = nextChapterIndex(after: playingChapterIndex),
+              let nextChapter = chaptersQueue.first(where: { $0.index == nextIdx }) else { return }
         guard nextChapter.cachedContent == nil || nextChapter.cachedContent?.isEmpty == true else { return }
 
         nextChapterPrefetchTask?.cancel()
 
-        let extInfo = extensionInfo
+        let expectedSessionID = sessionID
+        let expectedBookId = playingBookId
+        let request = ChapterContentRequest(
+            bookId: expectedBookId,
+            chapterIndex: nextChapter.index,
+            title: nextChapter.title,
+            url: nextChapter.url,
+            host: nextChapter.host,
+            cachedContent: nextChapter.cachedContent,
+            extensionInfo: extensionInfo,
+            forceRefresh: false
+        )
 
         nextChapterPrefetchTask = Task {
-            // 1. DB cache
-            if let dbContent = await fetchChapterContentFromDB(chapterUrl: nextChapter.url),
-               !dbContent.isEmpty {
-                guard !Task.isCancelled else { return }
-                self.updateChapterCache(at: nextIdx, content: dbContent)
-                #if DEBUG
-                AppLogger.shared.log("🔊 [TTSManager] Đã tải trước chương tiếp theo \(nextIdx) từ DB cache.")
-                #endif
-                return
-            }
-
-            // 2. Fetch online
-            guard let ext = extInfo else { return }
-
-            #if DEBUG
-            AppLogger.shared.log("🔊 [TTSManager] Bắt đầu tải trước online chương tiếp theo \(nextIdx) qua Extension.")
-            #endif
-
             do {
-                let raw = try await ExtensionManager.shared.chap(
-                    localPath: ext.localPath,
-                    downloadUrl: ext.downloadUrl,
-                    url: nextChapter.url,
-                    host: nextChapter.host,
-                    configJson: ext.configJson ?? ""
-                )
-                guard !Task.isCancelled else { return }
-                let cleaned = raw.cleanHTML()
-                self.updateChapterCache(at: nextIdx, content: cleaned)
-                #if DEBUG
-                AppLogger.shared.log("🔊 [TTSManager] Đã tải trước online chương tiếp theo \(nextIdx) thành công.")
-                #endif
+                let result = try await ChapterContentRepository.shared.load(request)
+                guard !Task.isCancelled,
+                      sessionID == expectedSessionID,
+                      playingBookId == expectedBookId else { return }
+                updateChapterCache(at: nextChapter.index, content: result.document.text.content)
             } catch {
                 #if DEBUG
                 AppLogger.shared.log("[TTSManager] Prefetch next online chapter \\(nextIdx) failed: \\(error.localizedDescription)")
@@ -901,16 +851,16 @@ public final class TTSManager: NSObject, ObservableObject {
         let paragraph = paragraphs[currentParagraphIndex]
         self.highlightRange = paragraph.range // Cập nhật vùng bôi đen chữ đang đọc trên giao diện đọc truyện
         self.currentParentParagraphIndex = paragraph.paragraphIndex
-        TTSSession.shared.update(
-            chapterIndex: playingChapterIndex,
-            paragraphIndex: paragraph.paragraphIndex,
-            isPlaying: isPlaying
-        )
 
-        self.saveTTSProgressToDatabase(chapterIndex: playingChapterIndex, paragraphIndex: paragraph.paragraphIndex)
+        recordProgressInMemory()
 
         // Áp dụng các quy tắc thay thế ký tự trước khi đọc
         let textToSpeak = TTSReplacementManager.shared.applyReplacements(to: paragraph.text)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !textToSpeak.isEmpty else {
+            nextParagraph()
+            return
+        }
 
         // Điều hướng luồng phát âm thanh sang Engine tương ứng:
         if tool == "system" {
@@ -989,8 +939,13 @@ public final class TTSManager: NSObject, ObservableObject {
         guard index >= 0 && index < paragraphs.count else { return }
         let rawText = paragraphs[index].text
         let text = TTSReplacementManager.shared.applyReplacements(to: rawText)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
         let voice = selectedVoice
         let toolBeforeStart = tool
+        let expectedSessionID = sessionID
+        let expectedBookId = playingBookId
+        let expectedChapterIndex = playingChapterIndex
 
         if tool == "nghitts" {
             guard let service = nghiTTSService else { return }
@@ -1003,7 +958,12 @@ public final class TTSManager: NSObject, ObservableObject {
                     // AppLogger.shared.log("🔊 [TTSManager] Bắt đầu tải trước cho đoạn \(index)...")
                     let wavData = try await service.synthesize(text: text, voice: voice, speed: 1.0)
 
-                    if !Task.isCancelled && self.selectedVoice == voice && self.tool == toolBeforeStart {
+                    if !Task.isCancelled,
+                       self.sessionID == expectedSessionID,
+                       self.playingBookId == expectedBookId,
+                       self.playingChapterIndex == expectedChapterIndex,
+                       self.selectedVoice == voice,
+                       self.tool == toolBeforeStart {
                         if let buffer = self.makePCMBuffer(fromWavData: wavData, targetFormat: targetFormat) {
                             self.preloadedWavs[index] = buffer
                             // AppLogger.shared.log("🔊 [TTSManager] Đã tải trước và lưu cache PCMBuffer thành công cho đoạn \(index).")
@@ -1011,9 +971,13 @@ public final class TTSManager: NSObject, ObservableObject {
                             AppLogger.shared.log("❌ [TTSManager] Lỗi chuyển đổi WAV sang PCMBuffer cho đoạn \(index).")
                         }
                     }
-                    self.prefetchTasks.removeValue(forKey: index)
+                    if self.sessionID == expectedSessionID {
+                        self.prefetchTasks.removeValue(forKey: index)
+                    }
                 } catch {
-                    self.prefetchTasks.removeValue(forKey: index)
+                    if self.sessionID == expectedSessionID {
+                        self.prefetchTasks.removeValue(forKey: index)
+                    }
                     // AppLogger.shared.log("🔊 [TTSManager] Tải trước thất bại cho đoạn \(index): \(error.localizedDescription)")
                 }
             }
@@ -1031,13 +995,22 @@ public final class TTSManager: NSObject, ObservableObject {
                     // AppLogger.shared.log("🔊 [TTSManager] Bắt đầu tải trước (extension tts) cho đoạn \(index)...")
                     let buffer = try await self.extService.synthesize(text: text, voice: voice, localPath: localPath, configJson: configJson, targetFormat: targetFormat)
 
-                    if !Task.isCancelled && self.selectedVoice == voice && self.tool == toolBeforeStart {
+                    if !Task.isCancelled,
+                       self.sessionID == expectedSessionID,
+                       self.playingBookId == expectedBookId,
+                       self.playingChapterIndex == expectedChapterIndex,
+                       self.selectedVoice == voice,
+                       self.tool == toolBeforeStart {
                         self.preloadedWavs[index] = buffer
                         // AppLogger.shared.log("🔊 [TTSManager] Đã tải trước và lưu cache PCMBuffer thành công (extension tts) cho đoạn \(index).")
                     }
-                    self.prefetchTasks.removeValue(forKey: index)
+                    if self.sessionID == expectedSessionID {
+                        self.prefetchTasks.removeValue(forKey: index)
+                    }
                 } catch {
-                    self.prefetchTasks.removeValue(forKey: index)
+                    if self.sessionID == expectedSessionID {
+                        self.prefetchTasks.removeValue(forKey: index)
+                    }
                     // AppLogger.shared.log("🔊 [TTSManager] Tải trước thất bại (extension tts) cho đoạn \(index): \(error.localizedDescription)")
                 }
             }
@@ -1320,166 +1293,12 @@ public final class TTSManager: NSObject, ObservableObject {
     // MARK: - Text Segmentation (Phân đoạn văn bản)
 
     nonisolated private func parseParagraphs(_ content: String, chunkLength: Int) -> [TTSParagraph] {
-        var result: [TTSParagraph] = []
-        let lines = content.components(separatedBy: "\n")
-        var currentOffset = 0
-
-        for i in 0..<lines.count {
-            let line = lines[i]
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            let lineRange = NSRange(location: currentOffset, length: line.count)
-
-            let paragraphRange: NSRange
-            if let trimmedRange = content.range(of: trimmed, range: Range(lineRange, in: content)!) {
-                paragraphRange = NSRange(trimmedRange, in: content)
-            } else {
-                paragraphRange = NSRange(location: currentOffset, length: trimmed.count)
-            }
-
-            let maxLen = max(chunkLength, 10)
-            if trimmed.count > maxLen {
-                let subParagraphs = splitSentence(trimmed, maxLength: maxLen, baseOffset: paragraphRange.location, paragraphIndex: i)
-                result.append(contentsOf: subParagraphs)
-            } else {
-                result.append(
-                    TTSParagraph(
-                        text: trimmed,
-                        range: paragraphRange,
-                        paragraphIndex: i
-                    )
-                )
-            }
-            currentOffset += line.count + 1
-        }
-        return result
+        TTSParagraphBuilder.build(
+            from: ChapterTextNormalizer.normalize(content),
+            chunkLength: chunkLength
+        )
     }
 
-    nonisolated private func splitSentence(
-        _ text: String,
-        maxLength: Int,
-        baseOffset: Int,
-        paragraphIndex: Int
-    ) -> [TTSParagraph] {
-
-        guard text.utf16.count > maxLength else {
-            return [
-                TTSParagraph(
-                    text: text.trimmingCharacters(in: .whitespacesAndNewlines),
-                    range: NSRange(location: baseOffset, length: text.utf16.count),
-                    paragraphIndex: paragraphIndex
-                )
-            ]
-        }
-
-        let chars = Array(text)
-        var result: [TTSParagraph] = []
-
-        var start = 0
-
-        while start < chars.count {
-
-            let remain = chars.count - start
-
-            if remain <= maxLength {
-
-                let part = String(chars[start...])
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-
-                if !part.isEmpty {
-
-                    let leading = String(chars[start...])
-                        .prefix { $0.isWhitespace }
-                        .count
-
-                    let offset = start + leading
-
-                    result.append(
-                        TTSParagraph(
-                            text: part,
-                            range: NSRange(
-                                location: baseOffset + offset,
-                                length: part.utf16.count
-                            ),
-                            paragraphIndex: paragraphIndex
-                        )
-                    )
-                }
-
-                break
-            }
-
-            let split = findSplitPosition(
-                chars: chars,
-                start: start,
-                maxLength: maxLength
-            )
-
-            let raw = String(chars[start..<split])
-
-            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-
-            if !trimmed.isEmpty {
-
-                let leading = raw.prefix { $0.isWhitespace }.count
-                let offset = start + leading
-
-                result.append(
-                    TTSParagraph(
-                        text: trimmed,
-                        range: NSRange(
-                            location: baseOffset + offset,
-                            length: trimmed.utf16.count
-                        ),
-                        paragraphIndex: paragraphIndex
-                    )
-                )
-            }
-
-            start = split
-
-            while start < chars.count && chars[start].isWhitespace {
-                start += 1
-            }
-        }
-
-        return result
-    }
-
-    nonisolated private func findSplitPosition(
-        chars: [Character],
-        start: Int,
-        maxLength: Int
-    ) -> Int {
-
-        let end = min(start + maxLength, chars.count)
-
-        let sentenceMarks: Set<Character> = [".", "!", "?", "\u{3002}", "\u{FF01}", "\u{FF1F}"]
-        let clauseMarks: Set<Character> = [",", "\u{FF0C}", ";", "\u{FF1B}", ":", "\u{FF1A}", "\u{3001}"]
-
-        // 1. Ưu tiên dấu kết thúc câu
-        if let idx = stride(from: end - 1, through: start, by: -1)
-            .first(where: { sentenceMarks.contains(chars[$0]) }) {
-
-            return idx + 1
-        }
-
-        // 2. Dấu ngắt mệnh đề
-        if let idx = stride(from: end - 1, through: start, by: -1)
-            .first(where: { clauseMarks.contains(chars[$0]) }) {
-
-            return idx + 1
-        }
-
-        // 3. Khoảng trắng
-        if let idx = stride(from: end - 1, through: start, by: -1)
-            .first(where: { chars[$0].isWhitespace }) {
-
-            return idx + 1
-        }
-
-        // 4. Cắt cứng
-        return end
-    }
 
     // MARK: - Lock Screen & Remote Control Sync
 

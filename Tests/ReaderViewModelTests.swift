@@ -114,10 +114,10 @@ final class ReaderViewModelTests: XCTestCase {
             modelContext: context
         )
         viewModel.setSpeculativePrefetchEnabled(false)
-        try? await Task.sleep(nanoseconds: 250_000_000)
+        try? await Task.sleep(nanoseconds: 500_000_000)
 
         XCTAssertEqual(viewModel.displayedChapterIndex, 10)
-        XCTAssertEqual(viewModel.stableIndexes, [10])
+        XCTAssertEqual(viewModel.loadState, .ready(chapterIndex: 10))
 
         for _ in 0..<4 {
             viewModel.stepChapter(by: 1, source: .nextButton, persistProgress: false)
@@ -130,7 +130,7 @@ final class ReaderViewModelTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 650_000_000)
 
         XCTAssertEqual(viewModel.displayedChapterIndex, 14)
-        XCTAssertEqual(viewModel.stableIndexes, [14])
+        XCTAssertEqual(viewModel.loadState, .ready(chapterIndex: 14))
         XCTAssertNil(viewModel.cache.get(11))
         XCTAssertNil(viewModel.cache.get(12))
         XCTAssertNil(viewModel.cache.get(13))

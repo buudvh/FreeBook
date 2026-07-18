@@ -100,4 +100,12 @@ graph TD
     *   Không được chuyển các thực thể `@Model` giữa các luồng khác nhau. Phải truyền định danh và thực hiện fetch lại trên luồng đích.
 3.  **Không chạy JS đồng bộ trên Main Thread**:
     *   Hành động chạy Javascript thông qua `JSExecutor` có thể tốn thời gian. Tất cả các phương thức trong `ExtensionManager` phải được đánh dấu `async` và chạy bất đồng bộ để tránh chặn Main Thread.
+
+#### Reader/TTS unified pipeline (2026-07)
+
+- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, compact paragraph IDs, and UTF-16 ranges. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
+- Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
+- `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
+- `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
+
 <!-- GENERATED END -->

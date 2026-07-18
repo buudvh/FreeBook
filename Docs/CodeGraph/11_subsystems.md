@@ -228,4 +228,13 @@ Reader chrome observes the pending target and immediately shows its title, chapt
 *   **Điểm bắt đầu (Entry Points)**: Tab Từ điển trên tab bar chính.
 *   **Rủi ro đã biết (Known Risks)**:
     *   Truy vấn danh sách định nghĩa lớn trên main thread gây trễ UI.
+
+#### Reader/TTS unified pipeline (2026-07)
+
+- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, compact paragraph IDs, and UTF-16 ranges. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
+- Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
+- `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
+- `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
+- The TTS widget presents a compact horizontal capsule over Reader, with a circular rotating cover, play/pause, fast-forward and close actions. Its edge-peek mode preserves the same playback and placement state and expands on drag.
+
 <!-- GENERATED END -->

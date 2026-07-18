@@ -1,6 +1,11 @@
 import SwiftUI
 import SwiftData
 
+struct ReaderRoute: Identifiable, Hashable {
+    let chapterIndex: Int
+    var id: Int { chapterIndex }
+}
+
 struct BookDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -53,10 +58,9 @@ struct BookDetailView: View {
     @State private var tocPages: [String] = []
     @State private var remainingPagesLoaded = false
     @State private var isLoadingRemainingPages = false
-    @State private var navigateToReader = false
+    @State private var readerRoute: ReaderRoute?
     @State private var navigateToDictionary = false
     @State private var navigateToChangeSource = false
-    @State private var targetChapterIndex = 0
     
     // Trình duyệt bypass Cloudflare & Import
     @State private var showingBypassBrowser = false
@@ -532,8 +536,7 @@ struct BookDetailView: View {
                                                 
                                                 ForEach(filteredChaps) { chap in
                                                     Button(action: {
-                                                        targetChapterIndex = chap.index
-                                                        startReading()
+                                                        startReading(at: chap.index)
                                                     }) {
                                                         HStack {
                                                             Text(translateChapterTitleIfNeeded(chap))
@@ -564,8 +567,7 @@ struct BookDetailView: View {
                                                 
                                                 ForEach(filteredOnline, id: \.offset) { index, chap in
                                                     Button(action: {
-                                                        targetChapterIndex = index
-                                                        startReading()
+                                                        startReading(at: index)
                                                     }) {
                                                         VStack(alignment: .leading) {
                                                             Text(translateTitleIfNeeded(chap.name))
@@ -669,26 +671,22 @@ struct BookDetailView: View {
                 renderedTab = selectedTab
                 loadBookData()
             }
-            
-            // Hidden navigation link for programmatic reader routing
-            NavigationLink(
-                destination: LazyView {
+            .navigationDestination(item: $readerRoute) { route in
+                LazyView {
                     ReaderView(
                         bookId: bookId,
                         extensionPackageId: extensionPackageId,
-                        chapterIndex: targetChapterIndex,
+                        chapterIndex: route.chapterIndex,
                         onlineChapters: localBook == nil ? onlineChapters : [],
                         bookTitle: title,
                         bookAuthor: author,
                         bookCoverUrl: coverUrl,
                         bookDesc: desc.isEmpty ? nil : desc,
                         bookDetailUrl: initialDetailUrl,
-                        bookSourceName: sourceName
+                        bookSourceName: sourceName,
+                        initialParagraphIndex: -1
                     )
-                },
-                isActive: $navigateToReader
-            ) {
-                EmptyView()
+                }
             }
             
             NavigationLink(
@@ -781,8 +779,7 @@ struct BookDetailView: View {
                                 let activeChapterIndex = localBook?.currentChapterIndex ?? 0
                                 Button(action: {
                                     isMenuExpanded = false
-                                    targetChapterIndex = activeChapterIndex
-                                    startReading()
+                                    startReading(at: activeChapterIndex)
                                 }) {
                                     HStack {
                                         Text(localBook == nil ? "Đọc ngay" : "Đọc tiếp")
@@ -1207,10 +1204,11 @@ struct BookDetailView: View {
         }
     }
     
-    private func startReading() {
+    private func startReading(at chapterIndex: Int) {
+        let route = ReaderRoute(chapterIndex: chapterIndex)
         if tocPages.count > 1 && !remainingPagesLoaded {
             // Điều hướng người dùng sang màn hình đọc ngay lập tức không bắt chờ
-            self.navigateToReader = true
+            self.readerRoute = route
             
             // Nếu đã có tác vụ đang chạy thì không chạy trùng lặp
             guard loadingTask == nil else { return }
@@ -1255,7 +1253,7 @@ struct BookDetailView: View {
                 }
             }
         } else {
-            self.navigateToReader = true
+            self.readerRoute = route
         }
     }
     
@@ -1321,6 +1319,11 @@ struct BookDetailView: View {
             book.isOnShelf = false
             try? modelContext.save()
         } else {
+            UserDefaults.standard.removeObject(forKey: "lastChapterIndex_\(book.bookId)")
+            UserDefaults.standard.removeObject(forKey: "lastParagraphIndex_\(book.bookId)")
+            if TTSManager.shared.playingBookId == book.bookId {
+                TTSManager.shared.stop()
+            }
             modelContext.delete(book)
             try? modelContext.save()
         }

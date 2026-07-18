@@ -115,4 +115,13 @@ graph TD
     *   Các closure callback trong `TTSManager` nếu capture `self` dưới dạng strong reference sẽ khiến `TTSManager` giữ chặt các tài nguyên xung quanh. Việc dùng `[weak self]` ở các callback này là bắt buộc.
 2.  **Rò rỉ WKWebView trong WebViewLoader**:
     *   `WebViewLoader` giữ `WKWebView`. Nếu `deinit` của `WebViewLoader` không chạy đúng cách hoặc `activeBrowsers` không được giải phóng khi đóng JS context, `WKWebView` sẽ bị lọt (leak), tiêu hao bộ nhớ rất nhanh.
+
+#### Reader/TTS unified pipeline (2026-07)
+
+- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, compact paragraph IDs, and UTF-16 ranges. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
+- Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
+- `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
+- `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
+- `TTSFloatingWidgetView` owns `FloatingWidgetViewModel` and the cover animation state; `TTSManager.shared` remains the single owner of playback, chapter identity, and stop semantics.
+
 <!-- GENERATED END -->

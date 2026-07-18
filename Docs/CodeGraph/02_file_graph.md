@@ -117,7 +117,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
     *   [ReaderChapterListView.swift](../../Sources/Views/Reader/ReaderChapterListView.swift)
     *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
     *   [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
-    *   [ReadingProgressRepository.swift](../../Sources/Views/Reader/ReadingProgressRepository.swift)
+    *   [ReadingProgressStore.swift](../../Sources/Services/ReadingProgress/ReadingProgressStore.swift)
     *   [SearchView.swift](../../Sources/Views/Search/SearchView.swift)
     *   [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
 
@@ -340,7 +340,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
     *   [PrefetchManager.swift](../../Sources/Views/Reader/PrefetchManager.swift)
     *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
     *   [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
-    *   [ReadingProgressRepository.swift](../../Sources/Views/Reader/ReadingProgressRepository.swift)
+    *   [ReadingProgressStore.swift](../../Sources/Services/ReadingProgress/ReadingProgressStore.swift)
     *   [SettingsView.swift](../../Sources/Views/Settings/Main/SettingsView.swift)
     *   [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift)
 
@@ -990,7 +990,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *   **Được sử dụng bởi (Used by)**:
     *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
     *   [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift)
-    *   [ReadingProgressRepository.swift](../../Sources/Views/Reader/ReadingProgressRepository.swift)
+    *   [ReadingProgressStore.swift](../../Sources/Services/ReadingProgress/ReadingProgressStore.swift)
 
 ---
 
@@ -1116,15 +1116,15 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
     *   [ChapterCache.swift](../../Sources/Views/Reader/ChapterCache.swift)
     *   [ParagraphCardView.swift](../../Sources/Views/Reader/ParagraphCardView.swift)
     *   [PrefetchManager.swift](../../Sources/Views/Reader/PrefetchManager.swift)
-    *   [ReadingProgressRepository.swift](../../Sources/Views/Reader/ReadingProgressRepository.swift)
+    *   [ReadingProgressStore.swift](../../Sources/Services/ReadingProgress/ReadingProgressStore.swift)
 *   **Được sử dụng bởi (Used by)**:
     *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
 
 ---
 
-### 72. [ReadingProgressRepository.swift](../../Sources/Views/Reader/ReadingProgressRepository.swift)
+### 72. [ReadingProgressStore.swift](../../Sources/Services/ReadingProgress/ReadingProgressStore.swift)
 
-*   **Đường dẫn**: `Views/Reader/ReadingProgressRepository.swift`
+*   **Đường dẫn**: `Services/ReadingProgress/ReadingProgressStore.swift`
 *   **Imports (Import Graph)**: `Foundation`, `SwiftData`
 *   **Sử dụng (Uses)**:
     *   [Book.swift](../../Sources/Models/Database/Book.swift)
@@ -1332,5 +1332,13 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
     *   [FloatingWidgetViewModel.swift](../../Sources/Views/TTSWidget/FloatingWidgetViewModel.swift)
 
 ---
+
+
+#### Reader/TTS unified pipeline (2026-07)
+
+- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, compact paragraph IDs, and UTF-16 ranges. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
+- Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
+- `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
+- `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 
 <!-- GENERATED END -->

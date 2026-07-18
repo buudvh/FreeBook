@@ -125,4 +125,13 @@ stateDiagram-v2
 *   **`Idle -> Loading`**: Mở chương truyện lần đầu tiên hoặc chuyển chương. Kích hoạt cờ loading của chương đó.
 *   **`Loading -> Success`**: Đọc thành công dữ liệu từ DB (truyện offline) hoặc chạy JS bóc tách thành công (truyện online). Nội dung chương được hiển thị lên màn hình.
 *   **`Loading -> Error`**: Tải thất bại. Hiển thị view thông báo lỗi kèm nút "Thử lại".
+
+#### Reader/TTS unified pipeline (2026-07)
+
+- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, compact paragraph IDs, and UTF-16 ranges. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
+- Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
+- `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
+- `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
+- TTS widget state is `revealed` or `peeking`: drag cancels auto-hide, snapping near an edge enters peeking, and an idle revealed widget collapses without changing playback state or persisted placement.
+
 <!-- GENERATED END -->

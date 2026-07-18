@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 0
     
     var body: some View {
@@ -37,6 +38,19 @@ struct MainTabView: View {
         .onAppear {
             DownloadManager.shared.initialize(container: modelContext.container)
             TTSManager.shared.initialize(container: modelContext.container)
+            Task {
+                await ReadingProgressStore.shared.configure(container: modelContext.container)
+                await ChapterContentRepository.shared.configure(container: modelContext.container)
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .inactive || phase == .background else { return }
+            TTSManager.shared.checkpointForBackground()
+            let backgroundSession = BackgroundTaskSession.begin(name: "Flush reading progress")
+            Task(priority: .high) {
+                try? await ReadingProgressStore.shared.flushAll()
+                backgroundSession.end()
+            }
         }
     }
 }

@@ -28,6 +28,13 @@ public final class FloatingWidgetViewModel: ObservableObject {
         startAutoHideTimer()
     }
 
+    /// Expands the widget while the user is pulling it away from the edge.
+    /// The auto-hide timer is restarted only after the drag has completed.
+    public func expandForDrag() {
+        autoHideTask?.cancel()
+        mode = .revealed
+    }
+
     public func hide() {
         autoHideTask?.cancel()
         mode = .peeking
@@ -42,23 +49,34 @@ public final class FloatingWidgetViewModel: ObservableObject {
         isDragging = true
     }
 
-    public func handleDragEnd(finalPosition: CGPoint, widgetSize: CGFloat, screenWidth: CGFloat, screenHeight: CGFloat) {
+    public func handleDragEnd(
+        finalPosition: CGPoint,
+        widgetWidth: CGFloat,
+        widgetHeight: CGFloat,
+        screenWidth: CGFloat,
+        screenHeight: CGFloat,
+        edgeSnapDistance: CGFloat
+    ) {
         autoHideTask?.cancel()
         guard screenHeight > 0 else { return }
+        _ = widgetWidth
 
         let targetEdge: EdgeDirection = finalPosition.x < screenWidth - finalPosition.x ? .left : .right
-        let minY: CGFloat = widgetSize / 2 + 80
-        let maxY: CGFloat = screenHeight - widgetSize / 2 - 100
+        let minY: CGFloat = widgetHeight / 2 + 92
+        let maxY: CGFloat = max(minY, screenHeight - widgetHeight / 2 - 92)
         let targetY = min(max(finalPosition.y, minY), maxY)
 
         verticalRatio = targetY / screenHeight
         edgeDirection = targetEdge
-        mode = .revealed
+        let edgeDistance = min(finalPosition.x, screenWidth - finalPosition.x)
+        mode = edgeDistance <= edgeSnapDistance ? .peeking : .revealed
         isDragging = false
 
         UserDefaults.standard.set(Double(verticalRatio), forKey: storedRatioKey)
         UserDefaults.standard.set(targetEdge == .left ? "left" : "right", forKey: storedEdgeKey)
-        startAutoHideTimer()
+        if mode == .revealed {
+            startAutoHideTimer()
+        }
     }
 
     public func startAutoHideTimer() {
