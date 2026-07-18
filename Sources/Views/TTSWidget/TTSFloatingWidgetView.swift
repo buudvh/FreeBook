@@ -28,62 +28,55 @@ struct TTSFloatingWidgetView: View {
     }
 
     var body: some View {
-        let _ = horizontalSizeClass
-        let _ = verticalSizeClass
-        let size = screenSize
-        let restingPosition = restingPosition(
-            screenWidth: size.width,
-            screenHeight: size.height
-        )
-        let renderPosition = visualPosition ?? restingPosition
-        let widgetWidth = viewModel.mode == .peeking ? Layout.peekSize : Layout.width
-        let widgetHeight = viewModel.mode == .peeking ? Layout.peekSize : Layout.height
+        GeometryReader { geometry in
+            let screenWidth = geometry.size.width
+            let screenHeight = geometry.size.height
+            let restingPosition = restingPosition(
+                screenWidth: screenWidth,
+                screenHeight: screenHeight
+            )
+            let renderPosition = visualPosition ?? restingPosition
+            let widgetWidth = viewModel.mode == .peeking ? Layout.peekSize : Layout.width
+            let widgetHeight = viewModel.mode == .peeking ? Layout.peekSize : Layout.height
 
-        widgetBody
-            .frame(width: widgetWidth, height: widgetHeight)
-            // AppLaunchRootView places this view in a centered ZStack. Keeping
-            // the outer layout equal to the widget bounds prevents a full-screen
-            // GeometryReader from intercepting taps intended for Reader content.
-            .offset(
-                x: renderPosition.x - size.width / 2,
-                y: renderPosition.y - size.height / 2
-            )
-            .contentShape(Rectangle())
-            .gesture(
-                dragGesture(
-                    restingPosition: restingPosition,
-                    screenWidth: size.width,
-                    screenHeight: size.height
+            widgetBody
+                .frame(width: widgetWidth, height: widgetHeight)
+                .contentShape(Rectangle())
+                .position(renderPosition)
+                .highPriorityGesture(
+                    dragGesture(
+                        restingPosition: restingPosition,
+                        screenWidth: screenWidth,
+                        screenHeight: screenHeight
+                    )
                 )
-            )
-            .animation(Self.widgetAnimation, value: viewModel.mode)
-            .onAppear {
-                guard ttsManager.showFloatingWidget else { return }
+                .onTapGesture {
+                    guard !viewModel.isDragging else { return }
+                    if viewModel.mode == .peeking {
+                        revealWidget()
+                    } else {
+                        togglePlayback()
+                    }
+                }
+        }
+        .animation(Self.widgetAnimation, value: viewModel.mode)
+        .onAppear {
+            guard ttsManager.showFloatingWidget else { return }
+            viewModel.reveal()
+            visualPosition = nil
+        }
+        .onChange(of: ttsManager.showFloatingWidget) { _, isVisible in
+            if isVisible {
                 viewModel.reveal()
                 visualPosition = nil
+            } else {
+                viewModel.hide()
+                visualPosition = nil
             }
-            .onChange(of: ttsManager.showFloatingWidget) { _, isVisible in
-                if isVisible {
-                    viewModel.reveal()
-                    visualPosition = nil
-                } else {
-                    viewModel.hide()
-                    visualPosition = nil
-                }
-            }
-            .onDisappear {
-                viewModel.cancelTasks()
-            }
-    }
-
-    private var screenSize: CGSize {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        let windowSize = scenes
-            .flatMap { $0.windows }
-            .first(where: { $0.isKeyWindow })?
-            .bounds
-            .size
-        return windowSize ?? UIScreen.main.bounds.size
+        }
+        .onDisappear {
+            viewModel.cancelTasks()
+        }
     }
 
     @ViewBuilder
@@ -220,19 +213,13 @@ struct TTSFloatingWidgetView: View {
         screenWidth: CGFloat,
         screenHeight: CGFloat
     ) -> some Gesture {
-        DragGesture(minimumDistance: 0)
+        DragGesture(minimumDistance: 5)
             .onChanged { value in
                 if !viewModel.isDragging {
                     viewModel.handleDragStart()
                     dragOrigin = visualPosition ?? restingPosition
                 }
 
-                let distance = max(abs(value.translation.width), abs(value.translation.height))
-                guard distance > 4 else { return }
-
-                // Keep the current mode until the gesture ends. Replacing the
-                // peeking circle with the revealed capsule here changes the
-                // hit-test tree and interrupts the active drag.
                 guard let origin = dragOrigin else { return }
                 var transaction = Transaction()
                 transaction.disablesAnimations = true
@@ -244,23 +231,6 @@ struct TTSFloatingWidgetView: View {
                 }
             }
             .onEnded { value in
-                let didMove = abs(value.translation.width) > 12 || abs(value.translation.height) > 12
-                if !didMove {
-                    // Treat as a tap. In peeking mode reveal the full widget;
-                    // in revealed mode toggle play/pause.
-                    dragOrigin = nil
-                    viewModel.isDragging = false
-                    if viewModel.mode == .peeking {
-                        revealWidget()
-                    } else {
-                        togglePlayback()
-                    }
-                    withAnimation(Self.widgetAnimation) {
-                        visualPosition = nil
-                    }
-                    return
-                }
-
                 let origin = dragOrigin ?? restingPosition
                 let finalPosition = CGPoint(
                     x: origin.x + value.translation.width,

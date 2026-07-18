@@ -4,6 +4,13 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.22] - 2026-07-18
+
+### Khôi phục kiến trúc layout và cử chỉ kéo thả/chạm của Widget nổi TTS
+* Khôi phục layout bằng `GeometryReader` kết hợp `.position(renderPosition)` thay thế cho `.offset()` cũ để đồng bộ chính xác vùng vẽ visual và vùng nhận tương tác (hit-test area). Điều này giúp khắc phục triệt để lỗi widget bị "liệt" không nhận kéo thả do lệch vùng chạm.
+* Sử dụng `DragGesture(minimumDistance: 5)` với `.highPriorityGesture` để ưu tiên cử chỉ kéo thả của widget mà không bị nuốt bởi các nút bấm điều khiển bên trong hoặc các cử chỉ cuộn nền của Reader.
+* Khôi phục `.onTapGesture` trực tiếp trên widget để xử lý chạm kích hoạt mở rộng (`reveal()`) khi ở trạng thái ẩn (peeking) hoặc tạm dừng/phát nhạc (`togglePlayback()`) khi chạm vùng trống ở trạng thái mở rộng (revealed), loại bỏ logic nhận diện tap tự chế phức tạp trong `onEnded`.
+
 ## [1.3.21] - 2026-07-18
 
 ### Sửa lỗi điều khiển tai nghe và kéo widget nổi
