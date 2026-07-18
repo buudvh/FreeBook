@@ -821,7 +821,7 @@ class ReaderViewModel: ObservableObject {
         // Chuyển tác vụ dịch thuật và phân tích dòng xuống luồng chạy nền (Task.detached)
         let result = await Task.detached(priority: .userInitiated) {
             let normalizedText = ChapterTextNormalizer.normalize(originalContent)
-            ReaderParagraphBuilder.build(
+            return ReaderParagraphBuilder.build(
                 originalTitle: originalTitle,
                 normalizedText: normalizedText,
                 isTranslationEnabled: isTranslationEnabled,

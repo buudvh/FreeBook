@@ -1575,5 +1575,6 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - `TTSFloatingWidgetView` composes the capsule and `TTSCoverView`; `FloatingWidgetViewModel` owns `WidgetMode`, edge persistence, drag snapping, and the cancellable idle-collapse task.
+- `DictionaryMatchInfo` is a module-level `Identifiable/Equatable` value shared by Reader and definition management. `ReaderSettingsView` and generic `ReaderViewModelObserver` are standalone Reader UI types.
 
 <!-- GENERATED END -->

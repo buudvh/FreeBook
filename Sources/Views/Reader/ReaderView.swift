@@ -1377,8 +1377,6 @@ struct ReaderView: View {
                 chapterIndex: commit.chapterIndex,
                 paragraphIndex: commit.paragraphIndex
             )
-            if let chapter = vm.cache.get(commit.chapterIndex) {
-            }
         }
         if reduceMotion || !commit.animateContent || commit.source == .ttsSync {
             apply()

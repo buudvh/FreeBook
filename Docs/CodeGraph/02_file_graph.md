@@ -1340,5 +1340,6 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 - Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
+- Compile recovery splits `DictionaryMatchInfo`, `ReaderSettingsView`, and `ReaderViewModelObserver` into standalone source files so Dictionary and Reader consumers share visible module-level declarations after legacy Reader removal.
 
 <!-- GENERATED END -->
