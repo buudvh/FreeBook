@@ -9,6 +9,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 ### Sửa lỗi biên dịch sau khi dọn Reader legacy
 * Khôi phục `DictionaryMatchInfo`, `ReaderSettingsView` và `ReaderViewModelObserver` thành các file độc lập thay vì để mất cùng khối Reader legacy.
 * Trả đúng `ReaderParagraphBuildResult` từ `Task.detached` trong `ReaderViewModel`, tránh suy luận kết quả thành `Void`.
+* Chỉ khởi chạy task cấu hình progress/repository sau khi toàn bộ stored property của `ReaderViewModel` đã được khởi tạo.
 * Dọn closure rỗng trong navigation commit và capture `self` không sử dụng của `ImageCacheManager`.
 
 ## [1.3.16] - 2026-07-18

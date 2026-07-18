@@ -201,17 +201,17 @@ class ReaderViewModel: ObservableObject {
         self.bookDetailUrl = bookDetailUrl
         self.bookSourceName = bookSourceName
 
-        Task {
-            await progressStore.configure(container: modelContext.container)
-            await progressStore.claim(bookId: bookId, owner: .reader)
-            await ChapterContentRepository.shared.configure(container: modelContext.container)
-        }
-
         let initial = ReadingProgress(chapterIndex: initialChapterIndex, paragraphIndex: initialParagraphIndex)
         self.currentProgress = initial
         self.lastSavedProgress = initial
         self.readingContext = ReadingContext(bookId: bookId, chapterIndex: initialChapterIndex, paragraphIndex: initialParagraphIndex)
         self.displayedChapterIndex = initialChapterIndex
+
+        Task {
+            await progressStore.configure(container: modelContext.container)
+            await progressStore.claim(bookId: bookId, owner: .reader)
+            await ChapterContentRepository.shared.configure(container: modelContext.container)
+        }
 
         setupSubscriptions()
         _ = cache.setPlaceholder(max(initialChapterIndex, 0))
