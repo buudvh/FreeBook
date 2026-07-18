@@ -1372,10 +1372,7 @@ public final class TTSManager: NSObject, ObservableObject {
         // Play
         commandCenter.playCommand.addTarget { [weak self] _ in
             guard self != nil else { return .commandFailed }
-            // Update MediaPlayer before acknowledging the command. Otherwise
-            // the next headset press can be routed using the stale state.
-            setSystemNowPlayingPlaybackState(.playing, playbackRate: 1)
-            Task { @MainActor [weak self] in
+            DispatchQueue.main.async { [weak self] in
                 self?.resume()
             }
             return .success
@@ -1384,8 +1381,7 @@ public final class TTSManager: NSObject, ObservableObject {
         // Pause
         commandCenter.pauseCommand.addTarget { [weak self] _ in
             guard self != nil else { return .commandFailed }
-            setSystemNowPlayingPlaybackState(.paused, playbackRate: 0)
-            Task { @MainActor [weak self] in
+            DispatchQueue.main.async { [weak self] in
                 self?.pause()
             }
             return .success

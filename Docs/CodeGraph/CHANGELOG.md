@@ -4,6 +4,20 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.21] - 2026-07-18
+
+### Sửa lỗi điều khiển tai nghe và kéo widget nổi
+* Sửa lỗi bấm tai nghe phải bấm hai lần mới phát lại: bỏ cập nhật trạng thái trước (`setSystemNowPlayingPlaybackState`) trong handler remote command và dùng `DispatchQueue.main.async` thay vì `Task` để `resume()`/`pause()` chạy đồng bộ trên main queue, đảm bảo trạng thái cập nhật nhất quán trước khi iOS xử lý lệnh tiếp theo.
+* Sửa lỗi widget nổi không thể kéo hoặc hiển thị lại từ trạng thái thu nhỏ (peeking) và trạng thái đầy đủ (revealed): đổi gesture từ `.simultaneousGesture` sang `.gesture` với `minimumDistance: 0`, loại bỏ `.onTapGesture` riêng trên collapsedWidget vì nó nuốt toàn bộ sự kiện chạm và chặn drag gesture kích hoạt; xử lý tap-to-reveal và tap-to-toggle-playback trong `onEnded` của drag gesture dựa trên ngưỡng di chuyển.
+
+## [1.3.20] - 2026-07-18
+
+### Đồng bộ Lock Screen, cử chỉ kéo widget và khôi phục text DOM
+* Khôi phục hành vi trích xuất văn bản DOM (`JSDom.swift`) không trim khoảng trắng và dòng mới tại lớp DOM để tránh làm hỏng các tiền tố kiểm tra của Extension.
+* Sửa lỗi đồng bộ điều khiển Lock Screen/AirPods (`TTSManager.swift`): Vô hiệu hóa `togglePlayPauseCommand` tránh nhận trùng lặp sự kiện trên thiết bị Bluetooth; đồng thời cập nhật tức thì trạng thái playback state ngay trong luồng chính để phản hồi nhanh chóng lên UI Lock Screen.
+* Tối ưu hóa cử chỉ widget nổi (`TTSFloatingWidgetView.swift`, `FloatingWidgetViewModel.swift`): Giữ nguyên chế độ hiển thị trong suốt quá trình kéo tránh ngắt quãng gesture; tách biệt rõ ràng tap và drag snapping; bổ sung kiểm tra kích thước màn hình hợp lệ để tránh lỗi tính toán.
+* Thêm kiểm thử tự động cho trạng thái đồng bộ Now Playing, cử chỉ snapping và các trường hợp widget biên trong `FloatingWidgetViewModelTests.swift` và `TTSManagerTests.swift`.
+
 ## [1.3.19] - 2026-07-18
 
 ### Local-first Reader/TTS và quản lý kho an toàn

@@ -49,10 +49,7 @@ struct TTSFloatingWidgetView: View {
                 y: renderPosition.y - size.height / 2
             )
             .contentShape(Rectangle())
-            // A high-priority gesture prevented the collapsed Button from
-            // receiving taps. Simultaneous recognition keeps drag-to-expand
-            // while allowing a simple tap to reveal the full widget.
-            .simultaneousGesture(
+            .gesture(
                 dragGesture(
                     restingPosition: restingPosition,
                     screenWidth: size.width,
@@ -172,7 +169,9 @@ struct TTSFloatingWidgetView: View {
         .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
         .shadow(color: .black.opacity(0.28), radius: 11, x: 0, y: 5)
         .contentShape(Circle())
-        .onTapGesture(perform: revealWidget)
+        // Tap-to-reveal is handled by the parent drag gesture's onEnded
+        // (didMove check). Attaching .onTapGesture here consumed touches
+        // and prevented the drag from ever activating.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Mở điều khiển TTS")
         .accessibilityAddTraits(.isButton)
@@ -221,12 +220,15 @@ struct TTSFloatingWidgetView: View {
         screenWidth: CGFloat,
         screenHeight: CGFloat
     ) -> some Gesture {
-        DragGesture(minimumDistance: 4)
+        DragGesture(minimumDistance: 0)
             .onChanged { value in
                 if !viewModel.isDragging {
                     viewModel.handleDragStart()
                     dragOrigin = visualPosition ?? restingPosition
                 }
+
+                let distance = max(abs(value.translation.width), abs(value.translation.height))
+                guard distance > 4 else { return }
 
                 // Keep the current mode until the gesture ends. Replacing the
                 // peeking circle with the revealed capsule here changes the
@@ -242,12 +244,17 @@ struct TTSFloatingWidgetView: View {
                 }
             }
             .onEnded { value in
-                // Keep taps separate from drag snapping so the collapsed
-                // control can reveal without immediately returning to peeking.
                 let didMove = abs(value.translation.width) > 12 || abs(value.translation.height) > 12
-                guard didMove else {
+                if !didMove {
+                    // Treat as a tap. In peeking mode reveal the full widget;
+                    // in revealed mode toggle play/pause.
                     dragOrigin = nil
                     viewModel.isDragging = false
+                    if viewModel.mode == .peeking {
+                        revealWidget()
+                    } else {
+                        togglePlayback()
+                    }
                     withAnimation(Self.widgetAnimation) {
                         visualPosition = nil
                     }
