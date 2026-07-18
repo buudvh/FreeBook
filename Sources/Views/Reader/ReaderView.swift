@@ -80,6 +80,9 @@ struct ReaderView: View {
     @State private var translationTokens: [TranslationWordToken] = []
     @State private var dictionaryMatches: [DictionaryMatchInfo] = []
     @State private var showingManageDefinitionsSheet = false
+    @State private var showingFloatingMenu = false
+    @State private var floatingMenuRect: CGRect? = nil
+    @State private var showingAddNghiTTSPhonemeSheet = false
 
     // Cấu hình giao diện đọc (lưu trữ lâu dài qua UserDefaults nhờ @AppStorage)
     @AppStorage("readerFontSize") private var fontSize: Double = 20.0 // Cỡ chữ của văn bản đọc
@@ -257,6 +260,55 @@ struct ReaderView: View {
                 selectedTheme.backgroundColor
                     .ignoresSafeArea()
                 readerMainContent
+                
+                // Panel dịch dạng overlay ở đáy
+                if showingDefinitionSheet {
+                    VStack {
+                        Spacer()
+                        definitionSheetContent
+                            .padding()
+                            .background(selectedTheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.14) : Color.white)
+                            .cornerRadius(16)
+                            .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: -4)
+                            .padding(.horizontal)
+                            .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 0 : 8)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                    .ignoresSafeArea(.keyboard, edges: .bottom)
+                    .zIndex(5)
+                }
+                
+                // Floating bubble menu khi bôi đen
+                if showingFloatingMenu, let rect = floatingMenuRect {
+                    FloatingSelectionMenu(
+                        rect: rect,
+                        onTranslate: {
+                            showingFloatingMenu = false
+                            updateEditorFromSelection()
+                            showingDefinitionSheet = true
+                        },
+                        onSpeak: {
+                            showingFloatingMenu = false
+                            if let pIndex = editingParagraphIndex {
+                                startTTS(at: chapterIndex, paragraphIndex: pIndex)
+                            }
+                        },
+                        onPhoneme: {
+                            showingFloatingMenu = false
+                            updateEditorFromSelection()
+                            showingAddNghiTTSPhonemeSheet = true
+                        },
+                        onCopy: {
+                            showingFloatingMenu = false
+                            updateEditorFromSelection()
+                            UIPasteboard.general.string = selectedTextForDefinition
+                            ToastManager.shared.show(message: "Đã sao chép: \"\(selectedTextForDefinition)\"")
+                        }
+                    )
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                    .zIndex(10)
+                }
+                
                 readerChapterListOverlay(in: geometry)
             }
         }
@@ -287,8 +339,14 @@ struct ReaderView: View {
         .onChange(of: isTranslationEnabled) { _, _ in
             applyTranslation()
         }
-        .sheet(isPresented: $showingDefinitionSheet) {
-            definitionSheetContent
+        .sheet(isPresented: $showingAddNghiTTSPhonemeSheet) {
+            AddWordSheet(initialKey: selectedTextForDefinition) { key, val in
+                Task {
+                    try? await TextPreprocessor.shared.updateWord(key: key, value: val)
+                    await TextPreprocessor.shared.loadResources()
+                    ToastManager.shared.show(message: "Đã thêm phiên âm: \(key)")
+                }
+            }
         }
         .fullScreenCover(isPresented: $showingBypassBrowser) {
             BypassWebView(
@@ -1037,9 +1095,10 @@ struct ReaderView: View {
                     guard !ttsManager.isPlaying else { return }
                     startTTS(at: chapter.index, paragraphIndex: item.id)
                 },
-                onSelectionChange: { paragraphID, selectionRange in
+                onSelectionChange: { paragraphID, selectionRange, rect in
                     self.onSelectionChangeInParagraph(
                         selectionRange: selectionRange,
+                        rect: rect,
                         paragraphID: paragraphID,
                         chapterIndex: chapter.index,
                         paragraphItems: chapter.paragraphItems
@@ -1064,10 +1123,17 @@ struct ReaderView: View {
 
     private func onSelectionChangeInParagraph(
         selectionRange: NSRange,
+        rect: CGRect?,
         paragraphID: Int,
         chapterIndex: Int,
         paragraphItems: [ParagraphItem]
     ) {
+        if selectionRange.length == 0 || selectionRange.location == NSNotFound {
+            self.showingFloatingMenu = false
+            self.floatingMenuRect = nil
+            return
+        }
+        
         guard let item = paragraphItems.first(where: { $0.id == paragraphID }),
               let originalRange = ReaderSelectionMapper.mapSelection(
                 selectionRange,
@@ -1081,8 +1147,9 @@ struct ReaderView: View {
         self.originalSentence = item.original
         self.selectedWordOffset = originalRange.location
         self.selectedWordLength = originalRange.length
-        self.updateEditorFromSelection()
-        self.showingDefinitionSheet = true
+        
+        self.floatingMenuRect = rect
+        self.showingFloatingMenu = true
     }
 
 
@@ -1943,18 +2010,35 @@ struct ReaderView: View {
                 .pickerStyle(.segmented)
             }
 
-            // Hàng 7: Phím Cập nhật
-            Button(action: saveDefinition) {
-                HStack {
-                    Spacer()
-                    Label("Cập nhật", systemImage: "tray.and.arrow.down.fill")
-                        .fontWeight(.semibold)
-                    Spacer()
+            // Hàng 7: Phím Cập nhật nghĩa dịch & Thêm phiên âm
+            HStack(spacing: 12) {
+                Button(action: saveDefinition) {
+                    HStack {
+                        Spacer()
+                        Label("Cập nhật nghĩa", systemImage: "tray.and.arrow.down.fill")
+                            .fontWeight(.semibold)
+                        Spacer()
+                    }
+                    .padding(.vertical, 12)
                 }
-                .padding(.vertical, 12)
+                .buttonStyle(.borderedProminent)
+                .disabled(customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                
+                Button(action: {
+                    showingDefinitionSheet = false
+                    showingAddNghiTTSPhonemeSheet = true
+                }) {
+                    HStack {
+                        Spacer()
+                        Label("Thêm phiên âm", systemImage: "music.note")
+                            .fontWeight(.semibold)
+                        Spacer()
+                    }
+                    .padding(.vertical, 12)
+                }
+                .buttonStyle(.bordered)
+                .tint(.green)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
             Divider()
 
@@ -2038,5 +2122,89 @@ class ParagraphTracker {
             }
             return $0.chapterIndex < $1.chapterIndex
         }.first
+    }
+}
+
+// MARK: - Floating Selection Menu
+
+struct FloatingSelectionMenu: View {
+    let rect: CGRect
+    let onTranslate: () -> Void
+    let onSpeak: () -> Void
+    let onPhoneme: () -> Void
+    let onCopy: () -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Button(action: onTranslate) {
+                VStack(spacing: 3) {
+                    Image(systemName: "character.book.closed.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Dịch")
+                        .font(.system(size: 9, weight: .bold))
+                }
+                .foregroundColor(.white)
+                .frame(width: 48, height: 40)
+            }
+            
+            Divider()
+                .frame(height: 24)
+                .background(Color.white.opacity(0.15))
+            
+            Button(action: onSpeak) {
+                VStack(spacing: 3) {
+                    Image(systemName: "play.headphones")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Nghe")
+                        .font(.system(size: 9, weight: .bold))
+                }
+                .foregroundColor(.white)
+                .frame(width: 48, height: 40)
+            }
+            
+            Divider()
+                .frame(height: 24)
+                .background(Color.white.opacity(0.15))
+            
+            Button(action: onPhoneme) {
+                VStack(spacing: 3) {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Phiên âm")
+                        .font(.system(size: 9, weight: .bold))
+                }
+                .foregroundColor(.white)
+                .frame(width: 52, height: 40)
+            }
+            
+            Divider()
+                .frame(height: 24)
+                .background(Color.white.opacity(0.15))
+            
+            Button(action: onCopy) {
+                VStack(spacing: 3) {
+                    Image(systemName: "doc.on.doc.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Copy")
+                        .font(.system(size: 9, weight: .bold))
+                }
+                .foregroundColor(.white)
+                .frame(width: 48, height: 40)
+            }
+        }
+        .padding(.horizontal, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(red: 0.1, green: 0.1, blue: 0.12).opacity(0.92))
+                .shadow(color: Color.black.opacity(0.24), radius: 6, x: 0, y: 3)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
+        .position(
+            x: rect.midX,
+            y: rect.minY < 80 ? rect.maxY + 32 : rect.minY - 26
+        )
     }
 }

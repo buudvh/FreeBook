@@ -9,7 +9,7 @@ struct ParagraphCardView: View {
     let highlightRange: NSRange?
     @Binding var triggerGetVisibleIndex: UUID?
     let onGetVisibleIndex: (Int) -> Void
-    let onSelectionChange: (Int, NSRange) -> Void
+    let onSelectionChange: (Int, NSRange, CGRect?) -> Void
     let onSpeakFromHere: (Int) -> Void
     
     var body: some View {
@@ -23,8 +23,8 @@ struct ParagraphCardView: View {
             isCentered: item.isTitle,
             triggerGetVisibleIndex: $triggerGetVisibleIndex,
             onGetVisibleIndex: onGetVisibleIndex,
-            onSelectionChange: { selectionRange in
-                onSelectionChange(item.id, selectionRange)
+            onSelectionChange: { selectionRange, rect in
+                onSelectionChange(item.id, selectionRange, rect)
             },
             onSpeakFromHere: onSpeakFromHere
         )

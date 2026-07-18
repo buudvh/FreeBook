@@ -466,15 +466,32 @@ struct DictionaryListView: View {
 
     private func exportURL() -> URL? {
         let tempDir = FileManager.default.temporaryDirectory
-        let scope = bookName.isEmpty ? (bookId ?? "Chung") : bookName
-        let safeName = normalizeFileName(scope)
-        let fileName = "\(type.displayName)_\(safeName).txt"
+        
+        let namePart: String
+        if !bookName.isEmpty {
+            let translated = TranslateUtils.translateMeta(bookName, bookId: bookId ?? "")
+            namePart = translated.isEmpty ? bookName : translated
+        } else {
+            namePart = bookId ?? "Chung"
+        }
+        
+        let safeName = normalizeFileName(namePart)
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMddHHmmss"
+        let timestamp = formatter.string(from: Date())
+        
+        let prefix = type == .names ? "Name" : "Vietphrase"
+        let fileName = "\(prefix)_\(safeName)_\(timestamp).txt"
+        
         let fileURL = tempDir.appendingPathComponent(fileName)
         let content = exportText()
         do {
             try content.write(to: fileURL, atomically: true, encoding: .utf8)
+            showToast("Xuất từ điển thành công!", isError: false)
             return fileURL
         } catch {
+            showToast("Lỗi khi xuất từ điển: \(error.localizedDescription)", isError: true)
             return nil
         }
     }

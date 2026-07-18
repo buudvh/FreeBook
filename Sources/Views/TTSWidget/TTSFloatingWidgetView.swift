@@ -16,7 +16,7 @@ struct TTSFloatingWidgetView: View {
     enum Layout {
         // Keep the control compact enough to leave the Reader tappable while
         // allowing the capsule to sit flush against either screen edge.
-        static let width: CGFloat = 174
+        static let width: CGFloat = 212
         static let height: CGFloat = 56
         static let coverSize: CGFloat = 40
         static let playButtonSize: CGFloat = 34
@@ -99,6 +99,19 @@ struct TTSFloatingWidgetView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Mở chương đang đọc")
+
+            Button(action: {
+                ttsManager.showingSettingsSheet = true
+                viewModel.startAutoHideTimer()
+            }) {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: Layout.actionButtonSize, height: Layout.actionButtonSize)
+                    .background(Circle().fill(Color.primary.opacity(0.09)))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Cài đặt TTS")
 
             Button(action: togglePlayback) {
                 Image(systemName: playState.isPlaying ? "pause.fill" : "play.fill")

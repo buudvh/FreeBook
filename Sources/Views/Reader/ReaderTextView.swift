@@ -11,7 +11,7 @@ struct ReaderTextView: UIViewRepresentable {
     let isCentered: Bool
     @Binding var triggerGetVisibleIndex: UUID?
     let onGetVisibleIndex: (Int) -> Void
-    let onSelectionChange: (NSRange) -> Void
+    let onSelectionChange: (NSRange, CGRect?) -> Void
     let onSpeakFromHere: (Int) -> Void
     
     init(
@@ -24,7 +24,7 @@ struct ReaderTextView: UIViewRepresentable {
         isCentered: Bool = false,
         triggerGetVisibleIndex: Binding<UUID?>,
         onGetVisibleIndex: @escaping (Int) -> Void,
-        onSelectionChange: @escaping (NSRange) -> Void,
+        onSelectionChange: @escaping (NSRange, CGRect?) -> Void,
         onSpeakFromHere: @escaping (Int) -> Void
     ) {
         self.text = text
@@ -212,10 +212,13 @@ struct ReaderTextView: UIViewRepresentable {
         }
         
         uiView.invalidateIntrinsicContentSize()
+        context.coordinator.setupScrollObservation(for: uiView)
     }
 
     static func dismantleUIView(_ uiView: UITextView, coordinator: Coordinator) {
         uiView.delegate = nil
+        coordinator.offsetObservation?.invalidate()
+        coordinator.offsetObservation = nil
     }
     
     func makeCoordinator() -> Coordinator {
@@ -235,33 +238,63 @@ struct ReaderTextView: UIViewRepresentable {
         var lastIsCentered: Bool? = nil
         var cachedWidth: CGFloat? = nil
         var cachedHeight: CGFloat? = nil
+        
+        var lastSelectionRange: NSRange? = nil
+        var offsetObservation: NSKeyValueObservation? = nil
+        
         init(_ parent: ReaderTextView) {
             self.parent = parent
+        }
+        
+        deinit {
+            offsetObservation?.invalidate()
         }
         
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
             return true
         }
         
-        // Cấu hình Edit Menu cho iOS 16+
+        func setupScrollObservation(for textView: UITextView) {
+            guard offsetObservation == nil else { return }
+            if let scrollView = textView.parentScrollView {
+                offsetObservation = scrollView.observe(\.contentOffset, options: [.new]) { [weak self] _, _ in
+                    self?.handleSelectionOrScrollUpdate()
+                }
+            }
+        }
+        
+        func handleSelectionOrScrollUpdate() {
+            guard let textView = parentTextView else { return }
+            let nsRange = textView.selectedRange
+            let textLength = ((textView.text ?? "") as NSString).length
+            
+            if nsRange.length > 0 && NSMaxRange(nsRange) <= textLength,
+               let textRange = textView.selectedTextRange {
+                let rect = textView.firstRect(for: textRange)
+                let globalRect = textView.convert(rect, to: nil)
+                parent.onSelectionChange(nsRange, globalRect)
+            }
+        }
+        
+        func textViewDidChangeSelection(_ textView: UITextView) {
+            let nsRange = textView.selectedRange
+            guard nsRange != lastSelectionRange else { return }
+            lastSelectionRange = nsRange
+            
+            let textLength = ((textView.text ?? "") as NSString).length
+            if nsRange.length > 0 && NSMaxRange(nsRange) <= textLength,
+               let textRange = textView.selectedTextRange {
+                let rect = textView.firstRect(for: textRange)
+                let globalRect = textView.convert(rect, to: nil)
+                parent.onSelectionChange(nsRange, globalRect)
+            } else {
+                parent.onSelectionChange(NSRange(location: NSNotFound, length: 0), nil)
+            }
+        }
+        
         @available(iOS 16.0, *)
         func textView(_ textView: UITextView, editMenuForTextIn range: NSRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
-            let customAction = UIAction(
-                title: "📖 Dịch"
-            ) { [weak self] _ in
-                self?.triggerCustomDefine()
-            }
-            
-            let ttsAction = UIAction(
-                title: "🎧 Nghe đoạn này"
-            ) { [weak self] _ in
-                self?.parent.onSpeakFromHere(range.location)
-            }
-            
-            var actions = suggestedActions
-            actions.insert(customAction, at: 0)
-            actions.insert(ttsAction, at: 1)
-            return UIMenu(children: actions)
+            return nil
         }
         
         func triggerCustomDefine() {
@@ -270,8 +303,11 @@ struct ReaderTextView: UIViewRepresentable {
             let textLength = ((textView.text ?? "") as NSString).length
             guard nsRange.location != NSNotFound,
                   nsRange.length > 0,
-                  NSMaxRange(nsRange) <= textLength else { return }
-            parent.onSelectionChange(nsRange)
+                  NSMaxRange(nsRange) <= textLength,
+                  let textRange = textView.selectedTextRange else { return }
+            let rect = textView.firstRect(for: textRange)
+            let globalRect = textView.convert(rect, to: nil)
+            parent.onSelectionChange(nsRange, globalRect)
         }
     }
 }
@@ -280,30 +316,7 @@ struct ReaderTextView: UIViewRepresentable {
 
 class ReaderUITextView: UITextView {
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        if action == #selector(customDefineAction) || action == #selector(customSpeakAction) {
-            return true
-        }
-        // Chặn tính năng Tra cứu của Apple trên iOS 15 trở xuống
-        let actionString = action.description
-        if actionString == "_define:" || actionString == "_lookup:" {
-            return false
-        }
-        return super.canPerformAction(action, withSender: sender)
-    }
-    
-    @objc func customDefineAction() {
-        if self.selectedTextRange != nil,
-           let delegate = self.delegate as? ReaderTextView.Coordinator {
-            delegate.triggerCustomDefine()
-        }
-    }
-    
-    @objc func customSpeakAction() {
-        if self.selectedTextRange != nil,
-           let delegate = self.delegate as? ReaderTextView.Coordinator {
-            let nsRange = self.selectedRange
-            delegate.parent.onSpeakFromHere(nsRange.location)
-        }
+        return false
     }
 }
 

@@ -511,7 +511,7 @@ struct RepositoryManagerView: View {
             for repo in repositories {
                 do {
                     let items = try await ExtensionManager.shared.fetchRegistry(from: repo.url)
-                    syncExtensions(for: repo, with: items)
+                    await syncExtensions(for: repo, with: items)
                     repo.lastUpdated = Date()
                     updatedCount += 1
                 } catch {
@@ -527,7 +527,8 @@ struct RepositoryManagerView: View {
         }
     }
     
-    private func syncExtensions(for repo: Repository, with items: [ExtensionRegistryItem]) {
+    @MainActor
+    private func syncExtensions(for repo: Repository, with items: [ExtensionRegistryItem]) async {
         let currentExts = repo.extensions
         
         for item in items {
@@ -535,27 +536,55 @@ struct RepositoryManagerView: View {
                 .replacingOccurrences(of: " ", with: "_")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             
+            var remoteAuthor: String? = nil
+            var remoteLanguage: String? = nil
+            var remoteType: String? = nil
+            var remoteVersion: Int? = nil
+            var remoteSource: String? = nil
+            
+            if let zipURL = URL(string: item.path) {
+                let pluginURL = zipURL.deletingLastPathComponent().appendingPathComponent("plugin.json")
+                do {
+                    let (data, _) = try await URLSession.shared.data(from: pluginURL)
+                    if let meta = try? JSONDecoder().decode(RemotePluginMeta.self, from: data) {
+                        remoteAuthor = meta.author
+                        remoteLanguage = meta.language
+                        remoteType = meta.type
+                        remoteVersion = meta.version
+                        remoteSource = meta.source
+                    }
+                } catch {
+                    // Bỏ qua lỗi tải mạng không crash
+                }
+            }
+            
+            let finalAuthor = remoteAuthor ?? item.author ?? "Không rõ"
+            let finalLocale = remoteLanguage ?? item.locale ?? "vi_VN"
+            let finalType = remoteType ?? item.type ?? "novel"
+            let finalVersion = remoteVersion ?? item.version ?? 1
+            let finalSource = remoteSource ?? item.source ?? ""
+            
             if let existingExt = currentExts.first(where: { $0.packageId == packageId }) {
                 existingExt.name = item.name
-                existingExt.author = item.author ?? "Không rõ"
-                existingExt.version = item.version ?? 1
-                existingExt.sourceUrl = item.source ?? ""
+                existingExt.author = finalAuthor
+                existingExt.version = finalVersion
+                existingExt.sourceUrl = finalSource
                 existingExt.iconUrl = item.icon
                 existingExt.desc = item.description
-                existingExt.type = item.type ?? "novel"
-                existingExt.locale = item.locale ?? "vi_VN"
+                existingExt.type = finalType
+                existingExt.locale = finalLocale
                 existingExt.downloadUrl = item.path
             } else {
                 let newExt = Extension(
                     packageId: packageId,
                     name: item.name,
-                    author: item.author ?? "Không rõ",
-                    version: item.version ?? 1,
-                    sourceUrl: item.source ?? "",
+                    author: finalAuthor,
+                    version: finalVersion,
+                    sourceUrl: finalSource,
                     iconUrl: item.icon,
                     desc: item.description,
-                    type: item.type ?? "novel",
-                    locale: item.locale ?? "vi_VN",
+                    type: finalType,
+                    locale: finalLocale,
                     localPath: "",
                     downloadUrl: item.path
                 )
@@ -702,6 +731,15 @@ private struct ExtensionLocalMeta: Codable {
     let author: String?
     let type: String?
     let locale: String?
+}
+
+// MARK: - Remote Meta Decodable helper
+private struct RemotePluginMeta: Codable {
+    let author: String?
+    let language: String?
+    let type: String?
+    let version: Int?
+    let source: String?
 }
 
 // MARK: - FilterSheet

@@ -60,6 +60,30 @@ struct TTSDictionaryEditView: View {
                         .frame(maxHeight: .infinity)
                 } else {
                     List {
+                        if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                           allWords[searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()] == nil {
+                            Section {
+                                Button(action: {
+                                    showingAddSheet = true
+                                }) {
+                                    HStack {
+                                        Image(systemName: "plus.circle.fill")
+                                            .foregroundColor(.green)
+                                            .font(.title3)
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("Thêm mới phiên âm cho '\(searchText)'")
+                                                .font(.headline)
+                                                .foregroundColor(.primary)
+                                            let suggested = EnglishTransliterator.transliterateWord(searchText.trimmingCharacters(in: .whitespacesAndNewlines))
+                                            Text("Gợi ý: \(suggested)")
+                                                .font(.subheadline)
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         if searchText.isEmpty {
                             Section {
                                 if filteredKeys.count < sortedKeys.count {
@@ -189,9 +213,9 @@ struct TTSDictionaryEditView: View {
                 }
             }
             .sheet(isPresented: $showingAddSheet) {
-                AddWordSheet(onAdd: { key, val in
+                AddWordSheet(initialKey: searchText) { key, val in
                     addWord(key: key, value: val)
-                })
+                }
             }
             .sheet(isPresented: $showingFileImporter) {
                 DocumentPicker(
@@ -494,7 +518,7 @@ struct EditingEntry: Identifiable {
     }
 }
 
-struct AddWordSheet: View {
+public struct AddWordSheet: View {
     @Environment(\.dismiss) var dismiss
     @State private var key = ""
     @State private var value = ""
@@ -502,7 +526,20 @@ struct AddWordSheet: View {
 
     let onAdd: (String, String) -> Void
 
-    var body: some View {
+    public init(initialKey: String = "", onAdd: @escaping (String, String) -> Void) {
+        self.onAdd = onAdd
+        _key = State(initialValue: initialKey)
+        
+        let trimmedKey = initialKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedKey.isEmpty {
+            let suggested = EnglishTransliterator.transliterateWord(trimmedKey)
+            _value = State(initialValue: suggested)
+        } else {
+            _value = State(initialValue: "")
+        }
+    }
+
+    public var body: some View {
         NavigationStack {
             Form {
                 Section("Thông tin từ mới") {
@@ -511,6 +548,12 @@ struct AddWordSheet: View {
                         .textInputAutocapitalization(.never)
                         .onChange(of: key) { oldValue, newValue in
                             validateKey(newValue)
+                            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !trimmed.isEmpty {
+                                value = EnglishTransliterator.transliterateWord(trimmed)
+                            } else {
+                                value = ""
+                            }
                         }
 
                     TextField("Phiên âm tiếng Việt (e.g. ép pô)", text: $value)
