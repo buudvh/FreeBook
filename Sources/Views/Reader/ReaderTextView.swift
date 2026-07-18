@@ -86,11 +86,6 @@ struct ReaderTextView: UIViewRepresentable {
         textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         textView.setContentCompressionResistancePriority(.required, for: .vertical)
         
-        // Đăng ký custom menu item cho iOS 15 trở xuống
-        let menuItem = UIMenuItem(title: "Dịch", action: #selector(ReaderUITextView.customDefineAction))
-        let ttsItem = UIMenuItem(title: "Đọc từ đây", action: #selector(ReaderUITextView.customSpeakAction))
-        UIMenuController.shared.menuItems = [menuItem, ttsItem]
-        
         return textView
     }
     

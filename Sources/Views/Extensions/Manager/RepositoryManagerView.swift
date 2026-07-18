@@ -485,7 +485,7 @@ struct RepositoryManagerView: View {
                 let newRepo = Repository(url: trimmedUrl, name: name.isEmpty ? "Kho Tiện Ích Mới" : name)
                 modelContext.insert(newRepo)
                 
-                syncExtensions(for: newRepo, with: items)
+                await syncExtensions(for: newRepo, with: items)
                 try? modelContext.save()
                 
                 await MainActor.run {
