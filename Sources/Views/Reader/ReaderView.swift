@@ -83,6 +83,7 @@ struct ReaderView: View {
     @State private var showingFloatingMenu = false
     @State private var floatingMenuRect: CGRect? = nil
     @State private var showingAddNghiTTSPhonemeSheet = false
+    @State private var selectedDisplayedText = ""
 
     // Cấu hình giao diện đọc (lưu trữ lâu dài qua UserDefaults nhờ @AppStorage)
     @AppStorage("readerFontSize") private var fontSize: Double = 20.0 // Cỡ chữ của văn bản đọc
@@ -282,6 +283,7 @@ struct ReaderView: View {
                 if showingFloatingMenu, let rect = floatingMenuRect {
                     FloatingSelectionMenu(
                         rect: rect,
+                        screenWidth: geometry.size.width,
                         onTranslate: {
                             showingFloatingMenu = false
                             updateEditorFromSelection()
@@ -301,8 +303,11 @@ struct ReaderView: View {
                         onCopy: {
                             showingFloatingMenu = false
                             updateEditorFromSelection()
-                            UIPasteboard.general.string = selectedTextForDefinition
-                            ToastManager.shared.show(message: "Đã sao chép: \"\(selectedTextForDefinition)\"")
+                            UIPasteboard.general.string = selectedDisplayedText
+                            ToastManager.shared.show(message: "Đã sao chép: \"\(selectedDisplayedText)\"")
+                        },
+                        onClose: {
+                            showingFloatingMenu = false
                         }
                     )
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
@@ -340,13 +345,16 @@ struct ReaderView: View {
             applyTranslation()
         }
         .sheet(isPresented: $showingAddNghiTTSPhonemeSheet) {
-            AddWordSheet(initialKey: selectedTextForDefinition) { key, val in
+            AddWordSheet(initialKey: selectedDisplayedText) { key, val in
                 Task {
                     try? await TextPreprocessor.shared.updateWord(key: key, value: val)
                     await TextPreprocessor.shared.loadResources()
                     ToastManager.shared.show(message: "Đã thêm phiên âm: \(key)")
                 }
             }
+        }
+        .sheet(isPresented: $ttsManager.showingSettingsSheet) {
+            TTSSettingsView()
         }
         .fullScreenCover(isPresented: $showingBypassBrowser) {
             BypassWebView(
@@ -1131,11 +1139,21 @@ struct ReaderView: View {
         if selectionRange.length == 0 || selectionRange.location == NSNotFound {
             self.showingFloatingMenu = false
             self.floatingMenuRect = nil
+            self.selectedDisplayedText = ""
             return
         }
         
-        guard let item = paragraphItems.first(where: { $0.id == paragraphID }),
-              let originalRange = ReaderSelectionMapper.mapSelection(
+        guard let item = paragraphItems.first(where: { $0.id == paragraphID }) else { return }
+        
+        let displayedText = isTranslationEnabled ? item.translated : item.original
+        let nsDisplayed = displayedText as NSString
+        if selectionRange.location != NSNotFound && NSMaxRange(selectionRange) <= nsDisplayed.length {
+            self.selectedDisplayedText = nsDisplayed.substring(with: selectionRange)
+        } else {
+            self.selectedDisplayedText = ""
+        }
+        
+        guard let originalRange = ReaderSelectionMapper.mapSelection(
                 selectionRange,
                 in: item,
                 isTranslationEnabled: isTranslationEnabled,
@@ -2010,35 +2028,18 @@ struct ReaderView: View {
                 .pickerStyle(.segmented)
             }
 
-            // Hàng 7: Phím Cập nhật nghĩa dịch & Thêm phiên âm
-            HStack(spacing: 12) {
-                Button(action: saveDefinition) {
-                    HStack {
-                        Spacer()
-                        Label("Cập nhật nghĩa", systemImage: "tray.and.arrow.down.fill")
-                            .fontWeight(.semibold)
-                        Spacer()
-                    }
-                    .padding(.vertical, 12)
+            // Hàng 7: Phím Cập nhật
+            Button(action: saveDefinition) {
+                HStack {
+                    Spacer()
+                    Label("Cập nhật", systemImage: "tray.and.arrow.down.fill")
+                        .fontWeight(.semibold)
+                    Spacer()
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                
-                Button(action: {
-                    showingDefinitionSheet = false
-                    showingAddNghiTTSPhonemeSheet = true
-                }) {
-                    HStack {
-                        Spacer()
-                        Label("Thêm phiên âm", systemImage: "music.note")
-                            .fontWeight(.semibold)
-                        Spacer()
-                    }
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.bordered)
-                .tint(.green)
+                .padding(.vertical, 12)
             }
+            .buttonStyle(.borderedProminent)
+            .disabled(customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
             Divider()
 
@@ -2129,22 +2130,24 @@ class ParagraphTracker {
 
 struct FloatingSelectionMenu: View {
     let rect: CGRect
+    let screenWidth: CGFloat
     let onTranslate: () -> Void
     let onSpeak: () -> Void
     let onPhoneme: () -> Void
     let onCopy: () -> Void
+    let onClose: () -> Void
 
     var body: some View {
         HStack(spacing: 0) {
             Button(action: onTranslate) {
                 VStack(spacing: 3) {
                     Image(systemName: "character.book.closed.fill")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                     Text("Dịch")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                 }
                 .foregroundColor(.white)
-                .frame(width: 48, height: 40)
+                .frame(width: 60, height: 48)
             }
             
             Divider()
@@ -2153,13 +2156,13 @@ struct FloatingSelectionMenu: View {
             
             Button(action: onSpeak) {
                 VStack(spacing: 3) {
-                    Image(systemName: "play.headphones")
-                        .font(.system(size: 13, weight: .semibold))
+                    Image(systemName: "headphones")
+                        .font(.system(size: 16, weight: .semibold))
                     Text("Nghe")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                 }
                 .foregroundColor(.white)
-                .frame(width: 48, height: 40)
+                .frame(width: 60, height: 48)
             }
             
             Divider()
@@ -2169,12 +2172,12 @@ struct FloatingSelectionMenu: View {
             Button(action: onPhoneme) {
                 VStack(spacing: 3) {
                     Image(systemName: "music.note")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                     Text("Phiên âm")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                 }
                 .foregroundColor(.white)
-                .frame(width: 52, height: 40)
+                .frame(width: 60, height: 48)
             }
             
             Divider()
@@ -2184,12 +2187,27 @@ struct FloatingSelectionMenu: View {
             Button(action: onCopy) {
                 VStack(spacing: 3) {
                     Image(systemName: "doc.on.doc.fill")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                     Text("Copy")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                 }
                 .foregroundColor(.white)
-                .frame(width: 48, height: 40)
+                .frame(width: 60, height: 48)
+            }
+            
+            Divider()
+                .frame(height: 24)
+                .background(Color.white.opacity(0.15))
+            
+            Button(action: onClose) {
+                VStack(spacing: 3) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 16, weight: .bold))
+                    Text("Đóng")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .foregroundColor(.white.opacity(0.8))
+                .frame(width: 60, height: 48)
             }
         }
         .padding(.horizontal, 4)
@@ -2203,8 +2221,8 @@ struct FloatingSelectionMenu: View {
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
         .position(
-            x: rect.midX,
-            y: rect.minY < 80 ? rect.maxY + 32 : rect.minY - 26
+            x: min(max(rect.midX, 150 + 16), screenWidth - 150 - 16),
+            y: rect.minY < 80 ? rect.maxY + 36 : rect.minY - 30
         )
     }
 }

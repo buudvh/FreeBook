@@ -7,9 +7,13 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 ## [1.3.24] - 2026-07-18
 
 ### Custom Selection Menu, NghiTTS Pronunciation Integration, Custom Dict Export Naming, and Remote Metadata Sync
-* Thay thế Edit Menu hệ thống bằng SwiftUI Floating Bubble Menu chứa 4 nút Dịch, Nghe, Phiên âm, Copy khi bôi đen văn bản trong Reader.
-* Sử dụng scroll offset KVO và selection change delegates để giữ vị trí menu bám sát vùng bôi đen của chữ kể cả khi cuộn trang, chỉ đóng khi tap bên ngoài.
-* Chuyển panel dịch `definitionSheetContent` thành dạng overlay phía đáy màn hình, tích hợp nút thêm nhanh phiên âm NghiTTS trực tiếp từ panel dịch.
+* Thay thế Edit Menu hệ thống bằng SwiftUI Floating Bubble Menu chứa 5 nút Dịch, Nghe, Phiên âm, Copy, Đóng khi bôi đen văn bản trong Reader.
+* Sử dụng scroll offset KVO và selection change delegates để giữ vị trí menu bám sát vùng bôi đen của chữ kể cả khi cuộn trang.
+* Khắc phục mất góc Floating Bubble Menu ở sát lề màn hình bằng cách giới hạn tọa độ x theo screenWidth.
+* Tăng kích thước Floating Bubble Menu lên to rõ hơn (nút 60x48, cỡ chữ 11, cỡ icon 16) và đổi icon nghe thành headphones hợp lệ.
+* Sử dụng từ hiển thị đã dịch (nếu bật dịch) làm từ gốc khi thêm Phiên âm NghiTTS.
+* Gỡ bỏ nút Thêm phiên âm trong panel dịch ở đáy.
+* Tích hợp màn hình cài đặt TTSSettingsView dạng sheet trong ReaderView để nút cài đặt trên Widget có thể mở chính xác.
 * Hỗ trợ tìm kiếm thêm nhanh phiên âm tại màn hình quản lý NghiTTS và tự động điền gợi ý phát âm từ `EnglishTransliterator`.
 * Cài đặt nút bánh răng (Cài đặt TTS) nằm ở bên phải cover sách của Floating Widget để mở nhanh cài đặt TTS, mở rộng widget size về 212.
 * Định dạng lại cấu trúc tên file xuất từ điển riêng thành `[Vietphrase/Name]_[Tên truyện đã dịch (ưu tiên) hoặc Tên truyện gốc]_[yyyyMMddHHmmss].txt` và hiển thị Toast kết quả.
