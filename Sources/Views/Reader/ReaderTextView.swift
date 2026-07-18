@@ -344,9 +344,8 @@ struct ReaderTextView: UIViewRepresentable {
                   nsRange.length > 0,
                   NSMaxRange(nsRange) <= textLength,
                   let textRange = textView.selectedTextRange else { return }
-            let rect = textView.firstRect(for: textRange)
-            let globalRect = textView.convert(rect, to: nil)
-            parent.onSelectionChange(nsRange, globalRect)
+            let (minY, maxY) = selectionGlobalMinMaxY(textView: textView, textRange: textRange)
+            parent.onSelectionChange(nsRange, minY, maxY)
         }
     }
 }
