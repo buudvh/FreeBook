@@ -465,15 +465,17 @@ struct SwiftUIWebView: UIViewRepresentable {
         
         webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
         
-        if let url = url {
-            let request = URLRequest(url: url)
-            webView.load(request)
-        }
+        context.coordinator.loadIfNeeded(url, in: webView)
         
         return webView
     }
     
     func updateUIView(_ uiView: WKWebView, context: Context) {
+        // SwiftUI may preserve the representable/coordinator between two
+        // presentations. Refresh bindings and explicitly load a changed target
+        // instead of leaving the previous page (or a blank page) in place.
+        context.coordinator.parent = self
+        context.coordinator.loadIfNeeded(url, in: uiView)
     }
     
     func makeCoordinator() -> Coordinator {
@@ -483,9 +485,16 @@ struct SwiftUIWebView: UIViewRepresentable {
     class Coordinator: NSObject, WKNavigationDelegate {
         var parent: SwiftUIWebView
         private var observers: [NSKeyValueObservation] = []
+        private var lastRequestedURL: URL?
         
         init(_ parent: SwiftUIWebView) {
             self.parent = parent
+        }
+
+        func loadIfNeeded(_ url: URL?, in webView: WKWebView) {
+            guard let url, url != lastRequestedURL else { return }
+            lastRequestedURL = url
+            webView.load(URLRequest(url: url))
         }
         
         func setupObservers(for webView: WKWebView) {

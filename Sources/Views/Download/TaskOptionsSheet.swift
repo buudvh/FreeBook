@@ -12,6 +12,7 @@ struct TaskOptionsSheet: View {
     @State private var limitOption: ChapterLimitOption = .all
     @State private var translateContent = false
     @State private var onlyExportCached = false
+    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     
     init(book: Book, taskType: TaskType, defaultOnlyExportCached: Bool = false) {
         self.book = book
@@ -29,11 +30,11 @@ struct TaskOptionsSheet: View {
                             .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 2)
                         
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(book.title)
+                            Text(displayedBookTitle)
                                 .font(.headline)
                                 .lineLimit(2)
                             
-                            Text("Tác giả: \(book.author)")
+                            Text("Tác giả: \(displayedAuthor)")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                             
@@ -101,6 +102,18 @@ struct TaskOptionsSheet: View {
         }
     }
     
+    private var displayedBookTitle: String {
+        guard isTranslationEnabled, TranslateUtils.containsChinese(book.title) else {
+            return book.title
+        }
+        return TranslateUtils.translateMeta(book.title, bookId: book.bookId)
+    }
+
+    private var displayedAuthor: String {
+        guard isTranslationEnabled else { return book.author }
+        return TranslateUtils.translateAuthorHanViet(book.author)
+    }
+
     private func startTask() {
         DownloadManager.shared.enqueueTask(
             book: book,

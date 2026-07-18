@@ -12,6 +12,13 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 * Cô lập session Reader/TTS theo book/chapter/session identity; Reader sách khác không prepare hoặc seek TTS đang phát hay pause.
 * Danh sách kho bỏ swipe-delete và toggle; thêm nút trash, xác nhận xóa và bảo vệ kho đang được TTS sử dụng.
 * Tách phần thân Reader và overlay mục lục thành các view con để tránh lỗi SwiftUI type-check quá thời gian; flush persistence không còn cảnh báo giá trị trả về bị bỏ qua.
+* Không để snapshot rỗng từ `@Query` ghi đè số chương đã resolve trực tiếp từ SwiftData; Reader bootstrap lại khi dữ liệu local/online đến muộn.
+* Widget TTS mở ở trạng thái hiển thị khi session bắt đầu và chỉ tự thu gọn sau timeout hoặc thao tác kéo sát cạnh.
+* BookDetail truyền TOC online làm fallback bootstrap để mở Đọc tiếp không phụ thuộc thời điểm `@Query` phát hiện Book local.
+* Truy vấn bootstrap Reader lọc theo `bookId` và giới hạn một bản ghi để không quét toàn bộ SwiftData trên MainActor.
+* Nút nghe trong Reader luôn giữ biểu tượng tai nghe và chỉ dừng session TTS thuộc cùng sách; metadata Book/author trên màn hình tải và xuất ebook phản ánh cài đặt dịch.
+* Đồng bộ Lock Screen/AirPods với trạng thái TTS thực tế, chống Now Playing update cũ ghi đè trạng thái mới và hỗ trợ `togglePlayPauseCommand`.
+* Tra cứu nhanh từ màn hình dịch dùng route URL bất biến; WebView tải lại khi URL đích đổi để không còn trang trắng hoặc hiển thị truy vấn trước đó.
 
 ## [1.3.18] - 2026-07-18
 

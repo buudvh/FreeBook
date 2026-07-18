@@ -94,6 +94,10 @@ public final class TTSManager: NSObject, ObservableObject {
     private var prepareSpeakingTask: Task<Void, Never>? = nil
     private var nextChapterPrefetchTask: Task<Void, Never>? = nil
     private var sessionID = UUID()
+    // Now Playing updates include detached translation/cover work. A newer
+    // playback state must invalidate older tasks so Lock Screen cannot revert
+    // a just-resumed session back to paused (or vice versa).
+    private var nowPlayingUpdateGeneration: UInt = 0
 
     // Cache lưu trữ dữ liệu âm thanh đã được tổng hợp trước cho các đoạn văn
     private var preloadedWavs: [Int: AVAudioPCMBuffer] = [:]
@@ -481,6 +485,7 @@ public final class TTSManager: NSObject, ObservableObject {
 
         self.currentParagraphIndex = targetIdx
         self.isPlaying = true
+        self.syncRemoteCommandState()
 
         speakCurrent()
     }
@@ -501,13 +506,31 @@ public final class TTSManager: NSObject, ObservableObject {
         } else {
             playerNode?.pause()
         }
+        syncRemoteCommandState()
         updateNowPlayingInfo()
     }
 
     public func resume() {
         // let pid = currentPlaybackId ?? "NONE"
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] resume() được gọi.")
-        guard !isPlaying else { return }
+        if isPlaying {
+            // Remote controls can deliver a duplicate play event while the
+            // Lock Screen is catching up. Keep it idempotent and make sure the
+            // underlying engine/synthesizer is actually running.
+            if tool == "system" {
+                if siriService.isPaused {
+                    if !siriService.resume() {
+                        speakCurrent()
+                    }
+                }
+            } else if let playerNode, !playerNode.isPlaying {
+                playerNode.play()
+            }
+            MPNowPlayingInfoCenter.default().playbackState = .playing
+            syncRemoteCommandState()
+            updateNowPlayingInfo()
+            return
+        }
 
         // Đảm bảo có dữ liệu hợp lệ để tiếp tục phát
         guard currentParagraphIndex >= 0 && currentParagraphIndex < paragraphs.count else {
@@ -522,7 +545,9 @@ public final class TTSManager: NSObject, ObservableObject {
 
         if tool == "system" {
             if siriService.isPaused {
-                siriService.resume()
+                if !siriService.resume() {
+                    speakCurrent()
+                }
             } else {
                 speakCurrent()
             }
@@ -549,6 +574,7 @@ public final class TTSManager: NSObject, ObservableObject {
                 playerNode?.play()
             }
         }
+        syncRemoteCommandState()
         updateNowPlayingInfo()
     }
 
@@ -560,6 +586,7 @@ public final class TTSManager: NSObject, ObservableObject {
         self.isPlaying = false
         self.wasPlayingBeforeSettings = false
         self.wasPlayingBeforeInterruption = false
+        nowPlayingUpdateGeneration &+= 1
 
         if !keepWidget {
             self.currentParagraphIndex = -1
@@ -1299,7 +1326,7 @@ public final class TTSManager: NSObject, ObservableObject {
         let commandCenter = MPRemoteCommandCenter.shared()
         commandCenter.playCommand.isEnabled = enabled
         commandCenter.pauseCommand.isEnabled = enabled
-        commandCenter.togglePlayPauseCommand.isEnabled = false // Vô hiệu hóa để tránh xung đột, bắt buộc OS dùng play/pause
+        commandCenter.togglePlayPauseCommand.isEnabled = enabled
         commandCenter.nextTrackCommand.isEnabled = enabled
         commandCenter.previousTrackCommand.isEnabled = enabled
 
@@ -1313,25 +1340,46 @@ public final class TTSManager: NSObject, ObservableObject {
         }
     }
 
+    private func syncRemoteCommandState() {
+        let commandCenter = MPRemoteCommandCenter.shared()
+        let active = !playingBookId.isEmpty && showFloatingWidget
+        commandCenter.playCommand.isEnabled = active && !isPlaying
+        commandCenter.pauseCommand.isEnabled = active && isPlaying
+        commandCenter.togglePlayPauseCommand.isEnabled = active
+    }
+
     private func setupRemoteCommandCenter() {
         let commandCenter = MPRemoteCommandCenter.shared()
 
         // Play
         commandCenter.playCommand.addTarget { [weak self] _ in
-            guard let self = self else { return .commandFailed }
-            MPNowPlayingInfoCenter.default().playbackState = .playing
-            DispatchQueue.main.async {
-                self.resume()
+            guard self != nil else { return .commandFailed }
+            Task { @MainActor [weak self] in
+                self?.resume()
             }
             return .success
         }
 
         // Pause
         commandCenter.pauseCommand.addTarget { [weak self] _ in
-            guard let self = self else { return .commandFailed }
-            MPNowPlayingInfoCenter.default().playbackState = .paused
-            DispatchQueue.main.async {
-                self.pause()
+            guard self != nil else { return .commandFailed }
+            Task { @MainActor [weak self] in
+                self?.pause()
+            }
+            return .success
+        }
+
+        // AirPods and some Bluetooth remotes send togglePlayPauseCommand
+        // instead of separate play/pause events.
+        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
+            guard self != nil else { return .commandFailed }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if self.isPlaying {
+                    self.pause()
+                } else {
+                    self.resume()
+                }
             }
             return .success
         }
@@ -1359,6 +1407,8 @@ public final class TTSManager: NSObject, ObservableObject {
     }
 
     private func updateNowPlayingInfo() {
+        nowPlayingUpdateGeneration &+= 1
+        let updateGeneration = nowPlayingUpdateGeneration
         let bid = playingBookId
         let bTitle = bookTitle
         let cTitle = chapterTitle
@@ -1392,6 +1442,9 @@ public final class TTSManager: NSObject, ObservableObject {
                 return (displayBookTitle, displayChapterTitle, img)
             }.value
 
+            guard updateGeneration == self.nowPlayingUpdateGeneration,
+                  self.playingBookId == bid else { return }
+
             var info: [String: Any] = [:]
             info[MPMediaItemPropertyTitle] = displayBookTitle
 
@@ -1411,7 +1464,9 @@ public final class TTSManager: NSObject, ObservableObject {
                 ImageCacheManager.shared.downloadAndSaveCover(urlStr: coverUrlVal, bookId: bid) { [weak self] image in
                     guard image != nil else { return }
                     DispatchQueue.main.async {
-                        guard let self = self, self.playingBookId == bid else { return }
+                        guard let self = self,
+                              self.playingBookId == bid,
+                              self.showFloatingWidget else { return }
                         self.updateNowPlayingInfo()
                     }
                 }

@@ -26,6 +26,11 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
     }
 }
 
+private struct ReaderLookupRoute: Identifiable, Equatable {
+    let id = UUID()
+    let urlString: String
+}
+
 struct ReaderView: View {
     // static variables: Dùng làm biến toàn cục của class để lưu trạng thái chương/sách đang phát TTS
     public static var activeBookId: String? = nil
@@ -86,8 +91,7 @@ struct ReaderView: View {
 
     // Trạng thái bypass Cloudflare và import sách
     @State private var showingBypassBrowser = false
-    @State private var showingLookupBrowser = false
-    @State private var lookupUrlString = ""
+    @State private var lookupRoute: ReaderLookupRoute?
     @State private var importedBookId = ""
     @State private var importedExtensionPackageId = ""
     @State private var importedDetailUrl = ""
@@ -116,9 +120,13 @@ struct ReaderView: View {
     @State private var showingBookDictionary = false
     @State private var currentOnlineChapters: [ChapterResult] = []
     @State private var chapterListStore: ReaderChapterListStore? = nil
+    // SwiftData's @Query can deliver after the Reader has already appeared.
+    // Keep a one-time local snapshot so the first render has Book/TOC metadata
+    // even when this screen was opened from history or the shelf.
+    @State private var localBookSnapshot: Book? = nil
 
     private var localBook: Book? {
-        allBooks.first(where: { $0.bookId == bookId })
+        allBooks.first(where: { $0.bookId == bookId }) ?? localBookSnapshot
     }
 
     private var ext: Extension? {
@@ -141,6 +149,10 @@ struct ReaderView: View {
         ttsManager.isPlaying &&
         ttsManager.playingBookId == bookId &&
         ttsManager.playingChapterIndex == chapterIndex
+    }
+
+    private var isTTSPlayingThisBook: Bool {
+        ttsManager.isPlaying && ttsManager.playingBookId == bookId
     }
 
     private var ttsChaptersQueue: [TTSChapterInfo] {
@@ -354,72 +366,10 @@ struct ReaderView: View {
     private var readerLifecycleView: some View {
         readerDataObservationView
         .onAppear {
-            let key = "showChapterTitle_\(bookId)"
-            if UserDefaults.standard.object(forKey: key) != nil {
-                showChapterTitle = UserDefaults.standard.bool(forKey: key)
-            } else {
-                showChapterTitle = true
-            }
-
-            let autoScrollKey = "disableAutoScroll_\(bookId)"
-            self.isAutoScrollDisabled = UserDefaults.standard.bool(forKey: autoScrollKey)
-
-            ReaderView.activeBookId = bookId
-
-            if currentOnlineChapters.isEmpty {
-                currentOnlineChapters = onlineChapters
-            }
-
-            if chapterListStore == nil {
-                chapterListStore = ReaderChapterListStore(
-                    localBook: localBook,
-                    onlineChapters: currentOnlineChapters.isEmpty ? onlineChapters : currentOnlineChapters
-                )
-            }
-
-            if viewModel == nil {
-                let savedPIdx = initialParagraphIndex ?? getSavedParagraphIndex(for: chapterIndex)
-
-                // Tính toán số lượng chương khởi tạo an toàn bằng cách dùng trực tiếp tham số onlineChapters
-                let initialTotalCount: Int
-                if let book = localBook {
-                    initialTotalCount = book.chapters.count
-                } else {
-                    initialTotalCount = currentOnlineChapters.count
-                }
-
-                let newViewModel = ReaderViewModel(
-                    bookId: bookId,
-                    extensionPackageId: extensionPackageId,
-                    initialChapterIndex: chapterIndex,
-                    initialParagraphIndex: savedPIdx,
-                    totalChaptersCount: initialTotalCount,
-                    modelContext: modelContext,
-                    onlineChapters: currentOnlineChapters,
-                    isTranslationEnabled: isTranslationEnabled,
-                    bookTitle: bookTitle,
-                    bookAuthor: bookAuthor,
-                    bookCoverUrl: bookCoverUrl,
-                    bookDesc: bookDesc,
-                    bookDetailUrl: bookDetailUrl,
-                    bookSourceName: bookSourceName
-                )
-                newViewModel.updateChapterSnapshot(
-                    totalCount: initialTotalCount,
-                    onlineChapters: currentOnlineChapters
-                )
-                newViewModel.onChapterCached = { index in
-                    chapterListStore?.markCached(index: index)
-                }
-                newViewModel.setSpeculativePrefetchEnabled(
-                    !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
-                )
-                viewModel = newViewModel
-            }
-
-            if !hasOpenedReader {
-                hasOpenedReader = true
-            }
+            initializeReaderIfNeeded()
+        }
+        .task(id: readerBootstrapKey) {
+            initializeReaderIfNeeded()
         }
         .onDisappear {
             if ReaderView.activeBookId == bookId {
@@ -533,6 +483,90 @@ struct ReaderView: View {
             } else {
                 readerFooterView
             }
+        }
+    }
+
+    private var readerBootstrapKey: String {
+        "\(bookId)|\(localBook?.chapters.count ?? 0)|\(onlineChapters.count)|\(currentOnlineChapters.count)"
+    }
+
+    private func initializeReaderIfNeeded() {
+        let key = "showChapterTitle_\(bookId)"
+        if UserDefaults.standard.object(forKey: key) != nil {
+            showChapterTitle = UserDefaults.standard.bool(forKey: key)
+        } else {
+            showChapterTitle = true
+        }
+
+        isAutoScrollDisabled = UserDefaults.standard.bool(forKey: "disableAutoScroll_\(bookId)")
+        ReaderView.activeBookId = bookId
+
+        if localBookSnapshot == nil {
+            var descriptor = FetchDescriptor<Book>(
+                predicate: #Predicate<Book> { book in
+                    book.bookId == bookId
+                }
+            )
+            descriptor.fetchLimit = 1
+            localBookSnapshot = (try? modelContext.fetch(descriptor))?.first(where: { $0.bookId == bookId })
+        }
+
+        if currentOnlineChapters.isEmpty, !onlineChapters.isEmpty {
+            currentOnlineChapters = onlineChapters
+        }
+
+        if chapterListStore == nil {
+            chapterListStore = ReaderChapterListStore(
+                localBook: localBook,
+                onlineChapters: currentOnlineChapters.isEmpty ? onlineChapters : currentOnlineChapters
+            )
+        }
+
+        guard viewModel == nil else {
+            let resolvedCount = max(
+                totalChaptersCount,
+                max(localBook?.chapters.count ?? 0, currentOnlineChapters.count)
+            )
+            if resolvedCount > 0 {
+                viewModel?.updateChapterSnapshot(
+                    totalCount: resolvedCount,
+                    onlineChapters: currentOnlineChapters
+                )
+            }
+            return
+        }
+
+        let initialTotalCount = max(
+            totalChaptersCount,
+            max(localBook?.chapters.count ?? 0, currentOnlineChapters.count)
+        )
+        let savedPIdx = initialParagraphIndex ?? getSavedParagraphIndex(for: chapterIndex)
+        let newViewModel = ReaderViewModel(
+            bookId: bookId,
+            extensionPackageId: extensionPackageId,
+            initialChapterIndex: chapterIndex,
+            initialParagraphIndex: savedPIdx,
+            totalChaptersCount: initialTotalCount,
+            modelContext: modelContext,
+            onlineChapters: currentOnlineChapters,
+            isTranslationEnabled: isTranslationEnabled,
+            bookTitle: bookTitle,
+            bookAuthor: bookAuthor,
+            bookCoverUrl: bookCoverUrl,
+            bookDesc: bookDesc,
+            bookDetailUrl: bookDetailUrl,
+            bookSourceName: bookSourceName
+        )
+        newViewModel.onChapterCached = { index in
+            chapterListStore?.markCached(index: index)
+        }
+        newViewModel.setSpeculativePrefetchEnabled(
+            !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
+        )
+        viewModel = newViewModel
+
+        if !hasOpenedReader {
+            hasOpenedReader = true
         }
     }
 
@@ -942,10 +976,14 @@ struct ReaderView: View {
         guard !word.isEmpty else { return }
 
         let rawUrl = engine.urlTemplate.replacingOccurrences(of: "%s", with: word)
-        guard let encoded = rawUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return }
+        guard let encoded = rawUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: encoded),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https" else { return }
 
-        self.lookupUrlString = encoded
-        self.showingLookupBrowser = true
+        // Present one immutable URL snapshot. A fresh identity also guarantees
+        // the browser cannot reuse the previous lookup request.
+        self.lookupRoute = ReaderLookupRoute(urlString: url.absoluteString)
     }
 
     private func isEditableSource(_ source: String) -> Bool {
@@ -1317,8 +1355,7 @@ struct ReaderView: View {
                     chapterNavigationErrorView(failure: failure, viewModel: vm)
                 } else if case .failed(_, let message) = vm.loadState {
                     chapterBootstrapErrorView(message: message)
-                } else if vm.pendingNavigationIndex == nil,
-                          let chapter = vm.cache.get(presentationIndex),
+                } else if let chapter = vm.cache.get(presentationIndex),
                           chapter.state == .loaded {
                     singleChapterScrollView(chapter: chapter, viewModel: vm)
                         .id("single-chapter-\(chapter.index)")
@@ -1669,17 +1706,19 @@ struct ReaderView: View {
     @ViewBuilder
     private var readerTTSControl: some View {
         readerEdgeButton(
-            icon: ttsManager.isPlaying ? "stop.fill" : "headphones",
-            tint: ttsManager.isPlaying ? .red : selectedTheme.textColor.opacity(0.9),
+            // Keep this as the Reader listen action. It must not become a
+            // global stop control when another book owns the TTS session.
+            icon: "headphones",
+            tint: selectedTheme.textColor.opacity(0.9),
             action: {
-                if ttsManager.isPlaying {
+                if isTTSPlayingThisBook {
                     ttsManager.stop()
                 } else {
                     triggerGetVisibleIndex = UUID()
                 }
             }
         )
-        .accessibilityLabel(ttsManager.isPlaying ? "Dừng đọc thành tiếng" : "Đọc thành tiếng")
+        .accessibilityLabel(isTTSPlayingThisBook ? "Dừng đọc thành tiếng" : "Đọc thành tiếng")
         .padding(8)
         .background(.ultraThinMaterial, in: Circle())
         .shadow(color: Color.black.opacity(0.18), radius: 12, x: 0, y: 4)
@@ -1984,10 +2023,11 @@ struct ReaderView: View {
                 }
             )
         }
-        .fullScreenCover(isPresented: $showingLookupBrowser) {
+        .fullScreenCover(item: $lookupRoute) { route in
             BypassWebView(
-                urlString: lookupUrlString
+                urlString: route.urlString
             )
+            .id(route.id)
         }
     }
 }

@@ -192,16 +192,23 @@ class ReaderViewModel: ObservableObject {
         self.bootstrapParagraphIndex = initialParagraphIndex
         self.modelContext = modelContext
 
-        // The Reader can appear before its @Query in ReaderView has delivered the
-        // Book relationship. Resolve a local snapshot directly from this context
-        // so bootstrap does not remain at zero chapters until another view event.
-        let resolvedLocalChapterCount: Int = {
-            guard totalChaptersCount == 0 else { return totalChaptersCount }
-            let descriptor = FetchDescriptor<Book>()
-            let books = (try? modelContext.fetch(descriptor)) ?? []
-            let localCount = books.first(where: { $0.bookId == bookId })?.chapters.count ?? 0
-            return max(localCount, onlineChapters.count)
+        // @Query in ReaderView may still be empty on the first frame. Resolve the
+        // complete local Book snapshot here before bootstrapping the chapter load:
+        // this makes the local-first path independent of a later SwiftUI update.
+        let localBookSnapshot: Book? = {
+            var descriptor = FetchDescriptor<Book>(
+                predicate: #Predicate<Book> { book in
+                    book.bookId == bookId
+                }
+            )
+            descriptor.fetchLimit = 1
+            return (try? modelContext.fetch(descriptor))?.first
         }()
+        let sortedLocalChapters = localBookSnapshot?.chapters.sorted(by: { $0.index < $1.index })
+        let localChapterCount = sortedLocalChapters?.count ?? 0
+        self.cachedLocalBook = localBookSnapshot
+        self.cachedSortedChapters = sortedLocalChapters
+        let resolvedLocalChapterCount = max(totalChaptersCount, max(localChapterCount, onlineChapters.count))
         self.totalChaptersCount = resolvedLocalChapterCount
         self.onlineChapters = onlineChapters
         self.isTranslationEnabled = isTranslationEnabled
@@ -234,14 +241,15 @@ class ReaderViewModel: ObservableObject {
     }
 
     func updateChapterSnapshot(totalCount: Int, onlineChapters: [ChapterResult]) {
+        // A late/empty @Query update must not erase a valid count resolved directly
+        // from ModelContext during Reader bootstrap.
+        guard totalCount > 0 else { return }
         if !onlineChapters.isEmpty {
             self.onlineChapters = onlineChapters
         }
         cachedLocalBook = nil
         cachedSortedChapters = nil
         totalChaptersCount = totalCount
-
-        guard totalCount > 0 else { return }
         if case .bootstrapping = loadState {
             bootstrapReader()
         } else if case .failed(_, _) = loadState,

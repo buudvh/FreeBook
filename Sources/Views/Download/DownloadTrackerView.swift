@@ -8,6 +8,7 @@ struct DownloadTrackerView: View {
     @State private var selectedBookForTask: Book? = nil
     @State private var selectedTaskType: TaskType = .download
     @State private var defaultOnlyExportCached = false
+    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -52,7 +53,7 @@ struct DownloadTrackerView: View {
                 .shadow(color: Color.black.opacity(0.08), radius: 2, x: 0, y: 1)
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(TranslateUtils.isTranslationEnabled && TranslateUtils.containsChinese(task.bookTitle)
+                Text(isTranslationEnabled && TranslateUtils.containsChinese(task.bookTitle)
                      ? TranslateUtils.translateMeta(task.bookTitle, bookId: task.bookId)
                      : task.bookTitle)
                     .font(.headline)

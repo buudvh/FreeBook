@@ -40,14 +40,17 @@ public final class SiriTTSService: NSObject, @preconcurrency AVSpeechSynthesizer
         synth.speak(utterance)
     }
     
-    public func pause() {
-        systemSynthesizer?.pauseSpeaking(at: .immediate)
+    @discardableResult
+    public func pause() -> Bool {
+        systemSynthesizer?.pauseSpeaking(at: .immediate) ?? false
     }
     
-    public func resume() {
-        if systemSynthesizer?.isPaused == true {
-            systemSynthesizer?.continueSpeaking()
+    @discardableResult
+    public func resume() -> Bool {
+        guard let synthesizer = systemSynthesizer, synthesizer.isPaused else {
+            return false
         }
+        return synthesizer.continueSpeaking()
     }
     
     public func stop() {

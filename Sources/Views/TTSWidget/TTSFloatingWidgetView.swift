@@ -49,7 +49,10 @@ struct TTSFloatingWidgetView: View {
                 y: renderPosition.y - size.height / 2
             )
             .contentShape(Rectangle())
-            .highPriorityGesture(
+            // A high-priority gesture prevented the collapsed Button from
+            // receiving taps. Simultaneous recognition keeps drag-to-expand
+            // while allowing a simple tap to reveal the full widget.
+            .simultaneousGesture(
                 dragGesture(
                     restingPosition: restingPosition,
                     screenWidth: size.width,
@@ -57,6 +60,20 @@ struct TTSFloatingWidgetView: View {
                 )
             )
             .animation(Self.widgetAnimation, value: viewModel.mode)
+            .onAppear {
+                guard ttsManager.showFloatingWidget else { return }
+                viewModel.reveal()
+                visualPosition = nil
+            }
+            .onChange(of: ttsManager.showFloatingWidget) { _, isVisible in
+                if isVisible {
+                    viewModel.reveal()
+                    visualPosition = nil
+                } else {
+                    viewModel.hide()
+                    visualPosition = nil
+                }
+            }
             .onDisappear {
                 viewModel.cancelTasks()
             }
@@ -164,7 +181,11 @@ struct TTSFloatingWidgetView: View {
         guard screenWidth > 0, screenHeight > 0 else { return .zero }
 
         if viewModel.mode == .peeking {
-            let x = viewModel.edgeDirection == .left ? 0 : screenWidth
+            // Keep the peeking control close to the edge, but leave its hit
+            // target inside the window. A center at 0/screenWidth put half of
+            // the button outside the interactive coordinate space.
+            let inset = Layout.peekSize * 0.38
+            let x = viewModel.edgeDirection == .left ? inset : screenWidth - inset
             let y = clampedY(
                 viewModel.verticalRatio * screenHeight,
                 height: Layout.peekSize,
@@ -224,6 +245,17 @@ struct TTSFloatingWidgetView: View {
                 }
             }
             .onEnded { value in
+                // A tap on the collapsed cover is recognized simultaneously
+                // with this gesture. Do not feed that zero-distance event to
+                // edge snapping, otherwise the tap would reveal and collapse
+                // the widget in the same transaction.
+                let didMove = abs(value.translation.width) > 12 || abs(value.translation.height) > 12
+                guard didMove else {
+                    dragOrigin = nil
+                    viewModel.isDragging = false
+                    return
+                }
+
                 let origin = dragOrigin ?? restingPosition
                 let finalPosition = CGPoint(
                     x: origin.x + value.translation.width,

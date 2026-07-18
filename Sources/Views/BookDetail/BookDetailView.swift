@@ -677,7 +677,10 @@ struct BookDetailView: View {
                         bookId: bookId,
                         extensionPackageId: extensionPackageId,
                         chapterIndex: route.chapterIndex,
-                        onlineChapters: localBook == nil ? onlineChapters : [],
+                        // Keep the online TOC as a bootstrap fallback while
+                        // SwiftData @Query catches up. Reader still prefers
+                        // its direct local Book snapshot when one exists.
+                        onlineChapters: onlineChapters,
                         bookTitle: title,
                         bookAuthor: author,
                         bookCoverUrl: coverUrl,
