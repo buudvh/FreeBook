@@ -346,7 +346,7 @@ struct ReaderView: View {
         }
         .sheet(isPresented: $showingAddNghiTTSPhonemeSheet) {
             AddWordSheet(initialKey: selectedDisplayedText) { key, val in
-                Task {
+                _ = Task {
                     try? await TextPreprocessor.shared.updateWord(key: key, value: val)
                     await TextPreprocessor.shared.loadResources()
                     ToastManager.shared.show(message: "Đã thêm phiên âm: \(key)")
