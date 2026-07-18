@@ -6,6 +6,20 @@ import QuartzCore
 import UIKit
 import SwiftData
 
+/// Updates the transport state without waiting for the asynchronous metadata
+/// refresh. The Lock Screen uses both values to choose its Play/Pause icon.
+private func setSystemNowPlayingPlaybackState(
+    _ state: MPNowPlayingPlaybackState,
+    playbackRate: Double
+) {
+    let center = MPNowPlayingInfoCenter.default()
+    center.playbackState = state
+
+    guard var info = center.nowPlayingInfo else { return }
+    info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate
+    center.nowPlayingInfo = info
+}
+
 @MainActor
 public final class TTSManager: NSObject, ObservableObject {
     public static let shared = TTSManager()
@@ -485,6 +499,7 @@ public final class TTSManager: NSObject, ObservableObject {
 
         self.currentParagraphIndex = targetIdx
         self.isPlaying = true
+        setSystemNowPlayingPlaybackState(.playing, playbackRate: speed)
         self.syncRemoteCommandState()
 
         speakCurrent()
@@ -499,7 +514,7 @@ public final class TTSManager: NSObject, ObservableObject {
         checkpointProgressAndRelease()
         self.isPlaying = false
         self.lastPausedTime = Date()
-        MPNowPlayingInfoCenter.default().playbackState = .paused
+        setSystemNowPlayingPlaybackState(.paused, playbackRate: 0)
 
         if tool == "system" {
             siriService.pause()
@@ -526,7 +541,7 @@ public final class TTSManager: NSObject, ObservableObject {
             } else if let playerNode, !playerNode.isPlaying {
                 playerNode.play()
             }
-            MPNowPlayingInfoCenter.default().playbackState = .playing
+            setSystemNowPlayingPlaybackState(.playing, playbackRate: speed)
             syncRemoteCommandState()
             updateNowPlayingInfo()
             return
@@ -541,7 +556,7 @@ public final class TTSManager: NSObject, ObservableObject {
         self.setRemoteCommandsEnabled(true) // Bật lại remote commands
         self.isPlaying = true
         Task { await ReadingProgressStore.shared.claim(bookId: playingBookId, owner: .tts) }
-        MPNowPlayingInfoCenter.default().playbackState = .playing
+        setSystemNowPlayingPlaybackState(.playing, playbackRate: speed)
 
         if tool == "system" {
             if siriService.isPaused {
@@ -1326,7 +1341,10 @@ public final class TTSManager: NSObject, ObservableObject {
         let commandCenter = MPRemoteCommandCenter.shared()
         commandCenter.playCommand.isEnabled = enabled
         commandCenter.pauseCommand.isEnabled = enabled
-        commandCenter.togglePlayPauseCommand.isEnabled = enabled
+        // iOS maps the headset play/pause button to one of the explicit
+        // commands from playbackState. Enabling toggle as well can dispatch a
+        // second event for the same press on some Bluetooth devices.
+        commandCenter.togglePlayPauseCommand.isEnabled = false
         commandCenter.nextTrackCommand.isEnabled = enabled
         commandCenter.previousTrackCommand.isEnabled = enabled
 
@@ -1345,7 +1363,7 @@ public final class TTSManager: NSObject, ObservableObject {
         let active = !playingBookId.isEmpty && showFloatingWidget
         commandCenter.playCommand.isEnabled = active && !isPlaying
         commandCenter.pauseCommand.isEnabled = active && isPlaying
-        commandCenter.togglePlayPauseCommand.isEnabled = active
+        commandCenter.togglePlayPauseCommand.isEnabled = false
     }
 
     private func setupRemoteCommandCenter() {
@@ -1354,6 +1372,9 @@ public final class TTSManager: NSObject, ObservableObject {
         // Play
         commandCenter.playCommand.addTarget { [weak self] _ in
             guard self != nil else { return .commandFailed }
+            // Update MediaPlayer before acknowledging the command. Otherwise
+            // the next headset press can be routed using the stale state.
+            setSystemNowPlayingPlaybackState(.playing, playbackRate: 1)
             Task { @MainActor [weak self] in
                 self?.resume()
             }
@@ -1363,23 +1384,9 @@ public final class TTSManager: NSObject, ObservableObject {
         // Pause
         commandCenter.pauseCommand.addTarget { [weak self] _ in
             guard self != nil else { return .commandFailed }
+            setSystemNowPlayingPlaybackState(.paused, playbackRate: 0)
             Task { @MainActor [weak self] in
                 self?.pause()
-            }
-            return .success
-        }
-
-        // AirPods and some Bluetooth remotes send togglePlayPauseCommand
-        // instead of separate play/pause events.
-        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
-            guard self != nil else { return .commandFailed }
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                if self.isPlaying {
-                    self.pause()
-                } else {
-                    self.resume()
-                }
             }
             return .success
         }

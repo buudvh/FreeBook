@@ -162,19 +162,23 @@ struct TTSFloatingWidgetView: View {
     }
 
     private var collapsedWidget: some View {
-        Button(action: revealWidget) {
-            TTSCoverView(
-                coverURL: ttsManager.playingCoverUrl,
-                isPlaying: playState.isPlaying,
-                size: Layout.peekSize - 12
-            )
-            .padding(6)
-            .background(Circle().fill(.ultraThinMaterial))
-            .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
-            .shadow(color: .black.opacity(0.28), radius: 11, x: 0, y: 5)
-        }
-        .buttonStyle(.plain)
+        TTSCoverView(
+            coverURL: ttsManager.playingCoverUrl,
+            isPlaying: playState.isPlaying,
+            size: Layout.peekSize - 12
+        )
+        .padding(6)
+        .background(Circle().fill(.ultraThinMaterial))
+        .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
+        .shadow(color: .black.opacity(0.28), radius: 11, x: 0, y: 5)
+        .contentShape(Circle())
+        .onTapGesture(perform: revealWidget)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel("Mở điều khiển TTS")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction {
+            revealWidget()
+        }
     }
 
     private func restingPosition(screenWidth: CGFloat, screenHeight: CGFloat) -> CGPoint {
@@ -224,16 +228,9 @@ struct TTSFloatingWidgetView: View {
                     dragOrigin = visualPosition ?? restingPosition
                 }
 
-                if viewModel.mode == .peeking, abs(value.translation.width) > 18 {
-                    viewModel.expandForDrag()
-                    let expandedOrigin = expandedRestingPosition(
-                        screenWidth: screenWidth,
-                        screenHeight: screenHeight
-                    )
-                    dragOrigin = expandedOrigin
-                    visualPosition = expandedOrigin
-                }
-
+                // Keep the current mode until the gesture ends. Replacing the
+                // peeking circle with the revealed capsule here changes the
+                // hit-test tree and interrupts the active drag.
                 guard let origin = dragOrigin else { return }
                 var transaction = Transaction()
                 transaction.disablesAnimations = true
@@ -245,14 +242,15 @@ struct TTSFloatingWidgetView: View {
                 }
             }
             .onEnded { value in
-                // A tap on the collapsed cover is recognized simultaneously
-                // with this gesture. Do not feed that zero-distance event to
-                // edge snapping, otherwise the tap would reveal and collapse
-                // the widget in the same transaction.
+                // Keep taps separate from drag snapping so the collapsed
+                // control can reveal without immediately returning to peeking.
                 let didMove = abs(value.translation.width) > 12 || abs(value.translation.height) > 12
                 guard didMove else {
                     dragOrigin = nil
                     viewModel.isDragging = false
+                    withAnimation(Self.widgetAnimation) {
+                        visualPosition = nil
+                    }
                     return
                 }
 
@@ -275,19 +273,6 @@ struct TTSFloatingWidgetView: View {
                 }
                 dragOrigin = nil
             }
-    }
-
-    private func expandedRestingPosition(screenWidth: CGFloat, screenHeight: CGFloat) -> CGPoint {
-        let halfWidth = Layout.width / 2
-        let x = viewModel.edgeDirection == .left
-            ? Layout.horizontalMargin + halfWidth
-            : screenWidth - Layout.horizontalMargin - halfWidth
-        let y = clampedY(
-            viewModel.verticalRatio * screenHeight,
-            height: Layout.height,
-            screenHeight: screenHeight
-        )
-        return CGPoint(x: x, y: y)
     }
 
     private func revealWidget() {

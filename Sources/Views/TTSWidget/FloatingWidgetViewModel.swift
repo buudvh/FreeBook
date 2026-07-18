@@ -28,13 +28,6 @@ public final class FloatingWidgetViewModel: ObservableObject {
         startAutoHideTimer()
     }
 
-    /// Expands the widget while the user is pulling it away from the edge.
-    /// The auto-hide timer is restarted only after the drag has completed.
-    public func expandForDrag() {
-        autoHideTask?.cancel()
-        mode = .revealed
-    }
-
     public func hide() {
         autoHideTask?.cancel()
         mode = .peeking
@@ -58,7 +51,10 @@ public final class FloatingWidgetViewModel: ObservableObject {
         edgeSnapDistance: CGFloat
     ) {
         autoHideTask?.cancel()
-        guard screenHeight > 0 else { return }
+        guard screenWidth > 0, screenHeight > 0 else {
+            isDragging = false
+            return
+        }
         _ = widgetWidth
 
         let targetEdge: EdgeDirection = finalPosition.x < screenWidth - finalPosition.x ? .left : .right

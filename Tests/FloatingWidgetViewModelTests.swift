@@ -82,15 +82,13 @@ final class FloatingWidgetViewModelTests: XCTestCase {
         resetStoredWidgetState()
     }
 
-    func testDragFromHiddenEndsCollapsedAndPersistsPosition() {
+    func testDragFromPeekingToEdgeStaysPeekingAndPersistsPosition() {
         resetStoredWidgetState()
         let model = FloatingWidgetViewModel()
         model.mode = .peeking
 
         model.handleDragStart()
-        // handleDragStart() no longer changes mode — mode stays peeking
         XCTAssertEqual(model.mode, .peeking)
-        model.expandForDrag()
 
         model.handleDragEnd(
             finalPosition: CGPoint(x: 20, y: 360),
@@ -101,11 +99,62 @@ final class FloatingWidgetViewModelTests: XCTestCase {
             edgeSnapDistance: 40
         )
 
-        // handleDragEnd() sets mode to peeking at the nearest edge
         XCTAssertEqual(model.mode, .peeking)
         XCTAssertEqual(model.edgeDirection, .left)
         XCTAssertEqual(UserDefaults.standard.string(forKey: edgeKey), "left")
         XCTAssertEqual(UserDefaults.standard.double(forKey: ratioKey), Double(360 / screenHeight), accuracy: 0.0001)
+        model.cancelTasks()
+        resetStoredWidgetState()
+    }
+
+    func testDragFromPeekingAwayFromEdgeEndsRevealed() {
+        resetStoredWidgetState()
+        let model = FloatingWidgetViewModel()
+        model.mode = .peeking
+
+        model.handleDragStart()
+        model.handleDragEnd(
+            finalPosition: CGPoint(x: screenWidth / 2, y: 360),
+            widgetWidth: widgetWidth,
+            widgetHeight: widgetHeight,
+            screenWidth: screenWidth,
+            screenHeight: screenHeight,
+            edgeSnapDistance: 40
+        )
+
+        XCTAssertEqual(model.mode, .revealed)
+        XCTAssertFalse(model.isDragging)
+        model.cancelTasks()
+        resetStoredWidgetState()
+    }
+
+    func testRevealTransitionsFromPeekingToRevealed() {
+        resetStoredWidgetState()
+        let model = FloatingWidgetViewModel()
+        model.mode = .peeking
+
+        model.reveal()
+
+        XCTAssertEqual(model.mode, .revealed)
+        model.cancelTasks()
+        resetStoredWidgetState()
+    }
+
+    func testInvalidScreenSizeEndsDragging() {
+        resetStoredWidgetState()
+        let model = FloatingWidgetViewModel()
+        model.handleDragStart()
+
+        model.handleDragEnd(
+            finalPosition: CGPoint(x: 20, y: 360),
+            widgetWidth: widgetWidth,
+            widgetHeight: widgetHeight,
+            screenWidth: 0,
+            screenHeight: 0,
+            edgeSnapDistance: 40
+        )
+
+        XCTAssertFalse(model.isDragging)
         model.cancelTasks()
         resetStoredWidgetState()
     }

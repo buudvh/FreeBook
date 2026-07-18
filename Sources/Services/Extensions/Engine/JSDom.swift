@@ -2,15 +2,6 @@ import Foundation
 import JavaScriptCore
 import SwiftSoup
 
-/// Keep DOM text compatible with the VBook bridge: text extraction returns a
-/// value without indentation whitespace at either edge.  Extension scripts
-/// commonly use prefix checks for names and metadata (for example,
-/// `text.indexOf("最新章节：") === 0`) and must not depend on the HTML
-/// formatter's leading newlines.
-private func normalizedDOMText(_ value: String) -> String {
-    value.trimmingCharacters(in: .whitespacesAndNewlines)
-}
-
 // MARK: - JSExport Protocols
 //
 // File này định nghĩa các cầu nối JSExport giúp export thư viện parse HTML SwiftSoup sang JavaScript.
@@ -237,7 +228,7 @@ private func normalizedDOMText(_ value: String) -> String {
     
     public func text() -> String {
         do {
-            return normalizedDOMText(try doc.text())
+            return try doc.text()
         } catch {
             return ""
         }
@@ -280,7 +271,7 @@ private func normalizedDOMText(_ value: String) -> String {
     public func text() -> String {
         guard let element = element else { return "" }
         do {
-            return normalizedDOMText(try element.text())
+            return try element.text()
         } catch {
             return ""
         }
@@ -459,7 +450,7 @@ private func normalizedDOMText(_ value: String) -> String {
     
     public func text() -> String {
         do {
-            return normalizedDOMText(try elements.text())
+            return try elements.text()
         } catch {
             return ""
         }
