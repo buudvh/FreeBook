@@ -236,6 +236,10 @@ struct ReaderView: View {
 
 
     var body: some View {
+        readerLifecycleView
+    }
+
+    private var readerPresentationView: some View {
         GeometryReader { geometry in
             ZStack {
                 selectedTheme.backgroundColor
@@ -310,6 +314,10 @@ struct ReaderView: View {
                 EmptyView()
             }
         )
+    }
+
+    private var readerDataObservationView: some View {
+        readerPresentationView
         .onChange(of: localBook?.chapters.count) { _, newCount in
             if let vm = viewModel, let count = newCount {
                 vm.updateChapterSnapshot(
@@ -341,7 +349,10 @@ struct ReaderView: View {
             )
             chapterListStore?.synchronize(localBook: localBook, onlineChapters: onlineChapters)
         }
+    }
 
+    private var readerLifecycleView: some View {
+        readerDataObservationView
         .onAppear {
             let key = "showChapterTitle_\(bookId)"
             if UserDefaults.standard.object(forKey: key) != nil {
