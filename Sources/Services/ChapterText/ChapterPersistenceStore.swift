@@ -201,7 +201,7 @@ actor ChapterPersistenceStore {
     func flush(bookId: String) async {
         let matching = pendingWrites.filter { $0.key.hasPrefix("\(bookId)|") }
         for (key, pending) in matching {
-            await pending.task.value
+            _ = await pending.task.value
             if pendingWrites[key]?.id == pending.id {
                 pendingWrites.removeValue(forKey: key)
             }
@@ -211,7 +211,7 @@ actor ChapterPersistenceStore {
     func flushAll() async {
         let writes = pendingWrites
         for (key, pending) in writes {
-            await pending.task.value
+            _ = await pending.task.value
             if pendingWrites[key]?.id == pending.id {
                 pendingWrites.removeValue(forKey: key)
             }

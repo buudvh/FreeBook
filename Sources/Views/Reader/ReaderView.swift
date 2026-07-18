@@ -240,66 +240,8 @@ struct ReaderView: View {
             ZStack {
                 selectedTheme.backgroundColor
                     .ignoresSafeArea()
-
-                VStack(spacing: 0) {
-                    if let viewModel {
-                        ReaderViewModelObserver(viewModel: viewModel) { _ in
-                            readerHeaderView
-                        }
-                    } else {
-                        readerHeaderView
-                    }
-
-                    ZStack(alignment: .bottomTrailing) {
-                        readerContentView
-                        readerTTSControl
-                    }
-
-                    if let viewModel {
-                        ReaderViewModelObserver(viewModel: viewModel) { _ in
-                            readerFooterView
-                        }
-                    } else {
-                        readerFooterView
-                    }
-                }
-
-                if let chapterListStore {
-                    ReaderChapterListView(
-                        bookId: bookId,
-                        bookTitle: bookTitle,
-                        bookAuthor: bookAuthor,
-                        bookCoverUrl: bookCoverUrl,
-                        bookDetailUrl: bookDetailUrl,
-                        localBook: localBook,
-                        ext: ext,
-                        currentChapterIndex: chapterIndex,
-                        isTranslationEnabled: isTranslationEnabled,
-                        theme: selectedTheme,
-                        store: chapterListStore,
-                        onlineChapters: $currentOnlineChapters,
-                        onSelectChapter: { selectedIdx in
-                            selectChapter(at: selectedIdx)
-                        },
-                        onClose: {
-                            showingChapterList = false
-                        }
-                    )
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .offset(
-                        y: reduceMotion
-                            ? 0
-                            : (showingChapterList ? 0 : geometry.size.height + geometry.safeAreaInsets.bottom)
-                    )
-                    .opacity(showingChapterList ? 1 : 0)
-                    .animation(
-                        .easeInOut(duration: reduceMotion ? 0.15 : 0.25),
-                        value: showingChapterList
-                    )
-                    .allowsHitTesting(showingChapterList)
-                    .accessibilityHidden(!showingChapterList)
-                    .zIndex(10)
-                }
+                readerMainContent
+                readerChapterListOverlay(in: geometry)
             }
         }
         .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
@@ -556,6 +498,71 @@ struct ReaderView: View {
             scrollTarget = ScrollTarget(chapterIndex: playingChapterIndex, paragraphIndex: newValue)
         }
         .toolbar(.hidden, for: .tabBar)
+    }
+
+    private var readerMainContent: some View {
+        VStack(spacing: 0) {
+            if let viewModel {
+                ReaderViewModelObserver(viewModel: viewModel) { _ in
+                    readerHeaderView
+                }
+            } else {
+                readerHeaderView
+            }
+
+            ZStack(alignment: .bottomTrailing) {
+                readerContentView
+                readerTTSControl
+            }
+
+            if let viewModel {
+                ReaderViewModelObserver(viewModel: viewModel) { _ in
+                    readerFooterView
+                }
+            } else {
+                readerFooterView
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func readerChapterListOverlay(in geometry: GeometryProxy) -> some View {
+        if let chapterListStore {
+            ReaderChapterListView(
+                bookId: bookId,
+                bookTitle: bookTitle,
+                bookAuthor: bookAuthor,
+                bookCoverUrl: bookCoverUrl,
+                bookDetailUrl: bookDetailUrl,
+                localBook: localBook,
+                ext: ext,
+                currentChapterIndex: chapterIndex,
+                isTranslationEnabled: isTranslationEnabled,
+                theme: selectedTheme,
+                store: chapterListStore,
+                onlineChapters: $currentOnlineChapters,
+                onSelectChapter: { selectedIdx in
+                    selectChapter(at: selectedIdx)
+                },
+                onClose: {
+                    showingChapterList = false
+                }
+            )
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .offset(
+                y: reduceMotion
+                    ? 0
+                    : (showingChapterList ? 0 : geometry.size.height + geometry.safeAreaInsets.bottom)
+            )
+            .opacity(showingChapterList ? 1 : 0)
+            .animation(
+                .easeInOut(duration: reduceMotion ? 0.15 : 0.25),
+                value: showingChapterList
+            )
+            .allowsHitTesting(showingChapterList)
+            .accessibilityHidden(!showingChapterList)
+            .zIndex(10)
+        }
     }
 
 
