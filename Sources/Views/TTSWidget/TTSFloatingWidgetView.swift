@@ -100,17 +100,6 @@ struct TTSFloatingWidgetView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Mở chương đang đọc")
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(ttsManager.bookTitle.isEmpty ? "Đang đọc" : ttsManager.bookTitle)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
-                Text(ttsManager.chapterTitle.isEmpty ? "Chương hiện tại" : ttsManager.chapterTitle)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
             Button(action: togglePlayback) {
                 Image(systemName: playState.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 14, weight: .bold))

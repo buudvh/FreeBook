@@ -4,6 +4,13 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.23] - 2026-07-18
+
+### Khắc phục lỗi tai nghe Bluetooth / AirPods bấm 2 lần mới phản hồi
+* Kích hoạt lại `togglePlayPauseCommand` trong `MPRemoteCommandCenter` để tiếp nhận trực tiếp tín hiệu bấm tai nghe từ iOS thay vì phụ thuộc hoàn toàn vào cơ chế tự động ánh xạ nút nhấn của hệ thống.
+* Khôi phục cập nhật trạng thái `playbackState` đồng bộ thông qua `setSystemNowPlayingPlaybackState` ngay trong các target handler (`playCommand`, `pauseCommand`, `togglePlayPauseCommand`) để phản hồi tức thì trạng thái lên iOS media router trước khi chuyển tiếp tác vụ thực thi cho Main Thread.
+* Bổ sung cơ chế chống nhận trùng lặp sự kiện (de-duplication) bằng cách so khớp thời gian với `lastRemoteCommandTime` (ngưỡng 300ms) để triệt tiêu các lệnh thừa gửi từ một số thiết bị Bluetooth bị lỗi phần cứng gửi đúp tín hiệu.
+
 ## [1.3.22] - 2026-07-18
 
 ### Khôi phục kiến trúc layout và cử chỉ kéo thả/chạm của Widget nổi TTS
