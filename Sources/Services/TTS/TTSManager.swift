@@ -112,7 +112,6 @@ public final class TTSManager: NSObject, ObservableObject {
     // playback state must invalidate older tasks so Lock Screen cannot revert
     // a just-resumed session back to paused (or vice versa).
     private var nowPlayingUpdateGeneration: UInt = 0
-    private var lastRemoteCommandTime: Date = .distantPast
 
     // Cache lưu trữ dữ liệu âm thanh đã được tổng hợp trước cho các đoạn văn
     private var preloadedWavs: [Int: AVAudioPCMBuffer] = [:]
@@ -1342,7 +1341,10 @@ public final class TTSManager: NSObject, ObservableObject {
         let commandCenter = MPRemoteCommandCenter.shared()
         commandCenter.playCommand.isEnabled = enabled
         commandCenter.pauseCommand.isEnabled = enabled
-        commandCenter.togglePlayPauseCommand.isEnabled = enabled
+        // iOS maps the headset play/pause button to one of the explicit
+        // commands from playbackState. Enabling toggle as well can dispatch a
+        // second event for the same press on some Bluetooth devices.
+        commandCenter.togglePlayPauseCommand.isEnabled = false
         commandCenter.nextTrackCommand.isEnabled = enabled
         commandCenter.previousTrackCommand.isEnabled = enabled
 
@@ -1361,7 +1363,7 @@ public final class TTSManager: NSObject, ObservableObject {
         let active = !playingBookId.isEmpty && showFloatingWidget
         commandCenter.playCommand.isEnabled = active && !isPlaying
         commandCenter.pauseCommand.isEnabled = active && isPlaying
-        commandCenter.togglePlayPauseCommand.isEnabled = active
+        commandCenter.togglePlayPauseCommand.isEnabled = false
     }
 
     private func setupRemoteCommandCenter() {
@@ -1370,13 +1372,8 @@ public final class TTSManager: NSObject, ObservableObject {
         // Play
         commandCenter.playCommand.addTarget { [weak self] _ in
             guard self != nil else { return .commandFailed }
-            setSystemNowPlayingPlaybackState(.playing, playbackRate: 1.0)
             DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                let now = Date()
-                guard now.timeIntervalSince(self.lastRemoteCommandTime) > 0.3 else { return }
-                self.lastRemoteCommandTime = now
-                self.resume()
+                self?.resume()
             }
             return .success
         }
@@ -1384,33 +1381,8 @@ public final class TTSManager: NSObject, ObservableObject {
         // Pause
         commandCenter.pauseCommand.addTarget { [weak self] _ in
             guard self != nil else { return .commandFailed }
-            setSystemNowPlayingPlaybackState(.paused, playbackRate: 0.0)
             DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                let now = Date()
-                guard now.timeIntervalSince(self.lastRemoteCommandTime) > 0.3 else { return }
-                self.lastRemoteCommandTime = now
-                self.pause()
-            }
-            return .success
-        }
-
-        // Toggle Play/Pause (Headset button click)
-        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
-            guard self != nil else { return .commandFailed }
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                let now = Date()
-                guard now.timeIntervalSince(self.lastRemoteCommandTime) > 0.3 else { return }
-                self.lastRemoteCommandTime = now
-
-                if self.isPlaying {
-                    setSystemNowPlayingPlaybackState(.paused, playbackRate: 0.0)
-                    self.pause()
-                } else {
-                    setSystemNowPlayingPlaybackState(.playing, playbackRate: 1.0)
-                    self.resume()
-                }
+                self?.pause()
             }
             return .success
         }

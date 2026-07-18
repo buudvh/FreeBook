@@ -406,14 +406,14 @@ struct ReaderView: View {
                   let nextIdx = userInfo["chapterIndex"] as? Int else { return }
 
             if bid == bookId && nextIdx != chapterIndex {
-                // TTSManager đã tự advance và đang phát chương mới.
-                // ReaderView chỉ cần sync UI (chuyển tab, scroll) — không trigger startTTS thêm.
-                requestChapter(
-                    at: nextIdx,
-                    paragraphIndex: 0,
-                    source: .ttsSync,
-                    persistProgress: false
-                )
+                if chapterIndex == nextIdx - 1 {
+                    requestChapter(
+                        at: nextIdx,
+                        paragraphIndex: 0,
+                        source: .ttsSync,
+                        persistProgress: false
+                    )
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("navigateReaderToPlayingChapter"))) { notification in
@@ -444,17 +444,7 @@ struct ReaderView: View {
             let playingChapterIndex = ttsManager.playingChapterIndex
             guard !isAutoScrollDisabled else { return }
 
-            if chapterIndex != playingChapterIndex {
-                isRestoringReaderPosition = true
-                paragraphTracker.removeAll()
-                requestChapter(
-                    at: playingChapterIndex,
-                    paragraphIndex: newValue,
-                    source: .ttsSync,
-                    persistProgress: false
-                )
-                return
-            }
+            guard chapterIndex == playingChapterIndex else { return }
 
             scrollTarget = ScrollTarget(chapterIndex: playingChapterIndex, paragraphIndex: newValue)
         }
@@ -1450,19 +1440,7 @@ struct ReaderView: View {
                 apply()
             }
         }
-
-        let isManualChapterChange: Bool
-        switch commit.source {
-        case .previousButton, .nextButton, .chapterList:
-            isManualChapterChange = true
-        case .history, .ttsSync, .reload:
-            isManualChapterChange = false
-        }
-        if isManualChapterChange,
-           ttsManager.isPlaying,
-           ttsManager.playingBookId == bookId {
-            startTTS(at: commit.chapterIndex, paragraphIndex: -1)
-        }
+        // Không tự động chuyển chương TTS khi chuyển chương Reader thủ công
     }
 
     private func chapterNavigationErrorView(
@@ -1711,10 +1689,11 @@ struct ReaderView: View {
             icon: "headphones",
             tint: selectedTheme.textColor.opacity(0.9),
             action: {
-                if isTTSPlayingThisBook {
-                    ttsManager.stop()
+                ttsManager.stop()
+                if let top = paragraphTracker.topVisible {
+                    startTTS(at: top.chapterIndex, paragraphIndex: top.paragraphIndex)
                 } else {
-                    triggerGetVisibleIndex = UUID()
+                    startTTS(at: chapterIndex, paragraphIndex: -1)
                 }
             }
         )

@@ -29,7 +29,7 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 * The mounted chapter list closes through its header drag gesture or Accessibility Escape; list scrolling does not alter presentation state.
 * `ReaderView.onDisappear` calls `ReaderViewModel.shutdown(saveProgress:)`, canceling navigation debounce/worker, DB debounce, and prefetch.
 * `ReaderTextView.dismantleUIView` clears delegate ownership; no Reader-level selection-activity state remains after horizontal navigation is removed.
-* `TTSFloatingWidgetView` lays out only its compact widget bounds (252x56 when expanded, 52x52 when peeking), snaps the expanded capsule flush to the chosen horizontal edge, and keeps the full-screen Reader outside the overlay hit-test region.
+* `TTSFloatingWidgetView` lays out only its compact widget bounds (174x56 when expanded, 52x52 when peeking), snaps the expanded capsule flush to the chosen horizontal edge, and keeps the full-screen Reader outside the overlay hit-test region.
 
 ## 1. Bản đồ Vòng đời của Trình đọc (`ReaderView.swift`)
 

@@ -6,10 +6,12 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.23] - 2026-07-18
 
-### Khắc phục lỗi tai nghe Bluetooth / AirPods bấm 2 lần mới phản hồi
-* Kích hoạt lại `togglePlayPauseCommand` trong `MPRemoteCommandCenter` để tiếp nhận trực tiếp tín hiệu bấm tai nghe từ iOS thay vì phụ thuộc hoàn toàn vào cơ chế tự động ánh xạ nút nhấn của hệ thống.
-* Khôi phục cập nhật trạng thái `playbackState` đồng bộ thông qua `setSystemNowPlayingPlaybackState` ngay trong các target handler (`playCommand`, `pauseCommand`, `togglePlayPauseCommand`) để phản hồi tức thì trạng thái lên iOS media router trước khi chuyển tiếp tác vụ thực thi cho Main Thread.
-* Bổ sung cơ chế chống nhận trùng lặp sự kiện (de-duplication) bằng cách so khớp thời gian với `lastRemoteCommandTime` (ngưỡng 300ms) để triệt tiêu các lệnh thừa gửi từ một số thiết bị Bluetooth bị lỗi phần cứng gửi đúp tín hiệu.
+### Tách biệt điều hướng chương TTS/Reader và tối giản widget nổi
+* Sửa đổi logic ReaderView để việc chuyển chương thủ công (Next/Prev/TOC) không kéo theo TTS chuyển chương theo.
+* Chỉ tự động cuộn màn hình Reader theo tiến độ đọc của TTS khi người dùng đang ở cùng chương với TTS.
+* Khi TTS tự động chuyển chương (advance), Reader chỉ chuyển theo nếu trước đó người dùng đang đọc cùng chương với TTS.
+* Cập nhật nút nghe (headphones) trong Reader luôn dừng TTS cũ và phát lại từ dòng đầu tiên hiển thị trên màn hình hiện tại.
+* Tối giản widget nổi TTS: loại bỏ hiển thị text tên sách/chương để tránh rối mắt, điều chỉnh chiều rộng widget mở rộng về 174 (thay vì 252) và căn chỉnh khoảng cách các nút điều khiển cho cân đối.
 
 ## [1.3.22] - 2026-07-18
 

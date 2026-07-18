@@ -16,7 +16,7 @@ struct TTSFloatingWidgetView: View {
     enum Layout {
         // Keep the control compact enough to leave the Reader tappable while
         // allowing the capsule to sit flush against either screen edge.
-        static let width: CGFloat = 252
+        static let width: CGFloat = 174
         static let height: CGFloat = 56
         static let coverSize: CGFloat = 40
         static let playButtonSize: CGFloat = 34
@@ -89,7 +89,7 @@ struct TTSFloatingWidgetView: View {
     }
 
     private var expandedWidget: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Button(action: openCurrentChapter) {
                 TTSCoverView(
                     coverURL: ttsManager.playingCoverUrl,
@@ -130,7 +130,7 @@ struct TTSFloatingWidgetView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Đóng TTS")
         }
-        .padding(.horizontal, 7)
+        .padding(.horizontal, 8)
         .frame(width: Layout.width, height: Layout.height)
         .background(
             Capsule(style: .continuous)
