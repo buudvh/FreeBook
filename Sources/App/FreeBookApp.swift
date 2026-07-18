@@ -62,5 +62,9 @@ struct AppLaunchRootView: View {
                 .zIndex(1000)
             }
         }
+        // Sheet cài đặt TTS toàn cục – hoạt động ở mọi tab và màn hình
+        .sheet(isPresented: $ttsManager.showingSettingsSheet) {
+            TTSSettingsSheet()
+        }
     }
 }

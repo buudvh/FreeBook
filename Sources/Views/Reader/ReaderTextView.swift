@@ -10,8 +10,10 @@ struct ReaderTextView: UIViewRepresentable {
     let isBold: Bool
     let isCentered: Bool
     @Binding var triggerGetVisibleIndex: UUID?
+    @Binding var clearSelectionTrigger: UUID?
     let onGetVisibleIndex: (Int) -> Void
-    let onSelectionChange: (NSRange, CGRect?) -> Void
+    // Trả về (selectionRange, selectionMinY, selectionMaxY) trong tọa độ màn hình
+    let onSelectionChange: (NSRange, CGFloat?, CGFloat?) -> Void
     let onSpeakFromHere: (Int) -> Void
     
     init(
@@ -23,8 +25,9 @@ struct ReaderTextView: UIViewRepresentable {
         isBold: Bool = false,
         isCentered: Bool = false,
         triggerGetVisibleIndex: Binding<UUID?>,
+        clearSelectionTrigger: Binding<UUID?>,
         onGetVisibleIndex: @escaping (Int) -> Void,
-        onSelectionChange: @escaping (NSRange, CGRect?) -> Void,
+        onSelectionChange: @escaping (NSRange, CGFloat?, CGFloat?) -> Void,
         onSpeakFromHere: @escaping (Int) -> Void
     ) {
         self.text = text
@@ -35,6 +38,7 @@ struct ReaderTextView: UIViewRepresentable {
         self.isBold = isBold
         self.isCentered = isCentered
         self._triggerGetVisibleIndex = triggerGetVisibleIndex
+        self._clearSelectionTrigger = clearSelectionTrigger
         self.onGetVisibleIndex = onGetVisibleIndex
         self.onSelectionChange = onSelectionChange
         self.onSpeakFromHere = onSpeakFromHere
@@ -206,6 +210,17 @@ struct ReaderTextView: UIViewRepresentable {
             }
         }
         
+        // Xử lý trigger xóa selection từ SwiftUI (sau khi bấm nút menu)
+        if context.coordinator.lastClearTriggerId != clearSelectionTrigger {
+            context.coordinator.lastClearTriggerId = clearSelectionTrigger
+            if clearSelectionTrigger != nil {
+                DispatchQueue.main.async {
+                    self.clearSelectionTrigger = nil
+                    uiView.selectedRange = NSRange(location: 0, length: 0)
+                }
+            }
+        }
+        
         uiView.invalidateIntrinsicContentSize()
         context.coordinator.setupScrollObservation(for: uiView)
     }
@@ -224,6 +239,7 @@ struct ReaderTextView: UIViewRepresentable {
         var parent: ReaderTextView
         weak var parentTextView: UITextView?
         var lastTriggeredId: UUID?
+        var lastClearTriggerId: UUID?
         var wasHighlighted: Bool = false
         var lastText: String? = nil
         var lastFontSize: Double? = nil
@@ -265,25 +281,53 @@ struct ReaderTextView: UIViewRepresentable {
             
             if nsRange.length > 0 && NSMaxRange(nsRange) <= textLength,
                let textRange = textView.selectedTextRange {
+                let (minY, maxY) = selectionGlobalMinMaxY(textView: textView, textRange: textRange)
+                parent.onSelectionChange(nsRange, minY, maxY)
+            }
+        }
+        
+        /// Tính toán minY và maxY của toàn bộ vùng selection trong tọa độ màn hình.
+        /// Dùng firstRect (đầu selection) và lastRect (cuối selection) để union,
+        /// tránh menu đè lên vùng bôi đen khi selection nhiều dòng.
+        func selectionGlobalMinMaxY(textView: UITextView, textRange: UITextRange) -> (CGFloat?, CGFloat?) {
+            guard let start = textView.selectedTextRange?.start,
+                  let end = textView.selectedTextRange?.end,
+                  let startRange = textView.textRange(from: start, to: start),
+                  let endRange = textView.textRange(from: end, to: end) else {
                 let rect = textView.firstRect(for: textRange)
                 let globalRect = textView.convert(rect, to: nil)
-                parent.onSelectionChange(nsRange, globalRect)
+                return (globalRect.minY, globalRect.maxY)
             }
+            let firstRect = textView.convert(textView.firstRect(for: textRange), to: nil)
+            let lastRect = textView.convert(textView.caretRect(for: end), to: nil)
+            let _ = startRange // suppress unused warning
+            let _ = endRange   // suppress unused warning
+            let unionMinY = min(firstRect.minY, lastRect.minY)
+            let unionMaxY = max(firstRect.maxY, lastRect.maxY)
+            return (unionMinY, unionMaxY)
         }
         
         func textViewDidChangeSelection(_ textView: UITextView) {
             let nsRange = textView.selectedRange
+            
+            // Khi length == 0 (deselect / tap ra ngoài), bỏ qua guard lastSelectionRange
+            // để sự kiện deselect luôn được gửi lên và tắt Floating Menu.
+            if nsRange.length == 0 {
+                lastSelectionRange = nsRange
+                parent.onSelectionChange(NSRange(location: NSNotFound, length: 0), nil, nil)
+                return
+            }
+            
             guard nsRange != lastSelectionRange else { return }
             lastSelectionRange = nsRange
             
             let textLength = ((textView.text ?? "") as NSString).length
             if nsRange.length > 0 && NSMaxRange(nsRange) <= textLength,
                let textRange = textView.selectedTextRange {
-                let rect = textView.firstRect(for: textRange)
-                let globalRect = textView.convert(rect, to: nil)
-                parent.onSelectionChange(nsRange, globalRect)
+                let (minY, maxY) = selectionGlobalMinMaxY(textView: textView, textRange: textRange)
+                parent.onSelectionChange(nsRange, minY, maxY)
             } else {
-                parent.onSelectionChange(NSRange(location: NSNotFound, length: 0), nil)
+                parent.onSelectionChange(NSRange(location: NSNotFound, length: 0), nil, nil)
             }
         }
         

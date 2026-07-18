@@ -4,6 +4,15 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.25] - 2026-07-18
+
+### Sửa lỗi Floating Bubble Menu và Global TTS Settings Sheet
+* Khắc phục menu bong bóng đè lên vùng bôi đen: sử dụng union của `firstRect` và `caretRect(for: end)` để tính `minY`/`maxY` toàn bộ vùng selection; menu xuất hiện phía trên nếu đủ không gian, ngược lại phía dưới.
+* Khắc phục menu không tắt khi tap ra ngoài: xóa guard `lastSelectionRange` khi `length == 0` để sự kiện deselect luôn được gửi lên ReaderView.
+* Khắc phục bôi đen không xóa sau khi bấm nút: thêm `clearSelectionTrigger: UUID?` binding từ `ReaderView` → `ParagraphCardView` → `ReaderTextView`; mỗi action của menu đều kích hoạt trigger xóa selection trên `UITextView`.
+* Tạo file `TTSSettingsSheet.swift` mới: wrapper `NavigationStack { TTSSettingsView(isPresentedAsSheet: true) }` dùng chung toàn cục cho Widget và mọi màn hình.
+* Gắn `.sheet(isPresented: $ttsManager.showingSettingsSheet)` lên `AppLaunchRootView` thay vì `ReaderView` để sheet cài đặt TTS hoạt động ở mọi tab; `NavigationLink` bên trong `TTSSettingsView` không còn bị disabled.
+
 ## [1.3.24] - 2026-07-18
 
 ### Custom Selection Menu, NghiTTS Pronunciation Integration, Custom Dict Export Naming, and Remote Metadata Sync

@@ -8,8 +8,9 @@ struct ParagraphCardView: View {
     let theme: ReaderTheme
     let highlightRange: NSRange?
     @Binding var triggerGetVisibleIndex: UUID?
+    @Binding var clearSelectionTrigger: UUID?
     let onGetVisibleIndex: (Int) -> Void
-    let onSelectionChange: (Int, NSRange, CGRect?) -> Void
+    let onSelectionChange: (Int, NSRange, CGFloat?, CGFloat?) -> Void
     let onSpeakFromHere: (Int) -> Void
     
     var body: some View {
@@ -22,9 +23,10 @@ struct ParagraphCardView: View {
             isBold: item.isTitle,
             isCentered: item.isTitle,
             triggerGetVisibleIndex: $triggerGetVisibleIndex,
+            clearSelectionTrigger: $clearSelectionTrigger,
             onGetVisibleIndex: onGetVisibleIndex,
-            onSelectionChange: { selectionRange, rect in
-                onSelectionChange(item.id, selectionRange, rect)
+            onSelectionChange: { selectionRange, minY, maxY in
+                onSelectionChange(item.id, selectionRange, minY, maxY)
             },
             onSpeakFromHere: onSpeakFromHere
         )
@@ -41,7 +43,8 @@ extension ParagraphCardView: Equatable {
                lhs.lineSpacing == rhs.lineSpacing &&
                lhs.theme == rhs.theme &&
                lhs.highlightRange == rhs.highlightRange &&
-               lhs.triggerGetVisibleIndex == rhs.triggerGetVisibleIndex
+               lhs.triggerGetVisibleIndex == rhs.triggerGetVisibleIndex &&
+               lhs.clearSelectionTrigger == rhs.clearSelectionTrigger
     }
 }
 

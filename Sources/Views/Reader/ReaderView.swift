@@ -81,9 +81,11 @@ struct ReaderView: View {
     @State private var dictionaryMatches: [DictionaryMatchInfo] = []
     @State private var showingManageDefinitionsSheet = false
     @State private var showingFloatingMenu = false
-    @State private var floatingMenuRect: CGRect? = nil
+    @State private var selectionMinY: CGFloat? = nil
+    @State private var selectionMaxY: CGFloat? = nil
     @State private var showingAddNghiTTSPhonemeSheet = false
     @State private var selectedDisplayedText = ""
+    @State private var clearSelectionTrigger: UUID? = nil
 
     // Cấu hình giao diện đọc (lưu trữ lâu dài qua UserDefaults nhờ @AppStorage)
     @AppStorage("readerFontSize") private var fontSize: Double = 20.0 // Cỡ chữ của văn bản đọc
@@ -280,33 +282,39 @@ struct ReaderView: View {
                 }
                 
                 // Floating bubble menu khi bôi đen
-                if showingFloatingMenu, let rect = floatingMenuRect {
+                if showingFloatingMenu {
                     FloatingSelectionMenu(
-                        rect: rect,
+                        selectionMinY: selectionMinY ?? 200,
+                        selectionMaxY: selectionMaxY ?? 240,
                         screenWidth: geometry.size.width,
                         onTranslate: {
+                            clearSelectionTrigger = UUID()
                             showingFloatingMenu = false
                             updateEditorFromSelection()
                             showingDefinitionSheet = true
                         },
                         onSpeak: {
+                            clearSelectionTrigger = UUID()
                             showingFloatingMenu = false
                             if let pIndex = editingParagraphIndex {
                                 startTTS(at: chapterIndex, paragraphIndex: pIndex)
                             }
                         },
                         onPhoneme: {
+                            clearSelectionTrigger = UUID()
                             showingFloatingMenu = false
                             updateEditorFromSelection()
                             showingAddNghiTTSPhonemeSheet = true
                         },
                         onCopy: {
+                            clearSelectionTrigger = UUID()
                             showingFloatingMenu = false
                             updateEditorFromSelection()
                             UIPasteboard.general.string = selectedDisplayedText
                             ToastManager.shared.show(message: "Đã sao chép: \"\(selectedDisplayedText)\"")
                         },
                         onClose: {
+                            clearSelectionTrigger = UUID()
                             showingFloatingMenu = false
                         }
                     )
@@ -330,13 +338,6 @@ struct ReaderView: View {
                     })
             }
         }
-        .onChange(of: ttsManager.showingSettingsSheet) { _, newValue in
-            if newValue {
-                // Tự động đóng các sheet khác của ReaderView để tránh tranh chấp presentation
-                showingSettings = false
-                showingBookDictionary = false
-            }
-        }
         .onChange(of: isTranslationEnabled) { _, _ in
             applyTranslation()
         }
@@ -348,9 +349,6 @@ struct ReaderView: View {
                     ToastManager.shared.show(message: "Đã thêm phiên âm: \(key)")
                 }
             }
-        }
-        .sheet(isPresented: $ttsManager.showingSettingsSheet) {
-            TTSSettingsView(isPresentedAsSheet: true)
         }
         .fullScreenCover(isPresented: $showingBypassBrowser) {
             BypassWebView(
@@ -1095,14 +1093,16 @@ struct ReaderView: View {
                 theme: theme,
                 highlightRange: relativeHighlightRange,
                 triggerGetVisibleIndex: $triggerGetVisibleIndex,
+                clearSelectionTrigger: $clearSelectionTrigger,
                 onGetVisibleIndex: { visibleOffset in
                     guard !ttsManager.isPlaying else { return }
                     startTTS(at: chapter.index, paragraphIndex: item.id)
                 },
-                onSelectionChange: { paragraphID, selectionRange, rect in
+                onSelectionChange: { paragraphID, selectionRange, minY, maxY in
                     self.onSelectionChangeInParagraph(
                         selectionRange: selectionRange,
-                        rect: rect,
+                        minY: minY,
+                        maxY: maxY,
                         paragraphID: paragraphID,
                         chapterIndex: chapter.index,
                         paragraphItems: chapter.paragraphItems
@@ -1127,14 +1127,16 @@ struct ReaderView: View {
 
     private func onSelectionChangeInParagraph(
         selectionRange: NSRange,
-        rect: CGRect?,
+        minY: CGFloat?,
+        maxY: CGFloat?,
         paragraphID: Int,
         chapterIndex: Int,
         paragraphItems: [ParagraphItem]
     ) {
         if selectionRange.length == 0 || selectionRange.location == NSNotFound {
             self.showingFloatingMenu = false
-            self.floatingMenuRect = nil
+            self.selectionMinY = nil
+            self.selectionMaxY = nil
             self.selectedDisplayedText = ""
             return
         }
@@ -1162,7 +1164,8 @@ struct ReaderView: View {
         self.selectedWordOffset = originalRange.location
         self.selectedWordLength = originalRange.length
         
-        self.floatingMenuRect = rect
+        self.selectionMinY = minY
+        self.selectionMaxY = maxY
         self.showingFloatingMenu = true
     }
 
@@ -2125,13 +2128,17 @@ class ParagraphTracker {
 // MARK: - Floating Selection Menu
 
 struct FloatingSelectionMenu: View {
-    let rect: CGRect
+    let selectionMinY: CGFloat
+    let selectionMaxY: CGFloat
     let screenWidth: CGFloat
     let onTranslate: () -> Void
     let onSpeak: () -> Void
     let onPhoneme: () -> Void
     let onCopy: () -> Void
     let onClose: () -> Void
+
+    // Chiều rộng tổng của menu (5 nút × 60 + padding)
+    private let menuWidth: CGFloat = 308
 
     var body: some View {
         HStack(spacing: 0) {
@@ -2216,9 +2223,13 @@ struct FloatingSelectionMenu: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
+        .fixedSize()
+        // Căn x giữa màn hình nhưng giới hạn trong lề an toàn
+        .frame(maxWidth: .infinity)
         .position(
-            x: min(max(rect.midX, 150 + 16), screenWidth - 150 - 16),
-            y: rect.minY < 80 ? rect.maxY + 36 : rect.minY - 30
+            x: min(max(screenWidth / 2, menuWidth / 2 + 16), screenWidth - menuWidth / 2 - 16),
+            // Menu xuất hiện phía TRÊN nếu có đủ không gian (≥80pt), ngược lại phía DƯỚI
+            y: selectionMinY > 80 ? selectionMinY - 36 : selectionMaxY + 36
         )
     }
 }
