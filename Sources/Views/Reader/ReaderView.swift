@@ -325,13 +325,9 @@ struct ReaderView: View {
         .sheet(isPresented: $showingBookDictionary) {
             NavigationStack {
                 BookDictionaryView(bookId: bookId, bookName: bookTitle ?? "")
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button("Đóng") {
-                                showingBookDictionary = false
-                            }
-                        }
-                    }
+                    .navigationBarItems(trailing: Button("Đóng") {
+                        showingBookDictionary = false
+                    })
             }
         }
         .onChange(of: ttsManager.showingSettingsSheet) { _, newValue in
