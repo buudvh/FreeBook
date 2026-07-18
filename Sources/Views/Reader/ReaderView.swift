@@ -350,7 +350,7 @@ struct ReaderView: View {
             }
         }
         .sheet(isPresented: $ttsManager.showingSettingsSheet) {
-            TTSSettingsView()
+            TTSSettingsView(isPresentedAsSheet: true)
         }
         .fullScreenCover(isPresented: $showingBypassBrowser) {
             BypassWebView(
