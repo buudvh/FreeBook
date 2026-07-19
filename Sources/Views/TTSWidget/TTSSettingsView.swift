@@ -144,6 +144,7 @@ struct TTSSettingsView: View {
                             NavigationLink(destination: TTSDictionaryEditView()) {
                                 Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
                             }
+                        }
                     } else if ttsManager.tool == "google" {
                         HStack {
                             Image(systemName: "globe")
