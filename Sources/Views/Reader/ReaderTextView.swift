@@ -367,30 +367,30 @@ struct ReaderTextView: UIViewRepresentable {
 // MARK: - Subclass UITextView to support custom action selector
 
 class ReaderUITextView: UITextView {
-    
+
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
         return false
     }
-    
-    /// Xóa UITextInteraction loại nonEditable do UIKit tự thêm.
-    /// Đây là nguồn gốc của menu Speak / Look Up / Spell-check xuất hiện
-    /// trên vùng text đã chọn, che phủ FloatingSelectionMenu tùy chỉnh.
-    /// Gọi sau khi view vào window (didMoveToWindow) để không ảnh hưởng
-    /// đến quá trình khởi tạo gesture recognizer của UIKit.
-    override func didMoveToWindow() {
-        super.didMoveToWindow()
-        guard window != nil else { return }
-        // Chỉ xóa interaction nonEditable — loại này chịu trách nhiệm
-        // hiển thị menu Speak/Look Up khi bôi đen, không liên quan đến
-        // gesture selection của người dùng.
-        for interaction in interactions {
-            if let textInteraction = interaction as? UITextInteraction,
-               textInteraction.textInteractionMode == .nonEditable {
-                removeInteraction(textInteraction)
-            }
+
+    /// Chặn UIKit thêm UITextInteraction (nonEditable) và UIEditMenuInteraction.
+    /// Đây là nguồn gốc của menu hệ thống "Speak / Look Up / Spell" xuất hiện
+    /// khi bôi đen text, che phủ FloatingSelectionMenu tùy chỉnh.
+    /// Override addInteraction thay vì didMoveToWindow để tránh timing issue
+    /// (UIKit có thể thêm lại interaction sau khi view vào window).
+    override func addInteraction(_ interaction: UIInteraction) {
+        // Chặn UITextInteraction nonEditable — nguồn gốc menu Speak/Look Up
+        if let textInteraction = interaction as? UITextInteraction,
+           textInteraction.textInteractionMode == .nonEditable {
+            return
         }
+        // Chặn UIEditMenuInteraction (iOS 16+) — nguồn gốc menu Spell/Share
+        if #available(iOS 16.0, *), interaction is UIEditMenuInteraction {
+            return
+        }
+        super.addInteraction(interaction)
     }
 }
+
 
 class AutoSizingTextView: ReaderUITextView {
 
