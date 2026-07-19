@@ -1,6 +1,11 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+struct ExportDocument: Identifiable {
+    var id: String { url.absoluteString }
+    let url: URL
+}
+
 struct TTSReplacementManagerView: View {
     @ObservedObject var manager = TTSReplacementManager.shared
     @Environment(\.dismiss) var dismiss
@@ -16,8 +21,7 @@ struct TTSReplacementManagerView: View {
     @State private var showingFileImporter = false
     @State private var pendingImportJSON = ""
     @State private var showingImportOptions = false
-    @State private var exportURLToShare: URL? = nil
-    @State private var showingShareSheet = false
+    @State private var exportDocumentToShare: ExportDocument? = nil
     
     // Trạng thái thông báo lỗi/thành công
     @State private var alertMessage = ""
@@ -148,14 +152,12 @@ struct TTSReplacementManagerView: View {
         } message: {
             Text(alertMessage)
         }
-        .sheet(isPresented: $showingShareSheet) {
-            if let url = exportURLToShare {
-                ShareSheet(activityItems: [url]) { _, completed, _, error in
-                    if completed {
-                        ToastManager.shared.show(message: "Xuất cấu hình thay thế TTS thành công!", type: .success)
-                    } else if let error = error {
-                        ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
-                    }
+        .sheet(item: $exportDocumentToShare) { doc in
+            ShareSheet(activityItems: [doc.url]) { _, completed, _, error in
+                if completed {
+                    ToastManager.shared.show(message: "Xuất cấu hình thay thế TTS thành công!", type: .success)
+                } else if let error = error {
+                    ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
                 }
             }
         }
@@ -295,8 +297,7 @@ struct TTSReplacementManagerView: View {
         let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("tts_character_replacements.json")
         do {
             try jsonString.write(to: tempURL, atomically: true, encoding: .utf8)
-            self.exportURLToShare = tempURL
-            self.showingShareSheet = true
+            self.exportDocumentToShare = ExportDocument(url: tempURL)
         } catch {
             ToastManager.shared.show(message: "Lỗi xuất cấu hình: \(error.localizedDescription)", type: .error)
         }

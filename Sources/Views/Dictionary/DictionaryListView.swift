@@ -1,11 +1,18 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import SwiftData
+
+struct ExportDocument: Identifiable {
+    var id: String { url.absoluteString }
+    let url: URL
+}
 
 struct DictionaryListView: View {
     let type: DictType
     let bookId: String?
     var bookName: String = ""
 
+    @Environment(\.modelContext) private var modelContext
     @ObservedObject private var cache = DictionaryCache.shared
     @State private var bookEntries: [DictEntry] = []
     @State private var isLoadingBook = false
@@ -15,8 +22,7 @@ struct DictionaryListView: View {
     @State private var showingAddSheet = false
     @State private var showingFileImporter = false
     @State private var showingDeleteAllAlert = false
-    @State private var showingShareSheet = false
-    @State private var exportURLToShare: URL? = nil
+    @State private var exportDocumentToShare: ExportDocument? = nil
 
     private var isGlobal: Bool { bookId == nil }
 
@@ -245,14 +251,12 @@ struct DictionaryListView: View {
 
 
         }
-        .sheet(isPresented: $showingShareSheet) {
-            if let url = exportURLToShare {
-                ShareSheet(activityItems: [url]) { _, completed, _, error in
-                    if completed {
-                        ToastManager.shared.show(message: "Xuất từ điển thành công!", type: .success)
-                    } else if let error = error {
-                        ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
-                    }
+        .sheet(item: $exportDocumentToShare) { doc in
+            ShareSheet(activityItems: [doc.url]) { _, completed, _, error in
+                if completed {
+                    ToastManager.shared.show(message: "Xuất từ điển thành công!", type: .success)
+                } else if let error = error {
+                    ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
                 }
             }
         }
@@ -450,11 +454,23 @@ struct DictionaryListView: View {
         return result
     }
 
+    private func getBookNameFromDB() -> String? {
+        guard let bookId = bookId else { return nil }
+        let descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.bookId == bookId })
+        if let books = try? modelContext.fetch(descriptor), let book = books.first {
+            return book.title
+        }
+        return nil
+    }
+
     private func generateExportURL() -> URL? {
         let tempDir = FileManager.default.temporaryDirectory
         
         let namePart: String
-        if !bookName.isEmpty {
+        if let dbName = getBookNameFromDB(), !dbName.isEmpty {
+            let translated = TranslateUtils.translateMeta(dbName, bookId: bookId ?? "")
+            namePart = translated.isEmpty ? dbName : translated
+        } else if !bookName.isEmpty {
             let translated = TranslateUtils.translateMeta(bookName, bookId: bookId ?? "")
             namePart = translated.isEmpty ? bookName : translated
         } else {
@@ -483,8 +499,7 @@ struct DictionaryListView: View {
 
     private func exportDictionary() {
         if let url = generateExportURL() {
-            self.exportURLToShare = url
-            self.showingShareSheet = true
+            self.exportDocumentToShare = ExportDocument(url: url)
         } else {
             ToastManager.shared.show(message: "Lỗi khi xuất từ điển.", type: .error)
         }

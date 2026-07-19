@@ -1,6 +1,11 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+struct ExportDocument: Identifiable {
+    var id: String { url.absoluteString }
+    let url: URL
+}
+
 @MainActor
 struct TTSDictionaryEditView: View {
     @ObservedObject var ttsManager = TTSManager.shared
@@ -14,8 +19,7 @@ struct TTSDictionaryEditView: View {
     @State private var isLoading = false
     @State private var showingFileImporter = false
     @State private var showingDownloadConfirmation = false
-    @State private var exportURLToShare: URL? = nil
-    @State private var showingShareSheet = false
+    @State private var exportDocumentToShare: ExportDocument? = nil
     @State private var visibleCount = 100
 
     var matchedKeys: [String] {
@@ -237,14 +241,12 @@ struct TTSDictionaryEditView: View {
             }
             
         }
-        .sheet(isPresented: $showingShareSheet) {
-            if let url = exportURLToShare {
-                ShareSheet(activityItems: [url]) { _, completed, _, error in
-                    if completed {
-                        ToastManager.shared.show(message: "Xuất từ điển thành công!", type: .success)
-                    } else if let error = error {
-                        ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
-                    }
+        .sheet(item: $exportDocumentToShare) { doc in
+            ShareSheet(activityItems: [doc.url]) { _, completed, _, error in
+                if completed {
+                    ToastManager.shared.show(message: "Xuất từ điển thành công!", type: .success)
+                } else if let error = error {
+                    ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
                 }
             }
         }
@@ -268,8 +270,7 @@ struct TTSDictionaryEditView: View {
         do {
             let plistData = try PropertyListSerialization.data(fromPropertyList: allWords, format: .xml, options: 0)
             try plistData.write(to: plistURL, options: .atomic)
-            self.exportURLToShare = plistURL
-            self.showingShareSheet = true
+            self.exportDocumentToShare = ExportDocument(url: plistURL)
         } catch {
             ToastManager.shared.show(message: "Lỗi xuất file .plist: \(error.localizedDescription)", type: .error)
         }
@@ -285,8 +286,7 @@ struct TTSDictionaryEditView: View {
         do {
             let jsonData = try JSONSerialization.data(withJSONObject: allWords, options: [.prettyPrinted, .sortedKeys])
             try jsonData.write(to: jsonURL, options: .atomic)
-            self.exportURLToShare = jsonURL
-            self.showingShareSheet = true
+            self.exportDocumentToShare = ExportDocument(url: jsonURL)
         } catch {
             ToastManager.shared.show(message: "Lỗi xuất file .json: \(error.localizedDescription)", type: .error)
         }
@@ -305,8 +305,7 @@ struct TTSDictionaryEditView: View {
                 throw NSError(domain: "CSVExport", code: 500, userInfo: [NSLocalizedDescriptionKey: "Lỗi chuyển đổi dữ liệu CSV"])
             }
             try csvData.write(to: csvURL, options: .atomic)
-            self.exportURLToShare = csvURL
-            self.showingShareSheet = true
+            self.exportDocumentToShare = ExportDocument(url: csvURL)
         } catch {
             ToastManager.shared.show(message: "Lỗi xuất file .csv: \(error.localizedDescription)", type: .error)
         }
