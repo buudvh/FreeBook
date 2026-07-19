@@ -90,6 +90,10 @@ struct ReaderTextView: UIViewRepresentable {
         textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         textView.setContentCompressionResistancePriority(.required, for: .vertical)
         
+        // Tắt kiểm tra chính tả và tự sửa — ngăn popup Spell-check phủ lên custom menu
+        textView.spellCheckingType = .no
+        textView.autocorrectionType = .no
+        
         return textView
     }
     
@@ -314,6 +318,12 @@ struct ReaderTextView: UIViewRepresentable {
         func textViewDidChangeSelection(_ textView: UITextView) {
             let nsRange = textView.selectedRange
             
+            // Ẩn menu hệ thống (UIMenuController) ngay khi selection thay đổi
+            // để nó không phủ lên FloatingSelectionMenu của chúng ta.
+            DispatchQueue.main.async {
+                UIMenuController.shared.hideMenu()
+            }
+            
             // Khi length == 0 (deselect / tap ra ngoài), bỏ qua guard lastSelectionRange
             // để sự kiện deselect luôn được gửi lên và tắt Floating Menu.
             if nsRange.length == 0 {
@@ -357,8 +367,28 @@ struct ReaderTextView: UIViewRepresentable {
 // MARK: - Subclass UITextView to support custom action selector
 
 class ReaderUITextView: UITextView {
+    
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
         return false
+    }
+    
+    /// Xóa UITextInteraction loại nonEditable do UIKit tự thêm.
+    /// Đây là nguồn gốc của menu Speak / Look Up / Spell-check xuất hiện
+    /// trên vùng text đã chọn, che phủ FloatingSelectionMenu tùy chỉnh.
+    /// Gọi sau khi view vào window (didMoveToWindow) để không ảnh hưởng
+    /// đến quá trình khởi tạo gesture recognizer của UIKit.
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard window != nil else { return }
+        // Chỉ xóa interaction nonEditable — loại này chịu trách nhiệm
+        // hiển thị menu Speak/Look Up khi bôi đen, không liên quan đến
+        // gesture selection của người dùng.
+        for interaction in interactions {
+            if let textInteraction = interaction as? UITextInteraction,
+               textInteraction.textInteractionMode == .nonEditable {
+                removeInteraction(textInteraction)
+            }
+        }
     }
 }
 

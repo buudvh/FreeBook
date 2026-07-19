@@ -607,6 +607,16 @@ struct DiscoveryCategoryTabView: View {
         .onChange(of: selectedCategoryId) { _, _ in
             checkAndLoadData()
         }
+        .onChange(of: isTranslationEnabled) { _, _ in
+            // Xóa data cũ và reload để tên truyện được dịch / bỏ dịch đúng
+            guard selectedCategoryId == category.id else { return }
+            novels = []
+            novelsError = ""
+            currentPage = 1
+            nextNovelPageUrl = nil
+            canLoadMore = false
+            loadNovels(page: 1)
+        }
     }
     
     private func checkAndLoadData() {
@@ -646,11 +656,24 @@ struct DiscoveryCategoryTabView: View {
                 
                 await MainActor.run {
                     self.nextNovelPageUrl = nextPage
+                    
+                    // Lọc novel rỗng (name hoặc link trống) và trùng link
+                    let filtered = results.filter { !$0.name.isEmpty && !$0.link.isEmpty }
+                    let unique = filtered.reduce(into: [SearchNovelResult]()) { acc, item in
+                        if !acc.contains(where: { $0.link == item.link }) {
+                            acc.append(item)
+                        }
+                    }
+                    
                     if page == 1 {
-                        self.novels = results
+                        self.novels = unique
                         self.isLoadingNovels = false
                     } else {
-                        self.novels.append(contentsOf: results)
+                        // Load more: chỉ append cái chưa có trong danh sách hiện tại
+                        let newUnique = unique.filter { item in
+                            !self.novels.contains(where: { $0.link == item.link })
+                        }
+                        self.novels.append(contentsOf: newUnique)
                         self.isLoadingMore = false
                     }
                     self.canLoadMore = results.count >= 10 && (nextPage != nil || category.input.contains("{0}"))

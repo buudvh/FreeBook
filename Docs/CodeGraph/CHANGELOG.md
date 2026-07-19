@@ -4,6 +4,13 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.27] - 2026-07-19
+
+### Sửa lỗi Khám phá: không cập nhật khi tắt dịch, lọc novel trùng/rỗng
+* `DiscoveryCategoryTabView`: Thêm `.onChange(of: isTranslationEnabled)` để reset và reload danh sách truyện khi bật/tắt dịch — trước đó view cache dữ liệu cũ trong `@State` nên không cập nhật.
+* `loadNovels`: Lọc các novel có `name` hoặc `link` trống trước khi hiển thị.
+* `loadNovels`: Deduplicate theo `link` — cả page 1 (trong batch) lẫn load-more (so sánh với danh sách hiện có) để tránh hiển thị trùng.
+
 ## [1.3.26] - 2026-07-19
 
 ### Sửa lỗi vị trí Floating Bubble Menu, tap-outside dismiss, và menu re-show sau TTS jump
