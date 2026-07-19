@@ -4,6 +4,13 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.26] - 2026-07-19
+
+### Sửa lỗi vị trí Floating Bubble Menu, tap-outside dismiss, và menu re-show sau TTS jump
+* **Lỗi 1 – Vị trí menu sai**: Chuyển đổi `selectionMinY`/`selectionMaxY` từ window coordinates (UIKit) sang local coordinates của GeometryReader bằng cách trừ `geometry.frame(in: .global).minY`; thêm tham số `geometryOriginY` vào `FloatingSelectionMenu`.
+* **Lỗi 2 – Không tắt khi tap ngoài**: Thêm `Color.clear` overlay với `.simultaneousGesture(TapGesture())` ở zIndex 9 (dưới menu), bắt mọi tap ra ngoài các nút menu để tắt menu và xóa selection mà không chặn scroll.
+* **Lỗi 3 – Menu hiện lại sau TTS jump**: Thêm `uiView.selectedRange = NSRange(location: 0, length: 0)` ngay sau `uiView.attributedText = attributedText` để UIKit không giữ selection cũ khi highlight thay đổi.
+
 ## [1.3.25] - 2026-07-18
 
 ### Sửa lỗi Floating Bubble Menu và Global TTS Settings Sheet

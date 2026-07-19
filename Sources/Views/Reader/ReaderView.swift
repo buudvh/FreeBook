@@ -281,11 +281,26 @@ struct ReaderView: View {
                     .zIndex(5)
                 }
                 
+                // Lỗi 2: Overlay trong suốt phủ toàn màn hình bắt tap ra ngoài menu
+                // Dùng simultaneousGesture để không chặn scroll/swipe của content bên dưới
+                if showingFloatingMenu {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .simultaneousGesture(
+                            TapGesture().onEnded {
+                                clearSelectionTrigger = UUID()
+                                showingFloatingMenu = false
+                            }
+                        )
+                        .zIndex(9)
+                }
+                
                 // Floating bubble menu khi bôi đen
                 if showingFloatingMenu {
                     FloatingSelectionMenu(
                         selectionMinY: selectionMinY ?? 200,
                         selectionMaxY: selectionMaxY ?? 240,
+                        geometryOriginY: geometry.frame(in: .global).minY,
                         screenWidth: geometry.size.width,
                         onTranslate: {
                             clearSelectionTrigger = UUID()
@@ -2128,8 +2143,9 @@ class ParagraphTracker {
 // MARK: - Floating Selection Menu
 
 struct FloatingSelectionMenu: View {
-    let selectionMinY: CGFloat
-    let selectionMaxY: CGFloat
+    let selectionMinY: CGFloat   // Tọa độ Y trên cùng của selection (window coordinates từ UIKit)
+    let selectionMaxY: CGFloat   // Tọa độ Y dưới cùng của selection (window coordinates từ UIKit)
+    let geometryOriginY: CGFloat // Tọa độ Y toàn cục của GeometryReader (để chuyển đổi sang local)
     let screenWidth: CGFloat
     let onTranslate: () -> Void
     let onSpeak: () -> Void
@@ -2139,6 +2155,8 @@ struct FloatingSelectionMenu: View {
 
     // Chiều rộng tổng của menu (5 nút × 60 + padding)
     private let menuWidth: CGFloat = 308
+    // Khoảng cách giữa menu và cạnh trên/dưới vùng bôi đen
+    private let gap: CGFloat = 36
 
     var body: some View {
         HStack(spacing: 0) {
@@ -2224,12 +2242,17 @@ struct FloatingSelectionMenu: View {
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
         .fixedSize()
-        // Căn x giữa màn hình nhưng giới hạn trong lề an toàn
-        .frame(maxWidth: .infinity)
         .position(
+            // X: căn giữa màn hình, giới hạn trong lề an toàn
             x: min(max(screenWidth / 2, menuWidth / 2 + 16), screenWidth - menuWidth / 2 - 16),
-            // Menu xuất hiện phía TRÊN nếu có đủ không gian (≥80pt), ngược lại phía DƯỚI
-            y: selectionMinY > 80 ? selectionMinY - 36 : selectionMaxY + 36
+            // Y: chuyển đổi từ window coords sang local coords của GeometryReader
+            // Nếu có đủ không gian phía trên (>80pt tính từ đỉnh GeometryReader) → đặt TRÊN selection
+            // Ngược lại → đặt DƯỚI selection
+            y: {
+                let localMinY = selectionMinY - geometryOriginY
+                let localMaxY = selectionMaxY - geometryOriginY
+                return localMinY > 80 ? localMinY - gap : localMaxY + gap
+            }()
         )
     }
 }

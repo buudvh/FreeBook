@@ -190,6 +190,10 @@ struct ReaderTextView: UIViewRepresentable {
             }
             
             uiView.attributedText = attributedText
+            // Xóa selection cũ để tránh menu tự hiện lại khi TTS highlight thay đổi.
+            // UIKit giữ nguyên selectedRange khi text content không đổi (chỉ đổi màu highlight),
+            // điều này kích hoạt textViewDidChangeSelection với range cũ → menu bị re-show.
+            uiView.selectedRange = NSRange(location: 0, length: 0)
         }
         
         // Xử lý trigger lấy index ký tự hiển thị đầu tiên
