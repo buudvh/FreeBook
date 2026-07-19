@@ -247,7 +247,13 @@ struct DictionaryListView: View {
         }
         .sheet(isPresented: $showingShareSheet) {
             if let url = exportURLToShare {
-                ShareSheet(activityItems: [url])
+                ShareSheet(activityItems: [url]) { _, completed, _, error in
+                    if completed {
+                        ToastManager.shared.show(message: "Xuất từ điển thành công!", type: .success)
+                    } else if let error = error {
+                        ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
+                    }
+                }
             }
         }
     }
@@ -478,10 +484,7 @@ struct DictionaryListView: View {
     private func exportDictionary() {
         if let url = generateExportURL() {
             self.exportURLToShare = url
-            ToastManager.shared.show(message: "Xuất từ điển thành công!", type: .success)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                self.showingShareSheet = true
-            }
+            self.showingShareSheet = true
         } else {
             ToastManager.shared.show(message: "Lỗi khi xuất từ điển.", type: .error)
         }

@@ -150,7 +150,13 @@ struct TTSReplacementManagerView: View {
         }
         .sheet(isPresented: $showingShareSheet) {
             if let url = exportURLToShare {
-                ShareSheet(activityItems: [url])
+                ShareSheet(activityItems: [url]) { _, completed, _, error in
+                    if completed {
+                        ToastManager.shared.show(message: "Xuất cấu hình thay thế TTS thành công!", type: .success)
+                    } else if let error = error {
+                        ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
+                    }
+                }
             }
         }
     }
@@ -289,11 +295,8 @@ struct TTSReplacementManagerView: View {
         let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("tts_character_replacements.json")
         do {
             try jsonString.write(to: tempURL, atomically: true, encoding: .utf8)
-            ToastManager.shared.show(message: "Xuất cấu hình thay thế TTS thành công!", type: .success)
             self.exportURLToShare = tempURL
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                self.showingShareSheet = true
-            }
+            self.showingShareSheet = true
         } catch {
             ToastManager.shared.show(message: "Lỗi xuất cấu hình: \(error.localizedDescription)", type: .error)
         }
