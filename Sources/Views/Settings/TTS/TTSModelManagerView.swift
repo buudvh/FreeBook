@@ -12,9 +12,7 @@ struct TTSModelManagerView: View {
     @State private var isImportingModel = false
     @State private var importModelMessage = "Đang nhập model..."
     @State private var modelRefreshTrigger = 0
-    @State private var toastMessage = ""
-    @State private var showingToast = false
-    @State private var isToastError = false
+
     
     private func isModelDownloaded(_ voice: Voice) -> Bool {
         let _ = modelRefreshTrigger
@@ -165,26 +163,6 @@ struct TTSModelManagerView: View {
                     .cornerRadius(12)
             }
         }
-        .overlay(alignment: .bottom) {
-            if showingToast {
-                HStack(spacing: 8) {
-                    Image(systemName: isToastError ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
-                        .foregroundColor(isToastError ? .red : .green)
-                    Text(toastMessage)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(
-                    Capsule()
-                        .fill(Color(red: 0.1, green: 0.1, blue: 0.1).opacity(0.9))
-                )
-                .padding(.bottom, 20)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        }
     }
     
     @ViewBuilder
@@ -277,14 +255,14 @@ struct TTSModelManagerView: View {
                 self.downloadingStatus.removeValue(forKey: voice.name)
                 self.downloadingMessages.removeValue(forKey: voice.name)
                 self.modelRefreshTrigger += 1
-                self.showToast("Tải xong model \(voice.name)", isError: false)
+                ToastManager.shared.show(message: "Tải xong model \(voice.name)", type: .success)
             }
             await loadVoices()
         } catch {
             DispatchQueue.main.async {
                 self.downloadingStatus.removeValue(forKey: voice.name)
                 self.downloadingMessages.removeValue(forKey: voice.name)
-                self.showToast("Lỗi tải model \(voice.name): \(error.localizedDescription)", isError: true)
+                ToastManager.shared.show(message: "Lỗi tải model \(voice.name): \(error.localizedDescription)", type: .error)
             }
         }
     }
@@ -293,7 +271,7 @@ struct TTSModelManagerView: View {
         do {
             try ModelStore().deleteModel(for: voice.id)
             modelRefreshTrigger += 1
-            showToast("Đã xóa model \(voice.name) thành công.", isError: false)
+            ToastManager.shared.show(message: "Đã xóa model \(voice.name) thành công.", type: .success)
             if ttsManager.selectedVoice == voice.name {
                 ttsManager.selectedVoice = ""
             }
@@ -301,7 +279,7 @@ struct TTSModelManagerView: View {
                 await loadVoices()
             }
         } catch {
-            showToast("Lỗi xóa model \(voice.name): \(error.localizedDescription)", isError: true)
+            ToastManager.shared.show(message: "Lỗi xóa model \(voice.name): \(error.localizedDescription)", type: .error)
         }
     }
     
@@ -324,7 +302,7 @@ struct TTSModelManagerView: View {
                     ttsManager.selectedVoice = ""
                 }
             } catch {
-                showToast("Lỗi xóa: \(error.localizedDescription)", isError: true)
+                ToastManager.shared.show(message: "Lỗi xóa: \(error.localizedDescription)", type: .error)
             }
         }
         modelRefreshTrigger += 1
@@ -333,21 +311,7 @@ struct TTSModelManagerView: View {
         }
     }
     
-    private func showToast(_ message: String, isError: Bool) {
-        toastMessage = message
-        isToastError = isError
-        withAnimation(.spring()) {
-            showingToast = true
-        }
-        Task {
-            try? await Task.sleep(nanoseconds: 2_500_000_000)
-            await MainActor.run {
-                withAnimation(.easeInOut) {
-                    showingToast = false
-                }
-            }
-        }
-    }
+
     
     private func handleModelImportPick(urls: [URL]) {
         isShowingFileImporter = false
@@ -356,7 +320,7 @@ struct TTSModelManagerView: View {
             return ext == "onnx" || ext == "json"
         }
         if validURLs.isEmpty {
-            showToast("Vui lòng chọn tệp tin model (.onnx) và cấu hình (.json).", isError: true)
+            ToastManager.shared.show(message: "Vui lòng chọn tệp tin model (.onnx) và cấu hình (.json).", type: .error)
             return
         }
 
@@ -364,7 +328,7 @@ struct TTSModelManagerView: View {
         let jsonURLs = validURLs.filter { $0.pathExtension.lowercased() == "json" }
 
         if onnxURLs.isEmpty || jsonURLs.isEmpty {
-            showToast("Cần chọn cả hai tệp .onnx và .json cho model. Vui lòng thử lại.", isError: true)
+            ToastManager.shared.show(message: "Cần chọn cả hai tệp .onnx và .json cho model. Vui lòng thử lại.", type: .error)
             return
         }
 
@@ -393,7 +357,7 @@ struct TTSModelManagerView: View {
         }
 
         if !missingJSON.isEmpty {
-            showToast("Thiếu tệp .json tương ứng cho: \(missingJSON.joined(separator: ", ")).", isError: true)
+            ToastManager.shared.show(message: "Thiếu tệp .json tương ứng cho: \(missingJSON.joined(separator: ", ")).", type: .error)
             return
         }
 
@@ -459,9 +423,9 @@ struct TTSModelManagerView: View {
                 isImportingModel = false
                 modelRefreshTrigger += 1
                 if errorCount > 0 {
-                    showToast(lastErrorMessage ?? "Lỗi nhập model.", isError: true)
+                    ToastManager.shared.show(message: lastErrorMessage ?? "Lỗi nhập model.", type: .error)
                 } else {
-                    showToast("Nhập thành công \(importCount / 2) model.", isError: false)
+                    ToastManager.shared.show(message: "Nhập thành công \(importCount / 2) model.", type: .success)
                 }
                 Task {
                     await loadVoices()

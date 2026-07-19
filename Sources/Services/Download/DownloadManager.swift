@@ -279,7 +279,7 @@ public final class DownloadManager: ObservableObject {
             
             let title = tasks[index].bookTitle
             let type = tasks[index].taskType.rawValue
-            ToastManager.shared.show(message: "Đã xong: \(type) '\(title)' thành công!")
+            ToastManager.shared.show(message: "Đã xong: \(type) '\(title)' thành công!", type: .success)
         }
     }
     
@@ -296,7 +296,7 @@ public final class DownloadManager: ObservableObject {
             
             let title = tasks[index].bookTitle
             let type = tasks[index].taskType.rawValue
-            ToastManager.shared.show(message: "Lỗi \(type) '\(title)': \(error)")
+            ToastManager.shared.show(message: "Lỗi \(type) '\(title)': \(error)", type: .error)
         }
     }
     

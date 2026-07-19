@@ -1182,12 +1182,30 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
+### 124b. GoogleTTSService (CLASS)
+
+*   **Định nghĩa tại**: [Services/TTS/Google/GoogleTTSService.swift:3](../../Sources/Services/TTS/Google/GoogleTTSService.swift#L3)
+*   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
+*   **Sử dụng (Uses)**: `TextPreprocessor`
+*   **Được sử dụng bởi (Used by)**: `TTSManager`, `ReaderView`
+
+---
+
 ### 125. SkeletonView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Common/SkeletonView.swift:2](../../Sources/Views/Common/SkeletonView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
 *   **Sử dụng (Uses)**: Không phụ thuộc vào kiểu dữ liệu nội bộ khác
 *   **Được sử dụng bởi (Used by)**: `BookDetailView`
+
+---
+
+### 125b. ShareSheet (STRUCT)
+
+*   **Định nghĩa tại**: [Views/Common/ShareSheet.swift:4](../../Sources/Views/Common/ShareSheet.swift#L4)
+*   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `UIViewControllerRepresentable`
+*   **Sử dụng (Uses)**: Không phụ thuộc vào kiểu dữ liệu nội bộ khác
+*   **Được sử dụng bởi (Used by)**: `DictionaryListView`, `TTSDictionaryEditView`, `TTSReplacementManagerView`
 
 ---
 

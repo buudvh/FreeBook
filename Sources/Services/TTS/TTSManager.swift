@@ -139,6 +139,7 @@ public final class TTSManager: NSObject, ObservableObject {
     // Trình phát & Engine
     private let siriService = SiriTTSService()
     private let extService = ExtTTSService()
+    private let googleService = GoogleTTSService()
     private var nghiTTSService: PiperTTSService?
     public private(set) var nghiTTSClient: NghiTTSClient?
     private var modelStore: ModelStore?
@@ -907,6 +908,8 @@ public final class TTSManager: NSObject, ObservableObject {
             playSystemTTS(textToSpeak) // Phát bằng Siri mặc định của iOS (không tốn dung lượng bộ nhớ)
         } else if tool == "nghitts" {
             playNghiTTS(textToSpeak) // Phát bằng Piper TTS offline (giọng đọc chất lượng cao tự nhiên hơn)
+        } else if tool == "google" {
+            playGoogleTTS(textToSpeak) // Phát bằng giọng đọc của Chị Google trực tuyến
         } else {
             playExtensionTTS(textToSpeak) // Phát thông qua Extension JavaScript tự định nghĩa
         }
@@ -988,7 +991,35 @@ public final class TTSManager: NSObject, ObservableObject {
         let expectedChapterIndex = playingChapterIndex
         let expectedChapterURL = playingChapterUrl
 
-        if tool == "nghitts" {
+        if tool == "google" {
+            let task = Task { [weak self] in
+                guard let self = self, let player = self.playerNode else { return }
+                let targetFormat = player.outputFormat(forBus: 0)
+
+                do {
+                    let mp3Data = try await self.googleService.synthesize(text: text)
+
+                    if !Task.isCancelled,
+                       self.sessionID == expectedSessionID,
+                       self.playingBookId == expectedBookId,
+                       self.playingChapterIndex == expectedChapterIndex,
+                       self.playingChapterUrl == expectedChapterURL,
+                       self.tool == toolBeforeStart {
+                        if let buffer = self.makePCMBuffer(fromMp3Data: mp3Data, targetFormat: targetFormat) {
+                            self.preloadedWavs[index] = buffer
+                        }
+                    }
+                    if self.sessionID == expectedSessionID {
+                        self.prefetchTasks.removeValue(forKey: index)
+                    }
+                } catch {
+                    if self.sessionID == expectedSessionID {
+                        self.prefetchTasks.removeValue(forKey: index)
+                    }
+                }
+            }
+            prefetchTasks[index] = task
+        } else if tool == "nghitts" {
             guard let service = nghiTTSService else { return }
 
             let task = Task { [weak self] in
@@ -1058,6 +1089,59 @@ public final class TTSManager: NSObject, ObservableObject {
                 }
             }
             prefetchTasks[index] = task
+        }
+    }
+
+    private func playGoogleTTS(_ text: String) {
+        let index = currentParagraphIndex
+        let playbackId = String(UUID().uuidString.prefix(4))
+        self.currentPlaybackId = playbackId
+
+        updatePrefetchWindow()
+
+        if let cachedBuffer = preloadedWavs[index] {
+            self.playAudioBuffer(cachedBuffer, withId: playbackId)
+            return
+        }
+
+        Task {
+            do {
+                let buffer: AVAudioPCMBuffer
+                guard let player = self.playerNode else { return }
+                let targetFormat = player.outputFormat(forBus: 0)
+
+                if let activeTask = prefetchTasks[index] {
+                    _ = await activeTask.value
+                    if let cached = preloadedWavs[index] {
+                        buffer = cached
+                    } else {
+                        let mp3Data = try await googleService.synthesize(text: text)
+                        guard let b = self.makePCMBuffer(fromMp3Data: mp3Data, targetFormat: targetFormat) else {
+                            throw NSError(domain: "TTSManager", code: -10, userInfo: [NSLocalizedDescriptionKey: "MP3 conversion failed"])
+                        }
+                        buffer = b
+                    }
+                } else {
+                    let mp3Data = try await googleService.synthesize(text: text)
+                    guard let b = self.makePCMBuffer(fromMp3Data: mp3Data, targetFormat: targetFormat) else {
+                        throw NSError(domain: "TTSManager", code: -10, userInfo: [NSLocalizedDescriptionKey: "MP3 conversion failed"])
+                    }
+                    buffer = b
+                }
+
+                guard self.isPlaying && self.currentPlaybackId == playbackId else {
+                    return
+                }
+
+                await MainActor.run {
+                    self.playAudioBuffer(buffer, withId: playbackId)
+                }
+            } catch {
+                await MainActor.run {
+                    AppLogger.shared.log("❌ Lỗi Google TTS: \(error.localizedDescription)")
+                    self.nextParagraph()
+                }
+            }
         }
     }
 
@@ -1327,6 +1411,58 @@ public final class TTSManager: NSObject, ObservableObject {
         }
 
         return targetBuffer
+    }
+
+    private func makePCMBuffer(fromMp3Data mp3Data: Data, targetFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
+        let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("google_tts_temp.mp3")
+        do {
+            try mp3Data.write(to: tempURL, options: .atomic)
+            let audioFile = try AVAudioFile(forReading: tempURL)
+            let srcFormat = audioFile.processingFormat
+            let frameCount = AVAudioFrameCount(audioFile.length)
+            guard let srcBuffer = AVAudioPCMBuffer(pcmFormat: srcFormat, frameCapacity: frameCount) else {
+                return nil
+            }
+            try audioFile.read(into: srcBuffer)
+            
+            try? FileManager.default.removeItem(at: tempURL)
+            
+            if srcFormat == targetFormat {
+                return srcBuffer
+            }
+            
+            guard let converter = AVAudioConverter(from: srcFormat, to: targetFormat) else {
+                return nil
+            }
+            
+            let ratio = targetFormat.sampleRate / srcFormat.sampleRate
+            let destFrameCapacity = AVAudioFrameCount(Double(srcBuffer.frameLength) * ratio) + 100
+            guard let destBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: destFrameCapacity) else {
+                return nil
+            }
+            
+            var error: NSError? = nil
+            var isDataProvided = false
+            let status = converter.convert(to: destBuffer, error: &error) { inNumPackets, outStatus in
+                if isDataProvided {
+                    outStatus.pointee = .noDataNow
+                    return nil
+                }
+                isDataProvided = true
+                outStatus.pointee = .haveData
+                return srcBuffer
+            }
+            
+            if status == .error || error != nil {
+                AppLogger.shared.log("❌ Resampling MP3 failed: \(error?.localizedDescription ?? "unknown error")")
+                return nil
+            }
+            
+            return destBuffer
+        } catch {
+            AppLogger.shared.log("❌ Failed to convert MP3 to PCMBuffer: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     private func cleanUpTempFile() {

@@ -16,6 +16,8 @@ struct TTSReplacementManagerView: View {
     @State private var showingFileImporter = false
     @State private var pendingImportJSON = ""
     @State private var showingImportOptions = false
+    @State private var exportURLToShare: URL? = nil
+    @State private var showingShareSheet = false
     
     // Trạng thái thông báo lỗi/thành công
     @State private var alertMessage = ""
@@ -76,10 +78,10 @@ struct TTSReplacementManagerView: View {
                 
                 Spacer()
                 
-                if let exportURL = getExportURL() {
-                    ShareLink(item: exportURL) {
-                        Label("Xuất cấu hình", systemImage: "square.and.arrow.up")
-                    }
+                Button(action: {
+                    exportRules()
+                }) {
+                    Label("Xuất cấu hình", systemImage: "square.and.arrow.up")
                 }
             }
         }
@@ -145,6 +147,11 @@ struct TTSReplacementManagerView: View {
             Button("Đóng", role: .cancel) {}
         } message: {
             Text(alertMessage)
+        }
+        .sheet(isPresented: $showingShareSheet) {
+            if let url = exportURLToShare {
+                ShareSheet(activityItems: [url])
+            }
         }
     }
     
@@ -274,10 +281,19 @@ struct TTSReplacementManagerView: View {
     }
     
     // Xuất file JSON
-    private func getExportURL() -> URL? {
-        guard let jsonString = manager.exportRulesToJSON() else { return nil }
+    private func exportRules() {
+        guard let jsonString = manager.exportRulesToJSON() else {
+            ToastManager.shared.show(message: "Không có cấu hình để xuất.", type: .error)
+            return
+        }
         let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("tts_character_replacements.json")
-        try? jsonString.write(to: tempURL, atomically: true, encoding: .utf8)
-        return tempURL
+        do {
+            try jsonString.write(to: tempURL, atomically: true, encoding: .utf8)
+            ToastManager.shared.show(message: "Xuất cấu hình thay thế TTS thành công!", type: .success)
+            self.exportURLToShare = tempURL
+            self.showingShareSheet = true
+        } catch {
+            ToastManager.shared.show(message: "Lỗi xuất cấu hình: \(error.localizedDescription)", type: .error)
+        }
     }
 }

@@ -31,7 +31,7 @@ struct ParagraphCardView: View {
             onSpeakFromHere: onSpeakFromHere
         )
         .frame(minHeight: 20)
-        .padding(.top, item.isTitle ? 32 : 0)
+        .padding(.top, item.isTitle ? 10 : 0)
     }
 }
 

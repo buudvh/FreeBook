@@ -4,6 +4,21 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.29] - 2026-07-19
+
+### Lọc dữ liệu truyện rỗng/trùng lặp tại các View Gợi ý, Thể loại, Tìm kiếm, và Khám phá
+* `DiscoveryView`, `SuggestRowView`, `CategoryNovelsListView`, `SearchView`: Định nghĩa hàm helper `normalizeLink(_:)` để loại bỏ scheme + host và đồng bộ tiền tố `/` cho liên kết tương đối/tuyệt đối.
+* Áp dụng chuẩn hóa liên kết khi so khớp trùng lặp link nhằm loại bỏ triệt để các truyện bị trùng lặp ở cả hai định dạng tương đối và tuyệt đối (ví dụ: `https://wcshuba.com/book/87661.html` và `/book/87661.html`).
+
+## [1.3.28] - 2026-07-19
+
+### Thống nhất Toast toàn cục, Nút Đọc từ bôi đen, và Tích hợp Engine Google TTS "Chị Google"
+* **Thống nhất Toast toàn cục**: Loại bỏ tất cả Toast cục bộ tự vẽ ở các màn hình, chuyển sang gọi qua `ToastManager.shared` đặt tại root view (`AppLaunchRootView` trong `FreeBookApp.swift`). Hỗ trợ thêm icon cho 3 loại Toast (`.success` - checkmark xanh, `.error` - exclamation đỏ, `.info` - không icon).
+* **Toast cho 4 chức năng xuất file**: Thêm Toast thành công/thất bại cho xuất ebook TXT, xuất từ điển dịch, xuất từ điển phát âm (NghiTTS), và xuất quy tắc thay thế TTS. Thay thế `ShareLink` tĩnh bằng `Button` tạo file -> báo Toast -> mở `ShareSheet` dùng chung (`ShareSheet.swift`).
+* **Tích hợp Engine "Chị Google"**: Thêm `GoogleTTSService` kết nối trực tiếp đến Google Translate TTS API để tải file MP3 trực tuyến. `TTSManager` hỗ trợ prefetch và chuyển đổi trực tiếp MP3 sang `AVAudioPCMBuffer` qua file tạm.
+* **Ẩn bộ chọn giọng đọc**: Giao diện `TTSSettingsView` ẩn bộ chọn giọng đọc khi chọn engine "Chị Google" để tối giản trải nghiệm.
+* **Nút Đọc từ bôi đen**: Bổ sung nút **Đọc** (biểu tượng loa phát `speaker.wave.2.fill`) vào menu bong bóng nổi khi bôi đen chữ trong `ReaderView` để phát trực tiếp từ bôi đen (đã dịch nếu bật dịch) bằng giọng đọc của Chị Google qua `AVAudioPlayer` (MP3 raw data).
+
 ## [1.3.27] - 2026-07-19
 
 ### Sửa lỗi Khám phá: không cập nhật khi tắt dịch, lọc novel trùng/rỗng

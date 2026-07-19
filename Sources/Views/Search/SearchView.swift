@@ -672,6 +672,15 @@ struct SearchView: View {
         searchHistory = currentHistory
     }
 
+    private func filterAndDeduplicate(_ results: [SearchNovelResult]) -> [SearchNovelResult] {
+        let filtered = results.filter { !$0.name.isEmpty && !$0.link.isEmpty }
+        return filtered.reduce(into: [SearchNovelResult]()) { acc, item in
+            if !acc.contains(where: { normalizeLink($0.link) == normalizeLink(item.link) }) {
+                acc.append(item)
+            }
+        }
+    }
+
     private func performSearch() {
         let trimmedQuery = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else { return }
@@ -725,8 +734,13 @@ struct SearchView: View {
                     
                     for await (packageId, results) in group {
                         await MainActor.run {
-                            if let results = results, !results.isEmpty {
-                                self.sourceStates[packageId] = .found(results: results)
+                            if let results = results {
+                                let cleanResults = self.filterAndDeduplicate(results)
+                                if !cleanResults.isEmpty {
+                                    self.sourceStates[packageId] = .found(results: cleanResults)
+                                } else {
+                                    self.sourceStates[packageId] = .noResults
+                                }
                             } else {
                                 self.sourceStates[packageId] = .noResults
                             }
@@ -764,9 +778,10 @@ struct SearchView: View {
                         configJson: ext.configJson
                     )
                     await MainActor.run {
-                        self.searchResults = results.map { SearchNovelResultWithExt(result: $0, ext: ext) }
+                        let cleanResults = self.filterAndDeduplicate(results)
+                        self.searchResults = cleanResults.map { SearchNovelResultWithExt(result: $0, ext: ext) }
                         self.isSearching = false
-                        self.searchStatusMessage = "Tìm thấy \(results.count) truyện trên nguồn \(ext.name)."
+                        self.searchStatusMessage = "Tìm thấy \(cleanResults.count) truyện trên nguồn \(ext.name)."
                     }
                 } catch {
                     await MainActor.run {
@@ -777,4 +792,22 @@ struct SearchView: View {
             }
         }
     }
+}
+
+fileprivate func normalizeLink(_ link: String) -> String {
+    var clean = link.trimmingCharacters(in: .whitespacesAndNewlines)
+    if clean.hasPrefix("http://") || clean.hasPrefix("https://") {
+        if let range = clean.range(of: "://") {
+            let afterScheme = clean[range.upperBound...]
+            if let slashIndex = afterScheme.firstIndex(of: "/") {
+                clean = String(afterScheme[slashIndex...])
+            } else {
+                clean = "/"
+            }
+        }
+    }
+    if !clean.hasPrefix("/") {
+        clean = "/" + clean
+    }
+    return clean
 }

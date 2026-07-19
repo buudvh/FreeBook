@@ -62,6 +62,7 @@ struct TTSSettingsView: View {
                 Picker("Trình đọc", selection: $ttsManager.tool) {
                     Text("Siri (Hệ thống Apple)").tag("system")
                     Text("NghiTTS (Piper Offline)").tag("nghitts")
+                    Text("Chị Google (Trực tuyến)").tag("google")
                     ForEach(ttsExtensions) { ext in
                         Text(ext.name).tag(ext.packageId)
                     }
@@ -142,8 +143,16 @@ struct TTSSettingsView: View {
 
                             NavigationLink(destination: TTSDictionaryEditView()) {
                                 Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
-                            }
                         }
+                    } else if ttsManager.tool == "google" {
+                        HStack {
+                            Image(systemName: "globe")
+                                .foregroundColor(.blue)
+                            Text("Giọng Tiếng Việt của Chị Google trực tuyến")
+                                .foregroundColor(.secondary)
+                                .font(.subheadline)
+                        }
+                        .padding(.vertical, 4)
                     } else {
                         // Trình đọc từ Extension
                         if isLoadingVoices {
@@ -166,7 +175,7 @@ struct TTSSettingsView: View {
                     }
                 }
                 
-                if ttsManager.tool != "system" && ttsManager.tool != "nghitts" {
+                if ttsManager.tool != "system" && ttsManager.tool != "nghitts" && ttsManager.tool != "google" {
                     if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }),
                        ExtensionManager.shared.hasConfig(localPath: ext.localPath) {
                         Section("Cấu hình") {

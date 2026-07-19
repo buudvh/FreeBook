@@ -120,9 +120,6 @@ struct ReaderChapterListView: View {
     @State private var isUpdating = false
     @State private var errorMessage = ""
     @State private var didPositionInitialChapter = false
-    @State private var toastMessage = ""
-    @State private var showingToast = false
-    @State private var isToastError = false
 
     private var filteredChapters: [ReaderChapterRowState] {
         let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -179,10 +176,6 @@ struct ReaderChapterListView: View {
                 chapterList
             }
             .background(theme.backgroundColor.ignoresSafeArea())
-
-            if showingToast {
-                toast
-            }
         }
         .accessibilityAction(.escape) {
             onClose()
@@ -333,22 +326,6 @@ struct ReaderChapterListView: View {
         }
     }
 
-    private var toast: some View {
-        VStack {
-            Spacer()
-            Label(
-                toastMessage,
-                systemImage: isToastError ? "exclamationmark.circle.fill" : "checkmark.circle.fill"
-            )
-            .font(.subheadline.weight(.medium))
-            .foregroundColor(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(Color.black.opacity(0.9), in: Capsule())
-            .padding(.bottom, 30)
-        }
-    }
-
     private func displayTitle(for chapter: ReaderChapterRowState) -> String {
         guard isTranslationEnabled, TranslateUtils.containsChinese(chapter.title) else {
             return chapter.title
@@ -356,26 +333,16 @@ struct ReaderChapterListView: View {
         return TranslateUtils.translateChapterTitle(chapter.title, bookId: bookId)
     }
 
-    private func showToast(_ message: String, isError: Bool) {
-        toastMessage = message
-        isToastError = isError
-        withAnimation { showingToast = true }
-        Task {
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            withAnimation { showingToast = false }
-        }
-    }
-
     private func refreshChapters() {
         guard let ext else {
             errorMessage = "Không tìm thấy tiện ích bóc tách!"
-            showToast(errorMessage, isError: true)
+            ToastManager.shared.show(message: errorMessage, type: .error)
             return
         }
         let url = localBook?.detailUrl ?? bookDetailUrl ?? ""
         guard !url.isEmpty else {
             errorMessage = "Đường dẫn truyện không hợp lệ!"
-            showToast(errorMessage, isError: true)
+            ToastManager.shared.show(message: errorMessage, type: .error)
             return
         }
 
@@ -431,19 +398,19 @@ struct ReaderChapterListView: View {
                     }
                     try? modelContext.save()
                     store.synchronize(localBook: book, onlineChapters: onlineChapters)
-                    showToast(additions.isEmpty ? "Mục lục đã mới nhất" : "Đã thêm \(additions.count) chương mới", isError: false)
+                    ToastManager.shared.show(message: additions.isEmpty ? "Mục lục đã mới nhất" : "Đã thêm \(additions.count) chương mới", type: .success)
                 } else {
                     let oldCount = onlineChapters.count
                     onlineChapters = allChapters
                     store.synchronize(localBook: nil, onlineChapters: allChapters)
                     let added = max(0, allChapters.count - oldCount)
-                    showToast(added == 0 ? "Mục lục đã mới nhất" : "Đã thêm \(added) chương mới", isError: false)
+                    ToastManager.shared.show(message: added == 0 ? "Mục lục đã mới nhất" : "Đã thêm \(added) chương mới", type: .success)
                 }
                 isUpdating = false
             } catch {
                 errorMessage = "Lỗi cập nhật: \(error.localizedDescription)"
                 isUpdating = false
-                showToast(errorMessage, isError: true)
+                ToastManager.shared.show(message: errorMessage, type: .error)
             }
         }
     }

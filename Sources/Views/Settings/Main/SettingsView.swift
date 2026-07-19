@@ -10,8 +10,7 @@ struct SettingsView: View {
     @State private var showingCopyWarningAlert = false
     @State private var showingCopySuccessAlert = false
     @State private var showingClearLogAlert = false
-    @State private var showingToast = false
-    @State private var toastMessage = ""
+
     @State private var showingFileImporter = false
     @State private var importType = "vietphrase"
     @State private var importingTypes: Set<String> = []
@@ -156,12 +155,12 @@ struct SettingsView: View {
                                     await MainActor.run {
                                         DictionaryCache.shared.invalidateAll()
                                         importingTypes.remove("refresh")
-                                        showToast("Đã làm mới dữ liệu dịch thành công")
+                                        ToastManager.shared.show(message: "Đã làm mới dữ liệu dịch thành công", type: .success)
                                     }
                                 } catch {
                                     await MainActor.run {
                                         importingTypes.remove("refresh")
-                                        showToast("Lỗi làm mới dữ liệu dịch: \(error.localizedDescription)")
+                                        ToastManager.shared.show(message: "Lỗi làm mới dữ liệu dịch: \(error.localizedDescription)", type: .error)
                                     }
                                 }
                             }
@@ -266,23 +265,7 @@ struct SettingsView: View {
             } message: {
                 Text("Bạn có chắc chắn muốn xóa file app_logs.txt không? Thao tác này không thể hoàn tác.")
             }
-            .overlay(alignment: .bottom) {
-                if showingToast {
-                    Text(toastMessage)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(
-                            Capsule()
-                                .fill(Color(red: 0.1, green: 0.1, blue: 0.1).opacity(0.92))
-                                .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
-                        )
-                        .padding(.bottom, 70)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
+
             .background(
                 DocumentPickerPresenter(
                     isPresented: $showingFileImporter,
@@ -310,12 +293,12 @@ struct SettingsView: View {
                                     } else if currentType == "names" {
                                         DictionaryCache.shared.invalidate(type: .names)
                                     }
-                                    showToast("Nhập dữ liệu từ điển thành công!")
+                                    ToastManager.shared.show(message: "Nhập dữ liệu từ điển thành công!", type: .success)
                                 }
                             } catch {
                                 AppLogger.shared.log("❌ Lỗi import từ điển: \(error.localizedDescription)")
                                 await MainActor.run {
-                                    showToast("Lỗi: \(error.localizedDescription)")
+                                    ToastManager.shared.show(message: "Lỗi: \(error.localizedDescription)", type: .error)
                                 }
                             }
                             _ = await MainActor.run {
@@ -356,20 +339,7 @@ struct SettingsView: View {
         return "<Chưa thiết lập>"
     }
     
-    private func showToast(_ message: String) {
-        toastMessage = message
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-            showingToast = true
-        }
-        Task {
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            await MainActor.run {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    showingToast = false
-                }
-            }
-        }
-    }
+
 }
 
 // MARK: - Dictionary Status Card Subview

@@ -12,32 +12,11 @@ struct TTSDictionaryEditView: View {
     @State private var editingValue: String = ""
     @State private var errorMessage: String? = nil
     @State private var isLoading = false
-    @State private var exportURL: URL? = nil
-    @State private var exportJsonURL: URL? = nil
-    @State private var exportCsvURL: URL? = nil
-    
     @State private var showingFileImporter = false
     @State private var showingDownloadConfirmation = false
-    @State private var toastMessage = ""
-    @State private var showingToast = false
-    @State private var isToastError = false
+    @State private var exportURLToShare: URL? = nil
+    @State private var showingShareSheet = false
     @State private var visibleCount = 100
-
-    private func showToast(_ message: String, isError: Bool) {
-        toastMessage = message
-        isToastError = isError
-        withAnimation(.spring()) {
-            showingToast = true
-        }
-        Task {
-            try? await Task.sleep(nanoseconds: 2_500_000_000)
-            await MainActor.run {
-                withAnimation(.easeInOut) {
-                    showingToast = false
-                }
-            }
-        }
-    }
 
     var matchedKeys: [String] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -188,14 +167,14 @@ struct TTSDictionaryEditView: View {
                         
                         // 3. Xuất từ điển (Submenu)
                         Menu {
-                            if let plistURL = exportURL {
-                                ShareLink("Property List (.plist)", item: plistURL)
+                            Button("Property List (.plist)") {
+                                exportAsPlist()
                             }
-                            if let jsonURL = exportJsonURL {
-                                ShareLink("JSON (.json)", item: jsonURL)
+                            Button("JSON (.json)") {
+                                exportAsJson()
                             }
-                            if let csvURL = exportCsvURL {
-                                ShareLink("CSV (.csv)", item: csvURL)
+                            Button("CSV (.csv)") {
+                                exportAsCsv()
                             }
                         } label: {
                             Label("Xuất từ điển", systemImage: "square.and.arrow.up")
@@ -226,7 +205,7 @@ struct TTSDictionaryEditView: View {
                         guard let selectedURL = urls.first else { return }
                         let ext = selectedURL.pathExtension.lowercased()
                         if ext != "plist" && ext != "json" && ext != "csv" && ext != "txt" {
-                            showToast("Vui lòng chọn tệp từ điển (.plist, .json, hoặc .csv/.txt).", isError: true)
+                            ToastManager.shared.show(message: "Vui lòng chọn tệp từ điển (.plist, .json, hoặc .csv/.txt).", type: .error)
                             return
                         }
                         let hasAccess = selectedURL.startAccessingSecurityScopedResource()
@@ -257,26 +236,10 @@ struct TTSDictionaryEditView: View {
                 await loadDictionary()
             }
             
-            if showingToast {
-                VStack {
-                    Spacer()
-                    HStack(spacing: 8) {
-                        Image(systemName: isToastError ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
-                            .foregroundColor(isToastError ? .red : .green)
-                        Text(toastMessage)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(.white)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(
-                        Capsule()
-                            .fill(Color(red: 0.1, green: 0.1, blue: 0.1).opacity(0.9))
-                    )
-                    .padding(.bottom, 20)
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+        .sheet(isPresented: $showingShareSheet) {
+            if let url = exportURLToShare {
+                ShareSheet(activityItems: [url])
             }
         }
     }
@@ -286,31 +249,64 @@ struct TTSDictionaryEditView: View {
         let map = await TextPreprocessor.shared.getWordMap()
         allWords = map
         sortedKeys = map.keys.sorted()
-        
-        let fm = FileManager.default
-        if let cachesURL = fm.urls(for: .cachesDirectory, in: .userDomainMask).first {
-            let plistURL = cachesURL.appendingPathComponent("non-vietnamese-words.plist")
-            let jsonURL = cachesURL.appendingPathComponent("dictionary.json")
-            let csvURL = cachesURL.appendingPathComponent("dictionary.csv")
-            
-            if let plistData = try? PropertyListSerialization.data(fromPropertyList: map, format: .xml, options: 0) {
-                try? plistData.write(to: plistURL, options: .atomic)
-                exportURL = plistURL
-            }
-            
-            if let jsonData = try? JSONSerialization.data(withJSONObject: map, options: [.prettyPrinted, .sortedKeys]) {
-                try? jsonData.write(to: jsonURL, options: .atomic)
-                exportJsonURL = jsonURL
-            }
-            
-            let csvString = generateCSV(from: map)
-            if let csvData = csvString.data(using: .utf8) {
-                try? csvData.write(to: csvURL, options: .atomic)
-                exportCsvURL = csvURL
-            }
-        }
-        
         isLoading = false
+    }
+
+    private func exportAsPlist() {
+        let fm = FileManager.default
+        guard let cachesURL = fm.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            ToastManager.shared.show(message: "Không định vị được thư mục cache.", type: .error)
+            return
+        }
+        let plistURL = cachesURL.appendingPathComponent("non-vietnamese-words.plist")
+        do {
+            let plistData = try PropertyListSerialization.data(fromPropertyList: allWords, format: .xml, options: 0)
+            try plistData.write(to: plistURL, options: .atomic)
+            ToastManager.shared.show(message: "Xuất từ điển .plist thành công!", type: .success)
+            self.exportURLToShare = plistURL
+            self.showingShareSheet = true
+        } catch {
+            ToastManager.shared.show(message: "Lỗi xuất file .plist: \(error.localizedDescription)", type: .error)
+        }
+    }
+
+    private func exportAsJson() {
+        let fm = FileManager.default
+        guard let cachesURL = fm.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            ToastManager.shared.show(message: "Không định vị được thư mục cache.", type: .error)
+            return
+        }
+        let jsonURL = cachesURL.appendingPathComponent("dictionary.json")
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: allWords, options: [.prettyPrinted, .sortedKeys])
+            try jsonData.write(to: jsonURL, options: .atomic)
+            ToastManager.shared.show(message: "Xuất từ điển .json thành công!", type: .success)
+            self.exportURLToShare = jsonURL
+            self.showingShareSheet = true
+        } catch {
+            ToastManager.shared.show(message: "Lỗi xuất file .json: \(error.localizedDescription)", type: .error)
+        }
+    }
+
+    private func exportAsCsv() {
+        let fm = FileManager.default
+        guard let cachesURL = fm.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            ToastManager.shared.show(message: "Không định vị được thư mục cache.", type: .error)
+            return
+        }
+        let csvURL = cachesURL.appendingPathComponent("dictionary.csv")
+        let csvString = generateCSV(from: allWords)
+        do {
+            guard let csvData = csvString.data(using: .utf8) else {
+                throw NSError(domain: "CSVExport", code: 500, userInfo: [NSLocalizedDescriptionKey: "Lỗi chuyển đổi dữ liệu CSV"])
+            }
+            try csvData.write(to: csvURL, options: .atomic)
+            ToastManager.shared.show(message: "Xuất từ điển .csv thành công!", type: .success)
+            self.exportURLToShare = csvURL
+            self.showingShareSheet = true
+        } catch {
+            ToastManager.shared.show(message: "Lỗi xuất file .csv: \(error.localizedDescription)", type: .error)
+        }
     }
 
     private func downloadDictionaries() {
@@ -319,9 +315,9 @@ struct TTSDictionaryEditView: View {
             do {
                 try await ttsManager.nghiTTSClient?.downloadDictionaries()
                 await loadDictionary()
-                showToast("Tải từ điển từ HuggingFace thành công!", isError: false)
+                ToastManager.shared.show(message: "Tải từ điển từ HuggingFace thành công!", type: .success)
             } catch {
-                showToast("Không thể tải từ điển: \(error.localizedDescription)", isError: true)
+                ToastManager.shared.show(message: "Không thể tải từ điển: \(error.localizedDescription)", type: .error)
             }
             isLoading = false
         }
@@ -464,9 +460,9 @@ struct TTSDictionaryEditView: View {
                 await TextPreprocessor.shared.loadResources()
                 await loadDictionary()
                 
-                showToast("Nhập từ điển thành công! Đã cập nhật \(importedWords.count) từ.", isError: false)
+                ToastManager.shared.show(message: "Nhập từ điển thành công! Đã cập nhật \(importedWords.count) từ.", type: .success)
             } catch {
-                showToast("Lỗi nhập từ điển: \(error.localizedDescription)", isError: true)
+                ToastManager.shared.show(message: "Lỗi nhập từ điển: \(error.localizedDescription)", type: .error)
             }
             isLoading = false
         }

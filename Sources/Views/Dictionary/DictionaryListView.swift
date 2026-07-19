@@ -15,9 +15,6 @@ struct DictionaryListView: View {
     @State private var showingAddSheet = false
     @State private var showingFileImporter = false
     @State private var showingDeleteAllAlert = false
-    @State private var toastMessage = ""
-    @State private var showingToast = false
-    @State private var isToastError = false
     @State private var showingShareSheet = false
 
     private var isGlobal: Bool { bookId == nil }
@@ -245,25 +242,7 @@ struct DictionaryListView: View {
                 )
             )
 
-            // Toast overlay
-            if showingToast {
-                VStack {
-                    Spacer()
-                    HStack(spacing: 8) {
-                        Image(systemName: isToastError ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
-                            .foregroundColor(isToastError ? .red : .green)
-                        Text(toastMessage)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(.white)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Capsule().fill(Color(red: 0.1, green: 0.1, blue: 0.1).opacity(0.9)))
-                    .padding(.bottom, 20)
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
+
         }
         .sheet(isPresented: $showingShareSheet) {
             if let url = exportURL() {
@@ -334,9 +313,9 @@ struct DictionaryListView: View {
                     let entries = await loadBookEntries()
                     bookEntries = entries
                 }
-                showToast("Đã lưu: \(key)", isError: false)
+                ToastManager.shared.show(message: "Đã lưu: \(key)", type: .success)
             } catch {
-                showToast("Lỗi: \(error.localizedDescription)", isError: true)
+                ToastManager.shared.show(message: "Lỗi: \(error.localizedDescription)", type: .error)
             }
         }
     }
@@ -362,9 +341,9 @@ struct DictionaryListView: View {
                     let entries = await loadBookEntries()
                     bookEntries = entries
                 }
-                showToast("Đã cập nhật: \(oldKey) → \(newKey)", isError: false)
+                ToastManager.shared.show(message: "Đã cập nhật: \(oldKey) → \(newKey)", type: .success)
             } catch {
-                showToast("Lỗi: \(error.localizedDescription)", isError: true)
+                ToastManager.shared.show(message: "Lỗi: \(error.localizedDescription)", type: .error)
             }
         }
     }
@@ -382,9 +361,9 @@ struct DictionaryListView: View {
                     let entries = await loadBookEntries()
                     bookEntries = entries
                 }
-                showToast("Đã xóa: \(entry.key)", isError: false)
+                ToastManager.shared.show(message: "Đã xóa: \(entry.key)", type: .success)
             } catch {
-                showToast("Lỗi: \(error.localizedDescription)", isError: true)
+                ToastManager.shared.show(message: "Lỗi: \(error.localizedDescription)", type: .error)
             }
         }
     }
@@ -410,9 +389,9 @@ struct DictionaryListView: View {
                     let entries = await loadBookEntries()
                     bookEntries = entries
                 }
-                showToast("Đã xóa tất cả từ", isError: false)
+                ToastManager.shared.show(message: "Đã xóa tất cả từ", type: .success)
             } catch {
-                showToast("Lỗi: \(error.localizedDescription)", isError: true)
+                ToastManager.shared.show(message: "Lỗi: \(error.localizedDescription)", type: .error)
             }
         }
     }
@@ -441,9 +420,9 @@ struct DictionaryListView: View {
                     let entries = await loadBookEntries()
                     bookEntries = entries
                 }
-                showToast("Import thành công!", isError: false)
+                ToastManager.shared.show(message: "Import thành công!", type: .success)
             } catch {
-                showToast("Lỗi import: \(error.localizedDescription)", isError: true)
+                ToastManager.shared.show(message: "Lỗi import: \(error.localizedDescription)", type: .error)
             }
         }
     }
@@ -488,23 +467,11 @@ struct DictionaryListView: View {
         let content = exportText()
         do {
             try content.write(to: fileURL, atomically: true, encoding: .utf8)
-            showToast("Xuất từ điển thành công!", isError: false)
+            ToastManager.shared.show(message: "Xuất từ điển thành công!", type: .success)
             return fileURL
         } catch {
-            showToast("Lỗi khi xuất từ điển: \(error.localizedDescription)", isError: true)
+            ToastManager.shared.show(message: "Lỗi khi xuất từ điển: \(error.localizedDescription)", type: .error)
             return nil
-        }
-    }
-
-    private func showToast(_ message: String, isError: Bool) {
-        toastMessage = message
-        isToastError = isError
-        withAnimation(.spring()) { showingToast = true }
-        Task {
-            try? await Task.sleep(nanoseconds: 2_500_000_000)
-            await MainActor.run {
-                withAnimation(.easeInOut) { showingToast = false }
-            }
         }
     }
 }
@@ -593,13 +560,4 @@ struct DictEntrySheet: View {
     }
 }
 
-struct ShareSheet: UIViewControllerRepresentable {
-    let activityItems: [Any]
-    var applicationActivities: [UIActivity]? = nil
 
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}

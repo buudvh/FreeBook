@@ -103,8 +103,15 @@ struct SuggestRowView: View {
                 configJson: configJson
             )
             
+            let filtered = results.filter { !$0.name.isEmpty && !$0.link.isEmpty }
+            let unique = filtered.reduce(into: [SearchNovelResult]()) { acc, item in
+                if !acc.contains(where: { normalizeLink($0.link) == normalizeLink(item.link) }) {
+                    acc.append(item)
+                }
+            }
+            
             await MainActor.run {
-                self.novels = results
+                self.novels = unique
                 self.isLoading = false
             }
         } catch {
@@ -114,4 +121,22 @@ struct SuggestRowView: View {
             }
         }
     }
+}
+
+fileprivate func normalizeLink(_ link: String) -> String {
+    var clean = link.trimmingCharacters(in: .whitespacesAndNewlines)
+    if clean.hasPrefix("http://") || clean.hasPrefix("https://") {
+        if let range = clean.range(of: "://") {
+            let afterScheme = clean[range.upperBound...]
+            if let slashIndex = afterScheme.firstIndex(of: "/") {
+                clean = String(afterScheme[slashIndex...])
+            } else {
+                clean = "/"
+            }
+        }
+    }
+    if !clean.hasPrefix("/") {
+        clean = "/" + clean
+    }
+    return clean
 }

@@ -86,6 +86,7 @@ struct ReaderView: View {
     @State private var showingAddNghiTTSPhonemeSheet = false
     @State private var selectedDisplayedText = ""
     @State private var clearSelectionTrigger: UUID? = nil
+    @State private var wordPlayer: AVAudioPlayer? = nil
 
     // Cấu hình giao diện đọc (lưu trữ lâu dài qua UserDefaults nhờ @AppStorage)
     @AppStorage("readerFontSize") private var fontSize: Double = 20.0 // Cỡ chữ của văn bản đọc
@@ -328,6 +329,9 @@ struct ReaderView: View {
                             UIPasteboard.general.string = selectedDisplayedText
                             ToastManager.shared.show(message: "Đã sao chép: \"\(selectedDisplayedText)\"")
                         },
+                        onReadSelected: {
+                            readSelectedText()
+                        },
                         onClose: {
                             clearSelectionTrigger = UUID()
                             showingFloatingMenu = false
@@ -401,6 +405,37 @@ struct ReaderView: View {
                 EmptyView()
             }
         )
+    }
+
+    private func readSelectedText() {
+        let text = selectedDisplayedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        
+        clearSelectionTrigger = UUID()
+        showingFloatingMenu = false
+        
+        wordPlayer?.stop()
+        wordPlayer = nil
+        
+        Task {
+            do {
+                let mp3Data = try await GoogleTTSService().synthesize(text: text)
+                guard !mp3Data.isEmpty else { return }
+                
+                let session = AVAudioSession.sharedInstance()
+                try? session.setCategory(.playback, mode: .default, options: [])
+                try? session.setActive(true)
+                
+                let player = try AVAudioPlayer(data: mp3Data)
+                player.prepareToPlay()
+                player.play()
+                await MainActor.run {
+                    self.wordPlayer = player
+                }
+            } catch {
+                AppLogger.shared.log("❌ Lỗi phát âm từ bôi đen: \(error.localizedDescription)")
+            }
+        }
     }
 
     private var readerDataObservationView: some View {
@@ -2151,10 +2186,11 @@ struct FloatingSelectionMenu: View {
     let onSpeak: () -> Void
     let onPhoneme: () -> Void
     let onCopy: () -> Void
+    let onReadSelected: () -> Void
     let onClose: () -> Void
 
-    // Chiều rộng tổng của menu (5 nút × 60 + padding)
-    private let menuWidth: CGFloat = 308
+    // Chiều rộng tổng của menu (6 nút × 60 + padding)
+    private let menuWidth: CGFloat = 368
     // Khoảng cách giữa menu và cạnh trên/dưới vùng bôi đen
     private let gap: CGFloat = 36
 
@@ -2210,6 +2246,21 @@ struct FloatingSelectionMenu: View {
                     Image(systemName: "doc.on.doc.fill")
                         .font(.system(size: 16, weight: .semibold))
                     Text("Copy")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .foregroundColor(.white)
+                .frame(width: 60, height: 48)
+            }
+            
+            Divider()
+                .frame(height: 24)
+                .background(Color.white.opacity(0.15))
+            
+            Button(action: onReadSelected) {
+                VStack(spacing: 3) {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("Đọc")
                         .font(.system(size: 11, weight: .bold))
                 }
                 .foregroundColor(.white)

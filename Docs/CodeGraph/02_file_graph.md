@@ -381,6 +381,18 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
+### 23b. [GoogleTTSService.swift](../../Sources/Services/TTS/Google/GoogleTTSService.swift)
+
+*   **Đường dẫn**: `Services/TTS/Google/GoogleTTSService.swift`
+*   **Imports (Import Graph)**: `Foundation`
+*   **Sử dụng (Uses)**:
+    *   [TextPreprocessor.swift](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
+
+---
+
 ### 24. [ModelStore.swift](../../Sources/Services/TTS/NghiTTS/ModelStore.swift)
 
 *   **Đường dẫn**: `Services/TTS/NghiTTS/ModelStore.swift`
@@ -832,6 +844,18 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
 *   **Được sử dụng bởi (Used by)**:
     *   [BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift)
+
+---
+
+### 52b. [ShareSheet.swift](../../Sources/Views/Common/ShareSheet.swift)
+
+*   **Đường dẫn**: `Views/Common/ShareSheet.swift`
+*   **Imports (Import Graph)**: `SwiftUI`, `UIKit`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [DictionaryListView.swift](../../Sources/Views/Dictionary/DictionaryListView.swift)
+    *   [TTSDictionaryEditView.swift](../../Sources/Views/Settings/TTS/TTSDictionaryEditView.swift)
+    *   [TTSReplacementManagerView.swift](../../Sources/Views/Settings/TTS/TTSReplacementManagerView.swift)
 
 ---
 
