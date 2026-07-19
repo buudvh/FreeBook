@@ -2,12 +2,12 @@ import SwiftUI
 import UniformTypeIdentifiers
 import SwiftData
 
-struct ExportDocument: Identifiable {
-    var id: String { url.absoluteString }
-    let url: URL
-}
-
 struct DictionaryListView: View {
+    struct ExportDocument: Identifiable {
+        var id: String { url.absoluteString }
+        let url: URL
+    }
+
     let type: DictType
     let bookId: String?
     var bookName: String = ""

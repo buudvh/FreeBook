@@ -1,13 +1,13 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-struct ExportDocument: Identifiable {
-    var id: String { url.absoluteString }
-    let url: URL
-}
-
 @MainActor
 struct TTSDictionaryEditView: View {
+    struct ExportDocument: Identifiable {
+        var id: String { url.absoluteString }
+        let url: URL
+    }
+
     @ObservedObject var ttsManager = TTSManager.shared
     @State private var allWords: [String: String] = [:]
     @State private var sortedKeys: [String] = []

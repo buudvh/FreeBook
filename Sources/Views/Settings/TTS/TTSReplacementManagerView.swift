@@ -1,12 +1,12 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-struct ExportDocument: Identifiable {
-    var id: String { url.absoluteString }
-    let url: URL
-}
-
 struct TTSReplacementManagerView: View {
+    struct ExportDocument: Identifiable {
+        var id: String { url.absoluteString }
+        let url: URL
+    }
+
     @ObservedObject var manager = TTSReplacementManager.shared
     @Environment(\.dismiss) var dismiss
     
