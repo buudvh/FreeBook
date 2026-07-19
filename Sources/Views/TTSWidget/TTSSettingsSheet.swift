@@ -1,4 +1,4 @@
-﻿import SwiftUI
+import SwiftUI
 
 /// Sheet toàn cục dùng chung giữa Widget TTS và mọi màn hình.
 /// Bọc TTSSettingsView trong NavigationStack để NavigationLink
@@ -10,5 +10,6 @@ struct TTSSettingsSheet: View {
         NavigationStack {
             TTSSettingsView(isPresentedAsSheet: true)
         }
+        .globalToast()
     }
 }
