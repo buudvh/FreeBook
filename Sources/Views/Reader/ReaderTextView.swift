@@ -136,6 +136,7 @@ struct ReaderTextView: UIViewRepresentable {
             if isCentered {
                 paragraphStyle.alignment = .center
             } else {
+                paragraphStyle.alignment = .justified
                 paragraphStyle.firstLineHeadIndent = CGFloat(fontSize * 1.5)
             }
             attributedText.addAttribute(.paragraphStyle, value: paragraphStyle, range: fullRange)

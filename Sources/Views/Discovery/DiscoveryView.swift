@@ -1,6 +1,12 @@
 import SwiftUI
 import SwiftData
 
+/// Struct định danh cho item-based fullScreenCover mở trình duyệt bypass
+struct ExtensionBrowserTarget: Identifiable {
+    let id = UUID()
+    let urlString: String
+}
+
 struct DiscoveryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var allExtensions: [Extension]
@@ -52,8 +58,8 @@ struct DiscoveryView: View {
     @State private var importedHost: String = ""
     @State private var navigateToImportedBook = false
     
-    // Trình duyệt trang chủ extension
-    @State private var showingHeaderWeb = false
+    // Trình duyệt trang chủ extension (item-based để khởi tạo đúng lúc, tránh URL rỗng)
+    @State private var headerBrowserTarget: ExtensionBrowserTarget? = nil
     
     private var selectedExtension: Extension? {
         activeExtensions.first(where: { $0.packageId == selectedExtensionId })
@@ -112,7 +118,7 @@ struct DiscoveryView: View {
                         // Mở nhanh trang chủ tiện ích
                         if let ext = selectedExtension, !ext.sourceUrl.isEmpty {
                             Button(action: {
-                                showingHeaderWeb = true
+                                headerBrowserTarget = ExtensionBrowserTarget(urlString: ext.sourceUrl)
                             }) {
                                 Image(systemName: "safari")
                                     .font(.title3)
@@ -377,24 +383,22 @@ struct DiscoveryView: View {
                     }
                 )
             }
-            .fullScreenCover(isPresented: $showingHeaderWeb) {
-                if let ext = selectedExtension {
-                    BypassWebView(
-                        urlString: ext.sourceUrl,
-                        onImport: { detailUrl, packageId, sourceName in
-                            importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
-                            importedExtensionPackageId = packageId
-                            importedDetailUrl = detailUrl
-                            importedSourceName = sourceName
-                            if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
-                                importedHost = "\(scheme)://\(host)"
-                            } else {
-                                importedHost = ""
-                            }
-                            navigateToImportedBook = true
+            .fullScreenCover(item: $headerBrowserTarget) { target in
+                BypassWebView(
+                    urlString: target.urlString,
+                    onImport: { detailUrl, packageId, sourceName in
+                        importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                        importedExtensionPackageId = packageId
+                        importedDetailUrl = detailUrl
+                        importedSourceName = sourceName
+                        if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
+                            importedHost = "\(scheme)://\(host)"
+                        } else {
+                            importedHost = ""
                         }
-                    )
-                }
+                        navigateToImportedBook = true
+                    }
+                )
             }
             .navigationDestination(isPresented: $navigateToImportedBook) {
                 BookDetailView(
@@ -736,9 +740,7 @@ struct ExtensionSelectorView: View {
     var onImport: ((_ detailUrl: String, _ extensionPackageId: String, _ sourceName: String) -> Void)? = nil
     
     @State private var configExtension: Extension? = nil
-    @State private var showingListWeb = false
-    @State private var listWebUrl = ""
-    @State private var listWebLocalPath = ""
+    @State private var listBrowserTarget: ExtensionBrowserTarget? = nil
     
     private var filteredExtensions: [Extension] {
         let baseList: [Extension]
@@ -819,9 +821,7 @@ struct ExtensionSelectorView: View {
                         // Nút Trình duyệt trang chủ
                         if !ext.sourceUrl.isEmpty {
                             Button(action: {
-                                listWebUrl = ext.sourceUrl
-                                listWebLocalPath = ext.localPath
-                                showingListWeb = true
+                                listBrowserTarget = ExtensionBrowserTarget(urlString: ext.sourceUrl)
                             }) {
                                 Image(systemName: "safari")
                                     .font(.body)
@@ -875,11 +875,11 @@ struct ExtensionSelectorView: View {
             .sheet(item: $configExtension) { ext in
                 ExtensionConfigView(ext: ext)
             }
-            .fullScreenCover(isPresented: $showingListWeb) {
+            .fullScreenCover(item: $listBrowserTarget) { target in
                 BypassWebView(
-                    urlString: listWebUrl,
+                    urlString: target.urlString,
                     onImport: { detailUrl, packageId, sourceName in
-                        showingListWeb = false
+                        listBrowserTarget = nil
                         dismiss()
                         onImport?(detailUrl, packageId, sourceName)
                     }

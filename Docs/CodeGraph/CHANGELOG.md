@@ -4,6 +4,36 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.31] - 2026-07-19
+
+### Tối ưu hóa cử chỉ Reader, Panel dịch Full-width, Item-based Browser và Mở Chi tiết từ Cover
+* **DiscoveryView**: Nâng cấp từ `isPresented`-based sang `item`-based `.fullScreenCover(item:)` thông qua struct `ExtensionBrowserTarget: Identifiable` cho cả header (`headerBrowserTarget`) và danh sách (`listBrowserTarget`). `BypassWebView` chỉ được khởi tạo đúng lúc người dùng bấm nút Safari, tránh hoàn toàn lỗi URL rỗng lần đầu mở.
+* **ReaderView — Panel dịch**:
+  * Full-width Bottom Sheet: Xoá `.padding(.horizontal)`, dùng `UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)` để bo 2 góc trên.
+  * Bấm ngoài để tắt: Thêm `Color.clear` với `.simultaneousGesture(TapGesture())` (không tiêu thụ event, widget ở zIndex cao hơn vẫn hoạt động bình thường).
+  * Vuốt xuống để tắt: Thêm `DragGesture` (ngưỡng > 50pt) trên panel dịch.
+  * Drag Indicator: Thêm `Capsule` 36×5pt ở đầu `definitionSheetContent`.
+  * Cỡ chữ gốc Hàng 1: `.font(.title3)` → `.font(.body)`.
+  * Nút Cập nhật: Thêm `.controlSize(.small)` và giảm `.padding(.vertical, 8)`.
+* **ReaderView — Danh sách chương**:
+  * Thêm `@State chapterListDragOffset` để theo dõi khoảng cách kéo real-time.
+  * Giảm height từ `geometry.size.height` xuống `geometry.size.height - 60` (topPeek = 60pt) để lộ dải reader phía trên.
+  * Offset y = `max(60, 60 + chapterListDragOffset)` khi đang mở, panel trượt theo ngón tay mượt mà.
+  * Kéo > 120pt → đóng bằng `.easeInOut`; kéo chưa đủ → nảy về vị trí cũ bằng `.spring`.
+  * Truyền `onDragChanged` và `onDragEnded` xuống `ReaderChapterListView`.
+* **ReaderChapterListView**:
+  * Thêm callbacks `onDragChanged` và `onDragEnded` (optional, mặc định nil).
+  * Cập nhật `dismissGesture`: `.onChanged` gọi `onDragChanged`, `.onEnded` gọi `onDragEnded` thay vì trực tiếp `onClose`.
+  * Bọc `BookCoverView` trong `Button` mở `BookDetailView` qua `.sheet(isPresented:)` với `NavigationStack` khi `bookDetailUrl != nil` và `ext != nil`.
+
+## [1.3.30] - 2026-07-19
+
+### Căn lề hai bên Reader, Sửa lỗi URL trình duyệt rỗng, Đồng bộ metadata extension từ plugin.json
+* **ReaderTextView**: Áp dụng `.justified` alignment cho đoạn văn thường (nhánh `else` khi không phải `isCentered`), giữ nguyên `firstLineHeadIndent` để thụt đầu dòng vẫn hoạt động.
+* **DiscoveryView — sửa lỗi URL trỗng khi mở BypassWebView lần đầu**: Bọc `BypassWebView` trong điều kiện kiểm tra `showingHeaderWeb && !ext.sourceUrl.isEmpty` (header) và `showingListWeb && !listWebUrl.isEmpty` (danh sách), ngăn SwiftUI khởi tạo view khi URL chưa được set.
+* **RepositoryManagerView — syncExtensions**: Thay thế `JSONDecoder` + `RemotePluginMeta` bằng `JSONSerialization` để hỗ trợ cấu trúc `"metadata"` lồng nhau trong `plugin.json`. Ưu tiên đọc offline từ `localPath/plugin.json` nếu tiện ích đã tải về; chỉ fallback tải từ thư mục gốc của URL zip trên mạng khi chưa có cục bộ.
+* **RepositoryManagerView — installExtension**: Chuyển sang `JSONSerialization` + nhánh `metadata` để đọc `plugin.json` sau khi giải nén. Cập nhật thêm `ext.sourceUrl` từ trường `"source"` trong JSON bên cạnh locale/type/version/author.
+
 ## [1.3.29] - 2026-07-19
 
 ### Lọc dữ liệu truyện rỗng/trùng lặp tại các View Gợi ý, Thể loại, Tìm kiếm, và Khám phá

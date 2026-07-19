@@ -113,8 +113,11 @@ struct ReaderChapterListView: View {
     @Binding var onlineChapters: [ChapterResult]
     let onSelectChapter: (Int) -> Void
     let onClose: () -> Void
+    var onDragChanged: ((CGFloat) -> Void)? = nil
+    var onDragEnded: ((CGFloat) -> Void)? = nil
 
     @Environment(\.modelContext) private var modelContext
+    @State private var showingBookDetail = false
     @State private var searchQuery = ""
     @State private var isAscending = true
     @State private var isUpdating = false
@@ -190,13 +193,29 @@ struct ReaderChapterListView: View {
                 .accessibilityHidden(true)
 
             HStack(alignment: .top, spacing: 12) {
-                BookCoverView(
-                    bookId: bookId,
-                    coverUrl: metadataCoverUrl,
-                    width: 72,
-                    height: 100
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                Button(action: { showingBookDetail = true }) {
+                    BookCoverView(
+                        bookId: bookId,
+                        coverUrl: metadataCoverUrl,
+                        width: 72,
+                        height: 100
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+                .disabled(bookDetailUrl == nil || ext == nil)
+                .sheet(isPresented: $showingBookDetail) {
+                    if let detailUrl = bookDetailUrl, let ext {
+                        NavigationStack {
+                            BookDetailView(
+                                bookId: bookId,
+                                extensionPackageId: ext.packageId,
+                                initialDetailUrl: detailUrl,
+                                sourceName: ext.name
+                            )
+                        }
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(metadataTitle)
@@ -254,12 +273,21 @@ struct ReaderChapterListView: View {
 
     private var dismissGesture: some Gesture {
         DragGesture(minimumDistance: 16)
+            .onChanged { value in
+                let v = value.translation.height
+                let h = abs(value.translation.width)
+                guard v > 0, v >= h else { return }
+                onDragChanged?(v)
+            }
             .onEnded { value in
                 let horizontalDistance = abs(value.translation.width)
                 let verticalDistance = value.translation.height
                 guard verticalDistance >= 72,
-                      verticalDistance >= horizontalDistance * 1.25 else { return }
-                onClose()
+                      verticalDistance >= horizontalDistance * 1.25 else {
+                    onDragEnded?(0)
+                    return
+                }
+                onDragEnded?(verticalDistance)
             }
     }
 

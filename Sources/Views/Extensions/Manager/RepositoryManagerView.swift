@@ -536,44 +536,68 @@ struct RepositoryManagerView: View {
                 .replacingOccurrences(of: " ", with: "_")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             
-            var remoteAuthor: String? = nil
-            var remoteLanguage: String? = nil
-            var remoteType: String? = nil
-            var remoteVersion: Int? = nil
-            var remoteSource: String? = nil
+            let existingExt = currentExts.first(where: { $0.packageId == packageId })
+            let localPath = existingExt?.localPath ?? ""
             
-            if let zipURL = URL(string: item.path) {
+            var resolvedAuthor: String? = nil
+            var resolvedLanguage: String? = nil
+            var resolvedType: String? = nil
+            var resolvedVersion: Int? = nil
+            var resolvedSource: String? = nil
+            
+            // Ưu tiên đọc plugin.json cục bộ nếu tiện ích đã được tải về
+            var loadedFromLocal = false
+            if !localPath.isEmpty {
+                let localJsonUrl = URL(fileURLWithPath: localPath).appendingPathComponent("plugin.json")
+                if FileManager.default.fileExists(atPath: localJsonUrl.path),
+                   let jsonData = try? Data(contentsOf: localJsonUrl),
+                   let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+                    let meta = json["metadata"] as? [String: Any] ?? json
+                    resolvedAuthor = meta["author"] as? String
+                    resolvedLanguage = (meta["locale"] as? String) ?? (meta["language"] as? String)
+                    resolvedType = meta["type"] as? String
+                    if let v = meta["version"] as? Int { resolvedVersion = v }
+                    else if let vs = meta["version"] as? String { resolvedVersion = Int(vs) }
+                    resolvedSource = meta["source"] as? String
+                    loadedFromLocal = true
+                }
+            }
+            
+            // Fallback: tải plugin.json từ thư mục gốc của file zip trên mạng
+            if !loadedFromLocal, let zipURL = URL(string: item.path) {
                 let pluginURL = zipURL.deletingLastPathComponent().appendingPathComponent("plugin.json")
                 do {
                     let (data, _) = try await URLSession.shared.data(from: pluginURL)
-                    if let meta = try? JSONDecoder().decode(RemotePluginMeta.self, from: data) {
-                        remoteAuthor = meta.author
-                        remoteLanguage = meta.language
-                        remoteType = meta.type
-                        remoteVersion = meta.version
-                        remoteSource = meta.source
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        let meta = json["metadata"] as? [String: Any] ?? json
+                        resolvedAuthor = meta["author"] as? String
+                        resolvedLanguage = (meta["locale"] as? String) ?? (meta["language"] as? String)
+                        resolvedType = meta["type"] as? String
+                        if let v = meta["version"] as? Int { resolvedVersion = v }
+                        else if let vs = meta["version"] as? String { resolvedVersion = Int(vs) }
+                        resolvedSource = meta["source"] as? String
                     }
                 } catch {
                     // Bỏ qua lỗi tải mạng không crash
                 }
             }
             
-            let finalAuthor = remoteAuthor ?? item.author ?? "Không rõ"
-            let finalLocale = remoteLanguage ?? item.locale ?? "vi_VN"
-            let finalType = remoteType ?? item.type ?? "novel"
-            let finalVersion = remoteVersion ?? item.version ?? 1
-            let finalSource = remoteSource ?? item.source ?? ""
+            let finalAuthor = resolvedAuthor ?? item.author ?? "Không rõ"
+            let finalLocale = resolvedLanguage ?? item.locale ?? "vi_VN"
+            let finalType = resolvedType ?? item.type ?? "novel"
+            let finalVersion = resolvedVersion ?? item.version ?? 1
+            let finalSource = resolvedSource ?? item.source ?? ""
             
-            if let existingExt = currentExts.first(where: { $0.packageId == packageId }) {
-                existingExt.name = item.name
-                existingExt.author = finalAuthor
-                existingExt.version = finalVersion
-                existingExt.sourceUrl = finalSource
-                existingExt.iconUrl = item.icon
-                existingExt.desc = item.description
-                existingExt.type = finalType
-                existingExt.locale = finalLocale
-                existingExt.downloadUrl = item.path
+            if let existing = existingExt {
+                existing.name = item.name
+                existing.author = finalAuthor
+                existing.version = finalVersion
+                existing.sourceUrl = finalSource
+                existing.iconUrl = item.icon
+                existing.desc = item.description
+                existing.type = finalType
+                existing.locale = finalLocale
+                existing.downloadUrl = item.path
             } else {
                 let newExt = Extension(
                     packageId: packageId,
@@ -645,27 +669,23 @@ struct RepositoryManagerView: View {
             do {
                 let localFolder = try await ExtensionManager.shared.install(item: finalItem, packageId: ext.packageId)
                 
-                // Đọc file plugin.json nội bộ sau khi giải nén để cập nhật chính xác locale/type
+                // Đọc file plugin.json nội bộ sau khi giải nén để cập nhật chính xác locale/type/sourceUrl
                 var localLocale = ext.locale
                 var localType = ext.type
                 var localVersion = ext.version
                 var localAuthor = ext.author
+                var localSource = ext.sourceUrl
                 
                 let localJsonUrl = URL(fileURLWithPath: localFolder).appendingPathComponent("plugin.json")
                 if let jsonData = try? Data(contentsOf: localJsonUrl),
-                   let localMeta = try? JSONDecoder().decode(ExtensionLocalMeta.self, from: jsonData) {
-                    if let metaLocale = localMeta.locale, !metaLocale.isEmpty {
-                        localLocale = metaLocale
-                    }
-                    if let metaType = localMeta.type, !metaType.isEmpty {
-                        localType = metaType
-                    }
-                    if let metaVersion = localMeta.version {
-                        localVersion = metaVersion
-                    }
-                    if let metaAuthor = localMeta.author, !metaAuthor.isEmpty {
-                        localAuthor = metaAuthor
-                    }
+                   let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+                    let meta = json["metadata"] as? [String: Any] ?? json
+                    if let v = meta["source"] as? String, !v.isEmpty { localSource = v }
+                    if let v = meta["locale"] as? String, !v.isEmpty { localLocale = v }
+                    if let v = meta["type"] as? String, !v.isEmpty { localType = v }
+                    if let v = meta["version"] as? Int { localVersion = v }
+                    else if let vs = meta["version"] as? String, let vi = Int(vs) { localVersion = vi }
+                    if let v = meta["author"] as? String, !v.isEmpty { localAuthor = v }
                 }
                 
                 await MainActor.run {
@@ -674,6 +694,7 @@ struct RepositoryManagerView: View {
                     ext.type = localType
                     ext.version = localVersion
                     ext.author = localAuthor
+                    ext.sourceUrl = localSource
                     try? modelContext.save()
                     extensionManager.loadingStates[ext.packageId] = false
                 }

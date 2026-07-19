@@ -124,6 +124,7 @@ struct ReaderView: View {
     @State private var paragraphTracker = ParagraphTracker()
 
     @State private var showingChapterList = false
+    @State private var chapterListDragOffset: CGFloat = 0
     @State private var showingBookDictionary = false
     @State private var currentOnlineChapters: [ChapterResult] = []
     @State private var chapterListStore: ReaderChapterListStore? = nil
@@ -265,19 +266,42 @@ struct ReaderView: View {
                     .ignoresSafeArea()
                 readerMainContent
                 
-                // Panel dịch dạng overlay ở đáy
+                // Panel dịch dạng overlay ở đáy (Full-width Bottom Sheet)
                 if showingDefinitionSheet {
-                    VStack {
-                        Spacer()
+                    VStack(spacing: 0) {
+                        // Vùng trống phía trên bắt tap để đóng panel dịch
+                        // Dùng simultaneousGesture để KHÔNG tiêu thụ event hoàn toàn
+                        // → widget/FloatingMenu ở zIndex cao hơn vẫn nhận tap bình thường
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .simultaneousGesture(
+                                TapGesture().onEnded {
+                                    withAnimation {
+                                        showingDefinitionSheet = false
+                                    }
+                                }
+                            )
+
                         definitionSheetContent
-                            .padding()
-                            .background(selectedTheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.14) : Color.white)
-                            .cornerRadius(16)
+                            .padding([.horizontal, .bottom])
+                            .background(
+                                UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
+                                    .fill(selectedTheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.14) : Color.white)
+                            )
                             .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: -4)
-                            .padding(.horizontal)
                             .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 0 : 8)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                            .gesture(
+                                DragGesture()
+                                    .onEnded { value in
+                                        if value.translation.height > 50 {
+                                            withAnimation {
+                                                showingDefinitionSheet = false
+                                            }
+                                        }
+                                    }
+                            )
                     }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                     .ignoresSafeArea(.keyboard, edges: .bottom)
                     .zIndex(5)
                 }
@@ -690,18 +714,38 @@ struct ReaderView: View {
                     selectChapter(at: selectedIdx)
                 },
                 onClose: {
-                    showingChapterList = false
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        showingChapterList = false
+                        chapterListDragOffset = 0
+                    }
+                },
+                onDragChanged: { translation in
+                    chapterListDragOffset = max(0, translation)
+                },
+                onDragEnded: { translation in
+                    if translation > 120 {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            showingChapterList = false
+                            chapterListDragOffset = 0
+                        }
+                    } else {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                            chapterListDragOffset = 0
+                        }
+                    }
                 }
             )
-            .frame(width: geometry.size.width, height: geometry.size.height)
+            .frame(width: geometry.size.width, height: geometry.size.height - 60)
             .offset(
                 y: reduceMotion
-                    ? 0
-                    : (showingChapterList ? 0 : geometry.size.height + geometry.safeAreaInsets.bottom)
+                    ? 60
+                    : (showingChapterList
+                        ? max(60, 60 + chapterListDragOffset)
+                        : geometry.size.height + geometry.safeAreaInsets.bottom)
             )
             .opacity(showingChapterList ? 1 : 0)
             .animation(
-                .easeInOut(duration: reduceMotion ? 0.15 : 0.25),
+                chapterListDragOffset > 0 ? nil : .easeInOut(duration: reduceMotion ? 0.15 : 0.25),
                 value: showingChapterList
             )
             .allowsHitTesting(showingChapterList)
@@ -1853,6 +1897,12 @@ struct ReaderView: View {
     @ViewBuilder
     private var definitionSheetContent: some View {
         VStack(spacing: 16) {
+            // Drag Indicator cho cử chỉ vuốt xuống
+            Capsule()
+                .fill(Color.secondary.opacity(0.3))
+                .frame(width: 36, height: 5)
+                .padding(.top, 8)
+
             // Header
             HStack {
                 Text("Dịch")
@@ -1895,7 +1945,7 @@ struct ReaderView: View {
                                 let char = nsSentence.substring(with: NSRange(location: index, length: 1))
                                 let isSelected = (index >= selectedWordOffset && index < selectedWordOffset + selectedWordLength)
                                 Text(char)
-                                    .font(.title3)
+                                    .font(.body)
                                     .bold(isSelected)
                                     .underline(isSelected)
                                     .foregroundColor(isSelected ? .blue : .primary)
@@ -2082,12 +2132,14 @@ struct ReaderView: View {
                 HStack {
                     Spacer()
                     Label("Cập nhật", systemImage: "tray.and.arrow.down.fill")
+                        .font(.subheadline)
                         .fontWeight(.semibold)
                     Spacer()
                 }
-                .padding(.vertical, 12)
+                .padding(.vertical, 8)
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.small)
             .disabled(customMeaning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
             Divider()
