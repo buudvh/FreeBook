@@ -441,6 +441,9 @@ public final class JSExecutor {
                 },
                 json: function() {
                     return JSON.parse(res.html || "{}");
+                },
+                base64: function() {
+                    return res.raw || "";
                 }
             };
         };

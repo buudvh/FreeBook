@@ -525,7 +525,7 @@ public final class TranslateUtils {
             }
         }
         
-        selectedNames.sort { $0.range.lowerBound < $0.range.lowerBound }
+        selectedNames.sort { $0.range.lowerBound < $1.range.lowerBound }
         
         // --- BƯỚC 3: PHÂN TÁCH CÁC VÙNG CÒN LẠI BẰNG VIETPHRASE & DẤU CÂU ---
         var output: [String] = []

@@ -7,6 +7,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 ## [1.3.31] - 2026-07-19
 
 ### Hậu kỳ dịch thuật & Đồng bộ Tiện ích
+* **JSExecutor**: Bổ sung hàm `base64()` vào đối tượng Response trả về từ hàm `fetch` trong JavaScript để cung cấp dữ liệu dạng Base64 của phản hồi mạng cho các VBook extension, tránh lỗi `TypeError: response.base64 is not a function`.
 * **TranslateUtils**: 
   * Nâng cấp thuật toán phân tách từ (`tokenize`) sang cơ chế Multi-pass bảo vệ Tên riêng (Name) tối đa trước VietPhrase, giải quyết tranh chấp bằng Global Longest Match (tên riêng dài hơn thắng).
   * Refactor hàm `getTranslationTokens` để tái sử dụng `tokenize`, loại bỏ trùng lặp code và đồng bộ hóa highlight.
