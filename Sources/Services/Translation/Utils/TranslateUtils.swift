@@ -605,10 +605,11 @@ public final class TranslateUtils {
         }
         result = nsString as String
         
-        result = result.replacingOccurrences(of: "“", with: "\"")
-        result = result.replacingOccurrences(of: "”", with: "\"")
-        result = result.replacingOccurrences(of: "‘", with: "\"")
-        result = result.replacingOccurrences(of: "’", with: "\"")
+        // Giữ nguyên các dấu ngoặc kép cong (curly quotes) theo yêu cầu người dùng
+        // result = result.replacingOccurrences(of: "“", with: "\"")
+        // result = result.replacingOccurrences(of: "”", with: "\"")
+        // result = result.replacingOccurrences(of: "‘", with: "\"")
+        // result = result.replacingOccurrences(of: "’", with: "\"")
         
         let multiSpaces = try! NSRegularExpression(pattern: #" +"#, options: [])
         result = multiSpaces.stringByReplacingMatches(in: result, options: [], range: NSRange(result.startIndex..<result.endIndex, in: result), withTemplate: " ")

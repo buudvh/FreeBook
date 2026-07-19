@@ -6,6 +6,10 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.31] - 2026-07-19
 
+### Hậu kỳ dịch thuật & Đồng bộ Tiện ích
+* **TranslateUtils**: Loại bỏ logic tự động chuyển đổi các dấu ngoặc kép cong (`“`, `”`, `‘`, `’`) thành dấu nháy thẳng (`"`) để giữ nguyên định dạng dấu ngoặc kép cong trong bản dịch gốc.
+* **RepositoryManagerView**: Thêm in thông báo log debug `print` khi tải hoặc parse file cấu hình `plugin.json` trên mạng của tiện ích chưa cài đặt gặp lỗi, hỗ trợ chẩn đoán chính xác lý do metadata bị hiển thị sai lệch hoặc không đầy đủ.
+
 ### Tối ưu hóa cử chỉ Reader, Panel dịch Full-width, Item-based Browser và Mở Chi tiết từ Cover
 * **DiscoveryView**: Nâng cấp từ `isPresented`-based sang `item`-based `.fullScreenCover(item:)` thông qua struct `ExtensionBrowserTarget: Identifiable` cho cả header (`headerBrowserTarget`) và danh sách (`listBrowserTarget`). `BypassWebView` chỉ được khởi tạo đúng lúc người dùng bấm nút Safari, tránh hoàn toàn lỗi URL rỗng lần đầu mở.
 * **ReaderView — Panel dịch**:

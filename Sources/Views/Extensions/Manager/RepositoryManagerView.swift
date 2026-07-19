@@ -578,7 +578,7 @@ struct RepositoryManagerView: View {
                         resolvedSource = meta["source"] as? String
                     }
                 } catch {
-                    // Bỏ qua lỗi tải mạng không crash
+                    print("⚠️ Lỗi tải/parse plugin.json từ mạng cho \(item.name): \(error.localizedDescription)")
                 }
             }
             
