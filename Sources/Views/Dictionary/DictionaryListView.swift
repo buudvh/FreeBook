@@ -16,6 +16,7 @@ struct DictionaryListView: View {
     @State private var showingFileImporter = false
     @State private var showingDeleteAllAlert = false
     @State private var showingShareSheet = false
+    @State private var exportURLToShare: URL? = nil
 
     private var isGlobal: Bool { bookId == nil }
 
@@ -182,7 +183,7 @@ struct DictionaryListView: View {
                         
                         if !allEntries.isEmpty {
                             Button {
-                                showingShareSheet = true
+                                exportDictionary()
                             } label: {
                                 Label("Xuất từ điển (\(type.displayName))", systemImage: "square.and.arrow.up")
                             }
@@ -245,7 +246,7 @@ struct DictionaryListView: View {
 
         }
         .sheet(isPresented: $showingShareSheet) {
-            if let url = exportURL() {
+            if let url = exportURLToShare {
                 ShareSheet(activityItems: [url])
             }
         }
@@ -443,7 +444,7 @@ struct DictionaryListView: View {
         return result
     }
 
-    private func exportURL() -> URL? {
+    private func generateExportURL() -> URL? {
         let tempDir = FileManager.default.temporaryDirectory
         
         let namePart: String
@@ -460,18 +461,29 @@ struct DictionaryListView: View {
         formatter.dateFormat = "yyyyMMddHHmmss"
         let timestamp = formatter.string(from: Date())
         
-        let prefix = type == .names ? "Name" : "Vietphrase"
+        let prefix = type == .names ? "Name" : "VietPhrase"
         let fileName = "\(prefix)_\(safeName)_\(timestamp).txt"
         
         let fileURL = tempDir.appendingPathComponent(fileName)
         let content = exportText()
         do {
             try content.write(to: fileURL, atomically: true, encoding: .utf8)
-            ToastManager.shared.show(message: "Xuất từ điển thành công!", type: .success)
             return fileURL
         } catch {
-            ToastManager.shared.show(message: "Lỗi khi xuất từ điển: \(error.localizedDescription)", type: .error)
+            AppLogger.shared.log("❌ Lỗi ghi file từ điển xuất: \(error.localizedDescription)")
             return nil
+        }
+    }
+
+    private func exportDictionary() {
+        if let url = generateExportURL() {
+            self.exportURLToShare = url
+            ToastManager.shared.show(message: "Xuất từ điển thành công!", type: .success)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.showingShareSheet = true
+            }
+        } else {
+            ToastManager.shared.show(message: "Lỗi khi xuất từ điển.", type: .error)
         }
     }
 }

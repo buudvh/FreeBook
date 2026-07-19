@@ -291,7 +291,9 @@ struct TTSReplacementManagerView: View {
             try jsonString.write(to: tempURL, atomically: true, encoding: .utf8)
             ToastManager.shared.show(message: "Xuất cấu hình thay thế TTS thành công!", type: .success)
             self.exportURLToShare = tempURL
-            self.showingShareSheet = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.showingShareSheet = true
+            }
         } catch {
             ToastManager.shared.show(message: "Lỗi xuất cấu hình: \(error.localizedDescription)", type: .error)
         }

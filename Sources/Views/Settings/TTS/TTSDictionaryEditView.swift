@@ -264,7 +264,9 @@ struct TTSDictionaryEditView: View {
             try plistData.write(to: plistURL, options: .atomic)
             ToastManager.shared.show(message: "Xuất từ điển .plist thành công!", type: .success)
             self.exportURLToShare = plistURL
-            self.showingShareSheet = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.showingShareSheet = true
+            }
         } catch {
             ToastManager.shared.show(message: "Lỗi xuất file .plist: \(error.localizedDescription)", type: .error)
         }
@@ -282,7 +284,9 @@ struct TTSDictionaryEditView: View {
             try jsonData.write(to: jsonURL, options: .atomic)
             ToastManager.shared.show(message: "Xuất từ điển .json thành công!", type: .success)
             self.exportURLToShare = jsonURL
-            self.showingShareSheet = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.showingShareSheet = true
+            }
         } catch {
             ToastManager.shared.show(message: "Lỗi xuất file .json: \(error.localizedDescription)", type: .error)
         }
@@ -303,7 +307,9 @@ struct TTSDictionaryEditView: View {
             try csvData.write(to: csvURL, options: .atomic)
             ToastManager.shared.show(message: "Xuất từ điển .csv thành công!", type: .success)
             self.exportURLToShare = csvURL
-            self.showingShareSheet = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.showingShareSheet = true
+            }
         } catch {
             ToastManager.shared.show(message: "Lỗi xuất file .csv: \(error.localizedDescription)", type: .error)
         }
