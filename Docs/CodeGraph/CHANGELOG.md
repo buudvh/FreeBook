@@ -7,7 +7,14 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 ## [1.3.31] - 2026-07-19
 
 ### Hậu kỳ dịch thuật & Đồng bộ Tiện ích
-* **TranslateUtils**: Loại bỏ logic tự động chuyển đổi các dấu ngoặc kép cong (`“`, `”`, `‘`, `’`) thành dấu nháy thẳng (`"`) để giữ nguyên định dạng dấu ngoặc kép cong trong bản dịch gốc.
+* **TranslateUtils**: 
+  * Nâng cấp thuật toán phân tách từ (`tokenize`) sang cơ chế Multi-pass bảo vệ Tên riêng (Name) tối đa trước VietPhrase, giải quyết tranh chấp bằng Global Longest Match (tên riêng dài hơn thắng).
+  * Refactor hàm `getTranslationTokens` để tái sử dụng `tokenize`, loại bỏ trùng lặp code và đồng bộ hóa highlight.
+  * Tối ưu hóa phân tách dấu câu độc lập (chỉ gom nhóm Alphanumeric, còn dấu câu như `?”` và `.”` tách thành các token độc lập giúp tra cứu từ điển VP chính xác).
+  * Hỗ trợ cài đặt bật/tắt dịch Đại từ (Pronouns) và Luật nhân hóa động.
+* **ReaderView, ReaderSettingsView, SettingsView**: 
+  * Thêm UI Toggle cho phép người dùng bật/tắt cài đặt dịch Đại từ (Pronouns) và Luật nhân hóa, lưu trữ qua `@AppStorage`, mặc định là Tắt (`false`).
+  * Tự động xóa cache dịch và kết xuất lại giao diện tức thì khi thay đổi một trong hai cài đặt này.
 * **RepositoryManagerView**: Thêm in thông báo log debug `print` khi tải hoặc parse file cấu hình `plugin.json` trên mạng của tiện ích chưa cài đặt gặp lỗi, hỗ trợ chẩn đoán chính xác lý do metadata bị hiển thị sai lệch hoặc không đầy đủ.
 
 ### Tối ưu hóa cử chỉ Reader, Panel dịch Full-width, Item-based Browser và Mở Chi tiết từ Cover

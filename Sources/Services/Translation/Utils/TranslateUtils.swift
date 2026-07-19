@@ -300,12 +300,15 @@ public final class TranslateUtils {
         
         let tokens = tokenize(converted, bookId: bookId)
         
+        let isPronounsEnabled = UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
+        let isLuatNhanEnabled = UserDefaults.standard.bool(forKey: "isTranslationLuatNhanEnabled")
+        
         var translatedWords: [String] = []
         let names = TranslationManager.shared.namesDict
         let customNames = TranslationManager.shared.customNamesDict
         let deletedNames = TranslationManager.shared.deletedNames
-        let pronouns = TranslationManager.shared.pronounsDict
-        let luatNhan = TranslationManager.shared.luatNhanDict
+        let pronouns = isPronounsEnabled ? TranslationManager.shared.pronounsDict : nil
+        let luatNhan = isLuatNhanEnabled ? TranslationManager.shared.luatNhanDict : nil
         let vp = TranslationManager.shared.vietPhraseDict
         let customVP = TranslationManager.shared.customVietPhraseDict
         let deletedVP = TranslationManager.shared.deletedVietPhrase
@@ -411,17 +414,29 @@ public final class TranslateUtils {
         return postProcessText(translatedWords.joined(separator: " "))
     }
     
+    private struct NameCandidate {
+        let range: Range<Int>
+        let length: Int
+    }
+
+    private static func isAlphanumeric(_ char: Character) -> Bool {
+        guard let scalar = char.unicodeScalars.first else { return false }
+        return CharacterSet.alphanumerics.contains(scalar)
+    }
+
     private static func tokenize(_ text: String, bookId: String?) -> [String] {
-        var output: [String] = []
         let chars = Array(text)
         let length = chars.count
-        var currentIndex = 0
+        guard length > 0 else { return [] }
+        
+        let isPronounsEnabled = UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
+        let isLuatNhanEnabled = UserDefaults.standard.bool(forKey: "isTranslationLuatNhanEnabled")
         
         let names = TranslationManager.shared.namesDict
         let customNames = TranslationManager.shared.customNamesDict
         let deletedNames = TranslationManager.shared.deletedNames
-        let pronouns = TranslationManager.shared.pronounsDict
-        let luatNhan = TranslationManager.shared.luatNhanDict
+        let pronouns = isPronounsEnabled ? TranslationManager.shared.pronounsDict : nil
+        let luatNhan = isLuatNhanEnabled ? TranslationManager.shared.luatNhanDict : nil
         let vp = TranslationManager.shared.vietPhraseDict
         let customVP = TranslationManager.shared.customVietPhraseDict
         let deletedVP = TranslationManager.shared.deletedVietPhrase
@@ -434,96 +449,162 @@ public final class TranslateUtils {
             bookNames = bookDicts.names
         }
         
-        while currentIndex < length {
-            var longestMatchLen = 0
+        // --- BƯỚC 1: TÌM TẤT CẢ ỨNG VIÊN NAME TRÊN TOÀN CÂU ---
+        var candidates: [NameCandidate] = []
+        var i = 0
+        while i < length {
+            let limit = min(length - i, 20)
+            let checkText = String(chars[i..<(i + limit)])
             
-            let limit = min(length - currentIndex, 20)
-            let checkText = String(chars[currentIndex..<(currentIndex + limit)])
+            var maxNameLen = 0
             
             // 1. Book Names
             if let bookNames = bookNames,
                let match = bookNames.findLongestMatch(text: checkText, startIndex: 0) {
-                longestMatchLen = match.length
+                maxNameLen = max(maxNameLen, match.length)
             }
             
             // 2. Custom Names
             if let customNames = customNames,
                let match = customNames.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
-                }
+                maxNameLen = max(maxNameLen, match.length)
             }
             
-            // 3. Base Names (exclude deleted)
+            // 3. Base Names
             if let names = names,
                let match = names.findLongestMatch(text: checkText, startIndex: 0) {
-                let matchedStr = String(chars[currentIndex..<(currentIndex + match.length)])
-                if !deletedNames.contains(matchedStr) && match.length > longestMatchLen {
-                    longestMatchLen = match.length
+                let matchedStr = String(chars[i..<(i + match.length)])
+                if !deletedNames.contains(matchedStr) {
+                    maxNameLen = max(maxNameLen, match.length)
                 }
             }
             
             // 4. Pronouns
             if let pronouns = pronouns,
                let match = pronouns.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
-                }
+                maxNameLen = max(maxNameLen, match.length)
             }
             
             // 5. LuatNhan
             if let luatNhan = luatNhan,
                let match = luatNhan.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
+                maxNameLen = max(maxNameLen, match.length)
+            }
+            
+            if maxNameLen > 0 {
+                candidates.append(NameCandidate(range: i..<(i + maxNameLen), length: maxNameLen))
+            }
+            i += 1
+        }
+        
+        // --- BƯỚC 2: GIẢI QUYẾT TRANH CHẤP CHỒNG LẤN ---
+        candidates.sort { c1, c2 in
+            if c1.length != c2.length {
+                return c1.length > c2.length
+            }
+            return c1.range.lowerBound < c2.range.lowerBound
+        }
+        
+        var selectedNames: [NameCandidate] = []
+        var occupiedIndices = Set<Int>()
+        
+        for candidate in candidates {
+            var isOverlapping = false
+            for idx in candidate.range {
+                if occupiedIndices.contains(idx) {
+                    isOverlapping = true
+                    break
                 }
             }
             
-            // 6. Book VietPhrase
-            if let bookVP = bookVP,
-               let match = bookVP.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
-                }
-            }
-            
-            // 7. Custom VietPhrase
-            if let customVP = customVP,
-               let match = customVP.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
-                }
-            }
-            
-            // 8. Base VietPhrase (exclude deleted)
-            if let vp = vp,
-               let match = vp.findLongestMatch(text: checkText, startIndex: 0) {
-                let matchedStr = String(chars[currentIndex..<(currentIndex + match.length)])
-                if !deletedVP.contains(matchedStr) && match.length > longestMatchLen {
-                    longestMatchLen = match.length
-                }
-            }
-            
-            if longestMatchLen > 0 {
-                let matchedStr = String(chars[currentIndex..<(currentIndex + longestMatchLen)])
-                output.append(matchedStr)
-                currentIndex += longestMatchLen
-            } else {
-                let char = chars[currentIndex]
-                if isChineseCharacter(char) {
-                    output.append(String(char))
-                    currentIndex += 1
-                } else {
-                    var end = currentIndex + 1
-                    while end < length && !isChineseCharacter(chars[end]) {
-                        end += 1
-                    }
-                    let nonChineseStr = String(chars[currentIndex..<end])
-                    output.append(nonChineseStr)
-                    currentIndex = end
+            if !isOverlapping {
+                selectedNames.append(candidate)
+                for idx in candidate.range {
+                    occupiedIndices.insert(idx)
                 }
             }
         }
+        
+        selectedNames.sort { $0.range.lowerBound < $0.range.lowerBound }
+        
+        // --- BƯỚC 3: PHÂN TÁCH CÁC VÙNG CÒN LẠI BẰNG VIETPHRASE & DẤU CÂU ---
+        var output: [String] = []
+        var currentIndex = 0
+        
+        while currentIndex < length {
+            if let activeName = selectedNames.first(where: { $0.range.lowerBound == currentIndex }) {
+                let matchedStr = String(chars[activeName.range])
+                output.append(matchedStr)
+                currentIndex = activeName.range.upperBound
+                continue
+            }
+            
+            let nextNameStart = selectedNames.first(where: { $0.range.lowerBound > currentIndex })?.range.lowerBound ?? length
+            let maxLimit = nextNameStart - currentIndex
+            let limit = min(maxLimit, 20)
+            
+            if limit > 0 {
+                let checkText = String(chars[currentIndex..<(currentIndex + limit)])
+                var longestVPLen = 0
+                
+                // 1. Book VietPhrase
+                if let bookVP = bookVP,
+                   let match = bookVP.findLongestMatch(text: checkText, startIndex: 0) {
+                    longestVPLen = max(longestVPLen, match.length)
+                }
+                
+                // 2. Custom VietPhrase
+                if let customVP = customVP,
+                   let match = customVP.findLongestMatch(text: checkText, startIndex: 0) {
+                    longestVPLen = max(longestVPLen, match.length)
+                }
+                
+                // 3. Base VietPhrase
+                if let vp = vp,
+                   let match = vp.findLongestMatch(text: checkText, startIndex: 0) {
+                    let matchedStr = String(chars[currentIndex..<(currentIndex + match.length)])
+                    if !deletedVP.contains(matchedStr) {
+                        longestVPLen = max(longestVPLen, match.length)
+                    }
+                }
+                
+                if longestVPLen > 0 {
+                    let matchedStr = String(chars[currentIndex..<(currentIndex + longestVPLen)])
+                    output.append(matchedStr)
+                    currentIndex += longestVPLen
+                } else {
+                    let char = chars[currentIndex]
+                    if isChineseCharacter(char) {
+                        output.append(String(char))
+                        currentIndex += 1
+                    } else {
+                        // Tối ưu hóa phân tách dấu câu độc lập:
+                        // Chỉ gom nhóm các chữ cái/chữ số Latin (Sto9, iOS, 100...)
+                        if isAlphanumeric(char) {
+                            var end = currentIndex + 1
+                            while end < nextNameStart && isAlphanumeric(chars[end]) {
+                                end += 1
+                            }
+                            let alphanumericStr = String(chars[currentIndex..<end])
+                            output.append(alphanumericStr)
+                            currentIndex = end
+                        } else {
+                            // Dấu câu hoặc khoảng trắng: chỉ gom nhóm các ký tự GIỐNG NHAU liên tiếp (ví dụ: .... hoặc ???)
+                            var end = currentIndex + 1
+                            while end < nextNameStart && chars[end] == char {
+                                end += 1
+                            }
+                            let punctuationStr = String(chars[currentIndex..<end])
+                            output.append(punctuationStr)
+                            currentIndex = end
+                        }
+                    }
+                }
+            } else {
+                currentIndex += 1
+            }
+        }
+        
         return output
     }
     
@@ -737,157 +818,58 @@ public final class TranslateUtils {
     // MARK: - Tokenizer for interactive reader selection
     
     public static func getTranslationTokens(for sentence: String, bookId: String?) -> [TranslationWordToken] {
-        var output: [TranslationWordToken] = []
-        let chars = Array(sentence)
-        let length = chars.count
-        var currentIndex = 0
-        
-        let names = TranslationManager.shared.namesDict
-        let customNames = TranslationManager.shared.customNamesDict
-        let deletedNames = TranslationManager.shared.deletedNames
-        let pronouns = TranslationManager.shared.pronounsDict
-        let luatNhan = TranslationManager.shared.luatNhanDict
-        let vp = TranslationManager.shared.vietPhraseDict
-        let customVP = TranslationManager.shared.customVietPhraseDict
-        let deletedVP = TranslationManager.shared.deletedVietPhrase
-        let phienAm = TranslationManager.shared.phienAmMap
-        
-        var bookVP: TrieDictionary? = nil
-        var bookNames: TrieDictionary? = nil
-        if let bid = bookId {
-            let bookDicts = TranslationManager.shared.getBookDictionaries(for: bid)
-            bookVP = bookDicts.vietPhrase
-            bookNames = bookDicts.names
+        var converted = ""
+        for char in sentence {
+            converted.append(punctuationMapping[char] ?? String(char))
         }
         
-        while currentIndex < length {
-            var longestMatchLen = 0
-            
-            let limit = min(length - currentIndex, 20)
-            let checkText = String(chars[currentIndex..<(currentIndex + limit)])
-            
-            // 1. Book Names
-            if let bookNames = bookNames,
-               let match = bookNames.findLongestMatch(text: checkText, startIndex: 0) {
-                longestMatchLen = match.length
-            }
-            
-            // 2. Custom Names
-            if let customNames = customNames,
-               let match = customNames.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
-                }
-            }
-            
-            // 3. Base Names (exclude deleted)
-            if let names = names,
-               let match = names.findLongestMatch(text: checkText, startIndex: 0) {
-                let matchedStr = String(chars[currentIndex..<(currentIndex + match.length)])
-                if !deletedNames.contains(matchedStr) && match.length > longestMatchLen {
-                    longestMatchLen = match.length
-                }
-            }
-            
-            // 4. Pronouns
-            if let pronouns = pronouns,
-               let match = pronouns.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
-                }
-            }
-            
-            // 5. LuatNhan
-            if let luatNhan = luatNhan,
-               let match = luatNhan.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
-                }
-            }
-            
-            // 6. Book VietPhrase
-            if let bookVP = bookVP,
-               let match = bookVP.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
-                }
-            }
-            
-            // 7. Custom VietPhrase
-            if let customVP = customVP,
-               let match = customVP.findLongestMatch(text: checkText, startIndex: 0) {
-                if match.length > longestMatchLen {
-                    longestMatchLen = match.length
-                }
-            }
-            
-            // 8. Base VietPhrase (exclude deleted)
-            if let vp = vp,
-               let match = vp.findLongestMatch(text: checkText, startIndex: 0) {
-                let matchedStr = String(chars[currentIndex..<(currentIndex + match.length)])
-                if !deletedVP.contains(matchedStr) && match.length > longestMatchLen {
-                    longestMatchLen = match.length
-                }
-            }
-            
-            let tokenStr: String
-            let matchedLen: Int
-            
-            if longestMatchLen > 0 {
-                tokenStr = String(chars[currentIndex..<(currentIndex + longestMatchLen)])
-                matchedLen = longestMatchLen
-            } else {
-                let char = chars[currentIndex]
-                if isChineseCharacter(char) {
-                    tokenStr = String(char)
-                    matchedLen = 1
-                } else {
-                    var end = currentIndex + 1
-                    while end < length && !isChineseCharacter(chars[end]) {
-                        end += 1
-                    }
-                    tokenStr = String(chars[currentIndex..<end])
-                    matchedLen = end - currentIndex
-                }
-            }
+        let tokens = tokenize(converted, bookId: bookId)
+        var wordTokens: [TranslationWordToken] = []
+        let phienAm = TranslationManager.shared.phienAmMap
+        
+        var currentIndex = 0
+        let chars = Array(sentence)
+        let length = chars.count
+        
+        for token in tokens {
+            let tokenLen = token.count
+            guard currentIndex + tokenLen <= length else { break }
+            let originalText = String(chars[currentIndex..<(currentIndex + tokenLen)])
             
             let translatedToken: String
             let isMatched: Bool
             
-            let rawTranslation = translateMeta(tokenStr, bookId: bookId)
-            if rawTranslation == tokenStr {
+            let rawTranslation = translateMeta(token, bookId: bookId)
+            if rawTranslation == token {
                 isMatched = false
-                if tokenStr.count == 1, isChineseCharacter(tokenStr.first!) {
-                    translatedToken = phienAm[tokenStr] ?? tokenStr
+                if token.count == 1, isChineseCharacter(token.first!) {
+                    translatedToken = phienAm[token] ?? token
                 } else {
                     var phienAmList: [String] = []
-                    for c in tokenStr {
+                    for c in token {
                         phienAmList.append(phienAm[String(c)] ?? String(c))
                     }
                     translatedToken = phienAmList.joined(separator: " ")
                 }
             } else {
                 isMatched = true
-                translatedToken = TranslateUtils.getFirstMeaning(of: rawTranslation)
+                translatedToken = getFirstMeaning(of: rawTranslation)
             }
             
             let trimmedTrans = translatedToken.trimmingCharacters(in: .whitespacesAndNewlines)
-            if isMatched || !trimmedTrans.isEmpty || !tokenStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                let startIndex = sentence.index(sentence.startIndex, offsetBy: currentIndex)
-                let endIndex = sentence.index(startIndex, offsetBy: matchedLen)
-                let originalRange = NSRange(startIndex..<endIndex, in: sentence)
-                output.append(TranslationWordToken(
-                    originalText: tokenStr,
-                    translatedText: isMatched ? trimmedTrans : (trimmedTrans.isEmpty ? tokenStr : trimmedTrans),
-                    originalOffset: originalRange.location,
-                    originalLength: originalRange.length
+            if isMatched || !trimmedTrans.isEmpty || !originalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                wordTokens.append(TranslationWordToken(
+                    originalText: originalText,
+                    translatedText: isMatched ? trimmedTrans : (trimmedTrans.isEmpty ? originalText : trimmedTrans),
+                    originalOffset: currentIndex,
+                    originalLength: tokenLen
                 ))
             }
             
-            currentIndex += matchedLen
+            currentIndex += tokenLen
         }
         
-        return output
+        return wordTokens
     }
     
     public static func getSentenceRanges(in text: String) -> [SentenceRange] {

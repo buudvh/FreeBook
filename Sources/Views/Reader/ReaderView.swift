@@ -92,6 +92,8 @@ struct ReaderView: View {
     @AppStorage("readerFontSize") private var fontSize: Double = 20.0 // Cỡ chữ của văn bản đọc
     @AppStorage("readerLineSpacing") private var lineSpacing: Double = 10.0 // Khoảng cách giữa các dòng
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false // Trạng thái bật/tắt tự động dịch thuật
+    @AppStorage("isTranslationPronounsEnabled") private var isTranslationPronounsEnabled = false // Bật dịch đại từ
+    @AppStorage("isTranslationLuatNhanEnabled") private var isTranslationLuatNhanEnabled = false // Bật dịch luật nhân
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark // Theme giao diện đọc (Sáng, Trầm ấm, Tối)
     @AppStorage("hasOpenedReader") private var hasOpenedReader = false
     @State private var showingSettings = false // Hiện bảng cài đặt font chữ, màu nền
@@ -370,8 +372,15 @@ struct ReaderView: View {
         }
         .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
         .sheet(isPresented: $showingSettings) {
-            ReaderSettingsView(fontSize: $fontSize, lineSpacing: $lineSpacing, selectedTheme: $selectedTheme, isTranslationEnabled: $isTranslationEnabled)
-                .presentationDetents([.height(250)])
+            ReaderSettingsView(
+                fontSize: $fontSize,
+                lineSpacing: $lineSpacing,
+                selectedTheme: $selectedTheme,
+                isTranslationEnabled: $isTranslationEnabled,
+                isPronounsEnabled: $isTranslationPronounsEnabled,
+                isLuatNhanEnabled: $isTranslationLuatNhanEnabled
+            )
+            .presentationDetents([.height(350)])
         }
         .sheet(isPresented: $showingBookDictionary) {
             NavigationStack {
@@ -382,6 +391,14 @@ struct ReaderView: View {
             }
         }
         .onChange(of: isTranslationEnabled) { _, _ in
+            applyTranslation()
+        }
+        .onChange(of: isTranslationPronounsEnabled) { _, _ in
+            TranslateUtils.clearCache()
+            applyTranslation()
+        }
+        .onChange(of: isTranslationLuatNhanEnabled) { _, _ in
+            TranslateUtils.clearCache()
             applyTranslation()
         }
         .sheet(isPresented: $showingAddNghiTTSPhonemeSheet) {

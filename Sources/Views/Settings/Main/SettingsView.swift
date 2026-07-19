@@ -4,6 +4,8 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @AppStorage("isLoggingEnabled") private var isLoggingEnabled = false
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    @AppStorage("isTranslationPronounsEnabled") private var isTranslationPronounsEnabled = false
+    @AppStorage("isTranslationLuatNhanEnabled") private var isTranslationLuatNhanEnabled = false
     @ObservedObject private var translationManager = TranslationManager.shared
     
     @State private var logFileExists = false
@@ -50,6 +52,24 @@ struct SettingsView: View {
                     }
                     
                     if isTranslationEnabled {
+                        Toggle(isOn: $isTranslationPronounsEnabled) {
+                            Text("Dịch Đại từ (Pronouns)")
+                                .font(.subheadline)
+                        }
+                        .padding(.leading, 16)
+                        .onChange(of: isTranslationPronounsEnabled) { _, _ in
+                            TranslateUtils.clearCache()
+                        }
+                        
+                        Toggle(isOn: $isTranslationLuatNhanEnabled) {
+                            Text("Dịch Luật nhân hóa")
+                                .font(.subheadline)
+                        }
+                        .padding(.leading, 16)
+                        .onChange(of: isTranslationLuatNhanEnabled) { _, _ in
+                            TranslateUtils.clearCache()
+                        }
+                        
                         Section(header: Text("Từ điển chung")) {
                             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                                 Button(action: {
