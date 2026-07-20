@@ -266,7 +266,7 @@ public final class TranslationManager: ObservableObject {
     }
     
     public var translateDirectory: URL {
-        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
         let directory = paths[0].appendingPathComponent("translate", isDirectory: true)
         if !FileManager.default.fileExists(atPath: directory.path) {
             try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: nil)

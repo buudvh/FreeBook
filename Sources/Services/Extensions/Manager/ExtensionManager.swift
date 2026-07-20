@@ -77,7 +77,7 @@ public final class ExtensionManager: ObservableObject {
     private init() {}
     
     private var extensionsDirectory: URL {
-        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
         let directory = paths[0].appendingPathComponent("extensions", isDirectory: true)
         if !FileManager.default.fileExists(atPath: directory.path) {
             try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: nil)

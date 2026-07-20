@@ -3,17 +3,32 @@ import SwiftData
 
 @main
 struct FreeBookApp: App {
+    let container: ModelContainer
+    
+    init() {
+        do {
+            let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
+            let dbURL = appSupportURL.appendingPathComponent("library.db")
+            let config = ModelConfiguration(url: dbURL)
+            container = try ModelContainer(
+                for: Repository.self,
+                Extension.self,
+                Book.self,
+                Chapter.self,
+                DownloadTaskModel.self,
+                configurations: config
+            )
+        } catch {
+            fatalError("Không thể khởi tạo ModelContainer: \(error.localizedDescription)")
+        }
+    }
+    
     var body: some Scene {
         WindowGroup {
             AppLaunchRootView()
         }
-        .modelContainer(for: [
-            Repository.self,
-            Extension.self,
-            Book.self,
-            Chapter.self,
-            DownloadTaskModel.self
-        ])
+        .modelContainer(container)
     }
 }
 

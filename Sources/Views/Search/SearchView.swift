@@ -571,7 +571,7 @@ struct SearchView: View {
         guard let oldBook = changeSourceTargetBook else { return }
         
         let oldBookId = oldBook.bookId
-        let newBookId = "\(ext.name.lowercased())_\(result.link)"
+        let newBookId = UUID().uuidString
         let oldChapterIndex = oldBook.currentChapterIndex
         
         do {
@@ -613,8 +613,8 @@ struct SearchView: View {
                 modelContext.insert(newBook)
                 
                 for (index, item) in firstPageChapters.enumerated() {
-                    let chapId = "\(newBookId)_\(item.url)"
-                    let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: index, host: item.host)
+                    let chapId = Chapter.generateId(bookId: newBookId, url: item.url, index: index)
+                    let newChap = Chapter(id: chapId, bookId: newBookId, title: item.name, url: item.url, index: index, host: item.host)
                     newChap.book = newBook
                     modelContext.insert(newChap)
                 }

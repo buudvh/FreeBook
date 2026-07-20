@@ -382,7 +382,12 @@ public final class DownloadManager: ObservableObject {
                 let targetChapterTitle = chapter.title
                 let targetChapterUrl = chapter.url
                 let isChapterCached = chapter.isCached
-                let cachedContent = chapter.content
+                
+                // Đọc nội dung cache từ file .bin nếu đã được lưu offline
+                var cachedContent: String? = nil
+                if isChapterCached && chapter.length > 0 {
+                    cachedContent = try? await BookBinManager.shared.readChapterContent(bookId: bgBook.bookId, offset: chapter.offset, length: chapter.length)
+                }
                 
                 // Check if cancelled
                 let isCancelled = await MainActor.run {
@@ -420,9 +425,12 @@ public final class DownloadManager: ObservableObject {
                     // Ghi DB an toàn bằng cách fetch lại fresh object trên thread hiện tại của Context
                     let allChaps = (try? bgContext.fetch(FetchDescriptor<Chapter>())) ?? []
                     if let freshChapter = allChaps.first(where: { $0.id == targetChapterId }) {
-                        freshChapter.content = cleaned
-                        freshChapter.isCached = true
-                        try? bgContext.save()
+                        if let (offset, length) = try? await BookBinManager.shared.writeChapterContent(bookId: bgBook.bookId, content: cleaned) {
+                            freshChapter.offset = offset
+                            freshChapter.length = length
+                            freshChapter.isCached = true
+                            try? bgContext.save()
+                        }
                     }
                     originalContent = cleaned
                 }

@@ -7,9 +7,9 @@ public final class ImageCacheManager {
     private let fileManager = FileManager.default
     
     private var coversDirectory: URL {
-        let paths = fileManager.urls(for: .documentDirectory, in: .userDomainMask)
-        let documentsDirectory = paths[0]
-        let directoryURL = documentsDirectory.appendingPathComponent("Covers", isDirectory: true)
+        let paths = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        let appSupportDirectory = paths[0]
+        let directoryURL = appSupportDirectory.appendingPathComponent("covers", isDirectory: true)
         
         if !fileManager.fileExists(atPath: directoryURL.path) {
             try? fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true, attributes: nil)

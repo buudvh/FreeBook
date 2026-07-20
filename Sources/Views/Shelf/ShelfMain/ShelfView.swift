@@ -724,7 +724,7 @@ struct ShelfView: View {
                     throw NSError(domain: "ImportError", code: 2, userInfo: [NSLocalizedDescriptionKey: "File văn bản không chứa nội dung hoặc cấu trúc chương hợp lệ."])
                 }
                 
-                let newBookId = "local_\(UUID().uuidString)"
+                let newBookId = UUID().uuidString
                 let totalChapters = parsed.chapters.count
                 
                 // Quay lại Main Thread để chèn dữ liệu trực tiếp bằng modelContext chính, giúp UI đồng bộ lập tức và cập nhật progress bar mượt mà
@@ -753,14 +753,19 @@ struct ShelfView: View {
                     Task {
                         do {
                             for (idx, chapData) in parsed.chapters.enumerated() {
-                                let chapId = "\(newBookId)_chapter_\(idx)"
+                                let url = "local://\(newBookId)/chapter/\(idx)"
+                                let chapId = Chapter.hashUrl(url)
+                                let (offset, length) = try await BookBinManager.shared.writeChapterContent(bookId: newBookId, content: chapData.content)
+                                
                                 let newChap = Chapter(
                                     id: chapId,
+                                    bookId: newBookId,
                                     title: chapData.title,
-                                    url: "local://chapter/\(idx)",
+                                    url: url,
                                     index: idx,
-                                    content: chapData.content,
-                                    isCached: true
+                                    isCached: true,
+                                    offset: offset,
+                                    length: length
                                 )
                                 newChap.book = newBook
                                 self.modelContext.insert(newChap)

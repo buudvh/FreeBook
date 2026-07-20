@@ -79,9 +79,13 @@ struct BookDetailView: View {
     @State private var selectedTaskType: TaskType = .download
     @State private var selectedBookForTask: Book? = nil
     
+    @State private var resolvedBookId: String = ""
+    
     // Tìm sách local trong database
     private var localBook: Book? {
-        allBooks.first(where: { $0.bookId == bookId })
+        allBooks.first(where: {
+            $0.detailUrl == initialDetailUrl && $0.extensionPackageId == extensionPackageId
+        })
     }
     
     // Tìm extension cục bộ để chạy script
@@ -112,19 +116,19 @@ struct BookDetailView: View {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }
-        return TranslateUtils.translateMeta(text, bookId: bookId)
+        return TranslateUtils.translateMeta(text, bookId: resolvedBookId)
     }
     
     private func translateTitleIfNeeded(_ text: String) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }
-        return TranslateUtils.translateChapterTitle(text, bookId: bookId)
+        return TranslateUtils.translateChapterTitle(text, bookId: resolvedBookId)
     }
     
     private func translateChapterTitleIfNeeded(_ chap: Chapter) -> String {
         if isTranslationEnabled && TranslateUtils.containsChinese(chap.title) {
-            return TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
+            return TranslateUtils.translateChapterTitle(chap.title, bookId: resolvedBookId)
         }
         return chap.title
     }
@@ -243,7 +247,7 @@ struct BookDetailView: View {
                                     .frame(maxWidth: .infinity)
                                 } else {
                                     HStack(alignment: .top, spacing: 16) {
-                                        BookCoverView(bookId: bookId, coverUrl: coverUrl, width: 100, height: 140)
+                                        BookCoverView(bookId: resolvedBookId, coverUrl: coverUrl, width: 100, height: 140)
                                             .cornerRadius(8)
                                             .shadow(radius: 2)
                                         
@@ -686,7 +690,7 @@ struct BookDetailView: View {
             .navigationDestination(item: $readerRoute) { route in
                 LazyView {
                     ReaderView(
-                        bookId: bookId,
+                        bookId: resolvedBookId,
                         extensionPackageId: extensionPackageId,
                         chapterIndex: route.chapterIndex,
                         // Keep the online TOC as a bootstrap fallback while
@@ -705,7 +709,7 @@ struct BookDetailView: View {
             }
             
             NavigationLink(
-                destination: BookDictionaryView(bookId: bookId, bookName: title),
+                destination: BookDictionaryView(bookId: resolvedBookId, bookName: title),
                 isActive: $navigateToDictionary
             ) {
                 EmptyView()
@@ -943,7 +947,20 @@ struct BookDetailView: View {
         }
     }
     
+    private func resolveBookId() {
+        if let book = localBook {
+            resolvedBookId = book.bookId
+        } else {
+            if bookId.contains("-") && bookId.count > 30 {
+                resolvedBookId = bookId
+            } else {
+                resolvedBookId = UUID().uuidString
+            }
+        }
+    }
+    
     private func loadBookData() {
+        resolveBookId()
         // Nếu sách đã ở local, gán dữ liệu từ local để hiển thị ngay
         if let book = localBook {
             self.title = book.title
@@ -1090,8 +1107,8 @@ struct BookDetailView: View {
                             self.onlineChapters.append(contentsOf: remainingChaps)
                             let startIdx = book.chapters.count
                             for (index, item) in remainingChaps.enumerated() {
-                                let chapId = "\(bookId)_\(item.url)"
-                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx + index)
+                                let chapId = Chapter.generateId(bookId: resolvedBookId, url: item.url, index: startIdx + index)
+                                let newChap = Chapter(id: chapId, bookId: resolvedBookId, title: item.name, url: item.url, index: startIdx + index)
                                 newChap.book = book
                                 modelContext.insert(newChap)
                             }
@@ -1145,7 +1162,7 @@ struct BookDetailView: View {
     
     private func createBookOnShelf(savedDesc: String) {
         let newBook = Book(
-            bookId: bookId,
+            bookId: resolvedBookId,
             title: title,
             author: author,
             coverUrl: coverUrl,
@@ -1198,8 +1215,8 @@ struct BookDetailView: View {
                     if let book = localBook {
                         let startIdx = book.chapters.count
                         for (index, item) in remainingChaps.enumerated() {
-                            let chapId = "\(bookId)_\(item.url)"
-                            let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx + index)
+                            let chapId = Chapter.generateId(bookId: resolvedBookId, url: item.url, index: startIdx + index)
+                            let newChap = Chapter(id: chapId, bookId: resolvedBookId, title: item.name, url: item.url, index: startIdx + index)
                             newChap.book = book
                             modelContext.insert(newChap)
                         }
@@ -1247,8 +1264,8 @@ struct BookDetailView: View {
                             var startIdx = book.chapters.count
                             for item in remainingChaps {
                                 if !existingUrls.contains(item.url) {
-                                    let chapId = "\(bookId)_\(item.url)"
-                                    let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx)
+                                    let chapId = Chapter.generateId(bookId: resolvedBookId, url: item.url, index: startIdx)
+                                    let newChap = Chapter(id: chapId, bookId: resolvedBookId, title: item.name, url: item.url, index: startIdx)
                                     newChap.book = book
                                     modelContext.insert(newChap)
                                     startIdx += 1
@@ -1292,8 +1309,8 @@ struct BookDetailView: View {
                         if let book = localBook {
                             let startIdx = book.chapters.count
                             for (index, item) in remainingChaps.enumerated() {
-                                let chapId = "\(bookId)_\(item.url)"
-                                let newChap = Chapter(id: chapId, title: item.name, url: item.url, index: startIdx + index)
+                                let chapId = Chapter.generateId(bookId: resolvedBookId, url: item.url, index: startIdx + index)
+                                let newChap = Chapter(id: chapId, bookId: resolvedBookId, title: item.name, url: item.url, index: startIdx + index)
                                 newChap.book = book
                                 modelContext.insert(newChap)
                             }
@@ -1378,12 +1395,14 @@ struct BookDetailView: View {
                 chapter.url = item.url
                 chapter.index = index
                 chapter.host = item.host
-                if chapter.content?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+                if chapter.isCached && chapter.length > 0 {
                     chapter.isCached = true
                 }
             } else {
+                let chapId = Chapter.generateId(bookId: book.bookId, url: item.url, index: index)
                 let newChapter = Chapter(
-                    id: "\(book.bookId)_\(item.url.isEmpty ? "index-\(index)" : item.url)",
+                    id: chapId,
+                    bookId: book.bookId,
                     title: item.name,
                     url: item.url,
                     index: index,
@@ -1436,7 +1455,7 @@ struct BookDetailView: View {
         filteredOnlineChapters = sortedOnline.filter { index, chap in
             chapterSearchQuery.isEmpty ||
             chap.name.localizedCaseInsensitiveContains(chapterSearchQuery) ||
-            TranslateUtils.translateChapterTitle(chap.name, bookId: bookId).localizedCaseInsensitiveContains(chapterSearchQuery)
+            TranslateUtils.translateChapterTitle(chap.name, bookId: resolvedBookId).localizedCaseInsensitiveContains(chapterSearchQuery)
         }
     }
 

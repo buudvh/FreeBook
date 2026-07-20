@@ -4,6 +4,24 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.33] - 2026-07-20
+
+### Tái cấu trúc Hệ thống Lưu trữ: Đọc/Ghi Nhị phân (.bin) + SQLite offset/length + UUID Sách
+* **Database Models**:
+  * **Chapter**: Xóa trường `content: String?` khỏi SQLite để giải phóng dung lượng DB. Thêm thuộc tính `bookId: String`, `offset: Int64` và `length: Int64`. Thêm các helper sinh ID tĩnh băm URL (`hashUrl` và `generateId`).
+* **App Setup**:
+  * **FreeBookApp**: Khởi tạo `ModelContainer` thủ công hướng về `Library/Application Support/library.db` thay vì dùng mặc định.
+* **Component mới**:
+  * **BookBinManager**: Actor thread-safe quản lý việc đọc/ghi dữ liệu UTF-8 vào file `.bin` của sách tại `Application Support/books/`.
+* **Thư mục Lưu trữ**:
+  * Di chuyển toàn bộ các thư mục lưu trữ (`covers/` ở **ImageCacheManager**, `extensions/` ở **ExtensionManager**, `translate/` ở **TranslationManager**, và `app_logs.txt` ở **AppLogger**) sang thư mục ẩn `Library/Application Support/` để tuân thủ Apple App Store Guidelines.
+* **Logic Nghiệp vụ**:
+  * **ChapterPersistenceStore**: Cập nhật hàm `readChapter` và `persistWithRetry` sử dụng `BookBinManager` ghi/đọc nhị phân theo `offset`/`length`. Sử dụng `Chapter.generateId` khi chèn chương mới.
+  * **DownloadManager**: Cập nhật luồng download nền ghi chương tải về vào file `.bin` qua `BookBinManager` và lưu thông tin vị trí byte.
+  * **ShelfView**: Cập nhật nhập sách `.txt` cục bộ sinh `bookId` dạng UUID, tạo URL chương cục bộ độc bản và ghi nội dung vào file `.bin`.
+  * **BookDetailView**: Sử dụng cơ chế `@State resolvedBookId` và hàm `resolveBookId()` tra cứu DB bằng `detailUrl + extensionPackageId` để đảm bảo lưu sách dùng UUID. Cập nhật các đoạn tạo `Chapter` mới truyền đúng `bookId` và dùng `generateId`.
+  * **SearchView**: Cập nhật hàm thay đổi nguồn `executeSourceChange` đổi `newBookId` sang UUID và cập nhật chèn danh sách chương mới.
+
 ## [1.3.32] - 2026-07-20
 
 ### Tối ưu hóa hiệu năng BookDetailView và sửa lỗi token khoảng cách thừa

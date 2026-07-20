@@ -408,8 +408,10 @@ struct ReaderChapterListView: View {
                     let existingURLs = Set(book.chapters.map(\.url))
                     let additions = allChapters.enumerated().filter { !existingURLs.contains($0.element.url) }
                     for (index, item) in additions {
+                        let chapId = Chapter.generateId(bookId: book.bookId, url: item.url, index: index)
                         let chapter = Chapter(
-                            id: "\(bookId)_\(item.url)",
+                            id: chapId,
+                            bookId: book.bookId,
                             title: item.name,
                             url: item.url,
                             index: index,

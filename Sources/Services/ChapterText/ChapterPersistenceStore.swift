@@ -70,7 +70,7 @@ actor ChapterPersistenceStore {
         bookId: String,
         chapterIndex: Int,
         url: String
-    ) throws -> PersistedChapterSnapshot? {
+    ) async throws -> PersistedChapterSnapshot? {
         let context = ModelContext(container)
         let books = try context.fetch(FetchDescriptor<Book>())
         guard let book = books.first(where: { $0.bookId == bookId }) else {
@@ -85,34 +85,32 @@ actor ChapterPersistenceStore {
             return nil
         }
 
-        guard let rawContent = chapter.content else {
-            return nil
-        }
-        let normalizedContent = ChapterTextNormalizer.normalize(rawContent).content
-        guard !normalizedContent.isEmpty else {
+        guard chapter.isCached, chapter.length > 0 else {
             return nil
         }
 
-        if chapter.content != normalizedContent || !chapter.isCached {
-            chapter.content = normalizedContent
-            chapter.isCached = true
-            do {
-                try context.save()
-            } catch {
-                // Nội dung hợp lệ vẫn là cache đọc được; chỉ việc sửa cờ cũ là retry ở lần ghi sau.
-                AppLogger.shared.log(
-                    "⚠️ [ChapterPersistenceStore] Không thể sửa cờ cache (bookId)#(chapterIndex): (error.localizedDescription)"
-                )
+        do {
+            let rawContent = try await BookBinManager.shared.readChapterContent(
+                bookId: bookId,
+                offset: chapter.offset,
+                length: chapter.length
+            )
+            let normalizedContent = ChapterTextNormalizer.normalize(rawContent).content
+            guard !normalizedContent.isEmpty else {
+                return nil
             }
-        }
 
-        return PersistedChapterSnapshot(
-            title: chapter.title,
-            url: chapter.url,
-            index: chapter.index,
-            host: chapter.host,
-            content: normalizedContent
-        )
+            return PersistedChapterSnapshot(
+                title: chapter.title,
+                url: chapter.url,
+                index: chapter.index,
+                host: chapter.host,
+                content: normalizedContent
+            )
+        } catch {
+            AppLogger.shared.log("❌ [ChapterPersistenceStore] Lỗi đọc nội dung chương: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     func ensureBook(_ snapshot: BookMetadataSnapshot) throws {
@@ -164,6 +162,7 @@ actor ChapterPersistenceStore {
             } else {
                 let chapter = Chapter(
                     id: chapterID(bookId: snapshot.bookId, chapter: item),
+                    bookId: snapshot.bookId,
                     title: item.title,
                     url: item.url,
                     index: item.index,
@@ -228,7 +227,7 @@ actor ChapterPersistenceStore {
         for attempt in 0..<3 {
             guard !Task.isCancelled else { return .failed }
             do {
-                try upsert(
+                try await upsert(
                     bookId: bookId,
                     book: book,
                     chapter: chapter,
@@ -253,11 +252,14 @@ actor ChapterPersistenceStore {
         book snapshot: BookMetadataSnapshot?,
         chapter metadata: ChapterMetadataSnapshot,
         content rawContent: String
-    ) throws {
+    ) async throws {
         let content = ChapterTextNormalizer.normalize(rawContent).content
         guard !content.isEmpty else {
             throw ChapterPersistenceError.invalidContent
         }
+
+        // Ghi nội dung vào file nhị phân qua BookBinManager
+        let (offset, length) = try await BookBinManager.shared.writeChapterContent(bookId: bookId, content: content)
 
         let context = ModelContext(container)
         let books = try context.fetch(FetchDescriptor<Book>())
@@ -309,6 +311,7 @@ actor ChapterPersistenceStore {
                 } else {
                     let newChapter = Chapter(
                         id: chapterID(bookId: book.bookId, chapter: item),
+                        bookId: book.bookId,
                         title: item.title,
                         url: item.url,
                         index: item.index,
@@ -329,11 +332,13 @@ actor ChapterPersistenceStore {
         ) else {
             let newChapter = Chapter(
                 id: chapterID(bookId: book.bookId, chapter: metadata),
+                bookId: book.bookId,
                 title: metadata.title,
                 url: metadata.url,
                 index: metadata.index,
-                content: content,
                 isCached: true,
+                offset: offset,
+                length: length,
                 host: metadata.host
             )
             book.chapters.append(newChapter)
@@ -346,7 +351,8 @@ actor ChapterPersistenceStore {
         target.url = metadata.url
         target.index = metadata.index
         target.host = metadata.host
-        target.content = content
+        target.offset = offset
+        target.length = length
         target.isCached = true
         book.isHistory = true
         try context.save()
@@ -378,7 +384,6 @@ actor ChapterPersistenceStore {
         bookId: String,
         chapter: ChapterMetadataSnapshot
     ) -> String {
-        let suffix = chapter.url.isEmpty ? "index-\(chapter.index)" : chapter.url
-        return "\(bookId)_\(suffix)"
+        return Chapter.generateId(bookId: bookId, url: chapter.url, index: chapter.index)
     }
 }
