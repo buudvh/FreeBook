@@ -141,474 +141,18 @@ struct BookDetailView: View {
         ZStack {
             VStack(spacing: 0) {
                 if !detailErrorMessage.isEmpty && title.isEmpty {
-                    VStack(spacing: 16) {
-                        Text("Có lỗi xảy ra")
-                            .font(.headline)
-                        Text(detailErrorMessage)
-                            .font(.subheadline)
-                            .foregroundColor(.red)
-                            .multilineTextAlignment(.center)
-                        Button("Thử lại") {
-                            loadBookDetailOnly()
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    .padding()
-                    .frame(maxHeight: .infinity)
+                    errorView
                 } else {
-                    // Custom Tab Bar cố định ở đầu trang
-                    HStack(spacing: 0) {
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                selectedTab = 0
-                            }
-                        }) {
-                            VStack(spacing: 8) {
-                                Text("Chi tiết")
-                                    .font(.subheadline)
-                                    .fontWeight(selectedTab == 0 ? .bold : .medium)
-                                    .foregroundColor(selectedTab == 0 ? .accentColor : .secondary)
-                                
-                                Rectangle()
-                                    .fill(selectedTab == 0 ? Color.accentColor : Color.clear)
-                                    .frame(height: 3)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                selectedTab = 1
-                            }
-                        }) {
-                            VStack(spacing: 8) {
-                                Text("Mục lục")
-                                    .font(.subheadline)
-                                    .fontWeight(selectedTab == 1 ? .bold : .medium)
-                                    .foregroundColor(selectedTab == 1 ? .accentColor : .secondary)
-                                
-                                Rectangle()
-                                    .fill(selectedTab == 1 ? Color.accentColor : Color.clear)
-                                    .frame(height: 3)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .background(Color(.systemBackground))
-                    .padding(.top, 4)
+                    customTabBar
                     
                     Divider()
                     
                     TabView(selection: $selectedTab) {
-                        // TAB CHI TIẾT
-                        ScrollView {
-                            if renderedTab == 0 {
-                            VStack(alignment: .leading, spacing: 16) {
-                                if isLoadingDetail && title.isEmpty {
-                                    // SƯỜN DETAIL LOADING (SKELETON PLACEHOLDER)
-                                    VStack(alignment: .leading, spacing: 16) {
-                                        HStack(alignment: .top, spacing: 16) {
-                                            SkeletonView(width: 100, height: 140)
-                                            
-                                            VStack(alignment: .leading, spacing: 10) {
-                                                SkeletonView(width: 180, height: 22)
-                                                SkeletonView(width: 120, height: 16)
-                                                SkeletonView(width: 80, height: 16)
-                                                
-                                                Spacer()
-                                            }
-                                        }
-                                        
-                                        Divider()
-                                        
-                                        VStack(alignment: .leading, spacing: 8) {
-                                            SkeletonView(width: 80, height: 18)
-                                            SkeletonView(width: nil, height: 14)
-                                            SkeletonView(width: nil, height: 14)
-                                            SkeletonView(width: 200, height: 14)
-                                        }
-                                    }
-                                    .padding(.horizontal)
-                                } else if isLoadingDetail {
-                                    HStack {
-                                        Spacer()
-                                        ProgressView("Đang tải chi tiết truyện...")
-                                            .padding(.vertical, 30)
-                                        Spacer()
-                                    }
-                                } else if !detailErrorMessage.isEmpty {
-                                    VStack(spacing: 12) {
-                                        Text(detailErrorMessage)
-                                            .foregroundColor(.red)
-                                            .font(.caption)
-                                            .multilineTextAlignment(.center)
-                                        Button("Thử lại chi tiết") {
-                                            loadBookDetailOnly()
-                                        }
-                                        .buttonStyle(.bordered)
-                                    }
-                                    .padding(.vertical, 20)
-                                    .frame(maxWidth: .infinity)
-                                } else {
-                                    HStack(alignment: .top, spacing: 16) {
-                                         BookCoverView(bookId: actualBookId, coverUrl: coverUrl, width: 100, height: 140)
-                                            .cornerRadius(8)
-                                            .shadow(radius: 2)
-                                        
-                                        VStack(alignment: .leading, spacing: 8) {
-                                            Text(translateMetaIfNeeded(title))
-                                                .font(.title3)
-                                                .fontWeight(.bold)
-                                                .lineLimit(3)
-                                            
-                                            Text("Tác giả: \(TranslateUtils.translateAuthorHanViet(author))")
-                                                .font(.subheadline)
-                                                .foregroundColor(.secondary)
-                                            
-                                            // Hiển thị nguồn cải tiến (icon + tên nguồn, bỏ chữ "Nguồn:")
-                                            HStack(spacing: 6) {
-                                                if let ext = ext {
-                                                    ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 16)
-                                                } else {
-                                                    Image(systemName: "puzzlepiece.extension")
-                                                        .resizable()
-                                                        .frame(width: 16, height: 16)
-                                                        .foregroundColor(.secondary)
-                                                }
-                                                Text(sourceName)
-                                                    .font(.caption)
-                                                    .fontWeight(.medium)
-                                                    .foregroundColor(.secondary)
-                                            }
-                                            
-                                            if !detail.isEmpty {
-                                                Text(translateMetaIfNeeded(cleanedDetailText))
-                                                    .font(.caption2)
-                                                    .foregroundColor(.secondary)
-                                                    .lineLimit(4)
-                                            }
-                                            
-                                            // Genres chip list
-                                            if !genres.isEmpty {
-                                                ScrollView(.horizontal, showsIndicators: false) {
-                                                    HStack(spacing: 8) {
-                                                        ForEach(genres) { genre in
-                                                            NavigationLink(destination: CategoryNovelsListView(
-                                                                category: genre,
-                                                                extensionPackageId: extensionPackageId,
-                                                                localPath: ext?.localPath ?? "",
-                                                                downloadUrl: ext?.downloadUrl ?? "",
-                                                                configJson: ext?.configJson ?? "{}",
-                                                                sourceName: sourceName
-                                                            )) {
-                                                                Text(TranslateUtils.translateMeta(genre.title))
-                                                                    .font(.caption2)
-                                                                    .padding(.horizontal, 8)
-                                                                    .padding(.vertical, 4)
-                                                                    .background(Color.blue.opacity(0.1))
-                                                                    .foregroundColor(.blue)
-                                                                    .cornerRadius(8)
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    .padding(.horizontal)
-                                    
-                                    Divider()
-                                    
-                                    // Phần mô tả giới thiệu
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Text("Giới thiệu")
-                                            .font(.headline)
-                                        Text(translateMetaIfNeeded(desc))
-                                            .font(.body)
-                                            .foregroundColor(.secondary)
-                                            .lineLimit(isDescExpanded ? nil : 4)
-                                        
-                                        if desc.count > 150 {
-                                            Button(action: {
-                                                withAnimation(.easeInOut(duration: 0.2)) {
-                                                    isDescExpanded.toggle()
-                                                }
-                                            }) {
-                                                HStack(spacing: 4) {
-                                                    Text(isDescExpanded ? "Thu gọn" : "Xem thêm")
-                                                        .font(.subheadline)
-                                                        .fontWeight(.medium)
-                                                    Image(systemName: isDescExpanded ? "chevron.up" : "chevron.down")
-                                                        .font(.caption)
-                                                }
-                                                .foregroundColor(.accentColor)
-                                            }
-                                            .padding(.top, 2)
-                                        }
-                                    }
-                                    .padding(.horizontal)
-                                }
-                                
-                                // 2. PHẦN TRUYỆN GỢI Ý (SUGGESTS)
-                                if isLoadingDetail && title.isEmpty {
-                                    Divider()
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        SkeletonView(width: 120, height: 18)
-                                        HStack(spacing: 14) {
-                                            ForEach(0..<4) { _ in
-                                                VStack(alignment: .leading, spacing: 6) {
-                                                    SkeletonView(width: 80, height: 110)
-                                                    SkeletonView(width: 80, height: 12)
-                                                }
-                                            }
-                                        }
-                                    }
-                                    .padding(.horizontal)
-                                } else if !suggests.isEmpty {
-                                    Divider()
-                                    ForEach(suggests) { suggest in
-                                        VStack(alignment: .leading, spacing: 8) {
-                                            HStack {
-                                                Text(TranslateUtils.translateMeta(suggest.title))
-                                                    .font(.headline)
-                                                Spacer()
-                                                NavigationLink(destination: CategoryNovelsListView(
-                                                    category: suggest,
-                                                    extensionPackageId: extensionPackageId,
-                                                    localPath: ext?.localPath ?? "",
-                                                    downloadUrl: ext?.downloadUrl ?? "",
-                                                    configJson: ext?.configJson ?? "{}",
-                                                    sourceName: sourceName
-                                                )) {
-                                                    HStack(spacing: 4) {
-                                                        Text("Xem thêm")
-                                                        Image(systemName: "chevron.right")
-                                                    }
-                                                    .font(.subheadline)
-                                                    .foregroundColor(.accentColor)
-                                                }
-                                            }
-                                            .padding(.horizontal)
-                                            
-                                            SuggestRowView(
-                                                category: suggest,
-                                                localPath: ext?.localPath ?? "",
-                                                downloadUrl: ext?.downloadUrl ?? "",
-                                                configJson: ext?.configJson ?? "{}",
-                                                extensionPackageId: extensionPackageId,
-                                                sourceName: sourceName
-                                            )
-                                        }
-                                    }
-                                }
-                                
-                                // 3. PHẦN BÌNH LUẬN (COMMENTS)
-                                if isLoadingDetail && title.isEmpty {
-                                    Divider()
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        SkeletonView(width: 100, height: 18)
-                                        VStack(alignment: .leading, spacing: 12) {
-                                            ForEach(0..<3) { _ in
-                                                VStack(alignment: .leading, spacing: 6) {
-                                                    HStack(spacing: 8) {
-                                                        SkeletonView(width: 20, height: 20)
-                                                        SkeletonView(width: 100, height: 14)
-                                                    }
-                                                    SkeletonView(width: nil, height: 12)
-                                                        .padding(.leading, 28)
-                                                }
-                                            }
-                                        }
-                                    }
-                                    .padding(.horizontal)
-                                } else if !comments.isEmpty {
-                                    Divider()
-                                    ForEach(comments) { comment in
-                                        VStack(alignment: .leading, spacing: 8) {
-                                            Text(TranslateUtils.translateMeta(comment.title))
-                                                .font(.headline)
-                                                .padding(.horizontal)
-                                            
-                                            CommentSectionView(
-                                                category: comment,
-                                                localPath: ext?.localPath ?? "",
-                                                downloadUrl: ext?.downloadUrl ?? "",
-                                                configJson: ext?.configJson ?? "{}",
-                                                extensionPackageId: extensionPackageId,
-                                                sourceName: sourceName
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            .padding(.vertical)
-                            } else {
-                                Spacer()
-                            }
-                        }
-                        .refreshable {
-                            await reloadBookData()
-                        }
-                        .tag(0)
+                        detailTab
+                            .tag(0)
                         
-                        // TAB MỤC LỤC
-                        VStack(spacing: 0) {
-                            if renderedTab == 1 {
-                            let totalChaps = localBook?.chapters.count ?? onlineChapters.count
-                            
-                            if totalChaps > 0 {
-                                HStack {
-                                    Image(systemName: "magnifyingglass")
-                                        .foregroundColor(.secondary)
-                                    TextField("Tìm kiếm chương...", text: $chapterSearchQuery)
-                                        .textFieldStyle(.roundedBorder)
-                                        .autocorrectionDisabled()
-                                        .textInputAutocapitalization(.none)
-                                    if !chapterSearchQuery.isEmpty {
-                                        Button(action: { chapterSearchQuery = "" }) {
-                                            Image(systemName: "xmark.circle.fill")
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
-                                }
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
-                                .background(Color(.systemBackground))
-                            }
-                            
-                            ScrollView {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    HStack {
-                                        Text("Danh sách chương (\(totalChaps))")
-                                            .font(.headline)
-                                        
-                                        Button(action: {
-                                            withAnimation(.easeInOut(duration: 0.2)) {
-                                                isTocAscending.toggle()
-                                            }
-                                        }) {
-                                            Image(systemName: isTocAscending ? "arrow.down.circle" : "arrow.up.circle")
-                                                .font(.subheadline)
-                                                .foregroundColor(.accentColor)
-                                        }
-                                        .padding(.leading, 4)
-                                        
-                                        Spacer()
-                                        if totalChaps > 0 && !tocErrorMessage.isEmpty {
-                                            Button(action: loadTOCDataOnly) {
-                                                HStack(spacing: 4) {
-                                                    Image(systemName: "exclamationmark.circle.fill")
-                                                    Text("Tải lại lỗi")
-                                                }
-                                                .font(.caption)
-                                                .foregroundColor(.red)
-                                            }
-                                        }
-                                    }
-                                    .padding(.horizontal)
-                                    .padding(.top, 4)
-                                    
-                                    if isLoadingTOC && totalChaps == 0 {
-                                        HStack {
-                                            Spacer()
-                                            ProgressView("Đang tải danh sách chương...")
-                                                .padding(.vertical, 30)
-                                            Spacer()
-                                        }
-                                    } else if totalChaps == 0 {
-                                        if !tocErrorMessage.isEmpty {
-                                            VStack(spacing: 12) {
-                                                Text(tocErrorMessage)
-                                                    .foregroundColor(.red)
-                                                    .font(.subheadline)
-                                                    .multilineTextAlignment(.center)
-                                                    .padding(.horizontal)
-                                                Button("Tải lại mục lục") {
-                                                    loadTOCDataOnly()
-                                                }
-                                                .buttonStyle(.bordered)
-                                            }
-                                            .padding(.vertical, 20)
-                                            .frame(maxWidth: .infinity)
-                                        } else {
-                                            Text("Không tìm thấy chương nào hoặc lỗi tải chương")
-                                                .foregroundColor(.gray)
-                                                .padding()
-                                        }
-                                    } else {
-                                        LazyVStack(alignment: .leading, spacing: 0) {
-                                            if let book = localBook {
-                                                ForEach(filteredLocalChapters) { chap in
-                                                    Button(action: {
-                                                        startReading(at: chap.index)
-                                                    }) {
-                                                        HStack {
-                                                            Text(translateChapterTitleIfNeeded(chap))
-                                                                .foregroundColor(book.currentChapterIndex == chap.index ? .accentColor : .primary)
-                                                                .font(.subheadline)
-                                                                .lineLimit(1)
-                                                            Spacer()
-                                                            if chap.isCached {
-                                                                Image(systemName: "arrow.down.circle.fill")
-                                                                    .font(.caption)
-                                                                    .foregroundColor(.green)
-                                                            }
-                                                        }
-                                                        .padding(.vertical, 12)
-                                                        .padding(.horizontal)
-                                                        Divider()
-                                                    }
-                                                    .buttonStyle(.plain)
-                                                }
-                                            } else {
-                                                ForEach(filteredOnlineChapters, id: \.offset) { index, chap in
-                                                    Button(action: {
-                                                        startReading(at: index)
-                                                    }) {
-                                                        VStack(alignment: .leading) {
-                                                            Text(translateTitleIfNeeded(chap.name))
-                                                                .font(.subheadline)
-                                                                .foregroundColor(.primary)
-                                                                .lineLimit(1)
-                                                                .padding(.vertical, 12)
-                                                                .padding(.horizontal)
-                                                            Divider()
-                                                        }
-                                                    }
-                                                    .buttonStyle(.plain)
-                                                }
-                                            }
-                                            
-                                            // Nút tải thêm chương phân trang
-                                            if tocPages.count > 1 && !remainingPagesLoaded {
-                                                Button(action: loadMoreChapters) {
-                                                    HStack {
-                                                        Spacer()
-                                                        Text("Tải thêm chương (còn \(tocPages.count - 1) trang)")
-                                                            .fontWeight(.semibold)
-                                                        Spacer()
-                                                    }
-                                                    .padding()
-                                                    .background(Color.blue.opacity(0.1))
-                                                    .foregroundColor(.blue)
-                                                    .cornerRadius(8)
-                                                    .padding(.horizontal)
-                                                    .padding(.top, 10)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                .padding(.vertical)
-                            }
-                            } else {
-                                Spacer()
-                            }
-                        }
-                        .refreshable {
-                            await reloadBookData()
-                        }
-                        .tag(1)
+                        tocTab
+                            .tag(1)
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
                     .onChange(of: selectedTab) { oldVal, newVal in
@@ -622,45 +166,7 @@ struct BookDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button(action: {
-                            isTranslationEnabled.toggle()
-                        }) {
-                            Label(
-                                isTranslationEnabled ? "Tắt dịch" : "Bật dịch",
-                                systemImage: isTranslationEnabled ? "character.bubble.fill" : "character.bubble"
-                            )
-                        }
-                        
-                        if localBook != nil {
-                            Button(action: {
-                                navigateToDictionary = true
-                            }) {
-                                Label("Từ điển", systemImage: "character.book.closed")
-                            }
-                        }
-                        
-                        Button(action: {
-                            navigateToChangeSource = true
-                        }) {
-                            Label("Thay đổi nguồn", systemImage: "arrow.2.squarepath")
-                        }
-                        
-                        Button(action: {
-                            showingBypassBrowser = true
-                        }) {
-                            Label("Mở bằng trình duyệt", systemImage: "safari")
-                        }
-                        
-                        Button(action: {
-                            // Chưa làm chức năng
-                        }) {
-                            Label("Chia sẻ", systemImage: "square.and.arrow.up")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .rotationEffect(.degrees(90))
-                    }
+                    ellipsisMenu
                 }
             }
             .onAppear {
@@ -697,9 +203,6 @@ struct BookDetailView: View {
                         bookId: actualBookId,
                         extensionPackageId: extensionPackageId,
                         chapterIndex: route.chapterIndex,
-                        // Keep the online TOC as a bootstrap fallback while
-                        // SwiftData @Query catches up. Reader still prefers
-                        // its direct local Book snapshot when one exists.
                         onlineChapters: onlineChapters,
                         bookTitle: title,
                         bookAuthor: author,
@@ -749,206 +252,720 @@ struct BookDetailView: View {
                 EmptyView()
             }
             
-            // Loading remaining pages overlay
             if isLoadingRemainingPages {
-                Color.black.opacity(0.4)
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 16) {
-                    ProgressView()
-                        .tint(.white)
-                        .scaleEffect(1.3)
-                    Text("Đang tải danh sách chương...")
-                        .foregroundColor(.white)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    
-                    // Nút Back/Quay lại hủy tác vụ đang chạy bất đồng bộ
-                    Button(action: {
-                        loadingTask?.cancel()
-                        loadingTask = nil
-                        isLoadingRemainingPages = false
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "chevron.left")
-                                .font(.caption)
-                            Text("Quay lại")
-                                .font(.caption)
-                                .fontWeight(.bold)
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.white.opacity(0.2))
-                        .cornerRadius(20)
-                    }
-                    .padding(.top, 4)
-                }
-                .padding(24)
-                .background(Color.black.opacity(0.75))
-                .cornerRadius(12)
+                loadingOverlay
             }
             
-            // 5. NÚT HÀNH ĐỘNG NỔI (FAB) DROPDOWN NGƯỢC LÊN (chỉ hiển thị khi đã tải xong chương và totalChaps > 0)
-            let totalChaps = localBook?.chapters.count ?? onlineChapters.count
-            if totalChaps > 0 {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        VStack(spacing: 12) {
-                            if isMenuExpanded {
-                                // Nút 1: Đọc tiếp / Đọc ngay
-                                let activeChapterIndex = localBook?.currentChapterIndex ?? 0
-                                Button(action: {
-                                    isMenuExpanded = false
-                                    startReading(at: activeChapterIndex)
-                                }) {
-                                    HStack {
-                                        Text(localBook == nil ? "Đọc ngay" : "Đọc tiếp")
-                                            .font(.caption)
-                                            .fontWeight(.bold)
-                                        Image(systemName: localBook == nil ? "play.fill" : "book.fill")
-                                            .resizable()
-                                            .frame(width: 16, height: 16)
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(Color.blue)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(20)
-                                    .shadow(radius: 3)
-                                }
-                                .transition(.scale.combined(with: .opacity))
-                                
-                                // Nút 2: Thêm kệ / Xóa kệ
-                                Button(action: {
-                                    isMenuExpanded = false
-                                    if let book = localBook, book.isOnShelf {
-                                        removeFromShelf(book)
-                                    } else {
-                                        addToShelf()
-                                    }
-                                }) {
-                                    HStack {
-                                        Text(localBook?.isOnShelf == true ? "Đã ở kệ" : "Thêm vào kệ")
-                                            .font(.caption)
-                                            .fontWeight(.bold)
-                                        Image(systemName: localBook?.isOnShelf == true ? "checkmark.circle.fill" : "plus.circle.fill")
-                                            .resizable()
-                                            .frame(width: 16, height: 16)
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(localBook?.isOnShelf == true ? Color.green : Color.accentColor)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(20)
-                                    .shadow(radius: 3)
-                                }
-                                .transition(.scale.combined(with: .opacity))
-                                
-                                // Nút 3: Tải truyện
-                                Button(action: {
-                                    isMenuExpanded = false
-                                    prepareForTask(taskType: .download)
-                                }) {
-                                    HStack {
-                                        Text("Tải truyện")
-                                            .font(.caption)
-                                            .fontWeight(.bold)
-                                        Image(systemName: "arrow.down.circle.fill")
-                                            .resizable()
-                                            .frame(width: 16, height: 16)
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(Color.green)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(20)
-                                    .shadow(radius: 3)
-                                }
-                                .transition(.scale.combined(with: .opacity))
-                                
-                                // Nút 4: Xuất TXT
-                                Button(action: {
-                                    isMenuExpanded = false
-                                    prepareForTask(taskType: .exportTxt)
-                                }) {
-                                    HStack {
-                                        Text("Xuất TXT")
-                                            .font(.caption)
-                                            .fontWeight(.bold)
-                                        Image(systemName: "square.and.arrow.up.fill")
-                                            .resizable()
-                                            .frame(width: 16, height: 16)
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(Color.orange)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(20)
-                                    .shadow(radius: 3)
-                                }
-                                .transition(.scale.combined(with: .opacity))
-                            }
-                            
-                            // Nút tròn chính (Toggle)
-                            Button(action: {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                                    isMenuExpanded.toggle()
-                                }
-                            }) {
-                                Image(systemName: "plus")
-                                    .resizable()
-                                    .frame(width: 20, height: 20)
-                                    .foregroundColor(.white)
-                                    .padding(16)
-                                    .background(Color.accentColor)
-                                    .clipShape(Circle())
-                                    .shadow(radius: 5)
-                                    .rotationEffect(.degrees(isMenuExpanded ? 135 : 0))
-                            }
-                        }
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 20)
-                    }
-                }
-            }
+            floatingActionButton
         }
         .toolbar(.hidden, for: .tabBar)
         .sheet(item: $selectedBookForTask) { book in
             TaskOptionsSheet(book: book, taskType: selectedTaskType)
         }
         .fullScreenCover(isPresented: $showingBypassBrowser) {
-            BypassWebView(
-                urlString: initialDetailUrl,
-                host: resolvedHost,
-                onImport: { detailUrl, packageId, sourceName in
-                    let checkUrl = JSExecutor.cleanAndResolveUrl(detailUrl, host: ext?.sourceUrl)
-                    let currentResolved = JSExecutor.cleanAndResolveUrl(initialDetailUrl, host: ext?.sourceUrl)
+            bypassBrowserContent
+        }
+    }
+    
+    @ViewBuilder
+    private var errorView: some View {
+        VStack(spacing: 16) {
+            Text("Có lỗi xảy ra")
+                .font(.headline)
+            Text(detailErrorMessage)
+                .font(.subheadline)
+                .foregroundColor(.red)
+                .multilineTextAlignment(.center)
+            Button("Thử lại") {
+                loadBookDetailOnly()
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding()
+        .frame(maxHeight: .infinity)
+    }
+    
+    @ViewBuilder
+    private var customTabBar: some View {
+        HStack(spacing: 0) {
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    selectedTab = 0
+                }
+            }) {
+                VStack(spacing: 8) {
+                    Text("Chi tiết")
+                        .font(.subheadline)
+                        .fontWeight(selectedTab == 0 ? .bold : .medium)
+                        .foregroundColor(selectedTab == 0 ? .accentColor : .secondary)
                     
-                    if checkUrl == currentResolved {
-                        loadBookData()
-                    } else {
-                        importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
-                        importedExtensionPackageId = packageId
-                        importedDetailUrl = detailUrl
-                        importedSourceName = sourceName
-                        
-                        if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
-                            importedHost = "\(scheme)://\(host)"
-                        } else {
-                            importedHost = ""
+                    Rectangle()
+                        .fill(selectedTab == 0 ? Color.accentColor : Color.clear)
+                        .frame(height: 3)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    selectedTab = 1
+                }
+            }) {
+                VStack(spacing: 8) {
+                    Text("Mục lục")
+                        .font(.subheadline)
+                        .fontWeight(selectedTab == 1 ? .bold : .medium)
+                        .foregroundColor(selectedTab == 1 ? .accentColor : .secondary)
+                    
+                    Rectangle()
+                        .fill(selectedTab == 1 ? Color.accentColor : Color.clear)
+                        .frame(height: 3)
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .background(Color(.systemBackground))
+        .padding(.top, 4)
+    }
+    
+    @ViewBuilder
+    private var detailTab: some View {
+        ScrollView {
+            if renderedTab == 0 {
+                VStack(alignment: .leading, spacing: 16) {
+                    if isLoadingDetail && title.isEmpty {
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack(alignment: .top, spacing: 16) {
+                                SkeletonView(width: 100, height: 140)
+                                
+                                VStack(alignment: .leading, spacing: 10) {
+                                    SkeletonView(width: 180, height: 22)
+                                    SkeletonView(width: 120, height: 16)
+                                    SkeletonView(width: 80, height: 16)
+                                    Spacer()
+                                }
+                            }
+                            Divider()
+                            VStack(alignment: .leading, spacing: 8) {
+                                SkeletonView(width: 80, height: 18)
+                                SkeletonView(width: nil, height: 14)
+                                SkeletonView(width: nil, height: 14)
+                                SkeletonView(width: 200, height: 14)
+                            }
                         }
+                        .padding(.horizontal)
+                    } else if isLoadingDetail {
+                        HStack {
+                            Spacer()
+                            ProgressView("Đang tải chi tiết truyện...")
+                                .padding(.vertical, 30)
+                            Spacer()
+                        }
+                    } else if !detailErrorMessage.isEmpty {
+                        VStack(spacing: 12) {
+                            Text(detailErrorMessage)
+                                .foregroundColor(.red)
+                                .font(.caption)
+                                .multilineTextAlignment(.center)
+                            Button("Thử lại chi tiết") {
+                                loadBookDetailOnly()
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .padding(.vertical, 20)
+                        .frame(maxWidth: .infinity)
+                    } else {
+                        HStack(alignment: .top, spacing: 16) {
+                            BookCoverView(bookId: actualBookId, coverUrl: coverUrl, width: 100, height: 140)
+                                .cornerRadius(8)
+                                .shadow(radius: 2)
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(translateMetaIfNeeded(title))
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                    .lineLimit(3)
+                                
+                                Text("Tác giả: \(TranslateUtils.translateAuthorHanViet(author))")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                
+                                HStack(spacing: 6) {
+                                    if let ext = ext {
+                                        ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 16)
+                                    } else {
+                                        Image(systemName: "puzzlepiece.extension")
+                                            .resizable()
+                                            .frame(width: 16, height: 16)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Text(sourceName)
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                if !detail.isEmpty {
+                                    Text(translateMetaIfNeeded(cleanedDetailText))
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(4)
+                                }
+                                
+                                if !genres.isEmpty {
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 8) {
+                                            ForEach(genres) { genre in
+                                                NavigationLink(destination: CategoryNovelsListView(
+                                                    category: genre,
+                                                    extensionPackageId: extensionPackageId,
+                                                    localPath: ext?.localPath ?? "",
+                                                    downloadUrl: ext?.downloadUrl ?? "",
+                                                    configJson: ext?.configJson ?? "{}",
+                                                    sourceName: sourceName
+                                                )) {
+                                                    Text(TranslateUtils.translateMeta(genre.title))
+                                                        .font(.caption2)
+                                                        .padding(.horizontal, 8)
+                                                        .padding(.vertical, 4)
+                                                        .background(Color.blue.opacity(0.1))
+                                                        .foregroundColor(.blue)
+                                                        .cornerRadius(8)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
                         
-                        // Trì hoãn push để tránh xung đột với dismiss animation của fullScreenCover
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                            navigateToImportedBook = true
+                        Divider()
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Giới thiệu")
+                                .font(.headline)
+                            Text(translateMetaIfNeeded(desc))
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                                .lineLimit(isDescExpanded ? nil : 4)
+                            
+                            if desc.count > 150 {
+                                Button(action: {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        isDescExpanded.toggle()
+                                    }
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Text(isDescExpanded ? "Thu gọn" : "Xem thêm")
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                        Image(systemName: isDescExpanded ? "chevron.up" : "chevron.down")
+                                            .font(.caption)
+                                    }
+                                    .foregroundColor(.accentColor)
+                                }
+                                .padding(.top, 2)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                    
+                    if isLoadingDetail && title.isEmpty {
+                        Divider()
+                        VStack(alignment: .leading, spacing: 8) {
+                            SkeletonView(width: 120, height: 18)
+                            HStack(spacing: 14) {
+                                ForEach(0..<4) { _ in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        SkeletonView(width: 80, height: 110)
+                                        SkeletonView(width: 80, height: 12)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    } else if !suggests.isEmpty {
+                        Divider()
+                        ForEach(suggests) { suggest in
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text(TranslateUtils.translateMeta(suggest.title))
+                                        .font(.headline)
+                                    Spacer()
+                                    NavigationLink(destination: CategoryNovelsListView(
+                                        category: suggest,
+                                        extensionPackageId: extensionPackageId,
+                                        localPath: ext?.localPath ?? "",
+                                        downloadUrl: ext?.downloadUrl ?? "",
+                                        configJson: ext?.configJson ?? "{}",
+                                        sourceName: sourceName
+                                    )) {
+                                        HStack(spacing: 4) {
+                                            Text("Xem thêm")
+                                            Image(systemName: "chevron.right")
+                                        }
+                                        .font(.subheadline)
+                                        .foregroundColor(.accentColor)
+                                    }
+                                }
+                                .padding(.horizontal)
+                                
+                                SuggestRowView(
+                                    category: suggest,
+                                    localPath: ext?.localPath ?? "",
+                                    downloadUrl: ext?.downloadUrl ?? "",
+                                    configJson: ext?.configJson ?? "{}",
+                                    extensionPackageId: extensionPackageId,
+                                    sourceName: sourceName
+                                )
+                            }
+                        }
+                    }
+                    
+                    if isLoadingDetail && title.isEmpty {
+                        Divider()
+                        VStack(alignment: .leading, spacing: 8) {
+                            SkeletonView(width: 100, height: 18)
+                            VStack(alignment: .leading, spacing: 12) {
+                                ForEach(0..<3) { _ in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        HStack(spacing: 8) {
+                                            SkeletonView(width: 20, height: 20)
+                                            SkeletonView(width: 100, height: 14)
+                                        }
+                                        SkeletonView(width: nil, height: 12)
+                                            .padding(.leading, 28)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    } else if !comments.isEmpty {
+                        Divider()
+                        ForEach(comments) { comment in
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(TranslateUtils.translateMeta(comment.title))
+                                    .font(.headline)
+                                    .padding(.horizontal)
+                                
+                                CommentSectionView(
+                                    category: comment,
+                                    localPath: ext?.localPath ?? "",
+                                    downloadUrl: ext?.downloadUrl ?? "",
+                                    configJson: ext?.configJson ?? "{}",
+                                    extensionPackageId: extensionPackageId,
+                                    sourceName: sourceName
+                                )
+                            }
                         }
                     }
                 }
-            )
+                .padding(.vertical)
+            } else {
+                Spacer()
+            }
         }
+        .refreshable {
+            await reloadBookData()
+        }
+    }
+    
+    @ViewBuilder
+    private var tocTab: some View {
+        VStack(spacing: 0) {
+            if renderedTab == 1 {
+                let totalChaps = localBook?.chapters.count ?? onlineChapters.count
+                
+                if totalChaps > 0 {
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.secondary)
+                        TextField("Tìm kiếm chương...", text: $chapterSearchQuery)
+                            .textFieldStyle(.roundedBorder)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.none)
+                        if !chapterSearchQuery.isEmpty {
+                            Button(action: { chapterSearchQuery = "" }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(Color(.systemBackground))
+                }
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Danh sách chương (\(totalChaps))")
+                                .font(.headline)
+                            
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    isTocAscending.toggle()
+                                }
+                            }) {
+                                Image(systemName: isTocAscending ? "arrow.down.circle" : "arrow.up.circle")
+                                    .font(.subheadline)
+                                    .foregroundColor(.accentColor)
+                            }
+                            .padding(.leading, 4)
+                            
+                            Spacer()
+                            if totalChaps > 0 && !tocErrorMessage.isEmpty {
+                                Button(action: loadTOCDataOnly) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "exclamationmark.circle.fill")
+                                        Text("Tải lại lỗi")
+                                    }
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 4)
+                        
+                        if isLoadingTOC && totalChaps == 0 {
+                            HStack {
+                                Spacer()
+                                ProgressView("Đang tải danh sách chương...")
+                                    .padding(.vertical, 30)
+                                Spacer()
+                            }
+                        } else if totalChaps == 0 {
+                            if !tocErrorMessage.isEmpty {
+                                VStack(spacing: 12) {
+                                    Text(tocErrorMessage)
+                                        .foregroundColor(.red)
+                                        .font(.subheadline)
+                                        .multilineTextAlignment(.center)
+                                        .padding(.horizontal)
+                                    Button("Tải lại mục lục") {
+                                        loadTOCDataOnly()
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                                .padding(.vertical, 20)
+                                .frame(maxWidth: .infinity)
+                            } else {
+                                Text("Không tìm thấy chương nào hoặc lỗi tải chương")
+                                    .foregroundColor(.gray)
+                                    .padding()
+                            }
+                        } else {
+                            LazyVStack(alignment: .leading, spacing: 0) {
+                                if let book = localBook {
+                                    ForEach(filteredLocalChapters) { chap in
+                                        Button(action: {
+                                            startReading(at: chap.index)
+                                        }) {
+                                            HStack {
+                                                Text(translateChapterTitleIfNeeded(chap))
+                                                    .foregroundColor(book.currentChapterIndex == chap.index ? .accentColor : .primary)
+                                                    .font(.subheadline)
+                                                    .lineLimit(1)
+                                                Spacer()
+                                                if chap.isCached {
+                                                    Image(systemName: "arrow.down.circle.fill")
+                                                        .font(.caption)
+                                                        .foregroundColor(.green)
+                                                }
+                                            }
+                                            .padding(.vertical, 12)
+                                            .padding(.horizontal)
+                                            Divider()
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                } else {
+                                    ForEach(filteredOnlineChapters, id: \.offset) { index, chap in
+                                        Button(action: {
+                                            startReading(at: index)
+                                        }) {
+                                            VStack(alignment: .leading) {
+                                                Text(translateTitleIfNeeded(chap.name))
+                                                    .font(.subheadline)
+                                                    .foregroundColor(.primary)
+                                                    .lineLimit(1)
+                                                    .padding(.vertical, 12)
+                                                    .padding(.horizontal)
+                                                Divider()
+                                            }
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                
+                                if tocPages.count > 1 && !remainingPagesLoaded {
+                                    Button(action: loadMoreChapters) {
+                                        HStack {
+                                            Spacer()
+                                            Text("Tải thêm chương (còn \(tocPages.count - 1) trang)")
+                                                .fontWeight(.semibold)
+                                            Spacer()
+                                        }
+                                        .padding()
+                                        .background(Color.blue.opacity(0.1))
+                                        .foregroundColor(.blue)
+                                        .cornerRadius(8)
+                                        .padding(.horizontal)
+                                        .padding(.top, 10)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.vertical)
+                }
+            } else {
+                Spacer()
+            }
+        }
+        .refreshable {
+            await reloadBookData()
+        }
+    }
+    
+    @ViewBuilder
+    private var ellipsisMenu: some View {
+        Menu {
+            Button(action: {
+                isTranslationEnabled.toggle()
+            }) {
+                Label(
+                    isTranslationEnabled ? "Tắt dịch" : "Bật dịch",
+                    systemImage: isTranslationEnabled ? "character.bubble.fill" : "character.bubble"
+                )
+            }
+            
+            if localBook != nil {
+                Button(action: {
+                    navigateToDictionary = true
+                }) {
+                    Label("Từ điển", systemImage: "character.book.closed")
+                }
+            }
+            
+            Button(action: {
+                navigateToChangeSource = true
+            }) {
+                Label("Thay đổi nguồn", systemImage: "arrow.2.squarepath")
+            }
+            
+            Button(action: {
+                showingBypassBrowser = true
+            }) {
+                Label("Mở bằng trình duyệt", systemImage: "safari")
+            }
+            
+            Button(action: {
+                // Chưa làm chức năng
+            }) {
+                Label("Chia sẻ", systemImage: "square.and.arrow.up")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .rotationEffect(.degrees(90))
+        }
+    }
+    
+    @ViewBuilder
+    private var loadingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 16) {
+                ProgressView()
+                    .tint(.white)
+                    .scaleEffect(1.3)
+                Text("Đang tải danh sách chương...")
+                    .foregroundColor(.white)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                
+                Button(action: {
+                    loadingTask?.cancel()
+                    loadingTask = nil
+                    isLoadingRemainingPages = false
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.left")
+                            .font(.caption)
+                        Text("Quay lại")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.white.opacity(0.2))
+                    .cornerRadius(20)
+                }
+                .padding(.top, 4)
+            }
+            .padding(24)
+            .background(Color.black.opacity(0.75))
+            .cornerRadius(12)
+        }
+    }
+    
+    @ViewBuilder
+    private var floatingActionButton: some View {
+        let totalChaps = localBook?.chapters.count ?? onlineChapters.count
+        if totalChaps > 0 {
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    VStack(spacing: 12) {
+                        if isMenuExpanded {
+                            let activeChapterIndex = localBook?.currentChapterIndex ?? 0
+                            Button(action: {
+                                isMenuExpanded = false
+                                startReading(at: activeChapterIndex)
+                            }) {
+                                HStack {
+                                    Text(localBook == nil ? "Đọc ngay" : "Đọc tiếp")
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                    Image(systemName: localBook == nil ? "play.fill" : "book.fill")
+                                        .resizable()
+                                        .frame(width: 16, height: 16)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color.blue)
+                                .foregroundColor(.white)
+                                .cornerRadius(20)
+                                .shadow(radius: 3)
+                            }
+                            .transition(.scale.combined(with: .opacity))
+                            
+                            Button(action: {
+                                isMenuExpanded = false
+                                if let book = localBook, book.isOnShelf {
+                                    removeFromShelf(book)
+                                } else {
+                                    addToShelf()
+                                }
+                            }) {
+                                HStack {
+                                    Text(localBook?.isOnShelf == true ? "Đã ở kệ" : "Thêm vào kệ")
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                    Image(systemName: localBook?.isOnShelf == true ? "checkmark.circle.fill" : "plus.circle.fill")
+                                        .resizable()
+                                        .frame(width: 16, height: 16)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(localBook?.isOnShelf == true ? Color.green : Color.accentColor)
+                                .foregroundColor(.white)
+                                .cornerRadius(20)
+                                .shadow(radius: 3)
+                            }
+                            .transition(.scale.combined(with: .opacity))
+                            
+                            Button(action: {
+                                isMenuExpanded = false
+                                prepareForTask(taskType: .download)
+                            }) {
+                                HStack {
+                                    Text("Tải truyện")
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                    Image(systemName: "arrow.down.circle.fill")
+                                        .resizable()
+                                        .frame(width: 16, height: 16)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color.green)
+                                .foregroundColor(.white)
+                                .cornerRadius(20)
+                                .shadow(radius: 3)
+                            }
+                            .transition(.scale.combined(with: .opacity))
+                            
+                            Button(action: {
+                                isMenuExpanded = false
+                                prepareForTask(taskType: .exportTxt)
+                            }) {
+                                HStack {
+                                    Text("Xuất TXT")
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                    Image(systemName: "square.and.arrow.up.fill")
+                                        .resizable()
+                                        .frame(width: 16, height: 16)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color.orange)
+                                .foregroundColor(.white)
+                                .cornerRadius(20)
+                                .shadow(radius: 3)
+                            }
+                            .transition(.scale.combined(with: .opacity))
+                        }
+                        
+                        Button(action: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                isMenuExpanded.toggle()
+                            }
+                        }) {
+                            Image(systemName: "plus")
+                                .resizable()
+                                .frame(width: 20, height: 20)
+                                .foregroundColor(.white)
+                                .padding(16)
+                                .background(Color.accentColor)
+                                .clipShape(Circle())
+                                .shadow(radius: 5)
+                                .rotationEffect(.degrees(isMenuExpanded ? 135 : 0))
+                        }
+                    }
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 20)
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var bypassBrowserContent: some View {
+        BypassWebView(
+            urlString: initialDetailUrl,
+            host: resolvedHost,
+            onImport: { detailUrl, packageId, sourceName in
+                let checkUrl = JSExecutor.cleanAndResolveUrl(detailUrl, host: ext?.sourceUrl)
+                let currentResolved = JSExecutor.cleanAndResolveUrl(initialDetailUrl, host: ext?.sourceUrl)
+                
+                if checkUrl == currentResolved {
+                    loadBookData()
+                } else {
+                    importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                    importedExtensionPackageId = packageId
+                    importedDetailUrl = detailUrl
+                    importedSourceName = sourceName
+                    
+                    if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
+                        importedHost = "\(scheme)://\(host)"
+                    } else {
+                        importedHost = ""
+                    }
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                        navigateToImportedBook = true
+                    }
+                }
+            }
+        )
     }
     
     private func resolveBookId() {
