@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 import AVFoundation
 
-enum ReaderTheme: String, CaseIterable, Identifiable {
+public enum ReaderTheme: String, CaseIterable, Identifiable {
     case paper = "Sáng"
     case sepia = "Trầm ấm"
     case dark = "Tối"
