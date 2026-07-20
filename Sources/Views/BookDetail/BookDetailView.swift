@@ -120,19 +120,19 @@ struct BookDetailView: View {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }
-        return TranslateUtils.translateMeta(text, bookId: resolvedBookId)
+        return TranslateUtils.translateMeta(text, bookId: actualBookId)
     }
     
     private func translateTitleIfNeeded(_ text: String) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }
-        return TranslateUtils.translateChapterTitle(text, bookId: resolvedBookId)
+        return TranslateUtils.translateChapterTitle(text, bookId: actualBookId)
     }
     
     private func translateChapterTitleIfNeeded(_ chap: Chapter) -> String {
         if isTranslationEnabled && TranslateUtils.containsChinese(chap.title) {
-            return TranslateUtils.translateChapterTitle(chap.title, bookId: resolvedBookId)
+            return TranslateUtils.translateChapterTitle(chap.title, bookId: actualBookId)
         }
         return chap.title
     }
@@ -1459,7 +1459,7 @@ struct BookDetailView: View {
         filteredOnlineChapters = sortedOnline.filter { index, chap in
             chapterSearchQuery.isEmpty ||
             chap.name.localizedCaseInsensitiveContains(chapterSearchQuery) ||
-            TranslateUtils.translateChapterTitle(chap.name, bookId: resolvedBookId).localizedCaseInsensitiveContains(chapterSearchQuery)
+            TranslateUtils.translateChapterTitle(chap.name, bookId: actualBookId).localizedCaseInsensitiveContains(chapterSearchQuery)
         }
     }
 
