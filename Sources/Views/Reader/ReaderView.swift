@@ -7,7 +7,7 @@ public enum ReaderTheme: String, CaseIterable, Identifiable {
     case sepia = "Trầm ấm"
     case dark = "Tối"
 
-    var id: String { self.rawValue }
+    public var id: String { self.rawValue }
 
     var backgroundColor: Color {
         switch self {

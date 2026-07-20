@@ -156,8 +156,11 @@ public final class ReaderChapterListStore {
 
         if let context = modelContext {
             do {
+                let localBookId = bookId
+                let localMin = minLogicalIndex
+                let localMax = maxLogicalIndex
                 var descriptor = FetchDescriptor<Chapter>(
-                    predicate: #Predicate<Chapter> { $0.bookId == bookId && $0.index >= minLogicalIndex && $0.index <= maxLogicalIndex }
+                    predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.index >= localMin && $0.index <= localMax }
                 )
                 descriptor.sortBy = [SortDescriptor(\.index, order: isAscending ? .forward : .reverse)]
                 let chapters = try context.fetch(descriptor)
@@ -254,8 +257,10 @@ public final class ReaderChapterListStore {
 
         if let context = modelContext {
             do {
+                let localBookId = bookId
+                let localTrimmed = trimmed
                 var descriptor = FetchDescriptor<Chapter>(
-                    predicate: #Predicate<Chapter> { $0.bookId == bookId && $0.title.contains(trimmed) }
+                    predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.title.contains(localTrimmed) }
                 )
                 descriptor.fetchLimit = 100
                 descriptor.sortBy = [SortDescriptor(\.index, order: isAscending ? .forward : .reverse)]

@@ -154,7 +154,7 @@ public final class BookStorageManager {
     }
 
     public func drainRetryQueue() {
-        var queue = UserDefaults.standard.stringArray(forKey: retryQueueKey) ?? []
+        let queue = UserDefaults.standard.stringArray(forKey: retryQueueKey) ?? []
         guard !queue.isEmpty else { return }
 
         var remainingQueue: [String] = []

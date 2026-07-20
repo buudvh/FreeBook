@@ -127,16 +127,19 @@ class ReaderViewModel: ObservableObject {
     private var cachedExt: Extension? = nil
     var onChapterCached: ((Int) -> Void)?
     public func fetchChapter(at index: Int) -> Chapter? {
+        let localBookId = bookId
+        let localIndex = index
         var descriptor = FetchDescriptor<Chapter>(
-            predicate: #Predicate<Chapter> { $0.bookId == bookId && $0.index == index }
+            predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.index == localIndex }
         )
         descriptor.fetchLimit = 1
         return (try? modelContext.fetch(descriptor))?.first
     }
 
     public func fetchChaptersMetadata(isTranslationEnabled: Bool) -> [TTSChapterInfo] {
+        let localBookId = bookId
         var descriptor = FetchDescriptor<Chapter>(
-            predicate: #Predicate<Chapter> { $0.bookId == bookId }
+            predicate: #Predicate<Chapter> { $0.bookId == localBookId }
         )
         descriptor.sortBy = [SortDescriptor(\.index, order: .forward)]
         do {
@@ -217,10 +220,11 @@ class ReaderViewModel: ObservableObject {
         // @Query in ReaderView may still be empty on the first frame. Resolve the
         // complete local Book snapshot here before bootstrapping the chapter load:
         // this makes the local-first path independent of a later SwiftUI update.
+        let localBookId = bookId
         let localBookSnapshot: Book? = {
             var descriptor = FetchDescriptor<Book>(
                 predicate: #Predicate<Book> { book in
-                    book.bookId == bookId
+                    book.bookId == localBookId
                 }
             )
             descriptor.fetchLimit = 1
@@ -228,8 +232,9 @@ class ReaderViewModel: ObservableObject {
         }()
         let localChapterCount: Int = {
             if let bId = localBookSnapshot?.bookId {
+                let localBId = bId
                 var descriptor = FetchDescriptor<Chapter>(
-                    predicate: #Predicate<Chapter> { $0.bookId == bId }
+                    predicate: #Predicate<Chapter> { $0.bookId == localBId }
                 )
                 return (try? modelContext.fetchCount(descriptor)) ?? 0
             }
