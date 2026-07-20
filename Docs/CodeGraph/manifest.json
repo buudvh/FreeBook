@@ -3,24 +3,24 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-07-20T04:09:48.146753Z",
-  "gitCommit": "7055c373f643f283b2adf55f51b9ae1041247c3a",
-  "sourceFileCount": 101,
+  "generatedAt": "2026-07-20T07:49:07.226414Z",
+  "gitCommit": "d4f28096d659e8b532ab6255e02abfab4e4c1e43",
+  "sourceFileCount": 102,
   "documentCount": 16,
   "documents": [
     {
       "filename": "00_index.md",
       "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "generatedHash": "3fad4c94d2bdfafd31c9ff1e7ed146a4d0e7310993898ac5de08d7e8a3b43920",
-      "generatedAt": "2026-07-18T13:17:13.510610Z",
+      "generatedHash": "f6849f522bb90aed110d39c44a3ac1bafdeba9c0de12dc0998fb6083d78d82e4",
+      "generatedAt": "2026-07-20T07:44:46.222613Z",
       "sourceFiles": [],
-      "documentVersion": 1
+      "documentVersion": 2
     },
     {
       "filename": "01_project.md",
-      "sourceHash": "87b2c3cae209a08400ff2d85693af2719dbc95018b5ba2a0360416853ad73957",
+      "sourceHash": "0263e455cb37ebe92e13041aaa44d88e38b91ba6c600d233eeca008baa8a5427",
       "generatedHash": "0a32ddec37b30066a4c0e29a0ea08fa86ffb45cb444ebd8c4a7c3a1bcdc20ae0",
-      "generatedAt": "2026-07-20T03:51:05.754219Z",
+      "generatedAt": "2026-07-20T07:44:46.222613Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift"
       ],
@@ -28,9 +28,9 @@
     },
     {
       "filename": "02_file_graph.md",
-      "sourceHash": "ed07466374dbab823b7a49310529020b57f1d947996bd5de3bb91721568ff255",
+      "sourceHash": "a24ef325a754de387eab3ecb231870fa72e5337cd2c4c9efc6c5b1aa93ee41c8",
       "generatedHash": "4a9c36fd05108d395ef52fcafc9cf478e9c35c5b73978998e2b6ba9062ec6d32",
-      "generatedAt": "2026-07-20T04:09:48.146753Z",
+      "generatedAt": "2026-07-20T07:44:46.222613Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -47,6 +47,7 @@
         "Sources/Models/Dictionaries/DoubleArrayTrieBuilder.swift",
         "Sources/Models/Dictionaries/SearchEngine.swift",
         "Sources/Models/Dictionaries/TextDictionary.swift",
+        "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Extensions/Engine/JSCrypto.swift",
         "Sources/Services/Extensions/Engine/JSDom.swift",
@@ -132,9 +133,9 @@
     },
     {
       "filename": "03_type_graph.md",
-      "sourceHash": "9421338a7ea73b2ad09ad8ff823650caab985e528db3342fef101613c9b6fd9a",
-      "generatedHash": "f10d2a92ae62137707abffad72f1a33fe2b4637de8756f1918c9bbce93ecf5f4",
-      "generatedAt": "2026-07-20T04:09:48.146753Z",
+      "sourceHash": "bb8a5d2f6c6893db8707e672293f176f5e258bc98b1c93c5c8cc405c4b9870eb",
+      "generatedHash": "01e3207c4de0d4b2e75a6c5348a3b763b9c067451b60a7a7748a14be4ad888ed",
+      "generatedAt": "2026-07-20T07:49:07.226414Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -151,6 +152,7 @@
         "Sources/Models/Dictionaries/DoubleArrayTrieBuilder.swift",
         "Sources/Models/Dictionaries/SearchEngine.swift",
         "Sources/Models/Dictionaries/TextDictionary.swift",
+        "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Extensions/Engine/JSCrypto.swift",
         "Sources/Services/Extensions/Engine/JSDom.swift",
@@ -227,14 +229,15 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "documentVersion": 3
+      "documentVersion": 4
     },
     {
       "filename": "04_call_graph.md",
-      "sourceHash": "3b62db5a29d697d3b882ffe367ba369b6ecd6befb3a90903992e25cebad91a3e",
-      "generatedHash": "eb242d3285b007491f96aa688ebb1d651612e46e98a0f2a46b27e538e540eb4b",
-      "generatedAt": "2026-07-20T03:51:05.754219Z",
+      "sourceHash": "c377f795d7ac55724a5bba3a87b4af483396c568c4de66564a90cfc147471569",
+      "generatedHash": "d2aae2c90b1668d21cdeb93c55e1f372aed10f16726a137e222824b595cd4ebe",
+      "generatedAt": "2026-07-20T07:49:07.226414Z",
       "sourceFiles": [
+        "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
         "Sources/Services/TTS/TTSManager.swift",
@@ -248,27 +251,28 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "documentVersion": 3
+      "documentVersion": 4
     },
     {
       "filename": "05_state_graph.md",
-      "sourceHash": "5638065fcee0b180cbbefeaa9890a2fa0eb77d987d0b5e1cf3e31c8b8097b23a",
-      "generatedHash": "e257b7e1cda7b3bc3bee9afc554884bf6247b9a0143dde8c52b47b8af1160058",
-      "generatedAt": "2026-07-20T03:51:05.754219Z",
+      "sourceHash": "6e784fafbe5fd2c38c39b037cd4a2cb6adb72dbc7243e105ec229181f9176c89",
+      "generatedHash": "6c72a9d2350b58a244fbec3822350826f84466142a7fbdfd3241a9bcb5578cb0",
+      "generatedAt": "2026-07-20T07:49:07.226414Z",
       "sourceFiles": [
+        "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Views/Reader/PrefetchManager.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "documentVersion": 3
+      "documentVersion": 4
     },
     {
       "filename": "06_event_graph.md",
-      "sourceHash": "e2285358c94e5c5e5e1f8430154b52b3d5bbeccbe8791db9e04c13c18cb877cc",
-      "generatedHash": "638bd500b42fcdce8e1fe56792fef2b5d72d89d52956365a51526d272fd24c38",
-      "generatedAt": "2026-07-20T03:51:05.754219Z",
+      "sourceHash": "a0105af5508a5fbc2b62005d453fb866a6558abd98da007e626052c5bd74c2b8",
+      "generatedHash": "17ca5736cedd77e124efe43251c95d240240ce6567ae8399502203c4a198cc0d",
+      "generatedAt": "2026-07-20T07:49:07.226414Z",
       "sourceFiles": [
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
         "Sources/Services/TTS/TTSManager.swift",
@@ -281,13 +285,13 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "documentVersion": 4
+      "documentVersion": 5
     },
     {
       "filename": "07_dataflow.md",
-      "sourceHash": "57d64760d7310f4e0b14b054113fe1cda53efaaec69810df3f6646ba43a6df88",
-      "generatedHash": "f310b31a9517a3a2346b8f20ca29af8f312ddeff781e3d7751aff95d15876547",
-      "generatedAt": "2026-07-20T03:51:05.754219Z",
+      "sourceHash": "26105f3f3cee2a6d7043defafc153c35d0f855113a2b65ff67e6942c513593f0",
+      "generatedHash": "4e36c2473bf0adadd63d8dc94c451dba339f3eddb643287ce9723de46e306613",
+      "generatedAt": "2026-07-20T07:49:07.226414Z",
       "sourceFiles": [
         "Sources/Common/Services/ImageCacheManager.swift",
         "Sources/Services/TTS/TTSManager.swift",
@@ -301,13 +305,13 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "documentVersion": 3
+      "documentVersion": 4
     },
     {
       "filename": "08_lifecycle.md",
-      "sourceHash": "4ff2df834c44bbf71ccbe540d336bc1451c62f2a4149b224ba17b2d54db1bb07",
+      "sourceHash": "b7f1c9d6f5b069201f98362de2726ef5e8da99ec9ac26f3281d0dbe5de526538",
       "generatedHash": "cef69b47702b4173f7b9f106fb2d5cb9aaa4b9114e4bd9ba1ca4f2cb7d9e7425",
-      "generatedAt": "2026-07-20T03:51:05.754219Z",
+      "generatedAt": "2026-07-20T07:44:46.222613Z",
       "sourceFiles": [
         "Sources/Views/Common/BypassWebView.swift",
         "Sources/Views/Reader/PrefetchManager.swift",
@@ -330,9 +334,9 @@
     },
     {
       "filename": "10_risk_report.md",
-      "sourceHash": "e29ffb3cf4339f40335d6524a03f6219577165e2b6ca4d673e9a1b335c32cb53",
+      "sourceHash": "02b824d2db31c966dd37f46e93146c41e1740d9b8ff4967d2307cfcab0172ef8",
       "generatedHash": "ffb1beba97d601a883e97136c7a27cb42cdd7141a60b56198b219d32a51c8b59",
-      "generatedAt": "2026-07-20T03:51:05.754219Z",
+      "generatedAt": "2026-07-20T07:44:46.222613Z",
       "sourceFiles": [
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
         "Sources/Services/TTS/TTSManager.swift",
@@ -345,10 +349,11 @@
     },
     {
       "filename": "11_subsystems.md",
-      "sourceHash": "565357952814433ec6fed3d2b9ffa120fdc6438327b2292f9aaef071a89200dc",
-      "generatedHash": "060ac4459b1a2ecdc82e7a503320077d0d0b1562e73007dfea054e6259ab37ff",
-      "generatedAt": "2026-07-20T03:51:05.754219Z",
+      "sourceHash": "6ee2d63df32bd845bc2ef8cf97d41237c17d0d9f0d4f9cf1661158936a880cca",
+      "generatedHash": "f4a47e84bd4f19f816e0400d0ecec62695da28876ab0531570d76ffc6fc3ebbf",
+      "generatedAt": "2026-07-20T07:49:07.226414Z",
       "sourceFiles": [
+        "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Extensions/Manager/ExtensionManager.swift",
         "Sources/Services/TTS/TTSManager.swift",
@@ -363,13 +368,13 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "documentVersion": 3
+      "documentVersion": 4
     },
     {
       "filename": "12_ownership_graph.md",
-      "sourceHash": "4435a2a51bc2ce34be6da6e28f4cc2fb87be8cb98fcc8d79f5f9c9022e78a114",
-      "generatedHash": "4be843e99ddb215514933fb9784650e366b0203439e414062b580e71e114bf22",
-      "generatedAt": "2026-07-20T03:51:05.754219Z",
+      "sourceHash": "e5bebbae8fd4d4325a5d12e813cf3a8163c57057d5b77146905c0c6191b6f439",
+      "generatedHash": "3a319cab0947ad963f17509f74f9d7e1114ee1a7a9d677fb95b901c7845347c0",
+      "generatedAt": "2026-07-20T07:49:07.226414Z",
       "sourceFiles": [
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
         "Sources/Services/Extensions/Manager/ExtensionManager.swift",
@@ -377,13 +382,13 @@
         "Sources/Services/Translation/Manager/TranslationManager.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "documentVersion": 1
+      "documentVersion": 2
     },
     {
       "filename": "13_resource_lifecycle.md",
-      "sourceHash": "c3e8a8e851c3bec4cf5da710b2dfeb44cc6778ce953994f7ac69c4b19d88644a",
-      "generatedHash": "26df544aa7c015c90446ae3c47d47cf9be976f3c682513f974df4135c849c052",
-      "generatedAt": "2026-07-20T02:39:02.157268Z",
+      "sourceHash": "31086d39cd1ea0fe1b1119152ad91aae00ba63e08c1a0826cda37e52308464ac",
+      "generatedHash": "12ef8d8242690009e71ea2bde85d2a1bb4595bd92799378a3983d048b8f22eb2",
+      "generatedAt": "2026-07-20T07:49:07.226414Z",
       "sourceFiles": [
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
         "Sources/Services/TTS/TTSManager.swift",
@@ -391,13 +396,13 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "documentVersion": 2
+      "documentVersion": 3
     },
     {
       "filename": "14_complexity_report.md",
-      "sourceHash": "1777584561b769963507fda46b770d7185061d1aebeb0524c64e578ee88b5d82",
+      "sourceHash": "fad08fdd73264baeac01a7248cf168f0616f8b966063729d92998574c9e7da72",
       "generatedHash": "ccd203d05bb8cf74264ed6928e4c772ba1c8b69ba087bc1f135ae1d36465d94d",
-      "generatedAt": "2026-07-20T04:09:48.146753Z",
+      "generatedAt": "2026-07-20T07:44:46.222613Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -493,10 +498,10 @@
     {
       "filename": "rules.md",
       "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "generatedHash": "f26885484676c9a6a7561c59908ed03075e76a8995d9bd09c48c4389a3a5e386",
-      "generatedAt": "2026-07-18T08:09:53.021796Z",
+      "generatedHash": "2107008599c174b8b85c9d5ab625fde8f26fdc41c05f890605d941a6cef03c80",
+      "generatedAt": "2026-07-20T07:44:46.222613Z",
       "sourceFiles": [],
-      "documentVersion": 5
+      "documentVersion": 6
     }
   ]
 }

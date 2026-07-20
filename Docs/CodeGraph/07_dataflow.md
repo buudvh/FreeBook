@@ -15,6 +15,12 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Book storage and pagination data flows (1.3.34)
+
+* **Book Deletion Data Flow**: User action (`ShelfView`/`BookDetailView`) -> `BookStorageManager` -> Database deletes (`ModelContext.delete`) -> Database Save committed (`ModelContext.save()`) -> Background Thread -> Physical file deletions (`BookBinManager.deleteBinFile` and `ImageCacheManager.deleteCover`). If deletion fails, data flows into `UserDefaults` (`failed_file_deletions_queue`) and undergoes retry attempts at app startup via `drainRetryQueue()`.
+* **TOC Paged Data Flow**: Scroll list item -> `loadPageIfNeeded` -> `loadPagesAround` -> background task -> `fetchPage` -> modelContext fetch within logical boundaries based on `totalCount` and `isAscending` -> updates `loadedRowStates` in RAM.
+* **SHA-256 Caching Paths**: Cover images and book `.bin` files use SHA-256 hashes of `bookId` as filename identifiers (`covers/[sha256Hex].jpg` and `books/[sha256Hex].bin`) with automatic path safety validation and secure legacy fallback.
+
 ## Reader paragraph data flow (1.3.14)
 
 * `originalContent` is split first; every original line produces exactly one translated result and one stable paragraph id, including blank and trailing lines.
@@ -142,5 +148,8 @@ graph TD
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - Chapter data flows `ChapterKey -> shared memory -> ChapterPersistenceStore/SwiftData -> extension fallback`; extension output is normalized once, returned immediately, and upserted with Book/TOC metadata in the background.
 - TOC refresh reconciles by stable URL and preserves cached content/title translation for matched chapters instead of deleting and recreating the relationship.
+- Book deletion coordinates database deletion and side-effect cancellation before dispatching background file deletions. Deletion failures are enqueued in `UserDefaults` queue dataflow and retried at launch.
+- `ReaderChapterListStore` paging fetches chapter metadata from the database or online using page offsets and logical indices based on the active window, and updates `loadedRowStates` in RAM.
+- Caching paths for books and covers use SHA-256 hex filename dataflow (`sha256Hex(bookId).bin` and `sha256Hex(bookId).jpg`) with automatic path safety validation.
 
 <!-- GENERATED END -->

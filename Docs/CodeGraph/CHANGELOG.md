@@ -4,6 +4,25 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.34] - 2026-07-20
+
+### Cập nhật CodeGraph tăng dần cho cấu trúc dữ liệu mới, BookStorageManager, phân trang mục lục và bảo mật Sandbox
+* **Database Models**:
+  * **Chapter**: Cập nhật hàm `Chapter.generateId(bookId:url:index:)` sử dụng định dạng có độ dài tiền tố (length-prefixed format) như `[len]:[bookId]|U:[len]:[url]` cho online và `[len]:[bookId]|I:[index]` cho fallback khi không có URL. Legacy Chapter ID được giữ nguyên không di chuyển.
+* **Component mới**:
+  * **BookStorageManager**: Quản lý việc xóa sách khỏi kệ và lịch sử, xử lý các side-effects (dừng TTS, huỷ tải xuống, xoá reader fallback progress). Database context được save (commit DB) trước khi tiến hành xóa các file vật lý nhị phân (.bin) và ảnh bìa (.jpg) bất đồng bộ trong background thread. Lỗi xóa file vật lý được đẩy vào retry queue lưu trong `UserDefaults` (`failed_file_deletions_queue`) và được xử lý lại tối đa 3 lần tại app startup (`drainRetryQueue()`).
+* **Bảo mật Sandbox & Di chuyển Lưu trữ**:
+  * **BookBinManager & ImageCacheManager**: Chuyển sang sử dụng mã băm SHA-256 của `bookId` làm tên file lưu trữ (`[sha256Hex].bin` và `[sha256Hex].jpg`) để tránh lỗi path injection. Tích hợp kiểm tra bảo mật sandbox (`validatePathSafety(for:)`) trước khi đọc, ghi hoặc xóa tệp. Tự động di chuyển (migrate) và dọn dẹp các tệp legacy hiện có.
+* **Tối ưu hóa Trình đọc (TOC Pagination)**:
+  * **ReaderChapterListStore & ReaderChapterListView**: Giới hạn RAM bằng cơ chế phân trang TOC (TOC pagination) và cửa sổ trượt (sliding window) chỉ giữ tối đa 3 trang liền kề (300 dòng trạng thái chương), giải quyết triệt để lag/OOM cho sách siêu lớn (ví dụ 20.000 chương).
+  * **ReaderViewModel**: Loại bỏ memory cache cho toàn bộ chapter list (`cachedSortedChapters`), thực hiện fetch trực tiếp từ DB khi cần và cung cấp API tạo metadata cho TTS (`fetchChaptersMetadata`).
+* **Cooperative Cancellation**:
+  * **DownloadManager**: Cải thiện cooperative cancellation bằng cách liên tục kiểm tra trạng thái huỷ của Task trong lúc tải chương hoặc xuất file text.
+* **Giới hạn & Lưu ý**:
+  * Tiếp tục giữ yêu cầu tối thiểu iOS 17+.
+  * Không migrate legacy Chapter IDs hiện có để tránh hỏng tham chiếu chéo.
+  * Danh sách chương trực tuyến (`onlineChapters` / `ChapterResult`) vẫn giữ nguyên dưới dạng mảng đầy đủ (full array).
+
 ## [1.3.33] - 2026-07-20
 
 ### Tái cấu trúc Hệ thống Lưu trữ: Đọc/Ghi Nhị phân (.bin) + SQLite offset/length + UUID Sách

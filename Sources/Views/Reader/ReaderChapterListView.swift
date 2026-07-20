@@ -2,117 +2,331 @@ import SwiftUI
 import SwiftData
 import Observation
 
+public struct ChapterRowItem: Identifiable, Sendable, Equatable, Hashable {
+    public let id: Int // displayPosition (0 ..< totalCount)
+    public let index: Int // logical chapter index (0 ..< totalCount)
+
+    public init(id: Int, index: Int) {
+        self.id = id
+        self.index = index
+    }
+}
+
 @MainActor
 @Observable
-final class ReaderChapterRowState: Identifiable {
-    let id: Int
-    let title: String
-    let url: String
-    var isCached: Bool
+public final class ReaderChapterRowState: Identifiable {
+    public let id: Int // displayPosition (0 ..< totalCount)
+    public let index: Int // logical chapter index (0 ..< totalCount)
+    public var title: String
+    public var url: String
+    public var isCached: Bool
+    public var isPlaceholder: Bool
 
-    init(index: Int, title: String, url: String, isCached: Bool) {
-        self.id = index
+    public init(id: Int, index: Int, title: String = "", url: String = "", isCached: Bool = false, isPlaceholder: Bool = true) {
+        self.id = id
+        self.index = index
         self.title = title
         self.url = url
         self.isCached = isCached
+        self.isPlaceholder = isPlaceholder
     }
 }
 
 @MainActor
 @Observable
-final class ReaderChapterListStore {
-    private(set) var rows: [ReaderChapterRowState] = []
-    private var rowsByIndex: [Int: ReaderChapterRowState] = [:]
+public final class ReaderChapterListStore {
+    public private(set) var rows: [ChapterRowItem] = []
+    public private(set) var loadedRowStates: [Int: ReaderChapterRowState] = [:]
 
-    init(sortedChapters: [Chapter], onlineChapters: [ChapterResult]) {
-        replace(sortedChapters: sortedChapters, onlineChapters: onlineChapters)
+    public let bookId: String
+    private let modelContext: ModelContext?
+    private var onlineChapters: [ChapterResult] = []
+
+    public private(set) var totalCount: Int = 0
+    public private(set) var isAscending: Bool = true
+
+    private let pageSize = 100
+    private var loadedPages: Set<Int> = []
+    private var generationID: Int = 0
+
+    public var isLoadingPage = false
+
+    public init(bookId: String, modelContext: ModelContext?, onlineChapters: [ChapterResult], totalCount: Int, isAscending: Bool = true) {
+        self.bookId = bookId
+        self.modelContext = modelContext
+        self.onlineChapters = onlineChapters
+        self.totalCount = totalCount
+        self.isAscending = isAscending
+
+        setupPlaceholderRows()
     }
 
-    func markCached(index: Int) {
-        rowsByIndex[index]?.isCached = true
-    }
-
-    func synchronize(sortedChapters: [Chapter], onlineChapters: [ChapterResult]) {
-        let descriptors = Self.descriptors(sortedChapters: sortedChapters, onlineChapters: onlineChapters)
-        let commonCount = min(rows.count, descriptors.count)
-        let prefixIsStable = (0..<commonCount).allSatisfy { offset in
-            let row = rows[offset]
-            let descriptor = descriptors[offset]
-            return row.id == descriptor.index && row.url == descriptor.url && row.title == descriptor.title
-        }
-
-        guard prefixIsStable else {
-            replace(descriptors: descriptors)
+    public func setupPlaceholderRows() {
+        guard totalCount > 0 else {
+            rows = []
+            loadedRowStates = [:]
+            loadedPages = []
             return
         }
 
-        for descriptor in descriptors.prefix(commonCount) where descriptor.isCached {
-            rowsByIndex[descriptor.index]?.isCached = true
+        var newRows: [ChapterRowItem] = []
+        newRows.reserveCapacity(totalCount)
+        for i in 0..<totalCount {
+            let logicIdx = isAscending ? i : (totalCount - 1 - i)
+            newRows.append(ChapterRowItem(id: i, index: logicIdx))
+        }
+        self.rows = newRows
+        self.loadedRowStates = [:]
+        self.loadedPages = []
+    }
+
+    public func updateSortOrder(isAscending: Bool) {
+        self.isAscending = isAscending
+        setupPlaceholderRows()
+    }
+
+    public func updateChapters(totalCount: Int, onlineChapters: [ChapterResult]) {
+        self.onlineChapters = onlineChapters
+        self.totalCount = totalCount
+        setupPlaceholderRows()
+    }
+
+    public func loadPageIfNeeded(displayPosition: Int) {
+        let page = displayPosition / pageSize
+        if loadedPages.contains(page) { return }
+
+        loadPagesAround(page: page)
+    }
+
+    public func loadPagesAround(page targetPage: Int) {
+        let minPage = max(0, targetPage - 1)
+        let maxPage = min((totalCount - 1) / pageSize, targetPage + 1)
+        let pagesToLoad = Set(minPage...maxPage)
+
+        // Evict pages outside the window
+        let pagesToEvict = loadedPages.subtracting(pagesToLoad)
+        for p in pagesToEvict {
+            evictPage(p)
         }
 
-        if descriptors.count > rows.count {
-            for descriptor in descriptors.dropFirst(rows.count) {
-                let row = ReaderChapterRowState(
-                    index: descriptor.index,
-                    title: descriptor.title,
-                    url: descriptor.url,
-                    isCached: descriptor.isCached
-                )
-                rows.append(row)
-                rowsByIndex[descriptor.index] = row
+        // Dọn dẹp triệt để bất kỳ key nào ngoài cửa sổ 3 trang trong loadedRowStates
+        let startBound = minPage * pageSize
+        let endBound = (maxPage + 1) * pageSize
+        let keysToEvict = loadedRowStates.keys.filter { $0 < startBound || $0 >= endBound }
+        for k in keysToEvict {
+            loadedRowStates.removeValue(forKey: k)
+        }
+
+        let pagesToFetch = pagesToLoad.subtracting(loadedPages)
+        guard !pagesToFetch.isEmpty else { return }
+
+        generationID += 1
+        let currentGen = generationID
+
+        Task {
+            for p in pagesToFetch {
+                guard currentGen == self.generationID else { return }
+                await fetchPage(p, currentGen: currentGen)
             }
-        } else if descriptors.count < rows.count {
-            replace(descriptors: descriptors)
         }
     }
 
-    private func replace(sortedChapters: [Chapter], onlineChapters: [ChapterResult]) {
-        replace(descriptors: Self.descriptors(sortedChapters: sortedChapters, onlineChapters: onlineChapters))
+    private func evictPage(_ page: Int) {
+        let startIdx = page * pageSize
+        let endIdx = min(totalCount, startIdx + pageSize)
+        for i in startIdx..<endIdx {
+            loadedRowStates.removeValue(forKey: i)
+        }
+        loadedPages.remove(page)
     }
 
-    private func replace(descriptors: [(index: Int, title: String, url: String, isCached: Bool)]) {
-        let newRows = descriptors.map { descriptor in
-            ReaderChapterRowState(
-                index: descriptor.index,
-                title: descriptor.title,
-                url: descriptor.url,
-                isCached: descriptor.isCached
-            )
+    private func fetchPage(_ page: Int, currentGen: Int) async {
+        let startIdx = page * pageSize
+        let endIdx = min(totalCount, startIdx + pageSize)
+        guard startIdx < endIdx else { return }
+
+        let logicalIndices = (startIdx..<endIdx).map { i in
+            isAscending ? i : (totalCount - 1 - i)
         }
-        rows = newRows
-        rowsByIndex = Dictionary(uniqueKeysWithValues: newRows.map { ($0.id, $0) })
+
+        let minLogicalIndex = logicalIndices.min() ?? 0
+        let maxLogicalIndex = logicalIndices.max() ?? 0
+
+        var fetchedData: [Int: (title: String, url: String, isCached: Bool)] = [:]
+
+        if let context = modelContext {
+            do {
+                var descriptor = FetchDescriptor<Chapter>(
+                    predicate: #Predicate<Chapter> { $0.bookId == bookId && $0.index >= minLogicalIndex && $0.index <= maxLogicalIndex }
+                )
+                descriptor.sortBy = [SortDescriptor(\.index, order: isAscending ? .forward : .reverse)]
+                let chapters = try context.fetch(descriptor)
+                for chap in chapters {
+                    fetchedData[chap.index] = (chap.title, chap.url, chap.isCached)
+                }
+            } catch {
+                AppLogger.shared.log("❌ [ReaderChapterListStore] Lỗi fetch trang mục lục: \(error.localizedDescription)")
+            }
+        } else {
+            for idx in logicalIndices {
+                if idx < onlineChapters.count {
+                    let chap = onlineChapters[idx]
+                    fetchedData[idx] = (chap.name, chap.url, false)
+                }
+            }
+        }
+
+        guard currentGen == self.generationID else { return }
+
+        for i in startIdx..<endIdx {
+            let logicIdx = isAscending ? i : (totalCount - 1 - i)
+            let state = loadedRowStates[i] ?? {
+                let s = ReaderChapterRowState(id: i, index: logicIdx, isPlaceholder: true)
+                loadedRowStates[i] = s
+                return s
+            }()
+
+            if let data = fetchedData[logicIdx] {
+                state.title = data.title
+                state.url = data.url
+                state.isCached = data.isCached
+                state.isPlaceholder = false
+            } else {
+                state.title = "Chương \(logicIdx + 1)"
+                state.url = ""
+                state.isCached = false
+                state.isPlaceholder = false
+            }
+        }
+
+        loadedPages.insert(page)
     }
 
-    private static func descriptors(
-        sortedChapters: [Chapter],
-        onlineChapters: [ChapterResult]
-    ) -> [(index: Int, title: String, url: String, isCached: Bool)] {
-        if !sortedChapters.isEmpty {
-            return sortedChapters.map { ($0.index, $0.title, $0.url, $0.isCached) }
+    public func rowState(for item: ChapterRowItem) -> ReaderChapterRowState {
+        if let state = loadedRowStates[item.id] {
+            return state
         }
-        return onlineChapters.enumerated().map { index, chapter in
-            (index, chapter.name, chapter.url, false)
+        let placeholder = ReaderChapterRowState(
+            id: item.id,
+            index: item.index,
+            title: "Đang tải...",
+            url: "",
+            isCached: false,
+            isPlaceholder: true
+        )
+        loadedRowStates[item.id] = placeholder
+        return placeholder
+    }
+
+    public func markCached(index: Int) {
+        if let position = rows.firstIndex(where: { $0.index == index }) {
+            if let state = loadedRowStates[position] {
+                state.isCached = true
+            }
         }
+    }
+
+    public func jumpToChapter(index: Int) async -> Int {
+        let displayPosition = isAscending ? index : (totalCount - 1 - index)
+        let page = displayPosition / pageSize
+
+        if loadedPages.contains(page) {
+            return displayPosition
+        }
+
+        isLoadingPage = true
+        generationID += 1
+        let currentGen = generationID
+
+        await fetchPage(page, currentGen: currentGen)
+
+        loadPagesAround(page: page)
+
+        isLoadingPage = false
+        return displayPosition
+    }
+
+    public func searchChapters(query: String) -> [ChapterRowItem] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
+        var results: [ChapterRowItem] = []
+
+        if let context = modelContext {
+            do {
+                var descriptor = FetchDescriptor<Chapter>(
+                    predicate: #Predicate<Chapter> { $0.bookId == bookId && $0.title.contains(trimmed) }
+                )
+                descriptor.fetchLimit = 100
+                descriptor.sortBy = [SortDescriptor(\.index, order: isAscending ? .forward : .reverse)]
+                let chapters = try context.fetch(descriptor)
+
+                results = chapters.map { chap in
+                    let displayPos = isAscending ? chap.index : (totalCount - 1 - chap.index)
+                    let state = ReaderChapterRowState(
+                        id: displayPos,
+                        index: chap.index,
+                        title: chap.title,
+                        url: chap.url,
+                        isCached: chap.isCached,
+                        isPlaceholder: false
+                    )
+                    loadedRowStates[displayPos] = state
+                    return ChapterRowItem(id: displayPos, index: chap.index)
+                }
+            } catch {
+                AppLogger.shared.log("❌ [ReaderChapterListStore] Lỗi tìm kiếm offline: \(error.localizedDescription)")
+            }
+        } else {
+            let matches = onlineChapters.enumerated().filter { _, chapter in
+                chapter.name.localizedCaseInsensitiveContains(trimmed)
+            }
+            let limitedMatches = matches.prefix(100)
+            results = limitedMatches.map { index, chapter in
+                let displayPos = isAscending ? index : (totalCount - 1 - index)
+                let state = ReaderChapterRowState(
+                    id: displayPos,
+                    index: index,
+                    title: chapter.name,
+                    url: chapter.url,
+                    isCached: false,
+                    isPlaceholder: false
+                )
+                loadedRowStates[displayPos] = state
+                return ChapterRowItem(id: displayPos, index: index)
+            }
+            if !isAscending {
+                results.reverse()
+            }
+        }
+
+        return results
+    }
+
+    // Legacy support methods
+    public func synchronize(sortedChapters: [Chapter], onlineChapters: [ChapterResult]) {
+        let count = !sortedChapters.isEmpty ? sortedChapters.count : onlineChapters.count
+        updateChapters(totalCount: count, onlineChapters: onlineChapters)
     }
 }
 
-struct ReaderChapterListView: View {
-    let bookId: String
-    let bookTitle: String?
-    let bookAuthor: String?
-    let bookCoverUrl: String?
-    let bookDetailUrl: String?
-    let localBook: Book?
-    let ext: Extension?
-    let currentChapterIndex: Int
-    let isTranslationEnabled: Bool
-    let theme: ReaderTheme
-    let store: ReaderChapterListStore
-    @Binding var onlineChapters: [ChapterResult]
-    let onSelectChapter: (Int) -> Void
-    let onClose: () -> Void
-    var onDragChanged: ((CGFloat) -> Void)? = nil
-    var onDragEnded: ((CGFloat) -> Void)? = nil
+public struct ReaderChapterListView: View {
+    public let bookId: String
+    public let bookTitle: String?
+    public let bookAuthor: String?
+    public let bookCoverUrl: String?
+    public let bookDetailUrl: String?
+    public let localBook: Book?
+    public let ext: Extension?
+    public let currentChapterIndex: Int
+    public let isTranslationEnabled: Bool
+    public let theme: ReaderTheme
+    public let store: ReaderChapterListStore
+    @Binding public var onlineChapters: [ChapterResult]
+    public let onSelectChapter: (Int) -> Void
+    public let onClose: () -> Void
+    public var onDragChanged: ((CGFloat) -> Void)? = nil
+    public var onDragEnded: ((CGFloat) -> Void)? = nil
 
     @Environment(\.modelContext) private var modelContext
     @State private var showingBookDetail = false
@@ -122,18 +336,13 @@ struct ReaderChapterListView: View {
     @State private var errorMessage = ""
     @State private var didPositionInitialChapter = false
 
-    private var filteredChapters: [ReaderChapterRowState] {
+    private var filteredChapters: [ChapterRowItem] {
         let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        let matches: [ReaderChapterRowState]
         if query.isEmpty {
-            matches = store.rows
+            return store.rows
         } else {
-            matches = store.rows.filter { chapter in
-                chapter.title.localizedCaseInsensitiveContains(query) ||
-                    displayTitle(for: chapter).localizedCaseInsensitiveContains(query)
-            }
+            return store.searchChapters(query: query)
         }
-        return isAscending ? matches : Array(matches.reversed())
     }
 
     private var metadataTitle: String {
@@ -156,7 +365,7 @@ struct ReaderChapterListView: View {
         firstNonempty(localBook?.coverUrl, bookCoverUrl) ?? ""
     }
 
-    var body: some View {
+    public var body: some View {
         ZStack {
             VStack(spacing: 0) {
                 header
@@ -227,7 +436,7 @@ struct ReaderChapterListView: View {
                         .lineLimit(1)
 
                     HStack(spacing: 0) {
-                        Text("\(store.rows.count) chương")
+                        Text("\(store.totalCount) chương")
                             .font(.caption.weight(.medium))
                             .foregroundColor(theme.textColor.opacity(0.72))
                             .lineLimit(1)
@@ -249,7 +458,10 @@ struct ReaderChapterListView: View {
                             .accessibilityLabel("Cập nhật mục lục")
                         }
 
-                        Button(action: { isAscending.toggle() }) {
+                        Button(action: {
+                            isAscending.toggle()
+                            store.updateSortOrder(isAscending: isAscending)
+                        }) {
                             Image(systemName: "arrow.up.arrow.down")
                                 .font(.body.weight(.semibold))
                                 .foregroundColor(theme.textColor)
@@ -324,35 +536,54 @@ struct ReaderChapterListView: View {
 
     private var chapterList: some View {
         ScrollViewReader { proxy in
-            List {
-                ForEach(filteredChapters) { chapter in
-                    ReaderChapterRowView(
-                        chapter: chapter,
-                        isCurrent: chapter.id == currentChapterIndex,
-                        displayTitle: displayTitle(for: chapter),
-                        theme: theme,
-                        onSelect: {
-                            onSelectChapter(chapter.id)
-                            onClose()
+            ZStack {
+                List {
+                    ForEach(filteredChapters) { item in
+                        let chapter = store.rowState(for: item)
+                        ReaderChapterRowView(
+                            chapter: chapter,
+                            isCurrent: item.index == currentChapterIndex,
+                            displayTitle: displayTitle(for: chapter),
+                            theme: theme,
+                            onSelect: {
+                                onSelectChapter(item.index)
+                                onClose()
+                            }
+                        )
+                        .id(item.index)
+                        .onAppear {
+                            if searchQuery.isEmpty {
+                                store.loadPageIfNeeded(displayPosition: item.id)
+                            }
                         }
-                    )
-                    .id(chapter.id)
+                    }
+                }
+                .listStyle(.plain)
+                .background(theme.backgroundColor)
+                .scrollContentBackground(.hidden)
+
+                if store.isLoadingPage {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                    ProgressView()
+                        .tint(theme.textColor)
                 }
             }
-            .listStyle(.plain)
-            .background(theme.backgroundColor)
-            .scrollContentBackground(.hidden)
             .onAppear {
                 guard !didPositionInitialChapter else { return }
                 didPositionInitialChapter = true
-                DispatchQueue.main.async {
-                    proxy.scrollTo(currentChapterIndex, anchor: .center)
+                Task {
+                    let _ = await store.jumpToChapter(index: currentChapterIndex)
+                    DispatchQueue.main.async {
+                        proxy.scrollTo(currentChapterIndex, anchor: .center)
+                    }
                 }
             }
         }
     }
 
     private func displayTitle(for chapter: ReaderChapterRowState) -> String {
+        guard !chapter.isPlaceholder else { return "Đang tải..." }
         guard isTranslationEnabled, TranslateUtils.containsChinese(chapter.title) else {
             return chapter.title
         }
@@ -425,12 +656,12 @@ struct ReaderChapterListView: View {
                         book.host = host
                     }
                     try? modelContext.save()
-                    store.synchronize(sortedChapters: book.chapters.sorted(by: { $0.index < $1.index }), onlineChapters: onlineChapters)
+                    store.updateChapters(totalCount: book.chapters.count, onlineChapters: onlineChapters)
                     ToastManager.shared.show(message: additions.isEmpty ? "Mục lục đã mới nhất" : "Đã thêm \(additions.count) chương mới", type: .success)
                 } else {
                     let oldCount = onlineChapters.count
                     onlineChapters = allChapters
-                    store.synchronize(sortedChapters: [], onlineChapters: allChapters)
+                    store.updateChapters(totalCount: allChapters.count, onlineChapters: allChapters)
                     let added = max(0, allChapters.count - oldCount)
                     ToastManager.shared.show(message: added == 0 ? "Mục lục đã mới nhất" : "Đã thêm \(added) chương mới", type: .success)
                 }
@@ -460,7 +691,7 @@ private struct ReaderChapterRowView: View {
                     .fontWeight(isCurrent ? .semibold : .regular)
                     .lineLimit(1)
                 Spacer()
-                if chapter.isCached {
+                if !chapter.isPlaceholder && chapter.isCached {
                     Image(systemName: "arrow.down.circle.fill")
                         .font(.caption)
                         .foregroundColor(.green)
@@ -468,6 +699,7 @@ private struct ReaderChapterRowView: View {
             }
             .padding(.vertical, 4)
         }
+        .disabled(chapter.isPlaceholder)
         .listRowBackground(isCurrent ? Color.blue.opacity(0.08) : theme.backgroundColor)
     }
 }

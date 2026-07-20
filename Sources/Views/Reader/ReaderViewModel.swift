@@ -125,17 +125,39 @@ class ReaderViewModel: ObservableObject {
     private var memoryWarningSubscription: AnyCancellable?
     private var cachedLocalBook: Book? = nil
     private var cachedExt: Extension? = nil
-    private var cachedSortedChapters: [Chapter]? = nil
     var onChapterCached: ((Int) -> Void)?
+    public func fetchChapter(at index: Int) -> Chapter? {
+        var descriptor = FetchDescriptor<Chapter>(
+            predicate: #Predicate<Chapter> { $0.bookId == bookId && $0.index == index }
+        )
+        descriptor.fetchLimit = 1
+        return (try? modelContext.fetch(descriptor))?.first
+    }
 
-    func getSortedChapters() -> [Chapter] {
-        if let cached = cachedSortedChapters {
-            return cached
+    public func fetchChaptersMetadata(isTranslationEnabled: Bool) -> [TTSChapterInfo] {
+        var descriptor = FetchDescriptor<Chapter>(
+            predicate: #Predicate<Chapter> { $0.bookId == bookId }
+        )
+        descriptor.sortBy = [SortDescriptor(\.index, order: .forward)]
+        do {
+            let chapters = try modelContext.fetch(descriptor)
+            return chapters.map { chap in
+                let titleToUse: String
+                if isTranslationEnabled && TranslateUtils.containsChinese(chap.title) {
+                    titleToUse = TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
+                } else {
+                    titleToUse = chap.title
+                }
+                return TTSChapterInfo(
+                    title: titleToUse,
+                    url: chap.url,
+                    index: chap.index,
+                    host: chap.host
+                )
+            }
+        } catch {
+            return []
         }
-        guard let book = localBook else { return [] }
-        let sorted = book.chapters.sorted(by: { $0.index < $1.index })
-        self.cachedSortedChapters = sorted
-        return sorted
     }
 
     // Lấy danh sách chương online nếu đang đọc trực tuyến
@@ -204,9 +226,16 @@ class ReaderViewModel: ObservableObject {
             descriptor.fetchLimit = 1
             return (try? modelContext.fetch(descriptor))?.first
         }()
-        let localChapterCount = localBookSnapshot?.chapters.count ?? 0
+        let localChapterCount: Int = {
+            if let bId = localBookSnapshot?.bookId {
+                var descriptor = FetchDescriptor<Chapter>(
+                    predicate: #Predicate<Chapter> { $0.bookId == bId }
+                )
+                return (try? modelContext.fetchCount(descriptor)) ?? 0
+            }
+            return 0
+        }()
         self.cachedLocalBook = localBookSnapshot
-        self.cachedSortedChapters = nil
         let resolvedLocalChapterCount = max(totalChaptersCount, max(localChapterCount, onlineChapters.count))
         self.totalChaptersCount = resolvedLocalChapterCount
         self.onlineChapters = onlineChapters
@@ -247,7 +276,6 @@ class ReaderViewModel: ObservableObject {
             self.onlineChapters = onlineChapters
         }
         cachedLocalBook = nil
-        cachedSortedChapters = nil
         totalChaptersCount = totalCount
         if case .bootstrapping = loadState {
             bootstrapReader()
@@ -584,8 +612,7 @@ class ReaderViewModel: ObservableObject {
 
     func chapterTitle(at index: Int) -> String {
         if localBook != nil {
-            let chapters = getSortedChapters()
-            if chapters.indices.contains(index) { return chapters[index].title }
+            if let chap = fetchChapter(at: index) { return chap.title }
         } else if onlineChapters.indices.contains(index) {
             return onlineChapters[index].name
         }
@@ -700,11 +727,9 @@ class ReaderViewModel: ObservableObject {
         let bookMetadata: BookMetadataSnapshot?
 
         if localBook != nil {
-            let sorted = getSortedChapters()
-            guard index < sorted.count else {
+            guard let chap = fetchChapter(at: index) else {
                 throw ReaderLoadError.missingChapterSnapshot(index)
             }
-            let chap = sorted[index]
             title = chap.title
             urlString = chap.url
             chapterHost = chap.host
@@ -747,7 +772,6 @@ class ReaderViewModel: ObservableObject {
         let cleanedContent = result.document.text.content
         if result.origin == .extensionFetch {
             cachedLocalBook = nil
-            cachedSortedChapters = nil
             onChapterCached?(index)
         }
 

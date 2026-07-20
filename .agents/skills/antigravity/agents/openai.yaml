@@ -1,0 +1,4 @@
+interface:
+  display_name: "Antigravity"
+  short_description: "Delegate planning, coding, tests, and fixes to AGY"
+  default_prompt: "Use $antigravity with Gemini 3.5 Flash (High) to delegate this task to AGY, review its plan, wait for my approval, then supervise implementation, testing, and repairs."

@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Book storage and pagination resource lifecycle (1.3.34)
+
+* **Background Deletion Tasks**: Deleting a book commits model context changes first. Upon successful database saving, physical file cleanup (covers/bin) is spawned inside a detached background `Task`. If deletion fails, resources enter the `UserDefaults` queue, surviving application restarts.
+* **Retry Queue Persistence**: At launch in `FreeBookApp` startup, `drainRetryQueue()` is executed to process the failed deletion queue. It retries physical deletion of each path up to 3 times before discarding to prevent resource leaks.
+* **Paged Rows Memory Lifecycle**: Memory for the table of contents is bounded: only 3 pages (300 rows) are kept loaded at any time in `loadedRowStates`. When a new page is loaded, the page outside the sliding window is evicted, freeing its memory, while placeholder metadata (`ChapterRowItem`) remains lightweight.
+
 ## Reader resource lifecycle update (1.3.11, supersedes 1.3.10)
 
 The navigation debounce holds only the newest manual target for 300 ms. One navigation worker waits for any started extension fetch to return, then checks generation before committing. Shutdown cancels both tasks and clears queued navigation.
@@ -122,5 +128,7 @@ WKWebView được sử dụng để tải các trang web chứa mã bảo vệ 
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - Shared chapter fetch tasks are unstructured repository-owned work so Reader cancellation cannot abort a load needed by TTS; force refresh cancels only the superseded load for the same key.
 - Pending SwiftData writes retry up to three times, survive Reader dismissal, and are flushed by Reader/app lifecycle checkpoints. Cached chapter models survive TOC reconciliation when their URL remains present.
+- Book deletion database context changes commit first, spawning a background task (`Task.detached`) for physical file cleanup. Physical file cleanup failures enter a persistent retry queue in `UserDefaults` and undergo retry cycles at app launch up to 3 times before discard.
+- TOC pagination bounds the memory lifecycle: only 3 pages (300 rows) are kept loaded at any time in `loadedRowStates`. When a new page is loaded, pages outside the active window are evicted and their state objects are destroyed, freeing memory.
 
 <!-- GENERATED END -->

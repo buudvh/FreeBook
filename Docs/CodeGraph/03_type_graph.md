@@ -22,11 +22,17 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 * `ReaderParagraphBuilder` returns `ReaderParagraphBuildResult` with one paragraph item per original line; `ReaderSelectionMapper` resolves a translated `NSRange` back to the original paragraph.
 * `ReaderTextView` emits only a UTF-16 `NSRange`; `ParagraphCardView` attaches the paragraph id before forwarding the selection.
 
+## Book storage and pagination type updates (1.3.34)
+
+* `BookStorageManager` is a `@MainActor` class acting as the single coordinator for book deletion, committing DB deletions before launching asynchronous file deletions on a background thread.
+* `ReaderChapterListStore` manages a bounded 3-page / 300 loaded `ReaderChapterRowState` window to limit memory footprint, while positional lightweight row metadata (`ChapterRowItem`) spans the entire TOC.
+* `BookBinManager` and `ImageCacheManager` migrate files to SHA-256 hex filename formats under a sandbox path safety validator (`validatePathSafety(for:)`).
+
 ## Reader type updates (1.3.13, supersedes 1.3.11)
 
 * `ReaderNavigationSource` supports history, footer buttons, chapter-list selection, TTS sync, and reload. Horizontal swipe is no longer a navigation source.
 * `ReaderNavigationDirection`, `ReaderNavigationCommit`, and `ReaderChapterLoadFailure` retain the generation-checked single-chapter navigation contract.
-* `ReaderChapterListStore` owns stable `ReaderChapterRowState` objects for the Reader lifetime. `markCached(index:)` mutates one row without rebuilding the chapter list.
+* `ReaderChapterListStore` manages a bounded 3-page / 300 loaded `ReaderChapterRowState` window to limit memory footprint, while positional lightweight row metadata (`ChapterRowItem`) spans the entire TOC. `markCached(index:)` mutates the cached state without rebuilding the chapter list.
 * `ParagraphCardView` and `ReaderTextView` no longer expose selection-activity callbacks; text selection itself still flows through `onSelectionChange`.
 * `ExtensionManagerError.sourceResponse(message:)` preserves the exact message returned by JavaScript `Response.error(message)`.
 
@@ -147,6 +153,15 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *   **Được sử dụng bởi (Used by)**: `AppLaunchRootView`, `BookDetailView`, `Chapter`, `ChapterLimitOption`, `ChapterRowInfo`, `DictionaryMatchInfo`, `DownloadManager`, `DownloadTask`, `DownloadTrackerView`, `FreeBookApp`, `LoadedChapter`, `PageFlipModifier`, `ParagraphTracker`, `ParsedBook`, `ParserChapter`, `ReaderChapterListView`, `ReaderSettingsView`, `ReaderTheme`, `ReaderView`, `ReaderViewModel`, `ReadingProgressRepository`, `ScrollTarget`, `SearchNovelResultWithExt`, `SearchView`, `ShelfView`, `SourceSearchState`, `TTSManager`, `TaskOptionsSheet`, `TaskStatus`, `TaskType`
 *   **Các Extension của kiểu này**:
     *   Tại [Models/Database/Book.swift:64](../../Sources/Models/Database/Book.swift#L64) : Identifiable
+
+---
+
+### 10b. BookStorageManager (CLASS)
+
+*   **Định nghĩa tại**: [Services/Download/BookStorageManager.swift:6](../../Sources/Services/Download/BookStorageManager.swift#L6)
+*   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
+*   **Sử dụng (Uses)**: `Book`, `BookBinManager`, `ImageCacheManager`, `TTSManager`, `DownloadManager`
+*   **Được sử dụng bởi (Used by)**: `ShelfView`, `BookDetailView`, `AppLaunchRootView`
 
 ---
 

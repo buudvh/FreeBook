@@ -147,9 +147,8 @@ struct ReaderView: View {
         if chapterIndex < currentOnlineChapters.count {
             return currentOnlineChapters[chapterIndex].host
         } else if let vm = viewModel {
-            let sorted = vm.getSortedChapters()
-            if chapterIndex < sorted.count {
-                return sorted[chapterIndex].host
+            if let chap = vm.fetchChapter(at: chapterIndex) {
+                return chap.host
             }
         }
         return localBook?.host ?? ext?.sourceUrl
@@ -166,22 +165,8 @@ struct ReaderView: View {
     }
 
     private var ttsChaptersQueue: [TTSChapterInfo] {
-        if let vm = viewModel {
-            let sorted = vm.getSortedChapters()
-            return sorted.map { chap in
-                let titleToUse: String
-                if isTranslationEnabled && TranslateUtils.containsChinese(chap.title) {
-                    titleToUse = TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
-                } else {
-                    titleToUse = chap.title
-                }
-                return TTSChapterInfo(
-                    title: titleToUse,
-                    url: chap.url,
-                    index: chap.index,
-                    host: chap.host
-                )
-            }
+        if let vm = viewModel, localBook != nil {
+            return vm.fetchChaptersMetadata(isTranslationEnabled: isTranslationEnabled)
         } else {
             return currentOnlineChapters.enumerated().map { (index, chap) in
                 let titleToUse: String
@@ -267,7 +252,7 @@ struct ReaderView: View {
                 selectedTheme.backgroundColor
                     .ignoresSafeArea()
                 readerMainContent
-                
+
                 // Panel dịch dạng overlay ở đáy (Full-width Bottom Sheet)
                 if showingDefinitionSheet {
                     VStack(spacing: 0) {
@@ -307,7 +292,7 @@ struct ReaderView: View {
                     .ignoresSafeArea(.keyboard, edges: .bottom)
                     .zIndex(5)
                 }
-                
+
                 // Lỗi 2: Overlay trong suốt phủ toàn màn hình bắt tap ra ngoài menu
                 // Dùng simultaneousGesture để không chặn scroll/swipe của content bên dưới
                 if showingFloatingMenu {
@@ -321,7 +306,7 @@ struct ReaderView: View {
                         )
                         .zIndex(9)
                 }
-                
+
                 // Floating bubble menu khi bôi đen
                 if showingFloatingMenu {
                     FloatingSelectionMenu(
@@ -366,7 +351,7 @@ struct ReaderView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
                     .zIndex(10)
                 }
-                
+
                 readerChapterListOverlay(in: geometry)
             }
         }
@@ -451,22 +436,22 @@ struct ReaderView: View {
     private func readSelectedText() {
         let text = selectedDisplayedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        
+
         clearSelectionTrigger = UUID()
         showingFloatingMenu = false
-        
+
         wordPlayer?.stop()
         wordPlayer = nil
-        
+
         Task {
             do {
                 let mp3Data = try await GoogleTTSService().synthesize(text: text)
                 guard !mp3Data.isEmpty else { return }
-                
+
                 let session = AVAudioSession.sharedInstance()
                 try? session.setCategory(.playback, mode: .default, options: [])
                 try? session.setActive(true)
-                
+
                 let player = try AVAudioPlayer(data: mp3Data)
                 player.prepareToPlay()
                 player.play()
@@ -488,7 +473,7 @@ struct ReaderView: View {
                     onlineChapters: currentOnlineChapters
                 )
                 if let store = chapterListStore {
-                    store.synchronize(sortedChapters: vm.getSortedChapters(), onlineChapters: currentOnlineChapters)
+                    store.updateChapters(totalCount: count, onlineChapters: currentOnlineChapters)
                 }
             }
         }
@@ -503,7 +488,7 @@ struct ReaderView: View {
                     onlineChapters: currentOnlineChapters
                 )
                 if let store = chapterListStore {
-                    store.synchronize(sortedChapters: vm.getSortedChapters(), onlineChapters: currentOnlineChapters)
+                    store.updateChapters(totalCount: newCount, onlineChapters: currentOnlineChapters)
                 }
             }
         }
@@ -516,7 +501,7 @@ struct ReaderView: View {
                     onlineChapters: onlineChapters
                 )
                 if let store = chapterListStore {
-                    store.synchronize(sortedChapters: vm.getSortedChapters(), onlineChapters: onlineChapters)
+                    store.updateChapters(totalCount: newCount, onlineChapters: onlineChapters)
                 }
             }
         }
@@ -718,8 +703,11 @@ struct ReaderView: View {
         }
         guard let vm = viewModel else { return nil }
         let store = ReaderChapterListStore(
-            sortedChapters: vm.getSortedChapters(),
-            onlineChapters: currentOnlineChapters.isEmpty ? onlineChapters : currentOnlineChapters
+            bookId: bookId,
+            modelContext: localBook != nil ? modelContext : nil,
+            onlineChapters: currentOnlineChapters.isEmpty ? onlineChapters : currentOnlineChapters,
+            totalCount: vm.totalChaptersCount,
+            isAscending: true
         )
         self.chapterListStore = store
         return store
@@ -1265,9 +1253,9 @@ struct ReaderView: View {
             self.selectedDisplayedText = ""
             return
         }
-        
+
         guard let item = paragraphItems.first(where: { $0.id == paragraphID }) else { return }
-        
+
         let displayedText = isTranslationEnabled ? item.translated : item.original
         let nsDisplayed = displayedText as NSString
         if selectionRange.location != NSNotFound && NSMaxRange(selectionRange) <= nsDisplayed.length {
@@ -1275,7 +1263,7 @@ struct ReaderView: View {
         } else {
             self.selectedDisplayedText = ""
         }
-        
+
         guard let originalRange = ReaderSelectionMapper.mapSelection(
                 selectionRange,
                 in: item,
@@ -1288,7 +1276,7 @@ struct ReaderView: View {
         self.originalSentence = item.original
         self.selectedWordOffset = originalRange.location
         self.selectedWordLength = originalRange.length
-        
+
         self.selectionMinY = minY
         self.selectionMaxY = maxY
         self.showingFloatingMenu = true
@@ -2292,11 +2280,11 @@ struct FloatingSelectionMenu: View {
                 .foregroundColor(.white)
                 .frame(width: 60, height: 48)
             }
-            
+
             Divider()
                 .frame(height: 24)
                 .background(Color.white.opacity(0.15))
-            
+
             Button(action: onSpeak) {
                 VStack(spacing: 3) {
                     Image(systemName: "headphones")
@@ -2307,11 +2295,11 @@ struct FloatingSelectionMenu: View {
                 .foregroundColor(.white)
                 .frame(width: 60, height: 48)
             }
-            
+
             Divider()
                 .frame(height: 24)
                 .background(Color.white.opacity(0.15))
-            
+
             Button(action: onPhoneme) {
                 VStack(spacing: 3) {
                     Image(systemName: "music.note")
@@ -2322,11 +2310,11 @@ struct FloatingSelectionMenu: View {
                 .foregroundColor(.white)
                 .frame(width: 60, height: 48)
             }
-            
+
             Divider()
                 .frame(height: 24)
                 .background(Color.white.opacity(0.15))
-            
+
             Button(action: onCopy) {
                 VStack(spacing: 3) {
                     Image(systemName: "doc.on.doc.fill")
@@ -2337,11 +2325,11 @@ struct FloatingSelectionMenu: View {
                 .foregroundColor(.white)
                 .frame(width: 60, height: 48)
             }
-            
+
             Divider()
                 .frame(height: 24)
                 .background(Color.white.opacity(0.15))
-            
+
             Button(action: onReadSelected) {
                 VStack(spacing: 3) {
                     Image(systemName: "speaker.wave.2.fill")
@@ -2352,11 +2340,11 @@ struct FloatingSelectionMenu: View {
                 .foregroundColor(.white)
                 .frame(width: 60, height: 48)
             }
-            
+
             Divider()
                 .frame(height: 24)
                 .background(Color.white.opacity(0.15))
-            
+
             Button(action: onClose) {
                 VStack(spacing: 3) {
                     Image(systemName: "xmark")

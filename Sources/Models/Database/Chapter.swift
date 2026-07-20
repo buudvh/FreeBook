@@ -14,9 +14,9 @@ public final class Chapter {
     public var length: Int64 = 0 // Độ dài byte của chương trong file .bin
     public var titleTrans: String?
     public var host: String?
-    
+
     public var book: Book?
-    
+
     public init(id: String, bookId: String, title: String, url: String, index: Int, isCached: Bool = false, offset: Int64 = 0, length: Int64 = 0, titleTrans: String? = nil, host: String? = nil) {
         self.id = id
         self.bookId = bookId
@@ -29,7 +29,7 @@ public final class Chapter {
         self.titleTrans = titleTrans
         self.host = host
     }
-    
+
     public static func hashUrl(_ url: String) -> String {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
@@ -37,9 +37,13 @@ public final class Chapter {
         let hashed = SHA256.hash(data: inputData)
         return hashed.compactMap { String(format: "%02x", $0) }.joined()
     }
-    
+
     public static func generateId(bookId: String, url: String, index: Int) -> String {
-        let suffix = url.isEmpty ? "index-\(index)" : hashUrl(url)
-        return "\(bookId)_\(suffix)"
+        let trimmedUrl = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedUrl.isEmpty {
+            return "\(bookId.count):\(bookId)|I:\(index)"
+        } else {
+            return "\(bookId.count):\(bookId)|U:\(trimmedUrl.count):\(trimmedUrl)"
+        }
     }
 }

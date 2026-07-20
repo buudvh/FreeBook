@@ -15,6 +15,13 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Book storage and deletion calls (1.3.34)
+
+* `BookStorageManager.removeFromShelf` and `removeFromHistory` invoke `deleteBookComplete` if the book has no historical/shelf references left.
+* `deleteBookComplete` calls `deleteBooks(bookIds:context:)` which fetches local `Book` instances, cancels active download tasks (`DownloadManager.cancelTasksForBook`), stops active playback (`TTSManager.stop`), deletes database objects, and commits (`context.save()`).
+* Upon successful DB save, `deleteBooks` launches a detached background `Task` to delete physical `.bin` files (`BookBinManager.deleteBinFile`) and cover images (`ImageCacheManager.deleteCover`).
+* Physical file deletion failures are queued via `enqueueFailedDeletion` and retried at launch through `drainRetryQueue` called from `FreeBookApp` startup view.
+
 ## Reader paragraph and selection calls (1.3.14)
 
 * `ReaderViewModel.processAndSaveChapter` and the legacy Reader path both call `ReaderParagraphBuilder.build`, which translates each original line independently and returns aligned paragraph items.
@@ -217,5 +224,9 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 - Widget actions call `TTSManager.pause/resume/skipForward/stop`; `skipForward` also advances the selected paragraph while paused, and Reader recovery uses the `navigateReaderToPlayingChapter` notification when the book is already visible.
 - Reader/TTS call `ChapterContentRepository.load`; it coalesces by `ChapterKey`, calls `ChapterPersistenceStore.readChapter`, falls back to the extension, then enqueues `upsert` without blocking MainActor.
 - Reader dismissal and app background call repository flush APIs. Repository deletion calls extension uninstall only after confirmation and rejects deletion while that repository owns the visible TTS session.
+- Deletion requests on `ShelfView` and `BookDetailView` invoke database deletion and side-effect cancellation (TTS, downloads) before dispatching background file cleanup events.
+- Physical file deletion failures emit path details to the `UserDefaults` retry queue, and app startup triggers a queue drain event (`drainRetryQueue()`) to retry up to 3 times.
+- `ReaderChapterListStore` paging actions trigger asynchronous metadata loading events using `fetchPage` inside background tasks, updating the visible list rows.
+- `DownloadManager` tasks check `Task.isCancelled` at chapter boundaries during download or export tasks to support cooperative cancellation.
 
 <!-- GENERATED END -->

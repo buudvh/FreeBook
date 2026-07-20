@@ -33,7 +33,8 @@ Reader chrome observes the pending target and immediately shows its title, chapt
 *   **Mục tiêu (Purpose)**: Hiển thị nội dung chương truyện, quản lý vị trí đọc hiện tại, tải trước (prefetch) chương kế tiếp và lưu trữ vị trí đọc của người dùng.
 *   **API công khai (Public API)**:
     *   `ReaderViewModel.updateProgress(chapterIndex:paragraphIndex:)`
-    *   `ReaderViewModel.getSortedChapters() -> [Chapter]`
+    *   `ReaderViewModel.fetchChapter(at: Int) -> Chapter?`
+    *   `ReaderViewModel.fetchChaptersMetadata(isTranslationEnabled: Bool) -> [TTSChapterInfo]`
     *   `ChapterCache.setScrollParagraph(_:paragraphIndex:)`
     *   `PrefetchManager.prefetchChapter(bookId:chapterIndex:...)`
 *   **Dependencies**: SwiftData (`ModelContext`), `ExtensionManager`, `ReadingProgressRepository`, `ChapterCache`, `PrefetchManager`.
@@ -201,13 +202,17 @@ Reader chrome observes the pending target and immediately shows its title, chapt
 ---
 
 ## 12. Phân hệ Kệ sách (Shelf Subsystem)
-*   **Mục tiêu (Purpose)**: Quản lý danh sách sách đang đọc dở, sách yêu thích của người dùng.
-*   **API công khai (Public API)**: `ShelfView.swift`.
-*   **Dependencies**: SwiftData (`Book`), `DownloadManager`, `TranslationManager`.
+*   **Mục tiêu (Purpose)**: Quản lý danh sách sách đang đọc dở, sách yêu thích của người dùng, tích hợp điều phối việc xóa sách và dọn dẹp bộ nhớ đĩa.
+*   **API công khai (Public API)**:
+    *   `ShelfView.swift`
+    *   `BookStorageManager.shared.removeFromShelf(_:context:)`
+    *   `BookStorageManager.shared.deleteBooks(bookIds:context:)`
+*   **Dependencies**: SwiftData (`Book`), `DownloadManager`, `TranslationManager`, `BookBinManager`, `ImageCacheManager`, `TTSManager`.
 *   **Điểm bắt đầu (Entry Points)**: Tab đầu tiên mặc định khi mở ứng dụng.
-*   **Vòng đời (Lifecycle)**: Hiển thị danh sách `@Query` sách trên kệ -> Cho phép xóa hoặc sắp xếp lại.
+*   **Vòng đời (Lifecycle)**: Hiển thị danh sách `@Query` sách trên kệ -> Người dùng chọn xóa sách -> Kích hoạt `BookStorageManager` xóa DB -> Lưu context -> Kích hoạt dọn dẹp file vật lý bất đồng bộ ở background thread.
 *   **Rủi ro đã biết (Known Risks)**:
     *   Cập nhật tiến độ đọc chưa đồng bộ khi quay lại từ Trình đọc hoặc TTS widget.
+    *   Lỗi dọn dẹp file vật lý do thread background chạy độc lập bị OS ngắt (xử lý bằng cách đẩy vào hàng đợi retry trong `UserDefaults` và drain ở khởi động ứng dụng).
 
 ---
 
@@ -238,5 +243,9 @@ Reader chrome observes the pending target and immediately shows its title, chapt
 - The TTS widget presents a compact horizontal capsule over Reader, with a circular rotating cover, play/pause, fast-forward and close actions. Its edge-peek mode preserves the same playback and placement state and expands on drag.
 - The Chapter Text subsystem now includes `ChapterPersistenceStore`: shared Reader/TTS loads use RAM, background SwiftData, then extension, with coalesced in-flight work and cache-preserving TOC reconciliation.
 - Extension repository management removes row swipe/toggle behavior in favor of an explicit confirmed delete action compatible with the paged tab gesture.
+- `BookStorageManager` coordinates book deletion, ensuring model context changes are committed to the SQLite database before spawning background threads to delete covers and `.bin` files via `ImageCacheManager` and `BookBinManager` under a path safety sandbox validator.
+- Failed physical file deletions are stored in a `UserDefaults` queue and drained at app startup through `BookStorageManager.shared.drainRetryQueue()`, up to a limit of 3 retry attempts.
+- `ReaderChapterListStore` limits the active memory footprint for the Table of Contents via paging (TOC pagination) and a sliding window of 3 pages (maximum 300 active `ReaderChapterRowState` objects) while positional metadata (`ChapterRowItem`) spans the entire TOC.
+- In-flight download and text export tasks support cooperative cancellation by checking `Task.isCancelled` and task state at chapter boundaries.
 
 <!-- GENERATED END -->

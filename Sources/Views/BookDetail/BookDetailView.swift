@@ -11,13 +11,13 @@ struct BookDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var allBooks: [Book]
     @Query private var allExtensions: [Extension]
-    
+
     let bookId: String
     let extensionPackageId: String
     let initialDetailUrl: String
     let sourceName: String
     let initialHost: String?
-    
+
     init(bookId: String, extensionPackageId: String, initialDetailUrl: String, sourceName: String, initialHost: String? = nil) {
         self.bookId = bookId
         self.extensionPackageId = extensionPackageId
@@ -26,16 +26,16 @@ struct BookDetailView: View {
         self.initialHost = initialHost
         self._host = State(initialValue: initialHost ?? "")
     }
-    
+
     @State private var isLoadingDetail = true
     @State private var isLoadingTOC = true
     @State private var detailErrorMessage = ""
     @State private var tocErrorMessage = ""
-    
+
     @State private var genres: [CategoryResult] = []
     @State private var suggests: [CategoryResult] = []
     @State private var comments: [CategoryResult] = []
-    
+
     // Dữ liệu tạm thời khi xem online (chưa thêm vào kệ)
     @State private var title = ""
     @State private var author = ""
@@ -51,12 +51,12 @@ struct BookDetailView: View {
     @State private var filteredOnlineChapters: [(offset: Int, element: ChapterResult)] = []
     @State private var host = ""
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
-    
+
     // Cấu hình tab và FAB
     @State private var selectedTab = 0
     @State private var isMenuExpanded = false
     @State private var loadingTask: Task<Void, Never>? = nil
-    
+
     // Phân trang danh sách chương
     @State private var tocPages: [String] = []
     @State private var remainingPagesLoaded = false
@@ -64,7 +64,7 @@ struct BookDetailView: View {
     @State private var readerRoute: ReaderRoute?
     @State private var navigateToDictionary = false
     @State private var navigateToChangeSource = false
-    
+
     // Trình duyệt bypass Cloudflare & Import
     @State private var showingBypassBrowser = false
     @State private var importedBookId = ""
@@ -74,29 +74,29 @@ struct BookDetailView: View {
     @State private var importedHost = ""
     @State private var navigateToImportedBook = false
     @State private var chapterSearchQuery = ""
-    
+
     // Quản lý tác vụ tải/xuất
     @State private var selectedTaskType: TaskType = .download
     @State private var selectedBookForTask: Book? = nil
-    
+
     @State private var resolvedBookId: String = ""
-    
+
     private var actualBookId: String {
         resolvedBookId.isEmpty ? bookId : resolvedBookId
     }
-    
+
     // Tìm sách local trong database
     private var localBook: Book? {
         allBooks.first(where: {
             $0.detailUrl == initialDetailUrl && $0.extensionPackageId == extensionPackageId
         })
     }
-    
+
     // Tìm extension cục bộ để chạy script
     private var ext: Extension? {
         allExtensions.first(where: { $0.packageId == extensionPackageId })
     }
-    
+
     // Host đã phân giải (ưu tiên localBook.host -> self.host -> ext.sourceUrl)
     private var resolvedHost: String? {
         if let localHost = localBook?.host, !localHost.isEmpty {
@@ -107,36 +107,36 @@ struct BookDetailView: View {
         }
         return ext?.sourceUrl
     }
-    
+
     private func cleanDetailText(_ html: String) -> String {
         return html.cleanHTML()
     }
-    
+
     private var cleanedDetailText: String {
         cleanDetailText(detail)
     }
-    
+
     private func translateMetaIfNeeded(_ text: String) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }
         return TranslateUtils.translateMeta(text, bookId: actualBookId)
     }
-    
+
     private func translateTitleIfNeeded(_ text: String) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }
         return TranslateUtils.translateChapterTitle(text, bookId: actualBookId)
     }
-    
+
     private func translateChapterTitleIfNeeded(_ chap: Chapter) -> String {
         if isTranslationEnabled && TranslateUtils.containsChinese(chap.title) {
             return TranslateUtils.translateChapterTitle(chap.title, bookId: actualBookId)
         }
         return chap.title
     }
-    
+
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
@@ -144,13 +144,13 @@ struct BookDetailView: View {
                     errorView
                 } else {
                     customTabBar
-                    
+
                     Divider()
-                    
+
                     TabView(selection: $selectedTab) {
                         detailTab
                             .tag(0)
-                        
+
                         tocTab
                             .tag(1)
                     }
@@ -214,14 +214,14 @@ struct BookDetailView: View {
                     )
                 }
             }
-            
+
             NavigationLink(
                 destination: BookDictionaryView(bookId: actualBookId, bookName: title),
                 isActive: $navigateToDictionary
             ) {
                 EmptyView()
             }
-            
+
             NavigationLink(
                 destination: SearchView(
                     activeExtensions: Array(allExtensions),
@@ -236,7 +236,7 @@ struct BookDetailView: View {
             ) {
                 EmptyView()
             }
-            
+
             NavigationLink(
                 destination: LazyView {
                     BookDetailView(
@@ -251,11 +251,11 @@ struct BookDetailView: View {
             ) {
                 EmptyView()
             }
-            
+
             if isLoadingRemainingPages {
                 loadingOverlay
             }
-            
+
             floatingActionButton
         }
         .toolbar(.hidden, for: .tabBar)
@@ -266,7 +266,7 @@ struct BookDetailView: View {
             bypassBrowserContent
         }
     }
-    
+
     @ViewBuilder
     private var errorView: some View {
         VStack(spacing: 16) {
@@ -284,7 +284,7 @@ struct BookDetailView: View {
         .padding()
         .frame(maxHeight: .infinity)
     }
-    
+
     @ViewBuilder
     private var customTabBar: some View {
         HStack(spacing: 0) {
@@ -298,14 +298,14 @@ struct BookDetailView: View {
                         .font(.subheadline)
                         .fontWeight(selectedTab == 0 ? .bold : .medium)
                         .foregroundColor(selectedTab == 0 ? .accentColor : .secondary)
-                    
+
                     Rectangle()
                         .fill(selectedTab == 0 ? Color.accentColor : Color.clear)
                         .frame(height: 3)
                 }
             }
             .frame(maxWidth: .infinity)
-            
+
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     selectedTab = 1
@@ -316,7 +316,7 @@ struct BookDetailView: View {
                         .font(.subheadline)
                         .fontWeight(selectedTab == 1 ? .bold : .medium)
                         .foregroundColor(selectedTab == 1 ? .accentColor : .secondary)
-                    
+
                     Rectangle()
                         .fill(selectedTab == 1 ? Color.accentColor : Color.clear)
                         .frame(height: 3)
@@ -327,7 +327,7 @@ struct BookDetailView: View {
         .background(Color(.systemBackground))
         .padding(.top, 4)
     }
-    
+
     @ViewBuilder
     private var detailTab: some View {
         ScrollView {
@@ -337,7 +337,7 @@ struct BookDetailView: View {
                         VStack(alignment: .leading, spacing: 16) {
                             HStack(alignment: .top, spacing: 16) {
                                 SkeletonView(width: 100, height: 140)
-                                
+
                                 VStack(alignment: .leading, spacing: 10) {
                                     SkeletonView(width: 180, height: 22)
                                     SkeletonView(width: 120, height: 16)
@@ -379,17 +379,17 @@ struct BookDetailView: View {
                             BookCoverView(bookId: actualBookId, coverUrl: coverUrl, width: 100, height: 140)
                                 .cornerRadius(8)
                                 .shadow(radius: 2)
-                            
+
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(translateMetaIfNeeded(title))
                                     .font(.title3)
                                     .fontWeight(.bold)
                                     .lineLimit(3)
-                                
+
                                 Text("Tác giả: \(TranslateUtils.translateAuthorHanViet(author))")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
-                                
+
                                 HStack(spacing: 6) {
                                     if let ext = ext {
                                         ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl, size: 16)
@@ -404,14 +404,14 @@ struct BookDetailView: View {
                                         .fontWeight(.medium)
                                         .foregroundColor(.secondary)
                                 }
-                                
+
                                 if !detail.isEmpty {
                                     Text(translateMetaIfNeeded(cleanedDetailText))
                                         .font(.caption2)
                                         .foregroundColor(.secondary)
                                         .lineLimit(4)
                                 }
-                                
+
                                 if !genres.isEmpty {
                                     ScrollView(.horizontal, showsIndicators: false) {
                                         HStack(spacing: 8) {
@@ -439,9 +439,9 @@ struct BookDetailView: View {
                             }
                         }
                         .padding(.horizontal)
-                        
+
                         Divider()
-                        
+
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Giới thiệu")
                                 .font(.headline)
@@ -449,7 +449,7 @@ struct BookDetailView: View {
                                 .font(.body)
                                 .foregroundColor(.secondary)
                                 .lineLimit(isDescExpanded ? nil : 4)
-                            
+
                             if desc.count > 150 {
                                 Button(action: {
                                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -470,7 +470,7 @@ struct BookDetailView: View {
                         }
                         .padding(.horizontal)
                     }
-                    
+
                     if isLoadingDetail && title.isEmpty {
                         Divider()
                         VStack(alignment: .leading, spacing: 8) {
@@ -510,7 +510,7 @@ struct BookDetailView: View {
                                     }
                                 }
                                 .padding(.horizontal)
-                                
+
                                 SuggestRowView(
                                     category: suggest,
                                     localPath: ext?.localPath ?? "",
@@ -522,7 +522,7 @@ struct BookDetailView: View {
                             }
                         }
                     }
-                    
+
                     if isLoadingDetail && title.isEmpty {
                         Divider()
                         VStack(alignment: .leading, spacing: 8) {
@@ -548,7 +548,7 @@ struct BookDetailView: View {
                                 Text(TranslateUtils.translateMeta(comment.title))
                                     .font(.headline)
                                     .padding(.horizontal)
-                                
+
                                 CommentSectionView(
                                     category: comment,
                                     localPath: ext?.localPath ?? "",
@@ -570,13 +570,13 @@ struct BookDetailView: View {
             await reloadBookData()
         }
     }
-    
+
     @ViewBuilder
     private var tocTab: some View {
         VStack(spacing: 0) {
             if renderedTab == 1 {
                 let totalChaps = localBook?.chapters.count ?? onlineChapters.count
-                
+
                 if totalChaps > 0 {
                     HStack {
                         Image(systemName: "magnifyingglass")
@@ -596,13 +596,13 @@ struct BookDetailView: View {
                     .padding(.vertical, 8)
                     .background(Color(.systemBackground))
                 }
-                
+
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text("Danh sách chương (\(totalChaps))")
                                 .font(.headline)
-                            
+
                             Button(action: {
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     isTocAscending.toggle()
@@ -613,7 +613,7 @@ struct BookDetailView: View {
                                     .foregroundColor(.accentColor)
                             }
                             .padding(.leading, 4)
-                            
+
                             Spacer()
                             if totalChaps > 0 && !tocErrorMessage.isEmpty {
                                 Button(action: loadTOCDataOnly) {
@@ -628,7 +628,7 @@ struct BookDetailView: View {
                         }
                         .padding(.horizontal)
                         .padding(.top, 4)
-                        
+
                         if isLoadingTOC && totalChaps == 0 {
                             HStack {
                                 Spacer()
@@ -699,7 +699,7 @@ struct BookDetailView: View {
                                         .buttonStyle(.plain)
                                     }
                                 }
-                                
+
                                 if tocPages.count > 1 && !remainingPagesLoaded {
                                     Button(action: loadMoreChapters) {
                                         HStack {
@@ -729,7 +729,7 @@ struct BookDetailView: View {
             await reloadBookData()
         }
     }
-    
+
     @ViewBuilder
     private var ellipsisMenu: some View {
         Menu {
@@ -741,7 +741,7 @@ struct BookDetailView: View {
                     systemImage: isTranslationEnabled ? "character.bubble.fill" : "character.bubble"
                 )
             }
-            
+
             if localBook != nil {
                 Button(action: {
                     navigateToDictionary = true
@@ -749,19 +749,19 @@ struct BookDetailView: View {
                     Label("Từ điển", systemImage: "character.book.closed")
                 }
             }
-            
+
             Button(action: {
                 navigateToChangeSource = true
             }) {
                 Label("Thay đổi nguồn", systemImage: "arrow.2.squarepath")
             }
-            
+
             Button(action: {
                 showingBypassBrowser = true
             }) {
                 Label("Mở bằng trình duyệt", systemImage: "safari")
             }
-            
+
             Button(action: {
                 // Chưa làm chức năng
             }) {
@@ -772,13 +772,13 @@ struct BookDetailView: View {
                 .rotationEffect(.degrees(90))
         }
     }
-    
+
     @ViewBuilder
     private var loadingOverlay: some View {
         ZStack {
             Color.black.opacity(0.4)
                 .ignoresSafeArea()
-            
+
             VStack(spacing: 16) {
                 ProgressView()
                     .tint(.white)
@@ -787,7 +787,7 @@ struct BookDetailView: View {
                     .foregroundColor(.white)
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                
+
                 Button(action: {
                     loadingTask?.cancel()
                     loadingTask = nil
@@ -813,7 +813,7 @@ struct BookDetailView: View {
             .cornerRadius(12)
         }
     }
-    
+
     @ViewBuilder
     private var floatingActionButton: some View {
         let totalChaps = localBook?.chapters.count ?? onlineChapters.count
@@ -845,7 +845,7 @@ struct BookDetailView: View {
                                 .shadow(radius: 3)
                             }
                             .transition(.scale.combined(with: .opacity))
-                            
+
                             Button(action: {
                                 isMenuExpanded = false
                                 if let book = localBook, book.isOnShelf {
@@ -870,7 +870,7 @@ struct BookDetailView: View {
                                 .shadow(radius: 3)
                             }
                             .transition(.scale.combined(with: .opacity))
-                            
+
                             Button(action: {
                                 isMenuExpanded = false
                                 prepareForTask(taskType: .download)
@@ -891,7 +891,7 @@ struct BookDetailView: View {
                                 .shadow(radius: 3)
                             }
                             .transition(.scale.combined(with: .opacity))
-                            
+
                             Button(action: {
                                 isMenuExpanded = false
                                 prepareForTask(taskType: .exportTxt)
@@ -913,7 +913,7 @@ struct BookDetailView: View {
                             }
                             .transition(.scale.combined(with: .opacity))
                         }
-                        
+
                         Button(action: {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                                 isMenuExpanded.toggle()
@@ -936,7 +936,7 @@ struct BookDetailView: View {
             }
         }
     }
-    
+
     @ViewBuilder
     private var bypassBrowserContent: some View {
         BypassWebView(
@@ -945,7 +945,7 @@ struct BookDetailView: View {
             onImport: { detailUrl, packageId, sourceName in
                 let checkUrl = JSExecutor.cleanAndResolveUrl(detailUrl, host: ext?.sourceUrl)
                 let currentResolved = JSExecutor.cleanAndResolveUrl(initialDetailUrl, host: ext?.sourceUrl)
-                
+
                 if checkUrl == currentResolved {
                     loadBookData()
                 } else {
@@ -953,13 +953,13 @@ struct BookDetailView: View {
                     importedExtensionPackageId = packageId
                     importedDetailUrl = detailUrl
                     importedSourceName = sourceName
-                    
+
                     if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
                         importedHost = "\(scheme)://\(host)"
                     } else {
                         importedHost = ""
                     }
-                    
+
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                         navigateToImportedBook = true
                     }
@@ -967,7 +967,7 @@ struct BookDetailView: View {
             }
         )
     }
-    
+
     private func resolveBookId() {
         if let book = localBook {
             resolvedBookId = book.bookId
@@ -979,7 +979,7 @@ struct BookDetailView: View {
             }
         }
     }
-    
+
     private func loadBookData() {
         resolveBookId()
         // Nếu sách đã ở local, gán dữ liệu từ local để hiển thị ngay
@@ -997,37 +997,37 @@ struct BookDetailView: View {
                 return
             }
         }
-        
+
         isLoadingDetail = true
         isLoadingTOC = true
         detailErrorMessage = ""
         tocErrorMessage = ""
-        
+
         loadBookDetailOnly()
         loadTOCDataOnly()
     }
-    
+
     private func loadBookDetailOnly() {
         guard let ext = ext else {
             detailErrorMessage = "Không tìm thấy tiện ích bóc tách của truyện này!"
             self.isLoadingDetail = false
             return
         }
-        
+
         guard !ext.localPath.isEmpty else {
             detailErrorMessage = "Vui lòng cài đặt tiện ích '\(ext.name)' trong phần Tiện Ích trước khi bóc tách nguồn này!"
             self.isLoadingDetail = false
             return
         }
-        
+
         isLoadingDetail = true
         detailErrorMessage = ""
-        
+
         Task {
             do {
                 let path = ext.localPath
                 let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
-                
+
                 await MainActor.run {
                     self.title = detailResult.name
                     self.author = detailResult.author
@@ -1038,7 +1038,7 @@ struct BookDetailView: View {
                     self.suggests = detailResult.suggests
                     self.comments = detailResult.comments
                     self.host = detailResult.host
-                    
+
                     if let book = localBook {
                         book.title = detailResult.name
                         book.author = detailResult.author
@@ -1057,29 +1057,29 @@ struct BookDetailView: View {
             }
         }
     }
-    
+
     private func loadTOCDataOnly() {
         guard let ext = ext else {
             tocErrorMessage = "Không tìm thấy tiện ích bóc tách!"
             self.isLoadingTOC = false
             return
         }
-        
+
         guard !ext.localPath.isEmpty else {
             tocErrorMessage = "Vui lòng cài đặt tiện ích '\(ext.name)'!"
             self.isLoadingTOC = false
             return
         }
-        
+
         isLoadingTOC = true
         tocErrorMessage = ""
-        
+
         Task {
             do {
                 let path = ext.localPath
                 var firstPageChapters: [ChapterResult] = []
                 var pages: [String] = []
-                
+
                 if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
                     pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
                     if !pages.isEmpty {
@@ -1090,11 +1090,11 @@ struct BookDetailView: View {
                 } else {
                     firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
                 }
-                
+
                 await MainActor.run {
                     self.onlineChapters = firstPageChapters
                     self.tocPages = pages
-                    
+
                     if let book = localBook {
                         updateLocalChapters(for: book, with: firstPageChapters)
                         try? modelContext.save()
@@ -1109,14 +1109,14 @@ struct BookDetailView: View {
             }
         }
     }
-    
+
     private func addToShelf() {
         let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
-        
+
         if let book = localBook {
             book.isOnShelf = true
             try? modelContext.save()
-            
+
             // Tải toàn bộ chương nếu chưa được nạp đầy đủ
             if tocPages.count > 1 && !remainingPagesLoaded {
                 isLoadingRemainingPages = true
@@ -1180,7 +1180,7 @@ struct BookDetailView: View {
             }
         }
     }
-    
+
     private func createBookOnShelf(savedDesc: String) {
         let newBook = Book(
             bookId: resolvedBookId,
@@ -1202,7 +1202,7 @@ struct BookDetailView: View {
         updateLocalChapters(for: newBook, with: onlineChapters)
         try? modelContext.save()
     }
-    
+
     private func loadAllRemainingPages() async throws -> [ChapterResult] {
         guard let ext = ext else { return [] }
         var allChapters: [ChapterResult] = []
@@ -1220,19 +1220,19 @@ struct BookDetailView: View {
         }
         return allChapters
     }
-    
+
     private func loadMoreChapters() {
         guard !isLoadingRemainingPages else { return }
         isLoadingRemainingPages = true
         tocErrorMessage = ""
-        
+
         loadingTask = Task {
             do {
                 let remainingChaps = try await loadAllRemainingPages()
                 try Task.checkCancellation()
                 await MainActor.run {
                     self.onlineChapters.append(contentsOf: remainingChaps)
-                    
+
                     if let book = localBook {
                         let startIdx = book.chapters.count
                         for (index, item) in remainingChaps.enumerated() {
@@ -1244,7 +1244,7 @@ struct BookDetailView: View {
                         try? modelContext.save()
                         self.syncChaptersList()
                     }
-                    
+
                     self.remainingPagesLoaded = true
                     self.isLoadingRemainingPages = false
                     self.loadingTask = nil
@@ -1260,26 +1260,26 @@ struct BookDetailView: View {
             }
         }
     }
-    
+
     private func startReading(at chapterIndex: Int) {
         let route = ReaderRoute(chapterIndex: chapterIndex)
         if tocPages.count > 1 && !remainingPagesLoaded {
             // Điều hướng người dùng sang màn hình đọc ngay lập tức không bắt chờ
             self.readerRoute = route
-            
+
             // Nếu đã có tác vụ đang chạy thì không chạy trùng lặp
             guard loadingTask == nil else { return }
-            
+
             isLoadingRemainingPages = true
             tocErrorMessage = ""
-            
+
             loadingTask = Task {
                 do {
                     let remainingChaps = try await loadAllRemainingPages()
                     try Task.checkCancellation()
                     await MainActor.run {
                         self.onlineChapters.append(contentsOf: remainingChaps)
-                        
+
                         if let book = localBook {
                             let existingUrls = Set(book.chapters.map { $0.url })
                             var startIdx = book.chapters.count
@@ -1295,7 +1295,7 @@ struct BookDetailView: View {
                             try? modelContext.save()
                             self.syncChaptersList()
                         }
-                        
+
                         self.remainingPagesLoaded = true
                         self.isLoadingRemainingPages = false
                         self.loadingTask = nil
@@ -1314,19 +1314,19 @@ struct BookDetailView: View {
             self.readerRoute = route
         }
     }
-    
+
     private func prepareForTask(taskType: TaskType) {
         if tocPages.count > 1 && !remainingPagesLoaded {
             isLoadingRemainingPages = true
             tocErrorMessage = ""
-            
+
             loadingTask = Task {
                 do {
                     let remainingChaps = try await loadAllRemainingPages()
                     try Task.checkCancellation()
                     await MainActor.run {
                         self.onlineChapters.append(contentsOf: remainingChaps)
-                        
+
                         if let book = localBook {
                             let startIdx = book.chapters.count
                             for (index, item) in remainingChaps.enumerated() {
@@ -1341,10 +1341,10 @@ struct BookDetailView: View {
                             let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
                             createBookOnShelf(savedDesc: savedDesc)
                         }
-                        
+
                         self.remainingPagesLoaded = true
                         self.isLoadingRemainingPages = false
-                        
+
                         if let book = localBook {
                             self.selectedTaskType = taskType
                             self.selectedBookForTask = book
@@ -1372,25 +1372,18 @@ struct BookDetailView: View {
             }
         }
     }
-    
+
     private func removeFromShelf(_ book: Book) {
-        if book.isHistory {
-            book.isOnShelf = false
-            try? modelContext.save()
-        } else {
-            UserDefaults.standard.removeObject(forKey: "lastChapterIndex_\(book.bookId)")
-            UserDefaults.standard.removeObject(forKey: "lastParagraphIndex_\(book.bookId)")
-            if TTSManager.shared.playingBookId == book.bookId {
-                TTSManager.shared.stop()
-            }
-            modelContext.delete(book)
-            try? modelContext.save()
+        do {
+            try BookStorageManager.shared.removeFromShelf(book, context: modelContext)
+        } catch {
+            AppLogger.shared.log("❌ Lỗi khi xóa khỏi kệ sách tại BookDetailView: \(error.localizedDescription)")
         }
     }
-    
+
     private func updateLocalChapters(for book: Book, with results: [ChapterResult]) {
         let unmatchedSet = book.chapters
-        
+
         var unmatchedByUrl: [String: Chapter] = [:]
         var unmatchedByIndex: [Int: Chapter] = [:]
         for chap in unmatchedSet {
@@ -1399,7 +1392,7 @@ struct BookDetailView: View {
             }
             unmatchedByIndex[chap.index] = chap
         }
-        
+
         var remainingUnmatched = Set(unmatchedSet)
 
         for (index, item) in results.enumerated() {
@@ -1449,7 +1442,7 @@ struct BookDetailView: View {
            !firstHost.isEmpty {
             book.host = firstHost
         }
-        
+
         self.syncChaptersList()
     }
 
@@ -1460,7 +1453,7 @@ struct BookDetailView: View {
             chaptersList = []
         }
     }
-    
+
     private func updateFilteredLocalChapters() {
         let sorted = chaptersList.sorted(by: { isTocAscending ? ($0.index < $1.index) : ($0.index > $1.index) })
         filteredLocalChapters = sorted.filter { chap in
@@ -1469,7 +1462,7 @@ struct BookDetailView: View {
             translateChapterTitleIfNeeded(chap).localizedCaseInsensitiveContains(chapterSearchQuery)
         }
     }
-    
+
     private func updateFilteredOnlineChapters() {
         let enumeratedChaps = Array(onlineChapters.enumerated())
         let sortedOnline = isTocAscending ? enumeratedChaps : Array(enumeratedChaps.reversed())
@@ -1483,16 +1476,16 @@ struct BookDetailView: View {
     private func reloadBookData() async {
         guard let ext = ext else { return }
         guard !ext.localPath.isEmpty else { return }
-        
+
         await MainActor.run {
             self.detailErrorMessage = ""
             self.tocErrorMessage = ""
         }
-        
+
         // Chạy song song detail và toc
         let bookHost = resolvedHost
         async let detailTask = ExtensionManager.shared.detail(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: bookHost, configJson: ext.configJson)
-        
+
         do {
             let detailResult = try await detailTask
             await MainActor.run {
@@ -1505,7 +1498,7 @@ struct BookDetailView: View {
                 self.suggests = detailResult.suggests
                 self.comments = detailResult.comments
                 self.host = detailResult.host
-                
+
                 if let book = localBook {
                     book.title = detailResult.name
                     book.author = detailResult.author
@@ -1520,7 +1513,7 @@ struct BookDetailView: View {
                 self.detailErrorMessage = "Lỗi tải chi tiết: \(error.localizedDescription)"
             }
         }
-        
+
         do {
             let path = ext.localPath
             var allChapters: [ChapterResult] = []
@@ -1529,7 +1522,7 @@ struct BookDetailView: View {
                 await MainActor.run {
                     self.tocPages = pages
                 }
-                
+
                 for pageUrl in pages {
                     let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, host: resolvedHost, configJson: ext.configJson)
                     allChapters.append(contentsOf: pageChaps)
@@ -1541,7 +1534,7 @@ struct BookDetailView: View {
                 let tocResult = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: localBook?.host, configJson: ext.configJson)
                 allChapters = tocResult
             }
-            
+
             await MainActor.run {
                 self.onlineChapters = allChapters
                 if let book = localBook {

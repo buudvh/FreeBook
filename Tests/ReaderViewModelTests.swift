@@ -5,6 +5,12 @@ import SwiftData
 @available(iOS 17.0, *)
 final class ReaderViewModelTests: XCTestCase {
 
+    override func tearDown() async throws {
+        try? await BookBinManager.shared.deleteBinFile(for: "single-chapter-test-book")
+        BookStorageManager.mockSaveError = nil
+        BookStorageManager.mockFetchError = nil
+    }
+
     @MainActor
     func testChapterCacheGetSet() {
         let cache = ChapterCache()
@@ -90,19 +96,28 @@ final class ReaderViewModelTests: XCTestCase {
             sourceUrl: "https://example.com",
             extensionPackageId: "test-extension"
         )
-        book.chapters = (0..<30).map { index in
+        context.insert(book)
+        try context.save()
+
+        var chapters: [Chapter] = []
+        for index in 0..<30 {
+            let content = "Nội dung chương \(index)"
+            let (offset, length) = try await BookBinManager.shared.writeChapterContent(bookId: "single-chapter-test-book", content: content)
             let chapter = Chapter(
                 id: "chapter-\(index)",
+                bookId: "single-chapter-test-book",
                 title: "Chương \(index + 1)",
                 url: "https://example.com/chapter-\(index)",
                 index: index,
-                content: "Nội dung chương \(index)",
-                isCached: true
+                isCached: true,
+                offset: offset,
+                length: length
             )
             chapter.book = book
-            return chapter
+            context.insert(chapter)
+            chapters.append(chapter)
         }
-        context.insert(book)
+        book.chapters = chapters
         try context.save()
 
         let viewModel = ReaderViewModel(
@@ -159,7 +174,13 @@ final class ReaderViewModelTests: XCTestCase {
                 host: "https://example.com"
             )
         }
-        let store = ReaderChapterListStore(localBook: nil, onlineChapters: chapters)
+        let store = ReaderChapterListStore(
+            bookId: "online-book",
+            modelContext: nil,
+            onlineChapters: chapters,
+            totalCount: 10_000,
+            isAscending: true
+        )
         let untouchedRow = store.rows[100]
 
         store.markCached(index: 7_777)
@@ -302,5 +323,138 @@ final class ReaderViewModelTests: XCTestCase {
         XCTAssertFalse(completed.contains(30))
         XCTAssertTrue(completed.contains(40))
         await prefetcher.cancelAll()
+    }
+
+    // FOCUSED TEST: Z-A Mapping
+    @MainActor
+    func testZAMapping() {
+        let store = ReaderChapterListStore(
+            bookId: "test-zamap-book",
+            modelContext: nil,
+            onlineChapters: [],
+            totalCount: 300,
+            isAscending: false
+        )
+
+        // Logical index mapped for DESC order
+        XCTAssertEqual(store.rows[0].index, 299)
+        XCTAssertEqual(store.rows[299].index, 0)
+    }
+
+    // FOCUSED TEST: Search Limit
+    @MainActor
+    func testSearchLimit() {
+        let chapters = (0..<500).map { index in
+            ChapterResult(
+                name: "Chương \(index + 1) test query match",
+                url: "https://example.com/\(index)",
+                host: "https://example.com"
+            )
+        }
+        let store = ReaderChapterListStore(
+            bookId: "test-search-book",
+            modelContext: nil,
+            onlineChapters: chapters,
+            totalCount: 500,
+            isAscending: true
+        )
+
+        let results = store.searchChapters(query: "match")
+        XCTAssertEqual(results.count, 100) // Đảm bảo limit tối đa 100 kết quả
+    }
+
+    // FOCUSED TEST: DB Failure No File Deletion
+    @MainActor
+    func testNoFileDeleteOnDBFailure() async throws {
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: Book.self, configurations: configuration)
+        let context = ModelContext(container)
+
+        let bookId = "failed-db-book"
+        let book = Book(
+            bookId: bookId,
+            title: "Failed Book",
+            author: "Author",
+            coverUrl: "",
+            desc: "",
+            detailUrl: "https://example.com/book",
+            sourceName: "Test",
+            sourceUrl: "https://example.com",
+            extensionPackageId: "test-extension"
+        )
+        context.insert(book)
+        try context.save()
+
+        // Tạo file bin giả
+        let (offset, length) = try await BookBinManager.shared.writeChapterContent(bookId: bookId, content: "test")
+        let fileURL = await BookBinManager.shared.binFilePath(for: bookId)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path))
+
+        // Giả lập lỗi Save DB thực tế bằng mock seam của BookStorageManager
+        BookStorageManager.mockSaveError = NSError(domain: "MockSaveError", code: 500, userInfo: nil)
+
+        var failed = false
+        do {
+            try BookStorageManager.shared.deleteBooks(bookIds: [bookId], context: context)
+        } catch {
+            failed = true
+        }
+
+        XCTAssertTrue(failed)
+
+        // Chờ một khoảng thời gian ngắn để chắc chắn Task chạy nền nếu có kích hoạt
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        // file vẫn tồn tại, không bị dọn dẹp và không bị đưa vào queue vì DB save lỗi
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path))
+
+        // Reset mock error
+        BookStorageManager.mockSaveError = nil
+
+        // Cleanup file
+        try? await BookBinManager.shared.deleteBinFile(for: bookId)
+    }
+
+    // FOCUSED TEST: Bounded Memory for 20k chapter book
+    @MainActor
+    func testBoundedMemoryFor20kChapters() async {
+        let chapters = (0..<20_000).map { index in
+            ChapterResult(
+                name: "Chương \(index + 1)",
+                url: "https://example.com/\(index)",
+                host: "https://example.com"
+            )
+        }
+        let store = ReaderChapterListStore(
+            bookId: "test-20k-book",
+            modelContext: nil,
+            onlineChapters: chapters,
+            totalCount: 20_000,
+            isAscending: true
+        )
+
+        XCTAssertEqual(store.rows.count, 20_000)
+        XCTAssertEqual(store.loadedRowStates.count, 0) // Lúc đầu chưa nạp trang nào
+
+        // Nạp trang chứa dòng index 500
+        store.loadPageIfNeeded(displayPosition: 500)
+
+        // Đợi Task nạp trang
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        // Trang page=5 chứa dòng 500. Cửa sổ trượt nạp trang 4, 5, 6.
+        // Số lượng loaded states tối đa là 300
+        XCTAssertLessThanOrEqual(store.loadedRowStates.count, 300)
+
+        // Jump đến dòng 15,000
+        _ = await store.jumpToChapter(index: 15_000)
+
+        // Đợi Task
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        // Trang page=150 chứa dòng 15,000. Cửa sổ trượt nạp trang 149, 150, 151.
+        // Các trang cũ đã bị evict, số lượng loaded states vẫn chỉ tối đa là 300.
+        XCTAssertLessThanOrEqual(store.loadedRowStates.count, 300)
     }
 }

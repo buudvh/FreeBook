@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Book storage and pagination state transitions (1.3.34)
+
+* **Book Deletion State Machine**: Controlled by `BookStorageManager`, moving from `Idle` -> `Confirmation` -> `Database Committed` (deleted from DB and saved) -> `Asynchronous Sandbox Deletion` (deleting `.bin`/`.jpg` on a background thread). If the background file deletion fails, it transitions to `Retry Queue Enqueue` (stored in `UserDefaults` queue) and undergoes retry attempts at app startup via `drainRetryQueue()` until succeeding or reaching the 3-attempt limit.
+* **TOC Page State Machine**: Inside `ReaderChapterListStore`, each page (100 chapters) transitions between `Unloaded (Placeholder)` -> `Loading` -> `Loaded` (cached in `loadedRowStates`). Under the 3-page sliding window constraint, pages outside the active window are evicted and transition back to `Unloaded (Placeholder)`.
+* **Cooperative Cancellation**: `DownloadManager` tasks check `Task.isCancelled` and `isTaskCancelled` at each chapter boundary. When cancellation triggers, the task transitions immediately from `Running` to `Cancelled` without executing further downloads or file writes.
+
 ## Reader single-chapter navigation state (1.3.13, supersedes 1.3.11)
 
 * Reader commits only `displayedChapterIndex`, but presents `pendingNavigationIndex ?? displayedChapterIndex`. An uncached pending target immediately replaces old content with its title and skeleton rows.
@@ -139,5 +145,8 @@ stateDiagram-v2
 - Shared chapter entries transition from missing to memory-backed immediately after fetch while persistence runs pending/retry in `ChapterPersistenceStore`; reload is the only path that bypasses local tiers.
 - Reader/TTS synchronization is enabled only when book IDs match. Opening another Reader leaves both playing and paused TTS sessions unchanged until an explicit start replaces the session.
 - Repository deletion UI transitions idle -> confirmation -> deleted/blocked; no row swipe or enable/disable state participates in the page gesture.
+- Book deletion transitions from idle -> confirmation -> SQLite database deleted and committed -> background physical file deletion. Physical file deletion failures transition to the `UserDefaults` retry queue and undergo retry attempts at app startup via `drainRetryQueue()`.
+- Download and export tasks support cooperative cancellation, transitioning immediately from `Running` to `Cancelled` when `Task.isCancelled` is detected at chapter boundaries.
+- TOC pages transition between `Unloaded` -> `Loading` -> `Loaded` within `ReaderChapterListStore`'s active sliding window, while pages outside the active window are evicted and transition back to `Unloaded`.
 
 <!-- GENERATED END -->

@@ -4,7 +4,7 @@ import SwiftData
 @main
 struct FreeBookApp: App {
     let container: ModelContainer
-    
+
     init() {
         do {
             let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -23,7 +23,7 @@ struct FreeBookApp: App {
             fatalError("Không thể khởi tạo ModelContainer: \(error.localizedDescription)")
         }
     }
-    
+
     var body: some Scene {
         WindowGroup {
             AppLaunchRootView()
@@ -35,7 +35,7 @@ struct FreeBookApp: App {
 struct AppLaunchRootView: View {
     @ObservedObject private var translationManager = TranslationManager.shared
     @ObservedObject private var ttsManager = TTSManager.shared
-    
+
     var body: some View {
         ZStack {
             Group {
@@ -48,16 +48,18 @@ struct AppLaunchRootView: View {
                 }
             }
             .animation(.easeInOut(duration: 0.5), value: translationManager.isInitialized)
-            
+
             if translationManager.isInitialized && ttsManager.showFloatingWidget {
                 TTSFloatingWidgetView()
                     .zIndex(999)
             }
         }
         .globalToast()
-        // Sheet cài đặt TTS toàn cục – hoạt động ở mọi tab và màn hình
         .sheet(isPresented: $ttsManager.showingSettingsSheet) {
             TTSSettingsSheet()
+        }
+        .onAppear {
+            BookStorageManager.shared.drainRetryQueue()
         }
     }
 }
