@@ -81,6 +81,10 @@ struct BookDetailView: View {
     
     @State private var resolvedBookId: String = ""
     
+    private var actualBookId: String {
+        resolvedBookId.isEmpty ? bookId : resolvedBookId
+    }
+    
     // Tìm sách local trong database
     private var localBook: Book? {
         allBooks.first(where: {
@@ -247,7 +251,7 @@ struct BookDetailView: View {
                                     .frame(maxWidth: .infinity)
                                 } else {
                                     HStack(alignment: .top, spacing: 16) {
-                                        BookCoverView(bookId: resolvedBookId, coverUrl: coverUrl, width: 100, height: 140)
+                                         BookCoverView(bookId: actualBookId, coverUrl: coverUrl, width: 100, height: 140)
                                             .cornerRadius(8)
                                             .shadow(radius: 2)
                                         
@@ -690,7 +694,7 @@ struct BookDetailView: View {
             .navigationDestination(item: $readerRoute) { route in
                 LazyView {
                     ReaderView(
-                        bookId: resolvedBookId,
+                        bookId: actualBookId,
                         extensionPackageId: extensionPackageId,
                         chapterIndex: route.chapterIndex,
                         // Keep the online TOC as a bootstrap fallback while
@@ -709,7 +713,7 @@ struct BookDetailView: View {
             }
             
             NavigationLink(
-                destination: BookDictionaryView(bookId: resolvedBookId, bookName: title),
+                destination: BookDictionaryView(bookId: actualBookId, bookName: title),
                 isActive: $navigateToDictionary
             ) {
                 EmptyView()

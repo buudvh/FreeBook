@@ -590,7 +590,7 @@ struct SearchView: View {
                 }
             }
             
-            try await MainActor.run {
+            await MainActor.run {
                 let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(detailResult.detail.cleanHTML())"
                 
                 let newBook = Book(
