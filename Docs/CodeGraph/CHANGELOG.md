@@ -11,6 +11,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Tối ưu hóa thuật toán đối chiếu danh sách chương trong `updateLocalChapters` từ $O(N^2)$ xuống $O(N)$ bằng `Dictionary` tra cứu nhanh theo `url` và `index`.
   * Tránh thực hiện `sorted` và `filter` trực tiếp trong `body` mỗi lần View vẽ lại. Chuyển sang lưu cache danh sách chương và danh sách đã lọc vào các biến `@State` (`chaptersList`, `filteredLocalChapters`, `filteredOnlineChapters`).
   * Sử dụng các modifier `.onChange` để cập nhật lại các danh sách cache này một cách chọn lọc khi có thay đổi các tham số đầu vào (`chaptersList`, `onlineChapters`, `isTocAscending`, `chapterSearchQuery`, `isTranslationEnabled`), giúp loại bỏ hoàn toàn hiện tượng giật lag khi mở chi tiết truyện lớn (khoảng 2000 chương).
+  * Thay thế `.onChange(of: allBooks)` bằng `.onChange(of: localBook?.chapters.count)` để khắc phục lỗi trình biên dịch không thể kiểm tra kiểu do kiểu dữ liệu không tuân thủ `Equatable`.
 * **TranslateUtils**:
   * Cập nhật `getTranslationTokens(for:bookId:)` và `performTranslation(_:bookId:)` để bỏ qua cơ chế ghép khoảng trắng Hán-Việt cho các token thuần số hoặc chữ Latin (không chứa ký tự tiếng Trung).
   * Khắc phục triệt để lỗi số `1000` bị tách thành `1 0 0 0` và lỗi lệch pha offset làm bôi đen sai/bôi đen toàn bộ cụm từ trong Trình đọc.
@@ -19,6 +20,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Áp dụng cơ chế **Lazy Load 100%** cho danh sách chương: Trong hàm khởi tạo của `ReaderViewModel`, chỉ truy vấn `chapters.count` (cực nhanh, không tải thực thể vào RAM).
   * Khởi tạo lười bộ lưu trữ danh sách chương `ReaderChapterListStore` và chỉ đưa `ReaderChapterListView` vào view hierarchy khi menu mục lục thực sự được mở (giúp giảm thiểu tối đa tài nguyên và thời gian vẽ giao diện ban đầu).
   * Đồng bộ hóa thuộc tính computed `currentChapterHost` và `ttsChaptersQueue` để sử dụng dữ liệu đã cache trong `viewModel.getSortedChapters()`, loại bỏ hoàn toàn hiện tượng giật lag/khựng khi chuyển tiếp từ Kệ sách/Lịch sử vào Trình đọc đối với truyện lớn (~2000 chương).
+  * Đồng bộ hóa các lệnh gọi `synchronize` trong `ReaderChapterListView.swift` tương thích với kiểu chữ ký mới sử dụng `sortedChapters: [Chapter]`.
 
 ## [1.3.31] - 2026-07-19
 

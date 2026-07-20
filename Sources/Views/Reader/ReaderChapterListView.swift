@@ -423,12 +423,12 @@ struct ReaderChapterListView: View {
                         book.host = host
                     }
                     try? modelContext.save()
-                    store.synchronize(localBook: book, onlineChapters: onlineChapters)
+                    store.synchronize(sortedChapters: book.chapters.sorted(by: { $0.index < $1.index }), onlineChapters: onlineChapters)
                     ToastManager.shared.show(message: additions.isEmpty ? "Mục lục đã mới nhất" : "Đã thêm \(additions.count) chương mới", type: .success)
                 } else {
                     let oldCount = onlineChapters.count
                     onlineChapters = allChapters
-                    store.synchronize(localBook: nil, onlineChapters: allChapters)
+                    store.synchronize(sortedChapters: [], onlineChapters: allChapters)
                     let added = max(0, allChapters.count - oldCount)
                     ToastManager.shared.show(message: added == 0 ? "Mục lục đã mới nhất" : "Đã thêm \(added) chương mới", type: .success)
                 }

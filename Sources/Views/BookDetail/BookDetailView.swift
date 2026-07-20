@@ -662,7 +662,7 @@ struct BookDetailView: View {
                 updateFilteredLocalChapters()
                 updateFilteredOnlineChapters()
             }
-            .onChange(of: allBooks) { _, _ in
+            .onChange(of: localBook?.chapters.count) { _, _ in
                 syncChaptersList()
             }
             .onChange(of: chaptersList) { _, _ in
