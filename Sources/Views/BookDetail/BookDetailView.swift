@@ -46,6 +46,9 @@ struct BookDetailView: View {
     @State private var renderedTab = 0
     @State private var detail = ""
     @State private var onlineChapters: [ChapterResult] = []
+    @State private var chaptersList: [Chapter] = []
+    @State private var filteredLocalChapters: [Chapter] = []
+    @State private var filteredOnlineChapters: [(offset: Int, element: ChapterResult)] = []
     @State private var host = ""
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     
@@ -527,14 +530,7 @@ struct BookDetailView: View {
                                     } else {
                                         LazyVStack(alignment: .leading, spacing: 0) {
                                             if let book = localBook {
-                                                let sortedChaps = book.chapters.sorted(by: { isTocAscending ? ($0.index < $1.index) : ($0.index > $1.index) })
-                                                let filteredChaps = sortedChaps.filter { chap in
-                                                    chapterSearchQuery.isEmpty ||
-                                                    chap.title.localizedCaseInsensitiveContains(chapterSearchQuery) ||
-                                                    translateChapterTitleIfNeeded(chap).localizedCaseInsensitiveContains(chapterSearchQuery)
-                                                }
-                                                
-                                                ForEach(filteredChaps) { chap in
+                                                ForEach(filteredLocalChapters) { chap in
                                                     Button(action: {
                                                         startReading(at: chap.index)
                                                     }) {
@@ -557,15 +553,7 @@ struct BookDetailView: View {
                                                     .buttonStyle(.plain)
                                                 }
                                             } else {
-                                                let enumeratedChaps = Array(onlineChapters.enumerated())
-                                                let sortedOnline = isTocAscending ? enumeratedChaps : Array(enumeratedChaps.reversed())
-                                                let filteredOnline = sortedOnline.filter { index, chap in
-                                                    chapterSearchQuery.isEmpty ||
-                                                    chap.name.localizedCaseInsensitiveContains(chapterSearchQuery) ||
-                                                    TranslateUtils.translateChapterTitle(chap.name, bookId: bookId).localizedCaseInsensitiveContains(chapterSearchQuery)
-                                                }
-                                                
-                                                ForEach(filteredOnline, id: \.offset) { index, chap in
+                                                ForEach(filteredOnlineChapters, id: \.offset) { index, chap in
                                                     Button(action: {
                                                         startReading(at: index)
                                                     }) {
@@ -670,6 +658,30 @@ struct BookDetailView: View {
             .onAppear {
                 renderedTab = selectedTab
                 loadBookData()
+                syncChaptersList()
+                updateFilteredLocalChapters()
+                updateFilteredOnlineChapters()
+            }
+            .onChange(of: allBooks) { _, _ in
+                syncChaptersList()
+            }
+            .onChange(of: chaptersList) { _, _ in
+                updateFilteredLocalChapters()
+            }
+            .onChange(of: onlineChapters) { _, _ in
+                updateFilteredOnlineChapters()
+            }
+            .onChange(of: isTocAscending) { _, _ in
+                updateFilteredLocalChapters()
+                updateFilteredOnlineChapters()
+            }
+            .onChange(of: chapterSearchQuery) { _, _ in
+                updateFilteredLocalChapters()
+                updateFilteredOnlineChapters()
+            }
+            .onChange(of: isTranslationEnabled) { _, _ in
+                updateFilteredLocalChapters()
+                updateFilteredOnlineChapters()
             }
             .navigationDestination(item: $readerRoute) { route in
                 LazyView {
@@ -938,6 +950,8 @@ struct BookDetailView: View {
             self.author = book.author
             self.coverUrl = book.coverUrl
             self.desc = book.desc
+            self.syncChaptersList()
+            self.updateFilteredLocalChapters()
             if !book.chapters.isEmpty {
                 self.remainingPagesLoaded = true
                 self.isLoadingDetail = false
@@ -1082,6 +1096,7 @@ struct BookDetailView: View {
                                 modelContext.insert(newChap)
                             }
                             try? modelContext.save()
+                            self.syncChaptersList()
                             self.remainingPagesLoaded = true
                             self.isLoadingRemainingPages = false
                             self.loadingTask = nil
@@ -1189,6 +1204,7 @@ struct BookDetailView: View {
                             modelContext.insert(newChap)
                         }
                         try? modelContext.save()
+                        self.syncChaptersList()
                     }
                     
                     self.remainingPagesLoaded = true
@@ -1239,6 +1255,7 @@ struct BookDetailView: View {
                                 }
                             }
                             try? modelContext.save()
+                            self.syncChaptersList()
                         }
                         
                         self.remainingPagesLoaded = true
@@ -1281,6 +1298,7 @@ struct BookDetailView: View {
                                 modelContext.insert(newChap)
                             }
                             try? modelContext.save()
+                            self.syncChaptersList()
                         } else {
                             let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
                             createBookOnShelf(savedDesc: savedDesc)
@@ -1333,19 +1351,29 @@ struct BookDetailView: View {
     }
     
     private func updateLocalChapters(for book: Book, with results: [ChapterResult]) {
-        var unmatched = Array(book.chapters)
+        let unmatchedSet = book.chapters
+        
+        var unmatchedByUrl: [String: Chapter] = [:]
+        var unmatchedByIndex: [Int: Chapter] = [:]
+        for chap in unmatchedSet {
+            if !chap.url.isEmpty {
+                unmatchedByUrl[chap.url] = chap
+            }
+            unmatchedByIndex[chap.index] = chap
+        }
+        
+        var remainingUnmatched = Set(unmatchedSet)
 
         for (index, item) in results.enumerated() {
-            let matchIndex: Int?
+            var matchedChapter: Chapter? = nil
             if !item.url.isEmpty {
-                matchIndex = unmatched.firstIndex(where: { $0.url == item.url })
-                    ?? unmatched.firstIndex(where: { $0.index == index })
+                matchedChapter = unmatchedByUrl[item.url] ?? unmatchedByIndex[index]
             } else {
-                matchIndex = unmatched.firstIndex(where: { $0.index == index })
+                matchedChapter = unmatchedByIndex[index]
             }
 
-            if let matchIndex {
-                let chapter = unmatched.remove(at: matchIndex)
+            if let chapter = matchedChapter {
+                remainingUnmatched.remove(chapter)
                 chapter.title = item.name
                 chapter.url = item.url
                 chapter.index = index
@@ -1366,7 +1394,7 @@ struct BookDetailView: View {
             }
         }
 
-        for stale in unmatched {
+        for stale in remainingUnmatched {
             let isPlayingChapter = TTSManager.shared.playingBookId == book.bookId
                 && TTSManager.shared.playingChapterIndex == stale.index
                 && (stale.url.isEmpty || TTSManager.shared.playingChapterUrl == stale.url)
@@ -1380,6 +1408,35 @@ struct BookDetailView: View {
            let firstHost = results.first?.host,
            !firstHost.isEmpty {
             book.host = firstHost
+        }
+        
+        self.syncChaptersList()
+    }
+
+    private func syncChaptersList() {
+        if let book = localBook {
+            chaptersList = book.chapters
+        } else {
+            chaptersList = []
+        }
+    }
+    
+    private func updateFilteredLocalChapters() {
+        let sorted = chaptersList.sorted(by: { isTocAscending ? ($0.index < $1.index) : ($0.index > $1.index) })
+        filteredLocalChapters = sorted.filter { chap in
+            chapterSearchQuery.isEmpty ||
+            chap.title.localizedCaseInsensitiveContains(chapterSearchQuery) ||
+            translateChapterTitleIfNeeded(chap).localizedCaseInsensitiveContains(chapterSearchQuery)
+        }
+    }
+    
+    private func updateFilteredOnlineChapters() {
+        let enumeratedChaps = Array(onlineChapters.enumerated())
+        let sortedOnline = isTocAscending ? enumeratedChaps : Array(enumeratedChaps.reversed())
+        filteredOnlineChapters = sortedOnline.filter { index, chap in
+            chapterSearchQuery.isEmpty ||
+            chap.name.localizedCaseInsensitiveContains(chapterSearchQuery) ||
+            TranslateUtils.translateChapterTitle(chap.name, bookId: bookId).localizedCaseInsensitiveContains(chapterSearchQuery)
         }
     }
 

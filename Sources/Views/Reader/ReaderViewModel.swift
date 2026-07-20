@@ -204,10 +204,9 @@ class ReaderViewModel: ObservableObject {
             descriptor.fetchLimit = 1
             return (try? modelContext.fetch(descriptor))?.first
         }()
-        let sortedLocalChapters = localBookSnapshot?.chapters.sorted(by: { $0.index < $1.index })
-        let localChapterCount = sortedLocalChapters?.count ?? 0
+        let localChapterCount = localBookSnapshot?.chapters.count ?? 0
         self.cachedLocalBook = localBookSnapshot
-        self.cachedSortedChapters = sortedLocalChapters
+        self.cachedSortedChapters = nil
         let resolvedLocalChapterCount = max(totalChaptersCount, max(localChapterCount, onlineChapters.count))
         self.totalChaptersCount = resolvedLocalChapterCount
         self.onlineChapters = onlineChapters

@@ -146,8 +146,8 @@ struct ReaderView: View {
     private var currentChapterHost: String? {
         if chapterIndex < currentOnlineChapters.count {
             return currentOnlineChapters[chapterIndex].host
-        } else if let book = localBook {
-            let sorted = book.chapters.sorted(by: { $0.index < $1.index })
+        } else if let vm = viewModel {
+            let sorted = vm.getSortedChapters()
             if chapterIndex < sorted.count {
                 return sorted[chapterIndex].host
             }
@@ -166,8 +166,8 @@ struct ReaderView: View {
     }
 
     private var ttsChaptersQueue: [TTSChapterInfo] {
-        if let book = localBook {
-            let sorted = book.chapters.sorted(by: { $0.index < $1.index })
+        if let vm = viewModel {
+            let sorted = vm.getSortedChapters()
             return sorted.map { chap in
                 let titleToUse: String
                 if isTranslationEnabled && TranslateUtils.containsChinese(chap.title) {
@@ -487,8 +487,10 @@ struct ReaderView: View {
                     totalCount: count,
                     onlineChapters: currentOnlineChapters
                 )
+                if let store = chapterListStore {
+                    store.synchronize(sortedChapters: vm.getSortedChapters(), onlineChapters: currentOnlineChapters)
+                }
             }
-            chapterListStore?.synchronize(localBook: localBook, onlineChapters: currentOnlineChapters)
         }
         .onChange(of: ttsManager.isPlaying) { _, isPlaying in
             let ttsOwnsBook = isPlaying && ttsManager.playingBookId == bookId
@@ -500,17 +502,23 @@ struct ReaderView: View {
                     totalCount: newCount,
                     onlineChapters: currentOnlineChapters
                 )
+                if let store = chapterListStore {
+                    store.synchronize(sortedChapters: vm.getSortedChapters(), onlineChapters: currentOnlineChapters)
+                }
             }
-            chapterListStore?.synchronize(localBook: localBook, onlineChapters: currentOnlineChapters)
         }
         .onChange(of: onlineChapters.count) { _, newCount in
             guard newCount > 0, newCount != currentOnlineChapters.count else { return }
             currentOnlineChapters = onlineChapters
-            viewModel?.updateChapterSnapshot(
-                totalCount: newCount,
-                onlineChapters: onlineChapters
-            )
-            chapterListStore?.synchronize(localBook: localBook, onlineChapters: onlineChapters)
+            if let vm = viewModel {
+                vm.updateChapterSnapshot(
+                    totalCount: newCount,
+                    onlineChapters: onlineChapters
+                )
+                if let store = chapterListStore {
+                    store.synchronize(sortedChapters: vm.getSortedChapters(), onlineChapters: onlineChapters)
+                }
+            }
         }
     }
 
@@ -656,13 +664,6 @@ struct ReaderView: View {
             currentOnlineChapters = onlineChapters
         }
 
-        if chapterListStore == nil {
-            chapterListStore = ReaderChapterListStore(
-                localBook: localBook,
-                onlineChapters: currentOnlineChapters.isEmpty ? onlineChapters : currentOnlineChapters
-            )
-        }
-
         guard viewModel == nil else {
             let resolvedCount = max(
                 totalChaptersCount,
@@ -709,6 +710,19 @@ struct ReaderView: View {
         if !hasOpenedReader {
             hasOpenedReader = true
         }
+    }
+
+    private func getOrInitChapterListStore() -> ReaderChapterListStore? {
+        if let store = chapterListStore {
+            return store
+        }
+        guard let vm = viewModel else { return nil }
+        let store = ReaderChapterListStore(
+            sortedChapters: vm.getSortedChapters(),
+            onlineChapters: currentOnlineChapters.isEmpty ? onlineChapters : currentOnlineChapters
+        )
+        self.chapterListStore = store
+        return store
     }
 
     @ViewBuilder
@@ -1788,7 +1802,10 @@ struct ReaderView: View {
                 }
                 .accessibilityLabel(isTranslationEnabled ? "Tắt dịch" : "Bật dịch")
 
-                Button(action: { showingChapterList = true }) {
+                Button(action: {
+                    _ = getOrInitChapterListStore()
+                    showingChapterList = true
+                }) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(readerBookDisplayTitle)
                             .font(.system(size: 16, weight: .bold))

@@ -62,7 +62,7 @@ public struct NovelDetailResult {
     public let comments: [CategoryResult]
 }
 
-public struct ChapterResult {
+public struct ChapterResult: Equatable {
     public let name: String
     public let url: String
     public let host: String

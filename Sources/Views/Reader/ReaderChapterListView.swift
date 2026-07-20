@@ -24,16 +24,16 @@ final class ReaderChapterListStore {
     private(set) var rows: [ReaderChapterRowState] = []
     private var rowsByIndex: [Int: ReaderChapterRowState] = [:]
 
-    init(localBook: Book?, onlineChapters: [ChapterResult]) {
-        replace(localBook: localBook, onlineChapters: onlineChapters)
+    init(sortedChapters: [Chapter], onlineChapters: [ChapterResult]) {
+        replace(sortedChapters: sortedChapters, onlineChapters: onlineChapters)
     }
 
     func markCached(index: Int) {
         rowsByIndex[index]?.isCached = true
     }
 
-    func synchronize(localBook: Book?, onlineChapters: [ChapterResult]) {
-        let descriptors = Self.descriptors(localBook: localBook, onlineChapters: onlineChapters)
+    func synchronize(sortedChapters: [Chapter], onlineChapters: [ChapterResult]) {
+        let descriptors = Self.descriptors(sortedChapters: sortedChapters, onlineChapters: onlineChapters)
         let commonCount = min(rows.count, descriptors.count)
         let prefixIsStable = (0..<commonCount).allSatisfy { offset in
             let row = rows[offset]
@@ -66,8 +66,8 @@ final class ReaderChapterListStore {
         }
     }
 
-    private func replace(localBook: Book?, onlineChapters: [ChapterResult]) {
-        replace(descriptors: Self.descriptors(localBook: localBook, onlineChapters: onlineChapters))
+    private func replace(sortedChapters: [Chapter], onlineChapters: [ChapterResult]) {
+        replace(descriptors: Self.descriptors(sortedChapters: sortedChapters, onlineChapters: onlineChapters))
     }
 
     private func replace(descriptors: [(index: Int, title: String, url: String, isCached: Bool)]) {
@@ -84,13 +84,11 @@ final class ReaderChapterListStore {
     }
 
     private static func descriptors(
-        localBook: Book?,
+        sortedChapters: [Chapter],
         onlineChapters: [ChapterResult]
     ) -> [(index: Int, title: String, url: String, isCached: Bool)] {
-        if let localBook {
-            return localBook.chapters
-                .sorted { $0.index < $1.index }
-                .map { ($0.index, $0.title, $0.url, $0.isCached) }
+        if !sortedChapters.isEmpty {
+            return sortedChapters.map { ($0.index, $0.title, $0.url, $0.isCached) }
         }
         return onlineChapters.enumerated().map { index, chapter in
             (index, chapter.name, chapter.url, false)

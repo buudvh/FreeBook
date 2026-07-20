@@ -395,7 +395,7 @@ public final class TranslateUtils {
             } else {
                 if token.count == 1, isChineseCharacter(token.first!) {
                     translatedWords.append(phienAm[token] ?? token)
-                } else {
+                } else if containsChinese(token) {
                     var phienAmList: [String] = []
                     var hasPhienAm = false
                     for char in token {
@@ -407,6 +407,8 @@ public final class TranslateUtils {
                         }
                     }
                     translatedWords.append(hasPhienAm ? phienAmList.joined(separator: " ") : token)
+                } else {
+                    translatedWords.append(token)
                 }
             }
         }
@@ -844,12 +846,14 @@ public final class TranslateUtils {
                 isMatched = false
                 if token.count == 1, isChineseCharacter(token.first!) {
                     translatedToken = phienAm[token] ?? token
-                } else {
+                } else if containsChinese(token) {
                     var phienAmList: [String] = []
                     for c in token {
                         phienAmList.append(phienAm[String(c)] ?? String(c))
                     }
                     translatedToken = phienAmList.joined(separator: " ")
+                } else {
+                    translatedToken = token
                 }
             } else {
                 isMatched = true
