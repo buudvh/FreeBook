@@ -74,6 +74,12 @@ sequenceDiagram
     *   Đọc cấu hình hệ thống từ `UserDefaults`.
     *   Khởi tạo `ReaderViewModel` và nạp vị trí đọc được lưu từ phiên trước.
     *   Đăng ký 3 hàm callbacks để chuyển chương cho `TTSManager.shared`: `onChapterFinished`, `onChapterNext`, `onChapterPrev`.
+*   **Vòng đời điều hướng chương thủ công tích hợp với TTS**:
+    1. Khi người dùng bấm Next/Prev hoặc chọn chương mới, `ReaderView` kiểm tra active ownership (`ttsManager.hasActivePlaybackOwnership(for:)`).
+    2. Nếu thuộc về TTS, `ReaderView` gọi `beginManualChapterNavigation(targetIndex:)` để tạm ngắt `playerNode` hiện tại, đồng thời chuyển sang trạng thái chờ nạp chương mới của Reader.
+    3. `ReaderViewModel` thực hiện tải chương mới bất đồng bộ.
+    4. Nếu tải thành công: `applyNavigationCommit` gọi `ttsManager.commitManualChapterNavigation(targetIndex:chapterContent:)`. Lệnh này xử lý bất đồng bộ thông qua `TTSBackgroundProcessor` trên luồng nền và tiếp tục phát mượt mà từ đầu chương mới.
+    5. Nếu tải lỗi hoặc bị hủy: `onChange(of: viewModel.navigationFailure)` bắt được và gọi `ttsManager.abortManualChapterNavigation()` để khôi phục trạng thái tạm dừng của TTS, cho phép người dùng thao tác lại.
 *   **Khi biến mất (`onDisappear`)**:
     *   Reset biến tĩnh `ReaderView.activeBookId = nil`.
     *   Hủy task prefetch chương truyện đang chạy ngầm (`prefetchTask?.cancel()`).

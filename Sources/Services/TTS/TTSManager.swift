@@ -108,6 +108,11 @@ public final class TTSManager: NSObject, ObservableObject {
     private var prepareSpeakingTask: Task<Void, Never>? = nil
     private var nextChapterPrefetchTask: Task<Void, Never>? = nil
     private var sessionID = UUID()
+    private var ttsProcessingGeneration = 0
+    private var isManualNavigating = false
+    private var manualNavigationTargetIndex: Int? = nil
+    // Seams/Hooks for unit testing
+    public var onSetActive: ((Bool) -> Void)?
     // Now Playing updates include detached translation/cover work. A newer
     // playback state must invalidate older tasks so Lock Screen cannot revert
     // a just-resumed session back to paused (or vice versa).
@@ -290,6 +295,7 @@ public final class TTSManager: NSObject, ObservableObject {
         do {
             try session.setCategory(.playback, mode: .spokenAudio, options: [])
             try session.setActive(true)
+            onSetActive?(true)
         } catch {
             AppLogger.shared.log("Failed to configure AVAudioSession: \(error.localizedDescription)")
         }
@@ -323,8 +329,13 @@ public final class TTSManager: NSObject, ObservableObject {
     ) {
         guard !isPlaying else { return }
         guard chapters.contains(where: { $0.index == currentIndex }) else { return }
-        sessionID = UUID()
-        let preparationSessionID = sessionID
+
+        prepareSpeakingTask?.cancel()
+
+        let newSessionID = UUID()
+        self.sessionID = newSessionID
+        self.ttsProcessingGeneration += 1
+        let currentGen = self.ttsProcessingGeneration
 
         self.playingBookId = bookId
         self.playingCoverUrl = coverUrl
@@ -334,65 +345,67 @@ public final class TTSManager: NSObject, ObservableObject {
         self.playingBookDetailUrl = bookDetailUrl
         self.playingBookSourceName = bookSourceName
         self.extensionInfo = extensionInfo
-        let normalizedText = ChapterTextNormalizer.normalize(chapterContent)
-        self.normalizedChapterText = normalizedText
-        self.chapterContent = normalizedText.content
 
         self.clearPrefetchCache()
 
         guard let currentChapter = chapters.first(where: { $0.index == currentIndex }) else { return }
         self.playingChapterUrl = currentChapter.url
         self.chapterTitle = currentChapter.title
-        let preparationChapterURL = currentChapter.url
 
-        let currentChunkLen = self.chunkLength
-        self.prepareSpeakingTask?.cancel()
+        let chunkLen = chunkLength
+
+        let key = "showChapterTitle_\(bookId)"
+        let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+
+        let expectedTitle = currentChapter.title
+
         self.prepareSpeakingTask = Task {
-            let parsed = await Task.detached(priority: .userInitiated) { () -> [TTSParagraph] in
-                return TTSParagraphBuilder.build(from: normalizedText, chunkLength: currentChunkLen)
-            }.value
+            let processed = await TTSBackgroundProcessor.shared.processChapter(
+                bookId: bookId,
+                chapterIndex: currentIndex,
+                chapterTitle: expectedTitle,
+                rawContent: chapterContent,
+                chunkLength: chunkLen,
+                shouldTranslateRawContent: false,
+                includeChapterTitle: showTitle,
+                sessionID: newSessionID,
+                generation: currentGen
+            )
 
             guard !Task.isCancelled else { return }
-            guard preparationSessionID == self.sessionID,
-                  bookId == self.playingBookId,
-                  currentIndex == self.playingChapterIndex,
-                  preparationChapterURL == self.playingChapterUrl else { return }
 
-            self.paragraphs = parsed
-
-            let key = "showChapterTitle_\(playingBookId)"
-            let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
-
-            var titleInserted = false
-            if showTitle && !chapterTitle.isEmpty {
-                let titleParagraph = TTSParagraph(
-                    text: chapterTitle,
-                    range: NSRange(location: 0, length: chapterTitle.utf16.count),
-                    paragraphIndex: -1
-                )
-                self.paragraphs.insert(titleParagraph, at: 0)
-                titleInserted = true
-            }
-
-            var targetIdx = 0
-            if startParagraphIndex == -1 {
-                targetIdx = 0
-            } else {
-                if let idx = paragraphs.firstIndex(where: { $0.paragraphIndex == startParagraphIndex }) {
-                    targetIdx = idx
-                } else {
-                    targetIdx = titleInserted ? 1 : 0
+            await MainActor.run {
+                guard self.sessionID == processed.sessionID,
+                      self.ttsProcessingGeneration == processed.generation,
+                      self.playingBookId == processed.bookId else {
+                    return
                 }
-            }
 
-            if targetIdx >= 0 && targetIdx < paragraphs.count {
-                self.currentParagraphIndex = targetIdx
-                let paragraph = paragraphs[targetIdx]
-                self.highlightRange = paragraph.range
-                self.currentParentParagraphIndex = paragraph.paragraphIndex
-            }
+                self.normalizedChapterText = NormalizedChapterText(content: processed.normalizedContent, lines: [])
+                self.chapterContent = processed.normalizedContent
+                self.paragraphs = processed.paragraphs
 
-            self.updateNowPlayingInfo()
+                let titleInserted = processed.paragraphs.first?.paragraphIndex == -1
+                var targetIdx = 0
+                if startParagraphIndex == -1 {
+                    targetIdx = 0
+                } else {
+                    if let idx = self.paragraphs.firstIndex(where: { $0.paragraphIndex == startParagraphIndex }) {
+                        targetIdx = idx
+                    } else {
+                        targetIdx = titleInserted ? 1 : 0
+                    }
+                }
+
+                if targetIdx >= 0 && targetIdx < self.paragraphs.count {
+                    self.currentParagraphIndex = targetIdx
+                    let paragraph = self.paragraphs[targetIdx]
+                    self.highlightRange = paragraph.range
+                    self.currentParentParagraphIndex = paragraph.paragraphIndex
+                }
+
+                self.updateNowPlayingInfo()
+            }
         }
     }
 
@@ -434,13 +447,19 @@ public final class TTSManager: NSObject, ObservableObject {
         checkpointProgressAndRelease()
         prepareSpeakingTask?.cancel()
         prepareSpeakingTask = nil
-        sessionID = UUID()
-        // Dọn dẹp trình phát cũ trước tiên để tránh xung đột luồng và callback lặp
+
+        let newSessionID = UUID()
+        self.sessionID = newSessionID
+        self.ttsProcessingGeneration += 1
+        let currentGen = self.ttsProcessingGeneration
+
         self.stopCurrentPlayback()
         self.wasPlayingBeforeInterruption = false
+        self.isManualNavigating = false
+        self.manualNavigationTargetIndex = nil
 
         self.configureAudioSession()
-        self.setRemoteCommandsEnabled(true) // Kích hoạt Media Remote
+        self.setRemoteCommandsEnabled(true)
         self.playingBookId = bookId
         self.playingCoverUrl = coverUrl
         self.chaptersQueue = chapters
@@ -449,44 +468,155 @@ public final class TTSManager: NSObject, ObservableObject {
         self.playingBookDetailUrl = bookDetailUrl
         self.playingBookSourceName = bookSourceName
         self.extensionInfo = extensionInfo
-        self.normalizedChapterText = ChapterTextNormalizer.normalize(chapterContent)
-        self.chapterContent = normalizedChapterText.content
         self.showFloatingWidget = true
+
         Task { await ReadingProgressStore.shared.claim(bookId: bookId, owner: .tts) }
-
-        // Huy du lieu tai truoc cu
-
-        // Xóa bộ đệm tải trước của đoạn văn cũ
         self.clearPrefetchCache()
 
         guard let currentChapter = chapters.first(where: { $0.index == currentIndex }) else { return }
         self.playingChapterUrl = currentChapter.url
         self.chapterTitle = currentChapter.title
 
-        self.continueStartSpeaking(startParagraphIndex: startParagraphIndex)
-        self.triggerNextChapterPrefetch()
+        let chunkLen = chunkLength
+
+        let key = "showChapterTitle_\(bookId)"
+        let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+        let expectedTitle = currentChapter.title
+
+        Task {
+            let processed = await TTSBackgroundProcessor.shared.processChapter(
+                bookId: bookId,
+                chapterIndex: currentIndex,
+                chapterTitle: expectedTitle,
+                rawContent: chapterContent,
+                chunkLength: chunkLen,
+                shouldTranslateRawContent: false,
+                includeChapterTitle: showTitle,
+                sessionID: newSessionID,
+                generation: currentGen
+            )
+
+            await MainActor.run {
+                guard self.sessionID == processed.sessionID,
+                      self.ttsProcessingGeneration == processed.generation,
+                      self.playingBookId == processed.bookId else {
+                    return
+                }
+
+                self.normalizedChapterText = NormalizedChapterText(content: processed.normalizedContent, lines: [])
+                self.chapterContent = processed.normalizedContent
+                self.paragraphs = processed.paragraphs
+                self.isPlaying = true
+
+                self.continueStartSpeaking(startParagraphIndex: startParagraphIndex)
+                self.triggerNextChapterPrefetch()
+            }
+        }
+    }
+
+    public func hasActivePlaybackOwnership(for bookId: String) -> Bool {
+        return (isPlaying || isManualNavigating) && playingBookId == bookId
+    }
+
+    public func beginManualChapterNavigation(targetIndex: Int) {
+        self.ttsProcessingGeneration += 1
+
+        if isManualNavigating {
+            manualNavigationTargetIndex = targetIndex
+            return
+        }
+
+        isManualNavigating = true
+        manualNavigationTargetIndex = targetIndex
+
+        if tool == "system" {
+            siriService.stop()
+        } else {
+            playerNode?.stop()
+            playerNode?.reset()
+        }
+        self.isPlaying = false
+        self.clearPrefetchCache()
+
+        self.lastPausedTime = Date()
+        setSystemNowPlayingPlaybackState(.paused, playbackRate: 0)
+        syncRemoteCommandState()
+        updateNowPlayingInfo()
+    }
+
+    public func abortManualChapterNavigation() {
+        self.isManualNavigating = false
+        self.manualNavigationTargetIndex = nil
+        self.ttsProcessingGeneration += 1
+    }
+
+    public func commitManualChapterNavigation(
+        targetIndex: Int,
+        chapterContent: String
+    ) {
+        guard isManualNavigating, let target = manualNavigationTargetIndex, target == targetIndex else {
+            return
+        }
+        isManualNavigating = false
+        manualNavigationTargetIndex = nil
+
+        guard let chapter = chaptersQueue.first(where: { $0.index == targetIndex }) else {
+            return
+        }
+
+        let expectedSessionID = sessionID
+        let expectedGeneration = ttsProcessingGeneration
+        let expectedBookId = playingBookId
+        let expectedChapterTitle = chapter.title
+
+        let chunkLen = chunkLength
+
+        let key = "showChapterTitle_\(expectedBookId)"
+        let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+        let expectedTitle = chapter.title
+
+        Task {
+            let processed = await TTSBackgroundProcessor.shared.processChapter(
+                bookId: expectedBookId,
+                chapterIndex: targetIndex,
+                chapterTitle: expectedTitle,
+                rawContent: chapterContent,
+                chunkLength: chunkLen,
+                shouldTranslateRawContent: false,
+                includeChapterTitle: showTitle,
+                sessionID: expectedSessionID,
+                generation: expectedGeneration
+            )
+
+            await MainActor.run {
+                guard self.sessionID == processed.sessionID,
+                      self.ttsProcessingGeneration == processed.generation,
+                      self.playingBookId == processed.bookId else {
+                    return
+                }
+
+                self.playingChapterIndex = processed.chapterIndex
+                self.playingChapterUrl = chapter.url
+                self.chapterTitle = processed.chapterTitle
+                self.normalizedChapterText = NormalizedChapterText(content: processed.normalizedContent, lines: [])
+                self.chapterContent = processed.normalizedContent
+                self.paragraphs = processed.paragraphs
+                self.isPlaying = true
+                self.showFloatingWidget = true
+
+                self.continueStartSpeaking(startParagraphIndex: -1)
+                self.triggerNextChapterPrefetch()
+
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("ttsDidAdvanceToNextChapter"),
+                    object: nil,
+                    userInfo: ["bookId": self.playingBookId, "chapterIndex": targetIndex]
+                )
+            }
+        }
     }
 
     private func continueStartSpeaking(startParagraphIndex: Int) {
-        // Phân đoạn văn bản sạch
-        self.paragraphs = TTSParagraphBuilder.build(from: normalizedChapterText, chunkLength: chunkLength)
-
-        // Kiểm tra cấu hình hiện tên chương trong nội dung của truyện hiện tại (mặc định bật)
-        let key = "showChapterTitle_\(playingBookId)"
-        let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
-
-        var titleInserted = false
-        if showTitle && !chapterTitle.isEmpty {
-            let titleParagraph = TTSParagraph(
-                text: chapterTitle,
-                range: NSRange(location: 0, length: chapterTitle.utf16.count),
-                paragraphIndex: -1
-            )
-            self.paragraphs.insert(titleParagraph, at: 0)
-            titleInserted = true
-        }
-
-        // Tìm chunk đầu tiên có paragraphIndex khớp với chỉ số đoạn văn yêu cầu
         var targetIdx = 0
         if startParagraphIndex == -1 {
             targetIdx = 0
@@ -494,7 +624,7 @@ public final class TTSManager: NSObject, ObservableObject {
             if let idx = paragraphs.firstIndex(where: { $0.paragraphIndex == startParagraphIndex }) {
                 targetIdx = idx
             } else {
-                targetIdx = titleInserted ? 1 : 0
+                targetIdx = 0
             }
         }
 
@@ -527,6 +657,7 @@ public final class TTSManager: NSObject, ObservableObject {
     }
 
     public func resume() {
+        guard !isManualNavigating else { return }
         // let pid = currentPlaybackId ?? "NONE"
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] resume() được gọi.")
         if isPlaying {
@@ -602,6 +733,9 @@ public final class TTSManager: NSObject, ObservableObject {
         self.isPlaying = false
         self.wasPlayingBeforeSettings = false
         self.wasPlayingBeforeInterruption = false
+        self.isManualNavigating = false
+        self.manualNavigationTargetIndex = nil
+        self.ttsProcessingGeneration += 1
         nowPlayingUpdateGeneration &+= 1
 
         if !keepWidget {
@@ -625,6 +759,7 @@ public final class TTSManager: NSObject, ObservableObject {
         // Giải phóng Audio Session khi dừng hoàn toàn để ứng dụng khác có thể phát âm thanh
         if !keepWidget {
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            onSetActive?(false)
         }
     }
 
@@ -787,6 +922,8 @@ public final class TTSManager: NSObject, ObservableObject {
     private func advanceToNextChapter(nextIdx: Int) {
         guard let nextChapter = chaptersQueue.first(where: { $0.index == nextIdx }) else { return }
         let expectedSessionID = sessionID
+        self.ttsProcessingGeneration += 1
+        let expectedGeneration = self.ttsProcessingGeneration
         let expectedBookId = playingBookId
         let expectedChapterURL = nextChapter.url
         let request = ChapterContentRequest(
@@ -800,20 +937,46 @@ public final class TTSManager: NSObject, ObservableObject {
             forceRefresh: false
         )
 
+        let chunkLen = chunkLength
+        let isTransEnabled = TranslateUtils.isTranslationEnabled
+        let key = "showChapterTitle_\(expectedBookId)"
+        let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+        let expectedTitle = nextChapter.title
+
         Task { [weak self] in
             do {
                 let result = try await ChapterContentRepository.shared.load(request)
                 guard let self,
                       self.isPlaying,
                       self.sessionID == expectedSessionID,
+                      self.ttsProcessingGeneration == expectedGeneration,
                       self.playingBookId == expectedBookId,
                       self.chaptersQueue.first(where: { $0.index == nextChapter.index })?.url == expectedChapterURL,
                       self.playingChapterIndex < nextChapter.index else { return }
-                let normalized = result.document.text.content
-                let content = TranslateUtils.isTranslationEnabled
-                    ? TranslateUtils.translateContent(normalized, bookId: expectedBookId)
-                    : normalized
-                self.applyNextChapter(index: nextChapter.index, content: content, chapter: nextChapter)
+
+                let rawContent = result.document.text.content
+
+                let processed = await TTSBackgroundProcessor.shared.processChapter(
+                    bookId: expectedBookId,
+                    chapterIndex: nextChapter.index,
+                    chapterTitle: expectedTitle,
+                    rawContent: rawContent,
+                    chunkLength: chunkLen,
+                    shouldTranslateRawContent: isTransEnabled,
+                    includeChapterTitle: showTitle,
+                    sessionID: expectedSessionID,
+                    generation: expectedGeneration
+                )
+
+                await MainActor.run {
+                    guard self.isPlaying,
+                          self.sessionID == processed.sessionID,
+                          self.ttsProcessingGeneration == processed.generation,
+                          self.playingBookId == processed.bookId else {
+                        return
+                    }
+                    self.applyNextChapter(index: processed.chapterIndex, content: processed.normalizedContent, paragraphs: processed.paragraphs, chapter: nextChapter)
+                }
             } catch {
                 guard let self,
                       self.sessionID == expectedSessionID,
@@ -825,20 +988,18 @@ public final class TTSManager: NSObject, ObservableObject {
         }
     }
 
-    /// Apply nội dung chương mới đã tải xong, bắt đầu phát và notify ReaderView.
-    private func applyNextChapter(index: Int, content: String, chapter: TTSChapterInfo) {
+    private func applyNextChapter(index: Int, content: String, paragraphs: [TTSParagraph], chapter: TTSChapterInfo) {
         checkpointProgress()
         self.playingChapterIndex = index
         self.playingChapterUrl = chapter.url
         self.chapterTitle = chapter.title
-        self.normalizedChapterText = ChapterTextNormalizer.normalize(content)
-        self.chapterContent = normalizedChapterText.content
+        self.normalizedChapterText = NormalizedChapterText(content: content, lines: [])
+        self.chapterContent = content
+        self.paragraphs = paragraphs
         self.clearPrefetchCache()
 
-        // Parse va phat tu dau chuong
         self.continueStartSpeaking(startParagraphIndex: -1)
 
-        // Notify ReaderView để sync UI (chuyển tab, scroll) nếu đang visible
         NotificationCenter.default.post(
             name: NSNotification.Name("ttsDidAdvanceToNextChapter"),
             object: nil,
@@ -956,7 +1117,7 @@ public final class TTSManager: NSObject, ObservableObject {
             prefetchTasks.removeValue(forKey: idx)
         }
 
-        // Bước 2: Giải phóng bộ nhớ đệm (cache) của các đoạn cũ đã đọc xong. 
+        // Bước 2: Giải phóng bộ nhớ đệm (cache) của các đoạn cũ đã đọc xong.
         // Chỉ giữ lại PCMBuffer của đoạn hiện tại (N) và đoạn kế tiếp (N+1).
         let cacheKeepIndices = [N, N + 1]
         var cacheToClear: [Int] = []
@@ -1424,23 +1585,23 @@ public final class TTSManager: NSObject, ObservableObject {
                 return nil
             }
             try audioFile.read(into: srcBuffer)
-            
+
             try? FileManager.default.removeItem(at: tempURL)
-            
+
             if srcFormat == targetFormat {
                 return srcBuffer
             }
-            
+
             guard let converter = AVAudioConverter(from: srcFormat, to: targetFormat) else {
                 return nil
             }
-            
+
             let ratio = targetFormat.sampleRate / srcFormat.sampleRate
             let destFrameCapacity = AVAudioFrameCount(Double(srcBuffer.frameLength) * ratio) + 100
             guard let destBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: destFrameCapacity) else {
                 return nil
             }
-            
+
             var error: NSError? = nil
             var isDataProvided = false
             let status = converter.convert(to: destBuffer, error: &error) { inNumPackets, outStatus in
@@ -1452,12 +1613,12 @@ public final class TTSManager: NSObject, ObservableObject {
                 outStatus.pointee = .haveData
                 return srcBuffer
             }
-            
+
             if status == .error || error != nil {
                 AppLogger.shared.log("❌ Resampling MP3 failed: \(error?.localizedDescription ?? "unknown error")")
                 return nil
             }
-            
+
             return destBuffer
         } catch {
             AppLogger.shared.log("❌ Failed to convert MP3 to PCMBuffer: \(error.localizedDescription)")

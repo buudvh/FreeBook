@@ -79,10 +79,35 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
     *   `TTSManager.configureAudioSession()`
     *   `TTSManager.setRemoteCommandsEnabled(true)`
     *   `TTSManager.clearPrefetchCache()`
-    *   `TTSManager.continueStartSpeaking(startParagraphIndex:)`
+    *   `TTSBackgroundProcessor.processChapter(...)` (Chạy ngầm bất đồng bộ)
+    *   `TTSManager.continueStartSpeaking(startParagraphIndex:)` (Cập nhật kết quả lên MainActor)
 *   **Side Effects**: Thiết lập phiên âm thanh nền, cập nhật trạng thái UI widget hiển thị.
-*   **Async**: No
+*   **Async**: Yes (Chạy xử lý đoạn văn ngầm bất đồng bộ)
 *   **Throws**: No
+*   **MainActor**: Yes
+
+---
+
+### 3a. `TTSManager.shared.beginManualChapterNavigation(targetIndex:)`
+*   **Confidence**: High
+*   **Khai báo**: `public func beginManualChapterNavigation(targetIndex: Int)`
+*   **Được gọi bởi (Called by)**:
+    *   `ReaderView.swift` (Khi người dùng điều hướng thủ công và TTS đang sở hữu sách).
+*   **Gọi đến (Calls)**:
+    *   `AVAudioPlayerNode.stop()` / `AVAudioPlayerNode.reset()`
+    *   `SiriTTSService.stop()`
+*   **MainActor**: Yes
+
+---
+
+### 3b. `TTSManager.shared.commitManualChapterNavigation(targetIndex:chapterContent:)`
+*   **Confidence**: High
+*   **Khai báo**: `public func commitManualChapterNavigation(targetIndex: Int, chapterContent: String)`
+*   **Được gọi bởi (Called by)**:
+    *   `ReaderView.swift` (Khi Reader commit thành công chương mới).
+*   **Gọi đến (Calls)**:
+    *   `TTSBackgroundProcessor.processChapter(...)` (Chạy ngầm bất đồng bộ)
+    *   `TTSManager.continueStartSpeaking(startParagraphIndex:)` (Cập nhật kết quả lên MainActor)
 *   **MainActor**: Yes
 
 ---

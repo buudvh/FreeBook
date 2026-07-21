@@ -4,6 +4,21 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.37] - 2026-07-21
+
+### Tách luồng xử lý nền TTS (TTSBackgroundProcessor Actor), tối ưu hóa CPU và đồng bộ hóa điều hướng thủ công an toàn
+* **TTS Subsystem**:
+  * Thiết lập lớp xử lý nền bất đồng bộ `TTSBackgroundProcessor` dưới dạng `actor` gánh vác các phép toán CPU-heavy (chuẩn hóa văn bản `ChapterTextNormalizer.normalize`, dịch nghĩa `TranslateUtils.translateContent` và phân tách đoạn văn `TTSParagraphBuilder.build`) ra khỏi luồng chính `MainActor`.
+  * Chuẩn hóa chữ ký truyền tham số `processChapter` rõ ràng (`shouldTranslateRawContent`, `includeChapterTitle`) thay vì truy cập các biến toàn cục bên trong worker. Tránh lặp lại quá trình dịch khi nạp dữ liệu đã được xử lý từ bộ nhớ đệm.
+  * Cập nhật `TTSManager.startSpeaking`, `advanceToNextChapter` và `prepareSpeaking` chạy song song trên luồng nền thông qua `TTSBackgroundProcessor`, chỉ cập nhật kết quả lên `MainActor` khi ID phiên `sessionID` và thế hệ `ttsProcessingGeneration` hoàn toàn trùng khớp.
+  * Thiết kế API điều phối chuyển chương thủ công `beginManualChapterNavigation` và `commitManualChapterNavigation` nguyên tử. Bước `begin` tạm dừng `playerNode` mà không phá hủy `AVAudioEngine` hay giải phóng `AVAudioSession`, giữ nguyên luồng tiếng chạy mượt mà.
+  * Bổ sung hàm `abortManualChapterNavigation()` để khôi phục trạng thái khi người dùng hủy hoặc Reader gặp lỗi tải chương.
+* **ReaderView**:
+  * Tích hợp cơ chế chỉ kích hoạt chuyển chương TTS thủ công khi TTS đang nắm giữ phiên đọc sách hoạt động của chính cuốn sách đó (`ttsManager.showFloatingWidget && ttsManager.playingBookId == bookId`).
+  * Thực thi việc đồng bộ tiến độ chỉ khi TTS thực sự không nắm quyền sở hữu tiến trình đọc.
+* **TTSManagerTests**:
+  * Bổ sung các ca kiểm thử hồi quy bao gồm: xử lý của background actor, phòng tránh race condition do stale session/generation hoàn thành trễ, gộp 5 lần bấm manual begin thành 1 lần commit duy nhất, và kiểm định việc duy trì `AVAudioSession` không bị giải phóng/setActive(false) thông qua callback seam `onSetActive`.
+
 ## [1.3.36] - 2026-07-21
 
 ### Khắc phục lỗi biên dịch Test Target, hoàn tất tối ưu hóa điều phối và đối sánh persistence an toàn va chạm

@@ -81,9 +81,10 @@ Luồng dữ liệu chuyển đổi văn bản sang âm thanh nền:
 
 ```mermaid
 graph TD
-    TextSource["Văn bản chương truyện"] --> Prep["TTSReplacementManager (Thay thế từ viết tắt/tên riêng)"]
-    Prep --> Preprocess["TextPreprocessor (Chuẩn hóa số, từ phiên âm, transliteration)"]
-    Preprocess --> Paragraphs["Phân đoạn đoạn văn (paragraphs)"]
+    TextSource["Văn bản chương truyện"] --> Processor["TTSBackgroundProcessor (Actor xử lý nền)"]
+    Processor -->|1. Dịch Vietphrase nếu cần| Translate["TranslateUtils.translateContent"]
+    Processor -->|2. Chuẩn hóa dòng| Normalizer["ChapterTextNormalizer"]
+    Processor -->|3. Phân mảnh câu| Paragraphs["TTSParagraphBuilder.build"]
     
     Paragraphs --> EngineSelect{"Lựa chọn Engine phát?"}
     

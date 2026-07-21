@@ -456,12 +456,17 @@ struct ReaderView: View {
     private var readerDataObservationView: some View {
         readerPresentationView
 
-        .onChange(of: ttsManager.isPlaying) { _, isPlaying in
-            let ttsOwnsBook = isPlaying && ttsManager.playingBookId == bookId
+        .onChange(of: ttsManager.isPlaying) { _, _ in
+            let ttsOwnsBook = ttsManager.hasActivePlaybackOwnership(for: bookId)
             viewModel?.setSpeculativePrefetchEnabled(!ttsOwnsBook)
         }
         .onChange(of: viewModel?.displayedChapterIndex) { _, _ in
             updateCurrentChapterMetadata()
+        }
+        .onChange(of: viewModel?.navigationFailure) { _, failure in
+            if failure != nil && ttsManager.hasActivePlaybackOwnership(for: bookId) {
+                ttsManager.abortManualChapterNavigation()
+            }
         }
         .onChange(of: currentOnlineChapters) { _, _ in
             updateCurrentChapterMetadata()
@@ -509,7 +514,7 @@ struct ReaderView: View {
             prepareTTSTask?.cancel()
             paragraphTracker.removeAll()
             if let vm = viewModel {
-                let ttsOwnsProgress = ttsManager.isPlaying && ttsManager.playingBookId == bookId
+                let ttsOwnsProgress = ttsManager.hasActivePlaybackOwnership(for: bookId)
                 Task {
                     await vm.shutdown(saveProgress: !ttsOwnsProgress)
                     await ChapterContentRepository.shared.flush(bookId: bookId)
@@ -517,8 +522,7 @@ struct ReaderView: View {
             }
         }
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .background &&
-                !(ttsManager.isPlaying && ttsManager.playingBookId == bookId) {
+            if newPhase == .background && !ttsManager.hasActivePlaybackOwnership(for: bookId) {
                 viewModel?.saveProgressImmediately()
             }
         }
@@ -1314,22 +1318,38 @@ struct ReaderView: View {
 
 
 
+    private func beginTTSManualNavigationIfNeeded(targetIndex: Int) {
+        if ttsManager.hasActivePlaybackOwnership(for: bookId) {
+            ttsManager.beginManualChapterNavigation(targetIndex: targetIndex)
+        }
+    }
+
     private func nextChapter() {
-        let persistProgress = !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
-        viewModel?.stepChapter(by: 1, source: .nextButton, persistProgress: persistProgress)
+        let persistProgress = !ttsManager.hasActivePlaybackOwnership(for: bookId)
+        let targetIndex = (viewModel?.pendingNavigationIndex ?? chapterIndex) + 1
+        if targetIndex >= 0 && targetIndex < totalChaptersCount {
+            beginTTSManualNavigationIfNeeded(targetIndex: targetIndex)
+            viewModel?.stepChapter(by: 1, source: .nextButton, persistProgress: persistProgress)
+        }
     }
 
     private func prevChapter() {
-        let persistProgress = !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
-        viewModel?.stepChapter(by: -1, source: .previousButton, persistProgress: persistProgress)
+        let persistProgress = !ttsManager.hasActivePlaybackOwnership(for: bookId)
+        let targetIndex = (viewModel?.pendingNavigationIndex ?? chapterIndex) - 1
+        if targetIndex >= 0 && targetIndex < totalChaptersCount {
+            beginTTSManualNavigationIfNeeded(targetIndex: targetIndex)
+            viewModel?.stepChapter(by: -1, source: .previousButton, persistProgress: persistProgress)
+        }
     }
 
     private func selectChapter(at index: Int, scroll: Bool = true) {
+        let persistProgress = !ttsManager.hasActivePlaybackOwnership(for: bookId)
+        beginTTSManualNavigationIfNeeded(targetIndex: index)
         requestChapter(
             at: index,
             paragraphIndex: scroll ? -1 : getSavedParagraphIndex(for: index),
             source: .chapterList,
-            persistProgress: !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
+            persistProgress: persistProgress
         )
     }
 
@@ -1663,7 +1683,11 @@ struct ReaderView: View {
                 apply()
             }
         }
-        // Không tự động chuyển chương TTS khi chuyển chương Reader thủ công
+        let isManualSource = (commit.source == .previousButton || commit.source == .nextButton || commit.source == .chapterList)
+        if isManualSource && ttsManager.hasActivePlaybackOwnership(for: bookId) {
+            let chapterContent = vm.cache.get(commit.chapterIndex)?.content ?? ""
+            ttsManager.commitManualChapterNavigation(targetIndex: commit.chapterIndex, chapterContent: chapterContent)
+        }
     }
 
     private func chapterNavigationErrorView(

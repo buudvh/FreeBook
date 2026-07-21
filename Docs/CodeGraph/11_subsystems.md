@@ -58,7 +58,11 @@ Reader chrome observes the pending target and immediately shows its title, chapt
     *   `TTSManager.shared.resume()`
     *   `TTSManager.shared.stop()`
     *   `TTSManager.shared.updateChapterCache(at:content:)`
-*   **Dependencies**: `AVFoundation`, `MediaPlayer` (Now Playing Info & Remote Command Center), SwiftData (`ModelContainer`), `SiriTTSService`, `ExtTTSService`, `PiperTTSService`, `ExtensionManager`, `Chapter`.
+    *   `TTSManager.shared.beginManualChapterNavigation(targetIndex:)`
+    *   `TTSManager.shared.commitManualChapterNavigation(targetIndex:chapterContent:)`
+    *   `TTSManager.shared.abortManualChapterNavigation()`
+    *   `TTSManager.shared.hasActivePlaybackOwnership(for:) -> Bool`
+*   **Dependencies**: `AVFoundation`, `MediaPlayer` (Now Playing Info & Remote Command Center), SwiftData (`ModelContainer`), `SiriTTSService`, `ExtTTSService`, `PiperTTSService`, `ExtensionManager`, `Chapter`, `TTSBackgroundProcessor` (actor xử lý nền).
 *   **Owned Objects**:
     *   `TTSManager` sở hữu `SiriTTSService`, `ExtTTSService`, `PiperTTSService`, `ModelStore`, `NghiTTSClient`.
 *   **Điểm bắt đầu (Entry Points)**: Người dùng nhấn nút phát TTS trên thanh widget hoặc trong trình đọc.

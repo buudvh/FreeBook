@@ -1269,6 +1269,15 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
+### 130a. TTSBackgroundProcessor (ACTOR)
+
+*   **Định nghĩa tại**: [Services/TTS/TTSBackgroundProcessor.swift:13](../../Sources/Services/TTS/TTSBackgroundProcessor.swift#L13)
+*   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Actor`
+*   **Sử dụng (Uses)**: `ChapterTextNormalizer`, `TranslateUtils`, `TTSParagraphBuilder`, `TTSParagraph`
+*   **Được sử dụng bởi (Used by)**: `TTSManager`, `TTSManagerTests`
+
+---
+
 ### 131. TTSDictionaryEditView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Settings/TTS/TTSDictionaryEditView.swift:5](../../Sources/Views/Settings/TTS/TTSDictionaryEditView.swift#L5)
@@ -1309,7 +1318,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 *   **Định nghĩa tại**: [Services/TTS/TTSManager.swift:10](../../Sources/Services/TTS/TTSManager.swift#L10)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `NSObject`, `ObservableObject`
-*   **Sử dụng (Uses)**: `AppLogger`, `Book`, `ExtTTSService`, `ImageCacheManager`, `ModelStore`, `NghiTTSClient`, `ONNXPiperEngine`, `PiperTTSService`, `SiriTTSService`, `TTSChapterInfo`, `TTSExtensionInfo`, `TTSParagraph`, `TTSReplacementManager`, `TranslateUtils`, `Voice`
+*   **Sử dụng (Uses)**: `AppLogger`, `Book`, `ExtTTSService`, `ImageCacheManager`, `ModelStore`, `NghiTTSClient`, `ONNXPiperEngine`, `PiperTTSService`, `SiriTTSService`, `TTSBackgroundProcessor`, `TTSChapterInfo`, `TTSExtensionInfo`, `TTSParagraph`, `TTSReplacementManager`, `TranslateUtils`, `Voice`
 *   **Được sử dụng bởi (Used by)**: `AddWordSheet`, `AppLaunchRootView`, `DictionaryMatchInfo`, `EditWordSheet`, `EditingEntry`, `FreeBookApp`, `Layout`, `LoadedChapter`, `MainTabView`, `PageFlipModifier`, `ParagraphTracker`, `ParsedBook`, `ParserChapter`, `ReaderSettingsView`, `ReaderTheme`, `ReaderView`, `ScrollTarget`, `ShelfView`, `TTSDictionaryEditView`, `TTSFloatingWidgetView`, `TTSModelManagerView`, `TTSPlayStateReader`, `TTSSettingsView`
 
 ---
