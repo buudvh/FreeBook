@@ -91,12 +91,9 @@ graph TD
 *   **`ttsDidAdvanceToNextChapter`**:
     *   *Mục đích*: Nhận biết khi `TTSManager` tự chuyển sang chương tiếp theo độc lập.
     *   *Xử lý (`ReaderView.swift`)*: Nhận thông báo chứa `bookId` và `chapterIndex` để thực hiện đồng bộ giao diện hiển thị (chuyển tab, cuộn) mà không trigger lệnh phát TTS lặp lại.
-*   **Sự kiện điều hướng chương thủ công (Reader -> TTS)**:
-    *   *Mục đích*: Tạm dừng và đồng bộ phát âm thanh khi người dùng chuyển chương thủ công bằng nút bấm hoặc mục lục Reader.
-    *   *Xử lý*:
-        *   `ReaderView` kiểm tra active ownership và gọi `beginManualChapterNavigation(targetIndex:)` để tạm ngắt `playerNode` hiện tại mà không giải phóng `AVAudioSession`/`AVAudioEngine`.
-        *   Khi Reader tải thành công, ReaderView gọi `commitManualChapterNavigation(targetIndex:chapterContent:)` để tải/phân đoạn ngầm qua `TTSBackgroundProcessor` và phát từ đầu chương mới.
-        *   Nếu Reader tải lỗi hoặc bị hủy, `ReaderView` nhận biết sự thay đổi của `viewModel.navigationFailure` và gọi `ttsManager.abortManualChapterNavigation()` để khôi phục trạng thái tạm dừng của TTS.
+*   **Điều hướng Reader độc lập với TTS**:
+    *   Next/Previous/Chapter List chỉ tạo request và commit trong `ReaderViewModel`; không phát sự kiện chuyển chương sang `TTSManager`.
+    *   `prepareSpeaking(...)` chỉ prewarm cache chương Reader và không thay đổi chương TTS đang phát hoặc đang pause.
 
 ### 2.3. Sự kiện Combine (Publishers)
 *   **`@Published` Properties**:

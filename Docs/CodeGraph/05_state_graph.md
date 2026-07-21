@@ -43,8 +43,8 @@ Máy trạng thái này điều khiển việc phát âm thanh trong `TTSManager
 stateDiagram-v2
     [*] --> Stopped : Khởi động App
     
-    Stopped --> Preparing : prepareSpeaking() / Nạp dữ liệu
-    Stopped --> Playing : startSpeaking() / Phát lập tức
+    Stopped --> Preparing : startSpeaking() / Cache prewarm chưa có
+    Stopped --> Playing : startSpeaking() / Dùng kết quả prewarm
     
     Preparing --> Playing : playAudioBuffer() / Nạp buffer thành công
     Preparing --> Stopped : stop() / Xóa cache
@@ -52,23 +52,18 @@ stateDiagram-v2
     Playing --> Paused : pause() hoặc Audio Interruption (Bắt đầu)
     Playing --> Stopped : stop() hoặc Hết sách hoàn toàn (onChapterFinished)
     Playing --> Playing : advanceToNextChapter() / Tự động chuyển chương mới
-    Playing --> Paused : beginManualChapterNavigation() / Chuyển chương thủ công (tạm ngắt)
     Playing --> Failed : Lỗi Engine / Mạng / Chuyển WAV hỏng
     
     Paused --> Playing : resume() hoặc Audio Interruption (Kết thúc)
-    Paused --> Playing : commitManualChapterNavigation() / Hoàn tất chuyển chương
     Paused --> Stopped : stop()
     
     Failed --> Stopped : Tự động dọn dẹp tài nguyên
 ```
 
 ### 1.2. Triggers & Transitions (Chuyển đổi trạng thái)
-*   **`Stopped` -> `Preparing`**: Được kích hoạt khi gọi `prepareSpeaking(...)`. Trình phát nạp danh sách chương, phân đoạn văn bản sạch, định vị trang hiện tại nhưng không phát ra tiếng.
-*   **`Stopped` / `Preparing` -> `Playing`**: Kích hoạt qua `startSpeaking(...)`. Cấu hình `AVAudioSession`, khởi động `AVAudioEngine`, bắt đầu phát ra âm thanh và cập nhật Now Playing.
+*   **Prewarm không đổi trạng thái phát**: `prepareSpeaking(...)` chỉ chuẩn hóa/phân đoạn chương Reader vào cache riêng; không đổi chương hoặc trạng thái của phiên TTS.
+*   **`Stopped` -> `Preparing` / `Playing`**: `startSpeaking(...)` phát ngay nếu cache prewarm khớp; nếu cache miss thì dùng processor riêng ưu tiên cao rồi bắt đầu phát.
 *   **`Playing` -> `Paused`**: Kích hoạt qua `pause()` hoặc khi nhận thông báo ngắt `AVAudioSession.interruptionNotification`. Tạm dừng phát của playerNode nhưng giữ trạng thái session.
-*   **`Playing` -> `Paused` (Chuyển chương thủ công)**: Kích hoạt qua `beginManualChapterNavigation(targetIndex:)` khi người dùng chuyển chương thủ công trong lúc TTS đang phát. Hệ thống tạm dừng phát âm thanh trên `playerNode` hiện tại nhưng giữ nguyên kết nối `AVAudioEngine` và trạng thái `AVAudioSession`, tăng thế hệ `ttsProcessingGeneration` để hủy bỏ các tiến trình xử lý cũ.
-*   **`Paused` -> `Playing` (Hoàn tất chuyển chương thủ công)**: Kích hoạt qua `commitManualChapterNavigation(targetIndex:chapterContent:)`. Tải nội dung chương mới nhất được gộp từ các thao tác bấm liên tiếp, thực hiện phân đoạn trên luồng nền thông qua `TTSBackgroundProcessor` và bắt đầu phát từ câu đầu tiên.
-*   **`Paused` -> `Paused` (Hủy/Lỗi chuyển chương thủ công)**: Kích hoạt qua `abortManualChapterNavigation()`. Reset trạng thái chuyển chương thủ công về `nil`, đưa hệ thống về trạng thái tạm dừng an toàn để người dùng có thể thử lại.
 *   **`Paused` -> `Playing`**: Kích hoạt qua `resume()` hoặc khi cuộc gọi kết thúc (interruption ended). Nếu tạm dừng quá 5 giây (hoặc mất buffer) thì nạp và phát lại đoạn âm thanh hiện tại từ đầu để tránh mất tiếng do OS giải phóng buffer, ngược lại tiếp tục phát mượt mà từ vị trí cũ.
 *   **`Playing` -> `Playing`**: Kích hoạt qua `advanceToNextChapter(nextIdx:)` khi phát hết chương và chaptersQueue còn chương tiếp theo. TTSManager tự nạp RAM/DB cache hoặc fetch online và tiếp tục phát không gián đoạn.
 *   **`Playing` / `Paused` -> `Stopped`**: Kích hoạt qua `stop()`. Gọi `playerNode.stop()`, hủy tất cả các task prefetch WAV, làm rỗng RAM cache `preloadedWavs` và set `isPlaying = false`.
@@ -76,8 +71,7 @@ stateDiagram-v2
 
 ### 1.3. Invalid Transitions (Chuyển đổi không hợp lệ)
 *   `Stopped` -> `pause()` / `resume()`: Không thể tạm dừng hoặc tiếp tục phát khi chưa có sách nào được chuẩn bị.
-*   `Paused` -> `prepareSpeaking()`: Không được phép nạp chương mới khi đang trong trạng thái tạm dừng phát chương cũ (phải gọi `stopCurrentPlayback` trước).
-*   `Paused` (trong thời gian chuyển chương thủ công) -> `resume()`: Cuộc gọi `resume()` bị bỏ qua (no-op) nếu `isManualNavigating == true` để ngăn cản phát lại chương cũ.
+*   Reader Next/Previous/Chapter List không tạo transition cho TTS; chương TTS chỉ đổi khi người dùng chủ động Start hoặc khi TTS tự đọc hết chương.
 
 ---
 

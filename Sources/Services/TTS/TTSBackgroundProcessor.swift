@@ -11,9 +11,7 @@ public struct ProcessedChapterDTO: Sendable {
 }
 
 public actor TTSBackgroundProcessor {
-    public static let shared = TTSBackgroundProcessor()
-    
-    private init() {}
+    public init() {}
     
     public func processChapter(
         bookId: String,
@@ -25,7 +23,9 @@ public actor TTSBackgroundProcessor {
         includeChapterTitle: Bool,
         sessionID: UUID,
         generation: Int
-    ) -> ProcessedChapterDTO {
+    ) throws -> ProcessedChapterDTO {
+        try Task.checkCancellation()
+
         // 1. Vietphrase translation if enabled
         let translatedContent: String
         if shouldTranslateRawContent && TranslateUtils.containsChinese(rawContent) {
@@ -33,13 +33,19 @@ public actor TTSBackgroundProcessor {
         } else {
             translatedContent = rawContent
         }
-        
+
+        try Task.checkCancellation()
+
         // 2. Text normalization
         let normalized = ChapterTextNormalizer.normalize(translatedContent)
-        
+
+        try Task.checkCancellation()
+
         // 3. Segment into clean paragraphs
         var paragraphs = TTSParagraphBuilder.build(from: normalized, chunkLength: chunkLength)
-        
+
+        try Task.checkCancellation()
+
         // 4. Optionally insert chapter title at paragraphIndex = -1
         if includeChapterTitle && !chapterTitle.isEmpty {
             let titleParagraph = TTSParagraph(

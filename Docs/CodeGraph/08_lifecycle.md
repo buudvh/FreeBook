@@ -74,12 +74,11 @@ sequenceDiagram
     *   Đọc cấu hình hệ thống từ `UserDefaults`.
     *   Khởi tạo `ReaderViewModel` và nạp vị trí đọc được lưu từ phiên trước.
     *   Đăng ký 3 hàm callbacks để chuyển chương cho `TTSManager.shared`: `onChapterFinished`, `onChapterNext`, `onChapterPrev`.
-*   **Vòng đời điều hướng chương thủ công tích hợp với TTS**:
-    1. Khi người dùng bấm Next/Prev hoặc chọn chương mới, `ReaderView` kiểm tra active ownership (`ttsManager.hasActivePlaybackOwnership(for:)`).
-    2. Nếu thuộc về TTS, `ReaderView` gọi `beginManualChapterNavigation(targetIndex:)` để tạm ngắt `playerNode` hiện tại, đồng thời chuyển sang trạng thái chờ nạp chương mới của Reader.
-    3. `ReaderViewModel` thực hiện tải chương mới bất đồng bộ.
-    4. Nếu tải thành công: `applyNavigationCommit` gọi `ttsManager.commitManualChapterNavigation(targetIndex:chapterContent:)`. Lệnh này xử lý bất đồng bộ thông qua `TTSBackgroundProcessor` trên luồng nền và tiếp tục phát mượt mà từ đầu chương mới.
-    5. Nếu tải lỗi hoặc bị hủy: `onChange(of: viewModel.navigationFailure)` bắt được và gọi `ttsManager.abortManualChapterNavigation()` để khôi phục trạng thái tạm dừng của TTS, cho phép người dùng thao tác lại.
+*   **Vòng đời điều hướng Reader và TTS độc lập**:
+    1. Next/Prev hoặc mục lục chỉ yêu cầu `ReaderViewModel` tải và commit chương Reader.
+    2. Reader có thể prewarm nội dung chương đang hiển thị vào cache TTS, nhưng thao tác này không đổi trạng thái/chương của phiên TTS.
+    3. TTS chỉ đổi chương khi người dùng chủ động bấm phát tại chương Reader hiện tại, hoặc khi TTS tự đọc hết chương và gọi `advanceToNextChapter`.
+    4. Khi bấm phát, Reader chỉ truy vấn metadata chương hiện tại và chương kế; queue đầy đủ được cập nhật trễ qua `updateChaptersQueue(_:for:)` sau khi `isPlaying` để không chặn âm thanh đầu tiên.
 *   **Khi biến mất (`onDisappear`)**:
     *   Reset biến tĩnh `ReaderView.activeBookId = nil`.
     *   Hủy task prefetch chương truyện đang chạy ngầm (`prefetchTask?.cancel()`).

@@ -6,18 +6,20 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.37] - 2026-07-21
 
-### Tách luồng xử lý nền TTS (TTSBackgroundProcessor Actor), tối ưu hóa CPU và đồng bộ hóa điều hướng thủ công an toàn
+### Tối ưu độ trễ khởi động TTS và giữ điều hướng Reader độc lập
 * **TTS Subsystem**:
   * Thiết lập lớp xử lý nền bất đồng bộ `TTSBackgroundProcessor` dưới dạng `actor` gánh vác các phép toán CPU-heavy (chuẩn hóa văn bản `ChapterTextNormalizer.normalize`, dịch nghĩa `TranslateUtils.translateContent` và phân tách đoạn văn `TTSParagraphBuilder.build`) ra khỏi luồng chính `MainActor`.
   * Chuẩn hóa chữ ký truyền tham số `processChapter` rõ ràng (`shouldTranslateRawContent`, `includeChapterTitle`) thay vì truy cập các biến toàn cục bên trong worker. Tránh lặp lại quá trình dịch khi nạp dữ liệu đã được xử lý từ bộ nhớ đệm.
-  * Cập nhật `TTSManager.startSpeaking`, `advanceToNextChapter` và `prepareSpeaking` chạy song song trên luồng nền thông qua `TTSBackgroundProcessor`, chỉ cập nhật kết quả lên `MainActor` khi ID phiên `sessionID` và thế hệ `ttsProcessingGeneration` hoàn toàn trùng khớp.
-  * Thiết kế API điều phối chuyển chương thủ công `beginManualChapterNavigation` và `commitManualChapterNavigation` nguyên tử. Bước `begin` tạm dừng `playerNode` mà không phá hủy `AVAudioEngine` hay giải phóng `AVAudioSession`, giữ nguyên luồng tiếng chạy mượt mà.
-  * Bổ sung hàm `abortManualChapterNavigation()` để khôi phục trạng thái khi người dùng hủy hoặc Reader gặp lỗi tải chương.
+  * Loại bỏ hàng đợi `TTSBackgroundProcessor.shared` dùng chung; mỗi request dùng processor riêng có cancellation checkpoint để thao tác Play không phải chờ các prewarm cũ.
+  * `prepareSpeaking` trở thành prewarm thuần cache, không thay đổi chương hoặc trạng thái của phiên TTS đang pause.
+  * `startSpeaking` dùng ngay kết quả prewarm khi key nội dung khớp; cache miss mới xử lý nền với ưu tiên cao.
+  * Đường bấm Play chỉ truy vấn metadata chương hiện tại và chương kế; fetch/map toàn bộ danh sách chương được trì hoãn đến sau khi TTS bắt đầu phát rồi cập nhật qua `updateChaptersQueue(_:for:)`.
 * **ReaderView**:
-  * Tích hợp cơ chế chỉ kích hoạt chuyển chương TTS thủ công khi TTS đang nắm giữ phiên đọc sách hoạt động của chính cuốn sách đó (`ttsManager.showFloatingWidget && ttsManager.playingBookId == bookId`).
-  * Thực thi việc đồng bộ tiến độ chỉ khi TTS thực sự không nắm quyền sở hữu tiến trình đọc.
+  * Next/Previous và chọn chương trong mục lục chỉ thay đổi Reader, không dừng hoặc chuyển chương TTS.
+  * Prewarm chương Reader không ghi đè dữ liệu phát của chương TTS hiện tại.
+  * Bỏ thao tác deactivate/activate AudioSession dư thừa khi bắt đầu TTS từ trạng thái đã dừng hoàn toàn.
 * **TTSManagerTests**:
-  * Bổ sung các ca kiểm thử hồi quy bao gồm: xử lý của background actor, phòng tránh race condition do stale session/generation hoàn thành trễ, gộp 5 lần bấm manual begin thành 1 lần commit duy nhất, và kiểm định việc duy trì `AVAudioSession` không bị giải phóng/setActive(false) thông qua callback seam `onSetActive`.
+  * Cập nhật test chữ ký processor và bổ sung kiểm tra chương đã prewarm bắt đầu phát đồng bộ không cần chờ xử lý lần hai.
 
 ## [1.3.36] - 2026-07-21
 

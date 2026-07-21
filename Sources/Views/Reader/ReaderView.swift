@@ -122,6 +122,7 @@ struct ReaderView: View {
     @State private var updateProgressWorkItem: DispatchWorkItem? = nil
     @State private var updateTTSPositionWorkItem: DispatchWorkItem? = nil
     @State private var prepareTTSTask: DispatchWorkItem? = nil
+    @State private var ttsQueueRefreshTask: Task<Void, Never>? = nil
 
     @State private var localChaptersCount: Int = 0
     @State private var currentChapterTitle: String = ""
@@ -162,17 +163,11 @@ struct ReaderView: View {
 
     private var ttsChaptersQueue: [TTSChapterInfo] {
         if let vm = viewModel, localBook != nil {
-            return vm.fetchChaptersMetadata(isTranslationEnabled: isTranslationEnabled)
+            return vm.fetchChaptersMetadata()
         } else {
             return currentOnlineChapters.enumerated().map { (index, chap) in
-                let titleToUse: String
-                if isTranslationEnabled && TranslateUtils.containsChinese(chap.name) {
-                    titleToUse = TranslateUtils.translateChapterTitle(chap.name, bookId: bookId)
-                } else {
-                    titleToUse = chap.name
-                }
                 return TTSChapterInfo(
-                    title: titleToUse,
+                    title: chap.name,
                     url: chap.url,
                     index: index,
                     host: chap.host
@@ -457,16 +452,11 @@ struct ReaderView: View {
         readerPresentationView
 
         .onChange(of: ttsManager.isPlaying) { _, _ in
-            let ttsOwnsBook = ttsManager.hasActivePlaybackOwnership(for: bookId)
+            let ttsOwnsBook = ttsManager.isPlaying && ttsManager.playingBookId == bookId
             viewModel?.setSpeculativePrefetchEnabled(!ttsOwnsBook)
         }
         .onChange(of: viewModel?.displayedChapterIndex) { _, _ in
             updateCurrentChapterMetadata()
-        }
-        .onChange(of: viewModel?.navigationFailure) { _, failure in
-            if failure != nil && ttsManager.hasActivePlaybackOwnership(for: bookId) {
-                ttsManager.abortManualChapterNavigation()
-            }
         }
         .onChange(of: currentOnlineChapters) { _, _ in
             updateCurrentChapterMetadata()
@@ -514,7 +504,7 @@ struct ReaderView: View {
             prepareTTSTask?.cancel()
             paragraphTracker.removeAll()
             if let vm = viewModel {
-                let ttsOwnsProgress = ttsManager.hasActivePlaybackOwnership(for: bookId)
+                let ttsOwnsProgress = ttsManager.isPlaying && ttsManager.playingBookId == bookId
                 Task {
                     await vm.shutdown(saveProgress: !ttsOwnsProgress)
                     await ChapterContentRepository.shared.flush(bookId: bookId)
@@ -522,7 +512,7 @@ struct ReaderView: View {
             }
         }
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .background && !ttsManager.hasActivePlaybackOwnership(for: bookId) {
+            if newPhase == .background && !(ttsManager.isPlaying && ttsManager.playingBookId == bookId) {
                 viewModel?.saveProgressImmediately()
             }
         }
@@ -1318,33 +1308,58 @@ struct ReaderView: View {
 
 
 
-    private func beginTTSManualNavigationIfNeeded(targetIndex: Int) {
-        if ttsManager.hasActivePlaybackOwnership(for: bookId) {
-            ttsManager.beginManualChapterNavigation(targetIndex: targetIndex)
-        }
-    }
-
     private func nextChapter() {
-        let persistProgress = !ttsManager.hasActivePlaybackOwnership(for: bookId)
+        let persistProgress = !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
         let targetIndex = (viewModel?.pendingNavigationIndex ?? chapterIndex) + 1
         if targetIndex >= 0 && targetIndex < totalChaptersCount {
-            beginTTSManualNavigationIfNeeded(targetIndex: targetIndex)
             viewModel?.stepChapter(by: 1, source: .nextButton, persistProgress: persistProgress)
         }
     }
 
+    private func ttsChapterInfo(at index: Int) -> TTSChapterInfo? {
+        if localBook != nil, let chapter = viewModel?.fetchChapter(at: index) {
+            let title = isTranslationEnabled && TranslateUtils.containsChinese(chapter.title)
+                ? TranslateUtils.translateChapterTitle(chapter.title, bookId: bookId)
+                : chapter.title
+            return TTSChapterInfo(title: title, url: chapter.url, index: chapter.index, host: chapter.host)
+        }
+
+        guard currentOnlineChapters.indices.contains(index) else { return nil }
+        let chapter = currentOnlineChapters[index]
+        let title = isTranslationEnabled && TranslateUtils.containsChinese(chapter.name)
+            ? TranslateUtils.translateChapterTitle(chapter.name, bookId: bookId)
+            : chapter.name
+        return TTSChapterInfo(title: title, url: chapter.url, index: index, host: chapter.host)
+    }
+
+    private func scheduleFullTTSQueueRefresh() {
+        ttsQueueRefreshTask?.cancel()
+        ttsQueueRefreshTask = Task {
+            for _ in 0..<40 {
+                guard !Task.isCancelled else { return }
+                if ttsManager.isPlaying && ttsManager.playingBookId == bookId { break }
+                try? await Task.sleep(nanoseconds: 50_000_000)
+            }
+            guard !Task.isCancelled,
+                  ttsManager.isPlaying,
+                  ttsManager.playingBookId == bookId else { return }
+
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            guard !Task.isCancelled else { return }
+            ttsManager.updateChaptersQueue(ttsChaptersQueue, for: bookId)
+        }
+    }
+
     private func prevChapter() {
-        let persistProgress = !ttsManager.hasActivePlaybackOwnership(for: bookId)
+        let persistProgress = !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
         let targetIndex = (viewModel?.pendingNavigationIndex ?? chapterIndex) - 1
         if targetIndex >= 0 && targetIndex < totalChaptersCount {
-            beginTTSManualNavigationIfNeeded(targetIndex: targetIndex)
             viewModel?.stepChapter(by: -1, source: .previousButton, persistProgress: persistProgress)
         }
     }
 
     private func selectChapter(at index: Int, scroll: Bool = true) {
-        let persistProgress = !ttsManager.hasActivePlaybackOwnership(for: bookId)
-        beginTTSManualNavigationIfNeeded(targetIndex: index)
+        let persistProgress = !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
         requestChapter(
             at: index,
             paragraphIndex: scroll ? -1 : getSavedParagraphIndex(for: index),
@@ -1374,12 +1389,17 @@ struct ReaderView: View {
 
     private func startTTS(at index: Int, paragraphIndex: Int) {
         guard index >= 0 && index < totalChaptersCount else { return }
+        guard let currentChapter = ttsChapterInfo(at: index) else { return }
+        var initialQueue = [currentChapter]
+        if index + 1 < totalChaptersCount, let nextChapter = ttsChapterInfo(at: index + 1) {
+            initialQueue.append(nextChapter)
+        }
 
         let chapterContentToUse = viewModel?.cache.get(index)?.content ?? ""
 
         ttsManager.startSpeaking(
             bookId: bookId,
-            chapters: ttsChaptersQueue,
+            chapters: initialQueue,
             currentIndex: index,
             chapterContent: chapterContentToUse,
             startParagraphIndex: paragraphIndex,
@@ -1389,6 +1409,7 @@ struct ReaderView: View {
             bookSourceName: localBook?.sourceName ?? bookSourceName ?? "",
             extensionInfo: ttsExtensionInfo
         )
+        scheduleFullTTSQueueRefresh()
     }
 
     private func getSavedParagraphIndex(for idx: Int) -> Int {
@@ -1421,12 +1442,13 @@ struct ReaderView: View {
         let chapterContentToUse = viewModel?.cache.get(index)?.content ?? ""
 
         guard !chapterContentToUse.isEmpty else { return }
+        guard let currentChapter = ttsChapterInfo(at: index) else { return }
 
         let savedPIdx = getSavedParagraphIndex(for: index)
 
         ttsManager.prepareSpeaking(
             bookId: bookId,
-            chapters: ttsChaptersQueue,
+            chapters: [currentChapter],
             currentIndex: index,
             chapterContent: chapterContentToUse,
             startParagraphIndex: savedPIdx,
@@ -1440,8 +1462,6 @@ struct ReaderView: View {
 
     private func schedulePrepareTTS() {
         guard !ttsManager.isPlaying else { return }
-        guard ttsManager.showFloatingWidget else { return }
-        guard ttsManager.playingBookId == bookId else { return }
         prepareTTSTask?.cancel()
 
         let workItem = DispatchWorkItem {
@@ -1478,6 +1498,7 @@ struct ReaderView: View {
         updateTTSPositionWorkItem?.cancel()
         let ttsWork = DispatchWorkItem {
             guard let top = self.paragraphTracker.topVisible else { return }
+            guard self.ttsManager.playingChapterIndex == top.chapterIndex else { return }
             self.ttsManager.updateParagraphPositionWithoutPlaying(paragraphIndex: top.paragraphIndex)
         }
         self.updateTTSPositionWorkItem = ttsWork
@@ -1607,7 +1628,7 @@ struct ReaderView: View {
             }
             .onChange(of: vm.navigationCommit) { _, commit in
                 guard let commit else { return }
-                applyNavigationCommit(commit, viewModel: vm)
+                applyNavigationCommit(commit)
             }
             .animation(
                 reduceMotion || vm.navigationCommit?.animateContent != true
@@ -1663,8 +1684,7 @@ struct ReaderView: View {
     }
 
     private func applyNavigationCommit(
-        _ commit: ReaderNavigationCommit,
-        viewModel vm: ReaderViewModel
+        _ commit: ReaderNavigationCommit
     ) {
         isGoingNext = commit.direction != .backward
         isRestoringReaderPosition = true
@@ -1683,11 +1703,7 @@ struct ReaderView: View {
                 apply()
             }
         }
-        let isManualSource = (commit.source == .previousButton || commit.source == .nextButton || commit.source == .chapterList)
-        if isManualSource && ttsManager.hasActivePlaybackOwnership(for: bookId) {
-            let chapterContent = vm.cache.get(commit.chapterIndex)?.content ?? ""
-            ttsManager.commitManualChapterNavigation(targetIndex: commit.chapterIndex, chapterContent: chapterContent)
-        }
+        // Reader navigation is intentionally independent from the active TTS chapter.
     }
 
     private func chapterNavigationErrorView(
@@ -1939,7 +1955,9 @@ struct ReaderView: View {
             icon: "headphones",
             tint: selectedTheme.textColor.opacity(0.9),
             action: {
-                ttsManager.stop()
+                if ttsManager.isPlaying || ttsManager.showFloatingWidget {
+                    ttsManager.stop()
+                }
                 if let top = paragraphTracker.topVisible {
                     startTTS(at: top.chapterIndex, paragraphIndex: top.paragraphIndex)
                 } else {

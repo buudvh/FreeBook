@@ -136,7 +136,7 @@ class ReaderViewModel: ObservableObject {
         return (try? modelContext.fetch(descriptor))?.first
     }
 
-    public func fetchChaptersMetadata(isTranslationEnabled: Bool) -> [TTSChapterInfo] {
+    public func fetchChaptersMetadata() -> [TTSChapterInfo] {
         let localBookId = bookId
         var descriptor = FetchDescriptor<Chapter>(
             predicate: #Predicate<Chapter> { $0.bookId == localBookId }
@@ -145,14 +145,8 @@ class ReaderViewModel: ObservableObject {
         do {
             let chapters = try modelContext.fetch(descriptor)
             return chapters.map { chap in
-                let titleToUse: String
-                if isTranslationEnabled && TranslateUtils.containsChinese(chap.title) {
-                    titleToUse = TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
-                } else {
-                    titleToUse = chap.title
-                }
                 return TTSChapterInfo(
-                    title: titleToUse,
+                    title: chap.title,
                     url: chap.url,
                     index: chap.index,
                     host: chap.host

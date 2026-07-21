@@ -81,10 +81,14 @@ Luồng dữ liệu chuyển đổi văn bản sang âm thanh nền:
 
 ```mermaid
 graph TD
-    TextSource["Văn bản chương truyện"] --> Processor["TTSBackgroundProcessor (Actor xử lý nền)"]
+    TextSource["Văn bản chương truyện"] --> Prewarm["Cache prewarm theo book/chapter/content"]
+    Prewarm -->|Cache hit: phát ngay| Paragraphs["TTSParagraph đã chuẩn bị"]
+    Prewarm -->|Cache miss| Processor["TTSBackgroundProcessor riêng, có thể hủy"]
     Processor -->|1. Dịch Vietphrase nếu cần| Translate["TranslateUtils.translateContent"]
     Processor -->|2. Chuẩn hóa dòng| Normalizer["ChapterTextNormalizer"]
-    Processor -->|3. Phân mảnh câu| Paragraphs["TTSParagraphBuilder.build"]
+    Processor -->|3. Phân mảnh câu| Paragraphs
+    ReaderQueue["Metadata toàn bộ chương"] -->|Nạp trễ sau khi isPlaying| Queue["TTSManager.chaptersQueue"]
+    Queue -->|Prefetch/auto-advance| EngineSelect
     
     Paragraphs --> EngineSelect{"Lựa chọn Engine phát?"}
     
