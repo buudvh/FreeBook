@@ -96,7 +96,7 @@ actor BackgroundPagingWorker {
         let localMin = minLogicalIndex
         let localMax = maxLogicalIndex
 
-        var descriptor = FetchDescriptor<Chapter>(
+        let descriptor = FetchDescriptor<Chapter>(
             predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.index >= localMin && $0.index <= localMax }
         )
 
@@ -348,11 +348,12 @@ public final class ReaderChapterListStore {
         self.pageRequestIDs[page] = reqID
         let task = Task {
             let fetched = await performPageFetch(page: page, requestID: reqID)
-            if Task.isCancelled || gen != self.currentGeneration { return }
+            if Task.isCancelled || gen != self.currentGeneration { return nil }
             if let fetched = fetched {
                 self.pageCache[page] = fetched
                 self.prunePageCache()
             }
+            return fetched
         }
         inFlightPages[page] = task
     }
