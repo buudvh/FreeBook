@@ -346,7 +346,7 @@ public final class ReaderChapterListStore {
         let gen = currentGeneration
         let reqID = UUID()
         self.pageRequestIDs[page] = reqID
-        let task = Task {
+        let task: Task<[Int: (title: String, url: String, isCached: Bool)]?, Never> = Task {
             let fetched = await performPageFetch(page: page, requestID: reqID)
             if Task.isCancelled || gen != self.currentGeneration { return nil }
             if let fetched = fetched {
