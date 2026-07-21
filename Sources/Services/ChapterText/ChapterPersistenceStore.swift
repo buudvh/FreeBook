@@ -149,19 +149,19 @@ actor ChapterPersistenceStore {
         book.host = snapshot.host
         book.isHistory = true
 
+        let pool = ReconciliationPool(chapters: book.chapters)
+        var existingIDs = Set(book.chapters.map { $0.id })
+
         for item in snapshot.chapters {
-            if let existing = matchingMetadataChapter(
-                in: book.chapters,
-                chapterIndex: item.index,
-                url: item.url
-            ) {
+            if let existing = pool.consume(url: item.url, index: item.index) {
                 existing.title = item.title
                 existing.url = item.url
                 existing.index = item.index
                 existing.host = item.host
             } else {
+                let newId = allocateNewChapterId(bookId: snapshot.bookId, item: item, existingIDs: &existingIDs)
                 let chapter = Chapter(
-                    id: chapterID(bookId: snapshot.bookId, chapter: item),
+                    id: newId,
                     bookId: snapshot.bookId,
                     title: item.title,
                     url: item.url,
@@ -173,6 +173,26 @@ actor ChapterPersistenceStore {
             }
         }
         try context.save()
+    }
+
+    private func allocateNewChapterId(
+        bookId: String,
+        item: ChapterMetadataSnapshot,
+        existingIDs: inout Set<String>
+    ) -> String {
+        let normalId = Chapter.generateId(bookId: bookId, url: item.url, index: item.index)
+        var candidateId = normalId
+        if existingIDs.contains(candidateId) {
+            let fallbackBase = "\(bookId.count):\(bookId)|I:\(item.index)"
+            candidateId = fallbackBase
+            var suffix = 1
+            while existingIDs.contains(candidateId) {
+                candidateId = "\(fallbackBase)_col_\(suffix)"
+                suffix += 1
+            }
+        }
+        existingIDs.insert(candidateId)
+        return candidateId
     }
 
     func enqueueWrite(
@@ -296,21 +316,20 @@ actor ChapterPersistenceStore {
             book.sourceName = snapshot.sourceName
             book.sourceUrl = snapshot.sourceUrl
             book.extensionPackageId = snapshot.extensionPackageId
-            book.host = snapshot.host
+
+            let pool = ReconciliationPool(chapters: book.chapters)
+            var existingIDs = Set(book.chapters.map { $0.id })
+
             for item in snapshot.chapters {
-                let existing = matchingMetadataChapter(
-                    in: book.chapters,
-                    chapterIndex: item.index,
-                    url: item.url
-                )
-                if let existing {
+                if let existing = pool.consume(url: item.url, index: item.index) {
                     existing.title = item.title
                     existing.url = item.url
                     existing.index = item.index
                     existing.host = item.host
                 } else {
+                    let newId = allocateNewChapterId(bookId: book.bookId, item: item, existingIDs: &existingIDs)
                     let newChapter = Chapter(
-                        id: chapterID(bookId: book.bookId, chapter: item),
+                        id: newId,
                         bookId: book.bookId,
                         title: item.title,
                         url: item.url,
@@ -325,13 +344,11 @@ actor ChapterPersistenceStore {
 
         book.isHistory = true
 
-        guard let target = matchingMetadataChapter(
-            in: book.chapters,
-            chapterIndex: metadata.index,
-            url: metadata.url
-        ) else {
+        guard let target = matchingMetadataChapter(in: book.chapters, chapterIndex: metadata.index, url: metadata.url) else {
+            var existingIDs = Set(book.chapters.map { $0.id })
+            let newId = allocateNewChapterId(bookId: book.bookId, item: metadata, existingIDs: &existingIDs)
             let newChapter = Chapter(
-                id: chapterID(bookId: book.bookId, chapter: metadata),
+                id: newId,
                 bookId: book.bookId,
                 title: metadata.title,
                 url: metadata.url,
@@ -379,11 +396,39 @@ actor ChapterPersistenceStore {
         }
         return chapters.first(where: { $0.index == chapterIndex })
     }
+}
 
-    private func chapterID(
-        bookId: String,
-        chapter: ChapterMetadataSnapshot
-    ) -> String {
-        return Chapter.generateId(bookId: bookId, url: chapter.url, index: chapter.index)
+fileprivate class ReconciliationPool {
+    private var urlMap: [String: [Chapter]] = [:]
+    private var indexMap: [Int: [Chapter]] = [:]
+    private var consumed: Set<PersistentIdentifier> = []
+
+    init(chapters: [Chapter]) {
+        for chap in chapters {
+            if !chap.url.isEmpty {
+                urlMap[chap.url, default: []].append(chap)
+            }
+            indexMap[chap.index, default: []].append(chap)
+        }
+    }
+
+    func consume(url: String, index: Int) -> Chapter? {
+        if !url.isEmpty, let list = urlMap[url] {
+            for chap in list {
+                if !consumed.contains(chap.persistentModelID) {
+                    consumed.insert(chap.persistentModelID)
+                    return chap
+                }
+            }
+        }
+        if let list = indexMap[index] {
+            for chap in list {
+                if !consumed.contains(chap.persistentModelID) {
+                    consumed.insert(chap.persistentModelID)
+                    return chap
+                }
+            }
+        }
+        return nil
     }
 }

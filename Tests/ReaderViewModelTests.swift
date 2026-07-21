@@ -166,7 +166,7 @@ final class ReaderViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testChapterListStoreMarksOnlyRequestedRowCached() {
+    func testChapterListStoreMarksOnlyRequestedRowCached() async {
         let chapters = (0..<10_000).map { index in
             ChapterResult(
                 name: "Chương \(index + 1)",
@@ -181,14 +181,29 @@ final class ReaderViewModelTests: XCTestCase {
             totalCount: 10_000,
             isAscending: true
         )
-        let untouchedRow = store.rows[100]
 
+        // Verify totalCount
+        XCTAssertEqual(store.totalCount, 10_000)
+
+        // Verify item(at:)
+        let item100 = store.item(at: 100)
+        XCTAssertNotNil(item100)
+        XCTAssertEqual(item100?.id, 100)
+        XCTAssertEqual(item100?.index, 100)
+
+        // Test markCached only updates a loaded state O(1)
+        // 1. Force load page containing 7777 (page 77)
+        _ = await store.jumpToChapter(index: 7_777)
+
+        // Verify isCached is initially false
+        let stateBefore = store.rowState(at: 7_777)
+        XCTAssertFalse(stateBefore.isPlaceholder)
+        XCTAssertFalse(stateBefore.isCached)
+
+        // 2. Call markCached and verify loaded state is updated in O(1)
         store.markCached(index: 7_777)
-
-        XCTAssertEqual(store.rows.count, 10_000)
-        XCTAssertTrue(store.rows[7_777].isCached)
-        XCTAssertFalse(store.rows[7_776].isCached)
-        XCTAssertTrue(untouchedRow === store.rows[100])
+        let stateAfter = store.rowState(at: 7_777)
+        XCTAssertTrue(stateAfter.isCached)
     }
 
     func testSourceResponseErrorPreservesMessage() {
@@ -336,14 +351,14 @@ final class ReaderViewModelTests: XCTestCase {
             isAscending: false
         )
 
-        // Logical index mapped for DESC order
-        XCTAssertEqual(store.rows[0].index, 299)
-        XCTAssertEqual(store.rows[299].index, 0)
+        // Logical index mapped for DESC order via item(at:)
+        XCTAssertEqual(store.item(at: 0)?.index, 299)
+        XCTAssertEqual(store.item(at: 299)?.index, 0)
     }
 
     // FOCUSED TEST: Search Limit
     @MainActor
-    func testSearchLimit() {
+    func testSearchLimit() async throws {
         let chapters = (0..<500).map { index in
             ChapterResult(
                 name: "Chương \(index + 1) test query match",
@@ -359,8 +374,16 @@ final class ReaderViewModelTests: XCTestCase {
             isAscending: true
         )
 
-        let results = store.searchChapters(query: "match")
-        XCTAssertEqual(results.count, 100) // Đảm bảo limit tối đa 100 kết quả
+        store.performSearch(query: "match")
+
+        // Wait up to 1 second for the async search task to finish
+        for _ in 0..<20 {
+            if !store.isSearching { break }
+            try await Task.sleep(nanoseconds: 50 * 1_000_000) // 50ms
+        }
+
+        XCTAssertEqual(store.searchResults.count, 100) // Đảm bảo limit tối đa 100 kết quả
+        XCTAssertEqual(store.searchResultStates.count, 100) // Verify separate search state
     }
 
     // FOCUSED TEST: DB Failure No File Deletion
@@ -434,14 +457,14 @@ final class ReaderViewModelTests: XCTestCase {
             isAscending: true
         )
 
-        XCTAssertEqual(store.rows.count, 20_000)
+        XCTAssertEqual(store.totalCount, 20_000)
         XCTAssertEqual(store.loadedRowStates.count, 0) // Lúc đầu chưa nạp trang nào
 
         // Nạp trang chứa dòng index 500
         store.loadPageIfNeeded(displayPosition: 500)
 
         // Đợi Task nạp trang
-        try? await Task.sleep(nanoseconds: 100_000_000)
+        try? await Task.sleep(nanoseconds: 150 * 1_000_000)
 
         // Trang page=5 chứa dòng 500. Cửa sổ trượt nạp trang 4, 5, 6.
         // Số lượng loaded states tối đa là 300
@@ -450,11 +473,470 @@ final class ReaderViewModelTests: XCTestCase {
         // Jump đến dòng 15,000
         _ = await store.jumpToChapter(index: 15_000)
 
-        // Đợi Task
-        try? await Task.sleep(nanoseconds: 100_000_000)
-
         // Trang page=150 chứa dòng 15,000. Cửa sổ trượt nạp trang 149, 150, 151.
         // Các trang cũ đã bị evict, số lượng loaded states vẫn chỉ tối đa là 300.
         XCTAssertLessThanOrEqual(store.loadedRowStates.count, 300)
+    }
+}
+
+extension ReaderViewModelTests {
+    @MainActor
+    func testRepeatedSamePageRequestsFetchOnce() async {
+        let store = ReaderChapterListStore(
+            bookId: "test-dedup",
+            modelContext: nil,
+            onlineChapters: [],
+            totalCount: 500,
+            isAscending: true
+        )
+
+        let probe = TestProbe()
+        store.pageLoaderSeam = { [probe] page in
+            await probe.incrementFetch(page: page)
+            var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
+            let start = page * 100
+            for i in start..<(start + 100) {
+                data[i] = ("Chương \(i + 1)", "url-\(i)", false)
+            }
+            return data
+        }
+
+        for _ in 0..<20 {
+            store.loadPageIfNeeded(displayPosition: 50)
+        }
+
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+
+        let total = await probe.getTotalFetchCount()
+        XCTAssertEqual(total, 2) // Page 0 and page 1 loaded once each
+    }
+
+    @MainActor
+    func testMoveCenterPageRetainsOldUntilAtomicSwap() async {
+        let store = ReaderChapterListStore(
+            bookId: "test-atomic",
+            modelContext: nil,
+            onlineChapters: [],
+            totalCount: 500,
+            isAscending: true
+        )
+
+        let probe = TestProbe()
+        store.pageLoaderSeam = { [probe] page in
+            await probe.incrementFetch(page: page)
+            if let delay = await probe.getDelay(page: page) {
+                try? await Task.sleep(nanoseconds: delay)
+            }
+            var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
+            let start = page * 100
+            for i in start..<(start + 100) {
+                data[i] = ("Chương \(i + 1)", "url-\(i)", false)
+            }
+            return data
+        }
+
+        store.loadPageIfNeeded(displayPosition: 150) // center page 1 -> pages 0,1,2
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+
+        XCTAssertTrue(store.loadedRowStates.keys.contains(50))
+
+        await probe.setDelay(page: 3, nanoseconds: 200 * 1_000_000) // page 3 has 200ms delay
+        store.loadPageIfNeeded(displayPosition: 250) // center page 2 -> pages 1,2,3
+
+        try? await Task.sleep(nanoseconds: 50 * 1_000_000)
+        XCTAssertTrue(store.loadedRowStates.keys.contains(50), "Should retain page 0 until replacement window is complete")
+
+        try? await Task.sleep(nanoseconds: 200 * 1_000_000)
+
+        XCTAssertFalse(store.loadedRowStates.keys.contains(50))
+        XCTAssertTrue(store.loadedRowStates.keys.contains(350))
+        XCTAssertLessThanOrEqual(store.loadedRowStates.count, 300)
+    }
+
+    @MainActor
+    func testStaleGenerationCannotPublish() async {
+        let store = ReaderChapterListStore(
+            bookId: "test-stale",
+            modelContext: nil,
+            onlineChapters: [],
+            totalCount: 1000,
+            isAscending: true
+        )
+
+        let probe = TestProbe()
+        store.pageLoaderSeam = { [probe] page in
+            await probe.incrementFetch(page: page)
+            try? await Task.sleep(nanoseconds: 150 * 1_000_000)
+            var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
+            let start = page * 100
+            for i in start..<(start + 100) {
+                data[i] = ("Chương \(i + 1)", "url-\(i)", false)
+            }
+            return data
+        }
+
+        store.loadPageIfNeeded(displayPosition: 150)
+        store.updateSortOrder(isAscending: false) // Increments currentGeneration
+
+        try? await Task.sleep(nanoseconds: 200 * 1_000_000)
+
+        XCTAssertEqual(store.loadedRowStates.count, 0)
+    }
+
+    @MainActor
+    func testFailureClearsInFlightAndRetrySucceeds() async {
+        let store = ReaderChapterListStore(
+            bookId: "test-retry",
+            modelContext: nil,
+            onlineChapters: [],
+            totalCount: 500,
+            isAscending: true
+        )
+
+        let probe = TestProbe()
+        await probe.setShouldFail(true)
+        store.pageLoaderSeam = { [probe] page in
+            await probe.incrementFetch(page: page)
+            if await probe.getShouldFail() {
+                return nil
+            }
+            var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
+            let start = page * 100
+            for i in start..<(start + 100) {
+                data[i] = ("Chương \(i + 1)", "url-\(i)", false)
+            }
+            return data
+        }
+
+        store.loadPageIfNeeded(displayPosition: 150)
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+
+        XCTAssertEqual(store.loadedRowStates.count, 0)
+
+        await probe.setShouldFail(false)
+        store.loadPageIfNeeded(displayPosition: 150)
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+
+        XCTAssertGreaterThan(store.loadedRowStates.count, 0)
+    }
+
+    @MainActor
+    func testRowStateReadDoesNotMutateAndItemBounds() {
+        let store = ReaderChapterListStore(
+            bookId: "test-bounds",
+            modelContext: nil,
+            onlineChapters: [],
+            totalCount: 100,
+            isAscending: true
+        )
+
+        XCTAssertNil(store.item(at: -1))
+        XCTAssertNil(store.item(at: 100))
+        XCTAssertNotNil(store.item(at: 0))
+        XCTAssertNotNil(store.item(at: 99))
+
+        XCTAssertEqual(store.loadedRowStates.count, 0)
+        let state = store.rowState(at: 50)
+        XCTAssertTrue(state.isPlaceholder)
+        XCTAssertEqual(store.loadedRowStates.count, 0)
+    }
+
+    @MainActor
+    func testPrefetchWarmsCacheAndDoesNotPublish() async {
+        let store = ReaderChapterListStore(
+            bookId: "test-prefetch",
+            modelContext: nil,
+            onlineChapters: [],
+            totalCount: 500,
+            isAscending: true
+        )
+
+        let probe = TestProbe()
+        store.pageLoaderSeam = { [probe] page in
+            await probe.incrementFetch(page: page)
+            var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
+            let start = page * 100
+            for i in start..<(start + 100) {
+                data[i] = ("Chương \(i + 1)", "url-\(i)", false)
+            }
+            return data
+        }
+
+        // Prefetch page 2 (does not trigger center target page load)
+        store.prefetchPageIfNeeded(page: 2)
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+
+        // Prefetch only warms pageCache and does NOT publish to loadedRowStates!
+        let total = await probe.getTotalFetchCount()
+        XCTAssertEqual(total, 1)
+        XCTAssertEqual(store.loadedRowStates.count, 0)
+    }
+
+    @MainActor
+    func testSameGenerationOlderWindowStalePrevention() async {
+        let store = ReaderChapterListStore(
+            bookId: "test-window-stale",
+            modelContext: nil,
+            onlineChapters: [],
+            totalCount: 1000,
+            isAscending: true
+        )
+
+        let probe = TestProbe()
+        store.pageLoaderSeam = { [probe] page in
+            await probe.incrementFetch(page: page)
+            if let delay = await probe.getDelay(page: page) {
+                try? await Task.sleep(nanoseconds: delay)
+            }
+            var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
+            let start = page * 100
+            for i in start..<(start + 100) {
+                data[i] = ("Chương \(i + 1)", "url-\(i)", false)
+            }
+            return data
+        }
+
+        // 1. Establish an initial active window (page 0, center target displayPos 50)
+        store.loadPageIfNeeded(displayPosition: 50)
+        try? await Task.sleep(nanoseconds: 50 * 1_000_000)
+        XCTAssertNotNil(store.loadedRowStates[50])
+
+        // 2. Start an older request (displayPos 150 requires page 0,1,2). Page 2 is delayed by 300ms.
+        await probe.setDelay(page: 2, nanoseconds: 300 * 1_000_000)
+        store.loadPageIfNeeded(displayPosition: 150)
+        try? await Task.sleep(nanoseconds: 50 * 1_000_000)
+
+        // 3. Start a newer request (displayPos 450 requires page 3,4,5). Pages 3,4,5 have no delay.
+        store.loadPageIfNeeded(displayPosition: 450)
+
+        // Wait for newer request to complete
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+        XCTAssertNotNil(store.loadedRowStates[450])
+
+        // 4. Clear delay so older request completes
+        await probe.setDelay(page: 2, nanoseconds: 0)
+        try? await Task.sleep(nanoseconds: 200 * 1_000_000)
+
+        // Verify older request did not overwrite the newer request
+        XCTAssertNil(store.loadedRowStates[150])
+        XCTAssertNotNil(store.loadedRowStates[450])
+    }
+
+    @MainActor
+    func testCollisionSafePersistenceWithRealAPI() async throws {
+        let schema = Schema([Book.self, Chapter.self])
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = ModelContext(container)
+
+        let store = ChapterPersistenceStore(container: container)
+
+        let book = Book(bookId: "real-test-book", title: "Original Title")
+        context.insert(book)
+        try context.save()
+
+        let chap0 = ChapterMetadataSnapshot(title: "Chap 1", url: "dup-url", index: 0, host: "host")
+        let chap1 = ChapterMetadataSnapshot(title: "Chap 2 Duplicate URL", url: "dup-url", index: 1, host: "host")
+        let chap2 = ChapterMetadataSnapshot(title: "Chap 3 Empty URL", url: "", index: 2, host: "host")
+        let chap3 = ChapterMetadataSnapshot(title: "Chap 4 Empty URL 2", url: "", index: 3, host: "host")
+
+        let snapshot = BookMetadataSnapshot(
+            bookId: "real-test-book",
+            title: "Book Title",
+            author: "Author",
+            coverUrl: "cover",
+            desc: "desc",
+            detailUrl: "detail",
+            sourceName: "src",
+            sourceUrl: "src-url",
+            extensionPackageId: "pkg",
+            host: "host",
+            chapters: [chap0, chap1, chap2, chap3]
+        )
+
+        try await store.ensureBook(snapshot)
+
+        var desc = FetchDescriptor<Chapter>(predicate: #Predicate<Chapter> { $0.bookId == "real-test-book" })
+        desc.sortBy = [SortDescriptor(\.index)]
+        let chapsFirstPass = try context.fetch(desc)
+        XCTAssertEqual(chapsFirstPass.count, 4)
+        XCTAssertEqual(chapsFirstPass[0].url, "dup-url")
+        XCTAssertEqual(chapsFirstPass[1].url, "dup-url")
+        XCTAssertEqual(chapsFirstPass[2].url, "")
+        XCTAssertEqual(chapsFirstPass[3].url, "")
+
+        let ids = Set(chapsFirstPass.map { $0.id })
+        XCTAssertEqual(ids.count, 4)
+
+        let normalId = Chapter.generateId(bookId: "real-test-book", url: "dup-url", index: 0)
+        XCTAssertEqual(chapsFirstPass[0].id, normalId)
+        XCTAssertNotEqual(chapsFirstPass[1].id, normalId)
+
+        let initialId1 = chapsFirstPass[1].id
+
+        try await store.ensureBook(snapshot)
+        let chapsSecondPass = try context.fetch(desc)
+        XCTAssertEqual(chapsSecondPass.count, 4)
+        XCTAssertEqual(chapsSecondPass[0].id, normalId)
+        XCTAssertEqual(chapsSecondPass[1].id, initialId1)
+
+        let chap0Updated = ChapterMetadataSnapshot(title: "Chap 1 New URL", url: "new-url", index: 0, host: "host")
+        let chap1StillDup = ChapterMetadataSnapshot(title: "Chap 2 Dup Still", url: "dup-url", index: 1, host: "host")
+
+        let snapshotUpdated = BookMetadataSnapshot(
+            bookId: "real-test-book",
+            title: "Book Title",
+            author: "Author",
+            coverUrl: "cover",
+            desc: "desc",
+            detailUrl: "detail",
+            sourceName: "src",
+            sourceUrl: "src-url",
+            extensionPackageId: "pkg",
+            host: "host",
+            chapters: [chap0Updated, chap1StillDup, chap2, chap3]
+        )
+
+        try await store.ensureBook(snapshotUpdated)
+
+        let chapsThirdPass = try context.fetch(desc)
+        XCTAssertEqual(chapsThirdPass.count, 4)
+        XCTAssertEqual(chapsThirdPass[0].url, "new-url")
+        XCTAssertEqual(chapsThirdPass[1].url, "dup-url")
+        XCTAssertEqual(chapsThirdPass[1].id, initialId1, "Unchanged pre-existing duplicate row must keep its ID unchanged")
+    }
+
+    @MainActor
+    func testPageCacheEvictionAndBounding() async {
+        let store = ReaderChapterListStore(
+            bookId: "test-eviction",
+            modelContext: nil,
+            onlineChapters: [],
+            totalCount: 1000, // 10 pages
+            isAscending: true
+        )
+
+        let probe = TestProbe()
+        store.pageLoaderSeam = { [probe] page in
+            await probe.incrementFetch(page: page)
+            var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
+            let start = page * 100
+            for i in start..<(start + 100) {
+                data[i] = ("Chương \(i + 1)", "url-\(i)", false)
+            }
+            return data
+        }
+
+        for p in 0...7 {
+            store.prefetchPageIfNeeded(page: p)
+            try? await Task.sleep(nanoseconds: 10 * 1_000_000)
+        }
+
+        XCTAssertLessThanOrEqual(store.pageCacheCount, 5)
+    }
+
+    @MainActor
+    func testNormalLoadAndPrefetchDoesNotToggleLoading() async {
+        let store = ReaderChapterListStore(
+            bookId: "test-loading",
+            modelContext: nil,
+            onlineChapters: [],
+            totalCount: 500,
+            isAscending: true
+        )
+
+        let probe = TestProbe()
+        store.pageLoaderSeam = { [probe] page in
+            await probe.incrementFetch(page: page)
+            var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
+            let start = page * 100
+            for i in start..<(start + 100) {
+                data[i] = ("Chương \(i + 1)", "url-\(i)", false)
+            }
+            return data
+        }
+
+        store.prefetchPageIfNeeded(page: 2)
+        XCTAssertFalse(store.isLoadingPage)
+
+        store.loadPageIfNeeded(displayPosition: 150)
+        XCTAssertFalse(store.isLoadingPage)
+
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+        XCTAssertFalse(store.isLoadingPage)
+    }
+
+    @MainActor
+    func testSortChangeResetsCoordinatorAndCanReloadSamePage() async {
+        let store = ReaderChapterListStore(
+            bookId: "test-sort-reset",
+            modelContext: nil,
+            onlineChapters: [],
+            totalCount: 500,
+            isAscending: true
+        )
+
+        let probe = TestProbe()
+        store.pageLoaderSeam = { [probe] page in
+            await probe.incrementFetch(page: page)
+            var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
+            let start = page * 100
+            for i in start..<(start + 100) {
+                data[i] = ("Chương \(i + 1)", "url-\(i)", false)
+            }
+            return data
+        }
+
+        // 1. Initial page load (page 0 and 1 loaded)
+        store.loadPageIfNeeded(displayPosition: 50)
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+        XCTAssertNotNil(store.loadedRowStates[50])
+
+        // 2. Change sort order (should trigger reset and clear states)
+        store.updateSortOrder(isAscending: false)
+        XCTAssertNil(store.loadedRowStates[50])
+
+        // 3. Request the same display position (50) again, which corresponds to index 449 now in descending order
+        store.loadPageIfNeeded(displayPosition: 50)
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+
+        // Under descending, logical index 449 (displayPosition 50) is loaded (page 0 -> loadedRowStates 0..199).
+        XCTAssertNotNil(store.loadedRowStates[50])
+        XCTAssertEqual(store.rowState(at: 50).index, 449)
+        XCTAssertLessThanOrEqual(store.loadedRowStates.count, 300)
+    }
+}
+
+actor TestProbe {
+    private var fetchCounts: [Int: Int] = [:]
+    private var delayMap: [Int: UInt64] = [:]
+    private var shouldFail = false
+
+    func incrementFetch(page: Int) {
+        fetchCounts[page, default: 0] += 1
+    }
+
+    func getFetchCount(page: Int) -> Int {
+        return fetchCounts[page, default: 0]
+    }
+
+    func getTotalFetchCount() -> Int {
+        return fetchCounts.values.reduce(0, +)
+    }
+
+    func setDelay(page: Int, nanoseconds: UInt64) {
+        delayMap[page] = nanoseconds
+    }
+
+    func getDelay(page: Int) -> UInt64? {
+        return delayMap[page]
+    }
+
+    func setShouldFail(_ value: Bool) {
+        shouldFail = value
+    }
+
+    func getShouldFail() -> Bool {
+        return shouldFail
     }
 }

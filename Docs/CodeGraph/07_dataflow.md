@@ -149,7 +149,7 @@ graph TD
 - Chapter data flows `ChapterKey -> shared memory -> ChapterPersistenceStore/SwiftData -> extension fallback`; extension output is normalized once, returned immediately, and upserted with Book/TOC metadata in the background.
 - TOC refresh reconciles by stable URL and preserves cached content/title translation for matched chapters instead of deleting and recreating the relationship.
 - Book deletion coordinates database deletion and side-effect cancellation before dispatching background file deletions. Deletion failures are enqueued in `UserDefaults` queue dataflow and retried at launch.
-- `ReaderChapterListStore` paging fetches chapter metadata from the database or online using page offsets and logical indices based on the active window, and updates `loadedRowStates` in RAM.
+- `ReaderChapterListStore` dynamically pages chapter DTO metadata via `BackgroundPagingWorker` actor, anti-jitter generation checks, per-page de-duplication, and deferred atomic swaps, maintaining <= 300 active row states in RAM without storing flat item arrays.
 - Caching paths for books and covers use SHA-256 hex filename dataflow (`sha256Hex(bookId).bin` and `sha256Hex(bookId).jpg`) with automatic path safety validation.
 
 <!-- GENERATED END -->

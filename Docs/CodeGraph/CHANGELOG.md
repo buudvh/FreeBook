@@ -4,6 +4,43 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.36] - 2026-07-21
+
+### Khắc phục lỗi biên dịch Test Target, hoàn tất tối ưu hóa điều phối và đối sánh persistence an toàn va chạm
+* **Tests/ReaderViewModelTests**:
+  * Viết lại toàn bộ bộ kiểm thử đơn vị, loại bỏ các symbol giả tự chế (`ChapterSnapshot`, `BookSnapshot`, `ChapterPersistenceStore.shared`, `ensureBook(snapshot:context:)`, v.v.).
+  * Chuyển sang gọi các API thực tế của `ChapterPersistenceStore` bất đồng bộ (`ensureBook`, `flush`) sử dụng một `ModelContainer` in-memory biệt lập và các snapshot DTO thực tế (`BookMetadataSnapshot`, `ChapterMetadataSnapshot`).
+  * Bổ sung các ca kiểm thử chất lượng cao bao quát toàn bộ các ca kiểm định ảo hóa, giới hạn cửa sổ 300, phòng chống race cùng thế hệ, prefetch không ghi đè, phục hồi khi lỗi, và kiểm thử persistence an toàn va chạm với dữ liệu trùng lặp/rỗng trên API thực tế.
+* **ChapterPersistenceStore**:
+  * Tích hợp lớp helper tập trung `ReconciliationPool` để chia sẻ logic đối sánh an toàn va chạm $O(N)$ giữa `ensureBook` và `upsert`.
+  * Đảm bảo các hàng trùng lặp URL và URL rỗng không bị mutated/collapsed gộp chung thành một hàng và thăng cấp chương trùng lặp còn lại chính xác khi khóa thay đổi.
+* **ReaderChapterListStore & ReaderChapterListView**:
+  * Khai báo thuộc tính `latestWindowRequestID: UUID` và `activeLoadingTargetPage` để điều phối cửa sổ hiển thị.
+  * Chỉ cho phép tác vụ khớp với token cửa sổ hiển thị mới nhất được xuất bản lên UI, loại bỏ triệt để race condition giữa các bộ điều phối cũ thuộc cùng thế hệ hoàn thành trễ.
+  * Bổ sung `pageRequestIDs` và `pageCache` để ngăn ngừa các tác vụ tải trang cũ khi kết thúc vô tình xóa nhầm tác vụ trang mới hơn trong `inFlightPages`.
+  * Cập nhật `prefetchPageIfNeeded(page:)` chỉ nạp ngầm dữ liệu DTO vào `pageCache` nền mà không dịch chuyển `currentTargetPage` và không ghi đè/mutate trực tiếp lên `loadedRowStates`.
+  * Cập nhật `BackgroundPagingWorker.fetchPage` trả về lỗi tường minh (`throw`) và xử lý tại `performPageFetch` trả về `nil` để coordinator không đánh dấu trang lỗi đã nạp, cho phép retry sạch sẽ.
+* **ReaderView**:
+  * Loại bỏ thuộc tính tính toán `currentChapterHost` đang gọi `vm.fetchChapter(at:)` đồng bộ sang sử dụng trạng thái `@State private var currentChapterHost: String?` được cập nhật đồng bộ bên ngoài SwiftUI body trong `updateCurrentChapterMetadata()`.
+
+## [1.3.35] - 2026-07-21
+
+### Tối ưu hóa Virtualization mục lục Reader, Paging Worker bất đồng bộ, Anti-jitter và Persistence collision-safe
+* **ReaderChapterListStore & ReaderChapterListView**:
+  * Loại bỏ hoàn toàn mảng `rows` và danh sách ảo `virtualRows` khỏi lớp lưu trữ của mục lục để tối ưu hóa bộ nhớ. Trực tiếp sử dụng ForEach chỉ mục `ForEach(0..<store.totalCount, id: \.self)` để SwiftUI tự ảo hóa.
+  * Thiết kế hàm `item(at:)` và `rowState(at:)` bóc tách dòng trạng thái động trong thời gian $O(1)$ mà không tự ý đột biến (non-mutating read) bộ nhớ đệm trạng thái dòng.
+  * Triển khai lớp tác vụ phân trang chạy nền `BackgroundPagingWorker` dưới dạng `actor` sở hữu `ModelContainer` độc lập, thực hiện tải trang từ SQLite trên luồng nền bất đồng bộ và trả về từ điển DTO thuần `Sendable`.
+  * Xây dựng bộ điều phối tải trang mục lục (page load request coordinator) quản lý tác vụ in-flight của từng trang đơn lẻ (`inFlightPages`), loại bỏ tình trạng hủy bỏ và tạo mới liên tục (cancellation thrash) khi cuộn chậm.
+  * Thực thi việc hoán đổi trạng thái nguyên tử (atomic swap) duy nhất một lần trên `loadedRowStates` sau khi toàn bộ trang thuộc cửa sổ hiển thị (lên đến 3 trang / tối đa 300 phần tử) đã sẵn sàng, giữ nguyên cửa sổ cũ cho tới khi cửa sổ mới được tải hoàn chỉnh.
+  * Tích hợp cơ chế tải trước chủ động `prefetchPageIfNeeded(page:)` giúp tải ngầm trang kề cận mà không gây dịch chuyển vị trí trang hiển thị trung tâm (target page oscillation).
+  * Xóa bỏ các phương thức không sử dụng là `synchronize` và `searchChapters(query:)`. Tích hợp logic tự động kích hoạt tìm kiếm lại với sort order mới khi đổi chiều sắp xếp mục lục lúc đang có query tìm kiếm.
+* **ReaderView**:
+  * Quản lý trạng thái đếm chương thông qua `@State` flag `didResolveLocalChapterCount`, đảm bảo chỉ truy vấn đếm chương cục bộ từ SQLite duy nhất một lần (kể cả khi bằng 0), khắc phục triệt để lỗi lặp lại lệnh đếm khi view xuất hiện hoặc thay đổi key bootstrap.
+  * Loại bỏ thuộc tính truy vấn độ dài mảng `book.chapters.count` trong luồng cập nhật mục lục của `ReaderChapterListView`, thay thế bằng đếm nhanh `fetchCount` trực tiếp từ SQLite.
+* **ChapterPersistenceStore**:
+  * Tối ưu hóa bộ đối chiếu chèn/sửa danh sách chương bằng bản đồ lưu trữ các thùng chứa an toàn va chạm (collision-safe buckets / order-aware maps) `urlBuckets` và `indexBuckets`.
+  * Đảm bảo tính nhất quán của thao tác đối khớp: ưu tiên URL trước, sau đó dùng index dự phòng. Khi thay đổi URL hoặc index của một chương, hệ thống loại bỏ khóa cũ và tự động thăng cấp (promote) chương trùng lặp tiếp theo trong thùng chứa, duy trì chính xác ngữ nghĩa `first(where:)` trong thời gian $O(1)$ trung bình.
+
 ## [1.3.34] - 2026-07-20
 
 ### Cập nhật CodeGraph tăng dần cho cấu trúc dữ liệu mới, BookStorageManager, phân trang mục lục và bảo mật Sandbox
@@ -63,12 +100,12 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ### Hậu kỳ dịch thuật & Đồng bộ Tiện ích
 * **JSExecutor**: Bổ sung hàm `base64()` vào đối tượng Response trả về từ hàm `fetch` trong JavaScript để cung cấp dữ liệu dạng Base64 của phản hồi mạng cho các VBook extension, tránh lỗi `TypeError: response.base64 is not a function`.
-* **TranslateUtils**: 
+* **TranslateUtils**:
   * Nâng cấp thuật toán phân tách từ (`tokenize`) sang cơ chế Multi-pass bảo vệ Tên riêng (Name) tối đa trước VietPhrase, giải quyết tranh chấp bằng Global Longest Match (tên riêng dài hơn thắng).
   * Refactor hàm `getTranslationTokens` để tái sử dụng `tokenize`, loại bỏ trùng lặp code và đồng bộ hóa highlight.
   * Tối ưu hóa phân tách dấu câu độc lập (chỉ gom nhóm Alphanumeric, còn dấu câu như `?”` và `.”` tách thành các token độc lập giúp tra cứu từ điển VP chính xác).
   * Hỗ trợ cài đặt bật/tắt dịch Đại từ (Pronouns) và Luật nhân hóa động.
-* **ReaderView, ReaderSettingsView, SettingsView**: 
+* **ReaderView, ReaderSettingsView, SettingsView**:
   * Thêm UI Toggle cho phép người dùng bật/tắt cài đặt dịch Đại từ (Pronouns) và Luật nhân hóa, lưu trữ qua `@AppStorage`, mặc định là Tắt (`false`).
   * Tự động xóa cache dịch và kết xuất lại giao diện tức thì khi thay đổi một trong hai cài đặt này.
 * **RepositoryManagerView**: Thêm in thông báo log debug `print` khi tải hoặc parse file cấu hình `plugin.json` trên mạng của tiện ích chưa cài đặt gặp lỗi, hỗ trợ chẩn đoán chính xác lý do metadata bị hiển thị sai lệch hoặc không đầy đủ.
@@ -355,7 +392,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
     *   **ReaderView**:
         *   `schedulePrepareTTS()`: Thêm guard kiểm tra `ttsManager.showFloatingWidget`. Không lên lịch chuẩn bị dữ liệu TTS nếu người dùng chỉ đọc sách chay.
         *   `updateScrollReadingProgress()`: Thêm guard kiểm tra `ttsManager.isPlaying || ttsManager.showFloatingWidget` ở phần 2 (đồng bộ vị trí con trỏ TTS). Khi đọc sách chay, không thực hiện đồng bộ vị trí con trỏ để giải phóng Main Thread.
-        *   **Đơn giản hóa màn hình loading**: 
+        *   **Đơn giản hóa màn hình loading**:
             *   Trong `chapterLoadingView` (màn hình loading ban đầu): Loại bỏ dòng mô tả "Đang tải nội dung chương..." và nút "Tải lại" thủ công rườm rã. Chỉ giữ lại Tên chương, biểu tượng load `ProgressView` và nút "Quay lại" căn giữa màn hình.
             *   Trong `stableIndexes` loop (khi vuốt chuyển trang): Tương tự, đơn giản hóa phần loading bằng cách loại bỏ text mô tả và nút "Tải lại", chỉ hiển thị Tên chương, biểu tượng load và nút "Quay lại" căn giữa.
     *   **ReaderViewModel**:
@@ -482,7 +519,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 *   **Tổng số file nguồn ảnh hưởng**: 4 file Swift
 *   **Mô tả**:
     *   **AppLogger, BookDetailView, ReaderViewModel**: Hoàn tác toàn bộ các dòng log chẩn đoán crash (`[FreeBookDebug]`) và bật lại bộ lọc log để giữ mã nguồn gọn gàng.
-    *   **ReaderView**: 
+    *   **ReaderView**:
         *   Khôi phục điều kiện hiển thị thanh công cụ overlay về `if showControls` để bẻ gãy đệ quy khởi tạo sớm ngầm của SwiftUI ngay từ frame nạp đầu tiên.
         *   Thiết kế lại màn hình `chapterLoadingView` với nút Đóng **"X"** (để người dùng thoát ra quay lại màn hình chi tiết) và bổ sung nút **"Tải lại"** (xoay lại) trực tiếp ở giữa màn hình cho cả hai trạng thái đang tải và lỗi.
 
@@ -510,7 +547,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 *   **Người thực hiện**: Trợ lý AI Antigravity
 *   **Tổng số file nguồn ảnh hưởng**: 2 file Swift
 *   **Mô tả**:
-    *   **ReaderView**: 
+    *   **ReaderView**:
         *   Sửa lỗi truyền `@State currentOnlineChapters` khi khởi tạo `ReaderViewModel` trong `onAppear` bằng cách sử dụng trực tiếp tham số `onlineChapters` của View, tránh độ trễ gán `@State` dẫn đến truyền nhầm số chương bằng 0.
         *   Bổ sung bộ lắng nghe thay đổi `.onChange(of: currentOnlineChapters.count)` để tự động cập nhật lại số lượng chương cho `viewModel` khi danh sách chương online tải hoàn tất.
     *   **ReaderViewModel**: Cập nhật hàm `computeWindowRange()` tính toán cận trên (`upper`) và cận dưới (`lower`) và xác thực bằng `guard lower <= upper else { return [] }` trước khi tạo `ClosedRange` nhằm tránh lỗi sập `fatalError` của Swift.

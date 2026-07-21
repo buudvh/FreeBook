@@ -245,7 +245,7 @@ Reader chrome observes the pending target and immediately shows its title, chapt
 - Extension repository management removes row swipe/toggle behavior in favor of an explicit confirmed delete action compatible with the paged tab gesture.
 - `BookStorageManager` coordinates book deletion, ensuring model context changes are committed to the SQLite database before spawning background threads to delete covers and `.bin` files via `ImageCacheManager` and `BookBinManager` under a path safety sandbox validator.
 - Failed physical file deletions are stored in a `UserDefaults` queue and drained at app startup through `BookStorageManager.shared.drainRetryQueue()`, up to a limit of 3 retry attempts.
-- `ReaderChapterListStore` limits the active memory footprint for the Table of Contents via paging (TOC pagination) and a sliding window of 3 pages (maximum 300 active `ReaderChapterRowState` objects) while positional metadata (`ChapterRowItem`) spans the entire TOC.
+- `ReaderChapterListStore` virtualizes Table of Contents row retrieval dynamically using index-based ForEach loop representation, removing lightweight row arrays from class memory entirely. It uses `BackgroundSearchWorker` actor to search SwiftData off the main thread and `BackgroundPagingWorker` actor to fetch page DTOs off the main thread, keeping search result states separate from active paging state.
 - In-flight download and text export tasks support cooperative cancellation by checking `Task.isCancelled` and task state at chapter boundaries.
 
 <!-- GENERATED END -->

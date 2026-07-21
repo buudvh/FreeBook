@@ -123,6 +123,11 @@ struct ReaderView: View {
     @State private var updateTTSPositionWorkItem: DispatchWorkItem? = nil
     @State private var prepareTTSTask: DispatchWorkItem? = nil
 
+    @State private var localChaptersCount: Int = 0
+    @State private var currentChapterTitle: String = ""
+    @State private var currentChapterUrl: String = ""
+    @State private var didResolveLocalChapterCount = false
+
     @State private var paragraphTracker = ParagraphTracker()
 
     @State private var showingChapterList = false
@@ -143,16 +148,7 @@ struct ReaderView: View {
         allExtensions.first(where: { $0.packageId == extensionPackageId })
     }
 
-    private var currentChapterHost: String? {
-        if chapterIndex < currentOnlineChapters.count {
-            return currentOnlineChapters[chapterIndex].host
-        } else if let vm = viewModel {
-            if let chap = vm.fetchChapter(at: chapterIndex) {
-                return chap.host
-            }
-        }
-        return localBook?.host ?? ext?.sourceUrl
-    }
+    @State private var currentChapterHost: String? = nil
 
     private var isCurrentlyPlayingThisChapter: Bool {
         ttsManager.isPlaying &&
@@ -197,34 +193,27 @@ struct ReaderView: View {
 
     // Tổng số chương hiện có
     private var totalChaptersCount: Int {
-        if let book = localBook {
-            return book.chapters.count
+        if let vm = viewModel {
+            return vm.totalChaptersCount
         }
-        return currentOnlineChapters.count
+        return max(localChaptersCount, currentOnlineChapters.count)
     }
 
     // Lấy thông tin chương hiện tại (Title, URL)
     private var currentChapterInfo: (title: String, url: String)? {
         guard chapterIndex >= 0 && chapterIndex < totalChaptersCount else { return nil }
-
-        if let book = localBook {
-            let sorted = book.chapters.sorted(by: { $0.index < $1.index })
-            let chap = sorted[chapterIndex]
-            return (chap.title, chap.url)
-        } else {
-            let chap = currentOnlineChapters[chapterIndex]
-            return (chap.name, chap.url)
-        }
+        return (currentChapterTitle, currentChapterUrl)
     }
 
     private func getChapterTitle(at index: Int) -> String {
         guard index >= 0 && index < totalChaptersCount else { return "Chương \(index + 1)" }
 
         let title: String
-        if let book = localBook {
-            let sorted = book.chapters.sorted(by: { $0.index < $1.index })
-            if index < sorted.count {
-                title = sorted[index].title
+        if index == (viewModel?.displayedChapterIndex ?? chapterIndex) {
+            title = currentChapterTitle
+        } else if localBook != nil {
+            if let cached = viewModel?.cache.cache[index], !cached.title.isEmpty {
+                title = cached.title
             } else {
                 title = "Chương \(index + 1)"
             }
@@ -466,20 +455,16 @@ struct ReaderView: View {
 
     private var readerDataObservationView: some View {
         readerPresentationView
-        .onChange(of: localBook?.chapters.count) { _, newCount in
-            if let vm = viewModel, let count = newCount {
-                vm.updateChapterSnapshot(
-                    totalCount: count,
-                    onlineChapters: currentOnlineChapters
-                )
-                if let store = chapterListStore {
-                    store.updateChapters(totalCount: count, onlineChapters: currentOnlineChapters)
-                }
-            }
-        }
+
         .onChange(of: ttsManager.isPlaying) { _, isPlaying in
             let ttsOwnsBook = isPlaying && ttsManager.playingBookId == bookId
             viewModel?.setSpeculativePrefetchEnabled(!ttsOwnsBook)
+        }
+        .onChange(of: viewModel?.displayedChapterIndex) { _, _ in
+            updateCurrentChapterMetadata()
+        }
+        .onChange(of: currentOnlineChapters) { _, _ in
+            updateCurrentChapterMetadata()
         }
         .onChange(of: currentOnlineChapters.count) { _, newCount in
             if let vm = viewModel, newCount > 0 {
@@ -621,7 +606,7 @@ struct ReaderView: View {
     }
 
     private var readerBootstrapKey: String {
-        "\(bookId)|\(localBook?.chapters.count ?? 0)|\(onlineChapters.count)|\(currentOnlineChapters.count)"
+        "\(bookId)|\(viewModel?.totalChaptersCount ?? 0)|\(onlineChapters.count)|\(currentOnlineChapters.count)"
     }
 
     private func initializeReaderIfNeeded() {
@@ -649,11 +634,23 @@ struct ReaderView: View {
             currentOnlineChapters = onlineChapters
         }
 
+        if !didResolveLocalChapterCount {
+            if let bookId = localBookSnapshot?.bookId {
+                let localBId = bookId
+                let descriptor = FetchDescriptor<Chapter>(
+                    predicate: #Predicate<Chapter> { $0.bookId == localBId }
+                )
+                self.localChaptersCount = (try? modelContext.fetchCount(descriptor)) ?? 0
+            } else {
+                self.localChaptersCount = 0
+            }
+            self.didResolveLocalChapterCount = true
+        }
+
+        updateCurrentChapterMetadata()
+
         guard viewModel == nil else {
-            let resolvedCount = max(
-                totalChaptersCount,
-                max(localBook?.chapters.count ?? 0, currentOnlineChapters.count)
-            )
+            let resolvedCount = totalChaptersCount
             if resolvedCount > 0 {
                 viewModel?.updateChapterSnapshot(
                     totalCount: resolvedCount,
@@ -663,10 +660,7 @@ struct ReaderView: View {
             return
         }
 
-        let initialTotalCount = max(
-            totalChaptersCount,
-            max(localBook?.chapters.count ?? 0, currentOnlineChapters.count)
-        )
+        let initialTotalCount = totalChaptersCount
         let savedPIdx = initialParagraphIndex ?? getSavedParagraphIndex(for: chapterIndex)
         let newViewModel = ReaderViewModel(
             bookId: bookId,
@@ -694,6 +688,38 @@ struct ReaderView: View {
 
         if !hasOpenedReader {
             hasOpenedReader = true
+        }
+    }
+
+    private func updateCurrentChapterMetadata() {
+        let index = viewModel?.displayedChapterIndex ?? chapterIndex
+        if localBookSnapshot != nil {
+            let localBookId = bookId
+            let localIndex = index
+            var descriptor = FetchDescriptor<Chapter>(
+                predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.index == localIndex }
+            )
+            descriptor.fetchLimit = 1
+            if let chap = (try? modelContext.fetch(descriptor))?.first {
+                self.currentChapterTitle = chap.title
+                self.currentChapterUrl = chap.url
+                self.currentChapterHost = chap.host
+            } else {
+                self.currentChapterTitle = "Chương \(index + 1)"
+                self.currentChapterUrl = ""
+                self.currentChapterHost = localBook?.host ?? ext?.sourceUrl
+            }
+        } else {
+            if index >= 0 && index < currentOnlineChapters.count {
+                let chap = currentOnlineChapters[index]
+                self.currentChapterTitle = chap.name
+                self.currentChapterUrl = chap.url
+                self.currentChapterHost = chap.host
+            } else {
+                self.currentChapterTitle = "Chương \(index + 1)"
+                self.currentChapterUrl = ""
+                self.currentChapterHost = localBook?.host ?? ext?.sourceUrl
+            }
         }
     }
 

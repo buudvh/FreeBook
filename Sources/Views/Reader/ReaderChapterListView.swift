@@ -32,11 +32,95 @@ public final class ReaderChapterRowState: Identifiable {
     }
 }
 
+@available(iOS 17.0, *)
+public struct SearchChapterDTO: Sendable {
+    public let index: Int
+    public let title: String
+    public let url: String
+    public let isCached: Bool
+
+    public init(index: Int, title: String, url: String, isCached: Bool) {
+        self.index = index
+        self.title = title
+        self.url = url
+        self.isCached = isCached
+    }
+}
+
+@available(iOS 17.0, *)
+actor BackgroundSearchWorker {
+    private let container: ModelContainer
+
+    init(container: ModelContainer) {
+        self.container = container
+    }
+
+    func searchChapters(bookId: String, query: String, isAscending: Bool) -> [SearchChapterDTO] {
+        let context = ModelContext(container)
+        let localBookId = bookId
+        let localQuery = query
+
+        var descriptor = FetchDescriptor<Chapter>(
+            predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.title.contains(localQuery) }
+        )
+        descriptor.fetchLimit = 100
+        descriptor.sortBy = [SortDescriptor(\.index, order: isAscending ? .forward : .reverse)]
+
+        do {
+            let chapters = try context.fetch(descriptor)
+            return chapters.map { chap in
+                SearchChapterDTO(
+                    index: chap.index,
+                    title: chap.title,
+                    url: chap.url,
+                    isCached: chap.isCached
+                )
+            }
+        } catch {
+            AppLogger.shared.log("❌ [BackgroundSearchWorker] Lỗi tìm kiếm: \(error.localizedDescription)")
+            return []
+        }
+    }
+}
+@available(iOS 17.0, *)
+actor BackgroundPagingWorker {
+    private let container: ModelContainer
+
+    init(container: ModelContainer) {
+        self.container = container
+    }
+
+    func fetchPage(bookId: String, minLogicalIndex: Int, maxLogicalIndex: Int) throws -> [Int: (title: String, url: String, isCached: Bool)] {
+        let context = ModelContext(container)
+        let localBookId = bookId
+        let localMin = minLogicalIndex
+        let localMax = maxLogicalIndex
+
+        var descriptor = FetchDescriptor<Chapter>(
+            predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.index >= localMin && $0.index <= localMax }
+        )
+
+        let chapters = try context.fetch(descriptor)
+        var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
+        for chap in chapters {
+            data[chap.index] = (chap.title, chap.url, chap.isCached)
+        }
+        return data
+    }
+}
+
 @MainActor
 @Observable
 public final class ReaderChapterListStore {
-    public private(set) var rows: [ChapterRowItem] = []
     public private(set) var loadedRowStates: [Int: ReaderChapterRowState] = [:]
+
+    public private(set) var searchResults: [ChapterRowItem] = []
+    public private(set) var searchResultStates: [Int: ReaderChapterRowState] = [:]
+    public private(set) var isSearching = false
+
+    private var searchTask: Task<Void, Never>? = nil
+    private var searchTaskID = 0
+    private var currentSearchQuery = ""
 
     public let bookId: String
     private let modelContext: ModelContext?
@@ -45,9 +129,24 @@ public final class ReaderChapterListStore {
     public private(set) var totalCount: Int = 0
     public private(set) var isAscending: Bool = true
 
-    private let pageSize = 100
+    public let pageSize = 100
     private var loadedPages: Set<Int> = []
-    private var generationID: Int = 0
+    private var currentTargetPage: Int? = nil
+    private var currentGeneration: Int = 0
+
+    // Injected loader seam
+    var pageLoaderSeam: (@Sendable (Int) async throws -> [Int: (title: String, url: String, isCached: Bool)]?)? = nil
+
+    var pageCacheCount: Int { pageCache.count }
+
+    // Coordinated window token & request IDs
+    private var latestWindowRequestID = UUID()
+    private var activeLoadingTargetPage: Int? = nil
+    private var pageRequestIDs: [Int: UUID] = [:]
+    private var pageCache: [Int: [Int: (title: String, url: String, isCached: Bool)]] = [:]
+
+    private var inFlightPages: [Int: Task<[Int: (title: String, url: String, isCached: Bool)]?, Never>] = [:]
+    private var loadTask: Task<Void, Never>? = nil
 
     public var isLoadingPage = false
 
@@ -62,27 +161,35 @@ public final class ReaderChapterListStore {
     }
 
     public func setupPlaceholderRows() {
-        guard totalCount > 0 else {
-            rows = []
-            loadedRowStates = [:]
-            loadedPages = []
-            return
-        }
+        currentGeneration += 1
+        loadTask?.cancel()
+        loadTask = nil
 
-        var newRows: [ChapterRowItem] = []
-        newRows.reserveCapacity(totalCount)
-        for i in 0..<totalCount {
-            let logicIdx = isAscending ? i : (totalCount - 1 - i)
-            newRows.append(ChapterRowItem(id: i, index: logicIdx))
+        for (_, t) in inFlightPages {
+            t.cancel()
         }
-        self.rows = newRows
-        self.loadedRowStates = [:]
-        self.loadedPages = []
+        inFlightPages.removeAll()
+        pageRequestIDs.removeAll()
+        pageCache.removeAll()
+
+        activeLoadingTargetPage = nil
+        latestWindowRequestID = UUID()
+        currentTargetPage = nil
+        isLoadingPage = false
+
+        loadedRowStates = [:]
+        loadedPages = []
+        searchResults = []
+        searchResultStates = [:]
     }
 
     public func updateSortOrder(isAscending: Bool) {
         self.isAscending = isAscending
         setupPlaceholderRows()
+
+        if !currentSearchQuery.isEmpty {
+            performSearch(query: currentSearchQuery)
+        }
     }
 
     public func updateChapters(totalCount: Int, onlineChapters: [ChapterResult]) {
@@ -91,59 +198,180 @@ public final class ReaderChapterListStore {
         setupPlaceholderRows()
     }
 
+    public func item(at displayPosition: Int) -> ChapterRowItem? {
+        guard displayPosition >= 0 && displayPosition < totalCount else { return nil }
+        let logicIdx = isAscending ? displayPosition : (totalCount - 1 - displayPosition)
+        return ChapterRowItem(id: displayPosition, index: logicIdx)
+    }
+
     public func loadPageIfNeeded(displayPosition: Int) {
+        guard displayPosition >= 0 && displayPosition < totalCount else { return }
         let page = displayPosition / pageSize
-        if loadedPages.contains(page) { return }
+        self.currentTargetPage = page
+
+        let minPage = max(0, page - 1)
+        let maxPage = min((totalCount - 1) / pageSize, page + 1)
+        let pagesToLoad = Set(minPage...maxPage)
+        if pagesToLoad.isSubset(of: loadedPages) { return }
 
         loadPagesAround(page: page)
     }
 
     public func loadPagesAround(page targetPage: Int) {
-        let minPage = max(0, targetPage - 1)
-        let maxPage = min((totalCount - 1) / pageSize, targetPage + 1)
-        let pagesToLoad = Set(minPage...maxPage)
+        guard targetPage >= 0 && targetPage <= (totalCount - 1) / pageSize else { return }
+        if activeLoadingTargetPage == targetPage { return }
 
-        // Evict pages outside the window
-        let pagesToEvict = loadedPages.subtracting(pagesToLoad)
-        for p in pagesToEvict {
-            evictPage(p)
+        let gen = currentGeneration
+        let requestID = UUID()
+        self.latestWindowRequestID = requestID
+        self.activeLoadingTargetPage = targetPage
+
+        loadTask = Task {
+            defer {
+                if self.latestWindowRequestID == requestID {
+                    self.activeLoadingTargetPage = nil
+                }
+            }
+
+            let minPage = max(0, targetPage - 1)
+            let maxPage = min((totalCount - 1) / pageSize, targetPage + 1)
+            let pagesToLoad = Array(minPage...maxPage)
+
+            var pageTasks: [Int: Task<[Int: (title: String, url: String, isCached: Bool)]?, Never>] = [:]
+            for p in pagesToLoad {
+                if self.loadedPages.contains(p) { continue }
+                if let existing = self.inFlightPages[p] {
+                    pageTasks[p] = existing
+                } else {
+                    let reqID = UUID()
+                    self.pageRequestIDs[p] = reqID
+                    let task = Task {
+                        await self.performPageFetch(page: p, requestID: reqID)
+                    }
+                    self.inFlightPages[p] = task
+                    pageTasks[p] = task
+                }
+            }
+
+            var results: [Int: [Int: (title: String, url: String, isCached: Bool)]] = [:]
+            var allSucceeded = true
+            for (p, task) in pageTasks {
+                if let fetched = await task.value {
+                    results[p] = fetched
+                } else {
+                    allSucceeded = false
+                }
+            }
+
+            if Task.isCancelled || gen != self.currentGeneration || requestID != self.latestWindowRequestID {
+                return
+            }
+
+            guard allSucceeded else {
+                return
+            }
+
+            var nextStates: [Int: ReaderChapterRowState] = [:]
+            for p in pagesToLoad {
+                let startIdx = p * self.pageSize
+                let endIdx = min(self.totalCount, startIdx + self.pageSize)
+
+                if self.loadedPages.contains(p) {
+                    for i in startIdx..<endIdx {
+                        if let existing = self.loadedRowStates[i] {
+                            nextStates[i] = ReaderChapterRowState(
+                                id: existing.id,
+                                index: existing.index,
+                                title: existing.title,
+                                url: existing.url,
+                                isCached: existing.isCached,
+                                isPlaceholder: existing.isPlaceholder
+                            )
+                        }
+                    }
+                } else if let fetched = results[p] {
+                    for i in startIdx..<endIdx {
+                        let logicIdx = self.isAscending ? i : (self.totalCount - 1 - i)
+                        if let data = fetched[logicIdx] {
+                            nextStates[i] = ReaderChapterRowState(
+                                id: i,
+                                index: logicIdx,
+                                title: data.title,
+                                url: data.url,
+                                isCached: data.isCached,
+                                isPlaceholder: false
+                            )
+                        } else {
+                            nextStates[i] = ReaderChapterRowState(
+                                id: i,
+                                index: logicIdx,
+                                title: "Chương \(logicIdx + 1)",
+                                url: "",
+                                isCached: false,
+                                isPlaceholder: false
+                            )
+                        }
+                    }
+                    self.loadedPages.insert(p)
+                }
+            }
+
+            self.loadedPages = Set(pagesToLoad)
+            self.loadedRowStates = nextStates
         }
+    }
 
-        // Dọn dẹp triệt để bất kỳ key nào ngoài cửa sổ 3 trang trong loadedRowStates
-        let startBound = minPage * pageSize
-        let endBound = (maxPage + 1) * pageSize
-        let keysToEvict = loadedRowStates.keys.filter { $0 < startBound || $0 >= endBound }
-        for k in keysToEvict {
-            loadedRowStates.removeValue(forKey: k)
-        }
-
-        let pagesToFetch = pagesToLoad.subtracting(loadedPages)
-        guard !pagesToFetch.isEmpty else { return }
-
-        generationID += 1
-        let currentGen = generationID
-
-        Task {
-            for p in pagesToFetch {
-                guard currentGen == self.generationID else { return }
-                await fetchPage(p, currentGen: currentGen)
+    private func prunePageCache() {
+        guard pageCache.count > 5 else { return }
+        let target = currentTargetPage ?? 0
+        var furthestPage: Int? = nil
+        var maxDistance = -1
+        for p in pageCache.keys {
+            let dist = abs(p - target)
+            if dist > maxDistance {
+                maxDistance = dist
+                furthestPage = p
             }
         }
-    }
-
-    private func evictPage(_ page: Int) {
-        let startIdx = page * pageSize
-        let endIdx = min(totalCount, startIdx + pageSize)
-        for i in startIdx..<endIdx {
-            loadedRowStates.removeValue(forKey: i)
+        if let pageToRemove = furthestPage {
+            pageCache.removeValue(forKey: pageToRemove)
         }
-        loadedPages.remove(page)
     }
 
-    private func fetchPage(_ page: Int, currentGen: Int) async {
+    public func prefetchPageIfNeeded(page: Int) {
+        guard page >= 0 && page <= (totalCount - 1) / pageSize else { return }
+        guard !loadedPages.contains(page) else { return }
+        if pageCache[page] != nil || inFlightPages[page] != nil { return }
+
+        let gen = currentGeneration
+        let reqID = UUID()
+        self.pageRequestIDs[page] = reqID
+        let task = Task {
+            let fetched = await performPageFetch(page: page, requestID: reqID)
+            if Task.isCancelled || gen != self.currentGeneration { return }
+            if let fetched = fetched {
+                self.pageCache[page] = fetched
+                self.prunePageCache()
+            }
+        }
+        inFlightPages[page] = task
+    }
+
+    func performPageFetch(page: Int, requestID: UUID) async -> [Int: (title: String, url: String, isCached: Bool)]? {
+        if let cached = pageCache[page] {
+            return cached
+        }
+
+        defer {
+            if self.pageRequestIDs[page] == requestID {
+                self.inFlightPages.removeValue(forKey: page)
+                self.pageRequestIDs.removeValue(forKey: page)
+            }
+        }
+
         let startIdx = page * pageSize
         let endIdx = min(totalCount, startIdx + pageSize)
-        guard startIdx < endIdx else { return }
+        guard startIdx < endIdx else { return nil }
 
         let logicalIndices = (startIdx..<endIdx).map { i in
             isAscending ? i : (totalCount - 1 - i)
@@ -152,121 +380,147 @@ public final class ReaderChapterListStore {
         let minLogicalIndex = logicalIndices.min() ?? 0
         let maxLogicalIndex = logicalIndices.max() ?? 0
 
-        var fetchedData: [Int: (title: String, url: String, isCached: Bool)] = [:]
+        var fetchedData: [Int: (title: String, url: String, isCached: Bool)]? = nil
 
-        if let context = modelContext {
+        if let seam = pageLoaderSeam {
             do {
-                let localBookId = bookId
-                let localMin = minLogicalIndex
-                let localMax = maxLogicalIndex
-                var descriptor = FetchDescriptor<Chapter>(
-                    predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.index >= localMin && $0.index <= localMax }
-                )
-                descriptor.sortBy = [SortDescriptor(\.index, order: isAscending ? .forward : .reverse)]
-                let chapters = try context.fetch(descriptor)
-                for chap in chapters {
-                    fetchedData[chap.index] = (chap.title, chap.url, chap.isCached)
-                }
+                fetchedData = try await seam(page)
             } catch {
-                AppLogger.shared.log("❌ [ReaderChapterListStore] Lỗi fetch trang mục lục: \(error.localizedDescription)")
+                fetchedData = nil
+            }
+        } else if let context = modelContext {
+            let localBookId = bookId
+            let localMin = minLogicalIndex
+            let localMax = maxLogicalIndex
+            let worker = BackgroundPagingWorker(container: context.container)
+            do {
+                fetchedData = try await worker.fetchPage(bookId: localBookId, minLogicalIndex: localMin, maxLogicalIndex: localMax)
+            } catch {
+                AppLogger.shared.log("❌ [BackgroundPagingWorker] Lỗi fetch page: \(error.localizedDescription)")
+                fetchedData = nil
             }
         } else {
+            var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
             for idx in logicalIndices {
                 if idx < onlineChapters.count {
                     let chap = onlineChapters[idx]
-                    fetchedData[idx] = (chap.name, chap.url, false)
+                    data[idx] = (chap.name, chap.url, false)
                 }
             }
+            fetchedData = data
         }
 
-        guard currentGen == self.generationID else { return }
-
-        for i in startIdx..<endIdx {
-            let logicIdx = isAscending ? i : (totalCount - 1 - i)
-            let state = loadedRowStates[i] ?? {
-                let s = ReaderChapterRowState(id: i, index: logicIdx, isPlaceholder: true)
-                loadedRowStates[i] = s
-                return s
-            }()
-
-            if let data = fetchedData[logicIdx] {
-                state.title = data.title
-                state.url = data.url
-                state.isCached = data.isCached
-                state.isPlaceholder = false
-            } else {
-                state.title = "Chương \(logicIdx + 1)"
-                state.url = ""
-                state.isCached = false
-                state.isPlaceholder = false
-            }
+        if let fetched = fetchedData {
+            self.pageCache[page] = fetched
+            self.prunePageCache()
         }
-
-        loadedPages.insert(page)
+        return fetchedData
     }
 
     public func rowState(for item: ChapterRowItem) -> ReaderChapterRowState {
-        if let state = loadedRowStates[item.id] {
+        return rowState(at: item.id)
+    }
+
+    public func rowState(at displayPosition: Int) -> ReaderChapterRowState {
+        guard displayPosition >= 0 && displayPosition < totalCount else {
+            return ReaderChapterRowState(
+                id: displayPosition,
+                index: displayPosition,
+                title: "",
+                url: "",
+                isCached: false,
+                isPlaceholder: true
+            )
+        }
+        if !searchResults.isEmpty {
+            if let state = searchResultStates[displayPosition] {
+                return state
+            }
+        }
+        if let state = loadedRowStates[displayPosition] {
             return state
         }
-        let placeholder = ReaderChapterRowState(
-            id: item.id,
-            index: item.index,
+        let logicIdx = isAscending ? displayPosition : (totalCount - 1 - displayPosition)
+        return ReaderChapterRowState(
+            id: displayPosition,
+            index: logicIdx,
             title: "Đang tải...",
             url: "",
             isCached: false,
             isPlaceholder: true
         )
-        loadedRowStates[item.id] = placeholder
-        return placeholder
     }
 
     public func markCached(index: Int) {
-        if let position = rows.firstIndex(where: { $0.index == index }) {
-            if let state = loadedRowStates[position] {
-                state.isCached = true
-            }
+        guard index >= 0 && index < totalCount else { return }
+        let displayPos = isAscending ? index : (totalCount - 1 - index)
+        if let state = loadedRowStates[displayPos] {
+            state.isCached = true
         }
     }
 
     public func jumpToChapter(index: Int) async -> Int {
+        guard index >= 0 && index < totalCount else { return 0 }
         let displayPosition = isAscending ? index : (totalCount - 1 - index)
         let page = displayPosition / pageSize
+        self.currentTargetPage = page
 
         if loadedPages.contains(page) {
             return displayPosition
         }
 
         isLoadingPage = true
-        generationID += 1
-        let currentGen = generationID
-
-        await fetchPage(page, currentGen: currentGen)
-
         loadPagesAround(page: page)
-
+        if let task = loadTask {
+            _ = await task.result
+        }
         isLoadingPage = false
         return displayPosition
     }
 
-    public func searchChapters(query: String) -> [ChapterRowItem] {
+    public func performSearch(query: String) {
+        searchTaskID += 1
+        let thisTaskID = searchTaskID
+        searchTask?.cancel()
+
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return [] }
+        self.currentSearchQuery = trimmed
+        guard !trimmed.isEmpty else {
+            self.searchResults = []
+            self.searchResultStates = [:]
+            self.isSearching = false
+            return
+        }
 
-        var results: [ChapterRowItem] = []
+        self.isSearching = true
 
-        if let context = modelContext {
+        let gen = currentGeneration
+
+        searchTask = Task {
+            defer {
+                if self.searchTaskID == thisTaskID {
+                    self.isSearching = false
+                }
+            }
+
             do {
-                let localBookId = bookId
-                let localTrimmed = trimmed
-                var descriptor = FetchDescriptor<Chapter>(
-                    predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.title.contains(localTrimmed) }
-                )
-                descriptor.fetchLimit = 100
-                descriptor.sortBy = [SortDescriptor(\.index, order: isAscending ? .forward : .reverse)]
-                let chapters = try context.fetch(descriptor)
+                try await Task.sleep(nanoseconds: 250 * 1_000_000)
+            } catch {
+                return
+            }
 
-                results = chapters.map { chap in
+            if Task.isCancelled { return }
+
+            var matchedItems: [ChapterRowItem] = []
+            var matchedStates: [Int: ReaderChapterRowState] = [:]
+
+            if let context = modelContext {
+                let worker = BackgroundSearchWorker(container: context.container)
+                let dtos = await worker.searchChapters(bookId: bookId, query: trimmed, isAscending: isAscending)
+
+                if Task.isCancelled { return }
+
+                for chap in dtos {
                     let displayPos = isAscending ? chap.index : (totalCount - 1 - chap.index)
                     let state = ReaderChapterRowState(
                         id: displayPos,
@@ -276,42 +530,38 @@ public final class ReaderChapterListStore {
                         isCached: chap.isCached,
                         isPlaceholder: false
                     )
-                    loadedRowStates[displayPos] = state
-                    return ChapterRowItem(id: displayPos, index: chap.index)
+                    matchedStates[displayPos] = state
+                    matchedItems.append(ChapterRowItem(id: displayPos, index: chap.index))
                 }
-            } catch {
-                AppLogger.shared.log("❌ [ReaderChapterListStore] Lỗi tìm kiếm offline: \(error.localizedDescription)")
+            } else {
+                var count = 0
+                for (index, chapter) in onlineChapters.enumerated() {
+                    if count >= 100 { break }
+                    if chapter.name.localizedCaseInsensitiveContains(trimmed) {
+                        let displayPos = isAscending ? index : (totalCount - 1 - index)
+                        let state = ReaderChapterRowState(
+                            id: displayPos,
+                            index: index,
+                            title: chapter.name,
+                            url: chapter.url,
+                            isCached: false,
+                            isPlaceholder: false
+                        )
+                        matchedStates[displayPos] = state
+                        matchedItems.append(ChapterRowItem(id: displayPos, index: index))
+                        count += 1
+                    }
+                }
+                if !isAscending {
+                    matchedItems.reverse()
+                }
             }
-        } else {
-            let matches = onlineChapters.enumerated().filter { _, chapter in
-                chapter.name.localizedCaseInsensitiveContains(trimmed)
-            }
-            let limitedMatches = matches.prefix(100)
-            results = limitedMatches.map { index, chapter in
-                let displayPos = isAscending ? index : (totalCount - 1 - index)
-                let state = ReaderChapterRowState(
-                    id: displayPos,
-                    index: index,
-                    title: chapter.name,
-                    url: chapter.url,
-                    isCached: false,
-                    isPlaceholder: false
-                )
-                loadedRowStates[displayPos] = state
-                return ChapterRowItem(id: displayPos, index: index)
-            }
-            if !isAscending {
-                results.reverse()
-            }
+
+            if Task.isCancelled || gen != self.currentGeneration { return }
+
+            self.searchResultStates = matchedStates
+            self.searchResults = matchedItems
         }
-
-        return results
-    }
-
-    // Legacy support methods
-    public func synchronize(sortedChapters: [Chapter], onlineChapters: [ChapterResult]) {
-        let count = !sortedChapters.isEmpty ? sortedChapters.count : onlineChapters.count
-        updateChapters(totalCount: count, onlineChapters: onlineChapters)
     }
 }
 
@@ -341,14 +591,7 @@ public struct ReaderChapterListView: View {
     @State private var errorMessage = ""
     @State private var didPositionInitialChapter = false
 
-    private var filteredChapters: [ChapterRowItem] {
-        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        if query.isEmpty {
-            return store.rows
-        } else {
-            return store.searchChapters(query: query)
-        }
-    }
+
 
     private var metadataTitle: String {
         let original = firstNonempty(localBook?.title, bookTitle) ?? "FreeBook"
@@ -543,23 +786,46 @@ public struct ReaderChapterListView: View {
         ScrollViewReader { proxy in
             ZStack {
                 List {
-                    ForEach(filteredChapters) { item in
-                        let chapter = store.rowState(for: item)
-                        ReaderChapterRowView(
-                            chapter: chapter,
-                            isCurrent: item.index == currentChapterIndex,
-                            displayTitle: displayTitle(for: chapter),
-                            theme: theme,
-                            onSelect: {
-                                onSelectChapter(item.index)
-                                onClose()
+                    if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        ForEach(0..<store.totalCount, id: \.self) { displayPosition in
+                            if let item = store.item(at: displayPosition) {
+                                let chapter = store.rowState(at: displayPosition)
+                                ReaderChapterRowView(
+                                    chapter: chapter,
+                                    isCurrent: item.index == currentChapterIndex,
+                                    displayTitle: displayTitle(for: chapter),
+                                    theme: theme,
+                                    onSelect: {
+                                        onSelectChapter(item.index)
+                                        onClose()
+                                    }
+                                )
+                                .id(item.index)
+                                .onAppear {
+                                    store.loadPageIfNeeded(displayPosition: displayPosition)
+                                    let indexInPage = displayPosition % store.pageSize
+                                    if indexInPage < 15 && displayPosition >= 15 {
+                                        store.prefetchPageIfNeeded(page: (displayPosition - 15) / store.pageSize)
+                                    } else if indexInPage > 85 && displayPosition + 15 < store.totalCount {
+                                        store.prefetchPageIfNeeded(page: (displayPosition + 15) / store.pageSize)
+                                    }
+                                }
                             }
-                        )
-                        .id(item.index)
-                        .onAppear {
-                            if searchQuery.isEmpty {
-                                store.loadPageIfNeeded(displayPosition: item.id)
-                            }
+                        }
+                    } else {
+                        ForEach(store.searchResults) { item in
+                            let chapter = store.rowState(at: item.id)
+                            ReaderChapterRowView(
+                                chapter: chapter,
+                                isCurrent: item.index == currentChapterIndex,
+                                displayTitle: displayTitle(for: chapter),
+                                theme: theme,
+                                onSelect: {
+                                    onSelectChapter(item.index)
+                                    onClose()
+                                }
+                            )
+                            .id(item.index)
                         }
                     }
                 }
@@ -567,12 +833,15 @@ public struct ReaderChapterListView: View {
                 .background(theme.backgroundColor)
                 .scrollContentBackground(.hidden)
 
-                if store.isLoadingPage {
+                if store.isLoadingPage || store.isSearching {
                     Color.black.opacity(0.3)
                         .ignoresSafeArea()
                     ProgressView()
                         .tint(theme.textColor)
                 }
+            }
+            .onChange(of: searchQuery) { _, newValue in
+                store.performSearch(query: newValue)
             }
             .onAppear {
                 guard !didPositionInitialChapter else { return }
@@ -661,7 +930,12 @@ public struct ReaderChapterListView: View {
                         book.host = host
                     }
                     try? modelContext.save()
-                    store.updateChapters(totalCount: book.chapters.count, onlineChapters: onlineChapters)
+                    let localBookId = book.bookId
+                    let descriptor = FetchDescriptor<Chapter>(
+                        predicate: #Predicate<Chapter> { $0.bookId == localBookId }
+                    )
+                    let totalCount = (try? modelContext.fetchCount(descriptor)) ?? 0
+                    store.updateChapters(totalCount: totalCount, onlineChapters: onlineChapters)
                     ToastManager.shared.show(message: additions.isEmpty ? "Mục lục đã mới nhất" : "Đã thêm \(additions.count) chương mới", type: .success)
                 } else {
                     let oldCount = onlineChapters.count
