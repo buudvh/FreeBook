@@ -177,8 +177,6 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *   **Throws**: Yes
 *   **MainActor**: No
 
----
-
 ### 8. `JSExecutor.runAsync(...)`
 *   **Confidence**: Medium
 *   **Khai báo**: `public func runAsync(scriptContent: String, functionName: String, arguments: [Any]) async throws -> JSValue`
@@ -195,6 +193,23 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *   **MainActor**: No
 
 ---
+
+### 8a. `JSExecutor._nativeBrowserWaitForReady` & `WebViewLoader.waitForReady`
+*   **Confidence**: High
+*   **Được gọi bởi (Called by)**:
+    *   Hàm `waitForReady` đăng ký trong namespace `Engine.Browser` phía JS.
+*   **Gọi đến (Calls)**:
+    *   `WebViewLoader.waitForReady(probeScript:timeoutMs:intervalMs:stablePasses:completion:)` (Được gọi trên MainActor thông qua `DispatchQueue.main.async`).
+    *   `WKWebView.evaluateJavaScript(_:completionHandler:)` dùng để thăm dò trạng thái DOM.
+    *   `DispatchSemaphore.signal()` để giải phóng luồng worker chạy nền của JSExecutor.
+*   **Side Effects**:
+    *   Chặn luồng worker chạy nền thông qua `DispatchSemaphore.wait(timeout:)`.
+    *   Bảo vệ deadlock bằng cách kiểm tra `Thread.isMainThread` (fail-fast) và lập tức trả về JSON readiness DTO báo thất bại nếu được gọi trên Main Thread (không ném Exception).
+*   **Async**: Chặn luồng nền đồng bộ; hoạt động bất đồng bộ ở Main Thread.
+*   **MainActor**: Không đối với bridge; Có đối với WebViewLoader.
+
+---
+
 
 ### 9. `TranslationManager.shared.getBookDictionaries(for:)`
 *   **Confidence**: High
@@ -242,5 +257,6 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 - Physical file deletion failures emit path details to the `UserDefaults` retry queue, and app startup triggers a queue drain event (`drainRetryQueue()`) to retry up to 3 times.
 - `ReaderChapterListStore` paging actions trigger asynchronous metadata loading events using `fetchPage` inside background tasks, updating the visible list rows.
 - `DownloadManager` tasks check `Task.isCancelled` at chapter boundaries during download or export tasks to support cooperative cancellation.
+- `Engine.Browser.waitForReady` blocks the JS worker thread using a semaphore while `WebViewLoader` executes a non-blocking loop on the Main Actor, polling `probeScript` and checking for stable snapshot `{chars, encoded}` matching `stablePasses` times.
 
 <!-- GENERATED END -->

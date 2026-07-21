@@ -4,6 +4,22 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.39] - 2026-07-21
+
+### Tích hợp cơ chế waitForReady thăm dò DOM động trong Extension Engine
+* **Extension Engine & JSExecutor**:
+  * Bổ sung API `waitForReady` vào đối tượng `Engine.Browser` trong JS và native bridge `_nativeBrowserWaitForReady` trong `JSExecutor.swift`.
+  * Triển khai kiểm tra `Thread.isMainThread` (fail-fast) trong native bridge `waitForReady` mới để ngăn chặn deadlock luồng chính khi gọi đồng bộ; các bridge truyền thống (`launch`, `callJs`) vẫn giữ nguyên rủi ro ban đầu.
+  * Mở rộng `WebViewLoader` để thực hiện thăm dò DOM tuần hoàn thông qua `DispatchQueue.main.asyncAfter` thay thế busy-loop.
+  * Xác thực trạng thái DOM ổn định dựa trên bộ đôi chỉ số `{chars, encoded}` trong `stablePasses` chu kỳ liên tiếp (với `encoded` là số lượng thẻ `i[t]`).
+  * Thực hiện cơ chế giải phóng timer và pending wait an toàn đúng 1 lần (exactly-once) khi đóng trình duyệt hoặc khởi chạy wait mới.
+* **Sangtacviet Extension**:
+  * Viết lại `src/chap.js` sử dụng `waitForReady` thay thế cho delay cố định (`waitTime`).
+  * Thêm logic thử lại AJAX (gọi `gotox()` tối đa 1 lần) và fallback trích xuất văn bản thuần (`getReadableTextFromNode`) khi không tìm thấy thẻ mã hóa `i[t]`.
+  * Bổ sung `home.js`, `genre.js` và `homecontent.js`: cung cấp các tab trang chủ, 10 thể loại đã xác minh và phân trang 48 truyện qua endpoint `/io/searchtp/searchBooks`.
+  * Tạo cấu hình `plugin.json`, `icon.png`, `src/search.js`, `src/detail.js`, `src/toc.js`, và tệp kiểm thử `tests/smoke.mjs`.
+  * Đóng gói `plugin.zip` chứa đúng cấu trúc phân phối (loại bỏ thư mục `tests`).
+
 ## [1.3.38] - 2026-07-21
 
 ### Tách refresh metadata TTS khỏi Reader UI, giảm giật tab và bỏ kéo sheet mục lục theo tay

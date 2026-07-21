@@ -248,4 +248,152 @@ final class ParserTests: XCTestCase {
             XCTFail("Browser test failed: \(error.localizedDescription)")
         }
     }
+
+    func testJSBridgeWaitForReadySuccess() async throws {
+        let executor = JSExecutor()
+        let script = """
+        function testReady() {
+            var browser = Engine.newBrowser();
+            browser.launch("about:blank", 5000);
+            var res = browser.waitForReady('JSON.stringify({ ready: true, failed: false, chars: 100, encoded: 0 })', 5000, 100, 2);
+            browser.close();
+            return JSON.stringify(res);
+        }
+        """
+        let res = try await executor.runAsync(scriptContent: script, functionName: "testReady", arguments: [])
+        let resStr = res.toString() ?? ""
+        XCTAssertTrue(resStr.contains("\"ready\":true"), "Should succeed with ready true")
+        XCTAssertTrue(resStr.contains("\"failed\":false"), "Should succeed with failed false")
+        XCTAssertTrue(resStr.contains("\"chars\":100"), "Should pass through chars")
+    }
+
+    func testJSBridgeWaitForReadyTimeout() async throws {
+        let executor = JSExecutor()
+        let script = """
+        function testTimeout() {
+            var browser = Engine.newBrowser();
+            browser.launch("about:blank", 5000);
+            var res = browser.waitForReady('JSON.stringify({ ready: false, failed: false, chars: 10, encoded: 0 })', 1000, 100, 2);
+            browser.close();
+            return JSON.stringify(res);
+        }
+        """
+        let res = try await executor.runAsync(scriptContent: script, functionName: "testTimeout", arguments: [])
+        let resStr = res.toString() ?? ""
+        XCTAssertTrue(resStr.contains("\"timedOut\":true"), "Should report timeout")
+    }
+
+    func testJSBridgeWaitForReadyMalformedJSON() async throws {
+        let executor = JSExecutor()
+        let script = """
+        function testMalformed() {
+            var browser = Engine.newBrowser();
+            browser.launch("about:blank", 5000);
+            var res = browser.waitForReady('not-a-json-string', 3000, 100, 2);
+            browser.close();
+            return JSON.stringify(res);
+        }
+        """
+        let res = try await executor.runAsync(scriptContent: script, functionName: "testMalformed", arguments: [])
+        let resStr = res.toString() ?? ""
+        XCTAssertTrue(resStr.contains("\"failed\":true"), "Should report failure")
+        XCTAssertTrue(resStr.contains("Failed to parse probeScript JSON response") || resStr.contains("Failed to parse result JSON"), "Should mention JSON parsing error")
+    }
+
+    func testJSBridgeCloseDuringWait() async throws {
+        let loader = await MainActor.run { WebViewLoader() }
+        let expectation = self.expectation(description: "Completion should be called with cancelled")
+
+        await MainActor.run {
+            loader.waitForReady(
+                probeScript: "JSON.stringify({ ready: false, failed: false, chars: 0, encoded: 0 })",
+                timeoutMs: 5000,
+                intervalMs: 100,
+                stablePasses: 2
+            ) { jsonStr in
+                XCTAssertTrue(jsonStr.contains("\"cancelled\":true"), "Should be cancelled")
+                XCTAssertTrue(jsonStr.contains("\"failed\":true"), "Should report failed")
+                expectation.fulfill()
+            }
+
+            loader.cleanUp()
+        }
+
+        await fulfillment(of: [expectation], timeout: 2.0)
+    }
+
+    func testJSBridgeSecondWaitCancelsFirst() async throws {
+        let loader = await MainActor.run { WebViewLoader() }
+        let expectation1 = self.expectation(description: "First wait should be cancelled")
+        let expectation2 = self.expectation(description: "Second wait should succeed")
+
+        await MainActor.run {
+            loader.waitForReady(
+                probeScript: "JSON.stringify({ ready: false, failed: false, chars: 0, encoded: 0 })",
+                timeoutMs: 5000,
+                intervalMs: 100,
+                stablePasses: 2
+            ) { jsonStr in
+                XCTAssertTrue(jsonStr.contains("\"cancelled\":true"), "First wait must be cancelled")
+                XCTAssertTrue(jsonStr.contains("Cancelled by a new waitForReady request"), "Should state reason")
+                expectation1.fulfill()
+            }
+
+            loader.waitForReady(
+                probeScript: "JSON.stringify({ ready: true, failed: false, chars: 50, encoded: 0 })",
+                timeoutMs: 2000,
+                intervalMs: 50,
+                stablePasses: 1
+            ) { jsonStr in
+                XCTAssertTrue(jsonStr.contains("\"ready\":true"), "Second wait must succeed")
+                XCTAssertTrue(jsonStr.contains("\"chars\":50"), "Should return chars of second wait")
+                expectation2.fulfill()
+            }
+        }
+
+        await fulfillment(of: [expectation1, expectation2], timeout: 2.0)
+    }
+
+    func testJSBridgeFailFastOnMainThread() throws {
+        let executor = JSExecutor()
+
+        let script = """
+        function testMainDeadlock() {
+            var browser = Engine.newBrowser();
+            var res = browser.waitForReady('JSON.stringify({ ready: true, failed: false })', 5000, 100, 2);
+            browser.close();
+            return JSON.stringify(res);
+        }
+        """
+
+        executor.context.evaluateScript(script)
+        guard let function = executor.context.objectForKeyedSubscript("testMainDeadlock") else {
+            XCTFail("testMainDeadlock function not found")
+            return
+        }
+
+        let result = function.call(withArguments: [])
+        let resStr = result?.toString() ?? ""
+        XCTAssertTrue(resStr.contains("Deadlock prevention: Native bridge called on Main Thread"), "Should fail fast on main thread")
+    }
+
+    func testJSBridgeWaitForReadyStablePasses() async throws {
+        let executor = JSExecutor()
+        let script = """
+        function testStable() {
+            var browser = Engine.newBrowser();
+            browser.launch("about:blank", 5000);
+            var probe = "var count = (window.myPollCount || 0) + 1; window.myPollCount = count; " +
+                        "JSON.stringify({ ready: true, failed: false, chars: (count < 2 ? 10 : 20), encoded: 0 })";
+            var res = browser.waitForReady(probe, 5000, 100, 2);
+            browser.close();
+            return JSON.stringify(res);
+        }
+        """
+        let res = try await executor.runAsync(scriptContent: script, functionName: "testStable", arguments: [])
+        let resStr = res.toString() ?? ""
+        XCTAssertTrue(resStr.contains("\"ready\":true"), "Should succeed with ready true")
+        XCTAssertTrue(resStr.contains("\"failed\":false"), "Should succeed with failed false")
+        XCTAssertTrue(resStr.contains("\"chars\":20"), "Should succeed with final stable chars count 20")
+    }
 }

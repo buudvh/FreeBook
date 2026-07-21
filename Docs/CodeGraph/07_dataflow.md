@@ -15,6 +15,11 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Web-extension DOM ready polling data flows (1.3.39)
+
+* **Direct HTTP fetching**: Extension methods (`search`, `detail`, `toc`) fetch data directly via synchronous HTTP requests. The SangTacViet `home` and `genre` catalogs route paged discovery requests through `homecontent.js`, which POSTs to `/io/searchtp/searchBooks` and maps each 48-book page into `SearchNovelResult` records.
+* **WebView Loader DOM ready check**: The `chap` method uses `Engine.Browser.newBrowser().waitForReady` inside JS. The bridge resolves on the background thread via `DispatchSemaphore` while checking readiness on the Main Actor via periodic `evaluateJavaScript` calls on `WKWebView` using `stablePasses` checks on `{chars, encoded}`.
+
 ## Book storage and pagination data flows (1.3.34)
 
 * **Book Deletion Data Flow**: User action (`ShelfView`/`BookDetailView`) -> `BookStorageManager` -> Database deletes (`ModelContext.delete`) -> Database Save committed (`ModelContext.save()`) -> Background Thread -> Physical file deletions (`BookBinManager.deleteBinFile` and `ImageCacheManager.deleteCover`). If deletion fails, data flows into `UserDefaults` (`failed_file_deletions_queue`) and undergoes retry attempts at app startup via `drainRetryQueue()`.
@@ -159,5 +164,6 @@ graph TD
 - Book deletion coordinates database deletion and side-effect cancellation before dispatching background file deletions. Deletion failures are enqueued in `UserDefaults` queue dataflow and retried at launch.
 - `ReaderChapterListStore` dynamically pages chapter DTO metadata via `BackgroundPagingWorker` actor, anti-jitter generation checks, per-page de-duplication, and deferred atomic swaps, maintaining <= 300 active row states in RAM without storing flat item arrays.
 - Caching paths for books and covers use SHA-256 hex filename dataflow (`sha256Hex(bookId).bin` and `sha256Hex(bookId).jpg`) with automatic path safety validation.
+- `Engine.Browser.waitForReady` passes a JSON string representing DOM readiness (`{ready, failed, reason, chars, encoded}`) from `WKWebView` on the Main Actor to the JS worker thread via native bridge parameters.
 
 <!-- GENERATED END -->
