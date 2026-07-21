@@ -867,6 +867,38 @@ extension ReaderViewModelTests {
     }
 
     @MainActor
+    func testJumpToChapterLoadsCurrentPageBeforeDeferredNeighbors() async {
+        let store = ReaderChapterListStore(
+            bookId: "test-initial-jump",
+            modelContext: nil,
+            onlineChapters: [],
+            totalCount: 10_000,
+            isAscending: true
+        )
+
+        let probe = TestProbe()
+        store.pageLoaderSeam = { [probe] page in
+            await probe.incrementFetch(page: page)
+            var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
+            let start = page * 100
+            for i in start..<(start + 100) {
+                data[i] = ("Chương \(i + 1)", "url-\(i)", false)
+            }
+            return data
+        }
+
+        let displayPosition = await store.jumpToChapter(index: 7_777)
+
+        XCTAssertEqual(displayPosition, 7_777)
+        XCTAssertNotNil(store.loadedRowStates[7_777])
+        XCTAssertEqual(store.loadedRowStates.count, 100)
+        XCTAssertEqual(await probe.getFetchCount(page: 77), 1)
+        XCTAssertEqual(await probe.getFetchCount(page: 76), 0)
+        XCTAssertEqual(await probe.getFetchCount(page: 78), 0)
+        XCTAssertFalse(store.isLoadingPage)
+    }
+
+    @MainActor
     func testSortChangeResetsCoordinatorAndCanReloadSamePage() async {
         let store = ReaderChapterListStore(
             bookId: "test-sort-reset",

@@ -70,6 +70,78 @@ final class TranslationTests: XCTestCase {
         let translatedMeta = TranslateUtils.translateMeta("决战天下")
         XCTAssertEqual(translatedMeta, "Quyết chiến thiên hạ")
     }
+
+    func testTranslateUtilsKeepsASCIIAlphanumericRunsIntact() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let vpUrl = tempDir.appendingPathComponent("VietPhrase.txt")
+        let vpContent = """
+        决战=Quyết chiến
+        天下=Thiên hạ
+        """
+        try vpContent.write(to: vpUrl, atomically: true, encoding: .utf8)
+
+        let paUrl = tempDir.appendingPathComponent("ChinesePhienAmWords.txt")
+        let paContent = """
+        中=trung
+        """
+        try paContent.write(to: paUrl, atomically: true, encoding: .utf8)
+
+        let manager = TranslationManager.shared
+        try? FileManager.default.removeItem(at: manager.translateDirectory)
+
+        let expectation = XCTestExpectation(description: "Load ASCII regression dictionaries")
+        Task {
+            try? await manager.importDictionary(from: vpUrl, type: "vietphrase")
+            try? await manager.importDictionary(from: paUrl, type: "phienam")
+            TranslateUtils.clearCache()
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 5.0)
+
+        XCTAssertEqual(TranslateUtils.translateMeta("hello"), "hello")
+        XCTAssertEqual(TranslateUtils.translateContent("hello 1000 iOS Sto9"), "hello 1000 iOS Sto9")
+        XCTAssertEqual(TranslateUtils.translateMeta("决战 hello 天下 1000"), "Quyết chiến hello thiên hạ 1000")
+
+        let tokens = TranslateUtils.getTranslationTokens(for: "hello 1000 中", bookId: nil)
+        XCTAssertEqual(tokens.map(\.originalText), ["hello", "1000", "中"])
+        XCTAssertEqual(tokens.map(\.translatedText), ["hello", "1000", "trung"])
+    }
+
+    func testTranslateUtilsSupportsPipeMeaningSeparator() throws {
+        XCTAssertEqual(TranslateUtils.getFirstMeaning(of: "Quyết chiến|Đại chiến"), "Quyết chiến")
+        XCTAssertEqual(TranslateUtils.getFirstMeaning(of: "Quyết chiến¦Đại chiến"), "Quyết chiến")
+        XCTAssertEqual(TranslateUtils.getFirstMeaning(of: "Quyết chiến/Đại chiến"), "Quyết chiến")
+        XCTAssertEqual(TranslateUtils.getFirstMeaning(of: " | Đại chiến"), "Đại chiến")
+
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let vpUrl = tempDir.appendingPathComponent("VietPhrase.txt")
+        let vpContent = """
+        决战=Quyết chiến|Đại chiến
+        天下=Thiên hạ¦Thiên hạ khác
+        """
+        try vpContent.write(to: vpUrl, atomically: true, encoding: .utf8)
+
+        let manager = TranslationManager.shared
+        try? FileManager.default.removeItem(at: manager.translateDirectory)
+
+        let expectation = XCTestExpectation(description: "Load separator regression dictionaries")
+        Task {
+            try? await manager.importDictionary(from: vpUrl, type: "vietphrase")
+            TranslateUtils.clearCache()
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 5.0)
+
+        XCTAssertEqual(TranslateUtils.translateMeta("决战天下"), "Quyết chiến thiên hạ")
+    }
     
     func testTOCRulesMatching() throws {
         let translatedChapter1 = TranslateUtils.translateChapterTitle("第1章 Thất Sát Kiếm cùng tiên thiên đầy hồn lực")

@@ -16,9 +16,11 @@ public final class TranslateUtils {
     private static var cachedTOCRules: [TOCRule]? = nil
     
     public static func getFirstMeaning(of rawTranslation: String) -> String {
-        let clean = rawTranslation.replacingOccurrences(of: "¦", with: "/")
-        return clean.components(separatedBy: "/").first?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let separators = CharacterSet(charactersIn: "/¦|")
+        return rawTranslation
+            .components(separatedBy: separators)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
             ?? rawTranslation
     }
     
@@ -274,6 +276,7 @@ public final class TranslateUtils {
     
     private static func translateText(_ text: String?, isMeta: Bool, bookId: String?) -> String {
         guard let text = text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return text ?? "" }
+        guard containsChinese(text) else { return text }
         
         // Nếu từ điển chưa load xong, trả về văn bản gốc và không lưu cache dịch
         guard TranslationManager.shared.isVietPhraseLoaded else {
@@ -426,6 +429,22 @@ public final class TranslateUtils {
         return CharacterSet.alphanumerics.contains(scalar)
     }
 
+    private static func isASCIIAlphanumeric(_ char: Character) -> Bool {
+        guard char.unicodeScalars.count == 1,
+              let scalar = char.unicodeScalars.first else { return false }
+        return (scalar.value >= 48 && scalar.value <= 57)
+            || (scalar.value >= 65 && scalar.value <= 90)
+            || (scalar.value >= 97 && scalar.value <= 122)
+    }
+
+    private static func asciiAlphanumericRunEnd(in chars: [Character], from start: Int, upperBound: Int) -> Int {
+        var end = start
+        while end < upperBound && isASCIIAlphanumeric(chars[end]) {
+            end += 1
+        }
+        return end
+    }
+
     private static func tokenize(_ text: String, bookId: String?) -> [String] {
         let chars = Array(text)
         let length = chars.count
@@ -455,6 +474,11 @@ public final class TranslateUtils {
         var candidates: [NameCandidate] = []
         var i = 0
         while i < length {
+            if isASCIIAlphanumeric(chars[i]) {
+                i = asciiAlphanumericRunEnd(in: chars, from: i, upperBound: length)
+                continue
+            }
+
             let limit = min(length - i, 20)
             let checkText = String(chars[i..<(i + limit)])
             
@@ -534,6 +558,13 @@ public final class TranslateUtils {
         var currentIndex = 0
         
         while currentIndex < length {
+            if isASCIIAlphanumeric(chars[currentIndex]) {
+                let end = asciiAlphanumericRunEnd(in: chars, from: currentIndex, upperBound: length)
+                output.append(String(chars[currentIndex..<end]))
+                currentIndex = end
+                continue
+            }
+
             if let activeName = selectedNames.first(where: { $0.range.lowerBound == currentIndex }) {
                 let matchedStr = String(chars[activeName.range])
                 output.append(matchedStr)

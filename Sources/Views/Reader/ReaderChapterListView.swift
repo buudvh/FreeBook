@@ -147,6 +147,7 @@ public final class ReaderChapterListStore {
 
     private var inFlightPages: [Int: Task<[Int: (title: String, url: String, isCached: Bool)]?, Never>] = [:]
     private var loadTask: Task<Void, Never>? = nil
+    private var deferredPrefetchTask: Task<Void, Never>? = nil
 
     public var isLoadingPage = false
 
@@ -164,6 +165,8 @@ public final class ReaderChapterListStore {
         currentGeneration += 1
         loadTask?.cancel()
         loadTask = nil
+        deferredPrefetchTask?.cancel()
+        deferredPrefetchTask = nil
 
         for (_, t) in inFlightPages {
             t.cancel()
@@ -217,7 +220,16 @@ public final class ReaderChapterListStore {
         loadPagesAround(page: page)
     }
 
-    public func loadPagesAround(page targetPage: Int) {
+    public func loadVisiblePageIfNeeded(displayPosition: Int) {
+        guard displayPosition >= 0 && displayPosition < totalCount else { return }
+        let page = displayPosition / pageSize
+        self.currentTargetPage = page
+
+        guard !loadedPages.contains(page) else { return }
+        loadPagesAround(page: page, includeNeighbors: false)
+    }
+
+    public func loadPagesAround(page targetPage: Int, includeNeighbors: Bool = true) {
         guard targetPage >= 0 && targetPage <= (totalCount - 1) / pageSize else { return }
         if activeLoadingTargetPage == targetPage { return }
 
@@ -233,8 +245,8 @@ public final class ReaderChapterListStore {
                 }
             }
 
-            let minPage = max(0, targetPage - 1)
-            let maxPage = min((totalCount - 1) / pageSize, targetPage + 1)
+            let minPage = includeNeighbors ? max(0, targetPage - 1) : targetPage
+            let maxPage = includeNeighbors ? min((totalCount - 1) / pageSize, targetPage + 1) : targetPage
             let pagesToLoad = Array(minPage...maxPage)
 
             var pageTasks: [Int: Task<[Int: (title: String, url: String, isCached: Bool)]?, Never>] = [:]
@@ -358,6 +370,54 @@ public final class ReaderChapterListStore {
         inFlightPages[page] = task
     }
 
+    public func prefetchAround(displayPosition: Int) {
+        guard displayPosition >= 0 && displayPosition < totalCount else { return }
+        let indexInPage = displayPosition % pageSize
+        let page: Int?
+        if indexInPage < 15 && displayPosition >= 15 {
+            page = (displayPosition - 15) / pageSize
+        } else if indexInPage > 85 && displayPosition + 15 < totalCount {
+            page = (displayPosition + 15) / pageSize
+        } else {
+            page = nil
+        }
+
+        guard let page else { return }
+        scheduleDeferredPrefetch(pages: [page], delayNanoseconds: 180 * 1_000_000)
+    }
+
+    private func scheduleDeferredNeighborPrefetch(around page: Int) {
+        let lastPage = max(0, (totalCount - 1) / pageSize)
+        let pages = [page - 1, page + 1].filter { $0 >= 0 && $0 <= lastPage }
+        scheduleDeferredPrefetch(pages: pages, delayNanoseconds: 300 * 1_000_000)
+    }
+
+    private func scheduleDeferredPrefetch(pages: [Int], delayNanoseconds: UInt64) {
+        let validPages = pages.filter { page in
+            page >= 0 &&
+            page <= (totalCount - 1) / pageSize &&
+            !loadedPages.contains(page) &&
+            pageCache[page] == nil &&
+            inFlightPages[page] == nil
+        }
+        guard !validPages.isEmpty else { return }
+
+        deferredPrefetchTask?.cancel()
+        let gen = currentGeneration
+        deferredPrefetchTask = Task(priority: .utility) {
+            do {
+                try await Task.sleep(nanoseconds: delayNanoseconds)
+            } catch {
+                return
+            }
+
+            guard !Task.isCancelled, gen == self.currentGeneration else { return }
+            for page in validPages {
+                self.prefetchPageIfNeeded(page: page)
+            }
+        }
+    }
+
     func performPageFetch(page: Int, requestID: UUID) async -> [Int: (title: String, url: String, isCached: Bool)]? {
         if let cached = pageCache[page] {
             return cached
@@ -470,12 +530,11 @@ public final class ReaderChapterListStore {
             return displayPosition
         }
 
-        isLoadingPage = true
-        loadPagesAround(page: page)
+        loadPagesAround(page: page, includeNeighbors: false)
         if let task = loadTask {
             _ = await task.result
         }
-        isLoadingPage = false
+        scheduleDeferredNeighborPrefetch(around: page)
         return displayPosition
     }
 
@@ -589,6 +648,8 @@ public struct ReaderChapterListView: View {
     @State private var isUpdating = false
     @State private var errorMessage = ""
     @State private var didPositionInitialChapter = false
+    @State private var isPositioningInitialChapter = true
+    @State private var displayTitleCache: [Int: String] = [:]
 
 
 
@@ -793,13 +854,12 @@ public struct ReaderChapterListView: View {
                                 )
                                 .id(item.index)
                                 .onAppear {
-                                    store.loadPageIfNeeded(displayPosition: displayPosition)
-                                    let indexInPage = displayPosition % store.pageSize
-                                    if indexInPage < 15 && displayPosition >= 15 {
-                                        store.prefetchPageIfNeeded(page: (displayPosition - 15) / store.pageSize)
-                                    } else if indexInPage > 85 && displayPosition + 15 < store.totalCount {
-                                        store.prefetchPageIfNeeded(page: (displayPosition + 15) / store.pageSize)
+                                    warmDisplayTitle(for: chapter)
+                                    guard !isPositioningInitialChapter else {
+                                        return
                                     }
+                                    store.loadVisiblePageIfNeeded(displayPosition: displayPosition)
+                                    store.prefetchAround(displayPosition: displayPosition)
                                 }
                             }
                         }
@@ -817,6 +877,9 @@ public struct ReaderChapterListView: View {
                                 }
                             )
                             .id(item.index)
+                            .onAppear {
+                                warmDisplayTitle(for: chapter)
+                            }
                         }
                     }
                 }
@@ -824,7 +887,7 @@ public struct ReaderChapterListView: View {
                 .background(theme.backgroundColor)
                 .scrollContentBackground(.hidden)
 
-                if store.isLoadingPage || store.isSearching {
+                if store.isSearching {
                     Color.black.opacity(0.3)
                         .ignoresSafeArea()
                     ProgressView()
@@ -838,10 +901,12 @@ public struct ReaderChapterListView: View {
                 guard !didPositionInitialChapter else { return }
                 didPositionInitialChapter = true
                 Task {
-                    let _ = await store.jumpToChapter(index: currentChapterIndex)
-                    DispatchQueue.main.async {
-                        proxy.scrollTo(currentChapterIndex, anchor: .center)
+                    let displayPosition = await store.jumpToChapter(index: currentChapterIndex)
+                    if let item = store.item(at: displayPosition) {
+                        warmDisplayTitle(for: store.rowState(at: displayPosition))
+                        proxy.scrollTo(item.index, anchor: .center)
                     }
+                    isPositioningInitialChapter = false
                 }
             }
         }
@@ -849,10 +914,31 @@ public struct ReaderChapterListView: View {
 
     private func displayTitle(for chapter: ReaderChapterRowState) -> String {
         guard !chapter.isPlaceholder else { return "Đang tải..." }
+        if let cached = displayTitleCache[chapter.index] {
+            return cached
+        }
         guard isTranslationEnabled, TranslateUtils.containsChinese(chapter.title) else {
             return chapter.title
         }
-        return TranslateUtils.translateChapterTitle(chapter.title, bookId: bookId)
+        return chapter.title
+    }
+
+    private func warmDisplayTitle(for chapter: ReaderChapterRowState) {
+        guard !chapter.isPlaceholder else { return }
+        guard isTranslationEnabled, TranslateUtils.containsChinese(chapter.title) else { return }
+        guard displayTitleCache[chapter.index] == nil else { return }
+
+        let chapterIndex = chapter.index
+        let rawTitle = chapter.title
+        let currentBookId = bookId
+        displayTitleCache[chapterIndex] = rawTitle
+
+        Task.detached(priority: .utility) { [chapterIndex, rawTitle, currentBookId] in
+            let translated = TranslateUtils.translateChapterTitle(rawTitle, bookId: currentBookId)
+            await MainActor.run {
+                displayTitleCache[chapterIndex] = translated
+            }
+        }
     }
 
     private func refreshChapters() {
