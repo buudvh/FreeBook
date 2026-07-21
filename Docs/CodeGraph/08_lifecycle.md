@@ -23,10 +23,11 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 
 ## Reader lifecycle updates (1.3.13, supersedes 1.3.11)
 
-* `ReaderView.onAppear` creates `ReaderChapterListStore` and mounts `ReaderChapterListView` once. Closing the overlay only changes offset, opacity, hit testing, and accessibility visibility.
+* `ReaderView.onAppear` creates `ReaderChapterListStore` and mounts `ReaderChapterListView` once. Closing the overlay changes offset, opacity, hit testing, and accessibility visibility; slow downward drags no longer mutate a per-frame sheet offset.
 * The initial navigation request restores caller-provided history and never replaces it with a TTS snapshot.
 * The chapter list keeps search, order, scroll position, and row objects until Reader disappears.
-* The mounted chapter list closes through its header drag gesture or Accessibility Escape; list scrolling does not alter presentation state.
+* The mounted chapter list closes through its header drag gesture, outside-backdrop tap, or Accessibility Escape; list scrolling does not alter presentation state.
+* TTS queue refresh lifecycle is owned by `TTSManager`, not `ReaderView`. Reader dismissal does not cancel TTS auto-fetch; only stopping or replacing the TTS session cancels the queue refresh task.
 * `ReaderView.onDisappear` calls `ReaderViewModel.shutdown(saveProgress:)`, canceling navigation debounce/worker, DB debounce, and prefetch.
 * `ReaderTextView.dismantleUIView` clears delegate ownership; no Reader-level selection-activity state remains after horizontal navigation is removed.
 * `TTSFloatingWidgetView` lays out only its compact widget bounds (174x56 when expanded, 52x52 when peeking), snaps the expanded capsule flush to the chosen horizontal edge, and keeps the full-screen Reader outside the overlay hit-test region.

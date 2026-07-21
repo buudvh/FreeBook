@@ -4,6 +4,21 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.38] - 2026-07-21
+
+### Tách refresh metadata TTS khỏi Reader UI, giảm giật tab và bỏ kéo sheet mục lục theo tay
+* **TTS Subsystem**:
+  * Thêm `TTSChapterQueueMetadataWorker` chạy nền bằng `ModelContainer` để `TTSManager` tự refresh metadata queue cho sách local, không phụ thuộc `ReaderView` dựng full queue trên main thread.
+  * Thêm `refreshChaptersQueueInBackground(bookId:onlineChapters:)`; Reader chỉ cấp queue khởi động ngắn để phát ngay, còn TTSManager tự cập nhật queue đầy đủ phục vụ auto-next.
+  * `stopPlayback` hủy task refresh queue của TTS khi người dùng dừng TTS thật sự; thao tác rời Reader không chặn prefetch/auto-fetch của TTS.
+* **ReaderView / ReaderChapterListView**:
+  * Bỏ `chapterListDragOffset` và callback kéo realtime của mục lục; vuốt xuống đủ ngưỡng chỉ đóng sheet, không kéo panel chạy theo tay.
+  * Thêm vùng tap ngoài mục lục để đóng overlay.
+  * `ReaderView` không còn computed full TTS chapter queue; luồng start TTS chỉ lấy chương hiện tại và vài chương kế tiếp.
+* **ShelfView / DiscoveryView**:
+  * `ShelfView` không reset `shelfLimit/historyLimit` khi vuốt tab con và không quét `book.chapters` trong row render.
+  * `DiscoveryView` chỉ render nội dung thật cho tab category hiện tại và tab lân cận; tab xa dùng placeholder rỗng, còn tải tab mới được debounce ngắn.
+
 ## [1.3.37] - 2026-07-21
 
 ### Tối ưu độ trễ khởi động TTS và giữ điều hướng Reader độc lập
@@ -13,7 +28,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Loại bỏ hàng đợi `TTSBackgroundProcessor.shared` dùng chung; mỗi request dùng processor riêng có cancellation checkpoint để thao tác Play không phải chờ các prewarm cũ.
   * `prepareSpeaking` trở thành prewarm thuần cache, không thay đổi chương hoặc trạng thái của phiên TTS đang pause.
   * `startSpeaking` dùng ngay kết quả prewarm khi key nội dung khớp; cache miss mới xử lý nền với ưu tiên cao.
-  * Đường bấm Play chỉ truy vấn metadata chương hiện tại và chương kế; fetch/map toàn bộ danh sách chương được trì hoãn đến sau khi TTS bắt đầu phát rồi cập nhật qua `updateChaptersQueue(_:for:)`.
+  * Đường bấm Play chỉ truy vấn metadata chương hiện tại và chương kế; từ 1.3.38, refresh danh sách chương đầy đủ được chuyển sang `TTSManager.refreshChaptersQueueInBackground(...)`.
 * **ReaderView**:
   * Next/Previous và chọn chương trong mục lục chỉ thay đổi Reader, không dừng hoặc chuyển chương TTS.
   * Prewarm chương Reader không ghi đè dữ liệu phát của chương TTS hiện tại.
@@ -110,7 +125,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 * **ReaderView & ReaderViewModel**:
   * Áp dụng cơ chế **Lazy Load 100%** cho danh sách chương: Trong hàm khởi tạo của `ReaderViewModel`, chỉ truy vấn `chapters.count` (cực nhanh, không tải thực thể vào RAM).
   * Khởi tạo lười bộ lưu trữ danh sách chương `ReaderChapterListStore` và chỉ đưa `ReaderChapterListView` vào view hierarchy khi menu mục lục thực sự được mở (giúp giảm thiểu tối đa tài nguyên và thời gian vẽ giao diện ban đầu).
-  * Đồng bộ hóa thuộc tính computed `currentChapterHost` và `ttsChaptersQueue` để sử dụng dữ liệu đã cache trong `viewModel.getSortedChapters()`, loại bỏ hoàn toàn hiện tượng giật lag/khựng khi chuyển tiếp từ Kệ sách/Lịch sử vào Trình đọc đối với truyện lớn (~2000 chương).
+  * Ghi chú lịch sử: phiên bản này từng đồng bộ các thuộc tính computed của Reader để sử dụng dữ liệu đã cache trong `viewModel.getSortedChapters()`, loại bỏ hiện tượng giật lag khi chuyển tiếp từ Kệ sách/Lịch sử vào Trình đọc đối với truyện lớn.
   * Đồng bộ hóa các lệnh gọi `synchronize` trong `ReaderChapterListView.swift` tương thích với kiểu chữ ký mới sử dụng `sortedChapters: [Chapter]`.
 
 ## [1.3.31] - 2026-07-19
@@ -137,14 +152,9 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Cỡ chữ gốc Hàng 1: `.font(.title3)` → `.font(.body)`.
   * Nút Cập nhật: Thêm `.controlSize(.small)` và giảm `.padding(.vertical, 8)`.
 * **ReaderView — Danh sách chương**:
-  * Thêm `@State chapterListDragOffset` để theo dõi khoảng cách kéo real-time.
-  * Giảm height từ `geometry.size.height` xuống `geometry.size.height - 60` (topPeek = 60pt) để lộ dải reader phía trên.
-  * Offset y = `max(60, 60 + chapterListDragOffset)` khi đang mở, panel trượt theo ngón tay mượt mà.
-  * Kéo > 120pt → đóng bằng `.easeInOut`; kéo chưa đủ → nảy về vị trí cũ bằng `.spring`.
-  * Truyền `onDragChanged` và `onDragEnded` xuống `ReaderChapterListView`.
+  * Ghi chú lịch sử: phiên bản này từng thêm hành vi kéo panel mục lục theo tay; hành vi đó đã bị loại bỏ ở 1.3.38, chỉ giữ vuốt xuống đủ ngưỡng và tap ngoài để đóng.
 * **ReaderChapterListView**:
-  * Thêm callbacks `onDragChanged` và `onDragEnded` (optional, mặc định nil).
-  * Cập nhật `dismissGesture`: `.onChanged` gọi `onDragChanged`, `.onEnded` gọi `onDragEnded` thay vì trực tiếp `onClose`.
+  * Ghi chú lịch sử: các callback kéo realtime của mục lục đã bị loại bỏ ở 1.3.38.
   * Bọc `BookCoverView` trong `Button` mở `BookDetailView` qua `.sheet(isPresented:)` với `NavigationStack` khi `bookDetailUrl != nil` và `ext != nil`.
 
 ## [1.3.30] - 2026-07-19
@@ -454,7 +464,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
         *   `skipForward()`: khi hết chương gọi `advanceToNextChapter` thay vì `onChapterFinished?()`.
     *   **ReaderViewModel**: Sau khi `processAndSaveChapter` hoàn thành, gọi `TTSManager.shared.updateChapterCache(at:content:)` để RAM cache luôn sẵn sàng cho TTS advance.
     *   **ReaderView**:
-        *   `ttsChaptersQueue`: truyền `host` từ `Chapter.host` / `ChapterResult.host` vào `TTSChapterInfo`.
+        *   Luồng tạo TTS chapter info truyền `host` từ `Chapter.host` / `ChapterResult.host` vào `TTSChapterInfo`.
         *   `.onDisappear`: clear 3 callbacks (`onChapterFinished`, `onChapterNext`, `onChapterPrev`) để tránh ghost reference.
         *   `.onReceive("ttsDidAdvanceToNextChapter")`: đổi `ttsShouldAutoPlayNextChapter = false` — TTS đã tự phát, ReaderView chỉ sync UI (chuyển tab, scroll).
 

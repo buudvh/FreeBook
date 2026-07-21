@@ -20,6 +20,34 @@ private struct TTSPreparedChapter: Sendable {
     let paragraphs: [TTSParagraph]
 }
 
+@available(iOS 17.0, *)
+private actor TTSChapterQueueMetadataWorker {
+    private let container: ModelContainer
+
+    init(container: ModelContainer) {
+        self.container = container
+    }
+
+    func fetchLocalQueue(bookId: String) -> [TTSChapterInfo] {
+        let context = ModelContext(container)
+        let localBookId = bookId
+        var descriptor = FetchDescriptor<Chapter>(
+            predicate: #Predicate<Chapter> { $0.bookId == localBookId }
+        )
+        descriptor.sortBy = [SortDescriptor(\.index, order: .forward)]
+
+        do {
+            let chapters = try context.fetch(descriptor)
+            return chapters.map {
+                TTSChapterInfo(title: $0.title, url: $0.url, index: $0.index, host: $0.host)
+            }
+        } catch {
+            AppLogger.shared.log("❌ [TTSChapterQueueMetadataWorker] Không fetch được metadata TTS queue: \(error.localizedDescription)")
+            return []
+        }
+    }
+}
+
 /// Updates the transport state without waiting for the asynchronous metadata
 /// refresh. The Lock Screen uses both values to choose its Play/Pause icon.
 private func setSystemNowPlayingPlaybackState(
@@ -122,6 +150,7 @@ public final class TTSManager: NSObject, ObservableObject {
     private var prepareSpeakingTask: Task<Void, Never>? = nil
     private var startSpeakingTask: Task<Void, Never>? = nil
     private var nextChapterPrefetchTask: Task<Void, Never>? = nil
+    private var chapterQueueRefreshTask: Task<Void, Never>? = nil
     private var sessionID = UUID()
     private var ttsProcessingGeneration = 0
     private var preparationGeneration = 0
@@ -162,8 +191,10 @@ public final class TTSManager: NSObject, ObservableObject {
     private var nghiTTSService: PiperTTSService?
     public private(set) var nghiTTSClient: NghiTTSClient?
     private var modelStore: ModelStore?
+    private var modelContainer: ModelContainer?
 
     public func initialize(container: ModelContainer) {
+        self.modelContainer = container
         Task {
             await ReadingProgressStore.shared.configure(container: container)
             await ChapterContentRepository.shared.configure(container: container)
@@ -174,6 +205,37 @@ public final class TTSManager: NSObject, ObservableObject {
         guard playingBookId == bookId, !chapters.isEmpty else { return }
         chaptersQueue = chapters
         triggerNextChapterPrefetch()
+    }
+
+    public func refreshChaptersQueueInBackground(
+        bookId: String,
+        onlineChapters: [TTSChapterInfo]? = nil
+    ) {
+        chapterQueueRefreshTask?.cancel()
+
+        let expectedSessionID = sessionID
+        let container = modelContainer
+        chapterQueueRefreshTask = Task(priority: .utility) {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            guard !Task.isCancelled,
+                  self.sessionID == expectedSessionID,
+                  self.playingBookId == bookId else { return }
+
+            let refreshedQueue: [TTSChapterInfo]
+            if let onlineChapters {
+                refreshedQueue = onlineChapters
+            } else if let container {
+                let worker = TTSChapterQueueMetadataWorker(container: container)
+                refreshedQueue = await worker.fetchLocalQueue(bookId: bookId)
+            } else {
+                return
+            }
+
+            guard !Task.isCancelled,
+                  self.sessionID == expectedSessionID,
+                  self.playingBookId == bookId else { return }
+            self.updateChaptersQueue(refreshedQueue, for: bookId)
+        }
     }
 
     private func progressSnapshot() -> ReadingProgressSnapshot? {
@@ -650,6 +712,8 @@ public final class TTSManager: NSObject, ObservableObject {
         self.ttsProcessingGeneration += 1
         startSpeakingTask?.cancel()
         startSpeakingTask = nil
+        chapterQueueRefreshTask?.cancel()
+        chapterQueueRefreshTask = nil
         nowPlayingUpdateGeneration &+= 1
 
         if !keepWidget {

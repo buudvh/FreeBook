@@ -581,8 +581,6 @@ public struct ReaderChapterListView: View {
     @Binding public var onlineChapters: [ChapterResult]
     public let onSelectChapter: (Int) -> Void
     public let onClose: () -> Void
-    public var onDragChanged: ((CGFloat) -> Void)? = nil
-    public var onDragEnded: ((CGFloat) -> Void)? = nil
 
     @Environment(\.modelContext) private var modelContext
     @State private var showingBookDetail = false
@@ -732,21 +730,13 @@ public struct ReaderChapterListView: View {
 
     private var dismissGesture: some Gesture {
         DragGesture(minimumDistance: 16)
-            .onChanged { value in
-                let v = value.translation.height
-                let h = abs(value.translation.width)
-                guard v > 0, v >= h else { return }
-                onDragChanged?(v)
-            }
             .onEnded { value in
                 let horizontalDistance = abs(value.translation.width)
                 let verticalDistance = value.translation.height
-                guard verticalDistance >= 72,
-                      verticalDistance >= horizontalDistance * 1.25 else {
-                    onDragEnded?(0)
-                    return
+                if verticalDistance >= 72,
+                   verticalDistance >= horizontalDistance * 1.25 {
+                    onClose()
                 }
-                onDragEnded?(verticalDistance)
             }
     }
 

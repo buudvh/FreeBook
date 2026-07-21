@@ -37,6 +37,9 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 * JavaScript `Response.error(message)` becomes `ExtensionManagerError.sourceResponse` and flows unchanged into `ReaderChapterLoadFailure.sourceMessage`.
 * N+1 prefetch starts only after the displayed chapter is loaded and idle for 750 ms; active same-book TTS disables Reader speculation.
 * Chapter changes originate from footer buttons, chapter-list selection, history, or TTS sync; horizontal content drags do not enter the ViewModel.
+* TTS start data flow is split: Reader sends current chapter plus a few following `TTSChapterInfo` values for immediate playback, then `TTSManager` refreshes the full chapter queue in the background. Local queue refresh uses a background SwiftData `ModelContext`; online queue refresh uses the already available chapter snapshot.
+* Shelf row data flow avoids touching `Book.chapters` during render; it displays `Book.currentChapterTitle` or a cheap chapter-number fallback.
+* Discovery category tabs outside the selected-neighbor window carry no list data flow until they become adjacent or selected.
 
 ## 1. Dòng chảy dữ liệu chính (Core Data Flows)
 

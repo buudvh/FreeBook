@@ -122,7 +122,6 @@ struct ReaderView: View {
     @State private var updateProgressWorkItem: DispatchWorkItem? = nil
     @State private var updateTTSPositionWorkItem: DispatchWorkItem? = nil
     @State private var prepareTTSTask: DispatchWorkItem? = nil
-    @State private var ttsQueueRefreshTask: Task<Void, Never>? = nil
 
     @State private var localChaptersCount: Int = 0
     @State private var currentChapterTitle: String = ""
@@ -132,7 +131,6 @@ struct ReaderView: View {
     @State private var paragraphTracker = ParagraphTracker()
 
     @State private var showingChapterList = false
-    @State private var chapterListDragOffset: CGFloat = 0
     @State private var showingBookDictionary = false
     @State private var currentOnlineChapters: [ChapterResult] = []
     @State private var chapterListStore: ReaderChapterListStore? = nil
@@ -159,21 +157,6 @@ struct ReaderView: View {
 
     private var isTTSPlayingThisBook: Bool {
         ttsManager.isPlaying && ttsManager.playingBookId == bookId
-    }
-
-    private var ttsChaptersQueue: [TTSChapterInfo] {
-        if let vm = viewModel, localBook != nil {
-            return vm.fetchChaptersMetadata()
-        } else {
-            return currentOnlineChapters.enumerated().map { (index, chap) in
-                return TTSChapterInfo(
-                    title: chap.name,
-                    url: chap.url,
-                    index: index,
-                    host: chap.host
-                )
-            }
-        }
     }
 
     private var ttsExtensionInfo: TTSExtensionInfo? {
@@ -736,60 +719,53 @@ struct ReaderView: View {
     @ViewBuilder
     private func readerChapterListOverlay(in geometry: GeometryProxy) -> some View {
         if let chapterListStore {
-            ReaderChapterListView(
-                bookId: bookId,
-                bookTitle: bookTitle,
-                bookAuthor: bookAuthor,
-                bookCoverUrl: bookCoverUrl,
-                bookDetailUrl: bookDetailUrl,
-                localBook: localBook,
-                ext: ext,
-                currentChapterIndex: chapterIndex,
-                isTranslationEnabled: isTranslationEnabled,
-                theme: selectedTheme,
-                store: chapterListStore,
-                onlineChapters: $currentOnlineChapters,
-                onSelectChapter: { selectedIdx in
-                    selectChapter(at: selectedIdx)
-                },
-                onClose: {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        showingChapterList = false
-                        chapterListDragOffset = 0
+            ZStack {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        closeChapterList()
                     }
-                },
-                onDragChanged: { translation in
-                    chapterListDragOffset = max(0, translation)
-                },
-                onDragEnded: { translation in
-                    if translation > 120 {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            showingChapterList = false
-                            chapterListDragOffset = 0
-                        }
-                    } else {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                            chapterListDragOffset = 0
-                        }
+                    .opacity(showingChapterList ? 1 : 0)
+                    .allowsHitTesting(showingChapterList)
+
+                ReaderChapterListView(
+                    bookId: bookId,
+                    bookTitle: bookTitle,
+                    bookAuthor: bookAuthor,
+                    bookCoverUrl: bookCoverUrl,
+                    bookDetailUrl: bookDetailUrl,
+                    localBook: localBook,
+                    ext: ext,
+                    currentChapterIndex: chapterIndex,
+                    isTranslationEnabled: isTranslationEnabled,
+                    theme: selectedTheme,
+                    store: chapterListStore,
+                    onlineChapters: $currentOnlineChapters,
+                    onSelectChapter: { selectedIdx in
+                        selectChapter(at: selectedIdx)
+                    },
+                    onClose: {
+                        closeChapterList()
                     }
-                }
-            )
-            .frame(width: geometry.size.width, height: geometry.size.height - 60)
-            .offset(
-                y: reduceMotion
-                    ? 60
-                    : (showingChapterList
-                        ? max(60, 60 + chapterListDragOffset)
-                        : geometry.size.height + geometry.safeAreaInsets.bottom)
-            )
-            .opacity(showingChapterList ? 1 : 0)
-            .animation(
-                chapterListDragOffset > 0 ? nil : .easeInOut(duration: reduceMotion ? 0.15 : 0.25),
-                value: showingChapterList
-            )
-            .allowsHitTesting(showingChapterList)
-            .accessibilityHidden(!showingChapterList)
+                )
+                .frame(width: geometry.size.width, height: geometry.size.height - 60)
+                .offset(
+                    y: reduceMotion
+                        ? 60
+                        : (showingChapterList ? 60 : geometry.size.height + geometry.safeAreaInsets.bottom)
+                )
+                .opacity(showingChapterList ? 1 : 0)
+                .animation(.easeInOut(duration: reduceMotion ? 0.15 : 0.25), value: showingChapterList)
+                .allowsHitTesting(showingChapterList)
+                .accessibilityHidden(!showingChapterList)
+            }
             .zIndex(10)
+        }
+    }
+
+    private func closeChapterList() {
+        withAnimation(.easeInOut(duration: reduceMotion ? 0.15 : 0.25)) {
+            showingChapterList = false
         }
     }
 
@@ -1332,24 +1308,6 @@ struct ReaderView: View {
         return TTSChapterInfo(title: title, url: chapter.url, index: index, host: chapter.host)
     }
 
-    private func scheduleFullTTSQueueRefresh() {
-        ttsQueueRefreshTask?.cancel()
-        ttsQueueRefreshTask = Task {
-            for _ in 0..<40 {
-                guard !Task.isCancelled else { return }
-                if ttsManager.isPlaying && ttsManager.playingBookId == bookId { break }
-                try? await Task.sleep(nanoseconds: 50_000_000)
-            }
-            guard !Task.isCancelled,
-                  ttsManager.isPlaying,
-                  ttsManager.playingBookId == bookId else { return }
-
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            guard !Task.isCancelled else { return }
-            ttsManager.updateChaptersQueue(ttsChaptersQueue, for: bookId)
-        }
-    }
-
     private func prevChapter() {
         let persistProgress = !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
         let targetIndex = (viewModel?.pendingNavigationIndex ?? chapterIndex) - 1
@@ -1391,8 +1349,13 @@ struct ReaderView: View {
         guard index >= 0 && index < totalChaptersCount else { return }
         guard let currentChapter = ttsChapterInfo(at: index) else { return }
         var initialQueue = [currentChapter]
-        if index + 1 < totalChaptersCount, let nextChapter = ttsChapterInfo(at: index + 1) {
-            initialQueue.append(nextChapter)
+        let preloadUpperBound = min(totalChaptersCount, index + 4)
+        if index + 1 < preloadUpperBound {
+            for nextIndex in (index + 1)..<preloadUpperBound {
+                if let nextChapter = ttsChapterInfo(at: nextIndex) {
+                    initialQueue.append(nextChapter)
+                }
+            }
         }
 
         let chapterContentToUse = viewModel?.cache.get(index)?.content ?? ""
@@ -1409,7 +1372,12 @@ struct ReaderView: View {
             bookSourceName: localBook?.sourceName ?? bookSourceName ?? "",
             extensionInfo: ttsExtensionInfo
         )
-        scheduleFullTTSQueueRefresh()
+        ttsManager.refreshChaptersQueueInBackground(
+            bookId: bookId,
+            onlineChapters: localBook == nil ? currentOnlineChapters.enumerated().map {
+                TTSChapterInfo(title: $0.element.name, url: $0.element.url, index: $0.offset, host: $0.element.host)
+            } : nil
+        )
     }
 
     private func getSavedParagraphIndex(for idx: Int) -> Int {

@@ -64,6 +64,14 @@ struct DiscoveryView: View {
     private var selectedExtension: Extension? {
         activeExtensions.first(where: { $0.packageId == selectedExtensionId })
     }
+
+    private func shouldRenderCategoryTab(id: String) -> Bool {
+        guard let selectedIndex = homeItems.firstIndex(where: { $0.id == selectedCategoryId }),
+              let itemIndex = homeItems.firstIndex(where: { $0.id == id }) else {
+            return true
+        }
+        return abs(itemIndex - selectedIndex) <= 1
+    }
     
     var body: some View {
         NavigationStack {
@@ -277,17 +285,23 @@ struct DiscoveryView: View {
                                 TabView(selection: $selectedCategoryId) {
                                     ForEach(homeItems) { item in
                                         if let ext = selectedExtension {
-                                            DiscoveryCategoryTabView(
-                                                category: item,
-                                                extensionPackageId: ext.packageId,
-                                                localPath: ext.localPath,
-                                                downloadUrl: ext.downloadUrl,
-                                                configJson: ext.configJson,
-                                                sourceName: ext.name,
-                                                isTranslationEnabled: isTranslationEnabled,
-                                                selectedCategoryId: $selectedCategoryId
-                                            )
-                                            .tag(item.id)
+                                            if shouldRenderCategoryTab(id: item.id) {
+                                                DiscoveryCategoryTabView(
+                                                    category: item,
+                                                    extensionPackageId: ext.packageId,
+                                                    localPath: ext.localPath,
+                                                    downloadUrl: ext.downloadUrl,
+                                                    configJson: ext.configJson,
+                                                    sourceName: ext.name,
+                                                    isTranslationEnabled: isTranslationEnabled,
+                                                    selectedCategoryId: $selectedCategoryId
+                                                )
+                                                .tag(item.id)
+                                            } else {
+                                                Color.clear
+                                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                                    .tag(item.id)
+                                            }
                                         }
                                     }
                                 }
@@ -513,6 +527,7 @@ struct DiscoveryCategoryTabView: View {
     @State private var isLoadingMore = false
     @State private var nextNovelPageUrl: String? = nil
     @State private var retryCount = 0
+    @State private var initialLoadTask: Task<Void, Never>? = nil
     
     var body: some View {
         VStack(spacing: 0) {
@@ -608,6 +623,10 @@ struct DiscoveryCategoryTabView: View {
         .onAppear {
             checkAndLoadData()
         }
+        .onDisappear {
+            initialLoadTask?.cancel()
+            initialLoadTask = nil
+        }
         .onChange(of: selectedCategoryId) { _, _ in
             checkAndLoadData()
         }
@@ -627,7 +646,22 @@ struct DiscoveryCategoryTabView: View {
         // Chỉ nạp dữ liệu khi tab này thực sự là tab được chọn VÀ chưa có dữ liệu
         guard selectedCategoryId == category.id else { return }
         guard novels.isEmpty && !isLoadingNovels && novelsError.isEmpty else { return }
-        loadNovels(page: 1)
+        scheduleInitialLoad()
+    }
+
+    private func scheduleInitialLoad() {
+        initialLoadTask?.cancel()
+        initialLoadTask = Task {
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard selectedCategoryId == category.id,
+                      novels.isEmpty,
+                      !isLoadingNovels,
+                      novelsError.isEmpty else { return }
+                loadNovels(page: 1)
+            }
+        }
     }
     
     private func translateIfNeeded(_ text: String) -> String {

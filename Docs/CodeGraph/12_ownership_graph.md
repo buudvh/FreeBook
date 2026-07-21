@@ -17,7 +17,7 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 <!-- GENERATED START -->
 ## Reader ownership update (1.3.11)
 
-`ReaderView` owns one `ReaderViewModel` and one `ReaderChapterListStore` for its lifetime. The store manages a sliding 3-page window holding at most 300 active `ReaderChapterRowState` objects, while positional lightweight metadata (`ChapterRowItem`) spans the entire TOC. `ReaderViewModel` owns the chapter cache, navigation debounce/worker, speculative-prefetch task, and progress repository; its cache callback references the list store only to mutate one row. `TTSManager.shared` remains independent.
+`ReaderView` owns one `ReaderViewModel` and one `ReaderChapterListStore` for its lifetime. The store manages a sliding 3-page window holding at most 300 active `ReaderChapterRowState` objects, while positional lightweight metadata (`ChapterRowItem`) spans the entire TOC. `ReaderViewModel` owns the chapter cache, navigation debounce/worker, speculative-prefetch task, and progress repository; its cache callback references the list store only to mutate one row. `TTSManager.shared` remains independent and owns full chapter-queue refresh for playback after Reader has supplied the short startup queue.
 
 ## 1. Sơ đồ cây Sở hữu Tổng thể
 

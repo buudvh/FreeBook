@@ -23,7 +23,7 @@ Reader paragraph creation is centralized in `ReaderParagraphBuilder`: original l
 
 The Reader runtime renders one chapter in one vertical `ScrollView`. Chapter changes come only from footer buttons, chapter list, history restore, or TTS sync. Horizontal drags and reaching the vertical end have no navigation side effect.
 
-`ReaderViewModel` owns the latest-target navigation queue, generation checks, retry state, one-forward prefetch, and progress persistence policy. `ReaderChapterListStore` owns the mounted table-of-contents snapshot and row-level cache state.
+`ReaderViewModel` owns the latest-target navigation queue, generation checks, retry state, one-forward prefetch, and progress persistence policy. `ReaderChapterListStore` owns the mounted table-of-contents snapshot and row-level cache state. `TTSManager` owns full chapter-queue refresh for ongoing playback; Reader supplies only a short startup queue.
 
 Public Reader APIs include `stepChapter`, `requestChapter`, `retryPendingNavigation`, `reloadDisplayedChapter`, and `setSpeculativePrefetchEnabled`.
 
@@ -34,7 +34,7 @@ Reader chrome observes the pending target and immediately shows its title, chapt
 *   **API công khai (Public API)**:
     *   `ReaderViewModel.updateProgress(chapterIndex:paragraphIndex:)`
     *   `ReaderViewModel.fetchChapter(at: Int) -> Chapter?`
-    *   `ReaderViewModel.fetchChaptersMetadata(isTranslationEnabled: Bool) -> [TTSChapterInfo]`
+    *   `ReaderViewModel.fetchChaptersMetadata() -> [TTSChapterInfo]`
     *   `ChapterCache.setScrollParagraph(_:paragraphIndex:)`
     *   `PrefetchManager.prefetchChapter(bookId:chapterIndex:...)`
 *   **Dependencies**: SwiftData (`ModelContext`), `ExtensionManager`, `ReadingProgressRepository`, `ChapterCache`, `PrefetchManager`.
@@ -199,6 +199,7 @@ Reader chrome observes the pending target and immediately shows its title, chapt
 *   **Điểm kết thúc (Exit Points)**: Chuyển tab.
 *   **Rủi ro đã biết (Known Risks)**:
     *   Xử lý bất đồng bộ khi chuyển đổi giữa các extension trong lúc đang load dữ liệu.
+    *   Vuốt category giảm tải bằng cách chỉ mount nội dung thật cho tab đang chọn và tab lân cận; tab mới được debounce nhẹ trước khi load.
 
 ---
 
@@ -214,6 +215,7 @@ Reader chrome observes the pending target and immediately shows its title, chapt
 *   **Rủi ro đã biết (Known Risks)**:
     *   Cập nhật tiến độ đọc chưa đồng bộ khi quay lại từ Trình đọc hoặc TTS widget.
     *   Lỗi dọn dẹp file vật lý do thread background chạy độc lập bị OS ngắt (xử lý bằng cách đẩy vào hàng đợi retry trong `UserDefaults` và drain ở khởi động ứng dụng).
+    *   Row kệ sách/lịch sử tránh quét relationship `Book.chapters` trong body; tiêu đề đang đọc lấy từ `Book.currentChapterTitle`.
 
 ---
 

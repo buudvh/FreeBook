@@ -332,10 +332,6 @@ struct ShelfView: View {
             } message: {
                 Text("Bạn có chắc chắn muốn xóa toàn bộ lịch sử đọc không? Sách trong kệ sách sẽ không bị ảnh hưởng.")
             }
-            .onChange(of: selectedTab) { _, _ in
-                shelfLimit = 50
-                historyLimit = 50
-            }
             .navigationDestination(isPresented: $triggerNavigation) {
                 if let bookId = navigateToPlayingBookId {
                     ReaderView(
@@ -477,17 +473,12 @@ struct ShelfView: View {
                         .cornerRadius(4)
                 }
 
-                let chapterTitle: String = {
-                    if let currentChap = book.chapters.first(where: { $0.index == book.currentChapterIndex }) {
-                        if isTranslationEnabled && TranslateUtils.containsChinese(currentChap.title) {
-                            return TranslateUtils.translateChapterTitle(currentChap.title, bookId: book.bookId)
-                        } else {
-                            return currentChap.title
-                        }
-                    }
-                    let rawTitle = book.displayChapterTitle
-                    return isTranslationEnabled ? translateChapterTitleIfNeeded(rawTitle, bookId: book.bookId) : rawTitle
-                }()
+                let rawChapterTitle = book.currentChapterTitle.isEmpty
+                    ? "Chương \(book.currentChapterIndex + 1)"
+                    : book.currentChapterTitle
+                let chapterTitle = isTranslationEnabled
+                    ? translateChapterTitleIfNeeded(rawChapterTitle, bookId: book.bookId)
+                    : rawChapterTitle
 
                 if !chapterTitle.isEmpty {
                     Text("Đang đọc: \(chapterTitle)")
