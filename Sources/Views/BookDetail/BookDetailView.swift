@@ -275,6 +275,8 @@ struct BookDetailView: View {
             floatingActionButton
         }
         .toolbar(.hidden, for: .tabBar)
+        .toolbar(isPreparingBook ? .hidden : .visible, for: .navigationBar)
+        .navigationBarBackButtonHidden(isPreparingBook)
         .sheet(item: $selectedBookForTask) { book in
             TaskOptionsSheet(book: book, taskType: selectedTaskType)
         }

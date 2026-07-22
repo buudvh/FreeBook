@@ -265,7 +265,12 @@ public final class ReaderChapterListStore {
         let page = displayPosition / pageSize
         self.currentTargetPage = page
 
-        guard !loadedPages.contains(page) else { return }
+        if loadedPages.contains(page), hasLoadedRows(for: page) {
+            return
+        }
+        if publishCachedPageIfAvailable(page) {
+            return
+        }
         loadPagesAround(page: page, includeNeighbors: false)
     }
 
@@ -388,6 +393,51 @@ public final class ReaderChapterListStore {
         if let pageToRemove = furthestPage {
             pageCache.removeValue(forKey: pageToRemove)
         }
+    }
+
+    private func pageRange(for page: Int) -> Range<Int>? {
+        guard page >= 0 && page <= (totalCount - 1) / pageSize else { return nil }
+        let startIdx = page * pageSize
+        let endIdx = min(totalCount, startIdx + pageSize)
+        guard startIdx < endIdx else { return nil }
+        return startIdx..<endIdx
+    }
+
+    private func hasLoadedRows(for page: Int) -> Bool {
+        guard let range = pageRange(for: page) else { return false }
+        return range.contains { loadedRowStates[$0] != nil }
+    }
+
+    @discardableResult
+    private func publishCachedPageIfAvailable(_ page: Int) -> Bool {
+        guard let fetched = pageCache[page], let range = pageRange(for: page) else {
+            return false
+        }
+
+        for i in range {
+            let logicIdx = isAscending ? i : (totalCount - 1 - i)
+            if let data = fetched[logicIdx] {
+                loadedRowStates[i] = ReaderChapterRowState(
+                    id: i,
+                    index: logicIdx,
+                    title: data.title,
+                    url: data.url,
+                    isCached: data.isCached,
+                    isPlaceholder: false
+                )
+            } else {
+                loadedRowStates[i] = ReaderChapterRowState(
+                    id: i,
+                    index: logicIdx,
+                    title: "Chương \(logicIdx + 1)",
+                    url: "",
+                    isCached: false,
+                    isPlaceholder: false
+                )
+            }
+        }
+        loadedPages.insert(page)
+        return true
     }
 
     public func prefetchPageIfNeeded(page: Int) {
@@ -549,6 +599,17 @@ public final class ReaderChapterListStore {
             return state
         }
         let logicIdx = isAscending ? displayPosition : (totalCount - 1 - displayPosition)
+        let page = displayPosition / pageSize
+        if let cached = pageCache[page], let data = cached[logicIdx] {
+            return ReaderChapterRowState(
+                id: displayPosition,
+                index: logicIdx,
+                title: data.title,
+                url: data.url,
+                isCached: data.isCached,
+                isPlaceholder: false
+            )
+        }
         return ReaderChapterRowState(
             id: displayPosition,
             index: logicIdx,

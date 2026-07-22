@@ -16,7 +16,9 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Trễ tác vụ nạp trang hiển thị (`scheduleVisiblePageWork`) với cơ chế hoãn (debounce 90ms) giúp ngăn chặn hiện tượng cuộn giật/thrashing khi người dùng lướt nhanh mục lục.
   * Nút "Dịch lại tên chương" trong `ShelfView` nay chạy task nền để dịch lại toàn bộ danh sách chương của cuốn sách và lưu tất cả `titleTrans` xuống SQLite, thay vì chỉ xóa cache bộ nhớ.
   * Màn hình chuẩn bị mở sách mới (Full-screen Reader-like Preparing Screen) trong `BookDetailView` với nút Icon Quay lại (`chevron.left`) ở góc trên bên trái, hiển thị tiến trình nạp TOC, dịch tên chương và lưu SQLite trước khi chuyển sang `ReaderView`.
+  * Ẩn navigation header của màn chi tiết khi màn hình chuẩn bị mở sách mới đang hiển thị, đảm bảo wait layer giống trang Reader và không còn lộ title/menu của `BookDetailView`.
   * Chuẩn hóa quy tắc hiển thị tiêu đề chương bên ngoài văn bản: ưu tiên `chapter.titleTrans` từ SQLite khi bật dịch thuật (nếu rỗng dịch tại thời điểm hiển thị); luôn sử dụng `chapter.title` tiếng Trung gốc khi tắt dịch thuật.
+  * Khắc phục lỗi mục lục Reader hiện nhiều dòng "Đang tải..." chen giữa các mốc 100 chương dù page kế tiếp đã được prefetch; page cache nay được dùng/publish ngay khi page đó trở thành vùng hiển thị.
 * **TTS Navigation Integration**:
   * `ShelfView`: Khi chuyển từ widget / MiniPlayer TTS sang Reader via nút "Nghe tiếp", truyền tham số `navigateToPlayingParagraphIndex` (`initialParagraphIndex`) giúp Reader tự động cuộn và highlight chính xác đoạn văn đang đọc thay vì mở lại từ đầu chương.
 * **UI Text Formatting & Styling**:

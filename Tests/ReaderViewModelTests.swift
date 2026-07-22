@@ -673,6 +673,43 @@ extension ReaderViewModelTests {
     }
 
     @MainActor
+    func testVisiblePageUsesPrefetchedCacheWithoutPlaceholderGap() async {
+        let store = ReaderChapterListStore(
+            bookId: "test-prefetch-visible",
+            modelContext: nil,
+            onlineChapters: [],
+            totalCount: 500,
+            isAscending: true
+        )
+
+        let probe = TestProbe()
+        store.pageLoaderSeam = { [probe] page in
+            await probe.incrementFetch(page: page)
+            var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
+            let start = page * 100
+            for i in start..<(start + 100) {
+                data[i] = ("Chapter \(i + 1)", "url-\(i)", false)
+            }
+            return data
+        }
+
+        store.prefetchPageIfNeeded(page: 1)
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+
+        XCTAssertEqual(store.loadedRowStates.count, 0)
+        let cachedState = store.rowState(at: 100)
+        XCTAssertFalse(cachedState.isPlaceholder)
+        XCTAssertEqual(cachedState.title, "Chapter 101")
+        XCTAssertEqual(store.loadedRowStates.count, 0)
+
+        store.loadVisiblePageIfNeeded(displayPosition: 100)
+
+        XCTAssertFalse(store.rowState(at: 100).isPlaceholder)
+        XCTAssertEqual(store.rowState(at: 100).title, "Chapter 101")
+        XCTAssertNotNil(store.loadedRowStates[100])
+    }
+
+    @MainActor
     func testSameGenerationOlderWindowStalePrevention() async {
         let store = ReaderChapterListStore(
             bookId: "test-window-stale",
