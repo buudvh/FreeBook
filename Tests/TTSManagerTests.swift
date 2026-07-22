@@ -146,21 +146,46 @@ final class TTSManagerTests: XCTestCase {
         XCTAssertEqual(MPNowPlayingInfoCenter.default().playbackState, .stopped)
     }
 
-    func testRemoteCommandDebounce() async {
+    func testRemoteCommandIdempotencyAndImmediateStateSync() async {
         let manager = TTSManager.shared
-        manager.lastPlaybackRemoteCommandTime = 0
+        let chapter = TTSChapterInfo(title: "Idempotency", url: "idempotency-1", index: 0)
+        defer { manager.stop() }
 
-        let firstResult = manager.shouldProcessPlaybackRemoteCommand()
-        XCTAssertTrue(firstResult)
+        manager.startSpeaking(
+            bookId: "idempotent-book",
+            chapters: [chapter],
+            currentIndex: 0,
+            chapterContent: "Testing idempotency without time debounce.",
+            startParagraphIndex: 0,
+            bookTitle: "Idempotent Book",
+            extensionInfo: nil
+        )
+        try? await Task.sleep(nanoseconds: 50 * 1_000_000)
 
-        // Rapid second call inside 300ms window must return false (debounced)
-        let immediateSecondResult = manager.shouldProcessPlaybackRemoteCommand()
-        XCTAssertFalse(immediateSecondResult)
+        XCTAssertTrue(manager.isPlaying)
+        XCTAssertEqual(MPNowPlayingInfoCenter.default().playbackState, .playing)
 
-        // Waiting >300ms allows the next command through
-        try? await Task.sleep(nanoseconds: 350 * 1_000_000)
-        let resultAfterWait = manager.shouldProcessPlaybackRemoteCommand()
-        XCTAssertTrue(resultAfterWait)
+        // Multiple rapid pauses should be idempotent and maintain paused state
+        manager.pause()
+        XCTAssertFalse(manager.isPlaying)
+        XCTAssertEqual(MPNowPlayingInfoCenter.default().playbackState, .paused)
+        XCTAssertEqual(nowPlayingPlaybackRate(), 0)
+
+        manager.pause()
+        XCTAssertFalse(manager.isPlaying)
+        XCTAssertEqual(MPNowPlayingInfoCenter.default().playbackState, .paused)
+        XCTAssertEqual(nowPlayingPlaybackRate(), 0)
+
+        // Immediate resume on first call succeeds
+        manager.resume()
+        XCTAssertTrue(manager.isPlaying)
+        XCTAssertEqual(MPNowPlayingInfoCenter.default().playbackState, .playing)
+        XCTAssertEqual(nowPlayingPlaybackRate(), manager.speed)
+
+        manager.resume()
+        XCTAssertTrue(manager.isPlaying)
+        XCTAssertEqual(MPNowPlayingInfoCenter.default().playbackState, .playing)
+        XCTAssertEqual(nowPlayingPlaybackRate(), manager.speed)
     }
 
     func testBackgroundProcessorOffMainActor() async {

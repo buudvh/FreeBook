@@ -57,7 +57,7 @@ private func setSystemNowPlayingPlaybackState(
     let center = MPNowPlayingInfoCenter.default()
     center.playbackState = state
 
-    guard var info = center.nowPlayingInfo else { return }
+    var info = center.nowPlayingInfo ?? [:]
     info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate
     center.nowPlayingInfo = info
 }
@@ -1614,17 +1614,6 @@ public final class TTSManager: NSObject, ObservableObject {
 
     // MARK: - Lock Screen & Remote Control Sync
 
-    internal var lastPlaybackRemoteCommandTime: TimeInterval = 0
-
-    internal func shouldProcessPlaybackRemoteCommand() -> Bool {
-        let now = Date().timeIntervalSince1970
-        if now - lastPlaybackRemoteCommandTime < 0.3 {
-            return false
-        }
-        lastPlaybackRemoteCommandTime = now
-        return true
-    }
-
     private func setRemoteCommandsEnabled(_ enabled: Bool) {
         let commandCenter = MPRemoteCommandCenter.shared()
         commandCenter.playCommand.isEnabled = enabled
@@ -1659,7 +1648,6 @@ public final class TTSManager: NSObject, ObservableObject {
             guard self != nil else { return .commandFailed }
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
-                guard self.shouldProcessPlaybackRemoteCommand() else { return }
                 if self.isPlaying {
                     self.pause()
                 } else {
@@ -1674,8 +1662,12 @@ public final class TTSManager: NSObject, ObservableObject {
             guard self != nil else { return .commandFailed }
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
-                guard self.shouldProcessPlaybackRemoteCommand() else { return }
-                self.resume()
+                if self.isPlaying {
+                    self.syncRemoteCommandState()
+                    self.updateNowPlayingInfo()
+                } else {
+                    self.resume()
+                }
             }
             return .success
         }
@@ -1685,8 +1677,12 @@ public final class TTSManager: NSObject, ObservableObject {
             guard self != nil else { return .commandFailed }
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
-                guard self.shouldProcessPlaybackRemoteCommand() else { return }
-                self.pause()
+                if !self.isPlaying {
+                    self.syncRemoteCommandState()
+                    self.updateNowPlayingInfo()
+                } else {
+                    self.pause()
+                }
             }
             return .success
         }
@@ -1722,8 +1718,6 @@ public final class TTSManager: NSObject, ObservableObject {
         let isTransEnabled = TranslateUtils.isTranslationEnabled
         let pIndex = currentParagraphIndex
         let pCount = paragraphs.count
-        let isPlayingVal = isPlaying
-        let speedVal = speed
         let coverUrlVal = playingCoverUrl
 
         Task {
@@ -1752,6 +1746,9 @@ public final class TTSManager: NSObject, ObservableObject {
             guard updateGeneration == self.nowPlayingUpdateGeneration,
                   self.playingBookId == bid else { return }
 
+            let currentIsPlaying = self.isPlaying
+            let currentSpeed = self.speed
+
             var info: [String: Any] = [:]
             info[MPMediaItemPropertyTitle] = displayBookTitle
 
@@ -1759,7 +1756,7 @@ public final class TTSManager: NSObject, ObservableObject {
             info[MPMediaItemPropertyArtist] = displayChapterTitle + currentPart
 
             info[MPNowPlayingInfoPropertyIsLiveStream] = true
-            info[MPNowPlayingInfoPropertyPlaybackRate] = isPlayingVal ? speedVal : 0.0
+            info[MPNowPlayingInfoPropertyPlaybackRate] = currentIsPlaying ? currentSpeed : 0.0
             info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = Double(max(0, pIndex))
 
             if let img = image {
@@ -1780,7 +1777,7 @@ public final class TTSManager: NSObject, ObservableObject {
             }
 
             MPNowPlayingInfoCenter.default().nowPlayingInfo = info
-            MPNowPlayingInfoCenter.default().playbackState = isPlayingVal ? .playing : .paused
+            MPNowPlayingInfoCenter.default().playbackState = currentIsPlaying ? .playing : .paused
         }
     }
 

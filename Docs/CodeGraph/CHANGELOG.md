@@ -10,10 +10,12 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 * **TTS Subsystem & MPRemoteCommandCenter**:
   * Đăng ký handler xử lý lệnh `togglePlayPauseCommand` trong `setupRemoteCommandCenter()`, cho phép tai nghe Bluetooth/AirPods và nút điều khiển trung tâm toggle phát/dừng mượt mà qua `pause()` và `resume()`.
   * Cập nhật `setRemoteCommandsEnabled(_:)` và `syncRemoteCommandState()` bật `togglePlayPauseCommand.isEnabled = active` trong toàn bộ phiên TTS đang hoạt động (dù đang phát hay tạm dừng).
-  * Khắc phục triệt để hiện tượng nút Play trên Now Playing card (Lock Screen / Control Center) bị mờ/xám (disabled) khi pause và yêu cầu bấm 2 lần trên tai nghe để tiếp tục đọc.
-  * Tích hợp cơ chế chống rung / chống lặp lệnh phát/dừng (playback remote command debounce 300ms) hẹp độc quyền cho nhóm lệnh `togglePlayPauseCommand`, `playCommand`, `pauseCommand` qua `shouldProcessPlaybackRemoteCommand()`, giữ nguyên khả năng skip/chuyển bài trực tiếp cho `nextTrackCommand` và `previousTrackCommand`.
+  * Khắc phục triệt để hiện tượng nút Play trên Now Playing card (Lock Screen / Control Center) bị mờ/xám (disabled) khi pause và sửa triệt để lỗi bấm tai nghe 2 lần mới tiếp tục phát.
+  * Sửa trợ thủ `setSystemNowPlayingPlaybackState` khởi tạo dictionary rỗng khi `nowPlayingInfo` bằng `nil`, đảm bảo `MPNowPlayingInfoPropertyPlaybackRate` và `playbackState` luôn được cập nhật đồng bộ tức thì.
+  * Loại bỏ cơ chế debounce 300ms theo thời gian (`shouldProcessPlaybackRemoteCommand()`) để tránh nuốt lệnh Resume/Play/Pause hợp lệ gửi từ tai nghe/iOS Control Center; chuyển sang kiểm tra tính định danh (idempotency) trực tiếp theo trạng thái `isPlaying` hiện tại của `TTSManager`.
+  * Bảo vệ Task bất đồng bộ `updateNowPlayingInfo()` sử dụng giá trị `self.isPlaying` và `self.speed` mới nhất tại thời điểm MainActor commit cuối cùng.
 * **Unit Tests**:
-  * Cập nhật `TTSManagerTests.swift`: điều chỉnh các khẳng định kiểm thử trạng thái `togglePlayPauseCommand` (hoạt động khi active, vô hiệu hóa hoàn toàn khi stop) và thêm test case `testRemoteCommandDebounce()` kiểm định cơ chế debounce.
+  * Cập nhật `TTSManagerTests.swift`: thay thế `testRemoteCommandDebounce()` bằng `testRemoteCommandIdempotencyAndImmediateStateSync()` để kiểm định tính định danh của lệnh remote và tính đồng bộ tức thì của Now Playing.
 
 ## [1.3.40] - 2026-07-22
 
