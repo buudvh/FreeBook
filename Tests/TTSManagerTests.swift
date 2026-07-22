@@ -280,6 +280,91 @@ final class TTSManagerTests: XCTestCase {
         manager.stop()
     }
 
+    func testReopenSettingsResumesSameParagraphWhenMidChapter() async {
+        let manager = TTSManager.shared
+        let mockChapter = TTSChapterInfo(title: "Chapter Mid", url: "url-mid", index: 0)
+        let sampleContent = "Đoạn văn 0.\nĐoạn văn 1.\nĐoạn văn 2."
+
+        manager.startSpeaking(
+            bookId: "test-mid-resume",
+            chapters: [mockChapter],
+            currentIndex: 0,
+            chapterContent: sampleContent,
+            startParagraphIndex: 1,
+            bookTitle: "Mid Chapter Book",
+            extensionInfo: nil
+        )
+
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+        XCTAssertEqual(manager.currentParentParagraphIndex, 1)
+
+        manager.prepareForSettings()
+        try? await Task.sleep(nanoseconds: 50 * 1_000_000)
+        manager.resumeAfterSettings()
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+
+        XCTAssertEqual(manager.currentParentParagraphIndex, 1, "Should resume from paragraph 1, not skip to paragraph 2")
+        manager.stop()
+    }
+
+    func testReopenSettingsPreservesTitleParagraphWhenShowTitleEnabled() async {
+        let manager = TTSManager.shared
+        let mockChapter = TTSChapterInfo(title: "Title Paragraph Test", url: "url-title", index: 0)
+        let titlePreferenceKey = "showChapterTitle_test-title-resume"
+        UserDefaults.standard.set(true, forKey: titlePreferenceKey)
+        defer { UserDefaults.standard.removeObject(forKey: titlePreferenceKey) }
+
+        manager.startSpeaking(
+            bookId: "test-title-resume",
+            chapters: [mockChapter],
+            currentIndex: 0,
+            chapterContent: "Nội dung đoạn 0.\nNội dung đoạn 1.",
+            startParagraphIndex: -1,
+            bookTitle: "Title Book",
+            extensionInfo: nil
+        )
+
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+        XCTAssertEqual(manager.currentParentParagraphIndex, -1)
+        XCTAssertEqual(manager.currentParagraphIndex, 0)
+
+        manager.prepareForSettings()
+        try? await Task.sleep(nanoseconds: 50 * 1_000_000)
+        manager.resumeAfterSettings()
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+
+        XCTAssertEqual(manager.currentParentParagraphIndex, -1, "Should resume title paragraph with paragraphIndex -1")
+        XCTAssertEqual(manager.currentParagraphIndex, 0)
+        manager.stop()
+    }
+
+    func testReopenSettingsDoesNotAutoResumeWhenPausedBeforeSettings() async {
+        let manager = TTSManager.shared
+        let mockChapter = TTSChapterInfo(title: "Chapter Paused", url: "url-paused", index: 0)
+
+        manager.startSpeaking(
+            bookId: "test-paused-resume",
+            chapters: [mockChapter],
+            currentIndex: 0,
+            chapterContent: "Nội dung đoạn 0.\nNội dung đoạn 1.",
+            startParagraphIndex: 1,
+            bookTitle: "Paused Book",
+            extensionInfo: nil
+        )
+
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+        manager.pause()
+        XCTAssertFalse(manager.isPlaying)
+        XCTAssertEqual(manager.currentParentParagraphIndex, 1)
+
+        manager.prepareForSettings()
+        manager.resumeAfterSettings()
+
+        XCTAssertFalse(manager.isPlaying, "Playback should remain paused if it was paused before settings opened")
+        XCTAssertEqual(manager.currentParentParagraphIndex, 1)
+        manager.stop()
+    }
+
     private func nowPlayingPlaybackRate() -> Double? {
         let value = MPNowPlayingInfoCenter.default()
             .nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] as? NSNumber

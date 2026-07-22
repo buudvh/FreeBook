@@ -1209,76 +1209,21 @@ struct BookDetailView: View {
 
     private func addToShelf() {
         let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
-
+        let targetBook: Book
         if let book = localBook {
             book.isOnShelf = true
             try? modelContext.save()
-
-            // Tải toàn bộ chương nếu chưa được nạp đầy đủ
-            if tocPages.count > 1 && !remainingPagesLoaded {
-                isLoadingRemainingPages = true
-                loadingTask = Task {
-                    do {
-                        let remainingChaps = try await loadAllRemainingPages()
-                        try Task.checkCancellation()
-                        await MainActor.run {
-                            self.onlineChapters.append(contentsOf: remainingChaps)
-                            let startIdx = book.chapters.count
-                            for (index, item) in remainingChaps.enumerated() {
-                                let chapId = Chapter.generateId(bookId: resolvedBookId, url: item.url, index: startIdx + index)
-                                let newChap = Chapter(id: chapId, bookId: resolvedBookId, title: item.name, url: item.url, index: startIdx + index)
-                                newChap.book = book
-                                modelContext.insert(newChap)
-                            }
-                            try? modelContext.save()
-                            self.syncChaptersList()
-                            self.remainingPagesLoaded = true
-                            self.isLoadingRemainingPages = false
-                            self.loadingTask = nil
-                        }
-                    } catch {
-                        if !Task.isCancelled {
-                            await MainActor.run {
-                                self.tocErrorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
-                                self.isLoadingRemainingPages = false
-                                self.loadingTask = nil
-                            }
-                        }
-                    }
-                }
-            }
+            targetBook = book
         } else {
-            if tocPages.count > 1 && !remainingPagesLoaded {
-                isLoadingRemainingPages = true
-                loadingTask = Task {
-                    do {
-                        let remainingChaps = try await loadAllRemainingPages()
-                        try Task.checkCancellation()
-                        await MainActor.run {
-                            self.onlineChapters.append(contentsOf: remainingChaps)
-                            createBookOnShelf(savedDesc: savedDesc)
-                            self.remainingPagesLoaded = true
-                            self.isLoadingRemainingPages = false
-                            self.loadingTask = nil
-                        }
-                    } catch {
-                        if !Task.isCancelled {
-                            await MainActor.run {
-                                self.tocErrorMessage = "Lỗi tải thêm chương khi lưu kệ: \(error.localizedDescription)"
-                                self.isLoadingRemainingPages = false
-                                createBookOnShelf(savedDesc: savedDesc)
-                                self.loadingTask = nil
-                            }
-                        }
-                    }
-                }
-            } else {
-                createBookOnShelf(savedDesc: savedDesc)
-            }
+            targetBook = createBookOnShelf(savedDesc: savedDesc)
+        }
+        if tocPages.count > 1 && !remainingPagesLoaded {
+            startBackgroundRemainingPagesLoading(for: targetBook)
         }
     }
 
-    private func createBookOnShelf(savedDesc: String) {
+    @discardableResult
+    private func createBookOnShelf(savedDesc: String) -> Book {
         let newBook = Book(
             bookId: resolvedBookId,
             title: title,
@@ -1298,6 +1243,7 @@ struct BookDetailView: View {
         modelContext.insert(newBook)
         updateLocalChapters(for: newBook, with: onlineChapters)
         try? modelContext.save()
+        return newBook
     }
 
     private func loadAllRemainingPages() async throws -> [ChapterResult] {
@@ -1318,30 +1264,106 @@ struct BookDetailView: View {
         return allChapters
     }
 
-    private func loadMoreChapters() {
-        guard !isLoadingRemainingPages else { return }
+    private func scheduleBackgroundTitleTranslationIfNeeded(for targetBook: Book? = nil) {
+        guard isTranslationEnabled, let book = targetBook ?? localBook else { return }
+        let targetBookId = actualBookId
+        let chaptersToTranslate = book.chapters.filter { chap in
+            (chap.titleTrans == nil || chap.titleTrans?.isEmpty == true) && TranslateUtils.containsChinese(chap.title)
+        }
+        guard !chaptersToTranslate.isEmpty else { return }
+
+        struct ChapItem: Sendable {
+            let id: String
+            let title: String
+        }
+        let items = chaptersToTranslate.map { ChapItem(id: $0.id, title: $0.title) }
+
+        Task {
+            let translatedMap: [String: String] = await Task.detached(priority: .utility) {
+                var map: [String: String] = [:]
+                for item in items {
+                    if Task.isCancelled { break }
+                    map[item.id] = TranslateUtils.translateChapterTitle(item.title, bookId: targetBookId)
+                }
+                return map
+            }.value
+
+            await MainActor.run {
+                for chap in book.chapters {
+                    if let trans = translatedMap[chap.id] {
+                        chap.titleTrans = trans
+                    }
+                }
+                try? self.modelContext.save()
+                self.syncChaptersList()
+            }
+        }
+    }
+
+    private func startBackgroundRemainingPagesLoading(for targetBook: Book? = nil) {
+        guard tocPages.count > 1, !remainingPagesLoaded, !isLoadingRemainingPages else { return }
         isLoadingRemainingPages = true
         tocErrorMessage = ""
 
+        let bookRef = targetBook ?? localBook
+
         loadingTask = Task {
             do {
-                let remainingChaps = try await loadAllRemainingPages()
-                try Task.checkCancellation()
-                await MainActor.run {
-                    self.onlineChapters.append(contentsOf: remainingChaps)
-
-                    if let book = localBook {
-                        let startIdx = book.chapters.count
-                        for (index, item) in remainingChaps.enumerated() {
-                            let chapId = Chapter.generateId(bookId: resolvedBookId, url: item.url, index: startIdx + index)
-                            let newChap = Chapter(id: chapId, bookId: resolvedBookId, title: item.name, url: item.url, index: startIdx + index)
-                            newChap.book = book
-                            modelContext.insert(newChap)
-                        }
-                        try? modelContext.save()
-                        self.syncChaptersList()
+                guard let ext = ext else {
+                    await MainActor.run {
+                        self.isLoadingRemainingPages = false
                     }
+                    return
+                }
+                let remainingPages = Array(tocPages.dropFirst())
+                let targetBookId = actualBookId
+                let transEnabled = isTranslationEnabled
 
+                for pageUrl in remainingPages {
+                    try Task.checkCancellation()
+                    let pageChaps = try await ExtensionManager.shared.toc(
+                        localPath: ext.localPath,
+                        downloadUrl: ext.downloadUrl,
+                        url: pageUrl,
+                        host: resolvedHost,
+                        configJson: ext.configJson
+                    )
+                    try Task.checkCancellation()
+
+                    let translatedTitlesMap: [Int: String] = await Task.detached(priority: .utility) {
+                        var map: [Int: String] = [:]
+                        guard transEnabled else { return map }
+                        for (idx, item) in pageChaps.enumerated() {
+                            if Task.isCancelled { break }
+                            if !item.name.isEmpty && TranslateUtils.containsChinese(item.name) {
+                                map[idx] = TranslateUtils.translateChapterTitle(item.name, bookId: targetBookId)
+                            }
+                        }
+                        return map
+                    }.value
+
+                    await MainActor.run {
+                        self.onlineChapters.append(contentsOf: pageChaps)
+
+                        if let book = bookRef ?? self.localBook {
+                            let startIdx = book.chapters.count
+                            for (index, item) in pageChaps.enumerated() {
+                                let chapId = Chapter.generateId(bookId: self.resolvedBookId, url: item.url, index: startIdx + index)
+                                let newChap = Chapter(id: chapId, bookId: self.resolvedBookId, title: item.name, url: item.url, index: startIdx + index)
+                                if let trans = translatedTitlesMap[index] {
+                                    newChap.titleTrans = trans
+                                }
+                                newChap.book = book
+                                self.modelContext.insert(newChap)
+                            }
+                            try? self.modelContext.save()
+                            self.syncChaptersList()
+                        }
+                    }
+                    await Task.yield()
+                }
+
+                await MainActor.run {
                     self.remainingPagesLoaded = true
                     self.isLoadingRemainingPages = false
                     self.loadingTask = nil
@@ -1358,13 +1380,48 @@ struct BookDetailView: View {
         }
     }
 
+    private func loadMoreChapters() {
+        startBackgroundRemainingPagesLoading()
+    }
 
+    @discardableResult
+    private func ensureBookCreatedIfNeeded(initialChapterIndex: Int) -> Book? {
+        if let existing = localBook {
+            return existing
+        }
+        guard !onlineChapters.isEmpty else { return nil }
+        let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
+        let newBook = Book(
+            bookId: resolvedBookId,
+            title: title,
+            author: author,
+            coverUrl: coverUrl,
+            desc: savedDesc,
+            detailUrl: initialDetailUrl,
+            sourceName: sourceName,
+            sourceUrl: ext?.sourceUrl ?? "",
+            extensionPackageId: extensionPackageId,
+            currentChapterIndex: initialChapterIndex,
+            currentChapterTitle: onlineChapters.first?.name ?? "",
+            isOnShelf: false,
+            isHistory: false,
+            host: host.isEmpty ? nil : host
+        )
+        modelContext.insert(newBook)
+        updateLocalChapters(for: newBook, with: onlineChapters)
+        try? modelContext.save()
+        syncChaptersList()
+        return newBook
+    }
 
     private func startReading(at chapterIndex: Int) {
-        let isBookReady = (localBook != nil && !(localBook?.chapters.isEmpty ?? true)) && (tocPages.count <= 1 || remainingPagesLoaded)
+        let isBookReady = (localBook != nil && !(localBook?.chapters.isEmpty ?? true)) || !onlineChapters.isEmpty
 
         if isBookReady {
+            let targetBook = ensureBookCreatedIfNeeded(initialChapterIndex: chapterIndex)
             self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
+            scheduleBackgroundTitleTranslationIfNeeded(for: targetBook)
+            startBackgroundRemainingPagesLoading(for: targetBook)
             return
         }
 
@@ -1411,40 +1468,6 @@ struct BookDetailView: View {
                     self.tocPages = pages
                 }
 
-                if tocPages.count > 1 && !remainingPagesLoaded {
-                    preparingStatusText = "Đang tải các trang chương tiếp theo..."
-                    let remainingChaps = try await loadAllRemainingPages()
-                    try Task.checkCancellation()
-                    self.onlineChapters.append(contentsOf: remainingChaps)
-                    self.remainingPagesLoaded = true
-                }
-
-                struct TitleTaskItem: Sendable {
-                    let index: Int
-                    let title: String
-                }
-
-                let targetItems = onlineChapters.enumerated().map { TitleTaskItem(index: $0.offset, title: $0.element.name) }
-                let targetBookId = actualBookId
-                let transEnabled = isTranslationEnabled
-
-                preparingStatusText = transEnabled ? "Đang dịch tên chương..." : "Đang tạo dữ liệu sách..."
-                try Task.checkCancellation()
-
-                let translatedTitlesMap: [Int: String] = await Task.detached(priority: .userInitiated) {
-                    var map: [Int: String] = [:]
-                    guard transEnabled else { return map }
-                    for item in targetItems {
-                        if Task.isCancelled { break }
-                        if !item.title.isEmpty && TranslateUtils.containsChinese(item.title) {
-                            map[item.index] = TranslateUtils.translateChapterTitle(item.title, bookId: targetBookId)
-                        }
-                    }
-                    return map
-                }.value
-
-                try Task.checkCancellation()
-
                 let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
                 let targetBook: Book
                 if let existing = localBook {
@@ -1472,15 +1495,6 @@ struct BookDetailView: View {
 
                 updateLocalChapters(for: targetBook, with: onlineChapters)
 
-                if transEnabled {
-                    for chap in targetBook.chapters {
-                        if let trans = translatedTitlesMap[chap.index] {
-                            chap.titleTrans = trans
-                        }
-                    }
-                }
-
-                preparingStatusText = "Đang lưu dữ liệu..."
                 try Task.checkCancellation()
 
                 do {
@@ -1499,6 +1513,9 @@ struct BookDetailView: View {
                 isPreparingBook = false
                 bookOpenTask = nil
                 self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
+
+                scheduleBackgroundTitleTranslationIfNeeded(for: targetBook)
+                startBackgroundRemainingPagesLoading(for: targetBook)
             } catch {
                 if modelContext.hasChanges {
                     modelContext.rollback()
