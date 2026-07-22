@@ -27,6 +27,7 @@ struct ShelfView: View {
 
     @State private var shelfLimit = 50 // Giới hạn số lượng sách hiển thị trên kệ để tối ưu hiệu năng cuộn
     @State private var historyLimit = 50 // Giới hạn số lượng sách hiển thị trong lịch sử đọc
+    @State private var isProcessingDeletion = false // Trạng thái đang xóa sách bất đồng bộ (tránh bấm lặp)
 
     // @ObservedObject: Theo dõi và cập nhật UI khi lớp dịch vụ TTSManager phát tín hiệu thay đổi trạng thái (phát âm thanh).
     @ObservedObject private var ttsManager = TTSManager.shared
@@ -331,7 +332,7 @@ struct ShelfView: View {
                 }
                 Button("Hủy", role: .cancel) {}
             } message: {
-                Text("Bạn có chắc chắn muốn xóa toàn bộ lịch sử đọc không? Sách trong kệ sách sẽ không bị ảnh hưởng.")
+                Text("Bạn có chắc chắn muốn xóa toàn bộ lịch sử đọc không? Các truyện lịch sử không ở trên kệ sách sẽ bị xóa hoàn toàn khỏi thiết bị. Truyện đang ở trên kệ sách và truyện đang nghe phát âm thanh sẽ được giữ nguyên.")
             }
             .navigationDestination(isPresented: $triggerNavigation) {
                 if let bookId = navigateToPlayingBookId {
@@ -445,6 +446,20 @@ struct ShelfView: View {
                             .fill(Color(red: 0.15, green: 0.15, blue: 0.15).opacity(0.95))
                     )
                     .transition(.scale)
+                }
+
+                if isProcessingDeletion {
+                    Color.black.opacity(0.3)
+                        .edgesIgnoringSafeArea(.all)
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .tint(.white)
+                        Text("Đang dọn dẹp sách...")
+                            .font(.subheadline)
+                            .foregroundColor(.white)
+                    }
+                    .padding(20)
+                    .background(Color.black.opacity(0.8).cornerRadius(12))
                 }
             }
         }
@@ -593,18 +608,30 @@ struct ShelfView: View {
     }
 
     private func removeFromShelf(_ book: Book) {
-        do {
-            try BookStorageManager.shared.removeFromShelf(book, context: modelContext)
-        } catch {
-            AppLogger.shared.log("❌ Lỗi khi xóa khỏi kệ sách tại ShelfView: \(error.localizedDescription)")
+        let bookId = book.bookId
+        let container = modelContext.container
+        isProcessingDeletion = true
+        Task { @MainActor in
+            do {
+                try await BookStorageManager.shared.deleteBookAsync(bookId: bookId, container: container)
+            } catch {
+                AppLogger.shared.log("❌ Lỗi khi xóa khỏi kệ sách tại ShelfView: \(error.localizedDescription)")
+            }
+            self.isProcessingDeletion = false
         }
     }
 
     private func removeFromHistory(_ book: Book) {
-        do {
-            try BookStorageManager.shared.removeFromHistory(book, context: modelContext)
-        } catch {
-            AppLogger.shared.log("❌ Lỗi khi xóa lịch sử tại ShelfView: \(error.localizedDescription)")
+        let bookId = book.bookId
+        let container = modelContext.container
+        isProcessingDeletion = true
+        Task { @MainActor in
+            do {
+                try await BookStorageManager.shared.deleteBookAsync(bookId: bookId, container: container)
+            } catch {
+                AppLogger.shared.log("❌ Lỗi khi xóa lịch sử tại ShelfView: \(error.localizedDescription)")
+            }
+            self.isProcessingDeletion = false
         }
     }
 
@@ -614,10 +641,15 @@ struct ShelfView: View {
     }
 
     private func clearAllHistory() {
-        do {
-            try BookStorageManager.shared.clearAllHistory(historyBooks: historyBooks, context: modelContext)
-        } catch {
-            AppLogger.shared.log("❌ Lỗi khi xóa toàn bộ lịch sử: \(error.localizedDescription)")
+        let container = modelContext.container
+        isProcessingDeletion = true
+        Task { @MainActor in
+            do {
+                try await BookStorageManager.shared.clearAllOffShelfHistoryAsync(container: container)
+            } catch {
+                AppLogger.shared.log("❌ Lỗi khi xóa toàn bộ lịch sử: \(error.localizedDescription)")
+            }
+            self.isProcessingDeletion = false
         }
     }
 

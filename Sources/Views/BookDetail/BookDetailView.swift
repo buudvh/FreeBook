@@ -1572,10 +1572,14 @@ struct BookDetailView: View {
     }
 
     private func removeFromShelf(_ book: Book) {
-        do {
-            try BookStorageManager.shared.removeFromShelf(book, context: modelContext)
-        } catch {
-            AppLogger.shared.log("❌ Lỗi khi xóa khỏi kệ sách tại BookDetailView: \(error.localizedDescription)")
+        let bookId = book.bookId
+        let container = modelContext.container
+        Task { @MainActor in
+            do {
+                try await BookStorageManager.shared.deleteBookAsync(bookId: bookId, container: container)
+            } catch {
+                AppLogger.shared.log("❌ Lỗi khi xóa khỏi kệ sách tại BookDetailView: \(error.localizedDescription)")
+            }
         }
     }
 

@@ -9,8 +9,7 @@ public final class GoogleTTSService {
             return Data()
         }
         
-        let preprocessedText = await TextPreprocessor.shared.preprocess(trimmed)
-        guard let encodedText = preprocessedText.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+        guard let encodedText = text.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
             throw NSError(domain: "GoogleTTSService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Encoding failed"])
         }
         

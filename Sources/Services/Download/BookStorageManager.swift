@@ -12,41 +12,23 @@ public final class BookStorageManager {
 
     private init() {}
 
-    // Xóa sách khỏi kệ
+    // Xóa sách khỏi kệ (Hard Delete, trừ sách đang phát TTS)
     public func removeFromShelf(_ book: Book, context: ModelContext) throws {
-        if book.isHistory {
-            book.isOnShelf = false
-            try context.save()
-        } else {
-            try deleteBookComplete(book, context: context)
-        }
+        try deleteBookComplete(book, context: context)
     }
 
-    // Xóa sách khỏi lịch sử
+    // Xóa sách khỏi lịch sử (Hard Delete, trừ sách đang phát TTS)
     public func removeFromHistory(_ book: Book, context: ModelContext) throws {
-        book.isHistory = false
-        if book.isOnShelf {
-            try context.save()
-        } else {
-            try deleteBookComplete(book, context: context)
-        }
+        try deleteBookComplete(book, context: context)
     }
 
-    // Xóa toàn bộ lịch sử
+    // Xóa toàn bộ lịch sử (Chỉ xóa sách không ở trên kệ, trừ sách đang phát TTS)
     public func clearAllHistory(historyBooks: [Book], context: ModelContext) throws {
-        let toDelete = historyBooks.filter { !$0.isOnShelf }
-        let toUpdate = historyBooks.filter { $0.isOnShelf }
-
-        for book in toUpdate {
-            book.isHistory = false
-        }
-
-        if !toDelete.isEmpty {
-            let bookIds = toDelete.map { $0.bookId }
-            try deleteBooks(bookIds: bookIds, context: context)
-        } else {
-            try context.save()
-        }
+        let playingId = TTSManager.shared.playingBookId
+        let toDelete = historyBooks.filter { !$0.isOnShelf && (playingId.isEmpty || $0.bookId != playingId) }
+        guard !toDelete.isEmpty else { return }
+        let bookIds = toDelete.map { $0.bookId }
+        try deleteBooks(bookIds: bookIds, context: context)
     }
 
     // Helper xóa hoàn toàn một cuốn sách
@@ -54,9 +36,120 @@ public final class BookStorageManager {
         try deleteBooks(bookIds: [book.bookId], context: context)
     }
 
-    // Xóa hàng loạt sách và thực hiện side-effects
+    // API Xóa bất đồng bộ lõi theo danh sách bookId sử dụng ModelContainer (Non-blocking UI)
+    public func deleteBooksAsync(bookIds: [String], container: ModelContainer) async throws {
+        let playingId = TTSManager.shared.playingBookId
+        let validBookIds = Array(Set(bookIds)).filter { playingId.isEmpty || $0 != playingId }
+        guard !validBookIds.isEmpty else { return }
+
+        // 1. Side-effects trên MainActor cho các bookId hợp lệ (không xóa/dừng sách đang phát TTS)
+        for bookId in validBookIds {
+            clearReaderFallback(for: bookId)
+            DownloadManager.shared.cancelTasksForBook(bookId: bookId)
+        }
+
+        // 2. DB Cascade Delete trên background context
+        try await Task.detached(priority: .userInitiated) {
+            let bgContext = ModelContext(container)
+            bgContext.autosaveEnabled = false
+
+            let descriptor = FetchDescriptor<Book>()
+            let allBooks = try bgContext.fetch(descriptor)
+            let booksToDelete = allBooks.filter { validBookIds.contains($0.bookId) }
+
+            guard !booksToDelete.isEmpty else { return }
+
+            for book in booksToDelete {
+                bgContext.delete(book)
+            }
+
+            try bgContext.save()
+        }.value
+
+        // 3. Physical file cleanup trong background thread
+        Task.detached(priority: .background) {
+            for bookId in validBookIds {
+                do {
+                    try await BookBinManager.shared.deleteBinFile(for: bookId)
+                } catch {
+                    AppLogger.shared.log("❌ Lỗi xóa file .bin: \(error.localizedDescription)")
+                    let binPath = await BookBinManager.shared.binFilePath(for: bookId).path
+                    await Self.shared.enqueueFailedDeletionAsync(path: binPath)
+                }
+
+                do {
+                    try ImageCacheManager.shared.deleteCover(for: bookId)
+                } catch {
+                    AppLogger.shared.log("❌ Lỗi xóa cover: \(error.localizedDescription)")
+                    let coverPath = ImageCacheManager.shared.localCoverURL(for: bookId).path
+                    await Self.shared.enqueueFailedDeletionAsync(path: coverPath)
+                }
+            }
+        }
+    }
+
+    // Async wrapper xóa 1 cuốn sách theo bookId
+    public func deleteBookAsync(bookId: String, container: ModelContainer) async throws {
+        try await deleteBooksAsync(bookIds: [bookId], container: container)
+    }
+
+    // Async clear-all lịch sử chỉ xóa sách không nằm trên kệ (và không phải sách đang phát TTS)
+    public func clearAllOffShelfHistoryAsync(container: ModelContainer) async throws {
+        let playingId = TTSManager.shared.playingBookId
+
+        let deletedIds: [String] = try await Task.detached(priority: .userInitiated) {
+            let bgContext = ModelContext(container)
+            bgContext.autosaveEnabled = false
+
+            let descriptor = FetchDescriptor<Book>()
+            let allBooks = try bgContext.fetch(descriptor)
+            let targetBooks = allBooks.filter { !$0.isOnShelf && (playingId.isEmpty || $0.bookId != playingId) }
+            let targetIds = targetBooks.map { $0.bookId }
+
+            guard !targetIds.isEmpty else { return [] }
+
+            for book in targetBooks {
+                bgContext.delete(book)
+            }
+
+            try bgContext.save()
+            return targetIds
+        }.value
+
+        guard !deletedIds.isEmpty else { return }
+
+        // MainActor side effects
+        for bookId in deletedIds {
+            clearReaderFallback(for: bookId)
+            DownloadManager.shared.cancelTasksForBook(bookId: bookId)
+        }
+
+        // Background physical file cleanup
+        Task.detached(priority: .background) {
+            for bookId in deletedIds {
+                do {
+                    try await BookBinManager.shared.deleteBinFile(for: bookId)
+                } catch {
+                    AppLogger.shared.log("❌ Lỗi xóa file .bin: \(error.localizedDescription)")
+                    let binPath = await BookBinManager.shared.binFilePath(for: bookId).path
+                    await Self.shared.enqueueFailedDeletionAsync(path: binPath)
+                }
+
+                do {
+                    try ImageCacheManager.shared.deleteCover(for: bookId)
+                } catch {
+                    AppLogger.shared.log("❌ Lỗi xóa cover: \(error.localizedDescription)")
+                    let coverPath = ImageCacheManager.shared.localCoverURL(for: bookId).path
+                    await Self.shared.enqueueFailedDeletionAsync(path: coverPath)
+                }
+            }
+        }
+    }
+
+    // Xóa hàng loạt sách và thực hiện side-effects (Đồng bộ)
     public func deleteBooks(bookIds: [String], context: ModelContext) throws {
-        let uniqueBookIds = Array(Set(bookIds))
+        let playingId = TTSManager.shared.playingBookId
+        let uniqueBookIds = Array(Set(bookIds)).filter { playingId.isEmpty || $0 != playingId }
         guard !uniqueBookIds.isEmpty else { return }
 
         // Simulate fetch error for testing
@@ -76,15 +169,11 @@ public final class BookStorageManager {
 
         let booksToDelete = allBooks.filter { uniqueBookIds.contains($0.bookId) }
         guard !booksToDelete.isEmpty else {
-            // Không tìm thấy cuốn sách nào để xóa -> không làm gì tiếp theo và không xóa file vật lý
             return
         }
 
         // 2. Side effects
         for bookId in uniqueBookIds {
-            if TTSManager.shared.playingBookId == bookId {
-                TTSManager.shared.stop()
-            }
             clearReaderFallback(for: bookId)
             DownloadManager.shared.cancelTasksForBook(bookId: bookId)
         }

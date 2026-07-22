@@ -4,6 +4,21 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.42] - 2026-07-22
+
+### Đồng bộ hành vi Hard Delete sách bất đồng bộ không đơ UI và bảo vệ sách đang ở trên kệ / đang nghe TTS
+* **BookStorageManager & SwiftData Background Deletion**:
+  * Chuyển đổi toàn bộ các thao tác xóa sách (xóa khỏi kệ sách, xóa 1 mục lịch sử, xóa toàn bộ lịch sử) thành **Hard Delete** (xóa bản ghi `Book`, cascade xóa toàn bộ bản ghi `Chapter` trong SwiftData, dừng/hủy tác vụ download, clear reader fallback `UserDefaults` và xóa các file vật lý `.bin` / cover background).
+  - Triển khai các API xóa bất đồng bộ `deleteBooksAsync`, `deleteBookAsync`, `clearAllOffShelfHistoryAsync` nhận tham số `ModelContainer` và danh sách `bookId` (`[String]`). Thao tác fetch/delete trong SwiftData chạy trên `backgroundContext` hoàn toàn không gây tắc nghẽn main thread (non-blocking UI).
+  - Bổ sung cơ chế bảo vệ ở lớp dịch vụ: không xóa cuốn sách đang phát TTS (`TTSManager.shared.playingBookId`).
+  - Thao tác xóa toàn bộ lịch sử (`clearAllOffShelfHistoryAsync`) chỉ xóa các cuốn sách KHÔNG nằm trên kệ (`isOnShelf == false`), bảo tồn 100% các cuốn sách đang nằm trên Kệ sách (`isOnShelf == true`).
+* **ShelfView & BookDetailView UI**:
+  * Tích hợp cờ trạng thái `isProcessingDeletion` hiển thị indicator dọn dẹp nhẹ và ngăn bấm lặp lại trên `ShelfView`.
+  * Cập nhật văn bản thông báo Alert xóa lịch sử làm rõ hành vi chỉ xóa các sách lịch sử không ở trên kệ, giữ nguyên sách trên kệ và sách đang nghe audio.
+  * Chuyển đổi các nút xóa trong `ShelfView` và `BookDetailView` sang gọi các phương thức bất đồng bộ của `BookStorageManager` bọc trong `Task { @MainActor in ... }` đảm bảo an toàn Thread Safety cho trạng thái UI.
+* **Unit Tests**:
+  * Thêm `Tests/BookStorageManagerTests.swift` kiểm định xóa cứng `Book` & `Chapter` cascade delete, bảo tồn sách trên kệ và bảo vệ sách đang nghe TTS.
+
 ## [1.3.41] - 2026-07-22
 
 ### Khắc phục lỗi điều khiển nút Play màn hình khóa và tai nghe khi tạm dừng TTS
