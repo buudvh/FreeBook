@@ -1614,14 +1614,22 @@ public final class TTSManager: NSObject, ObservableObject {
 
     // MARK: - Lock Screen & Remote Control Sync
 
+    internal var lastPlaybackRemoteCommandTime: TimeInterval = 0
+
+    internal func shouldProcessPlaybackRemoteCommand() -> Bool {
+        let now = Date().timeIntervalSince1970
+        if now - lastPlaybackRemoteCommandTime < 0.3 {
+            return false
+        }
+        lastPlaybackRemoteCommandTime = now
+        return true
+    }
+
     private func setRemoteCommandsEnabled(_ enabled: Bool) {
         let commandCenter = MPRemoteCommandCenter.shared()
         commandCenter.playCommand.isEnabled = enabled
         commandCenter.pauseCommand.isEnabled = enabled
-        // iOS maps the headset play/pause button to one of the explicit
-        // commands from playbackState. Enabling toggle as well can dispatch a
-        // second event for the same press on some Bluetooth devices.
-        commandCenter.togglePlayPauseCommand.isEnabled = false
+        commandCenter.togglePlayPauseCommand.isEnabled = enabled
         commandCenter.nextTrackCommand.isEnabled = enabled
         commandCenter.previousTrackCommand.isEnabled = enabled
 
@@ -1640,17 +1648,34 @@ public final class TTSManager: NSObject, ObservableObject {
         let active = !playingBookId.isEmpty && showFloatingWidget
         commandCenter.playCommand.isEnabled = active && !isPlaying
         commandCenter.pauseCommand.isEnabled = active && isPlaying
-        commandCenter.togglePlayPauseCommand.isEnabled = false
+        commandCenter.togglePlayPauseCommand.isEnabled = active
     }
 
     private func setupRemoteCommandCenter() {
         let commandCenter = MPRemoteCommandCenter.shared()
 
+        // Toggle Play / Pause
+        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
+            guard self != nil else { return .commandFailed }
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                guard self.shouldProcessPlaybackRemoteCommand() else { return }
+                if self.isPlaying {
+                    self.pause()
+                } else {
+                    self.resume()
+                }
+            }
+            return .success
+        }
+
         // Play
         commandCenter.playCommand.addTarget { [weak self] _ in
             guard self != nil else { return .commandFailed }
             DispatchQueue.main.async { [weak self] in
-                self?.resume()
+                guard let self = self else { return }
+                guard self.shouldProcessPlaybackRemoteCommand() else { return }
+                self.resume()
             }
             return .success
         }
@@ -1659,7 +1684,9 @@ public final class TTSManager: NSObject, ObservableObject {
         commandCenter.pauseCommand.addTarget { [weak self] _ in
             guard self != nil else { return .commandFailed }
             DispatchQueue.main.async { [weak self] in
-                self?.pause()
+                guard let self = self else { return }
+                guard self.shouldProcessPlaybackRemoteCommand() else { return }
+                self.pause()
             }
             return .success
         }

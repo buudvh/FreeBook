@@ -4,6 +4,17 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.41] - 2026-07-22
+
+### Khắc phục lỗi điều khiển nút Play màn hình khóa và tai nghe khi tạm dừng TTS
+* **TTS Subsystem & MPRemoteCommandCenter**:
+  * Đăng ký handler xử lý lệnh `togglePlayPauseCommand` trong `setupRemoteCommandCenter()`, cho phép tai nghe Bluetooth/AirPods và nút điều khiển trung tâm toggle phát/dừng mượt mà qua `pause()` và `resume()`.
+  * Cập nhật `setRemoteCommandsEnabled(_:)` và `syncRemoteCommandState()` bật `togglePlayPauseCommand.isEnabled = active` trong toàn bộ phiên TTS đang hoạt động (dù đang phát hay tạm dừng).
+  * Khắc phục triệt để hiện tượng nút Play trên Now Playing card (Lock Screen / Control Center) bị mờ/xám (disabled) khi pause và yêu cầu bấm 2 lần trên tai nghe để tiếp tục đọc.
+  * Tích hợp cơ chế chống rung / chống lặp lệnh phát/dừng (playback remote command debounce 300ms) hẹp độc quyền cho nhóm lệnh `togglePlayPauseCommand`, `playCommand`, `pauseCommand` qua `shouldProcessPlaybackRemoteCommand()`, giữ nguyên khả năng skip/chuyển bài trực tiếp cho `nextTrackCommand` và `previousTrackCommand`.
+* **Unit Tests**:
+  * Cập nhật `TTSManagerTests.swift`: điều chỉnh các khẳng định kiểm thử trạng thái `togglePlayPauseCommand` (hoạt động khi active, vô hiệu hóa hoàn toàn khi stop) và thêm test case `testRemoteCommandDebounce()` kiểm định cơ chế debounce.
+
 ## [1.3.40] - 2026-07-22
 
 ### Sửa lỗi nghĩa rỗng VP, tối ưu cuộn/làm nóng mục lục Reader, điều hướng TTS chính xác đoạn văn và định dạng Title Case UI

@@ -109,7 +109,7 @@ final class TTSManagerTests: XCTestCase {
         XCTAssertTrue(manager.isPlaying)
         XCTAssertFalse(commandCenter.playCommand.isEnabled)
         XCTAssertTrue(commandCenter.pauseCommand.isEnabled)
-        XCTAssertFalse(commandCenter.togglePlayPauseCommand.isEnabled)
+        XCTAssertTrue(commandCenter.togglePlayPauseCommand.isEnabled)
         XCTAssertEqual(MPNowPlayingInfoCenter.default().playbackState, .playing)
 
         // Seed the already-visible Lock Screen card. State-only updates are
@@ -124,7 +124,7 @@ final class TTSManagerTests: XCTestCase {
         XCTAssertFalse(manager.isPlaying)
         XCTAssertTrue(commandCenter.playCommand.isEnabled)
         XCTAssertFalse(commandCenter.pauseCommand.isEnabled)
-        XCTAssertFalse(commandCenter.togglePlayPauseCommand.isEnabled)
+        XCTAssertTrue(commandCenter.togglePlayPauseCommand.isEnabled)
         XCTAssertEqual(MPNowPlayingInfoCenter.default().playbackState, .paused)
         XCTAssertEqual(nowPlayingPlaybackRate(), 0)
 
@@ -133,9 +133,34 @@ final class TTSManagerTests: XCTestCase {
         XCTAssertTrue(manager.isPlaying)
         XCTAssertFalse(commandCenter.playCommand.isEnabled)
         XCTAssertTrue(commandCenter.pauseCommand.isEnabled)
-        XCTAssertFalse(commandCenter.togglePlayPauseCommand.isEnabled)
+        XCTAssertTrue(commandCenter.togglePlayPauseCommand.isEnabled)
         XCTAssertEqual(MPNowPlayingInfoCenter.default().playbackState, .playing)
         XCTAssertEqual(nowPlayingPlaybackRate(), manager.speed)
+
+        manager.stop()
+
+        XCTAssertFalse(manager.isPlaying)
+        XCTAssertFalse(commandCenter.playCommand.isEnabled)
+        XCTAssertFalse(commandCenter.pauseCommand.isEnabled)
+        XCTAssertFalse(commandCenter.togglePlayPauseCommand.isEnabled)
+        XCTAssertEqual(MPNowPlayingInfoCenter.default().playbackState, .stopped)
+    }
+
+    func testRemoteCommandDebounce() async {
+        let manager = TTSManager.shared
+        manager.lastPlaybackRemoteCommandTime = 0
+
+        let firstResult = manager.shouldProcessPlaybackRemoteCommand()
+        XCTAssertTrue(firstResult)
+
+        // Rapid second call inside 300ms window must return false (debounced)
+        let immediateSecondResult = manager.shouldProcessPlaybackRemoteCommand()
+        XCTAssertFalse(immediateSecondResult)
+
+        // Waiting >300ms allows the next command through
+        try? await Task.sleep(nanoseconds: 350 * 1_000_000)
+        let resultAfterWait = manager.shouldProcessPlaybackRemoteCommand()
+        XCTAssertTrue(resultAfterWait)
     }
 
     func testBackgroundProcessorOffMainActor() async {
