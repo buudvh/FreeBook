@@ -57,6 +57,13 @@ struct BookDetailView: View {
     @State private var isMenuExpanded = false
     @State private var loadingTask: Task<Void, Never>? = nil
 
+    // Màn hình chuẩn bị mở sách mới
+    @State private var isPreparingBook = false
+    @State private var preparingStatusText = "Đang chuẩn bị danh sách chương..."
+    @State private var preparingTargetChapterTitle = ""
+    @State private var bookOpenTask: Task<Void, Never>? = nil
+    @AppStorage("readerSelectedTheme") private var readerTheme: ReaderTheme = .dark
+
     // Phân trang danh sách chương
     @State private var tocPages: [String] = []
     @State private var remainingPagesLoaded = false
@@ -131,8 +138,13 @@ struct BookDetailView: View {
     }
 
     private func translateChapterTitleIfNeeded(_ chap: Chapter) -> String {
-        if isTranslationEnabled && TranslateUtils.containsChinese(chap.title) {
-            return TranslateUtils.translateChapterTitle(chap.title, bookId: actualBookId)
+        if isTranslationEnabled {
+            if let trans = chap.titleTrans, !trans.isEmpty {
+                return trans
+            }
+            if TranslateUtils.containsChinese(chap.title) {
+                return TranslateUtils.translateChapterTitle(chap.title, bookId: actualBookId)
+            }
         }
         return chap.title
     }
@@ -254,6 +266,10 @@ struct BookDetailView: View {
 
             if isLoadingRemainingPages {
                 loadingOverlay
+            }
+
+            if isPreparingBook {
+                preparingScreenOverlay
             }
 
             floatingActionButton
@@ -825,6 +841,75 @@ struct BookDetailView: View {
     }
 
     @ViewBuilder
+    private var preparingScreenOverlay: some View {
+        ZStack(alignment: .topLeading) {
+            readerTheme.backgroundColor
+                .ignoresSafeArea()
+
+            VStack(spacing: 24) {
+                Spacer()
+
+                ProgressView()
+                    .tint(readerTheme.textColor)
+                    .scaleEffect(1.4)
+
+                VStack(spacing: 8) {
+                    let displayBookTitle = isTranslationEnabled && TranslateUtils.containsChinese(title)
+                        ? TranslateUtils.translateMeta(title, bookId: actualBookId)
+                        : title
+                    Text(DisplayTextFormatter.titleCase(displayBookTitle))
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(readerTheme.textColor)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+
+                    if !preparingTargetChapterTitle.isEmpty {
+                        Text(preparingTargetChapterTitle)
+                            .font(.headline)
+                            .foregroundColor(readerTheme.textColor.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                    }
+                }
+                .padding(.horizontal, 24)
+
+                Text(preparingStatusText)
+                    .font(.subheadline)
+                    .foregroundColor(readerTheme.textColor.opacity(0.6))
+                    .multilineTextAlignment(.center)
+
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            // Top-left chevron back icon button (No header bar, no bottom toolbar)
+            Button(action: cancelPreparingBook) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(readerTheme.textColor)
+                    .padding(12)
+                    .background(Circle().fill(readerTheme.textColor.opacity(0.12)))
+            }
+            .padding(.leading, 16)
+            .padding(.top, 16)
+            .accessibilityLabel("Quay lại")
+        }
+        .transition(.opacity)
+        .zIndex(100)
+    }
+
+    private func cancelPreparingBook() {
+        bookOpenTask?.cancel()
+        bookOpenTask = nil
+        if modelContext.hasChanges {
+            modelContext.rollback()
+        }
+        isPreparingBook = false
+        readerRoute = nil
+    }
+
+    @ViewBuilder
     private var floatingActionButton: some View {
         let totalChaps = localBook?.chapters.count ?? onlineChapters.count
         if totalChaps > 0 {
@@ -1271,57 +1356,158 @@ struct BookDetailView: View {
         }
     }
 
+
+
     private func startReading(at chapterIndex: Int) {
-        let route = ReaderRoute(chapterIndex: chapterIndex)
-        if tocPages.count > 1 && !remainingPagesLoaded {
-            // Điều hướng người dùng sang màn hình đọc ngay lập tức không bắt chờ
-            self.readerRoute = route
+        let isBookReady = (localBook != nil && !(localBook?.chapters.isEmpty ?? true)) && (tocPages.count <= 1 || remainingPagesLoaded)
 
-            // Nếu đã có tác vụ đang chạy thì không chạy trùng lặp
-            guard loadingTask == nil else { return }
+        if isBookReady {
+            self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
+            return
+        }
 
-            isLoadingRemainingPages = true
-            tocErrorMessage = ""
+        isPreparingBook = true
+        preparingStatusText = "Đang tải danh sách chương..."
 
-            loadingTask = Task {
-                do {
+        let rawTargetTitle: String
+        if chapterIndex >= 0 && chapterIndex < onlineChapters.count {
+            rawTargetTitle = onlineChapters[chapterIndex].name
+        } else if chapterIndex >= 0 && chapterIndex < chaptersList.count {
+            rawTargetTitle = chaptersList[chapterIndex].title
+        } else {
+            rawTargetTitle = "Chương \(chapterIndex + 1)"
+        }
+
+        preparingTargetChapterTitle = isTranslationEnabled && TranslateUtils.containsChinese(rawTargetTitle)
+            ? TranslateUtils.translateChapterTitle(rawTargetTitle, bookId: actualBookId)
+            : rawTargetTitle
+
+        bookOpenTask?.cancel()
+        bookOpenTask = Task { @MainActor in
+            do {
+                if onlineChapters.isEmpty && localBook == nil {
+                    guard let ext = ext, !ext.localPath.isEmpty else {
+                        throw NSError(domain: "BookError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Không tìm thấy tiện ích bóc tách!"])
+                    }
+                    let path = ext.localPath
+                    var firstPageChapters: [ChapterResult] = []
+                    var pages: [String] = []
+
+                    if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
+                        pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
+                        if !pages.isEmpty {
+                            firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages[0], host: resolvedHost, configJson: ext.configJson)
+                        } else {
+                            firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
+                        }
+                    } else {
+                        firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
+                    }
+
+                    try Task.checkCancellation()
+                    self.onlineChapters = firstPageChapters
+                    self.tocPages = pages
+                }
+
+                if tocPages.count > 1 && !remainingPagesLoaded {
+                    preparingStatusText = "Đang tải các trang chương tiếp theo..."
                     let remainingChaps = try await loadAllRemainingPages()
                     try Task.checkCancellation()
-                    await MainActor.run {
-                        self.onlineChapters.append(contentsOf: remainingChaps)
+                    self.onlineChapters.append(contentsOf: remainingChaps)
+                    self.remainingPagesLoaded = true
+                }
 
-                        if let book = localBook {
-                            let existingUrls = Set(book.chapters.map { $0.url })
-                            var startIdx = book.chapters.count
-                            for item in remainingChaps {
-                                if !existingUrls.contains(item.url) {
-                                    let chapId = Chapter.generateId(bookId: resolvedBookId, url: item.url, index: startIdx)
-                                    let newChap = Chapter(id: chapId, bookId: resolvedBookId, title: item.name, url: item.url, index: startIdx)
-                                    newChap.book = book
-                                    modelContext.insert(newChap)
-                                    startIdx += 1
-                                }
-                            }
-                            try? modelContext.save()
-                            self.syncChaptersList()
+                struct TitleTaskItem: Sendable {
+                    let index: Int
+                    let title: String
+                }
+
+                let targetItems = onlineChapters.enumerated().map { TitleTaskItem(index: $0.offset, title: $0.element.name) }
+                let targetBookId = actualBookId
+                let transEnabled = isTranslationEnabled
+
+                preparingStatusText = transEnabled ? "Đang dịch tên chương..." : "Đang tạo dữ liệu sách..."
+                try Task.checkCancellation()
+
+                let translatedTitlesMap: [Int: String] = await Task.detached(priority: .userInitiated) {
+                    var map: [Int: String] = [:]
+                    guard transEnabled else { return map }
+                    for item in targetItems {
+                        if Task.isCancelled { break }
+                        if !item.title.isEmpty && TranslateUtils.containsChinese(item.title) {
+                            map[item.index] = TranslateUtils.translateChapterTitle(item.title, bookId: targetBookId)
                         }
-
-                        self.remainingPagesLoaded = true
-                        self.isLoadingRemainingPages = false
-                        self.loadingTask = nil
                     }
-                } catch {
-                    if !Task.isCancelled {
-                        await MainActor.run {
-                            self.tocErrorMessage = "Lỗi tải thêm chương: \(error.localizedDescription)"
-                            self.isLoadingRemainingPages = false
-                            self.loadingTask = nil
+                    return map
+                }.value
+
+                try Task.checkCancellation()
+
+                let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
+                let targetBook: Book
+                if let existing = localBook {
+                    targetBook = existing
+                } else {
+                    let newBook = Book(
+                        bookId: resolvedBookId,
+                        title: title,
+                        author: author,
+                        coverUrl: coverUrl,
+                        desc: savedDesc,
+                        detailUrl: initialDetailUrl,
+                        sourceName: sourceName,
+                        sourceUrl: ext?.sourceUrl ?? "",
+                        extensionPackageId: extensionPackageId,
+                        currentChapterIndex: chapterIndex,
+                        currentChapterTitle: onlineChapters.first?.name ?? "",
+                        isOnShelf: false,
+                        isHistory: false,
+                        host: host.isEmpty ? nil : host
+                    )
+                    modelContext.insert(newBook)
+                    targetBook = newBook
+                }
+
+                updateLocalChapters(for: targetBook, with: onlineChapters)
+
+                if transEnabled {
+                    for chap in targetBook.chapters {
+                        if let trans = translatedTitlesMap[chap.index] {
+                            chap.titleTrans = trans
                         }
                     }
                 }
+
+                preparingStatusText = "Đang lưu dữ liệu..."
+                try Task.checkCancellation()
+
+                do {
+                    try modelContext.save()
+                } catch {
+                    if modelContext.hasChanges {
+                        modelContext.rollback()
+                    }
+                    throw error
+                }
+
+                syncChaptersList()
+
+                try Task.checkCancellation()
+
+                isPreparingBook = false
+                bookOpenTask = nil
+                self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
+            } catch {
+                if modelContext.hasChanges {
+                    modelContext.rollback()
+                }
+                isPreparingBook = false
+                bookOpenTask = nil
+                readerRoute = nil
+                if !Task.isCancelled {
+                    self.tocErrorMessage = "Lỗi chuẩn bị sách: \(error.localizedDescription)"
+                }
             }
-        } else {
-            self.readerRoute = route
         }
     }
 

@@ -342,8 +342,9 @@ struct ReaderView: View {
                     })
             }
         }
-        .onChange(of: isTranslationEnabled) { _, _ in
+        .onChange(of: isTranslationEnabled) { _, newValue in
             applyTranslation()
+            chapterListStore?.updateTranslation(isTranslationEnabled: newValue)
         }
         .onChange(of: isTranslationPronounsEnabled) { _, _ in
             TranslateUtils.clearCache()
@@ -702,6 +703,7 @@ struct ReaderView: View {
 
     private func getOrInitChapterListStore() -> ReaderChapterListStore? {
         if let store = chapterListStore {
+            store.updateTranslation(isTranslationEnabled: isTranslationEnabled)
             return store
         }
         guard let vm = viewModel else { return nil }
@@ -710,7 +712,8 @@ struct ReaderView: View {
             modelContext: localBook != nil ? modelContext : nil,
             onlineChapters: currentOnlineChapters.isEmpty ? onlineChapters : currentOnlineChapters,
             totalCount: vm.totalChaptersCount,
-            isAscending: true
+            isAscending: true,
+            isTranslationEnabled: isTranslationEnabled
         )
         self.chapterListStore = store
         return store

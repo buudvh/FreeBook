@@ -14,6 +14,9 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * `ReaderChapterListView`: Tự động cuộn căn giữa chương đang đọc khi mở sheet mục lục mỗi lần (`onChange(of: isPresented)` & `currentChapterIndex`).
   * Tối ưu hóa việc dịch tên chương Hán-Việt ngầm (`warmNearbyTitles`) theo lô (batch warming) trong bán kính cửa sổ hiển thị (`windowSize = 8`) thay vì gọi giải dịch riêng lẻ từng dòng khi xuất hiện (`onAppear`).
   * Trễ tác vụ nạp trang hiển thị (`scheduleVisiblePageWork`) với cơ chế hoãn (debounce 90ms) giúp ngăn chặn hiện tượng cuộn giật/thrashing khi người dùng lướt nhanh mục lục.
+  * Nút "Dịch lại tên chương" trong `ShelfView` nay chạy task nền để dịch lại toàn bộ danh sách chương của cuốn sách và lưu tất cả `titleTrans` xuống SQLite, thay vì chỉ xóa cache bộ nhớ.
+  * Màn hình chuẩn bị mở sách mới (Full-screen Reader-like Preparing Screen) trong `BookDetailView` với nút Icon Quay lại (`chevron.left`) ở góc trên bên trái, hiển thị tiến trình nạp TOC, dịch tên chương và lưu SQLite trước khi chuyển sang `ReaderView`.
+  * Chuẩn hóa quy tắc hiển thị tiêu đề chương bên ngoài văn bản: ưu tiên `chapter.titleTrans` từ SQLite khi bật dịch thuật (nếu rỗng dịch tại thời điểm hiển thị); luôn sử dụng `chapter.title` tiếng Trung gốc khi tắt dịch thuật.
 * **TTS Navigation Integration**:
   * `ShelfView`: Khi chuyển từ widget / MiniPlayer TTS sang Reader via nút "Nghe tiếp", truyền tham số `navigateToPlayingParagraphIndex` (`initialParagraphIndex`) giúp Reader tự động cuộn và highlight chính xác đoạn văn đang đọc thay vì mở lại từ đầu chương.
 * **UI Text Formatting & Styling**:

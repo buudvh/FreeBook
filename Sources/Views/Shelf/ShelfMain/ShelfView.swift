@@ -511,6 +511,80 @@ struct ShelfView: View {
 
     private func retranslateChapterTitles(for book: Book) {
         TranslateUtils.clearChapterTitleCache(for: book.bookId)
+        ToastManager.shared.show(message: "Đang dịch lại tên chương...")
+
+        let bookId = book.bookId
+        let bookTitle = book.title
+        let currentChapterTitle = book.currentChapterTitle
+
+        let chapters = book.chapters.sorted(by: { $0.index < $1.index })
+        let snapshotChapters: [Chapter]
+        if chapters.isEmpty {
+            let descriptor = FetchDescriptor<Chapter>(
+                predicate: #Predicate<Chapter> { $0.bookId == bookId },
+                sortBy: [SortDescriptor(\.index, order: .forward)]
+            )
+            snapshotChapters = (try? modelContext.fetch(descriptor)) ?? []
+        } else {
+            snapshotChapters = chapters
+        }
+
+        struct ChapterSnapshot: Sendable {
+            let id: String
+            let title: String
+        }
+
+        let snapshots = snapshotChapters.map { ChapterSnapshot(id: $0.id, title: $0.title) }
+
+        Task.detached(priority: .userInitiated) {
+            var translatedMap: [String: String] = [:]
+
+            for snapshot in snapshots {
+                if Task.isCancelled { return }
+                if !snapshot.title.isEmpty {
+                    let translated = TranslateUtils.translateChapterTitle(snapshot.title, bookId: bookId)
+                    translatedMap[snapshot.id] = translated
+                }
+            }
+
+            let translatedCurrentTitle: String?
+            if !currentChapterTitle.isEmpty && TranslateUtils.containsChinese(currentChapterTitle) {
+                translatedCurrentTitle = TranslateUtils.translateChapterTitle(currentChapterTitle, bookId: bookId)
+            } else {
+                translatedCurrentTitle = nil
+            }
+
+            if Task.isCancelled { return }
+
+            await MainActor.run {
+                guard !Task.isCancelled else { return }
+
+                let targetBookId = bookId
+                var bookDescriptor = FetchDescriptor<Book>(
+                    predicate: #Predicate<Book> { $0.bookId == targetBookId }
+                )
+                bookDescriptor.fetchLimit = 1
+                let targetBook = (try? self.modelContext.fetch(bookDescriptor))?.first
+
+                let chapterDescriptor = FetchDescriptor<Chapter>(
+                    predicate: #Predicate<Chapter> { $0.bookId == targetBookId }
+                )
+                let chaptersToUpdate = (try? self.modelContext.fetch(chapterDescriptor)) ?? []
+
+                for chap in chaptersToUpdate {
+                    if let translated = translatedMap[chap.id] {
+                        chap.titleTrans = translated
+                    }
+                }
+
+                if let newCurrentTitle = translatedCurrentTitle {
+                    targetBook?.currentChapterTitle = newCurrentTitle
+                }
+
+                try? self.modelContext.save()
+                ToastManager.shared.show(message: "Đã dịch lại xong tên chương cho: \(bookTitle)")
+            }
+        }
     }
 
     private func prepareTaskForBook(_ book: Book, type: TaskType) {

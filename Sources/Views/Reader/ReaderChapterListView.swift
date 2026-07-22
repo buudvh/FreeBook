@@ -55,23 +55,43 @@ actor BackgroundSearchWorker {
         self.container = container
     }
 
-    func searchChapters(bookId: String, query: String, isAscending: Bool) -> [SearchChapterDTO] {
+    func searchChapters(bookId: String, query: String, isAscending: Bool, isTranslationEnabled: Bool) -> [SearchChapterDTO] {
         let context = ModelContext(container)
         let localBookId = bookId
         let localQuery = query
+        let isTrans = isTranslationEnabled
 
-        var descriptor = FetchDescriptor<Chapter>(
-            predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.title.contains(localQuery) }
-        )
-        descriptor.fetchLimit = 100
-        descriptor.sortBy = [SortDescriptor(\.index, order: isAscending ? .forward : .reverse)]
+        let descriptor: FetchDescriptor<Chapter>
+        if isTrans {
+            descriptor = FetchDescriptor<Chapter>(
+                predicate: #Predicate<Chapter> { $0.bookId == localBookId && ($0.title.contains(localQuery) || ($0.titleTrans != nil && $0.titleTrans!.contains(localQuery))) },
+                sortBy: [SortDescriptor(\.index, order: isAscending ? .forward : .reverse)]
+            )
+        } else {
+            descriptor = FetchDescriptor<Chapter>(
+                predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.title.contains(localQuery) },
+                sortBy: [SortDescriptor(\.index, order: isAscending ? .forward : .reverse)]
+            )
+        }
 
         do {
             let chapters = try context.fetch(descriptor)
             return chapters.map { chap in
-                SearchChapterDTO(
+                let displayTitle: String
+                if isTranslationEnabled {
+                    if let trans = chap.titleTrans, !trans.isEmpty {
+                        displayTitle = trans
+                    } else if TranslateUtils.containsChinese(chap.title) {
+                        displayTitle = TranslateUtils.translateChapterTitle(chap.title, bookId: localBookId)
+                    } else {
+                        displayTitle = chap.title
+                    }
+                } else {
+                    displayTitle = chap.title
+                }
+                return SearchChapterDTO(
                     index: chap.index,
-                    title: chap.title,
+                    title: displayTitle,
                     url: chap.url,
                     isCached: chap.isCached
                 )
@@ -90,7 +110,7 @@ actor BackgroundPagingWorker {
         self.container = container
     }
 
-    func fetchPage(bookId: String, minLogicalIndex: Int, maxLogicalIndex: Int) throws -> [Int: (title: String, url: String, isCached: Bool)] {
+    func fetchPage(bookId: String, minLogicalIndex: Int, maxLogicalIndex: Int, isTranslationEnabled: Bool) throws -> [Int: (title: String, url: String, isCached: Bool)] {
         let context = ModelContext(container)
         let localBookId = bookId
         let localMin = minLogicalIndex
@@ -103,7 +123,19 @@ actor BackgroundPagingWorker {
         let chapters = try context.fetch(descriptor)
         var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
         for chap in chapters {
-            data[chap.index] = (chap.title, chap.url, chap.isCached)
+            let displayTitle: String
+            if isTranslationEnabled {
+                if let trans = chap.titleTrans, !trans.isEmpty {
+                    displayTitle = trans
+                } else if TranslateUtils.containsChinese(chap.title) {
+                    displayTitle = TranslateUtils.translateChapterTitle(chap.title, bookId: localBookId)
+                } else {
+                    displayTitle = chap.title
+                }
+            } else {
+                displayTitle = chap.title
+            }
+            data[chap.index] = (displayTitle, chap.url, chap.isCached)
         }
         return data
     }
@@ -128,6 +160,7 @@ public final class ReaderChapterListStore {
 
     public private(set) var totalCount: Int = 0
     public private(set) var isAscending: Bool = true
+    public private(set) var isTranslationEnabled: Bool = false
 
     public let pageSize = 100
     private var loadedPages: Set<Int> = []
@@ -151,13 +184,20 @@ public final class ReaderChapterListStore {
 
     public var isLoadingPage = false
 
-    public init(bookId: String, modelContext: ModelContext?, onlineChapters: [ChapterResult], totalCount: Int, isAscending: Bool = true) {
+    public init(bookId: String, modelContext: ModelContext?, onlineChapters: [ChapterResult], totalCount: Int, isAscending: Bool = true, isTranslationEnabled: Bool = false) {
         self.bookId = bookId
         self.modelContext = modelContext
         self.onlineChapters = onlineChapters
         self.totalCount = totalCount
         self.isAscending = isAscending
+        self.isTranslationEnabled = isTranslationEnabled
 
+        setupPlaceholderRows()
+    }
+
+    public func updateTranslation(isTranslationEnabled: Bool) {
+        guard self.isTranslationEnabled != isTranslationEnabled else { return }
+        self.isTranslationEnabled = isTranslationEnabled
         setupPlaceholderRows()
     }
 
@@ -453,9 +493,10 @@ public final class ReaderChapterListStore {
             let localBookId = bookId
             let localMin = minLogicalIndex
             let localMax = maxLogicalIndex
+            let transEnabled = isTranslationEnabled
             let worker = BackgroundPagingWorker(container: context.container)
             do {
-                fetchedData = try await worker.fetchPage(bookId: localBookId, minLogicalIndex: localMin, maxLogicalIndex: localMax)
+                fetchedData = try await worker.fetchPage(bookId: localBookId, minLogicalIndex: localMin, maxLogicalIndex: localMax, isTranslationEnabled: transEnabled)
             } catch {
                 AppLogger.shared.log("❌ [BackgroundPagingWorker] Lỗi fetch page: \(error.localizedDescription)")
                 fetchedData = nil
@@ -465,7 +506,13 @@ public final class ReaderChapterListStore {
             for idx in logicalIndices {
                 if idx < onlineChapters.count {
                     let chap = onlineChapters[idx]
-                    data[idx] = (chap.name, chap.url, false)
+                    let displayTitle: String
+                    if isTranslationEnabled && TranslateUtils.containsChinese(chap.name) {
+                        displayTitle = TranslateUtils.translateChapterTitle(chap.name, bookId: bookId)
+                    } else {
+                        displayTitle = chap.name
+                    }
+                    data[idx] = (displayTitle, chap.url, false)
                 }
             }
             fetchedData = data
@@ -576,7 +623,7 @@ public final class ReaderChapterListStore {
 
             if let context = modelContext {
                 let worker = BackgroundSearchWorker(container: context.container)
-                let dtos = await worker.searchChapters(bookId: bookId, query: trimmed, isAscending: isAscending)
+                let dtos = await worker.searchChapters(bookId: bookId, query: trimmed, isAscending: isAscending, isTranslationEnabled: isTranslationEnabled)
 
                 if Task.isCancelled { return }
 
@@ -942,16 +989,25 @@ public struct ReaderChapterListView: View {
                     scrollToCurrentChapter(proxy: proxy)
                 }
             }
+            .onChange(of: isTranslationEnabled) { _, newValue in
+                displayTitleCache.removeAll()
+                store.updateTranslation(isTranslationEnabled: newValue)
+            }
         }
     }
 
     private func displayTitle(for chapter: ReaderChapterRowState) -> String {
         guard !chapter.isPlaceholder else { return "Đang tải..." }
+        if !isTranslationEnabled {
+            return chapter.title
+        }
         if let cached = displayTitleCache[chapter.index] {
             return cached
         }
-        guard isTranslationEnabled, TranslateUtils.containsChinese(chapter.title) else {
-            return chapter.title
+        if TranslateUtils.containsChinese(chapter.title) {
+            let translated = TranslateUtils.translateChapterTitle(chapter.title, bookId: bookId)
+            displayTitleCache[chapter.index] = translated
+            return translated
         }
         return chapter.title
     }
