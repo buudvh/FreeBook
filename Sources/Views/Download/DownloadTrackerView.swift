@@ -53,9 +53,10 @@ struct DownloadTrackerView: View {
                 .shadow(color: Color.black.opacity(0.08), radius: 2, x: 0, y: 1)
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(isTranslationEnabled && TranslateUtils.containsChinese(task.bookTitle)
+                let rawTitle = isTranslationEnabled && TranslateUtils.containsChinese(task.bookTitle)
                      ? TranslateUtils.translateMeta(task.bookTitle, bookId: task.bookId)
-                     : task.bookTitle)
+                     : task.bookTitle
+                Text(DisplayTextFormatter.titleCase(rawTitle))
                     .font(.headline)
                     .lineLimit(1)
                 

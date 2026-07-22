@@ -63,7 +63,7 @@ struct SuggestRowView: View {
                                         .cornerRadius(6)
                                         .shadow(radius: 1.5)
                                     
-                                    Text(TranslateUtils.translateMeta(novel.name))
+                                    Text(DisplayTextFormatter.titleCase(TranslateUtils.translateMeta(novel.name)))
                                         .font(.caption2)
                                         .fontWeight(.medium)
                                         .foregroundColor(.primary)

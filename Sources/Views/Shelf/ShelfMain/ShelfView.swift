@@ -35,6 +35,7 @@ struct ShelfView: View {
     @State private var navigateToPlayingBookId: String? = nil
     @State private var navigateToPlayingExtensionId: String = ""
     @State private var navigateToPlayingChapterIndex: Int = 0
+    @State private var navigateToPlayingParagraphIndex: Int? = nil
     @State private var navigateToPlayingDetailUrl: String = ""
     @State private var navigateToPlayingSourceName: String = ""
     @State private var triggerNavigation = false
@@ -344,7 +345,8 @@ struct ShelfView: View {
                         bookCoverUrl: nil,
                         bookDesc: nil,
                         bookDetailUrl: navigateToPlayingDetailUrl,
-                        bookSourceName: navigateToPlayingSourceName
+                        bookSourceName: navigateToPlayingSourceName,
+                        initialParagraphIndex: navigateToPlayingParagraphIndex
                     )
                 }
             }
@@ -364,10 +366,12 @@ struct ShelfView: View {
                         ]
                     )
                 } else {
+                    let currentPIdx = ttsManager.currentParentParagraphIndex
                     self.selectedTab = 1 // Switch to Shelf tab
                     self.navigateToPlayingBookId = bookId
                     self.navigateToPlayingExtensionId = ttsManager.extensionInfo?.packageId ?? ""
                     self.navigateToPlayingChapterIndex = ttsManager.playingChapterIndex
+                    self.navigateToPlayingParagraphIndex = currentPIdx >= 0 ? currentPIdx : nil
                     self.navigateToPlayingDetailUrl = ttsManager.playingBookDetailUrl
                     self.navigateToPlayingSourceName = ttsManager.playingBookSourceName
                     self.triggerNavigation = true
@@ -452,13 +456,13 @@ struct ShelfView: View {
                 .cornerRadius(4)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(translateIfNeeded(book.title, bookId: book.bookId))
+                Text(DisplayTextFormatter.titleCase(translateIfNeeded(book.title, bookId: book.bookId)))
                     .font(.headline)
                     .lineLimit(1)
 
                 HStack(spacing: 8) {
                     if !book.author.isEmpty {
-                        Text(TranslateUtils.translateAuthorHanViet(book.author))
+                        Text(DisplayTextFormatter.titleCase(TranslateUtils.translateAuthorHanViet(book.author)))
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .lineLimit(1)

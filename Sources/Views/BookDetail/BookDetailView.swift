@@ -381,14 +381,24 @@ struct BookDetailView: View {
                                 .shadow(radius: 2)
 
                             VStack(alignment: .leading, spacing: 8) {
-                                Text(translateMetaIfNeeded(title))
+                                Text(DisplayTextFormatter.titleCase(translateMetaIfNeeded(title)))
                                     .font(.title3)
                                     .fontWeight(.bold)
                                     .lineLimit(3)
 
-                                Text("Tác giả: \(TranslateUtils.translateAuthorHanViet(author))")
+                                let formattedAuthor = author.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    ? ""
+                                    : DisplayTextFormatter.titleCase(TranslateUtils.translateAuthorHanViet(author))
+                                if !formattedAuthor.isEmpty {
+                                    HStack(spacing: 5) {
+                                        Image(systemName: "person.fill")
+                                            .font(.caption)
+                                        Text(formattedAuthor)
+                                            .lineLimit(1)
+                                    }
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
+                                }
 
                                 HStack(spacing: 6) {
                                     if let ext = ext {

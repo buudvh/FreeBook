@@ -584,7 +584,7 @@ struct DiscoveryCategoryTabView: View {
                                 .clipped()
                                 
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(translateIfNeeded(novel.name))
+                                    Text(DisplayTextFormatter.titleCase(translateIfNeeded(novel.name)))
                                         .font(.subheadline)
                                         .fontWeight(.bold)
                                         .lineLimit(2)

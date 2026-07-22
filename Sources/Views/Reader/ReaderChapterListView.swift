@@ -634,6 +634,7 @@ public struct ReaderChapterListView: View {
     public let localBook: Book?
     public let ext: Extension?
     public let currentChapterIndex: Int
+    public let isPresented: Bool
     public let isTranslationEnabled: Bool
     public let theme: ReaderTheme
     public let store: ReaderChapterListStore
@@ -641,32 +642,66 @@ public struct ReaderChapterListView: View {
     public let onSelectChapter: (Int) -> Void
     public let onClose: () -> Void
 
+    public init(
+        bookId: String,
+        bookTitle: String?,
+        bookAuthor: String?,
+        bookCoverUrl: String?,
+        bookDetailUrl: String?,
+        localBook: Book?,
+        ext: Extension?,
+        currentChapterIndex: Int,
+        isPresented: Bool = true,
+        isTranslationEnabled: Bool,
+        theme: ReaderTheme,
+        store: ReaderChapterListStore,
+        onlineChapters: Binding<[ChapterResult]>,
+        onSelectChapter: @escaping (Int) -> Void,
+        onClose: @escaping () -> Void
+    ) {
+        self.bookId = bookId
+        self.bookTitle = bookTitle
+        self.bookAuthor = bookAuthor
+        self.bookCoverUrl = bookCoverUrl
+        self.bookDetailUrl = bookDetailUrl
+        self.localBook = localBook
+        self.ext = ext
+        self.currentChapterIndex = currentChapterIndex
+        self.isPresented = isPresented
+        self.isTranslationEnabled = isTranslationEnabled
+        self.theme = theme
+        self.store = store
+        self._onlineChapters = onlineChapters
+        self.onSelectChapter = onSelectChapter
+        self.onClose = onClose
+    }
+
     @Environment(\.modelContext) private var modelContext
     @State private var showingBookDetail = false
     @State private var searchQuery = ""
     @State private var isAscending = true
     @State private var isUpdating = false
     @State private var errorMessage = ""
-    @State private var didPositionInitialChapter = false
     @State private var isPositioningInitialChapter = true
     @State private var displayTitleCache: [Int: String] = [:]
-
-
+    @State private var deferredVisiblePageTask: Task<Void, Never>? = nil
 
     private var metadataTitle: String {
         let original = firstNonempty(localBook?.title, bookTitle) ?? "FreeBook"
-        guard isTranslationEnabled, TranslateUtils.containsChinese(original) else {
-            return original
-        }
-        return TranslateUtils.translateMeta(original, bookId: bookId)
+        let translated = isTranslationEnabled && TranslateUtils.containsChinese(original)
+            ? TranslateUtils.translateMeta(original, bookId: bookId)
+            : original
+        return DisplayTextFormatter.titleCase(translated)
     }
 
     private var metadataAuthor: String {
-        let original = firstNonempty(localBook?.author, bookAuthor) ?? "Không rõ"
-        guard isTranslationEnabled, TranslateUtils.containsChinese(original) else {
-            return original
+        guard let original = firstNonempty(localBook?.author, bookAuthor) else {
+            return ""
         }
-        return TranslateUtils.translateAuthorHanViet(original)
+        let translated = isTranslationEnabled && TranslateUtils.containsChinese(original)
+            ? TranslateUtils.translateAuthorHanViet(original)
+            : original
+        return DisplayTextFormatter.titleCase(translated)
     }
 
     private var metadataCoverUrl: String {
@@ -738,10 +773,12 @@ public struct ReaderChapterListView: View {
                         .foregroundColor(theme.textColor)
                         .lineLimit(2)
 
-                    Text(metadataAuthor)
-                        .font(.subheadline)
-                        .foregroundColor(theme.textColor.opacity(0.72))
-                        .lineLimit(1)
+                    if !metadataAuthor.isEmpty {
+                        Text(metadataAuthor)
+                            .font(.subheadline)
+                            .foregroundColor(theme.textColor.opacity(0.72))
+                            .lineLimit(1)
+                    }
 
                     HStack(spacing: 0) {
                         Text("\(store.totalCount) chương")
@@ -854,12 +891,10 @@ public struct ReaderChapterListView: View {
                                 )
                                 .id(item.index)
                                 .onAppear {
-                                    warmDisplayTitle(for: chapter)
                                     guard !isPositioningInitialChapter else {
                                         return
                                     }
-                                    store.loadVisiblePageIfNeeded(displayPosition: displayPosition)
-                                    store.prefetchAround(displayPosition: displayPosition)
+                                    scheduleVisiblePageWork(displayPosition: displayPosition)
                                 }
                             }
                         }
@@ -877,9 +912,6 @@ public struct ReaderChapterListView: View {
                                 }
                             )
                             .id(item.index)
-                            .onAppear {
-                                warmDisplayTitle(for: chapter)
-                            }
                         }
                     }
                 }
@@ -898,15 +930,16 @@ public struct ReaderChapterListView: View {
                 store.performSearch(query: newValue)
             }
             .onAppear {
-                guard !didPositionInitialChapter else { return }
-                didPositionInitialChapter = true
-                Task {
-                    let displayPosition = await store.jumpToChapter(index: currentChapterIndex)
-                    if let item = store.item(at: displayPosition) {
-                        warmDisplayTitle(for: store.rowState(at: displayPosition))
-                        proxy.scrollTo(item.index, anchor: .center)
-                    }
-                    isPositioningInitialChapter = false
+                scrollToCurrentChapter(proxy: proxy)
+            }
+            .onChange(of: isPresented) { _, presented in
+                if presented {
+                    scrollToCurrentChapter(proxy: proxy)
+                }
+            }
+            .onChange(of: currentChapterIndex) { _, _ in
+                if isPresented {
+                    scrollToCurrentChapter(proxy: proxy)
                 }
             }
         }
@@ -923,20 +956,59 @@ public struct ReaderChapterListView: View {
         return chapter.title
     }
 
-    private func warmDisplayTitle(for chapter: ReaderChapterRowState) {
-        guard !chapter.isPlaceholder else { return }
-        guard isTranslationEnabled, TranslateUtils.containsChinese(chapter.title) else { return }
-        guard displayTitleCache[chapter.index] == nil else { return }
+    private func scrollToCurrentChapter(proxy: ScrollViewProxy) {
+        guard isPresented else { return }
+        Task {
+            let displayPosition = await store.jumpToChapter(index: currentChapterIndex)
+            if let item = store.item(at: displayPosition) {
+                proxy.scrollTo(item.index, anchor: .center)
+            }
+            warmNearbyTitles(aroundDisplayPosition: displayPosition, windowSize: 8)
+            isPositioningInitialChapter = false
+        }
+    }
 
-        let chapterIndex = chapter.index
-        let rawTitle = chapter.title
-        let currentBookId = bookId
-        displayTitleCache[chapterIndex] = rawTitle
-
-        Task.detached(priority: .utility) { [chapterIndex, rawTitle, currentBookId] in
-            let translated = TranslateUtils.translateChapterTitle(rawTitle, bookId: currentBookId)
+    private func scheduleVisiblePageWork(displayPosition: Int) {
+        deferredVisiblePageTask?.cancel()
+        deferredVisiblePageTask = Task {
+            try? await Task.sleep(nanoseconds: 90_000_000)
+            guard !Task.isCancelled else { return }
             await MainActor.run {
-                displayTitleCache[chapterIndex] = translated
+                store.loadVisiblePageIfNeeded(displayPosition: displayPosition)
+                store.prefetchAround(displayPosition: displayPosition)
+            }
+        }
+    }
+
+    private func warmNearbyTitles(aroundDisplayPosition targetDisplayPosition: Int, windowSize: Int = 8) {
+        guard isTranslationEnabled else { return }
+        let total = store.totalCount
+        guard total > 0 else { return }
+
+        let minPos = max(0, targetDisplayPosition - windowSize)
+        let maxPos = min(total - 1, targetDisplayPosition + windowSize)
+
+        var toWarm: [(index: Int, rawTitle: String)] = []
+        for pos in minPos...maxPos {
+            if let rowState = store.loadedRowStates[pos], !rowState.isPlaceholder, !rowState.title.isEmpty {
+                let logicalIndex = rowState.index
+                guard displayTitleCache[logicalIndex] == nil else { continue }
+                if TranslateUtils.containsChinese(rowState.title) {
+                    toWarm.append((index: logicalIndex, rawTitle: rowState.title))
+                }
+            }
+        }
+
+        guard !toWarm.isEmpty else { return }
+        let currentBookId = bookId
+        Task.detached(priority: .utility) { [toWarm, currentBookId] in
+            var results: [Int: String] = [:]
+            for item in toWarm {
+                let translated = TranslateUtils.translateChapterTitle(item.rawTitle, bookId: currentBookId)
+                results[item.index] = translated
+            }
+            await MainActor.run {
+                self.displayTitleCache.merge(results) { current, _ in current }
             }
         }
     }

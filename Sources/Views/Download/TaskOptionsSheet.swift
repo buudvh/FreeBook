@@ -34,10 +34,17 @@ struct TaskOptionsSheet: View {
                                 .font(.headline)
                                 .lineLimit(2)
                             
-                            Text("Tác giả: \(displayedAuthor)")
+                            if !displayedAuthor.isEmpty {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "person.fill")
+                                        .font(.caption)
+                                    Text(displayedAuthor)
+                                        .lineLimit(1)
+                                }
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
-                            
+                            }
+
                             Text("\(book.sourceName)")
                                 .font(.caption)
                                 .padding(.horizontal, 8)
@@ -103,15 +110,15 @@ struct TaskOptionsSheet: View {
     }
     
     private var displayedBookTitle: String {
-        guard isTranslationEnabled, TranslateUtils.containsChinese(book.title) else {
-            return book.title
-        }
-        return TranslateUtils.translateMeta(book.title, bookId: book.bookId)
+        let title = isTranslationEnabled && TranslateUtils.containsChinese(book.title)
+            ? TranslateUtils.translateMeta(book.title, bookId: book.bookId)
+            : book.title
+        return DisplayTextFormatter.titleCase(title)
     }
 
     private var displayedAuthor: String {
-        guard isTranslationEnabled else { return book.author }
-        return TranslateUtils.translateAuthorHanViet(book.author)
+        let author = isTranslationEnabled ? TranslateUtils.translateAuthorHanViet(book.author) : book.author
+        return DisplayTextFormatter.titleCase(author)
     }
 
     private func startTask() {

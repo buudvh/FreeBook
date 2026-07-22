@@ -320,7 +320,7 @@ struct SearchView: View {
                                                                     .cornerRadius(6)
                                                                     .clipped()
                                                                     
-                                                                    Text(translateIfNeeded(result.name))
+                                                                    Text(DisplayTextFormatter.titleCase(translateIfNeeded(result.name)))
                                                                         .font(.caption)
                                                                         .fontWeight(.semibold)
                                                                         .foregroundColor(.primary)
@@ -357,7 +357,7 @@ struct SearchView: View {
                                                                     .cornerRadius(6)
                                                                     .clipped()
                                                                     
-                                                                    Text(translateIfNeeded(result.name))
+                                                                    Text(DisplayTextFormatter.titleCase(translateIfNeeded(result.name)))
                                                                         .font(.caption)
                                                                         .fontWeight(.semibold)
                                                                         .foregroundColor(.primary)
@@ -415,7 +415,7 @@ struct SearchView: View {
                         .clipped()
                         
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(translateIfNeeded(item.result.name))
+                            Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.result.name)))
                                 .font(.subheadline)
                                 .fontWeight(.bold)
                                 .foregroundColor(.primary)
@@ -463,7 +463,7 @@ struct SearchView: View {
                         .clipped()
                         
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(translateIfNeeded(item.result.name))
+                            Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.result.name)))
                                 .font(.subheadline)
                                 .fontWeight(.bold)
                                 .lineLimit(2)

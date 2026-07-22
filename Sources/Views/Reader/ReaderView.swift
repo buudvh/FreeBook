@@ -736,7 +736,8 @@ struct ReaderView: View {
                     bookDetailUrl: bookDetailUrl,
                     localBook: localBook,
                     ext: ext,
-                    currentChapterIndex: chapterIndex,
+                    currentChapterIndex: viewModel?.displayedChapterIndex ?? chapterIndex,
+                    isPresented: showingChapterList,
                     isTranslationEnabled: isTranslationEnabled,
                     theme: selectedTheme,
                     store: chapterListStore,
@@ -1744,7 +1745,7 @@ struct ReaderView: View {
     }
 
     private var readerBookDisplayTitle: String {
-        translateMetaIfNeeded(localBook?.title ?? bookTitle ?? "FreeBook")
+        DisplayTextFormatter.titleCase(translateMetaIfNeeded(localBook?.title ?? bookTitle ?? "FreeBook"))
     }
 
     private var readerPresentedChapterIndex: Int {

@@ -52,13 +52,13 @@ struct CategoryNovelsListView: View {
                                     .shadow(radius: 1)
                                 
                                 VStack(alignment: .leading, spacing: 6) {
-                                    Text(TranslateUtils.translateMeta(novel.name))
+                                    Text(DisplayTextFormatter.titleCase(TranslateUtils.translateMeta(novel.name)))
                                         .font(.subheadline)
                                         .fontWeight(.semibold)
                                         .foregroundColor(.primary)
                                         .lineLimit(2)
                                     
-                                    // Text(TranslateUtils.translateAuthorHanViet(novel.author))
+                                    // Text(DisplayTextFormatter.titleCase(TranslateUtils.translateAuthorHanViet(novel.author)))
                                     //     .font(.caption)
                                     //     .foregroundColor(.secondary)
                                     //     .lineLimit(1)

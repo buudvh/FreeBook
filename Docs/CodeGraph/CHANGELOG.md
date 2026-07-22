@@ -4,6 +4,26 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.40] - 2026-07-22
+
+### Sửa lỗi nghĩa rỗng VP, tối ưu cuộn/làm nóng mục lục Reader, điều hướng TTS chính xác đoạn văn và định dạng Title Case UI
+* **Dictionary & Translation (Vietphrase)**:
+  * Khắc phục lỗi không áp dụng nghĩa rỗng ở vị trí đầu tiên khi chuỗi dịch từ điển Vietphrase chứa ký tự phân cách đầu dòng (`/`, `|`, `¦`) trong `TranslateUtils.getFirstMeaning(of:)` và `ManageDefinitionsView`.
+  * Bổ sung các ca kiểm thử đơn vị bao quát trong `Tests/TranslationTests.swift`.
+* **Reader Subsystem**:
+  * `ReaderChapterListView`: Tự động cuộn căn giữa chương đang đọc khi mở sheet mục lục mỗi lần (`onChange(of: isPresented)` & `currentChapterIndex`).
+  * Tối ưu hóa việc dịch tên chương Hán-Việt ngầm (`warmNearbyTitles`) theo lô (batch warming) trong bán kính cửa sổ hiển thị (`windowSize = 8`) thay vì gọi giải dịch riêng lẻ từng dòng khi xuất hiện (`onAppear`).
+  * Trễ tác vụ nạp trang hiển thị (`scheduleVisiblePageWork`) với cơ chế hoãn (debounce 90ms) giúp ngăn chặn hiện tượng cuộn giật/thrashing khi người dùng lướt nhanh mục lục.
+* **TTS Navigation Integration**:
+  * `ShelfView`: Khi chuyển từ widget / MiniPlayer TTS sang Reader via nút "Nghe tiếp", truyền tham số `navigateToPlayingParagraphIndex` (`initialParagraphIndex`) giúp Reader tự động cuộn và highlight chính xác đoạn văn đang đọc thay vì mở lại từ đầu chương.
+* **UI Text Formatting & Styling**:
+  * Tích hợp tiện ích `DisplayTextFormatter.titleCase` hỗ trợ định dạng hoa đầu từ theo quy chuẩn tiếng Việt (`Locale(identifier: "vi_VN")`), bảo toàn các từ viết tắt chuyên ngành (`TTS`, `AI`, `VIP`, `iOS`, `API`, `URL`, `FreeBook`, v.v.).
+  * Áp dụng định dạng Title Case đồng bộ cho tiêu đề sách và tên tác giả trên các view: `BookDetailView`, `SuggestRowView`, `CategoryNovelsListView`, `DiscoveryView`, `DownloadTrackerView`, `TaskOptionsSheet`, `ReaderView`, `SearchView`, `ShelfView`.
+  * Thay thế nhãn chữ "Tác giả:" bằng biểu tượng người dùng (`Image(systemName: "person.fill")`) trong `BookDetailView` và `TaskOptionsSheet` giúp giao diện hiện đại và gọn gàng hơn.
+  * Không hiển thị fallback "Không rõ" khi thiếu tên tác giả; các vùng metadata tác giả trong `BookDetailView`, `TaskOptionsSheet` và header mục lục Reader sẽ để trống.
+* **Unit Tests**:
+  * Tạo mới bộ kiểm thử `Tests/DisplayTextFormatterTests.swift` kiểm định các trường hợp Title Case tiếng Việt, từ viết tắt preserved, `nil`, chuỗi rỗng và xử lý chuẩn hóa khoảng trắng.
+
 ## [1.3.39] - 2026-07-21
 
 ### Tích hợp cơ chế waitForReady thăm dò DOM động trong Extension Engine
