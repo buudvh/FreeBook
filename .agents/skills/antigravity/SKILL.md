@@ -47,10 +47,10 @@ AGY settings are stored at:
 
 ## Required model
 
-Use `Gemini 3.5 Flash (High)` for planning, implementation, testing, and repair sessions. Pass it explicitly on every launch so the result does not depend on a user's persisted CLI default:
+Use `Gemini 3.6 Flash (High)` for planning, implementation, testing, and repair sessions. Pass it explicitly on every launch so the result does not depend on a user's persisted CLI default:
 
 ```text
-agy --dangerously-skip-permissions --model "Gemini 3.5 Flash (High)" ...
+agy --dangerously-skip-permissions --model "Gemini 3.6 Flash (High)" ...
 ```
 
 Run `agy models` before the first delegation in a new environment. If the exact model is unavailable, stop and tell the manager; do not silently substitute another model or reasoning level.
@@ -61,21 +61,21 @@ Prefer print mode for delegation. It returns output to the host process and exit
 
 ```text
 # Ask AGY to plan without editing production files
-agy --dangerously-skip-permissions --model "Gemini 3.5 Flash (High)" --mode=plan --print-timeout=30m --print "<planning brief>"
+agy --dangerously-skip-permissions --model "Gemini 3.6 Flash (High)" --mode=plan --print-timeout=30m --print "<planning brief>"
 
 # Implement an approved plan and automatically accept file edits
-agy --dangerously-skip-permissions --model "Gemini 3.5 Flash (High)" --mode=accept-edits --print-timeout=60m --print "<approved plan and constraints>"
+agy --dangerously-skip-permissions --model "Gemini 3.6 Flash (High)" --mode=accept-edits --print-timeout=60m --print "<approved plan and constraints>"
 
 # Continue the newest conversation in the current workspace
-agy --dangerously-skip-permissions --model "Gemini 3.5 Flash (High)" --continue --print-timeout=60m --print "<follow-up or repair request>"
+agy --dangerously-skip-permissions --model "Gemini 3.6 Flash (High)" --continue --print-timeout=60m --print "<follow-up or repair request>"
 
 # Resume an exact conversation
-agy --dangerously-skip-permissions --model "Gemini 3.5 Flash (High)" --conversation <conversation-id> --print-timeout=60m --print "<follow-up or repair request>"
+agy --dangerously-skip-permissions --model "Gemini 3.6 Flash (High)" --conversation <conversation-id> --print-timeout=60m --print "<follow-up or repair request>"
 ```
 
 `-p` is the short alias for `--print`, and `-c` is the short alias for `--continue`. Adjust timeouts to the task; do not use a timeout as proof that work completed.
 
-Use `--dangerously-skip-permissions --model "Gemini 3.5 Flash (High)" --prompt-interactive "<prompt>"` only when a live TUI is necessary. Use `--sandbox` when terminal containment is appropriate. Use `--add-dir <path>` only for an explicitly scoped additional directory.
+Use `--dangerously-skip-permissions --model "Gemini 3.6 Flash (High)" --prompt-interactive "<prompt>"` only when a live TUI is necessary. Use `--sandbox` when terminal containment is appropriate. Use `--add-dir <path>` only for an explicitly scoped additional directory.
 
 ## Essential TUI commands
 
@@ -121,7 +121,7 @@ Turn the manager's request into a concise planning brief containing:
 - instruction not to edit production files;
 - required structured completion response.
 
-Launch AGY with `--dangerously-skip-permissions --model "Gemini 3.5 Flash (High)" --mode=plan --print`. Require:
+Launch AGY with `--dangerously-skip-permissions --model "Gemini 3.6 Flash (High)" --mode=plan --print`. Require:
 
 ```text
 PLANNING_STATUS: COMPLETE | BLOCKED
@@ -154,7 +154,7 @@ Do not start an edit-enabled session or change production code until the manager
 
 ### 4. Delegate implementation and testing
 
-After approval, send AGY the exact approved plan and current constraints with `--dangerously-skip-permissions --model "Gemini 3.5 Flash (High)" --mode=accept-edits --print`. Require it to:
+After approval, send AGY the exact approved plan and current constraints with `--dangerously-skip-permissions --model "Gemini 3.6 Flash (High)" --mode=accept-edits --print`. Require it to:
 
 - change only approved files and preserve unrelated user work;
 - follow repository instructions;
@@ -212,7 +212,7 @@ Only report completion after review passes. Summarize implementation, passed che
 ## Efficiency and safety
 
 - Delegate discovery, planning, coding, testing, and repairs to AGY.
-- Use `Gemini 3.5 Flash (High)` for every AGY session.
+- Use `Gemini 3.6 Flash (High)` for every AGY session.
 - Reuse the same workspace conversation and structured artifacts.
 - Read only focused plans, diffs, touched files, and test logs.
 - Never bypass the approval gate or broaden scope.

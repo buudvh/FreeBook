@@ -43,9 +43,19 @@ struct ManageDefinitionsView: View {
     
     private func splitMeanings(_ translation: String) -> [String] {
         let clean = translation.replacingOccurrences(of: "¦", with: "/")
-        return clean.components(separatedBy: "/")
+        let startsWithSeparator = clean.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("/")
+        let components = clean.components(separatedBy: "/")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        
+        var result: [String] = []
+        for (index, comp) in components.enumerated() {
+            if index == 0 && startsWithSeparator {
+                result.append(comp)
+            } else if !comp.isEmpty {
+                result.append(comp)
+            }
+        }
+        return result
     }
     
     var body: some View {

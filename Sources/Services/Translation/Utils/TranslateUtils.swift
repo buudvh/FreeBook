@@ -17,11 +17,11 @@ public final class TranslateUtils {
     
     public static func getFirstMeaning(of rawTranslation: String) -> String {
         let separators = CharacterSet(charactersIn: "/¦|")
-        return rawTranslation
-            .components(separatedBy: separators)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .first { !$0.isEmpty }
-            ?? rawTranslation
+        let components = rawTranslation.components(separatedBy: separators)
+        if let first = components.first {
+            return first.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return rawTranslation.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
     // Default TOC rules mapped from user preference

@@ -115,7 +115,12 @@ final class TranslationTests: XCTestCase {
         XCTAssertEqual(TranslateUtils.getFirstMeaning(of: "Quyết chiến|Đại chiến"), "Quyết chiến")
         XCTAssertEqual(TranslateUtils.getFirstMeaning(of: "Quyết chiến¦Đại chiến"), "Quyết chiến")
         XCTAssertEqual(TranslateUtils.getFirstMeaning(of: "Quyết chiến/Đại chiến"), "Quyết chiến")
-        XCTAssertEqual(TranslateUtils.getFirstMeaning(of: " | Đại chiến"), "Đại chiến")
+        XCTAssertEqual(TranslateUtils.getFirstMeaning(of: " | Đại chiến"), "")
+        XCTAssertEqual(TranslateUtils.getFirstMeaning(of: "/Đại"), "")
+        XCTAssertEqual(TranslateUtils.getFirstMeaning(of: "¦Đại"), "")
+        XCTAssertEqual(TranslateUtils.getFirstMeaning(of: " /Đại"), "")
+        XCTAssertEqual(TranslateUtils.getFirstMeaning(of: "Đại/To"), "Đại")
+        XCTAssertEqual(TranslateUtils.getFirstMeaning(of: "Đại"), "Đại")
 
         let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
