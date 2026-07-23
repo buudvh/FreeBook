@@ -123,6 +123,7 @@ class ReaderViewModel: ObservableObject {
     private let bootstrapParagraphIndex: Int
     private var speculativePrefetchEnabled = true
     private var memoryWarningSubscription: AnyCancellable?
+    private var bookChaptersSubscription: AnyCancellable?
     private var cachedLocalBook: Book? = nil
     private var cachedExt: Extension? = nil
     var onChapterCached: ((Int) -> Void)?
@@ -311,6 +312,11 @@ class ReaderViewModel: ObservableObject {
         }
     }
 
+    deinit {
+        memoryWarningSubscription?.cancel()
+        bookChaptersSubscription?.cancel()
+    }
+
     private func setupSubscriptions() {
         memoryWarningSubscription = NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)
             .sink { [weak self] _ in
@@ -318,6 +324,28 @@ class ReaderViewModel: ObservableObject {
                     self?.handleMemoryWarning()
                 }
             }
+
+        let currentBookId = self.bookId
+        bookChaptersSubscription = NotificationCenter.default.publisher(for: .bookChaptersUpdated)
+            .compactMap { $0.userInfo?["bookId"] as? String }
+            .filter { $0 == currentBookId }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshChapterCountFromStorage()
+            }
+    }
+
+    public func refreshChapterCountFromStorage() {
+        let localBookId = bookId
+        var descriptor = FetchDescriptor<Chapter>(
+            predicate: #Predicate<Chapter> { $0.bookId == localBookId }
+        )
+        if let count = try? modelContext.fetchCount(descriptor), count > totalChaptersCount {
+            self.totalChaptersCount = count
+            if case .bootstrapping = loadState {
+                bootstrapReader()
+            }
+        }
     }
 
     // Cập nhật vị trí đọc trên RAM
@@ -884,9 +912,5 @@ class ReaderViewModel: ObservableObject {
                 }
             }
         }
-    }
-
-    deinit {
-        memoryWarningSubscription?.cancel()
     }
 }

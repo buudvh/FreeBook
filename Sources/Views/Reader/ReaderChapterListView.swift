@@ -793,6 +793,7 @@ public struct ReaderChapterListView: View {
     @State private var isPositioningInitialChapter = true
     @State private var displayTitleCache: [Int: String] = [:]
     @State private var deferredVisiblePageTask: Task<Void, Never>? = nil
+    @State private var refreshTask: Task<Void, Never>? = nil
 
     private var metadataTitle: String {
         let original = firstNonempty(localBook?.title, bookTitle) ?? "FreeBook"
@@ -840,6 +841,9 @@ public struct ReaderChapterListView: View {
         }
         .accessibilityAction(.escape) {
             onClose()
+        }
+        .onDisappear {
+            refreshTask?.cancel()
         }
     }
 
@@ -1130,6 +1134,86 @@ public struct ReaderChapterListView: View {
         }
     }
 
+    private func isValidChapterUrl(_ url: String) -> Bool {
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || trimmed == "#" { return false }
+        let lower = trimmed.lowercased()
+        if lower.hasPrefix("javascript:") || lower.hasPrefix("about:blank") { return false }
+        return true
+    }
+
+    private func makeSafeChapterId(
+        bookId: String,
+        url: String,
+        index: Int,
+        seenIds: inout Set<String>
+    ) -> String {
+        let trimmedUrl = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        let candidateId: String
+        if !isValidChapterUrl(trimmedUrl) {
+            candidateId = "\(bookId.count):\(bookId)|I:\(index)"
+        } else {
+            candidateId = Chapter.generateId(bookId: bookId, url: trimmedUrl, index: index)
+        }
+
+        if seenIds.contains(candidateId) {
+            let fallbackId = "\(bookId.count):\(bookId)|I:\(index)"
+            seenIds.insert(fallbackId)
+            return fallbackId
+        } else {
+            seenIds.insert(candidateId)
+            return candidateId
+        }
+    }
+
+    @discardableResult
+    private func appendNewChaptersOnly(for book: Book, pageResults: [ChapterResult], baseIndex: Int) -> Int {
+        var existingUrls = Set(book.chapters.compactMap { chap -> String? in
+            let trimmed = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
+            return isValidChapterUrl(trimmed) ? trimmed : nil
+        })
+        var existingIndices = Set(book.chapters.map(\.index))
+        var seenIds = Set(book.chapters.map(\.id))
+
+        let chapterHost = book.host ?? ext?.sourceUrl
+        var addedCount = 0
+
+        for (offset, item) in pageResults.enumerated() {
+            let absoluteIndex = baseIndex + offset
+            let trimmedUrl = item.url.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if isValidChapterUrl(trimmedUrl) && existingUrls.contains(trimmedUrl) {
+                continue
+            }
+            if existingIndices.contains(absoluteIndex) {
+                continue
+            }
+
+            let chapId = makeSafeChapterId(bookId: book.bookId, url: item.url, index: absoluteIndex, seenIds: &seenIds)
+            let effectiveHost = !item.host.isEmpty ? item.host : chapterHost
+            let newChapter = Chapter(
+                id: chapId,
+                bookId: book.bookId,
+                title: item.name,
+                url: item.url,
+                index: absoluteIndex,
+                host: effectiveHost
+            )
+
+            newChapter.book = book
+            modelContext.insert(newChapter)
+
+            seenIds.insert(chapId)
+            if isValidChapterUrl(trimmedUrl) {
+                existingUrls.insert(trimmedUrl)
+            }
+            existingIndices.insert(absoluteIndex)
+            addedCount += 1
+        }
+
+        return addedCount
+    }
+
     private func refreshChapters() {
         guard let ext else {
             errorMessage = "Không tìm thấy tiện ích bóc tách!"
@@ -1143,30 +1227,35 @@ public struct ReaderChapterListView: View {
             return
         }
 
+        guard !isUpdating else { return }
         isUpdating = true
         errorMessage = ""
-        Task {
+
+        refreshTask?.cancel()
+        refreshTask = Task {
+            defer { isUpdating = false }
             do {
-                var allChapters: [ChapterResult] = []
+                var pages: [String] = []
+                var firstPageChaps: [ChapterResult] = []
+
                 if ExtensionManager.shared.hasScript(localPath: ext.localPath, scriptKey: "page") {
-                    let pages = try await ExtensionManager.shared.page(
+                    pages = try await ExtensionManager.shared.page(
                         localPath: ext.localPath,
                         downloadUrl: ext.downloadUrl,
                         url: url,
                         host: localBook?.host,
                         configJson: ext.configJson
                     )
-                    for pageURL in pages {
-                        allChapters.append(contentsOf: try await ExtensionManager.shared.toc(
-                            localPath: ext.localPath,
-                            downloadUrl: ext.downloadUrl,
-                            url: pageURL,
-                            host: localBook?.host,
-                            configJson: ext.configJson
-                        ))
-                    }
+                    let firstPageUrl = pages.first ?? url
+                    firstPageChaps = try await ExtensionManager.shared.toc(
+                        localPath: ext.localPath,
+                        downloadUrl: ext.downloadUrl,
+                        url: firstPageUrl,
+                        host: localBook?.host,
+                        configJson: ext.configJson
+                    )
                 } else {
-                    allChapters = try await ExtensionManager.shared.toc(
+                    firstPageChaps = try await ExtensionManager.shared.toc(
                         localPath: ext.localPath,
                         downloadUrl: ext.downloadUrl,
                         url: url,
@@ -1175,46 +1264,82 @@ public struct ReaderChapterListView: View {
                     )
                 }
 
+                if Task.isCancelled { return }
+
+                var baseIndex = 0
+                var totalNewAdded = 0
+
                 if let book = localBook {
-                    let existingURLs = Set(book.chapters.map(\.url))
-                    let additions = allChapters.enumerated().filter { !existingURLs.contains($0.element.url) }
-                    for (index, item) in additions {
-                        let chapId = Chapter.generateId(bookId: book.bookId, url: item.url, index: index)
-                        let chapter = Chapter(
-                            id: chapId,
-                            bookId: book.bookId,
-                            title: item.name,
-                            url: item.url,
-                            index: index,
-                            host: item.host
-                        )
-                        chapter.book = book
-                        modelContext.insert(chapter)
-                        book.chapters.append(chapter)
-                    }
-                    if (book.host ?? "").isEmpty, let host = allChapters.first?.host, !host.isEmpty {
-                        book.host = host
-                    }
+                    let added = appendNewChaptersOnly(for: book, pageResults: firstPageChaps, baseIndex: baseIndex)
+                    totalNewAdded += added
+                    baseIndex += firstPageChaps.count
+
                     try? modelContext.save()
-                    let localBookId = book.bookId
-                    let descriptor = FetchDescriptor<Chapter>(
-                        predicate: #Predicate<Chapter> { $0.bookId == localBookId }
-                    )
-                    let totalCount = (try? modelContext.fetchCount(descriptor)) ?? 0
-                    store.updateChapters(totalCount: totalCount, onlineChapters: onlineChapters)
-                    ToastManager.shared.show(message: additions.isEmpty ? "Mục lục đã mới nhất" : "Đã thêm \(additions.count) chương mới", type: .success)
+                    let descriptor = FetchDescriptor<Chapter>(predicate: #Predicate<Chapter> { $0.bookId == book.bookId })
+                    let currentTotal = (try? modelContext.fetchCount(descriptor)) ?? book.chapters.count
+                    store.updateChapters(totalCount: currentTotal, onlineChapters: onlineChapters)
+                    NotificationCenter.default.post(name: .bookChaptersUpdated, object: nil, userInfo: ["bookId": book.bookId])
                 } else {
-                    let oldCount = onlineChapters.count
-                    onlineChapters = allChapters
-                    store.updateChapters(totalCount: allChapters.count, onlineChapters: allChapters)
-                    let added = max(0, allChapters.count - oldCount)
-                    ToastManager.shared.show(message: added == 0 ? "Mục lục đã mới nhất" : "Đã thêm \(added) chương mới", type: .success)
+                    onlineChapters = firstPageChaps
+                    baseIndex += firstPageChaps.count
+                    store.updateChapters(totalCount: onlineChapters.count, onlineChapters: onlineChapters)
                 }
-                isUpdating = false
+
+                if pages.count > 1 {
+                    let remainingPages = Array(pages.dropFirst())
+                    var pendingBatchCount = 0
+
+                    for pageUrl in remainingPages {
+                        if Task.isCancelled { break }
+
+                        let pageChaps = try await ExtensionManager.shared.toc(
+                            localPath: ext.localPath,
+                            downloadUrl: ext.downloadUrl,
+                            url: pageUrl,
+                            host: localBook?.host,
+                            configJson: ext.configJson
+                        )
+                        if Task.isCancelled { break }
+
+                        if let book = localBook {
+                            let added = appendNewChaptersOnly(for: book, pageResults: pageChaps, baseIndex: baseIndex)
+                            totalNewAdded += added
+                            baseIndex += pageChaps.count
+                        } else {
+                            onlineChapters.append(contentsOf: pageChaps)
+                            baseIndex += pageChaps.count
+                        }
+
+                        pendingBatchCount += 1
+                        let isLast = (pageUrl == remainingPages.last)
+
+                        if pendingBatchCount >= 10 || isLast {
+                            if let book = localBook {
+                                try? modelContext.save()
+                                let descriptor = FetchDescriptor<Chapter>(predicate: #Predicate<Chapter> { $0.bookId == book.bookId })
+                                let currentTotal = (try? modelContext.fetchCount(descriptor)) ?? book.chapters.count
+                                store.updateChapters(totalCount: currentTotal, onlineChapters: onlineChapters)
+                                NotificationCenter.default.post(name: .bookChaptersUpdated, object: nil, userInfo: ["bookId": book.bookId])
+                            } else {
+                                store.updateChapters(totalCount: onlineChapters.count, onlineChapters: onlineChapters)
+                            }
+                            pendingBatchCount = 0
+                            await Task.yield()
+                        }
+                    }
+                }
+
+                if !Task.isCancelled {
+                    let msg = (localBook != nil)
+                        ? (totalNewAdded == 0 ? "Mục lục đã mới nhất" : "Đã thêm \(totalNewAdded) chương mới")
+                        : "Đã cập nhật mục lục"
+                    ToastManager.shared.show(message: msg, type: .success)
+                }
             } catch {
-                errorMessage = "Lỗi cập nhật: \(error.localizedDescription)"
-                isUpdating = false
-                ToastManager.shared.show(message: errorMessage, type: .error)
+                if !Task.isCancelled {
+                    errorMessage = "Lỗi cập nhật: \(error.localizedDescription)"
+                    ToastManager.shared.show(message: errorMessage, type: .error)
+                }
             }
         }
     }

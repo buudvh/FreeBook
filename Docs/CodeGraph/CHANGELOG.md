@@ -4,6 +4,24 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.45] - 2026-07-23
+
+### Tối ưu luồng đọc online, cập nhật mục lục Reader tiệm tiến và chống đơ UI
+* **BookDetailView & ReaderViewModel**:
+  * Khi đọc truyện online mới, ưu tiên nạp và hiển thị TOC page 1 trước, sau đó tiếp tục tải các page còn lại theo kiểu tiệm tiến để tránh chặn màn hình chi tiết.
+  * Các luồng đọc lần đầu, thêm vào kệ, đổi nguồn và chuẩn bị tác vụ tải/xuất dùng wait layer có thể hủy, guard lỗi và save DB theo batch/yield thay vì lưu một khối lớn trên UI.
+  * Khi đọc tới chương xa, chỉ nạp TOC tới page cần thiết bằng `ensureChaptersLoadedUpTo`, không ép tải toàn bộ mục lục trước khi mở Reader.
+  * `ReaderViewModel` lắng nghe `.bookChaptersUpdated` để cập nhật tổng số chương khi BookDetail append thêm chương trong nền.
+  * Giữ dịch tên chương theo hướng lazy khi hiển thị/tìm kiếm, tránh dịch hàng loạt trong các vòng persistence/upsert.
+* **ReaderChapterListView & ReaderView**:
+  * Chuyển `refreshChapters()` từ tải toàn bộ TOC một lượt sang progressive refresh: page 1 cập nhật ngay, các page tiếp theo save/notify/update store theo batch 10 page hoặc page cuối.
+  * Refresh mục lục ở Reader hoạt động append-only: chỉ chèn chương mới, không ghi đè title/url/host/cache của chương đã có trong DB.
+  * Bảo toàn index toàn cục qua từng page bằng `baseIndex + offset`, tránh sai thứ tự khi xử lý page 2+ riêng lẻ.
+  * Bổ sung dedupe và safe ID cho URL rỗng/placeholder (`""`, `#`, `javascript:`, `about:blank`) để tránh crash unique constraint và tránh bỏ sót chương có URL không hợp lệ nhưng index khác nhau.
+  * Đồng bộ overlay danh sách chương khi DB append chương mới: `ReaderView` nhận `.bookChaptersUpdated`, fetch lại count và chỉ update `chapterListStore` khi số chương thực sự thay đổi để tránh vòng lặp cập nhật.
+* **Giới hạn đã biết**:
+  * Khi mở lại truyện đã có trong DB nhưng mục lục từng được lưu chưa đầy đủ, app vẫn không tự resume TOC còn thiếu; người dùng có thể bấm cập nhật mục lục trong Reader để append phần còn lại.
+
 ## [1.3.44] - 2026-07-23
 
 ### Sửa luồng khôi phục TTS settings để không phát lại câu dở dang

@@ -1,6 +1,10 @@
 import SwiftUI
 import SwiftData
 
+extension Notification.Name {
+    static let bookChaptersUpdated = Notification.Name("bookChaptersUpdatedNotification")
+}
+
 struct ReaderRoute: Identifiable, Hashable {
     let chapterIndex: Int
     var id: Int { chapterIndex }
@@ -90,6 +94,7 @@ struct BookDetailView: View {
     @State private var createdBookInstance: Book? = nil
     @State private var progressiveTocTask: Task<Void, Never>? = nil
     @State private var progressiveLoadingPageText: String = ""
+    @State private var loadedPageUrls: Set<String> = []
 
     private var actualBookId: String {
         resolvedBookId.isEmpty ? bookId : resolvedBookId
@@ -196,8 +201,10 @@ struct BookDetailView: View {
                 updateFilteredOnlineChapters()
             }
             .onDisappear {
-                progressiveTocTask?.cancel()
-                progressiveTocTask = nil
+                if readerRoute == nil {
+                    progressiveTocTask?.cancel()
+                    progressiveTocTask = nil
+                }
                 loadingTask?.cancel()
                 loadingTask = nil
                 bookOpenTask?.cancel()
@@ -810,7 +817,29 @@ struct BookDetailView: View {
             }
 
             Button(action: {
-                navigateToChangeSource = true
+                if effectiveBook == nil {
+                    bookOpenTask?.cancel()
+                    bookOpenTask = Task { @MainActor in
+                        isPreparingBook = true
+                        preparingStatusText = "Đang lưu dữ liệu..."
+                        await Task.yield()
+                        if Task.isCancelled {
+                            isPreparingBook = false
+                            bookOpenTask = nil
+                            return
+                        }
+                        let result = await persistBookToSQLiteAsync(isOnShelf: false)
+                        isPreparingBook = false
+                        bookOpenTask = nil
+                        if result != nil {
+                            navigateToChangeSource = true
+                        } else if !Task.isCancelled {
+                            tocErrorMessage = "Không thể lưu thông tin sách!"
+                        }
+                    }
+                } else {
+                    navigateToChangeSource = true
+                }
             }) {
                 Label("Thay đổi nguồn", systemImage: "arrow.2.squarepath")
             }
@@ -1203,6 +1232,10 @@ struct BookDetailView: View {
             return
         }
 
+        progressiveTocTask?.cancel()
+        progressiveTocTask = nil
+        loadedPageUrls.removeAll()
+        remainingPagesLoaded = false
         isLoadingTOC = true
         tocErrorMessage = ""
 
@@ -1216,53 +1249,40 @@ struct BookDetailView: View {
                     pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
                     if !pages.isEmpty {
                         firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages[0], host: resolvedHost, configJson: ext.configJson)
+                        await MainActor.run { self.loadedPageUrls.insert(pages[0]) }
                     } else {
                         firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
+                        await MainActor.run { self.loadedPageUrls.insert(initialDetailUrl) }
                     }
                 } else {
                     firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
+                    await MainActor.run { self.loadedPageUrls.insert(initialDetailUrl) }
                 }
 
                 await MainActor.run {
                     self.onlineChapters = firstPageChapters
                     self.tocPages = pages
 
-                    let targetBook: Book
-                    if let existing = self.effectiveBook {
-                        targetBook = existing
+                    if let targetBook = self.effectiveBook {
                         self.updateFirstPageChapters(for: targetBook, with: firstPageChapters)
-                    } else {
-                        let savedDesc = self.detail.isEmpty ? self.desc : "\(self.desc)\n\n---\n\(self.cleanDetailText(self.detail))"
-                        let newBook = Book(
-                            bookId: self.resolvedBookId,
-                            title: self.title,
-                            author: self.author,
-                            coverUrl: self.coverUrl,
-                            desc: savedDesc,
-                            detailUrl: self.initialDetailUrl,
-                            sourceName: self.sourceName,
-                            sourceUrl: self.ext?.sourceUrl ?? "",
-                            extensionPackageId: self.extensionPackageId,
-                            currentChapterIndex: 0,
-                            currentChapterTitle: firstPageChapters.first?.name ?? "",
-                            isOnShelf: false,
-                            isHistory: false,
-                            host: self.host.isEmpty ? nil : self.host
-                        )
-                        self.modelContext.insert(newBook)
-                        self.createdBookInstance = newBook
-                        self.updateFirstPageChapters(for: newBook, with: firstPageChapters)
-                        targetBook = newBook
-                    }
-                    try? self.modelContext.save()
-                    self.syncChaptersList()
-                    self.isLoadingTOC = false
+                        try? self.modelContext.save()
+                        self.syncChaptersList()
+                        self.isLoadingTOC = false
 
-                    if pages.count > 1 {
-                        self.remainingPagesLoaded = false
-                        self.startProgressiveTOCLoading(for: targetBook, pages: pages)
+                        if pages.count > 1 {
+                            self.remainingPagesLoaded = false
+                            self.startProgressiveTOCLoading(for: targetBook, pages: pages)
+                        } else {
+                            self.remainingPagesLoaded = true
+                        }
                     } else {
-                        self.remainingPagesLoaded = true
+                        self.isLoadingTOC = false
+                        if pages.count > 1 {
+                            self.remainingPagesLoaded = false
+                            self.startProgressiveTOCLoading(for: nil, pages: pages)
+                        } else {
+                            self.remainingPagesLoaded = true
+                        }
                     }
                 }
             } catch {
@@ -1272,6 +1292,196 @@ struct BookDetailView: View {
                 }
             }
         }
+    }
+    private func makeSafeChapterId(
+        bookId: String,
+        url: String,
+        index: Int,
+        seenIds: inout Set<String>
+    ) -> String {
+        let trimmedUrl = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isInvalidUrl = trimmedUrl.isEmpty ||
+                           trimmedUrl == "#" ||
+                           trimmedUrl.lowercased().hasPrefix("javascript:") ||
+                           trimmedUrl.lowercased().hasPrefix("about:blank")
+
+        let candidateId: String
+        if isInvalidUrl {
+            candidateId = "\(bookId.count):\(bookId)|I:\(index)"
+        } else {
+            candidateId = Chapter.generateId(bookId: bookId, url: trimmedUrl, index: index)
+        }
+
+        if seenIds.contains(candidateId) {
+            let fallbackId = "\(bookId.count):\(bookId)|I:\(index)"
+            seenIds.insert(fallbackId)
+            return fallbackId
+        } else {
+            seenIds.insert(candidateId)
+            return candidateId
+        }
+    }
+
+    private func cleanupPersistenceFailure(isNewBook: Bool, book: Book?) {
+        if isNewBook, let book = book {
+            modelContext.delete(book)
+            try? modelContext.save()
+            createdBookInstance = nil
+        } else {
+            if modelContext.hasChanges {
+                modelContext.rollback()
+            }
+        }
+    }
+
+    @discardableResult
+    private func persistBookToSQLiteAsync(isOnShelf: Bool = false, initialChapterIndex: Int = 0) async -> Book? {
+        if let existing = effectiveBook {
+            if isOnShelf && !existing.isOnShelf {
+                existing.isOnShelf = true
+                try? modelContext.save()
+            }
+            return existing
+        }
+
+        let isNewBook = (createdBookInstance == nil && localBook == nil)
+        let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
+        let initialChapterTitle: String
+        if initialChapterIndex >= 0 && initialChapterIndex < onlineChapters.count {
+            initialChapterTitle = onlineChapters[initialChapterIndex].name
+        } else {
+            initialChapterTitle = onlineChapters.first?.name ?? ""
+        }
+
+        let effectiveHost = !host.isEmpty ? host : resolvedHost
+        let newBook = Book(
+            bookId: resolvedBookId,
+            title: title,
+            author: author,
+            coverUrl: coverUrl,
+            desc: savedDesc,
+            detailUrl: initialDetailUrl,
+            sourceName: sourceName,
+            sourceUrl: ext?.sourceUrl ?? "",
+            extensionPackageId: extensionPackageId,
+            currentChapterIndex: initialChapterIndex,
+            currentChapterTitle: initialChapterTitle,
+            isOnShelf: isOnShelf,
+            isHistory: false,
+            host: effectiveHost
+        )
+        modelContext.insert(newBook)
+        createdBookInstance = newBook
+
+        let totalOnline = onlineChapters.count
+        if totalOnline == 0 {
+            do {
+                try modelContext.save()
+                NotificationCenter.default.post(
+                    name: .bookChaptersUpdated,
+                    object: nil,
+                    userInfo: ["bookId": newBook.bookId]
+                )
+                syncChaptersList()
+                return newBook
+            } catch {
+                cleanupPersistenceFailure(isNewBook: isNewBook, book: newBook)
+                return nil
+            }
+        }
+
+        let batchSize = 500
+        var startIndex = 0
+        while startIndex < totalOnline {
+            if Task.isCancelled {
+                cleanupPersistenceFailure(isNewBook: isNewBook, book: newBook)
+                return nil
+            }
+
+            let endIndex = min(startIndex + batchSize, totalOnline)
+            let batchResults = Array(onlineChapters[startIndex..<endIndex])
+
+            if startIndex == 0 {
+                updateFirstPageChapters(for: newBook, with: batchResults)
+            } else {
+                appendOrUpsertChapters(for: newBook, newResults: batchResults)
+            }
+
+            do {
+                try modelContext.save()
+                NotificationCenter.default.post(
+                    name: .bookChaptersUpdated,
+                    object: nil,
+                    userInfo: ["bookId": newBook.bookId]
+                )
+            } catch {
+                cleanupPersistenceFailure(isNewBook: isNewBook, book: newBook)
+                return nil
+            }
+
+            startIndex = endIndex
+            await Task.yield()
+        }
+
+        syncChaptersList()
+        return newBook
+    }
+
+    @discardableResult
+    private func persistBookToSQLite(isOnShelf: Bool = false, initialChapterIndex: Int = 0) -> Book? {
+        if let existing = effectiveBook {
+            if isOnShelf && !existing.isOnShelf {
+                existing.isOnShelf = true
+                try? modelContext.save()
+            }
+            return existing
+        }
+
+        let isNewBook = (createdBookInstance == nil && localBook == nil)
+        let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
+        let initialChapterTitle: String
+        if initialChapterIndex >= 0 && initialChapterIndex < onlineChapters.count {
+            initialChapterTitle = onlineChapters[initialChapterIndex].name
+        } else {
+            initialChapterTitle = onlineChapters.first?.name ?? ""
+        }
+
+        let effectiveHost = !host.isEmpty ? host : resolvedHost
+        let newBook = Book(
+            bookId: resolvedBookId,
+            title: title,
+            author: author,
+            coverUrl: coverUrl,
+            desc: savedDesc,
+            detailUrl: initialDetailUrl,
+            sourceName: sourceName,
+            sourceUrl: ext?.sourceUrl ?? "",
+            extensionPackageId: extensionPackageId,
+            currentChapterIndex: initialChapterIndex,
+            currentChapterTitle: initialChapterTitle,
+            isOnShelf: isOnShelf,
+            isHistory: false,
+            host: effectiveHost
+        )
+        modelContext.insert(newBook)
+        createdBookInstance = newBook
+
+        updateFirstPageChapters(for: newBook, with: onlineChapters)
+
+        do {
+            try modelContext.save()
+            NotificationCenter.default.post(
+                name: .bookChaptersUpdated,
+                object: nil,
+                userInfo: ["bookId": newBook.bookId]
+            )
+        } catch {
+            cleanupPersistenceFailure(isNewBook: isNewBook, book: newBook)
+            return nil
+        }
+
+        syncChaptersList()
+        return newBook
     }
 
     private func updateFirstPageChapters(for book: Book, with firstPageResults: [ChapterResult]) {
@@ -1286,6 +1496,7 @@ struct BookDetailView: View {
         }
 
         var matchedFirstPageChapters = Set<Chapter>()
+        var seenIds = Set(book.chapters.map(\.id))
 
         for (index, item) in firstPageResults.enumerated() {
             var matched: Chapter? = nil
@@ -1295,24 +1506,27 @@ struct BookDetailView: View {
                 matched = existingByIndex[index]
             }
 
+            let chapterHost = !item.host.isEmpty ? item.host : (book.host ?? resolvedHost)
+
             if let chapter = matched {
                 matchedFirstPageChapters.insert(chapter)
                 chapter.title = item.name
                 chapter.url = item.url
                 chapter.index = index
-                chapter.host = item.host
+                if let chapterHost = chapterHost, !chapterHost.isEmpty {
+                    chapter.host = chapterHost
+                }
             } else {
-                let chapId = Chapter.generateId(bookId: book.bookId, url: item.url, index: index)
+                let chapId = makeSafeChapterId(bookId: book.bookId, url: item.url, index: index, seenIds: &seenIds)
                 let newChapter = Chapter(
                     id: chapId,
                     bookId: book.bookId,
                     title: item.name,
                     url: item.url,
                     index: index,
-                    host: item.host
+                    host: chapterHost
                 )
                 newChapter.book = book
-                book.chapters.append(newChapter)
                 modelContext.insert(newChapter)
             }
         }
@@ -1330,10 +1544,12 @@ struct BookDetailView: View {
             }
         }
 
-        if (book.host == nil || book.host?.isEmpty == true),
-           let firstHost = firstPageResults.first?.host,
-           !firstHost.isEmpty {
-            book.host = firstHost
+        if (book.host == nil || book.host?.isEmpty == true) {
+            if let firstHost = firstPageResults.first?.host, !firstHost.isEmpty {
+                book.host = firstHost
+            } else if let fallback = resolvedHost, !fallback.isEmpty {
+                book.host = fallback
+            }
         }
 
         self.syncChaptersList()
@@ -1351,6 +1567,7 @@ struct BookDetailView: View {
 
         let nextIndex = (book.chapters.map(\.index).max() ?? -1) + 1
         var newSlotOffset = 0
+        var seenIds = Set(book.chapters.map(\.id))
 
         for item in newResults {
             var matched: Chapter? = nil
@@ -1358,9 +1575,13 @@ struct BookDetailView: View {
                 matched = existingByUrl[item.url]
             }
 
+            let chapterHost = !item.host.isEmpty ? item.host : (book.host ?? resolvedHost)
+
             if let chapter = matched {
                 chapter.title = item.name
-                chapter.host = item.host
+                if let chapterHost = chapterHost, !chapterHost.isEmpty {
+                    chapter.host = chapterHost
+                }
             } else {
                 let targetIndex = nextIndex + newSlotOffset
                 if let indexMatched = existingByIndex[targetIndex] {
@@ -1368,19 +1589,20 @@ struct BookDetailView: View {
                     if !item.url.isEmpty {
                         indexMatched.url = item.url
                     }
-                    indexMatched.host = item.host
+                    if let chapterHost = chapterHost, !chapterHost.isEmpty {
+                        indexMatched.host = chapterHost
+                    }
                 } else {
-                    let chapId = Chapter.generateId(bookId: book.bookId, url: item.url, index: targetIndex)
+                    let chapId = makeSafeChapterId(bookId: book.bookId, url: item.url, index: targetIndex, seenIds: &seenIds)
                     let newChapter = Chapter(
                         id: chapId,
                         bookId: book.bookId,
                         title: item.name,
                         url: item.url,
                         index: targetIndex,
-                        host: item.host
+                        host: chapterHost
                     )
                     newChapter.book = book
-                    book.chapters.append(newChapter)
                     modelContext.insert(newChapter)
                 }
                 newSlotOffset += 1
@@ -1389,7 +1611,7 @@ struct BookDetailView: View {
         self.syncChaptersList()
     }
 
-    private func startProgressiveTOCLoading(for book: Book, pages: [String]) {
+    private func startProgressiveTOCLoading(for book: Book?, pages: [String]) {
         progressiveTocTask?.cancel()
         tocErrorMessage = ""
 
@@ -1398,11 +1620,12 @@ struct BookDetailView: View {
             progressiveLoadingPageText = ""
             return
         }
-        let remainingPages = Array(pages.dropFirst())
+        let remainingPages = pages.filter { !loadedPageUrls.contains($0) }
         let totalPages = pages.count
 
         progressiveTocTask = Task {
             var encounteredError = false
+            var pendingPageCount = 0
             for (pageIdx, pageUrl) in remainingPages.enumerated() {
                 if Task.isCancelled { break }
                 let currentPageNum = pageIdx + 2
@@ -1429,12 +1652,33 @@ struct BookDetailView: View {
                     try Task.checkCancellation()
 
                     await MainActor.run {
+                        self.loadedPageUrls.insert(pageUrl)
                         self.onlineChapters.append(contentsOf: pageChaps)
-                        self.appendOrUpsertChapters(for: book, newResults: pageChaps)
-                        try? self.modelContext.save()
-                        self.updateFilteredLocalChapters()
-                        self.updateFilteredOnlineChapters()
+                        if let targetBook = book ?? self.effectiveBook {
+                            self.appendOrUpsertChapters(for: targetBook, newResults: pageChaps)
+                        }
                     }
+
+                    pendingPageCount += 1
+                    let isLastPage = (pageIdx == remainingPages.count - 1)
+                    if pendingPageCount >= 10 || isLastPage {
+                        await MainActor.run {
+                            if let targetBook = book ?? self.effectiveBook {
+                                try? self.modelContext.save()
+                                NotificationCenter.default.post(
+                                    name: .bookChaptersUpdated,
+                                    object: nil,
+                                    userInfo: ["bookId": targetBook.bookId]
+                                )
+                            }
+                            if self.selectedTab == 1 {
+                                self.updateFilteredLocalChapters()
+                                self.updateFilteredOnlineChapters()
+                            }
+                        }
+                        pendingPageCount = 0
+                    }
+                    await Task.yield()
                 } catch {
                     if Task.isCancelled {
                         break
@@ -1449,6 +1693,18 @@ struct BookDetailView: View {
             }
 
             await MainActor.run {
+                if pendingPageCount > 0 {
+                    if let targetBook = book ?? self.effectiveBook {
+                        try? self.modelContext.save()
+                        NotificationCenter.default.post(
+                            name: .bookChaptersUpdated,
+                            object: nil,
+                            userInfo: ["bookId": targetBook.bookId]
+                        )
+                    }
+                }
+                self.updateFilteredLocalChapters()
+                self.updateFilteredOnlineChapters()
                 self.progressiveLoadingPageText = ""
                 if !Task.isCancelled {
                     if !encounteredError {
@@ -1461,56 +1717,115 @@ struct BookDetailView: View {
     }
 
     @discardableResult
-    private func ensureAllRemainingPagesLoaded(for book: Book) async -> Bool {
-        if remainingPagesLoaded || tocPages.count <= 1 {
+    private func ensureChaptersLoadedUpTo(targetIndex: Int, for book: Book?) async -> Bool {
+        if onlineChapters.count > targetIndex || remainingPagesLoaded || tocPages.count <= 1 {
             return true
         }
-        if let existingTask = progressiveTocTask {
-            await existingTask.value
-            return remainingPagesLoaded
+        if let activeTask = progressiveTocTask {
+            activeTask.cancel()
+            _ = await activeTask.value
+            progressiveTocTask = nil
         }
-        startProgressiveTOCLoading(for: book, pages: tocPages)
-        if let newTask = progressiveTocTask {
-            await newTask.value
+
+        let remainingPages = tocPages.filter { !loadedPageUrls.contains($0) }
+        guard let ext = self.ext, !ext.localPath.isEmpty else { return false }
+
+        var pendingPageCount = 0
+        for pageUrl in remainingPages {
+            if Task.isCancelled { break }
+            if onlineChapters.count > targetIndex { break }
+
+            do {
+                let pageChaps = try await ExtensionManager.shared.toc(
+                    localPath: ext.localPath,
+                    downloadUrl: ext.downloadUrl,
+                    url: pageUrl,
+                    host: self.resolvedHost,
+                    configJson: ext.configJson
+                )
+                try Task.checkCancellation()
+
+                loadedPageUrls.insert(pageUrl)
+                onlineChapters.append(contentsOf: pageChaps)
+                if let targetBook = book ?? self.effectiveBook {
+                    appendOrUpsertChapters(for: targetBook, newResults: pageChaps)
+                }
+
+                pendingPageCount += 1
+                let targetReached = (onlineChapters.count > targetIndex)
+                if pendingPageCount >= 10 || targetReached {
+                    if let targetBook = book ?? self.effectiveBook {
+                        try? modelContext.save()
+                        NotificationCenter.default.post(
+                            name: .bookChaptersUpdated,
+                            object: nil,
+                            userInfo: ["bookId": targetBook.bookId]
+                        )
+                    }
+                    if selectedTab == 1 {
+                        updateFilteredLocalChapters()
+                        updateFilteredOnlineChapters()
+                    }
+                    pendingPageCount = 0
+                }
+                await Task.yield()
+            } catch {
+                if Task.isCancelled { break }
+                return false
+            }
         }
-        return remainingPagesLoaded
+
+        if pendingPageCount > 0 {
+            if let targetBook = book ?? self.effectiveBook {
+                try? modelContext.save()
+                NotificationCenter.default.post(
+                    name: .bookChaptersUpdated,
+                    object: nil,
+                    userInfo: ["bookId": targetBook.bookId]
+                )
+            }
+        }
+        updateFilteredLocalChapters()
+        updateFilteredOnlineChapters()
+
+        if loadedPageUrls.count >= tocPages.count {
+            remainingPagesLoaded = true
+        }
+        return onlineChapters.count > targetIndex || remainingPagesLoaded
+    }
+
+    @discardableResult
+    private func ensureAllRemainingPagesLoaded(for book: Book?) async -> Bool {
+        return await ensureChaptersLoadedUpTo(targetIndex: Int.max - 1, for: book)
     }
 
     private func addToShelf() {
-        let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
-
         if let book = effectiveBook {
             book.isOnShelf = true
+            let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
             if !savedDesc.isEmpty {
                 book.desc = savedDesc
             }
             try? modelContext.save()
         } else {
-            createBookOnShelf(savedDesc: savedDesc)
+            bookOpenTask?.cancel()
+            bookOpenTask = Task { @MainActor in
+                isPreparingBook = true
+                preparingStatusText = "Đang lưu dữ liệu..."
+                await Task.yield()
+                if Task.isCancelled {
+                    isPreparingBook = false
+                    bookOpenTask = nil
+                    return
+                }
+                let result = await persistBookToSQLiteAsync(isOnShelf: true)
+                isPreparingBook = false
+                bookOpenTask = nil
+                if result == nil && !Task.isCancelled {
+                    tocErrorMessage = "Không thể thêm sách vào kệ!"
+                }
+            }
         }
-    }
-
-    private func createBookOnShelf(savedDesc: String) {
-        let newBook = Book(
-            bookId: resolvedBookId,
-            title: title,
-            author: author,
-            coverUrl: coverUrl,
-            desc: savedDesc,
-            detailUrl: initialDetailUrl,
-            sourceName: sourceName,
-            sourceUrl: ext?.sourceUrl ?? "",
-            extensionPackageId: extensionPackageId,
-            currentChapterIndex: 0,
-            currentChapterTitle: onlineChapters.first?.name ?? "",
-            isOnShelf: true,
-            isHistory: false,
-            host: host.isEmpty ? nil : host
-        )
-        modelContext.insert(newBook)
-        createdBookInstance = newBook
-        updateFirstPageChapters(for: newBook, with: onlineChapters)
-        try? modelContext.save()
     }
 
     private func loadMoreChapters() {
@@ -1521,11 +1836,52 @@ struct BookDetailView: View {
     }
 
     private func startReading(at chapterIndex: Int) {
-        let loadedCount = effectiveBook?.chapters.count ?? 0
-        let isChapterAvailable = (effectiveBook != nil && chapterIndex >= 0 && chapterIndex < loadedCount)
+        let loadedCount = effectiveBook?.chapters.count ?? onlineChapters.count
+        let isChapterAvailable = (chapterIndex >= 0 && chapterIndex < loadedCount)
 
         if isChapterAvailable {
-            self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
+            bookOpenTask?.cancel()
+            bookOpenTask = Task { @MainActor in
+                let targetBook: Book?
+                if effectiveBook == nil {
+                    isPreparingBook = true
+                    preparingStatusText = "Đang lưu dữ liệu..."
+                    await Task.yield()
+                    if Task.isCancelled {
+                        isPreparingBook = false
+                        bookOpenTask = nil
+                        return
+                    }
+                    guard let newBook = await persistBookToSQLiteAsync(isOnShelf: false, initialChapterIndex: chapterIndex) else {
+                        isPreparingBook = false
+                        bookOpenTask = nil
+                        if !Task.isCancelled {
+                            self.tocErrorMessage = "Không thể lưu thông tin sách!"
+                        }
+                        return
+                    }
+                    targetBook = newBook
+                    isPreparingBook = false
+                } else {
+                    targetBook = effectiveBook
+                    if let book = targetBook {
+                        book.currentChapterIndex = chapterIndex
+                        if chapterIndex >= 0 && chapterIndex < book.chapters.count {
+                            book.currentChapterTitle = book.chapters[chapterIndex].title
+                        }
+                        try? modelContext.save()
+                    }
+                }
+                if Task.isCancelled {
+                    bookOpenTask = nil
+                    return
+                }
+                if tocPages.count > 1 && !remainingPagesLoaded && progressiveTocTask == nil {
+                    startProgressiveTOCLoading(for: targetBook, pages: tocPages)
+                }
+                bookOpenTask = nil
+                self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
+            }
             return
         }
 
@@ -1547,6 +1903,8 @@ struct BookDetailView: View {
 
         bookOpenTask?.cancel()
         bookOpenTask = Task { @MainActor in
+            let isNewBook = (createdBookInstance == nil && localBook == nil)
+            var createdNewBook: Book? = nil
             do {
                 if onlineChapters.isEmpty && effectiveBook == nil {
                     guard let ext = ext, !ext.localPath.isEmpty else {
@@ -1560,11 +1918,14 @@ struct BookDetailView: View {
                         pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
                         if !pages.isEmpty {
                             firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages[0], host: resolvedHost, configJson: ext.configJson)
+                            loadedPageUrls.insert(pages[0])
                         } else {
                             firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
+                            loadedPageUrls.insert(initialDetailUrl)
                         }
                     } else {
                         firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
+                        loadedPageUrls.insert(initialDetailUrl)
                     }
 
                     try Task.checkCancellation()
@@ -1572,68 +1933,26 @@ struct BookDetailView: View {
                     self.tocPages = pages
                 }
 
-                let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
                 let targetBook: Book
                 if let existing = effectiveBook {
                     targetBook = existing
                 } else {
-                    let newBook = Book(
-                        bookId: resolvedBookId,
-                        title: title,
-                        author: author,
-                        coverUrl: coverUrl,
-                        desc: savedDesc,
-                        detailUrl: initialDetailUrl,
-                        sourceName: sourceName,
-                        sourceUrl: ext?.sourceUrl ?? "",
-                        extensionPackageId: extensionPackageId,
-                        currentChapterIndex: chapterIndex,
-                        currentChapterTitle: onlineChapters.first?.name ?? "",
-                        isOnShelf: false,
-                        isHistory: false,
-                        host: host.isEmpty ? nil : host
-                    )
-                    modelContext.insert(newBook)
-                    createdBookInstance = newBook
-                    updateFirstPageChapters(for: newBook, with: onlineChapters)
+                    preparingStatusText = "Đang lưu dữ liệu..."
+                    await Task.yield()
+                    try Task.checkCancellation()
+                    guard let newBook = await persistBookToSQLiteAsync(isOnShelf: false, initialChapterIndex: chapterIndex) else {
+                        throw NSError(domain: "BookError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Không thể tạo sách!"])
+                    }
+                    createdNewBook = newBook
                     targetBook = newBook
                 }
 
                 if tocPages.count > 1 && !remainingPagesLoaded {
                     preparingStatusText = "Đang tải các trang chương tiếp theo..."
-                    let success = await ensureAllRemainingPagesLoaded(for: targetBook)
+                    let success = await ensureChaptersLoadedUpTo(targetIndex: chapterIndex, for: targetBook)
                     try Task.checkCancellation()
                     if !success {
                         throw NSError(domain: "BookError", code: 2, userInfo: [NSLocalizedDescriptionKey: tocErrorMessage.isEmpty ? "Lỗi tải các trang chương!" : tocErrorMessage])
-                    }
-                }
-
-                let transEnabled = isTranslationEnabled
-                if transEnabled {
-                    preparingStatusText = "Đang dịch tên chương..."
-                    try Task.checkCancellation()
-
-                    let targetItems = targetBook.chapters.map { ($0.index, $0.title) }
-                    let targetBookId = actualBookId
-
-                    let translatedTitlesMap: [Int: String] = await Task.detached(priority: .userInitiated) {
-                        var map: [Int: String] = [:]
-                        guard transEnabled else { return map }
-                        for (idx, titleItem) in targetItems {
-                            if Task.isCancelled { break }
-                            if !titleItem.isEmpty && TranslateUtils.containsChinese(titleItem) {
-                                map[idx] = TranslateUtils.translateChapterTitle(titleItem, bookId: targetBookId)
-                            }
-                        }
-                        return map
-                    }.value
-
-                    try Task.checkCancellation()
-
-                    for chap in targetBook.chapters {
-                        if let trans = translatedTitlesMap[chap.index] {
-                            chap.titleTrans = trans
-                        }
                     }
                 }
 
@@ -1642,24 +1961,24 @@ struct BookDetailView: View {
 
                 do {
                     try modelContext.save()
+                    NotificationCenter.default.post(
+                        name: .bookChaptersUpdated,
+                        object: nil,
+                        userInfo: ["bookId": targetBook.bookId]
+                    )
                 } catch {
-                    if modelContext.hasChanges {
-                        modelContext.rollback()
-                    }
+                    cleanupPersistenceFailure(isNewBook: isNewBook, book: targetBook)
                     throw error
                 }
 
                 syncChaptersList()
-
                 try Task.checkCancellation()
 
                 isPreparingBook = false
                 bookOpenTask = nil
                 self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
             } catch {
-                if modelContext.hasChanges {
-                    modelContext.rollback()
-                }
+                cleanupPersistenceFailure(isNewBook: isNewBook, book: createdNewBook ?? effectiveBook)
                 isPreparingBook = false
                 bookOpenTask = nil
                 readerRoute = nil
@@ -1671,30 +1990,54 @@ struct BookDetailView: View {
     }
 
     private func prepareForTask(taskType: TaskType) {
-        let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
-        if effectiveBook == nil {
-            createBookOnShelf(savedDesc: savedDesc)
-        }
-        guard let book = effectiveBook else { return }
-
-        if tocPages.count > 1 && !remainingPagesLoaded {
+        loadingTask?.cancel()
+        loadingTask = Task { @MainActor in
             isLoadingRemainingPages = true
             tocErrorMessage = ""
+            await Task.yield()
+            if Task.isCancelled {
+                isLoadingRemainingPages = false
+                loadingTask = nil
+                return
+            }
 
-            loadingTask = Task {
-                let success = await ensureAllRemainingPagesLoaded(for: book)
-                await MainActor.run {
+            let book: Book
+            if let existing = self.effectiveBook {
+                book = existing
+            } else {
+                guard let newBook = await self.persistBookToSQLiteAsync(isOnShelf: false) else {
                     self.isLoadingRemainingPages = false
                     self.loadingTask = nil
-                    if success {
-                        self.selectedTaskType = taskType
-                        self.selectedBookForTask = book
+                    if !Task.isCancelled {
+                        self.tocErrorMessage = "Không thể chuẩn bị thông tin sách!"
                     }
+                    return
+                }
+                book = newBook
+            }
+
+            if Task.isCancelled {
+                self.isLoadingRemainingPages = false
+                self.loadingTask = nil
+                return
+            }
+
+            if self.tocPages.count > 1 && !self.remainingPagesLoaded {
+                let success = await self.ensureAllRemainingPagesLoaded(for: book)
+                self.isLoadingRemainingPages = false
+                self.loadingTask = nil
+                if success && !Task.isCancelled {
+                    self.selectedTaskType = taskType
+                    self.selectedBookForTask = book
+                }
+            } else {
+                self.isLoadingRemainingPages = false
+                self.loadingTask = nil
+                if !Task.isCancelled {
+                    self.selectedTaskType = taskType
+                    self.selectedBookForTask = book
                 }
             }
-        } else {
-            self.selectedTaskType = taskType
-            self.selectedBookForTask = book
         }
     }
 
@@ -1742,11 +2085,14 @@ struct BookDetailView: View {
         guard !ext.localPath.isEmpty else { return }
 
         await MainActor.run {
+            self.progressiveTocTask?.cancel()
+            self.progressiveTocTask = nil
+            self.loadedPageUrls.removeAll()
+            self.remainingPagesLoaded = false
             self.detailErrorMessage = ""
             self.tocErrorMessage = ""
         }
 
-        // Chạy song song detail và toc
         let bookHost = resolvedHost
         async let detailTask = ExtensionManager.shared.detail(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: bookHost, configJson: ext.configJson)
 
@@ -1781,30 +2127,40 @@ struct BookDetailView: View {
 
         do {
             let path = ext.localPath
-            var allChapters: [ChapterResult] = []
-            if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
-                let pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
-                await MainActor.run {
-                    self.tocPages = pages
-                }
+            var firstPageChapters: [ChapterResult] = []
+            var pages: [String] = []
 
-                for pageUrl in pages {
-                    let pageChaps = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pageUrl, host: resolvedHost, configJson: ext.configJson)
-                    allChapters.append(contentsOf: pageChaps)
-                }
-                await MainActor.run {
-                    self.remainingPagesLoaded = true
+            if ExtensionManager.shared.hasScript(localPath: path, scriptKey: "page") {
+                pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
+                if !pages.isEmpty {
+                    firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages[0], host: resolvedHost, configJson: ext.configJson)
+                    await MainActor.run { self.loadedPageUrls.insert(pages[0]) }
+                } else {
+                    firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
+                    await MainActor.run { self.loadedPageUrls.insert(initialDetailUrl) }
                 }
             } else {
-                let tocResult = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: effectiveBook?.host, configJson: ext.configJson)
-                allChapters = tocResult
+                firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: effectiveBook?.host, configJson: ext.configJson)
+                await MainActor.run { self.loadedPageUrls.insert(initialDetailUrl) }
             }
 
             await MainActor.run {
-                self.onlineChapters = allChapters
+                self.onlineChapters = firstPageChapters
+                self.tocPages = pages
                 if let book = effectiveBook {
-                    updateFirstPageChapters(for: book, with: allChapters)
+                    updateFirstPageChapters(for: book, with: firstPageChapters)
                     try? modelContext.save()
+                    NotificationCenter.default.post(
+                        name: .bookChaptersUpdated,
+                        object: nil,
+                        userInfo: ["bookId": book.bookId]
+                    )
+                }
+                if pages.count > 1 {
+                    self.remainingPagesLoaded = false
+                    self.startProgressiveTOCLoading(for: effectiveBook, pages: pages)
+                } else {
+                    self.remainingPagesLoaded = true
                 }
             }
         } catch {

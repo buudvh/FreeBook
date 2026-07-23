@@ -541,6 +541,25 @@ struct ReaderView: View {
                 scrollTarget = ScrollTarget(chapterIndex: targetIndex, paragraphIndex: paragraphIndex)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .bookChaptersUpdated)) { notification in
+            guard let targetBookId = notification.userInfo?["bookId"] as? String,
+                  targetBookId == bookId else { return }
+
+            let localBId = bookId
+            let descriptor = FetchDescriptor<Chapter>(
+                predicate: #Predicate<Chapter> { $0.bookId == localBId }
+            )
+            guard let currentCount = try? modelContext.fetchCount(descriptor) else { return }
+
+            guard currentCount != self.localChaptersCount else { return }
+
+            self.localChaptersCount = currentCount
+            viewModel?.refreshChapterCountFromStorage()
+            let updatedTotal = viewModel?.totalChaptersCount ?? currentCount
+            if let store = chapterListStore {
+                store.updateChapters(totalCount: updatedTotal, onlineChapters: currentOnlineChapters)
+            }
+        }
         .onChange(of: ttsManager.currentParentParagraphIndex) { _, newValue in
             guard ttsManager.isPlaying &&
                   ttsManager.playingBookId == bookId &&
