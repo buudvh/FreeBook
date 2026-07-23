@@ -37,22 +37,19 @@ private actor TTSChapterQueueMetadataWorker {
     }
 
     func fetchLocalQueue(bookId: String) -> [TTSChapterInfo] {
-        let context = ModelContext(container)
         let localBookId = bookId
-        var descriptor = FetchDescriptor<Chapter>(
-            predicate: #Predicate<Chapter> { $0.bookId == localBookId }
-        )
-        descriptor.sortBy = [SortDescriptor(\.index, order: .forward)]
-
-        do {
-            let chapters = try context.fetch(descriptor)
-            return chapters.map {
-                TTSChapterInfo(title: $0.title, url: $0.url, index: $0.index, host: $0.host)
+        var results: [TTSChapterInfo] = []
+        let semaphore = DispatchSemaphore(value: 0)
+        Task {
+            if let chapters = try? await ChapterSQLiteRepository().loadPageKeyset(bookId: localBookId, startIdx: 0, limit: 100000) {
+                results = chapters.map {
+                    TTSChapterInfo(title: $0.title, url: $0.url, index: $0.index, host: $0.host)
+                }
             }
-        } catch {
-            AppLogger.shared.log("❌ [TTSChapterQueueMetadataWorker] Không fetch được metadata TTS queue: \(error.localizedDescription)")
-            return []
+            semaphore.signal()
         }
+        _ = semaphore.wait(timeout: .now() + 2.0)
+        return results
     }
 }
 

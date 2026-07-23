@@ -127,35 +127,47 @@ class ReaderViewModel: ObservableObject {
     private var cachedLocalBook: Book? = nil
     private var cachedExt: Extension? = nil
     var onChapterCached: ((Int) -> Void)?
-    public func fetchChapter(at index: Int) -> Chapter? {
-        let localBookId = bookId
-        let localIndex = index
-        var descriptor = FetchDescriptor<Chapter>(
-            predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.index == localIndex }
-        )
-        descriptor.fetchLimit = 1
-        return (try? modelContext.fetch(descriptor))?.first
+    private var isConfigured = false
+    private(set) var chapterRepository: ChapterRepositoryProtocol? = nil
+
+    func configure(chapterRepository: ChapterRepositoryProtocol) {
+        guard !isConfigured else { return }
+        self.chapterRepository = chapterRepository
+        self.isConfigured = true
+    }
+
+    public func fetchChapter(at index: Int) -> ChapterModel? {
+        let repo = chapterRepository ?? ChapterSQLiteRepository()
+        var result: ChapterModel? = nil
+        let semaphore = DispatchSemaphore(value: 0)
+        Task {
+            result = try? await repo.getChapter(bookId: bookId, index: index)
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 2.0)
+        return result
     }
 
     public func fetchChaptersMetadata() -> [TTSChapterInfo] {
-        let localBookId = bookId
-        var descriptor = FetchDescriptor<Chapter>(
-            predicate: #Predicate<Chapter> { $0.bookId == localBookId }
-        )
-        descriptor.sortBy = [SortDescriptor(\.index, order: .forward)]
-        do {
-            let chapters = try modelContext.fetch(descriptor)
-            return chapters.map { chap in
-                return TTSChapterInfo(
-                    title: chap.title,
-                    url: chap.url,
-                    index: chap.index,
-                    host: chap.host
-                )
+        let repo = chapterRepository ?? ChapterSQLiteRepository()
+        var result: [TTSChapterInfo] = []
+        let semaphore = DispatchSemaphore(value: 0)
+        let count = totalChaptersCount
+        Task {
+            if let chapters = try? await repo.loadPageKeyset(bookId: bookId, startIdx: 0, limit: max(count, 10000)) {
+                result = chapters.map { chap in
+                    TTSChapterInfo(
+                        title: chap.title,
+                        url: chap.url,
+                        index: chap.index,
+                        host: chap.host
+                    )
+                }
             }
-        } catch {
-            return []
+            semaphore.signal()
         }
+        _ = semaphore.wait(timeout: .now() + 2.0)
+        return result
     }
 
     // Lấy danh sách chương online nếu đang đọc trực tuyến
@@ -227,11 +239,15 @@ class ReaderViewModel: ObservableObject {
         }()
         let localChapterCount: Int = {
             if let bId = localBookSnapshot?.bookId {
-                let localBId = bId
-                var descriptor = FetchDescriptor<Chapter>(
-                    predicate: #Predicate<Chapter> { $0.bookId == localBId }
-                )
-                return (try? modelContext.fetchCount(descriptor)) ?? 0
+                var count = 0
+                let semaphore = DispatchSemaphore(value: 0)
+                let repo = chapterRepository ?? ChapterSQLiteRepository()
+                Task {
+                    count = (try? await repo.getTotalChaptersCount(bookId: bId)) ?? 0
+                    semaphore.signal()
+                }
+                _ = semaphore.wait(timeout: .now() + 2.0)
+                return count
             }
             return 0
         }()

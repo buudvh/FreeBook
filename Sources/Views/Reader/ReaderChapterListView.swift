@@ -49,33 +49,21 @@ public struct SearchChapterDTO: Sendable {
 
 @available(iOS 17.0, *)
 actor BackgroundSearchWorker {
-    private let container: ModelContainer
+    private let repository: ChapterRepositoryProtocol
 
-    init(container: ModelContainer) {
-        self.container = container
+    init(repository: ChapterRepositoryProtocol = ChapterSQLiteRepository()) {
+        self.repository = repository
     }
 
-    func searchChapters(bookId: String, query: String, isAscending: Bool, isTranslationEnabled: Bool) -> [SearchChapterDTO] {
-        let context = ModelContext(container)
+    func searchChapters(bookId: String, query: String, isAscending: Bool, isTranslationEnabled: Bool) async -> [SearchChapterDTO] {
         let localBookId = bookId
         let localQuery = query
-        let isTrans = isTranslationEnabled
-
-        let descriptor: FetchDescriptor<Chapter>
-        if isTrans {
-            descriptor = FetchDescriptor<Chapter>(
-                predicate: #Predicate<Chapter> { $0.bookId == localBookId && ($0.title.contains(localQuery) || ($0.titleTrans != nil && $0.titleTrans!.contains(localQuery))) },
-                sortBy: [SortDescriptor(\.index, order: isAscending ? .forward : .reverse)]
-            )
-        } else {
-            descriptor = FetchDescriptor<Chapter>(
-                predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.title.contains(localQuery) },
-                sortBy: [SortDescriptor(\.index, order: isAscending ? .forward : .reverse)]
-            )
-        }
 
         do {
-            let chapters = try context.fetch(descriptor)
+            var chapters = try await repository.searchChapters(bookId: localBookId, query: localQuery)
+            if !isAscending {
+                chapters.reverse()
+            }
             return chapters.map { chap in
                 let displayTitle: String
                 if isTranslationEnabled {
@@ -104,23 +92,15 @@ actor BackgroundSearchWorker {
 }
 @available(iOS 17.0, *)
 actor BackgroundPagingWorker {
-    private let container: ModelContainer
+    private let repository: ChapterRepositoryProtocol
 
-    init(container: ModelContainer) {
-        self.container = container
+    init(repository: ChapterRepositoryProtocol = ChapterSQLiteRepository()) {
+        self.repository = repository
     }
 
-    func fetchPage(bookId: String, minLogicalIndex: Int, maxLogicalIndex: Int, isTranslationEnabled: Bool) throws -> [Int: (title: String, url: String, isCached: Bool)] {
-        let context = ModelContext(container)
-        let localBookId = bookId
-        let localMin = minLogicalIndex
-        let localMax = maxLogicalIndex
-
-        let descriptor = FetchDescriptor<Chapter>(
-            predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.index >= localMin && $0.index <= localMax }
-        )
-
-        let chapters = try context.fetch(descriptor)
+    func fetchPage(bookId: String, minLogicalIndex: Int, maxLogicalIndex: Int, isTranslationEnabled: Bool) async throws -> [Int: (title: String, url: String, isCached: Bool)] {
+        let count = maxLogicalIndex - minLogicalIndex + 1
+        let chapters = try await repository.loadPageKeyset(bookId: bookId, startIdx: minLogicalIndex, limit: count)
         var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
         for chap in chapters {
             let displayTitle: String
@@ -128,7 +108,7 @@ actor BackgroundPagingWorker {
                 if let trans = chap.titleTrans, !trans.isEmpty {
                     displayTitle = trans
                 } else if TranslateUtils.containsChinese(chap.title) {
-                    displayTitle = TranslateUtils.translateChapterTitle(chap.title, bookId: localBookId)
+                    displayTitle = TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
                 } else {
                     displayTitle = chap.title
                 }
@@ -571,12 +551,12 @@ public final class ReaderChapterListStore {
             } catch {
                 fetchedData = nil
             }
-        } else if let context = modelContext {
+        } else {
             let localBookId = bookId
             let localMin = minLogicalIndex
             let localMax = maxLogicalIndex
             let transEnabled = isTranslationEnabled
-            let worker = BackgroundPagingWorker(container: context.container)
+            let worker = BackgroundPagingWorker(repository: chapterRepository)
             var dataFromStore: [Int: (title: String, url: String, isCached: Bool)] = [:]
             do {
                 dataFromStore = (try await worker.fetchPage(bookId: localBookId, minLogicalIndex: localMin, maxLogicalIndex: localMax, isTranslationEnabled: transEnabled)) ?? [:]
@@ -728,9 +708,8 @@ public final class ReaderChapterListStore {
             var matchedItems: [ChapterRowItem] = []
             var matchedStates: [Int: ReaderChapterRowState] = [:]
 
-            if let context = modelContext {
-                let worker = BackgroundSearchWorker(container: context.container)
-                let dtos = await worker.searchChapters(bookId: bookId, query: trimmed, isAscending: isAscending, isTranslationEnabled: isTranslationEnabled)
+            let worker = BackgroundSearchWorker(repository: chapterRepository)
+            let dtos = await worker.searchChapters(bookId: bookId, query: trimmed, isAscending: isAscending, isTranslationEnabled: isTranslationEnabled)
 
                 if Task.isCancelled { return }
 
@@ -831,6 +810,7 @@ public struct ReaderChapterListView: View {
     }
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.chapterRepository) private var chapterRepository
     @State private var showingBookDetail = false
     @State private var searchQuery = ""
     @State private var isAscending = true

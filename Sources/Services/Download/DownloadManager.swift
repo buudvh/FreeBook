@@ -429,15 +429,8 @@ public final class DownloadManager: ObservableObject {
                     )
                     let cleaned = content.cleanHTML()
 
-                    // Ghi DB an toàn bằng cách fetch lại fresh object trên thread hiện tại của Context
-                    let allChaps = (try? bgContext.fetch(FetchDescriptor<Chapter>())) ?? []
-                    if let freshChapter = allChaps.first(where: { $0.id == targetChapterId }) {
-                        if let (offset, length) = try? await BookBinManager.shared.writeChapterContent(bookId: bgBook.bookId, content: cleaned) {
-                            freshChapter.offset = offset
-                            freshChapter.length = length
-                            freshChapter.isCached = true
-                            try? bgContext.save()
-                        }
+                    if let (offset, length) = try? await BookBinManager.shared.writeChapterContent(bookId: bgBook.bookId, content: cleaned) {
+                        try? await ChapterSQLiteRepository().updateCacheState(bookId: bgBook.bookId, index: chapter.index, offset: offset, length: length, isCached: true)
                     }
                     originalContent = cleaned
                 }

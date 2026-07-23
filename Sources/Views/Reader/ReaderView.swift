@@ -37,6 +37,7 @@ struct ReaderView: View {
 
     // @Environment: Lấy các biến môi trường của hệ thống
     @Environment(\.modelContext) private var modelContext // Context quản lý dữ liệu SwiftData
+    @Environment(\.chapterRepository) private var chapterRepository
     @Environment(\.dismiss) private var dismiss // Hàm dùng để đóng màn hình hiện tại và quay về màn hình trước
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -675,6 +676,7 @@ struct ReaderView: View {
             bookDetailUrl: bookDetailUrl,
             bookSourceName: bookSourceName
         )
+        newViewModel.configure(chapterRepository: chapterRepository)
         newViewModel.onChapterCached = { index in
             chapterListStore?.markCached(index: index)
         }

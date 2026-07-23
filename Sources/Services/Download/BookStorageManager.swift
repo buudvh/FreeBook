@@ -1,16 +1,31 @@
 import Foundation
 import SwiftData
+import SwiftUI
 import UIKit
 
-@MainActor
-public final class BookStorageManager {
-    public static let shared = BookStorageManager()
+private struct BookStorageManagerKey: EnvironmentKey {
+    static let defaultValue: BookStorageManager = BookStorageManager.shared
+}
+
+public extension EnvironmentValues {
+    var bookStorageManager: BookStorageManager {
+        get { self[BookStorageManagerKey.self] }
+        set { self[BookStorageManagerKey.self] = newValue }
+    }
+}
+
+public final class BookStorageManager: Sendable {
+    public static let shared = BookStorageManager(chapterRepository: ChapterSQLiteRepository())
 
     // Mock seams for unit tests
     public static var mockFetchError: Error? = nil
     public static var mockSaveError: Error? = nil
 
-    private init() {}
+    public let chapterRepository: any ChapterRepositoryProtocol
+
+    public init(chapterRepository: any ChapterRepositoryProtocol) {
+        self.chapterRepository = chapterRepository
+    }
 
     // Xóa sách khỏi kệ (Hard Delete, trừ sách đang phát TTS)
     public func removeFromShelf(_ book: Book, context: ModelContext) throws {
@@ -69,6 +84,7 @@ public final class BookStorageManager {
         // 3. Physical file cleanup trong background thread
         Task.detached(priority: .background) {
             for bookId in validBookIds {
+                try? await self.chapterRepository.deleteChapters(bookId: bookId)
                 do {
                     try await BookBinManager.shared.deleteBinFile(for: bookId)
                 } catch {

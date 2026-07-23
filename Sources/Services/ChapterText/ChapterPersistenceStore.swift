@@ -60,10 +60,12 @@ actor ChapterPersistenceStore {
     }
 
     private let container: ModelContainer
+    private let chapterRepository: ChapterRepositoryProtocol
     private var pendingWrites: [String: PendingWrite] = [:]
 
-    init(container: ModelContainer) {
+    init(container: ModelContainer, chapterRepository: ChapterRepositoryProtocol = ChapterSQLiteRepository()) {
         self.container = container
+        self.chapterRepository = chapterRepository
     }
 
     func readChapter(
@@ -71,29 +73,20 @@ actor ChapterPersistenceStore {
         chapterIndex: Int,
         url: String
     ) async throws -> PersistedChapterSnapshot? {
-        let context = ModelContext(container)
-        let books = try context.fetch(FetchDescriptor<Book>())
-        guard let book = books.first(where: { $0.bookId == bookId }) else {
-            return nil
+        var chapter = try await chapterRepository.getChapter(bookId: bookId, index: chapterIndex)
+        if chapter == nil, !url.isEmpty {
+            chapter = try await chapterRepository.getChapterByUrl(bookId: bookId, url: url)
         }
 
-        guard let chapter = matchingChapter(
-            in: book.chapters,
-            chapterIndex: chapterIndex,
-            url: url
-        ) else {
-            return nil
-        }
-
-        guard chapter.isCached, chapter.length > 0 else {
+        guard let chap = chapter, chap.isCached, chap.length > 0 else {
             return nil
         }
 
         do {
             let rawContent = try await BookBinManager.shared.readChapterContent(
                 bookId: bookId,
-                offset: chapter.offset,
-                length: chapter.length
+                offset: chap.offset,
+                length: chap.length
             )
             let normalizedContent = ChapterTextNormalizer.normalize(rawContent).content
             guard !normalizedContent.isEmpty else {
@@ -101,10 +94,10 @@ actor ChapterPersistenceStore {
             }
 
             return PersistedChapterSnapshot(
-                title: chapter.title,
-                url: chapter.url,
-                index: chapter.index,
-                host: chapter.host,
+                title: chap.title,
+                url: chap.url,
+                index: chap.index,
+                host: chap.host,
                 content: normalizedContent
             )
         } catch {
@@ -113,7 +106,7 @@ actor ChapterPersistenceStore {
         }
     }
 
-    func ensureBook(_ snapshot: BookMetadataSnapshot) throws {
+    func ensureBook(_ snapshot: BookMetadataSnapshot) async throws {
         let context = ModelContext(container)
         let books = try context.fetch(FetchDescriptor<Book>())
         let book: Book
@@ -148,51 +141,18 @@ actor ChapterPersistenceStore {
         book.extensionPackageId = snapshot.extensionPackageId
         book.host = snapshot.host
         book.isHistory = true
-
-        let pool = ReconciliationPool(chapters: book.chapters)
-        var existingIDs = Set(book.chapters.map { $0.id })
-
-        for item in snapshot.chapters {
-            if let existing = pool.consume(url: item.url, index: item.index) {
-                if !item.title.isEmpty { existing.title = item.title }
-                if !item.url.isEmpty { existing.url = item.url }
-                existing.index = item.index
-                if let host = item.host, !host.isEmpty { existing.host = host }
-            } else {
-                let newId = allocateNewChapterId(bookId: snapshot.bookId, item: item, existingIDs: &existingIDs)
-                let chapter = Chapter(
-                    id: newId,
-                    bookId: snapshot.bookId,
-                    title: item.title,
-                    url: item.url,
-                    index: item.index,
-                    host: item.host
-                )
-                book.chapters.append(chapter)
-                context.insert(chapter)
-            }
-        }
         try context.save()
-    }
 
-    private func allocateNewChapterId(
-        bookId: String,
-        item: ChapterMetadataSnapshot,
-        existingIDs: inout Set<String>
-    ) -> String {
-        let normalId = Chapter.generateId(bookId: bookId, url: item.url, index: item.index)
-        var candidateId = normalId
-        if existingIDs.contains(candidateId) {
-            let fallbackBase = "\(bookId.count):\(bookId)|I:\(item.index)"
-            candidateId = fallbackBase
-            var suffix = 1
-            while existingIDs.contains(candidateId) {
-                candidateId = "\(fallbackBase)_col_\(suffix)"
-                suffix += 1
-            }
+        let chapterModels = snapshot.chapters.map { chap in
+            ChapterModel(
+                bookId: snapshot.bookId,
+                index: chap.index,
+                title: chap.title,
+                url: chap.url,
+                host: chap.host
+            )
         }
-        existingIDs.insert(candidateId)
-        return candidateId
+        try await chapterRepository.bulkUpsert(bookId: snapshot.bookId, chapters: chapterModels)
     }
 
     func enqueueWrite(
@@ -316,91 +276,22 @@ actor ChapterPersistenceStore {
             book.sourceName = snapshot.sourceName
             book.sourceUrl = snapshot.sourceUrl
             book.extensionPackageId = snapshot.extensionPackageId
-
-            let pool = ReconciliationPool(chapters: book.chapters)
-            var existingIDs = Set(book.chapters.map { $0.id })
-
-            for item in snapshot.chapters {
-                if let existing = pool.consume(url: item.url, index: item.index) {
-                    if !item.title.isEmpty { existing.title = item.title }
-                    if !item.url.isEmpty { existing.url = item.url }
-                    existing.index = item.index
-                    if let host = item.host, !host.isEmpty { existing.host = host }
-                } else {
-                    let newId = allocateNewChapterId(bookId: book.bookId, item: item, existingIDs: &existingIDs)
-                    let newChapter = Chapter(
-                        id: newId,
-                        bookId: book.bookId,
-                        title: item.title,
-                        url: item.url,
-                        index: item.index,
-                        host: item.host
-                    )
-                    book.chapters.append(newChapter)
-                    context.insert(newChapter)
-                }
-            }
         }
 
-        book.isHistory = true
-
-        guard let target = matchingMetadataChapter(in: book.chapters, chapterIndex: metadata.index, url: metadata.url) else {
-            var existingIDs = Set(book.chapters.map { $0.id })
-            let newId = allocateNewChapterId(bookId: book.bookId, item: metadata, existingIDs: &existingIDs)
-            let newChapter = Chapter(
-                id: newId,
-                bookId: book.bookId,
-                title: metadata.title,
-                url: metadata.url,
-                index: metadata.index,
-                isCached: true,
-                offset: offset,
-                length: length,
-                host: metadata.host
-            )
-            book.chapters.append(newChapter)
-            context.insert(newChapter)
-            try context.save()
-            return
-        }
-
-        if !metadata.title.isEmpty {
-            target.title = metadata.title
-        }
-        if !metadata.url.isEmpty {
-            target.url = metadata.url
-        }
-        target.index = metadata.index
-        if let host = metadata.host, !host.isEmpty {
-            target.host = host
-        }
-        target.offset = offset
-        target.length = length
-        target.isCached = true
         book.isHistory = true
         try context.save()
-    }
 
-    private func matchingChapter(
-        in chapters: [Chapter],
-        chapterIndex: Int,
-        url: String
-    ) -> Chapter? {
-        if !url.isEmpty {
-            return chapters.first(where: { $0.url == url })
-        }
-        return chapters.first(where: { $0.index == chapterIndex })
-    }
-
-    private func matchingMetadataChapter(
-        in chapters: [Chapter],
-        chapterIndex: Int,
-        url: String
-    ) -> Chapter? {
-        if !url.isEmpty, let exactURL = chapters.first(where: { $0.url == url }) {
-            return exactURL
-        }
-        return chapters.first(where: { $0.index == chapterIndex })
+        let targetChapter = ChapterModel(
+            bookId: bookId,
+            index: metadata.index,
+            title: metadata.title,
+            url: metadata.url,
+            isCached: true,
+            offset: offset,
+            length: length,
+            host: metadata.host
+        )
+        try await chapterRepository.bulkUpsert(bookId: bookId, chapters: [targetChapter])
     }
 }
 

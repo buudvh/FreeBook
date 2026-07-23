@@ -25,22 +25,8 @@ public final class Book {
     public var isOnShelf: Bool = true // Sách có nằm trên Kệ sách chính hay không
     public var isHistory: Bool = false // Sách có nằm trong danh sách Lịch sử đọc hay không
     
-    // @Relationship: Định nghĩa mối quan hệ giữa các bảng.
-    // deleteRule: .cascade nghĩa là khi xóa cuốn sách này, tất cả các Chương (Chapter) thuộc về nó cũng sẽ tự động bị xóa theo.
-    // inverse: \Chapter.book định nghĩa quan hệ ngược lại (mỗi Chapter sẽ tham chiếu ngược về Book chứa nó).
-    @Relationship(deleteRule: .cascade, inverse: \Chapter.book)
-    public var chapters: [Chapter] = [] // Danh sách các chương của cuốn sách này
-    
-    // Computed Property (Thuộc tính tính toán): Trả về tiêu đề chương hiển thị trên giao diện.
-    // Nếu tiêu đề chương đang đọc dở trống, nó sẽ tìm trong danh sách chapters để lấy tiêu đề tương ứng.
     public var displayChapterTitle: String {
-        if !currentChapterTitle.isEmpty {
-            return currentChapterTitle
-        }
-        if let match = chapters.first(where: { $0.index == currentChapterIndex }) {
-            return match.title
-        }
-        return ""
+        return currentChapterTitle
     }
     
     // Hàm khởi tạo (Constructor) để tạo đối tượng Book mới.

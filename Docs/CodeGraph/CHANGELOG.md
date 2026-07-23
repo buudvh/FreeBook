@@ -4,6 +4,22 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.50] - 2026-07-23
+
+### Tái cấu trúc toàn diện Kiến trúc Lưu trữ Chapter sang SQLite3 Native Engine (`ChapterSQLiteRepository`)
+* **Kiến trúc Tách biệt (Decoupled Architecture)**:
+  - Tách hoàn toàn `Chapter` khỏi SwiftData `@Model` và thuộc tính quan hệ `@Relationship` trên `Book`.
+  - Định nghĩa `ChapterModel` (`struct` thuần túy) và `ChapterRepositoryProtocol` độc lập.
+  - Xây dựng `actor ChapterSQLiteRepository` thực thi truy vấn SQLite3 C-API siêu tốc trên bảng `chapters`.
+* **Tối ưu Hiệu năng CSDL (Database Engine Optimization)**:
+  - Cấu hình PRAGMAs WAL Mode (`journal_mode = WAL`, `synchronous = NORMAL`, `temp_store = MEMORY`).
+  - Áp dụng Native SQLite `UPSERT` (`ON CONFLICT(id) DO UPDATE SET ...`) kết hợp Prepared Statement và Transaction.
+  - Khóa chính `id` ổn định dựa trên `(book_id + raw_url)` độc lập hoàn toàn với `index`.
+  - Phân trang Keyset Indexing (`idx_chapters_book_idx`, `idx_chapters_book_cached`) cho tốc độ $O(1)$.
+* **Tiêm Phụ thuộc & SwiftUI Integration**:
+  - Đăng ký `ChapterRepositoryKey` trong SwiftUI Environment tại App Root (`FreeBookApp.swift`).
+  - Tiêm `chapterRepository` qua SwiftUI Environment vào `BookDetailView`, `ReaderView`, `ReaderChapterListView`, `ChapterPersistenceStore`.
+
 ## [1.3.49] - 2026-07-23
 
 ### Vá triệt để các lỗ hổng luồng LƯU (Saving Workflow) ngăn URL bị rỗng trong SQLite
