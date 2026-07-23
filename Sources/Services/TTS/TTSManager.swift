@@ -20,6 +20,14 @@ private struct TTSPreparedChapter: Sendable {
     let paragraphs: [TTSParagraph]
 }
 
+private struct TTSSettingsSnapshot: Equatable {
+    let tool: String
+    let selectedVoice: String
+    let chunkLength: Int
+    let speed: Double
+    let pitch: Double
+}
+
 @available(iOS 17.0, *)
 private actor TTSChapterQueueMetadataWorker {
     private let container: ModelContainer
@@ -144,7 +152,7 @@ public final class TTSManager: NSObject, ObservableObject {
     private var chaptersQueue: [TTSChapterInfo] = []
     private var currentPlaybackId: String? = nil
     private var wasPlayingBeforeSettings = false
-    private var savedParagraphIdentityBeforeSettings: Int = -1
+    private var settingsSnapshotBeforeSettings: TTSSettingsSnapshot? = nil
     private var wasPlayingBeforeInterruption = false
     private var lastPausedTime: Date? = nil
     private var cancellables = Set<AnyCancellable>()
@@ -709,6 +717,7 @@ public final class TTSManager: NSObject, ObservableObject {
         sessionID = UUID()
         self.isPlaying = false
         self.wasPlayingBeforeSettings = false
+        self.settingsSnapshotBeforeSettings = nil
         self.wasPlayingBeforeInterruption = false
         self.ttsProcessingGeneration += 1
         startSpeakingTask?.cancel()
@@ -720,7 +729,6 @@ public final class TTSManager: NSObject, ObservableObject {
         if !keepWidget {
             self.currentParagraphIndex = -1
             self.currentParentParagraphIndex = -1
-            self.savedParagraphIdentityBeforeSettings = -1
             self.highlightRange = nil
             self.showFloatingWidget = false
         }
@@ -749,13 +757,15 @@ public final class TTSManager: NSObject, ObservableObject {
     public func prepareForSettings() {
         if !wasPlayingBeforeSettings {
             wasPlayingBeforeSettings = isPlaying
-            if currentParentParagraphIndex != -1 {
-                savedParagraphIdentityBeforeSettings = currentParentParagraphIndex
-            } else if currentParagraphIndex >= 0 && currentParagraphIndex < paragraphs.count {
-                savedParagraphIdentityBeforeSettings = paragraphs[currentParagraphIndex].paragraphIndex
-            } else {
-                savedParagraphIdentityBeforeSettings = -1
-            }
+        }
+        if settingsSnapshotBeforeSettings == nil {
+            settingsSnapshotBeforeSettings = TTSSettingsSnapshot(
+                tool: tool,
+                selectedVoice: selectedVoice,
+                chunkLength: chunkLength,
+                speed: speed,
+                pitch: pitch
+            )
         }
         if isPlaying {
             pause()
@@ -764,15 +774,44 @@ public final class TTSManager: NSObject, ObservableObject {
 
     public func resumeAfterSettings() {
         guard !chapterContent.isEmpty else {
+            wasPlayingBeforeSettings = false
+            settingsSnapshotBeforeSettings = nil
             stopPlayback(keepWidget: false)
             return
         }
 
-        // Lưu paragraph identity (số thứ tự dòng gốc) đã ghi nhận khi mở settings
-        let savedParagraphIdentity = savedParagraphIdentityBeforeSettings
-        savedParagraphIdentityBeforeSettings = -1
+        let isPlaybackSettingChanged: Bool
+        if let snapshot = settingsSnapshotBeforeSettings {
+            isPlaybackSettingChanged = (
+                snapshot.tool != tool ||
+                snapshot.selectedVoice != selectedVoice ||
+                snapshot.chunkLength != chunkLength ||
+                snapshot.speed != speed ||
+                snapshot.pitch != pitch
+            )
+        } else {
+            isPlaybackSettingChanged = false
+        }
+
         let wasPlaying = wasPlayingBeforeSettings
         wasPlayingBeforeSettings = false
+        settingsSnapshotBeforeSettings = nil
+
+        if !isPlaybackSettingChanged {
+            if wasPlaying {
+                lastPausedTime = Date()
+                resume()
+            }
+            return
+        }
+
+        // Lưu paragraph identity (số thứ tự dòng gốc) thay vì array index
+        let savedParagraphIdentity: Int
+        if currentParagraphIndex >= 0 && currentParagraphIndex < paragraphs.count {
+            savedParagraphIdentity = paragraphs[currentParagraphIndex].paragraphIndex
+        } else {
+            savedParagraphIdentity = -1
+        }
 
         // Dừng engine cũ để áp dụng cài đặt mới (nhưng giữ widget nổi)
         stopPlayback(keepWidget: true)
@@ -780,33 +819,32 @@ public final class TTSManager: NSObject, ObservableObject {
         // Nạp lại phân đoạn
         self.paragraphs = TTSParagraphBuilder.build(from: normalizedChapterText, chunkLength: chunkLength)
 
+        var targetIdx = paragraphs.firstIndex(where: {
+            $0.paragraphIndex == savedParagraphIdentity
+        }) ?? 0
+
         let key = "showChapterTitle_\(playingBookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
 
-        if showTitle && !chapterTitle.isEmpty {
+        if savedParagraphIdentity == -1 && showTitle && !chapterTitle.isEmpty {
             let titleParagraph = TTSParagraph(
                 text: chapterTitle,
                 range: NSRange(location: 0, length: chapterTitle.utf16.count),
                 paragraphIndex: -1
             )
             self.paragraphs.insert(titleParagraph, at: 0)
-        }
-
-        let targetIdx: Int
-        if savedParagraphIdentity == -1 {
             targetIdx = 0
-        } else if let idx = paragraphs.firstIndex(where: { $0.paragraphIndex == savedParagraphIdentity }) {
-            targetIdx = idx
-        } else {
-            targetIdx = (showTitle && !chapterTitle.isEmpty && paragraphs.count > 1) ? 1 : 0
+        } else if showTitle && !chapterTitle.isEmpty {
+            let titleParagraph = TTSParagraph(
+                text: chapterTitle,
+                range: NSRange(location: 0, length: chapterTitle.utf16.count),
+                paragraphIndex: -1
+            )
+            self.paragraphs.insert(titleParagraph, at: 0)
+            targetIdx = (paragraphs.firstIndex(where: { $0.paragraphIndex == savedParagraphIdentity }) ?? 1)
         }
 
         self.currentParagraphIndex = targetIdx
-        if targetIdx >= 0 && targetIdx < paragraphs.count {
-            self.currentParentParagraphIndex = paragraphs[targetIdx].paragraphIndex
-        } else {
-            self.currentParentParagraphIndex = -1
-        }
 
         // Nếu trước đó đang phát, tiếp tục phát đoạn đó với cài đặt mới
         if wasPlaying {

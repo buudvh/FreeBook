@@ -4,6 +4,25 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.44] - 2026-07-23
+
+### Sửa luồng khôi phục TTS settings để không phát lại câu dở dang
+* **TTSSettingsView & TTSManager**:
+  * Khi mở Cài đặt TTS, lưu snapshot 5 thông số phát âm thanh: `tool`, `selectedVoice`, `chunkLength`, `speed`, `pitch`.
+  * Khi đóng Cài đặt mà 5 thông số không đổi, tiếp tục phát bằng `resume()` từ trạng thái đang tạm dừng, không dừng engine và không rebuild lại đoạn văn hiện tại.
+  * Khi có thay đổi bất kỳ thông số nào, chuyển sang nhánh restart để áp dụng đúng cấu hình mới mà không làm sai vị trí đọc.
+  * Tránh hiện tượng phát lại đúng câu vừa nghe dở rồi tự nhảy sang chương kế tiếp sau khi đóng sheet cài đặt.
+
+## [1.3.43] - 2026-07-23
+
+### Lưu và hiển thị tiệm tiến danh sách chương cho truyện mới chưa có trong SQLite
+* **BookDetailView**:
+  * Khi mở một truyện mới hoàn toàn chưa có trong SwiftData/SQLite, lưu ngay `Book` ẩn từ TOC page 1 và hiển thị danh sách chương tức thì trên UI.
+  * Nếu extension có hỗ trợ `page`, tự động tải các page còn lại theo kiểu tiệm tiến; mỗi page 2+ sẽ được append/upsert vào cùng một `Book` và save riêng vào SQLite.
+  * Bổ sung `effectiveBook = localBook ?? createdBookInstance` để tránh độ trễ cập nhật của `@Query` và giữ UI đọc đúng object vừa tạo.
+  * Hiển thị số chương dạng tạm khi còn page chưa tải xong, chỉ chuyển sang số lượng cuối cùng khi `remainingPagesLoaded = true`.
+  * Giữ khả năng mở `ReaderView` ngay từ các chương đã có, đồng thời tránh duplicate hoặc overwrite sai các chương cũ.
+
 ## [1.3.42] - 2026-07-22
 
 ### Đồng bộ hành vi Hard Delete sách bất đồng bộ không đơ UI và bảo vệ sách đang ở trên kệ / đang nghe TTS
