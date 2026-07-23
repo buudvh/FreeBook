@@ -1265,27 +1265,29 @@ struct BookDetailView: View {
                 await MainActor.run {
                     self.onlineChapters = firstPageChapters
                     self.tocPages = pages
+                    self.isLoadingTOC = false
 
-                    if let targetBook = self.effectiveBook {
-                        self.updateFirstPageChapters(for: targetBook, with: firstPageChapters)
+                    let targetBook: Book?
+                    if let existing = self.effectiveBook {
+                        targetBook = existing
+                    } else {
+                        targetBook = nil
+                    }
+
+                    if let book = targetBook {
+                        // Wait for chapters to be saved before continuing
+                        await self.updateFirstPageChapters(for: book, with: firstPageChapters)
                         try? self.modelContext.save()
                         self.syncChaptersList()
-                        self.isLoadingTOC = false
 
                         if pages.count > 1 {
                             self.remainingPagesLoaded = false
-                            self.startProgressiveTOCLoading(for: targetBook, pages: pages)
+                            self.startProgressiveTOCLoading(for: book, pages: pages)
                         } else {
                             self.remainingPagesLoaded = true
                         }
                     } else {
-                        self.isLoadingTOC = false
-                        if pages.count > 1 {
-                            self.remainingPagesLoaded = false
-                            self.startProgressiveTOCLoading(for: nil, pages: pages)
-                        } else {
-                            self.remainingPagesLoaded = true
-                        }
+                        self.remainingPagesLoaded = true
                     }
                 }
             } catch {
@@ -1393,7 +1395,16 @@ struct BookDetailView: View {
             }
         }
 
-        let batchSize = 500
+        // ✅ OPTIMIZATION: Tăng batch size cho sách lớn
+        let batchSize: Int
+        if totalOnline < 1000 {
+            batchSize = 1000  // Sách nhỏ: 1 batch
+        } else if totalOnline < 5000 {
+            batchSize = 2000  // Sách vừa: 2-3 batch
+        } else {
+            batchSize = 3000  // Sách lớn: 2-3 batch
+        }
+        
         var startIndex = 0
         while startIndex < totalOnline {
             if Task.isCancelled {
@@ -1405,9 +1416,9 @@ struct BookDetailView: View {
             let batchResults = Array(onlineChapters[startIndex..<endIndex])
 
             if startIndex == 0 {
-                updateFirstPageChapters(for: newBook, with: batchResults)
+                await updateFirstPageChapters(for: newBook, with: batchResults)
             } else {
-                appendOrUpsertChapters(for: newBook, newResults: batchResults, baseIndex: startIndex)
+                await appendOrUpsertChapters(for: newBook, newResults: batchResults, baseIndex: startIndex)
             }
 
             do {
@@ -1469,7 +1480,9 @@ struct BookDetailView: View {
         modelContext.insert(newBook)
         createdBookInstance = newBook
 
-        updateFirstPageChapters(for: newBook, with: onlineChapters)
+        Task {
+            await updateFirstPageChapters(for: newBook, with: onlineChapters)
+        }
 
         do {
             try modelContext.save()
@@ -1494,7 +1507,7 @@ struct BookDetailView: View {
         return lower != "#" && !lower.hasPrefix("javascript:") && !lower.hasPrefix("about:")
     }
 
-    private func updateFirstPageChapters(for book: Book, with firstPageResults: [ChapterResult]) {
+    private func updateFirstPageChapters(for book: Book, with firstPageResults: [ChapterResult]) async {
         let defaultHost = book.host ?? resolvedHost
         let targetBookId = book.bookId
 
@@ -1509,10 +1522,8 @@ struct BookDetailView: View {
             )
         }
 
-        Task {
-            try? await chapterRepository.bulkUpsert(bookId: targetBookId, chapters: models)
-            await MainActor.run { self.syncChaptersList() }
-        }
+        try? await chapterRepository.bulkUpsert(bookId: targetBookId, chapters: models)
+        await MainActor.run { self.syncChaptersList() }
 
         if (book.host == nil || book.host?.isEmpty == true) {
             if let firstHost = firstPageResults.first?.host, !firstHost.isEmpty {
@@ -1523,7 +1534,7 @@ struct BookDetailView: View {
         }
     }
 
-    private func appendOrUpsertChapters(for book: Book, newResults: [ChapterResult], baseIndex: Int) {
+    private func appendOrUpsertChapters(for book: Book, newResults: [ChapterResult], baseIndex: Int) async {
         let defaultHost = book.host ?? resolvedHost
         let targetBookId = book.bookId
 
@@ -1539,10 +1550,8 @@ struct BookDetailView: View {
             )
         }
 
-        Task {
-            try? await chapterRepository.bulkUpsert(bookId: targetBookId, chapters: models)
-            await MainActor.run { self.syncChaptersList() }
-        }
+        try? await chapterRepository.bulkUpsert(bookId: targetBookId, chapters: models)
+        await MainActor.run { self.syncChaptersList() }
     }
 
     private func startProgressiveTOCLoading(for book: Book?, pages: [String]) {
@@ -1585,13 +1594,15 @@ struct BookDetailView: View {
                     )
                     try Task.checkCancellation()
 
-                    await MainActor.run {
+                    let pageBaseIndex = await MainActor.run {
                         self.loadedPageUrls.insert(pageUrl)
-                        let pageBaseIndex = self.onlineChapters.count
+                        let baseIndex = self.onlineChapters.count
                         self.onlineChapters.append(contentsOf: pageChaps)
-                        if let targetBook = book ?? self.effectiveBook {
-                            self.appendOrUpsertChapters(for: targetBook, newResults: pageChaps, baseIndex: pageBaseIndex)
-                        }
+                        return baseIndex
+                    }
+                    
+                    if let targetBook = book ?? self.effectiveBook {
+                        await self.appendOrUpsertChapters(for: targetBook, newResults: pageChaps, baseIndex: pageBaseIndex)
                     }
 
                     pendingPageCount += 1
@@ -1684,7 +1695,7 @@ struct BookDetailView: View {
                 let pageBaseIndex = onlineChapters.count
                 onlineChapters.append(contentsOf: pageChaps)
                 if let targetBook = book ?? self.effectiveBook {
-                    appendOrUpsertChapters(for: targetBook, newResults: pageChaps, baseIndex: pageBaseIndex)
+                    await appendOrUpsertChapters(for: targetBook, newResults: pageChaps, baseIndex: pageBaseIndex)
                 }
 
                 pendingPageCount += 1
@@ -2099,18 +2110,29 @@ struct BookDetailView: View {
             await MainActor.run {
                 self.onlineChapters = firstPageChapters
                 self.tocPages = pages
-                if let book = effectiveBook {
-                    updateFirstPageChapters(for: book, with: firstPageChapters)
+                
+                let targetBook: Book?
+                if let existing = effectiveBook {
+                    targetBook = existing
+                } else {
+                    targetBook = nil
+                }
+                
+                if let book = targetBook {
+                    // Wait for chapters to be saved before continuing
+                    await updateFirstPageChapters(for: book, with: firstPageChapters)
                     try? modelContext.save()
                     NotificationCenter.default.post(
                         name: .bookChaptersUpdated,
                         object: nil,
                         userInfo: ["bookId": book.bookId]
                     )
-                }
-                if pages.count > 1 {
-                    self.remainingPagesLoaded = false
-                    self.startProgressiveTOCLoading(for: effectiveBook, pages: pages)
+                    if pages.count > 1 {
+                        self.remainingPagesLoaded = false
+                        self.startProgressiveTOCLoading(for: book, pages: pages)
+                    } else {
+                        self.remainingPagesLoaded = true
+                    }
                 } else {
                     self.remainingPagesLoaded = true
                 }
