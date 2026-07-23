@@ -165,14 +165,14 @@ public final class ReaderChapterListStore {
 
     public var isLoadingPage = false
 
-    public init(bookId: String, modelContext: ModelContext?, onlineChapters: [ChapterResult], totalCount: Int, isAscending: Bool = true, isTranslationEnabled: Bool = false, chapterRepository: ChapterRepositoryProtocol = ChapterRepositoryFactory.make()) {
+    public init(bookId: String, modelContext: ModelContext?, onlineChapters: [ChapterResult], totalCount: Int, isAscending: Bool = true, isTranslationEnabled: Bool = false, chapterRepository: ChapterRepositoryProtocol? = nil) {
         self.bookId = bookId
         self.modelContext = modelContext
         self.onlineChapters = onlineChapters
         self.totalCount = totalCount
         self.isAscending = isAscending
         self.isTranslationEnabled = isTranslationEnabled
-        self.chapterRepository = chapterRepository
+        self.chapterRepository = chapterRepository ?? ChapterSQLiteRepository()
 
         setupPlaceholderRows()
     }
@@ -773,6 +773,8 @@ public struct ReaderChapterListView: View {
         self._onlineChapters = onlineChapters
         self.onSelectChapter = onSelectChapter
         self.onClose = onClose
+    }
+
     @State private var showingBookDetail = false
     @State private var searchQuery = ""
     @State private var isAscending = true
