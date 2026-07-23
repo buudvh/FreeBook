@@ -352,7 +352,7 @@ class ReaderViewModel: ObservableObject {
     }
 
     public func refreshChapterCountFromStorage() {
-        let repo = repository
+        let repo = chapterRepository ?? ChapterSQLiteRepository()
         let currentBookId = bookId
         let currentCount = totalChaptersCount
         Task {

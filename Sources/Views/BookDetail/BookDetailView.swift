@@ -11,6 +11,7 @@ struct ReaderRoute: Identifiable, Hashable {
 }
 
 struct BookDetailView: View {
+    @Environment(\.chapterRepository) private var chapterRepository
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query private var allBooks: [Book]
@@ -213,7 +214,7 @@ struct BookDetailView: View {
                 isLoadingRemainingPages = false
                 progressiveLoadingPageText = ""
             }
-            .onChange(of: effectiveBook?.chapters.count) { _, _ in
+            .onChange(of: totalChaptersCount) { _, _ in
                 syncChaptersList()
             }
             .onChange(of: chaptersList) { _, _ in
@@ -1250,14 +1251,14 @@ struct BookDetailView: View {
                     pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
                     if !pages.isEmpty {
                         firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages[0], host: resolvedHost, configJson: ext.configJson)
-                        await MainActor.run { self.loadedPageUrls.insert(pages[0]) }
+                        _ = await MainActor.run { self.loadedPageUrls.insert(pages[0]) }
                     } else {
                         firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
-                        await MainActor.run { self.loadedPageUrls.insert(initialDetailUrl) }
+                        _ = await MainActor.run { self.loadedPageUrls.insert(initialDetailUrl) }
                     }
                 } else {
                     firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
-                    await MainActor.run { self.loadedPageUrls.insert(initialDetailUrl) }
+                    _ = await MainActor.run { self.loadedPageUrls.insert(initialDetailUrl) }
                 }
 
                 await MainActor.run {
@@ -2084,14 +2085,14 @@ struct BookDetailView: View {
                 pages = try await ExtensionManager.shared.page(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
                 if !pages.isEmpty {
                     firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: pages[0], host: resolvedHost, configJson: ext.configJson)
-                    await MainActor.run { self.loadedPageUrls.insert(pages[0]) }
+                    _ = await MainActor.run { self.loadedPageUrls.insert(pages[0]) }
                 } else {
                     firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
-                    await MainActor.run { self.loadedPageUrls.insert(initialDetailUrl) }
+                    _ = await MainActor.run { self.loadedPageUrls.insert(initialDetailUrl) }
                 }
             } else {
                 firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: effectiveBook?.host, configJson: ext.configJson)
-                await MainActor.run { self.loadedPageUrls.insert(initialDetailUrl) }
+                _ = await MainActor.run { self.loadedPageUrls.insert(initialDetailUrl) }
             }
 
             await MainActor.run {

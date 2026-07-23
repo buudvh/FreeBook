@@ -80,11 +80,18 @@ actor ReadingProgressStore {
 
         book.currentChapterIndex = snapshot.chapterIndex
         book.currentChapterPage = snapshot.paragraphIndex
-        let resolvedTitle: String?
+        var resolvedTitle: String? = nil
         if let title = snapshot.chapterTitle, !title.isEmpty {
             resolvedTitle = title
         } else {
-            resolvedTitle = (try? await ChapterSQLiteRepository().getChapter(bookId: snapshot.bookId, index: snapshot.chapterIndex))?.title
+            let sema = DispatchSemaphore(value: 0)
+            let bookId = snapshot.bookId
+            let chapterIndex = snapshot.chapterIndex
+            Task {
+                resolvedTitle = (try? await ChapterSQLiteRepository().getChapter(bookId: bookId, index: chapterIndex))?.title
+                sema.signal()
+            }
+            _ = sema.wait(timeout: .now() + 1.0)
         }
         book.currentChapterTitle = resolvedTitle ?? book.currentChapterTitle
         book.isHistory = true

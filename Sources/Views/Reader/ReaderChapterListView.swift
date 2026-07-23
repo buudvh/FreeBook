@@ -165,7 +165,7 @@ public final class ReaderChapterListStore {
 
     public var isLoadingPage = false
 
-    public init(bookId: String, modelContext: ModelContext?, onlineChapters: [ChapterResult], totalCount: Int, isAscending: Bool = true, isTranslationEnabled: Bool = false, chapterRepository: ChapterRepositoryProtocol = ChapterSQLiteRepository()) {
+    public init(bookId: String, modelContext: ModelContext?, onlineChapters: [ChapterResult], totalCount: Int, isAscending: Bool = true, isTranslationEnabled: Bool = false, chapterRepository: ChapterRepositoryProtocol = ChapterRepositoryFactory.make()) {
         self.bookId = bookId
         self.modelContext = modelContext
         self.onlineChapters = onlineChapters
@@ -773,10 +773,6 @@ public struct ReaderChapterListView: View {
         self._onlineChapters = onlineChapters
         self.onSelectChapter = onSelectChapter
         self.onClose = onClose
-    }
-
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.chapterRepository) private var chapterRepository
     @State private var showingBookDetail = false
     @State private var searchQuery = ""
     @State private var isAscending = true
@@ -1247,8 +1243,7 @@ public struct ReaderChapterListView: View {
 
                     try? modelContext.save()
                     let targetBookId = book.bookId
-                    let descriptor = FetchDescriptor<Chapter>(predicate: #Predicate<Chapter> { $0.bookId == targetBookId })
-                    let currentTotal = (try? modelContext.fetchCount(descriptor)) ?? book.chapters.count
+                    let currentTotal = (try? await chapterRepository.getTotalChaptersCount(bookId: targetBookId)) ?? 0
                     store.updateChapters(totalCount: currentTotal, onlineChapters: onlineChapters)
                     NotificationCenter.default.post(name: .bookChaptersUpdated, object: nil, userInfo: ["bookId": book.bookId])
                 } else {
