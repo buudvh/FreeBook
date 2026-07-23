@@ -241,7 +241,7 @@ class ReaderViewModel: ObservableObject {
             if let bId = localBookSnapshot?.bookId {
                 var count = 0
                 let semaphore = DispatchSemaphore(value: 0)
-                let repo = chapterRepository ?? ChapterSQLiteRepository()
+                let repo = ChapterSQLiteRepository()
                 Task {
                     count = (try? await repo.getTotalChaptersCount(bookId: bId)) ?? 0
                     semaphore.signal()
