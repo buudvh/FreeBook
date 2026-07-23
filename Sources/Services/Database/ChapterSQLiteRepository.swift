@@ -1,5 +1,11 @@
 import Foundation
+#if canImport(SQLite3)
+import SQLite3
+#elseif canImport(CSQLite3)
+import CSQLite3
+#elseif canImport(sqlite3)
 import sqlite3
+#endif
 
 public actor ChapterSQLiteRepository: ChapterRepositoryProtocol {
     private var db: OpaquePointer?
