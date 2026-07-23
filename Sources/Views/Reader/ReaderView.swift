@@ -189,18 +189,18 @@ struct ReaderView: View {
         let title: String
         if index == (viewModel?.displayedChapterIndex ?? chapterIndex) {
             title = currentChapterTitle
+        } else if index >= 0 && index < currentOnlineChapters.count {
+            title = currentOnlineChapters[index].name
         } else if localBook != nil {
-            if let cached = viewModel?.cache.cache[index], !cached.title.isEmpty {
+            if let chap = viewModel?.fetchChapter(at: index), !chap.title.isEmpty {
+                title = chap.title
+            } else if let cached = viewModel?.cache.cache[index], !cached.title.isEmpty {
                 title = cached.title
             } else {
                 title = "Chương \(index + 1)"
             }
         } else {
-            if index < currentOnlineChapters.count {
-                title = currentOnlineChapters[index].name
-            } else {
-                title = "Chương \(index + 1)"
-            }
+            title = "Chương \(index + 1)"
         }
 
         return isTranslationEnabled && TranslateUtils.containsChinese(title)
@@ -697,7 +697,16 @@ struct ReaderView: View {
                 predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.index == localIndex }
             )
             descriptor.fetchLimit = 1
-            if let chap = (try? modelContext.fetch(descriptor))?.first {
+            if let chap = (try? modelContext.fetch(descriptor))?.first, !chap.url.isEmpty {
+                self.currentChapterTitle = chap.title
+                self.currentChapterUrl = chap.url
+                self.currentChapterHost = chap.host
+            } else if index >= 0 && index < currentOnlineChapters.count {
+                let chap = currentOnlineChapters[index]
+                self.currentChapterTitle = chap.name
+                self.currentChapterUrl = chap.url
+                self.currentChapterHost = chap.host
+            } else if let chap = (try? modelContext.fetch(descriptor))?.first {
                 self.currentChapterTitle = chap.title
                 self.currentChapterUrl = chap.url
                 self.currentChapterHost = chap.host

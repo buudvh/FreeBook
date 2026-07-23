@@ -754,13 +754,25 @@ class ReaderViewModel: ObservableObject {
         let bookMetadata: BookMetadataSnapshot?
 
         if localBook != nil {
-            guard let chap = fetchChapter(at: index) else {
+            if let chap = fetchChapter(at: index), !chap.url.isEmpty {
+                title = chap.title
+                urlString = chap.url
+                chapterHost = chap.host
+                bookMetadata = nil
+            } else if index >= 0 && index < onlineChapters.count {
+                let chap = onlineChapters[index]
+                title = chap.name
+                urlString = chap.url
+                chapterHost = chap.host
+                bookMetadata = nil
+            } else if let chap = fetchChapter(at: index) {
+                title = chap.title
+                urlString = chap.url
+                chapterHost = chap.host
+                bookMetadata = nil
+            } else {
                 throw ReaderLoadError.missingChapterSnapshot(index)
             }
-            title = chap.title
-            urlString = chap.url
-            chapterHost = chap.host
-            bookMetadata = nil
         } else {
             guard index < onlineChapters.count else {
                 throw ReaderLoadError.missingChapterSnapshot(index)

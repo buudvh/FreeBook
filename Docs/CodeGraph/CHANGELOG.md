@@ -4,6 +4,36 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.49] - 2026-07-23
+
+### Vá triệt để các lỗ hổng luồng LƯU (Saving Workflow) ngăn URL bị rỗng trong SQLite
+* **ChapterPersistenceStore**:
+  * Kiểm tra `!metadata.url.isEmpty` trước khi cập nhật `target.url` trong `upsert`, ngăn việc vô tình ghi đè chuỗi rỗng `""` lên URL hợp lệ của chương trong SQLite.
+* **ReaderChapterListView**:
+  * Cập nhật `appendNewChaptersOnly`: Khi bản ghi chương đã tồn tại ở chỉ số `absoluteIndex` nhưng bị rỗng URL, tự động cập nhật URL và tiêu đề thực tế từ Extension thay vì bỏ qua (`continue`).
+
+## [1.3.48] - 2026-07-23
+
+### Khắc phục triệt để luồng lưu dữ liệu và hiển thị chương trình đọc Reader
+* **ReaderView**:
+  * Sửa `updateCurrentChapterMetadata()`: Nếu truy vấn SwiftData trả về `nil` hoặc `chap.url.isEmpty`, tự động dự phòng lấy tên và URL chuẩn từ `currentOnlineChapters[index]`, không bao giờ gán cứng `currentChapterUrl = ""` làm hỏng luồng gọi Extension.
+  * Sửa `getChapterTitle(at:)`: Ưu tiên truy vấn tên chuẩn từ SwiftData hoặc `currentOnlineChapters[index].name` thay vì bị rơi vào nhãn mặc định `"Chương \(index + 1)"` khi chửa tải bộ nhớ tạm văn bản.
+* **ChapterPersistenceStore**:
+  * Cập nhật `ensureBook` và `upsert`: Bảo vệ tiêu đề và URL hiện có của chương không bị ghi đè bởi các chuỗi rỗng từ snapshot metadata.
+
+## [1.3.47] - 2026-07-23
+
+### Khắc phục triệt để lỗi mất 500 chương đầu và mất tiêu đề/URL chương khi đọc online
+* **BookDetailView**:
+  * Chuyển hàm `appendOrUpsertChapters` sang nhận vị trí `baseIndex: Int` tuyệt đối (`targetIndex = baseIndex + offset`), triệt tiêu phụ thuộc vào `book.chapters.map(\.index).max()` do hiện tượng lazy faulting của SwiftData gây ra việc ghi đè lô chương 500..999 lên vị trí 0..499.
+  * Tích hợp trợ thủ `isValidChapterUrl(_ url: String) -> Bool` loại bỏ các URL rỗng/placeholder (`""`, `"#"` , `javascript:...`, `about:...`) gây trùng lặp đối chiếu.
+  * Truyền chính xác `baseIndex` tuyệt đối trong `persistBookToSQLiteAsync`, `startProgressiveTOCLoading`, và `ensureChaptersLoadedUpTo`.
+  * Bỏ logic xoá chương `staleFirstPageChapters` gây xóa nhầm các chương cũ khi nạp lại trang 1.
+  * Cập nhật điều kiện hiển thị danh sách `if let book = effectiveBook, !filteredLocalChapters.isEmpty` và tự động làm mới bộ lọc trong `syncChaptersList()`, đảm bảo danh sách chương không bao giờ bị biến mất hay hiện 0 chương.
+* **ReaderChapterListView & ReaderViewModel**:
+  * Tích hợp cơ chế fallback về `onlineChapters[idx]` khi `BackgroundPagingWorker` hoặc SwiftData chưa kịp nạp/lưu dữ liệu chương xuống SQLite.
+  * Bảo toàn 100% tiêu đề chương và URL từ Extension, khắc phục triệt để lỗi rơi vào nhãn mặc định "Chương 1", "Chương 2"... và URL rỗng.
+
 ## [1.3.46] - 2026-07-23
 
 ### Sửa lỗi biên dịch Swift #Predicate macro trong ReaderChapterListView

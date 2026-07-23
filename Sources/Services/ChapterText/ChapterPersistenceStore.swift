@@ -154,10 +154,10 @@ actor ChapterPersistenceStore {
 
         for item in snapshot.chapters {
             if let existing = pool.consume(url: item.url, index: item.index) {
-                existing.title = item.title
-                existing.url = item.url
+                if !item.title.isEmpty { existing.title = item.title }
+                if !item.url.isEmpty { existing.url = item.url }
                 existing.index = item.index
-                existing.host = item.host
+                if let host = item.host, !host.isEmpty { existing.host = host }
             } else {
                 let newId = allocateNewChapterId(bookId: snapshot.bookId, item: item, existingIDs: &existingIDs)
                 let chapter = Chapter(
@@ -322,10 +322,10 @@ actor ChapterPersistenceStore {
 
             for item in snapshot.chapters {
                 if let existing = pool.consume(url: item.url, index: item.index) {
-                    existing.title = item.title
-                    existing.url = item.url
+                    if !item.title.isEmpty { existing.title = item.title }
+                    if !item.url.isEmpty { existing.url = item.url }
                     existing.index = item.index
-                    existing.host = item.host
+                    if let host = item.host, !host.isEmpty { existing.host = host }
                 } else {
                     let newId = allocateNewChapterId(bookId: book.bookId, item: item, existingIDs: &existingIDs)
                     let newChapter = Chapter(
@@ -364,10 +364,16 @@ actor ChapterPersistenceStore {
             return
         }
 
-        target.title = metadata.title
-        target.url = metadata.url
+        if !metadata.title.isEmpty {
+            target.title = metadata.title
+        }
+        if !metadata.url.isEmpty {
+            target.url = metadata.url
+        }
         target.index = metadata.index
-        target.host = metadata.host
+        if let host = metadata.host, !host.isEmpty {
+            target.host = host
+        }
         target.offset = offset
         target.length = length
         target.isCached = true

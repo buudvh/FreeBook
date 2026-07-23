@@ -358,6 +358,22 @@ public final class ReaderChapterListStore {
                                 isCached: data.isCached,
                                 isPlaceholder: false
                             )
+                        } else if logicIdx >= 0 && logicIdx < onlineChapters.count {
+                            let chap = onlineChapters[logicIdx]
+                            let displayTitle: String
+                            if isTranslationEnabled && TranslateUtils.containsChinese(chap.name) {
+                                displayTitle = TranslateUtils.translateChapterTitle(chap.name, bookId: bookId)
+                            } else {
+                                displayTitle = chap.name
+                            }
+                            nextStates[i] = ReaderChapterRowState(
+                                id: i,
+                                index: logicIdx,
+                                title: displayTitle,
+                                url: chap.url,
+                                isCached: false,
+                                isPlaceholder: false
+                            )
                         } else {
                             nextStates[i] = ReaderChapterRowState(
                                 id: i,
@@ -423,6 +439,22 @@ public final class ReaderChapterListStore {
                     title: data.title,
                     url: data.url,
                     isCached: data.isCached,
+                    isPlaceholder: false
+                )
+            } else if logicIdx >= 0 && logicIdx < onlineChapters.count {
+                let chap = onlineChapters[logicIdx]
+                let displayTitle: String
+                if isTranslationEnabled && TranslateUtils.containsChinese(chap.name) {
+                    displayTitle = TranslateUtils.translateChapterTitle(chap.name, bookId: bookId)
+                } else {
+                    displayTitle = chap.name
+                }
+                loadedRowStates[i] = ReaderChapterRowState(
+                    id: i,
+                    index: logicIdx,
+                    title: displayTitle,
+                    url: chap.url,
+                    isCached: false,
                     isPlaceholder: false
                 )
             } else {
@@ -545,12 +577,26 @@ public final class ReaderChapterListStore {
             let localMax = maxLogicalIndex
             let transEnabled = isTranslationEnabled
             let worker = BackgroundPagingWorker(container: context.container)
+            var dataFromStore: [Int: (title: String, url: String, isCached: Bool)] = [:]
             do {
-                fetchedData = try await worker.fetchPage(bookId: localBookId, minLogicalIndex: localMin, maxLogicalIndex: localMax, isTranslationEnabled: transEnabled)
+                dataFromStore = (try await worker.fetchPage(bookId: localBookId, minLogicalIndex: localMin, maxLogicalIndex: localMax, isTranslationEnabled: transEnabled)) ?? [:]
             } catch {
                 AppLogger.shared.log("❌ [BackgroundPagingWorker] Lỗi fetch page: \(error.localizedDescription)")
-                fetchedData = nil
             }
+
+            for idx in logicalIndices {
+                if dataFromStore[idx] == nil && idx >= 0 && idx < onlineChapters.count {
+                    let chap = onlineChapters[idx]
+                    let displayTitle: String
+                    if isTranslationEnabled && TranslateUtils.containsChinese(chap.name) {
+                        displayTitle = TranslateUtils.translateChapterTitle(chap.name, bookId: bookId)
+                    } else {
+                        displayTitle = chap.name
+                    }
+                    dataFromStore[idx] = (displayTitle, chap.url, false)
+                }
+            }
+            fetchedData = dataFromStore
         } else {
             var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
             for idx in logicalIndices {
@@ -1186,6 +1232,16 @@ public struct ReaderChapterListView: View {
                 continue
             }
             if existingIndices.contains(absoluteIndex) {
+                if let existing = book.chapters.first(where: { $0.index == absoluteIndex }) {
+                    if !item.name.isEmpty { existing.title = item.name }
+                    if isValidChapterUrl(trimmedUrl) && (existing.url.isEmpty || !isValidChapterUrl(existing.url)) {
+                        existing.url = item.url
+                    }
+                    let effectiveHost = !item.host.isEmpty ? item.host : chapterHost
+                    if let effectiveHost = effectiveHost, !effectiveHost.isEmpty {
+                        existing.host = effectiveHost
+                    }
+                }
                 continue
             }
 

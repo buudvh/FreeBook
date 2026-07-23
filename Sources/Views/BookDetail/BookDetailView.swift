@@ -724,7 +724,7 @@ struct BookDetailView: View {
                             }
                         } else {
                             LazyVStack(alignment: .leading, spacing: 0) {
-                                if let book = effectiveBook {
+                                if let book = effectiveBook, !filteredLocalChapters.isEmpty {
                                     ForEach(filteredLocalChapters) { chap in
                                         Button(action: {
                                             startReading(at: chap.index)
@@ -1404,7 +1404,7 @@ struct BookDetailView: View {
             if startIndex == 0 {
                 updateFirstPageChapters(for: newBook, with: batchResults)
             } else {
-                appendOrUpsertChapters(for: newBook, newResults: batchResults)
+                appendOrUpsertChapters(for: newBook, newResults: batchResults, baseIndex: startIndex)
             }
 
             do {
@@ -1484,24 +1484,31 @@ struct BookDetailView: View {
         return newBook
     }
 
+    private func isValidChapterUrl(_ url: String) -> Bool {
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        let lower = trimmed.lowercased()
+        return lower != "#" && !lower.hasPrefix("javascript:") && !lower.hasPrefix("about:")
+    }
+
     private func updateFirstPageChapters(for book: Book, with firstPageResults: [ChapterResult]) {
-        let firstPageCount = firstPageResults.count
         var existingByUrl: [String: Chapter] = [:]
         var existingByIndex: [Int: Chapter] = [:]
         for chap in book.chapters {
-            if !chap.url.isEmpty {
-                existingByUrl[chap.url] = chap
+            let trimmed = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
+            if isValidChapterUrl(trimmed) {
+                existingByUrl[trimmed] = chap
             }
             existingByIndex[chap.index] = chap
         }
 
-        var matchedFirstPageChapters = Set<Chapter>()
         var seenIds = Set(book.chapters.map(\.id))
 
         for (index, item) in firstPageResults.enumerated() {
             var matched: Chapter? = nil
-            if !item.url.isEmpty {
-                matched = existingByUrl[item.url] ?? existingByIndex[index]
+            let trimmedUrl = item.url.trimmingCharacters(in: .whitespacesAndNewlines)
+            if isValidChapterUrl(trimmedUrl) {
+                matched = existingByUrl[trimmedUrl] ?? existingByIndex[index]
             } else {
                 matched = existingByIndex[index]
             }
@@ -1509,7 +1516,6 @@ struct BookDetailView: View {
             let chapterHost = !item.host.isEmpty ? item.host : (book.host ?? resolvedHost)
 
             if let chapter = matched {
-                matchedFirstPageChapters.insert(chapter)
                 chapter.title = item.name
                 chapter.url = item.url
                 chapter.index = index
@@ -1531,19 +1537,6 @@ struct BookDetailView: View {
             }
         }
 
-        let staleFirstPageChapters = book.chapters.filter { chap in
-            chap.index < firstPageCount && !matchedFirstPageChapters.contains(chap)
-        }
-        for stale in staleFirstPageChapters {
-            let isPlayingChapter = TTSManager.shared.playingBookId == book.bookId
-                && TTSManager.shared.playingChapterIndex == stale.index
-                && (stale.url.isEmpty || TTSManager.shared.playingChapterUrl == stale.url)
-            if !isPlayingChapter {
-                book.chapters.removeAll(where: { $0 === stale })
-                modelContext.delete(stale)
-            }
-        }
-
         if (book.host == nil || book.host?.isEmpty == true) {
             if let firstHost = firstPageResults.first?.host, !firstHost.isEmpty {
                 book.host = firstHost
@@ -1555,57 +1548,55 @@ struct BookDetailView: View {
         self.syncChaptersList()
     }
 
-    private func appendOrUpsertChapters(for book: Book, newResults: [ChapterResult]) {
+    private func appendOrUpsertChapters(for book: Book, newResults: [ChapterResult], baseIndex: Int) {
         var existingByUrl: [String: Chapter] = [:]
         var existingByIndex: [Int: Chapter] = [:]
         for chap in book.chapters {
-            if !chap.url.isEmpty {
-                existingByUrl[chap.url] = chap
+            let trimmed = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
+            if isValidChapterUrl(trimmed) {
+                existingByUrl[trimmed] = chap
             }
             existingByIndex[chap.index] = chap
         }
 
-        let nextIndex = (book.chapters.map(\.index).max() ?? -1) + 1
-        var newSlotOffset = 0
         var seenIds = Set(book.chapters.map(\.id))
 
-        for item in newResults {
+        for (offset, item) in newResults.enumerated() {
+            let targetIndex = baseIndex + offset
             var matched: Chapter? = nil
-            if !item.url.isEmpty {
-                matched = existingByUrl[item.url]
+            let trimmedUrl = item.url.trimmingCharacters(in: .whitespacesAndNewlines)
+            if isValidChapterUrl(trimmedUrl) {
+                matched = existingByUrl[trimmedUrl]
             }
 
             let chapterHost = !item.host.isEmpty ? item.host : (book.host ?? resolvedHost)
 
             if let chapter = matched {
                 chapter.title = item.name
+                chapter.index = targetIndex
                 if let chapterHost = chapterHost, !chapterHost.isEmpty {
                     chapter.host = chapterHost
                 }
-            } else {
-                let targetIndex = nextIndex + newSlotOffset
-                if let indexMatched = existingByIndex[targetIndex] {
-                    indexMatched.title = item.name
-                    if !item.url.isEmpty {
-                        indexMatched.url = item.url
-                    }
-                    if let chapterHost = chapterHost, !chapterHost.isEmpty {
-                        indexMatched.host = chapterHost
-                    }
-                } else {
-                    let chapId = makeSafeChapterId(bookId: book.bookId, url: item.url, index: targetIndex, seenIds: &seenIds)
-                    let newChapter = Chapter(
-                        id: chapId,
-                        bookId: book.bookId,
-                        title: item.name,
-                        url: item.url,
-                        index: targetIndex,
-                        host: chapterHost
-                    )
-                    newChapter.book = book
-                    modelContext.insert(newChapter)
+            } else if let indexMatched = existingByIndex[targetIndex] {
+                indexMatched.title = item.name
+                if !item.url.isEmpty {
+                    indexMatched.url = item.url
                 }
-                newSlotOffset += 1
+                if let chapterHost = chapterHost, !chapterHost.isEmpty {
+                    indexMatched.host = chapterHost
+                }
+            } else {
+                let chapId = makeSafeChapterId(bookId: book.bookId, url: item.url, index: targetIndex, seenIds: &seenIds)
+                let newChapter = Chapter(
+                    id: chapId,
+                    bookId: book.bookId,
+                    title: item.name,
+                    url: item.url,
+                    index: targetIndex,
+                    host: chapterHost
+                )
+                newChapter.book = book
+                modelContext.insert(newChapter)
             }
         }
         self.syncChaptersList()
@@ -1653,9 +1644,10 @@ struct BookDetailView: View {
 
                     await MainActor.run {
                         self.loadedPageUrls.insert(pageUrl)
+                        let pageBaseIndex = self.onlineChapters.count
                         self.onlineChapters.append(contentsOf: pageChaps)
                         if let targetBook = book ?? self.effectiveBook {
-                            self.appendOrUpsertChapters(for: targetBook, newResults: pageChaps)
+                            self.appendOrUpsertChapters(for: targetBook, newResults: pageChaps, baseIndex: pageBaseIndex)
                         }
                     }
 
@@ -1746,9 +1738,10 @@ struct BookDetailView: View {
                 try Task.checkCancellation()
 
                 loadedPageUrls.insert(pageUrl)
+                let pageBaseIndex = onlineChapters.count
                 onlineChapters.append(contentsOf: pageChaps)
                 if let targetBook = book ?? self.effectiveBook {
-                    appendOrUpsertChapters(for: targetBook, newResults: pageChaps)
+                    appendOrUpsertChapters(for: targetBook, newResults: pageChaps, baseIndex: pageBaseIndex)
                 }
 
                 pendingPageCount += 1
@@ -2059,6 +2052,8 @@ struct BookDetailView: View {
         } else {
             chaptersList = []
         }
+        updateFilteredLocalChapters()
+        updateFilteredOnlineChapters()
     }
 
     private func updateFilteredLocalChapters() {
