@@ -1069,11 +1069,19 @@ public struct ReaderChapterListView: View {
 
     private func scrollToCurrentChapter(proxy: ScrollViewProxy) {
         guard isPresented else { return }
-        Task {
+        
+        // ✅ Debounce để tránh scroll nhiều lần khi view xuất hiện
+        Task { @MainActor in
+            // Delay nhỏ để đảm bảo view đã render hoàn toàn
+            try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+            
             let displayPosition = await store.jumpToChapter(index: currentChapterIndex)
             if let item = store.item(at: displayPosition) {
                 proxy.scrollTo(item.index, anchor: .center)
             }
+            
+            // ✅ Warm titles với delay để không block animation
+            try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
             warmNearbyTitles(aroundDisplayPosition: displayPosition, windowSize: 8)
             isPositioningInitialChapter = false
         }
@@ -1111,10 +1119,13 @@ public struct ReaderChapterListView: View {
         }
 
         guard !toWarm.isEmpty else { return }
+        
+        // ✅ Giới hạn chỉ warm tối đa 20 titles để tránh block main thread
+        let limitedWarm = Array(toWarm.prefix(20))
         let currentBookId = bookId
-        Task.detached(priority: .utility) { [toWarm, currentBookId] in
+        Task.detached(priority: .utility) { [limitedWarm, currentBookId] in
             var results: [Int: String] = [:]
-            for item in toWarm {
+            for item in limitedWarm {
                 let translated = TranslateUtils.translateChapterTitle(item.rawTitle, bookId: currentBookId)
                 results[item.index] = translated
             }

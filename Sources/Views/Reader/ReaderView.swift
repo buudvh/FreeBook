@@ -653,6 +653,8 @@ struct ReaderView: View {
                     onlineChapters: currentOnlineChapters
                 )
             }
+            // ✅ Init chapter list store sau khi viewModel đã sẵn sàng
+            initializeChapterListStoreInBackground()
             return
         }
 
@@ -686,6 +688,9 @@ struct ReaderView: View {
         if !hasOpenedReader {
             hasOpenedReader = true
         }
+        
+        // ✅ Init chapter list store sau khi viewModel được tạo
+        initializeChapterListStoreInBackground()
     }
 
     private func updateCurrentChapterMetadata() {
@@ -747,6 +752,33 @@ struct ReaderView: View {
         self.chapterListStore = store
         return store
     }
+    
+    private func initializeChapterListStoreInBackground() {
+        // ✅ Chỉ init nếu chưa có và viewModel đã sẵn sàng
+        guard chapterListStore == nil, let vm = viewModel else { return }
+        
+        Task.detached(priority: .utility) {
+            // Tạo store trên background thread
+            let store = ReaderChapterListStore(
+                bookId: await self.bookId,
+                modelContext: await self.localBook != nil ? self.modelContext : nil,
+                onlineChapters: await (self.currentOnlineChapters.isEmpty ? self.onlineChapters : self.currentOnlineChapters),
+                totalCount: await vm.totalChaptersCount,
+                isAscending: true,
+                isTranslationEnabled: await self.isTranslationEnabled,
+                chapterRepository: await self.chapterRepository
+            )
+            
+            // Preload trang chứa chương hiện tại
+            let currentIdx = await (self.viewModel?.displayedChapterIndex ?? self.chapterIndex)
+            await store.loadVisiblePageIfNeeded(displayPosition: currentIdx)
+            
+            // Gán store về main thread
+            await MainActor.run {
+                self.chapterListStore = store
+            }
+        }
+    }
 
     @ViewBuilder
     private func readerChapterListOverlay(in geometry: GeometryProxy) -> some View {
@@ -793,6 +825,34 @@ struct ReaderView: View {
                 .accessibilityHidden(!showingChapterList)
             }
             .zIndex(10)
+        } else if showingChapterList {
+            // ✅ Fallback: Nếu store chưa sẵn sàng, init ngay và hiện loading
+            ZStack {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        closeChapterList()
+                    }
+                
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(1.2)
+                    Text("Đang tải danh sách chương...")
+                        .foregroundColor(.white)
+                        .font(.subheadline)
+                }
+                .padding(32)
+                .background(Color.black.opacity(0.7))
+                .cornerRadius(12)
+            }
+            .zIndex(10)
+            .onAppear {
+                // Force init store synchronously nếu cần
+                if chapterListStore == nil {
+                    _ = getOrInitChapterListStore()
+                }
+            }
         }
     }
 
@@ -1859,7 +1919,7 @@ struct ReaderView: View {
                 .accessibilityLabel(isTranslationEnabled ? "Tắt dịch" : "Bật dịch")
 
                 Button(action: {
-                    _ = getOrInitChapterListStore()
+                    // ✅ Không gọi getOrInitChapterListStore() nữa - store đã được init sẵn trong background
                     showingChapterList = true
                 }) {
                     VStack(alignment: .leading, spacing: 3) {

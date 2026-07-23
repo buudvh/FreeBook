@@ -58,6 +58,9 @@ struct BookDetailView: View {
     @State private var filteredOnlineChapters: [(offset: Int, element: ChapterResult)] = []
     @State private var host = ""
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    @State private var isLoadingMoreChapters = false
+    @State private var currentChaptersPage = 0
+    private let chaptersPageSize = 50
 
     // Cấu hình tab và FAB
     @State private var selectedTab = 0
@@ -199,7 +202,6 @@ struct BookDetailView: View {
             .onAppear {
                 renderedTab = selectedTab
                 loadBookData()
-                syncChaptersList()
                 updateFilteredLocalChapters()
                 updateFilteredOnlineChapters()
             }
@@ -216,7 +218,8 @@ struct BookDetailView: View {
                 progressiveLoadingPageText = ""
             }
             .onChange(of: totalChaptersCount) { _, _ in
-                syncChaptersList()
+                updateFilteredLocalChapters()
+                updateFilteredOnlineChapters()
             }
             .onChange(of: chaptersList) { _, _ in
                 updateFilteredLocalChapters()
@@ -728,7 +731,7 @@ struct BookDetailView: View {
                         } else {
                             LazyVStack(alignment: .leading, spacing: 0) {
                                 if let book = effectiveBook, !filteredLocalChapters.isEmpty {
-                                    ForEach(filteredLocalChapters) { chap in
+                                    ForEach(Array(filteredLocalChapters.enumerated()), id: \.element.id) { idx, chap in
                                         Button(action: {
                                             startReading(at: chap.index)
                                         }) {
@@ -749,6 +752,21 @@ struct BookDetailView: View {
                                             Divider()
                                         }
                                         .buttonStyle(.plain)
+                                        .onAppear {
+                                            // Load more khi đến gần cuối
+                                            if idx == filteredLocalChapters.count - 10 {
+                                                loadMoreChaptersFromDB()
+                                            }
+                                        }
+                                    }
+                                    
+                                    if isLoadingMoreChapters {
+                                        HStack {
+                                            Spacer()
+                                            ProgressView()
+                                                .padding()
+                                            Spacer()
+                                        }
                                     }
                                 } else {
                                     ForEach(filteredOnlineChapters, id: \.offset) { index, chap in
@@ -1151,14 +1169,28 @@ struct BookDetailView: View {
             self.author = book.author
             self.coverUrl = book.coverUrl
             self.desc = book.desc
-            self.syncChaptersList()
-            self.updateFilteredLocalChapters()
-            if totalChaptersCount > 0 {
-                self.remainingPagesLoaded = true
-                self.isLoadingDetail = false
-                self.isLoadingTOC = false
-                return
+            
+            // ✅ AWAIT syncChaptersList để biết chapters count
+            Task {
+                await syncChaptersListAsync()
+                await MainActor.run {
+                    self.updateFilteredLocalChapters()
+                    if self.totalChaptersCount > 0 {
+                        self.remainingPagesLoaded = true
+                        self.isLoadingDetail = false
+                        self.isLoadingTOC = false
+                        return
+                    }
+                    // Nếu không có chapters trong DB → Load từ extension
+                    self.isLoadingDetail = true
+                    self.isLoadingTOC = true
+                    self.detailErrorMessage = ""
+                    self.tocErrorMessage = ""
+                    self.loadBookDetailOnly()
+                    self.loadTOCDataOnly()
+                }
             }
+            return
         }
 
         isLoadingDetail = true
@@ -1281,8 +1313,8 @@ struct BookDetailView: View {
                     
                     await MainActor.run {
                         try? self.modelContext.save()
-                        self.syncChaptersList()
                     }
+                    await self.syncChaptersListAsync()
 
                     await MainActor.run {
                         if pages.count > 1 {
@@ -1394,7 +1426,7 @@ struct BookDetailView: View {
                     object: nil,
                     userInfo: ["bookId": newBook.bookId]
                 )
-                syncChaptersList()
+                await syncChaptersListAsync()
                 return newBook
             } catch {
                 cleanupPersistenceFailure(isNewBook: isNewBook, book: newBook)
@@ -1444,7 +1476,7 @@ struct BookDetailView: View {
             await Task.yield()
         }
 
-        syncChaptersList()
+        await syncChaptersListAsync()
         return newBook
     }
 
@@ -1503,7 +1535,8 @@ struct BookDetailView: View {
             return nil
         }
 
-        syncChaptersList()
+        // Don't call syncChaptersList here - it's a sync function
+        // The chapters will be synced when needed by async callers
         return newBook
     }
 
@@ -1530,7 +1563,7 @@ struct BookDetailView: View {
         }
 
         try? await chapterRepository.bulkUpsert(bookId: targetBookId, chapters: models)
-        await MainActor.run { self.syncChaptersList() }
+        await syncChaptersListAsync()
 
         if (book.host == nil || book.host?.isEmpty == true) {
             if let firstHost = firstPageResults.first?.host, !firstHost.isEmpty {
@@ -1558,7 +1591,7 @@ struct BookDetailView: View {
         }
 
         try? await chapterRepository.bulkUpsert(bookId: targetBookId, chapters: models)
-        await MainActor.run { self.syncChaptersList() }
+        await syncChaptersListAsync()
     }
 
     private func startProgressiveTOCLoading(for book: Book?, pages: [String]) {
@@ -1821,13 +1854,10 @@ struct BookDetailView: View {
                     if let book = targetBook {
                         book.currentChapterIndex = chapterIndex
                         let targetBookId = book.bookId
-                        Task {
-                            if let chap = try? await chapterRepository.getChapter(bookId: targetBookId, index: chapterIndex) {
-                                await MainActor.run {
-                                    book.currentChapterTitle = chap.title
-                                    try? modelContext.save()
-                                }
-                            }
+                        // ✅ AWAIT để đảm bảo title được set trước khi chuyển màn
+                        if let chap = try? await chapterRepository.getChapter(bookId: targetBookId, index: chapterIndex) {
+                            book.currentChapterTitle = chap.title
+                            try? modelContext.save()
                         }
                     }
                 }
@@ -1930,7 +1960,7 @@ struct BookDetailView: View {
                     throw error
                 }
 
-                syncChaptersList()
+                await syncChaptersListAsync()
                 try Task.checkCancellation()
 
                 isPreparingBook = false
@@ -2013,21 +2043,55 @@ struct BookDetailView: View {
     }
 
     private func syncChaptersList() {
+        Task {
+            await syncChaptersListAsync()
+        }
+    }
+    
+    private func syncChaptersListAsync() async {
         if let targetBookId = effectiveBook?.bookId {
-            Task {
-                let items = (try? await chapterRepository.loadPageKeyset(bookId: targetBookId, startIdx: 0, limit: 100000)) ?? []
-                await MainActor.run {
-                    self.chaptersList = items
-                    self.totalChaptersCount = items.count
-                    self.updateFilteredLocalChapters()
-                    self.updateFilteredOnlineChapters()
-                }
+            // ✅ Load page đầu tiên (50 chapters)
+            currentChaptersPage = 0
+            let items = (try? await chapterRepository.loadPageKeyset(bookId: targetBookId, startIdx: 0, limit: chaptersPageSize)) ?? []
+            let totalCount = (try? await chapterRepository.getTotalChaptersCount(bookId: targetBookId)) ?? 0
+            await MainActor.run {
+                self.chaptersList = items
+                self.totalChaptersCount = totalCount
+                self.updateFilteredLocalChapters()
+                self.updateFilteredOnlineChapters()
             }
         } else {
-            chaptersList = []
-            totalChaptersCount = 0
-            updateFilteredLocalChapters()
-            updateFilteredOnlineChapters()
+            await MainActor.run {
+                self.chaptersList = []
+                self.totalChaptersCount = 0
+                self.currentChaptersPage = 0
+                self.updateFilteredLocalChapters()
+                self.updateFilteredOnlineChapters()
+            }
+        }
+    }
+    
+    private func loadMoreChaptersFromDB() {
+        guard !isLoadingMoreChapters,
+              let targetBookId = effectiveBook?.bookId,
+              chaptersList.count < totalChaptersCount else { return }
+        
+        isLoadingMoreChapters = true
+        Task {
+            let nextPage = currentChaptersPage + 1
+            let startIdx = nextPage * chaptersPageSize
+            let items = (try? await chapterRepository.loadPageKeyset(
+                bookId: targetBookId,
+                startIdx: startIdx,
+                limit: chaptersPageSize
+            )) ?? []
+            
+            await MainActor.run {
+                self.currentChaptersPage = nextPage
+                self.chaptersList.append(contentsOf: items)
+                self.updateFilteredLocalChapters()
+                self.isLoadingMoreChapters = false
+            }
         }
     }
 
