@@ -116,15 +116,10 @@ struct ShelfView: View {
                         } else {
                             List {
                                 ForEach(displayedShelfBooks) { book in
-                                    NavigationLink(destination: ReaderView(
+                                    NavigationLink(destination: ReaderPrepareView(
                                         bookId: book.bookId,
                                         extensionPackageId: book.extensionPackageId,
-                                        chapterIndex: book.currentChapterIndex,
-                                        onlineChapters: [],
-                                        bookTitle: nil,
-                                        bookAuthor: nil,
-                                        bookCoverUrl: nil,
-                                        bookDesc: nil,
+                                        initialChapterIndex: book.currentChapterIndex,
                                         bookDetailUrl: book.detailUrl,
                                         bookSourceName: book.sourceName
                                     )) {
@@ -210,15 +205,10 @@ struct ShelfView: View {
                         } else {
                             List {
                                 ForEach(displayedHistoryBooks) { book in
-                                    NavigationLink(destination: ReaderView(
+                                    NavigationLink(destination: ReaderPrepareView(
                                         bookId: book.bookId,
                                         extensionPackageId: book.extensionPackageId,
-                                        chapterIndex: book.currentChapterIndex,
-                                        onlineChapters: [],
-                                        bookTitle: nil,
-                                        bookAuthor: nil,
-                                        bookCoverUrl: nil,
-                                        bookDesc: nil,
+                                        initialChapterIndex: book.currentChapterIndex,
                                         bookDetailUrl: book.detailUrl,
                                         bookSourceName: book.sourceName
                                     )) {
@@ -338,15 +328,10 @@ struct ShelfView: View {
             }
             .navigationDestination(isPresented: $triggerNavigation) {
                 if let bookId = navigateToPlayingBookId {
-                    ReaderView(
+                    ReaderPrepareView(
                         bookId: bookId,
                         extensionPackageId: navigateToPlayingExtensionId,
-                        chapterIndex: navigateToPlayingChapterIndex,
-                        onlineChapters: [],
-                        bookTitle: nil,
-                        bookAuthor: nil,
-                        bookCoverUrl: nil,
-                        bookDesc: nil,
+                        initialChapterIndex: navigateToPlayingChapterIndex,
                         bookDetailUrl: navigateToPlayingDetailUrl,
                         bookSourceName: navigateToPlayingSourceName,
                         initialParagraphIndex: navigateToPlayingParagraphIndex

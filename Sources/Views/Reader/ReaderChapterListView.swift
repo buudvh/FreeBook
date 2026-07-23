@@ -561,7 +561,7 @@ public final class ReaderChapterListStore {
             let worker = BackgroundPagingWorker(repository: chapterRepository)
             var dataFromStore: [Int: (title: String, url: String, isCached: Bool)] = [:]
             do {
-                dataFromStore = (try await worker.fetchPage(bookId: localBookId, minLogicalIndex: localMin, maxLogicalIndex: localMax, isTranslationEnabled: transEnabled)) ?? [:]
+                dataFromStore = try await worker.fetchPage(bookId: localBookId, minLogicalIndex: localMin, maxLogicalIndex: localMax, isTranslationEnabled: transEnabled)
             } catch {
                 AppLogger.shared.log("❌ [BackgroundPagingWorker] Lỗi fetch page: \(error.localizedDescription)")
             }
@@ -1123,13 +1123,13 @@ public struct ReaderChapterListView: View {
         // ✅ Giới hạn chỉ warm tối đa 20 titles để tránh block main thread
         let limitedWarm = Array(toWarm.prefix(20))
         let currentBookId = bookId
-        Task.detached(priority: .utility) { [limitedWarm, currentBookId] in
+        Task.detached(priority: .utility) {
             var results: [Int: String] = [:]
             for item in limitedWarm {
                 let translated = TranslateUtils.translateChapterTitle(item.rawTitle, bookId: currentBookId)
                 results[item.index] = translated
             }
-            await MainActor.run {
+            await MainActor.run { [results] in
                 self.displayTitleCache.merge(results) { current, _ in current }
             }
         }

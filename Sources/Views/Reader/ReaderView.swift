@@ -757,26 +757,29 @@ struct ReaderView: View {
         // ✅ Chỉ init nếu chưa có và viewModel đã sẵn sàng
         guard chapterListStore == nil, let vm = viewModel else { return }
         
-        Task.detached(priority: .utility) {
-            // Tạo store trên background thread
+        let currentIdx = self.viewModel?.displayedChapterIndex ?? self.chapterIndex
+        
+        // ✅ Run on main thread with low priority to not block UI
+        Task(priority: .utility) { @MainActor in
+            // Create store
             let store = ReaderChapterListStore(
-                bookId: await self.bookId,
-                modelContext: await self.localBook != nil ? self.modelContext : nil,
-                onlineChapters: await (self.currentOnlineChapters.isEmpty ? self.onlineChapters : self.currentOnlineChapters),
-                totalCount: await vm.totalChaptersCount,
+                bookId: self.bookId,
+                modelContext: self.localBook != nil ? self.modelContext : nil,
+                onlineChapters: self.currentOnlineChapters.isEmpty ? self.onlineChapters : self.currentOnlineChapters,
+                totalCount: vm.totalChaptersCount,
                 isAscending: true,
-                isTranslationEnabled: await self.isTranslationEnabled,
-                chapterRepository: await self.chapterRepository
+                isTranslationEnabled: self.isTranslationEnabled,
+                chapterRepository: self.chapterRepository
             )
             
+            // Yield to let UI update first
+            await Task.yield()
+            
             // Preload trang chứa chương hiện tại
-            let currentIdx = await (self.viewModel?.displayedChapterIndex ?? self.chapterIndex)
             await store.loadVisiblePageIfNeeded(displayPosition: currentIdx)
             
-            // Gán store về main thread
-            await MainActor.run {
-                self.chapterListStore = store
-            }
+            // Assign store
+            self.chapterListStore = store
         }
     }
 
