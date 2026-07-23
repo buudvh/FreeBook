@@ -352,14 +352,17 @@ class ReaderViewModel: ObservableObject {
     }
 
     public func refreshChapterCountFromStorage() {
-        let localBookId = bookId
-        var descriptor = FetchDescriptor<Chapter>(
-            predicate: #Predicate<Chapter> { $0.bookId == localBookId }
-        )
-        if let count = try? modelContext.fetchCount(descriptor), count > totalChaptersCount {
-            self.totalChaptersCount = count
-            if case .bootstrapping = loadState {
-                bootstrapReader()
+        let repo = repository
+        let currentBookId = bookId
+        let currentCount = totalChaptersCount
+        Task {
+            if let count = try? await repo.getTotalChaptersCount(bookId: currentBookId), count > currentCount {
+                await MainActor.run {
+                    self.totalChaptersCount = count
+                    if case .bootstrapping = self.loadState {
+                        self.bootstrapReader()
+                    }
+                }
             }
         }
     }

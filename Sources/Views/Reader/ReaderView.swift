@@ -547,18 +547,17 @@ struct ReaderView: View {
                   targetBookId == bookId else { return }
 
             let localBId = bookId
-            let descriptor = FetchDescriptor<Chapter>(
-                predicate: #Predicate<Chapter> { $0.bookId == localBId }
-            )
-            guard let currentCount = try? modelContext.fetchCount(descriptor) else { return }
-
-            guard currentCount != self.localChaptersCount else { return }
-
-            self.localChaptersCount = currentCount
-            viewModel?.refreshChapterCountFromStorage()
-            let updatedTotal = viewModel?.totalChaptersCount ?? currentCount
-            if let store = chapterListStore {
-                store.updateChapters(totalCount: updatedTotal, onlineChapters: currentOnlineChapters)
+            Task {
+                guard let currentCount = try? await chapterRepository.getTotalChaptersCount(bookId: localBId) else { return }
+                await MainActor.run {
+                    guard currentCount != self.localChaptersCount else { return }
+                    self.localChaptersCount = currentCount
+                    viewModel?.refreshChapterCountFromStorage()
+                    let updatedTotal = viewModel?.totalChaptersCount ?? currentCount
+                    if let store = chapterListStore {
+                        store.updateChapters(totalCount: updatedTotal, onlineChapters: currentOnlineChapters)
+                    }
+                }
             }
         }
         .onChange(of: ttsManager.currentParentParagraphIndex) { _, newValue in
@@ -633,12 +632,11 @@ struct ReaderView: View {
         }
 
         if !didResolveLocalChapterCount {
-            if let bookId = localBookSnapshot?.bookId {
-                let localBId = bookId
-                let descriptor = FetchDescriptor<Chapter>(
-                    predicate: #Predicate<Chapter> { $0.bookId == localBId }
-                )
-                self.localChaptersCount = (try? modelContext.fetchCount(descriptor)) ?? 0
+            if let targetBookId = localBookSnapshot?.bookId {
+                Task {
+                    let count = (try? await chapterRepository.getTotalChaptersCount(bookId: targetBookId)) ?? 0
+                    await MainActor.run { self.localChaptersCount = count }
+                }
             } else {
                 self.localChaptersCount = 0
             }
@@ -695,27 +693,27 @@ struct ReaderView: View {
         if localBookSnapshot != nil {
             let localBookId = bookId
             let localIndex = index
-            var descriptor = FetchDescriptor<Chapter>(
-                predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.index == localIndex }
-            )
-            descriptor.fetchLimit = 1
-            if let chap = (try? modelContext.fetch(descriptor))?.first, !chap.url.isEmpty {
-                self.currentChapterTitle = chap.title
-                self.currentChapterUrl = chap.url
-                self.currentChapterHost = chap.host
-            } else if index >= 0 && index < currentOnlineChapters.count {
-                let chap = currentOnlineChapters[index]
-                self.currentChapterTitle = chap.name
-                self.currentChapterUrl = chap.url
-                self.currentChapterHost = chap.host
-            } else if let chap = (try? modelContext.fetch(descriptor))?.first {
-                self.currentChapterTitle = chap.title
-                self.currentChapterUrl = chap.url
-                self.currentChapterHost = chap.host
-            } else {
-                self.currentChapterTitle = "Chương \(index + 1)"
-                self.currentChapterUrl = ""
-                self.currentChapterHost = localBook?.host ?? ext?.sourceUrl
+            Task {
+                if let chap = try? await chapterRepository.getChapter(bookId: localBookId, index: localIndex), !chap.url.isEmpty {
+                    await MainActor.run {
+                        self.currentChapterTitle = chap.title
+                        self.currentChapterUrl = chap.url
+                        self.currentChapterHost = chap.host
+                    }
+                } else if index >= 0 && index < currentOnlineChapters.count {
+                    await MainActor.run {
+                        let chap = currentOnlineChapters[index]
+                        self.currentChapterTitle = chap.name
+                        self.currentChapterUrl = chap.url
+                        self.currentChapterHost = chap.host
+                    }
+                } else {
+                    await MainActor.run {
+                        self.currentChapterTitle = "Chương \(index + 1)"
+                        self.currentChapterUrl = ""
+                        self.currentChapterHost = localBook?.host ?? ext?.sourceUrl
+                    }
+                }
             }
         } else {
             if index >= 0 && index < currentOnlineChapters.count {

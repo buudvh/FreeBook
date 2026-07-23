@@ -365,7 +365,8 @@ public final class DownloadManager: ObservableObject {
             }
 
             // 3. Prepare chapters to process
-            let sortedChapters = bgBook.chapters.sorted(by: { $0.index < $1.index })
+            let allChapters = (try? await ChapterSQLiteRepository().loadPageKeyset(bookId: bgBook.bookId, startIdx: 0, limit: 100000)) ?? []
+            let sortedChapters = allChapters.sorted(by: { $0.index < $1.index })
             let startIdx = task.startFromCurrent ? bgBook.currentChapterIndex : 0
 
             guard startIdx < sortedChapters.count else {

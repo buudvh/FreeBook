@@ -28,16 +28,19 @@ public final class BookStorageManager: Sendable {
     }
 
     // Xóa sách khỏi kệ (Hard Delete, trừ sách đang phát TTS)
+    @MainActor
     public func removeFromShelf(_ book: Book, context: ModelContext) throws {
         try deleteBookComplete(book, context: context)
     }
 
     // Xóa sách khỏi lịch sử (Hard Delete, trừ sách đang phát TTS)
+    @MainActor
     public func removeFromHistory(_ book: Book, context: ModelContext) throws {
         try deleteBookComplete(book, context: context)
     }
 
     // Xóa toàn bộ lịch sử (Chỉ xóa sách không ở trên kệ, trừ sách đang phát TTS)
+    @MainActor
     public func clearAllHistory(historyBooks: [Book], context: ModelContext) throws {
         let playingId = TTSManager.shared.playingBookId
         let toDelete = historyBooks.filter { !$0.isOnShelf && (playingId.isEmpty || $0.bookId != playingId) }
@@ -47,20 +50,23 @@ public final class BookStorageManager: Sendable {
     }
 
     // Helper xóa hoàn toàn một cuốn sách
+    @MainActor
     public func deleteBookComplete(_ book: Book, context: ModelContext) throws {
         try deleteBooks(bookIds: [book.bookId], context: context)
     }
 
     // API Xóa bất đồng bộ lõi theo danh sách bookId sử dụng ModelContainer (Non-blocking UI)
     public func deleteBooksAsync(bookIds: [String], container: ModelContainer) async throws {
-        let playingId = TTSManager.shared.playingBookId
+        let playingId = await MainActor.run { TTSManager.shared.playingBookId }
         let validBookIds = Array(Set(bookIds)).filter { playingId.isEmpty || $0 != playingId }
         guard !validBookIds.isEmpty else { return }
 
         // 1. Side-effects trên MainActor cho các bookId hợp lệ (không xóa/dừng sách đang phát TTS)
-        for bookId in validBookIds {
-            clearReaderFallback(for: bookId)
-            DownloadManager.shared.cancelTasksForBook(bookId: bookId)
+        await MainActor.run {
+            for bookId in validBookIds {
+                clearReaderFallback(for: bookId)
+                DownloadManager.shared.cancelTasksForBook(bookId: bookId)
+            }
         }
 
         // 2. DB Cascade Delete trên background context
@@ -82,15 +88,16 @@ public final class BookStorageManager: Sendable {
         }.value
 
         // 3. Physical file cleanup trong background thread
+        let repo = self.chapterRepository
         Task.detached(priority: .background) {
             for bookId in validBookIds {
-                try? await self.chapterRepository.deleteChapters(bookId: bookId)
+                try? await repo.deleteChapters(bookId: bookId)
                 do {
                     try await BookBinManager.shared.deleteBinFile(for: bookId)
                 } catch {
                     AppLogger.shared.log("❌ Lỗi xóa file .bin: \(error.localizedDescription)")
                     let binPath = await BookBinManager.shared.binFilePath(for: bookId).path
-                    await Self.shared.enqueueFailedDeletionAsync(path: binPath)
+                    self.enqueueFailedDeletionAsync(path: binPath)
                 }
 
                 do {
@@ -98,7 +105,7 @@ public final class BookStorageManager: Sendable {
                 } catch {
                     AppLogger.shared.log("❌ Lỗi xóa cover: \(error.localizedDescription)")
                     let coverPath = ImageCacheManager.shared.localCoverURL(for: bookId).path
-                    await Self.shared.enqueueFailedDeletionAsync(path: coverPath)
+                    self.enqueueFailedDeletionAsync(path: coverPath)
                 }
             }
         }
@@ -111,7 +118,7 @@ public final class BookStorageManager: Sendable {
 
     // Async clear-all lịch sử chỉ xóa sách không nằm trên kệ (và không phải sách đang phát TTS)
     public func clearAllOffShelfHistoryAsync(container: ModelContainer) async throws {
-        let playingId = TTSManager.shared.playingBookId
+        let playingId = await MainActor.run { TTSManager.shared.playingBookId }
 
         let deletedIds: [String] = try await Task.detached(priority: .userInitiated) {
             let bgContext = ModelContext(container)
@@ -135,20 +142,24 @@ public final class BookStorageManager: Sendable {
         guard !deletedIds.isEmpty else { return }
 
         // MainActor side effects
-        for bookId in deletedIds {
-            clearReaderFallback(for: bookId)
-            DownloadManager.shared.cancelTasksForBook(bookId: bookId)
+        await MainActor.run {
+            for bookId in deletedIds {
+                clearReaderFallback(for: bookId)
+                DownloadManager.shared.cancelTasksForBook(bookId: bookId)
+            }
         }
 
         // Background physical file cleanup
+        let repo = self.chapterRepository
         Task.detached(priority: .background) {
             for bookId in deletedIds {
+                try? await repo.deleteChapters(bookId: bookId)
                 do {
                     try await BookBinManager.shared.deleteBinFile(for: bookId)
                 } catch {
                     AppLogger.shared.log("❌ Lỗi xóa file .bin: \(error.localizedDescription)")
                     let binPath = await BookBinManager.shared.binFilePath(for: bookId).path
-                    await Self.shared.enqueueFailedDeletionAsync(path: binPath)
+                    self.enqueueFailedDeletionAsync(path: binPath)
                 }
 
                 do {
@@ -156,13 +167,14 @@ public final class BookStorageManager: Sendable {
                 } catch {
                     AppLogger.shared.log("❌ Lỗi xóa cover: \(error.localizedDescription)")
                     let coverPath = ImageCacheManager.shared.localCoverURL(for: bookId).path
-                    await Self.shared.enqueueFailedDeletionAsync(path: coverPath)
+                    self.enqueueFailedDeletionAsync(path: coverPath)
                 }
             }
         }
     }
 
     // Xóa hàng loạt sách và thực hiện side-effects (Đồng bộ)
+    @MainActor
     public func deleteBooks(bookIds: [String], context: ModelContext) throws {
         let playingId = TTSManager.shared.playingBookId
         let uniqueBookIds = Array(Set(bookIds)).filter { playingId.isEmpty || $0 != playingId }
@@ -212,15 +224,17 @@ public final class BookStorageManager: Sendable {
         }
 
         // 4. Cleanup file vật lý bất đồng bộ trong background thread
+        let repo = self.chapterRepository
         Task.detached(priority: .background) {
             for bookId in uniqueBookIds {
+                try? await repo.deleteChapters(bookId: bookId)
                 // Xóa file .bin
                 do {
                     try await BookBinManager.shared.deleteBinFile(for: bookId)
                 } catch {
                     AppLogger.shared.log("❌ Lỗi xóa file .bin: \(error.localizedDescription)")
                     let binPath = await BookBinManager.shared.binFilePath(for: bookId).path
-                    await Self.shared.enqueueFailedDeletionAsync(path: binPath)
+                    self.enqueueFailedDeletionAsync(path: binPath)
                 }
 
                 // Xóa file cover
@@ -229,7 +243,7 @@ public final class BookStorageManager: Sendable {
                 } catch {
                     AppLogger.shared.log("❌ Lỗi xóa cover: \(error.localizedDescription)")
                     let coverPath = ImageCacheManager.shared.localCoverURL(for: bookId).path
-                    await Self.shared.enqueueFailedDeletionAsync(path: coverPath)
+                    self.enqueueFailedDeletionAsync(path: coverPath)
                 }
             }
         }

@@ -775,23 +775,21 @@ struct ShelfView: View {
                     // Thực hiện chèn từng chương vào database
                     Task {
                         do {
+                            var importedModels: [ChapterModel] = []
                             for (idx, chapData) in parsed.chapters.enumerated() {
                                 let url = "local://\(newBookId)/chapter/\(idx)"
-                                let chapId = Chapter.hashUrl(url)
                                 let (offset, length) = try await BookBinManager.shared.writeChapterContent(bookId: newBookId, content: chapData.content)
 
-                                let newChap = Chapter(
-                                    id: chapId,
+                                let newChap = ChapterModel(
                                     bookId: newBookId,
+                                    index: idx,
                                     title: chapData.title,
                                     url: url,
-                                    index: idx,
                                     isCached: true,
                                     offset: offset,
                                     length: length
                                 )
-                                newChap.book = newBook
-                                self.modelContext.insert(newChap)
+                                importedModels.append(newChap)
 
                                 // Cập nhật tiến độ sau mỗi 50 chương và nhường thread (sleep 1ms) để tránh treo/khựng UI
                                 if idx % 50 == 0 || idx == totalChapters - 1 {
@@ -801,6 +799,7 @@ struct ShelfView: View {
                                     try? await Task.sleep(nanoseconds: 1_000_000) // Sleep 1ms
                                 }
                             }
+                            try await ChapterSQLiteRepository().bulkUpsert(bookId: newBookId, chapters: importedModels)
 
                             self.importStatusText = "Đang ghi dữ liệu xuống bộ nhớ..."
                             try self.modelContext.save()

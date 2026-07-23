@@ -136,6 +136,7 @@ public final class ReaderChapterListStore {
 
     public let bookId: String
     private let modelContext: ModelContext?
+    private let chapterRepository: ChapterRepositoryProtocol
     private var onlineChapters: [ChapterResult] = []
 
     public private(set) var totalCount: Int = 0
@@ -164,13 +165,14 @@ public final class ReaderChapterListStore {
 
     public var isLoadingPage = false
 
-    public init(bookId: String, modelContext: ModelContext?, onlineChapters: [ChapterResult], totalCount: Int, isAscending: Bool = true, isTranslationEnabled: Bool = false) {
+    public init(bookId: String, modelContext: ModelContext?, onlineChapters: [ChapterResult], totalCount: Int, isAscending: Bool = true, isTranslationEnabled: Bool = false, chapterRepository: ChapterRepositoryProtocol = ChapterSQLiteRepository()) {
         self.bookId = bookId
         self.modelContext = modelContext
         self.onlineChapters = onlineChapters
         self.totalCount = totalCount
         self.isAscending = isAscending
         self.isTranslationEnabled = isTranslationEnabled
+        self.chapterRepository = chapterRepository
 
         setupPlaceholderRows()
     }
@@ -577,21 +579,6 @@ public final class ReaderChapterListStore {
                 }
             }
             fetchedData = dataFromStore
-        } else {
-            var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
-            for idx in logicalIndices {
-                if idx < onlineChapters.count {
-                    let chap = onlineChapters[idx]
-                    let displayTitle: String
-                    if isTranslationEnabled && TranslateUtils.containsChinese(chap.name) {
-                        displayTitle = TranslateUtils.translateChapterTitle(chap.name, bookId: bookId)
-                    } else {
-                        displayTitle = chap.name
-                    }
-                    data[idx] = (displayTitle, chap.url, false)
-                }
-            }
-            fetchedData = data
         }
 
         if let fetched = fetchedData {
@@ -711,43 +698,20 @@ public final class ReaderChapterListStore {
             let worker = BackgroundSearchWorker(repository: chapterRepository)
             let dtos = await worker.searchChapters(bookId: bookId, query: trimmed, isAscending: isAscending, isTranslationEnabled: isTranslationEnabled)
 
-                if Task.isCancelled { return }
+            if Task.isCancelled { return }
 
-                for chap in dtos {
-                    let displayPos = isAscending ? chap.index : (totalCount - 1 - chap.index)
-                    let state = ReaderChapterRowState(
-                        id: displayPos,
-                        index: chap.index,
-                        title: chap.title,
-                        url: chap.url,
-                        isCached: chap.isCached,
-                        isPlaceholder: false
-                    )
-                    matchedStates[displayPos] = state
-                    matchedItems.append(ChapterRowItem(id: displayPos, index: chap.index))
-                }
-            } else {
-                var count = 0
-                for (index, chapter) in onlineChapters.enumerated() {
-                    if count >= 100 { break }
-                    if chapter.name.localizedCaseInsensitiveContains(trimmed) {
-                        let displayPos = isAscending ? index : (totalCount - 1 - index)
-                        let state = ReaderChapterRowState(
-                            id: displayPos,
-                            index: index,
-                            title: chapter.name,
-                            url: chapter.url,
-                            isCached: false,
-                            isPlaceholder: false
-                        )
-                        matchedStates[displayPos] = state
-                        matchedItems.append(ChapterRowItem(id: displayPos, index: index))
-                        count += 1
-                    }
-                }
-                if !isAscending {
-                    matchedItems.reverse()
-                }
+            for chap in dtos {
+                let displayPos = isAscending ? chap.index : (totalCount - 1 - chap.index)
+                let state = ReaderChapterRowState(
+                    id: displayPos,
+                    index: chap.index,
+                    title: chap.title,
+                    url: chap.url,
+                    isCached: chap.isCached,
+                    isPlaceholder: false
+                )
+                matchedStates[displayPos] = state
+                matchedItems.append(ChapterRowItem(id: displayPos, index: chap.index))
             }
 
             if Task.isCancelled || gen != self.currentGeneration { return }
@@ -759,6 +723,8 @@ public final class ReaderChapterListStore {
 }
 
 public struct ReaderChapterListView: View {
+    @Environment(\.chapterRepository) private var chapterRepository
+    @Environment(\.modelContext) private var modelContext
     public let bookId: String
     public let bookTitle: String?
     public let bookAuthor: String?
@@ -1194,60 +1160,29 @@ public struct ReaderChapterListView: View {
 
     @discardableResult
     private func appendNewChaptersOnly(for book: Book, pageResults: [ChapterResult], baseIndex: Int) -> Int {
-        var existingUrls = Set(book.chapters.compactMap { chap -> String? in
-            let trimmed = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
-            return isValidChapterUrl(trimmed) ? trimmed : nil
-        })
-        var existingIndices = Set(book.chapters.map(\.index))
-        var seenIds = Set(book.chapters.map(\.id))
-
         let chapterHost = book.host ?? ext?.sourceUrl
-        var addedCount = 0
+        let targetBookId = book.bookId
+        var addedModels: [ChapterModel] = []
 
         for (offset, item) in pageResults.enumerated() {
             let absoluteIndex = baseIndex + offset
-            let trimmedUrl = item.url.trimmingCharacters(in: .whitespacesAndNewlines)
-
-            if isValidChapterUrl(trimmedUrl) && existingUrls.contains(trimmedUrl) {
-                continue
-            }
-            if existingIndices.contains(absoluteIndex) {
-                if let existing = book.chapters.first(where: { $0.index == absoluteIndex }) {
-                    if !item.name.isEmpty { existing.title = item.name }
-                    if isValidChapterUrl(trimmedUrl) && (existing.url.isEmpty || !isValidChapterUrl(existing.url)) {
-                        existing.url = item.url
-                    }
-                    let effectiveHost = !item.host.isEmpty ? item.host : chapterHost
-                    if let effectiveHost = effectiveHost, !effectiveHost.isEmpty {
-                        existing.host = effectiveHost
-                    }
-                }
-                continue
-            }
-
-            let chapId = makeSafeChapterId(bookId: book.bookId, url: item.url, index: absoluteIndex, seenIds: &seenIds)
             let effectiveHost = !item.host.isEmpty ? item.host : chapterHost
-            let newChapter = Chapter(
-                id: chapId,
-                bookId: book.bookId,
+            let model = ChapterModel(
+                bookId: targetBookId,
+                index: absoluteIndex,
                 title: item.name,
                 url: item.url,
-                index: absoluteIndex,
                 host: effectiveHost
             )
-
-            newChapter.book = book
-            modelContext.insert(newChapter)
-
-            seenIds.insert(chapId)
-            if isValidChapterUrl(trimmedUrl) {
-                existingUrls.insert(trimmedUrl)
-            }
-            existingIndices.insert(absoluteIndex)
-            addedCount += 1
+            addedModels.append(model)
         }
 
-        return addedCount
+        if !addedModels.isEmpty {
+            Task {
+                try? await chapterRepository.bulkUpsert(bookId: targetBookId, chapters: addedModels)
+            }
+        }
+        return addedModels.count
     }
 
     private func refreshChapters() {

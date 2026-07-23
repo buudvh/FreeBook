@@ -80,9 +80,13 @@ actor ReadingProgressStore {
 
         book.currentChapterIndex = snapshot.chapterIndex
         book.currentChapterPage = snapshot.paragraphIndex
-        book.currentChapterTitle = snapshot.chapterTitle
-            ?? book.chapters.first(where: { $0.index == snapshot.chapterIndex })?.title
-            ?? book.currentChapterTitle
+        let resolvedTitle: String?
+        if let title = snapshot.chapterTitle, !title.isEmpty {
+            resolvedTitle = title
+        } else {
+            resolvedTitle = (try? await ChapterSQLiteRepository().getChapter(bookId: snapshot.bookId, index: snapshot.chapterIndex))?.title
+        }
+        book.currentChapterTitle = resolvedTitle ?? book.currentChapterTitle
         book.isHistory = true
         book.lastReadDate = snapshot.recordedAt
         try context.save()

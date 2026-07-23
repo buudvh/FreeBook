@@ -612,11 +612,11 @@ struct SearchView: View {
                 
                 modelContext.insert(newBook)
                 
-                for (index, item) in firstPageChapters.enumerated() {
-                    let chapId = Chapter.generateId(bookId: newBookId, url: item.url, index: index)
-                    let newChap = Chapter(id: chapId, bookId: newBookId, title: item.name, url: item.url, index: index, host: item.host)
-                    newChap.book = newBook
-                    modelContext.insert(newChap)
+                let chapterModels = firstPageChapters.enumerated().map { index, item in
+                    ChapterModel(bookId: newBookId, index: index, title: item.name, url: item.url, host: item.host)
+                }
+                Task {
+                    try? await ChapterSQLiteRepository().bulkUpsert(bookId: newBookId, chapters: chapterModels)
                 }
                 
                 let translateDir = TranslationManager.shared.translateDirectory

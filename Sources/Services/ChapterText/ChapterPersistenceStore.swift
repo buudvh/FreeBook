@@ -298,7 +298,7 @@ actor ChapterPersistenceStore {
 fileprivate class ReconciliationPool {
     private var urlMap: [String: [Chapter]] = [:]
     private var indexMap: [Int: [Chapter]] = [:]
-    private var consumed: Set<PersistentIdentifier> = []
+    private var consumed: Set<String> = []
 
     init(chapters: [Chapter]) {
         for chap in chapters {
@@ -312,16 +312,16 @@ fileprivate class ReconciliationPool {
     func consume(url: String, index: Int) -> Chapter? {
         if !url.isEmpty, let list = urlMap[url] {
             for chap in list {
-                if !consumed.contains(chap.persistentModelID) {
-                    consumed.insert(chap.persistentModelID)
+                if !consumed.contains(chap.id) {
+                    consumed.insert(chap.id)
                     return chap
                 }
             }
         }
         if let list = indexMap[index] {
             for chap in list {
-                if !consumed.contains(chap.persistentModelID) {
-                    consumed.insert(chap.persistentModelID)
+                if !consumed.contains(chap.id) {
+                    consumed.insert(chap.id)
                     return chap
                 }
             }
