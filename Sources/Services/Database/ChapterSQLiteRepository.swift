@@ -25,7 +25,7 @@ public actor ChapterSQLiteRepository: ChapterRepositoryProtocol {
         return repo
     }
 
-    internal init(customURL: URL? = nil) {
+    public init(customURL: URL? = nil) {
         let targetURL: URL
         if let customURL = customURL {
             targetURL = customURL

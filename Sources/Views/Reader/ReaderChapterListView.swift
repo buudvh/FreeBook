@@ -1286,8 +1286,7 @@ public struct ReaderChapterListView: View {
                             if let book = localBook {
                                 try? modelContext.save()
                                 let targetBookId = book.bookId
-                                let descriptor = FetchDescriptor<Chapter>(predicate: #Predicate<Chapter> { $0.bookId == targetBookId })
-                                let currentTotal = (try? modelContext.fetchCount(descriptor)) ?? book.chapters.count
+                                let currentTotal = (try? await chapterRepository.getTotalChaptersCount(bookId: targetBookId)) ?? 0
                                 store.updateChapters(totalCount: currentTotal, onlineChapters: onlineChapters)
                                 NotificationCenter.default.post(name: .bookChaptersUpdated, object: nil, userInfo: ["bookId": book.bookId])
                             } else {
