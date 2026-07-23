@@ -16,6 +16,7 @@ struct SearchView: View {
     let onSourceChanged: (() -> Void)?
     
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.chapterRepository) private var chapterRepository
     
     @State private var changeSourceTargetResult: SearchNovelResult? = nil
     @State private var changeSourceTargetExtension: Extension? = nil
@@ -616,7 +617,7 @@ struct SearchView: View {
                     ChapterModel(bookId: newBookId, index: index, title: item.name, url: item.url, host: item.host)
                 }
                 Task {
-                    try? await ChapterSQLiteRepository().bulkUpsert(bookId: newBookId, chapters: chapterModels)
+                    try? await chapterRepository.bulkUpsert(bookId: newBookId, chapters: chapterModels)
                 }
                 
                 let translateDir = TranslationManager.shared.translateDirectory

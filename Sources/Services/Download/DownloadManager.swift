@@ -63,9 +63,11 @@ public final class DownloadManager: ObservableObject {
     public static let shared = DownloadManager()
 
     @Published public var tasks: [DownloadTask] = []
-    private var container: ModelContainer?
+    private let chapterRepository: any ChapterRepositoryProtocol
 
-    private init() {}
+    public init(chapterRepository: any ChapterRepositoryProtocol) {
+        self.chapterRepository = chapterRepository
+    }
 
     public func initialize(container: ModelContainer) {
         self.container = container
@@ -365,7 +367,7 @@ public final class DownloadManager: ObservableObject {
             }
 
             // 3. Prepare chapters to process
-            let allChapters = (try? await ChapterSQLiteRepository().loadPageKeyset(bookId: bgBook.bookId, startIdx: 0, limit: 100000)) ?? []
+            let allChapters = (try? await self.chapterRepository.loadPageKeyset(bookId: bgBook.bookId, startIdx: 0, limit: 100000)) ?? []
             let sortedChapters = allChapters.sorted(by: { $0.index < $1.index })
             let startIdx = task.startFromCurrent ? bgBook.currentChapterIndex : 0
 
@@ -431,7 +433,7 @@ public final class DownloadManager: ObservableObject {
                     let cleaned = content.cleanHTML()
 
                     if let (offset, length) = try? await BookBinManager.shared.writeChapterContent(bookId: bgBook.bookId, content: cleaned) {
-                        try? await ChapterSQLiteRepository().updateCacheState(bookId: bgBook.bookId, index: chapter.index, offset: offset, length: length, isCached: true)
+                        try? await self.chapterRepository.updateCacheState(bookId: bgBook.bookId, index: chapter.index, offset: offset, length: length, isCached: true)
                     }
                     originalContent = cleaned
                 }

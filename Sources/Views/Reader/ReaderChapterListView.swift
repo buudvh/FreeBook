@@ -51,7 +51,7 @@ public struct SearchChapterDTO: Sendable {
 actor BackgroundSearchWorker {
     private let repository: ChapterRepositoryProtocol
 
-    init(repository: ChapterRepositoryProtocol = ChapterSQLiteRepository()) {
+    init(repository: ChapterRepositoryProtocol) {
         self.repository = repository
     }
 
@@ -94,7 +94,7 @@ actor BackgroundSearchWorker {
 actor BackgroundPagingWorker {
     private let repository: ChapterRepositoryProtocol
 
-    init(repository: ChapterRepositoryProtocol = ChapterSQLiteRepository()) {
+    init(repository: ChapterRepositoryProtocol) {
         self.repository = repository
     }
 
@@ -165,14 +165,14 @@ public final class ReaderChapterListStore {
 
     public var isLoadingPage = false
 
-    public init(bookId: String, modelContext: ModelContext?, onlineChapters: [ChapterResult], totalCount: Int, isAscending: Bool = true, isTranslationEnabled: Bool = false, chapterRepository: ChapterRepositoryProtocol? = nil) {
+    public init(bookId: String, modelContext: ModelContext?, onlineChapters: [ChapterResult], totalCount: Int, isAscending: Bool = true, isTranslationEnabled: Bool = false, chapterRepository: any ChapterRepositoryProtocol) {
         self.bookId = bookId
         self.modelContext = modelContext
         self.onlineChapters = onlineChapters
         self.totalCount = totalCount
         self.isAscending = isAscending
         self.isTranslationEnabled = isTranslationEnabled
-        self.chapterRepository = chapterRepository ?? ChapterSQLiteRepository()
+        self.chapterRepository = chapterRepository
 
         setupPlaceholderRows()
     }

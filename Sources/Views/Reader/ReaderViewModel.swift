@@ -127,17 +127,10 @@ class ReaderViewModel: ObservableObject {
     private var cachedLocalBook: Book? = nil
     private var cachedExt: Extension? = nil
     var onChapterCached: ((Int) -> Void)?
-    private var isConfigured = false
-    private(set) var chapterRepository: ChapterRepositoryProtocol? = nil
-
-    func configure(chapterRepository: ChapterRepositoryProtocol) {
-        guard !isConfigured else { return }
-        self.chapterRepository = chapterRepository
-        self.isConfigured = true
-    }
+    let chapterRepository: any ChapterRepositoryProtocol
 
     public func fetchChapter(at index: Int) -> ChapterModel? {
-        let repo = chapterRepository ?? ChapterSQLiteRepository()
+        let repo = chapterRepository
         var result: ChapterModel? = nil
         let semaphore = DispatchSemaphore(value: 0)
         Task {
@@ -149,7 +142,7 @@ class ReaderViewModel: ObservableObject {
     }
 
     public func fetchChaptersMetadata() -> [TTSChapterInfo] {
-        let repo = chapterRepository ?? ChapterSQLiteRepository()
+        let repo = chapterRepository
         var result: [TTSChapterInfo] = []
         let semaphore = DispatchSemaphore(value: 0)
         let count = totalChaptersCount
@@ -209,6 +202,7 @@ class ReaderViewModel: ObservableObject {
         initialParagraphIndex: Int,
         totalChaptersCount: Int,
         modelContext: ModelContext,
+        chapterRepository: any ChapterRepositoryProtocol,
         onlineChapters: [ChapterResult] = [],
         isTranslationEnabled: Bool = false,
         bookTitle: String? = nil,
@@ -223,6 +217,7 @@ class ReaderViewModel: ObservableObject {
         self.bootstrapChapterIndex = initialChapterIndex
         self.bootstrapParagraphIndex = initialParagraphIndex
         self.modelContext = modelContext
+        self.chapterRepository = chapterRepository
 
         // @Query in ReaderView may still be empty on the first frame. Resolve the
         // complete local Book snapshot here before bootstrapping the chapter load:
@@ -237,11 +232,11 @@ class ReaderViewModel: ObservableObject {
             descriptor.fetchLimit = 1
             return (try? modelContext.fetch(descriptor))?.first
         }()
+        let repo = chapterRepository
         let localChapterCount: Int = {
             if let bId = localBookSnapshot?.bookId {
                 var count = 0
                 let semaphore = DispatchSemaphore(value: 0)
-                let repo = ChapterSQLiteRepository()
                 Task {
                     count = (try? await repo.getTotalChaptersCount(bookId: bId)) ?? 0
                     semaphore.signal()
@@ -352,7 +347,7 @@ class ReaderViewModel: ObservableObject {
     }
 
     public func refreshChapterCountFromStorage() {
-        let repo = chapterRepository ?? ChapterSQLiteRepository()
+        let repo = chapterRepository
         let currentBookId = bookId
         let currentCount = totalChaptersCount
         Task {

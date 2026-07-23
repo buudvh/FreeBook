@@ -12,6 +12,7 @@ struct ReaderRoute: Identifiable, Hashable {
 
 struct BookDetailView: View {
     @Environment(\.chapterRepository) private var chapterRepository
+    @Environment(\.bookStorageManager) private var bookStorageManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query private var allBooks: [Book]
@@ -1986,7 +1987,7 @@ struct BookDetailView: View {
         let container = modelContext.container
         Task { @MainActor in
             do {
-                try await BookStorageManager.shared.deleteBookAsync(bookId: bookId, container: container)
+                try await bookStorageManager.deleteBookAsync(bookId: bookId, container: container)
             } catch {
                 AppLogger.shared.log("❌ Lỗi khi xóa khỏi kệ sách tại BookDetailView: \(error.localizedDescription)")
             }

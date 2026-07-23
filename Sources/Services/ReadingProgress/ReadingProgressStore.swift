@@ -16,7 +16,11 @@ struct ReadingProgressSnapshot: Sendable, Equatable {
 }
 
 actor ReadingProgressStore {
-    static let shared = ReadingProgressStore()
+    private let chapterRepository: any ChapterRepositoryProtocol
+
+    init(chapterRepository: any ChapterRepositoryProtocol) {
+        self.chapterRepository = chapterRepository
+    }
 
     private var container: ModelContainer?
     private var latestByBook: [String: ReadingProgressSnapshot] = [:]
@@ -88,7 +92,7 @@ actor ReadingProgressStore {
             let bookId = snapshot.bookId
             let chapterIndex = snapshot.chapterIndex
             Task {
-                resolvedTitle = (try? await ChapterSQLiteRepository().getChapter(bookId: bookId, index: chapterIndex))?.title
+                resolvedTitle = (try? await self.chapterRepository.getChapter(bookId: bookId, index: chapterIndex))?.title
                 sema.signal()
             }
             _ = sema.wait(timeout: .now() + 1.0)

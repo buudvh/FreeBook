@@ -12,6 +12,8 @@ struct ShelfView: View {
     @Query(sort: \Book.lastReadDate, order: .reverse) private var allBooks: [Book]
 
     // @State: Biến trạng thái nội bộ của View. Khi giá trị thay đổi, UI sẽ tự động vẽ lại.
+    @Environment(\.chapterRepository) private var chapterRepository
+    @Environment(\.bookStorageManager) private var bookStorageManager
     @State private var selectedTab = 1 // Tab đang chọn: 0 là Tải trước, 1 là Kệ Sách, 2 là Lịch Sử
     @State private var showingClearHistoryAlert = false // Hiện alert xác nhận xóa lịch sử đọc
 
@@ -532,8 +534,8 @@ struct ShelfView: View {
         let bookTitle = book.title
         let currentChapterTitle = book.currentChapterTitle
 
+        let repo = chapterRepository
         Task.detached(priority: .userInitiated) {
-            let repo = ChapterSQLiteRepository()
             guard let chapters = try? await repo.loadPageKeyset(bookId: bookId, startIdx: 0, limit: 100000) else { return }
 
             var updatedModels: [ChapterModel] = []
@@ -566,7 +568,7 @@ struct ShelfView: View {
         isProcessingDeletion = true
         Task { @MainActor in
             do {
-                try await BookStorageManager.shared.deleteBookAsync(bookId: bookId, container: container)
+                try await bookStorageManager.deleteBookAsync(bookId: bookId, container: container)
             } catch {
                 AppLogger.shared.log("❌ Lỗi khi xóa khỏi kệ sách tại ShelfView: \(error.localizedDescription)")
             }
@@ -580,7 +582,7 @@ struct ShelfView: View {
         isProcessingDeletion = true
         Task { @MainActor in
             do {
-                try await BookStorageManager.shared.deleteBookAsync(bookId: bookId, container: container)
+                try await bookStorageManager.deleteBookAsync(bookId: bookId, container: container)
             } catch {
                 AppLogger.shared.log("❌ Lỗi khi xóa lịch sử tại ShelfView: \(error.localizedDescription)")
             }
@@ -598,7 +600,7 @@ struct ShelfView: View {
         isProcessingDeletion = true
         Task { @MainActor in
             do {
-                try await BookStorageManager.shared.clearAllOffShelfHistoryAsync(container: container)
+                try await bookStorageManager.clearAllOffShelfHistoryAsync(container: container)
             } catch {
                 AppLogger.shared.log("❌ Lỗi khi xóa toàn bộ lịch sử: \(error.localizedDescription)")
             }
@@ -799,7 +801,7 @@ struct ShelfView: View {
                                     try? await Task.sleep(nanoseconds: 1_000_000) // Sleep 1ms
                                 }
                             }
-                            try await ChapterSQLiteRepository().bulkUpsert(bookId: newBookId, chapters: importedModels)
+                            try await chapterRepository.bulkUpsert(bookId: newBookId, chapters: importedModels)
 
                             self.importStatusText = "Đang ghi dữ liệu xuống bộ nhớ..."
                             try self.modelContext.save()

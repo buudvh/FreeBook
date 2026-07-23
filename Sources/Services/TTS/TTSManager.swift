@@ -31,17 +31,20 @@ private struct TTSSettingsSnapshot: Equatable {
 @available(iOS 17.0, *)
 private actor TTSChapterQueueMetadataWorker {
     private let container: ModelContainer
+    private let chapterRepository: any ChapterRepositoryProtocol
 
-    init(container: ModelContainer) {
+    init(container: ModelContainer, chapterRepository: any ChapterRepositoryProtocol) {
         self.container = container
+        self.chapterRepository = chapterRepository
     }
 
     func fetchLocalQueue(bookId: String) -> [TTSChapterInfo] {
         let localBookId = bookId
         var results: [TTSChapterInfo] = []
         let semaphore = DispatchSemaphore(value: 0)
+        let repo = chapterRepository
         Task {
-            if let chapters = try? await ChapterSQLiteRepository().loadPageKeyset(bookId: localBookId, startIdx: 0, limit: 100000) {
+            if let chapters = try? await repo.loadPageKeyset(bookId: localBookId, startIdx: 0, limit: 100000) {
                 results = chapters.map {
                     TTSChapterInfo(title: $0.title, url: $0.url, index: $0.index, host: $0.host)
                 }
@@ -69,7 +72,19 @@ private func setSystemNowPlayingPlaybackState(
 
 @MainActor
 public final class TTSManager: NSObject, ObservableObject {
-    public static let shared = TTSManager()
+    public let chapterRepository: any ChapterRepositoryProtocol
+
+    public init(chapterRepository: any ChapterRepositoryProtocol) {
+        self.chapterRepository = chapterRepository
+        self.tool = UserDefaults.standard.string(forKey: "ttsTool") ?? "system"
+        self.speed = UserDefaults.standard.object(forKey: "ttsRate") as? Double ?? 1.0
+        self.pitch = UserDefaults.standard.object(forKey: "ttsPitch") as? Double ?? 1.0
+        self.selectedVoice = UserDefaults.standard.string(forKey: "ttsVoice") ?? ""
+        self.chunkLength = UserDefaults.standard.integer(forKey: "ttsChunkLength") == 0 ? 100 : UserDefaults.standard.integer(forKey: "ttsChunkLength")
+        self.extensionLocalPath = UserDefaults.standard.string(forKey: "ttsExtensionLocalPath") ?? ""
+        self.extensionConfigJson = UserDefaults.standard.string(forKey: "ttsExtensionConfigJson") ?? ""
+        super.init()
+    }
 
     // Cấu hình (lưu qua AppStorage/UserDefaults)
     @Published public var tool: String {

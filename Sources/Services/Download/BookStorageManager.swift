@@ -4,7 +4,9 @@ import SwiftUI
 import UIKit
 
 private struct BookStorageManagerKey: EnvironmentKey {
-    static let defaultValue: BookStorageManager = BookStorageManager.shared
+    static var defaultValue: BookStorageManager {
+        fatalError("BookStorageManager was not injected")
+    }
 }
 
 public extension EnvironmentValues {
@@ -15,7 +17,6 @@ public extension EnvironmentValues {
 }
 
 public final class BookStorageManager: Sendable {
-    public static let shared = BookStorageManager(chapterRepository: ChapterSQLiteRepository())
 
     // Mock seams for unit tests
     public static var mockFetchError: Error? = nil

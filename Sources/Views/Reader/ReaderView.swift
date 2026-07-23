@@ -665,6 +665,7 @@ struct ReaderView: View {
             initialParagraphIndex: savedPIdx,
             totalChaptersCount: initialTotalCount,
             modelContext: modelContext,
+            chapterRepository: chapterRepository,
             onlineChapters: currentOnlineChapters,
             isTranslationEnabled: isTranslationEnabled,
             bookTitle: bookTitle,
@@ -674,7 +675,6 @@ struct ReaderView: View {
             bookDetailUrl: bookDetailUrl,
             bookSourceName: bookSourceName
         )
-        newViewModel.configure(chapterRepository: chapterRepository)
         newViewModel.onChapterCached = { index in
             chapterListStore?.markCached(index: index)
         }
@@ -741,7 +741,8 @@ struct ReaderView: View {
             onlineChapters: currentOnlineChapters.isEmpty ? onlineChapters : currentOnlineChapters,
             totalCount: vm.totalChaptersCount,
             isAscending: true,
-            isTranslationEnabled: isTranslationEnabled
+            isTranslationEnabled: isTranslationEnabled,
+            chapterRepository: chapterRepository
         )
         self.chapterListStore = store
         return store

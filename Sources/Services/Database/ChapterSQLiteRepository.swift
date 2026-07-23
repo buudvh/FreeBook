@@ -25,7 +25,7 @@ public actor ChapterSQLiteRepository: ChapterRepositoryProtocol {
         return repo
     }
 
-    public init(customURL: URL? = nil) {
+    internal init(customURL: URL? = nil) {
         let targetURL: URL
         if let customURL = customURL {
             targetURL = customURL
@@ -108,8 +108,8 @@ public actor ChapterSQLiteRepository: ChapterRepositoryProtocol {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             idx = excluded.idx,
-            title = excluded.title,
-            url = excluded.url,
+            title = CASE WHEN excluded.title != '' THEN excluded.title ELSE chapters.title END,
+            url = CASE WHEN excluded.url != '' THEN excluded.url ELSE chapters.url END,
             is_cached = CASE WHEN excluded.is_cached = 1 THEN 1 ELSE chapters.is_cached END,
             offset = CASE WHEN excluded.is_cached = 1 THEN excluded.offset ELSE chapters.offset END,
             length = CASE WHEN excluded.is_cached = 1 THEN excluded.length ELSE chapters.length END,
