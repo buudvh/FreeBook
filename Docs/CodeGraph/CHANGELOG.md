@@ -4,6 +4,13 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.46] - 2026-07-23
+
+### Sửa lỗi biên dịch Swift #Predicate macro trong ReaderChapterListView
+* **ReaderChapterListView**:
+  * Khắc phục lỗi biên dịch Swift macro `#Predicate` tại dòng 1278 và 1319 do truy cập thuộc tính `book.bookId` trực tiếp bên trong closure của `#Predicate<Chapter>`.
+  * Trích xuất `book.bookId` ra biến cục bộ `let targetBookId = book.bookId` trước khi truyền vào `#Predicate<Chapter> { $0.bookId == targetBookId }`.
+
 ## [1.3.45] - 2026-07-23
 
 ### Tối ưu luồng đọc online, cập nhật mục lục Reader tiệm tiến và chống đơ UI

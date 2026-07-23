@@ -1275,7 +1275,8 @@ public struct ReaderChapterListView: View {
                     baseIndex += firstPageChaps.count
 
                     try? modelContext.save()
-                    let descriptor = FetchDescriptor<Chapter>(predicate: #Predicate<Chapter> { $0.bookId == book.bookId })
+                    let targetBookId = book.bookId
+                    let descriptor = FetchDescriptor<Chapter>(predicate: #Predicate<Chapter> { $0.bookId == targetBookId })
                     let currentTotal = (try? modelContext.fetchCount(descriptor)) ?? book.chapters.count
                     store.updateChapters(totalCount: currentTotal, onlineChapters: onlineChapters)
                     NotificationCenter.default.post(name: .bookChaptersUpdated, object: nil, userInfo: ["bookId": book.bookId])
@@ -1316,7 +1317,8 @@ public struct ReaderChapterListView: View {
                         if pendingBatchCount >= 10 || isLast {
                             if let book = localBook {
                                 try? modelContext.save()
-                                let descriptor = FetchDescriptor<Chapter>(predicate: #Predicate<Chapter> { $0.bookId == book.bookId })
+                                let targetBookId = book.bookId
+                                let descriptor = FetchDescriptor<Chapter>(predicate: #Predicate<Chapter> { $0.bookId == targetBookId })
                                 let currentTotal = (try? modelContext.fetchCount(descriptor)) ?? book.chapters.count
                                 store.updateChapters(totalCount: currentTotal, onlineChapters: onlineChapters)
                                 NotificationCenter.default.post(name: .bookChaptersUpdated, object: nil, userInfo: ["bookId": book.bookId])
