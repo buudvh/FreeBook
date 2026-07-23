@@ -1266,27 +1266,34 @@ struct BookDetailView: View {
                     self.onlineChapters = firstPageChapters
                     self.tocPages = pages
                     self.isLoadingTOC = false
+                }
 
-                    let targetBook: Book?
-                    if let existing = self.effectiveBook {
-                        targetBook = existing
-                    } else {
-                        targetBook = nil
-                    }
+                let targetBook: Book?
+                if let existing = self.effectiveBook {
+                    targetBook = existing
+                } else {
+                    targetBook = nil
+                }
 
-                    if let book = targetBook {
-                        // Wait for chapters to be saved before continuing
-                        await self.updateFirstPageChapters(for: book, with: firstPageChapters)
+                if let book = targetBook {
+                    // Call async function outside of MainActor.run
+                    await self.updateFirstPageChapters(for: book, with: firstPageChapters)
+                    
+                    await MainActor.run {
                         try? self.modelContext.save()
                         self.syncChaptersList()
+                    }
 
+                    await MainActor.run {
                         if pages.count > 1 {
                             self.remainingPagesLoaded = false
                             self.startProgressiveTOCLoading(for: book, pages: pages)
                         } else {
                             self.remainingPagesLoaded = true
                         }
-                    } else {
+                    }
+                } else {
+                    await MainActor.run {
                         self.remainingPagesLoaded = true
                     }
                 }
@@ -2110,30 +2117,38 @@ struct BookDetailView: View {
             await MainActor.run {
                 self.onlineChapters = firstPageChapters
                 self.tocPages = pages
+            }
+            
+            let targetBook: Book?
+            if let existing = effectiveBook {
+                targetBook = existing
+            } else {
+                targetBook = nil
+            }
+            
+            if let book = targetBook {
+                // Call async function outside of MainActor.run
+                await updateFirstPageChapters(for: book, with: firstPageChapters)
                 
-                let targetBook: Book?
-                if let existing = effectiveBook {
-                    targetBook = existing
-                } else {
-                    targetBook = nil
-                }
-                
-                if let book = targetBook {
-                    // Wait for chapters to be saved before continuing
-                    await updateFirstPageChapters(for: book, with: firstPageChapters)
+                await MainActor.run {
                     try? modelContext.save()
                     NotificationCenter.default.post(
                         name: .bookChaptersUpdated,
                         object: nil,
                         userInfo: ["bookId": book.bookId]
                     )
+                }
+                
+                await MainActor.run {
                     if pages.count > 1 {
                         self.remainingPagesLoaded = false
                         self.startProgressiveTOCLoading(for: book, pages: pages)
                     } else {
                         self.remainingPagesLoaded = true
                     }
-                } else {
+                }
+            } else {
+                await MainActor.run {
                     self.remainingPagesLoaded = true
                 }
             }
