@@ -35,10 +35,13 @@ public actor ChapterSQLiteRepository: ChapterRepositoryProtocol {
             targetURL = appSupportURL.appendingPathComponent("library.db")
         }
 
-        if sqlite3_open(targetURL.path, &db) != SQLITE_OK {
+        var dbPointer: OpaquePointer?
+        if sqlite3_open(targetURL.path, &dbPointer) != SQLITE_OK {
             AppLogger.shared.log("❌ [ChapterSQLiteRepository] Không thể mở kết nối CSDL library.db")
+            self.db = nil
         } else {
-            setupDatabaseSchemaSync()
+            self.db = dbPointer
+            ChapterSQLiteRepository.setupDatabaseSchemaSync(db: dbPointer)
         }
     }
 
@@ -60,10 +63,10 @@ public actor ChapterSQLiteRepository: ChapterRepositoryProtocol {
     }
 
     public func setupDatabaseSchema() async throws {
-        setupDatabaseSchemaSync()
+        ChapterSQLiteRepository.setupDatabaseSchemaSync(db: db)
     }
 
-    private func setupDatabaseSchemaSync() {
+    private nonisolated static func setupDatabaseSchemaSync(db: OpaquePointer?) {
         guard let db = db else { return }
 
         // Cấu hình PRAGMAs tối ưu hiệu năng WAL Mode & xử lý Lock Contention

@@ -76,18 +76,6 @@ public final class TTSManager: NSObject, ObservableObject {
 
     public let chapterRepository: any ChapterRepositoryProtocol
 
-    public init(chapterRepository: any ChapterRepositoryProtocol = ChapterSQLiteRepository()) {
-        self.chapterRepository = chapterRepository
-        self.tool = UserDefaults.standard.string(forKey: "ttsTool") ?? "system"
-        self.speed = UserDefaults.standard.object(forKey: "ttsRate") as? Double ?? 1.0
-        self.pitch = UserDefaults.standard.object(forKey: "ttsPitch") as? Double ?? 1.0
-        self.selectedVoice = UserDefaults.standard.string(forKey: "ttsVoice") ?? ""
-        self.chunkLength = UserDefaults.standard.integer(forKey: "ttsChunkLength") == 0 ? 100 : UserDefaults.standard.integer(forKey: "ttsChunkLength")
-        self.extensionLocalPath = UserDefaults.standard.string(forKey: "ttsExtensionLocalPath") ?? ""
-        self.extensionConfigJson = UserDefaults.standard.string(forKey: "ttsExtensionConfigJson") ?? ""
-        super.init()
-    }
-
     // Cấu hình (lưu qua AppStorage/UserDefaults)
     @Published public var tool: String {
         didSet {
@@ -309,7 +297,9 @@ public final class TTSManager: NSObject, ObservableObject {
     private var playerNode: AVAudioPlayerNode?
     private var timePitchNode: AVAudioUnitTimePitch?
 
-    private override init() {
+    public init(chapterRepository: any ChapterRepositoryProtocol = ChapterSQLiteRepository()) {
+        self.chapterRepository = chapterRepository
+
         // Nạp cấu hình từ UserDefaults
         let toolVal = UserDefaults.standard.string(forKey: "ttsTool") ?? "system"
         self.tool = toolVal
