@@ -11,9 +11,7 @@ public enum LaunchState {
 }
 
 private struct ChapterRepositoryKey: EnvironmentKey {
-    static var defaultValue: any ChapterRepositoryProtocol {
-        fatalError("ChapterRepository was not injected")
-    }
+    static let defaultValue: any ChapterRepositoryProtocol = ChapterSQLiteRepository()
 }
 
 public extension EnvironmentValues {
@@ -136,7 +134,7 @@ struct AppLaunchRootView: View {
             TTSSettingsSheet()
         }
         .onAppear {
-            manager.drainRetryQueue()
+            BookStorageManager.shared.drainRetryQueue()
         }
     }
 }

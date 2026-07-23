@@ -202,7 +202,7 @@ class ReaderViewModel: ObservableObject {
         initialParagraphIndex: Int,
         totalChaptersCount: Int,
         modelContext: ModelContext,
-        chapterRepository: any ChapterRepositoryProtocol,
+        chapterRepository: any ChapterRepositoryProtocol = ChapterSQLiteRepository(),
         onlineChapters: [ChapterResult] = [],
         isTranslationEnabled: Bool = false,
         bookTitle: String? = nil,

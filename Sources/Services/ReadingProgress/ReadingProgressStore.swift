@@ -16,9 +16,11 @@ struct ReadingProgressSnapshot: Sendable, Equatable {
 }
 
 actor ReadingProgressStore {
+    static let shared = ReadingProgressStore()
+
     private let chapterRepository: any ChapterRepositoryProtocol
 
-    init(chapterRepository: any ChapterRepositoryProtocol) {
+    init(chapterRepository: any ChapterRepositoryProtocol = ChapterSQLiteRepository()) {
         self.chapterRepository = chapterRepository
     }
 

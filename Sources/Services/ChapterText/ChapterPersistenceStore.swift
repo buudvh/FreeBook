@@ -63,7 +63,7 @@ actor ChapterPersistenceStore {
     private let chapterRepository: ChapterRepositoryProtocol
     private var pendingWrites: [String: PendingWrite] = [:]
 
-    init(container: ModelContainer, chapterRepository: any ChapterRepositoryProtocol) {
+    init(container: ModelContainer, chapterRepository: any ChapterRepositoryProtocol = ChapterSQLiteRepository()) {
         self.container = container
         self.chapterRepository = chapterRepository
     }

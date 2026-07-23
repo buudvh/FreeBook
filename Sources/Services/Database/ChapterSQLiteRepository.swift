@@ -25,7 +25,7 @@ public actor ChapterSQLiteRepository: ChapterRepositoryProtocol {
         return repo
     }
 
-    internal init(customURL: URL? = nil) {
+    public init(customURL: URL? = nil) {
         let targetURL: URL
         if let customURL = customURL {
             targetURL = customURL
@@ -37,6 +37,8 @@ public actor ChapterSQLiteRepository: ChapterRepositoryProtocol {
 
         if sqlite3_open(targetURL.path, &db) != SQLITE_OK {
             AppLogger.shared.log("❌ [ChapterSQLiteRepository] Không thể mở kết nối CSDL library.db")
+        } else {
+            setupDatabaseSchemaSync()
         }
     }
 
@@ -58,6 +60,10 @@ public actor ChapterSQLiteRepository: ChapterRepositoryProtocol {
     }
 
     public func setupDatabaseSchema() async throws {
+        setupDatabaseSchemaSync()
+    }
+
+    private func setupDatabaseSchemaSync() {
         guard let db = db else { return }
 
         // Cấu hình PRAGMAs tối ưu hiệu năng WAL Mode & xử lý Lock Contention

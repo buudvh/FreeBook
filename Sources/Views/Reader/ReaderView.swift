@@ -496,7 +496,7 @@ struct ReaderView: View {
                 }
             }
         }
-        .onChange(of: scenePhase) { _, newPhase in
+        .onChange(of: scenePhase) { newPhase in
             if newPhase == .background && !(ttsManager.isPlaying && ttsManager.playingBookId == bookId) {
                 viewModel?.saveProgressImmediately()
             }
@@ -1216,7 +1216,8 @@ struct ReaderView: View {
         let theme = selectedTheme
 
         ForEach(chapter.paragraphItems) { item in
-            let textLen = ((isTrans ? item.translated : item.original) as NSString).length
+            let textStr = isTrans ? item.translated : item.original
+            let textLen = (textStr as NSString).length
             let relativeHighlightRange: NSRange? = {
                 if ttsManager.isPlaying &&
                    ttsManager.playingBookId == bookId &&

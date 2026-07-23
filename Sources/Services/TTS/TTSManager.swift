@@ -33,7 +33,7 @@ private actor TTSChapterQueueMetadataWorker {
     private let container: ModelContainer
     private let chapterRepository: any ChapterRepositoryProtocol
 
-    init(container: ModelContainer, chapterRepository: any ChapterRepositoryProtocol) {
+    init(container: ModelContainer, chapterRepository: any ChapterRepositoryProtocol = ChapterSQLiteRepository()) {
         self.container = container
         self.chapterRepository = chapterRepository
     }
@@ -72,9 +72,11 @@ private func setSystemNowPlayingPlaybackState(
 
 @MainActor
 public final class TTSManager: NSObject, ObservableObject {
+    public static let shared = TTSManager()
+
     public let chapterRepository: any ChapterRepositoryProtocol
 
-    public init(chapterRepository: any ChapterRepositoryProtocol) {
+    public init(chapterRepository: any ChapterRepositoryProtocol = ChapterSQLiteRepository()) {
         self.chapterRepository = chapterRepository
         self.tool = UserDefaults.standard.string(forKey: "ttsTool") ?? "system"
         self.speed = UserDefaults.standard.object(forKey: "ttsRate") as? Double ?? 1.0
@@ -246,7 +248,7 @@ public final class TTSManager: NSObject, ObservableObject {
             if let onlineChapters {
                 refreshedQueue = onlineChapters
             } else if let container {
-                let worker = TTSChapterQueueMetadataWorker(container: container)
+                let worker = TTSChapterQueueMetadataWorker(container: container, chapterRepository: chapterRepository)
                 refreshedQueue = await worker.fetchLocalQueue(bookId: bookId)
             } else {
                 return

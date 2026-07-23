@@ -43,7 +43,7 @@ struct MainTabView: View {
                 await ChapterContentRepository.shared.configure(container: modelContext.container)
             }
         }
-        .onChange(of: scenePhase) { _, phase in
+        .onChange(of: scenePhase) { phase in
             guard phase == .inactive || phase == .background else { return }
             TTSManager.shared.checkpointForBackground()
             let backgroundSession = BackgroundTaskSession.begin(name: "Flush reading progress")

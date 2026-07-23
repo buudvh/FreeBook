@@ -63,9 +63,10 @@ public final class DownloadManager: ObservableObject {
     public static let shared = DownloadManager()
 
     @Published public var tasks: [DownloadTask] = []
+    private var container: ModelContainer?
     private let chapterRepository: any ChapterRepositoryProtocol
 
-    public init(chapterRepository: any ChapterRepositoryProtocol) {
+    public init(chapterRepository: any ChapterRepositoryProtocol = ChapterSQLiteRepository()) {
         self.chapterRepository = chapterRepository
     }
 
