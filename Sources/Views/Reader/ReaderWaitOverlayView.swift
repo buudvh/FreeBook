@@ -1,33 +1,27 @@
 import SwiftUI
 
 struct ReaderWaitOverlayView: View {
-    let bookTitle: String?
-    let chapterTitle: String?
-    let isTranslationEnabled: Bool
-    let bookId: String
-    let theme: ReaderTheme
-    var statusText: String? = nil
-    let onBack: () -> Void
+    @ObservedObject private var manager = WaitLayerManager.shared
 
     private var displayedBookTitle: String {
-        let raw = bookTitle ?? ""
+        let raw = manager.bookTitle ?? ""
         guard !raw.isEmpty else { return "" }
-        return isTranslationEnabled && TranslateUtils.containsChinese(raw)
-            ? TranslateUtils.translateChapterTitle(raw, bookId: bookId)
+        return manager.isTranslationEnabled && TranslateUtils.containsChinese(raw)
+            ? TranslateUtils.translateChapterTitle(raw, bookId: manager.bookId)
             : raw
     }
 
     private var displayedChapterTitle: String {
-        let raw = chapterTitle ?? ""
+        let raw = manager.chapterTitle ?? ""
         guard !raw.isEmpty else { return "" }
-        return isTranslationEnabled && TranslateUtils.containsChinese(raw)
-            ? TranslateUtils.translateChapterTitle(raw, bookId: bookId)
+        return manager.isTranslationEnabled && TranslateUtils.containsChinese(raw)
+            ? TranslateUtils.translateChapterTitle(raw, bookId: manager.bookId)
             : raw
     }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            theme.backgroundColor
+            manager.theme.backgroundColor
                 .ignoresSafeArea()
 
             VStack(spacing: 20) {
@@ -38,7 +32,7 @@ struct ReaderWaitOverlayView: View {
                         Text(DisplayTextFormatter.titleCase(displayedBookTitle))
                             .font(.title3)
                             .fontWeight(.bold)
-                            .foregroundColor(theme.textColor)
+                            .foregroundColor(manager.theme.textColor)
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
                     }
@@ -47,7 +41,7 @@ struct ReaderWaitOverlayView: View {
                         Text(displayedChapterTitle)
                             .font(.headline)
                             .fontWeight(.medium)
-                            .foregroundColor(theme.textColor.opacity(0.85))
+                            .foregroundColor(manager.theme.textColor.opacity(0.85))
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
                     }
@@ -56,13 +50,13 @@ struct ReaderWaitOverlayView: View {
 
                 ProgressView()
                     .controlSize(.large)
-                    .tint(theme.textColor)
+                    .tint(manager.theme.textColor)
                     .padding(.top, 4)
 
-                if let statusText, !statusText.isEmpty {
+                if let statusText = manager.statusText, !statusText.isEmpty {
                     Text(statusText)
                         .font(.subheadline)
-                        .foregroundColor(theme.textColor.opacity(0.6))
+                        .foregroundColor(manager.theme.textColor.opacity(0.6))
                         .multilineTextAlignment(.center)
                 }
 
@@ -71,18 +65,24 @@ struct ReaderWaitOverlayView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             // Nút Quay lại (Back) góc trên bên trái
-            Button(action: onBack) {
+            Button(action: {
+                let handler = manager.onBackHandler
+                manager.close()
+                handler?()
+            }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(theme.textColor)
+                    .foregroundColor(manager.theme.textColor)
                     .frame(width: 44, height: 44)
-                    .background(Circle().fill(theme.textColor.opacity(0.12)))
+                    .background(Circle().fill(manager.theme.textColor.opacity(0.12)))
             }
             .padding(.leading, 16)
             .padding(.top, 16)
             .accessibilityLabel("Quay lại")
         }
-        .transition(.opacity)
-        .zIndex(100)
+        .opacity(manager.isShowing ? 1 : 0)
+        .allowsHitTesting(manager.isShowing)
+        .animation(.easeInOut(duration: 0.2), value: manager.isShowing)
+        .zIndex(10000)
     }
 }

@@ -55,22 +55,7 @@ struct AppLaunchRootView: View {
                     .zIndex(9999)
             }
 
-            if waitLayerManager.isShowing {
-                ReaderWaitOverlayView(
-                    bookTitle: waitLayerManager.bookTitle,
-                    chapterTitle: waitLayerManager.chapterTitle,
-                    isTranslationEnabled: waitLayerManager.isTranslationEnabled,
-                    bookId: waitLayerManager.bookId,
-                    theme: waitLayerManager.theme,
-                    statusText: waitLayerManager.statusText,
-                    onBack: {
-                        let handler = waitLayerManager.onBackHandler
-                        waitLayerManager.close()
-                        handler?()
-                    }
-                )
-                .zIndex(10000)
-            }
+            ReaderWaitOverlayView()
         }
         .globalToast()
         .sheet(isPresented: $ttsManager.showingSettingsSheet) {

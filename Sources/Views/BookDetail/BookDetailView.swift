@@ -58,7 +58,6 @@ struct BookDetailView: View {
     @State private var loadingTask: Task<Void, Never>? = nil
 
     // Màn hình chuẩn bị mở sách mới
-    @State private var isPreparingBook = false
     @State private var preparingStatusText = "Đang chuẩn bị danh sách chương..."
     @State private var preparingTargetChapterTitle = ""
     @State private var bookOpenTask: Task<Void, Never>? = nil
@@ -271,8 +270,6 @@ struct BookDetailView: View {
             floatingActionButton
         }
         .toolbar(.hidden, for: .tabBar)
-        .toolbar(isPreparingBook ? .hidden : .visible, for: .navigationBar)
-        .navigationBarBackButtonHidden(isPreparingBook)
         .sheet(item: $selectedBookForTask) { book in
             TaskOptionsSheet(book: book, taskType: selectedTaskType)
         }
@@ -841,7 +838,6 @@ struct BookDetailView: View {
     private func openWaitLayer(targetChapterTitle: String, statusText: String? = nil) {
         preparingTargetChapterTitle = targetChapterTitle
         preparingStatusText = statusText ?? ""
-        isPreparingBook = true
         WaitLayerManager.shared.open(
             bookTitle: title,
             chapterTitle: targetChapterTitle,
@@ -861,7 +857,6 @@ struct BookDetailView: View {
         if modelContext.hasChanges {
             modelContext.rollback()
         }
-        isPreparingBook = false
         WaitLayerManager.shared.close()
         readerRoute = nil
     }
@@ -1474,7 +1469,6 @@ struct BookDetailView: View {
 
                 try Task.checkCancellation()
 
-                isPreparingBook = false
                 bookOpenTask = nil
                 self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
 
@@ -1484,7 +1478,7 @@ struct BookDetailView: View {
                 if modelContext.hasChanges {
                     modelContext.rollback()
                 }
-                isPreparingBook = false
+                WaitLayerManager.shared.close()
                 bookOpenTask = nil
                 readerRoute = nil
                 if !Task.isCancelled {
