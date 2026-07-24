@@ -265,7 +265,8 @@ struct ReaderView: View {
                             onFormatMeaning: formatMeaning,
                             onSaveDefinition: saveDefinition,
                             onPerformQuickLookup: performQuickLookup,
-                            onGetDictionaryMatches: getDictionaryMatches
+                            onGetDictionaryMatches: getDictionaryMatches,
+                            onGetHanViet: { getHanViet(for: $0) }
                         )
                         .padding([.horizontal, .bottom])
                         .background(

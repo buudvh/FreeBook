@@ -27,6 +27,7 @@ struct ReaderDefinitionOverlayView: View {
     let onSaveDefinition: () -> Void
     let onPerformQuickLookup: (SearchEngine) -> Void
     let onGetDictionaryMatches: (String) -> [DictionaryMatchInfo]
+    let onGetHanViet: (String) -> String
 
     var body: some View {
         VStack(spacing: 16) {
@@ -55,7 +56,7 @@ struct ReaderDefinitionOverlayView: View {
                     if self.translationMode == "VP" {
                         self.customMeaning = TranslateUtils.translateMeta(selectedTextForDefinition, bookId: bookId)
                     } else {
-                        self.customMeaning = TranslateUtils.getHanViet(selectedTextForDefinition)
+                        self.customMeaning = onGetHanViet(selectedTextForDefinition)
                     }
                 }
             )
