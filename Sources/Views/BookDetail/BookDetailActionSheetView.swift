@@ -5,7 +5,7 @@ struct BookDetailActionSheetView: View {
     let selectedTaskType: TaskType
     @Binding var showingBypassBrowser: Bool
     let initialDetailUrl: String
-    let resolvedHost: String
+    let resolvedHost: String?
     let onImport: (String, String, String) -> Void
 
     var body: some View {

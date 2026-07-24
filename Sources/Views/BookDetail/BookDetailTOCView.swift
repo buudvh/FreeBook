@@ -20,7 +20,9 @@ struct BookDetailTOCView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            searchBarView
+            if totalChaps > 0 {
+                searchBarView
+            }
             tocListView
         }
     }

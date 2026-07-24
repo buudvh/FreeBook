@@ -6,6 +6,7 @@ struct BookDetailHeaderView: View {
     let title: String
     let author: String
     let sourceName: String
+    let iconUrl: String?
     let detail: String
     let cleanedDetailText: String
     let genres: [CategoryResult]
@@ -108,11 +109,14 @@ struct BookDetailHeaderView: View {
                 }
 
                 HStack(spacing: 6) {
-                    Image(systemName: "puzzlepiece.extension")
-                        .resizable()
-                        .frame(width: 16, height: 16)
-                        .foregroundColor(.secondary)
-
+                    if !localPath.isEmpty {
+                        ExtensionIconView(localPath: localPath, iconUrl: iconUrl ?? "", size: 16)
+                    } else {
+                        Image(systemName: "puzzlepiece.extension")
+                            .resizable()
+                            .frame(width: 16, height: 16)
+                            .foregroundColor(.secondary)
+                    }
                     Text(sourceName)
                         .font(.caption)
                         .fontWeight(.medium)

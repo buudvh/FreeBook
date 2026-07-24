@@ -384,6 +384,7 @@ struct BookDetailView: View {
                         title: title,
                         author: author,
                         sourceName: sourceName,
+                        iconUrl: ext?.iconUrl,
                         detail: detail,
                         cleanedDetailText: cleanedDetailText,
                         genres: genres,
