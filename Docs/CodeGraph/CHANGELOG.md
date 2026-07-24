@@ -4,6 +4,23 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.51] - 2026-07-24
+
+### Khắc phục triệt để lỗi Reader, Lưu danh sách chương DB, Lịch sử mất tên chương và Tối ưu hóa phản ứng chuyển chương
+* **BookDetailView**:
+  * Khắc phục lỗi `onDisappear` tự động ngắt `bookOpenTask` khi chuyển sang Reader: gom các câu lệnh `cancel()` vào điều kiện `if readerRoute == nil`, đảm bảo tác vụ lưu SQLite (`persistBookToSQLiteAsync`) tiếp tục chạy hoàn tất ở nền khi navigate.
+  * Lưu trực tiếp tên chương đã dịch (`titleTrans`) từ Chi tiết xuống SQLite DB (`chapters` table) trong `updateFirstPageChapters` và `appendOrUpsertChapters` khi `isTranslationEnabled` bật hoặc tên chương có chữ Hán.
+  * Thêm log chẩn đoán `AppLogger` chi tiết các mốc bắt đầu lưu, lưu batch, bị cancel hoặc hoàn thành toàn bộ chương vào SQLite.
+* **ReaderViewModel**:
+  * Loại bỏ hoàn toàn khoảng trì hoãn cố định (Debounce 300ms) trong `requestChapter` khi bấm nút chuyển chương, giúp giao diện phản ứng tức thì không bị khựng.
+  * Bổ sung log chẩn đoán `AppLogger` khi bắt đầu và hoàn thành chuyển chương.
+* **ReadingProgressStore**:
+  * Chuyển các phương thức `persist`, `checkpoint`, `flush` sang `async throws` chuẩn actor concurrency, bỏ hoàn toàn `DispatchSemaphore` gây đơ/timeout.
+  * Ưu tiên sử dụng `titleTrans` đã lưu sẵn trong SQLite DB để cập nhật `currentChapterTitle` cho sách trong Lịch sử.
+* **ReaderPrepareView & ChapterSQLiteRepository**:
+  * Thêm Diagnostic Logging chẩn đoán kết quả đếm chương `getTotalChaptersCount`, `loadPageKeyset` và `bulkUpsert`.
+  * Hiển thị ngay tên chương đã dịch (`titleTrans`) ở màn hình chuẩn bị Reader.
+
 ## [1.3.50] - 2026-07-23
 
 ### Tái cấu trúc toàn diện Kiến trúc Lưu trữ Chapter sang SQLite3 Native Engine (`ChapterSQLiteRepository`)

@@ -158,6 +158,7 @@ public actor ChapterSQLiteRepository: ChapterRepositoryProtocol {
         }
         sqlite3_reset(stmt)
         sqlite3_exec(db, "COMMIT TRANSACTION;", nil, nil, nil)
+        AppLogger.shared.log("💾 [ChapterSQLiteRepository] bulkUpsert thành công \(chapters.count) chương cho sách: \(bookId)")
     }
 
     public func loadWindow(bookId: String, centerIndex: Int, radius: Int) async throws -> [ChapterModel] {
@@ -213,6 +214,7 @@ public actor ChapterSQLiteRepository: ChapterRepositoryProtocol {
             }
         }
         sqlite3_reset(stmt)
+        AppLogger.shared.log("🔍 [ChapterSQLiteRepository] loadPageKeyset: \(results.count) chương cho sách \(bookId) (startIdx: \(startIdx), limit: \(limit))")
         return results
     }
 

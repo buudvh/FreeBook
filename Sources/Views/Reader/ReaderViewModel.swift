@@ -503,25 +503,15 @@ class ReaderViewModel: ObservableObject {
         navigationDebounceTask?.cancel()
         navigationDebounceTask = nil
 
+        AppLogger.shared.log("📖 [ReaderViewModel] Bắt đầu chuyển chương \(index) (source: \(source), forceRefresh: \(forceRefresh))")
+
         if cache.get(index)?.state == .loaded, !forceRefresh {
             queuedNavigation = nil
             commitNavigation(request, origin: .memory)
             return
         }
 
-        if source.isImmediate {
-            startNavigationWorkerIfNeeded()
-        } else {
-            navigationDebounceTask = Task { [weak self] in
-                do {
-                    try await Task.sleep(nanoseconds: 300_000_000)
-                    guard !Task.isCancelled else { return }
-                    self?.startNavigationWorkerIfNeeded()
-                } catch {
-                    return
-                }
-            }
-        }
+        startNavigationWorkerIfNeeded()
     }
 
     func retryPendingNavigation() {
@@ -603,6 +593,7 @@ class ReaderViewModel: ObservableObject {
         origin: ChapterContentOrigin
     ) {
         guard request.generation == navigationGeneration else { return }
+        AppLogger.shared.log("✅ [ReaderViewModel] Chuyển chương \(request.chapterIndex) thành công (origin: \(origin))")
         displayedChapterIndex = request.chapterIndex
         pendingNavigationIndex = nil
         navigationFailure = nil

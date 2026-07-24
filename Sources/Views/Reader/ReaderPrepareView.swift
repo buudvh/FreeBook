@@ -171,31 +171,34 @@ struct ReaderPrepareView: View {
     private func loadChapterData() {
         Task {
             do {
-                // ✅ Load chapter count và current chapter title
+                AppLogger.shared.log("📖 [ReaderPrepareView] Bắt đầu chuẩn bị dữ liệu Reader cho bookId: \(bookId), initialChapterIndex: \(initialChapterIndex)...")
                 let count = try await chapterRepository.getTotalChaptersCount(bookId: bookId)
+                AppLogger.shared.log("📖 [ReaderPrepareView] Đã đếm SQLite DB totalChaptersCount = \(count) cho bookId: \(bookId)")
                 
                 await MainActor.run {
                     self.localChaptersCount = count
                 }
                 
-                // ✅ Load chapter title nếu có
                 if let chapter = try? await chapterRepository.getChapter(bookId: bookId, index: initialChapterIndex) {
+                    let displayTitle = (chapter.titleTrans?.isEmpty == false) ? chapter.titleTrans! : chapter.title
                     await MainActor.run {
-                        self.currentChapterTitle = chapter.title
+                        self.currentChapterTitle = displayTitle
                     }
+                    AppLogger.shared.log("📖 [ReaderPrepareView] Lấy thành công chapter title: '\(displayTitle)'")
                 } else {
                     await MainActor.run {
                         self.currentChapterTitle = "Chương \(initialChapterIndex + 1)"
                     }
+                    AppLogger.shared.log("⚠️ [ReaderPrepareView] Không tìm thấy chapter index \(initialChapterIndex) trong DB!")
                 }
                 
-                // ✅ Delay nhỏ để animation mượt hơn
-                try? await Task.sleep(nanoseconds: 300_000_000) // 300ms
+                try? await Task.sleep(nanoseconds: 150_000_000)
                 
                 await MainActor.run {
                     self.isLoading = false
                 }
             } catch {
+                AppLogger.shared.log("❌ [ReaderPrepareView] Lỗi loadChapterData: \(error.localizedDescription)")
                 await MainActor.run {
                     self.errorMessage = "Không thể tải thông tin chương: \(error.localizedDescription)"
                     self.isLoading = false

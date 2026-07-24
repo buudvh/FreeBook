@@ -209,11 +209,11 @@ struct BookDetailView: View {
                 if readerRoute == nil {
                     progressiveTocTask?.cancel()
                     progressiveTocTask = nil
+                    loadingTask?.cancel()
+                    loadingTask = nil
+                    bookOpenTask?.cancel()
+                    bookOpenTask = nil
                 }
-                loadingTask?.cancel()
-                loadingTask = nil
-                bookOpenTask?.cancel()
-                bookOpenTask = nil
                 isLoadingRemainingPages = false
                 progressiveLoadingPageText = ""
             }
@@ -1418,6 +1418,7 @@ struct BookDetailView: View {
         createdBookInstance = newBook
 
         let totalOnline = onlineChapters.count
+        AppLogger.shared.log("💾 [BookDetailView] Bắt đầu lưu sách \(resolvedBookId) và \(totalOnline) chương vào SQLite DB...")
         if totalOnline == 0 {
             do {
                 try modelContext.save()
@@ -1447,6 +1448,7 @@ struct BookDetailView: View {
         var startIndex = 0
         while startIndex < totalOnline {
             if Task.isCancelled {
+                AppLogger.shared.log("⚠️ [BookDetailView] Task lưu DB bị CANCEL tại index \(startIndex)/\(totalOnline)!")
                 cleanupPersistenceFailure(isNewBook: isNewBook, book: newBook)
                 return nil
             }
@@ -1459,6 +1461,8 @@ struct BookDetailView: View {
             } else {
                 await appendOrUpsertChapters(for: newBook, newResults: batchResults, baseIndex: startIndex)
             }
+
+            AppLogger.shared.log("💾 [BookDetailView] Đã lưu batch chương \(startIndex)..\(endIndex)/\(totalOnline) vào SQLite...")
 
             do {
                 try modelContext.save()
@@ -1477,6 +1481,7 @@ struct BookDetailView: View {
         }
 
         await syncChaptersListAsync()
+        AppLogger.shared.log("✅ [BookDetailView] Đã lưu thành công toàn bộ \(totalOnline) chương vào SQLite DB cho sách: \(resolvedBookId)")
         return newBook
     }
 
@@ -1553,12 +1558,19 @@ struct BookDetailView: View {
 
         let models = firstPageResults.enumerated().map { index, item in
             let effectiveHost = !item.host.isEmpty ? item.host : defaultHost
+            let transTitle: String?
+            if isTranslationEnabled && TranslateUtils.containsChinese(item.name) {
+                transTitle = TranslateUtils.translateChapterTitle(item.name, bookId: targetBookId)
+            } else {
+                transTitle = nil
+            }
             return ChapterModel(
                 bookId: targetBookId,
                 index: index,
                 title: item.name,
                 url: item.url,
-                host: effectiveHost
+                host: effectiveHost,
+                titleTrans: transTitle
             )
         }
 
@@ -1581,12 +1593,19 @@ struct BookDetailView: View {
         let models = newResults.enumerated().map { offset, item in
             let targetIndex = baseIndex + offset
             let effectiveHost = !item.host.isEmpty ? item.host : defaultHost
+            let transTitle: String?
+            if isTranslationEnabled && TranslateUtils.containsChinese(item.name) {
+                transTitle = TranslateUtils.translateChapterTitle(item.name, bookId: targetBookId)
+            } else {
+                transTitle = nil
+            }
             return ChapterModel(
                 bookId: targetBookId,
                 index: targetIndex,
                 title: item.name,
                 url: item.url,
-                host: effectiveHost
+                host: effectiveHost,
+                titleTrans: transTitle
             )
         }
 

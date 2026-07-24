@@ -53,31 +53,31 @@ actor ReadingProgressStore {
     func checkpointAndRelease(
         _ snapshot: ReadingProgressSnapshot,
         owner: ReadingProgressOwner
-    ) throws {
+    ) async throws {
         record(snapshot)
-        try persist(snapshot)
+        try await persist(snapshot)
         if ownerByBook[snapshot.bookId] == owner {
             ownerByBook.removeValue(forKey: snapshot.bookId)
         }
     }
 
-    func checkpoint(_ snapshot: ReadingProgressSnapshot) throws {
+    func checkpoint(_ snapshot: ReadingProgressSnapshot) async throws {
         record(snapshot)
-        try persist(snapshot)
+        try await persist(snapshot)
     }
 
-    func flush(bookId: String) throws {
+    func flush(bookId: String) async throws {
         guard let snapshot = latestByBook[bookId] else { return }
-        try persist(snapshot)
+        try await persist(snapshot)
     }
 
-    func flushAll() throws {
+    func flushAll() async throws {
         for snapshot in latestByBook.values {
-            try persist(snapshot)
+            try await persist(snapshot)
         }
     }
 
-    private func persist(_ snapshot: ReadingProgressSnapshot) throws {
+    private func persist(_ snapshot: ReadingProgressSnapshot) async throws {
         guard let container else { return }
         let context = ModelContext(container)
         context.autosaveEnabled = false
@@ -89,19 +89,13 @@ actor ReadingProgressStore {
         var resolvedTitle: String? = nil
         if let title = snapshot.chapterTitle, !title.isEmpty {
             resolvedTitle = title
-        } else {
-            let sema = DispatchSemaphore(value: 0)
-            let bookId = snapshot.bookId
-            let chapterIndex = snapshot.chapterIndex
-            Task {
-                resolvedTitle = (try? await self.chapterRepository.getChapter(bookId: bookId, index: chapterIndex))?.title
-                sema.signal()
-            }
-            _ = sema.wait(timeout: .now() + 1.0)
+        } else if let chap = try? await self.chapterRepository.getChapter(bookId: snapshot.bookId, index: snapshot.chapterIndex) {
+            resolvedTitle = (chap.titleTrans?.isEmpty == false) ? chap.titleTrans : chap.title
         }
         book.currentChapterTitle = resolvedTitle ?? book.currentChapterTitle
         book.isHistory = true
         book.lastReadDate = snapshot.recordedAt
         try context.save()
+        AppLogger.shared.log("💾 [ReadingProgressStore] Đã lưu bookmark cho sách \(snapshot.bookId): chapterIndex=\(snapshot.chapterIndex), title='\(book.currentChapterTitle)'")
     }
 }
