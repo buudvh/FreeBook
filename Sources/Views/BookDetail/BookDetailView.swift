@@ -148,82 +148,131 @@ struct BookDetailView: View {
 
     var body: some View {
         ZStack {
-            VStack(spacing: 0) {
-                if !detailErrorMessage.isEmpty && title.isEmpty {
-                    errorView
-                } else {
-                    customTabBar
+            mainContentView
 
-                    Divider()
+            hiddenNavigationLinksView
 
-                    TabView(selection: $selectedTab) {
-                        detailTab
-                            .tag(0)
+            if isLoadingRemainingPages {
+                loadingOverlay
+            }
 
-                        tocTab
-                            .tag(1)
-                    }
-                    .tabViewStyle(.page(indexDisplayMode: .never))
-                    .onChange(of: selectedTab) { oldVal, newVal in
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                            renderedTab = newVal
+            floatingActionButton
+
+            BookDetailActionSheetView(
+                selectedBookForTask: $selectedBookForTask,
+                selectedTaskType: selectedTaskType,
+                showingBypassBrowser: $showingBypassBrowser,
+                initialDetailUrl: initialDetailUrl,
+                resolvedHost: resolvedHost,
+                onImport: { detailUrl, packageId, sourceName in
+                    let checkUrl = JSExecutor.cleanAndResolveUrl(detailUrl, host: ext?.sourceUrl)
+                    let currentResolved = JSExecutor.cleanAndResolveUrl(initialDetailUrl, host: ext?.sourceUrl)
+
+                    if checkUrl == currentResolved {
+                        loadBookData()
+                    } else {
+                        importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                        importedExtensionPackageId = packageId
+                        importedDetailUrl = detailUrl
+                        importedSourceName = sourceName
+
+                        if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
+                            importedHost = "\(scheme)://\(host)"
+                        } else {
+                            importedHost = ""
+                        }
+
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            navigateToImportedBook = true
                         }
                     }
                 }
-            }
-            .navigationTitle("Chi Tiết Truyện")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    ellipsisMenu
-                }
-            }
-            .onAppear {
-                renderedTab = selectedTab
-                loadBookData()
-                syncChaptersList()
-                updateFilteredLocalChapters()
-                updateFilteredOnlineChapters()
-            }
-            .onChange(of: localBook?.chapters.count) { _, _ in
-                syncChaptersList()
-            }
-            .onChange(of: chaptersList) { _, _ in
-                updateFilteredLocalChapters()
-            }
-            .onChange(of: onlineChapters) { _, _ in
-                updateFilteredOnlineChapters()
-            }
-            .onChange(of: isTocAscending) { _, _ in
-                updateFilteredLocalChapters()
-                updateFilteredOnlineChapters()
-            }
-            .onChange(of: chapterSearchQuery) { _, _ in
-                updateFilteredLocalChapters()
-                updateFilteredOnlineChapters()
-            }
-            .onChange(of: isTranslationEnabled) { _, _ in
-                updateFilteredLocalChapters()
-                updateFilteredOnlineChapters()
-            }
-            .navigationDestination(item: $readerRoute) { route in
-                LazyView {
-                    ReaderView(
-                        bookId: actualBookId,
-                        extensionPackageId: extensionPackageId,
-                        chapterIndex: route.chapterIndex,
-                        onlineChapters: onlineChapters,
-                        bookTitle: title,
-                        bookAuthor: author,
-                        bookCoverUrl: coverUrl,
-                        bookDesc: desc.isEmpty ? nil : desc,
-                        bookDetailUrl: initialDetailUrl,
-                        bookSourceName: sourceName,
-                        initialParagraphIndex: -1
-                    )
-                }
-            }
+            )
+        }
+    }
 
+    @ViewBuilder
+    private var mainContentView: some View {
+        VStack(spacing: 0) {
+            if !detailErrorMessage.isEmpty && title.isEmpty {
+                errorView
+            } else {
+                customTabBar
+
+                Divider()
+
+                TabView(selection: $selectedTab) {
+                    detailTab
+                        .tag(0)
+
+                    tocTab
+                        .tag(1)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .onChange(of: selectedTab) { oldVal, newVal in
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        renderedTab = newVal
+                    }
+                }
+            }
+        }
+        .navigationTitle("Chi Tiết Truyện")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                ellipsisMenu
+            }
+        }
+        .onAppear {
+            renderedTab = selectedTab
+            loadBookData()
+            syncChaptersList()
+            updateFilteredLocalChapters()
+            updateFilteredOnlineChapters()
+        }
+        .onChange(of: localBook?.chapters.count) { _, _ in
+            syncChaptersList()
+        }
+        .onChange(of: chaptersList) { _, _ in
+            updateFilteredLocalChapters()
+        }
+        .onChange(of: onlineChapters) { _, _ in
+            updateFilteredOnlineChapters()
+        }
+        .onChange(of: isTocAscending) { _, _ in
+            updateFilteredLocalChapters()
+            updateFilteredOnlineChapters()
+        }
+        .onChange(of: chapterSearchQuery) { _, _ in
+            updateFilteredLocalChapters()
+            updateFilteredOnlineChapters()
+        }
+        .onChange(of: isTranslationEnabled) { _, _ in
+            updateFilteredLocalChapters()
+            updateFilteredOnlineChapters()
+        }
+        .navigationDestination(item: $readerRoute) { route in
+            LazyView {
+                ReaderView(
+                    bookId: actualBookId,
+                    extensionPackageId: extensionPackageId,
+                    chapterIndex: route.chapterIndex,
+                    onlineChapters: onlineChapters,
+                    bookTitle: title,
+                    bookAuthor: author,
+                    bookCoverUrl: coverUrl,
+                    bookDesc: desc.isEmpty ? nil : desc,
+                    bookDetailUrl: initialDetailUrl,
+                    bookSourceName: sourceName,
+                    initialParagraphIndex: -1
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var hiddenNavigationLinksView: some View {
+        Group {
             NavigationLink(
                 destination: BookDictionaryView(bookId: actualBookId, bookName: title),
                 isActive: $navigateToDictionary
@@ -260,44 +309,8 @@ struct BookDetailView: View {
             ) {
                 EmptyView()
             }
-
-            if isLoadingRemainingPages {
-                loadingOverlay
-            }
-
-            floatingActionButton
         }
-            BookDetailActionSheetView(
-                selectedBookForTask: $selectedBookForTask,
-                selectedTaskType: selectedTaskType,
-                showingBypassBrowser: $showingBypassBrowser,
-                initialDetailUrl: initialDetailUrl,
-                resolvedHost: resolvedHost,
-                onImport: { detailUrl, packageId, sourceName in
-                    let checkUrl = JSExecutor.cleanAndResolveUrl(detailUrl, host: ext?.sourceUrl)
-                    let currentResolved = JSExecutor.cleanAndResolveUrl(initialDetailUrl, host: ext?.sourceUrl)
-
-                    if checkUrl == currentResolved {
-                        loadBookData()
-                    } else {
-                        importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
-                        importedExtensionPackageId = packageId
-                        importedDetailUrl = detailUrl
-                        importedSourceName = sourceName
-
-                        if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
-                            importedHost = "\(scheme)://\(host)"
-                        } else {
-                            importedHost = ""
-                        }
-
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                            navigateToImportedBook = true
-                        }
-                    }
-                }
-            )
-        }
+    }
 
     @ViewBuilder
     private var errorView: some View {
@@ -372,7 +385,7 @@ struct BookDetailView: View {
                         author: author,
                         sourceName: sourceName,
                         detail: detail,
-                        cleanedDetailText: cleanedDetailText(detail),
+                        cleanedDetailText: cleanedDetailText,
                         genres: genres,
                         desc: desc,
                         isDescExpanded: $isDescExpanded,
