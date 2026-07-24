@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-07-24T06:30:24.619621Z",
-  "gitCommit": "20046075fcd01215e190fecbd445033f07df69fa",
-  "sourceFileCount": 101,
+  "generatedAt": "2026-07-24T06:42:22.452867Z",
+  "gitCommit": "06c28ee23d58f09834dc372bae89edb0b5206ca7",
+  "sourceFileCount": 104,
   "documentCount": 16,
   "documents": [
     {
@@ -28,9 +28,9 @@
     },
     {
       "filename": "02_file_graph.md",
-      "sourceHash": "6f4ceafd04e2c1b7e45fa5517df4185b31d1985883ac267cb50c689befe4e39a",
+      "sourceHash": "ea48569fabe1f8bfdea9b21075622941b35bcf9f6b07a4a7caad8a07171d30d7",
       "generatedHash": "763b7a9c26ad18048fedf80cbec759c61b0d5d26c08f01384323c80e3a738a36",
-      "generatedAt": "2026-07-24T06:30:24.619621Z",
+      "generatedAt": "2026-07-24T06:42:22.452867Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -108,6 +108,9 @@
         "Sources/Views/Reader/ParagraphCardView.swift",
         "Sources/Views/Reader/PrefetchManager.swift",
         "Sources/Views/Reader/ReaderChapterListView.swift",
+        "Sources/Views/Reader/ReaderDefinitionOverlayView.swift",
+        "Sources/Views/Reader/ReaderFloatingMenuOverlayView.swift",
+        "Sources/Views/Reader/ReaderHeaderFooterOverlayView.swift",
         "Sources/Views/Reader/ReaderParagraphBuilder.swift",
         "Sources/Views/Reader/ReaderSelectionMapper.swift",
         "Sources/Views/Reader/ReaderTextView.swift",
@@ -131,9 +134,9 @@
     },
     {
       "filename": "03_type_graph.md",
-      "sourceHash": "04c75db4ce50c0a9c6ba8a50513c7e341fc69c75a4ff3463612a65a845a1470f",
+      "sourceHash": "89a86ad3973cf234598152b828aca06b481bc15b6890b82b2efa0da41746a4dd",
       "generatedHash": "312861ec97be2ad860aea72c15407115ff1288922ac1302b4118ca98cf6927d4",
-      "generatedAt": "2026-07-24T06:30:24.619621Z",
+      "generatedAt": "2026-07-24T06:42:22.452867Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -205,6 +208,9 @@
         "Sources/Views/Reader/ParagraphCardView.swift",
         "Sources/Views/Reader/PrefetchManager.swift",
         "Sources/Views/Reader/ReaderChapterListView.swift",
+        "Sources/Views/Reader/ReaderDefinitionOverlayView.swift",
+        "Sources/Views/Reader/ReaderFloatingMenuOverlayView.swift",
+        "Sources/Views/Reader/ReaderHeaderFooterOverlayView.swift",
         "Sources/Views/Reader/ReaderParagraphBuilder.swift",
         "Sources/Views/Reader/ReaderSelectionMapper.swift",
         "Sources/Views/Reader/ReaderTextView.swift",
@@ -229,9 +235,9 @@
     },
     {
       "filename": "04_call_graph.md",
-      "sourceHash": "fa7949df1bfb6e6eafbf25caa3409beaeef62cb7099b8494e54388a75dac3d0c",
+      "sourceHash": "7b3da890656061782f86ab857834c4730deb8c1e40114432c90376bfa29131a1",
       "generatedHash": "a595dcbc41e2f58f85e40f8b857a8c69c69efaf7ca38ca1300f7767856def6e7",
-      "generatedAt": "2026-07-24T06:30:24.619621Z",
+      "generatedAt": "2026-07-24T06:42:22.452867Z",
       "sourceFiles": [
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
@@ -251,9 +257,9 @@
     },
     {
       "filename": "05_state_graph.md",
-      "sourceHash": "c3efd5bde87bb4432f4cbc24af49aa0f96ae61ab9a2c60af931cef4c2678df79",
+      "sourceHash": "a76505f5e14dcfa6c39d3052f18e8c65289c3d65621cf23a5d37c06f92155f23",
       "generatedHash": "e3e15551c3363e8fa6ccb63f9ad0f2f6ed35ddef936480ff8a2f91474fa8e217",
-      "generatedAt": "2026-07-24T06:30:24.619621Z",
+      "generatedAt": "2026-07-24T06:42:22.452867Z",
       "sourceFiles": [
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
@@ -266,9 +272,9 @@
     },
     {
       "filename": "06_event_graph.md",
-      "sourceHash": "f69eb2f9ff10f77a6bbdb67401da25865a8609aad5f756fbf29ec52df474c640",
+      "sourceHash": "f323b6f223277d7aae90efac1b3959bbea9f1ac08a675fbb68d4f89c86a835d9",
       "generatedHash": "121f7368a3f1e3c4faa774727fd8225c467a1d7a54b315756e00c4369cd2b07a",
-      "generatedAt": "2026-07-24T06:30:24.619621Z",
+      "generatedAt": "2026-07-24T06:42:22.452867Z",
       "sourceFiles": [
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
         "Sources/Services/TTS/TTSManager.swift",
@@ -285,9 +291,9 @@
     },
     {
       "filename": "07_dataflow.md",
-      "sourceHash": "6f0780f8d4a30cce273c1365dafe60c98532158459dfd7da4cdabf20dc30502a",
+      "sourceHash": "d400cc6062fcb0bd1a8ec3c303811c470c70012e5c338443dee5b9923daee3ef",
       "generatedHash": "6c54853e67bdb1a1e7e52efcbf87e9c471f41761ccf0fc454ba8fb1d008d9050",
-      "generatedAt": "2026-07-24T06:30:24.619621Z",
+      "generatedAt": "2026-07-24T06:42:22.452867Z",
       "sourceFiles": [
         "Sources/Common/Services/ImageCacheManager.swift",
         "Sources/Services/TTS/TTSManager.swift",
@@ -305,9 +311,9 @@
     },
     {
       "filename": "08_lifecycle.md",
-      "sourceHash": "1360a2f230202f5282ecc97b6d97e1c3d6ccfe0f87b50c21b6345637f05b0830",
+      "sourceHash": "9118d906f631fa7d0c6e048f730165f1bc1f2742946c51ba79ad7cb7ed430601",
       "generatedHash": "e98539224a45d72ac07b4433ec416d7f672dce13bbd14640a37afca5b085e64c",
-      "generatedAt": "2026-07-24T06:30:24.619621Z",
+      "generatedAt": "2026-07-24T06:42:22.452867Z",
       "sourceFiles": [
         "Sources/Views/Common/BypassWebView.swift",
         "Sources/Views/Reader/PrefetchManager.swift",
@@ -330,9 +336,9 @@
     },
     {
       "filename": "10_risk_report.md",
-      "sourceHash": "ef0e032800a826491eac955ccbadf5f418919c98700285e9c5240a17c9050728",
+      "sourceHash": "1a46e5d69e7316a1c6e3463aa0206dac906eff83874b0c17a25be092eb4f402a",
       "generatedHash": "14c306aaf685d7098c0ce7937a3921d109049a44c898f294c5e94cab7be12e42",
-      "generatedAt": "2026-07-24T06:30:24.619621Z",
+      "generatedAt": "2026-07-24T06:42:22.452867Z",
       "sourceFiles": [
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
         "Sources/Services/TTS/TTSManager.swift",
@@ -345,9 +351,9 @@
     },
     {
       "filename": "11_subsystems.md",
-      "sourceHash": "e616fd57cf7865ded41f2449bf1aca7cfb7e8c9971cec39e9e78e124aef642b7",
+      "sourceHash": "0e564dd694b418d763fd9b916a1a567d1125f833bf3bfe565929564e3bb6822b",
       "generatedHash": "aecd6288dc88f0038a3357bd48e96eb419a149244cce1d78826e35aebda6e2f8",
-      "generatedAt": "2026-07-24T06:30:24.619621Z",
+      "generatedAt": "2026-07-24T06:42:22.452867Z",
       "sourceFiles": [
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
@@ -382,9 +388,9 @@
     },
     {
       "filename": "13_resource_lifecycle.md",
-      "sourceHash": "43a85b5c30e253e1036f86a06259bceead29752f0b821b4fa5510adc7f1cf881",
+      "sourceHash": "359c9001e84efa531a6e0b9f8946a0fb5ec5ea494754a3cc593223361f826f1f",
       "generatedHash": "fbd9a421cab7d01713bda16e94ab84b38382b7e065b0c9d3e2f0507ffe1c17be",
-      "generatedAt": "2026-07-24T06:30:24.619621Z",
+      "generatedAt": "2026-07-24T06:42:22.452867Z",
       "sourceFiles": [
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
         "Sources/Services/TTS/TTSManager.swift",
@@ -396,9 +402,9 @@
     },
     {
       "filename": "14_complexity_report.md",
-      "sourceHash": "107c1fcfbd717bb08202ab19d7693eae2329240ec203cc1367e0739feb6393bf",
+      "sourceHash": "3519caba18f4d7ba696ac7ad525a250b191c9af813ed704f92b65de83a58d614",
       "generatedHash": "ccd203d05bb8cf74264ed6928e4c772ba1c8b69ba087bc1f135ae1d36465d94d",
-      "generatedAt": "2026-07-24T06:30:24.619621Z",
+      "generatedAt": "2026-07-24T06:42:22.452867Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -467,6 +473,9 @@
         "Sources/Views/Reader/ParagraphCardView.swift",
         "Sources/Views/Reader/PrefetchManager.swift",
         "Sources/Views/Reader/ReaderChapterListView.swift",
+        "Sources/Views/Reader/ReaderDefinitionOverlayView.swift",
+        "Sources/Views/Reader/ReaderFloatingMenuOverlayView.swift",
+        "Sources/Views/Reader/ReaderHeaderFooterOverlayView.swift",
         "Sources/Views/Reader/ReaderParagraphBuilder.swift",
         "Sources/Views/Reader/ReaderSelectionMapper.swift",
         "Sources/Views/Reader/ReaderTextView.swift",

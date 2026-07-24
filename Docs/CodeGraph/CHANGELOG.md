@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.47] - 2026-07-24
+
+### Phase 1: Tái cấu trúc Phân hệ Reader (Modularize ReaderView)
+* **Reader Component Modularization**:
+  * Tách tệp monolithic `ReaderView.swift` thành các Subview độc lập:
+    * `Sources/Views/Reader/ReaderDefinitionOverlayView.swift` (Quản lý Bottom Sheet tra cứu từ điển và sửa nghĩa).
+    * `Sources/Views/Reader/ReaderFloatingMenuOverlayView.swift` (Quản lý menu bong bóng nổi khi bôi đen văn bản).
+    * `Sources/Views/Reader/ReaderHeaderFooterOverlayView.swift` (Quản lý thanh tiêu đề Header và thanh điều hướng Footer).
+  * Giảm số dòng code của `ReaderView.swift` từ 2,430 dòng xuống còn ~1,800 dòng.
+  * Cập nhật danh sách tệp nguồn trong `manifest.json` và đồng bộ CodeGraph.
+
+---
+
 ## [1.3.46] - 2026-07-24
 
 ### Phase 0: Sàng lọc & Xóa bỏ mã nguồn / tệp rác không sử dụng (Dead Code Removal)
