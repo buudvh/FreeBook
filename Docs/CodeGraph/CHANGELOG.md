@@ -4,6 +4,17 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.44] - 2026-07-24
+
+### Khắc phục lỗi TTS nhảy chương khi đóng Cài đặt & Tối ưu hiển thị màn hình chờ WaitLayer
+* **TTS Subsystem & TTSManager**:
+  * Đảm bảo thuộc tính `normalizedChapterText` luôn lưu chuẩn hóa nội dung chứa mảng `lines` (`ChapterTextLine`) khi bắt đầu đọc (`startSpeaking`), chuyển chương (`applyNextChapter`) hoặc khôi phục sau cài đặt (`resumeAfterSettings`).
+  * Khắc phục lỗi mảng `paragraphs` bị rỗng chỉ chứa duy nhất tiêu đề chương làm TTS đọc lại tiêu đề và tự động nhảy chương khi đóng màn hình Cài đặt.
+  * Tái kích hoạt Remote Commands trên màn hình khóa và Audio Session khi tiếp tục phát sau khi đóng cài đặt TTS.
+* **UI & Layers Hierarchy**:
+  * Đặt `zIndex(9999)` cho `TTSFloatingWidgetView` tại `FreeBookApp.swift` để Widget TTS luôn nằm ở lớp trên cùng của toàn bộ ứng dụng, không bị màn hình chờ hay các màn hình chuyển cảnh che lấp.
+  * Thêm cặp hàm `openWaitLayer()` và `closeWaitLayer()` kết hợp `await Task.yield()` tại `BookDetailView.swift`, cho phép vẽ lớp màn hình chờ `ReaderWaitOverlayView` ngay lập tức khi chạm nút "Đọc ngay" trước khi thực thi truy vấn.
+
 ## [1.3.43] - 2026-07-24
 
 ### Tách ReaderWaitOverlayView thành Component dùng chung & Hiển thị LẬP TỨC khi bấm nút đọc

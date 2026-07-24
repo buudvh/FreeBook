@@ -548,7 +548,7 @@ public final class TTSManager: NSObject, ObservableObject {
         )
 
         if preparedChapterKey == requestedKey, let preparedChapter {
-            self.normalizedChapterText = NormalizedChapterText(content: preparedChapter.normalizedContent, lines: [])
+            self.normalizedChapterText = ChapterTextNormalizer.normalize(preparedChapter.normalizedContent)
             self.chapterContent = preparedChapter.normalizedContent
             self.paragraphs = preparedChapter.paragraphs
             self.continueStartSpeaking(startParagraphIndex: startParagraphIndex)
@@ -581,7 +581,7 @@ public final class TTSManager: NSObject, ObservableObject {
                     normalizedContent: processed.normalizedContent,
                     paragraphs: processed.paragraphs
                 )
-                self.normalizedChapterText = NormalizedChapterText(content: processed.normalizedContent, lines: [])
+                self.normalizedChapterText = ChapterTextNormalizer.normalize(processed.normalizedContent)
                 self.chapterContent = processed.normalizedContent
                 self.paragraphs = processed.paragraphs
                 self.continueStartSpeaking(startParagraphIndex: startParagraphIndex)
@@ -777,6 +777,10 @@ public final class TTSManager: NSObject, ObservableObject {
         // Dừng engine cũ để áp dụng cài đặt mới (nhưng giữ widget nổi)
         stopPlayback(keepWidget: true)
 
+        if normalizedChapterText.lines.isEmpty && !chapterContent.isEmpty {
+            self.normalizedChapterText = ChapterTextNormalizer.normalize(chapterContent)
+        }
+
         // Nạp lại phân đoạn
         self.paragraphs = TTSParagraphBuilder.build(from: normalizedChapterText, chunkLength: chunkLength)
 
@@ -810,6 +814,9 @@ public final class TTSManager: NSObject, ObservableObject {
 
         // Nếu trước đó đang phát, tiếp tục phát đoạn đó với cài đặt mới
         if wasPlaying {
+            self.configureAudioSession()
+            self.setRemoteCommandsEnabled(true)
+            Task { await ReadingProgressStore.shared.claim(bookId: playingBookId, owner: .tts) }
             self.isPlaying = true
             speakCurrent()
         }
@@ -979,7 +986,7 @@ public final class TTSManager: NSObject, ObservableObject {
         self.playingChapterIndex = index
         self.playingChapterUrl = chapter.url
         self.chapterTitle = chapter.title
-        self.normalizedChapterText = NormalizedChapterText(content: content, lines: [])
+        self.normalizedChapterText = ChapterTextNormalizer.normalize(content)
         self.chapterContent = content
         self.paragraphs = paragraphs
         self.clearPrefetchCache()

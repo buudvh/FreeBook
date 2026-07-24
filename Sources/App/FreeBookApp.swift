@@ -51,7 +51,7 @@ struct AppLaunchRootView: View {
 
             if translationManager.isInitialized && ttsManager.showFloatingWidget {
                 TTSFloatingWidgetView()
-                    .zIndex(999)
+                    .zIndex(9999)
             }
         }
         .globalToast()

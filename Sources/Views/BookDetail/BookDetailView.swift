@@ -855,7 +855,13 @@ struct BookDetailView: View {
         )
     }
 
-    private func cancelPreparingBook() {
+    private func openWaitLayer(targetChapterTitle: String, statusText: String? = nil) {
+        preparingTargetChapterTitle = targetChapterTitle
+        preparingStatusText = statusText ?? ""
+        isPreparingBook = true
+    }
+
+    private func closeWaitLayer() {
         bookOpenTask?.cancel()
         bookOpenTask = nil
         if modelContext.hasChanges {
@@ -863,6 +869,10 @@ struct BookDetailView: View {
         }
         isPreparingBook = false
         readerRoute = nil
+    }
+
+    private func cancelPreparingBook() {
+        closeWaitLayer()
     }
 
     @ViewBuilder
@@ -1378,28 +1388,31 @@ struct BookDetailView: View {
             rawTargetTitle = "Chương \(chapterIndex + 1)"
         }
 
-        preparingTargetChapterTitle = isTranslationEnabled && TranslateUtils.containsChinese(rawTargetTitle)
+        let chapterTitle = isTranslationEnabled && TranslateUtils.containsChinese(rawTargetTitle)
             ? TranslateUtils.translateChapterTitle(rawTargetTitle, bookId: actualBookId)
             : rawTargetTitle
 
-        isPreparingBook = true
+        openWaitLayer(targetChapterTitle: chapterTitle)
 
-        let isBookReady = (localBook != nil && !(localBook?.chapters.isEmpty ?? true)) || !onlineChapters.isEmpty
+        Task { @MainActor in
+            await Task.yield()
 
-        if isBookReady {
-            let targetBook = ensureBookCreatedIfNeeded(initialChapterIndex: chapterIndex)
-            self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
-            scheduleBackgroundTitleTranslationIfNeeded(for: targetBook)
-            startBackgroundRemainingPagesLoading(for: targetBook)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                if isPreparingBook {
-                    isPreparingBook = false
+            let isBookReady = (localBook != nil && !(localBook?.chapters.isEmpty ?? true)) || !onlineChapters.isEmpty
+
+            if isBookReady {
+                let targetBook = ensureBookCreatedIfNeeded(initialChapterIndex: chapterIndex)
+                self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
+                scheduleBackgroundTitleTranslationIfNeeded(for: targetBook)
+                startBackgroundRemainingPagesLoading(for: targetBook)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    if isPreparingBook {
+                        isPreparingBook = false
+                    }
                 }
+                return
             }
-            return
-        }
 
-        preparingStatusText = "Đang tải danh sách chương..."
+            preparingStatusText = "Đang tải danh sách chương..."
 
         bookOpenTask?.cancel()
         bookOpenTask = Task { @MainActor in
