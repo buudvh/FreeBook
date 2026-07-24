@@ -844,61 +844,15 @@ struct BookDetailView: View {
 
     @ViewBuilder
     private var preparingScreenOverlay: some View {
-        ZStack(alignment: .topLeading) {
-            readerTheme.backgroundColor
-                .ignoresSafeArea()
-
-            VStack(spacing: 24) {
-                Spacer()
-
-                ProgressView()
-                    .tint(readerTheme.textColor)
-                    .scaleEffect(1.4)
-
-                VStack(spacing: 8) {
-                    let displayBookTitle = isTranslationEnabled && TranslateUtils.containsChinese(title)
-                        ? TranslateUtils.translateMeta(title, bookId: actualBookId)
-                        : title
-                    Text(DisplayTextFormatter.titleCase(displayBookTitle))
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .foregroundColor(readerTheme.textColor)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-
-                    if !preparingTargetChapterTitle.isEmpty {
-                        Text(preparingTargetChapterTitle)
-                            .font(.headline)
-                            .foregroundColor(readerTheme.textColor.opacity(0.8))
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                    }
-                }
-                .padding(.horizontal, 24)
-
-                Text(preparingStatusText)
-                    .font(.subheadline)
-                    .foregroundColor(readerTheme.textColor.opacity(0.6))
-                    .multilineTextAlignment(.center)
-
-                Spacer()
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            // Top-left chevron back icon button (No header bar, no bottom toolbar)
-            Button(action: cancelPreparingBook) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(readerTheme.textColor)
-                    .padding(12)
-                    .background(Circle().fill(readerTheme.textColor.opacity(0.12)))
-            }
-            .padding(.leading, 16)
-            .padding(.top, 16)
-            .accessibilityLabel("Quay lại")
-        }
-        .transition(.opacity)
-        .zIndex(100)
+        ReaderWaitOverlayView(
+            bookTitle: title,
+            chapterTitle: preparingTargetChapterTitle,
+            isTranslationEnabled: isTranslationEnabled,
+            bookId: actualBookId,
+            theme: readerTheme,
+            statusText: preparingStatusText.isEmpty ? nil : preparingStatusText,
+            onBack: cancelPreparingBook
+        )
     }
 
     private func cancelPreparingBook() {
@@ -1415,19 +1369,6 @@ struct BookDetailView: View {
     }
 
     private func startReading(at chapterIndex: Int) {
-        let isBookReady = (localBook != nil && !(localBook?.chapters.isEmpty ?? true)) || !onlineChapters.isEmpty
-
-        if isBookReady {
-            let targetBook = ensureBookCreatedIfNeeded(initialChapterIndex: chapterIndex)
-            self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
-            scheduleBackgroundTitleTranslationIfNeeded(for: targetBook)
-            startBackgroundRemainingPagesLoading(for: targetBook)
-            return
-        }
-
-        isPreparingBook = true
-        preparingStatusText = "Đang tải danh sách chương..."
-
         let rawTargetTitle: String
         if chapterIndex >= 0 && chapterIndex < onlineChapters.count {
             rawTargetTitle = onlineChapters[chapterIndex].name
@@ -1440,6 +1381,25 @@ struct BookDetailView: View {
         preparingTargetChapterTitle = isTranslationEnabled && TranslateUtils.containsChinese(rawTargetTitle)
             ? TranslateUtils.translateChapterTitle(rawTargetTitle, bookId: actualBookId)
             : rawTargetTitle
+
+        isPreparingBook = true
+
+        let isBookReady = (localBook != nil && !(localBook?.chapters.isEmpty ?? true)) || !onlineChapters.isEmpty
+
+        if isBookReady {
+            let targetBook = ensureBookCreatedIfNeeded(initialChapterIndex: chapterIndex)
+            self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
+            scheduleBackgroundTitleTranslationIfNeeded(for: targetBook)
+            startBackgroundRemainingPagesLoading(for: targetBook)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                if isPreparingBook {
+                    isPreparingBook = false
+                }
+            }
+            return
+        }
+
+        preparingStatusText = "Đang tải danh sách chương..."
 
         bookOpenTask?.cancel()
         bookOpenTask = Task { @MainActor in

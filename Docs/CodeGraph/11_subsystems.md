@@ -277,7 +277,6 @@ Reader chrome observes the pending target and immediately shows its title, chapt
 - `BookStorageManager` coordinates book deletion, ensuring model context changes are committed to the SQLite database before spawning background threads to delete covers and `.bin` files via `ImageCacheManager` and `BookBinManager` under a path safety sandbox validator.
 - Failed physical file deletions are stored in a `UserDefaults` queue and drained at app startup through `BookStorageManager.shared.drainRetryQueue()`, up to a limit of 3 retry attempts.
 - `ReaderChapterListStore` virtualizes Table of Contents row retrieval dynamically using index-based ForEach loop representation, removing lightweight row arrays from class memory entirely. It uses `BackgroundSearchWorker` actor to search SwiftData off the main thread and `BackgroundPagingWorker` actor to fetch page DTOs off the main thread, keeping search result states separate from active paging state.
-- In-flight download and text export tasks support cooperative cancellation by checking `Task.isCancelled` and task state at chapter boundaries.
-- ReaderView presents a full-screen wait layer with theme background, a top-left back button calling dismiss(), translated book and chapter titles, and a centered loading spinner before ReaderViewModel loadState reaches .ready.
+- Reusable ReaderWaitOverlayView component provides an instant full-screen wait layer with theme background, a top-left back button calling onBack, translated book/chapter titles, and a centered loading spinner. It is triggered immediately upon tapping 'Read Now', 'Continue Reading', detail TOC chapters, or shelf/history book items across BookDetailView, ShelfView, and ReaderView.
 
 <!-- GENERATED END -->

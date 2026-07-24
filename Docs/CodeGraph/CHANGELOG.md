@@ -6,14 +6,18 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.43] - 2026-07-24
 
-### Thêm màn hình WaitLayer phủ kín khi khởi tạo Trình đọc (ReaderView)
+### Tách ReaderWaitOverlayView thành Component dùng chung & Hiển thị LẬP TỨC khi bấm nút đọc
 * **Reader Subsystem & UI Navigation**:
-  * Bổ sung `waitLayerOverlay` toàn màn hình trong `Sources/Views/Reader/ReaderView.swift` hiển thị trước khi `ReaderViewModel` khởi tạo và hoàn tất nạp chương thành công (`loadState == .ready`).
+  * Tạo component SwiftUI mới `Sources/Views/Reader/ReaderWaitOverlayView.swift` phục vụ màn hình WaitLayer phủ kín toàn màn hình dùng chung cho toàn bộ các màn hiển thị/chuyển tiếp sang ReaderView.
   * Giao diện WaitLayer gồm:
-    * Nút Back (Quay lại) ở góc trên bên trái (`chevron.left`) gọi `dismiss()` cho phép người dùng thoát nhanh về màn hình trước.
-    * Tiêu đề Truyện (`displayedBookTitle`) và Tiêu đề Chương (`getChapterTitle(at:)`) ở phần trên/giữa header, hỗ trợ dịch thuật tự động nếu bật dịch (`isTranslationEnabled`).
+    * Nút Back (Quay lại) ở góc trên bên trái (`chevron.left`) gọi callback `onBack` cho phép người dùng đóng overlay và hủy tác vụ ngay lập tức.
+    * Tiêu đề Truyện và Tiêu đề Chương ở phần trên/giữa header, hỗ trợ dịch thuật tự động nếu bật dịch (`isTranslationEnabled`).
     * Biểu tượng nạp (`ProgressView().controlSize(.large)`) nằm chính giữa màn hình.
-  * Phủ kín màu nền theo chủ đề đọc được chọn (`selectedTheme.backgroundColor`) với `.zIndex(100)` và hiệu ứng mờ mượt mà `.transition(.opacity)`.
+    * Phủ kín màu nền theo chủ đề đọc được chọn (`theme.backgroundColor`) với `.zIndex(100)` và hiệu ứng mờ mượt mà `.transition(.opacity)`.
+  * **Kích hoạt LẬP TỨC**:
+    * Trong `BookDetailView.swift`: Kích hoạt `ReaderWaitOverlayView` ngay lập tức khi bấm các nút "Đọc ngay", "Đọc tiếp" hoặc bấm vào bất kỳ dòng chương nào trong mục lục TOC.
+    * Trong `ShelfView.swift`: Kích hoạt `ReaderWaitOverlayView` ngay lập tức khi người dùng bấm/chạm vào bất kỳ cuốn truyện nào trong tab Kệ sách hoặc Lịch sử.
+    * Trong `ReaderView.swift`: Sử dụng chung `ReaderWaitOverlayView` cho đến khi `ReaderViewModel.loadState` chuyển sang `.ready` hoặc `.failed`.
 
 ## [1.3.42] - 2026-07-22
 

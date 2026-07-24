@@ -229,61 +229,17 @@ struct ReaderView: View {
     @ViewBuilder
     private var waitLayerOverlay: some View {
         if !isReaderReady {
-            ZStack {
-                selectedTheme.backgroundColor
-                    .ignoresSafeArea()
-
-                VStack(spacing: 0) {
-                    HStack(spacing: 12) {
-                        Button(action: {
-                            dismiss()
-                        }) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(selectedTheme.textColor)
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
-                        }
-
-                        Spacer()
-
-                        VStack(spacing: 2) {
-                            if !displayedBookTitle.isEmpty {
-                                Text(displayedBookTitle)
-                                    .font(.caption)
-                                    .foregroundColor(selectedTheme.textColor.opacity(0.7))
-                                    .lineLimit(1)
-                            }
-
-                            Text(getChapterTitle(at: chapterIndex))
-                                .font(.subheadline)
-                                .fontWeight(.bold)
-                                .foregroundColor(selectedTheme.textColor)
-                                .lineLimit(1)
-                        }
-                        .multilineTextAlignment(.center)
-
-                        Spacer()
-
-                        Color.clear
-                            .frame(width: 44, height: 44)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
-
-                    Spacer()
-
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .controlSize(.large)
-                            .tint(selectedTheme.textColor)
-                    }
-
-                    Spacer()
+            ReaderWaitOverlayView(
+                bookTitle: bookTitle ?? localBook?.title ?? localBookSnapshot?.title,
+                chapterTitle: getChapterTitle(at: chapterIndex),
+                isTranslationEnabled: isTranslationEnabled,
+                bookId: bookId,
+                theme: selectedTheme,
+                statusText: nil,
+                onBack: {
+                    dismiss()
                 }
-            }
-            .transition(.opacity)
-            .zIndex(100)
+            )
         }
     }
 

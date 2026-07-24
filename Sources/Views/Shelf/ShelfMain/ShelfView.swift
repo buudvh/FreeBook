@@ -52,6 +52,9 @@ struct ShelfView: View {
     @State private var importedSourceName: String = ""
     @State private var importedHost: String = ""
     @State private var navigateToImportedBook = false
+    @State private var openingBook: Book? = nil
+    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
 
     private var shelfBooks: [Book] {
         allBooks.filter { $0.isOnShelf }
@@ -128,6 +131,16 @@ struct ShelfView: View {
                                     )) {
                                         bookItemView(book)
                                     }
+                                    .simultaneousGesture(
+                                        TapGesture().onEnded {
+                                            openingBook = book
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                                if openingBook?.bookId == book.bookId {
+                                                    openingBook = nil
+                                                }
+                                            }
+                                        }
+                                    )
                                     .contextMenu {
                                         NavigationLink(destination: BookDetailView(
                                             bookId: book.bookId,
@@ -460,6 +473,20 @@ struct ShelfView: View {
                     }
                     .padding(20)
                     .background(Color.black.opacity(0.8).cornerRadius(12))
+                }
+
+                if let openingBook {
+                    ReaderWaitOverlayView(
+                        bookTitle: openingBook.title,
+                        chapterTitle: nil,
+                        isTranslationEnabled: isTranslationEnabled,
+                        bookId: openingBook.bookId,
+                        theme: selectedTheme,
+                        statusText: nil,
+                        onBack: {
+                            self.openingBook = nil
+                        }
+                    )
                 }
             }
         }
