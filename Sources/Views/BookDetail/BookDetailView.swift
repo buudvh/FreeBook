@@ -1339,15 +1339,6 @@ struct BookDetailView: View {
     }
 
     private func startReading(at chapterIndex: Int) {
-        let rawTargetTitle: String
-        if chapterIndex >= 0 && chapterIndex < onlineChapters.count {
-            rawTargetTitle = onlineChapters[chapterIndex].name
-        } else if chapterIndex >= 0 && chapterIndex < chaptersList.count {
-            rawTargetTitle = chaptersList[chapterIndex].title
-        } else {
-            rawTargetTitle = "Chương \(chapterIndex + 1)"
-        }
-
         let isBookReady = (localBook != nil && !(localBook?.chapters.isEmpty ?? true)) || !onlineChapters.isEmpty
 
         if isBookReady {

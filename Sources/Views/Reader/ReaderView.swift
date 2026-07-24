@@ -585,7 +585,7 @@ struct ReaderView: View {
                 hasLocalBook: localBook != nil,
                 chapterIndex: chapterIndex,
                 pendingNavigationIndex: viewModel?.pendingNavigationIndex,
-                navigationFailureMessage: viewModel?.navigationFailure?.localizedDescription,
+                navigationFailureMessage: viewModel?.navigationFailure?.sourceMessage,
                 totalChaptersCount: totalChaptersCount,
                 readerPresentedChapterIndex: readerPresentedChapterIndex,
                 readerProgressPercent: readerProgressPercent,
