@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.49] - 2026-07-24
+
+### Tái cấu trúc Luồng Tải Mục mục & Lưu Database khi Mở Sách (`BookDetailView`)
+* **Tải toàn bộ danh sách chương trước khi mở ReaderView**:
+  * Khi mở đọc truyện mới (`isBookReady == false`), hệ thống tự động cào toàn bộ các trang mục lục (`pages`) thành 1 danh sách chương hợp nhất `allChapters`.
+* **Lưu DB theo đợt (Chunked Save - 1,000 chương/đợt)**:
+  * Chia `allChapters` thành các đợt tối đa 1,000 chương (`updateLocalChaptersChunk`), chèn vào `ModelContext` và gọi `modelContext.save()` sau mỗi đợt.
+* **Wait Layer Tiến độ Thời gian Thực**:
+  * Hiển thị màn hình chờ `loadingOverlay` với các nhãn tiến độ thời gian thực: `"Đang lấy mục lục..."` (giai đoạn cào trang) và `"Đang lưu database..."` (giai đoạn lưu từng đợt 1000 chương).
+  * Hỗ trợ nút **Hủy** để dừng tác vụ an toàn.
+  * Tự động mở `ReaderView` sau khi 100% dữ liệu đã được lưu xuống đĩa.
+
+---
+
 ## [1.3.48] - 2026-07-24
 
 ### Phase 2 & Phase 3: Tái cấu trúc Phân hệ Book Detail & TTS Services
