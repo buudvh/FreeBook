@@ -132,12 +132,16 @@ struct ShelfView: View {
                                     }
                                     .simultaneousGesture(
                                         TapGesture().onEnded {
-                                            openingBook = book
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                                                if openingBook?.bookId == book.bookId {
-                                                    openingBook = nil
+                                            WaitLayerManager.shared.open(
+                                                bookTitle: book.title,
+                                                chapterTitle: nil,
+                                                isTranslationEnabled: isTranslationEnabled,
+                                                bookId: book.bookId,
+                                                theme: selectedTheme,
+                                                onBack: {
+                                                    WaitLayerManager.shared.close()
                                                 }
-                                            }
+                                            )
                                         }
                                     )
                                     .contextMenu {
@@ -472,20 +476,6 @@ struct ShelfView: View {
                     }
                     .padding(20)
                     .background(Color.black.opacity(0.8).cornerRadius(12))
-                }
-
-                if let openingBook {
-                    ReaderWaitOverlayView(
-                        bookTitle: openingBook.title,
-                        chapterTitle: nil,
-                        isTranslationEnabled: isTranslationEnabled,
-                        bookId: openingBook.bookId,
-                        theme: selectedTheme,
-                        statusText: nil,
-                        onBack: {
-                            self.openingBook = nil
-                        }
-                    )
                 }
             }
         }

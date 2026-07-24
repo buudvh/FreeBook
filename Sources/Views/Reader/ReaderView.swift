@@ -216,33 +216,6 @@ struct ReaderView: View {
             : rawTitle
     }
 
-    private var isReaderReady: Bool {
-        guard let vm = viewModel else { return false }
-        switch vm.loadState {
-        case .ready, .failed:
-            return true
-        case .bootstrapping, .loading:
-            return false
-        }
-    }
-
-    @ViewBuilder
-    private var waitLayerOverlay: some View {
-        if !isReaderReady {
-            ReaderWaitOverlayView(
-                bookTitle: bookTitle ?? localBook?.title ?? localBookSnapshot?.title,
-                chapterTitle: getChapterTitle(at: chapterIndex),
-                isTranslationEnabled: isTranslationEnabled,
-                bookId: bookId,
-                theme: selectedTheme,
-                statusText: nil,
-                onBack: {
-                    dismiss()
-                }
-            )
-        }
-    }
-
 
     var body: some View {
         readerLifecycleView
@@ -355,14 +328,6 @@ struct ReaderView: View {
                 }
 
                 readerChapterListOverlay(in: geometry)
-
-                if let viewModel {
-                    ReaderViewModelObserver(viewModel: viewModel) { _ in
-                        waitLayerOverlay
-                    }
-                } else {
-                    waitLayerOverlay
-                }
             }
         }
         .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
@@ -507,9 +472,11 @@ struct ReaderView: View {
                     totalCount: newCount,
                     onlineChapters: onlineChapters
                 )
-                if let store = chapterListStore {
-                    store.updateChapters(totalCount: newCount, onlineChapters: onlineChapters)
-                }
+        .onChange(of: viewModel?.loadState) { _, newState in
+            if case .ready = newState {
+                WaitLayerManager.shared.close()
+            } else if case .failed = newState {
+                WaitLayerManager.shared.close()
             }
         }
     }
@@ -523,6 +490,7 @@ struct ReaderView: View {
             initializeReaderIfNeeded()
         }
         .onDisappear {
+            WaitLayerManager.shared.close()
             if ReaderView.activeBookId == bookId {
                 ReaderView.activeBookId = nil
             }

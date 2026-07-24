@@ -35,6 +35,7 @@ struct FreeBookApp: App {
 struct AppLaunchRootView: View {
     @ObservedObject private var translationManager = TranslationManager.shared
     @ObservedObject private var ttsManager = TTSManager.shared
+    @ObservedObject private var waitLayerManager = WaitLayerManager.shared
 
     var body: some View {
         ZStack {
@@ -52,6 +53,23 @@ struct AppLaunchRootView: View {
             if translationManager.isInitialized && ttsManager.showFloatingWidget {
                 TTSFloatingWidgetView()
                     .zIndex(9999)
+            }
+
+            if waitLayerManager.isShowing {
+                ReaderWaitOverlayView(
+                    bookTitle: waitLayerManager.bookTitle,
+                    chapterTitle: waitLayerManager.chapterTitle,
+                    isTranslationEnabled: waitLayerManager.isTranslationEnabled,
+                    bookId: waitLayerManager.bookId,
+                    theme: waitLayerManager.theme,
+                    statusText: waitLayerManager.statusText,
+                    onBack: {
+                        let handler = waitLayerManager.onBackHandler
+                        waitLayerManager.close()
+                        handler?()
+                    }
+                )
+                .zIndex(10000)
             }
         }
         .globalToast()

@@ -268,10 +268,6 @@ struct BookDetailView: View {
                 loadingOverlay
             }
 
-            if isPreparingBook {
-                preparingScreenOverlay
-            }
-
             floatingActionButton
         }
         .toolbar(.hidden, for: .tabBar)
@@ -842,23 +838,21 @@ struct BookDetailView: View {
         }
     }
 
-    @ViewBuilder
-    private var preparingScreenOverlay: some View {
-        ReaderWaitOverlayView(
-            bookTitle: title,
-            chapterTitle: preparingTargetChapterTitle,
-            isTranslationEnabled: isTranslationEnabled,
-            bookId: actualBookId,
-            theme: readerTheme,
-            statusText: preparingStatusText.isEmpty ? nil : preparingStatusText,
-            onBack: cancelPreparingBook
-        )
-    }
-
     private func openWaitLayer(targetChapterTitle: String, statusText: String? = nil) {
         preparingTargetChapterTitle = targetChapterTitle
         preparingStatusText = statusText ?? ""
         isPreparingBook = true
+        WaitLayerManager.shared.open(
+            bookTitle: title,
+            chapterTitle: targetChapterTitle,
+            isTranslationEnabled: isTranslationEnabled,
+            bookId: actualBookId,
+            theme: readerTheme,
+            statusText: statusText,
+            onBack: {
+                WaitLayerManager.shared.close()
+            }
+        )
     }
 
     private func closeWaitLayer() {
@@ -868,6 +862,7 @@ struct BookDetailView: View {
             modelContext.rollback()
         }
         isPreparingBook = false
+        WaitLayerManager.shared.close()
         readerRoute = nil
     }
 
@@ -1397,21 +1392,18 @@ struct BookDetailView: View {
         let isBookReady = (localBook != nil && !(localBook?.chapters.isEmpty ?? true)) || !onlineChapters.isEmpty
 
         if isBookReady {
-            let targetBook = ensureBookCreatedIfNeeded(initialChapterIndex: chapterIndex)
-            scheduleBackgroundTitleTranslationIfNeeded(for: targetBook)
-            startBackgroundRemainingPagesLoading(for: targetBook)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            Task { @MainActor in
+                await Task.yield()
+                let targetBook = ensureBookCreatedIfNeeded(initialChapterIndex: chapterIndex)
+                scheduleBackgroundTitleTranslationIfNeeded(for: targetBook)
+                startBackgroundRemainingPagesLoading(for: targetBook)
                 self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    if isPreparingBook {
-                        isPreparingBook = false
-                    }
-                }
             }
             return
         }
 
         preparingStatusText = "Đang tải danh sách chương..."
+        openWaitLayer(targetChapterTitle: chapterTitle, statusText: preparingStatusText)
 
         bookOpenTask?.cancel()
         bookOpenTask = Task { @MainActor in
