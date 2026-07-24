@@ -1394,25 +1394,24 @@ struct BookDetailView: View {
 
         openWaitLayer(targetChapterTitle: chapterTitle)
 
-        Task { @MainActor in
-            await Task.yield()
+        let isBookReady = (localBook != nil && !(localBook?.chapters.isEmpty ?? true)) || !onlineChapters.isEmpty
 
-            let isBookReady = (localBook != nil && !(localBook?.chapters.isEmpty ?? true)) || !onlineChapters.isEmpty
-
-            if isBookReady {
-                let targetBook = ensureBookCreatedIfNeeded(initialChapterIndex: chapterIndex)
+        if isBookReady {
+            let targetBook = ensureBookCreatedIfNeeded(initialChapterIndex: chapterIndex)
+            scheduleBackgroundTitleTranslationIfNeeded(for: targetBook)
+            startBackgroundRemainingPagesLoading(for: targetBook)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
-                scheduleBackgroundTitleTranslationIfNeeded(for: targetBook)
-                startBackgroundRemainingPagesLoading(for: targetBook)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                     if isPreparingBook {
                         isPreparingBook = false
                     }
                 }
-                return
             }
+            return
+        }
 
-            preparingStatusText = "Đang tải danh sách chương..."
+        preparingStatusText = "Đang tải danh sách chương..."
 
         bookOpenTask?.cancel()
         bookOpenTask = Task { @MainActor in
