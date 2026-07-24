@@ -309,15 +309,6 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 27. CollapsedCircleView (STRUCT)
-
-*   **Định nghĩa tại**: [Views/Reader/CollapsedCircleView.swift:2](../../Sources/Views/Reader/CollapsedCircleView.swift#L2)
-*   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
-*   **Sử dụng (Uses)**: Không phụ thuộc vào kiểu dữ liệu nội bộ khác
-*   **Được sử dụng bởi (Used by)**: `Layout`, `TTSFloatingWidgetView`
-
----
-
 ### 28. CommentSectionView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/BookDetail/CommentSectionView.swift:2](../../Sources/Views/BookDetail/CommentSectionView.swift#L2)
@@ -588,15 +579,6 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 58. ExpandedControlPanel (STRUCT)
-
-*   **Định nghĩa tại**: [Views/Reader/ExpandedControlPanel.swift:2](../../Sources/Views/Reader/ExpandedControlPanel.swift#L2)
-*   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
-*   **Sử dụng (Uses)**: Không phụ thuộc vào kiểu dữ liệu nội bộ khác
-*   **Được sử dụng bởi (Used by)**: `Layout`, `TTSFloatingWidgetView`
-
----
-
 ### 59. ExtTTSService (CLASS)
 
 *   **Định nghĩa tại**: [Services/TTS/Ext/ExtTTSService.swift:3](../../Sources/Services/TTS/Ext/ExtTTSService.swift#L3)
@@ -718,7 +700,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 *   **Định nghĩa tại**: [Views/TTSWidget/TTSFloatingWidgetView.swift:11](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift#L11)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
-*   **Sử dụng (Uses)**: `CollapsedCircleView`, `ExpandedControlPanel`, `FloatingWidgetViewModel`, `TTSManager`, `TTSPlayStateReader`, `TTSSettingsView`
+*   **Sử dụng (Uses)**: `FloatingWidgetViewModel`, `TTSManager`, `TTSPlayStateReader`, `TTSSettingsView`
 *   **Được sử dụng bởi (Used by)**: Không được kiểu dữ liệu nội bộ khác tham chiếu trực tiếp
 
 ---
@@ -1309,7 +1291,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 *   **Định nghĩa tại**: [Views/TTSWidget/TTSFloatingWidgetView.swift:2](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
-*   **Sử dụng (Uses)**: `CollapsedCircleView`, `ExpandedControlPanel`, `FloatingWidgetViewModel`, `TTSManager`, `TTSPlayStateReader`, `TTSSettingsView`
+*   **Sử dụng (Uses)**: `FloatingWidgetViewModel`, `TTSManager`, `TTSPlayStateReader`, `TTSSettingsView`
 *   **Được sử dụng bởi (Used by)**: `AppLaunchRootView`, `FreeBookApp`
 
 ---

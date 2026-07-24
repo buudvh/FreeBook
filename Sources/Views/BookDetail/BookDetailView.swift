@@ -58,8 +58,6 @@ struct BookDetailView: View {
     @State private var loadingTask: Task<Void, Never>? = nil
 
     // Màn hình chuẩn bị mở sách mới
-    @State private var preparingStatusText = "Đang chuẩn bị danh sách chương..."
-    @State private var preparingTargetChapterTitle = ""
     @State private var bookOpenTask: Task<Void, Never>? = nil
     @AppStorage("readerSelectedTheme") private var readerTheme: ReaderTheme = .dark
 

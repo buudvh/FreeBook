@@ -2,6 +2,14 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.46] - 2026-07-24
+
+### Phase 0: Sàng lọc & Xóa bỏ mã nguồn / tệp rác không sử dụng (Dead Code Removal)
+* **Reader & TTS Cleanup**:
+  * Xóa bỏ các tệp tin mồ côi dư thừa `Sources/Views/Reader/CollapsedCircleView.swift`, `Sources/Views/Reader/ExpandedControlPanel.swift`, `Sources/Views/Reader/ChapterContentProvider.swift`.
+  * Rà soát & loại bỏ các biến `@State` dư thừa không được đọc/ghi (`isGoingNext`, `editingChapterIndex` trong `ReaderView.swift`; `preparingStatusText`, `preparingTargetChapterTitle` trong `BookDetailView.swift`).
+  * Cập nhật danh sách tệp nguồn trong `00_index.md`, `02_file_graph.md`, `03_type_graph.md`, `14_complexity_report.md` và `manifest.json`.
+
 ---
 
 ## [1.3.45] - 2026-07-24

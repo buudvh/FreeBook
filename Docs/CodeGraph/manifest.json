@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-07-24T06:21:00.380064Z",
-  "gitCommit": "9eae1dc4e168a86fa8b481fea60d5dcd1e33aff5",
-  "sourceFileCount": 104,
+  "generatedAt": "2026-07-24T06:30:24.619621Z",
+  "gitCommit": "20046075fcd01215e190fecbd445033f07df69fa",
+  "sourceFileCount": 101,
   "documentCount": 16,
   "documents": [
     {
@@ -28,9 +28,9 @@
     },
     {
       "filename": "02_file_graph.md",
-      "sourceHash": "1946debac92c3ab02fbb5606562ccc777b2cb650bda4f5d27795f80cdd8a22b8",
-      "generatedHash": "4a9c36fd05108d395ef52fcafc9cf478e9c35c5b73978998e2b6ba9062ec6d32",
-      "generatedAt": "2026-07-24T06:21:00.380064Z",
+      "sourceHash": "6f4ceafd04e2c1b7e45fa5517df4185b31d1985883ac267cb50c689befe4e39a",
+      "generatedHash": "763b7a9c26ad18048fedf80cbec759c61b0d5d26c08f01384323c80e3a738a36",
+      "generatedAt": "2026-07-24T06:30:24.619621Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -105,8 +105,6 @@
         "Sources/Views/Extensions/Manager/RepositoryManagerView.swift",
         "Sources/Views/MainTabView.swift",
         "Sources/Views/Reader/ChapterCache.swift",
-        "Sources/Views/Reader/CollapsedCircleView.swift",
-        "Sources/Views/Reader/ExpandedControlPanel.swift",
         "Sources/Views/Reader/ParagraphCardView.swift",
         "Sources/Views/Reader/PrefetchManager.swift",
         "Sources/Views/Reader/ReaderChapterListView.swift",
@@ -133,9 +131,9 @@
     },
     {
       "filename": "03_type_graph.md",
-      "sourceHash": "214c4efd2993592cb972c1536e550cb90ede2cf0dfc4e3beba2dd651c51b8387",
-      "generatedHash": "b756dad1ffced92c9c7b28be12383541d7ec846122b501fc38f0af652d1ca65c",
-      "generatedAt": "2026-07-24T06:21:00.380064Z",
+      "sourceHash": "04c75db4ce50c0a9c6ba8a50513c7e341fc69c75a4ff3463612a65a845a1470f",
+      "generatedHash": "312861ec97be2ad860aea72c15407115ff1288922ac1302b4118ca98cf6927d4",
+      "generatedAt": "2026-07-24T06:30:24.619621Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -204,8 +202,6 @@
         "Sources/Views/Extensions/Manager/RepositoryManagerView.swift",
         "Sources/Views/MainTabView.swift",
         "Sources/Views/Reader/ChapterCache.swift",
-        "Sources/Views/Reader/CollapsedCircleView.swift",
-        "Sources/Views/Reader/ExpandedControlPanel.swift",
         "Sources/Views/Reader/ParagraphCardView.swift",
         "Sources/Views/Reader/PrefetchManager.swift",
         "Sources/Views/Reader/ReaderChapterListView.swift",
@@ -233,9 +229,9 @@
     },
     {
       "filename": "04_call_graph.md",
-      "sourceHash": "7607665168c1efbb125e700b17a4d09d9300641e40ffb375f11c30d76703b369",
+      "sourceHash": "fa7949df1bfb6e6eafbf25caa3409beaeef62cb7099b8494e54388a75dac3d0c",
       "generatedHash": "a595dcbc41e2f58f85e40f8b857a8c69c69efaf7ca38ca1300f7767856def6e7",
-      "generatedAt": "2026-07-24T06:13:44.513507Z",
+      "generatedAt": "2026-07-24T06:30:24.619621Z",
       "sourceFiles": [
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
@@ -255,9 +251,9 @@
     },
     {
       "filename": "05_state_graph.md",
-      "sourceHash": "2407f5909e9e342a3ded82166a2abca113176ffa604185e0f005b133ecb030fc",
+      "sourceHash": "c3efd5bde87bb4432f4cbc24af49aa0f96ae61ab9a2c60af931cef4c2678df79",
       "generatedHash": "e3e15551c3363e8fa6ccb63f9ad0f2f6ed35ddef936480ff8a2f91474fa8e217",
-      "generatedAt": "2026-07-24T06:13:44.513507Z",
+      "generatedAt": "2026-07-24T06:30:24.619621Z",
       "sourceFiles": [
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
@@ -270,9 +266,9 @@
     },
     {
       "filename": "06_event_graph.md",
-      "sourceHash": "cf9e43635a3c56b05817748eb28f3867fe755fef67c15769b1c99f182175b20f",
+      "sourceHash": "f69eb2f9ff10f77a6bbdb67401da25865a8609aad5f756fbf29ec52df474c640",
       "generatedHash": "121f7368a3f1e3c4faa774727fd8225c467a1d7a54b315756e00c4369cd2b07a",
-      "generatedAt": "2026-07-24T06:13:44.513507Z",
+      "generatedAt": "2026-07-24T06:30:24.619621Z",
       "sourceFiles": [
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
         "Sources/Services/TTS/TTSManager.swift",
@@ -289,9 +285,9 @@
     },
     {
       "filename": "07_dataflow.md",
-      "sourceHash": "f86e350fe8781ebee9e161c53a0449225de2466969e28b9c0dec432449459dd4",
+      "sourceHash": "6f0780f8d4a30cce273c1365dafe60c98532158459dfd7da4cdabf20dc30502a",
       "generatedHash": "6c54853e67bdb1a1e7e52efcbf87e9c471f41761ccf0fc454ba8fb1d008d9050",
-      "generatedAt": "2026-07-24T06:13:44.513507Z",
+      "generatedAt": "2026-07-24T06:30:24.619621Z",
       "sourceFiles": [
         "Sources/Common/Services/ImageCacheManager.swift",
         "Sources/Services/TTS/TTSManager.swift",
@@ -309,9 +305,9 @@
     },
     {
       "filename": "08_lifecycle.md",
-      "sourceHash": "fbb9158aefdc83126a8f431a72acc5f86f73e4a411ee4396ebcd1773d6abaa26",
+      "sourceHash": "1360a2f230202f5282ecc97b6d97e1c3d6ccfe0f87b50c21b6345637f05b0830",
       "generatedHash": "e98539224a45d72ac07b4433ec416d7f672dce13bbd14640a37afca5b085e64c",
-      "generatedAt": "2026-07-24T06:13:44.513507Z",
+      "generatedAt": "2026-07-24T06:30:24.619621Z",
       "sourceFiles": [
         "Sources/Views/Common/BypassWebView.swift",
         "Sources/Views/Reader/PrefetchManager.swift",
@@ -334,9 +330,9 @@
     },
     {
       "filename": "10_risk_report.md",
-      "sourceHash": "47cc177c421531fd2da3dba9c7a64774f63596974e12ba07d2a3cf72772bb5ea",
+      "sourceHash": "ef0e032800a826491eac955ccbadf5f418919c98700285e9c5240a17c9050728",
       "generatedHash": "14c306aaf685d7098c0ce7937a3921d109049a44c898f294c5e94cab7be12e42",
-      "generatedAt": "2026-07-24T06:13:44.513507Z",
+      "generatedAt": "2026-07-24T06:30:24.619621Z",
       "sourceFiles": [
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
         "Sources/Services/TTS/TTSManager.swift",
@@ -349,9 +345,9 @@
     },
     {
       "filename": "11_subsystems.md",
-      "sourceHash": "c014817d5cdf7528d6c820c66186a0be6e422d065b5e59ac4be3be89db698cbf",
+      "sourceHash": "e616fd57cf7865ded41f2449bf1aca7cfb7e8c9971cec39e9e78e124aef642b7",
       "generatedHash": "aecd6288dc88f0038a3357bd48e96eb419a149244cce1d78826e35aebda6e2f8",
-      "generatedAt": "2026-07-24T06:13:44.513507Z",
+      "generatedAt": "2026-07-24T06:30:24.619621Z",
       "sourceFiles": [
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
@@ -386,9 +382,9 @@
     },
     {
       "filename": "13_resource_lifecycle.md",
-      "sourceHash": "11e8d30a96f2c9a7d3fe42845eb0f9c1fd75c81ae2135c51be4ccc0df10e41b1",
+      "sourceHash": "43a85b5c30e253e1036f86a06259bceead29752f0b821b4fa5510adc7f1cf881",
       "generatedHash": "fbd9a421cab7d01713bda16e94ab84b38382b7e065b0c9d3e2f0507ffe1c17be",
-      "generatedAt": "2026-07-24T06:13:44.513507Z",
+      "generatedAt": "2026-07-24T06:30:24.619621Z",
       "sourceFiles": [
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
         "Sources/Services/TTS/TTSManager.swift",
@@ -400,9 +396,9 @@
     },
     {
       "filename": "14_complexity_report.md",
-      "sourceHash": "a1eba1dd472bb9b95dc3e2e778a4060b1e45c16bd06ed6c32e0db7be24b027ff",
+      "sourceHash": "107c1fcfbd717bb08202ab19d7693eae2329240ec203cc1367e0739feb6393bf",
       "generatedHash": "ccd203d05bb8cf74264ed6928e4c772ba1c8b69ba087bc1f135ae1d36465d94d",
-      "generatedAt": "2026-07-24T06:21:00.380064Z",
+      "generatedAt": "2026-07-24T06:30:24.619621Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -468,8 +464,6 @@
         "Sources/Views/Extensions/Manager/RepositoryManagerView.swift",
         "Sources/Views/MainTabView.swift",
         "Sources/Views/Reader/ChapterCache.swift",
-        "Sources/Views/Reader/CollapsedCircleView.swift",
-        "Sources/Views/Reader/ExpandedControlPanel.swift",
         "Sources/Views/Reader/ParagraphCardView.swift",
         "Sources/Views/Reader/PrefetchManager.swift",
         "Sources/Views/Reader/ReaderChapterListView.swift",

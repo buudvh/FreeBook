@@ -107,13 +107,11 @@ struct ReaderView: View {
     @State private var importedSourceName = ""
     @State private var importedHost = ""
     @State private var navigateToBookDetail = false
-    @State private var isGoingNext = true
 
     // TTS (Giọng đọc): Sử dụng @StateObject để giữ vòng đời của đối tượng TTSManager.shared không bị hủy khi đổi chương
     @StateObject private var ttsManager = TTSManager.shared
     @State private var triggerGetVisibleIndex: UUID? = nil
     @State private var editingParagraphIndex: Int? = nil
-    @State private var editingChapterIndex: Int? = nil
     @State private var scrollTarget: ScrollTarget? = nil
     @State private var readerViewportHeight: CGFloat = 360
     @State private var isRestoringReaderPosition = true
@@ -1280,7 +1278,6 @@ struct ReaderView: View {
               ) else { return }
 
         self.editingParagraphIndex = paragraphID
-        self.editingChapterIndex = chapterIndex
         self.originalSentence = item.original
         self.selectedWordOffset = originalRange.location
         self.selectedWordLength = originalRange.length
@@ -1666,7 +1663,6 @@ struct ReaderView: View {
     private func applyNavigationCommit(
         _ commit: ReaderNavigationCommit
     ) {
-        isGoingNext = commit.direction != .backward
         isRestoringReaderPosition = true
         paragraphTracker.removeAll()
         let apply = {

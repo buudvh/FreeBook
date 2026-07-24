@@ -1018,26 +1018,6 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 64. [CollapsedCircleView.swift](../../Sources/Views/Reader/CollapsedCircleView.swift)
-
-*   **Đường dẫn**: `Views/Reader/CollapsedCircleView.swift`
-*   **Imports (Import Graph)**: `SwiftUI`
-*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
-*   **Được sử dụng bởi (Used by)**:
-    *   [TTSFloatingWidgetView.swift](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift)
-
----
-
-### 65. [ExpandedControlPanel.swift](../../Sources/Views/Reader/ExpandedControlPanel.swift)
-
-*   **Đường dẫn**: `Views/Reader/ExpandedControlPanel.swift`
-*   **Imports (Import Graph)**: `SwiftUI`
-*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
-*   **Được sử dụng bởi (Used by)**:
-    *   [TTSFloatingWidgetView.swift](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift)
-
----
-
 ### 66. [ParagraphCardView.swift](../../Sources/Views/Reader/ParagraphCardView.swift)
 
 *   **Đường dẫn**: `Views/Reader/ParagraphCardView.swift`
@@ -1304,8 +1284,6 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *   **Imports (Import Graph)**: `SwiftUI`
 *   **Sử dụng (Uses)**:
     *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
-    *   [CollapsedCircleView.swift](../../Sources/Views/Reader/CollapsedCircleView.swift)
-    *   [ExpandedControlPanel.swift](../../Sources/Views/Reader/ExpandedControlPanel.swift)
     *   [FloatingWidgetViewModel.swift](../../Sources/Views/TTSWidget/FloatingWidgetViewModel.swift)
     *   [TTSPlayStateReader.swift](../../Sources/Views/TTSWidget/TTSPlayStateReader.swift)
     *   [TTSSettingsView.swift](../../Sources/Views/TTSWidget/TTSSettingsView.swift)
