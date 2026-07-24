@@ -30,14 +30,10 @@ struct ReaderWaitOverlayView: View {
             theme.backgroundColor
                 .ignoresSafeArea()
 
-            VStack(spacing: 24) {
+            VStack(spacing: 20) {
                 Spacer()
 
-                ProgressView()
-                    .controlSize(.large)
-                    .tint(theme.textColor)
-
-                VStack(spacing: 8) {
+                VStack(spacing: 12) {
                     if !displayedBookTitle.isEmpty {
                         Text(DisplayTextFormatter.titleCase(displayedBookTitle))
                             .font(.title3)
@@ -50,19 +46,25 @@ struct ReaderWaitOverlayView: View {
                     if !displayedChapterTitle.isEmpty {
                         Text(displayedChapterTitle)
                             .font(.headline)
-                            .foregroundColor(theme.textColor.opacity(0.8))
+                            .fontWeight(.medium)
+                            .foregroundColor(theme.textColor.opacity(0.85))
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
                     }
-
-                    if let statusText, !statusText.isEmpty {
-                        Text(statusText)
-                            .font(.subheadline)
-                            .foregroundColor(theme.textColor.opacity(0.6))
-                            .multilineTextAlignment(.center)
-                    }
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, 28)
+
+                ProgressView()
+                    .controlSize(.large)
+                    .tint(theme.textColor)
+                    .padding(.top, 4)
+
+                if let statusText, !statusText.isEmpty {
+                    Text(statusText)
+                        .font(.subheadline)
+                        .foregroundColor(theme.textColor.opacity(0.6))
+                        .multilineTextAlignment(.center)
+                }
 
                 Spacer()
             }

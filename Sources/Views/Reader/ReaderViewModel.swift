@@ -227,7 +227,7 @@ class ReaderViewModel: ObservableObject {
         let localChapterCount: Int = {
             if let bId = localBookSnapshot?.bookId {
                 let localBId = bId
-                var descriptor = FetchDescriptor<Chapter>(
+                let descriptor = FetchDescriptor<Chapter>(
                     predicate: #Predicate<Chapter> { $0.bookId == localBId }
                 )
                 return (try? modelContext.fetchCount(descriptor)) ?? 0

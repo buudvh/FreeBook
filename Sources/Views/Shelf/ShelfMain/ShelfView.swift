@@ -53,7 +53,6 @@ struct ShelfView: View {
     @State private var importedHost: String = ""
     @State private var navigateToImportedBook = false
     @State private var openingBook: Book? = nil
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
 
     private var shelfBooks: [Book] {
