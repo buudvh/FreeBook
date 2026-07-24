@@ -472,6 +472,11 @@ struct ReaderView: View {
                     totalCount: newCount,
                     onlineChapters: onlineChapters
                 )
+                if let store = chapterListStore {
+                    store.updateChapters(totalCount: newCount, onlineChapters: onlineChapters)
+                }
+            }
+        }
         .onChange(of: viewModel?.loadState) { _, newState in
             if case .ready = newState {
                 WaitLayerManager.shared.close()
