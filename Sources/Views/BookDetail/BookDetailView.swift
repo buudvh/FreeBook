@@ -157,38 +157,37 @@ struct BookDetailView: View {
             }
 
             floatingActionButton
+        }
+        .bookDetailActionSheets(
+            selectedBookForTask: $selectedBookForTask,
+            selectedTaskType: selectedTaskType,
+            showingBypassBrowser: $showingBypassBrowser,
+            initialDetailUrl: initialDetailUrl,
+            resolvedHost: resolvedHost,
+            onImport: { detailUrl, packageId, sourceName in
+                let checkUrl = JSExecutor.cleanAndResolveUrl(detailUrl, host: ext?.sourceUrl)
+                let currentResolved = JSExecutor.cleanAndResolveUrl(initialDetailUrl, host: ext?.sourceUrl)
 
-            BookDetailActionSheetView(
-                selectedBookForTask: $selectedBookForTask,
-                selectedTaskType: selectedTaskType,
-                showingBypassBrowser: $showingBypassBrowser,
-                initialDetailUrl: initialDetailUrl,
-                resolvedHost: resolvedHost,
-                onImport: { detailUrl, packageId, sourceName in
-                    let checkUrl = JSExecutor.cleanAndResolveUrl(detailUrl, host: ext?.sourceUrl)
-                    let currentResolved = JSExecutor.cleanAndResolveUrl(initialDetailUrl, host: ext?.sourceUrl)
+                if checkUrl == currentResolved {
+                    loadBookData()
+                } else {
+                    importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                    importedExtensionPackageId = packageId
+                    importedDetailUrl = detailUrl
+                    importedSourceName = sourceName
 
-                    if checkUrl == currentResolved {
-                        loadBookData()
+                    if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
+                        importedHost = "\(scheme)://\(host)"
                     } else {
-                        importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
-                        importedExtensionPackageId = packageId
-                        importedDetailUrl = detailUrl
-                        importedSourceName = sourceName
+                        importedHost = ""
+                    }
 
-                        if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
-                            importedHost = "\(scheme)://\(host)"
-                        } else {
-                            importedHost = ""
-                        }
-
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                            navigateToImportedBook = true
-                        }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                        navigateToImportedBook = true
                     }
                 }
-            )
-        }
+            }
+        )
     }
 
     @ViewBuilder

@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct BookDetailActionSheetView: View {
+struct BookDetailActionSheetModifier: ViewModifier {
     @Binding var selectedBookForTask: Book?
     let selectedTaskType: TaskType
     @Binding var showingBypassBrowser: Bool
@@ -8,8 +8,8 @@ struct BookDetailActionSheetView: View {
     let resolvedHost: String?
     let onImport: (String, String, String) -> Void
 
-    var body: some View {
-        EmptyView()
+    func body(content: Content) -> some View {
+        content
             .sheet(item: $selectedBookForTask) { book in
                 TaskOptionsSheet(
                     book: book,
@@ -25,5 +25,27 @@ struct BookDetailActionSheetView: View {
                     }
                 )
             }
+    }
+}
+
+extension View {
+    func bookDetailActionSheets(
+        selectedBookForTask: Binding<Book?>,
+        selectedTaskType: TaskType,
+        showingBypassBrowser: Binding<Bool>,
+        initialDetailUrl: String,
+        resolvedHost: String?,
+        onImport: @escaping (String, String, String) -> Void
+    ) -> some View {
+        self.modifier(
+            BookDetailActionSheetModifier(
+                selectedBookForTask: selectedBookForTask,
+                selectedTaskType: selectedTaskType,
+                showingBypassBrowser: showingBypassBrowser,
+                initialDetailUrl: initialDetailUrl,
+                resolvedHost: resolvedHost,
+                onImport: onImport
+            )
+        )
     }
 }
