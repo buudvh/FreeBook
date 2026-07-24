@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-07-24T06:53:04.159789Z",
-  "gitCommit": "a47c45aeb984a130473f65a03054cce49feb5996",
-  "sourceFileCount": 104,
+  "generatedAt": "2026-07-24T07:23:07.135476Z",
+  "gitCommit": "473abf4ba0b534d1029470504fb94602d3a390cc",
+  "sourceFileCount": 110,
   "documentCount": 16,
   "documents": [
     {
@@ -28,9 +28,9 @@
     },
     {
       "filename": "02_file_graph.md",
-      "sourceHash": "fe0943b57754474707b6ffcc0ca722e1eeb49c5d17d3255042bb514fc8e0d9c8",
+      "sourceHash": "0114ccd612bdca3879a539b07f5f2c0c98e438bd9bcef6e51c1fa5e9077ca1e2",
       "generatedHash": "763b7a9c26ad18048fedf80cbec759c61b0d5d26c08f01384323c80e3a738a36",
-      "generatedAt": "2026-07-24T06:53:04.159789Z",
+      "generatedAt": "2026-07-24T07:23:07.135476Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -76,7 +76,10 @@
         "Sources/Services/TTS/Preprocessing/VietnameseWordChecker.swift",
         "Sources/Services/TTS/Siri/SiriTTSService.swift",
         "Sources/Services/TTS/TTSManager.swift",
-        "Sources/Services/TTS/TTSModels.swift",
+        "Sources/Services/TTS/TTSAudioEngineController.swift",
+        "Sources/Services/TTS/TTSChapterPrefetcher.swift",
+        "Sources/Services/TTS/TTSManager.swift",
+        "Sources/Services/TTS/TTSNowPlayingController.swift",
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/WAVEncoder.swift",
         "Sources/Services/Translation/Manager/TranslationManager.swift",
@@ -84,6 +87,9 @@
         "Sources/Services/Translation/Utils/TranslateUtils.swift",
         "Sources/Views/AppLoadingView.swift",
         "Sources/Views/BookDetail/AllCommentsView.swift",
+        "Sources/Views/BookDetail/BookDetailActionSheetView.swift",
+        "Sources/Views/BookDetail/BookDetailHeaderView.swift",
+        "Sources/Views/BookDetail/BookDetailTOCView.swift",
         "Sources/Views/BookDetail/BookDetailView.swift",
         "Sources/Views/BookDetail/CommentSectionView.swift",
         "Sources/Views/BookDetail/SuggestRowView.swift",
@@ -134,9 +140,9 @@
     },
     {
       "filename": "03_type_graph.md",
-      "sourceHash": "473623b00de4201bacea87b5eed49e9ddfa03457dcfc5576235d02b0459b2710",
+      "sourceHash": "9b5b161d665615b46ce011013ff59e8f6eac7b11e102e37a39069d01e3b783ff",
       "generatedHash": "312861ec97be2ad860aea72c15407115ff1288922ac1302b4118ca98cf6927d4",
-      "generatedAt": "2026-07-24T06:53:04.159789Z",
+      "generatedAt": "2026-07-24T07:23:07.135476Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -402,9 +408,9 @@
     },
     {
       "filename": "14_complexity_report.md",
-      "sourceHash": "caeb3cefa98c082a7a829f6a0042f91da832887e97bf05122eba2963b53df7f0",
+      "sourceHash": "40545ea42ca915010ce48108f8fd388e6d40ff2bc923ffee39422e98152f9ea9",
       "generatedHash": "ccd203d05bb8cf74264ed6928e4c772ba1c8b69ba087bc1f135ae1d36465d94d",
-      "generatedAt": "2026-07-24T06:53:04.159789Z",
+      "generatedAt": "2026-07-24T07:23:07.135476Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",

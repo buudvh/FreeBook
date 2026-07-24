@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.48] - 2026-07-24
+
+### Phase 2 & Phase 3: Tái cấu trúc Phân hệ Book Detail & TTS Services
+* **Book Detail Component Modularization**:
+  * Tách tệp monolithic `BookDetailView.swift` thành 3 Subview thành phần:
+    * `Sources/Views/BookDetail/BookDetailHeaderView.swift` (Khu vực thông tin ảnh bìa, tác giả, mô tả và nút action).
+    * `Sources/Views/BookDetail/BookDetailTOCView.swift` (Danh sách mục lục chương, ô tìm kiếm chương và lọc phân trang).
+    * `Sources/Views/BookDetail/BookDetailActionSheetView.swift` (Quản lý các Hộp thoại Sheet tải xuống và Bypass Cloudflare).
+* **TTS Controller Modularization**:
+  * Tách `TTSManager.swift` thành các Controller chuyên biệt:
+    * `Sources/Services/TTS/TTSAudioEngineController.swift` (Quản lý AVAudioEngine, AVAudioPlayerNode và ngắt âm thanh).
+    * `Sources/Services/TTS/TTSNowPlayingController.swift` (Quản lý MPNowPlayingInfoCenter và MPRemoteCommandCenter Lock Screen).
+    * `Sources/Services/TTS/TTSChapterPrefetcher.swift` (Quản lý sliding window [N, N+1] giải phóng RAM PCM buffer).
+* Cập nhật danh sách 110 tệp nguồn trong `manifest.json` và đồng bộ CodeGraph.
+
+---
+
 ## [1.3.47] - 2026-07-24
 
 ### Phase 1: Tái cấu trúc Phân hệ Reader (Modularize ReaderView)
