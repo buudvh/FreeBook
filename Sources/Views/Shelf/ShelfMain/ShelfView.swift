@@ -130,19 +130,6 @@ struct ShelfView: View {
                                     )) {
                                         bookItemView(book)
                                     }
-                                    .simultaneousGesture(
-                                        TapGesture().onEnded {
-                                            WaitLayerManager.shared.open(
-                                                bookTitle: book.title,
-                                                chapterTitle: nil,
-                                                isTranslationEnabled: isTranslationEnabled,
-                                                bookId: book.bookId,
-                                                theme: selectedTheme,
-                                                onBack: {
-                                                    WaitLayerManager.shared.close()
-                                                }
-                                            )
-                                        }
                                     )
                                     .contextMenu {
                                         NavigationLink(destination: BookDetailView(

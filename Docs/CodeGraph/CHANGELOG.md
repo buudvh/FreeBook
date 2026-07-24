@@ -4,6 +4,15 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.45] - 2026-07-24
+
+### Loại bỏ hoàn toàn phân hệ màn hình chờ WaitLayer
+* **WaitLayer Cleanup**:
+  * Xóa bỏ hoàn toàn tệp `Sources/Common/Services/WaitLayerManager.swift` và `Sources/Views/Reader/ReaderWaitOverlayView.swift`.
+  * Gỡ bỏ `ReaderWaitOverlayView()` khỏi cấp root `FreeBookApp.swift`.
+  * Dọn dẹp tất cả các lời gọi `WaitLayerManager.shared.open` và `close` ở `BookDetailView.swift`, `ReaderView.swift` và `ShelfView.swift`.
+  * Trả lại luồng chuyển hướng mở đọc truyện trực tiếp, gọn nhẹ và không qua màn hình chờ trung gian.
+
 ## [1.3.44] - 2026-07-24
 
 ### Chuyển đổi WaitLayer sang kiến trúc WaitLayerManager.shared điều khiển open/close thủ công toàn cục

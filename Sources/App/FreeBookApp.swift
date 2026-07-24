@@ -35,7 +35,6 @@ struct FreeBookApp: App {
 struct AppLaunchRootView: View {
     @ObservedObject private var translationManager = TranslationManager.shared
     @ObservedObject private var ttsManager = TTSManager.shared
-    @ObservedObject private var waitLayerManager = WaitLayerManager.shared
 
     var body: some View {
         ZStack {
@@ -54,8 +53,6 @@ struct AppLaunchRootView: View {
                 TTSFloatingWidgetView()
                     .zIndex(9999)
             }
-
-            ReaderWaitOverlayView()
         }
         .globalToast()
         .sheet(isPresented: $ttsManager.showingSettingsSheet) {

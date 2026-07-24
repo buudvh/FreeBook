@@ -477,13 +477,6 @@ struct ReaderView: View {
                 }
             }
         }
-        .onChange(of: viewModel?.loadState) { _, newState in
-            if case .ready = newState {
-                WaitLayerManager.shared.close()
-            } else if case .failed = newState {
-                WaitLayerManager.shared.close()
-            }
-        }
     }
 
     private var readerLifecycleView: some View {
@@ -495,7 +488,6 @@ struct ReaderView: View {
             initializeReaderIfNeeded()
         }
         .onDisappear {
-            WaitLayerManager.shared.close()
             if ReaderView.activeBookId == bookId {
                 ReaderView.activeBookId = nil
             }

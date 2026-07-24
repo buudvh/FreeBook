@@ -835,35 +835,7 @@ struct BookDetailView: View {
         }
     }
 
-    private func openWaitLayer(targetChapterTitle: String, statusText: String? = nil) {
-        preparingTargetChapterTitle = targetChapterTitle
-        preparingStatusText = statusText ?? ""
-        WaitLayerManager.shared.open(
-            bookTitle: title,
-            chapterTitle: targetChapterTitle,
-            isTranslationEnabled: isTranslationEnabled,
-            bookId: actualBookId,
-            theme: readerTheme,
-            statusText: statusText,
-            onBack: {
-                WaitLayerManager.shared.close()
-            }
-        )
-    }
 
-    private func closeWaitLayer() {
-        bookOpenTask?.cancel()
-        bookOpenTask = nil
-        if modelContext.hasChanges {
-            modelContext.rollback()
-        }
-        WaitLayerManager.shared.close()
-        readerRoute = nil
-    }
-
-    private func cancelPreparingBook() {
-        closeWaitLayer()
-    }
 
     @ViewBuilder
     private var floatingActionButton: some View {
@@ -1382,23 +1354,15 @@ struct BookDetailView: View {
             ? TranslateUtils.translateChapterTitle(rawTargetTitle, bookId: actualBookId)
             : rawTargetTitle
 
-        openWaitLayer(targetChapterTitle: chapterTitle)
-
         let isBookReady = (localBook != nil && !(localBook?.chapters.isEmpty ?? true)) || !onlineChapters.isEmpty
 
         if isBookReady {
-            Task { @MainActor in
-                await Task.yield()
-                let targetBook = ensureBookCreatedIfNeeded(initialChapterIndex: chapterIndex)
-                scheduleBackgroundTitleTranslationIfNeeded(for: targetBook)
-                startBackgroundRemainingPagesLoading(for: targetBook)
-                self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
-            }
+            let targetBook = ensureBookCreatedIfNeeded(initialChapterIndex: chapterIndex)
+            scheduleBackgroundTitleTranslationIfNeeded(for: targetBook)
+            startBackgroundRemainingPagesLoading(for: targetBook)
+            self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
             return
         }
-
-        preparingStatusText = "Đang tải danh sách chương..."
-        openWaitLayer(targetChapterTitle: chapterTitle, statusText: preparingStatusText)
 
         bookOpenTask?.cancel()
         bookOpenTask = Task { @MainActor in
@@ -1478,7 +1442,6 @@ struct BookDetailView: View {
                 if modelContext.hasChanges {
                     modelContext.rollback()
                 }
-                WaitLayerManager.shared.close()
                 bookOpenTask = nil
                 readerRoute = nil
                 if !Task.isCancelled {

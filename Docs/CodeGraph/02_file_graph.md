@@ -42,7 +42,6 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
     *   [Repository.swift](../../Sources/Models/Database/Repository.swift)
     *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
     *   [TranslationManager.swift](../../Sources/Services/Translation/Manager/TranslationManager.swift)
-    *   [WaitLayerManager.swift](../../Sources/Common/Services/WaitLayerManager.swift)
     *   [AppLoadingView.swift](../../Sources/Views/AppLoadingView.swift)
     *   [MainTabView.swift](../../Sources/Views/MainTabView.swift)
     *   [TTSFloatingWidgetView.swift](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift)
