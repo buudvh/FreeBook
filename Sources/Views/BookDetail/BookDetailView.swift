@@ -1350,10 +1350,6 @@ struct BookDetailView: View {
             rawTargetTitle = "Chương \(chapterIndex + 1)"
         }
 
-        let chapterTitle = isTranslationEnabled && TranslateUtils.containsChinese(rawTargetTitle)
-            ? TranslateUtils.translateChapterTitle(rawTargetTitle, bookId: actualBookId)
-            : rawTargetTitle
-
         let isBookReady = (localBook != nil && !(localBook?.chapters.isEmpty ?? true)) || !onlineChapters.isEmpty
 
         if isBookReady {

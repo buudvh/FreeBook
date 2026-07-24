@@ -130,7 +130,6 @@ struct ShelfView: View {
                                     )) {
                                         bookItemView(book)
                                     }
-                                    )
                                     .contextMenu {
                                         NavigationLink(destination: BookDetailView(
                                             bookId: book.bookId,
