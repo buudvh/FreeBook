@@ -4,6 +4,17 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ---
 
+## [1.3.43] - 2026-07-24
+
+### Thêm màn hình WaitLayer phủ kín khi khởi tạo Trình đọc (ReaderView)
+* **Reader Subsystem & UI Navigation**:
+  * Bổ sung `waitLayerOverlay` toàn màn hình trong `Sources/Views/Reader/ReaderView.swift` hiển thị trước khi `ReaderViewModel` khởi tạo và hoàn tất nạp chương thành công (`loadState == .ready`).
+  * Giao diện WaitLayer gồm:
+    * Nút Back (Quay lại) ở góc trên bên trái (`chevron.left`) gọi `dismiss()` cho phép người dùng thoát nhanh về màn hình trước.
+    * Tiêu đề Truyện (`displayedBookTitle`) và Tiêu đề Chương (`getChapterTitle(at:)`) ở phần trên/giữa header, hỗ trợ dịch thuật tự động nếu bật dịch (`isTranslationEnabled`).
+    * Biểu tượng nạp (`ProgressView().controlSize(.large)`) nằm chính giữa màn hình.
+  * Phủ kín màu nền theo chủ đề đọc được chọn (`selectedTheme.backgroundColor`) với `.zIndex(100)` và hiệu ứng mờ mượt mà `.transition(.opacity)`.
+
 ## [1.3.42] - 2026-07-22
 
 ### Đồng bộ hành vi Hard Delete sách bất đồng bộ không đơ UI và bảo vệ sách đang ở trên kệ / đang nghe TTS

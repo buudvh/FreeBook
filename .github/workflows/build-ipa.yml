@@ -2,7 +2,7 @@ name: Build Unsigned IPA
 
 on:
   push:
-    branches: [ main, optimize_vertical_reader ]
+    branches: [ main, sigle_reader ]
     paths:
       - 'Sources/**'
   pull_request:

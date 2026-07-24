@@ -244,11 +244,40 @@ Reader chrome observes the pending target and immediately shows its title, chapt
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - The TTS widget presents a compact horizontal capsule over Reader, with a circular rotating cover, play/pause, fast-forward and close actions. Its edge-peek mode preserves the same playback and placement state and expands on drag.
+
+---
+
+## 13. Phân hệ Cài đặt (Settings Subsystem)
+*   **Mục tiêu (Purpose)**: Cấu hình hệ thống giọng đọc, thay thế từ điển TTS, cài đặt/cập nhật tiện ích và từ điển dịch.
+*   **API công khai (Public API)**: `SettingsView.swift` và các view cấu hình TTS/Search engine.
+*   **Dependencies**: `TTSManager`, `TranslationManager`, `ExtensionManager`.
+*   **Điểm bắt đầu (Entry Points)**: Tab Cài đặt trên tab bar chính.
+*   **Rủi ro đã biết (Known Risks)**:
+    *   Thay đổi giọng đọc hoặc từ điển TTS khi đang phát có thể gây lỗi nổ âm thanh hoặc treo engine (được giải quyết bằng cách pause/resume an toàn).
+
+---
+
+## 14. Phân hệ Quản lý Từ điển tra cứu (Dictionary Hub Subsystem)
+*   **Mục tiêu (Purpose)**: Quản lý, tra cứu nghĩa từ vựng tiếng Trung, quản lý danh sách từ định nghĩa tùy chỉnh của người dùng.
+*   **API công khai (Public API)**: `DictionaryHubView.swift`, `DictionaryListView.swift`.
+*   **Dependencies**: `TranslationManager`, SwiftData.
+*   **Điểm bắt đầu (Entry Points)**: Tab Từ điển trên tab bar chính.
+*   **Rủi ro đã biết (Known Risks)**:
+    *   Truy vấn danh sách định nghĩa lớn trên main thread gây trễ UI.
+
+#### Reader/TTS unified pipeline (2026-07)
+
+- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, compact paragraph IDs, and UTF-16 ranges. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
+- Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
+- `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
+- `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
+- The TTS widget presents a compact horizontal capsule over Reader, with a circular rotating cover, play/pause, fast-forward and close actions. Its edge-peek mode preserves the same playback and placement state and expands on drag.
 - The Chapter Text subsystem now includes `ChapterPersistenceStore`: shared Reader/TTS loads use RAM, background SwiftData, then extension, with coalesced in-flight work and cache-preserving TOC reconciliation.
 - Extension repository management removes row swipe/toggle behavior in favor of an explicit confirmed delete action compatible with the paged tab gesture.
 - `BookStorageManager` coordinates book deletion, ensuring model context changes are committed to the SQLite database before spawning background threads to delete covers and `.bin` files via `ImageCacheManager` and `BookBinManager` under a path safety sandbox validator.
 - Failed physical file deletions are stored in a `UserDefaults` queue and drained at app startup through `BookStorageManager.shared.drainRetryQueue()`, up to a limit of 3 retry attempts.
 - `ReaderChapterListStore` virtualizes Table of Contents row retrieval dynamically using index-based ForEach loop representation, removing lightweight row arrays from class memory entirely. It uses `BackgroundSearchWorker` actor to search SwiftData off the main thread and `BackgroundPagingWorker` actor to fetch page DTOs off the main thread, keeping search result states separate from active paging state.
 - In-flight download and text export tasks support cooperative cancellation by checking `Task.isCancelled` and task state at chapter boundaries.
+- ReaderView presents a full-screen wait layer with theme background, a top-left back button calling dismiss(), translated book and chapter titles, and a centered loading spinner before ReaderViewModel loadState reaches .ready.
 
 <!-- GENERATED END -->
