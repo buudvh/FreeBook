@@ -34,10 +34,10 @@ internal actor ChapterStore: ChapterStoreProtocol {
             AppLogger.shared.log("[ChapterStore Save] mode=replaceFullTOC items=\(chapters.count) stored=\(result.totalChapters) inserted=\(result.inserted) updated=\(result.updated) deleted=\(result.deleted) openSchemaMs=\(String(format: "%.1f", database.openSchemaMs)) prepareMs=\(String(format: "%.1f", database.prepareMs)) reconcileMs=\(String(format: "%.1f", reconcileMs)) transactionWriteMs=\(String(format: "%.1f", writeMs)) totalMs=\(String(format: "%.1f", totalMs)) status=success parity=\(parityStr)")
             return result
         } catch {
-            let errCode = (error as? ChapterStoreError).map { err in
+            let errCode: Int32 = (error as? ChapterStoreError).flatMap { err in
                 if case .databaseError(let code) = err { return code }
-                return 500
-            } ?? 500
+                return Int32(500)
+            } ?? Int32(500)
             AppLogger.shared.log("[ChapterStore Save] status=failed,errorCode=\(errCode)")
             throw error
         }
@@ -56,10 +56,10 @@ internal actor ChapterStore: ChapterStoreProtocol {
             AppLogger.shared.log("[ChapterStore Save] mode=upsertPage items=\(chapters.count) stored=\(result.totalChapters) inserted=\(result.inserted) updated=\(result.updated) deleted=\(result.deleted) openSchemaMs=\(String(format: "%.1f", database.openSchemaMs)) prepareMs=\(String(format: "%.1f", database.prepareMs)) reconcileMs=\(String(format: "%.1f", reconcileMs)) transactionWriteMs=\(String(format: "%.1f", writeMs)) totalMs=\(String(format: "%.1f", totalMs)) status=success parity=\(parityStr)")
             return result
         } catch {
-            let errCode = (error as? ChapterStoreError).map { err in
+            let errCode: Int32 = (error as? ChapterStoreError).flatMap { err in
                 if case .databaseError(let code) = err { return code }
-                return 500
-            } ?? 500
+                return Int32(500)
+            } ?? Int32(500)
             AppLogger.shared.log("[ChapterStore Save] status=failed,errorCode=\(errCode)")
             throw error
         }

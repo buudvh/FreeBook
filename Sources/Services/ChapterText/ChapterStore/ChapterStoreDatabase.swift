@@ -149,7 +149,7 @@ internal final class ChapterStoreDatabase {
         let dbPath = dbURL.path
         let walPath = "\(dbPath)-wal"
         let shmPath = "\(dbPath)-shm"
-        let attr = [NSFileAttributeKey.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication]
+        let attr = [FileAttributeKey.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication]
 
         try? fm.setAttributes(attr, ofItemAtPath: dbPath)
         if fm.fileExists(atPath: walPath) {

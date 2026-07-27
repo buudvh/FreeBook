@@ -573,6 +573,7 @@ struct ShelfView: View {
 
             if Task.isCancelled { return }
 
+            let finalTranslatedMap = translatedMap
             await MainActor.run {
                 guard !Task.isCancelled else { return }
 
@@ -589,7 +590,7 @@ struct ShelfView: View {
                 let chaptersToUpdate = (try? self.modelContext.fetch(chapterDescriptor)) ?? []
 
                 for chap in chaptersToUpdate {
-                    if let translated = translatedMap[chap.id] {
+                    if let translated = finalTranslatedMap[chap.id] {
                         chap.titleTrans = translated
                     }
                 }

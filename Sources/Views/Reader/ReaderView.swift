@@ -1324,6 +1324,14 @@ struct ReaderView: View {
         return TTSChapterInfo(title: title, url: chapter.url, index: index, host: chapter.host)
     }
 
+    private func nextChapter() {
+        let persistProgress = !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
+        let targetIndex = (viewModel?.pendingNavigationIndex ?? chapterIndex) + 1
+        if targetIndex >= 0 && targetIndex < totalChaptersCount {
+            viewModel?.stepChapter(by: 1, source: .nextButton, persistProgress: persistProgress)
+        }
+    }
+
     private func prevChapter() {
         let persistProgress = !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
         let targetIndex = (viewModel?.pendingNavigationIndex ?? chapterIndex) - 1

@@ -288,8 +288,9 @@ public final class BookStorageManager {
                     AppLogger.shared.log("❌ Lỗi thử lại xóa ChapterStore cho bookIdHash: \(bookHash)")
                 }
             }
+            let finalRemaining = remaining
             await MainActor.run {
-                UserDefaults.standard.set(remaining, forKey: Self.shared.chapterStoreRetryQueueKey)
+                UserDefaults.standard.set(finalRemaining, forKey: Self.shared.chapterStoreRetryQueueKey)
             }
         }
     }

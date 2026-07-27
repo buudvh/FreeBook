@@ -503,6 +503,10 @@ struct BookDetailView: View {
         }
     }
 
+    private func refreshLocalTOCSnapshots() {
+        loadLocalChapterSnapshots()
+    }
+
     private func loadLocalChapterSnapshots() {
         let bId = actualBookId
         Task {

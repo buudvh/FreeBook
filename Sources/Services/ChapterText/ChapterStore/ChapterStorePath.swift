@@ -28,7 +28,7 @@ internal enum ChapterStorePath {
             try fileManager.createDirectory(
                 at: chaptersDir,
                 withIntermediateDirectories: true,
-                attributes: [NSFileAttributeKey.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication]
+                attributes: [FileAttributeKey.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication]
             )
         }
         let dbURL = chaptersDir.appendingPathComponent("chapter_store.sqlite")
@@ -45,7 +45,7 @@ internal enum ChapterStorePath {
         let dbPath = dbURL.path
         let walPath = "\(dbPath)-wal"
         let shmPath = "\(dbPath)-shm"
-        let attr = [NSFileAttributeKey.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication]
+        let attr = [FileAttributeKey.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication]
 
         try? fileManager.setAttributes(attr, ofItemAtPath: dbPath)
         if fileManager.fileExists(atPath: walPath) {
