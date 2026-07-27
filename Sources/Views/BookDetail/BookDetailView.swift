@@ -875,15 +875,31 @@ struct BookDetailView: View {
                     firstPageChapters = try await ExtensionManager.shared.toc(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
                 }
 
-                await MainActor.run {
+                let shouldPersistTOC = await MainActor.run {
                     self.onlineChapters = firstPageChapters
                     self.tocPages = pages
-
-                    if let book = localBook {
-                        updateLocalChapters(for: book, with: firstPageChapters)
-                        try? modelContext.save()
-                    }
                     self.isLoadingTOC = false
+                    return self.localBook != nil
+                }
+
+                if shouldPersistTOC {
+                    let targetBookId = await MainActor.run { self.actualBookId }
+                    let ttsProtection = await MainActor.run { self.activeTTSProtectedChapter }
+                    let snapshots = await MainActor.run { self.tocMetadata(from: firstPageChapters) }
+                    _ = try await ChapterContentRepository.shared.saveChapterList(
+                        bookId: targetBookId,
+                        createSnapshot: nil,
+                        chapters: snapshots,
+                        mode: pages.count > 1 ? .upsertPage : .replaceFullTOC,
+                        protectedTTSChapter: ttsProtection
+                    )
+                    await MainActor.run {
+                        if let savedBook = self.refetchBook(bookId: targetBookId) {
+                            self.chaptersList = savedBook.chapters
+                        } else {
+                            self.syncChaptersList()
+                        }
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -894,43 +910,67 @@ struct BookDetailView: View {
         }
     }
 
+    private var activeTTSProtectedChapter: ProtectedTTSChapter? {
+        let playingBookId = TTSManager.shared.playingBookId
+        guard !playingBookId.isEmpty else {
+            return nil
+        }
+        return ProtectedTTSChapter(
+            bookId: playingBookId,
+            index: TTSManager.shared.playingChapterIndex,
+            url: TTSManager.shared.playingChapterUrl
+        )
+    }
+
     private func addToShelf() {
         let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
-        let targetBook: Book
-        if let book = localBook {
-            book.isOnShelf = true
-            try? modelContext.save()
-            targetBook = book
-        } else {
-            targetBook = createBookOnShelf(savedDesc: savedDesc)
-        }
-        if tocPages.count > 1 && !remainingPagesLoaded {
-            startBackgroundRemainingPagesLoading(for: targetBook)
+        Task { @MainActor in
+            let targetBook: Book?
+            if let book = localBook {
+                book.isOnShelf = true
+                try? modelContext.save()
+                targetBook = book
+            } else {
+                targetBook = await createBookOnShelf(savedDesc: savedDesc)
+            }
+            if tocPages.count > 1 && !remainingPagesLoaded {
+                startBackgroundRemainingPagesLoading(for: targetBook)
+            }
         }
     }
 
     @discardableResult
-    private func createBookOnShelf(savedDesc: String) -> Book {
-        let newBook = Book(
-            bookId: resolvedBookId,
-            title: title,
-            author: author,
-            coverUrl: coverUrl,
-            desc: savedDesc,
-            detailUrl: initialDetailUrl,
-            sourceName: sourceName,
+    private func createBookOnShelf(savedDesc: String) async -> Book? {
+        let snapshot = makeTOCCreateSnapshot(
+            savedDesc: savedDesc,
             sourceUrl: ext?.sourceUrl ?? "",
-            extensionPackageId: extensionPackageId,
-            currentChapterIndex: 0,
-            currentChapterTitle: onlineChapters.first?.name ?? "",
+            initialChapterIndex: 0,
+            initialChapterTitle: onlineChapters.first?.name ?? "",
             isOnShelf: true,
-            isHistory: false,
-            host: host.isEmpty ? nil : host
+            isHistory: false
         )
-        modelContext.insert(newBook)
-        updateLocalChapters(for: newBook, with: onlineChapters)
-        try? modelContext.save()
-        return newBook
+        let chapters = tocMetadata(from: onlineChapters)
+        let targetBookId = resolvedBookId
+        let ttsProtection = activeTTSProtectedChapter
+        do {
+            _ = try await ChapterContentRepository.shared.saveChapterList(
+                bookId: targetBookId,
+                createSnapshot: snapshot,
+                chapters: chapters,
+                mode: .replaceFullTOC,
+                protectedTTSChapter: ttsProtection
+            )
+            let savedBook = refetchBook(bookId: targetBookId)
+            if let savedBook {
+                self.chaptersList = savedBook.chapters
+            } else {
+                self.syncChaptersList()
+            }
+            return savedBook ?? localBook
+        } catch {
+            self.tocErrorMessage = "Không thể tạo sách: \(error.localizedDescription)"
+            return nil
+        }
     }
 
     private func loadAllRemainingPages() async throws -> [ChapterResult] {
@@ -938,7 +978,7 @@ struct BookDetailView: View {
         var allChapters: [ChapterResult] = []
         let remainingPages = Array(tocPages.dropFirst())
         for pageUrl in remainingPages {
-            try Task.checkCancellation() // Hỗ trợ hủy nhanh khi người dùng nhấn nút Quay lại
+            try Task.checkCancellation()
             let pageChaps = try await ExtensionManager.shared.toc(
                 localPath: ext.localPath,
                 downloadUrl: ext.downloadUrl,
@@ -997,14 +1037,11 @@ struct BookDetailView: View {
         loadingTask = Task {
             do {
                 guard let ext = ext else {
-                    await MainActor.run {
-                        self.isLoadingRemainingPages = false
-                    }
+                    await MainActor.run { self.isLoadingRemainingPages = false }
                     return
                 }
                 let remainingPages = Array(tocPages.dropFirst())
-                let targetBookId = actualBookId
-                let transEnabled = isTranslationEnabled
+                let targetBookId = await MainActor.run { self.actualBookId }
 
                 for pageUrl in remainingPages {
                     try Task.checkCancellation()
@@ -1017,6 +1054,7 @@ struct BookDetailView: View {
                     )
                     try Task.checkCancellation()
 
+                    let transEnabled = await MainActor.run { self.isTranslationEnabled }
                     let translatedTitlesMap: [Int: String] = await Task.detached(priority: .utility) {
                         var map: [Int: String] = [:]
                         guard transEnabled else { return map }
@@ -1029,22 +1067,32 @@ struct BookDetailView: View {
                         return map
                     }.value
 
+                    let startIndex = await MainActor.run { self.onlineChapters.count }
+                    let shouldPersistPage = await MainActor.run { bookRef != nil || self.localBook != nil }
+                    let ttsProtection = await MainActor.run { self.activeTTSProtectedChapter }
+                    if shouldPersistPage {
+                        let snapshots = pageChaps.enumerated().map { offset, item in
+                            ChapterMetadataSnapshot(
+                                title: item.name,
+                                url: item.url,
+                                index: startIndex + offset,
+                                host: item.host,
+                                titleTrans: translatedTitlesMap[offset]
+                            )
+                        }
+                        _ = try await ChapterContentRepository.shared.saveChapterList(
+                            bookId: targetBookId,
+                            createSnapshot: nil,
+                            chapters: snapshots,
+                            mode: .upsertPage,
+                            protectedTTSChapter: ttsProtection
+                        )
+                    }
+
                     await MainActor.run {
                         self.onlineChapters.append(contentsOf: pageChaps)
-
-                        if let book = bookRef ?? self.localBook {
-                            let startIdx = book.chapters.count
-                            for (index, item) in pageChaps.enumerated() {
-                                let chapId = Chapter.generateId(bookId: self.resolvedBookId, url: item.url, index: startIdx + index)
-                                let newChap = Chapter(id: chapId, bookId: self.resolvedBookId, title: item.name, url: item.url, index: startIdx + index)
-                                if let trans = translatedTitlesMap[index] {
-                                    newChap.titleTrans = trans
-                                }
-                                newChap.book = book
-                                self.modelContext.insert(newChap)
-                            }
-                            try? self.modelContext.save()
-                            self.syncChaptersList()
+                        if let savedBook = refetchBook(bookId: targetBookId) {
+                            self.chaptersList = savedBook.chapters
                         }
                     }
                     await Task.yield()
@@ -1071,35 +1119,6 @@ struct BookDetailView: View {
         startBackgroundRemainingPagesLoading()
     }
 
-    @discardableResult
-    private func ensureBookCreatedIfNeeded(initialChapterIndex: Int) -> Book? {
-        if let existing = localBook {
-            return existing
-        }
-        guard !onlineChapters.isEmpty else { return nil }
-        let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
-        let newBook = Book(
-            bookId: resolvedBookId,
-            title: title,
-            author: author,
-            coverUrl: coverUrl,
-            desc: savedDesc,
-            detailUrl: initialDetailUrl,
-            sourceName: sourceName,
-            sourceUrl: ext?.sourceUrl ?? "",
-            extensionPackageId: extensionPackageId,
-            currentChapterIndex: initialChapterIndex,
-            currentChapterTitle: onlineChapters.first?.name ?? "",
-            isOnShelf: false,
-            isHistory: false,
-            host: host.isEmpty ? nil : host
-        )
-        modelContext.insert(newBook)
-        updateLocalChapters(for: newBook, with: onlineChapters)
-        try? modelContext.save()
-        syncChaptersList()
-        return newBook
-    }
 
     private func startReading(at chapterIndex: Int) {
         if let book = localBook, !book.chapters.isEmpty {
@@ -1155,62 +1174,42 @@ struct BookDetailView: View {
                 }
 
                 let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
-                let targetBook: Book
+                let createSnapshot: TOCBookCreateSnapshot?
                 if let existing = localBook {
-                    targetBook = existing
+                    existing.currentChapterIndex = chapterIndex
+                    try? modelContext.save()
+                    createSnapshot = nil
                 } else {
-                    let newBook = Book(
-                        bookId: resolvedBookId,
-                        title: title,
-                        author: author,
-                        coverUrl: coverUrl,
-                        desc: savedDesc,
-                        detailUrl: initialDetailUrl,
-                        sourceName: sourceName,
+                    createSnapshot = makeTOCCreateSnapshot(
+                        savedDesc: savedDesc,
                         sourceUrl: ext.sourceUrl,
-                        extensionPackageId: extensionPackageId,
-                        currentChapterIndex: chapterIndex,
-                        currentChapterTitle: allChapters.first?.name ?? "",
-                        isOnShelf: false,
-                        isHistory: false,
-                        host: host.isEmpty ? nil : host
+                        initialChapterIndex: chapterIndex,
+                        initialChapterTitle: allChapters.first?.name ?? ""
                     )
-                    modelContext.insert(newBook)
-                    targetBook = newBook
                 }
 
-                let chunkSize = 1000
-                let totalCount = allChapters.count
-                let totalChunks = max(1, Int(ceil(Double(totalCount) / Double(chunkSize))))
+                let ttsProtection = activeTTSProtectedChapter
+                self.prepareProgressText = "Đang lưu database... \(allChapters.count) chương"
+                _ = try await ChapterContentRepository.shared.saveChapterList(
+                    bookId: resolvedBookId,
+                    createSnapshot: createSnapshot,
+                    chapters: tocMetadata(from: allChapters),
+                    mode: .replaceFullTOC,
+                    protectedTTSChapter: ttsProtection
+                )
 
-                for i in 0..<totalChunks {
-                    try Task.checkCancellation()
-                    let startIdx = i * chunkSize
-                    let endIdx = min((i + 1) * chunkSize, totalCount)
-                    let chunkResults = Array(allChapters[startIdx..<endIdx])
-
-                    self.prepareProgressText = "Đang lưu database... Đợt \(i + 1)/\(totalChunks) (chương \(startIdx + 1) - \(endIdx))"
-
-                    updateLocalChaptersChunk(for: targetBook, with: chunkResults, startIndex: startIdx)
-
-                    do {
-                        try modelContext.save()
-                    } catch {
-                        if modelContext.hasChanges {
-                            modelContext.rollback()
-                        }
-                        throw error
-                    }
-                    await Task.yield()
+                let savedBook = refetchBook(bookId: resolvedBookId)
+                if let savedBook {
+                    chaptersList = savedBook.chapters
+                } else {
+                    syncChaptersList()
                 }
-
-                syncChaptersList()
                 try Task.checkCancellation()
 
                 bookOpenTask = nil
                 isPreparingBookProgress = false
                 self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
-                scheduleBackgroundTitleTranslationIfNeeded(for: targetBook)
+                scheduleBackgroundTitleTranslationIfNeeded(for: savedBook ?? localBook)
             } catch {
                 if modelContext.hasChanges {
                     modelContext.rollback()
@@ -1234,28 +1233,57 @@ struct BookDetailView: View {
                 do {
                     let remainingChaps = try await loadAllRemainingPages()
                     try Task.checkCancellation()
+
+                    let ttsProtection = await MainActor.run { self.activeTTSProtectedChapter }
+                    let saveRequest = await MainActor.run {
+                        let targetBookId = self.resolvedBookId
+                        if self.localBook != nil {
+                            return (
+                                bookId: targetBookId,
+                                snapshot: Optional<TOCBookCreateSnapshot>.none,
+                                chapters: self.tocMetadata(from: remainingChaps, startIndex: self.onlineChapters.count),
+                                mode: TOCReconciliationMode.upsertPage
+                            )
+                        }
+                        let savedDesc = self.detail.isEmpty ? self.desc : "\(self.desc)\n\n---\n\(self.cleanDetailText(self.detail))"
+                        let allChapters = self.onlineChapters + remainingChaps
+                        return (
+                            bookId: targetBookId,
+                            snapshot: Optional(
+                                self.makeTOCCreateSnapshot(
+                                    savedDesc: savedDesc,
+                                    sourceUrl: self.ext?.sourceUrl ?? "",
+                                    initialChapterIndex: 0,
+                                    initialChapterTitle: allChapters.first?.name ?? "",
+                                    isOnShelf: true,
+                                    isHistory: false
+                                )
+                            ),
+                            chapters: self.tocMetadata(from: allChapters),
+                            mode: TOCReconciliationMode.replaceFullTOC
+                        )
+                    }
+
+                    _ = try await ChapterContentRepository.shared.saveChapterList(
+                        bookId: saveRequest.bookId,
+                        createSnapshot: saveRequest.snapshot,
+                        chapters: saveRequest.chapters,
+                        mode: saveRequest.mode,
+                        protectedTTSChapter: ttsProtection
+                    )
+
                     await MainActor.run {
                         self.onlineChapters.append(contentsOf: remainingChaps)
-
-                        if let book = localBook {
-                            let startIdx = book.chapters.count
-                            for (index, item) in remainingChaps.enumerated() {
-                                let chapId = Chapter.generateId(bookId: resolvedBookId, url: item.url, index: startIdx + index)
-                                let newChap = Chapter(id: chapId, bookId: resolvedBookId, title: item.name, url: item.url, index: startIdx + index)
-                                newChap.book = book
-                                modelContext.insert(newChap)
-                            }
-                            try? modelContext.save()
-                            self.syncChaptersList()
+                        if let savedBook = refetchBook(bookId: saveRequest.bookId) {
+                            self.chaptersList = savedBook.chapters
                         } else {
-                            let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
-                            createBookOnShelf(savedDesc: savedDesc)
+                            self.syncChaptersList()
                         }
 
                         self.remainingPagesLoaded = true
                         self.isLoadingRemainingPages = false
 
-                        if let book = localBook {
+                        if let book = refetchBook(bookId: saveRequest.bookId) ?? localBook {
                             self.selectedTaskType = taskType
                             self.selectedBookForTask = book
                         }
@@ -1272,13 +1300,18 @@ struct BookDetailView: View {
                 }
             }
         } else {
-            if localBook == nil {
-                let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
-                createBookOnShelf(savedDesc: savedDesc)
-            }
-            if let book = localBook {
-                self.selectedTaskType = taskType
-                self.selectedBookForTask = book
+            Task { @MainActor in
+                let targetBook: Book?
+                if let book = localBook {
+                    targetBook = book
+                } else {
+                    let savedDesc = detail.isEmpty ? desc : "\(desc)\n\n---\n\(cleanDetailText(detail))"
+                    targetBook = await createBookOnShelf(savedDesc: savedDesc)
+                }
+                if let book = targetBook {
+                    self.selectedTaskType = taskType
+                    self.selectedBookForTask = book
+                }
             }
         }
     }
@@ -1295,114 +1328,51 @@ struct BookDetailView: View {
         }
     }
 
-    private func updateLocalChaptersChunk(for book: Book, with results: [ChapterResult], startIndex: Int = 0) {
-        let unmatchedSet = book.chapters
-
-        var unmatchedByUrl: [String: Chapter] = [:]
-        var unmatchedByIndex: [Int: Chapter] = [:]
-        for chap in unmatchedSet {
-            if !chap.url.isEmpty {
-                unmatchedByUrl[chap.url] = chap
-            }
-            unmatchedByIndex[chap.index] = chap
-        }
-
-        for (offset, item) in results.enumerated() {
-            let actualIndex = startIndex + offset
-            var matchedChapter: Chapter? = nil
-            if !item.url.isEmpty {
-                matchedChapter = unmatchedByUrl[item.url] ?? unmatchedByIndex[actualIndex]
-            } else {
-                matchedChapter = unmatchedByIndex[actualIndex]
-            }
-
-            if let chapter = matchedChapter {
-                chapter.title = item.name
-                chapter.url = item.url
-                chapter.index = actualIndex
-                chapter.host = item.host
-                if chapter.isCached && chapter.length > 0 {
-                    chapter.isCached = true
-                }
-            } else {
-                let chapId = Chapter.generateId(bookId: book.bookId, url: item.url, index: actualIndex)
-                let newChapter = Chapter(
-                    id: chapId,
-                    bookId: book.bookId,
-                    title: item.name,
-                    url: item.url,
-                    index: actualIndex,
-                    host: item.host
-                )
-                newChapter.book = book
-                modelContext.insert(newChapter)
-            }
+    private func tocMetadata(from results: [ChapterResult], startIndex: Int = 0) -> [ChapterMetadataSnapshot] {
+        results.enumerated().map { offset, item in
+            ChapterMetadataSnapshot(
+                title: item.name,
+                url: item.url,
+                index: startIndex + offset,
+                host: item.host
+            )
         }
     }
 
-    private func updateLocalChapters(for book: Book, with results: [ChapterResult]) {
-        let unmatchedSet = book.chapters
+    private func makeTOCCreateSnapshot(
+        savedDesc: String,
+        sourceUrl: String,
+        initialChapterIndex: Int,
+        initialChapterTitle: String,
+        isOnShelf: Bool = false,
+        isHistory: Bool = false
+    ) -> TOCBookCreateSnapshot {
+        TOCBookCreateSnapshot(
+            bookId: resolvedBookId,
+            title: title,
+            author: author,
+            coverUrl: coverUrl,
+            desc: savedDesc,
+            detailUrl: initialDetailUrl,
+            sourceName: sourceName,
+            sourceUrl: sourceUrl,
+            extensionPackageId: extensionPackageId,
+            currentChapterIndex: initialChapterIndex,
+            currentChapterPage: 0,
+            currentChapterTitle: initialChapterTitle,
+            isOnShelf: isOnShelf,
+            isHistory: isHistory,
+            host: host.isEmpty ? nil : host
+        )
+    }
 
-        var unmatchedByUrl: [String: Chapter] = [:]
-        var unmatchedByIndex: [Int: Chapter] = [:]
-        for chap in unmatchedSet {
-            if !chap.url.isEmpty {
-                unmatchedByUrl[chap.url] = chap
-            }
-            unmatchedByIndex[chap.index] = chap
-        }
-
-        var remainingUnmatched = Set(unmatchedSet)
-
-        for (index, item) in results.enumerated() {
-            var matchedChapter: Chapter? = nil
-            if !item.url.isEmpty {
-                matchedChapter = unmatchedByUrl[item.url] ?? unmatchedByIndex[index]
-            } else {
-                matchedChapter = unmatchedByIndex[index]
-            }
-
-            if let chapter = matchedChapter {
-                remainingUnmatched.remove(chapter)
-                chapter.title = item.name
-                chapter.url = item.url
-                chapter.index = index
-                chapter.host = item.host
-                if chapter.isCached && chapter.length > 0 {
-                    chapter.isCached = true
-                }
-            } else {
-                let chapId = Chapter.generateId(bookId: book.bookId, url: item.url, index: index)
-                let newChapter = Chapter(
-                    id: chapId,
-                    bookId: book.bookId,
-                    title: item.name,
-                    url: item.url,
-                    index: index,
-                    host: item.host
-                )
-                book.chapters.append(newChapter)
-                modelContext.insert(newChapter)
-            }
-        }
-
-        for stale in remainingUnmatched {
-            let isPlayingChapter = TTSManager.shared.playingBookId == book.bookId
-                && TTSManager.shared.playingChapterIndex == stale.index
-                && (stale.url.isEmpty || TTSManager.shared.playingChapterUrl == stale.url)
-            if !isPlayingChapter {
-                book.chapters.removeAll(where: { $0 === stale })
-                modelContext.delete(stale)
-            }
-        }
-
-        if (book.host == nil || book.host?.isEmpty == true),
-           let firstHost = results.first?.host,
-           !firstHost.isEmpty {
-            book.host = firstHost
-        }
-
-        self.syncChaptersList()
+    private func refetchBook(bookId: String) -> Book? {
+        let targetBookId = bookId
+        var descriptor = FetchDescriptor<Book>(
+            predicate: #Predicate<Book> { $0.bookId == targetBookId }
+        )
+        descriptor.fetchLimit = 1
+        return try? modelContext.fetch(descriptor).first
     }
 
     private func syncChaptersList() {
@@ -1441,7 +1411,6 @@ struct BookDetailView: View {
             self.tocErrorMessage = ""
         }
 
-        // Chạy song song detail và toc
         let bookHost = resolvedHost
         async let detailTask = ExtensionManager.shared.detail(localPath: ext.localPath, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: bookHost, configJson: ext.configJson)
 
@@ -1494,11 +1463,27 @@ struct BookDetailView: View {
                 allChapters = tocResult
             }
 
+            let targetBookId = await MainActor.run { self.actualBookId }
+            let shouldPersist = await MainActor.run { self.localBook != nil }
+            let ttsProtection = await MainActor.run { self.activeTTSProtectedChapter }
+            let snapshots = await MainActor.run { self.tocMetadata(from: allChapters) }
+
+            if shouldPersist {
+                _ = try await ChapterContentRepository.shared.saveChapterList(
+                    bookId: targetBookId,
+                    createSnapshot: nil,
+                    chapters: snapshots,
+                    mode: .replaceFullTOC,
+                    protectedTTSChapter: ttsProtection
+                )
+            }
+
             await MainActor.run {
                 self.onlineChapters = allChapters
-                if let book = localBook {
-                    updateLocalChapters(for: book, with: allChapters)
-                    try? modelContext.save()
+                if let savedBook = refetchBook(bookId: targetBookId) {
+                    self.chaptersList = savedBook.chapters
+                } else {
+                    self.syncChaptersList()
                 }
             }
         } catch {

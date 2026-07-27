@@ -15,6 +15,10 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TOC Database Optimization Data Flow (1.3.50)
+
+* **TOC Save Data Flow**: `BookDetailView` / `ReaderChapterListView` -> `ChapterContentRepository.saveChapterList` -> `ChapterPersistenceStore.saveChapterList` (actor background `ModelContext`) -> `fetchBook(bookId:in:)` (Predicate with `fetchLimit = 1`) -> Reconcile chapters by URL/Index (preserving `isCached`, `offset`, `length`, `titleTrans`, and active `TTSManager` playing chapter) -> Single atomic `ModelContext.save()` off MainActor -> `refetchBook(bookId:)` on `@MainActor` -> UI state update.
+
 ## Web-extension DOM ready polling data flows (1.3.39)
 
 * **Direct HTTP fetching**: Extension methods (`search`, `detail`, `toc`) fetch data directly via synchronous HTTP requests. The SangTacViet `home` and `genre` catalogs route paged discovery requests through `homecontent.js`, which POSTs to `/io/searchtp/searchBooks` and maps each 48-book page into `SearchNovelResult` records.

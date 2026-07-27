@@ -6,6 +6,21 @@ struct ChapterMetadataSnapshot: Sendable, Equatable {
     let url: String
     let index: Int
     let host: String?
+    let titleTrans: String?
+
+    init(title: String, url: String, index: Int, host: String? = nil, titleTrans: String? = nil) {
+        self.title = title
+        self.url = url
+        self.index = index
+        self.host = host
+        self.titleTrans = titleTrans
+    }
+}
+
+struct ProtectedTTSChapter: Sendable, Equatable {
+    let bookId: String
+    let index: Int
+    let url: String
 }
 
 struct BookMetadataSnapshot: Sendable, Equatable {
@@ -20,6 +35,36 @@ struct BookMetadataSnapshot: Sendable, Equatable {
     let extensionPackageId: String
     let host: String?
     let chapters: [ChapterMetadataSnapshot]
+}
+
+struct TOCBookCreateSnapshot: Sendable, Equatable {
+    let bookId: String
+    let title: String
+    let author: String
+    let coverUrl: String
+    let desc: String
+    let detailUrl: String
+    let sourceName: String
+    let sourceUrl: String
+    let extensionPackageId: String
+    let currentChapterIndex: Int
+    let currentChapterPage: Int
+    let currentChapterTitle: String
+    let isOnShelf: Bool
+    let isHistory: Bool
+    let host: String?
+}
+
+enum TOCReconciliationMode: Sendable, Equatable {
+    case replaceFullTOC
+    case upsertPage
+}
+
+struct SaveTOCResult: Sendable, Equatable {
+    let inserted: Int
+    let updated: Int
+    let deleted: Int
+    let totalChapters: Int
 }
 
 struct PersistedChapterSnapshot: Sendable, Equatable {
@@ -72,8 +117,7 @@ actor ChapterPersistenceStore {
         url: String
     ) async throws -> PersistedChapterSnapshot? {
         let context = ModelContext(container)
-        let books = try context.fetch(FetchDescriptor<Book>())
-        guard let book = books.first(where: { $0.bookId == bookId }) else {
+        guard let book = try fetchBook(bookId: bookId, in: context) else {
             return nil
         }
 
@@ -115,10 +159,9 @@ actor ChapterPersistenceStore {
 
     func ensureBook(_ snapshot: BookMetadataSnapshot) throws {
         let context = ModelContext(container)
-        let books = try context.fetch(FetchDescriptor<Book>())
         let book: Book
 
-        if let existing = books.first(where: { $0.bookId == snapshot.bookId }) {
+        if let existing = try fetchBook(bookId: snapshot.bookId, in: context) {
             book = existing
         } else {
             book = Book(
@@ -173,6 +216,120 @@ actor ChapterPersistenceStore {
             }
         }
         try context.save()
+    }
+
+    func saveChapterList(
+        bookId: String,
+        createSnapshot: TOCBookCreateSnapshot?,
+        chapters: [ChapterMetadataSnapshot],
+        mode: TOCReconciliationMode,
+        protectedTTSChapter: ProtectedTTSChapter? = nil
+    ) throws -> SaveTOCResult {
+        let context = ModelContext(container)
+        let book: Book
+
+        if let existing = try fetchBook(bookId: bookId, in: context) {
+            book = existing
+            if let createSnapshot {
+                applyMetadata(from: createSnapshot, to: book)
+            }
+        } else if let createSnapshot {
+            book = Book(
+                bookId: createSnapshot.bookId,
+                title: createSnapshot.title,
+                author: createSnapshot.author,
+                coverUrl: createSnapshot.coverUrl,
+                desc: createSnapshot.desc,
+                detailUrl: createSnapshot.detailUrl,
+                sourceName: createSnapshot.sourceName,
+                sourceUrl: createSnapshot.sourceUrl,
+                extensionPackageId: createSnapshot.extensionPackageId,
+                currentChapterIndex: createSnapshot.currentChapterIndex,
+                currentChapterPage: createSnapshot.currentChapterPage,
+                currentChapterTitle: createSnapshot.currentChapterTitle,
+                isOnShelf: createSnapshot.isOnShelf,
+                isHistory: createSnapshot.isHistory,
+                host: createSnapshot.host
+            )
+            context.insert(book)
+        } else {
+            throw ChapterPersistenceError.missingBook(bookId: bookId)
+        }
+
+        if (book.host == nil || book.host?.isEmpty == true),
+           let firstHost = chapters.first?.host,
+           !firstHost.isEmpty {
+            book.host = firstHost
+        }
+
+        let pool = ReconciliationPool(chapters: book.chapters)
+        var existingIDs = Set(book.chapters.map { $0.id })
+        var inserted = 0
+        var updated = 0
+
+        for item in chapters {
+            try Task.checkCancellation()
+            if let existing = pool.consume(url: item.url, index: item.index) {
+                existing.title = item.title
+                existing.url = item.url
+                existing.index = item.index
+                existing.host = item.host
+                if let titleTrans = item.titleTrans, !titleTrans.isEmpty {
+                    existing.titleTrans = titleTrans
+                }
+                updated += 1
+            } else {
+                let newId = allocateNewChapterId(bookId: book.bookId, item: item, existingIDs: &existingIDs)
+                let chapter = Chapter(
+                    id: newId,
+                    bookId: book.bookId,
+                    title: item.title,
+                    url: item.url,
+                    index: item.index,
+                    host: item.host
+                )
+                if let titleTrans = item.titleTrans, !titleTrans.isEmpty {
+                    chapter.titleTrans = titleTrans
+                }
+                book.chapters.append(chapter)
+                context.insert(chapter)
+                inserted += 1
+            }
+        }
+
+        var deleted = 0
+        if mode == .replaceFullTOC {
+            for stale in pool.remaining() {
+                try Task.checkCancellation()
+                let isPlayingChapter = protectedTTSChapter != nil
+                    && protectedTTSChapter?.bookId == book.bookId
+                    && protectedTTSChapter?.index == stale.index
+                    && (stale.url.isEmpty || protectedTTSChapter?.url == stale.url)
+                if !isPlayingChapter {
+                    book.chapters.removeAll(where: { $0 === stale })
+                    context.delete(stale)
+                    deleted += 1
+                }
+            }
+        }
+
+        try Task.checkCancellation()
+        try context.save()
+
+        let totalChapters = book.chapters.count
+        return SaveTOCResult(inserted: inserted, updated: updated, deleted: deleted, totalChapters: totalChapters)
+    }
+
+    private func applyMetadata(from snapshot: TOCBookCreateSnapshot, to book: Book) {
+        book.title = snapshot.title
+        book.author = snapshot.author
+        book.coverUrl = snapshot.coverUrl
+        book.desc = snapshot.desc
+        book.detailUrl = snapshot.detailUrl
+        book.sourceName = snapshot.sourceName
+        book.sourceUrl = snapshot.sourceUrl
+        book.extensionPackageId = snapshot.extensionPackageId
+        book.host = snapshot.host
     }
 
     private func allocateNewChapterId(
@@ -282,10 +439,9 @@ actor ChapterPersistenceStore {
         let (offset, length) = try await BookBinManager.shared.writeChapterContent(bookId: bookId, content: content)
 
         let context = ModelContext(container)
-        let books = try context.fetch(FetchDescriptor<Book>())
         let book: Book
 
-        if let existing = books.first(where: { $0.bookId == bookId }) {
+        if let existing = try fetchBook(bookId: bookId, in: context) {
             book = existing
         } else if let snapshot {
             book = Book(
@@ -375,6 +531,15 @@ actor ChapterPersistenceStore {
         try context.save()
     }
 
+    private func fetchBook(bookId: String, in context: ModelContext) throws -> Book? {
+        let targetBookId = bookId
+        var descriptor = FetchDescriptor<Book>(
+            predicate: #Predicate<Book> { $0.bookId == targetBookId }
+        )
+        descriptor.fetchLimit = 1
+        return try context.fetch(descriptor).first
+    }
+
     private func matchingChapter(
         in chapters: [Chapter],
         chapterIndex: Int,
@@ -430,5 +595,20 @@ fileprivate class ReconciliationPool {
             }
         }
         return nil
+    }
+
+    func remaining() -> [Chapter] {
+        var result: [Chapter] = []
+        for list in urlMap.values {
+            for chap in list where !consumed.contains(chap.persistentModelID) {
+                result.append(chap)
+            }
+        }
+        for list in indexMap.values {
+            for chap in list where !consumed.contains(chap.persistentModelID) && !result.contains(where: { $0.persistentModelID == chap.persistentModelID }) {
+                result.append(chap)
+            }
+        }
+        return result
     }
 }

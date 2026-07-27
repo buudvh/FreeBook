@@ -1177,25 +1177,21 @@ public struct ReaderChapterListView: View {
 
                 if let book = localBook {
                     let existingURLs = Set(book.chapters.map(\.url))
-                    let additions = allChapters.enumerated().filter { !existingURLs.contains($0.element.url) }
-                    for (index, item) in additions {
-                        let chapId = Chapter.generateId(bookId: book.bookId, url: item.url, index: index)
-                        let chapter = Chapter(
-                            id: chapId,
-                            bookId: book.bookId,
+                    let additions = allChapters.filter { !existingURLs.contains($0.url) }
+                    let chapterSnapshots = allChapters.enumerated().map { index, item in
+                        ChapterMetadataSnapshot(
                             title: item.name,
                             url: item.url,
                             index: index,
                             host: item.host
                         )
-                        chapter.book = book
-                        modelContext.insert(chapter)
-                        book.chapters.append(chapter)
                     }
-                    if (book.host ?? "").isEmpty, let host = allChapters.first?.host, !host.isEmpty {
-                        book.host = host
-                    }
-                    try? modelContext.save()
+                    _ = try await ChapterContentRepository.shared.saveChapterList(
+                        bookId: book.bookId,
+                        createSnapshot: nil,
+                        chapters: chapterSnapshots,
+                        mode: .upsertPage
+                    )
                     let localBookId = book.bookId
                     let descriptor = FetchDescriptor<Chapter>(
                         predicate: #Predicate<Chapter> { $0.bookId == localBookId }

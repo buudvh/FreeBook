@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TOC Database Persistence Subsystem (1.3.50)
+
+* **Chapter Persistence & TOC Optimization**: Offloads table-of-contents database persistence off `@MainActor` to `ChapterPersistenceStore` (background `actor`) wrapped by `ChapterContentRepository`.
+* **Scoped Book Lookup**: Replaces fetch-all-books queries with a bookId-scoped `#Predicate<Book> { $0.bookId == targetBookId }` with `fetchLimit = 1`.
+* **Reconciliation Modes**: Supports `.replaceFullTOC` for complete TOC synchronization and `.upsertPage` for paged TOC fetching. Preserves active TTS playing chapter using thread-safe `ProtectedTTSChapter` snapshots.
+* **UI & Reader Safety**: `BookDetailView` awaits background TOC persistence before opening Reader, preventing shelf/reading race conditions while keeping UI smooth with zero MainActor bulk database inserts.
+
 ## Reader translation subsystem update (1.3.14)
 
 Reader paragraph creation is centralized in `ReaderParagraphBuilder`: original lines are the source of truth, translation is one-to-one, and paragraph ids never depend on translated output. `TranslateUtils` exposes mapped translation results with UTF-16 spans, while `ReaderSelectionMapper` owns exact and historical fallback range conversion. The definition editor continues to operate only on original paragraph text.

@@ -186,4 +186,247 @@ final class ChapterContentRepositoryTests: XCTestCase {
             extensionPackageId: "test-extension"
         )
     }
+
+    func testSaveChapterListReplaceFullTOCPreservesCachedContentAndDeletesStale() async throws {
+        let container = try makeContainer()
+        let store = ChapterPersistenceStore(container: container)
+        let context = ModelContext(container)
+        let book = makeBook(bookId: "toc-test-book")
+
+        let (offset, length) = try await BookBinManager.shared.writeChapterContent(bookId: "toc-test-book", content: "Cached Content")
+        let cachedChap = Chapter(
+            id: "toc-test-book_chapter-0",
+            bookId: "toc-test-book",
+            title: "Old Title 1",
+            url: "url-1",
+            index: 0,
+            isCached: true,
+            offset: offset,
+            length: length
+        )
+        let staleChap = Chapter(
+            id: "toc-test-book_chapter-1",
+            bookId: "toc-test-book",
+            title: "Old Title 2",
+            url: "url-2",
+            index: 1
+        )
+        cachedChap.book = book
+        staleChap.book = book
+        book.chapters = [cachedChap, staleChap]
+        context.insert(book)
+        try context.save()
+
+        let newSnapshots = [
+            ChapterMetadataSnapshot(title: "New Title 1", url: "url-1", index: 0, host: nil),
+            ChapterMetadataSnapshot(title: "New Title 3", url: "url-3", index: 1, host: nil)
+        ]
+
+        let result = try await store.saveChapterList(
+            bookId: "toc-test-book",
+            createSnapshot: nil,
+            chapters: newSnapshots,
+            mode: .replaceFullTOC
+        )
+
+        XCTAssertEqual(result.inserted, 1)
+        XCTAssertEqual(result.updated, 1)
+        XCTAssertEqual(result.deleted, 1)
+        XCTAssertEqual(result.totalChapters, 2)
+
+        let verifyContext = ModelContext(container)
+        var descriptor = FetchDescriptor<Book>(predicate: #Predicate<Book> { $0.bookId == "toc-test-book" })
+        descriptor.fetchLimit = 1
+        let updatedBook = try XCTUnwrap(verifyContext.fetch(descriptor).first)
+
+        XCTAssertEqual(updatedBook.chapters.count, 2)
+        let verifyCached = try XCTUnwrap(updatedBook.chapters.first(where: { $0.url == "url-1" }))
+        XCTAssertEqual(verifyCached.title, "New Title 1")
+        XCTAssertTrue(verifyCached.isCached)
+        XCTAssertEqual(verifyCached.offset, offset)
+        XCTAssertEqual(verifyCached.length, length)
+
+        XCTAssertNil(updatedBook.chapters.first(where: { $0.url == "url-2" }))
+        XCTAssertNotNil(updatedBook.chapters.first(where: { $0.url == "url-3" }))
+    }
+
+    func testSaveChapterListUpsertPageDoesNotDeleteStale() async throws {
+        let container = try makeContainer()
+        let store = ChapterPersistenceStore(container: container)
+        let context = ModelContext(container)
+        let book = makeBook(bookId: "upsert-test-book")
+
+        let existingChap = Chapter(
+            id: "upsert-test-book_chap-0",
+            bookId: "upsert-test-book",
+            title: "Page 1 Chap",
+            url: "p1-chap",
+            index: 0
+        )
+        existingChap.book = book
+        book.chapters = [existingChap]
+        context.insert(book)
+        try context.save()
+
+        let page2Snapshots = [
+            ChapterMetadataSnapshot(title: "Page 2 Chap", url: "p2-chap", index: 1, host: nil)
+        ]
+
+        let result = try await store.saveChapterList(
+            bookId: "upsert-test-book",
+            createSnapshot: nil,
+            chapters: page2Snapshots,
+            mode: .upsertPage
+        )
+
+        XCTAssertEqual(result.inserted, 1)
+        XCTAssertEqual(result.deleted, 0)
+        XCTAssertEqual(result.totalChapters, 2)
+
+        let verifyContext = ModelContext(container)
+        var descriptor = FetchDescriptor<Book>(predicate: #Predicate<Book> { $0.bookId == "upsert-test-book" })
+        descriptor.fetchLimit = 1
+        let updatedBook = try XCTUnwrap(verifyContext.fetch(descriptor).first)
+        XCTAssertEqual(updatedBook.chapters.count, 2)
+    }
+
+    func testSaveChapterListTTSActiveProtection() async throws {
+        let container = try makeContainer()
+        let store = ChapterPersistenceStore(container: container)
+        let context = ModelContext(container)
+        let book = makeBook(bookId: "tts-active-book")
+
+        let chap1 = Chapter(
+            id: "tts-active-book_0",
+            bookId: "tts-active-book",
+            title: "Playing Chap",
+            url: "playing-url",
+            index: 0
+        )
+        chap1.book = book
+        book.chapters = [chap1]
+        context.insert(book)
+        try context.save()
+
+        let protectedTTS = ProtectedTTSChapter(bookId: "tts-active-book", index: 0, url: "playing-url")
+
+        let newTOC = [
+            ChapterMetadataSnapshot(title: "Different Chap", url: "different-url", index: 1, host: nil)
+        ]
+
+        let result = try await store.saveChapterList(
+            bookId: "tts-active-book",
+            createSnapshot: nil,
+            chapters: newTOC,
+            mode: .replaceFullTOC,
+            protectedTTSChapter: protectedTTS
+        )
+
+        XCTAssertEqual(result.deleted, 0)
+
+        let verifyContext = ModelContext(container)
+        var descriptor = FetchDescriptor<Book>(predicate: #Predicate<Book> { $0.bookId == "tts-active-book" })
+        descriptor.fetchLimit = 1
+        let updatedBook = try XCTUnwrap(verifyContext.fetch(descriptor).first)
+        XCTAssertTrue(updatedBook.chapters.contains(where: { $0.url == "playing-url" }))
+    }
+
+    func testFetchBookScopeIsolation() async throws {
+        let container = try makeContainer()
+        let store = ChapterPersistenceStore(container: container)
+        let context = ModelContext(container)
+
+        let book1 = makeBook(bookId: "isolated-book-1")
+        let book2 = makeBook(bookId: "isolated-book-2")
+        context.insert(book1)
+        context.insert(book2)
+        try context.save()
+
+        let snapshots = [
+            ChapterMetadataSnapshot(title: "Book 1 Chap 1", url: "b1-c1", index: 0, host: nil)
+        ]
+
+        let result = try await store.saveChapterList(
+            bookId: "isolated-book-1",
+            createSnapshot: nil,
+            chapters: snapshots,
+            mode: .replaceFullTOC
+        )
+
+        XCTAssertEqual(result.totalChapters, 1)
+
+        let verifyContext = ModelContext(container)
+        var descriptor1 = FetchDescriptor<Book>(predicate: #Predicate<Book> { $0.bookId == "isolated-book-1" })
+        descriptor1.fetchLimit = 1
+        let res1 = try XCTUnwrap(verifyContext.fetch(descriptor1).first)
+        XCTAssertEqual(res1.chapters.count, 1)
+
+        var descriptor2 = FetchDescriptor<Book>(predicate: #Predicate<Book> { $0.bookId == "isolated-book-2" })
+        descriptor2.fetchLimit = 1
+        let res2 = try XCTUnwrap(verifyContext.fetch(descriptor2).first)
+        XCTAssertEqual(res2.chapters.count, 0)
+    }
+
+    func testReconciliationUrlAndIndexFallbackMatching() async throws {
+        let container = try makeContainer()
+        let store = ChapterPersistenceStore(container: container)
+        let context = ModelContext(container)
+        let book = makeBook(bookId: "fallback-match-book")
+
+        let (offset, length) = try await BookBinManager.shared.writeChapterContent(bookId: "fallback-match-book", content: "Content")
+        let chapByUrl = Chapter(
+            id: "fallback-match-book_c0",
+            bookId: "fallback-match-book",
+            title: "Url Match Chap",
+            url: "unique-url-abc",
+            index: 0,
+            isCached: true,
+            offset: offset,
+            length: length
+        )
+        chapByUrl.titleTrans = "Tên dịch cũ"
+        let chapByIndex = Chapter(
+            id: "fallback-match-book_c1",
+            bookId: "fallback-match-book",
+            title: "Index Match Chap",
+            url: "",
+            index: 1
+        )
+        chapByUrl.book = book
+        chapByIndex.book = book
+        book.chapters = [chapByUrl, chapByIndex]
+        context.insert(book)
+        try context.save()
+
+        let snapshots = [
+            ChapterMetadataSnapshot(title: "Updated Url Match", url: "unique-url-abc", index: 0, host: nil, titleTrans: "Tên dịch mới 1"),
+            ChapterMetadataSnapshot(title: "Updated Index Match", url: "new-url-xyz", index: 1, host: nil, titleTrans: "Tên dịch mới 2")
+        ]
+
+        let result = try await store.saveChapterList(
+            bookId: "fallback-match-book",
+            createSnapshot: nil,
+            chapters: snapshots,
+            mode: .replaceFullTOC
+        )
+
+        XCTAssertEqual(result.updated, 2)
+        XCTAssertEqual(result.inserted, 0)
+        XCTAssertEqual(result.deleted, 0)
+        XCTAssertEqual(result.totalChapters, 2)
+
+        let verifyContext = ModelContext(container)
+        var descriptor = FetchDescriptor<Book>(predicate: #Predicate<Book> { $0.bookId == "fallback-match-book" })
+        descriptor.fetchLimit = 1
+        let res = try XCTUnwrap(verifyContext.fetch(descriptor).first)
+        let updatedC0 = try XCTUnwrap(res.chapters.first(where: { $0.index == 0 }))
+        XCTAssertEqual(updatedC0.title, "Updated Url Match")
+        XCTAssertEqual(updatedC0.titleTrans, "Tên dịch mới 1")
+        XCTAssertTrue(updatedC0.isCached)
+        XCTAssertEqual(updatedC0.offset, offset)
+
+        let updatedC1 = try XCTUnwrap(res.chapters.first(where: { $0.index == 1 }))
+        XCTAssertEqual(updatedC1.title, "Updated Index Match")
+        XCTAssertEqual(updatedC1.titleTrans, "Tên dịch mới 2")
+    }
 }

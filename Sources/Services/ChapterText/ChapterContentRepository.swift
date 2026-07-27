@@ -89,6 +89,25 @@ actor ChapterContentRepository {
         await persistenceStore?.flushAll()
     }
 
+    func saveChapterList(
+        bookId: String,
+        createSnapshot: TOCBookCreateSnapshot?,
+        chapters: [ChapterMetadataSnapshot],
+        mode: TOCReconciliationMode,
+        protectedTTSChapter: ProtectedTTSChapter? = nil
+    ) async throws -> SaveTOCResult {
+        guard let persistenceStore else {
+            throw ChapterPersistenceError.unavailableStore
+        }
+        return try await persistenceStore.saveChapterList(
+            bookId: bookId,
+            createSnapshot: createSnapshot,
+            chapters: chapters,
+            mode: mode,
+            protectedTTSChapter: protectedTTSChapter
+        )
+    }
+
     func load(_ request: ChapterContentRequest) async throws -> ChapterContentResult {
         let key = ChapterKey(
             bookId: request.bookId,

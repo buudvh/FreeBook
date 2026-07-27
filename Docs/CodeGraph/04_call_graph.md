@@ -15,6 +15,13 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TOC Database Optimization Calls (1.3.50)
+
+* `ChapterContentRepository.shared.saveChapterList(bookId:createSnapshot:chapters:mode:protectedTTSChapter:)` delegates to its configured `ChapterPersistenceStore` actor instance.
+* `ChapterPersistenceStore.saveChapterList` executes off MainActor on a background `ModelContext`, looking up books via `#Predicate<Book> { $0.bookId == targetBookId }` with `fetchLimit = 1`.
+* Reconciles chapter list using `.replaceFullTOC` (deletes non-protected stale chapters) or `.upsertPage` (incremental paged addition without deletion), protecting `protectedTTSChapter` and preserving `isCached`, `offset`, `length`, and `titleTrans`.
+* `BookDetailView.startReading` and `addToShelf` await background TOC persistence before opening Reader or refetching book state; `ReaderChapterListView.refreshChapters` delegates incremental updates to `saveChapterList(..., mode: .upsertPage)`.
+
 ## Book storage and deletion calls (1.3.34)
 
 * `BookStorageManager.removeFromShelf` and `removeFromHistory` invoke `deleteBookComplete` if the book has no historical/shelf references left.

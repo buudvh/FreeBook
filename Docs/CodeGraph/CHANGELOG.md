@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.50] - 2026-07-27
+
+### Tối ưu hóa Database Mục Lục (TOC Database Optimization)
+* **Tối ưu hóa Truy vấn Truy cập Sách (`ChapterPersistenceStore`, `BookDetailView`)**:
+  * Sử dụng `FetchDescriptor<Book>` với `#Predicate<Book> { $0.bookId == targetBookId }` và `fetchLimit = 1` thay thế toàn bộ truy vấn `context.fetch(FetchDescriptor<Book>())` không có Predicate.
+* **Lưu Nền 1 Save Cho Toàn Bộ Thao Tác (`ChapterPersistenceStore.saveChapterList`)**:
+  * Chuyển toàn bộ công việc lưu/cập nhật danh sách chương xuống `ModelContext` chạy nền thuộc `ChapterPersistenceStore` (actor). Thực hiện duy nhất 1 lần `try context.save()` cho toàn bộ thao tác.
+  * Hỗ trợ 2 chế độ: `.replaceFullTOC` (thay thế toàn bộ mục lục khi nạp đầy đủ) và `.upsertPage` (nạp từng phần/trang mục lục mà không xóa các chương thuộc trang khác).
+  * Bảo tồn dữ liệu `isCached`, `offset`, `length`, `titleTrans`, giữ an toàn cho chương đang phát TTS (`isPlayingChapter`).
+* **Tái cấu trúc `startReading(at:)` & `ReaderChapterListView`**:
+  * `startReading(at:)` thu thập đủ các trang mục lục, gọi `saveChapterList` lưu nền 1 lần, chờ hoàn tất rồi mới refetch `Book` qua predicate và mở `ReaderView`.
+  * `ReaderChapterListView.refreshChapters` và các luồng nạp trang nền (`startBackgroundRemainingPagesLoading`, `loadTOCDataOnly`) sử dụng `saveChapterList` với `mode: .upsertPage` chạy nền thay vì insert/save lặp đi lặp lại trên `MainActor`.
+* **Bổ sung Unit Tests & Đồng bộ CodeGraph Docs (`04_call_graph.md`, `07_dataflow.md`, `11_subsystems.md`)**:
+  * Thêm unit test kiểm thử `.replaceFullTOC`, `.upsertPage`, và bảo vệ TTS trong `Tests/ChapterContentRepositoryTests.swift`.
+  * Đồng bộ Đồ thị Lời gọi Hàm, Dòng chảy Dữ liệu và Phân hệ Cốt lõi cho các API `saveChapterList` và cơ chế lưu nền 1 lần.
+
+---
+
 ## [1.3.49] - 2026-07-24
 
 ### Tái cấu trúc Luồng Tải Mục mục & Lưu Database khi Mở Sách (`BookDetailView`)
