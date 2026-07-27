@@ -20,7 +20,7 @@ struct FreeBookApp: App {
                 configurations: config
             )
         } catch {
-            fatalError("Không thể khởi tạo ModelContainer: \(error.localizedDescription)")
+            fatalError("Không thể khởi tạo ModelContainer: \(error.localizedDescription) ")
         }
     }
 

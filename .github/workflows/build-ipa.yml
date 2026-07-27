@@ -5,10 +5,12 @@ on:
     branches: [ main, sigle_reader ]
     paths:
       - 'Sources/**'
+      - 'project.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'Sources/**'
+      - 'project.yml'
   workflow_dispatch:
 
 jobs:
