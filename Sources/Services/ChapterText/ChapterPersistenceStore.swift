@@ -387,7 +387,6 @@ actor ChapterPersistenceStore {
                 isHistory: createSnapshot.isHistory,
                 host: createSnapshot.host
             )
-            context.insert(book)
 
             do {
                 if (book.host == nil || book.host?.isEmpty == true),
@@ -396,36 +395,40 @@ actor ChapterPersistenceStore {
                     book.host = firstHost
                 }
 
+                let tBuildStart = CFAbsoluteTimeGetCurrent()
                 var existingIDs: Set<String> = []
-                var inserted = 0
+                var createdChapters: [Chapter] = []
+                createdChapters.reserveCapacity(chapters.count)
 
-                for item in chapters {
-                    try Task.checkCancellation()
-                    let tBuildStart = CFAbsoluteTimeGetCurrent()
-                    let newId = allocateNewChapterId(bookId: book.bookId, item: item, existingIDs: &existingIDs)
-                    let chapter = Chapter(
-                        id: newId,
-                        bookId: book.bookId,
-                        title: item.title,
-                        url: item.url,
-                        index: item.index,
-                        host: item.host
-                    )
-                    if let titleTrans = item.titleTrans, !titleTrans.isEmpty {
-                        chapter.titleTrans = titleTrans
+                do {
+                    defer {
+                        tBuildChapters = CFAbsoluteTimeGetCurrent() - tBuildStart
                     }
-                    tBuildChapters += CFAbsoluteTimeGetCurrent() - tBuildStart
-
-                    let tLinkStart = CFAbsoluteTimeGetCurrent()
-                    chapter.book = book
-                    tLinkBook += CFAbsoluteTimeGetCurrent() - tLinkStart
-
-                    let tInsertStart = CFAbsoluteTimeGetCurrent()
-                    context.insert(chapter)
-                    tInsertContext += CFAbsoluteTimeGetCurrent() - tInsertStart
-
-                    inserted += 1
+                    for item in chapters {
+                        try Task.checkCancellation()
+                        let newId = allocateNewChapterId(bookId: book.bookId, item: item, existingIDs: &existingIDs)
+                        let chapter = Chapter(
+                            id: newId,
+                            bookId: book.bookId,
+                            title: item.title,
+                            url: item.url,
+                            index: item.index,
+                            host: item.host
+                        )
+                        if let titleTrans = item.titleTrans, !titleTrans.isEmpty {
+                            chapter.titleTrans = titleTrans
+                        }
+                        createdChapters.append(chapter)
+                    }
                 }
+
+                let tLinkStart = CFAbsoluteTimeGetCurrent()
+                book.chapters = createdChapters
+                tLinkBook = CFAbsoluteTimeGetCurrent() - tLinkStart
+
+                let tInsertStart = CFAbsoluteTimeGetCurrent()
+                context.insert(book)
+                tInsertContext = CFAbsoluteTimeGetCurrent() - tInsertStart
 
                 try Task.checkCancellation()
                 tReconcile = CFAbsoluteTimeGetCurrent() - tReconcileStart
@@ -440,7 +443,7 @@ actor ChapterPersistenceStore {
                 }
 
                 status = "success"
-                return SaveTOCResult(inserted: inserted, updated: 0, deleted: 0, totalChapters: inserted)
+                return SaveTOCResult(inserted: createdChapters.count, updated: 0, deleted: 0, totalChapters: createdChapters.count)
             } catch {
                 if tReconcile == 0 {
                     tReconcile = CFAbsoluteTimeGetCurrent() - tReconcileStart
