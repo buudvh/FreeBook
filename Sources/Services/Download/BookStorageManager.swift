@@ -67,6 +67,7 @@ public final class BookStorageManager {
         }.value
 
         // 3. Physical file cleanup trong background thread
+        // 3. Physical file cleanup trong background thread
         Task.detached(priority: .background) {
             for bookId in validBookIds {
                 do {
@@ -75,6 +76,16 @@ public final class BookStorageManager {
                     AppLogger.shared.log("❌ Lỗi xóa file .bin: \(error.localizedDescription)")
                     let binPath = await BookBinManager.shared.binFilePath(for: bookId).path
                     await Self.shared.enqueueFailedDeletionAsync(path: binPath)
+                }
+
+                if ChapterStoreConfiguration.enableChapterStoreCleanup {
+                    do {
+                        try await ChapterStore.shared.deleteBook(bookId: bookId)
+                    } catch {
+                        let bookHash = String(Chapter.hashUrl(bookId).prefix(8))
+                        AppLogger.shared.log("❌ [ChapterStore] Lỗi xóa CSDL SQLite cho bookIdHash: \(bookHash)")
+                        await Self.shared.enqueueFailedChapterStoreDeletionAsync(bookId: bookId)
+                    }
                 }
 
                 do {
@@ -133,6 +144,16 @@ public final class BookStorageManager {
                     AppLogger.shared.log("❌ Lỗi xóa file .bin: \(error.localizedDescription)")
                     let binPath = await BookBinManager.shared.binFilePath(for: bookId).path
                     await Self.shared.enqueueFailedDeletionAsync(path: binPath)
+                }
+
+                if ChapterStoreConfiguration.enableChapterStoreCleanup {
+                    do {
+                        try await ChapterStore.shared.deleteBook(bookId: bookId)
+                    } catch {
+                        let bookHash = String(Chapter.hashUrl(bookId).prefix(8))
+                        AppLogger.shared.log("❌ [ChapterStore] Lỗi xóa CSDL SQLite cho bookIdHash: \(bookHash)")
+                        await Self.shared.enqueueFailedChapterStoreDeletionAsync(bookId: bookId)
+                    }
                 }
 
                 do {
@@ -207,6 +228,16 @@ public final class BookStorageManager {
                     await Self.shared.enqueueFailedDeletionAsync(path: binPath)
                 }
 
+                if ChapterStoreConfiguration.enableChapterStoreCleanup {
+                    do {
+                        try await ChapterStore.shared.deleteBook(bookId: bookId)
+                    } catch {
+                        let bookHash = String(Chapter.hashUrl(bookId).prefix(8))
+                        AppLogger.shared.log("❌ [ChapterStore] Lỗi xóa CSDL SQLite cho bookIdHash: \(bookHash)")
+                        await Self.shared.enqueueFailedChapterStoreDeletionAsync(bookId: bookId)
+                    }
+                }
+
                 // Xóa file cover
                 do {
                     try ImageCacheManager.shared.deleteCover(for: bookId)
@@ -226,6 +257,42 @@ public final class BookStorageManager {
 
     // RETRY QUEUE
     private let retryQueueKey = "failed_file_deletions_queue"
+    private let chapterStoreRetryQueueKey = "failed_chapterstore_deletions_queue"
+
+    public func enqueueFailedChapterStoreDeletion(bookId: String) {
+        var queue = UserDefaults.standard.stringArray(forKey: chapterStoreRetryQueueKey) ?? []
+        if !queue.contains(bookId) {
+            queue.append(bookId)
+            UserDefaults.standard.set(queue, forKey: chapterStoreRetryQueueKey)
+        }
+    }
+
+    public func enqueueFailedChapterStoreDeletionAsync(bookId: String) async {
+        enqueueFailedChapterStoreDeletion(bookId: bookId)
+    }
+
+    public func retryFailedChapterStoreDeletions() {
+        guard let queue = UserDefaults.standard.stringArray(forKey: chapterStoreRetryQueueKey), !queue.isEmpty else {
+            return
+        }
+
+        let uniqueBookIds = Array(Set(queue))
+        Task.detached(priority: .utility) {
+            var remaining = uniqueBookIds
+            for bookId in uniqueBookIds {
+                do {
+                    try await ChapterStore.shared.deleteBook(bookId: bookId)
+                    remaining.removeAll(where: { $0 == bookId })
+                } catch {
+                    let bookHash = String(Chapter.hashUrl(bookId).prefix(8))
+                    AppLogger.shared.log("❌ Lỗi thử lại xóa ChapterStore cho bookIdHash: \(bookHash)")
+                }
+            }
+            await MainActor.run {
+                UserDefaults.standard.set(remaining, forKey: Self.shared.chapterStoreRetryQueueKey)
+            }
+        }
+    }
 
     public func enqueueFailedDeletion(path: String) {
         var queue = UserDefaults.standard.stringArray(forKey: retryQueueKey) ?? []

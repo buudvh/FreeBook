@@ -55,7 +55,31 @@ actor BackgroundSearchWorker {
         self.container = container
     }
 
-    func searchChapters(bookId: String, query: String, isAscending: Bool, isTranslationEnabled: Bool) -> [SearchChapterDTO] {
+    func searchChapters(bookId: String, query: String, isAscending: Bool, isTranslationEnabled: Bool) async -> [SearchChapterDTO] {
+        if let storeResults = try? await ChapterStore.shared.searchChapters(bookId: bookId, query: query, searchTrans: isTranslationEnabled), !storeResults.isEmpty {
+            let sorted = isAscending ? storeResults.sorted(by: { $0.index < $1.index }) : storeResults.sorted(by: { $0.index > $1.index })
+            return sorted.map { chap in
+                let displayTitle: String
+                if isTranslationEnabled {
+                    if let trans = chap.titleTrans, !trans.isEmpty {
+                        displayTitle = trans
+                    } else if TranslateUtils.containsChinese(chap.title) {
+                        displayTitle = TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
+                    } else {
+                        displayTitle = chap.title
+                    }
+                } else {
+                    displayTitle = chap.title
+                }
+                return SearchChapterDTO(
+                    index: chap.index,
+                    title: displayTitle,
+                    url: chap.url,
+                    isCached: chap.isCached
+                )
+            }
+        }
+
         let context = ModelContext(container)
         let localBookId = bookId
         let localQuery = query
@@ -102,6 +126,7 @@ actor BackgroundSearchWorker {
         }
     }
 }
+
 @available(iOS 17.0, *)
 actor BackgroundPagingWorker {
     private let container: ModelContainer
@@ -110,7 +135,28 @@ actor BackgroundPagingWorker {
         self.container = container
     }
 
-    func fetchPage(bookId: String, minLogicalIndex: Int, maxLogicalIndex: Int, isTranslationEnabled: Bool) throws -> [Int: (title: String, url: String, isCached: Bool)] {
+    func fetchPage(bookId: String, minLogicalIndex: Int, maxLogicalIndex: Int, isTranslationEnabled: Bool) async throws -> [Int: (title: String, url: String, isCached: Bool)] {
+        let count = maxLogicalIndex - minLogicalIndex + 1
+        if let storeChaps = try? await ChapterStore.shared.fetchRange(bookId: bookId, startIndex: minLogicalIndex, count: count), !storeChaps.isEmpty {
+            var map: [Int: (title: String, url: String, isCached: Bool)] = [:]
+            for chap in storeChaps {
+                let displayTitle: String
+                if isTranslationEnabled {
+                    if let trans = chap.titleTrans, !trans.isEmpty {
+                        displayTitle = trans
+                    } else if TranslateUtils.containsChinese(chap.title) {
+                        displayTitle = TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
+                    } else {
+                        displayTitle = chap.title
+                    }
+                } else {
+                    displayTitle = chap.title
+                }
+                map[chap.index] = (displayTitle, chap.url, chap.isCached)
+            }
+            return map
+        }
+
         let context = ModelContext(container)
         let localBookId = bookId
         let localMin = minLogicalIndex
@@ -121,7 +167,7 @@ actor BackgroundPagingWorker {
         )
 
         let chapters = try context.fetch(descriptor)
-        var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
+        var map: [Int: (title: String, url: String, isCached: Bool)] = [:]
         for chap in chapters {
             let displayTitle: String
             if isTranslationEnabled {
@@ -135,9 +181,9 @@ actor BackgroundPagingWorker {
             } else {
                 displayTitle = chap.title
             }
-            data[chap.index] = (displayTitle, chap.url, chap.isCached)
+            map[chap.index] = (displayTitle, chap.url, chap.isCached)
         }
-        return data
+        return map
     }
 }
 

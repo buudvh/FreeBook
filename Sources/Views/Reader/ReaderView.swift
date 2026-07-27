@@ -633,16 +633,22 @@ struct ReaderView: View {
         }
 
         if !didResolveLocalChapterCount {
-            if let bookId = localBookSnapshot?.bookId {
-                let localBId = bookId
-                let descriptor = FetchDescriptor<Chapter>(
-                    predicate: #Predicate<Chapter> { $0.bookId == localBId }
-                )
-                self.localChaptersCount = (try? modelContext.fetchCount(descriptor)) ?? 0
-            } else {
-                self.localChaptersCount = 0
+            Task {
+                if let count = try? await ChapterStore.shared.fetchCountAndChecksum(bookId: bookId).count, count > 0 {
+                    self.localChaptersCount = count
+                    self.didResolveLocalChapterCount = true
+                } else if let bookId = localBookSnapshot?.bookId {
+                    let localBId = bookId
+                    let descriptor = FetchDescriptor<Chapter>(
+                        predicate: #Predicate<Chapter> { $0.bookId == localBId }
+                    )
+                    self.localChaptersCount = (try? modelContext.fetchCount(descriptor)) ?? 0
+                    self.didResolveLocalChapterCount = true
+                } else {
+                    self.localChaptersCount = 0
+                    self.didResolveLocalChapterCount = true
+                }
             }
-            self.didResolveLocalChapterCount = true
         }
 
         updateCurrentChapterMetadata()
@@ -1301,26 +1307,13 @@ struct ReaderView: View {
         self.showingFloatingMenu = true
     }
 
-
-
-
-
-
-
-    private func nextChapter() {
-        let persistProgress = !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
-        let targetIndex = (viewModel?.pendingNavigationIndex ?? chapterIndex) + 1
-        if targetIndex >= 0 && targetIndex < totalChaptersCount {
-            viewModel?.stepChapter(by: 1, source: .nextButton, persistProgress: persistProgress)
-        }
-    }
-
-    private func ttsChapterInfo(at index: Int) -> TTSChapterInfo? {
-        if localBook != nil, let chapter = viewModel?.fetchChapter(at: index) {
-            let title = isTranslationEnabled && TranslateUtils.containsChinese(chapter.title)
-                ? TranslateUtils.translateChapterTitle(chapter.title, bookId: bookId)
-                : chapter.title
-            return TTSChapterInfo(title: title, url: chapter.url, index: chapter.index, host: chapter.host)
+    private func ttsChapterInfo(at index: Int) async -> TTSChapterInfo? {
+        if let snapshot = await viewModel?.fetchChapterSnapshot(at: index) {
+            let rawTitle = snapshot.titleTrans ?? snapshot.title
+            let title = isTranslationEnabled && TranslateUtils.containsChinese(rawTitle)
+                ? TranslateUtils.translateChapterTitle(rawTitle, bookId: bookId)
+                : rawTitle
+            return TTSChapterInfo(title: title, url: snapshot.url, index: snapshot.index, host: snapshot.host)
         }
 
         guard currentOnlineChapters.indices.contains(index) else { return nil }
@@ -1366,41 +1359,41 @@ struct ReaderView: View {
         )
     }
 
-
-
     private func startTTS(at index: Int, paragraphIndex: Int) {
         guard index >= 0 && index < totalChaptersCount else { return }
-        guard let currentChapter = ttsChapterInfo(at: index) else { return }
-        var initialQueue = [currentChapter]
-        let preloadUpperBound = min(totalChaptersCount, index + 4)
-        if index + 1 < preloadUpperBound {
-            for nextIndex in (index + 1)..<preloadUpperBound {
-                if let nextChapter = ttsChapterInfo(at: nextIndex) {
-                    initialQueue.append(nextChapter)
+        Task {
+            guard let currentChapter = await ttsChapterInfo(at: index) else { return }
+            var initialQueue = [currentChapter]
+            let preloadUpperBound = min(totalChaptersCount, index + 4)
+            if index + 1 < preloadUpperBound {
+                for nextIndex in (index + 1)..<preloadUpperBound {
+                    if let nextChapter = await ttsChapterInfo(at: nextIndex) {
+                        initialQueue.append(nextChapter)
+                    }
                 }
             }
+
+            let chapterContentToUse = viewModel?.cache.get(index)?.content ?? ""
+
+            ttsManager.startSpeaking(
+                bookId: bookId,
+                chapters: initialQueue,
+                currentIndex: index,
+                chapterContent: chapterContentToUse,
+                startParagraphIndex: paragraphIndex,
+                bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+                coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
+                bookDetailUrl: localBook?.detailUrl ?? bookDetailUrl ?? "",
+                bookSourceName: localBook?.sourceName ?? bookSourceName ?? "",
+                extensionInfo: ttsExtensionInfo
+            )
+            ttsManager.refreshChaptersQueueInBackground(
+                bookId: bookId,
+                onlineChapters: localBook == nil ? currentOnlineChapters.enumerated().map {
+                    TTSChapterInfo(title: $0.element.name, url: $0.element.url, index: $0.offset, host: $0.element.host)
+                } : nil
+            )
         }
-
-        let chapterContentToUse = viewModel?.cache.get(index)?.content ?? ""
-
-        ttsManager.startSpeaking(
-            bookId: bookId,
-            chapters: initialQueue,
-            currentIndex: index,
-            chapterContent: chapterContentToUse,
-            startParagraphIndex: paragraphIndex,
-            bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
-            coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
-            bookDetailUrl: localBook?.detailUrl ?? bookDetailUrl ?? "",
-            bookSourceName: localBook?.sourceName ?? bookSourceName ?? "",
-            extensionInfo: ttsExtensionInfo
-        )
-        ttsManager.refreshChaptersQueueInBackground(
-            bookId: bookId,
-            onlineChapters: localBook == nil ? currentOnlineChapters.enumerated().map {
-                TTSChapterInfo(title: $0.element.name, url: $0.element.url, index: $0.offset, host: $0.element.host)
-            } : nil
-        )
     }
 
     private func getSavedParagraphIndex(for idx: Int) -> Int {
@@ -1431,24 +1424,26 @@ struct ReaderView: View {
         guard index >= 0 && index < totalChaptersCount else { return }
 
         let chapterContentToUse = viewModel?.cache.get(index)?.content ?? ""
-
         guard !chapterContentToUse.isEmpty else { return }
-        guard let currentChapter = ttsChapterInfo(at: index) else { return }
 
-        let savedPIdx = getSavedParagraphIndex(for: index)
+        Task {
+            guard let currentChapter = await ttsChapterInfo(at: index) else { return }
 
-        ttsManager.prepareSpeaking(
-            bookId: bookId,
-            chapters: [currentChapter],
-            currentIndex: index,
-            chapterContent: chapterContentToUse,
-            startParagraphIndex: savedPIdx,
-            bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
-            coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
-            bookDetailUrl: localBook?.detailUrl ?? bookDetailUrl ?? "",
-            bookSourceName: localBook?.sourceName ?? bookSourceName ?? "",
-            extensionInfo: ttsExtensionInfo
-        )
+            let savedPIdx = getSavedParagraphIndex(for: index)
+
+            ttsManager.prepareSpeaking(
+                bookId: bookId,
+                chapters: [currentChapter],
+                currentIndex: index,
+                chapterContent: chapterContentToUse,
+                startParagraphIndex: savedPIdx,
+                bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
+                coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
+                bookDetailUrl: localBook?.detailUrl ?? bookDetailUrl ?? "",
+                bookSourceName: localBook?.sourceName ?? bookSourceName ?? "",
+                extensionInfo: ttsExtensionInfo
+            )
+        }
     }
 
     private func schedulePrepareTTS() {

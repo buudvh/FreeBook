@@ -105,7 +105,6 @@ actor ChapterPersistenceStore {
     }
 
     private let container: ModelContainer
-    private let newBookChapterBatchSize = 500
     private var pendingWrites: [String: PendingWrite] = [:]
 
     init(container: ModelContainer) {
@@ -117,6 +116,31 @@ actor ChapterPersistenceStore {
         chapterIndex: Int,
         url: String
     ) async throws -> PersistedChapterSnapshot? {
+        if ChapterStoreConfiguration.enableChapterStoreRead {
+            if let snapshot = try? await ChapterStore.shared.fetchChapter(bookId: bookId, index: chapterIndex, url: url),
+               snapshot.isCached, snapshot.length > 0 {
+                do {
+                    let rawContent = try await BookBinManager.shared.readChapterContent(
+                        bookId: bookId,
+                        offset: snapshot.offset,
+                        length: snapshot.length
+                    )
+                    let normalizedContent = ChapterTextNormalizer.normalize(rawContent).content
+                    if !normalizedContent.isEmpty {
+                        return PersistedChapterSnapshot(
+                            title: snapshot.title,
+                            url: snapshot.url,
+                            index: snapshot.index,
+                            host: snapshot.host,
+                            content: normalizedContent
+                        )
+                    }
+                } catch {
+                    AppLogger.shared.log("❌ [ChapterPersistenceStore] ChapterStore bin read failed | operation: readChapter")
+                }
+            }
+        }
+
         let context = ModelContext(container)
         guard let book = try fetchBook(bookId: bookId, in: context) else {
             return nil
@@ -158,7 +182,7 @@ actor ChapterPersistenceStore {
         }
     }
 
-    func ensureBook(_ snapshot: BookMetadataSnapshot) throws {
+    func ensureBook(_ snapshot: BookMetadataSnapshot) async throws {
         let context = ModelContext(container)
         let book: Book
 
@@ -193,30 +217,36 @@ actor ChapterPersistenceStore {
         book.host = snapshot.host
         book.isHistory = true
 
-        let pool = ReconciliationPool(chapters: book.chapters)
-        var existingIDs = Set(book.chapters.map { $0.id })
-
-        for item in snapshot.chapters {
-            if let existing = pool.consume(url: item.url, index: item.index) {
-                existing.title = item.title
-                existing.url = item.url
-                existing.index = item.index
-                existing.host = item.host
-            } else {
-                let newId = allocateNewChapterId(bookId: snapshot.bookId, item: item, existingIDs: &existingIDs)
-                let chapter = Chapter(
-                    id: newId,
-                    bookId: snapshot.bookId,
-                    title: item.title,
-                    url: item.url,
-                    index: item.index,
-                    host: item.host
-                )
-                book.chapters.append(chapter)
-                context.insert(chapter)
-            }
-        }
         try context.save()
+
+        if ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+            let pool = ReconciliationPool(chapters: book.chapters)
+            var existingIDs = Set(book.chapters.map { $0.id })
+
+            for item in snapshot.chapters {
+                if let existing = pool.consume(url: item.url, index: item.index) {
+                    existing.title = item.title
+                    existing.url = item.url
+                    existing.index = item.index
+                    existing.host = item.host
+                } else {
+                    let newId = allocateNewChapterId(bookId: snapshot.bookId, item: item, existingIDs: &existingIDs)
+                    let chapter = Chapter(
+                        id: newId,
+                        bookId: snapshot.bookId,
+                        title: item.title,
+                        url: item.url,
+                        index: item.index,
+                        host: item.host
+                    )
+                    book.chapters.append(chapter)
+                    context.insert(chapter)
+                }
+            }
+            try context.save()
+        } else {
+            _ = try await ChapterStore.shared.replaceFullTOC(bookId: snapshot.bookId, chapters: snapshot.chapters, protectedTTS: nil)
+        }
     }
 
     func saveChapterList(
@@ -225,7 +255,7 @@ actor ChapterPersistenceStore {
         chapters: [ChapterMetadataSnapshot],
         mode: TOCReconciliationMode,
         protectedTTSChapter: ProtectedTTSChapter? = nil
-    ) throws -> SaveTOCResult {
+    ) async throws -> SaveTOCResult {
         let t0 = CFAbsoluteTimeGetCurrent()
         var tFetchBook: CFAbsoluteTime = 0
         var tFetchChapters: CFAbsoluteTime = 0
@@ -253,6 +283,90 @@ actor ChapterPersistenceStore {
             AppLogger.shared.log(
                 "[TOC Performance] bookHash: \(bookHash), mode: \(mode), items: \(chapters.count), isNewBook: \(isNewBookStr), status: \(status) | fetchBook: \(String(format: "%.1fms", fetchBookMs)), fetchChapters: \(String(format: "%.1fms", fetchChaptersMs)), reconcile: \(String(format: "%.1fms", reconcileMs)), save: \(String(format: "%.1fms", saveMs)) | buildChapters: \(String(format: "%.1fms", buildChaptersMs)), linkBook: \(String(format: "%.1fms", linkBookMs)), insertContext: \(String(format: "%.1fms", insertContextMs)) | total: \(String(format: "%.1fms", tTotal))"
             )
+        }
+
+        if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+            let context = ModelContext(container)
+            context.autosaveEnabled = false
+
+            let existingBook = try fetchBook(bookId: bookId, in: context)
+
+            if let existing = existingBook {
+                isNewBook = false
+                if let createSnapshot {
+                    applyMetadata(from: createSnapshot, to: existing)
+                }
+                try context.save()
+            } else if let createSnapshot {
+                isNewBook = true
+                let book = Book(
+                    bookId: createSnapshot.bookId,
+                    title: createSnapshot.title,
+                    author: createSnapshot.author,
+                    coverUrl: createSnapshot.coverUrl,
+                    desc: createSnapshot.desc,
+                    detailUrl: createSnapshot.detailUrl,
+                    sourceName: createSnapshot.sourceName,
+                    sourceUrl: createSnapshot.sourceUrl,
+                    extensionPackageId: createSnapshot.extensionPackageId,
+                    currentChapterIndex: createSnapshot.currentChapterIndex,
+                    currentChapterPage: createSnapshot.currentChapterPage,
+                    currentChapterTitle: createSnapshot.currentChapterTitle,
+                    isOnShelf: createSnapshot.isOnShelf,
+                    isHistory: createSnapshot.isHistory,
+                    host: createSnapshot.host
+                )
+                context.insert(book)
+                try context.save()
+            }
+
+            let primaryNewEnabled = ChapterStoreConfiguration.enableChapterStorePrimaryWriteNewBook
+            let primaryExistingEnabled = ChapterStoreConfiguration.enableChapterStorePrimaryWriteExistingBook
+
+            if (isNewBook == true && primaryNewEnabled) || (isNewBook == false && primaryExistingEnabled) {
+                // Ensure coverage for existing book if ChapterStore is empty
+                if isNewBook == false, let existing = existingBook, !existing.chapters.isEmpty {
+                    let (storedCount, _) = (try? await ChapterStore.shared.fetchCountAndChecksum(bookId: bookId)) ?? (0, 0)
+                    if storedCount == 0 {
+                        let snapshots = existing.chapters.map { ch in
+                            StoredChapterSnapshot(
+                                id: ch.id,
+                                bookId: bookId,
+                                title: ch.title,
+                                url: ch.url,
+                                index: ch.index,
+                                host: ch.host,
+                                titleTrans: ch.titleTrans,
+                                isCached: ch.isCached,
+                                offset: ch.offset,
+                                length: ch.length
+                            )
+                        }
+                        let statusInfo = MigrationStatusInfo(bookId: bookId, status: "migrated", schemaVersion: 1, migratedCount: snapshots.count)
+                        do {
+                            try await ChapterStore.shared.importBookMigration(bookId: bookId, snapshots: snapshots, statusInfo: statusInfo)
+                        } catch {
+                            AppLogger.shared.log("❌ [ChapterPersistenceStore PrimaryWrite] Migration error code: 301")
+                            throw error
+                        }
+                    }
+                }
+
+                do {
+                    let result: SaveTOCResult
+                    if mode == .replaceFullTOC {
+                        result = try await ChapterStore.shared.replaceFullTOC(bookId: bookId, chapters: chapters, protectedTTS: protectedTTSChapter)
+                    } else {
+                        result = try await ChapterStore.shared.upsertPage(bookId: bookId, chapters: chapters)
+                    }
+                    status = "success"
+                    return result
+                } catch {
+                    status = "failed"
+                    AppLogger.shared.log("❌ [ChapterStore PrimaryWrite] bookIdHash: \(bookHash), status: failed")
+                    throw error
+                }
+            }
         }
 
         let context = ModelContext(container)
@@ -369,129 +483,48 @@ actor ChapterPersistenceStore {
         } else if let createSnapshot {
             isNewBook = true
             tFetchChapters = 0
+            let tReconcileStart = CFAbsoluteTimeGetCurrent()
 
-            let tNewBookPathStart = CFAbsoluteTimeGetCurrent()
-            let tFetchBookBaseline = tFetchBook
-            let tSaveBaseline = tSave
-
-            let calculateFallbackReconcile = {
-                let elapsedNewPath = CFAbsoluteTimeGetCurrent() - tNewBookPathStart
-                let newPathFetch = max(0, tFetchBook - tFetchBookBaseline)
-                let newPathSave = max(0, tSave - tSaveBaseline)
-                return max(0, elapsedNewPath - newPathFetch - newPathSave)
-            }
-
-            let finalBookId = bookId
-            let stagingBookId = "__toc_staging__" + Chapter.hashUrl(finalBookId)
-
-            // Step 1: Pre-flight cleanup of any stale staging book from prior crashed runs
-            let cleanupContext = ModelContext(container)
-            cleanupContext.autosaveEnabled = false
-
-            let tPreFetchStart = CFAbsoluteTimeGetCurrent()
-            let staleStaging: Book?
-            do {
-                staleStaging = try fetchBook(bookId: stagingBookId, in: cleanupContext)
-                tFetchBook += CFAbsoluteTimeGetCurrent() - tPreFetchStart
-            } catch {
-                tFetchBook += CFAbsoluteTimeGetCurrent() - tPreFetchStart
-                if tReconcile == 0 {
-                    tReconcile = calculateFallbackReconcile()
-                }
-                if error is CancellationError || Task.isCancelled {
-                    status = "cancelled"
-                }
-                throw error
-            }
-
-            if let staleStaging {
-                cleanupContext.delete(staleStaging)
-                let tPreSaveStart = CFAbsoluteTimeGetCurrent()
-                do {
-                    try cleanupContext.save()
-                    tSave += CFAbsoluteTimeGetCurrent() - tPreSaveStart
-                } catch {
-                    tSave += CFAbsoluteTimeGetCurrent() - tPreSaveStart
-                    if tReconcile == 0 {
-                        tReconcile = calculateFallbackReconcile()
-                    }
-                    if error is CancellationError || Task.isCancelled {
-                        status = "cancelled"
-                    }
-                    throw error
-                }
-            }
+            let book = Book(
+                bookId: createSnapshot.bookId,
+                title: createSnapshot.title,
+                author: createSnapshot.author,
+                coverUrl: createSnapshot.coverUrl,
+                desc: createSnapshot.desc,
+                detailUrl: createSnapshot.detailUrl,
+                sourceName: createSnapshot.sourceName,
+                sourceUrl: createSnapshot.sourceUrl,
+                extensionPackageId: createSnapshot.extensionPackageId,
+                currentChapterIndex: createSnapshot.currentChapterIndex,
+                currentChapterPage: createSnapshot.currentChapterPage,
+                currentChapterTitle: createSnapshot.currentChapterTitle,
+                isOnShelf: createSnapshot.isOnShelf,
+                isHistory: createSnapshot.isHistory,
+                host: createSnapshot.host
+            )
 
             do {
-                // Step 2: Create hidden staging book
-                let tInitStart = CFAbsoluteTimeGetCurrent()
-                let initialStagingBook = Book(
-                    bookId: stagingBookId,
-                    title: createSnapshot.title,
-                    author: createSnapshot.author,
-                    coverUrl: createSnapshot.coverUrl,
-                    desc: createSnapshot.desc,
-                    detailUrl: createSnapshot.detailUrl,
-                    sourceName: createSnapshot.sourceName,
-                    sourceUrl: createSnapshot.sourceUrl,
-                    extensionPackageId: createSnapshot.extensionPackageId,
-                    currentChapterIndex: createSnapshot.currentChapterIndex,
-                    currentChapterPage: createSnapshot.currentChapterPage,
-                    currentChapterTitle: createSnapshot.currentChapterTitle,
-                    isOnShelf: false,
-                    isHistory: false,
-                    host: createSnapshot.host
-                )
-                if (initialStagingBook.host == nil || initialStagingBook.host?.isEmpty == true),
+                if (book.host == nil || book.host?.isEmpty == true),
                    let firstHost = chapters.first?.host,
                    !firstHost.isEmpty {
-                    initialStagingBook.host = firstHost
+                    book.host = firstHost
                 }
 
-                let initialContext = ModelContext(container)
-                initialContext.autosaveEnabled = false
-                initialContext.insert(initialStagingBook)
-                tReconcile += CFAbsoluteTimeGetCurrent() - tInitStart
-
-                let tInitialSaveStart = CFAbsoluteTimeGetCurrent()
-                do {
-                    try initialContext.save()
-                    tSave += CFAbsoluteTimeGetCurrent() - tInitialSaveStart
-                } catch {
-                    tSave += CFAbsoluteTimeGetCurrent() - tInitialSaveStart
-                    throw error
-                }
-
-                // Step 3: Batched insertion in fresh ModelContext per batch
+                let tBuildStart = CFAbsoluteTimeGetCurrent()
                 var existingIDs: Set<String> = []
-                var totalInserted = 0
+                var createdChapters: [Chapter] = []
+                createdChapters.reserveCapacity(chapters.count)
 
-                var startIndex = 0
-                let totalChaptersCount = chapters.count
-                while startIndex < totalChaptersCount {
-                    try Task.checkCancellation()
-
-                    let endIndex = min(startIndex + newBookChapterBatchSize, totalChaptersCount)
-                    let chunk = chapters[startIndex..<endIndex]
-
-                    let batchContext = ModelContext(container)
-                    batchContext.autosaveEnabled = false
-
-                    let tBatchFetchStart = CFAbsoluteTimeGetCurrent()
-                    guard let batchStagingBook = try fetchBook(bookId: stagingBookId, in: batchContext) else {
-                        tFetchBook += CFAbsoluteTimeGetCurrent() - tBatchFetchStart
-                        throw ChapterPersistenceError.missingBook(bookId: stagingBookId)
+                do {
+                    defer {
+                        tBuildChapters = CFAbsoluteTimeGetCurrent() - tBuildStart
                     }
-                    tFetchBook += CFAbsoluteTimeGetCurrent() - tBatchFetchStart
-
-                    for item in chunk {
+                    for item in chapters {
                         try Task.checkCancellation()
-
-                        let tBuildStart = CFAbsoluteTimeGetCurrent()
-                        let newId = allocateNewChapterId(bookId: finalBookId, item: item, existingIDs: &existingIDs)
+                        let newId = allocateNewChapterId(bookId: book.bookId, item: item, existingIDs: &existingIDs)
                         let chapter = Chapter(
                             id: newId,
-                            bookId: finalBookId,
+                            bookId: book.bookId,
                             title: item.title,
                             url: item.url,
                             index: item.index,
@@ -500,95 +533,40 @@ actor ChapterPersistenceStore {
                         if let titleTrans = item.titleTrans, !titleTrans.isEmpty {
                             chapter.titleTrans = titleTrans
                         }
-                        let buildElapsed = CFAbsoluteTimeGetCurrent() - tBuildStart
-                        tBuildChapters += buildElapsed
-                        tReconcile += buildElapsed
-
-                        let tLinkStart = CFAbsoluteTimeGetCurrent()
-                        chapter.book = batchStagingBook
-                        let linkElapsed = CFAbsoluteTimeGetCurrent() - tLinkStart
-                        tLinkBook += linkElapsed
-                        tReconcile += linkElapsed
-
-                        let tInsertStart = CFAbsoluteTimeGetCurrent()
-                        batchContext.insert(chapter)
-                        let insertElapsed = CFAbsoluteTimeGetCurrent() - tInsertStart
-                        tInsertContext += insertElapsed
-                        tReconcile += insertElapsed
-
-                        totalInserted += 1
+                        createdChapters.append(chapter)
                     }
-
-                    try Task.checkCancellation()
-                    let tBatchSaveStart = CFAbsoluteTimeGetCurrent()
-                    do {
-                        try batchContext.save()
-                        tSave += CFAbsoluteTimeGetCurrent() - tBatchSaveStart
-                    } catch {
-                        tSave += CFAbsoluteTimeGetCurrent() - tBatchSaveStart
-                        throw error
-                    }
-
-                    startIndex = endIndex
                 }
 
-                // Step 4: Finalize staging Book -> final Book.bookId and restore metadata
+                let tLinkStart = CFAbsoluteTimeGetCurrent()
+                book.chapters = createdChapters
+                tLinkBook = CFAbsoluteTimeGetCurrent() - tLinkStart
+
+                let tInsertStart = CFAbsoluteTimeGetCurrent()
+                context.insert(book)
+                tInsertContext = CFAbsoluteTimeGetCurrent() - tInsertStart
+
                 try Task.checkCancellation()
-                let finalContext = ModelContext(container)
-                finalContext.autosaveEnabled = false
+                tReconcile = CFAbsoluteTimeGetCurrent() - tReconcileStart
 
-                let tFinalFetchStart = CFAbsoluteTimeGetCurrent()
-                guard let finalStagingBook = try fetchBook(bookId: stagingBookId, in: finalContext) else {
-                    tFetchBook += CFAbsoluteTimeGetCurrent() - tFinalFetchStart
-                    throw ChapterPersistenceError.missingBook(bookId: stagingBookId)
-                }
-                tFetchBook += CFAbsoluteTimeGetCurrent() - tFinalFetchStart
-
-                let tFinalizeStart = CFAbsoluteTimeGetCurrent()
-                finalStagingBook.bookId = finalBookId
-                finalStagingBook.isOnShelf = createSnapshot.isOnShelf
-                finalStagingBook.isHistory = createSnapshot.isHistory
-                applyMetadata(from: createSnapshot, to: finalStagingBook)
-                tReconcile += CFAbsoluteTimeGetCurrent() - tFinalizeStart
-
-                let tFinalSaveStart = CFAbsoluteTimeGetCurrent()
+                let tSaveStart = CFAbsoluteTimeGetCurrent()
                 do {
-                    try finalContext.save()
-                    tSave += CFAbsoluteTimeGetCurrent() - tFinalSaveStart
+                    try context.save()
+                    tSave = CFAbsoluteTimeGetCurrent() - tSaveStart
                 } catch {
-                    tSave += CFAbsoluteTimeGetCurrent() - tFinalSaveStart
+                    tSave = CFAbsoluteTimeGetCurrent() - tSaveStart
                     throw error
                 }
 
                 status = "success"
-                return SaveTOCResult(inserted: totalInserted, updated: 0, deleted: 0, totalChapters: totalInserted)
+                return SaveTOCResult(inserted: createdChapters.count, updated: 0, deleted: 0, totalChapters: createdChapters.count)
             } catch {
-                let originalError = error
-                let cleanupContext = ModelContext(container)
-                cleanupContext.autosaveEnabled = false
-
-                let tCleanupFetchStart = CFAbsoluteTimeGetCurrent()
-                if let staleStaging = try? fetchBook(bookId: stagingBookId, in: cleanupContext) {
-                    tFetchBook += CFAbsoluteTimeGetCurrent() - tCleanupFetchStart
-                    cleanupContext.delete(staleStaging)
-                    let tCleanupSaveStart = CFAbsoluteTimeGetCurrent()
-                    if (try? cleanupContext.save()) != nil {
-                        tSave += CFAbsoluteTimeGetCurrent() - tCleanupSaveStart
-                    } else {
-                        tSave += CFAbsoluteTimeGetCurrent() - tCleanupSaveStart
-                    }
-                } else {
-                    tFetchBook += CFAbsoluteTimeGetCurrent() - tCleanupFetchStart
-                }
-
                 if tReconcile == 0 {
-                    tReconcile = calculateFallbackReconcile()
+                    tReconcile = CFAbsoluteTimeGetCurrent() - tReconcileStart
                 }
-
-                if originalError is CancellationError || Task.isCancelled {
+                if error is CancellationError || Task.isCancelled {
                     status = "cancelled"
                 }
-                throw originalError
+                throw error
             }
         } else {
             let tReconcileStart = CFAbsoluteTimeGetCurrent()
@@ -716,6 +694,15 @@ actor ChapterPersistenceStore {
         // Ghi nội dung vào file nhị phân qua BookBinManager
         let (offset, length) = try await BookBinManager.shared.writeChapterContent(bookId: bookId, content: content)
 
+        // Ghi metadata cache vào ChapterStore
+        try await ChapterStore.shared.upsertCachedChapter(
+            bookId: bookId,
+            metadata: metadata,
+            isCached: true,
+            offset: offset,
+            length: length
+        )
+
         let context = ModelContext(container)
         let book: Book
 
@@ -750,62 +737,64 @@ actor ChapterPersistenceStore {
             book.sourceName = snapshot.sourceName
             book.sourceUrl = snapshot.sourceUrl
             book.extensionPackageId = snapshot.extensionPackageId
+        }
 
-            let pool = ReconciliationPool(chapters: book.chapters)
-            var existingIDs = Set(book.chapters.map { $0.id })
+        book.isHistory = true
 
-            for item in snapshot.chapters {
-                if let existing = pool.consume(url: item.url, index: item.index) {
-                    existing.title = item.title
-                    existing.url = item.url
-                    existing.index = item.index
-                    existing.host = item.host
-                } else {
-                    let newId = allocateNewChapterId(bookId: book.bookId, item: item, existingIDs: &existingIDs)
-                    let newChapter = Chapter(
-                        id: newId,
-                        bookId: book.bookId,
-                        title: item.title,
-                        url: item.url,
-                        index: item.index,
-                        host: item.host
-                    )
-                    book.chapters.append(newChapter)
-                    context.insert(newChapter)
+        if ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+            if let snapshot {
+                let pool = ReconciliationPool(chapters: book.chapters)
+                var existingIDs = Set(book.chapters.map { $0.id })
+
+                for item in snapshot.chapters {
+                    if let existing = pool.consume(url: item.url, index: item.index) {
+                        existing.title = item.title
+                        existing.url = item.url
+                        existing.index = item.index
+                        existing.host = item.host
+                    } else {
+                        let newId = allocateNewChapterId(bookId: book.bookId, item: item, existingIDs: &existingIDs)
+                        let newChapter = Chapter(
+                            id: newId,
+                            bookId: book.bookId,
+                            title: item.title,
+                            url: item.url,
+                            index: item.index,
+                            host: item.host
+                        )
+                        book.chapters.append(newChapter)
+                        context.insert(newChapter)
+                    }
                 }
+            }
+
+            if let target = matchingMetadataChapter(in: book.chapters, chapterIndex: metadata.index, url: metadata.url) {
+                target.title = metadata.title
+                target.url = metadata.url
+                target.index = metadata.index
+                target.host = metadata.host
+                target.offset = offset
+                target.length = length
+                target.isCached = true
+            } else {
+                var existingIDs = Set(book.chapters.map { $0.id })
+                let newId = allocateNewChapterId(bookId: book.bookId, item: metadata, existingIDs: &existingIDs)
+                let newChapter = Chapter(
+                    id: newId,
+                    bookId: book.bookId,
+                    title: metadata.title,
+                    url: metadata.url,
+                    index: metadata.index,
+                    isCached: true,
+                    offset: offset,
+                    length: length,
+                    host: metadata.host
+                )
+                book.chapters.append(newChapter)
+                context.insert(newChapter)
             }
         }
 
-        book.isHistory = true
-
-        guard let target = matchingMetadataChapter(in: book.chapters, chapterIndex: metadata.index, url: metadata.url) else {
-            var existingIDs = Set(book.chapters.map { $0.id })
-            let newId = allocateNewChapterId(bookId: book.bookId, item: metadata, existingIDs: &existingIDs)
-            let newChapter = Chapter(
-                id: newId,
-                bookId: book.bookId,
-                title: metadata.title,
-                url: metadata.url,
-                index: metadata.index,
-                isCached: true,
-                offset: offset,
-                length: length,
-                host: metadata.host
-            )
-            book.chapters.append(newChapter)
-            context.insert(newChapter)
-            try context.save()
-            return
-        }
-
-        target.title = metadata.title
-        target.url = metadata.url
-        target.index = metadata.index
-        target.host = metadata.host
-        target.offset = offset
-        target.length = length
-        target.isCached = true
-        book.isHistory = true
         try context.save()
     }
 

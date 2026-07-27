@@ -821,26 +821,43 @@ struct ShelfView: View {
                     )
                     self.modelContext.insert(newBook)
 
-                    // Thực hiện chèn từng chương vào database
+                    // Thực hiện chèn từng chương vào database / ChapterStore
                     Task {
                         do {
+                            let snapshots = parsed.chapters.enumerated().map { idx, chapData in
+                                let url = "local://\(newBookId)/chapter/\(idx)"
+                                return ChapterMetadataSnapshot(title: chapData.title, url: url, index: idx)
+                            }
+                            _ = try await ChapterStore.shared.replaceFullTOC(bookId: newBookId, chapters: snapshots, protectedTTS: nil)
+
                             for (idx, chapData) in parsed.chapters.enumerated() {
                                 let url = "local://\(newBookId)/chapter/\(idx)"
-                                let chapId = Chapter.hashUrl(url)
                                 let (offset, length) = try await BookBinManager.shared.writeChapterContent(bookId: newBookId, content: chapData.content)
 
-                                let newChap = Chapter(
-                                    id: chapId,
+                                let meta = ChapterMetadataSnapshot(title: chapData.title, url: url, index: idx)
+                                try await ChapterStore.shared.upsertCachedChapter(
                                     bookId: newBookId,
-                                    title: chapData.title,
-                                    url: url,
-                                    index: idx,
+                                    metadata: meta,
                                     isCached: true,
                                     offset: offset,
                                     length: length
                                 )
-                                newChap.book = newBook
-                                self.modelContext.insert(newChap)
+
+                                if ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+                                    let chapId = Chapter.hashUrl(url)
+                                    let newChap = Chapter(
+                                        id: chapId,
+                                        bookId: newBookId,
+                                        title: chapData.title,
+                                        url: url,
+                                        index: idx,
+                                        isCached: true,
+                                        offset: offset,
+                                        length: length
+                                    )
+                                    newChap.book = newBook
+                                    self.modelContext.insert(newChap)
+                                }
 
                                 // Cập nhật tiến độ sau mỗi 50 chương và nhường thread (sleep 1ms) để tránh treo/khựng UI
                                 if idx % 50 == 0 || idx == totalChapters - 1 {
@@ -861,8 +878,8 @@ struct ShelfView: View {
                             self.selectedTab = 1 // Chuyển sang Tab Kệ Sách để thấy truyện vừa nhập
                         } catch {
                             self.isImporting = false
-                            AppLogger.shared.log("❌ Lỗi khi lưu vào database: \(error.localizedDescription)")
-                            ToastManager.shared.show(message: "Lỗi khi lưu dữ liệu: \(error.localizedDescription)")
+                            AppLogger.shared.log("❌ Lỗi khi lưu dữ liệu nhập TXT")
+                            ToastManager.shared.show(message: "Lỗi khi lưu dữ liệu TXT")
                         }
                     }
                 }

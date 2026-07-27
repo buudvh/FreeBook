@@ -36,6 +36,7 @@ targets:
         product: libespeak-ng
       - package: espeak-ng-spm
         product: espeak-ng-data
+      - sdk: SQLite3.tbd
     info:
       path: Sources/Info.plist
       properties:

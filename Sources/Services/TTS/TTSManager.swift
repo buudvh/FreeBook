@@ -28,7 +28,13 @@ private actor TTSChapterQueueMetadataWorker {
         self.container = container
     }
 
-    func fetchLocalQueue(bookId: String) -> [TTSChapterInfo] {
+    func fetchLocalQueue(bookId: String) async -> [TTSChapterInfo] {
+        if let storeChaps = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId), !storeChaps.isEmpty {
+            return storeChaps.map {
+                TTSChapterInfo(title: $0.title, url: $0.url, index: $0.index, host: $0.host)
+            }
+        }
+
         let context = ModelContext(container)
         let localBookId = bookId
         var descriptor = FetchDescriptor<Chapter>(
@@ -42,7 +48,7 @@ private actor TTSChapterQueueMetadataWorker {
                 TTSChapterInfo(title: $0.title, url: $0.url, index: $0.index, host: $0.host)
             }
         } catch {
-            AppLogger.shared.log("❌ [TTSChapterQueueMetadataWorker] Không fetch được metadata TTS queue: \(error.localizedDescription)")
+            AppLogger.shared.log("❌ [TTSChapterQueueMetadataWorker] Lỗi fetch metadata queue")
             return []
         }
     }

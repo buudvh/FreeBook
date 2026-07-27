@@ -33,6 +33,7 @@ struct FreeBookApp: App {
 }
 
 struct AppLaunchRootView: View {
+    @Environment(\.modelContext) private var modelContext
     @ObservedObject private var translationManager = TranslationManager.shared
     @ObservedObject private var ttsManager = TTSManager.shared
 
@@ -60,6 +61,8 @@ struct AppLaunchRootView: View {
         }
         .onAppear {
             BookStorageManager.shared.drainRetryQueue()
+            BookStorageManager.shared.retryFailedChapterStoreDeletions()
+            ChapterMigrationWorker.shared.startMigrationIfNecessary(container: modelContext.container)
         }
     }
 }

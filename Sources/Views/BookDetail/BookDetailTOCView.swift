@@ -8,6 +8,7 @@ struct BookDetailTOCView: View {
     let isLoadingTOC: Bool
     let localBook: Book?
     let filteredLocalChapters: [Chapter]
+    let chapterSnapshots: [StoredChapterSnapshot]
     let filteredOnlineChapters: [(offset: Int, element: ChapterResult)]
     let tocPages: [String]
     let remainingPagesLoaded: Bool
@@ -45,6 +46,15 @@ struct BookDetailTOCView: View {
         .padding(.horizontal)
         .padding(.vertical, 8)
         .background(Color(.systemBackground))
+    }
+
+    private var filteredChapterSnapshots: [StoredChapterSnapshot] {
+        let sorted = chapterSnapshots.sorted(by: { isTocAscending ? ($0.index < $1.index) : ($0.index > $1.index) })
+        let query = chapterSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return sorted }
+        return sorted.filter { chap in
+            chap.title.localizedStandardContains(query) || (chap.titleTrans != nil && chap.titleTrans!.localizedStandardContains(query))
+        }
     }
 
     private var tocListView: some View {
@@ -109,7 +119,30 @@ struct BookDetailTOCView: View {
                     }
                 } else {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        if let book = localBook {
+                        if !chapterSnapshots.isEmpty {
+                            ForEach(filteredChapterSnapshots, id: \.id) { chap in
+                                Button(action: {
+                                    onStartReading(chap.index)
+                                }) {
+                                    HStack {
+                                        Text(onTranslateTitleIfNeeded(chap.titleTrans ?? chap.title))
+                                            .foregroundColor((localBook?.currentChapterIndex ?? 0) == chap.index ? .accentColor : .primary)
+                                            .font(.subheadline)
+                                            .lineLimit(1)
+                                        Spacer()
+                                        if chap.isCached {
+                                            Image(systemName: "arrow.down.circle.fill")
+                                                .font(.caption)
+                                                .foregroundColor(.green)
+                                        }
+                                    }
+                                    .padding(.vertical, 12)
+                                    .padding(.horizontal)
+                                    Divider()
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        } else if let book = localBook {
                             ForEach(filteredLocalChapters) { chap in
                                 Button(action: {
                                     onStartReading(chap.index)

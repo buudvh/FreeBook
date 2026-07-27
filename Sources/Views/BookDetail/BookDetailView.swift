@@ -48,6 +48,7 @@ struct BookDetailView: View {
     @State private var onlineChapters: [ChapterResult] = []
     @State private var chaptersList: [Chapter] = []
     @State private var filteredLocalChapters: [Chapter] = []
+    @State private var chapterSnapshots: [StoredChapterSnapshot] = []
     @State private var filteredOnlineChapters: [(offset: Int, element: ChapterResult)] = []
     @State private var host = ""
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
@@ -502,11 +503,22 @@ struct BookDetailView: View {
         }
     }
 
+    private func loadLocalChapterSnapshots() {
+        let bId = actualBookId
+        Task {
+            if let storeChaps = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bId), !storeChaps.isEmpty {
+                await MainActor.run {
+                    self.chapterSnapshots = storeChaps
+                }
+            }
+        }
+    }
+
     @ViewBuilder
     private var tocTab: some View {
         VStack(spacing: 0) {
             if renderedTab == 1 {
-                let totalChaps = localBook?.chapters.count ?? onlineChapters.count
+                let totalChaps = chapterSnapshots.count > 0 ? chapterSnapshots.count : (localBook?.chapters.count ?? onlineChapters.count)
 
                 BookDetailTOCView(
                     chapterSearchQuery: $chapterSearchQuery,
@@ -516,6 +528,7 @@ struct BookDetailView: View {
                     isLoadingTOC: isLoadingTOC,
                     localBook: localBook,
                     filteredLocalChapters: filteredLocalChapters,
+                    chapterSnapshots: chapterSnapshots,
                     filteredOnlineChapters: filteredOnlineChapters,
                     tocPages: tocPages,
                     remainingPagesLoaded: remainingPagesLoaded,
@@ -528,6 +541,9 @@ struct BookDetailView: View {
             } else {
                 Spacer()
             }
+        }
+        .onAppear {
+            loadLocalChapterSnapshots()
         }
         .refreshable {
             await reloadBookData()
@@ -894,6 +910,7 @@ struct BookDetailView: View {
                         protectedTTSChapter: ttsProtection
                     )
                     await MainActor.run {
+                        self.refreshLocalTOCSnapshots()
                         if let savedBook = self.refetchBook(bookId: targetBookId) {
                             self.chaptersList = savedBook.chapters
                         } else {
@@ -992,8 +1009,45 @@ struct BookDetailView: View {
     }
 
     private func scheduleBackgroundTitleTranslationIfNeeded(for targetBook: Book? = nil) {
-        guard isTranslationEnabled, let book = targetBook ?? localBook else { return }
+        guard isTranslationEnabled else { return }
         let targetBookId = actualBookId
+
+        if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+            Task {
+                guard let storeChaps = try? await ChapterStore.shared.fetchOrderedTOC(bookId: targetBookId), !storeChaps.isEmpty else { return }
+                let toTranslate = storeChaps.filter { ($0.titleTrans == nil || $0.titleTrans?.isEmpty == true) && TranslateUtils.containsChinese($0.title) }
+                guard !toTranslate.isEmpty else { return }
+
+                struct Item: Sendable {
+                    let index: Int
+                    let url: String
+                    let title: String
+                }
+                let items = toTranslate.map { Item(index: $0.index, url: $0.url, title: $0.title) }
+
+                let updates: [(index: Int, url: String, titleTrans: String)] = await Task.detached(priority: .utility) {
+                    var list: [(index: Int, url: String, titleTrans: String)] = []
+                    for item in items {
+                        if Task.isCancelled { break }
+                        let trans = TranslateUtils.translateChapterTitle(item.title, bookId: targetBookId)
+                        list.append((index: item.index, url: item.url, titleTrans: trans))
+                    }
+                    return list
+                }.value
+
+                if !updates.isEmpty {
+                    try? await ChapterStore.shared.updateTitleTranslations(bookId: targetBookId, updates: updates)
+                    if let refreshed = try? await ChapterStore.shared.fetchOrderedTOC(bookId: targetBookId), !refreshed.isEmpty {
+                        await MainActor.run {
+                            self.chapterSnapshots = refreshed
+                        }
+                    }
+                }
+            }
+            return
+        }
+
+        guard let book = targetBook ?? localBook else { return }
         let chaptersToTranslate = book.chapters.filter { chap in
             (chap.titleTrans == nil || chap.titleTrans?.isEmpty == true) && TranslateUtils.containsChinese(chap.title)
         }
@@ -1376,6 +1430,7 @@ struct BookDetailView: View {
     }
 
     private func syncChaptersList() {
+        refreshLocalTOCSnapshots()
         if let book = localBook {
             chaptersList = book.chapters
         } else {

@@ -127,6 +127,7 @@ class ReaderViewModel: ObservableObject {
     private var cachedExt: Extension? = nil
     var onChapterCached: ((Int) -> Void)?
     public func fetchChapter(at index: Int) -> Chapter? {
+        guard ChapterStoreConfiguration.enableSwiftDataTOCWrite else { return nil }
         let localBookId = bookId
         let localIndex = index
         var descriptor = FetchDescriptor<Chapter>(
@@ -136,7 +137,32 @@ class ReaderViewModel: ObservableObject {
         return (try? modelContext.fetch(descriptor))?.first
     }
 
-    public func fetchChaptersMetadata() -> [TTSChapterInfo] {
+    func chapterTitle(at index: Int) -> String {
+        if let cached = cache.cache[index], !cached.title.isEmpty {
+            return cached.title
+        }
+        if ChapterStoreConfiguration.enableSwiftDataTOCWrite, localBook != nil {
+            if let chap = fetchChapter(at: index) { return chap.title }
+        } else if onlineChapters.indices.contains(index) {
+            return onlineChapters[index].name
+        }
+        return "Chương \(index + 1)"
+    }
+
+    public func fetchChapterSnapshot(at index: Int) async -> StoredChapterSnapshot? {
+        if let storeChap = try? await ChapterStore.shared.fetchChapter(bookId: bookId, index: index, url: "") {
+            return storeChap
+        }
+        if let chap = fetchChapter(at: index) {
+            return StoredChapterSnapshot(id: chap.id, bookId: chap.bookId, title: chap.title, url: chap.url, index: chap.index, host: chap.host, titleTrans: chap.titleTrans, isCached: chap.isCached, offset: chap.offset, length: chap.length)
+        }
+        return nil
+    }
+
+    public func fetchChaptersMetadata() async -> [TTSChapterInfo] {
+        if let storeChaps = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId), !storeChaps.isEmpty {
+            return storeChaps.map { TTSChapterInfo(title: $0.title, url: $0.url, index: $0.index, host: $0.host) }
+        }
         let localBookId = bookId
         var descriptor = FetchDescriptor<Chapter>(
             predicate: #Predicate<Chapter> { $0.bookId == localBookId }
@@ -609,16 +635,6 @@ class ReaderViewModel: ObservableObject {
         )
     }
 
-    func chapterTitle(at index: Int) -> String {
-        if localBook != nil {
-            if let chap = fetchChapter(at: index) { return chap.title }
-        } else if onlineChapters.indices.contains(index) {
-            return onlineChapters[index].name
-        }
-        return "Chương \(index + 1)"
-    }
-
-
     private func handleMemoryWarning() {
         let keepSet = Set([displayedChapterIndex, pendingNavigationIndex].compactMap { $0 })
         cache.releaseAllNonVisible(keepIndexes: keepSet)
@@ -726,7 +742,7 @@ class ReaderViewModel: ObservableObject {
         let bookMetadata: BookMetadataSnapshot?
 
         if localBook != nil {
-            guard let chap = fetchChapter(at: index) else {
+            guard let chap = await fetchChapterSnapshot(at: index) else {
                 throw ReaderLoadError.missingChapterSnapshot(index)
             }
             title = chap.title

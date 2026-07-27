@@ -364,8 +364,27 @@ public final class DownloadManager: ObservableObject {
                 throw NSError(domain: "DownloadManager", code: -2, userInfo: [NSLocalizedDescriptionKey: "Không tìm thấy tiện ích bóc tách cho truyện này."])
             }
 
-            // 3. Prepare chapters to process
-            let sortedChapters = bgBook.chapters.sorted(by: { $0.index < $1.index })
+            // 3. Prepare chapters to process via ChapterStore or SwiftData
+            let sortedChapters: [StoredChapterSnapshot]
+            if let storeChaps = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bgBook.bookId), !storeChaps.isEmpty {
+                sortedChapters = storeChaps
+            } else {
+                sortedChapters = bgBook.chapters.sorted(by: { $0.index < $1.index }).map { ch in
+                    StoredChapterSnapshot(
+                        id: ch.id,
+                        bookId: ch.bookId,
+                        title: ch.title,
+                        url: ch.url,
+                        index: ch.index,
+                        host: ch.host,
+                        titleTrans: ch.titleTrans,
+                        isCached: ch.isCached,
+                        offset: ch.offset,
+                        length: ch.length
+                    )
+                }
+            }
+
             let startIdx = task.startFromCurrent ? bgBook.currentChapterIndex : 0
 
             guard startIdx < sortedChapters.count else {
@@ -429,14 +448,24 @@ public final class DownloadManager: ObservableObject {
                     )
                     let cleaned = content.cleanHTML()
 
-                    // Ghi DB an toàn bằng cách fetch lại fresh object trên thread hiện tại của Context
-                    let allChaps = (try? bgContext.fetch(FetchDescriptor<Chapter>())) ?? []
-                    if let freshChapter = allChaps.first(where: { $0.id == targetChapterId }) {
-                        if let (offset, length) = try? await BookBinManager.shared.writeChapterContent(bookId: bgBook.bookId, content: cleaned) {
-                            freshChapter.offset = offset
-                            freshChapter.length = length
-                            freshChapter.isCached = true
-                            try? bgContext.save()
+                    if let (offset, length) = try? await BookBinManager.shared.writeChapterContent(bookId: bgBook.bookId, content: cleaned) {
+                        let meta = ChapterMetadataSnapshot(title: chapter.title, url: targetChapterUrl, index: chapter.index, host: chapter.host, titleTrans: chapter.titleTrans)
+                        try? await ChapterStore.shared.upsertCachedChapter(
+                            bookId: bgBook.bookId,
+                            metadata: meta,
+                            isCached: true,
+                            offset: offset,
+                            length: length
+                        )
+
+                        if ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+                            let allChaps = (try? bgContext.fetch(FetchDescriptor<Chapter>())) ?? []
+                            if let freshChapter = allChaps.first(where: { $0.id == targetChapterId }) {
+                                freshChapter.offset = offset
+                                freshChapter.length = length
+                                freshChapter.isCached = true
+                                try? bgContext.save()
+                            }
                         }
                     }
                     originalContent = cleaned

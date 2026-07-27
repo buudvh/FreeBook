@@ -2,6 +2,32 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.51] - 2026-07-27
+
+### Chuyển đổi Mục Lục sang SQLite Native (`ChapterStore`)
+* **Kiến trúc CSDL Độc lập (`ChapterStoreDatabase`)**:
+  * Tách toàn bộ lưu trữ và đọc metadata mục lục (TOC) từ SwiftData `Chapter` sang cơ sở dữ liệu SQLite3 riêng biệt tại `Library/Application Support/chapters/chapter_store.sqlite` (đảm bảo tên thư mục `chapters` viết thường).
+  * Cấu hình chế độ WAL (`PRAGMA journal_mode=WAL;`) và `PRAGMA synchronous=NORMAL;` kết hợp bảo vệ đĩa iOS `.completeUntilFirstUserAuthentication` áp dụng cho tệp CSDL chính, `-wal`, `-shm` và thư mục `chapters`, hỗ trợ đọc phát âm thanh TTS khi thiết bị khóa màn hình.
+  * Thiết kế bảng `chapter_metadata` (schema v1) lưu trữ thông tin chỉ mục, URL, tiêu đề gốc, tiêu đề dịch (`title_trans`), trạng thái cache (`is_cached`, `offset`, `length`), thời gian cập nhật cùng các chỉ mục tối ưu `idx_chapter_book_index` và `idx_chapter_book_url`.
+* **Xử lý Đơn Giao dịch Không Chia Đợt (`ChapterStoreActor`)**:
+  * `ChapterStoreActor` quản lý toàn bộ các thao tác đọc/ghi bất đồng bộ, sử dụng Prepared Statements chuẩn bị sẵn cho C-API SQLite.
+  * Các phương thức `replaceFullTOC` và `upsertPage` thực thi nguyên khối trong 1 giao dịch `BEGIN IMMEDIATE ... COMMIT` duy nhất (không chia đợt Batch Splitting) nhằm đảm bảo tính toàn vẹn dữ liệu mục lục.
+  * Bảo tồn dữ liệu vị trí cache nhị phân (`offset`, `length`), tiêu đề dịch và thông tin chương đang phát TTS (`protectedTTS`).
+* **Đồng bộ Luồng Migration & Retry Queue**:
+  * `ChapterMigrationWorker` xử lý di chuyển mục lục từ SwiftData sang SQLite3 nguyên khối theo từng cuốn sách, tự động dọn dẹp bản ghi thừa (stale rows) và ghi nhận trạng thái vào `migration_status`.
+  * Khôi phục và duy trì cơ chế hàng chờ thử lại xóa tệp nhị phân (`BookStorageManager.drainRetryQueue()`) khi người dùng xóa sách.
+* **Tích hợp Các Phân hệ Consumer & Tắt Ghi SwiftData**:
+  * Chuyển toàn bộ luồng đọc/hiển thị/dịch tiêu đề/đếm chương tại `BookDetailView`, `BookDetailTOCView`, `ReaderViewModel`, `ReaderChapterListView`, `ReaderView`, `DownloadManager`, `TTSManager`, và `ShelfView` sang sử dụng `ChapterStore` (DTO `StoredChapterSnapshot`).
+  * Vô hiệu hóa ghi SwiftData Chapter (`enableSwiftDataTOCWrite = false`) để tránh ghi trùng lặp dữ liệu vào SwiftData Store.
+  * Thêm liên kết thư viện hệ thống `SQLite3.tbd` trong `project.yml`.
+* **Ghi Log An toàn Quyền Riêng tư & Kiểm chứng**:
+  * Định dạng log `[ChapterStore Save]` ghi nhận các trường thời gian thực thi (ms), số lượng chương, trạng thái kết quả và đối chiếu tính toàn vẹn (parity), không ghi mã hash bookId hay checksum trong dòng log save.
+  * Thuật toán checksum FNV-1a xác định được tích hợp trong `computeDeterministicChecksum` / `fetchCountAndChecksum` phục vụ kiểm tra tính toàn vẹn dữ liệu.
+  * Mã hash sách rút gọn 8 ký tự `Chapter.hashUrl(bookId).prefix(8)` được sử dụng trong log xóa (`ChapterStore Delete`), đảm bảo không ghi lộ tiêu đề chương, đường dẫn CSDL raw, hay `bookId` gốc.
+  * Lưu ý kiểm chứng: Đã hoàn thành kiểm chứng tĩnh trên Windows (`git diff --check`, `swiftc -frontend -parse`). Runtime iPhone và CI IPA build phụ thuộc vào GitHub Actions workflows.
+
+---
+
 ## [1.3.50] - 2026-07-27
 
 ### Tối ưu hóa Database Mục Lục (TOC Database Optimization)
