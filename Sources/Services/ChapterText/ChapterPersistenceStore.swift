@@ -225,15 +225,62 @@ actor ChapterPersistenceStore {
         mode: TOCReconciliationMode,
         protectedTTSChapter: ProtectedTTSChapter? = nil
     ) throws -> SaveTOCResult {
-        let context = ModelContext(container)
-        let book: Book
+        let t0 = CFAbsoluteTimeGetCurrent()
+        var tFetchBook: CFAbsoluteTime = 0
+        var tFetchChapters: CFAbsoluteTime = 0
+        var tReconcile: CFAbsoluteTime = 0
+        var tSave: CFAbsoluteTime = 0
 
-        if let existing = try fetchBook(bookId: bookId, in: context) {
+        var isNewBook: Bool? = nil
+        let bookHash = String(Chapter.hashUrl(bookId).prefix(8))
+        var status = "failed"
+
+        defer {
+            let tTotal = (CFAbsoluteTimeGetCurrent() - t0) * 1000.0
+            let fetchBookMs = tFetchBook * 1000.0
+            let fetchChaptersMs = tFetchChapters * 1000.0
+            let reconcileMs = tReconcile * 1000.0
+            let saveMs = tSave * 1000.0
+            let isNewBookStr = isNewBook.map { String($0) } ?? "unknown"
+
+            AppLogger.shared.log(
+                "[TOC Performance] bookHash: \(bookHash), mode: \(mode), items: \(chapters.count), isNewBook: \(isNewBookStr), status: \(status) | fetchBook: \(String(format: "%.1fms", fetchBookMs)), fetchChapters: \(String(format: "%.1fms", fetchChaptersMs)), reconcile: \(String(format: "%.1fms", reconcileMs)), save: \(String(format: "%.1fms", saveMs)) | total: \(String(format: "%.1fms", tTotal))"
+            )
+        }
+
+        let context = ModelContext(container)
+        let tBookStart = CFAbsoluteTimeGetCurrent()
+        let fetchedBook: Book?
+        do {
+            fetchedBook = try fetchBook(bookId: bookId, in: context)
+            tFetchBook = CFAbsoluteTimeGetCurrent() - tBookStart
+        } catch {
+            tFetchBook = CFAbsoluteTimeGetCurrent() - tBookStart
+            if error is CancellationError || Task.isCancelled {
+                status = "cancelled"
+            }
+            throw error
+        }
+
+        let book: Book
+        let currentChapters: [Chapter]
+        let tReconcileStart: CFAbsoluteTime
+
+        if let existing = fetchedBook {
+            isNewBook = false
             book = existing
+
+            let tChapStart = CFAbsoluteTimeGetCurrent()
+            currentChapters = book.chapters
+            tFetchChapters = CFAbsoluteTimeGetCurrent() - tChapStart
+
+            tReconcileStart = CFAbsoluteTimeGetCurrent()
             if let createSnapshot {
                 applyMetadata(from: createSnapshot, to: book)
             }
         } else if let createSnapshot {
+            isNewBook = true
+            tReconcileStart = CFAbsoluteTimeGetCurrent()
             book = Book(
                 bookId: createSnapshot.bookId,
                 title: createSnapshot.title,
@@ -252,72 +299,97 @@ actor ChapterPersistenceStore {
                 host: createSnapshot.host
             )
             context.insert(book)
+            currentChapters = []
+            tFetchChapters = 0
         } else {
+            tReconcileStart = CFAbsoluteTimeGetCurrent()
+            tFetchChapters = 0
+            tReconcile = CFAbsoluteTimeGetCurrent() - tReconcileStart
             throw ChapterPersistenceError.missingBook(bookId: bookId)
         }
 
-        if (book.host == nil || book.host?.isEmpty == true),
-           let firstHost = chapters.first?.host,
-           !firstHost.isEmpty {
-            book.host = firstHost
-        }
-
-        let pool = ReconciliationPool(chapters: book.chapters)
-        var existingIDs = Set(book.chapters.map { $0.id })
-        var inserted = 0
-        var updated = 0
-
-        for item in chapters {
-            try Task.checkCancellation()
-            if let existing = pool.consume(url: item.url, index: item.index) {
-                existing.title = item.title
-                existing.url = item.url
-                existing.index = item.index
-                existing.host = item.host
-                if let titleTrans = item.titleTrans, !titleTrans.isEmpty {
-                    existing.titleTrans = titleTrans
-                }
-                updated += 1
-            } else {
-                let newId = allocateNewChapterId(bookId: book.bookId, item: item, existingIDs: &existingIDs)
-                let chapter = Chapter(
-                    id: newId,
-                    bookId: book.bookId,
-                    title: item.title,
-                    url: item.url,
-                    index: item.index,
-                    host: item.host
-                )
-                if let titleTrans = item.titleTrans, !titleTrans.isEmpty {
-                    chapter.titleTrans = titleTrans
-                }
-                book.chapters.append(chapter)
-                context.insert(chapter)
-                inserted += 1
+        do {
+            if (book.host == nil || book.host?.isEmpty == true),
+               let firstHost = chapters.first?.host,
+               !firstHost.isEmpty {
+                book.host = firstHost
             }
-        }
 
-        var deleted = 0
-        if mode == .replaceFullTOC {
-            for stale in pool.remaining() {
+            let pool = ReconciliationPool(chapters: currentChapters)
+            var existingIDs = Set(currentChapters.map { $0.id })
+            var inserted = 0
+            var updated = 0
+
+            for item in chapters {
                 try Task.checkCancellation()
-                let isPlayingChapter = protectedTTSChapter != nil
-                    && protectedTTSChapter?.bookId == book.bookId
-                    && protectedTTSChapter?.index == stale.index
-                    && (stale.url.isEmpty || protectedTTSChapter?.url == stale.url)
-                if !isPlayingChapter {
-                    book.chapters.removeAll(where: { $0 === stale })
-                    context.delete(stale)
-                    deleted += 1
+                if let existing = pool.consume(url: item.url, index: item.index) {
+                    existing.title = item.title
+                    existing.url = item.url
+                    existing.index = item.index
+                    existing.host = item.host
+                    if let titleTrans = item.titleTrans, !titleTrans.isEmpty {
+                        existing.titleTrans = titleTrans
+                    }
+                    updated += 1
+                } else {
+                    let newId = allocateNewChapterId(bookId: book.bookId, item: item, existingIDs: &existingIDs)
+                    let chapter = Chapter(
+                        id: newId,
+                        bookId: book.bookId,
+                        title: item.title,
+                        url: item.url,
+                        index: item.index,
+                        host: item.host
+                    )
+                    if let titleTrans = item.titleTrans, !titleTrans.isEmpty {
+                        chapter.titleTrans = titleTrans
+                    }
+                    book.chapters.append(chapter)
+                    context.insert(chapter)
+                    inserted += 1
                 }
             }
+
+            var deleted = 0
+            if mode == .replaceFullTOC {
+                for stale in pool.remaining() {
+                    try Task.checkCancellation()
+                    let isPlayingChapter = protectedTTSChapter != nil
+                        && protectedTTSChapter?.bookId == book.bookId
+                        && protectedTTSChapter?.index == stale.index
+                        && (stale.url.isEmpty || protectedTTSChapter?.url == stale.url)
+                    if !isPlayingChapter {
+                        book.chapters.removeAll(where: { $0 === stale })
+                        context.delete(stale)
+                        deleted += 1
+                    }
+                }
+            }
+
+            try Task.checkCancellation()
+            tReconcile = CFAbsoluteTimeGetCurrent() - tReconcileStart
+
+            let tSaveStart = CFAbsoluteTimeGetCurrent()
+            do {
+                try context.save()
+                tSave = CFAbsoluteTimeGetCurrent() - tSaveStart
+            } catch {
+                tSave = CFAbsoluteTimeGetCurrent() - tSaveStart
+                throw error
+            }
+
+            status = "success"
+            let totalChapters = book.chapters.count
+            return SaveTOCResult(inserted: inserted, updated: updated, deleted: deleted, totalChapters: totalChapters)
+        } catch {
+            if tReconcile == 0 {
+                tReconcile = CFAbsoluteTimeGetCurrent() - tReconcileStart
+            }
+            if error is CancellationError || Task.isCancelled {
+                status = "cancelled"
+            }
+            throw error
         }
-
-        try Task.checkCancellation()
-        try context.save()
-
-        let totalChapters = book.chapters.count
-        return SaveTOCResult(inserted: inserted, updated: updated, deleted: deleted, totalChapters: totalChapters)
     }
 
     private func applyMetadata(from snapshot: TOCBookCreateSnapshot, to book: Book) {
