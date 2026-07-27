@@ -230,6 +230,9 @@ actor ChapterPersistenceStore {
         var tFetchChapters: CFAbsoluteTime = 0
         var tReconcile: CFAbsoluteTime = 0
         var tSave: CFAbsoluteTime = 0
+        var tBuildChapters: CFAbsoluteTime = 0
+        var tLinkBook: CFAbsoluteTime = 0
+        var tInsertContext: CFAbsoluteTime = 0
 
         var isNewBook: Bool? = nil
         let bookHash = String(Chapter.hashUrl(bookId).prefix(8))
@@ -241,10 +244,13 @@ actor ChapterPersistenceStore {
             let fetchChaptersMs = tFetchChapters * 1000.0
             let reconcileMs = tReconcile * 1000.0
             let saveMs = tSave * 1000.0
+            let buildChaptersMs = tBuildChapters * 1000.0
+            let linkBookMs = tLinkBook * 1000.0
+            let insertContextMs = tInsertContext * 1000.0
             let isNewBookStr = isNewBook.map { String($0) } ?? "unknown"
 
             AppLogger.shared.log(
-                "[TOC Performance] bookHash: \(bookHash), mode: \(mode), items: \(chapters.count), isNewBook: \(isNewBookStr), status: \(status) | fetchBook: \(String(format: "%.1fms", fetchBookMs)), fetchChapters: \(String(format: "%.1fms", fetchChaptersMs)), reconcile: \(String(format: "%.1fms", reconcileMs)), save: \(String(format: "%.1fms", saveMs)) | total: \(String(format: "%.1fms", tTotal))"
+                "[TOC Performance] bookHash: \(bookHash), mode: \(mode), items: \(chapters.count), isNewBook: \(isNewBookStr), status: \(status) | fetchBook: \(String(format: "%.1fms", fetchBookMs)), fetchChapters: \(String(format: "%.1fms", fetchChaptersMs)), reconcile: \(String(format: "%.1fms", reconcileMs)), save: \(String(format: "%.1fms", saveMs)) | buildChapters: \(String(format: "%.1fms", buildChaptersMs)), linkBook: \(String(format: "%.1fms", linkBookMs)), insertContext: \(String(format: "%.1fms", insertContextMs)) | total: \(String(format: "%.1fms", tTotal))"
             )
         }
 
@@ -395,6 +401,7 @@ actor ChapterPersistenceStore {
 
                 for item in chapters {
                     try Task.checkCancellation()
+                    let tBuildStart = CFAbsoluteTimeGetCurrent()
                     let newId = allocateNewChapterId(bookId: book.bookId, item: item, existingIDs: &existingIDs)
                     let chapter = Chapter(
                         id: newId,
@@ -407,8 +414,16 @@ actor ChapterPersistenceStore {
                     if let titleTrans = item.titleTrans, !titleTrans.isEmpty {
                         chapter.titleTrans = titleTrans
                     }
+                    tBuildChapters += CFAbsoluteTimeGetCurrent() - tBuildStart
+
+                    let tLinkStart = CFAbsoluteTimeGetCurrent()
                     chapter.book = book
+                    tLinkBook += CFAbsoluteTimeGetCurrent() - tLinkStart
+
+                    let tInsertStart = CFAbsoluteTimeGetCurrent()
                     context.insert(chapter)
+                    tInsertContext += CFAbsoluteTimeGetCurrent() - tInsertStart
+
                     inserted += 1
                 }
 
