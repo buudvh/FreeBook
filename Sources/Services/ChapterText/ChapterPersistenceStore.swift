@@ -105,6 +105,7 @@ actor ChapterPersistenceStore {
     }
 
     private let container: ModelContainer
+    private let newBookChapterBatchSize = 500
     private var pendingWrites: [String: PendingWrite] = [:]
 
     init(container: ModelContainer) {
@@ -368,48 +369,129 @@ actor ChapterPersistenceStore {
         } else if let createSnapshot {
             isNewBook = true
             tFetchChapters = 0
-            let tReconcileStart = CFAbsoluteTimeGetCurrent()
 
-            let book = Book(
-                bookId: createSnapshot.bookId,
-                title: createSnapshot.title,
-                author: createSnapshot.author,
-                coverUrl: createSnapshot.coverUrl,
-                desc: createSnapshot.desc,
-                detailUrl: createSnapshot.detailUrl,
-                sourceName: createSnapshot.sourceName,
-                sourceUrl: createSnapshot.sourceUrl,
-                extensionPackageId: createSnapshot.extensionPackageId,
-                currentChapterIndex: createSnapshot.currentChapterIndex,
-                currentChapterPage: createSnapshot.currentChapterPage,
-                currentChapterTitle: createSnapshot.currentChapterTitle,
-                isOnShelf: createSnapshot.isOnShelf,
-                isHistory: createSnapshot.isHistory,
-                host: createSnapshot.host
-            )
+            let tNewBookPathStart = CFAbsoluteTimeGetCurrent()
+            let tFetchBookBaseline = tFetchBook
+            let tSaveBaseline = tSave
+
+            let calculateFallbackReconcile = {
+                let elapsedNewPath = CFAbsoluteTimeGetCurrent() - tNewBookPathStart
+                let newPathFetch = max(0, tFetchBook - tFetchBookBaseline)
+                let newPathSave = max(0, tSave - tSaveBaseline)
+                return max(0, elapsedNewPath - newPathFetch - newPathSave)
+            }
+
+            let finalBookId = bookId
+            let stagingBookId = "__toc_staging__" + Chapter.hashUrl(finalBookId)
+
+            // Step 1: Pre-flight cleanup of any stale staging book from prior crashed runs
+            let cleanupContext = ModelContext(container)
+            cleanupContext.autosaveEnabled = false
+
+            let tPreFetchStart = CFAbsoluteTimeGetCurrent()
+            let staleStaging: Book?
+            do {
+                staleStaging = try fetchBook(bookId: stagingBookId, in: cleanupContext)
+                tFetchBook += CFAbsoluteTimeGetCurrent() - tPreFetchStart
+            } catch {
+                tFetchBook += CFAbsoluteTimeGetCurrent() - tPreFetchStart
+                if tReconcile == 0 {
+                    tReconcile = calculateFallbackReconcile()
+                }
+                if error is CancellationError || Task.isCancelled {
+                    status = "cancelled"
+                }
+                throw error
+            }
+
+            if let staleStaging {
+                cleanupContext.delete(staleStaging)
+                let tPreSaveStart = CFAbsoluteTimeGetCurrent()
+                do {
+                    try cleanupContext.save()
+                    tSave += CFAbsoluteTimeGetCurrent() - tPreSaveStart
+                } catch {
+                    tSave += CFAbsoluteTimeGetCurrent() - tPreSaveStart
+                    if tReconcile == 0 {
+                        tReconcile = calculateFallbackReconcile()
+                    }
+                    if error is CancellationError || Task.isCancelled {
+                        status = "cancelled"
+                    }
+                    throw error
+                }
+            }
 
             do {
-                if (book.host == nil || book.host?.isEmpty == true),
+                // Step 2: Create hidden staging book
+                let tInitStart = CFAbsoluteTimeGetCurrent()
+                let initialStagingBook = Book(
+                    bookId: stagingBookId,
+                    title: createSnapshot.title,
+                    author: createSnapshot.author,
+                    coverUrl: createSnapshot.coverUrl,
+                    desc: createSnapshot.desc,
+                    detailUrl: createSnapshot.detailUrl,
+                    sourceName: createSnapshot.sourceName,
+                    sourceUrl: createSnapshot.sourceUrl,
+                    extensionPackageId: createSnapshot.extensionPackageId,
+                    currentChapterIndex: createSnapshot.currentChapterIndex,
+                    currentChapterPage: createSnapshot.currentChapterPage,
+                    currentChapterTitle: createSnapshot.currentChapterTitle,
+                    isOnShelf: false,
+                    isHistory: false,
+                    host: createSnapshot.host
+                )
+                if (initialStagingBook.host == nil || initialStagingBook.host?.isEmpty == true),
                    let firstHost = chapters.first?.host,
                    !firstHost.isEmpty {
-                    book.host = firstHost
+                    initialStagingBook.host = firstHost
                 }
 
-                let tBuildStart = CFAbsoluteTimeGetCurrent()
-                var existingIDs: Set<String> = []
-                var createdChapters: [Chapter] = []
-                createdChapters.reserveCapacity(chapters.count)
+                let initialContext = ModelContext(container)
+                initialContext.autosaveEnabled = false
+                initialContext.insert(initialStagingBook)
+                tReconcile += CFAbsoluteTimeGetCurrent() - tInitStart
 
+                let tInitialSaveStart = CFAbsoluteTimeGetCurrent()
                 do {
-                    defer {
-                        tBuildChapters = CFAbsoluteTimeGetCurrent() - tBuildStart
+                    try initialContext.save()
+                    tSave += CFAbsoluteTimeGetCurrent() - tInitialSaveStart
+                } catch {
+                    tSave += CFAbsoluteTimeGetCurrent() - tInitialSaveStart
+                    throw error
+                }
+
+                // Step 3: Batched insertion in fresh ModelContext per batch
+                var existingIDs: Set<String> = []
+                var totalInserted = 0
+
+                var startIndex = 0
+                let totalChaptersCount = chapters.count
+                while startIndex < totalChaptersCount {
+                    try Task.checkCancellation()
+
+                    let endIndex = min(startIndex + newBookChapterBatchSize, totalChaptersCount)
+                    let chunk = chapters[startIndex..<endIndex]
+
+                    let batchContext = ModelContext(container)
+                    batchContext.autosaveEnabled = false
+
+                    let tBatchFetchStart = CFAbsoluteTimeGetCurrent()
+                    guard let batchStagingBook = try fetchBook(bookId: stagingBookId, in: batchContext) else {
+                        tFetchBook += CFAbsoluteTimeGetCurrent() - tBatchFetchStart
+                        throw ChapterPersistenceError.missingBook(bookId: stagingBookId)
                     }
-                    for item in chapters {
+                    tFetchBook += CFAbsoluteTimeGetCurrent() - tBatchFetchStart
+
+                    for item in chunk {
                         try Task.checkCancellation()
-                        let newId = allocateNewChapterId(bookId: book.bookId, item: item, existingIDs: &existingIDs)
+
+                        let tBuildStart = CFAbsoluteTimeGetCurrent()
+                        let newId = allocateNewChapterId(bookId: finalBookId, item: item, existingIDs: &existingIDs)
                         let chapter = Chapter(
                             id: newId,
-                            bookId: book.bookId,
+                            bookId: finalBookId,
                             title: item.title,
                             url: item.url,
                             index: item.index,
@@ -418,40 +500,95 @@ actor ChapterPersistenceStore {
                         if let titleTrans = item.titleTrans, !titleTrans.isEmpty {
                             chapter.titleTrans = titleTrans
                         }
-                        createdChapters.append(chapter)
+                        let buildElapsed = CFAbsoluteTimeGetCurrent() - tBuildStart
+                        tBuildChapters += buildElapsed
+                        tReconcile += buildElapsed
+
+                        let tLinkStart = CFAbsoluteTimeGetCurrent()
+                        chapter.book = batchStagingBook
+                        let linkElapsed = CFAbsoluteTimeGetCurrent() - tLinkStart
+                        tLinkBook += linkElapsed
+                        tReconcile += linkElapsed
+
+                        let tInsertStart = CFAbsoluteTimeGetCurrent()
+                        batchContext.insert(chapter)
+                        let insertElapsed = CFAbsoluteTimeGetCurrent() - tInsertStart
+                        tInsertContext += insertElapsed
+                        tReconcile += insertElapsed
+
+                        totalInserted += 1
                     }
+
+                    try Task.checkCancellation()
+                    let tBatchSaveStart = CFAbsoluteTimeGetCurrent()
+                    do {
+                        try batchContext.save()
+                        tSave += CFAbsoluteTimeGetCurrent() - tBatchSaveStart
+                    } catch {
+                        tSave += CFAbsoluteTimeGetCurrent() - tBatchSaveStart
+                        throw error
+                    }
+
+                    startIndex = endIndex
                 }
 
-                let tLinkStart = CFAbsoluteTimeGetCurrent()
-                book.chapters = createdChapters
-                tLinkBook = CFAbsoluteTimeGetCurrent() - tLinkStart
-
-                let tInsertStart = CFAbsoluteTimeGetCurrent()
-                context.insert(book)
-                tInsertContext = CFAbsoluteTimeGetCurrent() - tInsertStart
-
+                // Step 4: Finalize staging Book -> final Book.bookId and restore metadata
                 try Task.checkCancellation()
-                tReconcile = CFAbsoluteTimeGetCurrent() - tReconcileStart
+                let finalContext = ModelContext(container)
+                finalContext.autosaveEnabled = false
 
-                let tSaveStart = CFAbsoluteTimeGetCurrent()
+                let tFinalFetchStart = CFAbsoluteTimeGetCurrent()
+                guard let finalStagingBook = try fetchBook(bookId: stagingBookId, in: finalContext) else {
+                    tFetchBook += CFAbsoluteTimeGetCurrent() - tFinalFetchStart
+                    throw ChapterPersistenceError.missingBook(bookId: stagingBookId)
+                }
+                tFetchBook += CFAbsoluteTimeGetCurrent() - tFinalFetchStart
+
+                let tFinalizeStart = CFAbsoluteTimeGetCurrent()
+                finalStagingBook.bookId = finalBookId
+                finalStagingBook.isOnShelf = createSnapshot.isOnShelf
+                finalStagingBook.isHistory = createSnapshot.isHistory
+                applyMetadata(from: createSnapshot, to: finalStagingBook)
+                tReconcile += CFAbsoluteTimeGetCurrent() - tFinalizeStart
+
+                let tFinalSaveStart = CFAbsoluteTimeGetCurrent()
                 do {
-                    try context.save()
-                    tSave = CFAbsoluteTimeGetCurrent() - tSaveStart
+                    try finalContext.save()
+                    tSave += CFAbsoluteTimeGetCurrent() - tFinalSaveStart
                 } catch {
-                    tSave = CFAbsoluteTimeGetCurrent() - tSaveStart
+                    tSave += CFAbsoluteTimeGetCurrent() - tFinalSaveStart
                     throw error
                 }
 
                 status = "success"
-                return SaveTOCResult(inserted: createdChapters.count, updated: 0, deleted: 0, totalChapters: createdChapters.count)
+                return SaveTOCResult(inserted: totalInserted, updated: 0, deleted: 0, totalChapters: totalInserted)
             } catch {
-                if tReconcile == 0 {
-                    tReconcile = CFAbsoluteTimeGetCurrent() - tReconcileStart
+                let originalError = error
+                let cleanupContext = ModelContext(container)
+                cleanupContext.autosaveEnabled = false
+
+                let tCleanupFetchStart = CFAbsoluteTimeGetCurrent()
+                if let staleStaging = try? fetchBook(bookId: stagingBookId, in: cleanupContext) {
+                    tFetchBook += CFAbsoluteTimeGetCurrent() - tCleanupFetchStart
+                    cleanupContext.delete(staleStaging)
+                    let tCleanupSaveStart = CFAbsoluteTimeGetCurrent()
+                    if (try? cleanupContext.save()) != nil {
+                        tSave += CFAbsoluteTimeGetCurrent() - tCleanupSaveStart
+                    } else {
+                        tSave += CFAbsoluteTimeGetCurrent() - tCleanupSaveStart
+                    }
+                } else {
+                    tFetchBook += CFAbsoluteTimeGetCurrent() - tCleanupFetchStart
                 }
-                if error is CancellationError || Task.isCancelled {
+
+                if tReconcile == 0 {
+                    tReconcile = calculateFallbackReconcile()
+                }
+
+                if originalError is CancellationError || Task.isCancelled {
                     status = "cancelled"
                 }
-                throw error
+                throw originalError
             }
         } else {
             let tReconcileStart = CFAbsoluteTimeGetCurrent()
