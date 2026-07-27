@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-07-27T10:09:05.956899Z",
-  "gitCommit": "fae82711c6e69521cea248aafac3f0319423e178",
+  "generatedAt": "2026-07-27T14:33:37.236274Z",
+  "gitCommit": "381de4338ed1f911ba98882f34c1472b05d7f814",
   "sourceFileCount": 117,
   "documentCount": 16,
   "documents": [
@@ -18,9 +18,9 @@
     },
     {
       "filename": "01_project.md",
-      "sourceHash": "545e7f98463b1acc9803cec012c539e2baa05efc7e38e6ef5d99639f80ef731b",
+      "sourceHash": "92028fb752081f04311d4231770e11188ab482f56b738fd6e668c509878a106c",
       "generatedHash": "0a32ddec37b30066a4c0e29a0ea08fa86ffb45cb444ebd8c4a7c3a1bcdc20ae0",
-      "generatedAt": "2026-07-27T09:54:10.227818Z",
+      "generatedAt": "2026-07-27T14:33:37.236274Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift"
       ],
@@ -28,9 +28,9 @@
     },
     {
       "filename": "02_file_graph.md",
-      "sourceHash": "d53c91c4ccc81fdf077f04c0d25c6d0fc9c6bfbedcbf60a73833be6bca48b971",
+      "sourceHash": "8229eec5e7ea79ddb0fa874bee7c8eed77010f2209bdd4e8e2aee4a0788da320",
       "generatedHash": "763b7a9c26ad18048fedf80cbec759c61b0d5d26c08f01384323c80e3a738a36",
-      "generatedAt": "2026-07-27T10:09:05.956899Z",
+      "generatedAt": "2026-07-27T14:33:37.236274Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -140,9 +140,9 @@
     },
     {
       "filename": "03_type_graph.md",
-      "sourceHash": "2e75ad4fc10a55aae7d5f330ea839714220e8fe069e8f13c0bf591aeaef15d01",
+      "sourceHash": "a07c9993449c3ac878ba92171c952cceea0b9c6498b7b05a555a94f5964e69ad",
       "generatedHash": "312861ec97be2ad860aea72c15407115ff1288922ac1302b4118ca98cf6927d4",
-      "generatedAt": "2026-07-27T10:09:05.956899Z",
+      "generatedAt": "2026-07-27T14:33:37.236274Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -408,9 +408,9 @@
     },
     {
       "filename": "14_complexity_report.md",
-      "sourceHash": "0f69e9355c0fca34be095b73637584119c62c0b3262abba8987896f11a4608ad",
+      "sourceHash": "337ddd0263cf953596fb3bb60afb5142814619794248695bc27761341a396df4",
       "generatedHash": "ccd203d05bb8cf74264ed6928e4c772ba1c8b69ba087bc1f135ae1d36465d94d",
-      "generatedAt": "2026-07-27T10:09:05.956899Z",
+      "generatedAt": "2026-07-27T14:33:37.236274Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
