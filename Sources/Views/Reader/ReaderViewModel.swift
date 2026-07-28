@@ -251,7 +251,7 @@ class ReaderViewModel: ObservableObject {
             return (try? modelContext.fetch(descriptor))?.first
         }()
         let localChapterCount: Int = {
-            if let bId = localBookSnapshot?.bookId {
+            if ChapterStoreConfiguration.enableSwiftDataTOCWrite, let bId = localBookSnapshot?.bookId {
                 let localBId = bId
                 let descriptor = FetchDescriptor<Chapter>(
                     predicate: #Predicate<Chapter> { $0.bookId == localBId }
@@ -291,6 +291,18 @@ class ReaderViewModel: ObservableObject {
         } else {
             scheduleBootstrapTimeout()
         }
+    }
+
+    func failBootstrap(message: String) {
+        bootstrapTimeoutTask?.cancel()
+        bootstrapTimeoutTask = nil
+        navigationDebounceTask?.cancel()
+        navigationDebounceTask = nil
+        navigationWorkerTask?.cancel()
+        navigationWorkerTask = nil
+        queuedNavigation = nil
+        pendingNavigationIndex = nil
+        loadState = .failed(chapterIndex: nil, message: message)
     }
 
     func updateChapterSnapshot(totalCount: Int, onlineChapters: [ChapterResult]) {

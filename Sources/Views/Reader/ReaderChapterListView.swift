@@ -56,27 +56,36 @@ actor BackgroundSearchWorker {
     }
 
     func searchChapters(bookId: String, query: String, isAscending: Bool, isTranslationEnabled: Bool) async -> [SearchChapterDTO] {
-        if let storeResults = try? await ChapterStore.shared.searchChapters(bookId: bookId, query: query, searchTrans: isTranslationEnabled), !storeResults.isEmpty {
-            let sorted = isAscending ? storeResults.sorted(by: { $0.index < $1.index }) : storeResults.sorted(by: { $0.index > $1.index })
-            return sorted.map { chap in
-                let displayTitle: String
-                if isTranslationEnabled {
-                    if let trans = chap.titleTrans, !trans.isEmpty {
-                        displayTitle = trans
-                    } else if TranslateUtils.containsChinese(chap.title) {
-                        displayTitle = TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
+        if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+            do {
+                let storeResults = try await ChapterStore.shared.searchChapters(bookId: bookId, query: query, searchTrans: isTranslationEnabled)
+                let sorted = isAscending ? storeResults.sorted(by: { $0.index < $1.index }) : storeResults.sorted(by: { $0.index > $1.index })
+                return sorted.compactMap { chap in
+                    let trimmedUrl = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmedUrl.isEmpty else { return nil }
+                    let displayTitle: String
+                    if isTranslationEnabled {
+                        if let trans = chap.titleTrans, !trans.isEmpty {
+                            displayTitle = trans
+                        } else if TranslateUtils.containsChinese(chap.title) {
+                            displayTitle = TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
+                        } else {
+                            displayTitle = chap.title
+                        }
                     } else {
                         displayTitle = chap.title
                     }
-                } else {
-                    displayTitle = chap.title
+                    return SearchChapterDTO(
+                        index: chap.index,
+                        title: displayTitle,
+                        url: trimmedUrl,
+                        isCached: chap.isCached
+                    )
                 }
-                return SearchChapterDTO(
-                    index: chap.index,
-                    title: displayTitle,
-                    url: chap.url,
-                    isCached: chap.isCached
-                )
+            } catch {
+                let bookHash = String(Chapter.hashUrl(bookId).prefix(8))
+                AppLogger.shared.log("❌ [BackgroundSearch] bookIdHash=\(bookHash) status=search_failed")
+                return []
             }
         }
 
@@ -100,7 +109,9 @@ actor BackgroundSearchWorker {
 
         do {
             let chapters = try context.fetch(descriptor)
-            return chapters.map { chap in
+            return chapters.compactMap { chap in
+                let trimmedUrl = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmedUrl.isEmpty else { return nil }
                 let displayTitle: String
                 if isTranslationEnabled {
                     if let trans = chap.titleTrans, !trans.isEmpty {
@@ -116,7 +127,7 @@ actor BackgroundSearchWorker {
                 return SearchChapterDTO(
                     index: chap.index,
                     title: displayTitle,
-                    url: chap.url,
+                    url: trimmedUrl,
                     isCached: chap.isCached
                 )
             }
@@ -125,6 +136,10 @@ actor BackgroundSearchWorker {
             return []
         }
     }
+}
+
+private enum BackgroundPagingError: LocalizedError {
+    case incompletePage
 }
 
 @available(iOS 17.0, *)
@@ -137,9 +152,19 @@ actor BackgroundPagingWorker {
 
     func fetchPage(bookId: String, minLogicalIndex: Int, maxLogicalIndex: Int, isTranslationEnabled: Bool) async throws -> [Int: (title: String, url: String, isCached: Bool)] {
         let count = maxLogicalIndex - minLogicalIndex + 1
-        if let storeChaps = try? await ChapterStore.shared.fetchRange(bookId: bookId, startIndex: minLogicalIndex, count: count), !storeChaps.isEmpty {
+        if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+            let storeChaps = try await ChapterStore.shared.fetchRange(bookId: bookId, startIndex: minLogicalIndex, count: count)
+            let returnedIndices = Set(storeChaps.map { $0.index })
+            let expectedIndices = Set(minLogicalIndex...maxLogicalIndex)
+            guard returnedIndices == expectedIndices && storeChaps.count == count else {
+                throw BackgroundPagingError.incompletePage
+            }
             var map: [Int: (title: String, url: String, isCached: Bool)] = [:]
             for chap in storeChaps {
+                let trimmedUrl = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmedUrl.isEmpty else {
+                    throw BackgroundPagingError.incompletePage
+                }
                 let displayTitle: String
                 if isTranslationEnabled {
                     if let trans = chap.titleTrans, !trans.isEmpty {
@@ -152,7 +177,7 @@ actor BackgroundPagingWorker {
                 } else {
                     displayTitle = chap.title
                 }
-                map[chap.index] = (displayTitle, chap.url, chap.isCached)
+                map[chap.index] = (displayTitle, trimmedUrl, chap.isCached)
             }
             return map
         }
@@ -169,6 +194,8 @@ actor BackgroundPagingWorker {
         let chapters = try context.fetch(descriptor)
         var map: [Int: (title: String, url: String, isCached: Bool)] = [:]
         for chap in chapters {
+            let trimmedUrl = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedUrl.isEmpty else { continue }
             let displayTitle: String
             if isTranslationEnabled {
                 if let trans = chap.titleTrans, !trans.isEmpty {
@@ -181,7 +208,7 @@ actor BackgroundPagingWorker {
             } else {
                 displayTitle = chap.title
             }
-            map[chap.index] = (displayTitle, chap.url, chap.isCached)
+            map[chap.index] = (displayTitle, trimmedUrl, chap.isCached)
         }
         return map
     }
@@ -374,7 +401,7 @@ public final class ReaderChapterListStore {
                 return
             }
 
-            var nextStates: [Int: ReaderChapterRowState] = [:]
+            var nextStates: [Int: ReaderChapterRowState] = loadedRowStates
             for p in pagesToLoad {
                 let startIdx = p * self.pageSize
                 let endIdx = min(self.totalCount, startIdx + self.pageSize)
@@ -392,10 +419,11 @@ public final class ReaderChapterListStore {
                             )
                         }
                     }
-                } else if let fetched = results[p] {
+                } else if let fetched = results[p], fetched.count == (endIdx - startIdx) {
+                    var pageValid = true
                     for i in startIdx..<endIdx {
                         let logicIdx = self.isAscending ? i : (self.totalCount - 1 - i)
-                        if let data = fetched[logicIdx] {
+                        if let data = fetched[logicIdx], !data.url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             nextStates[i] = ReaderChapterRowState(
                                 id: i,
                                 index: logicIdx,
@@ -405,21 +433,23 @@ public final class ReaderChapterListStore {
                                 isPlaceholder: false
                             )
                         } else {
+                            pageValid = false
                             nextStates[i] = ReaderChapterRowState(
                                 id: i,
                                 index: logicIdx,
                                 title: "Chương \(logicIdx + 1)",
                                 url: "",
                                 isCached: false,
-                                isPlaceholder: false
+                                isPlaceholder: true
                             )
                         }
                     }
-                    self.loadedPages.insert(p)
+                    if pageValid {
+                        self.loadedPages.insert(p)
+                    }
                 }
             }
 
-            self.loadedPages = Set(pagesToLoad)
             self.loadedRowStates = nextStates
         }
     }
@@ -460,6 +490,20 @@ public final class ReaderChapterListStore {
             return false
         }
 
+        let expectedCount = range.count
+        guard fetched.count == expectedCount else {
+            pageCache.removeValue(forKey: page)
+            return false
+        }
+
+        for i in range {
+            let logicIdx = isAscending ? i : (totalCount - 1 - i)
+            guard let data = fetched[logicIdx], !data.url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                pageCache.removeValue(forKey: page)
+                return false
+            }
+        }
+
         for i in range {
             let logicIdx = isAscending ? i : (totalCount - 1 - i)
             if let data = fetched[logicIdx] {
@@ -469,15 +513,6 @@ public final class ReaderChapterListStore {
                     title: data.title,
                     url: data.url,
                     isCached: data.isCached,
-                    isPlaceholder: false
-                )
-            } else {
-                loadedRowStates[i] = ReaderChapterRowState(
-                    id: i,
-                    index: logicIdx,
-                    title: "Chương \(logicIdx + 1)",
-                    url: "",
-                    isCached: false,
                     isPlaceholder: false
                 )
             }
@@ -594,7 +629,8 @@ public final class ReaderChapterListStore {
             do {
                 fetchedData = try await worker.fetchPage(bookId: localBookId, minLogicalIndex: localMin, maxLogicalIndex: localMax, isTranslationEnabled: transEnabled)
             } catch {
-                AppLogger.shared.log("❌ [BackgroundPagingWorker] Lỗi fetch page: \(error.localizedDescription)")
+                let bookHash = String(Chapter.hashUrl(bookId).prefix(8))
+                AppLogger.shared.log("❌ [BackgroundPaging] bookIdHash=\(bookHash) page=\(page) status=failed_or_incomplete")
                 fetchedData = nil
             }
         } else {
@@ -602,23 +638,30 @@ public final class ReaderChapterListStore {
             for idx in logicalIndices {
                 if idx < onlineChapters.count {
                     let chap = onlineChapters[idx]
-                    let displayTitle: String
-                    if isTranslationEnabled && TranslateUtils.containsChinese(chap.name) {
-                        displayTitle = TranslateUtils.translateChapterTitle(chap.name, bookId: bookId)
-                    } else {
-                        displayTitle = chap.name
+                    let trimmedUrl = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmedUrl.isEmpty {
+                        let displayTitle: String
+                        if isTranslationEnabled && TranslateUtils.containsChinese(chap.name) {
+                            displayTitle = TranslateUtils.translateChapterTitle(chap.name, bookId: bookId)
+                        } else {
+                            displayTitle = chap.name
+                        }
+                        data[idx] = (displayTitle, trimmedUrl, false)
                     }
-                    data[idx] = (displayTitle, chap.url, false)
                 }
             }
             fetchedData = data
         }
 
-        if let fetched = fetchedData {
+        let expectedCount = endIdx - startIdx
+        if let fetched = fetchedData, fetched.count == expectedCount, fetched.values.allSatisfy({ !$0.url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
             self.pageCache[page] = fetched
             self.prunePageCache()
+            return fetched
+        } else {
+            self.pageCache.removeValue(forKey: page)
+            return nil
         }
-        return fetchedData
     }
 
     public func rowState(for item: ChapterRowItem) -> ReaderChapterRowState {
@@ -735,12 +778,14 @@ public final class ReaderChapterListStore {
                 if Task.isCancelled { return }
 
                 for chap in dtos {
+                    let trimmedUrl = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmedUrl.isEmpty else { continue }
                     let displayPos = isAscending ? chap.index : (totalCount - 1 - chap.index)
                     let state = ReaderChapterRowState(
                         id: displayPos,
                         index: chap.index,
                         title: chap.title,
-                        url: chap.url,
+                        url: trimmedUrl,
                         isCached: chap.isCached,
                         isPlaceholder: false
                     )
@@ -751,13 +796,15 @@ public final class ReaderChapterListStore {
                 var count = 0
                 for (index, chapter) in onlineChapters.enumerated() {
                     if count >= 100 { break }
+                    let trimmedUrl = chapter.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmedUrl.isEmpty else { continue }
                     if chapter.name.localizedCaseInsensitiveContains(trimmed) {
                         let displayPos = isAscending ? index : (totalCount - 1 - index)
                         let state = ReaderChapterRowState(
                             id: displayPos,
                             index: index,
                             title: chapter.name,
-                            url: chapter.url,
+                            url: trimmedUrl,
                             isCached: false,
                             isPlaceholder: false
                         )

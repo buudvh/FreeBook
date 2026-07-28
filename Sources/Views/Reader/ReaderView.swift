@@ -146,6 +146,8 @@ struct ReaderView: View {
     }
 
     @State private var currentChapterHost: String? = nil
+    @State private var metadataTask: Task<Void, Never>? = nil
+    @State private var metadataGeneration: Int = 0
 
     private var isCurrentlyPlayingThisChapter: Bool {
         ttsManager.isPlaying &&
@@ -475,13 +477,11 @@ struct ReaderView: View {
 
     private var readerLifecycleView: some View {
         readerDataObservationView
-        .onAppear {
-            initializeReaderIfNeeded()
-        }
         .task(id: readerBootstrapKey) {
-            initializeReaderIfNeeded()
+            await initializeReaderIfNeeded()
         }
         .onDisappear {
+            metadataTask?.cancel()
             if ReaderView.activeBookId == bookId {
                 ReaderView.activeBookId = nil
             }
@@ -604,10 +604,55 @@ struct ReaderView: View {
     }
 
     private var readerBootstrapKey: String {
-        "\(bookId)|\(viewModel?.totalChaptersCount ?? 0)|\(onlineChapters.count)|\(currentOnlineChapters.count)"
+        "\(bookId)|\(onlineChapters.count)"
     }
 
-    private func initializeReaderIfNeeded() {
+    private func ensureViewModel(totalCount: Int) {
+        if let vm = viewModel {
+            if totalCount > 0 {
+                vm.updateChapterSnapshot(
+                    totalCount: totalCount,
+                    onlineChapters: currentOnlineChapters
+                )
+            }
+        } else {
+            let savedPIdx = initialParagraphIndex ?? getSavedParagraphIndex(for: chapterIndex)
+            let newViewModel = ReaderViewModel(
+                bookId: bookId,
+                extensionPackageId: extensionPackageId,
+                initialChapterIndex: chapterIndex,
+                initialParagraphIndex: savedPIdx,
+                totalChaptersCount: totalCount,
+                modelContext: modelContext,
+                onlineChapters: currentOnlineChapters,
+                isTranslationEnabled: isTranslationEnabled,
+                bookTitle: bookTitle,
+                bookAuthor: bookAuthor,
+                bookCoverUrl: bookCoverUrl,
+                bookDesc: bookDesc,
+                bookDetailUrl: bookDetailUrl,
+                bookSourceName: bookSourceName
+            )
+            newViewModel.onChapterCached = { index in
+                chapterListStore?.markCached(index: index)
+            }
+            newViewModel.setSpeculativePrefetchEnabled(
+                !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
+            )
+            viewModel = newViewModel
+
+            if !hasOpenedReader {
+                hasOpenedReader = true
+            }
+        }
+        if totalCount > 0 {
+            chapterListStore?.updateChapters(totalCount: totalCount, onlineChapters: currentOnlineChapters)
+        }
+        updateCurrentChapterMetadata()
+    }
+
+    @MainActor
+    private func initializeReaderIfNeeded() async {
         let key = "showChapterTitle_\(bookId)"
         if UserDefaults.standard.object(forKey: key) != nil {
             showChapterTitle = UserDefaults.standard.bool(forKey: key)
@@ -632,97 +677,112 @@ struct ReaderView: View {
             currentOnlineChapters = onlineChapters
         }
 
-        if !didResolveLocalChapterCount {
-            Task {
-                if let count = try? await ChapterStore.shared.fetchCountAndChecksum(bookId: bookId).count, count > 0 {
+        let bookHash = String(Chapter.hashUrl(bookId).prefix(8))
+
+        if localBookSnapshot != nil && !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+            do {
+                let count = try await ChapterStore.shared.fetchCountAndChecksum(bookId: bookId).count
+                guard !Task.isCancelled, ReaderView.activeBookId == bookId else { return }
+                if count > 0 {
                     self.localChaptersCount = count
                     self.didResolveLocalChapterCount = true
-                } else if let bookId = localBookSnapshot?.bookId {
-                    let localBId = bookId
-                    let descriptor = FetchDescriptor<Chapter>(
-                        predicate: #Predicate<Chapter> { $0.bookId == localBId }
-                    )
-                    self.localChaptersCount = (try? modelContext.fetchCount(descriptor)) ?? 0
-                    self.didResolveLocalChapterCount = true
+                    AppLogger.shared.log("ℹ️ [ReaderBootstrap] bookIdHash=\(bookHash) totalChapters=\(count) source=ChapterStore status=success")
+                    ensureViewModel(totalCount: count)
                 } else {
-                    self.localChaptersCount = 0
-                    self.didResolveLocalChapterCount = true
+                    AppLogger.shared.log("❌ [ReaderBootstrap] bookIdHash=\(bookHash) status=count_zero")
+                    ensureViewModel(totalCount: 0)
+                    viewModel?.failBootstrap(message: "Mục lục sách cục bộ rỗng")
                 }
+            } catch {
+                guard !Task.isCancelled, ReaderView.activeBookId == bookId else { return }
+                AppLogger.shared.log("❌ [ReaderBootstrap] bookIdHash=\(bookHash) status=fetch_failed_error")
+                ensureViewModel(totalCount: 0)
+                viewModel?.failBootstrap(message: "Lỗi đọc mục lục sách cục bộ")
             }
-        }
-
-        updateCurrentChapterMetadata()
-
-        guard viewModel == nil else {
-            let resolvedCount = totalChaptersCount
-            if resolvedCount > 0 {
-                viewModel?.updateChapterSnapshot(
-                    totalCount: resolvedCount,
-                    onlineChapters: currentOnlineChapters
-                )
-            }
-            return
-        }
-
-        let initialTotalCount = totalChaptersCount
-        let savedPIdx = initialParagraphIndex ?? getSavedParagraphIndex(for: chapterIndex)
-        let newViewModel = ReaderViewModel(
-            bookId: bookId,
-            extensionPackageId: extensionPackageId,
-            initialChapterIndex: chapterIndex,
-            initialParagraphIndex: savedPIdx,
-            totalChaptersCount: initialTotalCount,
-            modelContext: modelContext,
-            onlineChapters: currentOnlineChapters,
-            isTranslationEnabled: isTranslationEnabled,
-            bookTitle: bookTitle,
-            bookAuthor: bookAuthor,
-            bookCoverUrl: bookCoverUrl,
-            bookDesc: bookDesc,
-            bookDetailUrl: bookDetailUrl,
-            bookSourceName: bookSourceName
-        )
-        newViewModel.onChapterCached = { index in
-            chapterListStore?.markCached(index: index)
-        }
-        newViewModel.setSpeculativePrefetchEnabled(
-            !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
-        )
-        viewModel = newViewModel
-
-        if !hasOpenedReader {
-            hasOpenedReader = true
+        } else if localBookSnapshot != nil && ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+            let localBId = bookId
+            let descriptor = FetchDescriptor<Chapter>(
+                predicate: #Predicate<Chapter> { $0.bookId == localBId }
+            )
+            let count = (try? modelContext.fetchCount(descriptor)) ?? 0
+            self.localChaptersCount = count
+            self.didResolveLocalChapterCount = true
+            ensureViewModel(totalCount: count)
+        } else {
+            ensureViewModel(totalCount: currentOnlineChapters.count)
         }
     }
 
     private func updateCurrentChapterMetadata() {
-        let index = viewModel?.displayedChapterIndex ?? chapterIndex
-        if localBookSnapshot != nil {
-            let localBookId = bookId
-            let localIndex = index
-            var descriptor = FetchDescriptor<Chapter>(
-                predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.index == localIndex }
-            )
-            descriptor.fetchLimit = 1
-            if let chap = (try? modelContext.fetch(descriptor))?.first {
-                self.currentChapterTitle = chap.title
-                self.currentChapterUrl = chap.url
-                self.currentChapterHost = chap.host
-            } else {
-                self.currentChapterTitle = "Chương \(index + 1)"
-                self.currentChapterUrl = ""
-                self.currentChapterHost = localBook?.host ?? ext?.sourceUrl
+        guard viewModel != nil || localBookSnapshot == nil else { return }
+        metadataTask?.cancel()
+        metadataGeneration += 1
+        let currentGen = metadataGeneration
+        let targetIndex = viewModel?.displayedChapterIndex ?? chapterIndex
+
+        self.currentChapterTitle = "Đang tải..."
+        self.currentChapterUrl = ""
+        self.currentChapterHost = nil
+
+        metadataTask = Task {
+            struct ResolvedMeta {
+                let title: String
+                let url: String
+                let host: String?
             }
-        } else {
-            if index >= 0 && index < currentOnlineChapters.count {
-                let chap = currentOnlineChapters[index]
-                self.currentChapterTitle = chap.name
-                self.currentChapterUrl = chap.url
-                self.currentChapterHost = chap.host
-            } else {
-                self.currentChapterTitle = "Chương \(index + 1)"
-                self.currentChapterUrl = ""
-                self.currentChapterHost = localBook?.host ?? ext?.sourceUrl
+            var resolved: ResolvedMeta? = nil
+
+            if localBookSnapshot != nil && !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+                if let snapshot = await viewModel?.fetchChapterSnapshot(at: targetIndex) {
+                    let trimmedUrl = snapshot.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmedUrl.isEmpty {
+                        resolved = ResolvedMeta(
+                            title: snapshot.title,
+                            url: trimmedUrl,
+                            host: snapshot.host ?? localBook?.host ?? ext?.sourceUrl
+                        )
+                    }
+                }
+            } else if localBookSnapshot != nil && ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+                let localBookId = bookId
+                var descriptor = FetchDescriptor<Chapter>(
+                    predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.index == targetIndex }
+                )
+                descriptor.fetchLimit = 1
+                if let chap = (try? modelContext.fetch(descriptor))?.first {
+                    let trimmedUrl = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmedUrl.isEmpty {
+                        resolved = ResolvedMeta(
+                            title: chap.title,
+                            url: trimmedUrl,
+                            host: chap.host
+                        )
+                    }
+                }
+            } else if targetIndex >= 0 && targetIndex < currentOnlineChapters.count {
+                let chap = currentOnlineChapters[targetIndex]
+                let trimmedUrl = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmedUrl.isEmpty {
+                    resolved = ResolvedMeta(
+                        title: chap.name,
+                        url: trimmedUrl,
+                        host: chap.host
+                    )
+                }
+            }
+
+            guard !Task.isCancelled,
+                  currentGen == self.metadataGeneration,
+                  targetIndex == (self.viewModel?.displayedChapterIndex ?? self.chapterIndex),
+                  ReaderView.activeBookId == self.bookId else { return }
+
+            if let res = resolved {
+                self.currentChapterTitle = res.title
+                self.currentChapterUrl = res.url
+                self.currentChapterHost = res.host
+            } else if localBookSnapshot != nil && !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+                let bookHash = String(Chapter.hashUrl(self.bookId).prefix(8))
+                AppLogger.shared.log("❌ [ReaderMetadata] bookIdHash=\(bookHash) index=\(targetIndex) status=missing_or_empty_url")
             }
         }
     }
