@@ -410,6 +410,11 @@ struct ReaderView: View {
                 }
             )
         }
+        .fullScreenCover(item: $lookupRoute) { route in
+            BypassWebView(
+                urlString: route.urlString
+            )
+        }
         .background(
             NavigationLink(
                 destination: LazyView {
