@@ -665,8 +665,13 @@ public final class TTSManager: NSObject, ObservableObject {
                         speakCurrent()
                     }
                 }
-            } else if let playerNode, !playerNode.isPlaying {
-                playerNode.play()
+            } else if let playerNode {
+                if !playerNode.isPlaying {
+                    playerNode.play()
+                    if !playerNode.isPlaying {
+                        speakCurrent()
+                    }
+                }
             }
             setSystemNowPlayingPlaybackState(.playing, playbackRate: speed)
             syncRemoteCommandState()
@@ -714,6 +719,9 @@ public final class TTSManager: NSObject, ObservableObject {
                 speakCurrent()
             } else {
                 playerNode?.play()
+                if let node = playerNode, !node.isPlaying {
+                    speakCurrent()
+                }
             }
         }
         syncRemoteCommandState()
@@ -1666,9 +1674,11 @@ public final class TTSManager: NSObject, ObservableObject {
     private func syncRemoteCommandState() {
         let commandCenter = MPRemoteCommandCenter.shared()
         let active = !playingBookId.isEmpty && showFloatingWidget
-        commandCenter.playCommand.isEnabled = active && !isPlaying
-        commandCenter.pauseCommand.isEnabled = active && isPlaying
+        commandCenter.playCommand.isEnabled = active
+        commandCenter.pauseCommand.isEnabled = active
         commandCenter.togglePlayPauseCommand.isEnabled = active
+        commandCenter.nextTrackCommand.isEnabled = active
+        commandCenter.previousTrackCommand.isEnabled = active
     }
 
     private func setupRemoteCommandCenter() {
@@ -1693,11 +1703,11 @@ public final class TTSManager: NSObject, ObservableObject {
             guard self != nil else { return .commandFailed }
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
-                if self.isPlaying {
+                if !self.isPlaying {
+                    self.resume()
+                } else {
                     self.syncRemoteCommandState()
                     self.updateNowPlayingInfo()
-                } else {
-                    self.resume()
                 }
             }
             return .success
@@ -1708,11 +1718,11 @@ public final class TTSManager: NSObject, ObservableObject {
             guard self != nil else { return .commandFailed }
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
-                if !self.isPlaying {
+                if self.isPlaying {
+                    self.pause()
+                } else {
                     self.syncRemoteCommandState()
                     self.updateNowPlayingInfo()
-                } else {
-                    self.pause()
                 }
             }
             return .success
@@ -1720,18 +1730,18 @@ public final class TTSManager: NSObject, ObservableObject {
 
         // Next Track (Đoạn sau)
         commandCenter.nextTrackCommand.addTarget { [weak self] _ in
-            guard let self = self else { return .commandFailed }
-            DispatchQueue.main.async {
-                self.skipForward()
+            guard self != nil else { return .commandFailed }
+            DispatchQueue.main.async { [weak self] in
+                self?.skipForward()
             }
             return .success
         }
 
         // Prev Track (Đoạn trước)
         commandCenter.previousTrackCommand.addTarget { [weak self] _ in
-            guard let self = self else { return .commandFailed }
-            DispatchQueue.main.async {
-                self.skipBackward()
+            guard self != nil else { return .commandFailed }
+            DispatchQueue.main.async { [weak self] in
+                self?.skipBackward()
             }
             return .success
         }
@@ -1777,8 +1787,8 @@ public final class TTSManager: NSObject, ObservableObject {
             guard updateGeneration == self.nowPlayingUpdateGeneration,
                   self.playingBookId == bid else { return }
 
-            let currentIsPlaying = self.isPlaying
-            let currentSpeed = self.speed
+            let liveIsPlaying = self.isPlaying
+            let liveSpeed = self.speed
 
             var info: [String: Any] = [:]
             info[MPMediaItemPropertyTitle] = displayBookTitle
@@ -1787,7 +1797,7 @@ public final class TTSManager: NSObject, ObservableObject {
             info[MPMediaItemPropertyArtist] = displayChapterTitle + currentPart
 
             info[MPNowPlayingInfoPropertyIsLiveStream] = true
-            info[MPNowPlayingInfoPropertyPlaybackRate] = currentIsPlaying ? currentSpeed : 0.0
+            info[MPNowPlayingInfoPropertyPlaybackRate] = liveIsPlaying ? liveSpeed : 0.0
             info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = Double(max(0, pIndex))
 
             if let img = image {
@@ -1808,7 +1818,7 @@ public final class TTSManager: NSObject, ObservableObject {
             }
 
             MPNowPlayingInfoCenter.default().nowPlayingInfo = info
-            MPNowPlayingInfoCenter.default().playbackState = currentIsPlaying ? .playing : .paused
+            MPNowPlayingInfoCenter.default().playbackState = liveIsPlaying ? .playing : .paused
         }
     }
 
