@@ -498,6 +498,7 @@ public final class TTSManager: NSObject, ObservableObject {
         currentIndex: Int,
         chapterContent: String,
         startParagraphIndex: Int,
+        startTextOffset: Int? = nil,
         bookTitle: String,
         coverUrl: String = "",
         bookDetailUrl: String = "",
@@ -557,7 +558,7 @@ public final class TTSManager: NSObject, ObservableObject {
             self.normalizedChapterText = ChapterTextNormalizer.normalize(preparedChapter.normalizedContent)
             self.chapterContent = preparedChapter.normalizedContent
             self.paragraphs = preparedChapter.paragraphs
-            self.continueStartSpeaking(startParagraphIndex: startParagraphIndex)
+            self.continueStartSpeaking(startParagraphIndex: startParagraphIndex, startTextOffset: startTextOffset)
             self.triggerNextChapterPrefetch()
             return
         }
@@ -590,7 +591,7 @@ public final class TTSManager: NSObject, ObservableObject {
                 self.normalizedChapterText = ChapterTextNormalizer.normalize(processed.normalizedContent)
                 self.chapterContent = processed.normalizedContent
                 self.paragraphs = processed.paragraphs
-                self.continueStartSpeaking(startParagraphIndex: startParagraphIndex)
+                self.continueStartSpeaking(startParagraphIndex: startParagraphIndex, startTextOffset: startTextOffset)
                 self.triggerNextChapterPrefetch()
             } catch is CancellationError {
                 return
@@ -600,10 +601,21 @@ public final class TTSManager: NSObject, ObservableObject {
         }
     }
 
-    private func continueStartSpeaking(startParagraphIndex: Int) {
+    private func continueStartSpeaking(startParagraphIndex: Int, startTextOffset: Int? = nil) {
         var targetIdx = 0
         if startParagraphIndex == -1 {
             targetIdx = 0
+        } else if let offset = startTextOffset {
+            if let idx = paragraphs.firstIndex(where: {
+                $0.paragraphIndex == startParagraphIndex &&
+                $0.range.location <= offset && offset < ($0.range.location + $0.range.length)
+            }) {
+                targetIdx = idx
+            } else if let idx = paragraphs.firstIndex(where: { $0.paragraphIndex == startParagraphIndex }) {
+                targetIdx = idx
+            } else {
+                targetIdx = 0
+            }
         } else {
             if let idx = paragraphs.firstIndex(where: { $0.paragraphIndex == startParagraphIndex }) {
                 targetIdx = idx

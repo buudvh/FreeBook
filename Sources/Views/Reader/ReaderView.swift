@@ -75,6 +75,7 @@ struct ReaderView: View {
     @State private var originalSentence = ""
     @State private var selectedWordOffset = 0
     @State private var selectedWordLength = 0
+    @State private var selectedDisplayedOffset = 0
     @State private var searchEngines: [SearchEngine] = []
     @State private var showingSearchEnginesConfigSheet = false
     @State private var translationMode: String = "VP" // Dịch dạng: "VP" (Vietphrase) hoặc "HV" (Hán Việt)
@@ -310,7 +311,9 @@ struct ReaderView: View {
                     },
                     onSpeak: {
                         if let pIndex = editingParagraphIndex {
-                            startTTS(at: chapterIndex, paragraphIndex: pIndex)
+                            let items = viewModel?.cache.get(chapterIndex)?.paragraphItems ?? []
+                            let absOffset = lineStartOffset(for: pIndex, in: items, isTranslationEnabled: isTranslationEnabled) + selectedDisplayedOffset
+                            startTTS(at: chapterIndex, paragraphIndex: pIndex, startTextOffset: absOffset)
                         }
                     },
                     onPhoneme: {
@@ -1304,13 +1307,17 @@ struct ReaderView: View {
         ForEach(chapter.paragraphItems) { item in
             let textLen = ((isTrans ? item.translated : item.original) as NSString).length
             let relativeHighlightRange: NSRange? = {
-                if ttsManager.isPlaying &&
-                   ttsManager.playingBookId == bookId &&
-                   ttsManager.playingChapterIndex == chapter.index &&
-                   item.id == ttsManager.currentParentParagraphIndex {
-                    return NSRange(location: 0, length: textLen)
-                }
-                return nil
+                guard ttsManager.isPlaying,
+                      ttsManager.playingBookId == bookId,
+                      ttsManager.playingChapterIndex == chapter.index,
+                      item.id == ttsManager.currentParentParagraphIndex,
+                      let chunkRange = ttsManager.highlightRange else { return nil }
+
+                let lineStart = item.isTitle ? 0 : lineStartOffset(for: item.id, in: chapter.paragraphItems, isTranslationEnabled: isTrans)
+                let relLoc = max(0, chunkRange.location - lineStart)
+                let relLen = min(max(0, textLen - relLoc), chunkRange.length)
+                guard relLoc < textLen && relLen > 0 else { return nil }
+                return NSRange(location: relLoc, length: relLen)
             }()
 
             ParagraphCardView(
@@ -1390,6 +1397,7 @@ struct ReaderView: View {
         self.originalSentence = item.original
         self.selectedWordOffset = originalRange.location
         self.selectedWordLength = originalRange.length
+        self.selectedDisplayedOffset = selectionRange.location
 
         self.selectionMinY = minY
         self.selectionMaxY = maxY
@@ -1456,7 +1464,19 @@ struct ReaderView: View {
         )
     }
 
-    private func startTTS(at index: Int, paragraphIndex: Int) {
+    private func lineStartOffset(for paragraphID: Int, in items: [ParagraphItem], isTranslationEnabled: Bool) -> Int {
+        if paragraphID == -1 { return 0 }
+        var offset = 0
+        for item in items {
+            if item.isTitle { continue }
+            if item.id == paragraphID { return offset }
+            let text = isTranslationEnabled ? item.translated : item.original
+            offset += (text as NSString).length + 1
+        }
+        return offset
+    }
+
+    private func startTTS(at index: Int, paragraphIndex: Int, startTextOffset: Int? = nil) {
         guard index >= 0 && index < totalChaptersCount else { return }
         Task {
             guard let currentChapter = await ttsChapterInfo(at: index) else { return }
@@ -1478,6 +1498,7 @@ struct ReaderView: View {
                 currentIndex: index,
                 chapterContent: chapterContentToUse,
                 startParagraphIndex: paragraphIndex,
+                startTextOffset: startTextOffset,
                 bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
                 coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
                 bookDetailUrl: localBook?.detailUrl ?? bookDetailUrl ?? "",
