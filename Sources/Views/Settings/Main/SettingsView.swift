@@ -51,6 +51,11 @@ struct SettingsView: View {
                         TranslateUtils.clearCache()
                     }
                     
+                    NavigationLink(destination: TOCRulesConfigView()) {
+                        Label("Quản lý quy tắc TOC", systemImage: "list.bullet.indent")
+                    }
+                    .disabled(!importingTypes.isEmpty)
+
                     if isTranslationEnabled {
                         Toggle(isOn: $isTranslationPronounsEnabled) {
                             Text("Dịch Đại từ (Pronouns)")

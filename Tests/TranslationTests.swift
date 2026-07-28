@@ -229,4 +229,237 @@ final class TranslationTests: XCTestCase {
         // 5. Test indented numeric false-positive protection
         XCTAssertFalse(TranslateUtils.isChapterHeaderLine("  1000 quân lính tiến vào thành phố"))
     }
+
+    func testTOCRulesPersistenceAndResetNonDestructive() throws {
+        let manager = TranslationManager.shared
+        let url = manager.translateDirectory.appendingPathComponent("toc_rules.json")
+        let originalData = try? Data(contentsOf: url)
+
+        defer {
+            if let originalData = originalData {
+                try? originalData.write(to: url, options: .atomic)
+            } else {
+                try? FileManager.default.removeItem(at: url)
+            }
+            TranslateUtils.invalidateTOCRulesCache()
+            TranslateUtils.clearChapterTitleCache()
+        }
+
+        let initialRules = TranslateUtils.getAllTOCRules()
+        XCTAssertFalse(initialRules.isEmpty)
+
+        let customRule = TOCRule(id: "test_temp_id_\(UUID().uuidString)", name: "Test Rule", rule: #"^Test \d+$"#, example: "Test 1", enabled: true)
+        var updated = initialRules
+        updated.append(customRule)
+
+        let saveSuccess = TranslateUtils.saveTOCRules(updated)
+        XCTAssertTrue(saveSuccess)
+
+        let reloaded = TranslateUtils.getAllTOCRules()
+        XCTAssertTrue(reloaded.contains(where: { $0.id == customRule.id }))
+
+        let resetSuccess = TranslateUtils.resetTOCRulesToDefault()
+        XCTAssertTrue(resetSuccess)
+
+        let afterReset = TranslateUtils.getAllTOCRules()
+        XCTAssertFalse(afterReset.contains(where: { $0.id == customRule.id }))
+    }
+
+    func testTOCRulePatternValidation() throws {
+        XCTAssertNil(TranslateUtils.validateTOCRulePattern(#"^Chương \d+"#))
+        XCTAssertNotNil(TranslateUtils.validateTOCRulePattern(""))
+        XCTAssertNotNil(TranslateUtils.validateTOCRulePattern("[a-z"))
+        XCTAssertNotNil(TranslateUtils.validateTOCRulePattern(String(repeating: "a", count: 251)))
+    }
+
+    func testImportValidationOversizedDataAndRulesCount() throws {
+        let dummyRule = TOCRule(id: "id_1", name: "Name 1", rule: #"^test$"#, example: nil, enabled: true)
+        let data = try JSONEncoder().encode([dummyRule])
+
+        let oversizedDataResult = TranslateUtils.validateImportedTOCRules(data, maxSizeBytes: 10)
+        switch oversizedDataResult {
+        case .success:
+            XCTFail("Should fail oversized data")
+        case .failure(let err):
+            XCTAssertEqual(err, .fileTooLarge(maxKB: 0))
+        }
+
+        let rules101 = (1...101).map { TOCRule(id: "id_\($0)", name: "Name \($0)", rule: #"^test$"#, example: nil, enabled: true) }
+        let rules101Data = try JSONEncoder().encode(rules101)
+        let tooManyRulesResult = TranslateUtils.validateImportedTOCRules(rules101Data, maxRuleCount: 100)
+        switch tooManyRulesResult {
+        case .success:
+            XCTFail("Should fail > 100 rules")
+        case .failure(let err):
+            XCTAssertEqual(err, .tooManyRules(count: 101, max: 100))
+        }
+    }
+
+    func testImportValidationEmptyOrOverlongIDAndNameAndDuplicateIDs() throws {
+        let emptyIDRule = TOCRule(id: "   ", name: "Valid Name", rule: #"^test$"#, example: nil, enabled: true)
+        let emptyIDData = try JSONEncoder().encode([emptyIDRule])
+        if case .failure(let err) = TranslateUtils.validateImportedTOCRules(emptyIDData) {
+            XCTAssertEqual(err, .emptyID(index: 0))
+        } else {
+            XCTFail("Should reject empty ID")
+        }
+
+        let overlongIDRule = TOCRule(id: String(repeating: "i", count: 101), name: "Valid Name", rule: #"^test$"#, example: nil, enabled: true)
+        let overlongIDData = try JSONEncoder().encode([overlongIDRule])
+        if case .failure(let err) = TranslateUtils.validateImportedTOCRules(overlongIDData) {
+            XCTAssertEqual(err, .idTooLong(index: 0))
+        } else {
+            XCTFail("Should reject overlong ID")
+        }
+
+        let emptyNameRule = TOCRule(id: "valid_id", name: "   ", rule: #"^test$"#, example: nil, enabled: true)
+        let emptyNameData = try JSONEncoder().encode([emptyNameRule])
+        if case .failure(let err) = TranslateUtils.validateImportedTOCRules(emptyNameData) {
+            XCTAssertEqual(err, .emptyName(index: 0, id: "valid_id"))
+        } else {
+            XCTFail("Should reject empty name")
+        }
+
+        let overlongNameRule = TOCRule(id: "valid_id", name: String(repeating: "n", count: 101), rule: #"^test$"#, example: nil, enabled: true)
+        let overlongNameData = try JSONEncoder().encode([overlongNameRule])
+        if case .failure(let err) = TranslateUtils.validateImportedTOCRules(overlongNameData) {
+            XCTAssertEqual(err, .nameTooLong(index: 0))
+        } else {
+            XCTFail("Should reject overlong name")
+        }
+
+        let dupRule1 = TOCRule(id: "dup_id", name: "Name 1", rule: #"^r1$"#, example: nil, enabled: true)
+        let dupRule2 = TOCRule(id: "dup_id", name: "Name 2", rule: #"^r2$"#, example: nil, enabled: true)
+        let dupData = try JSONEncoder().encode([dupRule1, dupRule2])
+        if case .failure(let err) = TranslateUtils.validateImportedTOCRules(dupData) {
+            XCTAssertEqual(err, .duplicateID(id: "dup_id"))
+        } else {
+            XCTFail("Should reject duplicate IDs")
+        }
+
+        // Whitespace-equivalent duplicate ID case
+        let wsDupRule1 = TOCRule(id: "dup_ws ", name: "Name 1", rule: #"^r1$"#, example: nil, enabled: true)
+        let wsDupRule2 = TOCRule(id: "dup_ws", name: "Name 2", rule: #"^r2$"#, example: nil, enabled: true)
+        let wsDupData = try JSONEncoder().encode([wsDupRule1, wsDupRule2])
+        if case .failure(let err) = TranslateUtils.validateImportedTOCRules(wsDupData) {
+            XCTAssertEqual(err, .duplicateID(id: "dup_ws"))
+        } else {
+            XCTFail("Should reject whitespace-equivalent duplicate IDs")
+        }
+    }
+
+    func testDeterministicMergeAndReplaceOrderDetails() throws {
+        let defaultRules = TranslateUtils.getDefaultTOCRules()
+        let currentRules = [
+            defaultRules[0],
+            TOCRule(id: "custom_1", name: "Custom 1", rule: #"^c1$"#, example: nil, enabled: true),
+            TOCRule(id: "custom_2", name: "Custom 2", rule: #"^c2$"#, example: nil, enabled: false)
+        ]
+
+        let importedForMerge = [
+            TOCRule(id: "custom_2", name: "Updated Custom 2", rule: #"^c2_updated$"#, example: nil, enabled: true),
+            TOCRule(id: "custom_3", name: "New Custom 3", rule: #"^c3$"#, example: nil, enabled: true)
+        ]
+
+        let merged = TranslateUtils.mergeTOCRules(current: currentRules, imported: importedForMerge)
+        XCTAssertEqual(merged.count, 4)
+        XCTAssertEqual(merged[0].id, defaultRules[0].id)
+        XCTAssertEqual(merged[1].id, "custom_1")
+        XCTAssertEqual(merged[2].id, "custom_2")
+        XCTAssertEqual(merged[2].name, "Updated Custom 2")
+        XCTAssertEqual(merged[3].id, "custom_3")
+
+        let importedForReplace = [
+            TOCRule(id: "custom_3", name: "Custom 3", rule: #"^c3$"#, example: nil, enabled: true)
+        ]
+        let replaced = TranslateUtils.replaceTOCRules(imported: importedForReplace)
+        XCTAssertEqual(replaced[0].id, "custom_3")
+        // Verify all 5 default rules are appended at end in shipped-default order
+        for (idx, defRule) in defaultRules.enumerated() {
+            XCTAssertEqual(replaced[1 + idx].id, defRule.id)
+        }
+    }
+
+    func testAtomicImportRejectionNoFileOrCacheMutation() throws {
+        let manager = TranslationManager.shared
+        let url = manager.translateDirectory.appendingPathComponent("toc_rules.json")
+        let originalData = try? Data(contentsOf: url)
+
+        defer {
+            if let originalData = originalData {
+                try? originalData.write(to: url, options: .atomic)
+            } else {
+                try? FileManager.default.removeItem(at: url)
+            }
+            TranslateUtils.invalidateTOCRulesCache()
+            TranslateUtils.clearChapterTitleCache()
+        }
+
+        _ = TranslateUtils.getAllTOCRules()
+        let fileBytesBefore = try? Data(contentsOf: url)
+
+        let invalidRule = TOCRule(id: "invalid_id", name: "Invalid Rule", rule: #"[unclosed"#, example: nil, enabled: true)
+        let invalidData = try! JSONEncoder().encode([invalidRule])
+
+        let validationResult = TranslateUtils.validateImportedTOCRules(invalidData)
+        if case .failure = validationResult {
+            // Confirmation: rejected validation does not call saveTOCRules
+        } else {
+            XCTFail("Validation should fail for invalid pattern")
+        }
+
+        let fileBytesAfter = try? Data(contentsOf: url)
+        XCTAssertEqual(fileBytesBefore, fileBytesAfter)
+    }
+
+    func testTempExportFileCreationAndCleanup() throws {
+        let rules = [TOCRule(id: "temp_test", name: "Temp Test", rule: #"^temp$"#, example: nil, enabled: true)]
+        let jsonData = try JSONEncoder().encode(rules)
+
+        let fileName = "toc_rules_config_test_\(UUID().uuidString.prefix(8)).json"
+        let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(fileName)
+
+        try jsonData.write(to: tempURL, options: .atomic)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tempURL.path))
+
+        // Simulate ShareSheet dismissal cleanup
+        try FileManager.default.removeItem(at: tempURL)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: tempURL.path))
+    }
+
+    func testCoordinatorFIFOAndFlush() async throws {
+        let manager = TranslationManager.shared
+        let url = manager.translateDirectory.appendingPathComponent("toc_rules.json")
+        let originalData = try? Data(contentsOf: url)
+
+        defer {
+            if let originalData = originalData {
+                try? originalData.write(to: url, options: .atomic)
+            } else {
+                try? FileManager.default.removeItem(at: url)
+            }
+            TranslateUtils.invalidateTOCRulesCache()
+            TranslateUtils.clearChapterTitleCache()
+        }
+
+        let coordinator = TOCRuleSaveCoordinator()
+
+        let r1 = [TOCRule(id: "seq_1", name: "Seq 1", rule: #"^Seq1$"#, example: nil, enabled: true)]
+        let r2 = [TOCRule(id: "seq_2", name: "Seq 2", rule: #"^Seq2$"#, example: nil, enabled: true)]
+        let r3 = [TOCRule(id: "seq_3", name: "Seq 3", rule: #"^Seq3$"#, example: nil, enabled: true)]
+
+        let t1 = await coordinator.enqueue(r1)
+        let t2 = await coordinator.enqueue(r2)
+        let t3 = await coordinator.enqueue(r3)
+
+        _ = await t1.value
+        _ = await t2.value
+        _ = await t3.value
+
+        await coordinator.flush()
+
+        let finalRules = TranslateUtils.getAllTOCRules()
+        XCTAssertEqual(finalRules.count, 1)
+        XCTAssertEqual(finalRules.first?.id, "seq_3")
+    }
 }

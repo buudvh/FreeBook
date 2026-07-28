@@ -1,11 +1,101 @@
 import Foundation
 
-public struct TOCRule: Codable, Identifiable {
+public struct TOCRule: Codable, Identifiable, Sendable, Equatable {
     public let id: String
     public let name: String
     public let rule: String
     public let example: String?
     public var enabled: Bool
+
+    public init(id: String, name: String, rule: String, example: String? = nil, enabled: Bool = true) {
+        self.id = id
+        self.name = name
+        self.rule = rule
+        self.example = example
+        self.enabled = enabled
+    }
+}
+
+public enum TOCRuleImportError: LocalizedError, Equatable, Sendable {
+    case invalidJSON
+    case fileTooLarge(maxKB: Int)
+    case tooManyRules(count: Int, max: Int)
+    case emptyID(index: Int)
+    case idTooLong(index: Int)
+    case emptyName(index: Int, id: String)
+    case nameTooLong(index: Int)
+    case duplicateID(id: String)
+    case invalidRegex(ruleName: String, reason: String)
+    case custom(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalidJSON:
+            return "File JSON không đúng cấu trúc danh sách quy tắc TOC."
+        case .fileTooLarge(let maxKB):
+            return "Kích thước file vượt quá giới hạn cho phép (tối đa \(maxKB)KB)."
+        case .tooManyRules(let count, let max):
+            return "Số lượng quy tắc trong file (\(count)) vượt quá giới hạn tối đa (\(max))."
+        case .emptyID(let index):
+            return "Quy tắc thứ \(index + 1) có ID rỗng."
+        case .idTooLong(let index):
+            return "Quy tắc thứ \(index + 1) có ID vượt quá 100 ký tự."
+        case .emptyName(let index, let id):
+            return "Quy tắc thứ \(index + 1) (ID: \(id)) có tên rỗng."
+        case .nameTooLong(let index):
+            return "Quy tắc thứ \(index + 1) có tên vượt quá 100 ký tự."
+        case .duplicateID(let id):
+            return "Phát hiện ID trùng lặp nội bộ trong file import: \"\(id)\"."
+        case .invalidRegex(let ruleName, let reason):
+            return "Quy tắc \"\(ruleName)\" chứa lỗi: \(reason)"
+        case .custom(let msg):
+            return msg
+        }
+    }
+}
+
+public struct TOCImportPreview: Equatable, Sendable {
+    public let importedCount: Int
+    public let newCount: Int
+    public let updateCount: Int
+    public let preservedCount: Int
+    public let restoredDefaultCount: Int
+
+    public init(importedCount: Int, newCount: Int, updateCount: Int, preservedCount: Int, restoredDefaultCount: Int) {
+        self.importedCount = importedCount
+        self.newCount = newCount
+        self.updateCount = updateCount
+        self.preservedCount = preservedCount
+        self.restoredDefaultCount = restoredDefaultCount
+    }
+}
+
+public actor TOCRuleSaveCoordinator {
+    public static let shared = TOCRuleSaveCoordinator()
+    private var previousSaveTask: Task<Bool, Never>? = nil
+
+    public init() {}
+
+    @discardableResult
+    public func enqueue(_ rules: [TOCRule]) -> Task<Bool, Never> {
+        let currentPrevious = previousSaveTask
+        let newSaveTask = Task { () -> Bool in
+            _ = await currentPrevious?.value
+            return TranslateUtils.saveTOCRules(rules)
+        }
+        self.previousSaveTask = newSaveTask
+        return newSaveTask
+    }
+
+    @discardableResult
+    public func scheduleSave(_ rules: [TOCRule]) async -> Bool {
+        let task = enqueue(rules)
+        return await task.value
+    }
+
+    public func flush() async {
+        _ = await previousSaveTask?.value
+    }
 }
 
 public final class TranslateUtils {
@@ -14,6 +104,7 @@ public final class TranslateUtils {
     private static let cacheLock = NSLock()
     private static let tocRulesLock = NSLock()
     private static var chapterTitleCacheDict: [String: [String: String]] = [:]
+    private static var cachedAllTOCRules: [TOCRule]? = nil
     private static var cachedTOCRules: [TOCRule]? = nil
     private static var cachedCompiledTOCRegexes: [NSRegularExpression]? = nil
     
@@ -733,6 +824,24 @@ public final class TranslateUtils {
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
+    public static func invalidateTOCRulesCache() {
+        tocRulesLock.lock()
+        defer { tocRulesLock.unlock() }
+        cachedAllTOCRules = nil
+        cachedTOCRules = nil
+        cachedCompiledTOCRegexes = nil
+    }
+
+    public static func getDefaultTOCRules() -> [TOCRule] {
+        return defaultTOCRules
+    }
+
+    public static func getAllTOCRules() -> [TOCRule] {
+        tocRulesLock.lock()
+        defer { tocRulesLock.unlock() }
+        return getAllTOCRulesUnlocked()
+    }
+
     public static func getActiveTOCRules() -> [TOCRule] {
         tocRulesLock.lock()
         defer { tocRulesLock.unlock() }
@@ -753,42 +862,202 @@ public final class TranslateUtils {
         return compiled
     }
 
-    private static func getActiveTOCRulesUnlocked() -> [TOCRule] {
-        if let cached = cachedTOCRules {
+    private static func getAllTOCRulesUnlocked() -> [TOCRule] {
+        if let cached = cachedAllTOCRules {
             return cached
         }
-
         let url = TranslationManager.shared.translateDirectory.appendingPathComponent("toc_rules.json")
-        let active: [TOCRule]
+        let all: [TOCRule]
         if let data = try? Data(contentsOf: url),
            let list = try? JSONDecoder().decode([TOCRule].self, from: data) {
-            active = list.filter { $0.enabled }
+            all = list
         } else {
             if !FileManager.default.fileExists(atPath: url.path) {
                 if let data = try? JSONEncoder().encode(defaultTOCRules) {
                     try? data.write(to: url)
                 }
+            } else {
+                AppLogger.shared.log("❌ Lỗi decode file toc_rules.json, fallback về defaultTOCRules")
             }
-            active = defaultTOCRules.filter { $0.enabled }
+            all = defaultTOCRules
         }
+        cachedAllTOCRules = all
+        let active = all.filter { $0.enabled }
+        cachedTOCRules = active
+        cachedCompiledTOCRegexes = active.compactMap { try? NSRegularExpression(pattern: $0.rule, options: [.caseInsensitive]) }
+        return all
+    }
 
+    private static func getActiveTOCRulesUnlocked() -> [TOCRule] {
+        if let cached = cachedTOCRules {
+            return cached
+        }
+        let all = getAllTOCRulesUnlocked()
+        let active = all.filter { $0.enabled }
         cachedTOCRules = active
         cachedCompiledTOCRegexes = active.compactMap { try? NSRegularExpression(pattern: $0.rule, options: [.caseInsensitive]) }
         return active
     }
     
-    public static func saveTOCRules(_ rules: [TOCRule]) {
+    @discardableResult
+    public static func saveTOCRules(_ rules: [TOCRule]) -> Bool {
         tocRulesLock.lock()
         defer { tocRulesLock.unlock() }
 
-        let enabledRules = rules.filter { $0.enabled }
         let url = TranslationManager.shared.translateDirectory.appendingPathComponent("toc_rules.json")
-        if let data = try? JSONEncoder().encode(rules) {
-            try? data.write(to: url)
+        guard let data = try? JSONEncoder().encode(rules) else { return false }
+
+        do {
+            try data.write(to: url, options: .atomic)
+        } catch {
+            AppLogger.shared.log("❌ Lỗi ghi file toc_rules.json: \(error.localizedDescription)")
+            return false
         }
 
+        let enabledRules = rules.filter { $0.enabled }
+        cachedAllTOCRules = rules
         cachedTOCRules = enabledRules
         cachedCompiledTOCRegexes = enabledRules.compactMap { try? NSRegularExpression(pattern: $0.rule, options: [.caseInsensitive]) }
+
+        clearChapterTitleCacheUnlocked()
+        return true
+    }
+
+    @discardableResult
+    public static func resetTOCRulesToDefault() -> Bool {
+        return saveTOCRules(defaultTOCRules)
+    }
+
+    public static func validateTOCRulePattern(_ pattern: String) -> String? {
+        let trimmed = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return "Chuỗi mẫu Regex không được để trống." }
+        if trimmed.count > 250 { return "Độ dài Regex không được vượt quá 250 ký tự." }
+        do {
+            _ = try NSRegularExpression(pattern: trimmed, options: [.caseInsensitive])
+            return nil
+        } catch {
+            return "Cú pháp Regex không hợp lệ: \(error.localizedDescription)"
+        }
+    }
+
+    public static func validateImportedTOCRules(_ data: Data, maxSizeBytes: Int = 500 * 1024, maxRuleCount: Int = 100) -> Result<[TOCRule], TOCRuleImportError> {
+        if data.count > maxSizeBytes {
+            return .failure(.fileTooLarge(maxKB: maxSizeBytes / 1024))
+        }
+
+        guard let list = try? JSONDecoder().decode([TOCRule].self, from: data) else {
+            return .failure(.invalidJSON)
+        }
+
+        if list.count > maxRuleCount {
+            return .failure(.tooManyRules(count: list.count, max: maxRuleCount))
+        }
+
+        var seenIDs = Set<String>()
+        for (index, item) in list.enumerated() {
+            let trimmedID = item.id.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedName = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if trimmedID.isEmpty {
+                return .failure(.emptyID(index: index))
+            }
+            if trimmedID.count > 100 {
+                return .failure(.idTooLong(index: index))
+            }
+            if trimmedName.isEmpty {
+                return .failure(.emptyName(index: index, id: trimmedID))
+            }
+            if trimmedName.count > 100 {
+                return .failure(.nameTooLong(index: index))
+            }
+            if seenIDs.contains(trimmedID) {
+                return .failure(.duplicateID(id: trimmedID))
+            }
+            seenIDs.insert(trimmedID)
+
+            if let patternError = validateTOCRulePattern(item.rule) {
+                return .failure(.invalidRegex(ruleName: item.name, reason: patternError))
+            }
+        }
+
+        return .success(list)
+    }
+
+    public static func calculateImportPreview(current: [TOCRule], imported: [TOCRule], isMerge: Bool) -> TOCImportPreview {
+        let importedCount = imported.count
+        let importedIDs = Set(imported.map { $0.id.trimmingCharacters(in: .whitespacesAndNewlines) })
+
+        if isMerge {
+            let existingIDs = Set(current.map { $0.id.trimmingCharacters(in: .whitespacesAndNewlines) })
+            let updateCount = imported.filter { existingIDs.contains($0.id.trimmingCharacters(in: .whitespacesAndNewlines)) }.count
+            let newCount = imported.filter { !existingIDs.contains($0.id.trimmingCharacters(in: .whitespacesAndNewlines)) }.count
+            let preservedCount = current.filter { !importedIDs.contains($0.id.trimmingCharacters(in: .whitespacesAndNewlines)) }.count
+            return TOCImportPreview(
+                importedCount: importedCount,
+                newCount: newCount,
+                updateCount: updateCount,
+                preservedCount: preservedCount,
+                restoredDefaultCount: 0
+            )
+        } else {
+            let defaultRules = defaultTOCRules
+            let restoredDefaultCount = defaultRules.filter { !importedIDs.contains($0.id.trimmingCharacters(in: .whitespacesAndNewlines)) }.count
+            return TOCImportPreview(
+                importedCount: importedCount,
+                newCount: 0,
+                updateCount: 0,
+                preservedCount: 0,
+                restoredDefaultCount: restoredDefaultCount
+            )
+        }
+    }
+
+    public static func mergeTOCRules(current: [TOCRule], imported: [TOCRule]) -> [TOCRule] {
+        var result = current
+        var existingIndexMap = [String: Int]()
+        for (idx, rule) in current.enumerated() {
+            existingIndexMap[rule.id] = idx
+        }
+
+        var newRulesToAppend = [TOCRule]()
+        for impRule in imported {
+            let sanitized = TOCRule(
+                id: impRule.id.trimmingCharacters(in: .whitespacesAndNewlines),
+                name: impRule.name.trimmingCharacters(in: .whitespacesAndNewlines),
+                rule: impRule.rule.trimmingCharacters(in: .whitespacesAndNewlines),
+                example: impRule.example?.trimmingCharacters(in: .whitespacesAndNewlines),
+                enabled: impRule.enabled
+            )
+            if let idx = existingIndexMap[sanitized.id] {
+                result[idx] = sanitized
+            } else {
+                newRulesToAppend.append(sanitized)
+            }
+        }
+
+        result.append(contentsOf: newRulesToAppend)
+        return result
+    }
+
+    public static func replaceTOCRules(imported: [TOCRule]) -> [TOCRule] {
+        var result = imported.map { impRule in
+            TOCRule(
+                id: impRule.id.trimmingCharacters(in: .whitespacesAndNewlines),
+                name: impRule.name.trimmingCharacters(in: .whitespacesAndNewlines),
+                rule: impRule.rule.trimmingCharacters(in: .whitespacesAndNewlines),
+                example: impRule.example?.trimmingCharacters(in: .whitespacesAndNewlines),
+                enabled: impRule.enabled
+            )
+        }
+        let importedIDs = Set(result.map(\.id))
+
+        for defaultRule in defaultTOCRules {
+            if !importedIDs.contains(defaultRule.id) {
+                result.append(defaultRule)
+            }
+        }
+
+        return result
     }
 
     public static func isMatchingTOCRule(_ line: String, compiledRegexes: [NSRegularExpression]? = nil) -> Bool {
@@ -837,6 +1106,12 @@ public final class TranslateUtils {
 
         return false
     }
+
+    private static func clearChapterTitleCacheUnlocked() {
+        cacheLock.lock()
+        chapterTitleCacheDict.removeAll()
+        cacheLock.unlock()
+    }
     
     public static func clearChapterTitleCache(for bookId: String) {
         cacheLock.lock()
@@ -853,6 +1128,7 @@ public final class TranslateUtils {
     public static func clearCache() {
         translationCache.removeAllObjects()
         clearChapterTitleCache()
+        invalidateTOCRulesCache()
     }
 
     private static func buildTranslationSpans(
