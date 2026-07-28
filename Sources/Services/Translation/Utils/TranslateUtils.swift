@@ -12,8 +12,10 @@ public final class TranslateUtils {
     
     private static let translationCache = NSCache<NSString, NSString>()
     private static let cacheLock = NSLock()
+    private static let tocRulesLock = NSLock()
     private static var chapterTitleCacheDict: [String: [String: String]] = [:]
     private static var cachedTOCRules: [TOCRule]? = nil
+    private static var cachedCompiledTOCRegexes: [NSRegularExpression]? = nil
     
     public static func getFirstMeaning(of rawTranslation: String) -> String {
         let separators = CharacterSet(charactersIn: "/¦|")
@@ -732,34 +734,108 @@ public final class TranslateUtils {
     }
     
     public static func getActiveTOCRules() -> [TOCRule] {
+        tocRulesLock.lock()
+        defer { tocRulesLock.unlock() }
+        return getActiveTOCRulesUnlocked()
+    }
+
+    public static func getCompiledActiveTOCRegexes() -> [NSRegularExpression] {
+        tocRulesLock.lock()
+        defer { tocRulesLock.unlock() }
+
+        if let cachedRegexes = cachedCompiledTOCRegexes {
+            return cachedRegexes
+        }
+
+        let active = getActiveTOCRulesUnlocked()
+        let compiled = active.compactMap { try? NSRegularExpression(pattern: $0.rule, options: [.caseInsensitive]) }
+        cachedCompiledTOCRegexes = compiled
+        return compiled
+    }
+
+    private static func getActiveTOCRulesUnlocked() -> [TOCRule] {
         if let cached = cachedTOCRules {
             return cached
         }
+
         let url = TranslationManager.shared.translateDirectory.appendingPathComponent("toc_rules.json")
+        let active: [TOCRule]
         if let data = try? Data(contentsOf: url),
            let list = try? JSONDecoder().decode([TOCRule].self, from: data) {
-            let active = list.filter { $0.enabled }
-            cachedTOCRules = active
-            return active
-        }
-        
-        if !FileManager.default.fileExists(atPath: url.path) {
-            if let data = try? JSONEncoder().encode(defaultTOCRules) {
-                try? data.write(to: url)
+            active = list.filter { $0.enabled }
+        } else {
+            if !FileManager.default.fileExists(atPath: url.path) {
+                if let data = try? JSONEncoder().encode(defaultTOCRules) {
+                    try? data.write(to: url)
+                }
             }
+            active = defaultTOCRules.filter { $0.enabled }
         }
-        
-        let active = defaultTOCRules.filter { $0.enabled }
+
         cachedTOCRules = active
+        cachedCompiledTOCRegexes = active.compactMap { try? NSRegularExpression(pattern: $0.rule, options: [.caseInsensitive]) }
         return active
     }
     
     public static func saveTOCRules(_ rules: [TOCRule]) {
-        cachedTOCRules = nil // Invalidate memory cache
+        tocRulesLock.lock()
+        defer { tocRulesLock.unlock() }
+
+        let enabledRules = rules.filter { $0.enabled }
         let url = TranslationManager.shared.translateDirectory.appendingPathComponent("toc_rules.json")
         if let data = try? JSONEncoder().encode(rules) {
             try? data.write(to: url)
         }
+
+        cachedTOCRules = enabledRules
+        cachedCompiledTOCRegexes = enabledRules.compactMap { try? NSRegularExpression(pattern: $0.rule, options: [.caseInsensitive]) }
+    }
+
+    public static func isMatchingTOCRule(_ line: String, compiledRegexes: [NSRegularExpression]? = nil) -> Bool {
+        let regexes = compiledRegexes ?? getCompiledActiveTOCRegexes()
+        let range = NSRange(line.startIndex..<line.endIndex, in: line)
+        for regex in regexes {
+            if regex.firstMatch(in: line, options: [], range: range) != nil {
+                return true
+            }
+        }
+        return false
+    }
+
+    public static func isMatchingTOCRule(_ line: String, rules: [TOCRule]) -> Bool {
+        let enabledRules = rules.filter { $0.enabled }
+        let compiled = enabledRules.compactMap { try? NSRegularExpression(pattern: $0.rule, options: [.caseInsensitive]) }
+        return isMatchingTOCRule(line, compiledRegexes: compiled)
+    }
+
+    public static func isChapterHeaderLine(_ line: String, compiledTOCRegexes: [NSRegularExpression]? = nil) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.count < 100 else { return false }
+
+        // 1. Configurable TOC Rules (matching raw line)
+        if isMatchingTOCRule(line, compiledRegexes: compiledTOCRegexes) {
+            return true
+        }
+
+        // 2. Legacy Vietnamese / English chapter keywords (matching trimmed line)
+        let chapterKeywords = ["chương", "chapter", "quyển", "tập", "tiết", "hồi", "phần", "tự", "vĩ thanh", "mở đầu", "lời mở đầu", "phiên ngoại", "mục"]
+        let lowerTrimmed = trimmed.lowercased()
+        for keyword in chapterKeywords {
+            if lowerTrimmed.hasPrefix(keyword) {
+                return true
+            }
+        }
+
+        // 3. Legacy numeric fallback (strictly unindented)
+        let hasIndentation = line.hasPrefix(" ") || line.hasPrefix("\t") || line.hasPrefix("　")
+        if !hasIndentation {
+            let firstWord = lowerTrimmed.components(separatedBy: .whitespaces).first ?? ""
+            if firstWord.rangeOfCharacter(from: CharacterSet.decimalDigits) != nil {
+                return true
+            }
+        }
+
+        return false
     }
     
     public static func clearChapterTitleCache(for bookId: String) {

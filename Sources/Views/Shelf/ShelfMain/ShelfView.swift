@@ -672,32 +672,13 @@ struct ShelfView: View {
         var currentChapterTitle = "Mở đầu"
         var currentChapterLines: [String] = []
 
-        let chapterKeywords = ["chương", "chapter", "quyển", "tập", "tiết", "hồi", "phần", "tự", "vĩ thanh", "mở đầu", "lời mở đầu", "phiên ngoại", "mục"]
+        let compiledTOCRegexes = TranslateUtils.getCompiledActiveTOCRegexes()
 
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { continue }
 
-            let hasIndentation = line.hasPrefix(" ") || line.hasPrefix("\t") || line.hasPrefix("　")
-            let isShort = trimmed.count < 100
-
-            var isChapterTitle = false
-            if !hasIndentation && isShort {
-                let lowerTrimmed = trimmed.lowercased()
-                for keyword in chapterKeywords {
-                    if lowerTrimmed.hasPrefix(keyword) {
-                        isChapterTitle = true
-                        break
-                    }
-                }
-
-                if !isChapterTitle {
-                    let firstWord = lowerTrimmed.components(separatedBy: .whitespaces).first ?? ""
-                    if firstWord.rangeOfCharacter(from: CharacterSet.decimalDigits) != nil {
-                        isChapterTitle = true
-                    }
-                }
-            }
+            let isChapterTitle = TranslateUtils.isChapterHeaderLine(line, compiledTOCRegexes: compiledTOCRegexes)
 
             if isChapterTitle {
                 if !currentChapterLines.isEmpty || currentChapterTitle != "Mở đầu" {

@@ -205,4 +205,28 @@ final class TranslationTests: XCTestCase {
         try? FileManager.default.removeItem(at: bookDir)
         manager.clearBookDictCache(for: bookId)
     }
+
+    func testIsChapterHeaderLineAndCustomTOCRuleState() throws {
+        // 1. Test Chinese sample-shaped headings
+        XCTAssertTrue(TranslateUtils.isChapterHeaderLine(" 第一章 蓝电潜龙"))
+        XCTAssertTrue(TranslateUtils.isChapterHeaderLine(" 第二百一十章 神禁审判，终局"))
+        XCTAssertTrue(TranslateUtils.isChapterHeaderLine("第100章 Test Chapter"))
+
+        // 2. Test custom rule enablement / disablement
+        let customRuleEnabled = TOCRule(id: "custom_sec", name: "Custom Section", rule: #"^Section \d+$"#, example: "Section 1", enabled: true)
+        let customRuleDisabled = TOCRule(id: "custom_sec", name: "Custom Section", rule: #"^Section \d+$"#, example: "Section 1", enabled: false)
+
+        XCTAssertTrue(TranslateUtils.isMatchingTOCRule("Section 1", rules: [customRuleEnabled]))
+        XCTAssertFalse(TranslateUtils.isMatchingTOCRule("Section 1", rules: [customRuleDisabled]))
+
+        // 3. Test Vietnamese & English indented fallbacks
+        XCTAssertTrue(TranslateUtils.isChapterHeaderLine("  Chương 1: Mở đầu"))
+        XCTAssertTrue(TranslateUtils.isChapterHeaderLine("  Chapter 2: The Journey"))
+
+        // 4. Test unindented numeric fallback
+        XCTAssertTrue(TranslateUtils.isChapterHeaderLine("01. Tiêu đề số"))
+
+        // 5. Test indented numeric false-positive protection
+        XCTAssertFalse(TranslateUtils.isChapterHeaderLine("  1000 quân lính tiến vào thành phố"))
+    }
 }
