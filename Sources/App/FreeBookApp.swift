@@ -62,7 +62,6 @@ struct AppLaunchRootView: View {
         .onAppear {
             BookStorageManager.shared.drainRetryQueue()
             BookStorageManager.shared.retryFailedChapterStoreDeletions()
-            ChapterMigrationWorker.shared.startMigrationIfNecessary(container: modelContext.container)
         }
     }
 }

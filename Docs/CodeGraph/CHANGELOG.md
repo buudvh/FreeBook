@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.52] - 2026-07-28
+
+### Loại bỏ ChapterMigrationWorker & Sửa lỗi Destructive Empty-Import
+* **Khắc phục Nguyên nhân Gốc rễ Mất Mục Lục khi Khởi động lại App**:
+  * Xác định nguyên nhân mất dữ liệu mục lục (TOC count về 0) sau khi khởi động lại app: Luồng legacy migration (`ChapterMigrationWorker`) chạy tự động ở `FreeBookApp.onAppear` đọc danh sách `book.chapters` rỗng từ SwiftData (do `enableSwiftDataTOCWrite = false`), sau đó gọi `importBookMigration` truyền danh sách snapshot rỗng làm xoá toàn bộ dữ liệu chương hiện có trong SQLite `ChapterStore`.
+* **Loại bỏ Hoàn toàn Tệp Migration Worker & Cờ Cấu hình**:
+  * Xoá hoàn toàn tệp vật lý `ChapterMigrationWorker.swift` và gỡ bỏ thuộc tính `enableChapterStoreMigration` khỏi `ChapterStoreConfiguration.swift`.
+  * Gỡ bỏ lệnh khởi chạy `ChapterMigrationWorker.shared.startMigrationIfNecessary` trong `FreeBookApp.swift` (`.onAppear`).
+  * Gỡ bỏ khối code fallback legacy trong `ChapterPersistenceStore.saveChapterList` (kiểm tra `storedCount == 0` để gọi `importBookMigration`).
+  * Luồng ghi chính (primary write path) `replaceFullTOC` / `upsertPage` lưu metadata sách vào SwiftData và ghi danh mục TOC trực tiếp vào SQLite `ChapterStore` tiếp tục hoạt động độc lập và không bị thay đổi.
+* **Phòng thủ Chuyên sâu Chống Import Rỗng (`ChapterStoreDatabase`)**:
+  * Thêm guard kiểm tra `!snapshots.isEmpty` ngay đầu hàm `ChapterStoreDatabase.importBookMigration` trước khi khởi tạo giao dịch (`beginTransaction`).
+  * Từ chối mọi yêu cầu import danh sách rỗng, ghi log mã băm sách rút gọn 8 ký tự (`bookHash`) và quăng lỗi ngữ nghĩa `ChapterStoreError.invalidContent`, ngăn ngừa triệt để việc xoá dữ liệu chương cũ và ngăn ghi dòng trạng thái `migration_status = migrated, 0`.
+* **Dọn dẹp Cờ Cấu hình Thừa (Batch 1 Cleanup)**:
+  * Gỡ bỏ 3 cờ cấu hình ghi kép không còn được sử dụng (`enableDualWriteNewBook`, `enableDualWriteExistingBook`, `enableDualWriteCacheMetadata`) khỏi `ChapterStoreConfiguration.swift`.
+
+---
+
 ## [1.3.51] - 2026-07-27
 
 ### Chuyển đổi Mục Lục sang SQLite Native (`ChapterStore`)

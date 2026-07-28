@@ -46,7 +46,7 @@ struct AppLoadingView: View {
                 
                 // Tên ứng dụng và nhãn trạng thái
                 VStack(spacing: 8) {
-                    Text("FreeBook")
+                    Text("Tàng công các")
                         .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundColor(.primary)
                     

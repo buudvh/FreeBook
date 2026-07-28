@@ -324,34 +324,6 @@ actor ChapterPersistenceStore {
             let primaryExistingEnabled = ChapterStoreConfiguration.enableChapterStorePrimaryWriteExistingBook
 
             if (isNewBook == true && primaryNewEnabled) || (isNewBook == false && primaryExistingEnabled) {
-                // Ensure coverage for existing book if ChapterStore is empty
-                if isNewBook == false, let existing = existingBook, !existing.chapters.isEmpty {
-                    let (storedCount, _) = (try? await ChapterStore.shared.fetchCountAndChecksum(bookId: bookId)) ?? (0, 0)
-                    if storedCount == 0 {
-                        let snapshots = existing.chapters.map { ch in
-                            StoredChapterSnapshot(
-                                id: ch.id,
-                                bookId: bookId,
-                                title: ch.title,
-                                url: ch.url,
-                                index: ch.index,
-                                host: ch.host,
-                                titleTrans: ch.titleTrans,
-                                isCached: ch.isCached,
-                                offset: ch.offset,
-                                length: ch.length
-                            )
-                        }
-                        let statusInfo = MigrationStatusInfo(bookId: bookId, status: "migrated", schemaVersion: 1, migratedCount: snapshots.count)
-                        do {
-                            try await ChapterStore.shared.importBookMigration(bookId: bookId, snapshots: snapshots, statusInfo: statusInfo)
-                        } catch {
-                            AppLogger.shared.log("❌ [ChapterPersistenceStore PrimaryWrite] Migration error code: 301")
-                            throw error
-                        }
-                    }
-                }
-
                 do {
                     let result: SaveTOCResult
                     if mode == .replaceFullTOC {

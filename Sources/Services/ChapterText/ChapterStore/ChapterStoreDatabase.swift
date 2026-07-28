@@ -810,6 +810,12 @@ internal final class ChapterStoreDatabase {
     }
 
     func importBookMigration(bookId: String, snapshots: [StoredChapterSnapshot], statusInfo: MigrationStatusInfo) throws {
+        guard !snapshots.isEmpty else {
+            let bookHash = String(Chapter.hashUrl(bookId).prefix(8))
+            AppLogger.shared.log("❌ [ChapterStore Migration] Rejected empty snapshots import | bookHash=\(bookHash)")
+            throw ChapterStoreError.invalidContent
+        }
+
         try beginTransaction()
         do {
             for item in snapshots {
