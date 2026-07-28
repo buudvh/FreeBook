@@ -26,6 +26,7 @@ struct ReaderDefinitionOverlayView: View {
     let onFormatMeaning: (String, String) -> String
     let onSaveDefinition: () -> Void
     let onPerformQuickLookup: (SearchEngine) -> Void
+    let onOpenSearchEngineConfig: () -> Void
     let onGetDictionaryMatches: (String) -> [DictionaryMatchInfo]
     let onGetHanViet: (String) -> String
 
@@ -318,25 +319,38 @@ struct ReaderDefinitionOverlayView: View {
     }
 
     private var quickLookupLinksView: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(searchEngines) { engine in
-                    Button(action: {
-                        onPerformQuickLookup(engine)
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "safari")
-                            Text(engine.name)
+        HStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(searchEngines) { engine in
+                        Button(action: {
+                            onPerformQuickLookup(engine)
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "safari")
+                                Text(engine.name)
+                            }
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.secondary.opacity(0.12))
+                            .cornerRadius(6)
                         }
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.secondary.opacity(0.12))
-                        .cornerRadius(6)
                     }
                 }
             }
+
+            Button(action: onOpenSearchEngineConfig) {
+                Image(systemName: "gearshape")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .padding(8)
+                    .background(Color.secondary.opacity(0.12))
+                    .cornerRadius(6)
+            }
+            .accessibilityLabel("Cấu hình công cụ tra cứu")
+            .accessibilityHint("Nhấn hai lần để quản lý danh sách công cụ tìm kiếm")
         }
     }
 

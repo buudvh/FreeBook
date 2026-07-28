@@ -76,6 +76,7 @@ struct ReaderView: View {
     @State private var selectedWordOffset = 0
     @State private var selectedWordLength = 0
     @State private var searchEngines: [SearchEngine] = []
+    @State private var showingSearchEnginesConfigSheet = false
     @State private var translationMode: String = "VP" // Dịch dạng: "VP" (Vietphrase) hoặc "HV" (Hán Việt)
     @State private var translationTokens: [TranslationWordToken] = []
     @State private var dictionaryMatches: [DictionaryMatchInfo] = []
@@ -267,6 +268,9 @@ struct ReaderView: View {
                             onFormatMeaning: formatMeaning,
                             onSaveDefinition: saveDefinition,
                             onPerformQuickLookup: performQuickLookup,
+                            onOpenSearchEngineConfig: {
+                                showingSearchEnginesConfigSheet = true
+                            },
                             onGetDictionaryMatches: getDictionaryMatches,
                             onGetHanViet: { getHanViet(for: $0) }
                         )
@@ -344,6 +348,25 @@ struct ReaderView: View {
                     .navigationBarItems(trailing: Button("Đóng") {
                         showingBookDictionary = false
                     })
+            }
+        }
+        .sheet(isPresented: $showingSearchEnginesConfigSheet, onDismiss: {
+            searchEngines = SearchEngine.loadEngines()
+        }) {
+            NavigationStack {
+                SearchEnginesConfigView()
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Xong") {
+                                showingSearchEnginesConfigSheet = false
+                            }
+                        }
+                    }
+            }
+        }
+        .onChange(of: showingDefinitionSheet) { _, newValue in
+            if newValue {
+                searchEngines = SearchEngine.loadEngines()
             }
         }
         .onChange(of: isTranslationEnabled) { _, newValue in
@@ -661,6 +684,7 @@ struct ReaderView: View {
         }
 
         isAutoScrollDisabled = UserDefaults.standard.bool(forKey: "disableAutoScroll_\(bookId)")
+        searchEngines = SearchEngine.loadEngines()
         ReaderView.activeBookId = bookId
 
         if localBookSnapshot == nil {

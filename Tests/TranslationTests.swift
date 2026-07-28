@@ -272,6 +272,41 @@ final class TranslationTests: XCTestCase {
         XCTAssertNotNil(TranslateUtils.validateTOCRulePattern(String(repeating: "a", count: 251)))
     }
 
+    func testImportBackwardsCompatibilityMissingEnabledKey() throws {
+        let rawJSON = """
+        [
+            {"id": "rule_legacy", "name": "Legacy Rule", "rule": "^Legacy \\\\d+$"},
+            {"id": "rule_disabled", "name": "Disabled Rule", "rule": "^Disabled$", "enabled": false},
+            {"id": "rule_enabled", "name": "Enabled Rule", "rule": "^Enabled$", "enabled": true}
+        ]
+        """
+        guard let data = rawJSON.data(using: .utf8) else {
+            XCTFail("Failed to convert raw JSON string to Data")
+            return
+        }
+
+        let result = TranslateUtils.validateImportedTOCRules(data)
+        switch result {
+        case .success(let rules):
+            XCTAssertEqual(rules.count, 3)
+
+            let legacy = rules.first(where: { $0.id == "rule_legacy" })
+            XCTAssertNotNil(legacy)
+            XCTAssertEqual(legacy?.enabled, true, "Missing enabled key should default to true")
+
+            let disabled = rules.first(where: { $0.id == "rule_disabled" })
+            XCTAssertNotNil(disabled)
+            XCTAssertEqual(disabled?.enabled, false, "Explicit enabled=false must be preserved")
+
+            let enabled = rules.first(where: { $0.id == "rule_enabled" })
+            XCTAssertNotNil(enabled)
+            XCTAssertEqual(enabled?.enabled, true, "Explicit enabled=true must be preserved")
+
+        case .failure(let error):
+            XCTFail("Should successfully validate legacy JSON with missing enabled key: \(error)")
+        }
+    }
+
     func testImportValidationOversizedDataAndRulesCount() throws {
         let dummyRule = TOCRule(id: "id_1", name: "Name 1", rule: #"^test$"#, example: nil, enabled: true)
         let data = try JSONEncoder().encode([dummyRule])

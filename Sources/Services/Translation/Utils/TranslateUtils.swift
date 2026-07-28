@@ -7,12 +7,25 @@ public struct TOCRule: Codable, Identifiable, Sendable, Equatable {
     public let example: String?
     public var enabled: Bool
 
+    enum CodingKeys: String, CodingKey {
+        case id, name, rule, example, enabled
+    }
+
     public init(id: String, name: String, rule: String, example: String? = nil, enabled: Bool = true) {
         self.id = id
         self.name = name
         self.rule = rule
         self.example = example
         self.enabled = enabled
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.rule = try container.decode(String.self, forKey: .rule)
+        self.example = try container.decodeIfPresent(String.self, forKey: .example)
+        self.enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
     }
 }
 

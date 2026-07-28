@@ -4,24 +4,29 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.53] - 2026-07-28
 
-### Quản lý Quy tắc TOC File TXT & Cải tiến Nhận diện Chương
+### Quản lý Quy tắc TOC File TXT & Khắc phục Thanh Tra Cứu Nhanh Panel Dịch
 * **Cải tiến Nhận diện Chương File TXT (`ShelfView.swift`, `TranslateUtils.swift`)**:
   * Luồng phân tách chương file TXT (`ShelfView.parseTxtBook`) tái sử dụng bộ so khớp quy tắc TOC cấu hình được do `TranslateUtils` quản lý. Nhận diện chính xác các dòng tiêu đề chương lùi lề hợp lệ (ví dụ: `" 第一章 蓝电潜龙"`), đồng thời loại trừ các dòng văn bản lùi lề thông thường (ví dụ: `"  1000 quân lính tiến vào thành phố"`), tránh bị gộp sai toàn bộ nội dung thành một chương duy nhất ("Mở đầu").
 * **Màn hình Quản lý Quy tắc TOC trong Cài đặt (`TOCRulesConfigView.swift`, `SettingsView.swift`)**:
   * Thêm màn hình `TOCRulesConfigView` trong Cài đặt với đường dẫn điều hướng `NavigationLink` hiển thị thường trực tại mục "Dịch Thuật Quick Translate" (hoạt động độc lập với cờ bật/tắt dịch).
   * Hỗ trợ xem danh sách, bật/tắt công tắc kích hoạt trực tiếp, chạm dòng để mở Form chỉnh sửa, sắp xếp lại vị trí quy tắc (`onMove`) và xóa quy tắc tùy chỉnh (`onDelete`).
   * Bảo vệ các quy tắc xuất xưởng mặc định (`isDefaultRule`), khóa tính năng xóa đối với quy tắc mặc định (`deleteDisabled`).
-* **Menu Thao tác Toolbar & Nhập/Xuất Cấu hình JSON**:
+* **Menu Thao tác Toolbar & Nhập/Xuất Cấu hình JSON (`TranslateUtils.swift`)**:
   * Đưa các tùy chọn quản lý vào một dropdown Menu trên toolbar gồm 5 chức năng: *Thêm quy tắc mới*, *Sắp xếp quy tắc* (chuyển đổi EditMode), *Nhập cấu hình JSON*, *Xuất cấu hình JSON*, và *Khôi phục mặc định* (alert xác nhận hủy).
   * Hỗ trợ Nhập file JSON với 2 chế độ: **Gộp theo ID** (cập nhật tại chỗ các ID trùng và thêm quy tắc mới ở cuối) và **Thay thế toàn bộ** (thay bằng danh sách file và tự khôi phục các quy tắc mặc định bị thiếu ở cuối theo đúng thứ tự xuất xưởng).
+  * **Tương thích ngược Import**: Tự động gán mặc định `enabled = true` khi decode/import các tệp JSON cũ thiếu trường `enabled`, đồng thời giữ nguyên các giá trị `enabled` được khai báo rõ ràng (`true` / `false`).
   * Kiểm tra hợp lệ file nhập nguyên tử (Atomic Validation): Giới hạn kích thước file (tối đa 500KB), số lượng quy tắc (tối đa 100 quy tắc), ID và Tên trimmed không rỗng và không quá 100 ký tự, kiểm tra trùng lặp ID (bao gồm khoảng trắng), cú pháp Regex hợp lệ (tối đa 250 ký tự); từ chối file nguyên khối nếu có lỗi mà không ghi đĩa hay đụng tới bộ đệm.
   * Tái sử dụng `DocumentPickerPresenter` (với `allowedContentTypes: [.json]`, `asCopy: true`) và `ShareSheet` với tệp xuất tạm thời tại `NSTemporaryDirectory()` được tự động dọn dẹp khi đóng sheet.
 * **Đồng bộ Lưu trữ Bất đồng bộ & Quản lý Bộ đệm (`TranslateUtils.swift`)**:
   * Bổ sung `TOCRuleSaveCoordinator` actor quản lý xếp hàng lưu bất đồng bộ theo cơ chế FIFO (`enqueue` / `scheduleSave`) kết hợp rào chắn `flush()`, ngăn ngừa lỗi ghi đè dữ liệu cũ (race condition).
   * Phân tách bộ đệm trong bộ nhớ thành `cachedAllTOCRules` (chứa toàn bộ quy tắc cho UI quản lý) và `cachedTOCRules` (chỉ chứa quy tắc active cho parser TXT). Ghi đĩa nguyên tử (`.atomic`) trước khi cập nhật bộ đệm và tự động làm sạch cache tiêu đề chương (`clearChapterTitleCache`).
   * Quản lý cờ `isSaving` trên UI theo bộ đếm tác vụ `activeSaveCount` và hủy tác vụ `debounceSaveTask` trước mỗi thao tác lưu tức thì.
+* **Khắc phục Thanh Tra Cứu Nhanh & Nút Cài đặt trên Panel Dịch (`ReaderView.swift`, `ReaderDefinitionOverlayView.swift`)**:
+  * **Khắc phục nạp danh sách công cụ tìm kiếm**: Tự động nạp `SearchEngine.loadEngines()` trong `ReaderView` khi khởi tạo (`initializeReaderIfNeeded()`) và mỗi khi mở panel dịch (`.onChange(of: showingDefinitionSheet)`), khắc phục triệt để lỗi thanh Quick Lookup bên dưới nút Cập nhật bị trống.
+  * **Nút Cài đặt Bánh răng (⚙️)**: Bổ sung nút Cài đặt bánh răng góc phải ngoài cùng trên thanh tra cứu nhanh (`quickLookupLinksView`), liên kết mở trực tiếp màn hình quản lý `SearchEnginesConfigView` dùng chung với Cài đặt ứng dụng qua `showingSearchEnginesConfigSheet`.
+  * **Tự động làm mới khi đóng Sheet**: Đảm bảo danh sách `searchEngines` được tự động nạp lại trong callback `onDismiss` khi đóng màn hình Cài đặt công cụ tra cứu, đồng thời duy trì nút bánh răng luôn xuất hiện và truy cập được ngay cả khi danh sách công cụ rỗng.
 * **Bổ sung Bộ Kiểm thử Unit Tests (`Tests/TranslationTests.swift`)**:
-  * Thêm các unit test kiểm thử lưu trữ/khôi phục mặc định (`testTOCRulesPersistenceAndResetNonDestructive`), validate Regex (`testTOCRulePatternValidation`), validate file import quá cỡ/quá số lượng/ID tên quá dài/trùng ID (`testImportValidationOversizedDataAndRulesCount`, `testImportValidationEmptyOrOverlongIDAndNameAndDuplicateIDs`), thứ tự Gộp và Thay thế deterministic (`testDeterministicMergeAndReplaceOrderDetails`), tính nguyên tử không đổi file/cache khi import lỗi (`testAtomicImportRejectionNoFileOrCacheMutation`), kiểm tra dọn dẹp file tạm (`testTempExportFileCreationAndCleanup`), và kiểm thử FIFO actor `TOCRuleSaveCoordinator` (`testCoordinatorFIFOAndFlush`).
+  * Thêm các unit test kiểm thử lưu trữ/khôi phục mặc định (`testTOCRulesPersistenceAndResetNonDestructive`), tương thích ngược import thiếu `enabled` (`testImportBackwardsCompatibilityMissingEnabledKey`), validate Regex (`testTOCRulePatternValidation`), validate file import quá cỡ/quá số lượng/ID tên quá dài/trùng ID (`testImportValidationOversizedDataAndRulesCount`, `testImportValidationEmptyOrOverlongIDAndNameAndDuplicateIDs`), thứ tự Gộp và Thay thế deterministic (`testDeterministicMergeAndReplaceOrderDetails`), tính nguyên tử không đổi file/cache khi import lỗi (`testAtomicImportRejectionNoFileOrCacheMutation`), kiểm tra dọn dẹp file tạm (`testTempExportFileCreationAndCleanup`), và kiểm thử FIFO actor `TOCRuleSaveCoordinator` (`testCoordinatorFIFOAndFlush`).
 
 ---
 
