@@ -30,6 +30,12 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Bổ sung log trace `remoteCallbackCompleted` ghi nhận nhãn chữ phân biệt rõ `success` vs `commandFailed` kèm giá trị `status.rawValue` tại runtime.
   * Giữ nguyên chữ ký `func handleRemoteTransportCommandOnMain` (Void return), cấu hình khả dụng Phase E (`playE: false, pauseE: false, toggleE: active`), Phase A log trace (`TTSTrace`), Phase B synchronous MainActor dispatch, bounded `.pause` fallback, now-playing metadata và các gọi lệnh `UIApplication`.
   * Đã đồng bộ khối GENERATED trong `05_state_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
+* **Thử nghiệm Kiểm soát Giai đoạn G cho Chuẩn hóa Metadata Lock Screen TTS (`TTSManager.swift`, `05_state_graph.md`, `06_event_graph.md`, `11_subsystems.md`)**:
+  * Triển khai mô hình chuẩn hóa tính tương thích metadata (Controlled Compatibility Normalization): Cập nhật helper `setSystemNowPlayingPlaybackState(_:defaultPlaybackRate:)` và `updateNowPlayingInfo()` để xuất bản tốc độ tương đối `MPNowPlayingInfoPropertyPlaybackRate` (`1.0` khi playing, `0.0` khi paused) và `MPNowPlayingInfoPropertyDefaultPlaybackRate` mang tốc độ đọc TTS (`speed`, giữ nguyên kể cả khi pause).
+  * Cập nhật tất cả các vị trí gọi `setSystemNowPlayingPlaybackState` trong `continueStartSpeaking`, `pause` và `resume` để truyền tốc độ `speed` hiện tại làm `defaultPlaybackRate`.
+  * Bổ sung log trace `TTSTrace` ghi nhận `currentRate` và `defaultRate` chi tiết tại runtime.
+  * Giữ nguyên chữ ký `func handleRemoteTransportCommandOnMain` (Void return), cấu hình khả dụng Phase E (`playE: false, pauseE: false, toggleE: active`), Phase F outcome-aware status return, Phase A log trace, Phase B synchronous MainActor dispatch, bounded `.pause` fallback và các gọi lệnh `UIApplication`.
+  * Đã đồng bộ khối GENERATED trong `05_state_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
 * **Cập nhật Metadata (`manifest.json`)**:
   * Tái tính toán và cập nhật `sourceHash` và `generatedHash` cho các tài liệu bị ảnh hưởng thông qua kịch bản `validate_links.py --update-hashes`.
 

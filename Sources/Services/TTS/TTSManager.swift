@@ -54,20 +54,23 @@ private actor TTSChapterQueueMetadataWorker {
     }
 }
 
-/// Updates the transport state without waiting for the asynchronous metadata
-/// refresh. The Lock Screen uses both values to choose its Play/Pause icon.
+/// Synchronously publishes relative current (1.0/0.0) and default (TTS speed) playback rates
+/// to iOS Now Playing metadata without waiting for the asynchronous metadata refresh.
+/// The playbackState assignment is retained for system compatibility and logging.
 private func setSystemNowPlayingPlaybackState(
     _ state: MPNowPlayingPlaybackState,
-    playbackRate: Double
+    defaultPlaybackRate: Double
 ) {
     let center = MPNowPlayingInfoCenter.default()
     var info = center.nowPlayingInfo ?? [:]
-    info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate
+    let currentRate = (state == .playing) ? 1.0 : 0.0
+    info[MPNowPlayingInfoPropertyPlaybackRate] = currentRate
+    info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = defaultPlaybackRate
     center.nowPlayingInfo = info
     center.playbackState = state
     // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
     let thread = Thread.isMainThread ? "Main" : "Bg"
-    AppLogger.shared.log("🔍 [TTSTrace] setSystemNowPlayingPlaybackState | Thread:\(thread) | state:\(state.rawValue) | rate:\(playbackRate)")
+    AppLogger.shared.log("🔍 [TTSTrace] setSystemNowPlayingPlaybackState | Thread:\(thread) | state:\(state.rawValue) | currentRate:\(currentRate) | defaultRate:\(defaultPlaybackRate)")
 }
 
 @MainActor
@@ -654,7 +657,7 @@ public final class TTSManager: NSObject, ObservableObject {
 
         self.currentParagraphIndex = targetIdx
         self.isPlaying = true
-        setSystemNowPlayingPlaybackState(.playing, playbackRate: speed)
+        setSystemNowPlayingPlaybackState(.playing, defaultPlaybackRate: speed)
         self.syncRemoteCommandState()
 
         speakCurrent()
@@ -668,7 +671,7 @@ public final class TTSManager: NSObject, ObservableObject {
         checkpointProgressAndRelease()
         self.isPlaying = false
         self.lastPausedTime = Date()
-        setSystemNowPlayingPlaybackState(.paused, playbackRate: 0)
+        setSystemNowPlayingPlaybackState(.paused, defaultPlaybackRate: speed)
 
         if tool == "system" {
             siriService.pause()
@@ -699,7 +702,7 @@ public final class TTSManager: NSObject, ObservableObject {
                     }
                 }
             }
-            setSystemNowPlayingPlaybackState(.playing, playbackRate: speed)
+            setSystemNowPlayingPlaybackState(.playing, defaultPlaybackRate: speed)
             syncRemoteCommandState()
             updateNowPlayingInfo()
             return
@@ -714,7 +717,7 @@ public final class TTSManager: NSObject, ObservableObject {
         self.setRemoteCommandsEnabled(true) // Bật lại remote commands
         self.isPlaying = true
         Task { await ReadingProgressStore.shared.claim(bookId: playingBookId, owner: .tts) }
-        setSystemNowPlayingPlaybackState(.playing, playbackRate: speed)
+        setSystemNowPlayingPlaybackState(.playing, defaultPlaybackRate: speed)
 
         if tool == "system" {
             if siriService.isPaused {
@@ -1949,7 +1952,9 @@ public final class TTSManager: NSObject, ObservableObject {
 
             info.removeValue(forKey: MPNowPlayingInfoPropertyIsLiveStream)
             info[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.audio.rawValue
-            info[MPNowPlayingInfoPropertyPlaybackRate] = liveIsPlaying ? liveSpeed : 0.0
+            let currentRate = liveIsPlaying ? 1.0 : 0.0
+            info[MPNowPlayingInfoPropertyPlaybackRate] = currentRate
+            info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = liveSpeed
             info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = Double(max(0, pIndex))
 
             if let img = image {
