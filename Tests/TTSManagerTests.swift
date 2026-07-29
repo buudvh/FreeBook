@@ -188,6 +188,38 @@ final class TTSManagerTests: XCTestCase {
         XCTAssertEqual(nowPlayingPlaybackRate(), manager.speed)
     }
 
+    func testRemotePauseCommandResumesWhenPausedAndDirectPauseIsIdempotent() async {
+        let manager = TTSManager.shared
+        let chapter = TTSChapterInfo(title: "Remote Pause Fallback", url: "fallback-1", index: 0)
+        defer { manager.stop() }
+
+        manager.startSpeaking(
+            bookId: "fallback-book",
+            chapters: [chapter],
+            currentIndex: 0,
+            chapterContent: "Testing remote pause fallback behavior.",
+            startParagraphIndex: 0,
+            bookTitle: "Fallback Book",
+            extensionInfo: nil
+        )
+        try? await Task.sleep(nanoseconds: 50 * 1_000_000)
+
+        XCTAssertTrue(manager.isPlaying)
+
+        manager.pause()
+        XCTAssertFalse(manager.isPlaying)
+
+        // Invoking remote transport .pause while paused must invoke resume()
+        manager.handleRemoteTransportCommandOnMain(.pause)
+        XCTAssertTrue(manager.isPlaying)
+
+        // Calling direct API manager.pause() must remain idempotent
+        manager.pause()
+        XCTAssertFalse(manager.isPlaying)
+        manager.pause()
+        XCTAssertFalse(manager.isPlaying)
+    }
+
     func testBackgroundProcessorOffMainActor() async {
         let processor = TTSBackgroundProcessor()
         let dto = try! await processor.processChapter(

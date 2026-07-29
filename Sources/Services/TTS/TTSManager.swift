@@ -1710,7 +1710,7 @@ public final class TTSManager: NSObject, ObservableObject {
         logRemoteTrace("syncRemoteCommandState", details: "active:\(active)") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
     }
 
-    private enum RemoteTransportAction {
+    enum RemoteTransportAction {
         case play
         case pause
         case toggle
@@ -1718,7 +1718,7 @@ public final class TTSManager: NSObject, ObservableObject {
         case previous
     }
 
-    private func handleRemoteTransportCommandOnMain(_ action: RemoteTransportAction) {
+    func handleRemoteTransportCommandOnMain(_ action: RemoteTransportAction) {
         logRemoteTrace("handleRemoteTransportCommandOnMain", details: "action:\(action)") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
 
         switch action {
@@ -1739,8 +1739,7 @@ public final class TTSManager: NSObject, ObservableObject {
             if self.isPlaying {
                 self.pause()
             } else {
-                self.syncRemoteCommandState()
-                self.updateNowPlayingInfo()
+                self.resume()
             }
         case .next:
             self.skipForward()
