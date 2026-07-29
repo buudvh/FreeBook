@@ -13,6 +13,10 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Triển khai Giai đoạn B: Tạo helper method `@MainActor internal func dispatchRemoteTransportCommand` và thực thi đồng bộ qua `MainActor.assumeIsolated` khi callback ở Main Thread trước khi trả về `.success`, giúp MediaRemote nhận trạng thái `playbackState` mới ngay lập tức để đồng bộ trực quan biểu tượng nút Play/Pause trên Lock Screen UI.
   * Bổ sung unit test hồi quy `testRemotePauseCommandResumesWhenPausedAndDirectPauseIsIdempotent` và `testNowPlayingMetadataNormalization` trong `TTSManagerTests.swift`.
   * Đã đồng bộ khối GENERATED trong `05_state_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
+* **Thử nghiệm Kiểm soát Giai đoạn C cho Điều khiển Remote TTS (`TTSManager.swift`, `05_state_graph.md`, `06_event_graph.md`, `11_subsystems.md`)**:
+  * Cập nhật `commandCenter.togglePlayPauseCommand.isEnabled = false` trong cả `setRemoteCommandsEnabled(_:)` và `syncRemoteCommandState()` của `TTSManager.swift` để giải phóng xung đột lệnh trung tâm trên Lock Screen UI, tạo cặp lệnh `play/pause` động không mơ hồ.
+  * Giữ nguyên việc đăng ký handler cho `togglePlayPauseCommand`, giữ nguyên dynamic play/pause enablement (`playCommand.isEnabled = active && !isPlaying`, `pauseCommand.isEnabled = active && isPlaying`), giữ nguyên Phase A log trace (`TTSTrace`), Phase B synchronous MainActor dispatch, bounded `.pause` fallback, now-playing metadata và các gọi lệnh `UIApplication`.
+  * Đã đồng bộ khối GENERATED trong `05_state_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
 * **Cập nhật Metadata (`manifest.json`)**:
   * Tái tính toán và cập nhật `sourceHash` và `generatedHash` cho các tài liệu bị ảnh hưởng thông qua kịch bản `validate_links.py --update-hashes`.
 
