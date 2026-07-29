@@ -1759,8 +1759,15 @@ public final class TTSManager: NSObject, ObservableObject {
         // Toggle Play / Pause
         commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
             guard self != nil else { return .commandFailed }
+            let isMain = Thread.isMainThread
+            let entryUptime = DispatchTime.now().uptimeNanoseconds
+            let eventId = String(UUID().uuidString.prefix(8))
             DispatchQueue.main.async { [weak self] in
-                self?.handleRemoteTransportCommandOnMain(.toggle)
+                guard let self = self else { return }
+                let latencyMs = Double(DispatchTime.now().uptimeNanoseconds - entryUptime) / 1_000_000.0
+                self.logRemoteTrace("remoteCallbackDispatched", details: "id:\(eventId) | action:toggle | entryThread:\(isMain ? "Main" : "Bg") | queueLatency:\(String(format: "%.2f", latencyMs))ms")
+                self.handleRemoteTransportCommandOnMain(.toggle)
+                self.logRemoteTrace("remoteCallbackCompleted", details: "id:\(eventId) | action:toggle")
             }
             return .success
         }
@@ -1768,8 +1775,15 @@ public final class TTSManager: NSObject, ObservableObject {
         // Play
         commandCenter.playCommand.addTarget { [weak self] _ in
             guard self != nil else { return .commandFailed }
+            let isMain = Thread.isMainThread
+            let entryUptime = DispatchTime.now().uptimeNanoseconds
+            let eventId = String(UUID().uuidString.prefix(8))
             DispatchQueue.main.async { [weak self] in
-                self?.handleRemoteTransportCommandOnMain(.play)
+                guard let self = self else { return }
+                let latencyMs = Double(DispatchTime.now().uptimeNanoseconds - entryUptime) / 1_000_000.0
+                self.logRemoteTrace("remoteCallbackDispatched", details: "id:\(eventId) | action:play | entryThread:\(isMain ? "Main" : "Bg") | queueLatency:\(String(format: "%.2f", latencyMs))ms")
+                self.handleRemoteTransportCommandOnMain(.play)
+                self.logRemoteTrace("remoteCallbackCompleted", details: "id:\(eventId) | action:play")
             }
             return .success
         }
@@ -1777,8 +1791,15 @@ public final class TTSManager: NSObject, ObservableObject {
         // Pause
         commandCenter.pauseCommand.addTarget { [weak self] _ in
             guard self != nil else { return .commandFailed }
+            let isMain = Thread.isMainThread
+            let entryUptime = DispatchTime.now().uptimeNanoseconds
+            let eventId = String(UUID().uuidString.prefix(8))
             DispatchQueue.main.async { [weak self] in
-                self?.handleRemoteTransportCommandOnMain(.pause)
+                guard let self = self else { return }
+                let latencyMs = Double(DispatchTime.now().uptimeNanoseconds - entryUptime) / 1_000_000.0
+                self.logRemoteTrace("remoteCallbackDispatched", details: "id:\(eventId) | action:pause | entryThread:\(isMain ? "Main" : "Bg") | queueLatency:\(String(format: "%.2f", latencyMs))ms")
+                self.handleRemoteTransportCommandOnMain(.pause)
+                self.logRemoteTrace("remoteCallbackCompleted", details: "id:\(eventId) | action:pause")
             }
             return .success
         }

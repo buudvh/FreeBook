@@ -9,6 +9,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Ghi nhận việc điều chỉnh hàm `syncRemoteCommandState()` và `handleRemoteTransportCommandOnMain(_:)` trong `TTSManager.swift`: Chuyển `RemoteTransportAction` enum và `handleRemoteTransportCommandOnMain` sang `internal` access modifier để phục vụ unit test; cập nhật `playCommand.isEnabled = active && !isPlaying` và `pauseCommand.isEnabled = active && isPlaying`.
   * Bổ sung cơ chế tương thích có phạm vi giới hạn (bounded compatibility fallback) trong `handleRemoteTransportCommandOnMain(.pause)` gọi `resume()` khi đang paused để tương thích với phụ kiện phần cứng gửi lệnh pause vật lý.
   * Bổ sung thử nghiệm chuẩn hóa metadata Now Playing trong `updateNowPlayingInfo()` (loại bỏ `MPNowPlayingInfoPropertyIsLiveStream` cũ và thiết lập `MPNowPlayingInfoPropertyMediaType.audio`), đồng thời chuẩn hóa thứ tự ghi `nowPlayingInfo` và `playbackState`.
+  * Bổ sung mã chẩn đoán quan sát Giai đoạn A trong `setupRemoteCommandCenter()` (`remoteCallbackDispatched` và `remoteCallbackCompleted` ghép cặp theo `eventId`) để đo đạc luồng vào và độ trễ xử lý remote commands trên thiết bị thực tế.
   * Bổ sung unit test hồi quy `testRemotePauseCommandResumesWhenPausedAndDirectPauseIsIdempotent` và `testNowPlayingMetadataNormalization` trong `TTSManagerTests.swift`.
   * Đã đồng bộ khối GENERATED trong `05_state_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
 * **Cập nhật Metadata (`manifest.json`)**:
