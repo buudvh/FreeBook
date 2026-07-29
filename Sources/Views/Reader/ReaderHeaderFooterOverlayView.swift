@@ -11,7 +11,7 @@ struct ReaderHeaderFooterOverlayView: View {
     let readerBookDisplayTitle: String
     let readerChapterDisplayTitle: String
     let hasLocalBook: Bool
-    let isLocalTXTBook: Bool = false
+    let isLocalTXTBook: Bool
     let chapterIndex: Int
     let pendingNavigationIndex: Int?
     let navigationFailureMessage: String?

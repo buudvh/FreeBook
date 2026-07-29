@@ -94,14 +94,6 @@ struct BookDetailHeaderView: View {
                     .fontWeight(.bold)
                     .lineLimit(3)
 
-                let formattedAuthor: String
-                if author.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    formattedAuthor = ""
-                } else if isTranslationEnabled && TranslateUtils.containsChinese(author) {
-                    formattedAuthor = DisplayTextFormatter.titleCase(TranslateUtils.translateAuthorHanViet(author))
-                } else {
-                    formattedAuthor = DisplayTextFormatter.titleCase(author)
-                }
                 if !formattedAuthor.isEmpty {
                     HStack(spacing: 5) {
                         Image(systemName: "person.fill")
@@ -162,6 +154,15 @@ struct BookDetailHeaderView: View {
             }
         }
         .padding(.horizontal)
+    }
+
+    private var formattedAuthor: String {
+        let trimmed = author.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        if isTranslationEnabled && TranslateUtils.containsChinese(trimmed) {
+            return DisplayTextFormatter.titleCase(TranslateUtils.translateAuthorHanViet(trimmed))
+        }
+        return DisplayTextFormatter.titleCase(trimmed)
     }
 
     private var descriptionView: some View {
