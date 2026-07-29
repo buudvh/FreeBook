@@ -17,6 +17,10 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Cập nhật `commandCenter.togglePlayPauseCommand.isEnabled = false` trong cả `setRemoteCommandsEnabled(_:)` và `syncRemoteCommandState()` của `TTSManager.swift` để giải phóng xung đột lệnh trung tâm trên Lock Screen UI, tạo cặp lệnh `play/pause` động không mơ hồ.
   * Giữ nguyên việc đăng ký handler cho `togglePlayPauseCommand`, giữ nguyên dynamic play/pause enablement (`playCommand.isEnabled = active && !isPlaying`, `pauseCommand.isEnabled = active && isPlaying`), giữ nguyên Phase A log trace (`TTSTrace`), Phase B synchronous MainActor dispatch, bounded `.pause` fallback, now-playing metadata và các gọi lệnh `UIApplication`.
   * Đã đồng bộ khối GENERATED trong `05_state_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
+* **Thử nghiệm Kiểm soát Giai đoạn D cho Điều khiển Remote TTS (`TTSManager.swift`, `05_state_graph.md`, `06_event_graph.md`, `11_subsystems.md`)**:
+  * Cập nhật `syncRemoteCommandState()` trong `TTSManager.swift`: Giữ `commandCenter.playCommand.isEnabled = active` và `commandCenter.pauseCommand.isEnabled = active` mở đồng thời cho cả phiên active (thay vì bật/tắt động theo `isPlaying`), kết hợp với `commandCenter.togglePlayPauseCommand.isEnabled = false` (Phase C), để khắc phục lỗi nút Play bị mờ/xám (disabled) trên Lock Screen sau khi pause.
+  * Giữ nguyên `setRemoteCommandsEnabled(_:)`, giữ nguyên handler `togglePlayPauseCommand`, Phase A log trace (`TTSTrace`), Phase B synchronous MainActor dispatch, bounded `.pause` fallback, now-playing metadata và các gọi lệnh `UIApplication`.
+  * Đã đồng bộ khối GENERATED trong `05_state_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
 * **Cập nhật Metadata (`manifest.json`)**:
   * Tái tính toán và cập nhật `sourceHash` và `generatedHash` cho các tài liệu bị ảnh hưởng thông qua kịch bản `validate_links.py --update-hashes`.
 
