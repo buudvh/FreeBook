@@ -15,6 +15,7 @@ struct CategoryNovelsListView: View {
     @State private var currentPage = 1
     @State private var nextPageUrl: String? = nil
     @State private var retryCount = 0
+    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     
     var body: some View {
         VStack {
@@ -52,7 +53,7 @@ struct CategoryNovelsListView: View {
                                     .shadow(radius: 1)
                                 
                                 VStack(alignment: .leading, spacing: 6) {
-                                    Text(DisplayTextFormatter.titleCase(TranslateUtils.translateMeta(novel.name)))
+                                    Text(DisplayTextFormatter.titleCase(translateIfNeeded(novel.name)))
                                         .font(.subheadline)
                                         .fontWeight(.semibold)
                                         .foregroundColor(.primary)
@@ -64,7 +65,7 @@ struct CategoryNovelsListView: View {
                                     //     .lineLimit(1)
                                     
                                     if !novel.description.isEmpty {
-                                        Text(TranslateUtils.translateMeta(novel.description.cleanHTML()))
+                                        Text(translateIfNeeded(novel.description.cleanHTML()))
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
                                             .lineLimit(2)
@@ -96,11 +97,18 @@ struct CategoryNovelsListView: View {
                 }
             }
         }
-        .navigationTitle(TranslateUtils.translateMeta(category.title))
+        .navigationTitle(translateIfNeeded(category.title))
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await loadNovels(page: 1)
         }
+    }
+
+    private func translateIfNeeded(_ text: String) -> String {
+        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
+            return text
+        }
+        return TranslateUtils.translateMeta(text)
     }
     
     private func loadNovels(page: Int) async {

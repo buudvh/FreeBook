@@ -509,10 +509,6 @@ public final class ExtensionManager: ObservableObject {
         let scriptName = scriptUrl.lastPathComponent
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[], configJson=\(configJson)")
         
-        let translateTitle: (String) -> String = { title in
-            return title
-        }
-        
         do {
             let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
             
@@ -533,21 +529,21 @@ public final class ExtensionManager: ObservableObject {
                     if let title = itemDict["title"]?.toString(),
                        let input = itemDict["input"]?.toString() {
                         let script = itemDict["script"]?.toString() ?? "search.js"
-                        results.append(CategoryResult(title: translateTitle(title), input: input, script: script))
+                        results.append(CategoryResult(title: title, input: input, script: script))
                     } else if let title = itemDict["name"]?.toString(),
                               let input = itemDict["link"]?.toString() {
                         let script = itemDict["script"]?.toString() ?? "search.js"
-                        results.append(CategoryResult(title: translateTitle(title), input: input, script: script))
+                        results.append(CategoryResult(title: title, input: input, script: script))
                     }
                 }
             } else if let dict = cleanVal.toDictionary() as? [String: String] {
                 for (key, val) in dict {
-                    results.append(CategoryResult(title: translateTitle(key), input: val, script: "search.js"))
+                    results.append(CategoryResult(title: key, input: val, script: "search.js"))
                 }
             } else if let dict = cleanVal.toDictionary() as? [String: Any] {
                 for (key, val) in dict {
                     if let valStr = val as? String {
-                        results.append(CategoryResult(title: translateTitle(key), input: valStr, script: "search.js"))
+                        results.append(CategoryResult(title: key, input: valStr, script: "search.js"))
                     }
                 }
             }
@@ -567,11 +563,7 @@ public final class ExtensionManager: ObservableObject {
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "home")
         let scriptName = scriptUrl.lastPathComponent
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[], configJson=\(configJson)")
-        
-        let translateTitle: (String) -> String = { title in
-            return title
-        }
-        
+
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
@@ -591,11 +583,11 @@ public final class ExtensionManager: ObservableObject {
                 if let title = itemDict["title"]?.toString(),
                    let input = itemDict["input"]?.toString() {
                     let script = itemDict["script"]?.toString() ?? "search.js"
-                    results.append(CategoryResult(title: translateTitle(title), input: input, script: script))
+                    results.append(CategoryResult(title: title, input: input, script: script))
                 } else if let title = itemDict["name"]?.toString(),
                           let input = itemDict["link"]?.toString() {
                     let script = itemDict["script"]?.toString() ?? "search.js"
-                    results.append(CategoryResult(title: translateTitle(title), input: input, script: script))
+                    results.append(CategoryResult(title: title, input: input, script: script))
                 }
             }
         }
@@ -646,9 +638,9 @@ public final class ExtensionManager: ObservableObject {
             
             var results: [SearchNovelResult] = []
             for dict in jsArray {
-                var name = dict["name"]?.toString() ?? dict["username"]?.toString() ?? dict["author"]?.toString() ?? ""
-                var author = dict["author"]?.toString() ?? "Không rõ"
-                var description = dict["description"]?.toString() ?? dict["desc"]?.toString() ?? dict["content"]?.toString() ?? ""
+                let name = dict["name"]?.toString() ?? dict["username"]?.toString() ?? dict["author"]?.toString() ?? ""
+                let author = dict["author"]?.toString() ?? "Không rõ"
+                let description = dict["description"]?.toString() ?? dict["desc"]?.toString() ?? dict["content"]?.toString() ?? ""
                 let cover = dict["cover"]?.toString() ?? ""
                 let link = dict["link"]?.toString() ?? dict["url"]?.toString() ?? ""
                 let host = dict["host"]?.toString() ?? ""
@@ -657,13 +649,7 @@ public final class ExtensionManager: ObservableObject {
                 if !isCommentScript {
                     guard !link.isEmpty else { continue }
                 }
-                
-                if TranslateUtils.isTranslationEnabled {
-                    if TranslateUtils.containsChinese(name) { name = TranslateUtils.translateMeta(name) }
-                    if TranslateUtils.containsChinese(author) { author = TranslateUtils.translateMeta(author) }
-                    if TranslateUtils.containsChinese(description) { description = TranslateUtils.translateMeta(description) }
-                }
-                
+
                 results.append(SearchNovelResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
             }
             
