@@ -220,6 +220,46 @@ final class TTSManagerTests: XCTestCase {
         XCTAssertFalse(manager.isPlaying)
     }
 
+    func testNowPlayingMetadataNormalization() async {
+        let manager = TTSManager.shared
+        let chapter = TTSChapterInfo(title: "Metadata Test", url: "meta-1", index: 0)
+        defer { manager.stop() }
+
+        // Seed global nowPlayingInfo with IsLiveStream true to ensure removal
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = [
+            MPNowPlayingInfoPropertyIsLiveStream: true
+        ]
+
+        manager.startSpeaking(
+            bookId: "meta-book",
+            chapters: [chapter],
+            currentIndex: 0,
+            chapterContent: "Nội dung kiểm thử metadata.",
+            startParagraphIndex: 0,
+            bookTitle: "Meta Book",
+            extensionInfo: nil
+        )
+
+        // Bounded async polling strategy (max 2 seconds, 50ms interval) for metadata completion condition
+        let deadline = Date().addingTimeInterval(2.0)
+        var isNormalized = false
+        while Date() < deadline {
+            let info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+            let hasLiveStream = info[MPNowPlayingInfoPropertyIsLiveStream] != nil
+            let mediaTypeNumber = info[MPNowPlayingInfoPropertyMediaType] as? NSNumber
+            if !hasLiveStream && mediaTypeNumber?.uintValue == MPNowPlayingInfoMediaType.audio.rawValue {
+                isNormalized = true
+                break
+            }
+            try? await Task.sleep(nanoseconds: 50 * 1_000_000)
+        }
+
+        XCTAssertTrue(isNormalized, "NowPlaying metadata should remove IsLiveStream and include audio MediaType within bounded timeout")
+        XCTAssertNil(MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyIsLiveStream])
+        let mediaTypeVal = (MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyMediaType] as? NSNumber)?.uintValue
+        XCTAssertEqual(mediaTypeVal, MPNowPlayingInfoMediaType.audio.rawValue)
+    }
+
     func testBackgroundProcessorOffMainActor() async {
         let processor = TTSBackgroundProcessor()
         let dto = try! await processor.processChapter(

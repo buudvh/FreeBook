@@ -4,12 +4,13 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.54] - 2026-07-29
 
-### Đồng bộ Tài liệu CodeGraph cho Điều khiển TTS Remote Command State Machine
+### Đồng bộ Tài liệu CodeGraph cho Điều khiển TTS Remote Command State Machine & Chuẩn hóa Metadata
 * **Đồng bộ Máy trạng thái Điều khiển Từ xa TTS (`TTSManager.swift`, `TTSManagerTests.swift`, `05_state_graph.md`, `06_event_graph.md`, `11_subsystems.md`)**:
   * Ghi nhận việc điều chỉnh hàm `syncRemoteCommandState()` và `handleRemoteTransportCommandOnMain(_:)` trong `TTSManager.swift`: Chuyển `RemoteTransportAction` enum và `handleRemoteTransportCommandOnMain` sang `internal` access modifier để phục vụ unit test; cập nhật `playCommand.isEnabled = active && !isPlaying` và `pauseCommand.isEnabled = active && isPlaying`.
   * Bổ sung cơ chế tương thích có phạm vi giới hạn (bounded compatibility fallback) trong `handleRemoteTransportCommandOnMain(.pause)` gọi `resume()` khi đang paused để tương thích với phụ kiện phần cứng gửi lệnh pause vật lý.
-  * Bổ sung unit test hồi quy `testRemotePauseCommandResumesWhenPausedAndDirectPauseIsIdempotent` trong `TTSManagerTests.swift`.
-  * Đã đồng bộ khối GENERATED trong `05_state_graph.md` (mô tả thuộc tính derived availability của remote commands và bounded fallback), `06_event_graph.md` (làm rõ luồng xử lý remote command và fallback khi nhận lệnh `.pause` lúc paused), và `11_subsystems.md` (đồng bộ vòng đời TTS Subsystem với MediaPlayer remote commands).
+  * Bổ sung thử nghiệm chuẩn hóa metadata Now Playing trong `updateNowPlayingInfo()` (loại bỏ `MPNowPlayingInfoPropertyIsLiveStream` cũ và thiết lập `MPNowPlayingInfoPropertyMediaType.audio`), đồng thời chuẩn hóa thứ tự ghi `nowPlayingInfo` và `playbackState`.
+  * Bổ sung unit test hồi quy `testRemotePauseCommandResumesWhenPausedAndDirectPauseIsIdempotent` và `testNowPlayingMetadataNormalization` trong `TTSManagerTests.swift`.
+  * Đã đồng bộ khối GENERATED trong `05_state_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
 * **Cập nhật Metadata (`manifest.json`)**:
   * Tái tính toán và cập nhật `sourceHash` và `generatedHash` cho các tài liệu bị ảnh hưởng thông qua kịch bản `validate_links.py --update-hashes`.
 

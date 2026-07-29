@@ -61,11 +61,10 @@ private func setSystemNowPlayingPlaybackState(
     playbackRate: Double
 ) {
     let center = MPNowPlayingInfoCenter.default()
-    center.playbackState = state
-
     var info = center.nowPlayingInfo ?? [:]
     info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate
     center.nowPlayingInfo = info
+    center.playbackState = state
     // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
     let thread = Thread.isMainThread ? "Main" : "Bg"
     AppLogger.shared.log("🔍 [TTSTrace] setSystemNowPlayingPlaybackState | Thread:\(thread) | state:\(state.rawValue) | rate:\(playbackRate)")
@@ -1853,7 +1852,8 @@ public final class TTSManager: NSObject, ObservableObject {
             let currentPart = pCount == 0 ? "" : " (Đoạn \(pIndex + 1)/\(pCount))"
             info[MPMediaItemPropertyArtist] = displayChapterTitle + currentPart
 
-            info[MPNowPlayingInfoPropertyIsLiveStream] = true
+            info.removeValue(forKey: MPNowPlayingInfoPropertyIsLiveStream)
+            info[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.audio.rawValue
             info[MPNowPlayingInfoPropertyPlaybackRate] = liveIsPlaying ? liveSpeed : 0.0
             info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = Double(max(0, pIndex))
 

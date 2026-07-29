@@ -108,7 +108,7 @@ graph TD
 ### 2.4. Sự kiện Hệ thống Remote (Remote Command Center)
 Đăng ký trong `TTSManager.setupRemoteCommandCenter()` và quản lý trạng thái khả dụng trong `syncRemoteCommandState()` qua thư viện `MediaPlayer`:
 *   `playCommand` -> Kích hoạt khi active và paused (`active && !isPlaying`), gọi `TTSManager.resume()`.
-*   `pauseCommand` -> Kích hoạt khi active và playing (`active && isPlaying`), gọi `TTSManager.pause()`. Nếu nhận được sự kiện remote `.pause` khi phiên đang ở trạng thái paused, `handleRemoteTransportCommandOnMain(.pause)` kích hoạt cơ chế tương thích có phạm vi giới hạn (bounded compatibility fallback) gọi `resume()` để đảm bảo khôi phục phát lại trên các phụ kiện gửi lệnh pause vật lý.
+*   `pauseCommand` -> Kích hoạt khi active và playing (`active && isPlaying`), gọi `TTSManager.pause()`. Nếu nhận được sự kiện remote `.pause` khi phiên đang ở trạng thái paused, `handleRemoteTransportCommandOnMain(.pause)` kích hoạt cơ chế tương thích có phạm vi giới hạn (bounded compatibility fallback) gọi `resume()`. Đồng thời, metadata Now Playing được chuẩn hóa (xóa `MPNowPlayingInfoPropertyIsLiveStream` và thiết lập `MPNowPlayingInfoPropertyMediaType.audio`) phục vụ thử nghiệm chẩn đoán giao diện Lock Screen.
 *   `togglePlayPauseCommand` -> Kích hoạt khi active (`active`), gọi `pause()` nếu đang phát hoặc `resume()` nếu đang tạm dừng.
 *   `nextTrackCommand` -> Gọi `TTSManager.skipForward()` (tự chuyển chương qua `advanceToNextChapter` nếu hết đoạn cuối chương).
 *   `previousTrackCommand` -> Gọi `TTSManager.skipBackward()` (tua lùi đoạn).
