@@ -232,7 +232,7 @@ struct BookDetailView: View {
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
         }
-        .onChange(of: localBook?.chapters.count) { _, _ in
+        .onChange(of: ChapterStoreConfiguration.enableSwiftDataTOCWrite ? localBook?.chapters.count : chapterSnapshots.count) { _, _ in
             syncChaptersList()
         }
         .onChange(of: chaptersList) { _, _ in
@@ -524,7 +524,7 @@ struct BookDetailView: View {
     private var tocTab: some View {
         VStack(spacing: 0) {
             if renderedTab == 1 {
-                let totalChaps = chapterSnapshots.count > 0 ? chapterSnapshots.count : (localBook?.chapters.count ?? onlineChapters.count)
+                let totalChaps = chapterSnapshots.count > 0 ? chapterSnapshots.count : (ChapterStoreConfiguration.enableSwiftDataTOCWrite ? (localBook?.chapters.count ?? onlineChapters.count) : onlineChapters.count)
 
                 BookDetailTOCView(
                     chapterSearchQuery: $chapterSearchQuery,
@@ -653,7 +653,7 @@ struct BookDetailView: View {
 
     @ViewBuilder
     private var floatingActionButton: some View {
-        let totalChaps = chapterSnapshots.count > 0 ? chapterSnapshots.count : (localBook?.chapters.count ?? onlineChapters.count)
+        let totalChaps = chapterSnapshots.count > 0 ? chapterSnapshots.count : (ChapterStoreConfiguration.enableSwiftDataTOCWrite ? (localBook?.chapters.count ?? onlineChapters.count) : onlineChapters.count)
         if totalChaps > 0 {
             VStack {
                 Spacer()
@@ -1182,7 +1182,8 @@ struct BookDetailView: View {
 
 
     private func startReading(at chapterIndex: Int) {
-        if let book = localBook, !book.chapters.isEmpty {
+        let hasLocalChapters = !chapterSnapshots.isEmpty || (ChapterStoreConfiguration.enableSwiftDataTOCWrite && localBook?.chapters.isEmpty == false)
+        if let book = localBook, hasLocalChapters {
             book.currentChapterIndex = chapterIndex
             try? modelContext.save()
             scheduleBackgroundTitleTranslationIfNeeded(for: book)
@@ -1196,6 +1197,19 @@ struct BookDetailView: View {
 
         bookOpenTask = Task { @MainActor in
             do {
+                if let book = localBook {
+                    let count = (try? await ChapterStore.shared.fetchCountAndChecksum(bookId: resolvedBookId))?.count ?? 0
+                    if count > 0 {
+                        book.currentChapterIndex = chapterIndex
+                        try? modelContext.save()
+                        scheduleBackgroundTitleTranslationIfNeeded(for: book)
+                        self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
+                        isPreparingBookProgress = false
+                        bookOpenTask = nil
+                        return
+                    }
+                }
+
                 guard let ext = ext, !ext.localPath.isEmpty else {
                     throw NSError(domain: "BookError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Không tìm thấy tiện ích bóc tách!"])
                 }

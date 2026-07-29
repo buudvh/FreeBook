@@ -1275,29 +1275,57 @@ public struct ReaderChapterListView: View {
                 }
 
                 if let book = localBook {
-                    let existingURLs = Set(book.chapters.map(\.url))
-                    let additions = allChapters.filter { !existingURLs.contains($0.url) }
-                    let chapterSnapshots = allChapters.enumerated().map { index, item in
-                        ChapterMetadataSnapshot(
+                    let existingURLs: Set<String>
+                    if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+                        let storeChaps = (try? await ChapterStore.shared.fetchOrderedTOC(bookId: book.bookId)) ?? []
+                        existingURLs = Set(storeChaps.map(\.url))
+                    } else {
+                        existingURLs = Set(book.chapters.map(\.url))
+                    }
+
+                    let additionSnapshots = allChapters.enumerated().compactMap { index, item -> ChapterMetadataSnapshot? in
+                        guard !existingURLs.contains(item.url) else { return nil }
+                        return ChapterMetadataSnapshot(
                             title: item.name,
                             url: item.url,
                             index: index,
                             host: item.host
                         )
                     }
-                    _ = try await ChapterContentRepository.shared.saveChapterList(
-                        bookId: book.bookId,
-                        createSnapshot: nil,
-                        chapters: chapterSnapshots,
-                        mode: .upsertPage
-                    )
-                    let localBookId = book.bookId
-                    let descriptor = FetchDescriptor<Chapter>(
-                        predicate: #Predicate<Chapter> { $0.bookId == localBookId }
-                    )
-                    let totalCount = (try? modelContext.fetchCount(descriptor)) ?? 0
-                    store.updateChapters(totalCount: totalCount, onlineChapters: onlineChapters)
-                    ToastManager.shared.show(message: additions.isEmpty ? "Mục lục đã mới nhất" : "Đã thêm \(additions.count) chương mới", type: .success)
+
+                    if additionSnapshots.isEmpty {
+                        let totalCount: Int
+                        if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+                            totalCount = (try? await ChapterStore.shared.fetchCountAndChecksum(bookId: book.bookId))?.count ?? existingURLs.count
+                        } else {
+                            let localBookId = book.bookId
+                            let descriptor = FetchDescriptor<Chapter>(
+                                predicate: #Predicate<Chapter> { $0.bookId == localBookId }
+                            )
+                            totalCount = (try? modelContext.fetchCount(descriptor)) ?? 0
+                        }
+                        store.updateChapters(totalCount: totalCount, onlineChapters: [])
+                        ToastManager.shared.show(message: "Mục lục đã mới nhất", type: .success)
+                    } else {
+                        let saveResult = try await ChapterContentRepository.shared.saveChapterList(
+                            bookId: book.bookId,
+                            createSnapshot: nil,
+                            chapters: additionSnapshots,
+                            mode: .upsertPage
+                        )
+                        let totalCount: Int
+                        if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+                            totalCount = saveResult.totalChapters
+                        } else {
+                            let localBookId = book.bookId
+                            let descriptor = FetchDescriptor<Chapter>(
+                                predicate: #Predicate<Chapter> { $0.bookId == localBookId }
+                            )
+                            totalCount = (try? modelContext.fetchCount(descriptor)) ?? 0
+                        }
+                        store.updateChapters(totalCount: totalCount, onlineChapters: [])
+                        ToastManager.shared.show(message: "Đã thêm \(additionSnapshots.count) chương mới", type: .success)
+                    }
                 } else {
                     let oldCount = onlineChapters.count
                     onlineChapters = allChapters

@@ -590,39 +590,44 @@ struct SearchView: View {
                 }
             }
             
+            let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(detailResult.detail.cleanHTML())"
+            let initialChapterIndex = min(oldChapterIndex, max(0, firstPageChapters.count - 1))
+            let initialChapterTitle = firstPageChapters.isEmpty ? "" : firstPageChapters[initialChapterIndex].name
+
+            let createSnapshot = TOCBookCreateSnapshot(
+                bookId: newBookId,
+                title: detailResult.name,
+                author: detailResult.author,
+                coverUrl: detailResult.cover,
+                desc: savedDesc,
+                detailUrl: result.link,
+                sourceName: ext.name,
+                sourceUrl: ext.sourceUrl,
+                extensionPackageId: ext.packageId,
+                currentChapterIndex: initialChapterIndex,
+                currentChapterPage: 0,
+                currentChapterTitle: initialChapterTitle,
+                isOnShelf: true,
+                isHistory: oldBook.isHistory,
+                host: detailResult.host
+            )
+
+            let chapterSnapshots = firstPageChapters.enumerated().map { index, item in
+                ChapterMetadataSnapshot(title: item.name, url: item.url, index: index, host: item.host)
+            }
+
+            _ = try await ChapterContentRepository.shared.saveChapterList(
+                bookId: newBookId,
+                createSnapshot: createSnapshot,
+                chapters: chapterSnapshots,
+                mode: .replaceFullTOC
+            )
+
             await MainActor.run {
-                let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(detailResult.detail.cleanHTML())"
-                
-                let newBook = Book(
-                    bookId: newBookId,
-                    title: detailResult.name,
-                    author: detailResult.author,
-                    coverUrl: detailResult.cover,
-                    desc: savedDesc,
-                    detailUrl: result.link,
-                    sourceName: ext.name,
-                    sourceUrl: ext.sourceUrl,
-                    extensionPackageId: ext.packageId,
-                    currentChapterIndex: min(oldChapterIndex, max(0, firstPageChapters.count - 1)),
-                    currentChapterTitle: firstPageChapters.isEmpty ? "" : firstPageChapters[min(oldChapterIndex, max(0, firstPageChapters.count - 1))].name,
-                    isOnShelf: true,
-                    isHistory: oldBook.isHistory,
-                    host: detailResult.host
-                )
-                
-                modelContext.insert(newBook)
-                
-                for (index, item) in firstPageChapters.enumerated() {
-                    let chapId = Chapter.generateId(bookId: newBookId, url: item.url, index: index)
-                    let newChap = Chapter(id: chapId, bookId: newBookId, title: item.name, url: item.url, index: index, host: item.host)
-                    newChap.book = newBook
-                    modelContext.insert(newChap)
-                }
-                
                 let translateDir = TranslationManager.shared.translateDirectory
                 let oldDir = translateDir.appendingPathComponent("books").appendingPathComponent(oldBookId)
                 let newDir = translateDir.appendingPathComponent("books").appendingPathComponent(newBookId)
-                
+
                 if FileManager.default.fileExists(atPath: oldDir.path) {
                     try? FileManager.default.createDirectory(at: newDir, withIntermediateDirectories: true)
                     let fileNames = ["VietPhrase.dat", "Names.dat", "VietPhrase.txt", "Names.txt"]
@@ -636,17 +641,23 @@ struct SearchView: View {
                     }
                     try? FileManager.default.removeItem(at: oldDir)
                 }
-                
-                modelContext.delete(oldBook)
-                
+
+                if let freshOldBook = (try? modelContext.fetch(FetchDescriptor<Book>(predicate: #Predicate<Book> { $0.bookId == oldBookId })))?.first {
+                    modelContext.delete(freshOldBook)
+                } else {
+                    modelContext.delete(oldBook)
+                }
+
                 try? modelContext.save()
-                
+
                 TranslateUtils.clearCache()
                 TranslationManager.shared.clearBookDictCache(for: oldBookId)
                 TranslationManager.shared.clearBookDictCache(for: newBookId)
-                
+
                 onSourceChanged?()
             }
+
+            try? await ChapterStore.shared.deleteBook(bookId: oldBookId)
         } catch {
             print("❌ Lỗi đổi nguồn truyện: \(error.localizedDescription)")
         }

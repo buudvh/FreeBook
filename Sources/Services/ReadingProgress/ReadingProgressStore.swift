@@ -47,40 +47,48 @@ actor ReadingProgressStore {
     func checkpointAndRelease(
         _ snapshot: ReadingProgressSnapshot,
         owner: ReadingProgressOwner
-    ) throws {
+    ) async throws {
         record(snapshot)
-        try persist(snapshot)
+        try await persist(snapshot)
         if ownerByBook[snapshot.bookId] == owner {
             ownerByBook.removeValue(forKey: snapshot.bookId)
         }
     }
 
-    func checkpoint(_ snapshot: ReadingProgressSnapshot) throws {
+    func checkpoint(_ snapshot: ReadingProgressSnapshot) async throws {
         record(snapshot)
-        try persist(snapshot)
+        try await persist(snapshot)
     }
 
-    func flush(bookId: String) throws {
+    func flush(bookId: String) async throws {
         guard let snapshot = latestByBook[bookId] else { return }
-        try persist(snapshot)
+        try await persist(snapshot)
     }
 
-    func flushAll() throws {
+    func flushAll() async throws {
         for snapshot in latestByBook.values {
-            try persist(snapshot)
+            try await persist(snapshot)
         }
     }
 
-    private func persist(_ snapshot: ReadingProgressSnapshot) throws {
+    private func persist(_ snapshot: ReadingProgressSnapshot) async throws {
         guard let container else { return }
         let context = ModelContext(container)
         context.autosaveEnabled = false
         let books = try context.fetch(FetchDescriptor<Book>())
         guard let book = books.first(where: { $0.bookId == snapshot.bookId }) else { return }
 
+        let fallbackTitleFromStore: String?
+        if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+            fallbackTitleFromStore = (try? await ChapterStore.shared.fetchRange(bookId: snapshot.bookId, startIndex: snapshot.chapterIndex, count: 1))?.first?.title
+        } else {
+            fallbackTitleFromStore = nil
+        }
+
         book.currentChapterIndex = snapshot.chapterIndex
         book.currentChapterPage = snapshot.paragraphIndex
         book.currentChapterTitle = snapshot.chapterTitle
+            ?? fallbackTitleFromStore
             ?? book.chapters.first(where: { $0.index == snapshot.chapterIndex })?.title
             ?? book.currentChapterTitle
         book.isHistory = true

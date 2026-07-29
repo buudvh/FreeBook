@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.55] - 2026-07-29
+
+### Chuyển Đổi Nguồn Dữ Liệu Mục Lục (TOC Metadata) Từ SwiftData Chapter Sang ChapterStore
+* **Tối ưu hóa Reader khi Cập nhật Danh sách Chương (`ReaderChapterListView.swift`)**:
+  * Cập nhật danh sách chương dùng `ChapterStore` primary để lấy danh sách chương hiện có và đếm tổng số chương qua `fetchCountAndChecksum`, loại bỏ việc đếm bằng SwiftData `modelContext.fetchCount`.
+  * Chỉ lọc và upsert các chương mới chưa có vào DB. Nếu không có chương mới, ứng dụng bỏ qua lệnh ghi DB và cập nhật ngay giao diện.
+* **Tối ưu hóa Màn hình Chi tiết Sách (`BookDetailView.swift`)**:
+  * Khi bấm "Đọc tiếp", nếu sách đã có TOC trong `ChapterStore` thì ứng dụng mở thẳng Reader ngay lập tức mà không tải/lưu lại toàn bộ TOC online.
+  * Giao diện mục lục ưu tiên dùng `chapterSnapshots: [StoredChapterSnapshot]` và chuyển các cờ lắng nghe thay đổi số lượng chương khỏi phụ thuộc vào `book.chapters`.
+* **Cập nhật Nguồn Sách trong Tìm kiếm (`SearchView.swift`)**:
+  * Khi thay đổi nguồn sách, danh sách chương được tạo snapshot và lưu qua `ChapterContentRepository` / `ChapterStore` thay vì khởi tạo các đối tượng `Chapter` SwiftData trực tiếp.
+* **Dịch lại Tiêu đề Chương trên Kệ Sách (`ShelfView.swift`)**:
+  * Truy vấn danh sách chương từ `ChapterStore.shared.fetchOrderedTOC` và lưu các bản dịch tiêu đề qua `ChapterStore.shared.updateTitleTranslations` thay vì phụ thuộc vào `book.chapters`.
+* **Đồng bộ Tiến trình Đọc (`ReadingProgressStore.swift`)**:
+  * Cập nhật phương thức `persist` và các hàm checkpoint/flush trong `actor ReadingProgressStore` thành `async throws`.
+  * Sử dụng API `ChapterStore.shared.fetchRange(...)` làm fallback lấy tiêu đề chương khi `snapshot.chapterTitle == nil`.
+
 ## [1.3.54] - 2026-07-29
 
 ### Tối ưu hóa Chuyển đổi Bật/Tắt Dịch thuật trên Màn hình Khám phá (`DiscoveryView.swift`)
