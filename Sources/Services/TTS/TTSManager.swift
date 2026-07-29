@@ -1682,9 +1682,9 @@ public final class TTSManager: NSObject, ObservableObject {
     private func setRemoteCommandsEnabled(_ enabled: Bool) {
         logRemoteTrace("setRemoteCommandsEnabled(\(enabled))") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
         let commandCenter = MPRemoteCommandCenter.shared()
-        commandCenter.playCommand.isEnabled = enabled
-        commandCenter.pauseCommand.isEnabled = enabled
-        commandCenter.togglePlayPauseCommand.isEnabled = false
+        commandCenter.playCommand.isEnabled = false
+        commandCenter.pauseCommand.isEnabled = false
+        commandCenter.togglePlayPauseCommand.isEnabled = enabled
         commandCenter.nextTrackCommand.isEnabled = enabled
         commandCenter.previousTrackCommand.isEnabled = enabled
 
@@ -1701,9 +1701,9 @@ public final class TTSManager: NSObject, ObservableObject {
     private func syncRemoteCommandState() {
         let commandCenter = MPRemoteCommandCenter.shared()
         let active = !playingBookId.isEmpty && showFloatingWidget
-        commandCenter.playCommand.isEnabled = active
-        commandCenter.pauseCommand.isEnabled = active
-        commandCenter.togglePlayPauseCommand.isEnabled = false
+        commandCenter.playCommand.isEnabled = false
+        commandCenter.pauseCommand.isEnabled = false
+        commandCenter.togglePlayPauseCommand.isEnabled = active
         commandCenter.nextTrackCommand.isEnabled = active
         commandCenter.previousTrackCommand.isEnabled = active
         logRemoteTrace("syncRemoteCommandState", details: "active:\(active)") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
