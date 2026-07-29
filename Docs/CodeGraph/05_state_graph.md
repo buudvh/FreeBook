@@ -68,6 +68,7 @@ stateDiagram-v2
 *   **`Playing` -> `Playing`**: Kích hoạt qua `advanceToNextChapter(nextIdx:)` khi phát hết chương và chaptersQueue còn chương tiếp theo. TTSManager tự nạp RAM/DB cache hoặc fetch online và tiếp tục phát không gián đoạn.
 *   **`Playing` / `Paused` -> `Stopped`**: Kích hoạt qua `stop()`. Gọi `playerNode.stop()`, hủy tất cả các task prefetch WAV, làm rỗng RAM cache `preloadedWavs` và set `isPlaying = false`.
 *   **`Playing` -> `Stopped`**: Khi phát hết chương cuối cùng của sách, chuyển về trạng thái `Stopped` và gọi `onChapterFinished?()`.
+*   **Trạng thái khả dụng của Remote Command (Derived Availability)**: Trạng thái khả dụng của các lệnh điều khiển từ xa trong `MPRemoteCommandCenter` (`syncRemoteCommandState()`) là các giá trị dẫn xuất (derived properties) dựa trên thuộc tính `active` (`!playingBookId.isEmpty && showFloatingWidget`) và `isPlaying`, không phải là các bước chuyển trạng thái playback độc lập. Khi phiên đang hoạt động (`active == true`): nếu đang phát (`isPlaying == true`), `pauseCommand.isEnabled = true` và `playCommand.isEnabled = false`; nếu đang tạm dừng (`isPlaying == false`), `playCommand.isEnabled = true` và `pauseCommand.isEnabled = false`. Lệnh `togglePlayPauseCommand.isEnabled` luôn được bật khi phiên active.
 
 ### 1.3. Invalid Transitions (Chuyển đổi không hợp lệ)
 *   `Stopped` -> `pause()` / `resume()`: Không thể tạm dừng hoặc tiếp tục phát khi chưa có sách nào được chuẩn bị.

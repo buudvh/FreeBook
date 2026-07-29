@@ -106,10 +106,10 @@ graph TD
     *   *Giải phóng*: Được hủy tự động qua deinit khi ViewModel bị hủy.
 
 ### 2.4. Sự kiện Hệ thống Remote (Remote Command Center)
-Đăng ký trong `TTSManager.setupRemoteCommandCenter()` qua thư viện `MediaPlayer`:
-*   `playCommand` / `resumeCommand` -> Cập nhật đồng bộ `playbackState = .playing` và kích hoạt `TTSManager.resume()`.
-*   `pauseCommand` -> Cập nhật đồng bộ `playbackState = .paused` và kích hoạt `TTSManager.pause()`.
-*   `togglePlayPauseCommand` -> Đã được vô hiệu hóa để tránh xung đột sự kiện trùng lặp từ iOS (OS sẽ tự động chuyển đổi các nhấn nút trên tai nghe thành `playCommand` hoặc `pauseCommand` dựa vào `playbackState`).
+Đăng ký trong `TTSManager.setupRemoteCommandCenter()` và quản lý trạng thái khả dụng trong `syncRemoteCommandState()` qua thư viện `MediaPlayer`:
+*   `playCommand` -> Kích hoạt khi active và paused (`active && !isPlaying`), gọi `TTSManager.resume()`.
+*   `pauseCommand` -> Kích hoạt khi active và playing (`active && isPlaying`), gọi `TTSManager.pause()`. Việc vô hiệu hóa `pauseCommand` khi đang tạm dừng ngăn ngừa phiên paused phơi ra target pause bị bỏ qua, đồng thời các handler của Play và Toggle đảm bảo tiếp tục phát âm thanh khi nhận sự kiện tương ứng.
+*   `togglePlayPauseCommand` -> Kích hoạt khi active (`active`), gọi `pause()` nếu đang phát hoặc `resume()` nếu đang tạm dừng.
 *   `nextTrackCommand` -> Gọi `TTSManager.skipForward()` (tự chuyển chương qua `advanceToNextChapter` nếu hết đoạn cuối chương).
 *   `previousTrackCommand` -> Gọi `TTSManager.skipBackward()` (tua lùi đoạn).
 *   `skipForwardCommand` -> Tua tiến đoạn văn (`skipForward()`).

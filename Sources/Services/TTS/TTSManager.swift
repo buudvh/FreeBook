@@ -1702,8 +1702,8 @@ public final class TTSManager: NSObject, ObservableObject {
     private func syncRemoteCommandState() {
         let commandCenter = MPRemoteCommandCenter.shared()
         let active = !playingBookId.isEmpty && showFloatingWidget
-        commandCenter.playCommand.isEnabled = active
-        commandCenter.pauseCommand.isEnabled = active
+        commandCenter.playCommand.isEnabled = active && !isPlaying
+        commandCenter.pauseCommand.isEnabled = active && isPlaying
         commandCenter.togglePlayPauseCommand.isEnabled = active
         commandCenter.nextTrackCommand.isEnabled = active
         commandCenter.previousTrackCommand.isEnabled = active

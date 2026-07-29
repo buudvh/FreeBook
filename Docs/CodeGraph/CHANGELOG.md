@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.54] - 2026-07-29
+
+### Đồng bộ Tài liệu CodeGraph cho Điều khiển TTS Remote Command State Machine
+* **Đồng bộ Máy trạng thái Điều khiển Từ xa TTS (`TTSManager.swift`, `05_state_graph.md`, `06_event_graph.md`, `11_subsystems.md`)**:
+  * Ghi nhận việc điều chỉnh hàm `syncRemoteCommandState()` trong `TTSManager.swift`: Cập nhật `playCommand.isEnabled = active && !isPlaying` và `pauseCommand.isEnabled = active && isPlaying`, trong khi `togglePlayPauseCommand.isEnabled = active`.
+  * Đã đồng bộ khối GENERATED trong `05_state_graph.md` (mô tả thuộc tính derived availability của remote commands theo active và isPlaying), `06_event_graph.md` (làm rõ luồng xử lý `MPRemoteCommandCenter` và ngăn ngừa session đã paused bị phơi ra target pause bị bỏ qua), và `11_subsystems.md` (đồng bộ vòng đời TTS Subsystem với MediaPlayer remote commands).
+* **Cập nhật Metadata (`manifest.json`)**:
+  * Tái tính toán và cập nhật `sourceHash` và `generatedHash` cho các tài liệu bị ảnh hưởng thông qua kịch bản `validate_links.py --update-hashes`.
+
 ## [1.3.53] - 2026-07-28
 
 ### Quản lý Quy tắc TOC File TXT & Khắc phục Thanh Tra Cứu Nhanh Panel Dịch
