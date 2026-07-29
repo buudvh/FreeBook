@@ -1756,9 +1756,24 @@ public final class TTSManager: NSObject, ObservableObject {
     ) -> MPRemoteCommandHandlerStatus {
         let latencyMs = Double(DispatchTime.now().uptimeNanoseconds - entryUptime) / 1_000_000.0
         self.logRemoteTrace("remoteCallbackDispatched", details: "id:\(eventId) | action:\(action) | entryThread:\(isMain ? "Main" : "Bg") | queueLatency:\(String(format: "%.2f", latencyMs))ms")
+
+        let wasPlaying = self.isPlaying
         self.handleRemoteTransportCommandOnMain(action)
-        self.logRemoteTrace("remoteCallbackCompleted", details: "id:\(eventId) | action:\(action)")
-        return .success
+
+        let status: MPRemoteCommandHandlerStatus
+        switch action {
+        case .play:
+            status = self.isPlaying ? .success : .commandFailed
+        case .pause:
+            status = !self.isPlaying ? .success : .commandFailed
+        case .toggle:
+            status = (self.isPlaying != wasPlaying) ? .success : .commandFailed
+        case .next, .previous:
+            status = .success
+        }
+
+        self.logRemoteTrace("remoteCallbackCompleted", details: "id:\(eventId) | action:\(action) | status:\(status == .success ? "success" : "commandFailed")(\(status.rawValue))")
+        return status
     }
 
     private func setupRemoteCommandCenter() {

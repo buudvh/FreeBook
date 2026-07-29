@@ -25,6 +25,11 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Chuyển đổi sang mô hình Single Enabled Toggle Command trong `TTSManager.swift`: Đặt `playCommand.isEnabled = false` và `pauseCommand.isEnabled = false`, đồng thời chỉ bật `togglePlayPauseCommand.isEnabled = enabled` (trong `setRemoteCommandsEnabled(_:)`) và `active` (trong `syncRemoteCommandState()`), nhằm định tuyến chính xác các thao tác bấm nút trung tâm trên Lock Screen về `action:toggle` thay vì gửi nhầm `action:pause`.
   * Giữ nguyên toàn bộ target registrations/handlers (`togglePlayPauseCommand.addTarget`, `playCommand.addTarget`, `pauseCommand.addTarget`), Phase A log trace (`TTSTrace`), Phase B synchronous MainActor dispatch, bounded `.pause` fallback, now-playing metadata và các gọi lệnh `UIApplication`.
   * Đã đồng bộ khối GENERATED trong `05_state_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
+* **Thử nghiệm Kiểm soát Giai đoạn F cho Phản hồi Trạng thái Điều khiển Remote TTS (`TTSManager.swift`, `05_state_graph.md`, `06_event_graph.md`, `11_subsystems.md`)**:
+  * Triển khai mô hình phản hồi trạng thái khách quan (Outcome-Aware Status Return) trong `TTSManager.dispatchRemoteTransportCommand`: Tính toán giá trị `MPRemoteCommandHandlerStatus` phản hồi dựa trên `self.isPlaying` thực tế sau khi xử lý lệnh (`.success` nếu trạng thái cuối khớp yêu cầu, `.commandFailed` nếu mâu thuẫn như khi kích hoạt fallback `resume()` cho lệnh `.pause` lúc paused).
+  * Bổ sung log trace `remoteCallbackCompleted` ghi nhận nhãn chữ phân biệt rõ `success` vs `commandFailed` kèm giá trị `status.rawValue` tại runtime.
+  * Giữ nguyên chữ ký `func handleRemoteTransportCommandOnMain` (Void return), cấu hình khả dụng Phase E (`playE: false, pauseE: false, toggleE: active`), Phase A log trace (`TTSTrace`), Phase B synchronous MainActor dispatch, bounded `.pause` fallback, now-playing metadata và các gọi lệnh `UIApplication`.
+  * Đã đồng bộ khối GENERATED trong `05_state_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
 * **Cập nhật Metadata (`manifest.json`)**:
   * Tái tính toán và cập nhật `sourceHash` và `generatedHash` cho các tài liệu bị ảnh hưởng thông qua kịch bản `validate_links.py --update-hashes`.
 
