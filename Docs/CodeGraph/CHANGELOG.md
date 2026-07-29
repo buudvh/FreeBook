@@ -36,6 +36,11 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Bổ sung log trace `TTSTrace` ghi nhận `currentRate` và `defaultRate` chi tiết tại runtime.
   * Giữ nguyên chữ ký `func handleRemoteTransportCommandOnMain` (Void return), cấu hình khả dụng Phase E (`playE: false, pauseE: false, toggleE: active`), Phase F outcome-aware status return, Phase A log trace, Phase B synchronous MainActor dispatch, bounded `.pause` fallback và các gọi lệnh `UIApplication`.
   * Đã đồng bộ khối GENERATED trong `05_state_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
+* **Thử nghiệm Kiểm soát Giai đoạn H cho Khả dụng Đồng thời Remote Commands TTS (`TTSManager.swift`, `05_state_graph.md`, `06_event_graph.md`, `11_subsystems.md`)**:
+  * Triển khai mô hình thử nghiệm cờ khả dụng đồng thời (Controlled Triple-Command Enablement): Bật khả dụng `isEnabled = enabled` (trong `setRemoteCommandsEnabled(_:)`) và `active` (trong `syncRemoteCommandState()`) cho cả 3 lệnh `playCommand`, `pauseCommand` và `togglePlayPauseCommand` đồng thời khi session TTS active.
+  * Phối hợp cờ khả dụng mới với bộ xuất bản metadata tương thích Phase G (`currentRate: 1.0/0.0`, `defaultRate: speed`), phản hồi trạng thái Phase F, bounded `.pause` fallback và điều phối đồng bộ MainActor Phase B để kiểm chứng khả năng hỗ trợ iOS MediaRemote UI cập nhật biểu tượng Lock Screen.
+  * Giữ nguyên chữ ký `func handleRemoteTransportCommandOnMain` (Void return), target handler registrations (`setupRemoteCommandCenter()`), Phase A log trace (`TTSTrace`) và các gọi lệnh `UIApplication`.
+  * Đã đồng bộ khối GENERATED trong `05_state_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
 * **Cập nhật Metadata (`manifest.json`)**:
   * Tái tính toán và cập nhật `sourceHash` và `generatedHash` cho các tài liệu bị ảnh hưởng thông qua kịch bản `validate_links.py --update-hashes`.
 
