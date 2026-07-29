@@ -66,11 +66,39 @@ private func setSystemNowPlayingPlaybackState(
     var info = center.nowPlayingInfo ?? [:]
     info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate
     center.nowPlayingInfo = info
+    // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
+    let thread = Thread.isMainThread ? "Main" : "Bg"
+    AppLogger.shared.log("🔍 [TTSTrace] setSystemNowPlayingPlaybackState | Thread:\(thread) | state:\(state.rawValue) | rate:\(playbackRate)")
 }
 
 @MainActor
 public final class TTSManager: NSObject, ObservableObject {
     public static let shared = TTSManager()
+
+    // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
+    private var remoteTraceSequenceCount = 0
+
+    // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
+    private func logRemoteTrace(_ event: String, details: String = "") {
+        remoteTraceSequenceCount += 1
+        let thread = Thread.isMainThread ? "Main" : "Bg"
+        let session = AVAudioSession.sharedInstance()
+        let sessionCat = session.category.rawValue
+        let sessionMode = session.mode.rawValue
+        let sessionOpts = session.categoryOptions.rawValue
+        let rate = MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] as? Double ?? -1.0
+        let state = MPNowPlayingInfoCenter.default().playbackState.rawValue
+        let pNode = playerNode?.isPlaying == true ? "playing" : "stopped"
+        let aEngine = audioEngine?.isRunning == true ? "running" : "stopped"
+        let siriP = siriService.isPaused
+        let siriS = siriService.isSpeaking
+        let cmdCenter = MPRemoteCommandCenter.shared()
+        let playE = cmdCenter.playCommand.isEnabled
+        let pauseE = cmdCenter.pauseCommand.isEnabled
+        let toggleE = cmdCenter.togglePlayPauseCommand.isEnabled
+
+        AppLogger.shared.log("🔍 [TTSTrace #\(remoteTraceSequenceCount)] \(event) | Thread:\(thread) | playing:\(isPlaying) | widget:\(showFloatingWidget) | bookId:\(playingBookId.isEmpty ? "empty" : "set") | tool:\(tool) | rate:\(rate) | state:\(state) | pNode:\(pNode) | aEngine:\(aEngine) | siriP:\(siriP) | siriS:\(siriS) | playE:\(playE) | pauseE:\(pauseE) | toggleE:\(toggleE) | session:\(sessionCat)/\(sessionMode)/\(sessionOpts) | \(details)")
+    }
 
     // Cấu hình (lưu qua AppStorage/UserDefaults)
     @Published public var tool: String {
@@ -387,6 +415,7 @@ public final class TTSManager: NSObject, ObservableObject {
         } catch {
             AppLogger.shared.log("Failed to configure AVAudioSession: \(error.localizedDescription)")
         }
+        logRemoteTrace("configureAudioSession") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
     }
 
     private func updatePlaybackParams() {
@@ -635,8 +664,7 @@ public final class TTSManager: NSObject, ObservableObject {
 
 
     public func pause() {
-        // let pid = currentPlaybackId ?? "NONE"
-        // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] pause() được gọi.")
+        logRemoteTrace("pause()") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
         guard isPlaying else { return }
         checkpointProgressAndRelease()
         self.isPlaying = false
@@ -653,8 +681,7 @@ public final class TTSManager: NSObject, ObservableObject {
     }
 
     public func resume() {
-        // let pid = currentPlaybackId ?? "NONE"
-        // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] resume() được gọi.")
+        logRemoteTrace("resume()", details: "isPlayingBefore:\(isPlaying)") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
         if isPlaying {
             // Remote controls can deliver a duplicate play event while the
             // Lock Screen is catching up. Keep it idempotent and make sure the
@@ -1654,6 +1681,7 @@ public final class TTSManager: NSObject, ObservableObject {
     // MARK: - Lock Screen & Remote Control Sync
 
     private func setRemoteCommandsEnabled(_ enabled: Bool) {
+        logRemoteTrace("setRemoteCommandsEnabled(\(enabled))") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
         let commandCenter = MPRemoteCommandCenter.shared()
         commandCenter.playCommand.isEnabled = enabled
         commandCenter.pauseCommand.isEnabled = enabled
@@ -1679,21 +1707,62 @@ public final class TTSManager: NSObject, ObservableObject {
         commandCenter.togglePlayPauseCommand.isEnabled = active
         commandCenter.nextTrackCommand.isEnabled = active
         commandCenter.previousTrackCommand.isEnabled = active
+        logRemoteTrace("syncRemoteCommandState", details: "active:\(active)") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
+    }
+
+    private enum RemoteTransportAction {
+        case play
+        case pause
+        case toggle
+        case next
+        case previous
+    }
+
+    private func handleRemoteTransportCommandOnMain(_ action: RemoteTransportAction) {
+        logRemoteTrace("handleRemoteTransportCommandOnMain", details: "action:\(action)") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
+
+        switch action {
+        case .toggle:
+            if self.isPlaying {
+                self.pause()
+            } else {
+                self.resume()
+            }
+        case .play:
+            if !self.isPlaying {
+                self.resume()
+            } else {
+                self.syncRemoteCommandState()
+                self.updateNowPlayingInfo()
+            }
+        case .pause:
+            if self.isPlaying {
+                self.pause()
+            } else {
+                self.syncRemoteCommandState()
+                self.updateNowPlayingInfo()
+            }
+        case .next:
+            self.skipForward()
+        case .previous:
+            self.skipBackward()
+        }
     }
 
     private func setupRemoteCommandCenter() {
         let commandCenter = MPRemoteCommandCenter.shared()
 
+        commandCenter.togglePlayPauseCommand.removeTarget(nil)
+        commandCenter.playCommand.removeTarget(nil)
+        commandCenter.pauseCommand.removeTarget(nil)
+        commandCenter.nextTrackCommand.removeTarget(nil)
+        commandCenter.previousTrackCommand.removeTarget(nil)
+
         // Toggle Play / Pause
         commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
             guard self != nil else { return .commandFailed }
             DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                if self.isPlaying {
-                    self.pause()
-                } else {
-                    self.resume()
-                }
+                self?.handleRemoteTransportCommandOnMain(.toggle)
             }
             return .success
         }
@@ -1702,13 +1771,7 @@ public final class TTSManager: NSObject, ObservableObject {
         commandCenter.playCommand.addTarget { [weak self] _ in
             guard self != nil else { return .commandFailed }
             DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                if !self.isPlaying {
-                    self.resume()
-                } else {
-                    self.syncRemoteCommandState()
-                    self.updateNowPlayingInfo()
-                }
+                self?.handleRemoteTransportCommandOnMain(.play)
             }
             return .success
         }
@@ -1717,13 +1780,7 @@ public final class TTSManager: NSObject, ObservableObject {
         commandCenter.pauseCommand.addTarget { [weak self] _ in
             guard self != nil else { return .commandFailed }
             DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                if self.isPlaying {
-                    self.pause()
-                } else {
-                    self.syncRemoteCommandState()
-                    self.updateNowPlayingInfo()
-                }
+                self?.handleRemoteTransportCommandOnMain(.pause)
             }
             return .success
         }
@@ -1732,7 +1789,7 @@ public final class TTSManager: NSObject, ObservableObject {
         commandCenter.nextTrackCommand.addTarget { [weak self] _ in
             guard self != nil else { return .commandFailed }
             DispatchQueue.main.async { [weak self] in
-                self?.skipForward()
+                self?.handleRemoteTransportCommandOnMain(.next)
             }
             return .success
         }
@@ -1741,13 +1798,14 @@ public final class TTSManager: NSObject, ObservableObject {
         commandCenter.previousTrackCommand.addTarget { [weak self] _ in
             guard self != nil else { return .commandFailed }
             DispatchQueue.main.async { [weak self] in
-                self?.skipBackward()
+                self?.handleRemoteTransportCommandOnMain(.previous)
             }
             return .success
         }
 
         // Mặc định ban đầu vô hiệu hóa các remote commands cho đến khi bắt đầu phát thực sự
         self.setRemoteCommandsEnabled(false)
+        logRemoteTrace("setupRemoteCommandCenter") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
     }
 
     private func updateNowPlayingInfo() {
@@ -1790,7 +1848,7 @@ public final class TTSManager: NSObject, ObservableObject {
             let liveIsPlaying = self.isPlaying
             let liveSpeed = self.speed
 
-            var info: [String: Any] = [:]
+            var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
             info[MPMediaItemPropertyTitle] = displayBookTitle
 
             let currentPart = pCount == 0 ? "" : " (Đoạn \(pIndex + 1)/\(pCount))"
@@ -1819,6 +1877,7 @@ public final class TTSManager: NSObject, ObservableObject {
 
             MPNowPlayingInfoCenter.default().nowPlayingInfo = info
             MPNowPlayingInfoCenter.default().playbackState = liveIsPlaying ? .playing : .paused
+            self.logRemoteTrace("updateNowPlayingInfo", details: "liveIsPlaying:\(liveIsPlaying), liveSpeed:\(liveSpeed)") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
         }
     }
 
@@ -1892,6 +1951,7 @@ public final class TTSManager: NSObject, ObservableObject {
     }
 
     private func handleInterruption(notification: Notification) {
+        logRemoteTrace("handleInterruption", details: "userInfo:\(notification.userInfo ?? [:])") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
         guard let userInfo = notification.userInfo,
               let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
@@ -1927,6 +1987,7 @@ public final class TTSManager: NSObject, ObservableObject {
     }
 
     private func handleRouteChange(notification: Notification) {
+        logRemoteTrace("handleRouteChange", details: "userInfo:\(notification.userInfo ?? [:])") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
         guard let userInfo = notification.userInfo,
               let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
               let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
@@ -1967,6 +2028,7 @@ public final class TTSManager: NSObject, ObservableObject {
     }
 
     private func handleMediaServicesReset() {
+        logRemoteTrace("handleMediaServicesReset") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
         // Media services bị reset: tất cả AVAudioEngine/PlayerNode đều trở thành invalid
         AppLogger.shared.log("🔊 [TTSManager] Media services were reset. Rebuilding audio engine.")
         let wasPlaying = isPlaying
@@ -1995,6 +2057,7 @@ public final class TTSManager: NSObject, ObservableObject {
     }
 
     private func handleEngineConfigChange() {
+        logRemoteTrace("handleEngineConfigChange") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
         // Hardware configuration thay đổi (sample rate, channel count)
         // Engine tự dừng, cần restart
         AppLogger.shared.log("🔊 [TTSManager] Engine configuration changed.")
