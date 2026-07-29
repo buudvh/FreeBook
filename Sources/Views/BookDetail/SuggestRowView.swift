@@ -7,6 +7,7 @@ struct SuggestRowView: View {
     let configJson: String
     let extensionPackageId: String
     let sourceName: String
+    let isTranslationEnabled: Bool
     
     @State private var novels: [SearchNovelResult] = []
     @State private var isLoading = true
@@ -63,7 +64,8 @@ struct SuggestRowView: View {
                                         .cornerRadius(6)
                                         .shadow(radius: 1.5)
                                     
-                                    Text(DisplayTextFormatter.titleCase(TranslateUtils.translateMeta(novel.name)))
+                                    let displayName = (isTranslationEnabled && TranslateUtils.containsChinese(novel.name)) ? TranslateUtils.translateMeta(novel.name) : novel.name
+                                    Text(DisplayTextFormatter.titleCase(displayName))
                                         .font(.caption2)
                                         .fontWeight(.medium)
                                         .foregroundColor(.primary)

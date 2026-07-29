@@ -147,6 +147,14 @@ struct ReaderView: View {
         allExtensions.first(where: { $0.packageId == extensionPackageId })
     }
 
+    private var isLocalTXTBook: Bool {
+        return extensionPackageId.lowercased() == "local"
+            || (bookDetailUrl ?? "").lowercased().hasPrefix("local://")
+            || bookId.lowercased().hasPrefix("local://")
+            || (bookSourceName ?? "").lowercased() == "local"
+            || localBook?.isLocalBook == true
+    }
+
     @State private var currentChapterHost: String? = nil
     @State private var metadataTask: Task<Void, Never>? = nil
     @State private var metadataGeneration: Int = 0
@@ -615,6 +623,7 @@ struct ReaderView: View {
                 readerBookDisplayTitle: readerBookDisplayTitle,
                 readerChapterDisplayTitle: readerChapterDisplayTitle,
                 hasLocalBook: localBook != nil,
+                isLocalTXTBook: isLocalTXTBook,
                 chapterIndex: chapterIndex,
                 pendingNavigationIndex: viewModel?.pendingNavigationIndex,
                 navigationFailureMessage: viewModel?.navigationFailure?.sourceMessage,
@@ -863,6 +872,7 @@ struct ReaderView: View {
                     theme: selectedTheme,
                     store: chapterListStore,
                     onlineChapters: $currentOnlineChapters,
+                    isLocalTXTBook: isLocalTXTBook,
                     onSelectChapter: { selectedIdx in
                         selectChapter(at: selectedIdx)
                     },

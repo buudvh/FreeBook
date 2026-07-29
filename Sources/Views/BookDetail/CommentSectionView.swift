@@ -7,6 +7,7 @@ struct CommentSectionView: View {
     let configJson: String
     let extensionPackageId: String
     let sourceName: String
+    let isTranslationEnabled: Bool
     
     @State private var comments: [SearchNovelResult] = []
     @State private var isLoading = true
@@ -60,7 +61,8 @@ struct CommentSectionView: View {
                                     .frame(width: 24, height: 24)
                                     .foregroundColor(.secondary.opacity(0.6))
                                 
-                                Text(TranslateUtils.translateMeta(comment.name))
+                                let commentatorName = (isTranslationEnabled && TranslateUtils.containsChinese(comment.name)) ? TranslateUtils.translateMeta(comment.name) : comment.name
+                                Text(commentatorName)
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.primary)
@@ -68,7 +70,9 @@ struct CommentSectionView: View {
                                 Spacer()
                             }
                             
-                            Text(TranslateUtils.translateMeta(comment.description.cleanHTML()))
+                            let cleanedDesc = comment.description.cleanHTML()
+                            let commentText = (isTranslationEnabled && TranslateUtils.containsChinese(cleanedDesc)) ? TranslateUtils.translateMeta(cleanedDesc) : cleanedDesc
+                            Text(commentText)
                                 .font(.footnote)
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.leading)
@@ -84,7 +88,8 @@ struct CommentSectionView: View {
                             category: category,
                             localPath: localPath,
                             downloadUrl: downloadUrl,
-                            configJson: configJson
+                            configJson: configJson,
+                            isTranslationEnabled: isTranslationEnabled
                         )) {
                             HStack {
                                 Spacer()

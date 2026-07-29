@@ -11,6 +11,7 @@ struct ReaderHeaderFooterOverlayView: View {
     let readerBookDisplayTitle: String
     let readerChapterDisplayTitle: String
     let hasLocalBook: Bool
+    let isLocalTXTBook: Bool = false
     let chapterIndex: Int
     let pendingNavigationIndex: Int?
     let navigationFailureMessage: String?
@@ -44,13 +45,15 @@ struct ReaderHeaderFooterOverlayView: View {
 
                     Spacer()
 
-                    Button(action: onReloadChapter) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(selectedTheme.textColor)
-                            .frame(width: 44, height: 44)
+                    if !isLocalTXTBook {
+                        Button(action: onReloadChapter) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(selectedTheme.textColor)
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("Tải lại chương")
                     }
-                    .accessibilityLabel("Tải lại chương")
 
                     Menu {
                         Button(action: onToggleChapterTitle) {

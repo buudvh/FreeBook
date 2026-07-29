@@ -840,6 +840,7 @@ public struct ReaderChapterListView: View {
     public let theme: ReaderTheme
     public let store: ReaderChapterListStore
     @Binding public var onlineChapters: [ChapterResult]
+    public let isLocalTXTBook: Bool
     public let onSelectChapter: (Int) -> Void
     public let onClose: () -> Void
 
@@ -857,6 +858,7 @@ public struct ReaderChapterListView: View {
         theme: ReaderTheme,
         store: ReaderChapterListStore,
         onlineChapters: Binding<[ChapterResult]>,
+        isLocalTXTBook: Bool = false,
         onSelectChapter: @escaping (Int) -> Void,
         onClose: @escaping () -> Void
     ) {
@@ -873,6 +875,7 @@ public struct ReaderChapterListView: View {
         self.theme = theme
         self.store = store
         self._onlineChapters = onlineChapters
+        self.isLocalTXTBook = isLocalTXTBook
         self.onSelectChapter = onSelectChapter
         self.onClose = onClose
     }
@@ -990,18 +993,20 @@ public struct ReaderChapterListView: View {
 
                         Spacer(minLength: 4)
 
-                        if isUpdating {
-                            ProgressView()
-                                .tint(theme.textColor)
-                                .frame(width: 44, height: 44)
-                                .accessibilityLabel("Đang cập nhật mục lục")
-                        } else {
-                            Button(action: refreshChapters) {
-                                Image(systemName: "arrow.clockwise")
-                                    .foregroundColor(theme.textColor)
+                        if !isLocalTXTBook {
+                            if isUpdating {
+                                ProgressView()
+                                    .tint(theme.textColor)
                                     .frame(width: 44, height: 44)
+                                    .accessibilityLabel("Đang cập nhật mục lục")
+                            } else {
+                                Button(action: refreshChapters) {
+                                    Image(systemName: "arrow.clockwise")
+                                        .foregroundColor(theme.textColor)
+                                        .frame(width: 44, height: 44)
+                                }
+                                .accessibilityLabel("Cập nhật mục lục")
                             }
-                            .accessibilityLabel("Cập nhật mục lục")
                         }
 
                         Button(action: {

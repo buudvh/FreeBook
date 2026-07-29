@@ -131,14 +131,16 @@ struct ShelfView: View {
                                         bookItemView(book)
                                     }
                                     .contextMenu {
-                                        NavigationLink(destination: BookDetailView(
-                                            bookId: book.bookId,
-                                            extensionPackageId: book.extensionPackageId,
-                                            initialDetailUrl: book.detailUrl,
-                                            sourceName: book.sourceName,
-                                            initialHost: book.host
-                                        )) {
-                                            Label("Xem chi tiết", systemImage: "info.circle")
+                                        if !book.isLocalBook {
+                                            NavigationLink(destination: BookDetailView(
+                                                bookId: book.bookId,
+                                                extensionPackageId: book.extensionPackageId,
+                                                initialDetailUrl: book.detailUrl,
+                                                sourceName: book.sourceName,
+                                                initialHost: book.host
+                                            )) {
+                                                Label("Xem chi tiết", systemImage: "info.circle")
+                                            }
                                         }
 
                                         Button {

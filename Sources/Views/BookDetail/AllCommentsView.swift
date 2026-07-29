@@ -5,6 +5,7 @@ struct AllCommentsView: View {
     let localPath: String
     let downloadUrl: String
     let configJson: String
+    let isTranslationEnabled: Bool
     
     @State private var comments: [SearchNovelResult] = []
     @State private var isLoading = true
@@ -44,7 +45,8 @@ struct AllCommentsView: View {
                                     .frame(width: 28, height: 28)
                                     .foregroundColor(.secondary.opacity(0.6))
                                 
-                                Text(TranslateUtils.translateMeta(comment.name))
+                                let commentatorName = (isTranslationEnabled && TranslateUtils.containsChinese(comment.name)) ? TranslateUtils.translateMeta(comment.name) : comment.name
+                                Text(commentatorName)
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.primary)
@@ -52,7 +54,9 @@ struct AllCommentsView: View {
                                 Spacer()
                             }
                             
-                            Text(TranslateUtils.translateMeta(comment.description.cleanHTML()))
+                            let cleanedDesc = comment.description.cleanHTML()
+                            let commentText = (isTranslationEnabled && TranslateUtils.containsChinese(cleanedDesc)) ? TranslateUtils.translateMeta(cleanedDesc) : cleanedDesc
+                            Text(commentText)
                                 .font(.footnote)
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.leading)
@@ -84,7 +88,7 @@ struct AllCommentsView: View {
                 }
             }
         }
-        .navigationTitle(TranslateUtils.translateMeta(category.title))
+        .navigationTitle((isTranslationEnabled && TranslateUtils.containsChinese(category.title)) ? TranslateUtils.translateMeta(category.title) : category.title)
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await loadComments(page: 1)

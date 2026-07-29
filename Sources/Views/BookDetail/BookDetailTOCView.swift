@@ -12,6 +12,7 @@ struct BookDetailTOCView: View {
     let filteredOnlineChapters: [(offset: Int, element: ChapterResult)]
     let tocPages: [String]
     let remainingPagesLoaded: Bool
+    let isTranslationEnabled: Bool
 
     let onLoadTOCDataOnly: () -> Void
     let onStartReading: (Int) -> Void
@@ -53,7 +54,11 @@ struct BookDetailTOCView: View {
         let query = chapterSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return sorted }
         return sorted.filter { chap in
-            chap.title.localizedStandardContains(query) || (chap.titleTrans != nil && chap.titleTrans!.localizedStandardContains(query))
+            if isTranslationEnabled {
+                return chap.title.localizedStandardContains(query) || (chap.titleTrans != nil && chap.titleTrans!.localizedStandardContains(query))
+            } else {
+                return chap.title.localizedStandardContains(query)
+            }
         }
     }
 
@@ -125,7 +130,8 @@ struct BookDetailTOCView: View {
                                     onStartReading(chap.index)
                                 }) {
                                     HStack {
-                                        Text(onTranslateTitleIfNeeded(chap.titleTrans ?? chap.title))
+                                        let displayTitle = isTranslationEnabled ? onTranslateTitleIfNeeded(chap.titleTrans ?? chap.title) : chap.title
+                                        Text(displayTitle)
                                             .foregroundColor((localBook?.currentChapterIndex ?? 0) == chap.index ? .accentColor : .primary)
                                             .font(.subheadline)
                                             .lineLimit(1)

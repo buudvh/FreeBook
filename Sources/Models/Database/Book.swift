@@ -43,6 +43,14 @@ public final class Book {
         return ""
     }
     
+    // Computed Property: Kiểm tra xem có phải là sách local / TXT hay không.
+    public var isLocalBook: Bool {
+        return extensionPackageId.lowercased() == "local"
+            || detailUrl.lowercased().hasPrefix("local://")
+            || sourceUrl.lowercased().hasPrefix("local://")
+            || sourceName.lowercased() == "local"
+    }
+
     // Hàm khởi tạo (Constructor) để tạo đối tượng Book mới.
     public init(bookId: String, title: String, author: String, coverUrl: String, desc: String, detailUrl: String, sourceName: String, sourceUrl: String, extensionPackageId: String, currentChapterIndex: Int = 0, currentChapterPage: Int = 0, currentChapterTitle: String = "", isOnShelf: Bool = true, isHistory: Bool = false, host: String? = nil) {
         self.bookId = bookId

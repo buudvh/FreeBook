@@ -422,7 +422,7 @@ struct BookDetailView: View {
                         ForEach(suggests) { suggest in
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
-                                    Text(TranslateUtils.translateMeta(suggest.title))
+                                    Text(translateMetaIfNeeded(suggest.title))
                                         .font(.headline)
                                     Spacer()
                                     NavigationLink(destination: CategoryNovelsListView(
@@ -449,7 +449,8 @@ struct BookDetailView: View {
                                     downloadUrl: ext?.downloadUrl ?? "",
                                     configJson: ext?.configJson ?? "{}",
                                     extensionPackageId: extensionPackageId,
-                                    sourceName: sourceName
+                                    sourceName: sourceName,
+                                    isTranslationEnabled: isTranslationEnabled
                                 )
                             }
                         }
@@ -477,7 +478,7 @@ struct BookDetailView: View {
                         Divider()
                         ForEach(comments) { comment in
                             VStack(alignment: .leading, spacing: 8) {
-                                Text(TranslateUtils.translateMeta(comment.title))
+                                Text(translateMetaIfNeeded(comment.title))
                                     .font(.headline)
                                     .padding(.horizontal)
 
@@ -487,7 +488,8 @@ struct BookDetailView: View {
                                     downloadUrl: ext?.downloadUrl ?? "",
                                     configJson: ext?.configJson ?? "{}",
                                     extensionPackageId: extensionPackageId,
-                                    sourceName: sourceName
+                                    sourceName: sourceName,
+                                    isTranslationEnabled: isTranslationEnabled
                                 )
                             }
                         }
@@ -536,6 +538,7 @@ struct BookDetailView: View {
                     filteredOnlineChapters: filteredOnlineChapters,
                     tocPages: tocPages,
                     remainingPagesLoaded: remainingPagesLoaded,
+                    isTranslationEnabled: isTranslationEnabled,
                     onLoadTOCDataOnly: loadTOCDataOnly,
                     onStartReading: startReading,
                     onTranslateChapterTitleIfNeeded: translateChapterTitleIfNeeded,
@@ -1455,9 +1458,13 @@ struct BookDetailView: View {
         let enumeratedChaps = Array(onlineChapters.enumerated())
         let sortedOnline = isTocAscending ? enumeratedChaps : Array(enumeratedChaps.reversed())
         filteredOnlineChapters = sortedOnline.filter { index, chap in
-            chapterSearchQuery.isEmpty ||
-            chap.name.localizedCaseInsensitiveContains(chapterSearchQuery) ||
-            TranslateUtils.translateChapterTitle(chap.name, bookId: actualBookId).localizedCaseInsensitiveContains(chapterSearchQuery)
+            if chapterSearchQuery.isEmpty { return true }
+            if isTranslationEnabled {
+                return chap.name.localizedCaseInsensitiveContains(chapterSearchQuery) ||
+                    TranslateUtils.translateChapterTitle(chap.name, bookId: actualBookId).localizedCaseInsensitiveContains(chapterSearchQuery)
+            } else {
+                return chap.name.localizedCaseInsensitiveContains(chapterSearchQuery)
+            }
         }
     }
 
