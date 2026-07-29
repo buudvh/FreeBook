@@ -1747,6 +1747,20 @@ public final class TTSManager: NSObject, ObservableObject {
         }
     }
 
+    @MainActor
+    func dispatchRemoteTransportCommand(
+        _ action: RemoteTransportAction,
+        entryUptime: UInt64,
+        isMain: Bool,
+        eventId: String
+    ) -> MPRemoteCommandHandlerStatus {
+        let latencyMs = Double(DispatchTime.now().uptimeNanoseconds - entryUptime) / 1_000_000.0
+        self.logRemoteTrace("remoteCallbackDispatched", details: "id:\(eventId) | action:\(action) | entryThread:\(isMain ? "Main" : "Bg") | queueLatency:\(String(format: "%.2f", latencyMs))ms")
+        self.handleRemoteTransportCommandOnMain(action)
+        self.logRemoteTrace("remoteCallbackCompleted", details: "id:\(eventId) | action:\(action)")
+        return .success
+    }
+
     private func setupRemoteCommandCenter() {
         let commandCenter = MPRemoteCommandCenter.shared()
 
@@ -1762,14 +1776,29 @@ public final class TTSManager: NSObject, ObservableObject {
             let isMain = Thread.isMainThread
             let entryUptime = DispatchTime.now().uptimeNanoseconds
             let eventId = String(UUID().uuidString.prefix(8))
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                let latencyMs = Double(DispatchTime.now().uptimeNanoseconds - entryUptime) / 1_000_000.0
-                self.logRemoteTrace("remoteCallbackDispatched", details: "id:\(eventId) | action:toggle | entryThread:\(isMain ? "Main" : "Bg") | queueLatency:\(String(format: "%.2f", latencyMs))ms")
-                self.handleRemoteTransportCommandOnMain(.toggle)
-                self.logRemoteTrace("remoteCallbackCompleted", details: "id:\(eventId) | action:toggle")
+
+            if isMain {
+                return MainActor.assumeIsolated {
+                    guard let self = self else { return .commandFailed }
+                    return self.dispatchRemoteTransportCommand(
+                        .toggle,
+                        entryUptime: entryUptime,
+                        isMain: true,
+                        eventId: eventId
+                    )
+                }
+            } else {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    _ = self.dispatchRemoteTransportCommand(
+                        .toggle,
+                        entryUptime: entryUptime,
+                        isMain: false,
+                        eventId: eventId
+                    )
+                }
+                return .success
             }
-            return .success
         }
 
         // Play
@@ -1778,14 +1807,29 @@ public final class TTSManager: NSObject, ObservableObject {
             let isMain = Thread.isMainThread
             let entryUptime = DispatchTime.now().uptimeNanoseconds
             let eventId = String(UUID().uuidString.prefix(8))
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                let latencyMs = Double(DispatchTime.now().uptimeNanoseconds - entryUptime) / 1_000_000.0
-                self.logRemoteTrace("remoteCallbackDispatched", details: "id:\(eventId) | action:play | entryThread:\(isMain ? "Main" : "Bg") | queueLatency:\(String(format: "%.2f", latencyMs))ms")
-                self.handleRemoteTransportCommandOnMain(.play)
-                self.logRemoteTrace("remoteCallbackCompleted", details: "id:\(eventId) | action:play")
+
+            if isMain {
+                return MainActor.assumeIsolated {
+                    guard let self = self else { return .commandFailed }
+                    return self.dispatchRemoteTransportCommand(
+                        .play,
+                        entryUptime: entryUptime,
+                        isMain: true,
+                        eventId: eventId
+                    )
+                }
+            } else {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    _ = self.dispatchRemoteTransportCommand(
+                        .play,
+                        entryUptime: entryUptime,
+                        isMain: false,
+                        eventId: eventId
+                    )
+                }
+                return .success
             }
-            return .success
         }
 
         // Pause
@@ -1794,14 +1838,29 @@ public final class TTSManager: NSObject, ObservableObject {
             let isMain = Thread.isMainThread
             let entryUptime = DispatchTime.now().uptimeNanoseconds
             let eventId = String(UUID().uuidString.prefix(8))
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                let latencyMs = Double(DispatchTime.now().uptimeNanoseconds - entryUptime) / 1_000_000.0
-                self.logRemoteTrace("remoteCallbackDispatched", details: "id:\(eventId) | action:pause | entryThread:\(isMain ? "Main" : "Bg") | queueLatency:\(String(format: "%.2f", latencyMs))ms")
-                self.handleRemoteTransportCommandOnMain(.pause)
-                self.logRemoteTrace("remoteCallbackCompleted", details: "id:\(eventId) | action:pause")
+
+            if isMain {
+                return MainActor.assumeIsolated {
+                    guard let self = self else { return .commandFailed }
+                    return self.dispatchRemoteTransportCommand(
+                        .pause,
+                        entryUptime: entryUptime,
+                        isMain: true,
+                        eventId: eventId
+                    )
+                }
+            } else {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    _ = self.dispatchRemoteTransportCommand(
+                        .pause,
+                        entryUptime: entryUptime,
+                        isMain: false,
+                        eventId: eventId
+                    )
+                }
+                return .success
             }
-            return .success
         }
 
         // Next Track (Đoạn sau)
