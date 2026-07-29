@@ -41,6 +41,12 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Phối hợp cờ khả dụng mới với bộ xuất bản metadata tương thích Phase G (`currentRate: 1.0/0.0`, `defaultRate: speed`), phản hồi trạng thái Phase F, bounded `.pause` fallback và điều phối đồng bộ MainActor Phase B để kiểm chứng khả năng hỗ trợ iOS MediaRemote UI cập nhật biểu tượng Lock Screen.
   * Giữ nguyên chữ ký `func handleRemoteTransportCommandOnMain` (Void return), target handler registrations (`setupRemoteCommandCenter()`), Phase A log trace (`TTSTrace`) và các gọi lệnh `UIApplication`.
   * Đã đồng bộ khối GENERATED trong `05_state_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
+* **Thử nghiệm Kiểm soát Giai đoạn I cho Hợp đồng Metadata Timeline Hữu hạn TTS (`TTSManager.swift`, `05_state_graph.md`, `06_event_graph.md`, `11_subsystems.md`)**:
+  * Chuyển đổi `setSystemNowPlayingPlaybackState(_:)` thành instance method private `@MainActor` trong `TTSManager` để truy cập an toàn các thuộc tính timeline (`currentParagraphIndex`, `paragraphs.count`, `speed`).
+  * Hoàn thiện xuất bản bộ 5 key metadata Now Playing hữu hạn (`MPNowPlayingInfoPropertyPlaybackRate`, `MPNowPlayingInfoPropertyDefaultPlaybackRate`, `MPNowPlayingInfoPropertyElapsedPlaybackTime`, `MPMediaItemPropertyPlaybackDuration`, `MPNowPlayingInfoPropertyPlaybackProgress`) đồng bộ trong `setSystemNowPlayingPlaybackState` và `updateNowPlayingInfo()`.
+  * Cập nhật log trace `TTSTrace` ghi nhận các thông số timeline `elapsed`, `duration` và `progress` tại runtime.
+  * Giữ nguyên khả dụng 3 lệnh Phase H (`playE/pauseE/toggleE = active`), chữ ký `func handleRemoteTransportCommandOnMain`, Phase F outcome-aware status return, bounded `.pause` fallback và các gọi lệnh `UIApplication`.
+  * Đã đồng bộ khối GENERATED trong `05_state_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
 * **Cập nhật Metadata (`manifest.json`)**:
   * Tái tính toán và cập nhật `sourceHash` và `generatedHash` cho các tài liệu bị ảnh hưởng thông qua kịch bản `validate_links.py --update-hashes`.
 
