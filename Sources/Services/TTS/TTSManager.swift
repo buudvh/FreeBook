@@ -1687,12 +1687,14 @@ public final class TTSManager: NSObject, ObservableObject {
     private func syncRemoteCommandState() {
         let commandCenter = MPRemoteCommandCenter.shared()
         let active = !playingBookId.isEmpty && showFloatingWidget
-        commandCenter.playCommand.isEnabled = active
-        commandCenter.pauseCommand.isEnabled = active
+        let playing = active && isPlaying
+        let paused = active && !isPlaying
+        commandCenter.playCommand.isEnabled = paused
+        commandCenter.pauseCommand.isEnabled = playing
         commandCenter.togglePlayPauseCommand.isEnabled = active
         commandCenter.nextTrackCommand.isEnabled = active
         commandCenter.previousTrackCommand.isEnabled = active
-        logRemoteTrace("syncRemoteCommandState", details: "active:\(active)") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
+        logRemoteTrace("syncRemoteCommandState", details: "active:\(active), playing:\(playing), paused:\(paused)") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
     }
 
     /// Synchronously publishes relative current (1.0/0.0) and default (TTS speed) playback rates

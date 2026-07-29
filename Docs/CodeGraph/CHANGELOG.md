@@ -47,6 +47,18 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Cập nhật log trace `TTSTrace` ghi nhận các thông số timeline `elapsed`, `duration` và `progress` tại runtime.
   * Giữ nguyên khả dụng 3 lệnh Phase H (`playE/pauseE/toggleE = active`), chữ ký `func handleRemoteTransportCommandOnMain`, Phase F outcome-aware status return, bounded `.pause` fallback và các gọi lệnh `UIApplication`.
   * Đã đồng bộ khối GENERATED trong `05_state_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
+* **Điều chỉnh Tính khả dụng Remote Command Phụ thuộc Trạng thái Phát (Phase J) (`TTSManager.swift`, `05_state_graph.md`, `06_event_graph.md`, `11_subsystems.md`)**:
+  * Cập nhật `syncRemoteCommandState()` trong `TTSManager.swift` để trạng thái khả dụng của các lệnh điều khiển từ xa phản ánh chính xác trạng thái phát:
+    * `let active = !playingBookId.isEmpty && showFloatingWidget`
+    * `let playing = active && isPlaying`
+    * `let paused = active && !isPlaying`
+    * `playCommand.isEnabled = paused`
+    * `pauseCommand.isEnabled = playing`
+    * `togglePlayPauseCommand.isEnabled = active`
+    * `nextTrackCommand.isEnabled = active`
+    * `previousTrackCommand.isEnabled = active`
+  * Giữ nguyên `setRemoteCommandsEnabled(_:)`, các target handler registrations, bounded `.pause` fallback và hợp đồng metadata timeline hữu hạn (Phase I).
+  * Đã đồng bộ khối GENERATED trong `05_state_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
 * **Cập nhật Metadata (`manifest.json`)**:
   * Tái tính toán và cập nhật `sourceHash` và `generatedHash` cho các tài liệu bị ảnh hưởng thông qua kịch bản `validate_links.py --update-hashes`.
 
