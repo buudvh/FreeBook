@@ -435,9 +435,6 @@ struct DiscoveryView: View {
                     )
                 }
             }
-            .onChange(of: isTranslationEnabled) { _, _ in
-                loadDiscoveryData()
-            }
         }
     }
     
@@ -629,16 +626,6 @@ struct DiscoveryCategoryTabView: View {
         }
         .onChange(of: selectedCategoryId) { _, _ in
             checkAndLoadData()
-        }
-        .onChange(of: isTranslationEnabled) { _, _ in
-            // Xóa data cũ và reload để tên truyện được dịch / bỏ dịch đúng
-            guard selectedCategoryId == category.id else { return }
-            novels = []
-            novelsError = ""
-            currentPage = 1
-            nextNovelPageUrl = nil
-            canLoadMore = false
-            loadNovels(page: 1)
         }
     }
     

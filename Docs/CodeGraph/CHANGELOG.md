@@ -4,6 +4,11 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.54] - 2026-07-29
 
+### Tối ưu hóa Chuyển đổi Bật/Tắt Dịch thuật trên Màn hình Khám phá (`DiscoveryView.swift`)
+* **Loại bỏ Re-fetch Mạng không cần thiết khi Bật/Tắt Dịch (`DiscoveryView.swift`)**:
+  * Loại bỏ 2 handler `.onChange(of: isTranslationEnabled)` trong `DiscoveryView` và `DiscoveryCategoryTabView`.
+  * Cho phép giao diện Khám phá (Discovery) re-render ngay các chuỗi văn bản hiện có thông qua `translateIfNeeded` khi thay đổi trạng thái dịch thuật mà không cần tải lại danh sách trang chủ hoặc danh mục thể loại từ mạng.
+
 ### Đồng bộ Tài liệu CodeGraph cho Điều khiển TTS Remote Command State Machine & Chuẩn hóa Metadata
 * **Đồng bộ Máy trạng thái Điều khiển Từ xa TTS (`TTSManager.swift`, `TTSManagerTests.swift`, `05_state_graph.md`, `06_event_graph.md`, `11_subsystems.md`)**:
   * Ghi nhận việc điều chỉnh hàm `syncRemoteCommandState()` và `handleRemoteTransportCommandOnMain(_:)` trong `TTSManager.swift`: Chuyển `RemoteTransportAction` enum và `handleRemoteTransportCommandOnMain` sang `internal` access modifier để phục vụ unit test; cập nhật `playCommand.isEnabled = active && !isPlaying` và `pauseCommand.isEnabled = active && isPlaying`.
