@@ -650,7 +650,7 @@ struct BookDetailView: View {
 
     @ViewBuilder
     private var floatingActionButton: some View {
-        let totalChaps = localBook?.chapters.count ?? onlineChapters.count
+        let totalChaps = chapterSnapshots.count > 0 ? chapterSnapshots.count : (localBook?.chapters.count ?? onlineChapters.count)
         if totalChaps > 0 {
             VStack {
                 Spacer()
