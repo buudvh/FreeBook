@@ -305,6 +305,7 @@ public final class TTSManager: NSObject, ObservableObject {
     private var audioEngine: AVAudioEngine?
     private var playerNode: AVAudioPlayerNode?
     private var timePitchNode: AVAudioUnitTimePitch?
+    private var eqNode: AVAudioUnitEQ?
 
     private override init() {
         // Nạp cấu hình từ UserDefaults
@@ -379,17 +380,28 @@ public final class TTSManager: NSObject, ObservableObject {
         let engine = AVAudioEngine()
         let player = AVAudioPlayerNode()
         let pitchNode = AVAudioUnitTimePitch()
+        let eqNode = AVAudioUnitEQ(numberOfBands: 1)
+
+        let band = eqNode.bands[0]
+        band.filterType = .lowPass
+        band.frequency = 10000.0
+        band.bandwidth = 1.0
+        band.bypass = false
+        eqNode.bypass = false
 
         engine.attach(player)
+        engine.attach(eqNode)
         engine.attach(pitchNode)
 
-        // Connect Player -> TimePitch -> mainMixer
-        engine.connect(player, to: pitchNode, format: nil)
+        // Connect Player -> EQ -> TimePitch -> mainMixer
+        engine.connect(player, to: eqNode, format: nil)
+        engine.connect(eqNode, to: pitchNode, format: nil)
         engine.connect(pitchNode, to: engine.mainMixerNode, format: nil)
 
         self.audioEngine = engine
         self.playerNode = player
         self.timePitchNode = pitchNode
+        self.eqNode = eqNode
     }
 
     private func configureAudioSession() {
@@ -1460,27 +1472,32 @@ public final class TTSManager: NSObject, ObservableObject {
         self.currentPlaybackId = playbackId
 
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Bắt đầu playAudioBuffer, paragraphIndex: \(paragraphIndex)")
-        guard let engine = audioEngine, let player = playerNode, let pitchNode = timePitchNode else {
+        guard let engine = audioEngine, let player = playerNode, let pitchNode = timePitchNode, let eqNode = eqNode else {
             AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] LỖI: Các thành phần AVAudioEngine chưa được khởi tạo.")
             return
         }
 
         cleanUpTempFile()
 
-        // AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Gọi player.stop()...")
         player.stop()
-        // AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Gọi player.stop() xong.")
 
         // Chỉ ngắt và kết nối lại nếu format thay đổi để tránh tiếng nổ/rè (pop/click) do re-sync codec
         if lastBufferFormat == nil || lastBufferFormat != buffer.format {
             AppLogger.shared.log("🔊 [TTSManager] [ID=\(playbackId)] Định dạng buffer thay đổi (\(lastBufferFormat?.description ?? "nil") -> \(buffer.format.description)). Rebuilding node graph connections...")
 
             engine.disconnectNodeOutput(player)
+            engine.disconnectNodeOutput(eqNode)
             engine.disconnectNodeOutput(pitchNode)
 
             let mixerFormat = engine.mainMixerNode.outputFormat(forBus: 0)
-            engine.connect(player, to: pitchNode, format: buffer.format)
-            engine.connect(pitchNode, to: engine.mainMixerNode, format: mixerFormat)
+            if speed == 1.0 && pitch == 1.0 {
+                engine.connect(player, to: eqNode, format: buffer.format)
+                engine.connect(eqNode, to: engine.mainMixerNode, format: mixerFormat)
+            } else {
+                engine.connect(player, to: eqNode, format: buffer.format)
+                engine.connect(eqNode, to: pitchNode, format: mixerFormat)
+                engine.connect(pitchNode, to: engine.mainMixerNode, format: mixerFormat)
+            }
 
             lastBufferFormat = buffer.format
         }
@@ -1523,88 +1540,56 @@ public final class TTSManager: NSObject, ObservableObject {
     }
 
     private func makePCMBuffer(fromWavData wavData: Data, targetFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
-        guard wavData.count >= 44 else { return nil }
-
-        let srcChannels = Int(wavData[22]) | (Int(wavData[23]) << 8)
-        let srcSampleRate = Double(Int(wavData[24]) | (Int(wavData[25]) << 8) | (Int(wavData[26]) << 16) | (Int(wavData[27]) << 24))
-        let payloadSize = Int(wavData[40]) | (Int(wavData[41]) << 8) | (Int(wavData[42]) << 16) | (Int(wavData[43]) << 24)
-
-        guard wavData.count >= 44 + payloadSize else { return nil }
-
-        let srcSampleCount = payloadSize / 2
-
-        // 1. Tạo định dạng nguồn Float32 standard non-interleaved
-        guard let srcFormat = AVAudioFormat(standardFormatWithSampleRate: srcSampleRate, channels: AVAudioChannelCount(srcChannels)) else {
-            return nil
-        }
-
-        let srcFrameCount = AVAudioFrameCount(srcSampleCount / srcChannels)
-        guard let srcBuffer = AVAudioPCMBuffer(pcmFormat: srcFormat, frameCapacity: srcFrameCount) else {
-            return nil
-        }
-        srcBuffer.frameLength = srcFrameCount
-
-        // 2. Chuyển đổi Int16 sang Float32 nạp vào srcBuffer
-        wavData.withUnsafeBytes { rawBuffer in
-            if let baseAddress = rawBuffer.baseAddress {
-                let srcPointer = baseAddress.advanced(by: 44).assumingMemoryBound(to: Int16.self)
-                if let floatChannelData = srcBuffer.floatChannelData {
-                    for channel in 0..<srcChannels {
-                        let destPointer = floatChannelData[channel]
-                        for frame in 0..<Int(srcFrameCount) {
-                            let srcIndex = frame * srcChannels + channel
-                            if srcIndex < srcSampleCount {
-                                let intVal = srcPointer[srcIndex]
-                                destPointer[frame] = Float(intVal) / (intVal < 0 ? 32768.0 : 32767.0)
-                            } else {
-                                destPointer[frame] = 0.0
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Nếu trùng định dạng, trả về luôn srcBuffer
-        if srcFormat == targetFormat {
-            return srcBuffer
-        }
-
-        // 3. Sử dụng AVAudioConverter chuyển đổi chất lượng cao (resampling + channel mapping)
-        guard let converter = AVAudioConverter(from: srcFormat, to: targetFormat) else {
-            AppLogger.shared.log("❌ [TTSManager] Không thể tạo AVAudioConverter từ \(srcFormat) sang \(targetFormat)")
-            return nil
-        }
-        converter.sampleRateConverterQuality = AVAudioQuality.max.rawValue
-
-        let ratio = targetFormat.sampleRate / srcSampleRate
-        let targetFrameCapacity = AVAudioFrameCount(Double(srcFrameCount) * ratio) + 16
-
-        guard let targetBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: targetFrameCapacity) else {
-            return nil
-        }
-
-        var error: NSError? = nil
-        var isDataProvided = false
-        let inputBlock: AVAudioConverterInputBlock = { inNumPackets, outStatus in
-            if isDataProvided {
-                outStatus.pointee = .noDataNow
+        let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("tts_temp_\(UUID().uuidString).wav")
+        do {
+            try wavData.write(to: tempURL, options: .atomic)
+            let audioFile = try AVAudioFile(forReading: tempURL)
+            let srcFormat = audioFile.processingFormat
+            let frameCount = AVAudioFrameCount(audioFile.length)
+            guard frameCount > 0, let srcBuffer = AVAudioPCMBuffer(pcmFormat: srcFormat, frameCapacity: frameCount) else {
+                try? FileManager.default.removeItem(at: tempURL)
                 return nil
             }
-            isDataProvided = true
-            outStatus.pointee = .haveData
-            return srcBuffer
-        }
+            try audioFile.read(into: srcBuffer)
+            try? FileManager.default.removeItem(at: tempURL)
 
-        let status = converter.convert(to: targetBuffer, error: &error, withInputFrom: inputBlock)
-        if status == .error {
-            if let error = error {
-                AppLogger.shared.log("❌ [TTSManager] Lỗi convert định dạng buffer: \(error.localizedDescription)")
+            if srcFormat == targetFormat {
+                return srcBuffer
             }
+
+            guard let converter = AVAudioConverter(from: srcFormat, to: targetFormat) else {
+                return nil
+            }
+            converter.sampleRateConverterQuality = AVAudioQuality.max.rawValue
+
+            let ratio = targetFormat.sampleRate / srcFormat.sampleRate
+            let destFrameCapacity = AVAudioFrameCount(Double(srcBuffer.frameLength) * ratio) + 100
+            guard let destBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: destFrameCapacity) else {
+                return nil
+            }
+
+            var error: NSError? = nil
+            var isDataProvided = false
+            let status = converter.convert(to: destBuffer, error: &error) { inNumPackets, outStatus in
+                if isDataProvided {
+                    outStatus.pointee = .noDataNow
+                    return nil
+                }
+                isDataProvided = true
+                outStatus.pointee = .haveData
+                return srcBuffer
+            }
+
+            if status == .error || error != nil {
+                AppLogger.shared.log("❌ [TTSManager] Resampling WAV failed: \(error?.localizedDescription ?? "unknown error")")
+                return nil
+            }
+
+            return destBuffer
+        } catch {
+            AppLogger.shared.log("❌ [TTSManager] Failed to convert WAV to PCMBuffer: \(error.localizedDescription)")
             return nil
         }
-
-        return targetBuffer
     }
 
     private func makePCMBuffer(fromMp3Data mp3Data: Data, targetFormat: AVAudioFormat) -> AVAudioPCMBuffer? {

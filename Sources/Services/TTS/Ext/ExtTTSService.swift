@@ -23,9 +23,15 @@ public final class ExtTTSService {
             throw NSError(domain: "ExtTTSService", code: -20, userInfo: [NSLocalizedDescriptionKey: "Dữ liệu âm thanh Base64 không hợp lệ"])
         }
         
-        // 2. Ghi ra tệp tin tạm
+        // 2. Ghi ra tệp tin tạm với đuôi tệp phù hợp (.wav vs .mp3) theo Magic Bytes
         let tempDir = FileManager.default.temporaryDirectory
-        let tempFileUrl = tempDir.appendingPathComponent(UUID().uuidString + ".mp3")
+        let fileExt: String
+        if audioData.count >= 4 && audioData[0] == 0x52 && audioData[1] == 0x49 && audioData[2] == 0x46 && audioData[3] == 0x46 {
+            fileExt = "wav"
+        } else {
+            fileExt = "mp3"
+        }
+        let tempFileUrl = tempDir.appendingPathComponent(UUID().uuidString + "." + fileExt)
         try audioData.write(to: tempFileUrl)
         
         // Khối dọn dẹp tệp tin tạm

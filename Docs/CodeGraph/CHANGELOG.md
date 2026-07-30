@@ -8,6 +8,12 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 * **Khắc Phục Nhiễu Răng Cưa (Aliasing Hiss) Trong Converter (`TTSManager.swift`, `ExtTTSService.swift`)**:
   * Đặt `converter.sampleRateConverterQuality = AVAudioQuality.max.rawValue` cho tất cả các `AVAudioConverter` instance trong `makePCMBuffer(fromWavData:targetFormat:)`, `makePCMBuffer(fromMp3Data:targetFormat:)` và `ExtTTSService.synthesize`.
   * Ép bộ chuyển đổi tần số của Apple sử dụng thuật toán nội suy mẫu (resampling) chất lượng tối đa, loại bỏ hoàn toàn nhiễu aliasing dải tần cao khi nâng tần số từ 22.05kHz/24kHz lên 44.1kHz/48kHz.
+* **Bộ Lọc Thông Thấp Low-Pass Filter 10kHz & Bypass `timePitchNode` ở 1.0x (`TTSManager.swift`)**:
+  * Tích hợp node `AVAudioUnitEQ` (`.lowPass`, `frequency = 10000.0 Hz`) vào `AVAudioEngine` để gọt sạch 100% dải tần rác siêu cao (>10kHz) vốn bị khuyếch đại gây gắt/chói tai trên Tai nghe Bluetooth.
+  * Tự động **Bypass `timePitchNode`** ở tốc độ 1.0x (`speed == 1.0 && pitch == 1.0`), nối trực tiếp `playerNode` -> `eqNode` -> `mainMixerNode` để giữ âm thanh nguyên bản, loại bỏ hoàn toàn nhiễu Phase Vocoder của iOS ở tốc độ chuẩn.
+* **Chuyển Giải Mã WAV sang `AVAudioFile` & Magic Bytes (`TTSManager.swift`, `ExtTTSService.swift`)**:
+  * Thay thế logic giải mã WAV thủ công (`advanced(by: 44)`) bằng `AVAudioFile(forReading:)` của CoreAudio, phòng ngừa triệt để lỗi lệch byte alignment làm đảo sample Int16 gây xé tiếng.
+  * Thêm nhận diện Magic Bytes (`RIFF` vs `MP3`) trong `ExtTTSService.swift` để tự động lưu đúng đuôi mở rộng `.wav` hoặc `.mp3` cho tệp tạm.
 * **Chuẩn Hóa Biên Độ PCM Float (`ExtTTSService.swift`)**:
   * Bổ sung soft-clamping biên độ float PCM `max(-1.0, min(1.0, sample))` trong `preprocessBufferForExtTTS` để ngăn ngừa hiện tượng vỡ tiếng/xé tiếng do vượt ngưỡng biên độ.
 
