@@ -618,8 +618,7 @@ struct ReaderView: View {
             await ChapterContentRepository.shared.remove(bookId: currentBookId, chapterIndex: currentChapterIndex)
             if let vm = viewModel {
                 await MainActor.run {
-                    vm.cache.remove(currentChapterIndex)
-                    vm.loadChapter(at: currentChapterIndex, forceRefresh: true)
+                    vm.reloadDisplayedChapter()
                 }
             }
         }
@@ -724,8 +723,7 @@ struct ReaderView: View {
                 await ChapterContentRepository.shared.remove(bookId: currentBookId, chapterIndex: currentChapterIndex)
                 if let vm = viewModel {
                     await MainActor.run {
-                        vm.cache.remove(currentChapterIndex)
-                        vm.loadChapter(at: currentChapterIndex, forceRefresh: true)
+                        vm.reloadDisplayedChapter()
                     }
                 }
             }

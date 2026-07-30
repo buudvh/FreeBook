@@ -64,11 +64,11 @@ public enum JunkFilterImportMode {
 
 @MainActor
 public final class JunkFilterManager: ObservableObject {
-    public static let shared = JunkFilterManager()
+    nonisolated public static let shared = JunkFilterManager()
 
     @Published public private(set) var rules: [JunkFilterRule] = []
     private let lock = NSLock()
-    private var activeRulesCache: [JunkFilterRule] = []
+    private nonisolated(unsafe) var activeRulesCache: [JunkFilterRule] = []
 
     private var rulesFileURL: URL {
         let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)

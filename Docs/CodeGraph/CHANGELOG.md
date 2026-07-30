@@ -32,6 +32,9 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Khắc phục triệt để Lỗi 2 (đọc đoạn ở giữa màn hình): Lấy chính xác 100% đoạn văn nằm ngay ở đường đỉnh hiển thị trên cùng (`minY` cao nhất trong số các đoạn cắt qua viewport).
   * Tối ưu hoá 0ms overhead: Dữ liệu toạ độ lưu trong Class in-memory không dùng `@State`, đảm bảo tốc độ cuộn mượt mà 60fps/120fps.
   * Loại bỏ nút **"Đóng"** trên menu nổi `FloatingSelectionMenu` khi bôi đen văn bản, tự động đóng menu khi chạm ra ngoài và thu gọn chiều rộng menu xuống 370pt.
+* **Sửa Lỗi Biên Dịch Build Errors & Tương Thích Swift 6 Concurrency (`JunkFilterManager.swift`, `ReaderView.swift`)**:
+  * Đánh dấu `nonisolated public static let shared` và `private nonisolated(unsafe) var activeRulesCache` trong `JunkFilterManager.swift` để giải quyết triệt để lỗi biên dịch Swift 6 MainActor access từ `filterRawContent`.
+  * Thay thế lệnh gọi `vm.loadChapter(at:forceRefresh:)` không tồn tại bằng `vm.reloadDisplayedChapter()` trong `ReaderView.swift`.
 
 ## [1.3.62] - 2026-07-30
 
