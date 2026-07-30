@@ -1598,7 +1598,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
         }
     }
-}
 
     private func cleanUpTempFile() {
         // File tạm được dọn dẹp trực tiếp trong ExtTTSService.synthesize
