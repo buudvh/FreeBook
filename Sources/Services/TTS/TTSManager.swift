@@ -1478,8 +1478,9 @@ public final class TTSManager: NSObject, ObservableObject {
             engine.disconnectNodeOutput(player)
             engine.disconnectNodeOutput(pitchNode)
 
+            let mixerFormat = engine.mainMixerNode.outputFormat(forBus: 0)
             engine.connect(player, to: pitchNode, format: buffer.format)
-            engine.connect(pitchNode, to: engine.mainMixerNode, format: buffer.format)
+            engine.connect(pitchNode, to: engine.mainMixerNode, format: mixerFormat)
 
             lastBufferFormat = buffer.format
         }
