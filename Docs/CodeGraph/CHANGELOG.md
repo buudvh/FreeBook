@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.59] - 2026-07-30
+
+### Chuyển Đổi TTS Engine Sang AVAudioPlayer Mặc Định & Cài Đặt Preloading (`TTSManager.swift`, `ExtTTSService.swift`, `TTSSettingsView.swift`)
+* **Chuyển Toàn Bộ Engine sang Trình Phát Âm Thanh Mặc Định `AVAudioPlayer` (`TTSManager.swift`, `ExtTTSService.swift`)**:
+  * Thay thế luồng phát qua `AVAudioEngine` bằng `AVAudioPlayer(data: audioData)` chuẩn Hardware Audio DSP của iOS cho tất cả các công cụ đọc (Google TTS, Extension TTS, NghiTTS).
+  * Tự động mang lại chất âm êm mịn, mượt mà 100% giống ứng dụng VBook mẫu khi phát qua Tai nghe Bluetooth.
+  * Bổ sung `synthesizeData` trong `ExtTTSService.swift` trả về dữ liệu `Data` trực tiếp, triệt tiêu hoàn toàn chi phí ghi tệp tạm và resampling PCM.
+* **Bổ Sung Cài Đặt Tùy Chỉnh Số Đoạn Văn Tải Trước (`TTSManager.swift`, `TTSSettingsView.swift`)**:
+  * Thêm thuộc tính `@Published public var prefetchCount: Int` (lưu `UserDefaults` key `"ttsPrefetchCount"`, mặc định 3 đoạn, tùy chỉnh từ 1 đến 10 đoạn).
+  * Thêm giao diện `Section("Tải trước dữ liệu (Preloading)")` trong `TTSSettingsView.swift` cho phép người dùng thay đổi số đoạn văn bản preload linh hoạt.
+
 ## [1.3.58] - 2026-07-30
 
 ### Sửa Lỗi Không Dịch Lại Các Chương Preloaded Khi Cập Nhật Từ Điển (`ReaderViewModel.swift`, `ReaderView.swift`, `ReaderDefinitionOverlayView.swift`)

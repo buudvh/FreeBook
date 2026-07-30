@@ -4,6 +4,25 @@ import AVFoundation
 public final class ExtTTSService {
     public init() {}
     
+    public func synthesizeData(
+        text: String,
+        voice: String,
+        localPath: String,
+        configJson: String
+    ) async throws -> Data {
+        let base64String = try await ExtensionManager.shared.ttsGenerate(
+            localPath: localPath,
+            text: text,
+            voice: voice,
+            configJson: configJson
+        )
+        
+        guard let audioData = Data(base64Encoded: base64String.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            throw NSError(domain: "ExtTTSService", code: -20, userInfo: [NSLocalizedDescriptionKey: "Dữ liệu âm thanh Base64 không hợp lệ"])
+        }
+        return audioData
+    }
+    
     public func synthesize(
         text: String,
         voice: String,

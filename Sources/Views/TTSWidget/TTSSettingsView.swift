@@ -236,6 +236,18 @@ struct TTSSettingsView: View {
                             .textFieldStyle(.roundedBorder)
                     }
                 }
+                
+                Section("Tải trước dữ liệu (Preloading)") {
+                    Stepper(value: $ttsManager.prefetchCount, in: 1...10) {
+                        HStack {
+                            Text("Số đoạn văn tải trước:")
+                            Spacer()
+                            Text("\(ttsManager.prefetchCount) đoạn")
+                                .font(.system(.body, design: .monospaced))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
             }
             .navigationTitle("Cài đặt TTS")
             .navigationBarTitleDisplayMode(.inline)
