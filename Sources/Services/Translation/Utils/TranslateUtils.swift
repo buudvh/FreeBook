@@ -130,29 +130,28 @@ public final class TranslateUtils {
         return rawTranslation.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-        // Default TOC rules mapped from user preference
     private static let defaultTOCRules = [
         TOCRule(id: "rule1", name: "Số thứ tự + 第x章", rule: #"^\d{1,4}\.第[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]{1,10}章.{0,50}$"#, example: "1.第1章", enabled: true),
-        TOCRule(id: "rule2", name: "Mục lục (Khoảng trắng đầu dòng)", rule: #"(?<=[　\s])(?:序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|集(?![合和]))).{0,100}$"#, example: " 第一章 开始", enabled: true),
-        TOCRule(id: "rule3", name: "Mục lục Tiêu chuẩn (Chương/Tập/Quyển)", rule: #"^[ 　	]{0,4}(?:序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|集(?![合和])|部(?![分赛游])|篇(?!张))).{0,100}$"#, example: "第一章 序幕", enabled: true),
-        TOCRule(id: "rule4", name: "Mục lục Cổ điển / Light Novel (Hồi/Thoại)", rule: #"^[ 　	]{0,4}(?:序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|集(?![合和])|部(?![分赛游])|回(?![合来事去])|场(?![和合比电是])|话|篇(?!张))).{0,100}$"#, example: "第一回 风云再起", enabled: true),
+        TOCRule(id: "rule2", name: "Mục lục (Khoảng trắng đầu dòng)", rule: #"(?<=[ 　\s])(?:序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|集(?![合和]))).{0,100}$"#, example: " 第一章 开始", enabled: true),
+        TOCRule(id: "rule3", name: "Mục lục Tiêu chuẩn (Chương/Tập/Quyển)", rule: #"^[ 　\s]{0,4}(?:序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|集(?![合和])|部(?![分赛游])|篇(?!张))).{0,100}$"#, example: "第一章 序幕", enabled: true),
+        TOCRule(id: "rule4", name: "Mục lục Cổ điển / Light Novel (Hồi/Thoại)", rule: #"^[ 　\s]{0,4}(?:序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|集(?![合和])|部(?![分赛游])|回(?![合来事去])|场(?![和合比电是])|话|篇(?!张))).{0,100}$"#, example: "第一回 风云再起", enabled: true),
         TOCRule(id: "rule5", name: "Ngoặc đặc biệt [Chương x]", rule: #"(?<=[\s　])[【〔〖「『〈［\[](?:第|[Cc]hapter)[\d零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]{1,10}[章节].{0,100}$"#, example: " 【第一章 序幕", enabled: true),
         TOCRule(id: "rule6", name: "第 + Số Ả Rập + 章 + Tiêu đề", rule: #"^第(\d+)章\s+(.+)$"#, example: "第1章 七杀剑与先天满魂力", enabled: true),
-        TOCRule(id: "rule7", name: "Số + Dấu phân cách + Tiêu đề", rule: #"^[ 　	]{0,4}\d{1,5}[:：,.， 、_—\-].{1,100}$"#, example: "1、这个就是标题", enabled: true),
-        TOCRule(id: "rule8", name: "第x章 (Linh hoạt khoảng trắng & Tiêu đề dài)", rule: #"^[ 	　]*第\s*[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]{1,10}\s*章\s*.{0,150}$"#, example: " 第54章 帝天组问题少年少女局", enabled: true),
-        TOCRule(id: "rule9", name: "Số Hán tự đơn thuần (Ví dụ: 一百七十)", rule: #"(?<=[　\s])[零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]{1,12}[ 　	]{0,4}$"#, example: " 一百七十", enabled: false),
+        TOCRule(id: "rule7", name: "Số + Dấu phân cách + Tiêu đề", rule: #"^[ 　\s]{0,4}\d{1,5}[:：,.， 、_—\-].{1,100}$"#, example: "1、这个就是标题", enabled: true),
+        TOCRule(id: "rule8", name: "第x章 (Linh hoạt khoảng trắng & Tiêu đề dài)", rule: #"^[ 　\s]*第\s*[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]{1,10}\s*章\s*.{0,150}$"#, example: " 第54章 帝天组问题少年少女局", enabled: true),
+        TOCRule(id: "rule9", name: "Số Hán tự đơn thuần (Ví dụ: 一百七十)", rule: #"(?<=[　\s])[零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]{1,12}[ 　\s]{0,4}$"#, example: " 一百七十", enabled: false),
         TOCRule(id: "rule10", name: "Mục lục Khớp cả Giới thiệu / Văn án", rule: #"(?<=[　\s])(?:(?:内容|文章)?简介|文案|前言|序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|集(?![合和])|部(?![分赛游])|回(?![合来事去])|场(?![和合比电是])|篇(?!张))).{0,100}$"#, example: " 简介 作品介绍", enabled: false),
-        TOCRule(id: "rule11", name: "Số Ả Rập đơn thuần (Ví dụ: 12)", rule: #"(?<=[　\s])\d+\.?[ 　	]{0,4}$"#, example: " 12", enabled: false),
-        TOCRule(id: "rule12", name: "Chính văn + Tiêu đề / Số thứ tự", rule: #"^[ 　\t]{0,4}正文[ 　]{1,4}.{0,100}$"#, example: "正文 常山赵子龙", enabled: false),
-        TOCRule(id: "rule13", name: "Tiêu đề Tiếng Anh (Chapter/Section/Part)", rule: #"^[ 　	]{0,4}(?:[Cc]hapter|[Ss]ection|[Pp]art|ＰＡＲＴ|[Nn][oO][.、]|[Ee]pisode|(?:内容|文章)?简介|文案|前言|序章|楔子|正文(?!完|结)|终章|后记|尾声|番外)\s{0,4}\d{1,4}.{0,100}$"#, example: "Chapter 1 The Beginning", enabled: false),
-        TOCRule(id: "rule14", name: "Chapter + Số (Chapter 1)", rule: #"^[ 　	]{0,4}(?:[Cc]hapter|[Ss]ection|[Pp]art|ＰＡＲＴ|[Nn][Oo]\.|[Ee]pisode)\s{0,4}\d{1,4}.{0,100}$"#, example: "Chapter 1", enabled: false),
-        TOCRule(id: "rule15", name: "Ký tự biểu cảm / Ngôi sao (☆★✦)", rule: #"(?:^|[\s　]{1,4})(?:[☆★✦✧].{1,30}|(?:内容|文章)?简介|文案|前言|序章|楔子|正文(?!完|结)|终章|后记|尾声|番外)[ 　]{0,4}$"#, example: "☆、晋江作者最喜欢的格式", enabled: false),
-        TOCRule(id: "rule16", name: "Quyển / Chương + Số thứ tự", rule: #"^[ 	　]{0,4}(?:(?:内容|文章)?简介|文案|前言|序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|[卷章][\d零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]{1,8})[ 　]{0,4}.{0,100}$"#, example: "卷五 开元盛世", enabled: false),
+        TOCRule(id: "rule11", name: "Số Ả Rập đơn thuần (Ví dụ: 12)", rule: #"(?<=[　\s])\d+\.?[ 　\s]{0,4}$"#, example: " 12", enabled: false),
+        TOCRule(id: "rule12", name: "Chính văn + Tiêu đề / Số thứ tự", rule: #"^[ 　\s]{0,4}正文[ 　\s]{1,4}.{0,100}$"#, example: "正文 常山赵子龙", enabled: false),
+        TOCRule(id: "rule13", name: "Tiêu đề Tiếng Anh (Chapter/Section/Part)", rule: #"^[ 　\s]{0,4}(?:[Cc]hapter|[Ss]ection|[Pp]art|ＰＡＲＴ|[Nn][oO][.、]|[Ee]pisode|(?:内容|文章)?简介|文案|前言|序章|楔子|正文(?!完|结)|终章|后记|尾声|番外)\s{0,4}\d{1,4}.{0,100}$"#, example: "Chapter 1 The Beginning", enabled: false),
+        TOCRule(id: "rule14", name: "Chapter + Số (Chapter 1)", rule: #"^[ 　\s]{0,4}(?:[Cc]hapter|[Ss]ection|[Pp]art|ＰＡＲＴ|[Nn][Oo]\.|[Ee]pisode)\s{0,4}\d{1,4}.{0,100}$"#, example: "Chapter 1", enabled: false),
+        TOCRule(id: "rule15", name: "Ký tự biểu cảm / Ngôi sao (☆★✦)", rule: #"(?:^|[\s　]{1,4})(?:[☆★✦✧].{1,30}|(?:内容|文章)?简介|文案|前言|序章|楔子|正文(?!完|结)|终章|后记|尾声|番外)[ 　\s]{0,4}$"#, example: "☆、晋江作者最喜欢的格式", enabled: false),
+        TOCRule(id: "rule16", name: "Quyển / Chương + Số thứ tự", rule: #"^[ 　\s]{0,4}(?:(?:内容|文章)?简介|文案|前言|序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|[卷章][\d零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]{1,8})[ 　\s]{0,4}.{0,100}$"#, example: "卷五 开元盛世", enabled: false),
         TOCRule(id: "rule17", name: "Tiêu đề ngắn viết sát lề (Dưới 20 ký tự)", rule: #"^\S.{1,20}$"#, example: "20字以内顶格写的都是标题", enabled: false),
-        TOCRule(id: "rule18", name: "Tên sách / Tiêu đề + (Số)", rule: #"^[一-龥]{1,20}[ 　	]{0,4}[(（][\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]{1,8}[)）][ 　	]{0,4}$"#, example: "标题后面数字有括号(12)", enabled: false),
-        TOCRule(id: "rule19", name: "Tên sách / Tiêu đề + Số", rule: #"^[一-龥]{1,20}[ 　	]{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]{1,8}[ 　	]{0,4}$"#, example: "标题后面数字没有括号124", enabled: false),
+        TOCRule(id: "rule18", name: "Tên sách / Tiêu đề + (Số)", rule: #"^[ 　\s]{0,4}[一-龥]{1,20}[ 　\s]{0,4}[(（][\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]{1,8}[)）][ 　\s]{0,4}$"#, example: " 标题后面数字有括号(12)", enabled: false),
+        TOCRule(id: "rule19", name: "Tên sách / Tiêu đề + Số", rule: #"^[ 　\s]{0,4}[一-龥]{1,20}[ 　\s]{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]{1,8}[ 　\s]{0,4}$"#, example: " 标题后面数字没有括号124", enabled: false),
         TOCRule(id: "rule20", name: "Dấu bằng bao quanh === Tiêu đề ===", rule: #"\={3,6}(.{1,40}?)\="#, example: "===起这种标题干什么===", enabled: false),
-        TOCRule(id: "rule21", name: "Quy tắc mở rộng nâng cao", rule: #"(?im)^.{0,6}(?:[引楔]子|正文(?!完|结)|[引序前]言|[序终]章|扉页|[上中下][部篇卷]|卷首语|后记|尾声|番外|={2,4}|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|页[、 　]|集(?![合和])|部(?![分是门落])|篇(?!张))).{0,100}$|^.{0,6}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟a-z]{1,8}[、. 　].{0,100}$"#, example: "第1章 激进规则,适配更多非常用格式", enabled: false)
+        TOCRule(id: "rule21", name: "Quy tắc mở rộng nâng cao", rule: #"(?im)^.{0,6}(?:[引楔]子|正文(?!完|结)|[引序前]言|[序终]章|扉页|[上中下][部篇卷]|卷首语|后记|尾声|番外|={2,4}|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|页[、 　\s]|集(?![合和])|部(?![分是门落])|篇(?!张))).{0,100}$|^.{0,6}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟a-z]{1,8}[、. 　\s].{0,100}$"#, example: "第1章 激进规则,适配更多非常用格式", enabled: false)
     ]
 
     private static let punctuationMapping: [Character: String] = [
