@@ -134,7 +134,7 @@ public final class TranslateUtils {
         TOCRule(id: "rule1", name: "Số thứ tự + 第x章", rule: #"^\d{1,4}\.第[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]{1,10}章.{0,50}$"#, example: "1.第1章", enabled: true),
         TOCRule(id: "rule2", name: "Mục lục (Khoảng trắng đầu dòng)", rule: #"(?<=[ 　\s])(?:序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|集(?![合和]))).{0,100}$"#, example: " 第一章 开始", enabled: true),
         TOCRule(id: "rule3", name: "Mục lục Tiêu chuẩn (Chương/Tập/Quyển)", rule: #"^[ 　\s]{0,4}(?:序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|集(?![合和])|部(?![分赛游])|篇(?!张))).{0,100}$"#, example: "第一章 序幕", enabled: true),
-        TOCRule(id: "rule4", name: "Mục lục Cổ điển / Light Novel (Hồi/Thoại)", rule: #"^[ 　\s]{0,4}(?:序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|集(?![合和])|部(?![分赛游])|回(?![合来事去])|场(?![和合比电是])|话|篇(?!张))).{0,100}$"#, example: "第一回 风云再起", enabled: true),
+        TOCRule(id: "rule4", name: "Mục lục Cổ điển / Light Novel (Hồi/Thoại)", rule: #"^[ 　\s]{0,4}(?:序章|楔子|正文(?!完|结)|终章|后记|尾声|番外|第\s{0,4}[\d〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]+?\s{0,4}(?:章|节(?!课)|卷|集(?![合和])|部(?![分赛游])|回(?![合来事去])|场(?![和合比电是])|话|篇(?!张))).{0,100}$"#, example: "第一回 风云再起", enabled: false),
         TOCRule(id: "rule5", name: "Ngoặc đặc biệt [Chương x]", rule: #"(?<=[\s　])[【〔〖「『〈［\[](?:第|[Cc]hapter)[\d零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟]{1,10}[章节].{0,100}$"#, example: " 【第一章 序幕", enabled: true),
         TOCRule(id: "rule6", name: "第 + Số Ả Rập + 章 + Tiêu đề", rule: #"^第(\d+)章\s+(.+)$"#, example: "第1章 七杀剑与先天满魂力", enabled: true),
         TOCRule(id: "rule7", name: "Số + Dấu phân cách + Tiêu đề", rule: #"^[ 　\s]{0,4}\d{1,5}[:：,.， 、_—\-].{1,100}$"#, example: "1、这个就是标题", enabled: true),
@@ -1107,32 +1107,10 @@ public final class TranslateUtils {
 
     public static func isChapterHeaderLine(_ line: String, compiledTOCRegexes: [NSRegularExpression]? = nil) -> Bool {
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed.count < 100 else { return false }
+        guard !trimmed.isEmpty, trimmed.count < 200 else { return false }
 
-        // 1. Configurable TOC Rules (matching raw line)
-        if isMatchingTOCRule(line, compiledRegexes: compiledTOCRegexes) {
-            return true
-        }
-
-        // 2. Legacy Vietnamese / English chapter keywords (matching trimmed line)
-        let chapterKeywords = ["chương", "chapter", "quyển", "tập", "tiết", "hồi", "phần", "tự", "vĩ thanh", "mở đầu", "lời mở đầu", "phiên ngoại", "mục", "第"]
-        let lowerTrimmed = trimmed.lowercased()
-        for keyword in chapterKeywords {
-            if lowerTrimmed.hasPrefix(keyword) {
-                return true
-            }
-        }
-
-        // 3. Legacy numeric fallback (strictly unindented)
-        let hasIndentation = line.hasPrefix(" ") || line.hasPrefix("\t") || line.hasPrefix("　")
-        if !hasIndentation {
-            let firstWord = lowerTrimmed.components(separatedBy: .whitespaces).first ?? ""
-            if firstWord.rangeOfCharacter(from: CharacterSet.decimalDigits) != nil {
-                return true
-            }
-        }
-
-        return false
+        // Nhận diện dòng tiêu đề chương 100% dựa trên các quy tắc TOCRule đang bật
+        return isMatchingTOCRule(line, compiledRegexes: compiledTOCRegexes)
     }
 
     private static func clearChapterTitleCacheUnlocked() {
