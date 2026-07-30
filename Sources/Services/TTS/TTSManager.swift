@@ -133,14 +133,30 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
     @Published public var chunkLength: Int {
-        didSet { UserDefaults.standard.set(chunkLength, forKey: "ttsChunkLength") }
+        didSet {
+            UserDefaults.standard.set(chunkLength, forKey: "ttsChunkLength")
+            if tool == "system" {
+                UserDefaults.standard.set(chunkLength, forKey: "systemChunk")
+            } else if tool == "nghitts" {
+                UserDefaults.standard.set(chunkLength, forKey: "nghittsChunk")
+            } else if tool == "google" {
+                UserDefaults.standard.set(chunkLength, forKey: "googleChunk")
+            } else {
+                UserDefaults.standard.set(chunkLength, forKey: "extChunk_\(tool)")
+            }
+        }
     }
 
     @Published public var extensionLocalPath: String {
         didSet { UserDefaults.standard.set(extensionLocalPath, forKey: "ttsExtensionLocalPath") }
     }
     @Published public var extensionConfigJson: String {
-        didSet { UserDefaults.standard.set(extensionConfigJson, forKey: "ttsExtensionConfigJson") }
+        didSet {
+            UserDefaults.standard.set(extensionConfigJson, forKey: "ttsExtensionConfigJson")
+            if tool != "system" && tool != "nghitts" && tool != "google" {
+                loadParamsForCurrentTool()
+            }
+        }
     }
 
     @Published public var googlePrefetchCount: Int {
@@ -405,14 +421,19 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.speed = UserDefaults.standard.double(forKey: "systemRate") > 0 ? UserDefaults.standard.double(forKey: "systemRate") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "systemPitch") > 0 ? UserDefaults.standard.double(forKey: "systemPitch") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "systemVoice") ?? ""
+            self.chunkLength = UserDefaults.standard.object(forKey: "systemChunk") != nil ? UserDefaults.standard.integer(forKey: "systemChunk") : 200
         } else if tool == "nghitts" {
             self.speed = UserDefaults.standard.double(forKey: "nghittsRate") > 0 ? UserDefaults.standard.double(forKey: "nghittsRate") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "nghittsPitch") > 0 ? UserDefaults.standard.double(forKey: "nghittsPitch") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "nghittsVoice") ?? "Ngọc Huyền (mới)"
+            self.nghittsPrefetchCount = UserDefaults.standard.object(forKey: "nghittsPrefetchCount") != nil ? UserDefaults.standard.integer(forKey: "nghittsPrefetchCount") : 3
+            self.chunkLength = UserDefaults.standard.object(forKey: "nghittsChunk") != nil ? UserDefaults.standard.integer(forKey: "nghittsChunk") : 200
         } else if tool == "google" {
             self.speed = UserDefaults.standard.double(forKey: "googleRate") > 0 ? UserDefaults.standard.double(forKey: "googleRate") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "googlePitch") > 0 ? UserDefaults.standard.double(forKey: "googlePitch") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "googleVoice") ?? ""
+            self.googlePrefetchCount = UserDefaults.standard.object(forKey: "googlePrefetchCount") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchCount") : 3
+            self.chunkLength = UserDefaults.standard.object(forKey: "googleChunk") != nil ? UserDefaults.standard.integer(forKey: "googleChunk") : 200
         } else {
             self.speed = UserDefaults.standard.double(forKey: "extRate_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extRate_\(tool)") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "extPitch_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extPitch_\(tool)") : defaultPitch
