@@ -226,25 +226,69 @@ struct TTSSettingsView: View {
                          }
                     }
                     
-                    HStack {
-                        Text("Độ dài phân đoạn (ký tự)")
-                        Spacer()
-                        TextField("200", value: $ttsManager.chunkLength, formatter: NumberFormatter())
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 80)
-                            .textFieldStyle(.roundedBorder)
-                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                         HStack {
+                             Text("Độ dài phân đoạn (ký tự)")
+                             Spacer()
+                             TextField("200", value: $ttsManager.chunkLength, formatter: NumberFormatter())
+                                 .keyboardType(.numberPad)
+                                 .multilineTextAlignment(.trailing)
+                                 .frame(width: 80)
+                                 .textFieldStyle(.roundedBorder)
+                         }
+                         if ttsManager.tool != "system" && ttsManager.tool != "nghitts" && ttsManager.tool != "google" {
+                             let parsed = ttsManager.parseExtensionConfigParams(jsonString: ttsManager.extensionConfigJson)
+                             if let mLen = parsed.maxLength {
+                                 Text("(*) Mặc định Extension: \(mLen) ký tự")
+                                     .font(.caption2)
+                                     .foregroundColor(.secondary)
+                             }
+                         }
+                     }
                 }
                 
                 Section("Tải trước dữ liệu (Preloading)") {
-                    Stepper(value: $ttsManager.prefetchCount, in: 1...10) {
-                        HStack {
-                            Text("Số đoạn văn tải trước:")
-                            Spacer()
-                            Text("\(ttsManager.prefetchCount) đoạn")
-                                .font(.system(.body, design: .monospaced))
-                                .foregroundColor(.secondary)
+                    if ttsManager.tool == "google" {
+                        Stepper(value: $ttsManager.googlePrefetchCount, in: 1...10) {
+                            HStack {
+                                Text("Số đoạn tải trước (Google):")
+                                Spacer()
+                                Text("\(ttsManager.googlePrefetchCount) đoạn")
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    } else if ttsManager.tool == "nghitts" {
+                        Stepper(value: $ttsManager.nghittsPrefetchCount, in: 1...10) {
+                            HStack {
+                                Text("Số đoạn tải trước (NghiTTS):")
+                                Spacer()
+                                Text("\(ttsManager.nghittsPrefetchCount) đoạn")
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    } else if ttsManager.tool == "system" {
+                        Text("Siri hệ thống tự động quản lý luồng đọc")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    } else {
+                        let parsed = ttsManager.parseExtensionConfigParams(jsonString: ttsManager.extensionConfigJson)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Stepper(value: $ttsManager.extPrefetchCount, in: 1...10) {
+                                HStack {
+                                    Text("Số đoạn tải trước (Ext):")
+                                    Spacer()
+                                    Text("\(ttsManager.extPrefetchCount) đoạn")
+                                        .font(.system(.body, design: .monospaced))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            if let pSize = parsed.preloadSize {
+                                Text("(*) Mặc định Extension: \(pSize) đoạn")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
                 }

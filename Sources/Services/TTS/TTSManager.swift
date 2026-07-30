@@ -143,11 +143,59 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         didSet { UserDefaults.standard.set(extensionConfigJson, forKey: "ttsExtensionConfigJson") }
     }
 
-    @Published public var prefetchCount: Int {
+    @Published public var googlePrefetchCount: Int {
         didSet {
-            UserDefaults.standard.set(prefetchCount, forKey: "ttsPrefetchCount")
-            clearPrefetchCache()
+            UserDefaults.standard.set(googlePrefetchCount, forKey: "googlePrefetchCount")
+            if tool == "google" { clearPrefetchCache() }
         }
+    }
+
+    @Published public var nghittsPrefetchCount: Int {
+        didSet {
+            UserDefaults.standard.set(nghittsPrefetchCount, forKey: "nghittsPrefetchCount")
+            if tool == "nghitts" { clearPrefetchCache() }
+        }
+    }
+
+    @Published public var extPrefetchCount: Int {
+        didSet {
+            if tool != "system" && tool != "nghitts" && tool != "google" {
+                UserDefaults.standard.set(extPrefetchCount, forKey: "extPrefetchCount_\(tool)")
+                clearPrefetchCache()
+            }
+        }
+    }
+
+    public var currentPrefetchCount: Int {
+        if tool == "google" {
+            return googlePrefetchCount
+        } else if tool == "nghitts" {
+            return nghittsPrefetchCount
+        } else if tool == "system" {
+            return 1
+        } else {
+            return extPrefetchCount
+        }
+    }
+
+    public func parseExtensionConfigParams(jsonString: String) -> (preloadSize: Int?, maxLength: Int?) {
+        guard let data = jsonString.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return (nil, nil)
+        }
+        
+        var pSize: Int? = nil
+        var mLen: Int? = nil
+        
+        if let config = json["config"] as? [String: Any] {
+            pSize = config["preload_size"] as? Int ?? (config["preload_size"] as? String).flatMap { Int($0) }
+            mLen = config["max_length"] as? Int ?? (config["max_length"] as? String).flatMap { Int($0) }
+        } else {
+            pSize = json["preload_size"] as? Int ?? (json["preload_size"] as? String).flatMap { Int($0) }
+            mLen = json["max_length"] as? Int ?? (json["max_length"] as? String).flatMap { Int($0) }
+        }
+        
+        return (pSize, mLen)
     }
 
     // Trạng thái playback
@@ -335,7 +383,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
 
         self.chunkLength = UserDefaults.standard.object(forKey: "ttsChunkLength") != nil ? UserDefaults.standard.integer(forKey: "ttsChunkLength") : 200
-        self.prefetchCount = UserDefaults.standard.object(forKey: "ttsPrefetchCount") != nil ? UserDefaults.standard.integer(forKey: "ttsPrefetchCount") : 3
+        self.googlePrefetchCount = UserDefaults.standard.object(forKey: "googlePrefetchCount") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchCount") : 3
+        self.nghittsPrefetchCount = UserDefaults.standard.object(forKey: "nghittsPrefetchCount") != nil ? UserDefaults.standard.integer(forKey: "nghittsPrefetchCount") : 3
+        self.extPrefetchCount = 3
         self.extensionLocalPath = UserDefaults.standard.string(forKey: "ttsExtensionLocalPath") ?? ""
         self.extensionConfigJson = UserDefaults.standard.string(forKey: "ttsExtensionConfigJson") ?? "{}"
 
@@ -359,10 +409,21 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.speed = UserDefaults.standard.double(forKey: "nghittsRate") > 0 ? UserDefaults.standard.double(forKey: "nghittsRate") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "nghittsPitch") > 0 ? UserDefaults.standard.double(forKey: "nghittsPitch") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "nghittsVoice") ?? "Ngọc Huyền (mới)"
+        } else if tool == "google" {
+            self.speed = UserDefaults.standard.double(forKey: "googleRate") > 0 ? UserDefaults.standard.double(forKey: "googleRate") : defaultRate
+            self.pitch = UserDefaults.standard.double(forKey: "googlePitch") > 0 ? UserDefaults.standard.double(forKey: "googlePitch") : defaultPitch
+            self.selectedVoice = UserDefaults.standard.string(forKey: "googleVoice") ?? ""
         } else {
             self.speed = UserDefaults.standard.double(forKey: "extRate_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extRate_\(tool)") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "extPitch_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extPitch_\(tool)") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "extVoice_\(tool)") ?? ""
+            
+            let parsed = parseExtensionConfigParams(jsonString: extensionConfigJson)
+            let defaultPrefetch = parsed.preloadSize ?? 3
+            let defaultChunk = parsed.maxLength ?? 200
+            
+            self.extPrefetchCount = UserDefaults.standard.object(forKey: "extPrefetchCount_\(tool)") != nil ? UserDefaults.standard.integer(forKey: "extPrefetchCount_\(tool)") : defaultPrefetch
+            self.chunkLength = UserDefaults.standard.object(forKey: "extChunk_\(tool)") != nil ? UserDefaults.standard.integer(forKey: "extChunk_\(tool)") : defaultChunk
         }
     }
 
@@ -1133,7 +1194,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         guard isPlaying, tool != "system" else { return }
 
         let N = currentParagraphIndex
-        let count = max(1, min(10, prefetchCount))
+        let count = max(1, min(10, currentPrefetchCount))
         let targetIndices = (1...count).compactMap { offset -> Int? in
             let idx = N + offset
             return idx < paragraphs.count ? idx : nil
