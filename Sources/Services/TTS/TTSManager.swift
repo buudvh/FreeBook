@@ -100,6 +100,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 UserDefaults.standard.set(speed, forKey: "systemRate")
             } else if tool == "nghitts" {
                 UserDefaults.standard.set(speed, forKey: "nghittsRate")
+            } else if tool == "google" {
+                UserDefaults.standard.set(speed, forKey: "googleRate")
             } else {
                 UserDefaults.standard.set(speed, forKey: "extRate_\(tool)")
             }
@@ -113,6 +115,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 UserDefaults.standard.set(pitch, forKey: "systemPitch")
             } else if tool == "nghitts" {
                 UserDefaults.standard.set(pitch, forKey: "nghittsPitch")
+            } else if tool == "google" {
+                UserDefaults.standard.set(pitch, forKey: "googlePitch")
             } else {
                 UserDefaults.standard.set(pitch, forKey: "extPitch_\(tool)")
             }
@@ -126,6 +130,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 UserDefaults.standard.set(selectedVoice, forKey: "systemVoice")
             } else if tool == "nghitts" {
                 UserDefaults.standard.set(selectedVoice, forKey: "nghittsVoice")
+            } else if tool == "google" {
+                UserDefaults.standard.set(selectedVoice, forKey: "googleVoice")
             } else {
                 UserDefaults.standard.set(selectedVoice, forKey: "extVoice_\(tool)")
             }
@@ -184,6 +190,20 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             if tool != "system" && tool != "nghitts" && tool != "google" {
                 UserDefaults.standard.set(extPrefetchCount, forKey: "extPrefetchUser_\(tool)")
                 clearPrefetchCache()
+            }
+        }
+    }
+
+    @Published public var prefetchDelayMs: Int {
+        didSet {
+            guard !isInitializing else { return }
+            UserDefaults.standard.set(prefetchDelayMs, forKey: "ttsPrefetchDelayMs")
+            if tool == "nghitts" {
+                UserDefaults.standard.set(prefetchDelayMs, forKey: "nghittsPrefetchDelay")
+            } else if tool == "google" {
+                UserDefaults.standard.set(prefetchDelayMs, forKey: "googlePrefetchDelay")
+            } else if tool != "system" {
+                UserDefaults.standard.set(prefetchDelayMs, forKey: "extPrefetchDelay_\(tool)")
             }
         }
     }
@@ -408,6 +428,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         self.googlePrefetchCount = UserDefaults.standard.object(forKey: "googlePrefetchCount") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchCount") : 3
         self.nghittsPrefetchCount = UserDefaults.standard.object(forKey: "nghittsPrefetchCount") != nil ? UserDefaults.standard.integer(forKey: "nghittsPrefetchCount") : 3
         self.extPrefetchCount = 3
+        self.prefetchDelayMs = UserDefaults.standard.object(forKey: "ttsPrefetchDelayMs") != nil ? UserDefaults.standard.integer(forKey: "ttsPrefetchDelayMs") : 350
         self.extensionLocalPath = UserDefaults.standard.string(forKey: "ttsExtensionLocalPath") ?? ""
         self.extensionConfigJson = UserDefaults.standard.string(forKey: "ttsExtensionConfigJson") ?? "{}"
 
@@ -431,18 +452,21 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.pitch = UserDefaults.standard.double(forKey: "systemPitch") > 0 ? UserDefaults.standard.double(forKey: "systemPitch") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "systemVoice") ?? ""
             self.chunkLength = UserDefaults.standard.object(forKey: "systemChunk") != nil ? UserDefaults.standard.integer(forKey: "systemChunk") : 200
+            self.prefetchDelayMs = 0
         } else if tool == "nghitts" {
             self.speed = UserDefaults.standard.double(forKey: "nghittsRate") > 0 ? UserDefaults.standard.double(forKey: "nghittsRate") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "nghittsPitch") > 0 ? UserDefaults.standard.double(forKey: "nghittsPitch") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "nghittsVoice") ?? "Ngọc Huyền (mới)"
             self.nghittsPrefetchCount = UserDefaults.standard.object(forKey: "nghittsPrefetchCount") != nil ? UserDefaults.standard.integer(forKey: "nghittsPrefetchCount") : 3
             self.chunkLength = UserDefaults.standard.object(forKey: "nghittsChunk") != nil ? UserDefaults.standard.integer(forKey: "nghittsChunk") : 200
+            self.prefetchDelayMs = UserDefaults.standard.object(forKey: "nghittsPrefetchDelay") != nil ? UserDefaults.standard.integer(forKey: "nghittsPrefetchDelay") : 0
         } else if tool == "google" {
             self.speed = UserDefaults.standard.double(forKey: "googleRate") > 0 ? UserDefaults.standard.double(forKey: "googleRate") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "googlePitch") > 0 ? UserDefaults.standard.double(forKey: "googlePitch") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "googleVoice") ?? ""
             self.googlePrefetchCount = UserDefaults.standard.object(forKey: "googlePrefetchCount") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchCount") : 3
             self.chunkLength = UserDefaults.standard.object(forKey: "googleChunk") != nil ? UserDefaults.standard.integer(forKey: "googleChunk") : 200
+            self.prefetchDelayMs = UserDefaults.standard.object(forKey: "googlePrefetchDelay") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchDelay") : 350
         } else {
             self.speed = UserDefaults.standard.double(forKey: "extRate_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extRate_\(tool)") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "extPitch_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extPitch_\(tool)") : defaultPitch
@@ -451,6 +475,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             let parsed = parseExtensionConfigParams(jsonString: extensionConfigJson)
             self.extPrefetchCount = parsed.preloadSize ?? 3
             self.chunkLength = parsed.maxLength ?? 200
+            self.prefetchDelayMs = UserDefaults.standard.object(forKey: "extPrefetchDelay_\(tool)") != nil ? UserDefaults.standard.integer(forKey: "extPrefetchDelay_\(tool)") : 350
         }
     }
 
@@ -1273,6 +1298,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             let task = Task { [weak self] in
                 guard let self = self else { return }
 
+                let offset = max(0, index - self.currentParagraphIndex)
+                if offset > 1 && self.prefetchDelayMs > 0 {
+                    let delayMs = UInt64(offset - 1) * UInt64(self.prefetchDelayMs)
+                    try? await Task.sleep(nanoseconds: delayMs * 1_000_000)
+                }
+
                 do {
                     let mp3Data = try await self.googleService.synthesize(text: text)
 
@@ -1299,6 +1330,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
             let task = Task { [weak self] in
                 guard let self = self else { return }
+
+                let offset = max(0, index - self.currentParagraphIndex)
+                if offset > 1 && self.prefetchDelayMs > 0 {
+                    let delayMs = UInt64(offset - 1) * UInt64(self.prefetchDelayMs)
+                    try? await Task.sleep(nanoseconds: delayMs * 1_000_000)
+                }
 
                 do {
                     let wavData = try await service.synthesize(text: text, voice: voice, speed: 1.0)
@@ -1328,6 +1365,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
             let task = Task { [weak self] in
                 guard let self = self else { return }
+
+                let offset = max(0, index - self.currentParagraphIndex)
+                if offset > 1 && self.prefetchDelayMs > 0 {
+                    let delayMs = UInt64(offset - 1) * UInt64(self.prefetchDelayMs)
+                    try? await Task.sleep(nanoseconds: delayMs * 1_000_000)
+                }
 
                 do {
                     let audioData = try await self.extService.synthesizeData(text: text, voice: voice, localPath: localPath, configJson: configJson)
@@ -1375,11 +1418,17 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 self.isPlaying = true
             } else {
                 AppLogger.shared.log("❌ [TTSManager] [ID=\(playbackId)] player.play() thất bại")
-                self.isPlaying = false
+                self.preloadedData.removeValue(forKey: currentParagraphIndex)
+                self.currentPlaybackId = nil
+                self.pause()
+                ToastManager.shared.show(message: "Lỗi trình phát âm thanh: Không thể phát dữ liệu audio.", type: .error)
             }
         } catch {
             AppLogger.shared.log("❌ [TTSManager] [ID=\(playbackId)] Khởi tạo AVAudioPlayer thất bại: \(error.localizedDescription)")
-            self.isPlaying = false
+            self.preloadedData.removeValue(forKey: currentParagraphIndex)
+            self.currentPlaybackId = nil
+            self.pause()
+            ToastManager.shared.show(message: "Lỗi trình phát âm thanh: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
         }
 
         updateNowPlayingInfo()
@@ -1429,7 +1478,17 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             } catch {
                 await MainActor.run {
                     AppLogger.shared.log("❌ Lỗi Google TTS: \(error.localizedDescription)")
-                    self.nextParagraph()
+                    self.preloadedData.removeValue(forKey: index)
+                    self.prefetchTasks[index]?.cancel()
+                    self.prefetchTasks.removeValue(forKey: index)
+                    self.currentPlaybackId = nil
+                    self.pause()
+                    let nsError = error as NSError
+                    if nsError.code == 429 {
+                        ToastManager.shared.show(message: "Lỗi Google TTS (429): Quá nhiều yêu cầu. Server Google đang hạn chế IP. Tạm dừng đọc.", type: .error)
+                    } else {
+                        ToastManager.shared.show(message: "Lỗi Google TTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
+                    }
                 }
             }
         }
@@ -1478,7 +1537,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 await MainActor.run {
                     guard self.currentPlaybackId == playbackId else { return }
                     AppLogger.shared.log("🔊 [TTSManager] Chơi trực tiếp thất bại cho đoạn \(index): \(error.localizedDescription)")
-                    self.stop()
+                    self.preloadedData.removeValue(forKey: index)
+                    self.prefetchTasks[index]?.cancel()
+                    self.prefetchTasks.removeValue(forKey: index)
+                    self.currentPlaybackId = nil
+                    self.pause()
+                    ToastManager.shared.show(message: "Lỗi NghiTTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
                 }
             }
         }
@@ -1523,6 +1587,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             } catch {
                 await MainActor.run {
                     guard self.currentPlaybackId == playbackId else { return }
+                    AppLogger.shared.log("❌ Lỗi Extension TTS: \(error.localizedDescription)")
+                    self.preloadedData.removeValue(forKey: index)
+                    self.prefetchTasks[index]?.cancel()
+                    self.prefetchTasks.removeValue(forKey: index)
+                    self.currentPlaybackId = nil
+                    self.pause()
+                    ToastManager.shared.show(message: "Lỗi Extension TTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
+                }
             }
         }
     }

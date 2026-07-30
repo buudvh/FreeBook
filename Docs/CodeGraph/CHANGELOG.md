@@ -39,6 +39,19 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Tách độc lập 2 cụm bộ chọn: **Loại từ điển** (`Names`/`VP`, mặc định ban đầu: `VP`) và **Phạm vi từ điển** (`Riêng`/`Chung`, mặc định ban đầu: `Riêng`).
   * Loại bỏ việc tự động ghi đè thụ động khi chọn tạm thời; bấm ngắn (Tap) chỉ đổi tạm thời cho từ đang chỉnh sửa.
   * Hỗ trợ cử chỉ **Nhấn giữ lâu (Long Press)** trực tiếp trên bất kỳ nút nào để Ghim cố định nút đó làm mặc định mới cho cụm tương ứng, kèm rung haptic, hiển thị badge ghim `pin.fill` sáng đèn và thông báo Toast xác nhận.
+* **Khắc Phục Lỗi Google TTS 429, Sai Speed, Chuẩn Hóa Toast + Pause & Cài Đặt Độ Trễ Giãn Tiến Trình Cho TẤT CẢ Các Engine TTS (`TTSManager.swift`, `TTSSettingsView.swift`)**:
+  * Sửa lỗi lệch khóa `UserDefaults` trong `speed.didSet`, `pitch.didSet`, `selectedVoice.didSet` bằng cách bổ sung nhánh `else if tool == "google"` để lưu chính xác tốc độ đọc `googleRate`, `googlePitch`, `googleVoice`.
+  * Khắc phục vòng lặp tự động gọi `nextParagraph()` khi bị lỗi Google TTS HTTP 429 khiến IP bị Google chặn liên tiếp (6 request/3 giây).
+  * Chuẩn hóa đồng bộ cho cả 4 Engine TTS (`Google`, `NghiTTS`, `Extension`, `System Siri`): Khi gặp lỗi, lập tức dọn cache đoạn lỗi, bảo toàn vị trí `currentParagraphIndex`, gọi `self.pause()` tạm dừng trình đọc và hiển thị Toast màu đỏ báo lỗi trực quan. Khi người dùng bấm nút **Phát (Play)** lại, hệ thống sẽ tự động tạo lại và thử lại đoạn văn vừa bị lỗi.
+  * Bổ sung thuộc tính `@Published public var prefetchDelayMs: Int` dãn khoảng cách gọi API nạp trước (`Task.sleep`) tính theo milisecond giữa các đoạn tiếp theo ($N+2, N+3,...$), lưu trữ độc lập cho từng Engine trong `UserDefaults` (`googlePrefetchDelay`, `nghittsPrefetchDelay`, `extPrefetchDelay_\(tool)`).
+  * Bổ sung Stepper tùy chỉnh thời gian dãn tiến trình (từ $0\text{ms}$ đến $2000\text{ms}$, nấc $50\text{ms}$) trong `TTSSettingsView` cho người dùng linh hoạt điều chỉnh theo tốc độ đường truyền.
+* **Khắc Phục Lỗi Tự Động Dịch Lại Khi Vào Màn Hình Từ Điển (`TranslationManager.swift`)**:
+  * Gỡ bỏ việc phát thông báo `translationDictionariesDidUpdate` thụ động trong hàm nạp dữ liệu `loadAllDictionaries()`.
+  * Chuyển lệnh phát thông báo `translationDictionariesDidUpdate` về đúng các phương thức thay đổi từ điển thực sự (`saveCustomEntry`, `deleteCustomEntry`, `addDeletedWords`, `removeDeletedWords`, `importDictionary`, `deleteDictionary`, `downloadDefaultDictionaries`).
+  * Giúp Trình đọc không bị xóa cache và dịch lại chương vô ích khi người dùng chỉ bấm vào xem màn hình Từ Điển và Back ra ngoài. Trình đọc chỉ dịch lại khi có thay đổi từ điển thực sự.
+* **Mở Màn Hình Quản Lý Thay Thế Ký Tự TTS Dạng Sheet Trực Tiếp Trên Cài Đặt TTS (`TTSSettingsView.swift`)**:
+  * Tái sử dụng 100% view `TTSReplacementManagerView.swift` hiện có.
+  * Chuyển đổi nút *"Quản lý thay thế ký tự"* trong `TTSSettingsView` mở `TTSReplacementManagerView` dưới dạng cửa sổ `.sheet` đè trực tiếp lên Cài đặt TTS kèm nút *"Đóng"* tiện lợi.
 
 ## [1.3.62] - 2026-07-30
 

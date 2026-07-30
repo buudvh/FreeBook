@@ -172,6 +172,7 @@ public final class TranslationManager: ObservableObject {
             }
         }
         try await loadAllDictionaries()
+        notifyDictionariesDidUpdate()
     }
     
     public func deleteCustomEntry(word: String, isName: Bool, bookId: String?) async throws {
@@ -247,6 +248,7 @@ public final class TranslationManager: ObservableObject {
             }
         }
         try await loadAllDictionaries()
+        notifyDictionariesDidUpdate()
     }
     
     public func addDeletedWords(_ words: Set<String>, isName: Bool) {
@@ -257,6 +259,7 @@ public final class TranslationManager: ObservableObject {
             deletedVietPhrase.formUnion(words)
             saveDeletedList(isName: false)
         }
+        notifyDictionariesDidUpdate()
     }
     
     public func removeDeletedWords(_ words: [String], isName: Bool) {
@@ -267,6 +270,7 @@ public final class TranslationManager: ObservableObject {
             for w in words { deletedVietPhrase.remove(w) }
             saveDeletedList(isName: false)
         }
+        notifyDictionariesDidUpdate()
     }
     
     public var translateDirectory: URL {
@@ -447,8 +451,10 @@ public final class TranslationManager: ObservableObject {
             }
         }
         self.deletedNames = delNames
+    }
 
-        await MainActor.run {
+    public func notifyDictionariesDidUpdate() {
+        Task { @MainActor in
             NotificationCenter.default.post(name: .translationDictionariesDidUpdate, object: nil)
         }
     }
@@ -499,6 +505,7 @@ public final class TranslationManager: ObservableObject {
         }
         
         try await loadAllDictionaries()
+        notifyDictionariesDidUpdate()
     }
     
     public func deleteDictionary(type: String) async {
@@ -527,6 +534,7 @@ public final class TranslationManager: ObservableObject {
             self.phienAmMap = [:]
             await MainActor.run { self.isPhienAmLoaded = false }
         }
+        notifyDictionariesDidUpdate()
     }
     
     public func downloadDefaultDictionaries() async {
@@ -592,6 +600,7 @@ public final class TranslationManager: ObservableObject {
         
         do {
             try await loadAllDictionaries()
+            notifyDictionariesDidUpdate()
         } catch {}
     }
     

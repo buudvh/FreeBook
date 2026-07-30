@@ -21,7 +21,8 @@ struct TTSSettingsView: View {
     @State private var extensionVoices: [[String: String]] = []
     @State private var isLoadingVoices = false
     @State private var selectedExtForConfig: Extension? = nil
-    
+    @State private var showingReplacementManagerSheet = false
+
     private var hasNoDictionary: Bool {
         let path = (try? ModelStore())?.rootURL.appendingPathComponent("non-vietnamese-words.plist").path ?? ""
         return !FileManager.default.fileExists(atPath: path)
@@ -197,8 +198,17 @@ struct TTSSettingsView: View {
                 }
                 
                 Section("Cấu hình giọng nói") {
-                    NavigationLink(destination: TTSReplacementManagerView()) {
-                        Label("Quản lý thay thế ký tự", systemImage: "pencil.and.outline")
+                    Button(action: {
+                        showingReplacementManagerSheet = true
+                    }) {
+                        HStack {
+                            Label("Quản lý thay thế ký tự", systemImage: "pencil.and.outline")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                     
                     VStack(alignment: .leading) {
@@ -265,6 +275,18 @@ struct TTSSettingsView: View {
                         Text("Siri hệ thống tự động quản lý luồng đọc")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
+                    }
+
+                    if ttsManager.tool != "system" {
+                        Stepper(value: $ttsManager.prefetchDelayMs, in: 0...2000, step: 50) {
+                            HStack {
+                                Text("Độ trễ dãn tiến trình tải trước:")
+                                Spacer()
+                                Text("\(ttsManager.prefetchDelayMs) ms")
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                     } else {
                         if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
                             Button(action: {
@@ -350,6 +372,18 @@ struct TTSSettingsView: View {
             }
             .sheet(item: $selectedExtForConfig) { ext in
                 ExtensionConfigView(ext: ext)
+            }
+            .sheet(isPresented: $showingReplacementManagerSheet) {
+                NavigationStack {
+                    TTSReplacementManagerView()
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Đóng") {
+                                    showingReplacementManagerSheet = false
+                                }
+                            }
+                        }
+                }
             }
     }
     
