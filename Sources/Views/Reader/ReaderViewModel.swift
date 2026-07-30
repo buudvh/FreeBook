@@ -887,17 +887,6 @@ class ReaderViewModel: ObservableObject {
     // Bật/tắt dịch thuật nhanh từ RAM
     func toggleTranslation(enabled: Bool) {
         self.isTranslationEnabled = enabled
-
-        for (idx, cached) in cache.cache {
-            if cached.state == .loaded {
-                let origTitle = cached.originalTitle
-                let origContent = cached.originalContent
-
-                Task {
-                    await processAndSaveChapter(index: idx, originalTitle: origTitle, originalContent: origContent)
-                }
-            }
-        }
     }
 
     // Cập nhật lại giao diện các đoạn văn (ví dụ khi ẩn/hiện tiêu đề chương)

@@ -4,7 +4,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.64] - 2026-07-30
 
-### Cập Nhật Thuật Toán Tokenizer Ưu Tiên Cụm Từ Dài Hơn Khi Chồng Lấp (`TranslateUtils.swift`)
+### Cập Nhật Thuật Toán Tokenizer Ưu Tiên Cụm Dài & Reader Dịch On-Demand In-Place (`TranslateUtils.swift`, `ParagraphCardView.swift`, `ReaderView.swift`, `ReaderViewModel.swift`)
 * **Tái Cấu Trúc Phân Tách VietPhrase Trong `TranslateUtils.tokenize` (`TranslateUtils.swift`)**:
   * Thêm struct nội bộ `VPCandidate` lưu trữ vị trí `range` và độ dài `length` của từng cụm VietPhrase (độ dài $\ge 2$).
   * Chuyển đổi thuật toán phân tách VietPhrase từ duyệt tuyến tính cuốn chiếu sang cơ chế Pre-scan và giải quyết tranh chấp chồng lấp theo quy tắc ưu tiên:
@@ -12,6 +12,12 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
     2. Nếu hai cụm từ có **chiều dài bằng nhau**, cụm từ **bắt đầu trước (`lowerBound`) chiến thắng** (`lowerBound ASC`).
   * Tối ưu hóa hiệu năng $O(N)$ bằng kỹ thuật Pruning bỏ qua các ký tự không phải Hán tự (`isChineseCharacter`) và chỉ đưa các cụm từ ghép ($\ge 2$ chữ) vào mảng sắp xếp candidates.
   * Từ Hán đơn lẻ standing alone được bảo toàn 100% nghĩa thông qua mảng Token 1-ký tự và hệ thống tra cứu 4 cấp (Book VP $\rightarrow$ Custom VP $\rightarrow$ Base VP $\rightarrow$ Phiên âm Hán Việt) ở bước `performTranslation`.
+* **Reader Dịch On-Demand In-Place & Triệt Tiêu Hoàn Toàn Lỗi Trôi/Văng Scroll (`ReaderViewModel.swift`, `ParagraphCardView.swift`, `ReaderView.swift`)**:
+  * **Loại bỏ nạp lại mảng dư thừa (`ReaderViewModel.swift`)**: Gỡ bỏ vòng lặp tác vụ bất đồng bộ `processAndSaveChapter` trong `toggleTranslation(enabled:)`, ngăn chặn việc hủy và re-render mảng thẻ view `paragraphItems`.
+  * **Dịch On-Demand Inline trực tiếp tại chỗ (`ParagraphCardView.swift`)**: Truyền `bookId` và `@Binding var translationRefreshToken: UUID`. Áp dụng biểu thức dịch inline trực tiếp tại chỗ `text: isTranslationEnabled ? (item.isTitle ? TranslateUtils.translateChapterTitle(item.original, bookId: bookId) : TranslateUtils.translateContent(item.original, bookId: bookId)) : item.original`. Phân biệt chính xác hàm dịch Tiêu đề chuyên dụng và Nội dung đoạn văn.
+  * **Đồng bộ tín hiệu đổi từ điển In-Place (`ReaderView.swift`)**: Khai báo `@State private var translationRefreshToken = UUID()`. Khi nhận thông báo `translationDictionariesDidUpdate` (khi người dùng sửa/thêm từ mới trong từ điển), xóa RAM cache `clearCache()` và đổi `translationRefreshToken = UUID()`.
+  * **Bảo toàn vị trí cuộn điểm ảnh 100%**: Toàn bộ mảng thẻ view và ID giữ nguyên 100%, tọa độ pixel offset (`contentOffset.y`) đứng yên tuyệt đối không bị trôi hay văng scroll dù 1 pixel, không cần dùng bất kỳ lệnh cuộn `scrollTo` nào.
+  * **Bảo toàn 100% tính năng phụ trợ**: Ánh xạ bôi đen tra từ (`ReaderSelectionMapper`), popup màn hình dịch, TTS Nghe và Highlight tiếp tục hoạt động hoàn hảo mà không bị ảnh hưởng.
 
 ## [1.3.63] - 2026-07-30
 

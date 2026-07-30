@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-07-30T15:04:09.756849Z",
-  "gitCommit": "e58e5a32548e00d517c61a074bb9f23d2bbb438f",
+  "generatedAt": "2026-07-30T15:42:11.966595Z",
+  "gitCommit": "6852118d93da2999ce83733de95dd7c18aba5d9d",
   "sourceFileCount": 120,
   "documentCount": 16,
   "documents": [
@@ -31,9 +31,9 @@
     },
     {
       "filename": "02_file_graph.md",
-      "sourceHash": "305063fc34860ac8a6494ef4f62fa023c30c557a7ef0040b91183f39786faea1",
+      "sourceHash": "07f907e335076db3390e142bbad84addd8c9e659ca022d970e12ce89890bd543",
       "generatedHash": "763b7a9c26ad18048fedf80cbec759c61b0d5d26c08f01384323c80e3a738a36",
-      "generatedAt": "2026-07-30T15:03:56.493155Z",
+      "generatedAt": "2026-07-30T15:41:28.533528Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -146,9 +146,9 @@
     },
     {
       "filename": "03_type_graph.md",
-      "sourceHash": "da5f64b67b7146c4f524274c5e1f3b0733405dca07d57d8d70b0357e6bba4db7",
+      "sourceHash": "becdce3f991ba910bc70b1444c00caef56f1510c32328123c565fa506620f5bd",
       "generatedHash": "312861ec97be2ad860aea72c15407115ff1288922ac1302b4118ca98cf6927d4",
-      "generatedAt": "2026-07-30T15:03:56.493155Z",
+      "generatedAt": "2026-07-30T15:41:28.533528Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -250,9 +250,9 @@
     },
     {
       "filename": "04_call_graph.md",
-      "sourceHash": "2052a8228821a57247095ddea213f9ced82f14a247bc11583c29f66e71963dac",
+      "sourceHash": "e8bf0794027b4da1dbf6e1df6c7a3611f7429f3b59020161c8efb76cc0615be0",
       "generatedHash": "42d285e5e6a26d04ab35bcc786c575231aa766ece67b280910c0ef7b7b1ea7a4",
-      "generatedAt": "2026-07-30T15:03:56.493155Z",
+      "generatedAt": "2026-07-30T15:41:28.533528Z",
       "sourceFiles": [
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Services/Download/BookStorageManager.swift",
@@ -275,9 +275,9 @@
     },
     {
       "filename": "05_state_graph.md",
-      "sourceHash": "91dc47cc84cf701c97ce7a047a24e8312ca9f3cff9bd76509f2141f05b8f3465",
+      "sourceHash": "fe12dc38c2955c065fbb69290000b3890030a67559dfc256485962d88a16c17d",
       "generatedHash": "dc9deb7807622c0f4e6da8b1c73df1c7f15f3f58e8b90184a938e90df8e00067",
-      "generatedAt": "2026-07-30T09:55:05.169428Z",
+      "generatedAt": "2026-07-30T15:41:28.533528Z",
       "sourceFiles": [
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Services/Download/BookStorageManager.swift",
@@ -293,9 +293,9 @@
     },
     {
       "filename": "06_event_graph.md",
-      "sourceHash": "6af9bd9038a8bf0728148b92dd73be92731897e93a43c5f4a078ecafba4befa7",
+      "sourceHash": "eb555b57fe0ebf1f9580e0b3d19b55f72dbe651484bbb183074a1b9ff0a50247",
       "generatedHash": "d38fc8dd1b43a0edfafa9684d61712e18feb379875e397d385d23c3d80eefd98",
-      "generatedAt": "2026-07-30T09:55:05.169428Z",
+      "generatedAt": "2026-07-30T15:41:28.533528Z",
       "sourceFiles": [
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
@@ -315,9 +315,9 @@
     },
     {
       "filename": "07_dataflow.md",
-      "sourceHash": "ff0a6a7546964d3211c8e32d86b28267325396dfe235ff13be2fa43c859bbef5",
+      "sourceHash": "f09e40eee260d7a9df2b9b874cfa45bd6abc7362ca91bc788b1b78de8e86a1ac",
       "generatedHash": "42153d2ab07e00ea80bf3fc1c5846e7a896c9b99c5353d08d05b3c2deb7be6e5",
-      "generatedAt": "2026-07-30T15:03:56.493155Z",
+      "generatedAt": "2026-07-30T15:41:28.533528Z",
       "sourceFiles": [
         "Sources/Common/Services/ImageCacheManager.swift",
         "Sources/Services/ChapterText/JunkFilterManager.swift",
@@ -338,9 +338,9 @@
     },
     {
       "filename": "08_lifecycle.md",
-      "sourceHash": "e57dc736ea764d17600f4b2e56e57e621d37769b7a5fae170023d78a9cecf59f",
+      "sourceHash": "de2f879ca0b41ec42bae21c487317e468dae04b1dd96034f85366e8936f4c357",
       "generatedHash": "e98539224a45d72ac07b4433ec416d7f672dce13bbd14640a37afca5b085e64c",
-      "generatedAt": "2026-07-30T09:06:23.026613Z",
+      "generatedAt": "2026-07-30T15:41:28.533528Z",
       "sourceFiles": [
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Views/Common/BypassWebView.swift",
@@ -366,9 +366,9 @@
     },
     {
       "filename": "10_risk_report.md",
-      "sourceHash": "06d57e82289ff7a11af33ebf09ad9b54cc589148a2dcf25eeef6ac63a2711a6b",
+      "sourceHash": "49c351eb1723e2e96afa3ffde07affb8307e18381951f3bb890347a0a697988c",
       "generatedHash": "14c306aaf685d7098c0ce7937a3921d109049a44c898f294c5e94cab7be12e42",
-      "generatedAt": "2026-07-30T09:55:05.169428Z",
+      "generatedAt": "2026-07-30T15:41:28.533528Z",
       "sourceFiles": [
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
@@ -384,9 +384,9 @@
     },
     {
       "filename": "11_subsystems.md",
-      "sourceHash": "9735c9a83d84b68e4e23b7bde2f51e1cf9de15d80ca2e024dc1edcc09a91514f",
+      "sourceHash": "329b8c474a8da3de4483123514076a6048cc2849c63c894c572b8beedf4056e1",
       "generatedHash": "345620d548df27b7c59635a336267cb339dbf24dcdd8053c204381dad09f08f1",
-      "generatedAt": "2026-07-30T15:03:56.493155Z",
+      "generatedAt": "2026-07-30T15:41:28.533528Z",
       "sourceFiles": [
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Services/Download/BookStorageManager.swift",
@@ -410,9 +410,9 @@
     },
     {
       "filename": "12_ownership_graph.md",
-      "sourceHash": "d40b607c53df7ee2c12e3d8b33000adccc4274f2b0ef5a8ebbb76c60febd3ec4",
+      "sourceHash": "0659686e85bf27059b61845bbc492870ef7adedcda4da0590a4225c04241b5f1",
       "generatedHash": "5f6969fa8f82803c0e76397d0f01e75d0bef6886ba60cb5cec841f54a3b954db",
-      "generatedAt": "2026-07-30T09:55:05.169428Z",
+      "generatedAt": "2026-07-30T15:41:28.533528Z",
       "sourceFiles": [
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
@@ -427,9 +427,9 @@
     },
     {
       "filename": "13_resource_lifecycle.md",
-      "sourceHash": "6f8abab52e0b2f1e6da0edd60ec3a7d962b6e04afbab1eb9b53a14285c2ca310",
+      "sourceHash": "26ccdce4a5af29612b783b1138a2ccfabf7e2c8d5a0bd66742596d200333663a",
       "generatedHash": "fbd9a421cab7d01713bda16e94ab84b38382b7e065b0c9d3e2f0507ffe1c17be",
-      "generatedAt": "2026-07-30T09:55:05.169428Z",
+      "generatedAt": "2026-07-30T15:41:28.533528Z",
       "sourceFiles": [
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
@@ -444,9 +444,9 @@
     },
     {
       "filename": "14_complexity_report.md",
-      "sourceHash": "19e9ec0475f324f7236bb86baf9c3cd73aae0e94a31160796ac92d96271854e9",
+      "sourceHash": "556e8df98831c3b01ad62e8fbe4b34606454e3d2d23ec384692012936e32cd1f",
       "generatedHash": "ccd203d05bb8cf74264ed6928e4c772ba1c8b69ba087bc1f135ae1d36465d94d",
-      "generatedAt": "2026-07-30T15:03:56.493155Z",
+      "generatedAt": "2026-07-30T15:41:28.533528Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",

@@ -184,6 +184,7 @@ struct ReaderView: View {
     @State private var didResolveLocalChapterCount = false
 
     @State private var paragraphTracker = ParagraphTracker()
+    @State private var translationRefreshToken = UUID()
 
     @State private var showingChapterList = false
     @State private var showingBookDictionary = false
@@ -731,16 +732,7 @@ struct ReaderView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .translationDictionariesDidUpdate)) { _ in
             TranslateUtils.clearCache()
-            let currentChapterIndex = chapterIndex
-            let currentBookId = bookId
-            Task {
-                await ChapterContentRepository.shared.remove(bookId: currentBookId, chapterIndex: currentChapterIndex)
-                if let vm = viewModel {
-                    await MainActor.run {
-                        vm.reloadDisplayedChapter()
-                    }
-                }
-            }
+            translationRefreshToken = UUID()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("navigateReaderToPlayingChapter"))) { notification in
             guard let userInfo = notification.userInfo,
@@ -1501,6 +1493,8 @@ struct ReaderView: View {
             ParagraphCardView(
                 item: item,
                 isTranslationEnabled: isTrans,
+                bookId: bookId,
+                translationRefreshToken: translationRefreshToken,
                 fontSize: size,
                 lineSpacing: spacing,
                 fontFamily: fontFamily,

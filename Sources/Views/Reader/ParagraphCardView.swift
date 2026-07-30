@@ -3,6 +3,8 @@ import SwiftUI
 struct ParagraphCardView: View {
     let item: ParagraphItem
     let isTranslationEnabled: Bool
+    let bookId: String
+    let translationRefreshToken: UUID
     let fontSize: Double
     let lineSpacing: Double
     let fontFamily: ReaderFontFamily
@@ -15,8 +17,19 @@ struct ParagraphCardView: View {
     let onSpeakFromHere: (Int) -> Void
     
     var body: some View {
+        let displayText: String = {
+            guard isTranslationEnabled && TranslateUtils.containsChinese(item.original) else {
+                return item.original
+            }
+            if item.isTitle {
+                return TranslateUtils.translateChapterTitle(item.original, bookId: bookId)
+            } else {
+                return TranslateUtils.translateContent(item.original, bookId: bookId)
+            }
+        }()
+
         ReaderTextView(
-            text: isTranslationEnabled ? item.translated : item.original,
+            text: displayText,
             fontSize: item.isTitle ? fontSize * 1.5 : fontSize,
             lineSpacing: lineSpacing,
             fontFamily: fontFamily,
@@ -41,6 +54,8 @@ extension ParagraphCardView: Equatable {
     static func == (lhs: ParagraphCardView, rhs: ParagraphCardView) -> Bool {
         return lhs.item == rhs.item &&
                lhs.isTranslationEnabled == rhs.isTranslationEnabled &&
+               lhs.bookId == rhs.bookId &&
+               lhs.translationRefreshToken == rhs.translationRefreshToken &&
                lhs.fontSize == rhs.fontSize &&
                lhs.lineSpacing == rhs.lineSpacing &&
                lhs.fontFamily == rhs.fontFamily &&
