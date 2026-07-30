@@ -20,6 +20,7 @@ struct TTSSettingsView: View {
     
     @State private var extensionVoices: [[String: String]] = []
     @State private var isLoadingVoices = false
+    @State private var selectedExtForConfig: Extension? = nil
     
     private var hasNoDictionary: Bool {
         let path = (try? ModelStore())?.rootURL.appendingPathComponent("non-vietnamese-words.plist").path ?? ""
@@ -226,7 +227,7 @@ struct TTSSettingsView: View {
                          }
                     }
                     
-                    VStack(alignment: .leading, spacing: 4) {
+                    if ttsManager.tool == "system" || ttsManager.tool == "nghitts" || ttsManager.tool == "google" {
                          HStack {
                              Text("Độ dài phân đoạn (ký tự)")
                              Spacer()
@@ -236,15 +237,7 @@ struct TTSSettingsView: View {
                                  .frame(width: 80)
                                  .textFieldStyle(.roundedBorder)
                          }
-                         if ttsManager.tool != "system" && ttsManager.tool != "nghitts" && ttsManager.tool != "google" {
-                             let parsed = ttsManager.parseExtensionConfigParams(jsonString: ttsManager.extensionConfigJson)
-                             if let mLen = parsed.maxLength {
-                                 Text("(*) Mặc định Extension: \(mLen) ký tự")
-                                     .font(.caption2)
-                                     .foregroundColor(.secondary)
-                             }
-                         }
-                     }
+                    }
                 }
                 
                 Section("Tải trước dữ liệu (Preloading)") {
@@ -273,22 +266,25 @@ struct TTSSettingsView: View {
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     } else {
-                        let parsed = ttsManager.parseExtensionConfigParams(jsonString: ttsManager.extensionConfigJson)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Stepper(value: $ttsManager.extPrefetchCount, in: 1...10) {
+                        if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
+                            Button(action: {
+                                self.selectedExtForConfig = ext
+                            }) {
                                 HStack {
-                                    Text("Số đoạn tải trước (Ext):")
+                                    Image(systemName: "slider.horizontal.3")
+                                        .foregroundColor(.accentColor)
+                                    Text("Cấu hình Extension (\(ext.name))")
+                                        .foregroundColor(.accentColor)
                                     Spacer()
-                                    Text("\(ttsManager.extPrefetchCount) đoạn")
-                                        .font(.system(.body, design: .monospaced))
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
                             }
-                            if let pSize = parsed.preloadSize {
-                                Text("(*) Mặc định Extension: \(pSize) đoạn")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
+                        } else {
+                            Text("Extension chưa nạp thông số")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                         }
                     }
                 }
@@ -351,6 +347,9 @@ struct TTSSettingsView: View {
                     ttsManager.extensionLocalPath = ""
                     ttsManager.extensionConfigJson = "{}"
                 }
+            }
+            .sheet(item: $selectedExtForConfig) { ext in
+                ExtensionConfigView(ext: ext)
             }
     }
     

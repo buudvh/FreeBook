@@ -5,6 +5,7 @@ struct ParagraphCardView: View {
     let isTranslationEnabled: Bool
     let fontSize: Double
     let lineSpacing: Double
+    let fontFamily: ReaderFontFamily
     let theme: ReaderTheme
     let highlightRange: NSRange?
     @Binding var triggerGetVisibleIndex: UUID?
@@ -18,6 +19,7 @@ struct ParagraphCardView: View {
             text: isTranslationEnabled ? item.translated : item.original,
             fontSize: item.isTitle ? fontSize * 1.5 : fontSize,
             lineSpacing: lineSpacing,
+            fontFamily: fontFamily,
             theme: theme,
             highlightRange: highlightRange,
             isBold: item.isTitle,
@@ -41,6 +43,7 @@ extension ParagraphCardView: Equatable {
                lhs.isTranslationEnabled == rhs.isTranslationEnabled &&
                lhs.fontSize == rhs.fontSize &&
                lhs.lineSpacing == rhs.lineSpacing &&
+               lhs.fontFamily == rhs.fontFamily &&
                lhs.theme == rhs.theme &&
                lhs.highlightRange == rhs.highlightRange &&
                lhs.triggerGetVisibleIndex == rhs.triggerGetVisibleIndex &&

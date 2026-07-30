@@ -2,6 +2,32 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.62] - 2026-07-30
+
+### Tùy Chỉnh Phông Chữ Đọc Sách Đa Dạng (Tiếng Việt & Tiếng Trung) & Tinh Chỉnh Màu Highlight Nội Dòng Chuẩn Tông (`ReaderView.swift`, `ReaderSettingsView.swift`, `ReaderTextView.swift`, `ParagraphCardView.swift`)
+* **Tùy Chọn Kiểu Chữ Đọc Sách Tối Ưu Cho Cả Tiếng Việt & Hán Tự (`ReaderView.swift`, `ReaderSettingsView.swift`, `ReaderTextView.swift`)**:
+  * Khai báo `enum ReaderFontFamily` hỗ trợ đa dạng phông chữ đọc sách chuẩn iOS: `Georgia` (Kindle Classic), `Palatino` (Văn Học), `Charter` (Tiếng Việt Rõ Nét), `Avenir Next` (Hiện Đại), `Songti SC` (Tống Thể - Hán Tự), `Kaiti SC` (Khải Thể - Thư Pháp Hán Tự), `PingFang SC` (Bình Phương Hán Tự) và `San Francisco` (Hệ Thống).
+  * Bổ sung Picker chọn Kiểu chữ trong sheet `ReaderSettingsView` giúp người dùng thay đổi phông chữ tức thì khi đọc tiểu thuyết dài.
+* **Hệ Thống Màu Highlight Chuẩn Tông Theo Nền Đọc (`ReaderTheme`, `ReaderTextView.swift`)**:
+  * Bổ sung `highlightUIColor` và `highlightTextUIColor` trong `enum ReaderTheme` tinh chỉnh màu highlight hòa quyện 100% cho từng theme: Vàng Hổ Phách Mềm cho nền `Paper`, Cam Đất Caramels cho nền `Sepia`, và **Xám Bạc Đêm (Slate Gray - `UIColor(white: 1.0, alpha: 0.16)`)** chữ trắng tinh chuẩn Apple Dark Mode cho nền `Dark`.
+
+## [1.3.61] - 2026-07-30
+
+### Tích Hợp Quản Lý Quy Tắc Mục Lục (TOCRulesConfigView) Dùng Chung Vào Dropdown Menu Của Reader (`ReaderView.swift`, `ReaderHeaderFooterOverlayView.swift`)
+* **Tái Sử Dụng Màn Hình Quản Lý Quy Tắc TOC Dùng Chung (`ReaderView.swift`, `ReaderHeaderFooterOverlayView.swift`)**:
+  * Tích hợp tùy chọn **"Quy tắc mục lục (TOC)"** (kèm icon `list.bullet.indent`) vào Dropdown Menu (Menu 3 chấm) góc trên màn hình đọc truyện `ReaderHeaderFooterOverlayView`.
+  * Đấu nối `NavigationLink` trong `ReaderView` mở trực tiếp màn hình quản lý quy tắc TOC chuẩn `TOCRulesConfigView()`, giúp người dùng bật/tắt hoặc chỉnh sửa regex lọc mục lục ngay trong khi đọc mà không phải thoát ra cài đặt chung.
+
+## [1.3.60] - 2026-07-30
+
+### Đọc Thuộc Tính Thô `plugin.json`, Tập Trung Cấu Hình Extension TTS & Tránh Xung Đột Cài Đặt (`ExtensionConfigView.swift`, `TTSSettingsView.swift`, `TTSManager.swift`)
+* **Hỗ Trợ Đọc & Tùy Chỉnh Tất Cả Thuộc Tính Thô (Primitives) trong `plugin.json` (`ExtensionConfigView.swift`)**:
+  * Mở rộng `loadConfigDefinitions()` để nhận diện và hiển thị đầy đủ tất cả các trường cấu hình thô không phải Object trong `plugin.json` (bao gồm `"preload_size": 3`, `"max_length": 600`, `"required_api_key": false`, `"support_url": ""`...).
+  * Tự động ép kiểu dữ liệu từ chuỗi về đúng dạng nguyên bản (`Bool`, `Int`, `Double`, `String`) trong `saveConfig()` để bảo toàn tính đúng đắn cho JS Engine và `TTSManager`.
+* **Áp Dụng Thông Số NẾU CÓ & Chống Chồng Chéo Cài Đặt (`TTSManager.swift`, `TTSSettingsView.swift`)**:
+  * `TTSManager.swift`: Tự động trích xuất `preload_size` và `max_length` từ `extensionConfigJson` NẾU Extension có khai báo. Nếu không có, tự động áp dụng giá trị mặc định hệ thống (3 đoạn / 200 ký tự).
+  * `TTSSettingsView.swift`: Khi chọn Extension TTS, tự động **ẨN** ô nhập "Độ dài phân đoạn (ký tự)" và Stepper "Số đoạn tải trước" để tránh xung đột và trùng lặp, thay bằng nút bấm mở trực tiếp sheet `ExtensionConfigView` của Extension đó.
+
 ## [1.3.59] - 2026-07-30
 
 ### Chuyển Đổi TTS Engine Sang AVAudioPlayer Mặc Định & Cài Đặt Preloading Riêng Theo Engine (`TTSManager.swift`, `ExtTTSService.swift`, `TTSSettingsView.swift`)

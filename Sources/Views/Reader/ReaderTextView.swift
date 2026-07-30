@@ -5,6 +5,7 @@ struct ReaderTextView: UIViewRepresentable {
     let text: String
     let fontSize: Double
     let lineSpacing: Double
+    let fontFamily: ReaderFontFamily
     let theme: ReaderTheme
     let highlightRange: NSRange?
     let isBold: Bool
@@ -20,6 +21,7 @@ struct ReaderTextView: UIViewRepresentable {
         text: String,
         fontSize: Double,
         lineSpacing: Double,
+        fontFamily: ReaderFontFamily = .georgia,
         theme: ReaderTheme,
         highlightRange: NSRange?,
         isBold: Bool = false,
@@ -33,6 +35,7 @@ struct ReaderTextView: UIViewRepresentable {
         self.text = text
         self.fontSize = fontSize
         self.lineSpacing = lineSpacing
+        self.fontFamily = fontFamily
         self.theme = theme
         self.highlightRange = highlightRange
         self.isBold = isBold
@@ -99,9 +102,15 @@ struct ReaderTextView: UIViewRepresentable {
     
     func updateUIView(_ uiView: UITextView, context: Context) {
         context.coordinator.parent = self
-        let font = isBold 
-            ? UIFont.boldSystemFont(ofSize: CGFloat(fontSize))
-            : UIFont.systemFont(ofSize: CGFloat(fontSize))
+        
+        let font: UIFont
+        if let customFontName = fontFamily.fontName, let customFont = UIFont(name: customFontName, size: CGFloat(fontSize)) {
+            font = customFont
+        } else {
+            font = isBold 
+                ? UIFont.boldSystemFont(ofSize: CGFloat(fontSize))
+                : UIFont.systemFont(ofSize: CGFloat(fontSize))
+        }
             
         let isHighlightedNow = highlightRange != nil
         let shouldScroll = isHighlightedNow && !context.coordinator.wasHighlighted
@@ -111,6 +120,7 @@ struct ReaderTextView: UIViewRepresentable {
         let isConfigChanged = context.coordinator.lastText != text ||
                               context.coordinator.lastFontSize != fontSize ||
                               context.coordinator.lastLineSpacing != lineSpacing ||
+                              context.coordinator.lastFontFamilyName != fontFamily.rawValue ||
                               context.coordinator.lastThemeName != theme.rawValue ||
                               context.coordinator.lastHighlightRange != highlightRange ||
                               context.coordinator.lastIsCentered != isCentered
@@ -121,6 +131,7 @@ struct ReaderTextView: UIViewRepresentable {
             context.coordinator.lastText = text
             context.coordinator.lastFontSize = fontSize
             context.coordinator.lastLineSpacing = lineSpacing
+            context.coordinator.lastFontFamilyName = fontFamily.rawValue
             context.coordinator.lastThemeName = theme.rawValue
             context.coordinator.lastHighlightRange = highlightRange
             context.coordinator.lastIsCentered = isCentered
@@ -141,12 +152,13 @@ struct ReaderTextView: UIViewRepresentable {
             }
             attributedText.addAttribute(.paragraphStyle, value: paragraphStyle, range: fullRange)
             
-            // Tô màu nền cho đoạn văn đang đọc (Highlight)
+            // Tô màu nền & màu chữ cho đoạn văn đang đọc (Highlight)
             if let highlight = highlightRange, highlight.location != NSNotFound && highlight.location + highlight.length <= nsText.length {
-                let highlightBgColor = theme == .dark
-                    ? UIColor.yellow.withAlphaComponent(0.18)
-                    : UIColor.yellow.withAlphaComponent(0.28)
+                let highlightBgColor = theme.highlightUIColor
                 attributedText.addAttribute(.backgroundColor, value: highlightBgColor, range: highlight)
+                if let textFgColor = theme.highlightTextUIColor {
+                    attributedText.addAttribute(.foregroundColor, value: textFgColor, range: highlight)
+                }
                 
                 // Tự động cuộn màn hình (Auto-scroll) để đưa đoạn highlight vào chính giữa màn hình
                 if shouldScroll {
@@ -253,6 +265,7 @@ struct ReaderTextView: UIViewRepresentable {
         var lastText: String? = nil
         var lastFontSize: Double? = nil
         var lastLineSpacing: Double? = nil
+        var lastFontFamilyName: String? = nil
         var lastThemeName: String? = nil
         var lastHighlightRange: NSRange? = nil
         var lastIsCentered: Bool? = nil

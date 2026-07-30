@@ -132,8 +132,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             clearPrefetchCache()
         }
     }
+    private var isInitializing = true
+
     @Published public var chunkLength: Int {
         didSet {
+            guard !isInitializing else { return }
             UserDefaults.standard.set(chunkLength, forKey: "ttsChunkLength")
             if tool == "system" {
                 UserDefaults.standard.set(chunkLength, forKey: "systemChunk")
@@ -142,7 +145,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             } else if tool == "google" {
                 UserDefaults.standard.set(chunkLength, forKey: "googleChunk")
             } else {
-                UserDefaults.standard.set(chunkLength, forKey: "extChunk_\(tool)")
+                UserDefaults.standard.set(chunkLength, forKey: "extChunkUser_\(tool)")
             }
         }
     }
@@ -161,6 +164,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     @Published public var googlePrefetchCount: Int {
         didSet {
+            guard !isInitializing else { return }
             UserDefaults.standard.set(googlePrefetchCount, forKey: "googlePrefetchCount")
             if tool == "google" { clearPrefetchCache() }
         }
@@ -168,6 +172,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     @Published public var nghittsPrefetchCount: Int {
         didSet {
+            guard !isInitializing else { return }
             UserDefaults.standard.set(nghittsPrefetchCount, forKey: "nghittsPrefetchCount")
             if tool == "nghitts" { clearPrefetchCache() }
         }
@@ -175,8 +180,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     @Published public var extPrefetchCount: Int {
         didSet {
+            guard !isInitializing else { return }
             if tool != "system" && tool != "nghitts" && tool != "google" {
-                UserDefaults.standard.set(extPrefetchCount, forKey: "extPrefetchCount_\(tool)")
+                UserDefaults.standard.set(extPrefetchCount, forKey: "extPrefetchUser_\(tool)")
                 clearPrefetchCache()
             }
         }
@@ -407,6 +413,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         super.init()
 
+        isInitializing = false
+        loadParamsForCurrentTool()
+
         setupEngines()
         setupAudioEngine()
         setupRemoteCommandCenter()
@@ -440,11 +449,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.selectedVoice = UserDefaults.standard.string(forKey: "extVoice_\(tool)") ?? ""
             
             let parsed = parseExtensionConfigParams(jsonString: extensionConfigJson)
-            let defaultPrefetch = parsed.preloadSize ?? 3
-            let defaultChunk = parsed.maxLength ?? 200
-            
-            self.extPrefetchCount = UserDefaults.standard.object(forKey: "extPrefetchCount_\(tool)") != nil ? UserDefaults.standard.integer(forKey: "extPrefetchCount_\(tool)") : defaultPrefetch
-            self.chunkLength = UserDefaults.standard.object(forKey: "extChunk_\(tool)") != nil ? UserDefaults.standard.integer(forKey: "extChunk_\(tool)") : defaultChunk
+            self.extPrefetchCount = parsed.preloadSize ?? 3
+            self.chunkLength = parsed.maxLength ?? 200
         }
     }
 

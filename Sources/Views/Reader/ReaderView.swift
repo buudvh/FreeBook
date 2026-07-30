@@ -24,6 +24,54 @@ public enum ReaderTheme: String, CaseIterable, Identifiable {
         case .dark: return Color(red: 0.75, green: 0.75, blue: 0.75)
         }
     }
+
+    var highlightUIColor: UIColor {
+        switch self {
+        case .paper:
+            return UIColor(red: 1.0, green: 0.88, blue: 0.45, alpha: 0.45)
+        case .sepia:
+            return UIColor(red: 0.92, green: 0.72, blue: 0.45, alpha: 0.45)
+        case .dark:
+            return UIColor(white: 1.0, alpha: 0.16)
+        }
+    }
+
+    var highlightTextUIColor: UIColor? {
+        switch self {
+        case .paper:
+            return UIColor(red: 0.06, green: 0.06, blue: 0.06, alpha: 1.0)
+        case .sepia:
+            return UIColor(red: 0.13, green: 0.07, blue: 0.02, alpha: 1.0)
+        case .dark:
+            return UIColor.white
+        }
+    }
+}
+
+public enum ReaderFontFamily: String, CaseIterable, Identifiable, Codable {
+    case system = "Hệ thống (San Francisco)"
+    case georgia = "Georgia (Kindle Classic)"
+    case palatino = "Palatino (Văn Học)"
+    case charter = "Charter (Tiếng Việt Rõ Nét)"
+    case avenir = "Avenir Next (Hiện Đại)"
+    case songti = "Tống Thể - 宋体 (Hán Tự Cổ Điển)"
+    case kaiti = "Khải Thể - 楷体 (Hán Tự Thư Pháp)"
+    case pingfang = "Bình Phương - 苹方 (Hán Tự Hiện Đại)"
+
+    public var id: String { self.rawValue }
+
+    public var fontName: String? {
+        switch self {
+        case .system: return nil
+        case .georgia: return "Georgia"
+        case .palatino: return "Palatino-Roman"
+        case .charter: return "Charter-Roman"
+        case .avenir: return "AvenirNext-Regular"
+        case .songti: return "SongtiSC-Regular"
+        case .kaiti: return "KaitiSC-Regular"
+        case .pingfang: return "PingFangSC-Regular"
+        }
+    }
 }
 
 private struct ReaderLookupRoute: Identifiable, Equatable {
@@ -97,8 +145,10 @@ struct ReaderView: View {
     @AppStorage("isTranslationPronounsEnabled") private var isTranslationPronounsEnabled = false // Bật dịch đại từ
     @AppStorage("isTranslationLuatNhanEnabled") private var isTranslationLuatNhanEnabled = false // Bật dịch luật nhân
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark // Theme giao diện đọc (Sáng, Trầm ấm, Tối)
+    @AppStorage("readerFontFamily") private var fontFamily: ReaderFontFamily = .georgia // Phông chữ đọc sách
     @AppStorage("hasOpenedReader") private var hasOpenedReader = false
     @State private var showingSettings = false // Hiện bảng cài đặt font chữ, màu nền
+    @State private var showingTOCRules = false
 
     // Trạng thái bypass Cloudflare và import sách
     @State private var showingBypassBrowser = false
@@ -347,12 +397,13 @@ struct ReaderView: View {
             ReaderSettingsView(
                 fontSize: $fontSize,
                 lineSpacing: $lineSpacing,
+                fontFamily: $fontFamily,
                 selectedTheme: $selectedTheme,
                 isTranslationEnabled: $isTranslationEnabled,
                 isPronounsEnabled: $isTranslationPronounsEnabled,
                 isLuatNhanEnabled: $isTranslationLuatNhanEnabled
             )
-            .presentationDetents([.height(350)])
+            .presentationDetents([.height(420)])
         }
         .sheet(isPresented: $showingBookDictionary) {
             NavigationStack {
@@ -428,19 +479,30 @@ struct ReaderView: View {
             )
         }
         .background(
-            NavigationLink(
-                destination: LazyView {
-                    BookDetailView(
-                        bookId: importedBookId,
-                        extensionPackageId: importedExtensionPackageId,
-                        initialDetailUrl: importedDetailUrl,
-                        sourceName: importedSourceName,
-                        initialHost: importedHost
-                    )
-                },
-                isActive: $navigateToBookDetail
-            ) {
-                EmptyView()
+            Group {
+                NavigationLink(
+                    destination: LazyView {
+                        BookDetailView(
+                            bookId: importedBookId,
+                            extensionPackageId: importedExtensionPackageId,
+                            initialDetailUrl: importedDetailUrl,
+                            sourceName: importedSourceName,
+                            initialHost: importedHost
+                        )
+                    },
+                    isActive: $navigateToBookDetail
+                ) {
+                    EmptyView()
+                }
+
+                NavigationLink(
+                    destination: LazyView {
+                        TOCRulesConfigView()
+                    },
+                    isActive: $showingTOCRules
+                ) {
+                    EmptyView()
+                }
             }
         )
     }
@@ -621,6 +683,7 @@ struct ReaderView: View {
                 showingBypassBrowser: $showingBypassBrowser,
                 showingSettings: $showingSettings,
                 showingChapterList: $showingChapterList,
+                showingTOCRules: $showingTOCRules,
                 readerBookDisplayTitle: readerBookDisplayTitle,
                 readerChapterDisplayTitle: readerChapterDisplayTitle,
                 hasLocalBook: localBook != nil,
@@ -1336,6 +1399,7 @@ struct ReaderView: View {
                 isTranslationEnabled: isTrans,
                 fontSize: size,
                 lineSpacing: spacing,
+                fontFamily: fontFamily,
                 theme: theme,
                 highlightRange: relativeHighlightRange,
                 triggerGetVisibleIndex: $triggerGetVisibleIndex,

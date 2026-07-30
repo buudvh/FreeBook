@@ -73,6 +73,15 @@ struct ExtensionConfigView: View {
                                                 .font(.caption)
                                                 .foregroundColor(.secondary)
                                         }
+                                    } else if definition.format == "number" {
+                                        TextField(definition.default ?? "", text: Binding(
+                                            get: { userValues[key] ?? "" },
+                                            set: { userValues[key] = $0 }
+                                        ))
+                                        .keyboardType(.numberPad)
+                                        .textFieldStyle(.roundedBorder)
+                                        .autocorrectionDisabled()
+                                        .textInputAutocapitalization(.none)
                                     } else {
                                         TextField(definition.default ?? "", text: Binding(
                                             get: { userValues[key] ?? "" },
@@ -135,25 +144,52 @@ struct ExtensionConfigView: View {
         
         do {
             let data = try Data(contentsOf: pluginJsonUrl)
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let configSection = json["config"] as? [String: Any] {
-                
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 var definitions: [String: ConfigItem] = [:]
-                for (key, value) in configSection {
-                    if let dict = value as? [String: Any] {
-                        if let dictData = try? JSONSerialization.data(withJSONObject: dict),
-                           let item = try? JSONDecoder().decode(ConfigItem.self, from: dictData) {
-                            definitions[key] = item
+                
+                // 1. Đọc từ section "config" nếu có
+                if let configSection = json["config"] as? [String: Any] {
+                    for (key, value) in configSection {
+                        if let dict = value as? [String: Any] {
+                            if let dictData = try? JSONSerialization.data(withJSONObject: dict),
+                               let item = try? JSONDecoder().decode(ConfigItem.self, from: dictData) {
+                                definitions[key] = item
+                            }
+                        } else if let bVal = value as? Bool {
+                            definitions[key] = ConfigItem(title: key, mode: "toggle", format: "boolean", default: "\(bVal)")
+                        } else if let nVal = value as? NSNumber {
+                            definitions[key] = ConfigItem(title: key, mode: "input", format: "number", default: "\(nVal)")
+                        } else if let sVal = value as? String {
+                            definitions[key] = ConfigItem(title: key, mode: "input", format: "text", default: sVal)
                         }
                     }
                 }
+                
+                // 2. Đọc các trường thô đặc biệt ở root plugin.json nếu chưa có trong config
+                let specialKeys = ["preload_size", "max_length", "required_api_key", "support_url"]
+                for key in specialKeys {
+                    if definitions[key] == nil, let val = json[key] {
+                        if let bVal = val as? Bool {
+                            definitions[key] = ConfigItem(title: key, mode: "toggle", format: "boolean", default: "\(bVal)")
+                        } else if let nVal = val as? NSNumber {
+                            definitions[key] = ConfigItem(title: key, mode: "input", format: "number", default: "\(nVal)")
+                        } else if let sVal = val as? String {
+                            definitions[key] = ConfigItem(title: key, mode: "input", format: "text", default: sVal)
+                        }
+                    }
+                }
+                
                 self.configDefinitions = definitions
             }
             
             // Đọc các giá trị người dùng đã lưu trước đó trong Extension
             if let userConfigData = ext.configJson.data(using: .utf8),
-               let savedValues = try? JSONSerialization.jsonObject(with: userConfigData) as? [String: String] {
-                self.userValues = savedValues
+               let savedValues = try? JSONSerialization.jsonObject(with: userConfigData) as? [String: Any] {
+                var stringMap: [String: String] = [:]
+                for (k, v) in savedValues {
+                    stringMap[k] = "\(v)"
+                }
+                self.userValues = stringMap
             }
             
             // Điền sẵn các giá trị mặc định cho những key chưa được lưu
@@ -172,10 +208,26 @@ struct ExtensionConfigView: View {
     
     private func saveConfig() {
         do {
-            // Lọc bỏ các giá trị trống để tiết kiệm dung lượng
-            let filteredValues = userValues.filter { !$0.value.isEmpty }
+            var typedDict: [String: Any] = [:]
+            for (key, strVal) in userValues {
+                guard !strVal.isEmpty else { continue }
+                let fmt = configDefinitions[key]?.format
+                if fmt == "boolean" {
+                    typedDict[key] = (strVal.lowercased() == "true")
+                } else if fmt == "number" {
+                    if let iVal = Int(strVal) {
+                        typedDict[key] = iVal
+                    } else if let dVal = Double(strVal) {
+                        typedDict[key] = dVal
+                    } else {
+                        typedDict[key] = strVal
+                    }
+                } else {
+                    typedDict[key] = strVal
+                }
+            }
             
-            let data = try JSONSerialization.data(withJSONObject: filteredValues, options: [])
+            let data = try JSONSerialization.data(withJSONObject: typedDict, options: [])
             if let jsonString = String(data: data, encoding: .utf8) {
                 ext.configJson = jsonString
                 try? modelContext.save()

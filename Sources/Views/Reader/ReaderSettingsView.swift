@@ -3,13 +3,14 @@ import SwiftUI
 struct ReaderSettingsView: View {
     @Binding var fontSize: Double
     @Binding var lineSpacing: Double
+    @Binding var fontFamily: ReaderFontFamily
     @Binding var selectedTheme: ReaderTheme
     @Binding var isTranslationEnabled: Bool
     @Binding var isPronounsEnabled: Bool
     @Binding var isLuatNhanEnabled: Bool
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             Text("Cài đặt trình đọc")
                 .font(.headline)
                 .padding(.top)
@@ -26,6 +27,20 @@ struct ReaderSettingsView: View {
                     range: 2...20
                 )
             }
+
+            HStack {
+                Text("Kiểu chữ:")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Picker("Kiểu chữ", selection: $fontFamily) {
+                    ForEach(ReaderFontFamily.allCases) { family in
+                        Text(family.rawValue).tag(family)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+            .padding(.horizontal)
 
             Picker("Theme", selection: $selectedTheme) {
                 ForEach(ReaderTheme.allCases) { theme in

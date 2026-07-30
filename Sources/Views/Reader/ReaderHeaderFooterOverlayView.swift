@@ -8,6 +8,7 @@ struct ReaderHeaderFooterOverlayView: View {
     @Binding var showingBypassBrowser: Bool
     @Binding var showingSettings: Bool
     @Binding var showingChapterList: Bool
+    @Binding var showingTOCRules: Bool
     let readerBookDisplayTitle: String
     let readerChapterDisplayTitle: String
     let hasLocalBook: Bool
@@ -72,6 +73,10 @@ struct ReaderHeaderFooterOverlayView: View {
 
                         Button(action: { showingSettings = true }) {
                             Label("Cài đặt trình đọc", systemImage: "gearshape")
+                        }
+
+                        Button(action: { showingTOCRules = true }) {
+                            Label("Quy tắc mục lục (TOC)", systemImage: "list.bullet.indent")
                         }
                     } label: {
                         Image(systemName: "ellipsis")
