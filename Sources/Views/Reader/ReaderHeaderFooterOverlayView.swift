@@ -9,6 +9,7 @@ struct ReaderHeaderFooterOverlayView: View {
     @Binding var showingSettings: Bool
     @Binding var showingChapterList: Bool
     @Binding var showingTOCRules: Bool
+    @Binding var showingJunkFilter: Bool
     let readerBookDisplayTitle: String
     let readerChapterDisplayTitle: String
     let hasLocalBook: Bool
@@ -77,6 +78,10 @@ struct ReaderHeaderFooterOverlayView: View {
 
                         Button(action: { showingTOCRules = true }) {
                             Label("Quy tắc mục lục (TOC)", systemImage: "list.bullet.indent")
+                        }
+
+                        Button(action: { showingJunkFilter = true }) {
+                            Label("Quản lý lọc rác", systemImage: "trash.slash")
                         }
                     } label: {
                         Image(systemName: "ellipsis")

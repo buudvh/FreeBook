@@ -13,6 +13,7 @@ struct ReaderFloatingMenuOverlayView: View {
     let onPhoneme: () -> Void
     let onCopy: () -> Void
     let onReadSelected: () -> Void
+    let onDeleteJunk: () -> Void
 
     var body: some View {
         ZStack {
@@ -57,9 +58,10 @@ struct ReaderFloatingMenuOverlayView: View {
                     onReadSelected: {
                         onReadSelected()
                     },
-                    onClose: {
+                    onDeleteJunk: {
                         clearSelectionTrigger = UUID()
                         isShowing = false
+                        onDeleteJunk()
                     }
                 )
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))

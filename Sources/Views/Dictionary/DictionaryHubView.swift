@@ -5,6 +5,7 @@ struct DictionaryHubView: View {
     var bookName: String = ""
 
     @ObservedObject private var translationManager = TranslationManager.shared
+    @State private var refreshToken = UUID()
 
     var body: some View {
         List {
@@ -46,8 +47,18 @@ struct DictionaryHubView: View {
                 }
             }
         }
+        .id(refreshToken)
         .navigationTitle("Từ Điển")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            translationManager.clearBookDictCache(for: bookId)
+            Task {
+                try? await translationManager.loadAllDictionaries()
+                await MainActor.run {
+                    refreshToken = UUID()
+                }
+            }
+        }
     }
 
     private func bookEntryCount(type: DictType) -> String {

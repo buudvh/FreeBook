@@ -149,6 +149,9 @@ struct ReaderView: View {
     @AppStorage("hasOpenedReader") private var hasOpenedReader = false
     @State private var showingSettings = false // Hiện bảng cài đặt font chữ, màu nền
     @State private var showingTOCRules = false
+    @State private var showingJunkDeleteSheet = false
+    @State private var junkPatternInput = ""
+    @State private var showingJunkFilterManagerSheet = false
 
     // Trạng thái bypass Cloudflare và import sách
     @State private var showingBypassBrowser = false
@@ -286,7 +289,7 @@ struct ReaderView: View {
             ZStack {
                 selectedTheme.backgroundColor
                     .ignoresSafeArea()
-                readerMainContent
+                readerMainContent(geometry: geometry)
 
                 // Panel dịch dạng overlay ở đáy (Full-width Bottom Sheet)
                 if showingDefinitionSheet {
@@ -386,8 +389,49 @@ struct ReaderView: View {
                     },
                     onReadSelected: {
                         readSelectedText()
+                    },
+                    onDeleteJunk: {
+                        updateEditorFromSelection()
+                        junkPatternInput = selectedTextForDefinition.isEmpty ? selectedDisplayedText : selectedTextForDefinition
+                        showingJunkDeleteSheet = true
                     }
                 )
+
+                if showingJunkDeleteSheet {
+                    VStack {
+                        Spacer()
+                        ReaderJunkDeleteOverlayView(
+                            isPresented: $showingJunkDeleteSheet,
+                            selectedTheme: selectedTheme,
+                            originalSentence: originalSentence,
+                            selectedWordOffset: $selectedWordOffset,
+                            selectedWordLength: $selectedWordLength,
+                            translationTokens: translationTokens,
+                            junkPatternInput: $junkPatternInput,
+                            onExpandSelectionLeft: expandSelectionLeft,
+                            onShrinkSelectionLeft: shrinkSelectionLeft,
+                            onShrinkSelectionRight: shrinkSelectionRight,
+                            onExpandSelectionRight: expandSelectionRight,
+                            onUpdateEditorFromSelection: updateEditorFromSelection,
+                            onConfirmDelete: { pattern in
+                                confirmDeleteJunk(pattern)
+                            },
+                            onCancel: {
+                                showingJunkDeleteSheet = false
+                            }
+                        )
+                        .padding([.horizontal, .bottom])
+                        .background(
+                            UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
+                                .fill(selectedTheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.14) : Color.white)
+                        )
+                        .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: -4)
+                        .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 0 : 8)
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .ignoresSafeArea(.keyboard, edges: .bottom)
+                    .zIndex(6)
+                }
 
                 readerChapterListOverlay(in: geometry)
             }
@@ -401,9 +445,37 @@ struct ReaderView: View {
                 selectedTheme: $selectedTheme,
                 isTranslationEnabled: $isTranslationEnabled,
                 isPronounsEnabled: $isTranslationPronounsEnabled,
-                isLuatNhanEnabled: $isTranslationLuatNhanEnabled
+                isLuatNhanEnabled: $isTranslationLuatNhanEnabled,
+                onOpenJunkFilter: {
+                    showingSettings = false
+                    showingJunkFilterManagerSheet = true
+                }
             )
-            .presentationDetents([.height(420)])
+            .presentationDetents([.height(450)])
+        }
+        .sheet(isPresented: $showingJunkFilterManagerSheet) {
+            NavigationStack {
+                JunkFilterManagementView()
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Xong") {
+                                showingJunkFilterManagerSheet = false
+                            }
+                        }
+                    }
+            }
+        }
+        .sheet(isPresented: $showingTOCRules) {
+            NavigationStack {
+                TOCRulesConfigView()
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Xong") {
+                                showingTOCRules = false
+                            }
+                        }
+                    }
+            }
         }
         .sheet(isPresented: $showingBookDictionary) {
             NavigationStack {
@@ -494,15 +566,6 @@ struct ReaderView: View {
                 ) {
                     EmptyView()
                 }
-
-                NavigationLink(
-                    destination: LazyView {
-                        TOCRulesConfigView()
-                    },
-                    isActive: $showingTOCRules
-                ) {
-                    EmptyView()
-                }
             }
         )
     }
@@ -536,6 +599,32 @@ struct ReaderView: View {
                 AppLogger.shared.log("❌ Lỗi phát âm từ bôi đen: \(error.localizedDescription)")
             }
         }
+    }
+
+    private func confirmDeleteJunk(_ pattern: String) {
+        let trimmed = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        clearSelectionTrigger = UUID()
+        showingFloatingMenu = false
+
+        JunkFilterManager.shared.addRule(pattern: trimmed)
+        TranslateUtils.clearCache()
+
+        let currentChapterIndex = chapterIndex
+        let currentBookId = bookId
+
+        Task {
+            await ChapterContentRepository.shared.remove(bookId: currentBookId, chapterIndex: currentChapterIndex)
+            if let vm = viewModel {
+                await MainActor.run {
+                    vm.cache.remove(currentChapterIndex)
+                    vm.loadChapter(at: currentChapterIndex, forceRefresh: true)
+                }
+            }
+        }
+
+        ToastManager.shared.show(message: "Đã thêm vào lọc rác: \"\(trimmed)\"", type: .success)
     }
 
     private var readerDataObservationView: some View {
@@ -627,6 +716,20 @@ struct ReaderView: View {
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .translationDictionariesDidUpdate)) { _ in
+            TranslateUtils.clearCache()
+            let currentChapterIndex = chapterIndex
+            let currentBookId = bookId
+            Task {
+                await ChapterContentRepository.shared.remove(bookId: currentBookId, chapterIndex: currentChapterIndex)
+                if let vm = viewModel {
+                    await MainActor.run {
+                        vm.cache.remove(currentChapterIndex)
+                        vm.loadChapter(at: currentChapterIndex, forceRefresh: true)
+                    }
+                }
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("navigateReaderToPlayingChapter"))) { notification in
             guard let userInfo = notification.userInfo,
                   let bid = userInfo["bookId"] as? String,
@@ -662,14 +765,14 @@ struct ReaderView: View {
         .toolbar(.hidden, for: .tabBar)
     }
 
-    private var readerMainContent: some View {
+    private func readerMainContent(geometry: GeometryProxy) -> some View {
         ZStack {
             VStack(spacing: 0) {
                 Spacer().frame(height: 100)
 
                 ZStack(alignment: .bottomTrailing) {
                     readerContentView
-                    readerTTSControl
+                    readerTTSControl(geometry: geometry)
                 }
 
                 Spacer().frame(height: 52)
@@ -684,6 +787,7 @@ struct ReaderView: View {
                 showingSettings: $showingSettings,
                 showingChapterList: $showingChapterList,
                 showingTOCRules: $showingTOCRules,
+                showingJunkFilter: $showingJunkFilterManagerSheet,
                 readerBookDisplayTitle: readerBookDisplayTitle,
                 readerChapterDisplayTitle: readerChapterDisplayTitle,
                 hasLocalBook: localBook != nil,
@@ -1067,25 +1171,25 @@ struct ReaderView: View {
         return formattedWords.joined(separator: " ")
     }
 
-    private var suggestionChips: [String] {
-        var chips: [String] = []
+    private var suggestionChips: [SuggestionChip] {
+        var chips: [SuggestionChip] = []
         let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !word.isEmpty else { return [] }
 
         let manager = TranslationManager.shared
         let bookDicts = manager.getBookDictionaries(for: bookId)
 
-        func addTranslation(_ translation: String) {
+        func addTranslation(_ translation: String, category: SuggestionChipCategory) {
             let clean = translation.replacingOccurrences(of: "¦", with: "/")
             let parts = clean.components(separatedBy: "/")
             for part in parts {
                 let trimmed = part.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmed.isEmpty {
                     let isDuplicate = chips.contains { existing in
-                        existing.localizedCaseInsensitiveCompare(trimmed) == .orderedSame
+                        existing.text == trimmed
                     }
                     if !isDuplicate {
-                        chips.append(trimmed)
+                        chips.append(SuggestionChip(text: trimmed, category: category))
                     }
                 }
             }
@@ -1095,7 +1199,7 @@ struct ReaderView: View {
         if let bookNames = bookDicts.names,
            let match = bookNames.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
-            addTranslation(match.value)
+            addTranslation(match.value, category: .name)
         }
 
         // 1.1 Custom Names (custom.dat)
@@ -1103,66 +1207,52 @@ struct ReaderView: View {
         if let customNames = manager.customNamesDict,
            let match = customNames.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
-            addTranslation(match.value)
+            addTranslation(match.value, category: .name)
             hasCustomName = true
         }
 
-        // 2. Global Names (chỉ hiện nếu không có trong Custom Names)
+        // 2. Global Names (Names.dat)
         if !hasCustomName,
            let names = manager.namesDict,
            let match = names.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
-            addTranslation(match.value)
+            addTranslation(match.value, category: .name)
         }
 
-        // 3. Pronouns
-        if let pronouns = manager.pronounsDict,
-           let match = pronouns.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
-            addTranslation(match.value)
-        }
-
-        // 4. LuatNhan
-        if let luatNhan = manager.luatNhanDict,
-           let match = luatNhan.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
-            addTranslation(match.value)
-        }
-
-        // 5. Book VietPhrase
+        // 3. Book VietPhrase
         if let bookVP = bookDicts.vietPhrase,
            let match = bookVP.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
-            addTranslation(match.value)
+            addTranslation(match.value, category: .vietPhrase)
         }
 
-        // 5.1 Custom VietPhrase (custom.dat)
+        // 3.1 Custom VietPhrase (custom.dat)
         var hasCustomVP = false
         if let customVP = manager.customVietPhraseDict,
            let match = customVP.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
-            addTranslation(match.value)
+            addTranslation(match.value, category: .vietPhrase)
             hasCustomVP = true
         }
 
-        // 6. Global VietPhrase (Chung - chỉ hiện nếu không có trong Custom VietPhrase)
+        // 4. Global VietPhrase (VietPhrase.dat)
         if !hasCustomVP,
            let vp = manager.vietPhraseDict,
            let match = vp.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
             if match.value.count < 100 {
-                addTranslation(match.value)
+                addTranslation(match.value, category: .vietPhrase)
             }
         }
 
-        // 7. Phiên âm Hán Việt (chỉ 1 bản viết thường duy nhất)
+        // 5. Phiên âm Hán Việt
         let hv = getHanViet(for: word).lowercased()
         if !hv.isEmpty {
             let isDuplicate = chips.contains { existing in
-                existing.localizedCaseInsensitiveCompare(hv) == .orderedSame
+                existing.text == hv
             }
             if !isDuplicate {
-                chips.append(hv)
+                chips.append(SuggestionChip(text: hv, category: .hanViet))
             }
         }
 
@@ -1424,6 +1514,18 @@ struct ReaderView: View {
             )
             .equatable()
             .id("paragraph-\(chapter.index)-\(item.id)")
+            .background(
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear {
+                            let frame = geo.frame(in: .global)
+                            paragraphTracker.updateFrame(bookId: bookId, chapterIndex: chapter.index, paragraphIndex: item.id, minY: frame.minY, maxY: frame.maxY)
+                        }
+                        .onChange(of: geo.frame(in: .global)) { _, newFrame in
+                            paragraphTracker.updateFrame(bookId: bookId, chapterIndex: chapter.index, paragraphIndex: item.id, minY: newFrame.minY, maxY: newFrame.maxY)
+                        }
+                }
+            )
             .onAppear {
                 paragraphTracker.insert(bookId: bookId, chapterIndex: chapter.index, paragraphIndex: item.id)
                 updateScrollReadingProgress()
@@ -1656,8 +1758,8 @@ struct ReaderView: View {
         // 1. Debounce 200ms cho việc cập nhật tiến trình lưu trữ
         updateProgressWorkItem?.cancel()
         let progressWork = DispatchWorkItem { [weak viewModel] in
-            guard let top = self.paragraphTracker.topVisible else { return }
-            let ttsOwnsProgress = ttsManager.isPlaying && ttsManager.playingBookId == bookId
+            guard let top = self.paragraphTracker.getTopVisible(viewportTopY: 80, currentBookId: self.bookId, currentChapterIndex: self.chapterIndex) ?? self.paragraphTracker.topVisible else { return }
+            let ttsOwnsProgress = ttsManager.isPlaying && ttsManager.playingBookId == self.bookId
 
             guard let vm = viewModel, top.chapterIndex == vm.displayedChapterIndex else { return }
             if !ttsOwnsProgress {
@@ -1676,7 +1778,7 @@ struct ReaderView: View {
 
         updateTTSPositionWorkItem?.cancel()
         let ttsWork = DispatchWorkItem {
-            guard let top = self.paragraphTracker.topVisible else { return }
+            guard let top = self.paragraphTracker.getTopVisible(viewportTopY: 80, currentBookId: self.bookId, currentChapterIndex: self.chapterIndex) ?? self.paragraphTracker.topVisible else { return }
             guard self.ttsManager.playingChapterIndex == top.chapterIndex else { return }
             self.ttsManager.updateParagraphPositionWithoutPlaying(paragraphIndex: top.paragraphIndex)
         }
@@ -1989,7 +2091,7 @@ struct ReaderView: View {
     }
 
     @ViewBuilder
-    private var readerTTSControl: some View {
+    private func readerTTSControl(geometry: GeometryProxy) -> some View {
         readerEdgeButton(
             // Keep this as the Reader listen action. It must not become a
             // global stop control when another book owns the TTS session.
@@ -1999,7 +2101,10 @@ struct ReaderView: View {
                 if ttsManager.isPlaying || ttsManager.showFloatingWidget {
                     ttsManager.stop()
                 }
-                if let top = paragraphTracker.topVisible {
+                let viewportTopY = geometry.frame(in: .global).minY + geometry.safeAreaInsets.top + 20
+                if let top = paragraphTracker.getTopVisible(viewportTopY: viewportTopY, currentBookId: bookId, currentChapterIndex: chapterIndex) {
+                    startTTS(at: top.chapterIndex, paragraphIndex: top.paragraphIndex)
+                } else if let top = paragraphTracker.topVisible {
                     startTTS(at: top.chapterIndex, paragraphIndex: top.paragraphIndex)
                 } else {
                     startTTS(at: chapterIndex, paragraphIndex: -1)
@@ -2031,19 +2136,59 @@ struct ScrollTarget: Equatable {
     let paragraphIndex: Int
 }
 
+struct ParagraphFrame: Equatable {
+    let bookId: String
+    let chapterIndex: Int
+    let paragraphIndex: Int
+    let minY: CGFloat
+    let maxY: CGFloat
+}
+
 class ParagraphTracker {
     private var visibleParagraphs: Set<ReadingContext> = []
+    private var frames: [ReadingContext: ParagraphFrame] = [:]
 
     func insert(bookId: String, chapterIndex: Int, paragraphIndex: Int) {
         visibleParagraphs.insert(ReadingContext(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex))
     }
 
+    func updateFrame(bookId: String, chapterIndex: Int, paragraphIndex: Int, minY: CGFloat, maxY: CGFloat) {
+        let ctx = ReadingContext(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex)
+        visibleParagraphs.insert(ctx)
+        frames[ctx] = ParagraphFrame(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex, minY: minY, maxY: maxY)
+    }
+
     func remove(bookId: String, chapterIndex: Int, paragraphIndex: Int) {
-        visibleParagraphs.remove(ReadingContext(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex))
+        let ctx = ReadingContext(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex)
+        visibleParagraphs.remove(ctx)
+        frames.removeValue(forKey: ctx)
     }
 
     func removeAll() {
         visibleParagraphs.removeAll()
+        frames.removeAll()
+    }
+
+    func getTopVisible(viewportTopY: CGFloat, currentBookId: String, currentChapterIndex: Int) -> ReadingContext? {
+        let candidates = frames.values.filter {
+            $0.bookId == currentBookId &&
+            $0.chapterIndex == currentChapterIndex &&
+            $0.maxY > viewportTopY + 5
+        }
+
+        if !candidates.isEmpty {
+            let sorted = candidates.sorted {
+                if abs($0.minY - $1.minY) < 1.0 {
+                    return $0.paragraphIndex < $1.paragraphIndex
+                }
+                return $0.minY < $1.minY
+            }
+            if let best = sorted.first {
+                return ReadingContext(bookId: best.bookId, chapterIndex: best.chapterIndex, paragraphIndex: best.paragraphIndex)
+            }
+        }
+
+        return topVisible
     }
 
     var topVisible: ReadingContext? {
@@ -2068,10 +2213,10 @@ struct FloatingSelectionMenu: View {
     let onPhoneme: () -> Void
     let onCopy: () -> Void
     let onReadSelected: () -> Void
-    let onClose: () -> Void
+    let onDeleteJunk: () -> Void
 
     // Chiều rộng tổng của menu (6 nút × 60 + padding)
-    private let menuWidth: CGFloat = 368
+    private let menuWidth: CGFloat = 370
     // Khoảng cách giữa menu và cạnh trên/dưới vùng bôi đen
     private let gap: CGFloat = 36
 
@@ -2152,14 +2297,14 @@ struct FloatingSelectionMenu: View {
                 .frame(height: 24)
                 .background(Color.white.opacity(0.15))
 
-            Button(action: onClose) {
+            Button(action: onDeleteJunk) {
                 VStack(spacing: 3) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .bold))
-                    Text("Đóng")
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("Xoá")
                         .font(.system(size: 11, weight: .bold))
                 }
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(.red)
                 .frame(width: 60, height: 48)
             }
         }

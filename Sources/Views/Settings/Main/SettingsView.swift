@@ -56,6 +56,11 @@ struct SettingsView: View {
                     }
                     .disabled(!importingTypes.isEmpty)
 
+                    NavigationLink(destination: JunkFilterManagementView()) {
+                        Label("Quản lý lọc rác", systemImage: "trash.slash")
+                    }
+                    .disabled(!importingTypes.isEmpty)
+
                     if isTranslationEnabled {
                         Toggle(isOn: $isTranslationPronounsEnabled) {
                             Text("Dịch Đại từ (Pronouns)")

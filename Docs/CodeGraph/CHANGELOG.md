@@ -2,6 +2,37 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.63] - 2026-07-30
+
+### Xoá Từ Rác Khi Bôi Đen Trước Khi Chuẩn Hoá & Màn Hình Quản Lý Lọc Rác Dùng Chung (`JunkFilterManager.swift`, `ChapterTextNormalizer.swift`, `ReaderJunkDeleteOverlayView.swift`, `JunkFilterManagementView.swift`, `ReaderView.swift`, `SettingsView.swift`)
+* **Hệ Thống Lọc Rác Từ Gốc Trước Khi Chuẩn Hoá (`JunkFilterManager.swift`, `ChapterTextNormalizer.swift`)**:
+  * Tạo dịch vụ `JunkFilterManager` quản lý danh sách quy tắc lọc rác (từ/chuỗi/regex) và áp dụng trực tiếp lên `rawContent` trong `ChapterTextNormalizer.normalize` trước khi cắt dòng và tính toán UTF-16 ranges/Paragraph IDs.
+  * Custom Codable hỗ trợ tương thích 100% với định dạng file `TrashWords.json` từ Telegram (`word`, `regex`).
+* **Khung Xác Nhận Xoá Từ Rác Khi Bôi Đen Trong Trình Đọc (`ReaderJunkDeleteOverlayView.swift`, `ReaderFloatingMenuOverlayView.swift`, `ReaderView.swift`)**:
+  * Thêm nút **"Xoá"** (icon `trash.fill`) vào menu nổi khi bôi đen trong Trình đọc.
+  * Hiển thị khung overlay xác nhận với 2 hàng Gốc và Dịch trên cùng kèm 4 nút chevron thu/mở lề bôi đen 2 bên (trái/phải), ô nhập từ muốn xoá để kiểm tra/chỉnh sửa, cùng nút **Hủy** và **Xác nhận**.
+  * Tự động xóa cache và nạp/chuẩn hóa lại chương active giúp từ rác biến mất ngay lập tức khỏi màn hình.
+* **Màn Hình Quản Lý Lọc Rác Dùng Chung (`JunkFilterManagementView.swift`, `SettingsView.swift`, `ReaderHeaderFooterOverlayView.swift`, `ReaderSettingsView.swift`)**:
+  * Xây dựng giao diện SwiftUI `JunkFilterManagementView` hỗ trợ CRUD, bật/tắt, tìm kiếm, nhập/xuất file JSON cấu hình và khôi phục mặc định.
+  * Đấu nối từ cả Cài đặt hệ thống (**SettingsView**) lẫn Tuỳ chọn Trình đọc (**ReaderHeaderFooterOverlayView** và **ReaderSettingsView**).
+* **Khắc Phục Lỗi Treo Nạp Chương Khi Mở Quy Tắc TOC Từ Reader (`ReaderView.swift`)**:
+  * Nguyên nhân: Trước đó `ReaderView` mở `TOCRulesConfigView()` thông qua `NavigationLink` khiến iOS kích hoạt sự kiện `.onDisappear` của `ReaderView`, dẫn tới việc `ReaderViewModel.shutdown()` tự động tắt bộ nhớ và hủy tác vụ nạp chương. Khi người dùng Back quay lại `ReaderView`, `viewModel` đã bị tắt nên treo ở trạng thái nạp mãi.
+  * Giải pháp: Chuyển đổi hiển thị `TOCRulesConfigView()` sang dạng `.sheet(isPresented: $showingTOCRules)` dạng modal. Giúp `ReaderView` duy trì liên tục trong cây phân cấp view, bảo toàn trạng thái `viewModel` và mở/đóng quy tắc TOC mượt mà mà không bị mất nội dung chương.
+* **Tinh Chỉnh Dải Chip Gợi Ý Màn Hình Dịch & Giao Diện Phông Nền Tối (`ReaderDefinitionOverlayView.swift`, `ReaderView.swift`)**:
+  * Đơn giản hóa nguồn truy vấn chip gợi ý: Chỉ lọc dữ liệu từ 3 nguồn: **Names** (Book, Custom, Global), **VietPhrase** (Book, Custom, Global) và **Phiên âm Hán Việt**, loại bỏ Pronouns và Luật nhân khỏi dải gợi ý.
+  * Áp dụng lọc trùng phân biệt hoa thường exact matching (`$0.text == trimmed`).
+  * Áp dụng giao diện phông nền tối toàn bộ `Color(red: 0.12, green: 0.12, blue: 0.15)` đồng nhất chuẩn Dark Mode, kết hợp phân biệt loại từ bằng màu viền & chữ: **Tím Lavender** (Names), **Xanh Sky Blue** (VietPhrase), **Vàng Amber** (Hán Việt).
+* **Tự Động Cập Nhật Số Từ Từ Điển & Tự Động Nạp Dịch Lại Trong Reader (`TranslationManager.swift`, `DictionaryHubView.swift`, `ReaderView.swift`)**:
+  * Đánh dấu `@Published` cho `customVietPhraseDict` và `customNamesDict` trong `TranslationManager`.
+  * Bổ sung `@State private var refreshToken = UUID()` và `.onAppear` trong `DictionaryHubView` đếm và hiển thị ngay lập tức số từ mới nhất khi bấm Back ra ngoài.
+  * Phát thông báo `translationDictionariesDidUpdate` khi cập nhật từ điển; `ReaderView` tự động xóa cache và ép nạp/dịch lại chương đang đọc (`forceRefresh: true`) để hiển thị nghĩa mới tức thì.
+* **Khắc Phục Sự Cố Nút Nghe (TTS) Đọc Nhầm Đầu Chương & Nhầm Đoạn Giữa Màn Hình & Tinh Chỉnh FloatingMenu (`ReaderView.swift`, `ReaderFloatingMenuOverlayView.swift`)**:
+  * Nâng cấp `ParagraphTracker` quản lý cấu trúc toạ độ hình học `ParagraphFrame(minY, maxY)` trên từng thẻ đoạn văn trong `ReaderView`.
+  * Khắc phục triệt để Lỗi 1 (bấm nút Nghe ngay sau khi mở sách tại vị trí khôi phục bị đọc từ Đoạn 0): Lọc bỏ hoàn toàn các đoạn văn có $maxY \le viewportTopY + 5$ (đã bị cuộn khuất lên phía trên) mà không cần chờ sự kiện `.onDisappear` thụ động từ SwiftUI `LazyVStack`.
+  * Khắc phục triệt để Lỗi 2 (đọc đoạn ở giữa màn hình): Lấy chính xác 100% đoạn văn nằm ngay ở đường đỉnh hiển thị trên cùng (`minY` cao nhất trong số các đoạn cắt qua viewport).
+  * Tối ưu hoá 0ms overhead: Dữ liệu toạ độ lưu trong Class in-memory không dùng `@State`, đảm bảo tốc độ cuộn mượt mà 60fps/120fps.
+  * Loại bỏ nút **"Đóng"** trên menu nổi `FloatingSelectionMenu` khi bôi đen văn bản, tự động đóng menu khi chạm ra ngoài và thu gọn chiều rộng menu xuống 370pt.
+
 ## [1.3.62] - 2026-07-30
 
 ### Tùy Chỉnh Phông Chữ Đọc Sách Đa Dạng (Tiếng Việt & Tiếng Trung) & Tinh Chỉnh Màu Highlight Nội Dòng Chuẩn Tông (`ReaderView.swift`, `ReaderSettingsView.swift`, `ReaderTextView.swift`, `ParagraphCardView.swift`)

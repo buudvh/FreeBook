@@ -8,6 +8,7 @@ struct ReaderSettingsView: View {
     @Binding var isTranslationEnabled: Bool
     @Binding var isPronounsEnabled: Bool
     @Binding var isLuatNhanEnabled: Bool
+    var onOpenJunkFilter: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 16) {
@@ -61,6 +62,23 @@ struct ReaderSettingsView: View {
                     .font(.subheadline)
                     .padding(.horizontal)
                     .padding(.leading, 12)
+            }
+
+            if let onOpenJunkFilter = onOpenJunkFilter {
+                Button(action: onOpenJunkFilter) {
+                    HStack {
+                        Label("Quản lý lọc rác", systemImage: "trash.slash")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
             }
 
             Spacer()

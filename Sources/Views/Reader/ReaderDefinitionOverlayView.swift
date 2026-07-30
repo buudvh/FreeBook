@@ -1,5 +1,38 @@
 import SwiftUI
 
+public enum SuggestionChipCategory: String, Sendable {
+    case name       // Từ điển Names -> Màu Tím
+    case vietPhrase // Từ điển VietPhrase -> Màu Xanh Sky Blue
+    case hanViet    // Phiên âm Hán Việt -> Màu Vàng Amber
+
+    public var borderColor: Color {
+        switch self {
+        case .name: return Color.purple.opacity(0.45)
+        case .vietPhrase: return Color.blue.opacity(0.45)
+        case .hanViet: return Color.orange.opacity(0.45)
+        }
+    }
+
+    public var textColor: Color {
+        switch self {
+        case .name: return Color(red: 0.85, green: 0.65, blue: 1.0)
+        case .vietPhrase: return Color(red: 0.45, green: 0.82, blue: 1.0)
+        case .hanViet: return Color(red: 1.0, green: 0.78, blue: 0.4)
+        }
+    }
+}
+
+public struct SuggestionChip: Identifiable, Hashable, Sendable {
+    public let id = UUID()
+    public let text: String
+    public let category: SuggestionChipCategory
+
+    public init(text: String, category: SuggestionChipCategory) {
+        self.text = text
+        self.category = category
+    }
+}
+
 struct ReaderDefinitionOverlayView: View {
     @Binding var isPresented: Bool
     let selectedTheme: ReaderTheme
@@ -10,7 +43,7 @@ struct ReaderDefinitionOverlayView: View {
     @Binding var customMeaning: String
     @Binding var saveAsNameType: Bool
     @Binding var saveToBookSpecific: Bool
-    let suggestionChips: [String]
+    let suggestionChips: [SuggestionChip]
     let searchEngines: [SearchEngine]
     let selectedTextForDefinition: String
     let bookId: String
@@ -253,15 +286,19 @@ struct ReaderDefinitionOverlayView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(suggestionChips, id: \.self) { chip in
-                        Button(action: { customMeaning = chip }) {
-                            Text(chip)
+                    ForEach(suggestionChips) { chip in
+                        Button(action: { customMeaning = chip.text }) {
+                            Text(chip.text)
                                 .font(.subheadline)
+                                .foregroundColor(chip.category.textColor)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                .background(Color.blue.opacity(0.1))
-                                .foregroundColor(.blue)
+                                .background(Color(red: 0.12, green: 0.12, blue: 0.15))
                                 .cornerRadius(15)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 15)
+                                        .stroke(chip.category.borderColor, lineWidth: 1)
+                                )
                         }
                     }
                 }

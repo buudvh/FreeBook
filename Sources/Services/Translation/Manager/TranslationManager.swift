@@ -1,5 +1,9 @@
 import Foundation
 
+extension Notification.Name {
+    public static let translationDictionariesDidUpdate = Notification.Name("translationDictionariesDidUpdate")
+}
+
 public final class TranslationManager: ObservableObject {
     public static let shared = TranslationManager()
     
@@ -21,8 +25,8 @@ public final class TranslationManager: ObservableObject {
     public private(set) var luatNhanDict: TrieDictionary?
     public private(set) var phienAmMap: [String: String] = [:]
     
-    public private(set) var customVietPhraseDict: TrieDictionary?
-    public private(set) var customNamesDict: TrieDictionary?
+    @Published public private(set) var customVietPhraseDict: TrieDictionary?
+    @Published public private(set) var customNamesDict: TrieDictionary?
     public private(set) var deletedVietPhrase: Set<String> = []
     public private(set) var deletedNames: Set<String> = []
     
@@ -443,6 +447,10 @@ public final class TranslationManager: ObservableObject {
             }
         }
         self.deletedNames = delNames
+
+        await MainActor.run {
+            NotificationCenter.default.post(name: .translationDictionariesDidUpdate, object: nil)
+        }
     }
     
     private func loadPhoneticMap(from fileURL: URL) throws -> [String: String] {

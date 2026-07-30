@@ -13,7 +13,8 @@ struct NormalizedChapterText: Sendable, Equatable {
 
 enum ChapterTextNormalizer {
     static func normalize(_ rawContent: String) -> NormalizedChapterText {
-        let canonicalNewlines = rawContent
+        let cleanRaw = JunkFilterManager.shared.filterRawContent(rawContent)
+        let canonicalNewlines = cleanRaw
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
 
