@@ -1277,7 +1277,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             configureAudioSession()
             let player = try AVAudioPlayer(data: audioData)
             player.delegate = self
-            player.enableRatePlayback = true
+            player.enableRate = true
             player.rate = Float(speed)
 
             self.audioPlayer = player
@@ -1285,7 +1285,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             let ok = player.play()
             if ok {
                 self.isPlaying = true
-                self.playbackStartTime = Date()
             } else {
                 AppLogger.shared.log("❌ [TTSManager] [ID=\(playbackId)] player.play() thất bại")
                 self.isPlaying = false
