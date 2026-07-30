@@ -237,6 +237,14 @@ struct ShelfView: View {
                                             Label("Xem chi tiết", systemImage: "info.circle")
                                         }
 
+                                        if !book.isOnShelf {
+                                            Button {
+                                                addToShelf(book)
+                                            } label: {
+                                                Label("Thêm vào kệ sách", systemImage: "bookmark.badge.plus")
+                                            }
+                                        }
+
                                         Button {
                                             prepareTaskForBook(book, type: .download)
                                         } label: {
@@ -661,6 +669,16 @@ struct ShelfView: View {
     private func prepareTaskForBook(_ book: Book, type: TaskType) {
         self.selectedTaskType = type
         self.selectedBookForTask = book
+    }
+
+    private func addToShelf(_ book: Book) {
+        book.isOnShelf = true
+        do {
+            try modelContext.save()
+            ToastManager.shared.show(message: "Đã thêm '\(book.title)' vào kệ sách")
+        } catch {
+            AppLogger.shared.log("❌ Lỗi khi thêm sách vào kệ tại ShelfView: \(error.localizedDescription)")
+        }
     }
 
     private func removeFromShelf(_ book: Book) {
