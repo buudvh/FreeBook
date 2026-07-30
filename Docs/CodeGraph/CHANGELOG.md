@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.57] - 2026-07-30
+
+### Tối Ưu Chất Lượng Resample & Khắc Phục Tiếng Xì/Rè Audio Hiss (TTS Audio Pipeline)
+* **Khắc Phục Nhiễu Răng Cưa (Aliasing Hiss) Trong Converter (`TTSManager.swift`, `ExtTTSService.swift`)**:
+  * Đặt `converter.sampleRateConverterQuality = AVAudioQuality.max.rawValue` cho tất cả các `AVAudioConverter` instance trong `makePCMBuffer(fromWavData:targetFormat:)`, `makePCMBuffer(fromMp3Data:targetFormat:)` và `ExtTTSService.synthesize`.
+  * Ép bộ chuyển đổi tần số của Apple sử dụng thuật toán nội suy mẫu (resampling) chất lượng tối đa, loại bỏ hoàn toàn nhiễu aliasing dải tần cao khi nâng tần số từ 22.05kHz/24kHz lên 44.1kHz/48kHz.
+* **Chuẩn Hóa Biên Độ PCM Float (`ExtTTSService.swift`)**:
+  * Bổ sung soft-clamping biên độ float PCM `max(-1.0, min(1.0, sample))` trong `preprocessBufferForExtTTS` để ngăn ngừa hiện tượng vỡ tiếng/xé tiếng do vượt ngưỡng biên độ.
+
 ## [1.3.56] - 2026-07-30
 
 ### Cập Nhật Danh Sách Quy Tắc Phân Tách Mục Lục Mặc Định (TOC Rules)

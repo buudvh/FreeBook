@@ -1574,6 +1574,7 @@ public final class TTSManager: NSObject, ObservableObject {
             AppLogger.shared.log("❌ [TTSManager] Không thể tạo AVAudioConverter từ \(srcFormat) sang \(targetFormat)")
             return nil
         }
+        converter.sampleRateConverterQuality = AVAudioQuality.max.rawValue
 
         let ratio = targetFormat.sampleRate / srcSampleRate
         let targetFrameCapacity = AVAudioFrameCount(Double(srcFrameCount) * ratio) + 16
@@ -1626,6 +1627,7 @@ public final class TTSManager: NSObject, ObservableObject {
             guard let converter = AVAudioConverter(from: srcFormat, to: targetFormat) else {
                 return nil
             }
+            converter.sampleRateConverterQuality = AVAudioQuality.max.rawValue
 
             let ratio = targetFormat.sampleRate / srcFormat.sampleRate
             let destFrameCapacity = AVAudioFrameCount(Double(srcBuffer.frameLength) * ratio) + 100

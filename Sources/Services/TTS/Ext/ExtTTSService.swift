@@ -58,6 +58,7 @@ public final class ExtTTSService {
             AppLogger.shared.log("❌ [ExtTTSService] Không thể tạo AVAudioConverter từ \(fileFormat) sang \(targetFormat)")
             return preprocessBufferForExtTTS(buffer)
         }
+        converter.sampleRateConverterQuality = AVAudioQuality.max.rawValue
         
         let ratio = targetFormat.sampleRate / fileFormat.sampleRate
         let targetFrameCapacity = AVAudioFrameCount(Double(frameCount) * ratio) + 16
@@ -134,7 +135,7 @@ public final class ExtTTSService {
                     sample *= max(t, 0)
                 }
 
-                data[frame] = sample
+                data[frame] = max(-1.0, min(1.0, sample))
             }
         }
         
