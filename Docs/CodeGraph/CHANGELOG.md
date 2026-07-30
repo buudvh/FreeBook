@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.58] - 2026-07-30
+
+### Sửa Lỗi Không Dịch Lại Các Chương Preloaded Khi Cập Nhật Từ Điển (`ReaderViewModel.swift`, `ReaderView.swift`, `ReaderDefinitionOverlayView.swift`)
+* **Dịch Lại Toàn Bộ Các Chương Trong Bộ Nhớ Đệm RAM (`ReaderViewModel.swift`)**:
+  * Cập nhật phương thức `toggleTranslation(enabled:)` và `refreshParagraphItems()` trong `ReaderViewModel` để duyệt qua toàn bộ các chương đã được tải trước trong `cache.cache` có `state == .loaded` (thay vì chỉ cập nhật `displayedChapterIndex` và `pendingNavigationIndex`).
+  * Thực hiện `processAndSaveChapter` cho tất cả các chương `.loaded` này để cập nhật lại tiêu đề và các đoạn văn bản theo từ điển dịch mới.
+* **Đồng Bộ Dịch Lại Khi Đóng/Lưu Từ Điển (`ReaderDefinitionOverlayView.swift`, `ReaderView.swift`)**:
+  * Bổ sung callback `onApplyTranslation` kích hoạt dịch lại toàn bộ các chương đã load trong RAM khi người dùng thêm, sửa, xóa từ trong sheet quản lý từ điển `ManageDefinitionsView` hoặc bấm "Cập nhật" ở màn hình dịch chương.
+
 ## [1.3.57] - 2026-07-30
 
 ### Tối Ưu Chất Lượng Resample & Khắc Phục Tiếng Xì/Rè Audio Hiss (TTS Audio Pipeline)

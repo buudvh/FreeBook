@@ -82,5 +82,6 @@ graph TD
 - `ReaderChapterListStore` restricts memory footprint for TOC rows via page fetching (TOC pagination) and a sliding window of 3 adjacent pages (maximum 300 active rows) for large books.
 - `Chapter.generateId(bookId:url:index:)` generates length-prefixed identifiers to prevent collision, while legacy chapter IDs remain intact.
 - Improved cooperative cancellation checks in `DownloadManager` during download and text export tasks.
+- `ReaderViewModel.toggleTranslation` and `refreshParagraphItems` now iterate over all loaded chapters in `cache.cache`, ensuring preloaded/cached chapters are re-translated along with the active chapter when saving or updating dictionary definitions.
 
 <!-- GENERATED END -->

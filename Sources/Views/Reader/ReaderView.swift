@@ -281,7 +281,8 @@ struct ReaderView: View {
                                 showingSearchEnginesConfigSheet = true
                             },
                             onGetDictionaryMatches: getDictionaryMatches,
-                            onGetHanViet: { getHanViet(for: $0) }
+                            onGetHanViet: { getHanViet(for: $0) },
+                            onApplyTranslation: applyTranslation
                         )
                         .padding([.horizontal, .bottom])
                         .background(

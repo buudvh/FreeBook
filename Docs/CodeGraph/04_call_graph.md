@@ -32,6 +32,7 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 ## Reader paragraph and selection calls (1.3.14)
 
 * `ReaderViewModel.processAndSaveChapter` and the legacy Reader path both call `ReaderParagraphBuilder.build`, which translates each original line independently and returns aligned paragraph items.
+* `ReaderViewModel.toggleTranslation` and `refreshParagraphItems` re-process all chapters in `cache.cache` with `state == .loaded` via `processAndSaveChapter`, keeping preloaded chapters synchronized when dictionary definitions change.
 * `translateContentWithMapping` preserves `translateContent` output, then aligns translation tokens against the post-processed output to create UTF-16 spans; an incomplete alignment returns no spans.
 * The custom “📖 Dịch” action emits `NSRange` to `ParagraphCardView`, which adds `item.id`; `ReaderView` looks up that id in the requested chapter and calls `ReaderSelectionMapper`.
 * `ReaderSelectionMapper` prefers stored spans, then uses the sentence/token algorithm from commit `3312841`; the definition editor always receives the full `item.original` and an original-text range.

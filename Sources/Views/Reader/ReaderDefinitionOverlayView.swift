@@ -29,6 +29,7 @@ struct ReaderDefinitionOverlayView: View {
     let onOpenSearchEngineConfig: () -> Void
     let onGetDictionaryMatches: (String) -> [DictionaryMatchInfo]
     let onGetHanViet: (String) -> String
+    var onApplyTranslation: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 16) {
@@ -59,6 +60,7 @@ struct ReaderDefinitionOverlayView: View {
                     } else {
                         self.customMeaning = onGetHanViet(selectedTextForDefinition)
                     }
+                    onApplyTranslation?()
                 }
             )
         }

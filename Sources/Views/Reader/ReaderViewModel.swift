@@ -888,8 +888,8 @@ class ReaderViewModel: ObservableObject {
     func toggleTranslation(enabled: Bool) {
         self.isTranslationEnabled = enabled
 
-        for idx in Set([displayedChapterIndex, pendingNavigationIndex].compactMap { $0 }) {
-            if let cached = cache.cache[idx], cached.state == .loaded {
+        for (idx, cached) in cache.cache {
+            if cached.state == .loaded {
                 let origTitle = cached.originalTitle
                 let origContent = cached.originalContent
 
@@ -902,8 +902,8 @@ class ReaderViewModel: ObservableObject {
 
     // Cập nhật lại giao diện các đoạn văn (ví dụ khi ẩn/hiện tiêu đề chương)
     func refreshParagraphItems() {
-        for idx in Set([displayedChapterIndex, pendingNavigationIndex].compactMap { $0 }) {
-            if let cached = cache.cache[idx], cached.state == .loaded {
+        for (idx, cached) in cache.cache {
+            if cached.state == .loaded {
                 let origTitle = cached.originalTitle
                 let origContent = cached.originalContent
 
