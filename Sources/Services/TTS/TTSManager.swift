@@ -1229,7 +1229,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         updateNowPlayingInfo()
     }
 
-    private func clearPrefetchCache() {
+    public func clearPrefetchCache() {
         nextChapterPrefetchTask?.cancel()
         nextChapterPrefetchTask = nil
 

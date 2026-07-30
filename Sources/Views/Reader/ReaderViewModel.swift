@@ -897,7 +897,7 @@ class ReaderViewModel: ObservableObject {
                     cached.content = TranslateUtils.translateContent(cached.originalContent, bookId: bookId)
                 }
                 if TranslateUtils.containsChinese(cached.originalTitle) {
-                    cached.translatedTitle = TranslateUtils.translateChapterTitle(cached.originalTitle, bookId: bookId)
+                    cached.title = TranslateUtils.translateChapterTitle(cached.originalTitle, bookId: bookId)
                 }
             }
         }
