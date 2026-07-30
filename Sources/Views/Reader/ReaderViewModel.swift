@@ -889,6 +889,20 @@ class ReaderViewModel: ObservableObject {
         self.isTranslationEnabled = enabled
     }
 
+    // Cập nhật lại cache nội dung và tiêu đề dịch khi từ điển thay đổi
+    func updateCachedTranslatedContent(bookId: String) {
+        for (_, cached) in cache.cache {
+            if cached.state == .loaded {
+                if TranslateUtils.containsChinese(cached.originalContent) {
+                    cached.content = TranslateUtils.translateContent(cached.originalContent, bookId: bookId)
+                }
+                if TranslateUtils.containsChinese(cached.originalTitle) {
+                    cached.translatedTitle = TranslateUtils.translateChapterTitle(cached.originalTitle, bookId: bookId)
+                }
+            }
+        }
+    }
+
     // Cập nhật lại giao diện các đoạn văn (ví dụ khi ẩn/hiện tiêu đề chương)
     func refreshParagraphItems() {
         for (idx, cached) in cache.cache {

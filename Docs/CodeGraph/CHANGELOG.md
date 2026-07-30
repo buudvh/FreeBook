@@ -4,7 +4,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.64] - 2026-07-30
 
-### Cập Nhật Thuật Toán Tokenizer Ưu Tiên Cụm Dài & Reader Dịch On-Demand In-Place (`TranslateUtils.swift`, `ParagraphCardView.swift`, `ReaderView.swift`, `ReaderViewModel.swift`)
+### Cập Nhật Thuật Toán Tokenizer Ưu Tiên Cụm Dài, Reader Dịch On-Demand In-Place & Sửa Lỗi TTS Dịch Mới (`TranslateUtils.swift`, `ParagraphCardView.swift`, `ReaderView.swift`, `ReaderViewModel.swift`, `ReaderJunkDeleteOverlayView.swift`)
 * **Tái Cấu Trúc Phân Tách VietPhrase Trong `TranslateUtils.tokenize` (`TranslateUtils.swift`)**:
   * Thêm struct nội bộ `VPCandidate` lưu trữ vị trí `range` và độ dài `length` của từng cụm VietPhrase (độ dài $\ge 2$).
   * Chuyển đổi thuật toán phân tách VietPhrase từ duyệt tuyến tính cuốn chiếu sang cơ chế Pre-scan và giải quyết tranh chấp chồng lấp theo quy tắc ưu tiên:
@@ -17,7 +17,12 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * **Dịch On-Demand Inline trực tiếp tại chỗ (`ParagraphCardView.swift`)**: Truyền `bookId` và `@Binding var translationRefreshToken: UUID`. Áp dụng biểu thức dịch inline trực tiếp tại chỗ `text: isTranslationEnabled ? (item.isTitle ? TranslateUtils.translateChapterTitle(item.original, bookId: bookId) : TranslateUtils.translateContent(item.original, bookId: bookId)) : item.original`. Phân biệt chính xác hàm dịch Tiêu đề chuyên dụng và Nội dung đoạn văn.
   * **Đồng bộ tín hiệu đổi từ điển In-Place (`ReaderView.swift`)**: Khai báo `@State private var translationRefreshToken = UUID()`. Khi nhận thông báo `translationDictionariesDidUpdate` (khi người dùng sửa/thêm từ mới trong từ điển), xóa RAM cache `clearCache()` và đổi `translationRefreshToken = UUID()`.
   * **Bảo toàn vị trí cuộn điểm ảnh 100%**: Toàn bộ mảng thẻ view và ID giữ nguyên 100%, tọa độ pixel offset (`contentOffset.y`) đứng yên tuyệt đối không bị trôi hay văng scroll dù 1 pixel, không cần dùng bất kỳ lệnh cuộn `scrollTo` nào.
-  * **Bảo toàn 100% tính năng phụ trợ**: Ánh xạ bôi đen tra từ (`ReaderSelectionMapper`), popup màn hình dịch, TTS Nghe và Highlight tiếp tục hoạt động hoàn hảo mà không bị ảnh hưởng.
+* **Khắc Phục Lỗi Màn Hình Xoá Từ Rác (`ReaderJunkDeleteOverlayView.swift`, `ReaderView.swift`)**:
+  * **Đồng bộ ô nhập từ (`ReaderView.swift`)**: Cập nhật `self.junkPatternInput = word` trong `updateEditorFromSelection()`, giúp ô nhập `TextField` tự động đổi chuỗi từ theo vùng chọn khi bấm các nút chevron mở rộng/thu hẹp.
+  * **Sửa lỗi bàn phím che lấp ô nhập (`ReaderView.swift`)**: Gỡ bỏ `.ignoresSafeArea(.keyboard, edges: .bottom)` khỏi overlay `showingJunkDeleteSheet`, giúp khung overlay tự động trượt nổi lên trên đỉnh bàn phím khi chạm nhập từ.
+* **Khắc Phục Lỗi TTS Không Đọc Theo Từ Điển Mới Vừa Sửa (`ReaderView.swift`, `ReaderViewModel.swift`)**:
+  * **Dịch động tại chỗ cho TTS (`ReaderView.swift`)**: Thêm `getTTSChapterContent(for: index)` dịch động nội dung chương (`TranslateUtils.translateContent`) và dịch động tiêu đề chương (`TranslateUtils.translateChapterTitle`) khi bắt đầu phát giọng đọc.
+  * **Làm mới bộ nhớ RAM ViewModel & Xóa đệm TTS (`ReaderViewModel.swift`, `ReaderView.swift`)**: Thêm `updateCachedTranslatedContent(bookId:)` làm mới `cached.content` và `cached.translatedTitle` khi đổi từ điển, đồng thời xóa đệm phát TTS cũ (`TTSManager.shared.clearPrefetchCache()`).
 
 ## [1.3.63] - 2026-07-30
 

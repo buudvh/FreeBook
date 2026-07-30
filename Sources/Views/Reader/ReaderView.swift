@@ -444,7 +444,6 @@ struct ReaderView: View {
                         .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 0 : 8)
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .ignoresSafeArea(.keyboard, edges: .bottom)
                     .zIndex(6)
                 }
 
@@ -732,6 +731,8 @@ struct ReaderView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .translationDictionariesDidUpdate)) { _ in
             TranslateUtils.clearCache()
+            viewModel?.updateCachedTranslatedContent(bookId: bookId)
+            TTSManager.shared.clearPrefetchCache()
             translationRefreshToken = UUID()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("navigateReaderToPlayingChapter"))) { notification in
@@ -1334,6 +1335,7 @@ struct ReaderView: View {
         guard selectedWordOffset >= 0 && selectedWordOffset + selectedWordLength <= ns.length else { return }
         let word = ns.substring(with: NSRange(location: selectedWordOffset, length: selectedWordLength))
         self.selectedTextForDefinition = word
+        self.junkPatternInput = word
 
         if translationMode == "VP" {
             self.customMeaning = TranslateUtils.translateMeta(word, bookId: bookId)
@@ -1675,7 +1677,7 @@ struct ReaderView: View {
                 }
             }
 
-            let chapterContentToUse = viewModel?.cache.get(index)?.content ?? ""
+            let chapterContentToUse = getTTSChapterContent(for: index)
 
             ttsManager.startSpeaking(
                 bookId: bookId,
@@ -1697,6 +1699,15 @@ struct ReaderView: View {
                 } : nil
             )
         }
+    }
+
+    private func getTTSChapterContent(for index: Int) -> String {
+        guard let cached = viewModel?.cache.get(index) else { return "" }
+        let rawContent = cached.originalContent.isEmpty ? cached.content : cached.originalContent
+        if isTranslationEnabled && TranslateUtils.containsChinese(rawContent) {
+            return TranslateUtils.translateContent(rawContent, bookId: bookId)
+        }
+        return rawContent
     }
 
     private func getSavedParagraphIndex(for idx: Int) -> Int {
@@ -1726,7 +1737,7 @@ struct ReaderView: View {
         let index = chapterIndex
         guard index >= 0 && index < totalChaptersCount else { return }
 
-        let chapterContentToUse = viewModel?.cache.get(index)?.content ?? ""
+        let chapterContentToUse = getTTSChapterContent(for: index)
         guard !chapterContentToUse.isEmpty else { return }
 
         Task {
