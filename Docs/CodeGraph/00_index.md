@@ -83,5 +83,6 @@ graph TD
 - `Chapter.generateId(bookId:url:index:)` generates length-prefixed identifiers to prevent collision, while legacy chapter IDs remain intact.
 - Improved cooperative cancellation checks in `DownloadManager` during download and text export tasks.
 - `ReaderViewModel.toggleTranslation` and `refreshParagraphItems` now iterate over all loaded chapters in `cache.cache`, ensuring preloaded/cached chapters are re-translated along with the active chapter when saving or updating dictionary definitions.
+- `TranslateUtils.tokenize` pre-scans VietPhrase candidates ($L \ge 2$) and resolves overlaps by prioritizing longer length (`length DESC`), then earlier start index (`lowerBound ASC`), while preserving single Chinese character fallback lookup in `performTranslation`.
 
 <!-- GENERATED END -->

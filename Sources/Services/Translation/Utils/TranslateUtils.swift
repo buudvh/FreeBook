@@ -545,6 +545,11 @@ public final class TranslateUtils {
         let length: Int
     }
 
+    private struct VPCandidate {
+        let range: Range<Int>
+        let length: Int
+    }
+
     private static func isAlphanumeric(_ char: Character) -> Bool {
         guard let scalar = char.unicodeScalars.first else { return false }
         return CharacterSet.alphanumerics.contains(scalar)
@@ -644,7 +649,7 @@ public final class TranslateUtils {
             i += 1
         }
         
-        // --- BƯỚC 2: GIẢI QUYẾT TRANH CHẤP CHỒNG LẤN ---
+        // --- BƯỚC 2: GIẢI QUYẾT TRANH CHẤP CHỒNG LẤN TÊN RIÊNG ---
         candidates.sort { c1, c2 in
             if c1.length != c2.length {
                 return c1.length > c2.length
@@ -674,31 +679,21 @@ public final class TranslateUtils {
         
         selectedNames.sort { $0.range.lowerBound < $1.range.lowerBound }
         
-        // --- BƯỚC 3: PHÂN TÁCH CÁC VÙNG CÒN LẠI BẰNG VIETPHRASE & DẤU CÂU ---
-        var output: [String] = []
-        var currentIndex = 0
-        
-        while currentIndex < length {
-            if isASCIIAlphanumeric(chars[currentIndex]) {
-                let end = asciiAlphanumericRunEnd(in: chars, from: currentIndex, upperBound: length)
-                output.append(String(chars[currentIndex..<end]))
-                currentIndex = end
-                continue
-            }
-
-            if let activeName = selectedNames.first(where: { $0.range.lowerBound == currentIndex }) {
-                let matchedStr = String(chars[activeName.range])
-                output.append(matchedStr)
-                currentIndex = activeName.range.upperBound
+        // --- BƯỚC 3: PRE-SCAN TẤT CẢ ỨNG VIÊN VIETPHRASE TRONG VÙNG TRỐNG (CỤM DÀI >= 2) ---
+        var vpCandidates: [VPCandidate] = []
+        var j = 0
+        while j < length {
+            if occupiedIndices.contains(j) || !isChineseCharacter(chars[j]) {
+                j += 1
                 continue
             }
             
-            let nextNameStart = selectedNames.first(where: { $0.range.lowerBound > currentIndex })?.range.lowerBound ?? length
-            let maxLimit = nextNameStart - currentIndex
+            let nextNameStart = selectedNames.first(where: { $0.range.lowerBound > j })?.range.lowerBound ?? length
+            let maxLimit = nextNameStart - j
             let limit = min(maxLimit, 20)
             
-            if limit > 0 {
-                let checkText = String(chars[currentIndex..<(currentIndex + limit)])
+            if limit >= 2 {
+                let checkText = String(chars[j..<(j + limit)])
                 var longestVPLen = 0
                 
                 // 1. Book VietPhrase
@@ -716,46 +711,95 @@ public final class TranslateUtils {
                 // 3. Base VietPhrase
                 if let vp = vp,
                    let match = vp.findLongestMatch(text: checkText, startIndex: 0) {
-                    let matchedStr = String(chars[currentIndex..<(currentIndex + match.length)])
+                    let matchedStr = String(chars[j..<(j + match.length)])
                     if !deletedVP.contains(matchedStr) {
                         longestVPLen = max(longestVPLen, match.length)
                     }
                 }
                 
-                if longestVPLen > 0 {
-                    let matchedStr = String(chars[currentIndex..<(currentIndex + longestVPLen)])
-                    output.append(matchedStr)
-                    currentIndex += longestVPLen
-                } else {
-                    let char = chars[currentIndex]
-                    if isChineseCharacter(char) {
-                        output.append(String(char))
-                        currentIndex += 1
-                    } else {
-                        // Tối ưu hóa phân tách dấu câu độc lập:
-                        // Chỉ gom nhóm các chữ cái/chữ số Latin (Sto9, iOS, 100...)
-                        if isAlphanumeric(char) {
-                            var end = currentIndex + 1
-                            while end < nextNameStart && isAlphanumeric(chars[end]) {
-                                end += 1
-                            }
-                            let alphanumericStr = String(chars[currentIndex..<end])
-                            output.append(alphanumericStr)
-                            currentIndex = end
-                        } else {
-                            // Dấu câu hoặc khoảng trắng: chỉ gom nhóm các ký tự GIỐNG NHAU liên tiếp (ví dụ: .... hoặc ???)
-                            var end = currentIndex + 1
-                            while end < nextNameStart && chars[end] == char {
-                                end += 1
-                            }
-                            let punctuationStr = String(chars[currentIndex..<end])
-                            output.append(punctuationStr)
-                            currentIndex = end
-                        }
-                    }
+                if longestVPLen >= 2 {
+                    vpCandidates.append(VPCandidate(range: j..<(j + longestVPLen), length: longestVPLen))
                 }
-            } else {
+            }
+            j += 1
+        }
+        
+        // --- BƯỚC 4: GIẢI QUYẾT TRANH CHẤP CHỒNG LẤN VIETPHRASE (CỤM DÀI HƠN THẮNG, BẰNG ĐỘ DÀI THÌ VỊ TRÍ TRƯỚC THẮNG) ---
+        vpCandidates.sort { c1, c2 in
+            if c1.length != c2.length {
+                return c1.length > c2.length
+            }
+            return c1.range.lowerBound < c2.range.lowerBound
+        }
+        
+        var selectedVPs: [VPCandidate] = []
+        for candidate in vpCandidates {
+            var isOverlapping = false
+            for idx in candidate.range {
+                if occupiedIndices.contains(idx) {
+                    isOverlapping = true
+                    break
+                }
+            }
+            
+            if !isOverlapping {
+                selectedVPs.append(candidate)
+                for idx in candidate.range {
+                    occupiedIndices.insert(idx)
+                }
+            }
+        }
+        
+        selectedVPs.sort { $0.range.lowerBound < $1.range.lowerBound }
+        
+        // --- BƯỚC 5: GHÉP CHUỖI MẢNG TOKENS KẾT QUẢ HOÀN CHỈNH ---
+        var output: [String] = []
+        var currentIndex = 0
+        
+        while currentIndex < length {
+            if isASCIIAlphanumeric(chars[currentIndex]) {
+                let end = asciiAlphanumericRunEnd(in: chars, from: currentIndex, upperBound: length)
+                output.append(String(chars[currentIndex..<end]))
+                currentIndex = end
+                continue
+            }
+
+            if let activeName = selectedNames.first(where: { $0.range.lowerBound == currentIndex }) {
+                output.append(String(chars[activeName.range]))
+                currentIndex = activeName.range.upperBound
+                continue
+            }
+            
+            if let activeVP = selectedVPs.first(where: { $0.range.lowerBound == currentIndex }) {
+                output.append(String(chars[activeVP.range]))
+                currentIndex = activeVP.range.upperBound
+                continue
+            }
+            
+            let char = chars[currentIndex]
+            if isChineseCharacter(char) {
+                output.append(String(char))
                 currentIndex += 1
+            } else {
+                let nextBoundary = min(
+                    selectedNames.first(where: { $0.range.lowerBound > currentIndex })?.range.lowerBound ?? length,
+                    selectedVPs.first(where: { $0.range.lowerBound > currentIndex })?.range.lowerBound ?? length
+                )
+                if isAlphanumeric(char) {
+                    var end = currentIndex + 1
+                    while end < nextBoundary && isAlphanumeric(chars[end]) {
+                        end += 1
+                    }
+                    output.append(String(chars[currentIndex..<end]))
+                    currentIndex = end
+                } else {
+                    var end = currentIndex + 1
+                    while end < nextBoundary && chars[end] == char {
+                        end += 1
+                    }
+                    output.append(String(chars[currentIndex..<end]))
+                    currentIndex = end
+                }
             }
         }
         

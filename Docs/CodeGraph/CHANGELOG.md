@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.64] - 2026-07-30
+
+### Cập Nhật Thuật Toán Tokenizer Ưu Tiên Cụm Từ Dài Hơn Khi Chồng Lấp (`TranslateUtils.swift`)
+* **Tái Cấu Trúc Phân Tách VietPhrase Trong `TranslateUtils.tokenize` (`TranslateUtils.swift`)**:
+  * Thêm struct nội bộ `VPCandidate` lưu trữ vị trí `range` và độ dài `length` của từng cụm VietPhrase (độ dài $\ge 2$).
+  * Chuyển đổi thuật toán phân tách VietPhrase từ duyệt tuyến tính cuốn chiếu sang cơ chế Pre-scan và giải quyết tranh chấp chồng lấp theo quy tắc ưu tiên:
+    1. Cụm từ có **chiều dài lớn hơn (`length`) luôn chiến thắng** (`length DESC`).
+    2. Nếu hai cụm từ có **chiều dài bằng nhau**, cụm từ **bắt đầu trước (`lowerBound`) chiến thắng** (`lowerBound ASC`).
+  * Tối ưu hóa hiệu năng $O(N)$ bằng kỹ thuật Pruning bỏ qua các ký tự không phải Hán tự (`isChineseCharacter`) và chỉ đưa các cụm từ ghép ($\ge 2$ chữ) vào mảng sắp xếp candidates.
+  * Từ Hán đơn lẻ standing alone được bảo toàn 100% nghĩa thông qua mảng Token 1-ký tự và hệ thống tra cứu 4 cấp (Book VP $\rightarrow$ Custom VP $\rightarrow$ Base VP $\rightarrow$ Phiên âm Hán Việt) ở bước `performTranslation`.
+
 ## [1.3.63] - 2026-07-30
 
 ### Xoá Từ Rác Khi Bôi Đen Trước Khi Chuẩn Hoá & Màn Hình Quản Lý Lọc Rác Dùng Chung (`JunkFilterManager.swift`, `ChapterTextNormalizer.swift`, `ReaderJunkDeleteOverlayView.swift`, `JunkFilterManagementView.swift`, `ReaderView.swift`, `SettingsView.swift`)
