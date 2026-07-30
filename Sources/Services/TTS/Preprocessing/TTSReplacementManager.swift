@@ -50,13 +50,133 @@ public final class TTSReplacementManager: ObservableObject {
         }
     }
     
+    public static let defaultRulesList: [TTSReplacementRule] = [
+        // Ký hiệu & Toán học phát âm tiếng Việt
+        TTSReplacementRule(pattern: "+", replacement: " cộng "),
+        TTSReplacementRule(pattern: "@", replacement: " a còng "),
+        TTSReplacementRule(pattern: "%", replacement: " phần trăm "),
+        TTSReplacementRule(pattern: "=", replacement: " "),
+        TTSReplacementRule(pattern: "&", replacement: " "),
+        TTSReplacementRule(pattern: "×", replacement: " nhân "),
+        TTSReplacementRule(pattern: "÷", replacement: " chia "),
+        TTSReplacementRule(pattern: "±", replacement: " cộng trừ "),
+        TTSReplacementRule(pattern: "≠", replacement: " khác "),
+        TTSReplacementRule(pattern: "≈", replacement: " xấp xỉ "),
+        TTSReplacementRule(pattern: "€", replacement: " ơ-rô "),
+        TTSReplacementRule(pattern: "¥", replacement: " yên "),
+        TTSReplacementRule(pattern: "£", replacement: " bảng "),
+        
+        // Dấu chấm giữa phân cách tên riêng Trung/Tây/Nhật (Harry·Potter, Khắc·Lỗ·Đồ)
+        TTSReplacementRule(pattern: "·", replacement: " "),
+        TTSReplacementRule(pattern: "•", replacement: " "),
+        TTSReplacementRule(pattern: "‧", replacement: " "),
+        TTSReplacementRule(pattern: "ㆍ", replacement: " "),
+        TTSReplacementRule(pattern: "⋅", replacement: " "),
+        TTSReplacementRule(pattern: "･", replacement: " "),
+        
+        // Ngoặc kép & Ngoặc đơn trích dẫn / Lời thoại (thay bằng dấu phẩy ", " để ngắt nhịp & nhấn mạnh)
+        TTSReplacementRule(pattern: "\"", replacement: " "),
+        TTSReplacementRule(pattern: "'", replacement: ", "),
+        TTSReplacementRule(pattern: "“", replacement: ", "),
+        TTSReplacementRule(pattern: "”", replacement: ", "),
+        TTSReplacementRule(pattern: "‘", replacement: ", "),
+        TTSReplacementRule(pattern: "’", replacement: ", "),
+        TTSReplacementRule(pattern: "„", replacement: ", "),
+        TTSReplacementRule(pattern: "‟", replacement: ", "),
+        TTSReplacementRule(pattern: "«", replacement: ", "),
+        TTSReplacementRule(pattern: "»", replacement: ", "),
+        TTSReplacementRule(pattern: "‹", replacement: ", "),
+        TTSReplacementRule(pattern: "›", replacement: ", "),
+        TTSReplacementRule(pattern: "＂", replacement: ", "),
+        TTSReplacementRule(pattern: "＇", replacement: ", "),
+        TTSReplacementRule(pattern: "❝", replacement: ", "),
+        TTSReplacementRule(pattern: "❞", replacement: ", "),
+        TTSReplacementRule(pattern: "❛", replacement: ", "),
+        TTSReplacementRule(pattern: "❜", replacement: ", "),
+        TTSReplacementRule(pattern: "〞", replacement: ", "),
+        TTSReplacementRule(pattern: "〟", replacement: ", "),
+        
+        // Dấu ngoặc chú thích / phụ đề / Hán Nhật (thay bằng dấu phẩy ", " để ngắt nhịp & nhấn mạnh)
+        TTSReplacementRule(pattern: "(", replacement: ", "),
+        TTSReplacementRule(pattern: ")", replacement: ", "),
+        TTSReplacementRule(pattern: "[", replacement: ", "),
+        TTSReplacementRule(pattern: "]", replacement: ", "),
+        TTSReplacementRule(pattern: "{", replacement: ", "),
+        TTSReplacementRule(pattern: "}", replacement: ", "),
+        TTSReplacementRule(pattern: "（", replacement: ", "),
+        TTSReplacementRule(pattern: "）", replacement: ", "),
+        TTSReplacementRule(pattern: "［", replacement: ", "),
+        TTSReplacementRule(pattern: "］", replacement: ", "),
+        TTSReplacementRule(pattern: "｛", replacement: ", "),
+        TTSReplacementRule(pattern: "｝", replacement: ", "),
+        
+        // Ngoặc trang trí Hán / Nhật
+        TTSReplacementRule(pattern: "【", replacement: ", "),
+        TTSReplacementRule(pattern: "】", replacement: ", "),
+        TTSReplacementRule(pattern: "〔", replacement: ", "),
+        TTSReplacementRule(pattern: "〕", replacement: ", "),
+        TTSReplacementRule(pattern: "〖", replacement: ", "),
+        TTSReplacementRule(pattern: "〗", replacement: ", "),
+        TTSReplacementRule(pattern: "「", replacement: ", "),
+        TTSReplacementRule(pattern: "」", replacement: ", "),
+        TTSReplacementRule(pattern: "『", replacement: ", "),
+        TTSReplacementRule(pattern: "』", replacement: ", "),
+        TTSReplacementRule(pattern: "《", replacement: ", "),
+        TTSReplacementRule(pattern: "》", replacement: ", "),
+        
+        // Dấu chấm ngắt nhịp & Phân cách
+        TTSReplacementRule(pattern: "...", replacement: "…"),
+        TTSReplacementRule(pattern: "....", replacement: "…"),
+        TTSReplacementRule(pattern: "--", replacement: ", "),
+        TTSReplacementRule(pattern: "---", replacement: ", "),
+        TTSReplacementRule(pattern: "—", replacement: ", "),
+        
+        // Biểu tượng rác, Nốt nhạc, Trái tim & Khối hình học trang trí
+        TTSReplacementRule(pattern: "*", replacement: " "),
+        TTSReplacementRule(pattern: "#", replacement: " "),
+        TTSReplacementRule(pattern: "~", replacement: " "),
+        TTSReplacementRule(pattern: "^", replacement: " "),
+        TTSReplacementRule(pattern: "\\", replacement: " "),
+        TTSReplacementRule(pattern: "|", replacement: " "),
+        TTSReplacementRule(pattern: "♪", replacement: " "),
+        TTSReplacementRule(pattern: "♫", replacement: " "),
+        TTSReplacementRule(pattern: "♥", replacement: " "),
+        TTSReplacementRule(pattern: "♡", replacement: " "),
+        TTSReplacementRule(pattern: "❤", replacement: " "),
+        TTSReplacementRule(pattern: "❥", replacement: " "),
+        TTSReplacementRule(pattern: "◆", replacement: " "),
+        TTSReplacementRule(pattern: "◇", replacement: " "),
+        TTSReplacementRule(pattern: "■", replacement: " "),
+        TTSReplacementRule(pattern: "□", replacement: " "),
+        TTSReplacementRule(pattern: "▲", replacement: " "),
+        TTSReplacementRule(pattern: "△", replacement: " "),
+        TTSReplacementRule(pattern: "▼", replacement: " "),
+        TTSReplacementRule(pattern: "▽", replacement: " "),
+        TTSReplacementRule(pattern: "○", replacement: " "),
+        TTSReplacementRule(pattern: "●", replacement: " "),
+        TTSReplacementRule(pattern: "◎", replacement: " "),
+        TTSReplacementRule(pattern: "☆", replacement: " "),
+        TTSReplacementRule(pattern: "★", replacement: " "),
+        TTSReplacementRule(pattern: "✦", replacement: " "),
+        TTSReplacementRule(pattern: "✧", replacement: " ")
+    ]
+    
     private func loadDefaultRules() {
-        self.rules = [
-            TTSReplacementRule(pattern: "\"", replacement: ""),
-            TTSReplacementRule(pattern: "(", replacement: ""),
-            TTSReplacementRule(pattern: ")", replacement: ""),
-            TTSReplacementRule(pattern: "...", replacement: "…")
-        ]
+        self.rules = Self.defaultRulesList
+        saveRules()
+    }
+    
+    public func resetToDefaults(mode: ImportMode) {
+        switch mode {
+        case .overwrite:
+            self.rules = Self.defaultRulesList
+        case .merge:
+            for rule in Self.defaultRulesList {
+                if !self.rules.contains(where: { $0.pattern == rule.pattern }) {
+                    self.rules.append(rule)
+                }
+            }
+        }
         saveRules()
     }
     

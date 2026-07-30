@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.56] - 2026-07-30
+
+### Cập Nhật Danh Sách Quy Tắc Phân Tách Mục Lục Mặc Định (TOC Rules)
+* **Cập nhật & Chuẩn hóa `defaultTOCRules` trong ([TranslateUtils.swift](../../Sources/Services/Translation/Utils/TranslateUtils.swift))**:
+  * Chuẩn hóa bộ ID thành chuỗi đồng nhất theo định dạng `rule1` đến `rule21`.
+  * Đổi toàn bộ tên gọi (Name) sang tiếng Việt trực quan mô tả chính xác cấu trúc dòng tiêu đề nhận diện.
+  * Chuẩn hóa toàn bộ các ví dụ mẫu (Example) bằng tiếng Trung nguyên bản đối với các quy tắc liên quan đến tiếng Trung, đảm bảo 100% khớp thành công với biểu thức Regex tương ứng.
+  * Tích hợp toàn bộ 17 quy tắc phân tách TOC từ file cấu hình chuẩn vào danh sách quy tắc mặc định `defaultTOCRules`.
+  * Khắc phục triệt để các quy tắc bị lỗi (sửa lỗi biên dịch Regex Lookbehind biến thiên, sửa ví dụ mẫu thiếu khoảng trắng đầu dòng, sửa ví dụ không phải tiêu đề chương, và nới rộng giới hạn tên chương đến 100-150 ký tự).
+* **Mở Rộng Quy Tắc Thay Thế Ký Tự TTS & Tái Cấu Trúc Giao Diện ([TTSReplacementManager.swift](../../Sources/Services/TTS/Preprocessing/TTSReplacementManager.swift), [TTSReplacementManagerView.swift](../../Sources/Views/Settings/TTS/TTSReplacementManagerView.swift))**:
+  * Bổ sung đầy đủ nhóm quy tắc mặc định `defaultRulesList`: phát âm ký hiệu/toán học tiếng Việt (`+` thành `cộng`, `@` thành `a còng`, `%` thành `phần trăm`, `×` thành `nhân`, `÷` thành `chia`, `±` thành `cộng trừ`, `≠` thành `khác`, `≈` thành `xấp xỉ`, `€` `¥` `£`), thay dấu `=` và `&` thành khoảng trắng; loại bỏ `-` đơn để tránh đọc sai từ ghép; bổ sung đầy đủ các loại dấu chấm giữa phân cách tên Trung/Tây/Nhật (`·` `•` `‧` `ㆍ` `⋅` `･` thành khoảng trắng); chuyển tất cả quy tắc thay thế ngoặc kép, ngoặc đơn trích dẫn, ngoặc chú thích/phụ đề/Hán-Nhật (`""`, `''`, `“”`, `‘’`, `„‟`, `«»`, `‹›`, `＂＇`, `❝❞`, `❛❜`, `〞〟`, `()`, `[]`, `{}`, `【】`, `〔〕`, `〖〗`, `「」`, `『』`, `《》`) sang thay thế bằng dấu phẩy `, ` để tạo nhịp ngắt dừng và nhấn mạnh ngữ điệu cho lời thoại/cụm từ khi TTS đọc; và thay thế các biểu tượng rác (`~`, `*`, `#`, `^`, `\`, `|`, `♪♫`, `♥♡❤❥`, `◆◇■□▲△▼▽○●◎`, `☆★✦✧`) bằng khoảng trắng `" "`.
+  * Thêm phương thức `resetToDefaults(mode:)` cho phép khôi phục danh sách mặc định (gộp hoặc ghi đè).
+  * Tái cấu trúc giao diện `TTSReplacementManagerView`: Gom các tính năng tùy chọn (Khôi phục mặc định, Nhập JSON, Xuất JSON) vào Menu Dropdown `ellipsis.circle` bên trái bottom bar, và di chuyển Nút Thêm quy tắc (`plus`) xuống góc dưới bên phải bottom bar.
+
 ## [1.3.55] - 2026-07-29
 
 ### Chuyển Đổi Nguồn Dữ Liệu Mục Lục (TOC Metadata) Từ SwiftData Chapter Sang ChapterStore

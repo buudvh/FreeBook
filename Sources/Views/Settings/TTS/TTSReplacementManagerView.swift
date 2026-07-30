@@ -17,10 +17,11 @@ struct TTSReplacementManagerView: View {
     @State private var replacementInput = ""
     @State private var isEnabledInput = true
     
-    // Trạng thái cho việc nhập/xuất file JSON
+    // Trạng thái cho việc nhập/xuất file JSON & Khôi phục mặc định
     @State private var showingFileImporter = false
     @State private var pendingImportJSON = ""
     @State private var showingImportOptions = false
+    @State private var showingResetOptions = false
     @State private var exportDocumentToShare: ExportDocument? = nil
     
     // Trạng thái thông báo lỗi/thành công
@@ -65,27 +66,37 @@ struct TTSReplacementManagerView: View {
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 EditButton()
-                
-                Button(action: {
-                    prepareForAdd()
-                }) {
-                    Image(systemName: "plus")
-                }
             }
             
             ToolbarItemGroup(placement: .bottomBar) {
-                Button(action: {
-                    showingFileImporter = true
-                }) {
-                    Label("Nhập cấu hình", systemImage: "square.and.arrow.down")
+                Menu {
+                    Button(action: {
+                        showingResetOptions = true
+                    }) {
+                        Label("Khôi phục mặc định", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    
+                    Button(action: {
+                        showingFileImporter = true
+                    }) {
+                        Label("Nhập cấu hình (JSON)", systemImage: "square.and.arrow.down")
+                    }
+                    
+                    Button(action: {
+                        exportRules()
+                    }) {
+                        Label("Xuất cấu hình (JSON)", systemImage: "square.and.arrow.up")
+                    }
+                } label: {
+                    Label("Tùy chọn", systemImage: "ellipsis.circle")
                 }
                 
                 Spacer()
                 
                 Button(action: {
-                    exportRules()
+                    prepareForAdd()
                 }) {
-                    Label("Xuất cấu hình", systemImage: "square.and.arrow.up")
+                    Image(systemName: "plus")
                 }
             }
         }
@@ -121,6 +132,24 @@ struct TTSReplacementManagerView: View {
                 onCancel: nil
             )
         )
+        // Chọn phương thức khôi phục mặc định
+        .confirmationDialog("Khôi phục quy tắc mặc định", isPresented: $showingResetOptions, titleVisibility: .visible) {
+            Button("Gộp với quy tắc hiện tại") {
+                manager.resetToDefaults(mode: .merge)
+                self.alertMessage = "Đã gộp các quy tắc mặc định thành công!"
+                self.showingAlert = true
+            }
+            
+            Button("Khôi phục hoàn toàn (Ghi đè)", role: .destructive) {
+                manager.resetToDefaults(mode: .overwrite)
+                self.alertMessage = "Đã khôi phục danh sách mặc định thành công!"
+                self.showingAlert = true
+            }
+            
+            Button("Hủy", role: .cancel) {}
+        } message: {
+            Text("Bạn muốn gộp thêm các quy tắc mặc định mới vào danh sách hiện tại hay đặt lại hoàn toàn về mặc định?")
+        }
         // Chọn phương thức nhập (Gộp hoặc Ghi đè)
         .confirmationDialog("Chọn phương thức nhập cấu hình", isPresented: $showingImportOptions, titleVisibility: .visible) {
             Button("Gộp với dữ liệu hiện có") {
