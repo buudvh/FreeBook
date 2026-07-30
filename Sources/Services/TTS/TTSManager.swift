@@ -380,13 +380,20 @@ public final class TTSManager: NSObject, ObservableObject {
         let engine = AVAudioEngine()
         let player = AVAudioPlayerNode()
         let pitchNode = AVAudioUnitTimePitch()
-        let eqNode = AVAudioUnitEQ(numberOfBands: 1)
+        let eqNode = AVAudioUnitEQ(numberOfBands: 2)
 
-        let band = eqNode.bands[0]
-        band.filterType = .lowPass
-        band.frequency = 10000.0
-        band.bandwidth = 1.0
-        band.bypass = false
+        let band0 = eqNode.bands[0]
+        band0.filterType = .lowPass
+        band0.frequency = 6500.0
+        band0.bandwidth = 1.0
+        band0.bypass = false
+
+        let band1 = eqNode.bands[1]
+        band1.filterType = .highShelf
+        band1.frequency = 7500.0
+        band1.gain = -12.0
+        band1.bypass = false
+
         eqNode.bypass = false
 
         engine.attach(player)
