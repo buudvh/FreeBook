@@ -62,11 +62,10 @@ public enum JunkFilterImportMode {
     case overwrite
 }
 
-@MainActor
 public final class JunkFilterManager: ObservableObject {
-    nonisolated public static let shared = JunkFilterManager()
+    public static let shared = JunkFilterManager()
 
-    @Published public private(set) var rules: [JunkFilterRule] = []
+    @MainActor @Published public private(set) var rules: [JunkFilterRule] = []
     private let lock = NSLock()
     private nonisolated(unsafe) var activeRulesCache: [JunkFilterRule] = []
 
@@ -80,11 +79,14 @@ public final class JunkFilterManager: ObservableObject {
     }
 
     private init() {
-        loadRules()
+        Task { @MainActor in
+            self.loadRules()
+        }
     }
 
     // MARK: - Persistence
 
+    @MainActor
     public func loadRules() {
         let url = rulesFileURL
         guard FileManager.default.fileExists(atPath: url.path) else {
@@ -105,6 +107,7 @@ public final class JunkFilterManager: ObservableObject {
         }
     }
 
+    @MainActor
     private func saveRules() {
         let snapshot = rules
         updateCache(snapshot)
@@ -155,6 +158,7 @@ public final class JunkFilterManager: ObservableObject {
 
     // MARK: - CRUD Operations
 
+    @MainActor
     public func addRule(pattern: String, replacement: String = "", isRegex: Bool = false) {
         let trimmed = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -171,6 +175,7 @@ public final class JunkFilterManager: ObservableObject {
         saveRules()
     }
 
+    @MainActor
     public func updateRule(_ rule: JunkFilterRule) {
         if let idx = rules.firstIndex(where: { $0.id == rule.id }) {
             rules[idx] = rule
@@ -178,11 +183,13 @@ public final class JunkFilterManager: ObservableObject {
         }
     }
 
+    @MainActor
     public func deleteRule(id: String) {
         rules.removeAll { $0.id == id }
         saveRules()
     }
 
+    @MainActor
     public func toggleRule(id: String, isEnabled: Bool) {
         if let idx = rules.firstIndex(where: { $0.id == id }) {
             rules[idx].isEnabled = isEnabled
@@ -190,11 +197,13 @@ public final class JunkFilterManager: ObservableObject {
         }
     }
 
+    @MainActor
     public func moveRules(from source: IndexSet, to destination: Int) {
         rules.move(fromOffsets: source, toOffset: destination)
         saveRules()
     }
 
+    @MainActor
     public func clearAllRules() {
         rules.removeAll()
         saveRules()
@@ -202,6 +211,7 @@ public final class JunkFilterManager: ObservableObject {
 
     // MARK: - Import / Export
 
+    @MainActor
     public func importRules(fromJSONString jsonString: String, mode: JunkFilterImportMode) -> Bool {
         guard let data = jsonString.data(using: .utf8) else { return false }
         do {
@@ -226,6 +236,7 @@ public final class JunkFilterManager: ObservableObject {
         }
     }
 
+    @MainActor
     public func exportRulesToJSON() -> String? {
         guard let data = try? JSONEncoder().encode(rules),
               let jsonStr = String(data: data, encoding: .utf8) else { return nil }

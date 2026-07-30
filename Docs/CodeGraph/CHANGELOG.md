@@ -33,8 +33,12 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Tối ưu hoá 0ms overhead: Dữ liệu toạ độ lưu trong Class in-memory không dùng `@State`, đảm bảo tốc độ cuộn mượt mà 60fps/120fps.
   * Loại bỏ nút **"Đóng"** trên menu nổi `FloatingSelectionMenu` khi bôi đen văn bản, tự động đóng menu khi chạm ra ngoài và thu gọn chiều rộng menu xuống 370pt.
 * **Sửa Lỗi Biên Dịch Build Errors & Tương Thích Swift 6 Concurrency (`JunkFilterManager.swift`, `ReaderView.swift`)**:
-  * Đánh dấu `nonisolated public static let shared` và `private nonisolated(unsafe) var activeRulesCache` trong `JunkFilterManager.swift` để giải quyết triệt để lỗi biên dịch Swift 6 MainActor access từ `filterRawContent`.
+  * Chuyển `JunkFilterManager` thành class thường với `public static let shared` không bị giới hạn bởi `@MainActor init()`, gán `@MainActor` trực tiếp cho thuộc tính UI `rules` và các phương thức CRUD để giải quyết triệt để lỗi biên dịch Swift 6 Concurrency initializer call.
   * Thay thế lệnh gọi `vm.loadChapter(at:forceRefresh:)` không tồn tại bằng `vm.reloadDisplayedChapter()` trong `ReaderView.swift`.
+* **Ghim Độc Lập Lựa Chọn Mặc Định Màn Hình Dịch Nhấn Giữ Lâu (`ReaderView.swift`, `ReaderDefinitionOverlayView.swift`)**:
+  * Tách độc lập 2 cụm bộ chọn: **Loại từ điển** (`Names`/`VP`, mặc định ban đầu: `VP`) và **Phạm vi từ điển** (`Riêng`/`Chung`, mặc định ban đầu: `Riêng`).
+  * Loại bỏ việc tự động ghi đè thụ động khi chọn tạm thời; bấm ngắn (Tap) chỉ đổi tạm thời cho từ đang chỉnh sửa.
+  * Hỗ trợ cử chỉ **Nhấn giữ lâu (Long Press)** trực tiếp trên bất kỳ nút nào để Ghim cố định nút đó làm mặc định mới cho cụm tương ứng, kèm rung haptic, hiển thị badge ghim `pin.fill` sáng đèn và thông báo Toast xác nhận.
 
 ## [1.3.62] - 2026-07-30
 

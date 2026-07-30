@@ -43,6 +43,10 @@ struct ReaderDefinitionOverlayView: View {
     @Binding var customMeaning: String
     @Binding var saveAsNameType: Bool
     @Binding var saveToBookSpecific: Bool
+    let pinnedSaveAsNameType: Bool
+    let pinnedSaveToBookSpecific: Bool
+    let onPinNameType: (Bool) -> Void
+    let onPinScope: (Bool) -> Void
     let suggestionChips: [SuggestionChip]
     let searchEngines: [SearchEngine]
     let selectedTextForDefinition: String
@@ -327,18 +331,82 @@ struct ReaderDefinitionOverlayView: View {
 
     private var typeAndScopePickersView: some View {
         HStack(spacing: 12) {
-            Picker("Loại", selection: $saveAsNameType) {
-                Text("Names").tag(true)
-                Text("VP").tag(false)
-            }
-            .pickerStyle(.segmented)
+            // Cụm 1: Loại (Names vs VP)
+            HStack(spacing: 0) {
+                dictSegmentButton(title: "Names", isSelected: saveAsNameType == true, isPinned: pinnedSaveAsNameType == true) {
+                    saveAsNameType = true
+                } onPin: {
+                    onPinNameType(true)
+                }
 
-            Picker("Phạm vi", selection: $saveToBookSpecific) {
-                Text("Riêng").tag(true)
-                Text("Chung").tag(false)
+                Divider()
+                    .frame(height: 18)
+
+                dictSegmentButton(title: "VP", isSelected: saveAsNameType == false, isPinned: pinnedSaveAsNameType == false) {
+                    saveAsNameType = false
+                } onPin: {
+                    onPinNameType(false)
+                }
             }
-            .pickerStyle(.segmented)
+            .padding(2)
+            .background(Color.secondary.opacity(0.15))
+            .cornerRadius(8)
+            .frame(maxWidth: .infinity)
+
+            // Cụm 2: Phạm vi (Riêng vs Chung)
+            HStack(spacing: 0) {
+                dictSegmentButton(title: "Riêng", isSelected: saveToBookSpecific == true, isPinned: pinnedSaveToBookSpecific == true) {
+                    saveToBookSpecific = true
+                } onPin: {
+                    onPinScope(true)
+                }
+
+                Divider()
+                    .frame(height: 18)
+
+                dictSegmentButton(title: "Chung", isSelected: saveToBookSpecific == false, isPinned: pinnedSaveToBookSpecific == false) {
+                    saveToBookSpecific = false
+                } onPin: {
+                    onPinScope(false)
+                }
+            }
+            .padding(2)
+            .background(Color.secondary.opacity(0.15))
+            .cornerRadius(8)
+            .frame(maxWidth: .infinity)
         }
+    }
+
+    @ViewBuilder
+    private func dictSegmentButton(
+        title: String,
+        isSelected: Bool,
+        isPinned: Bool,
+        onTap: @escaping () -> Void,
+        onPin: @escaping () -> Void
+    ) -> some View {
+        Button(action: onTap) {
+            HStack(spacing: 3) {
+                if isPinned {
+                    Image(systemName: "pin.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(selectedTheme == .dark ? Color(red: 1.0, green: 0.8, blue: 0.3) : Color.orange)
+                }
+                Text(title)
+                    .font(.system(size: 13, weight: isSelected ? .bold : .medium))
+            }
+            .foregroundColor(isSelected ? selectedTheme.textColor : .secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .background(isSelected ? Color.secondary.opacity(0.25) : Color.clear)
+            .cornerRadius(6)
+        }
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                onPin()
+            }
+        )
     }
 
     private var updateButtonView: some View {

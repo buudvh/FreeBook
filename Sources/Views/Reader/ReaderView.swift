@@ -116,8 +116,10 @@ struct ReaderView: View {
     @State private var selectedTextForDefinition = "" // Từ/Câu đang được bôi đen chọn tra từ
     @State private var showingDefinitionSheet = false // Hiện hộp thoại tra nghĩa từ điển
     @State private var customMeaning = "" // Nghĩa tự định nghĩa của người dùng lưu lại
-    @AppStorage("saveToBookSpecific") private var saveToBookSpecific = true
-    @AppStorage("saveAsNameType") private var saveAsNameType = false
+    @AppStorage("pinnedSaveToBookSpecific") private var pinnedSaveToBookSpecific = true
+    @AppStorage("pinnedSaveAsNameType") private var pinnedSaveAsNameType = false
+    @State private var saveToBookSpecific = true
+    @State private var saveAsNameType = false
 
     // Các cấu hình tra từ nâng cao và hiển thị
     @State private var originalSentence = ""
@@ -315,6 +317,18 @@ struct ReaderView: View {
                             customMeaning: $customMeaning,
                             saveAsNameType: $saveAsNameType,
                             saveToBookSpecific: $saveToBookSpecific,
+                            pinnedSaveAsNameType: pinnedSaveAsNameType,
+                            pinnedSaveToBookSpecific: pinnedSaveToBookSpecific,
+                            onPinNameType: { isName in
+                                pinnedSaveAsNameType = isName
+                                saveAsNameType = isName
+                                ToastManager.shared.show(message: "Đã ghim mặc định Loại: \(isName ? "Names" : "VP")", type: .success)
+                            },
+                            onPinScope: { isBook in
+                                pinnedSaveToBookSpecific = isBook
+                                saveToBookSpecific = isBook
+                                ToastManager.shared.show(message: "Đã ghim mặc định Phạm vi: \(isBook ? "Riêng" : "Chung")", type: .success)
+                            },
                             suggestionChips: suggestionChips,
                             searchEngines: searchEngines,
                             selectedTextForDefinition: selectedTextForDefinition,
@@ -1322,6 +1336,8 @@ struct ReaderView: View {
     }
 
     private func updateEditorFromSelection() {
+        self.saveAsNameType = self.pinnedSaveAsNameType
+        self.saveToBookSpecific = self.pinnedSaveToBookSpecific
         let ns = originalSentence as NSString
         guard selectedWordOffset >= 0 && selectedWordOffset + selectedWordLength <= ns.length else { return }
         let word = ns.substring(with: NSRange(location: selectedWordOffset, length: selectedWordLength))
