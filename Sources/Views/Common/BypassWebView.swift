@@ -76,6 +76,16 @@ struct BypassWebView: View {
             """
         }
         
+        extsHtml += """
+        <a class="card" href="http://14.225.254.182/">
+            <div class="ext-header">
+                <img class="ext-icon" src="\(fallbackIconBase64)"/>
+                <div class="ext-name" style="color: #7c3aed; font-weight: bold;">Sáng Tác Việt (STV IP)</div>
+            </div>
+            <div class="ext-url">http://14.225.254.182/</div>
+        </a>
+        """
+        
         let html = """
         <!DOCTYPE html>
         <html>
@@ -458,10 +468,32 @@ struct SwiftUIWebView: UIViewRepresentable {
     @Binding var currentUrlString: String
     @Binding var canGoBack: Bool
     @Binding var canGoForward: Bool
+    @Environment(\.modelContext) private var modelContext
     
     func makeUIView(context: Context) -> WKWebView {
         webView.navigationDelegate = context.coordinator
         context.coordinator.setupObservers(for: webView)
+        
+        let controller = webView.configuration.userContentController
+        controller.removeScriptMessageHandler(forName: "gettextSTVBridge")
+        controller.add(context.coordinator, name: "gettextSTVBridge")
+        
+        let (cssContent, jsContent) = GetTextSTVManager.shared.loadExtensionScripts()
+        if !jsContent.isEmpty {
+            let escapedCss = cssContent.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "`", with: "\\`").replacingOccurrences(of: "$", with: "\\$")
+            let cssScript = WKUserScript(
+                source: "var style = document.createElement('style'); style.innerHTML = `\(escapedCss)`; document.head.appendChild(style);",
+                injectionTime: .atDocumentEnd,
+                forMainFrameOnly: false
+            )
+            let jsScript = WKUserScript(
+                source: jsContent,
+                injectionTime: .atDocumentEnd,
+                forMainFrameOnly: false
+            )
+            controller.addUserScript(cssScript)
+            controller.addUserScript(jsScript)
+        }
         
         webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
         
@@ -471,9 +503,6 @@ struct SwiftUIWebView: UIViewRepresentable {
     }
     
     func updateUIView(_ uiView: WKWebView, context: Context) {
-        // SwiftUI may preserve the representable/coordinator between two
-        // presentations. Refresh bindings and explicitly load a changed target
-        // instead of leaving the previous page (or a blank page) in place.
         context.coordinator.parent = self
         context.coordinator.loadIfNeeded(url, in: uiView)
     }
@@ -482,13 +511,58 @@ struct SwiftUIWebView: UIViewRepresentable {
         Coordinator(self)
     }
     
-    class Coordinator: NSObject, WKNavigationDelegate {
+    class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         var parent: SwiftUIWebView
         private var observers: [NSKeyValueObservation] = []
         private var lastRequestedURL: URL?
         
         init(_ parent: SwiftUIWebView) {
             self.parent = parent
+        }
+
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            if message.name == "gettextSTVBridge", let body = message.body as? [String: Any] {
+                let context = parent.modelContext
+                Task { @MainActor in
+                    let action = (body["action"] as? String) ?? ""
+                    let bookTitle = (body["bookTitle"] as? String) ?? "Sáng Tác Việt"
+                    let bookId = (body["bookId"] as? String) ?? ""
+                    let host = (body["host"] as? String) ?? ""
+                    let url = (body["url"] as? String) ?? ""
+
+                    if action == "syncTOC" {
+                        let tocChapters = (body["tocChapters"] as? [[String: Any]]) ?? (body["chapters"] as? [[String: Any]]) ?? []
+                        if !bookTitle.isEmpty && !tocChapters.isEmpty {
+                            _ = try? await GetTextSTVManager.shared.syncTOCFromExtension(
+                                bookId: bookId,
+                                title: bookTitle,
+                                sourceUrl: url,
+                                host: host,
+                                tocChapters: tocChapters,
+                                container: context.container
+                            )
+                        }
+                    } else if action == "saveChapterContent" {
+                        let chapterIndex = (body["chapterIndex"] as? Int) ?? 0
+                        let chapterTitle = (body["chapterTitle"] as? String) ?? "Chương"
+                        let chapterUrl = (body["chapterUrl"] as? String) ?? url
+                        let content = (body["content"] as? String) ?? ""
+                        if !content.isEmpty {
+                            try? await GetTextSTVManager.shared.saveChapterContentFromExtension(
+                                bookId: bookId,
+                                chapterIndex: chapterIndex,
+                                chapterTitle: chapterTitle,
+                                chapterUrl: chapterUrl,
+                                content: content,
+                                container: context.container
+                            )
+                        }
+                    } else if action == "finishDownload" || action == "stopDownload" {
+                        let cleanBookId = bookId.hasPrefix("stv_") ? bookId : "stv_" + bookId
+                        self.parent.onImport?(url, "local_stv", "Sáng Tác Việt")
+                    }
+                }
+            }
         }
 
         func loadIfNeeded(_ url: URL?, in webView: WKWebView) {
