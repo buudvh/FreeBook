@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.68] - 2026-07-31
+
+### Tinh Chỉnh Khoảng Cách Token Dịch Hàng Thứ 2 Màn Hình Dịch & Đồng Bộ Tra Từ Điển (`ReaderDefinitionOverlayView.swift`, `ReaderJunkDeleteOverlayView.swift`, `TranslateUtils.swift`)
+* **Thu Hẹp Khoảng Cách Giữa Các Token Dịch**:
+  * Giảm `spacing` của `HStack` từ `6` xuống `2` và giảm `.padding(.horizontal)` của từng `Text` token từ `4` xuống `2` ở `translatedTokensRowView`.
+  * Giảm tổng khoảng cách giữa các văn bản token kề nhau từ `14pt` xuống `6pt`, giúp chuỗi câu dịch ở hàng thứ 2 trông liền mạch, tự nhiên như một câu đọc bình thường mà vẫn đảm bảo thao tác chọn từ và highlight xanh/đỏ rõ ràng.
+* **Tái Cấu Trúc Đồng Bộ Tra Từ Điển Dùng Chung (`TranslateUtils.swift`)**:
+  * Tạo mới hai hàm private helper `lookupRawTranslation(for:bookId:)` tra cứu trực tiếp 8 tầng từ điển và `resolveTokenMeaning(for:bookId:phienAm:)` xử lý nghĩa token kết hợp fallback Hán Việt.
+  * Cập nhật cả `performTranslation` và `getTranslationTokens` sử dụng chung `resolveTokenMeaning`, loại bỏ hoàn toàn việc gọi gián tiếp `translateMeta` thừa thãi, giúp cả dịch đoạn văn và danh sách token Hàng 2 hiển thị nghĩa đồng bộ 100%.
+
 ## [1.3.67] - 2026-07-31
 
 ### Tích Hợp Google Cloud TTS (ReadAloud API) & Hỗ Trợ Đọc Văn Bản Bôi Đen (`GoogleTTSService.swift`, `TTSManager.swift`, `ReaderView.swift`, `TTSSettingsView.swift`, `project.yml`, `build-ipa.yml`)

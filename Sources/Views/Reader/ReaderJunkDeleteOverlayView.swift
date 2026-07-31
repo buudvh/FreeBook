@@ -144,7 +144,7 @@ struct ReaderJunkDeleteOverlayView: View {
     private var translatedTokensRowView: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
+                HStack(spacing: 2) {
                     ForEach(translationTokens) { token in
                         let isSelected = (token.originalOffset < selectedWordOffset + selectedWordLength &&
                                           token.originalOffset + token.originalLength > selectedWordOffset)
@@ -153,7 +153,7 @@ struct ReaderJunkDeleteOverlayView: View {
                             .bold(isSelected)
                             .underline()
                             .foregroundColor(isSelected ? .red : .primary)
-                            .padding(.horizontal, 4)
+                            .padding(.horizontal, 2)
                             .padding(.vertical, 2)
                             .background(isSelected ? Color.red.opacity(0.1) : Color.clear)
                             .cornerRadius(4)

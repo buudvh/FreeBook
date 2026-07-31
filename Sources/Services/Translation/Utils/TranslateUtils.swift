@@ -416,6 +416,109 @@ public final class TranslateUtils {
         return translated
     }
     
+    private static func lookupRawTranslation(for token: String, bookId: String?) -> String? {
+        let isPronounsEnabled = UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
+        let isLuatNhanEnabled = UserDefaults.standard.bool(forKey: "isTranslationLuatNhanEnabled")
+        
+        let manager = TranslationManager.shared
+        let names = manager.namesDict
+        let customNames = manager.customNamesDict
+        let deletedNames = manager.deletedNames
+        let pronouns = isPronounsEnabled ? manager.pronounsDict : nil
+        let luatNhan = isLuatNhanEnabled ? manager.luatNhanDict : nil
+        let vp = manager.vietPhraseDict
+        let customVP = manager.customVietPhraseDict
+        let deletedVP = manager.deletedVietPhrase
+        
+        var bookVP: TrieDictionary? = nil
+        var bookNames: TrieDictionary? = nil
+        if let bid = bookId {
+            let bookDicts = manager.getBookDictionaries(for: bid)
+            bookVP = bookDicts.vietPhrase
+            bookNames = bookDicts.names
+        }
+        
+        // 1. Book Names
+        if let bookNames = bookNames,
+           let match = bookNames.findLongestMatch(text: token, startIndex: 0),
+           match.length == token.count {
+            return match.value
+        }
+        
+        // 2. Custom Names
+        if let customNames = customNames,
+           let match = customNames.findLongestMatch(text: token, startIndex: 0),
+           match.length == token.count {
+            return match.value
+        }
+        
+        // 3. Base Names (exclude deleted)
+        if !deletedNames.contains(token),
+           let names = names,
+           let match = names.findLongestMatch(text: token, startIndex: 0),
+           match.length == token.count {
+            return match.value
+        }
+        
+        // 4. Pronouns
+        if let pronouns = pronouns,
+           let match = pronouns.findLongestMatch(text: token, startIndex: 0),
+           match.length == token.count {
+            return match.value
+        }
+        
+        // 5. LuatNhan
+        if let luatNhan = luatNhan,
+           let match = luatNhan.findLongestMatch(text: token, startIndex: 0),
+           match.length == token.count {
+            return match.value
+        }
+        
+        // 6. Book VietPhrase
+        if let bookVP = bookVP,
+           let match = bookVP.findLongestMatch(text: token, startIndex: 0),
+           match.length == token.count {
+            return match.value
+        }
+        
+        // 7. Custom VietPhrase
+        if let customVP = customVP,
+           let match = customVP.findLongestMatch(text: token, startIndex: 0),
+           match.length == token.count {
+            return match.value
+        }
+        
+        // 8. Base VietPhrase (exclude deleted)
+        if !deletedVP.contains(token),
+           let vp = vp,
+           let match = vp.findLongestMatch(text: token, startIndex: 0),
+           match.length == token.count {
+            return match.value
+        }
+        
+        return nil
+    }
+
+    private static func resolveTokenMeaning(for token: String, bookId: String?, phienAm: [String: String]) -> (meaning: String, isMatched: Bool) {
+        if let rawTranslation = lookupRawTranslation(for: token, bookId: bookId) {
+            return (getFirstMeaning(of: rawTranslation), true)
+        }
+        
+        let translatedToken: String
+        if token.count == 1, isChineseCharacter(token.first!) {
+            translatedToken = phienAm[token] ?? token
+        } else if containsChinese(token) {
+            var phienAmList: [String] = []
+            for c in token {
+                phienAmList.append(phienAm[String(c)] ?? String(c))
+            }
+            translatedToken = phienAmList.joined(separator: " ")
+        } else {
+            translatedToken = token
+        }
+        return (translatedToken, false)
+    }
+
     private static func performTranslation(_ text: String, bookId: String?) -> String {
         var converted = ""
         for char in text {
@@ -423,118 +526,12 @@ public final class TranslateUtils {
         }
         
         let tokens = tokenize(converted, bookId: bookId)
-        
-        let isPronounsEnabled = UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
-        let isLuatNhanEnabled = UserDefaults.standard.bool(forKey: "isTranslationLuatNhanEnabled")
-        
         var translatedWords: [String] = []
-        let names = TranslationManager.shared.namesDict
-        let customNames = TranslationManager.shared.customNamesDict
-        let deletedNames = TranslationManager.shared.deletedNames
-        let pronouns = isPronounsEnabled ? TranslationManager.shared.pronounsDict : nil
-        let luatNhan = isLuatNhanEnabled ? TranslationManager.shared.luatNhanDict : nil
-        let vp = TranslationManager.shared.vietPhraseDict
-        let customVP = TranslationManager.shared.customVietPhraseDict
-        let deletedVP = TranslationManager.shared.deletedVietPhrase
         let phienAm = TranslationManager.shared.phienAmMap
         
-        var bookVP: TrieDictionary? = nil
-        var bookNames: TrieDictionary? = nil
-        if let bid = bookId {
-            let bookDicts = TranslationManager.shared.getBookDictionaries(for: bid)
-            bookVP = bookDicts.vietPhrase
-            bookNames = bookDicts.names
-        }
-        
         for token in tokens {            
-            var translation: String? = nil
-            
-            // 1. Book Names
-            if let bookNames = bookNames,
-               let match = bookNames.findLongestMatch(text: token, startIndex: 0),
-               match.length == token.count {
-                translation = match.value
-            }
-            
-            // 2. Custom Names
-            if translation == nil,
-               let customNames = customNames,
-               let match = customNames.findLongestMatch(text: token, startIndex: 0),
-               match.length == token.count {
-                translation = match.value
-            }
-            
-            // 3. Base Names (exclude deleted)
-            if translation == nil,
-               !deletedNames.contains(token),
-               let names = names,
-               let match = names.findLongestMatch(text: token, startIndex: 0),
-               match.length == token.count {
-                translation = match.value
-            }
-            
-            // 4. Pronouns
-            if translation == nil,
-               let pronouns = pronouns,
-               let match = pronouns.findLongestMatch(text: token, startIndex: 0),
-               match.length == token.count {
-                translation = match.value
-            }
-            
-            // 5. LuatNhan
-            if translation == nil,
-               let luatNhan = luatNhan,
-               let match = luatNhan.findLongestMatch(text: token, startIndex: 0),
-               match.length == token.count {
-                translation = match.value
-            }
-            
-            // 6. Book VietPhrase
-            if translation == nil,
-               let bookVP = bookVP,
-               let match = bookVP.findLongestMatch(text: token, startIndex: 0),
-               match.length == token.count {
-                translation = match.value
-            }
-            
-            // 7. Custom VietPhrase
-            if translation == nil,
-               let customVP = customVP,
-               let match = customVP.findLongestMatch(text: token, startIndex: 0),
-               match.length == token.count {
-                translation = match.value
-            }
-            
-            // 8. Base VietPhrase (exclude deleted)
-            if translation == nil,
-               !deletedVP.contains(token),
-               let vp = vp,
-               let match = vp.findLongestMatch(text: token, startIndex: 0),
-               match.length == token.count {
-                translation = match.value
-            }
-            
-            if let found = translation {
-                translatedWords.append(getFirstMeaning(of: found))
-            } else {
-                if token.count == 1, isChineseCharacter(token.first!) {
-                    translatedWords.append(phienAm[token] ?? token)
-                } else if containsChinese(token) {
-                    var phienAmList: [String] = []
-                    var hasPhienAm = false
-                    for char in token {
-                        if let mapped = phienAm[String(char)] {
-                            phienAmList.append(mapped)
-                            hasPhienAm = true
-                        } else {
-                            phienAmList.append(String(char))
-                        }
-                    }
-                    translatedWords.append(hasPhienAm ? phienAmList.joined(separator: " ") : token)
-                } else {
-                    translatedWords.append(token)
-                }
-            }
+            let (meaning, _) = resolveTokenMeaning(for: token, bookId: bookId, phienAm: phienAm)
+            translatedWords.append(meaning)
         }
         
         return postProcessText(translatedWords.joined(separator: " "))
@@ -1271,27 +1268,7 @@ public final class TranslateUtils {
             guard currentIndex + tokenLen <= length else { break }
             let originalText = String(chars[currentIndex..<(currentIndex + tokenLen)])
             
-            let translatedToken: String
-            let isMatched: Bool
-            
-            let rawTranslation = translateMeta(token, bookId: bookId)
-            if rawTranslation == token {
-                isMatched = false
-                if token.count == 1, isChineseCharacter(token.first!) {
-                    translatedToken = phienAm[token] ?? token
-                } else if containsChinese(token) {
-                    var phienAmList: [String] = []
-                    for c in token {
-                        phienAmList.append(phienAm[String(c)] ?? String(c))
-                    }
-                    translatedToken = phienAmList.joined(separator: " ")
-                } else {
-                    translatedToken = token
-                }
-            } else {
-                isMatched = true
-                translatedToken = getFirstMeaning(of: rawTranslation)
-            }
+            let (translatedToken, isMatched) = resolveTokenMeaning(for: token, bookId: bookId, phienAm: phienAm)
             
             let trimmedTrans = translatedToken.trimmingCharacters(in: .whitespacesAndNewlines)
             if isMatched || !trimmedTrans.isEmpty || !originalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
