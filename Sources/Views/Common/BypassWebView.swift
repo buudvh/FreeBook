@@ -548,6 +548,7 @@ struct SwiftUIWebView: UIViewRepresentable {
                                 tocChapters: tocChapters,
                                 container: context.container
                             )
+                            AppLogger.shared.log("✅ [GetTextSTV] Đã nạp và đồng bộ mục lục (\(tocChapters.count) chương) cho sách: \(bookTitle)")
                         }
                     } else if action == "saveChapterContent" {
                         let chapterIndex = (body["chapterIndex"] as? Int) ?? 0
@@ -563,9 +564,11 @@ struct SwiftUIWebView: UIViewRepresentable {
                                 content: content,
                                 container: context.container
                             )
+                            AppLogger.shared.log("✅ [GetTextSTV] Đã lưu thành công chương \(chapterIndex + 1): \(chapterTitle)")
                         }
                     } else if action == "finishDownload" || action == "stopDownload" {
                         let cleanBookId = bookId.hasPrefix("stv_") ? bookId : "stv_" + bookId
+                        AppLogger.shared.log("✅ [GetTextSTV] Hoàn tất cào dữ liệu, đang đóng trình duyệt và chuyển mở BookDetailView cho bookId: \(cleanBookId)")
                         self.parent.onImport?(url, "local_stv", "Sáng Tác Việt")
                     }
                 }
