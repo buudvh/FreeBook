@@ -381,18 +381,6 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
-### 23b. [GoogleTTSService.swift](../../Sources/Services/TTS/Google/GoogleTTSService.swift)
-
-*   **Đường dẫn**: `Services/TTS/Google/GoogleTTSService.swift`
-*   **Imports (Import Graph)**: `Foundation`
-*   **Sử dụng (Uses)**:
-    *   [TextPreprocessor.swift](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift)
-*   **Được sử dụng bởi (Used by)**:
-    *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
-    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
-
----
-
 ### 24. [ModelStore.swift](../../Sources/Services/TTS/NghiTTS/ModelStore.swift)
 
 *   **Đường dẫn**: `Services/TTS/NghiTTS/ModelStore.swift`

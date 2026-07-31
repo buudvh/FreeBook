@@ -421,7 +421,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     // Trình phát & Engine
     private let siriService = SiriTTSService()
     private let extService = ExtTTSService()
-    private let googleService = GoogleTTSService()
     private var nghiTTSService: PiperTTSService?
     public private(set) var nghiTTSClient: NghiTTSClient?
     private var modelStore: ModelStore?
@@ -579,14 +578,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.nghittsPrefetchCount = UserDefaults.standard.object(forKey: "nghittsPrefetchCount") != nil ? UserDefaults.standard.integer(forKey: "nghittsPrefetchCount") : 3
             self.chunkLength = UserDefaults.standard.object(forKey: "nghittsChunk") != nil ? UserDefaults.standard.integer(forKey: "nghittsChunk") : 200
             self.prefetchDelayMs = UserDefaults.standard.object(forKey: "nghittsPrefetchDelay") != nil ? UserDefaults.standard.integer(forKey: "nghittsPrefetchDelay") : 0
-        } else if tool == "google" {
-            self.speed = UserDefaults.standard.double(forKey: "googleRate") > 0 ? UserDefaults.standard.double(forKey: "googleRate") : defaultRate
-            self.pitch = UserDefaults.standard.double(forKey: "googlePitch") > 0 ? UserDefaults.standard.double(forKey: "googlePitch") : defaultPitch
-            self.selectedVoice = UserDefaults.standard.string(forKey: "googleVoice") ?? ""
-            self.googlePrefetchCount = UserDefaults.standard.object(forKey: "googlePrefetchCount") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchCount") : 3
-            self.chunkLength = UserDefaults.standard.object(forKey: "googleChunk") != nil ? UserDefaults.standard.integer(forKey: "googleChunk") : 200
-            let saved = UserDefaults.standard.object(forKey: "googlePrefetchDelay") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchDelay") : 500
-            self.prefetchDelayMs = max(500, saved)
         } else {
             self.speed = UserDefaults.standard.double(forKey: "extRate_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extRate_\(tool)") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "extPitch_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extPitch_\(tool)") : defaultPitch
@@ -1349,8 +1340,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             playSystemTTS(textToSpeak) // Phát bằng Siri mặc định của iOS (không tốn dung lượng bộ nhớ)
         } else if tool == "nghitts" {
             playNghiTTS(textToSpeak) // Phát bằng Piper TTS offline (giọng đọc chất lượng cao tự nhiên hơn)
-        } else if tool == "google" {
-            playGoogleTTS(textToSpeak) // Phát bằng giọng đọc của Chị Google trực tuyến
         } else {
             playExtensionTTS(textToSpeak) // Phát thông qua Extension JavaScript tự định nghĩa
         }
@@ -1579,57 +1568,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    private func playGoogleTTS(_ text: String) {
-        let index = currentParagraphIndex
-        let playbackId = String(UUID().uuidString.prefix(4))
-        self.currentPlaybackId = playbackId
 
-        updatePrefetchWindow()
-
-        if let cachedData = preloadedData[index] {
-            self.playAudioData(cachedData, withId: playbackId)
-            return
-        }
-
-        Task {
-            do {
-                let mp3Data: Data
-                if let activeTask = prefetchTasks[index] {
-                    _ = await activeTask.value
-                    if let cached = preloadedData[index] {
-                        mp3Data = cached
-                    } else {
-                        mp3Data = try await googleService.synthesize(text: text)
-                    }
-                } else {
-                    mp3Data = try await googleService.synthesize(text: text)
-                }
-
-                guard self.isPlaying && self.currentPlaybackId == playbackId else {
-                    return
-                }
-
-                await MainActor.run {
-                    self.playAudioData(mp3Data, withId: playbackId)
-                }
-            } catch {
-                await MainActor.run {
-                    AppLogger.shared.log("❌ Lỗi Google TTS: \(error.localizedDescription)")
-                    self.preloadedData.removeValue(forKey: index)
-                    self.prefetchTasks[index]?.cancel()
-                    self.prefetchTasks.removeValue(forKey: index)
-                    self.currentPlaybackId = nil
-                    self.pause()
-                    let nsError = error as NSError
-                    if nsError.code == 429 {
-                        ToastManager.shared.show(message: "Lỗi Google TTS (429): Quá nhiều yêu cầu. Server Google đang hạn chế IP. Tạm dừng đọc.", type: .error)
-                    } else {
-                        ToastManager.shared.show(message: "Lỗi Google TTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
-                    }
-                }
-            }
-        }
-    }
 
     private func playNghiTTS(_ text: String) {
         guard let service = nghiTTSService else {

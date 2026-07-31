@@ -64,7 +64,6 @@ struct TTSSettingsView: View {
                 Picker("Trình đọc", selection: $ttsManager.tool) {
                     Text("Siri (Hệ thống Apple)").tag("system")
                     Text("NghiTTS (Piper Offline)").tag("nghitts")
-                    Text("Chị Google (Trực tuyến)").tag("google")
                     ForEach(ttsExtensions) { ext in
                         Text(ext.name).tag(ext.packageId)
                     }
@@ -147,15 +146,6 @@ struct TTSSettingsView: View {
                                 Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
                             }
                         }
-                    } else if ttsManager.tool == "google" {
-                        HStack {
-                            Image(systemName: "globe")
-                                .foregroundColor(.blue)
-                            Text("Giọng Tiếng Việt của Chị Google trực tuyến")
-                                .foregroundColor(.secondary)
-                                .font(.subheadline)
-                        }
-                        .padding(.vertical, 4)
                     } else {
                         // Trình đọc từ Extension
                         if isLoadingVoices {
@@ -178,7 +168,7 @@ struct TTSSettingsView: View {
                     }
                 }
                 
-                if ttsManager.tool != "system" && ttsManager.tool != "nghitts" && ttsManager.tool != "google" {
+                if ttsManager.tool != "system" && ttsManager.tool != "nghitts" {
                     if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }),
                        ExtensionManager.shared.hasConfig(localPath: ext.localPath) {
                         Section("Cấu hình") {
@@ -257,7 +247,7 @@ struct TTSSettingsView: View {
                         }
                     }
                     
-                    if ttsManager.tool == "system" || ttsManager.tool == "nghitts" || ttsManager.tool == "google" {
+                    if ttsManager.tool == "system" || ttsManager.tool == "nghitts" {
                          HStack {
                              Text("Độ dài phân đoạn (ký tự)")
                              Spacer()
@@ -307,17 +297,7 @@ struct TTSSettingsView: View {
                 }
 
                 Section("Tải trước dữ liệu (Preloading)") {
-                    if ttsManager.tool == "google" {
-                        Stepper(value: $ttsManager.googlePrefetchCount, in: 1...10) {
-                            HStack {
-                                Text("Số đoạn tải trước (Google):")
-                                Spacer()
-                                Text("\(ttsManager.googlePrefetchCount) đoạn")
-                                    .font(.system(.body, design: .monospaced))
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    } else if ttsManager.tool == "nghitts" {
+                    if ttsManager.tool == "nghitts" {
                         Stepper(value: $ttsManager.nghittsPrefetchCount, in: 1...10) {
                             HStack {
                                 Text("Số đoạn tải trước (NghiTTS):")

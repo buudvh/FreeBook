@@ -48,6 +48,8 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Đánh dấu `@Published` cho `customVietPhraseDict` và `customNamesDict` trong `TranslationManager`.
   * Bổ sung `@State private var refreshToken = UUID()` và `.onAppear` trong `DictionaryHubView` đếm và hiển thị ngay lập tức số từ mới nhất khi bấm Back ra ngoài.
   * Phát thông báo `translationDictionariesDidUpdate` khi cập nhật từ điển; `ReaderView` tự động xóa cache và ép nạp/dịch lại chương đang đọc (`forceRefresh: true`) để hiển thị nghĩa mới tức thì.
+* **Xóa Bỏ Hoàn Toàn Google TTS (`GoogleTTSService.swift`, `TTSEngineType.swift`, `TTSManager.swift`, `TTSSettingsView.swift`)**:
+  * Xóa bỏ hoàn toàn tệp `GoogleTTSService.swift` và các tham chiếu tới `case google` trong `TTSEngineType`, `TTSManager` và `TTSSettingsView`. Giữ nguyên 100% các công cụ đọc `Siri TTS` và `Nghi TTS` (Piper Engine).
 * **Tích Hợp Extension `GetTextSTV` Bóc Tách Nguồn Sáng Tác Việt (`GetTextSTVManager.swift`, `BypassWebView.swift`)**:
   * **Lối Tắt STV IP Trang Home**: Bổ sung thẻ Lối Tắt **"Sáng Tác Việt (STV IP)"** (`http://14.225.254.182/`) nổi bật trên trang chủ Home của Trình duyệt `BypassWebView`.
   * **Bộ Polyfill Safari iPhone (iOS WKWebView)**: Tiêm bộ giả lập `chrome.storage.local` bằng `window.localStorage` và `gettextSTVBridge`, đảm bảo 100% kịch bản bóc tách và lọc rác chạy mượt mà trên iPhone không bị lỗi `ReferenceError`.

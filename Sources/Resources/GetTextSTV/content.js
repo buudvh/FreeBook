@@ -275,31 +275,30 @@
 
     const formattedTitle = formatChapterTitle(chapterCopy, toc);
     const title = [chapterCopy.bookTitle, formattedTitle].filter(Boolean).join(" - ");
-    const blob = new Blob([formatNovelText([chapterCopy], chapterCopy.bookTitle, toc) + TXT_EOL], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${safeFileName(title)}${getTimestampSuffix()}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    
+    // Gửi trực tiếp về Swift FreeBook thay vì tải file TXT qua Blob
+    if (typeof sendFreeBookPayload === "function") {
+      sendFreeBookPayload("saveChapterContent", {
+        chapterIndex: chapterCopy.index || 0,
+        chapterTitle: formattedTitle,
+        chapterUrl: chapterCopy.url || location.href,
+        content: formatNovelText([chapterCopy], chapterCopy.bookTitle, toc)
+      });
+    }
   }
 
   async function downloadAutoText(state) {
     const chapters = await getStoredChapters(state);
     const title = state?.bookTitle || chapters[0]?.bookTitle || "sangtacviet-novel";
     if (chapters.length) await addDownloadHistory(state, chapters);
-    const text = formatNovelText(chapters, title, state?.toc);
-    const blob = new Blob([text + TXT_EOL], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${safeFileName(title)}${getTimestampSuffix()}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    
+    // Gửi thông báo hoàn tất về Swift FreeBook để thêm vào Kệ Sách và mở BookDetailView
+    if (typeof sendFreeBookPayload === "function") {
+      sendFreeBookPayload("finishDownload", {
+        bookTitle: title,
+        chapterCount: chapters.length
+      });
+    }
   }
 
   function storageGet() {
@@ -1728,6 +1727,17 @@
       toc: toc
     };
     await storageSet(state);
+
+    // Gửi syncTOC ngay cho Swift để lưu Book & Chapter metadata vào Kệ sách SwiftData local DB
+    if (typeof sendFreeBookPayload === "function") {
+      sendFreeBookPayload("syncTOC", {
+        bookId: bookId,
+        bookTitle: bookTitle,
+        host: host,
+        url: startUrl,
+        tocChapters: toc
+      });
+    }
 
     await appendAutoLog("range-start", {
       startUrl,

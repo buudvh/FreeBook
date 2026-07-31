@@ -1179,15 +1179,6 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 124b. GoogleTTSService (CLASS)
-
-*   **Định nghĩa tại**: [Services/TTS/Google/GoogleTTSService.swift:3](../../Sources/Services/TTS/Google/GoogleTTSService.swift#L3)
-*   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
-*   **Sử dụng (Uses)**: `TextPreprocessor`
-*   **Được sử dụng bởi (Used by)**: `TTSManager`, `ReaderView`
-
----
-
 ### 125. SkeletonView (STRUCT)
 
 *   **Định nghĩa tại**: [Views/Common/SkeletonView.swift:2](../../Sources/Views/Common/SkeletonView.swift#L2)
