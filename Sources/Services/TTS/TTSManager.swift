@@ -125,7 +125,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
     @Published public var selectedVoice: String {
         didSet {
-            UserDefaults.standard.set(selectedVoice, forKey: "ttsVoice")
             if tool == "system" {
                 UserDefaults.standard.set(selectedVoice, forKey: "systemVoice")
             } else if tool == "nghitts" {
@@ -535,15 +534,17 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         if toolVal == "system" {
             self.speed = UserDefaults.standard.double(forKey: "systemRate") > 0 ? UserDefaults.standard.double(forKey: "systemRate") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "systemPitch") > 0 ? UserDefaults.standard.double(forKey: "systemPitch") : defaultPitch
-            self.selectedVoice = UserDefaults.standard.string(forKey: "systemVoice") ?? (UserDefaults.standard.string(forKey: "ttsVoice") ?? "")
+            self.selectedVoice = UserDefaults.standard.string(forKey: "systemVoice") ?? ""
         } else if toolVal == "nghitts" {
             self.speed = UserDefaults.standard.double(forKey: "nghittsRate") > 0 ? UserDefaults.standard.double(forKey: "nghittsRate") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "nghittsPitch") > 0 ? UserDefaults.standard.double(forKey: "nghittsPitch") : defaultPitch
-            self.selectedVoice = UserDefaults.standard.string(forKey: "nghittsVoice") ?? (UserDefaults.standard.string(forKey: "ttsVoice") ?? "Ngọc Huyền (mới)")
+            self.selectedVoice = UserDefaults.standard.string(forKey: "nghittsVoice") ?? "Ngọc Huyền (mới)"
         } else if toolVal == "google" {
             self.speed = UserDefaults.standard.double(forKey: "googleRate") > 0 ? UserDefaults.standard.double(forKey: "googleRate") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "googlePitch") > 0 ? UserDefaults.standard.double(forKey: "googlePitch") : defaultPitch
-            self.selectedVoice = UserDefaults.standard.string(forKey: "googleVoice") ?? "via"
+            let savedVoice = UserDefaults.standard.string(forKey: "googleVoice") ?? "via"
+            let validGoogleVoiceIds = Set(GoogleVoice.allVoices.map { $0.id })
+            self.selectedVoice = validGoogleVoiceIds.contains(savedVoice) ? savedVoice : "via"
         } else {
             self.speed = UserDefaults.standard.double(forKey: "extRate_\(toolVal)") > 0 ? UserDefaults.standard.double(forKey: "extRate_\(toolVal)") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "extPitch_\(toolVal)") > 0 ? UserDefaults.standard.double(forKey: "extPitch_\(toolVal)") : defaultPitch
@@ -589,7 +590,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         } else if tool == "google" {
             self.speed = UserDefaults.standard.double(forKey: "googleRate") > 0 ? UserDefaults.standard.double(forKey: "googleRate") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "googlePitch") > 0 ? UserDefaults.standard.double(forKey: "googlePitch") : defaultPitch
-            self.selectedVoice = UserDefaults.standard.string(forKey: "googleVoice") ?? "via"
+            let savedVoice = UserDefaults.standard.string(forKey: "googleVoice") ?? "via"
+            let validGoogleVoiceIds = Set(GoogleVoice.allVoices.map { $0.id })
+            self.selectedVoice = validGoogleVoiceIds.contains(savedVoice) ? savedVoice : "via"
             self.googlePrefetchCount = UserDefaults.standard.object(forKey: "googlePrefetchCount") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchCount") : 3
             self.chunkLength = UserDefaults.standard.object(forKey: "googleChunk") != nil ? UserDefaults.standard.integer(forKey: "googleChunk") : 200
             self.prefetchDelayMs = UserDefaults.standard.object(forKey: "googlePrefetchDelay") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchDelay") : 500

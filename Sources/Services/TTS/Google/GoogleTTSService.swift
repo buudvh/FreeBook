@@ -68,6 +68,10 @@ public final class GoogleTTSService: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
         
+        // Đảm bảo voice được chọn là 1 trong 6 giọng đọc hợp lệ của Google TTS
+        let validVoiceIds = Set(GoogleVoice.allVoices.map { $0.id })
+        let safeVoice = validVoiceIds.contains(voice) ? voice : "via"
+        
         let requestBody: [String: Any] = [
             "text": [
                 "textParts": trimmedText
@@ -83,7 +87,7 @@ public final class GoogleTTSService: Sendable {
                 "voice_criteria_and_selections": [
                     [
                         "criteria": ["language": "vi"],
-                        "selection": ["default_voice": voice]
+                        "selection": ["default_voice": safeVoice]
                     ]
                 ]
             ]
@@ -104,7 +108,26 @@ public final class GoogleTTSService: Sendable {
             throw NSError(domain: "GoogleTTSService", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Google TTS API Lỗi HTTP \(httpResponse.statusCode): \(rawResponseString)"])
         }
         
-        // 1. Kiểm tra xem có lỗi JSON dạng Object {"error": ...} hay không
+        // 1. Kiểm tra xem có lỗi trong JSON Dict hay bất kỳ phần tử nào của mảng JSON hay không
+        if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [Any] {
+            for element in jsonArray {
+                if let dict = element as? [String: Any],
+                   let errorObj = dict["error"] as? [String: Any],
+                   let message = errorObj["message"] as? String {
+                    var detailMsg = message
+                    if let details = errorObj["details"] as? [[String: Any]],
+                       let firstDetail = details.first,
+                       let violations = firstDetail["violations"] as? [[String: Any]],
+                       let firstViolation = violations.first,
+                       let subject = firstViolation["subject"] as? String {
+                        detailMsg += " (Giọng '\(subject)' không được hỗ trợ)"
+                    }
+                    AppLogger.shared.log("❌ [GoogleTTSService] Google API Error: \(detailMsg)")
+                    throw NSError(domain: "GoogleTTSService", code: -6, userInfo: [NSLocalizedDescriptionKey: "Google TTS Lỗi: \(detailMsg)"])
+                }
+            }
+        }
+        
         if let jsonDict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
            let errorObj = jsonDict["error"] as? [String: Any],
            let message = errorObj["message"] as? String {
