@@ -68,7 +68,7 @@
 
     const chapterTitle = textOf("#bookchapnameholder") || "";
 
-    const rawBookId = (bookId || "").replace(/^stv_/, "");
+    const rawBookId = (bookId || "").replace(/^stv_[^_]+_/, "").replace(/^stv_/, "");
     const canonicalBookId = (host && rawBookId) ? `stv_${host}_${rawBookId}` : (rawBookId ? `stv_novel_${rawBookId}` : "");
 
     return {
@@ -1620,7 +1620,9 @@
 
     try {
       const origin = window.location.origin;
-      const fetchUrl = `${origin}/index.php?ngmar=chapterlist&h=${chapter.host}&bookid=${chapter.bookId}&sajax=getchapterlist`;
+      const rawBookId = chapter.rawBookId;
+      const fetchUrl = `${origin}/index.php?ngmar=chapterlist&h=${chapter.host}&bookid=${rawBookId}&sajax=getchapterlist`;
+      await appendAutoLog("load-panel-toc-start", { fetchUrl, rawBookId, host: chapter.host });
       const response = await fetch(fetchUrl, {
         headers: {
           "Accept": "*/*"
@@ -1635,6 +1637,17 @@
       if (Array.isArray(panelLocalToc) && panelLocalToc.length > 0) {
         statusNode.textContent = `Mục lục: ${panelLocalToc.length} chương.`;
         fieldsNode.style.display = "flex";
+        await appendAutoLog("load-panel-toc-success", { chapterCount: panelLocalToc.length, bookId: chapter.bookId });
+
+        if (typeof window.sendFreeBookPayload === "function") {
+          window.sendFreeBookPayload("syncTOC", {
+            bookId: chapter.bookId,
+            bookTitle: chapter.bookTitle,
+            host: chapter.host,
+            url: location.href,
+            tocChapters: panelLocalToc
+          });
+        }
 
         startInput.max = panelLocalToc.length;
         endInput.max = panelLocalToc.length;
@@ -1651,9 +1664,11 @@
         endInput.value = panelLocalToc.length;
       } else {
         statusNode.textContent = "Không tải được mục lục.";
+        await appendAutoLog("load-panel-toc-empty", { rawTextLength: rawText ? rawText.length : 0 });
       }
     } catch (e) {
       statusNode.textContent = "Lỗi mục lục: " + e.message;
+      await appendAutoLog("load-panel-toc-error", { error: e.message });
     }
   }
 
@@ -1814,7 +1829,8 @@
 
     const match = startUrl.match(/\/truyen\/([^\/]+)\/[^\/]+\/([^\/]+)/);
     const host = match ? match[1] : "";
-    const bookId = match ? match[2] : "";
+    const rawBookId = match ? match[2].replace(/^stv_[^_]+_/, "").replace(/^stv_/, "") : "";
+    const canonicalBookId = (host && rawBookId) ? `stv_${host}_${rawBookId}` : rawBookId;
 
     const state = {
       running: true,
@@ -1822,7 +1838,7 @@
       startedAt: new Date().toISOString(),
       startUrl: startUrl,
       bookTitle: bookTitle,
-      bookKey: `${host}:${bookId}`,
+      bookKey: `${host}:${canonicalBookId}`,
       endUrl: endUrl,
       chapterRefs: [],
       chapterCount: 0,
@@ -1834,7 +1850,7 @@
     // Gửi syncTOC ngay cho Swift để lưu Book & Chapter metadata vào Kệ sách SwiftData local DB
     if (typeof sendFreeBookPayload === "function") {
       sendFreeBookPayload("syncTOC", {
-        bookId: bookId,
+        bookId: canonicalBookId,
         bookTitle: bookTitle,
         host: host,
         url: startUrl,
@@ -1870,7 +1886,8 @@
             return;
           }
           const origin = window.location.origin;
-          const fetchUrl = `${origin}/index.php?ngmar=chapterlist&h=${chapter.host}&bookid=${chapter.bookId}&sajax=getchapterlist`;
+          const rawBookId = String(chapter.rawBookId || chapter.bookId || "").replace(/^stv_[^_]+_/, "").replace(/^stv_/, "");
+          const fetchUrl = `${origin}/index.php?ngmar=chapterlist&h=${chapter.host}&bookid=${rawBookId}&sajax=getchapterlist`;
           const response = await fetch(fetchUrl, {
             headers: {
               "Accept": "*/*"
