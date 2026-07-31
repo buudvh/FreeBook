@@ -1876,9 +1876,16 @@
     }
   }
 
-  if (location.pathname.includes("/truyen/")) {
-    createPanel();
-    storageGet().then(setProgress);
-    setTimeout(resumeAutoDownload, 800);
+  function checkAndInitPanel() {
+    if (location.pathname.includes("/truyen/") || document.querySelector("#hiddenid, #booknameholder, #bookchapnameholder")) {
+      if (!document.getElementById(PANEL_ID)) {
+        createPanel();
+        storageGet().then(setProgress);
+        setTimeout(resumeAutoDownload, 800);
+      }
+    }
   }
+
+  checkAndInitPanel();
+  setInterval(checkAndInitPanel, 1000);
 })();
