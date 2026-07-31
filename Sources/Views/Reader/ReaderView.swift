@@ -2126,7 +2126,16 @@ struct ReaderView: View {
                 } else if let top = paragraphTracker.topVisible {
                     startTTS(at: top.chapterIndex, paragraphIndex: top.paragraphIndex)
                 } else {
-                    startTTS(at: chapterIndex, paragraphIndex: -1)
+                    let savedPIdx = getSavedParagraphIndex(for: chapterIndex)
+                    let targetPIdx: Int
+                    if savedPIdx >= 0 {
+                        targetPIdx = savedPIdx
+                    } else if let vm = viewModel, vm.readingContext.chapterIndex == chapterIndex, vm.readingContext.paragraphIndex >= 0 {
+                        targetPIdx = vm.readingContext.paragraphIndex
+                    } else {
+                        targetPIdx = -1
+                    }
+                    startTTS(at: chapterIndex, paragraphIndex: targetPIdx)
                 }
             }
         )

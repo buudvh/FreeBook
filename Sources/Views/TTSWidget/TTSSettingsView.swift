@@ -197,7 +197,21 @@ struct TTSSettingsView: View {
                     }
                 }
                 
-                Section("Cấu hình giọng nói") {
+                Section(header: HStack {
+                    Text("Cấu hình giọng nói")
+                    Spacer()
+                    Button(action: {
+                        ttsManager.speed = 1.0
+                        ttsManager.pitch = 1.0
+                    }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "arrow.counterclockwise")
+                            Text("Đặt lại")
+                        }
+                        .font(.caption)
+                        .foregroundColor(.accentColor)
+                    }
+                }) {
                     Button(action: {
                         showingReplacementManagerSheet = true
                     }) {
@@ -211,30 +225,36 @@ struct TTSSettingsView: View {
                         }
                     }
                     
-                    VStack(alignment: .leading) {
-                         HStack {
-                             Text("Tốc độ:")
-                             Spacer()
-                             Text(String(format: "%.1fx", ttsManager.speed))
-                                 .font(.system(.body, design: .monospaced))
-                         }
-                         Slider(value: $ttsManager.speed, in: 0.5...5.0, step: 0.1)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Stepper(value: $ttsManager.speed, in: 0.5...5.0, step: 0.1) {
+                            HStack {
+                                Text("Tốc độ:")
+                                Spacer()
+                                Text(String(format: "%.1fx", ttsManager.speed))
+                                    .font(.system(.body, design: .monospaced))
+                            }
+                        }
+                        Slider(value: $ttsManager.speed, in: 0.5...5.0, step: 0.1)
                     }
                     
-                    VStack(alignment: .leading) {
-                         HStack {
-                             Text("Cao độ (Pitch):")
-                             Spacer()
-                             Text(String(format: "%.1fx", ttsManager.pitch))
-                                 .font(.system(.body, design: .monospaced))
-                         }
-                         Slider(value: $ttsManager.pitch, in: 0.5...2.0, step: 0.1)
-                             .disabled(ttsManager.tool == "nghitts")
-                         if ttsManager.tool == "nghitts" {
-                             Text("(*) NghiTTS không hỗ trợ chỉnh cao độ thời gian thực")
-                                 .font(.caption2)
-                                 .foregroundColor(.secondary)
-                         }
+                    VStack(alignment: .leading, spacing: 6) {
+                        Stepper(value: $ttsManager.pitch, in: 0.5...2.0, step: 0.1) {
+                            HStack {
+                                Text("Cao độ (Pitch):")
+                                Spacer()
+                                Text(String(format: "%.1fx", ttsManager.pitch))
+                                    .font(.system(.body, design: .monospaced))
+                            }
+                        }
+                        .disabled(ttsManager.tool == "nghitts")
+
+                        Slider(value: $ttsManager.pitch, in: 0.5...2.0, step: 0.1)
+                            .disabled(ttsManager.tool == "nghitts")
+                        if ttsManager.tool == "nghitts" {
+                            Text("(*) NghiTTS không hỗ trợ chỉnh cao độ thời gian thực")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
                     }
                     
                     if ttsManager.tool == "system" || ttsManager.tool == "nghitts" || ttsManager.tool == "google" {
@@ -278,9 +298,9 @@ struct TTSSettingsView: View {
                     }
 
                     if ttsManager.tool != "system" {
-                        Stepper(value: $ttsManager.prefetchDelayMs, in: 0...2000, step: 50) {
+                        Stepper(value: $ttsManager.prefetchDelayMs, in: 500...5000, step: 100) {
                             HStack {
-                                Text("Độ trễ dãn tiến trình tải trước:")
+                                Text("Thời gian dãn tiến trình nạp trước:")
                                 Spacer()
                                 Text("\(ttsManager.prefetchDelayMs) ms")
                                     .font(.system(.body, design: .monospaced))

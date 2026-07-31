@@ -48,6 +48,15 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Đánh dấu `@Published` cho `customVietPhraseDict` và `customNamesDict` trong `TranslationManager`.
   * Bổ sung `@State private var refreshToken = UUID()` và `.onAppear` trong `DictionaryHubView` đếm và hiển thị ngay lập tức số từ mới nhất khi bấm Back ra ngoài.
   * Phát thông báo `translationDictionariesDidUpdate` khi cập nhật từ điển; `ReaderView` tự động xóa cache và ép nạp/dịch lại chương đang đọc (`forceRefresh: true`) để hiển thị nghĩa mới tức thì.
+* **Khắc Phục Lỗi Google TTS HTTP 429 & Tùy Chỉnh Giao Diện Cài Đặt TTS (`GoogleTTSService.swift`, `TTSManager.swift`, `TTSSettingsView.swift`)**:
+  * **Chống 429 Google TTS**: Luân chuyển `client=tw-ob` và `client=gtx` qua từng request trong `GoogleTTSService.swift`, bổ sung Header `Referer: https://translate.google.com/`, `Accept-Language` và User-Agent trình duyệt tiêu chuẩn.
+  * **Giãn tiến trình tối thiểu 500ms**: Đặt dãn cách tối thiểu 500ms giữa tất cả các đoạn cho các Online Engines. Ép sàn tối thiểu `prefetchDelayMs` $\ge 500\text{ms}$ trong `TTSManager.swift`.
+  * **Nút Reset Tốc Độ & Cao Độ**: Bổ sung nút **"Đặt lại"** (icon `arrow.counterclockwise`) trong `TTSSettingsView.swift` khôi phục tức thì Tốc độ và Cao độ về $1.0x$.
+  * **Nút Stepper (+/-) nấc 0.1**: Bổ sung Stepper (+/-) nấc tăng giảm $0.1$ cho cả Tốc độ (0.5x–5.0x) và Cao độ (0.5x–2.0x) kết hợp cùng Slider trong `TTSSettingsView.swift`.
+  * **Stepper Dãn Tiến Trình**: Cập nhật Stepper dãn tiến trình nạp trước dải giá trị từ $500\text{ms}$ đến $5000\text{ms}$ (không thể chỉnh dưới 500ms), bước tăng/giảm $100\text{ms}$.
+* **Khắc Phục Lỗi Vừa Vào Trình Đọc Bấm Nút Nghe Bị Đọc Từ Đầu Chương (`ReaderView.swift`)**:
+  * Cập nhật nhánh fallback của nút Nghe (`readerTTSControl`) khi `paragraphTracker` chưa kịp thu thập tọa độ hiển thị: Ưu tiên tra cứu vị trí đọc đã khôi phục bằng `getSavedParagraphIndex(for: chapterIndex)` và `viewModel.readingContext.paragraphIndex`.
+  * Khắc phục triệt để sự cố bấm nút Nghe ngay sau khi vừa mở sách tại vị trí khôi phục bị tự động nhảy về phát từ Đoạn 0.
 * **Khắc Phục Sự Cố Nút Nghe (TTS) Đọc Nhầm Đầu Chương & Nhầm Đoạn Giữa Màn Hình & Tinh Chỉnh FloatingMenu (`ReaderView.swift`, `ReaderFloatingMenuOverlayView.swift`)**:
   * Nâng cấp `ParagraphTracker` quản lý cấu trúc toạ độ hình học `ParagraphFrame(minY, maxY)` trên từng thẻ đoạn văn trong `ReaderView`.
   * Khắc phục triệt để Lỗi 1 (bấm nút Nghe ngay sau khi mở sách tại vị trí khôi phục bị đọc từ Đoạn 0): Lọc bỏ hoàn toàn các đoạn văn có $maxY \le viewportTopY + 5$ (đã bị cuộn khuất lên phía trên) mà không cần chờ sự kiện `.onDisappear` thụ động từ SwiftUI `LazyVStack`.

@@ -197,13 +197,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public var prefetchDelayMs: Int {
         didSet {
             guard !isInitializing else { return }
-            UserDefaults.standard.set(prefetchDelayMs, forKey: "ttsPrefetchDelayMs")
+            let clampedValue = (tool == "google" || (tool != "system" && tool != "nghitts")) ? max(500, prefetchDelayMs) : prefetchDelayMs
+            UserDefaults.standard.set(clampedValue, forKey: "ttsPrefetchDelayMs")
             if tool == "nghitts" {
-                UserDefaults.standard.set(prefetchDelayMs, forKey: "nghittsPrefetchDelay")
+                UserDefaults.standard.set(clampedValue, forKey: "nghittsPrefetchDelay")
             } else if tool == "google" {
-                UserDefaults.standard.set(prefetchDelayMs, forKey: "googlePrefetchDelay")
+                UserDefaults.standard.set(clampedValue, forKey: "googlePrefetchDelay")
             } else if tool != "system" {
-                UserDefaults.standard.set(prefetchDelayMs, forKey: "extPrefetchDelay_\(tool)")
+                UserDefaults.standard.set(clampedValue, forKey: "extPrefetchDelay_\(tool)")
             }
         }
     }
@@ -466,7 +467,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.selectedVoice = UserDefaults.standard.string(forKey: "googleVoice") ?? ""
             self.googlePrefetchCount = UserDefaults.standard.object(forKey: "googlePrefetchCount") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchCount") : 3
             self.chunkLength = UserDefaults.standard.object(forKey: "googleChunk") != nil ? UserDefaults.standard.integer(forKey: "googleChunk") : 200
-            self.prefetchDelayMs = UserDefaults.standard.object(forKey: "googlePrefetchDelay") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchDelay") : 350
+            let saved = UserDefaults.standard.object(forKey: "googlePrefetchDelay") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchDelay") : 500
+            self.prefetchDelayMs = max(500, saved)
         } else {
             self.speed = UserDefaults.standard.double(forKey: "extRate_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extRate_\(tool)") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "extPitch_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extPitch_\(tool)") : defaultPitch
@@ -475,7 +477,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             let parsed = parseExtensionConfigParams(jsonString: extensionConfigJson)
             self.extPrefetchCount = parsed.preloadSize ?? 3
             self.chunkLength = parsed.maxLength ?? 200
-            self.prefetchDelayMs = UserDefaults.standard.object(forKey: "extPrefetchDelay_\(tool)") != nil ? UserDefaults.standard.integer(forKey: "extPrefetchDelay_\(tool)") : 350
+            let saved = UserDefaults.standard.object(forKey: "extPrefetchDelay_\(tool)") != nil ? UserDefaults.standard.integer(forKey: "extPrefetchDelay_\(tool)") : 500
+            self.prefetchDelayMs = max(500, saved)
         }
     }
 
@@ -1299,8 +1302,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 guard let self = self else { return }
 
                 let offset = max(0, index - self.currentParagraphIndex)
-                if offset > 1 && self.prefetchDelayMs > 0 {
-                    let delayMs = UInt64(offset - 1) * UInt64(self.prefetchDelayMs)
+                if offset >= 1 {
+                    let delayStepMs = max(500, self.prefetchDelayMs)
+                    let delayMs = UInt64(offset) * UInt64(delayStepMs)
                     try? await Task.sleep(nanoseconds: delayMs * 1_000_000)
                 }
 
@@ -1367,8 +1371,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 guard let self = self else { return }
 
                 let offset = max(0, index - self.currentParagraphIndex)
-                if offset > 1 && self.prefetchDelayMs > 0 {
-                    let delayMs = UInt64(offset - 1) * UInt64(self.prefetchDelayMs)
+                if offset >= 1 {
+                    let delayStepMs = max(500, self.prefetchDelayMs)
+                    let delayMs = UInt64(offset) * UInt64(delayStepMs)
                     try? await Task.sleep(nanoseconds: delayMs * 1_000_000)
                 }
 
