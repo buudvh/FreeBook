@@ -1,7 +1,7 @@
 import Foundation
 import AVFoundation
 
-public final class SiriTTSService: NSObject, @preconcurrency AVSpeechSynthesizerDelegate {
+public final class SiriTTSService: NSObject, AVSpeechSynthesizerDelegate {
     private var systemSynthesizer: AVSpeechSynthesizer?
     private var currentUtterance: AVSpeechUtterance?
     private var onFinishCallback: (() -> Void)?

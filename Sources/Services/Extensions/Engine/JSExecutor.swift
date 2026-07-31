@@ -1070,7 +1070,7 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
                     lastEncoded = -1
                 }
 
-                let timerItem = DispatchWorkItem { [weak self] in
+                let timerItem = DispatchWorkItem {
                     pollNext()
                 }
                 self.waitReadyTimerWorkItem = timerItem

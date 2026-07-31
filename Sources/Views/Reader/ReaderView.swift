@@ -138,7 +138,7 @@ struct ReaderView: View {
     @State private var showingAddNghiTTSPhonemeSheet = false
     @State private var selectedDisplayedText = ""
     @State private var clearSelectionTrigger: UUID? = nil
-    @State private var wordPlayer: AVAudioPlayer? = nil
+    @State private var wordSynthesizer: AVSpeechSynthesizer? = nil
 
     // Cấu hình giao diện đọc (lưu trữ lâu dài qua UserDefaults nhờ @AppStorage)
     @AppStorage("readerFontSize") private var fontSize: Double = 20.0 // Cỡ chữ của văn bản đọc
@@ -591,28 +591,21 @@ struct ReaderView: View {
         clearSelectionTrigger = UUID()
         showingFloatingMenu = false
 
-        wordPlayer?.stop()
-        wordPlayer = nil
-
-        Task {
-            do {
-                let mp3Data = try await GoogleTTSService().synthesize(text: text)
-                guard !mp3Data.isEmpty else { return }
-
-                let session = AVAudioSession.sharedInstance()
-                try? session.setCategory(.playback, mode: .default, options: [])
-                try? session.setActive(true)
-
-                let player = try AVAudioPlayer(data: mp3Data)
-                player.prepareToPlay()
-                player.play()
-                await MainActor.run {
-                    self.wordPlayer = player
-                }
-            } catch {
-                AppLogger.shared.log("❌ Lỗi phát âm từ bôi đen: \(error.localizedDescription)")
-            }
+        if wordSynthesizer?.isSpeaking == true {
+            wordSynthesizer?.stopSpeaking(at: .immediate)
         }
+
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playback, mode: .default, options: [])
+        try? session.setActive(true)
+
+        let synthesizer = AVSpeechSynthesizer()
+        let utterance = AVSpeechUtterance(string: text)
+        if let voice = AVSpeechSynthesisVoice(language: "vi-VN") {
+            utterance.voice = voice
+        }
+        synthesizer.speak(utterance)
+        self.wordSynthesizer = synthesizer
     }
 
     private func confirmDeleteJunk(_ pattern: String) {

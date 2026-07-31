@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.65] - 2026-07-31
+
+### Loại Bỏ Hoàn Toàn Mã Nguồn Dư Thừa GoogleTTS & Chuyển Đổi Phát Âm Bôi Đen Qua AVSpeechSynthesizer Native (`ReaderView.swift`, `TTSManager.swift`, `SiriTTSService.swift`, `JSExecutor.swift`)
+* **Loại Bỏ GoogleTTS Dư Thừa (`ReaderView.swift`, `TTSManager.swift`)**:
+  * Xóa bỏ hoàn toàn các tham chiếu `GoogleTTSService`, `googleService`, và `googlePrefetchCount`.
+  * Gỡ bỏ các nhánh kiểm tra điều kiện `tool == "google"` trong các thuộc tính và luồng nạp prefetch của `TTSManager.swift`.
+  * Chuyển đổi hàm `readSelectedText()` trong `ReaderView.swift` từ gọi GoogleTTS sang sử dụng `AVSpeechSynthesizer` native của hệ thống iOS (Siri Voice) để phát âm từ/đoạn văn bôi đen offline.
+* **Khắc Phục Cảnh Báo Concurrency & Unused Capture (`TTSManager.swift`, `SiriTTSService.swift`, `JSExecutor.swift`)**:
+  * Khắc phục cảnh báo Swift 6 Concurrency truy cập thuộc tính MainActor trong Timer bằng cách bọc closure trong `@MainActor Task` (`TTSManager.swift`).
+  * Loại bỏ `@preconcurrency` thừa trên `AVSpeechSynthesizerDelegate` (`SiriTTSService.swift`).
+  * Gỡ bỏ capture `[weak self]` không được sử dụng trong closure `DispatchWorkItem` (`JSExecutor.swift`).
+
 ## [1.3.64] - 2026-07-30
 
 ### Cập Nhật Thuật Toán Tokenizer Ưu Tiên Cụm Dài, Reader Dịch On-Demand In-Place & Sửa Lỗi TTS Dịch Mới (`TranslateUtils.swift`, `ParagraphCardView.swift`, `ReaderView.swift`, `ReaderViewModel.swift`, `ReaderJunkDeleteOverlayView.swift`)
