@@ -21,6 +21,7 @@ struct BookDetailActionSheetModifier: ViewModifier {
                     urlString: initialDetailUrl,
                     host: resolvedHost,
                     onImport: { detailUrl, packageId, sourceName in
+                        showingBypassBrowser = false
                         onImport(detailUrl, packageId, sourceName)
                     }
                 )

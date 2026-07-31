@@ -571,7 +571,7 @@ struct SwiftUIWebView: UIViewRepresentable {
                             AppLogger.shared.log("✅ [GetTextSTV] Đã lưu thành công chương \(chapterIndex + 1): \(chapterTitle)")
                         }
                     } else if action == "finishDownload" || action == "stopDownload" {
-                        let cleanBookId = bookId.hasPrefix("stv_") ? bookId : "stv_" + (bookId.isEmpty ? "novel" : bookId)
+                        let cleanBookId = GetTextSTVManager.canonicalBookId(from: bookId.isEmpty ? url : bookId, host: host)
                         AppLogger.shared.log("✅ [GetTextSTV] Đảm bảo lưu 100% dữ liệu DB trước khi đóng trình duyệt cho bookId: \(cleanBookId)")
                         try? context.save()
                         self.parent.onImport?(cleanBookId, "local_stv", "Sáng Tác Việt")

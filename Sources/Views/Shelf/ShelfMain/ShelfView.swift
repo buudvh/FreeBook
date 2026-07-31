@@ -397,7 +397,11 @@ struct ShelfView: View {
                 BypassWebView(
                     urlString: "home",
                     onImport: { detailUrl, packageId, sourceName in
-                        importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                        if detailUrl.hasPrefix("stv_") {
+                            importedBookId = detailUrl
+                        } else {
+                            importedBookId = GetTextSTVManager.canonicalBookId(from: detailUrl, host: packageId)
+                        }
                         importedExtensionPackageId = packageId
                         importedDetailUrl = detailUrl
                         importedSourceName = sourceName
@@ -406,6 +410,7 @@ struct ShelfView: View {
                         } else {
                             importedHost = ""
                         }
+                        showingBypassBrowser = false
                         navigateToImportedBook = true
                     }
                 )

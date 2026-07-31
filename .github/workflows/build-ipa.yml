@@ -40,15 +40,6 @@ jobs:
       run: |
         xcodegen generate 2>&1 | tee build_error.log
 
-    - name: Inject Google Cloud TTS API Key
-      env:
-        GOOGLE_CLOUD_TTS_API_KEY: ${{ secrets.GOOGLE_CLOUD_TTS_API_KEY }}
-      run: |
-        if [ -n "$GOOGLE_CLOUD_TTS_API_KEY" ] && [ -f "Sources/Info.plist" ]; then
-          echo "Injecting GOOGLE_CLOUD_TTS_API_KEY into Sources/Info.plist..."
-          plutil -replace GOOGLE_CLOUD_TTS_API_KEY -string "$GOOGLE_CLOUD_TTS_API_KEY" Sources/Info.plist
-        fi
-
     - name: Resolve and patch Package dependencies
       run: |
         set -euo pipefail
@@ -94,10 +85,22 @@ jobs:
           GOOGLE_CLOUD_TTS_API_KEY="${GOOGLE_CLOUD_TTS_API_KEY}"
 
     - name: Package IPA
+      env:
+        GOOGLE_CLOUD_TTS_API_KEY: ${{ secrets.GOOGLE_CLOUD_TTS_API_KEY }}
       run: |
         set -euo pipefail
         mkdir -p build/Payload
         cp -r build/FreeBook.xcarchive/Products/Applications/FreeBook.app build/Payload/
+        
+        # Inject Google Cloud TTS API Key vào Info.plist của FreeBook.app
+        if [ -n "$GOOGLE_CLOUD_TTS_API_KEY" ] && [ -f "build/Payload/FreeBook.app/Info.plist" ]; then
+          echo "Injecting GOOGLE_CLOUD_TTS_API_KEY into build/Payload/FreeBook.app/Info.plist..."
+          if plutil -extract GOOGLE_CLOUD_TTS_API_KEY xml1 -o - build/Payload/FreeBook.app/Info.plist >/dev/null 2>&1; then
+            plutil -replace GOOGLE_CLOUD_TTS_API_KEY -string "$GOOGLE_CLOUD_TTS_API_KEY" build/Payload/FreeBook.app/Info.plist
+          else
+            plutil -insert GOOGLE_CLOUD_TTS_API_KEY -string "$GOOGLE_CLOUD_TTS_API_KEY" build/Payload/FreeBook.app/Info.plist
+          fi
+        fi
         
         # 1. Cài đặt espeak-ng trên máy chủ macOS của Github để lấy dữ liệu âm vị đã biên dịch nhị phân
         HOMEBREW_NO_AUTO_UPDATE=1 brew install espeak-ng

@@ -168,13 +168,16 @@ struct BookDetailView: View {
             initialDetailUrl: initialDetailUrl,
             resolvedHost: resolvedHost,
             onImport: { detailUrl, packageId, sourceName in
-                let checkUrl = JSExecutor.cleanAndResolveUrl(detailUrl, host: ext?.sourceUrl)
-                let currentResolved = JSExecutor.cleanAndResolveUrl(initialDetailUrl, host: ext?.sourceUrl)
+                showingBypassBrowser = false
+                let targetBookId = detailUrl.hasPrefix("stv_")
+                    ? detailUrl
+                    : GetTextSTVManager.canonicalBookId(from: detailUrl, host: packageId)
 
-                if checkUrl == currentResolved {
+                if targetBookId == actualBookId || detailUrl == actualBookId {
                     loadBookData()
+                    loadLocalChapterSnapshots()
                 } else {
-                    importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                    importedBookId = targetBookId
                     importedExtensionPackageId = packageId
                     importedDetailUrl = detailUrl
                     importedSourceName = sourceName
@@ -185,7 +188,7 @@ struct BookDetailView: View {
                         importedHost = ""
                     }
 
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         navigateToImportedBook = true
                     }
                 }
@@ -524,7 +527,7 @@ struct BookDetailView: View {
     private var tocTab: some View {
         VStack(spacing: 0) {
             if renderedTab == 1 {
-                let totalChaps = chapterSnapshots.count > 0 ? chapterSnapshots.count : (ChapterStoreConfiguration.enableSwiftDataTOCWrite ? (localBook?.chapters.count ?? onlineChapters.count) : onlineChapters.count)
+                let totalChaps = chapterSnapshots.count > 0 ? chapterSnapshots.count : onlineChapters.count
 
                 BookDetailTOCView(
                     chapterSearchQuery: $chapterSearchQuery,

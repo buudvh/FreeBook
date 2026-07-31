@@ -68,8 +68,12 @@
 
     const chapterTitle = textOf("#bookchapnameholder") || "";
 
+    const canonicalBookId = (bookId.startsWith("stv_") && bookId.split("_").length >= 3)
+      ? bookId
+      : ((host && bookId) ? `stv_${host}_${bookId.replace(/^stv_/, "")}` : (bookId ? `stv_novel_${bookId.replace(/^stv_/, "")}` : ""));
+
     return {
-      bookId: bookId,
+      bookId: canonicalBookId,
       chapterId: chapterId,
       host: host,
       bookTitle: bookTitle.replace(/^_$/, ""),

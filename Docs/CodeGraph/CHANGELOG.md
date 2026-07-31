@@ -14,8 +14,11 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Thêm ô chọn trình đọc, danh sách 6 giọng đọc tiếng Việt và ô nhập API Key dạng `SecureField` bảo mật mật khẩu kèm nút bật/tắt xem key trong `TTSSettingsView`.
 * **Tích Hợp Google Cloud TTS Cho Văn Bản Bôi Đen (`ReaderView.swift`)**:
   * Cập nhật `readSelectedText()` ưu tiên sử dụng `GoogleTTSService` khi bôi đen đọc đoạn văn, có fallback về Siri nếu không có API key hoặc lỗi mạng.
-* **Cấu Hợp CI/CD GitHub Actions (`project.yml`, `build-ipa.yml`)**:
-  * Thêm `GOOGLE_CLOUD_TTS_API_KEY` vào `project.yml` và bước inject secret từ GitHub Actions vào `Sources/Info.plist` bằng `plutil` trước khi build IPA.
+* **Chuẩn Hóa Mã Book ID `stv_{host}_{bookId}`, Loại Bỏ SwiftData Cho Chapter Meta & Tự Động Đóng Trình Duyệt (`GetTextSTVManager.swift`, `content.js`, `BypassWebView.swift`, `BookDetailActionSheetView.swift`, `BookDetailView.swift`, `ShelfView.swift`, `DiscoveryView.swift`)**:
+  * Thêm hàm `GetTextSTVManager.canonicalBookId(from:host:)` chuẩn hóa đồng bộ 100% mã `bookId` theo dạng `stv_{host}_{bookId}` (ví dụ `stv_fanqie_7590221243043826712`).
+  * Loại bỏ hoàn toàn truy vấn và fallback đến `localBook?.chapters` từ SwiftData đối với dữ liệu mục lục chương, chuyển 100% sang SQLite `ChapterStore.shared.fetchOrderedTOC`.
+  * Đơn giản hóa biến tính số chương trong `BookDetailView.swift`: `let totalChaps = chapterSnapshots.count > 0 ? chapterSnapshots.count : onlineChapters.count`.
+  * Bổ sung gán `showingBypassBrowser = false` trong `onImport` của các View để tắt ngay trình duyệt sau khi hoàn tất hoặc dừng cào dữ liệu.
 
 ## [1.3.66] - 2026-07-31
 

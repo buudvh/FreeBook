@@ -404,7 +404,7 @@ struct DiscoveryView: View {
                         if detailUrl.hasPrefix("stv_") {
                             importedBookId = detailUrl
                         } else {
-                            importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                            importedBookId = GetTextSTVManager.canonicalBookId(from: detailUrl, host: packageId)
                         }
                         importedExtensionPackageId = packageId
                         importedDetailUrl = detailUrl
@@ -414,6 +414,7 @@ struct DiscoveryView: View {
                         } else {
                             importedHost = ""
                         }
+                        headerBrowserTarget = nil
                         navigateToImportedBook = true
                     }
                 )

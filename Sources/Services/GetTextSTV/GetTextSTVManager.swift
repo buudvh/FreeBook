@@ -187,7 +187,38 @@ public final class GetTextSTVManager {
         return (cssContent, jsContent)
     }
 
-    /// Bước 1: Nạp Mục lục & Cập nhật Metadata các chương mới vào SwiftData Local DB (`syncTOC`)
+    /// Bước 0: Chuẩn hóa mã Book ID theo dạng stv_{host}_{bookId}
+    public static func canonicalBookId(from input: String, host: String? = nil) -> String {
+        let trimmedInput = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedInput.hasPrefix("stv_") {
+            let parts = trimmedInput.split(separator: "_")
+            if parts.count >= 3 {
+                return trimmedInput
+            }
+        }
+
+        if let regex = try? NSRegularExpression(pattern: #"/truyen/([^/]+)/[^/]+/([^/]+)"#),
+           let match = regex.firstMatch(in: trimmedInput, options: [], range: NSRange(location: 0, length: trimmedInput.utf16.count)) {
+            if let hostRange = Range(match.range(at: 1), in: trimmedInput),
+               let idRange = Range(match.range(at: 2), in: trimmedInput) {
+                let h = String(trimmedInput[hostRange])
+                let b = String(trimmedInput[idRange])
+                if !h.isEmpty && !b.isEmpty {
+                    return "stv_\(h)_\(b)"
+                }
+            }
+        }
+
+        var cleanId = trimmedInput.replacingOccurrences(of: "stv_", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleanId.hasPrefix("http") || cleanId.isEmpty {
+            cleanId = String(trimmedInput.hashValue)
+        }
+        let resolvedHost = (host ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let h = resolvedHost.isEmpty ? "novel" : resolvedHost
+        return "stv_\(h)_\(cleanId)"
+    }
+
+    /// Bước 1: Nạp Mục lục & Cập nhật Metadata các chương mới vào SQLite DB (`syncTOC`)
     public func syncTOCFromExtension(
         bookId: String,
         title: String,
@@ -199,7 +230,7 @@ public final class GetTextSTVManager {
         tocChapters: [[String: Any]],
         container: ModelContainer
     ) async throws -> String {
-        let cleanBookId = "stv_" + (bookId.isEmpty ? String(sourceUrl.hashValue) : bookId)
+        let cleanBookId = GetTextSTVManager.canonicalBookId(from: bookId.isEmpty ? sourceUrl : bookId, host: host)
         let sourceName = "Sáng Tác Việt"
         let extensionPackageId = "local_stv"
 
@@ -252,7 +283,7 @@ public final class GetTextSTVManager {
         content: String,
         container: ModelContainer
     ) async throws {
-        let cleanBookId = bookId.hasPrefix("stv_") ? bookId : "stv_" + bookId
+        let cleanBookId = GetTextSTVManager.canonicalBookId(from: bookId)
         let metadata = ChapterMetadataSnapshot(
             title: chapterTitle,
             url: chapterUrl,
