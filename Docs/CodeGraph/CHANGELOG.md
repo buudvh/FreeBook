@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.67] - 2026-07-31
+
+### Tích Hợp Google Cloud TTS (ReadAloud API) & Hỗ Trợ Đọc Văn Bản Bôi Đen (`GoogleTTSService.swift`, `TTSManager.swift`, `ReaderView.swift`, `TTSSettingsView.swift`, `project.yml`, `build-ipa.yml`)
+* **Tích Hợp GoogleTTSService Native Swift (`GoogleTTSService.swift`)**:
+  * Tạo mới `GoogleTTSService` kết nối REST API `https://readaloud.googleapis.com/v1:generateAudioDocStream`.
+  * Hỗ trợ 6 giọng đọc tiếng Việt chuẩn: `via` (Giọng nữ tự nhiên), `vib` (Giọng nam tự nhiên), `vic` (Giọng nữ truyền cảm), `vid` (Giọng nam mạnh mẽ), `vie` (Giọng nữ trẻ trung), `vif` (Giọng nữ sâu lắng).
+  * Tự động nhận diện API Key theo thứ tự ưu tiên: Custom Key trong `UserDefaults` -> System Secret nhúng trong `Info.plist`.
+* **Cập Nhật TTSManager & TTSSettingsView (`TTSManager.swift`, `TTSSettingsView.swift`)**:
+  * Bổ sung luồng `tool == "google"` trong `TTSManager` cho prefetch và playback MP3 audio.
+  * Thêm ô chọn trình đọc, danh sách 6 giọng đọc tiếng Việt và ô nhập API Key dạng `SecureField` bảo mật mật khẩu kèm nút bật/tắt xem key trong `TTSSettingsView`.
+* **Tích Hợp Google Cloud TTS Cho Văn Bản Bôi Đen (`ReaderView.swift`)**:
+  * Cập nhật `readSelectedText()` ưu tiên sử dụng `GoogleTTSService` khi bôi đen đọc đoạn văn, có fallback về Siri nếu không có API key hoặc lỗi mạng.
+* **Cấu Hợp CI/CD GitHub Actions (`project.yml`, `build-ipa.yml`)**:
+  * Thêm `GOOGLE_CLOUD_TTS_API_KEY` vào `project.yml` và bước inject secret từ GitHub Actions vào `Sources/Info.plist` bằng `plutil` trước khi build IPA.
+
 ## [1.3.66] - 2026-07-31
 
 ### Khắc Phục Lỗi "Không Tìm Thấy Extension Thích Hợp" Cho Nguồn Sáng Tác Việt (STV) & Đánh Dấu Nhãn STV (`Book.swift`, `GetTextSTVManager.swift`, `BookDetailView.swift`, `ReaderViewModel.swift`, `ChapterContentRepository.swift`, `DownloadManager.swift`, `BookDetailHeaderView.swift`, `ShelfView.swift`)

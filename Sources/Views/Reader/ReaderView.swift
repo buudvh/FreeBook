@@ -601,6 +601,8 @@ struct ReaderView: View {
         )
     }
 
+    @State private var selectionAudioPlayer: AVAudioPlayer? = nil
+
     private func readSelectedText() {
         let text = selectedDisplayedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
@@ -611,11 +613,42 @@ struct ReaderView: View {
         if wordSynthesizer?.isSpeaking == true {
             wordSynthesizer?.stopSpeaking(at: .immediate)
         }
+        if selectionAudioPlayer?.isPlaying == true {
+            selectionAudioPlayer?.stop()
+            selectionAudioPlayer = nil
+        }
 
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .default, options: [])
         try? session.setActive(true)
 
+        let googleService = GoogleTTSService.shared
+        if googleService.hasApiKey {
+            let voice = UserDefaults.standard.string(forKey: "googleVoice") ?? "via"
+            Task {
+                do {
+                    let mp3Data = try await googleService.synthesize(text: text, voice: voice, speed: 1.0, pitch: 1.0)
+                    await MainActor.run {
+                        do {
+                            let player = try AVAudioPlayer(data: mp3Data)
+                            player.play()
+                            self.selectionAudioPlayer = player
+                        } catch {
+                            self.fallbackSiriReadSelectedText(text)
+                        }
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.fallbackSiriReadSelectedText(text)
+                    }
+                }
+            }
+        } else {
+            fallbackSiriReadSelectedText(text)
+        }
+    }
+
+    private func fallbackSiriReadSelectedText(_ text: String) {
         let synthesizer = AVSpeechSynthesizer()
         let utterance = AVSpeechUtterance(string: text)
         if let voice = AVSpeechSynthesisVoice(language: "vi-VN") {

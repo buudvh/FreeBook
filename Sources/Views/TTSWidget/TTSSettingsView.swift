@@ -22,6 +22,8 @@ struct TTSSettingsView: View {
     @State private var isLoadingVoices = false
     @State private var selectedExtForConfig: Extension? = nil
     @State private var showingReplacementManagerSheet = false
+    @AppStorage("google_cloud_tts_custom_api_key") private var customGoogleApiKey: String = ""
+    @State private var showApiKey: Bool = false
 
     private var hasNoDictionary: Bool {
         let path = (try? ModelStore())?.rootURL.appendingPathComponent("non-vietnamese-words.plist").path ?? ""
@@ -64,6 +66,7 @@ struct TTSSettingsView: View {
                 Picker("Trình đọc", selection: $ttsManager.tool) {
                     Text("Siri (Hệ thống Apple)").tag("system")
                     Text("NghiTTS (Piper Offline)").tag("nghitts")
+                    Text("Google Cloud TTS (Online)").tag("google")
                     ForEach(ttsExtensions) { ext in
                         Text(ext.name).tag(ext.packageId)
                     }
@@ -146,6 +149,14 @@ struct TTSSettingsView: View {
                                 Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
                             }
                         }
+                    } else if ttsManager.tool == "google" {
+                        Picker("Giọng đọc Google TTS", selection: $ttsManager.selectedVoice) {
+                            ForEach(GoogleVoice.allVoices) { voice in
+                                Text(voice.name)
+                                    .tag(voice.id)
+                            }
+                        }
+                        .pickerStyle(.menu)
                     } else {
                         // Trình đọc từ Extension
                         if isLoadingVoices {
@@ -164,6 +175,58 @@ struct TTSSettingsView: View {
                                 }
                             }
                             .pickerStyle(.menu)
+                        }
+                    }
+                }
+
+                if ttsManager.tool == "google" {
+                    Section("Google Cloud API Key") {
+                        HStack {
+                            Text("Trạng thái Key hệ thống:")
+                            Spacer()
+                            if GoogleTTSService.shared.hasApiKey {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                    Text("Đã sẵn sàng")
+                                        .font(.caption)
+                                        .foregroundColor(.green)
+                                }
+                            } else {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.red)
+                                    Text("Chưa có Key")
+                                        .font(.caption)
+                                        .foregroundColor(.red)
+                                }
+                            }
+                        }
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("API Key cá nhân (Ghi đè key hệ thống):")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            HStack {
+                                if showApiKey {
+                                    TextField("Nhập Google Cloud API Key...", text: $customGoogleApiKey)
+                                        .textFieldStyle(.roundedBorder)
+                                        .autocapitalization(.none)
+                                        .disableAutocorrection(true)
+                                } else {
+                                    SecureField("Nhập Google Cloud API Key...", text: $customGoogleApiKey)
+                                        .textFieldStyle(.roundedBorder)
+                                }
+
+                                Button(action: {
+                                    showApiKey.toggle()
+                                }) {
+                                    Image(systemName: showApiKey ? "eye.slash.fill" : "eye.fill")
+                                        .foregroundColor(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
                 }
@@ -297,7 +360,17 @@ struct TTSSettingsView: View {
                 }
 
                 Section("Tải trước dữ liệu (Preloading)") {
-                    if ttsManager.tool == "nghitts" {
+                    if ttsManager.tool == "google" {
+                        Stepper(value: $ttsManager.googlePrefetchCount, in: 1...10) {
+                            HStack {
+                                Text("Số đoạn tải trước (Google TTS):")
+                                Spacer()
+                                Text("\(ttsManager.googlePrefetchCount) đoạn")
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    } else if ttsManager.tool == "nghitts" {
                         Stepper(value: $ttsManager.nghittsPrefetchCount, in: 1...10) {
                             HStack {
                                 Text("Số đoạn tải trước (NghiTTS):")

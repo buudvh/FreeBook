@@ -50,6 +50,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         UIBackgroundModes:
           - audio
+        GOOGLE_CLOUD_TTS_API_KEY: "$(GOOGLE_CLOUD_TTS_API_KEY)"
     settings:
       base:
         CODE_SIGNING_ALLOWED: "NO"
