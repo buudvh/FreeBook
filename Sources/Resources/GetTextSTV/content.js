@@ -68,12 +68,8 @@
 
     const chapterTitle = textOf("#bookchapnameholder") || "";
 
-    const rawBookId = (bookId || "").replace(/^stv_[^_]+_/, "").replace(/^stv_/, "");
-    const canonicalBookId = (host && rawBookId) ? `stv_${host}_${rawBookId}` : (rawBookId ? `stv_novel_${rawBookId}` : "");
-
     return {
-      rawBookId: rawBookId,
-      bookId: canonicalBookId,
+      bookId: bookId,
       chapterId: chapterId,
       host: host,
       bookTitle: bookTitle.replace(/^_$/, ""),
@@ -1026,8 +1022,7 @@
     let toc = [];
     try {
       const origin = window.location.origin;
-      const rawBookId = String(chapter.rawBookId || chapter.bookId || "").replace(/^stv_[^_]+_/, "").replace(/^stv_/, "");
-      const fetchUrl = `${origin}/index.php?ngmar=chapterlist&h=${chapter.host}&bookid=${rawBookId}&sajax=getchapterlist`;
+      const fetchUrl = `${origin}/index.php?ngmar=chapterlist&h=${chapter.host}&bookid=${chapter.bookId}&sajax=getchapterlist`;
       const response = await fetch(fetchUrl, {
         headers: {
           "Accept": "*/*"
@@ -1206,10 +1201,12 @@
         return;
       }
 
-      if (state.bookKey && current.bookId && state.bookKey !== `${current.host}:${current.bookId}`) {
+      const currentBookKey = `${current.host}:${current.bookId}`;
+      const stateBookKey = state.bookKey || "";
+      if (state.bookKey && current.bookId && stateBookKey !== currentBookKey && !stateBookKey.endsWith(`:${current.bookId}`)) {
         await appendAutoLog("book-key-mismatch-stop-resume", {
           expectedBookKey: state.bookKey,
-          currentBookKey: `${current.host}:${current.bookId}`
+          currentBookKey: currentBookKey
         });
         return;
       }
@@ -1620,9 +1617,8 @@
 
     try {
       const origin = window.location.origin;
-      const rawBookId = chapter.rawBookId;
-      const fetchUrl = `${origin}/index.php?ngmar=chapterlist&h=${chapter.host}&bookid=${rawBookId}&sajax=getchapterlist`;
-      await appendAutoLog("load-panel-toc-start", { fetchUrl, rawBookId, host: chapter.host });
+      const fetchUrl = `${origin}/index.php?ngmar=chapterlist&h=${chapter.host}&bookid=${chapter.bookId}&sajax=getchapterlist`;
+      await appendAutoLog("load-panel-toc-start", { fetchUrl, bookId: chapter.bookId, host: chapter.host });
       const response = await fetch(fetchUrl, {
         headers: {
           "Accept": "*/*"
@@ -1829,8 +1825,7 @@
 
     const match = startUrl.match(/\/truyen\/([^\/]+)\/[^\/]+\/([^\/]+)/);
     const host = match ? match[1] : "";
-    const rawBookId = match ? match[2].replace(/^stv_[^_]+_/, "").replace(/^stv_/, "") : "";
-    const canonicalBookId = (host && rawBookId) ? `stv_${host}_${rawBookId}` : rawBookId;
+    const bookId = match ? match[2] : "";
 
     const state = {
       running: true,
@@ -1838,7 +1833,7 @@
       startedAt: new Date().toISOString(),
       startUrl: startUrl,
       bookTitle: bookTitle,
-      bookKey: `${host}:${canonicalBookId}`,
+      bookKey: `${host}:${bookId}`,
       endUrl: endUrl,
       chapterRefs: [],
       chapterCount: 0,
@@ -1850,7 +1845,7 @@
     // Gửi syncTOC ngay cho Swift để lưu Book & Chapter metadata vào Kệ sách SwiftData local DB
     if (typeof sendFreeBookPayload === "function") {
       sendFreeBookPayload("syncTOC", {
-        bookId: canonicalBookId,
+        bookId: bookId,
         bookTitle: bookTitle,
         host: host,
         url: startUrl,
@@ -1886,8 +1881,7 @@
             return;
           }
           const origin = window.location.origin;
-          const rawBookId = String(chapter.rawBookId || chapter.bookId || "").replace(/^stv_[^_]+_/, "").replace(/^stv_/, "");
-          const fetchUrl = `${origin}/index.php?ngmar=chapterlist&h=${chapter.host}&bookid=${rawBookId}&sajax=getchapterlist`;
+          const fetchUrl = `${origin}/index.php?ngmar=chapterlist&h=${chapter.host}&bookid=${chapter.bookId}&sajax=getchapterlist`;
           const response = await fetch(fetchUrl, {
             headers: {
               "Accept": "*/*"
@@ -1980,8 +1974,7 @@
           .replace(/([\t\n]+|<br>|&nbsp;)/g, "")
           .replace(/Thứ ([\d\,]+) chương/, "Chương $1:");
         
-        const rawBookId = String(bookId || "").replace(/^stv_[^_]+_/, "").replace(/^stv_/, "");
-        const url = `${window.location.origin}/truyen/${host}/1/${rawBookId}/${chapterId}/`;
+        const url = `${window.location.origin}/truyen/${host}/1/${bookId}/${chapterId}/`;
 
         chapters.push({
           chapterId: chapterId,

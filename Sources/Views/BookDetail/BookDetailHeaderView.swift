@@ -106,7 +106,7 @@ struct BookDetailHeaderView: View {
                 }
 
                 HStack(spacing: 6) {
-                    if extensionPackageId == "local_stv" || actualBookId.hasPrefix("stv_") || sourceName.contains("Sáng Tác Việt") {
+                    if extensionPackageId == "local_stv" || sourceName.contains("Sáng Tác Việt") {
                         Text("STV")
                             .font(.system(size: 10, weight: .bold))
                             .padding(.horizontal, 6)

@@ -187,35 +187,25 @@ public final class GetTextSTVManager {
         return (cssContent, jsContent)
     }
 
-    /// Bước 0: Chuẩn hóa mã Book ID theo dạng stv_{host}_{bookId}
+    /// Bước 0: Bóc tách mã Book ID dạng số thuần túy (ví dụ 7590221243043826712 hoặc 1048193552)
     public static func canonicalBookId(from input: String, host: String? = nil) -> String {
         let trimmedInput = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmedInput.hasPrefix("stv_") {
-            let parts = trimmedInput.split(separator: "_")
-            if parts.count >= 3 {
-                return trimmedInput
-            }
-        }
+        if trimmedInput.isEmpty { return "" }
 
-        if let regex = try? NSRegularExpression(pattern: #"/truyen/([^/]+)/[^/]+/([^/]+)"#),
+        if let regex = try? NSRegularExpression(pattern: #"/truyen/[^/]+/[^/]+/([^/]+)"#),
            let match = regex.firstMatch(in: trimmedInput, options: [], range: NSRange(location: 0, length: trimmedInput.utf16.count)) {
-            if let hostRange = Range(match.range(at: 1), in: trimmedInput),
-               let idRange = Range(match.range(at: 2), in: trimmedInput) {
-                let h = String(trimmedInput[hostRange])
+            if let idRange = Range(match.range(at: 1), in: trimmedInput) {
                 let b = String(trimmedInput[idRange])
-                if !h.isEmpty && !b.isEmpty {
-                    return "stv_\(h)_\(b)"
+                if !b.isEmpty {
+                    return b
                 }
             }
         }
 
-        var cleanId = trimmedInput.replacingOccurrences(of: "stv_", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
-        if cleanId.hasPrefix("http") || cleanId.isEmpty {
-            cleanId = String(trimmedInput.hashValue)
+        if trimmedInput.hasPrefix("http") || trimmedInput.isEmpty {
+            return String(abs(trimmedInput.hashValue))
         }
-        let resolvedHost = (host ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let h = resolvedHost.isEmpty ? "novel" : resolvedHost
-        return "stv_\(h)_\(cleanId)"
+        return trimmedInput
     }
 
     /// Bước 1: Nạp Mục lục & Cập nhật Metadata các chương mới vào SQLite DB (`syncTOC`)

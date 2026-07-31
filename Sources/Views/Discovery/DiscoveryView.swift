@@ -401,11 +401,7 @@ struct DiscoveryView: View {
                 BypassWebView(
                     urlString: target.urlString,
                     onImport: { detailUrl, packageId, sourceName in
-                        if detailUrl.hasPrefix("stv_") {
-                            importedBookId = detailUrl
-                        } else {
-                            importedBookId = GetTextSTVManager.canonicalBookId(from: detailUrl, host: packageId)
-                        }
+                        importedBookId = GetTextSTVManager.canonicalBookId(from: detailUrl, host: packageId)
                         importedExtensionPackageId = packageId
                         importedDetailUrl = detailUrl
                         importedSourceName = sourceName
@@ -415,7 +411,7 @@ struct DiscoveryView: View {
                             importedHost = ""
                         }
                         headerBrowserTarget = nil
-                        navigateToImportedBook = true
+                        ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
                     }
                 )
             }

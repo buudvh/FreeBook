@@ -556,11 +556,7 @@ struct ReaderView: View {
                 urlString: browserUrl,
                 host: currentChapterHost,
                 onImport: { detailUrl, packageId, sourceName in
-                    if detailUrl.hasPrefix("stv_") {
-                        importedBookId = detailUrl
-                    } else {
-                        importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
-                    }
+                    importedBookId = GetTextSTVManager.canonicalBookId(from: detailUrl, host: packageId)
                     importedExtensionPackageId = packageId
                     importedDetailUrl = detailUrl
                     importedSourceName = sourceName
@@ -572,7 +568,7 @@ struct ReaderView: View {
                     }
 
                     showingBypassBrowser = false
-                    navigateToBookDetail = true
+                    ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
                 }
             )
         }

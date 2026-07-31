@@ -397,11 +397,7 @@ struct ShelfView: View {
                 BypassWebView(
                     urlString: "home",
                     onImport: { detailUrl, packageId, sourceName in
-                        if detailUrl.hasPrefix("stv_") {
-                            importedBookId = detailUrl
-                        } else {
-                            importedBookId = GetTextSTVManager.canonicalBookId(from: detailUrl, host: packageId)
-                        }
+                        importedBookId = GetTextSTVManager.canonicalBookId(from: detailUrl, host: packageId)
                         importedExtensionPackageId = packageId
                         importedDetailUrl = detailUrl
                         importedSourceName = sourceName
@@ -411,7 +407,7 @@ struct ShelfView: View {
                             importedHost = ""
                         }
                         showingBypassBrowser = false
-                        navigateToImportedBook = true
+                        ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
                     }
                 )
             }

@@ -54,7 +54,6 @@ public final class Book {
     /// Kiểm tra xem sách có được tải bằng extension Sáng Tác Việt (STV) hay không.
     public var isSTVBook: Bool {
         return extensionPackageId.lowercased() == "local_stv"
-            || bookId.lowercased().hasPrefix("stv_")
             || sourceName.lowercased().contains("sáng tác việt")
             || sourceName.lowercased().contains("sangtacviet")
     }

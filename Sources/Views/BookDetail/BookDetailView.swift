@@ -169,29 +169,13 @@ struct BookDetailView: View {
             resolvedHost: resolvedHost,
             onImport: { detailUrl, packageId, sourceName in
                 showingBypassBrowser = false
-                let targetBookId = detailUrl.hasPrefix("stv_")
-                    ? detailUrl
-                    : GetTextSTVManager.canonicalBookId(from: detailUrl, host: packageId)
+                let targetBookId = GetTextSTVManager.canonicalBookId(from: detailUrl, host: packageId)
 
                 if targetBookId == actualBookId || detailUrl == actualBookId {
                     loadBookData()
                     loadLocalChapterSnapshots()
-                } else {
-                    importedBookId = targetBookId
-                    importedExtensionPackageId = packageId
-                    importedDetailUrl = detailUrl
-                    importedSourceName = sourceName
-
-                    if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
-                        importedHost = "\(scheme)://\(host)"
-                    } else {
-                        importedHost = ""
-                    }
-
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        navigateToImportedBook = true
-                    }
                 }
+                ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
             }
         )
     }
@@ -818,7 +802,10 @@ struct BookDetailView: View {
     }
 
     private func loadBookDetailOnly() {
-        if localBook?.isSTVBook == true || extensionPackageId == "local_stv" || actualBookId.hasPrefix("stv_") {
+        let isSTV = localBook?.isSTVBook == true
+            || extensionPackageId == "local_stv"
+            || sourceName.contains("Sáng Tác Việt")
+        if isSTV {
             if let book = localBook {
                 self.title = book.title
                 self.author = book.author
@@ -882,7 +869,10 @@ struct BookDetailView: View {
     }
 
     private func loadTOCDataOnly() {
-        if localBook?.isSTVBook == true || extensionPackageId == "local_stv" || actualBookId.hasPrefix("stv_") {
+        let isSTV = localBook?.isSTVBook == true
+            || extensionPackageId == "local_stv"
+            || sourceName.contains("Sáng Tác Việt")
+        if isSTV {
             self.loadLocalChapterSnapshots()
             self.syncChaptersList()
             self.updateFilteredLocalChapters()
