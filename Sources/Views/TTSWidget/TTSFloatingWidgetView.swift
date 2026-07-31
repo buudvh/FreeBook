@@ -11,6 +11,7 @@ struct TTSFloatingWidgetView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
+    @State private var showingTimerMenu = false
     @State private var showingCustomTimerAlert = false
     @State private var customMinutesInput = "90"
 
@@ -132,86 +133,65 @@ struct TTSFloatingWidgetView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Mở chương đang đọc")
 
-            Menu {
-                Section("⏱️ Hẹn giờ tạm dừng") {
-                    Button(action: { ttsManager.startSleepTimer(minutes: 15) }) {
-                        HStack {
-                            Text("⏱️ 15 phút")
-                            if case .minutes(15) = ttsManager.timerMode {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                    Button(action: { ttsManager.startSleepTimer(minutes: 30) }) {
-                        HStack {
-                            Text("⏱️ 30 phút")
-                            if case .minutes(30) = ttsManager.timerMode {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                    Button(action: { ttsManager.startSleepTimer(minutes: 45) }) {
-                        HStack {
-                            Text("⏱️ 45 phút")
-                            if case .minutes(45) = ttsManager.timerMode {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                    Button(action: { ttsManager.startSleepTimer(minutes: 60) }) {
-                        HStack {
-                            Text("⏱️ 60 phút")
-                            if case .minutes(60) = ttsManager.timerMode {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                    Button(action: { ttsManager.setStopAtEndOfChapter() }) {
-                        HStack {
-                            Text("📖 Hết chương hiện tại")
-                            if ttsManager.timerMode == .endOfChapter {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                    Button(action: {
-                        customMinutesInput = "90"
-                        showingCustomTimerAlert = true
-                    }) {
-                        HStack {
-                            Text("✏️ Tùy chỉnh số phút...")
-                            if case .minutes(let m) = ttsManager.timerMode, ![15, 30, 45, 60].contains(m) {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                    if ttsManager.timerMode != .off {
-                        Button(role: .destructive, action: { ttsManager.cancelSleepTimer() }) {
-                            Label("Tắt hẹn giờ", systemImage: "xmark.circle")
-                        }
-                    }
-                }
-
-                Divider()
-
-                Button(action: {
-                    ttsManager.showingSettingsSheet = true
-                    viewModel.startAutoHideTimer()
-                }) {
-                    Label("Bảng cài đặt giọng đọc", systemImage: "gearshape.fill")
-                }
-            } label: {
+            Button(action: {
+                viewModel.cancelTasks()
+                viewModel.disableAutoHide = true
+                showingTimerMenu = true
+            }) {
                 Image(systemName: ttsManager.timerMode != .off ? "timer" : "gearshape.fill")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(ttsManager.timerMode != .off ? Color.orange : Color.primary)
                     .frame(width: Layout.actionButtonSize, height: Layout.actionButtonSize)
                     .background(Circle().fill(ttsManager.timerMode != .off ? Color.orange.opacity(0.18) : Color.primary.opacity(0.09)))
             }
-            .simultaneousGesture(TapGesture().onEnded {
-                viewModel.cancelTasks()
-            })
             .buttonStyle(.plain)
             .accessibilityLabel("Cài đặt và Hẹn giờ TTS")
+            .confirmationDialog("⏱️ Hẹn giờ & Cài đặt TTS", isPresented: $showingTimerMenu, titleVisibility: .visible) {
+                Button("⏱️ 15 phút") {
+                    ttsManager.startSleepTimer(minutes: 15)
+                    viewModel.disableAutoHide = false
+                    viewModel.startAutoHideTimer()
+                }
+                Button("⏱️ 30 phút") {
+                    ttsManager.startSleepTimer(minutes: 30)
+                    viewModel.disableAutoHide = false
+                    viewModel.startAutoHideTimer()
+                }
+                Button("⏱️ 45 phút") {
+                    ttsManager.startSleepTimer(minutes: 45)
+                    viewModel.disableAutoHide = false
+                    viewModel.startAutoHideTimer()
+                }
+                Button("⏱️ 60 phút") {
+                    ttsManager.startSleepTimer(minutes: 60)
+                    viewModel.disableAutoHide = false
+                    viewModel.startAutoHideTimer()
+                }
+                Button("📖 Hết chương hiện tại") {
+                    ttsManager.setStopAtEndOfChapter()
+                    viewModel.disableAutoHide = false
+                    viewModel.startAutoHideTimer()
+                }
+                Button("✏️ Tùy chỉnh số phút...") {
+                    customMinutesInput = "90"
+                    showingCustomTimerAlert = true
+                }
+                if ttsManager.timerMode != .off {
+                    Button("❌ Tắt hẹn giờ", role: .destructive) {
+                        ttsManager.cancelSleepTimer()
+                        viewModel.disableAutoHide = false
+                        viewModel.startAutoHideTimer()
+                    }
+                }
+                Button("⚙️ Bảng cài đặt giọng đọc") {
+                    ttsManager.showingSettingsSheet = true
+                    viewModel.disableAutoHide = false
+                }
+                Button("Hủy", role: .cancel) {
+                    viewModel.disableAutoHide = false
+                    viewModel.startAutoHideTimer()
+                }
+            }
 
             Button(action: togglePlayback) {
                 Image(systemName: playState.isPlaying ? "pause.fill" : "play.fill")

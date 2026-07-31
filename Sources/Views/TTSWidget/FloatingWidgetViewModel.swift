@@ -7,12 +7,10 @@ public final class FloatingWidgetViewModel: ObservableObject {
     @Published public var edgeDirection: EdgeDirection
     @Published public var mode: WidgetMode
     @Published public var isDragging: Bool = false
-    @Published public var isMenuOpen: Bool = false {
+    @Published public var disableAutoHide: Bool = false {
         didSet {
-            if isMenuOpen {
+            if disableAutoHide {
                 autoHideTask?.cancel()
-            } else if mode == .revealed {
-                startAutoHideTimer()
             }
         }
     }
@@ -34,7 +32,9 @@ public final class FloatingWidgetViewModel: ObservableObject {
     public func reveal() {
         autoHideTask?.cancel()
         mode = .revealed
-        startAutoHideTimer()
+        if !disableAutoHide {
+            startAutoHideTimer()
+        }
     }
 
     public func hide() {
@@ -79,18 +79,18 @@ public final class FloatingWidgetViewModel: ObservableObject {
 
         UserDefaults.standard.set(Double(verticalRatio), forKey: storedRatioKey)
         UserDefaults.standard.set(targetEdge == .left ? "left" : "right", forKey: storedEdgeKey)
-        if mode == .revealed && !isMenuOpen {
+        if mode == .revealed && !disableAutoHide {
             startAutoHideTimer()
         }
     }
 
     public func startAutoHideTimer() {
         autoHideTask?.cancel()
-        guard !isDragging, !isMenuOpen else { return }
+        guard !isDragging, !disableAutoHide else { return }
         autoHideTask = Task {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             guard !Task.isCancelled else { return }
-            guard mode == .revealed, !isDragging, !isMenuOpen else { return }
+            guard mode == .revealed, !isDragging, !disableAutoHide else { return }
             mode = .peeking
         }
     }
