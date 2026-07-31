@@ -21,14 +21,25 @@ public final class GetTextSTVManager {
         return matches.contains { host.contains($0) || urlString.contains($0) }
     }
 
-    /// Nạp kịch bản content.css và content.js kèm bộ Polyfill Safari iPhone (WKWebView)
+    /// Nạp kịch bản content.css và content.js từ Resources dự án kèm bộ Polyfill Safari iPhone (WKWebView)
     public func loadExtensionScripts() -> (css: String, js: String) {
-        let basePath = "D:\\Study\\GetTextSTV\\extension"
-        let cssPath = (basePath as NSString).appendingPathComponent("content.css")
-        let jsPath = (basePath as NSString).appendingPathComponent("content.js")
+        var cssContent = ""
+        var jsContent = ""
 
-        let cssContent = (try? String(contentsOfFile: cssPath, encoding: .utf8)) ?? ""
-        var jsContent = (try? String(contentsOfFile: jsPath, encoding: .utf8)) ?? ""
+        // 1. Thử nạp từ Bundle ứng dụng
+        if let cssUrl = Bundle.main.url(forResource: "content", withExtension: "css", subdirectory: "GetTextSTV"),
+           let jsUrl = Bundle.main.url(forResource: "content", withExtension: "js", subdirectory: "GetTextSTV") {
+            cssContent = (try? String(contentsOf: cssUrl, encoding: .utf8)) ?? ""
+            jsContent = (try? String(contentsOf: jsUrl, encoding: .utf8)) ?? ""
+        }
+
+        // 2. Thử nạp từ thư mục Resources dự án
+        if cssContent.isEmpty || jsContent.isEmpty {
+            let resCssPath = "Sources/Resources/GetTextSTV/content.css"
+            let resJsPath = "Sources/Resources/GetTextSTV/content.js"
+            cssContent = (try? String(contentsOfFile: resCssPath, encoding: .utf8)) ?? ""
+            jsContent = (try? String(contentsOfFile: resJsPath, encoding: .utf8)) ?? ""
+        }
 
         let polyfillHeader = """
 
