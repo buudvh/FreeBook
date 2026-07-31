@@ -36,18 +36,18 @@ jobs:
       run: |
         brew install xcodegen
 
+    - name: Generate Xcode Project
+      run: |
+        xcodegen generate 2>&1 | tee build_error.log
+
     - name: Inject Google Cloud TTS API Key
       env:
         GOOGLE_CLOUD_TTS_API_KEY: ${{ secrets.GOOGLE_CLOUD_TTS_API_KEY }}
       run: |
-        if [ -n "$GOOGLE_CLOUD_TTS_API_KEY" ]; then
+        if [ -n "$GOOGLE_CLOUD_TTS_API_KEY" ] && [ -f "Sources/Info.plist" ]; then
           echo "Injecting GOOGLE_CLOUD_TTS_API_KEY into Sources/Info.plist..."
-          plutil -insert GOOGLE_CLOUD_TTS_API_KEY -string "$GOOGLE_CLOUD_TTS_API_KEY" Sources/Info.plist 2>/dev/null || plutil -replace GOOGLE_CLOUD_TTS_API_KEY -string "$GOOGLE_CLOUD_TTS_API_KEY" Sources/Info.plist
+          plutil -replace GOOGLE_CLOUD_TTS_API_KEY -string "$GOOGLE_CLOUD_TTS_API_KEY" Sources/Info.plist
         fi
-
-    - name: Generate Xcode Project
-      run: |
-        xcodegen generate 2>&1 | tee build_error.log
 
     - name: Resolve and patch Package dependencies
       run: |
@@ -76,6 +76,8 @@ jobs:
         '
 
     - name: Build and Archive App (Unsigned)
+      env:
+        GOOGLE_CLOUD_TTS_API_KEY: ${{ secrets.GOOGLE_CLOUD_TTS_API_KEY }}
       run: |
         set -euo pipefail
         xcodebuild archive \
@@ -88,7 +90,8 @@ jobs:
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGN_IDENTITY="" \
           PROVISIONING_PROFILE_SPECIFIER="" \
-          DEVELOPMENT_TEAM=""
+          DEVELOPMENT_TEAM="" \
+          GOOGLE_CLOUD_TTS_API_KEY="${GOOGLE_CLOUD_TTS_API_KEY}"
 
     - name: Package IPA
       run: |
