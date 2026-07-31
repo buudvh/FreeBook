@@ -401,7 +401,11 @@ struct DiscoveryView: View {
                 BypassWebView(
                     urlString: target.urlString,
                     onImport: { detailUrl, packageId, sourceName in
-                        importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                        if detailUrl.hasPrefix("stv_") {
+                            importedBookId = detailUrl
+                        } else {
+                            importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                        }
                         importedExtensionPackageId = packageId
                         importedDetailUrl = detailUrl
                         importedSourceName = sourceName

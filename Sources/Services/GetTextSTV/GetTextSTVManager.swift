@@ -157,6 +157,9 @@ public final class GetTextSTVManager {
                         bookTitle: info.bookTitle || document.title,
                         chapterTitle: info.chapterTitle || "",
                         chapterId: info.chapterId || "",
+                        author: info.author || "Sáng Tác Việt",
+                        coverUrl: info.coverUrl || "",
+                        desc: info.desc || "",
                         host: info.host || location.hostname,
                         url: info.url || location.href
                     }, extraData || {});

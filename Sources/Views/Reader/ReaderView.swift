@@ -544,7 +544,11 @@ struct ReaderView: View {
                 urlString: currentChapterInfo?.url ?? bookDetailUrl ?? "",
                 host: currentChapterHost,
                 onImport: { detailUrl, packageId, sourceName in
-                    importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                    if detailUrl.hasPrefix("stv_") {
+                        importedBookId = detailUrl
+                    } else {
+                        importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                    }
                     importedExtensionPackageId = packageId
                     importedDetailUrl = detailUrl
                     importedSourceName = sourceName
@@ -555,6 +559,7 @@ struct ReaderView: View {
                         importedHost = ""
                     }
 
+                    showingBypassBrowser = false
                     navigateToBookDetail = true
                 }
             )

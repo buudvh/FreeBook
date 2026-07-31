@@ -539,10 +539,16 @@ struct SwiftUIWebView: UIViewRepresentable {
                         AppLogger.shared.log(logMsg)
                     } else if action == "syncTOC" {
                         let tocChapters = (body["tocChapters"] as? [[String: Any]]) ?? (body["chapters"] as? [[String: Any]]) ?? []
+                        let author = (body["author"] as? String) ?? (body["bookAuthor"] as? String) ?? "Sáng Tác Việt"
+                        let coverUrl = (body["coverUrl"] as? String) ?? (body["bookCoverUrl"] as? String) ?? (body["cover"] as? String) ?? ""
+                        let desc = (body["desc"] as? String) ?? (body["bookDesc"] as? String) ?? (body["intro"] as? String) ?? ""
                         if !bookTitle.isEmpty && !tocChapters.isEmpty {
                             _ = try? await GetTextSTVManager.shared.syncTOCFromExtension(
                                 bookId: bookId,
                                 title: bookTitle,
+                                author: author,
+                                coverUrl: coverUrl,
+                                desc: desc,
                                 sourceUrl: url,
                                 host: host,
                                 tocChapters: tocChapters,
@@ -567,9 +573,12 @@ struct SwiftUIWebView: UIViewRepresentable {
                             AppLogger.shared.log("✅ [GetTextSTV] Đã lưu thành công chương \(chapterIndex + 1): \(chapterTitle)")
                         }
                     } else if action == "finishDownload" || action == "stopDownload" {
-                        let cleanBookId = bookId.hasPrefix("stv_") ? bookId : "stv_" + bookId
-                        AppLogger.shared.log("✅ [GetTextSTV] Hoàn tất cào dữ liệu, đang đóng trình duyệt và chuyển mở BookDetailView cho bookId: \(cleanBookId)")
-                        self.parent.onImport?(url, "local_stv", "Sáng Tác Việt")
+                        let cleanBookId = bookId.hasPrefix("stv_") ? bookId : "stv_" + (bookId.isEmpty ? "novel" : bookId)
+                        AppLogger.shared.log("✅ [GetTextSTV] Hoàn tất cào dữ liệu, đang tự động đóng trình duyệt và chuyển mở BookDetailView cho bookId: \(cleanBookId)")
+                        self.parent.dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            self.parent.onImport?(cleanBookId, "local_stv", "Sáng Tác Việt")
+                        }
                     }
                 }
             }

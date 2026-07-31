@@ -49,7 +49,22 @@
       document.querySelector('meta[property="og:novel:book_name"]')?.content ||
       document.querySelector('meta[property="og:title"]')?.content ||
       document.title;
-    const chapterTitle = textOf("#bookchapnameholder");
+    const author =
+      textOf("#authornameholder") ||
+      textOf("#author_name") ||
+      document.querySelector('meta[property="og:novel:author"]')?.content ||
+      "Sáng Tác Việt";
+
+    const coverUrl =
+      document.querySelector("#bookcover img")?.src ||
+      document.querySelector('meta[property="og:image"]')?.content ||
+      "";
+
+    const desc =
+      textOf("#bookdescription") ||
+      textOf(".bookdescription") ||
+      document.querySelector('meta[property="og:description"]')?.content ||
+      "";
 
     return {
       bookId: bookId,
@@ -57,6 +72,9 @@
       host: host,
       bookTitle: bookTitle.replace(/^_$/, ""),
       chapterTitle: chapterTitle.replace(/^_$/, ""),
+      author: author,
+      coverUrl: coverUrl,
+      desc: desc,
       url: location.href
     };
   }

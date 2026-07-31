@@ -13,10 +13,8 @@ enum ReaderNavigationSource: Equatable {
 
     var isImmediate: Bool {
         switch self {
-        case .history, .ttsSync, .reload:
+        case .history, .ttsSync, .reload, .previousButton, .nextButton, .chapterList:
             return true
-        case .previousButton, .nextButton, .chapterList:
-            return false
         }
     }
 }
@@ -573,8 +571,12 @@ class ReaderViewModel: ObservableObject {
                     forceRefresh: request.forceRefresh
                 )
                 guard request.generation == navigationGeneration else { continue }
-                guard cache.get(request.chapterIndex)?.state == .loaded else {
-                    let message = cache.get(request.chapterIndex)?.state.failureMessage ?? "Không tải được chương"
+                let cached = cache.cache[request.chapterIndex] ?? cache.setPlaceholder(request.chapterIndex)
+                if cached.state != .loaded && !cached.originalContent.isEmpty {
+                    cached.state = .loaded
+                }
+                guard cached.state == .loaded else {
+                    let message = cached.state.failureMessage ?? "Không tải được chương"
                     failNavigation(request, message: message)
                     continue
                 }
@@ -770,8 +772,7 @@ class ReaderViewModel: ObservableObject {
             urlString = chap.url
             chapterHost = chap.host
             bookMetadata = makeBookMetadataSnapshot()
-        }
-
+        _ = cache.setPlaceholder(index)
         let extensionInfo: TTSExtensionInfo? = {
             if let ext = ext {
                 return TTSExtensionInfo(
@@ -882,14 +883,13 @@ class ReaderViewModel: ObservableObject {
         guard !Task.isCancelled else { return }
 
         // Lưu vào cache trên MainActor
-        if let cached = cache.cache[index] {
-            cached.originalTitle = originalTitle
-            cached.originalContent = ChapterTextNormalizer.normalize(originalContent).content
-            cached.title = result.translatedTitle
-            cached.content = result.translatedContent
-            cached.paragraphItems = result.paragraphItems
-            cached.state = .loaded
-        }
+        let cached = cache.cache[index] ?? cache.setPlaceholder(index)
+        cached.originalTitle = originalTitle
+        cached.originalContent = ChapterTextNormalizer.normalize(originalContent).content
+        cached.title = result.translatedTitle
+        cached.content = result.translatedContent
+        cached.paragraphItems = result.paragraphItems
+        cached.state = .loaded
 
     }
 
