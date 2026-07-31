@@ -202,11 +202,16 @@ public final class GetTextSTVManager {
             index: chapterIndex
         )
 
-        _ = try await ChapterPersistenceStore(container: container).write(
+        let key = Chapter.generateId(bookId: cleanBookId, url: chapterUrl, index: chapterIndex)
+        let store = ChapterPersistenceStore(container: container)
+        let noBookSnapshot: BookMetadataSnapshot? = nil
+        await store.enqueueWrite(
+            key: key,
             bookId: cleanBookId,
-            book: nil,
+            book: noBookSnapshot,
             chapter: metadata,
             content: content
         )
+        await store.flush(bookId: cleanBookId)
     }
 }

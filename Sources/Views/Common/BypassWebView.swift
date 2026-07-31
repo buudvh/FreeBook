@@ -344,7 +344,8 @@ struct BypassWebView: View {
                         title: $title,
                         currentUrlString: $currentUrlString,
                         canGoBack: $canGoBack,
-                        canGoForward: $canGoForward
+                        canGoForward: $canGoForward,
+                        onImport: onImport
                     )
                 }
                 
@@ -468,6 +469,7 @@ struct SwiftUIWebView: UIViewRepresentable {
     @Binding var currentUrlString: String
     @Binding var canGoBack: Bool
     @Binding var canGoForward: Bool
+    var onImport: ((_ detailUrl: String, _ extensionPackageId: String, _ sourceName: String) -> Void)? = nil
     @Environment(\.modelContext) private var modelContext
     
     func makeUIView(context: Context) -> WKWebView {
