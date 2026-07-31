@@ -17,9 +17,8 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Tách biệt logic nạp `content.css` và `content.js` độc lập từ `Bundle.main`.
   * Đảm bảo logic dự phòng fallback chỉ chạy khi thuộc tính tương ứng bị rỗng, loại bỏ nguy cơ ghi đè `cssContent` đã nạp thành công.
   * Loại bỏ hoàn toàn các đường dẫn ổ đĩa tuyệt đối cứng (`D:\...`) phục vụ môi trường phát triển local.
-* **Tự Động Đóng Trình Duyệt & Bổ Sung Metadata STV (`BypassWebView.swift`, `GetTextSTVManager.swift`, `content.js`, `ReaderView.swift`, `DiscoveryView.swift`)**:
-  * Tự động đóng trình duyệt `BypassWebView` ngay khi hoàn tất cào dữ liệu (`finishDownload`) và chuyển sang màn hình Chi tiết với `cleanBookId` chuẩn (`stv_...`).
-  * Bổ sung bóc tách `author`, `coverUrl`, `desc` trong `content.js` và `GetTextSTVManager.swift` để đồng bộ đầy đủ Tác giả, Ảnh bìa, Mô tả và Mục lục của truyện STV.
+* **Ưu Tiên Hiển Thị Thẻ Sáng Tác Việt Lên Đầu Trang Chủ Trình Duyệt (`BypassWebView.swift`)**:
+  * Đặt thẻ HTML của Sáng Tác Việt (`http://14.225.254.182/`) lên vị trí số 1 (trên cùng góc trái) trên trang chủ nội bộ của Trình duyệt (`generateHomeHtml`).
 
 ## [1.3.65] - 2026-07-31
 

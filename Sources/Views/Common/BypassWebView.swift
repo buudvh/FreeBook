@@ -50,6 +50,16 @@ struct BypassWebView: View {
         
         let fallbackIconBase64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDdhZmYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMjEgMTZWOGEyIDIgMCAwIDAtMS0xLjczbC03LTRhMiAyIDAgMCAwLTIgMGwtNyA0QTIgMiAwIDAgMCAzIDh2OGEyIDIgMCAwIDAgMSAxLjczbDcgNGEyIDIgMCAwIDAgMiAwbDctNGEyIDIgMCAwIDAgMS0xLzczeiI+PC9wYXRoPjwvc3ZnPg=="
         
+        var extsHtml = """
+        <a class="card" href="http://14.225.254.182/">
+            <div class="ext-header">
+                <img class="ext-icon" src="\(fallbackIconBase64)"/>
+                <div class="ext-name" style="color: #7c3aed; font-weight: bold;">Sáng Tác Việt (STV IP)</div>
+            </div>
+            <div class="ext-url">http://14.225.254.182/</div>
+        </a>
+        """
+        
         for ext in bookExts {
             var iconSrc = fallbackIconBase64
             if !ext.localPath.isEmpty {
@@ -75,16 +85,6 @@ struct BypassWebView: View {
             </a>
             """
         }
-        
-        extsHtml += """
-        <a class="card" href="http://14.225.254.182/">
-            <div class="ext-header">
-                <img class="ext-icon" src="\(fallbackIconBase64)"/>
-                <div class="ext-name" style="color: #7c3aed; font-weight: bold;">Sáng Tác Việt (STV IP)</div>
-            </div>
-            <div class="ext-url">http://14.225.254.182/</div>
-        </a>
-        """
         
         let html = """
         <!DOCTYPE html>
