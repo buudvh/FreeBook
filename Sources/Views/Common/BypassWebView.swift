@@ -46,8 +46,6 @@ struct BypassWebView: View {
     
     private func generateHomeHtml() -> String {
         let bookExts = bookExtensions
-        var extsHtml = ""
-        
         let fallbackIconBase64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDdhZmYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMjEgMTZWOGEyIDIgMCAwIDAtMS0xLjczbC03LTRhMiAyIDAgMCAwLTIgMGwtNyA0QTIgMiAwIDAgMCAzIDh2OGEyIDIgMCAwIDAgMSAxLjczbDcgNGEyIDIgMCAwIDAgMiAwbDctNGEyIDIgMCAwIDAgMS0xLzczeiI+PC9wYXRoPjwvc3ZnPg=="
         
         var extsHtml = """
@@ -574,11 +572,7 @@ struct SwiftUIWebView: UIViewRepresentable {
                         }
                     } else if action == "finishDownload" || action == "stopDownload" {
                         let cleanBookId = bookId.hasPrefix("stv_") ? bookId : "stv_" + (bookId.isEmpty ? "novel" : bookId)
-                        AppLogger.shared.log("✅ [GetTextSTV] Hoàn tất cào dữ liệu, đang tự động đóng trình duyệt và chuyển mở BookDetailView cho bookId: \(cleanBookId)")
-                        self.parent.dismiss()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            self.parent.onImport?(cleanBookId, "local_stv", "Sáng Tác Việt")
-                        }
+                        self.parent.onImport?(cleanBookId, "local_stv", "Sáng Tác Việt")
                     }
                 }
             }

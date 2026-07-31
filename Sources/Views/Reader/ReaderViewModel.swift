@@ -772,6 +772,8 @@ class ReaderViewModel: ObservableObject {
             urlString = chap.url
             chapterHost = chap.host
             bookMetadata = makeBookMetadataSnapshot()
+        }
+
         _ = cache.setPlaceholder(index)
         let extensionInfo: TTSExtensionInfo? = {
             if let ext = ext {
