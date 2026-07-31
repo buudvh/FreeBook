@@ -11,6 +11,9 @@ struct TTSFloatingWidgetView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
+    @State private var showingCustomTimerAlert = false
+    @State private var customMinutesInput = "90"
+
     static let widgetAnimation = Animation.spring(response: 0.34, dampingFraction: 0.82)
 
     enum Layout {
@@ -37,7 +40,7 @@ struct TTSFloatingWidgetView: View {
             )
             let renderPosition = visualPosition ?? restingPosition
             let widgetWidth = viewModel.mode == .peeking ? Layout.peekSize : Layout.width
-            let widgetHeight = viewModel.mode == .peeking ? Layout.peekSize : Layout.height
+            let widgetHeight = viewModel.mode == .peeking ? Layout.peekSize : (ttsManager.timerMode != .off ? Layout.height + 24 : Layout.height)
 
             widgetBody
                 .frame(width: widgetWidth, height: widgetHeight)
@@ -60,6 +63,18 @@ struct TTSFloatingWidgetView: View {
                 }
         }
         .animation(Self.widgetAnimation, value: viewModel.mode)
+        .alert("✏️ Nhập số phút hẹn giờ", isPresented: $showingCustomTimerAlert) {
+            TextField("Số phút (ví dụ: 90)", text: $customMinutesInput)
+                .keyboardType(.numberPad)
+            Button("Đồng ý") {
+                if let mins = Int(customMinutesInput), mins > 0 {
+                    ttsManager.startSleepTimer(minutes: mins)
+                }
+            }
+            Button("Hủy", role: .cancel) {}
+        } message: {
+            Text("Nhập số phút tự động tạm dừng nghe truyện (ví dụ: 90).")
+        }
         .onAppear {
             guard ttsManager.showFloatingWidget else { return }
             viewModel.reveal()
@@ -84,7 +99,24 @@ struct TTSFloatingWidgetView: View {
         if viewModel.mode == .peeking {
             collapsedWidget
         } else {
-            expandedWidget
+            VStack(spacing: 4) {
+                if ttsManager.timerMode != .off {
+                    HStack(spacing: 4) {
+                        Image(systemName: "timer")
+                            .font(.system(size: 10, weight: .bold))
+                        Text(ttsManager.sleepTimerBadgeText)
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color.orange))
+                    .shadow(color: .orange.opacity(0.4), radius: 4, x: 0, y: 2)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
+                expandedWidget
+            }
         }
     }
 
@@ -100,18 +132,83 @@ struct TTSFloatingWidgetView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Mở chương đang đọc")
 
-            Button(action: {
-                ttsManager.showingSettingsSheet = true
-                viewModel.startAutoHideTimer()
-            }) {
-                Image(systemName: "gearshape.fill")
+            Menu {
+                Section("⏱️ Hẹn giờ tạm dừng") {
+                    Button(action: { ttsManager.startSleepTimer(minutes: 15) }) {
+                        HStack {
+                            Text("⏱️ 15 phút")
+                            if case .minutes(15) = ttsManager.timerMode {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    Button(action: { ttsManager.startSleepTimer(minutes: 30) }) {
+                        HStack {
+                            Text("⏱️ 30 phút")
+                            if case .minutes(30) = ttsManager.timerMode {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    Button(action: { ttsManager.startSleepTimer(minutes: 45) }) {
+                        HStack {
+                            Text("⏱️ 45 phút")
+                            if case .minutes(45) = ttsManager.timerMode {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    Button(action: { ttsManager.startSleepTimer(minutes: 60) }) {
+                        HStack {
+                            Text("⏱️ 60 phút")
+                            if case .minutes(60) = ttsManager.timerMode {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    Button(action: { ttsManager.setStopAtEndOfChapter() }) {
+                        HStack {
+                            Text("📖 Hết chương hiện tại")
+                            if ttsManager.timerMode == .endOfChapter {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    Button(action: {
+                        customMinutesInput = "90"
+                        showingCustomTimerAlert = true
+                    }) {
+                        HStack {
+                            Text("✏️ Tùy chỉnh số phút...")
+                            if case .minutes(let m) = ttsManager.timerMode, ![15, 30, 45, 60].contains(m) {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    if ttsManager.timerMode != .off {
+                        Button(role: .destructive, action: { ttsManager.cancelSleepTimer() }) {
+                            Label("Tắt hẹn giờ", systemImage: "xmark.circle")
+                        }
+                    }
+                }
+
+                Divider()
+
+                Button(action: {
+                    ttsManager.showingSettingsSheet = true
+                    viewModel.startAutoHideTimer()
+                }) {
+                    Label("Bảng cài đặt giọng đọc", systemImage: "gearshape.fill")
+                }
+            } label: {
+                Image(systemName: ttsManager.timerMode != .off ? "timer" : "gearshape.fill")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(ttsManager.timerMode != .off ? Color.orange : Color.primary)
                     .frame(width: Layout.actionButtonSize, height: Layout.actionButtonSize)
-                    .background(Circle().fill(Color.primary.opacity(0.09)))
+                    .background(Circle().fill(ttsManager.timerMode != .off ? Color.orange.opacity(0.18) : Color.primary.opacity(0.09)))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Cài đặt TTS")
+            .accessibilityLabel("Cài đặt và Hẹn giờ TTS")
 
             Button(action: togglePlayback) {
                 Image(systemName: playState.isPlaying ? "pause.fill" : "play.fill")

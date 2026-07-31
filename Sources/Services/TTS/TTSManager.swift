@@ -249,6 +249,124 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public var showFloatingWidget: Bool = false
     @Published public var showingSettingsSheet: Bool = false
 
+    // Sleep Timer (Hẹn giờ tạm dừng đọc)
+    public enum SleepTimerMode: Equatable {
+        case off
+        case minutes(Int)
+        case endOfChapter
+
+        public var title: String {
+            switch self {
+            case .off: return "Tắt"
+            case .minutes(let m): return "\(m) phút"
+            case .endOfChapter: return "Hết chương"
+            }
+        }
+    }
+
+    @Published public var timerMode: SleepTimerMode = .off
+    @Published public var sleepTimerRemainingSeconds: Int = 0
+    @Published public var isTimerRunning: Bool = false
+    private var sleepTimerObj: Timer? = nil
+
+    public var sleepTimerBadgeText: String {
+        switch timerMode {
+        case .off:
+            return ""
+        case .endOfChapter:
+            return "📖 Hết chương"
+        case .minutes(let m):
+            if isTimerRunning && sleepTimerRemainingSeconds > 0 {
+                let mins = sleepTimerRemainingSeconds / 60
+                let secs = sleepTimerRemainingSeconds % 60
+                if mins >= 60 {
+                    let hrs = mins / 60
+                    let remMins = mins % 60
+                    return String(format: "⏱️ %dh%02dm", hrs, remMins)
+                } else if mins > 0 {
+                    return String(format: "⏱️ %dm%02ds", mins, secs)
+                } else {
+                    return String(format: "⏱️ %ds", secs)
+                }
+            } else {
+                return "⏱️ \(m)m"
+            }
+        }
+    }
+
+    public func startSleepTimer(minutes: Int) {
+        let clamped = max(1, minutes)
+        self.timerMode = .minutes(clamped)
+        self.startTimerCountdown(minutes: clamped)
+        let msg = "Đã hẹn giờ: Tạm dừng đọc sau \(clamped) phút."
+        ToastManager.shared.show(message: msg, type: .info)
+    }
+
+    public func setStopAtEndOfChapter() {
+        self.timerMode = .endOfChapter
+        self.stopTimerCountdown(keepMode: true)
+        ToastManager.shared.show(message: "Đã hẹn giờ: Tạm dừng khi đọc hết chương hiện tại.", type: .info)
+    }
+
+    public func cancelSleepTimer() {
+        self.timerMode = .off
+        self.stopTimerCountdown(keepMode: false)
+        ToastManager.shared.show(message: "Đã tắt hẹn giờ tạm dừng.", type: .info)
+    }
+
+    public func startTimerCountdown(minutes: Int) {
+        stopTimerCountdown(keepMode: true)
+        self.sleepTimerRemainingSeconds = minutes * 60
+        self.isTimerRunning = true
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.sleepTimerObj = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+                guard let self = self else { return }
+                if self.sleepTimerRemainingSeconds > 1 {
+                    self.sleepTimerRemainingSeconds -= 1
+                } else {
+                    self.sleepTimerRemainingSeconds = 0
+                    self.onSleepTimerExpired()
+                }
+            }
+        }
+    }
+
+    public func stopTimerCountdown(keepMode: Bool) {
+        sleepTimerObj?.invalidate()
+        sleepTimerObj = nil
+        self.isTimerRunning = false
+        if !keepMode {
+            self.timerMode = .off
+            self.sleepTimerRemainingSeconds = 0
+        }
+    }
+
+    public func restartSleepTimerIfNeeded() {
+        guard isPlaying else { return }
+        switch timerMode {
+        case .minutes(let m):
+            if !isTimerRunning || sleepTimerRemainingSeconds <= 0 {
+                startTimerCountdown(minutes: m)
+            }
+        case .endOfChapter, .off:
+            break
+        }
+    }
+
+    private func onSleepTimerExpired() {
+        stopTimerCountdown(keepMode: true)
+        pause()
+        let label: String
+        if case .minutes(let m) = timerMode {
+            label = " (\(m) phút)"
+        } else {
+            label = ""
+        }
+        ToastManager.shared.show(message: "⏱️ Hẹn giờ\(label): Đã tự động tạm dừng đọc.", type: .info)
+    }
+
     // Thông tin phát nhạc độc lập toàn cục
     @Published public private(set) var playingBookId: String = ""
     @Published public private(set) var playingCoverUrl: String = ""
@@ -1000,7 +1118,13 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
         } else {
             guard isPlaying else { return }
-            // Đã hết chương, chuyển chương mới
+            // Đã hết chương, kiểm tra hẹn giờ dừng khi hết chương
+            if timerMode == .endOfChapter {
+                stopCurrentPlayback()
+                pause()
+                ToastManager.shared.show(message: "📖 Hẹn giờ: Đã tự động tạm dừng khi đọc hết chương.", type: .info)
+                return
+            }
             stopCurrentPlayback()
             if let nextIdx = nextChapterIndex(after: playingChapterIndex) {
                 advanceToNextChapter(nextIdx: nextIdx)
@@ -1042,7 +1166,13 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             currentParagraphIndex += 1
             speakCurrent()
         } else {
-            // Hết chương → tự advance sang chương tiếp theo, không phụ thuộc ReaderView
+            // Hết chương, kiểm tra hẹn giờ dừng khi hết chương
+            if timerMode == .endOfChapter {
+                stopCurrentPlayback()
+                pause()
+                ToastManager.shared.show(message: "📖 Hẹn giờ: Đã tự động tạm dừng khi đọc hết chương.", type: .info)
+                return
+            }
             if let nextIdx = nextChapterIndex(after: playingChapterIndex) {
                 stopCurrentPlayback()
                 advanceToNextChapter(nextIdx: nextIdx)
@@ -1197,6 +1327,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         // Đảm bảo trạng thái đang phát hợp lệ và index nằm trong phạm vi của mảng paragraphs
         guard isPlaying, currentParagraphIndex >= 0 && currentParagraphIndex < paragraphs.count else { return }
+
+        restartSleepTimerIfNeeded()
 
         let paragraph = paragraphs[currentParagraphIndex]
         self.highlightRange = paragraph.range // Cập nhật vùng bôi đen chữ đang đọc trên giao diện đọc truyện

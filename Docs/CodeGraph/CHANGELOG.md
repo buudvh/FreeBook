@@ -48,8 +48,12 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Đánh dấu `@Published` cho `customVietPhraseDict` và `customNamesDict` trong `TranslationManager`.
   * Bổ sung `@State private var refreshToken = UUID()` và `.onAppear` trong `DictionaryHubView` đếm và hiển thị ngay lập tức số từ mới nhất khi bấm Back ra ngoài.
   * Phát thông báo `translationDictionariesDidUpdate` khi cập nhật từ điển; `ReaderView` tự động xóa cache và ép nạp/dịch lại chương đang đọc (`forceRefresh: true`) để hiển thị nghĩa mới tức thì.
+* **Tính Năng Hẹn Giờ Tạm Dừng Nghe Truyện - Sleep Timer (`TTSManager.swift`, `TTSFloatingWidgetView.swift`, `TTSSettingsView.swift`)**:
+  * **Bộ Quản Lý Hẹn Giờ Ghi Nhớ Lặp Lại**: Bổ sung `SleepTimerMode` (`off`, `minutes(Int)`, `endOfChapter`) trong `TTSManager.swift`. Tự động lặp lại bộ đếm khi người dùng bấm nghe lại (Play) sau khi tạm dừng, giữ nguyên chế độ hẹn giờ cho đến khi chọn *Tắt hẹn giờ*.
+  * **Nút Menu Dropdown Thích Ứng Vị Trí Màn Hình**: Chuyển nút Cài đặt trên `TTSFloatingWidgetView` thành SwiftUI `Menu` Dropdown chọn nhanh 15m, 30m, 45m, 60m, Hết chương hiện tại, Tùy chỉnh số phút và Tắt hẹn giờ mà **100% không làm ngắt hay gián đoạn âm thanh**. Tự động thích ứng vị trí mở tránh bị mất góc hay tràn màn hình.
+  * **Tag Đếm Ngược Nổi Đỉnh Widget (Vị Trí 3)**: Hiển thị thanh Tag màu Cam `⏱️ 14:35 - Hẹn giờ 15p` đếm ngược thời gian thực ngay trên đỉnh thanh Widget nổi khi đang đếm ngược.
 * **Khắc Phục Lỗi Google TTS HTTP 429 & Tùy Chỉnh Giao Diện Cài Đặt TTS (`GoogleTTSService.swift`, `TTSManager.swift`, `TTSSettingsView.swift`)**:
-  * **Chống 429 Google TTS**: Luân chuyển `client=tw-ob` và `client=gtx` qua từng request trong `GoogleTTSService.swift`, bổ sung Header `Referer: https://translate.google.com/`, `Accept-Language` và User-Agent trình duyệt tiêu chuẩn.
+  * **Chống 429 Google TTS Bằng JS Engine**: Chuyển đổi `GoogleTTSService.swift` sang chạy mã JavaScript qua `JSExecutor` (`JSContext` + JSDOM engine + `fetch` JS giống hệt Extension TTS `ext`), luân chuyển `client=gtx` và `client=dict-chrome-ex` hoàn toàn không bị Google chặn.
   * **Giãn tiến trình tối thiểu 500ms**: Đặt dãn cách tối thiểu 500ms giữa tất cả các đoạn cho các Online Engines. Ép sàn tối thiểu `prefetchDelayMs` $\ge 500\text{ms}$ trong `TTSManager.swift`.
   * **Nút Reset Tốc Độ & Cao Độ**: Bổ sung nút **"Đặt lại"** (icon `arrow.counterclockwise`) trong `TTSSettingsView.swift` khôi phục tức thì Tốc độ và Cao độ về $1.0x$.
   * **Nút Stepper (+/-) nấc 0.1**: Bổ sung Stepper (+/-) nấc tăng giảm $0.1$ cho cả Tốc độ (0.5x–5.0x) và Cao độ (0.5x–2.0x) kết hợp cùng Slider trong `TTSSettingsView.swift`.

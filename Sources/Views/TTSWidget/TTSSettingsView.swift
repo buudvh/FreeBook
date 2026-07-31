@@ -270,6 +270,42 @@ struct TTSSettingsView: View {
                     }
                 }
                 
+                Section("Hẹn giờ tắt (Sleep Timer)") {
+                    if ttsManager.timerMode != .off {
+                        HStack {
+                            Image(systemName: "timer")
+                                .foregroundColor(.orange)
+                            Text("Đang hẹn giờ:")
+                            Spacer()
+                            Text(ttsManager.sleepTimerBadgeText)
+                                .font(.system(.body, design: .monospaced))
+                                .foregroundColor(.orange)
+                                .bold()
+                        }
+                    }
+
+                    HStack(spacing: 8) {
+                        Button("15p") { ttsManager.startSleepTimer(minutes: 15) }
+                            .buttonStyle(.bordered)
+                        Button("30p") { ttsManager.startSleepTimer(minutes: 30) }
+                            .buttonStyle(.bordered)
+                        Button("45p") { ttsManager.startSleepTimer(minutes: 45) }
+                            .buttonStyle(.bordered)
+                        Button("60p") { ttsManager.startSleepTimer(minutes: 60) }
+                            .buttonStyle(.bordered)
+                    }
+
+                    Button("📖 Hết chương hiện tại") {
+                        ttsManager.setStopAtEndOfChapter()
+                    }
+
+                    if ttsManager.timerMode != .off {
+                        Button("❌ Tắt hẹn giờ", role: .destructive) {
+                            ttsManager.cancelSleepTimer()
+                        }
+                    }
+                }
+
                 Section("Tải trước dữ liệu (Preloading)") {
                     if ttsManager.tool == "google" {
                         Stepper(value: $ttsManager.googlePrefetchCount, in: 1...10) {
