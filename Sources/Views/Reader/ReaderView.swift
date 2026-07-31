@@ -540,8 +540,20 @@ struct ReaderView: View {
             }
         }
         .fullScreenCover(isPresented: $showingBypassBrowser) {
+            let browserUrl: String = {
+                if let sourceUrl = localBook?.sourceUrl, !sourceUrl.isEmpty, sourceUrl.hasPrefix("http") {
+                    return sourceUrl
+                }
+                if let detailUrl = bookDetailUrl, !detailUrl.isEmpty, detailUrl.hasPrefix("http") {
+                    return detailUrl
+                }
+                if let chapUrl = currentChapterInfo?.url, !chapUrl.isEmpty, chapUrl.hasPrefix("http") {
+                    return chapUrl
+                }
+                return "http://14.225.254.182/"
+            }()
             BypassWebView(
-                urlString: currentChapterInfo?.url ?? bookDetailUrl ?? "",
+                urlString: browserUrl,
                 host: currentChapterHost,
                 onImport: { detailUrl, packageId, sourceName in
                     if detailUrl.hasPrefix("stv_") {

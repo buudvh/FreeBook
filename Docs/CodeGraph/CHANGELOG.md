@@ -17,8 +17,9 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Tách biệt logic nạp `content.css` và `content.js` độc lập từ `Bundle.main`.
   * Đảm bảo logic dự phòng fallback chỉ chạy khi thuộc tính tương ứng bị rỗng, loại bỏ nguy cơ ghi đè `cssContent` đã nạp thành công.
   * Loại bỏ hoàn toàn các đường dẫn ổ đĩa tuyệt đối cứng (`D:\...`) phục vụ môi trường phát triển local.
-* **Khôi Phục Khai Báo Biến `chapterTitle` Trong `content.js` (`Sources/Resources/GetTextSTV/content.js`)**:
-  * Khôi phục dòng khai báo `const chapterTitle = textOf("#bookchapnameholder") || ""` bị thiếu trong `getChapterInfo()`, sửa dứt điểm lỗi `ReferenceError: chapterTitle is not defined` và `JavaScript exception occurred` khi nạp kịch bản STV.
+* **Bảo Đảm Luồng Lưu 100% DB Trước Khi Chuyển Màn Hình Chi Tiết (`content.js`, `BypassWebView.swift`)**:
+  * Bổ sung gửi `syncTOC` trong `stopAutoDownload` và `finishAutoDownload` trước khi phát tín hiệu `finishDownload`.
+  * Thực thi `context.save()` lưu 100% SwiftData DB local trước khi đóng trình duyệt và chuyển màn hình Chi tiết truyện.
 
 ## [1.3.65] - 2026-07-31
 

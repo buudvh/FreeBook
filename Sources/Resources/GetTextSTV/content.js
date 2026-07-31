@@ -1033,6 +1033,15 @@
       const removeText = settings.removeText || "求月票__求個月票__求首訂__求关注__求追读__求订阅__月票加更__〔__{__(__（";
       toc = parseStvToc(rawText, chapter.host, chapter.bookId, removeText);
       await appendAutoLog("fetch-toc-success", { chapterCount: toc.length });
+      if (typeof window.sendFreeBookPayload === "function" && Array.isArray(toc) && toc.length > 0) {
+        window.sendFreeBookPayload("syncTOC", {
+          bookId: chapter.bookId,
+          bookTitle: chapter.bookTitle,
+          host: chapter.host,
+          url: location.href,
+          tocChapters: toc
+        });
+      }
     } catch (e) {
       console.error("Failed to fetch TOC during auto-download start:", e);
       await appendAutoLog("fetch-toc-error", { error: e.message });
@@ -1081,7 +1090,27 @@
     });
     await storageSet(state);
     await downloadAutoText(state);
-    await clearStoredChapters(state);
+    if (typeof window.sendFreeBookPayload === "function") {
+      const bookId = state.bookKey ? state.bookKey.split(":")[1] : "";
+      const host = state.bookKey ? state.bookKey.split(":")[0] : "";
+      if (Array.isArray(state.toc) && state.toc.length > 0) {
+        window.sendFreeBookPayload("syncTOC", {
+          bookId: bookId,
+          bookTitle: state.bookTitle || "",
+          host: host,
+          url: location.href,
+          tocChapters: state.toc
+        });
+      }
+      window.sendFreeBookPayload("finishDownload", {
+        type: "GETTEXT_STV_FINISH",
+        action: "finishDownload",
+        bookId: bookId,
+        bookTitle: state.bookTitle || "",
+        url: location.href
+      });
+    }
+
     await storageRemove();
     setProgress(null);
     setStatus(`Da dung va tai ${getChapterCount(state)} chuong.`);
@@ -1114,14 +1143,18 @@
     );
 
     try {
-      const finishPayload = {
-        type: "GETTEXT_STV_FINISH",
-        action: "finishDownload",
-        bookId: state.bookKey ? state.bookKey.split(":")[1] : "",
-        bookTitle: state.bookTitle || "",
-        url: location.href
-      };
+      const bookId = state.bookKey ? state.bookKey.split(":")[1] : "";
+      const host = state.bookKey ? state.bookKey.split(":")[0] : "";
       if (typeof window.sendFreeBookPayload === "function") {
+        if (Array.isArray(state.toc) && state.toc.length > 0) {
+          window.sendFreeBookPayload("syncTOC", {
+            bookId: bookId,
+            bookTitle: state.bookTitle || "",
+            host: host,
+            url: location.href,
+            tocChapters: state.toc
+          });
+        }
         window.sendFreeBookPayload("finishDownload", finishPayload);
       } else if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
         chrome.runtime.sendMessage(finishPayload);
@@ -1934,15 +1967,6 @@
           url: url
         });
       }
-
-      chapters.sort((a, b) => {
-        const numA = parseInt(a.chapterId, 10);
-        const numB = parseInt(b.chapterId, 10);
-        if (!isNaN(numA) && !isNaN(numB)) {
-          return numA - numB;
-        }
-        return a.chapterId.localeCompare(b.chapterId);
-      });
 
       return chapters;
     } catch (e) {
