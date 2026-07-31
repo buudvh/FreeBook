@@ -66,6 +66,8 @@
       document.querySelector('meta[property="og:description"]')?.content ||
       "";
 
+    const chapterTitle = textOf("#bookchapnameholder") || "";
+
     return {
       bookId: bookId,
       chapterId: chapterId,
