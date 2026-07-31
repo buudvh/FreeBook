@@ -18,6 +18,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Thêm hàm `GetTextSTVManager.canonicalBookId(from:host:)` chuẩn hóa đồng bộ 100% mã `bookId` theo dạng `stv_{host}_{bookId}` (ví dụ `stv_fanqie_7590221243043826712`).
   * Loại bỏ hoàn toàn truy vấn và fallback đến `localBook?.chapters` từ SwiftData đối với dữ liệu mục lục chương, chuyển 100% sang SQLite `ChapterStore.shared.fetchOrderedTOC`.
   * Đơn giản hóa biến tính số chương trong `BookDetailView.swift`: `let totalChaps = chapterSnapshots.count > 0 ? chapterSnapshots.count : onlineChapters.count`.
+  * Tách biệt `rawBookId` (số nguyên STV) dùng cho gọi API cào mục lục STV `/index.php?ngmar=chapterlist` và `canonicalBookId` (`stv_{host}_{bookId}`) gửi về cho iOS Native bridge trong `content.js`.
   * Bổ sung gán `showingBypassBrowser = false` trong `onImport` của các View để tắt ngay trình duyệt sau khi hoàn tất hoặc dừng cào dữ liệu.
 
 ## [1.3.66] - 2026-07-31

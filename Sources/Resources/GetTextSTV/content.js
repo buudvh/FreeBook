@@ -68,11 +68,11 @@
 
     const chapterTitle = textOf("#bookchapnameholder") || "";
 
-    const canonicalBookId = (bookId.startsWith("stv_") && bookId.split("_").length >= 3)
-      ? bookId
-      : ((host && bookId) ? `stv_${host}_${bookId.replace(/^stv_/, "")}` : (bookId ? `stv_novel_${bookId.replace(/^stv_/, "")}` : ""));
+    const rawBookId = (bookId || "").replace(/^stv_/, "");
+    const canonicalBookId = (host && rawBookId) ? `stv_${host}_${rawBookId}` : (rawBookId ? `stv_novel_${rawBookId}` : "");
 
     return {
+      rawBookId: rawBookId,
       bookId: canonicalBookId,
       chapterId: chapterId,
       host: host,
@@ -1026,7 +1026,8 @@
     let toc = [];
     try {
       const origin = window.location.origin;
-      const fetchUrl = `${origin}/index.php?ngmar=chapterlist&h=${chapter.host}&bookid=${chapter.bookId}&sajax=getchapterlist`;
+      const rawBookId = String(chapter.rawBookId || chapter.bookId || "").replace(/^stv_[^_]+_/, "").replace(/^stv_/, "");
+      const fetchUrl = `${origin}/index.php?ngmar=chapterlist&h=${chapter.host}&bookid=${rawBookId}&sajax=getchapterlist`;
       const response = await fetch(fetchUrl, {
         headers: {
           "Accept": "*/*"
@@ -1962,7 +1963,8 @@
           .replace(/([\t\n]+|<br>|&nbsp;)/g, "")
           .replace(/Thứ ([\d\,]+) chương/, "Chương $1:");
         
-        const url = `${window.location.origin}/truyen/${host}/1/${bookId}/${chapterId}/`;
+        const rawBookId = String(bookId || "").replace(/^stv_[^_]+_/, "").replace(/^stv_/, "");
+        const url = `${window.location.origin}/truyen/${host}/1/${rawBookId}/${chapterId}/`;
 
         chapters.push({
           chapterId: chapterId,

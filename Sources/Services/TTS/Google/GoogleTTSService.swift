@@ -22,13 +22,17 @@ public final class GoogleTTSService: Sendable {
     public init() {}
     
     public func getApiKey() -> String {
+        // 1. API Key cá nhân do người dùng nhập trong Cài đặt TTS
         if let customKey = UserDefaults.standard.string(forKey: "google_cloud_tts_custom_api_key"),
            !customKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return customKey.trimmingCharacters(in: .whitespacesAndNewlines)
         }
+        
+        // 2. API Key hệ thống nhúng trong Info.plist (từ GitHub Secret)
         if let bundleKey = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_CLOUD_TTS_API_KEY") as? String,
            !bundleKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           bundleKey != "$(GOOGLE_CLOUD_TTS_API_KEY)" {
+           bundleKey != "$(GOOGLE_CLOUD_TTS_API_KEY)",
+           !bundleKey.contains("$(") {
             return bundleKey.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         return ""
@@ -93,21 +97,43 @@ public final class GoogleTTSService: Sendable {
             throw NSError(domain: "GoogleTTSService", code: -4, userInfo: [NSLocalizedDescriptionKey: "Phản hồi từ máy chủ không hợp lệ"])
         }
         
+        let rawResponseString = String(data: data, encoding: .utf8) ?? ""
+
         guard (200...299).contains(httpResponse.statusCode) else {
-            let errorMsg = String(data: data, encoding: .utf8) ?? "Mã lỗi \(httpResponse.statusCode)"
-            AppLogger.shared.log("❌ [GoogleTTSService] Lỗi HTTP \(httpResponse.statusCode): \(errorMsg)")
-            throw NSError(domain: "GoogleTTSService", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Google TTS API Lỗi HTTP \(httpResponse.statusCode)"])
+            AppLogger.shared.log("❌ [GoogleTTSService] Lỗi HTTP \(httpResponse.statusCode): \(rawResponseString)")
+            throw NSError(domain: "GoogleTTSService", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Google TTS API Lỗi HTTP \(httpResponse.statusCode): \(rawResponseString)"])
         }
         
-        // Response format: JSON Array, audio base64 is in item index 2 -> "audio" -> "bytes"
-        guard let jsonArray = try JSONSerialization.jsonObject(with: data) as? [Any],
-              jsonArray.count > 2,
-              let itemObj = jsonArray[2] as? [String: Any],
-              let audioObj = itemObj["audio"] as? [String: Any],
-              let base64String = audioObj["bytes"] as? String,
-              let audioData = Data(base64Encoded: base64String.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-            AppLogger.shared.log("❌ [GoogleTTSService] Phản hồi JSON không chứa dữ liệu âm thanh hợp lệ")
-            throw NSError(domain: "GoogleTTSService", code: -5, userInfo: [NSLocalizedDescriptionKey: "Dữ liệu âm thanh từ Google TTS không hợp lệ"])
+        // 1. Kiểm tra xem có lỗi JSON dạng Object {"error": ...} hay không
+        if let jsonDict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let errorObj = jsonDict["error"] as? [String: Any],
+           let message = errorObj["message"] as? String {
+            AppLogger.shared.log("❌ [GoogleTTSService] Google API Error: \(message)")
+            throw NSError(domain: "GoogleTTSService", code: -6, userInfo: [NSLocalizedDescriptionKey: "Google TTS Lỗi: \(message)"])
+        }
+
+        // 2. Tìm kiếm linh hoạt chuỗi Base64 audio bytes trong tất cả các phần tử của mảng JSON
+        var base64String: String? = nil
+        if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [Any] {
+            for element in jsonArray {
+                if let dict = element as? [String: Any] {
+                    if let audioObj = dict["audio"] as? [String: Any],
+                       let bytes = audioObj["bytes"] as? String,
+                       !bytes.isEmpty {
+                        base64String = bytes
+                        break
+                    } else if let bytes = dict["bytes"] as? String, !bytes.isEmpty {
+                        base64String = bytes
+                        break
+                    }
+                }
+            }
+        }
+        
+        guard let validBase64 = base64String,
+              let audioData = Data(base64Encoded: validBase64.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            AppLogger.shared.log("❌ [GoogleTTSService] Phản hồi JSON không chứa dữ liệu âm thanh hợp lệ. Response Raw: \(rawResponseString)")
+            throw NSError(domain: "GoogleTTSService", code: -5, userInfo: [NSLocalizedDescriptionKey: "Google TTS API không có audio. Chi tiết: \(rawResponseString)"])
         }
         
         return audioData
