@@ -951,6 +951,36 @@
     };
     delete nextState.chapters;
     await storageSet(nextState);
+
+    try {
+      let chapIdx = chapterRefs.length > 0 ? chapterRefs.length - 1 : 0;
+      if (Array.isArray(state.toc) && state.toc.length > 0) {
+        const foundIndex = state.toc.findIndex((item) => String(item.chapterId) === String(chapter.chapterId) || item.url === chapter.url);
+        if (foundIndex !== -1) {
+          chapIdx = foundIndex;
+        }
+      }
+
+      const payload = {
+        type: "GETTEXT_STV_SAVE_CHAPTER",
+        action: "saveChapterContent",
+        bookId: chapter.bookId || "",
+        bookTitle: state.bookTitle || chapter.bookTitle || "",
+        chapterIndex: chapIdx,
+        chapterTitle: formatChapterTitle(chapter, state.toc) || chapter.chapterTitle || "",
+        chapterUrl: chapter.url || "",
+        content: chapter.body || ""
+      };
+
+      if (typeof window.sendFreeBookPayload === "function") {
+        window.sendFreeBookPayload("saveChapterContent", payload);
+      } else if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage(payload);
+      }
+    } catch (e) {
+      console.error("FreeBook Save Chapter Bridge Error:", e);
+    }
+
     return nextState;
   }
 
@@ -1062,6 +1092,21 @@
       "GetText STV: tai xong",
       `${message}\nDa tai: ${finishLog.chapterCount} chuong\nChuong cuoi da tai: ${finishLog.lastUrl || "khong ro"}`
     );
+
+    try {
+      const finishPayload = {
+        type: "GETTEXT_STV_FINISH",
+        action: "finishDownload",
+        bookId: state.bookKey ? state.bookKey.split(":")[1] : "",
+        bookTitle: state.bookTitle || "",
+        url: location.href
+      };
+      if (typeof window.sendFreeBookPayload === "function") {
+        window.sendFreeBookPayload("finishDownload", finishPayload);
+      } else if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage(finishPayload);
+      }
+    } catch (_e) {}
   }
 
   async function resumeAutoDownload() {

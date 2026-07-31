@@ -26,33 +26,40 @@ public final class GetTextSTVManager {
         var cssContent = ""
         var jsContent = ""
 
-        // 1. Thử nạp từ Bundle ứng dụng (có hoặc không có subdirectory)
-        if let cssUrl = Bundle.main.url(forResource: "content", withExtension: "css", subdirectory: "GetTextSTV") ?? Bundle.main.url(forResource: "content", withExtension: "css"),
-           let jsUrl = Bundle.main.url(forResource: "content", withExtension: "js", subdirectory: "GetTextSTV") ?? Bundle.main.url(forResource: "content", withExtension: "js") {
+        // 1. Thử nạp độc lập từ Bundle ứng dụng
+        if let cssUrl = Bundle.main.url(forResource: "content", withExtension: "css", subdirectory: "GetTextSTV")
+            ?? Bundle.main.url(forResource: "content", withExtension: "css") {
             cssContent = (try? String(contentsOf: cssUrl, encoding: .utf8)) ?? ""
+        }
+
+        if let jsUrl = Bundle.main.url(forResource: "content", withExtension: "js", subdirectory: "GetTextSTV")
+            ?? Bundle.main.url(forResource: "content", withExtension: "js") {
             jsContent = (try? String(contentsOf: jsUrl, encoding: .utf8)) ?? ""
         }
 
-        // 2. Thử nạp từ các đường dẫn đĩa nhị phân dự án
-        if cssContent.isEmpty || jsContent.isEmpty {
+        // 2. Dự phòng nạp từ các đường dẫn tương đối dự án nếu Bundle chưa có
+        if cssContent.isEmpty {
             let candidatesCss = [
                 "Sources/Resources/GetTextSTV/content.css",
-                "d:\\Study\\FreeBook\\Sources\\Resources\\GetTextSTV\\content.css",
-                "D:\\Study\\GetTextSTV\\extension\\content.css"
-            ]
-            let candidatesJs = [
-                "Sources/Resources/GetTextSTV/content.js",
-                "d:\\Study\\FreeBook\\Sources\\Resources\\GetTextSTV\\content.js",
-                "D:\\Study\\GetTextSTV\\extension\\content.js"
+                "content.css"
             ]
             for path in candidatesCss {
                 if let str = try? String(contentsOfFile: path, encoding: .utf8), !str.isEmpty {
-                    cssContent = str; break
+                    cssContent = str
+                    break
                 }
             }
+        }
+
+        if jsContent.isEmpty {
+            let candidatesJs = [
+                "Sources/Resources/GetTextSTV/content.js",
+                "content.js"
+            ]
             for path in candidatesJs {
                 if let str = try? String(contentsOfFile: path, encoding: .utf8), !str.isEmpty {
-                    jsContent = str; break
+                    jsContent = str
+                    break
                 }
             }
         }

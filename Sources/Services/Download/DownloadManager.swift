@@ -360,7 +360,8 @@ public final class DownloadManager: ObservableObject {
 
             // 2. Fetch Extension by filtering in memory
             let allExts = (try? bgContext.fetch(FetchDescriptor<Extension>())) ?? []
-            guard let bgExt = allExts.first(where: { $0.packageId == task.extensionPackageId }) else {
+            let bgExt = allExts.first(where: { $0.packageId == task.extensionPackageId })
+            if bgExt == nil && !bgBook.isSTVBook && task.extensionPackageId != "local_stv" {
                 throw NSError(domain: "DownloadManager", code: -2, userInfo: [NSLocalizedDescriptionKey: "Không tìm thấy tiện ích bóc tách cho truyện này."])
             }
 
@@ -432,8 +433,13 @@ public final class DownloadManager: ObservableObject {
                 if isChapterCached, let existingContent = cachedContent, !existingContent.isEmpty {
                     originalContent = existingContent
                 } else {
-                    if task.taskType == .exportTxt && task.onlyExportCached {
+                    if (task.taskType == .exportTxt && task.onlyExportCached) || bgBook.isSTVBook || task.extensionPackageId == "local_stv" {
                         // Skip this chapter as it is not cached
+                        processedCount += 1
+                        continue
+                    }
+
+                    guard let bgExt = bgExt else {
                         processedCount += 1
                         continue
                     }

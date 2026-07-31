@@ -815,6 +815,19 @@ struct BookDetailView: View {
     }
 
     private func loadBookDetailOnly() {
+        if localBook?.isSTVBook == true || extensionPackageId == "local_stv" || actualBookId.hasPrefix("stv_") {
+            if let book = localBook {
+                self.title = book.title
+                self.author = book.author
+                self.coverUrl = book.coverUrl
+                self.desc = book.desc
+                self.detail = book.desc
+                self.host = book.host ?? ""
+            }
+            self.isLoadingDetail = false
+            return
+        }
+
         guard let ext = ext else {
             detailErrorMessage = "Không tìm thấy tiện ích bóc tách của truyện này!"
             self.isLoadingDetail = false
@@ -866,6 +879,14 @@ struct BookDetailView: View {
     }
 
     private func loadTOCDataOnly() {
+        if localBook?.isSTVBook == true || extensionPackageId == "local_stv" || actualBookId.hasPrefix("stv_") {
+            self.loadLocalChapterSnapshots()
+            self.syncChaptersList()
+            self.updateFilteredLocalChapters()
+            self.isLoadingTOC = false
+            return
+        }
+
         guard let ext = ext else {
             tocErrorMessage = "Không tìm thấy tiện ích bóc tách!"
             self.isLoadingTOC = false

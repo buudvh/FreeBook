@@ -772,15 +772,24 @@ class ReaderViewModel: ObservableObject {
             bookMetadata = makeBookMetadataSnapshot()
         }
 
-        cache.set(index, state: .loading)
-        let extensionInfo = ext.map {
-            TTSExtensionInfo(
-                packageId: $0.packageId,
-                localPath: $0.localPath,
-                downloadUrl: $0.downloadUrl,
-                configJson: $0.configJson
-            )
-        }
+        let extensionInfo: TTSExtensionInfo? = {
+            if let ext = ext {
+                return TTSExtensionInfo(
+                    packageId: ext.packageId,
+                    localPath: ext.localPath,
+                    downloadUrl: ext.downloadUrl,
+                    configJson: ext.configJson
+                )
+            } else if extensionPackageId == "local_stv" || bookId.hasPrefix("stv_") || localBook?.isSTVBook == true {
+                return TTSExtensionInfo(
+                    packageId: "local_stv",
+                    localPath: "",
+                    downloadUrl: "",
+                    configJson: "{}"
+                )
+            }
+            return nil
+        }()
         await ChapterContentRepository.shared.configure(container: modelContext.container)
         let result = try await ChapterContentRepository.shared.load(
             ChapterContentRequest(

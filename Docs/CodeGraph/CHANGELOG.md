@@ -2,6 +2,25 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.66] - 2026-07-31
+
+### Khắc Phục Lỗi "Không Tìm Thấy Extension Thích Hợp" Cho Nguồn Sáng Tác Việt (STV) & Đánh Dấu Nhãn STV (`Book.swift`, `GetTextSTVManager.swift`, `BookDetailView.swift`, `ReaderViewModel.swift`, `ChapterContentRepository.swift`, `DownloadManager.swift`, `BookDetailHeaderView.swift`, `ShelfView.swift`)
+* **Hỗ Trợ Thuộc Tính `isSTVBook` Trên `Book` Model (`Book.swift`)**:
+  * Thêm thuộc tính tính toán `isSTVBook: Bool` để xác định sách thuộc nguồn Sáng Tác Việt (`extensionPackageId == "local_stv"`, `bookId.hasPrefix("stv_")`, hoặc `sourceName` chứa *"Sáng Tác Việt"*).
+* **Xử Lý Mở Chi Tiết & Mục Lục Truyện STV Trong `BookDetailView` (`BookDetailView.swift`)**:
+  * Kiểm tra `isSTVBook` trong `loadBookDetailOnly()` và `loadTOCDataOnly()`: Sử dụng thông tin metadata và danh sách chương đã nạp sẵn từ `GetTextSTVManager` / `ChapterStore` mà không báo lỗi thiếu tiện ích bóc tách.
+* **Xử Lý Nạp Chương & Tải Xuất Truyện STV (`ReaderViewModel.swift`, `ChapterContentRepository.swift`, `DownloadManager.swift`)**:
+  * Cập nhật `ReaderViewModel`: Khởi tạo `TTSExtensionInfo` tổng hợp với `packageId: "local_stv"` khi `ext` trả về `nil`.
+  * Cập nhật `ChapterContentRepository`: Thêm lỗi `.stvContentNotCached` với thông báo thân thiện *"Chương này chưa được cào từ Sáng Tác Việt. Vui lòng mở trình duyệt web để cào nội dung."* khi đọc file đĩa `.bin` chưa thành công, tránh báo lỗi thiếu tiện ích.
+  * Cập nhật `DownloadManager`: Cho phép chạy tác vụ tải / xuất ebook TXT cho truyện STV dựa trên nội dung offline đã cào.
+* **Tối Ưu Hóa Nạp Script Trong `GetTextSTVManager.swift` (`GetTextSTVManager.swift`)**:
+  * Tách biệt logic nạp `content.css` và `content.js` độc lập từ `Bundle.main`.
+  * Đảm bảo logic dự phòng fallback chỉ chạy khi thuộc tính tương ứng bị rỗng, loại bỏ nguy cơ ghi đè `cssContent` đã nạp thành công.
+  * Loại bỏ hoàn toàn các đường dẫn ổ đĩa tuyệt đối cứng (`D:\...`) phục vụ môi trường phát triển local.
+* **Bổ Sung Gửi Tín Hiệu Cầu Nối Cào Chương Trong `content.js` (`Sources/Resources/GetTextSTV/content.js`)**:
+  * Bổ sung gửi thông điệp `GETTEXT_STV_SAVE_CHAPTER` (`saveChapterContent`) về cầu nối Native (`gettextSTVBridge`) mỗi khi cào xong từng chương trong luồng tự động `appendChapterToAutoState`.
+  * Bổ sung gửi thông điệp `finishDownload` khi hoàn thành cào toàn bộ danh sách chương.
+
 ## [1.3.65] - 2026-07-31
 
 ### Loại Bỏ Hoàn Toàn Mã Nguồn Dư Thừa GoogleTTS & Chuyển Đổi Phát Âm Bôi Đen Qua AVSpeechSynthesizer Native (`ReaderView.swift`, `TTSManager.swift`, `SiriTTSService.swift`, `JSExecutor.swift`)

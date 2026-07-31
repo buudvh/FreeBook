@@ -495,13 +495,24 @@ struct ShelfView: View {
                             .lineLimit(1)
                     }
 
-                    Text(book.sourceName)
-                        .font(.caption2)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.blue.opacity(0.1))
-                        .foregroundColor(.blue)
-                        .cornerRadius(4)
+                    if book.isSTVBook {
+                        Text("STV")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.purple)
+                            .foregroundColor(.white)
+                            .cornerRadius(4)
+                    } else {
+                        Text(book.sourceName)
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.1))
+                            .foregroundColor(.blue)
+                            .cornerRadius(4)
+                    }
                 }
 
                 let rawChapterTitle = book.currentChapterTitle.isEmpty
