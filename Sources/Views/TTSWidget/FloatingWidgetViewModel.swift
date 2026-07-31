@@ -7,6 +7,15 @@ public final class FloatingWidgetViewModel: ObservableObject {
     @Published public var edgeDirection: EdgeDirection
     @Published public var mode: WidgetMode
     @Published public var isDragging: Bool = false
+    @Published public var isMenuOpen: Bool = false {
+        didSet {
+            if isMenuOpen {
+                autoHideTask?.cancel()
+            } else if mode == .revealed {
+                startAutoHideTimer()
+            }
+        }
+    }
 
     private var autoHideTask: Task<Void, Never>? = nil
 
@@ -70,18 +79,18 @@ public final class FloatingWidgetViewModel: ObservableObject {
 
         UserDefaults.standard.set(Double(verticalRatio), forKey: storedRatioKey)
         UserDefaults.standard.set(targetEdge == .left ? "left" : "right", forKey: storedEdgeKey)
-        if mode == .revealed {
+        if mode == .revealed && !isMenuOpen {
             startAutoHideTimer()
         }
     }
 
     public func startAutoHideTimer() {
         autoHideTask?.cancel()
-        guard !isDragging else { return }
+        guard !isDragging, !isMenuOpen else { return }
         autoHideTask = Task {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             guard !Task.isCancelled else { return }
-            guard mode == .revealed, !isDragging else { return }
+            guard mode == .revealed, !isDragging, !isMenuOpen else { return }
             mode = .peeking
         }
     }

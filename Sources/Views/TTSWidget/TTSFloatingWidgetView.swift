@@ -207,6 +207,9 @@ struct TTSFloatingWidgetView: View {
                     .frame(width: Layout.actionButtonSize, height: Layout.actionButtonSize)
                     .background(Circle().fill(ttsManager.timerMode != .off ? Color.orange.opacity(0.18) : Color.primary.opacity(0.09)))
             }
+            .simultaneousGesture(TapGesture().onEnded {
+                viewModel.cancelTasks()
+            })
             .buttonStyle(.plain)
             .accessibilityLabel("Cài đặt và Hẹn giờ TTS")
 
