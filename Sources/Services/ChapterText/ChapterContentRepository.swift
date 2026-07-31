@@ -193,7 +193,7 @@ actor ChapterContentRepository {
             throw ChapterContentRepositoryError.unavailableExtension
         }
 
-        if extensionInfo.packageId == "local_stv" || GetTextSTVManager.shared.isSangTacVietURL(request.url) {
+        if extensionInfo.packageId == "local_stv" {
             throw ChapterContentRepositoryError.stvContentNotCached
         }
         let rawContent = try await fetchFromExtension(request: request, extensionInfo: extensionInfo)

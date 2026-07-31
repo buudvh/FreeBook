@@ -783,7 +783,7 @@ class ReaderViewModel: ObservableObject {
                     downloadUrl: ext.downloadUrl,
                     configJson: ext.configJson
                 )
-            } else if extensionPackageId == "local_stv" || localBook?.isSTVBook == true || GetTextSTVManager.shared.isSangTacVietURL(initialDetailUrl) {
+            } else if extensionPackageId == "local_stv" || localBook?.isSTVBook == true {
                 return TTSExtensionInfo(
                     packageId: "local_stv",
                     localPath: "",
