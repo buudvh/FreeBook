@@ -479,6 +479,7 @@ struct SwiftUIWebView: UIViewRepresentable {
         let controller = webView.configuration.userContentController
         controller.removeScriptMessageHandler(forName: "gettextSTVBridge")
         controller.add(context.coordinator, name: "gettextSTVBridge")
+        controller.removeAllUserScripts()
         
         let (cssContent, jsContent) = GetTextSTVManager.shared.loadExtensionScripts()
         if !jsContent.isEmpty {
@@ -495,6 +496,7 @@ struct SwiftUIWebView: UIViewRepresentable {
             )
             controller.addUserScript(cssScript)
             controller.addUserScript(jsScript)
+            AppLogger.shared.log("✅ [GetTextSTV] Nạp thành công content.css (\(cssContent.count) bytes) và content.js (\(jsContent.count) bytes) vào WKUserContentController.")
         }
         
         webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
@@ -532,7 +534,10 @@ struct SwiftUIWebView: UIViewRepresentable {
                     let host = (body["host"] as? String) ?? ""
                     let url = (body["url"] as? String) ?? ""
 
-                    if action == "syncTOC" {
+                    if action == "log" {
+                        let logMsg = (body["message"] as? String) ?? "✅ [GetTextSTV] Kịch bản JS & CSS đã nạp thành công vào trang WebKit."
+                        AppLogger.shared.log(logMsg)
+                    } else if action == "syncTOC" {
                         let tocChapters = (body["tocChapters"] as? [[String: Any]]) ?? (body["chapters"] as? [[String: Any]]) ?? []
                         if !bookTitle.isEmpty && !tocChapters.isEmpty {
                             _ = try? await GetTextSTVManager.shared.syncTOCFromExtension(
@@ -562,6 +567,31 @@ struct SwiftUIWebView: UIViewRepresentable {
                     } else if action == "finishDownload" || action == "stopDownload" {
                         let cleanBookId = bookId.hasPrefix("stv_") ? bookId : "stv_" + bookId
                         self.parent.onImport?(url, "local_stv", "Sáng Tác Việt")
+                    }
+                }
+            }
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            guard let urlString = webView.url?.absoluteString,
+                  GetTextSTVManager.shared.isSangTacVietURL(urlString) else { return }
+            
+            let (cssContent, jsContent) = GetTextSTVManager.shared.loadExtensionScripts()
+            if !jsContent.isEmpty {
+                let escapedCss = cssContent.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "`", with: "\\`").replacingOccurrences(of: "$", with: "\\$")
+                let cssInject = "if (!document.getElementById('stv_ext_style')) { var style = document.createElement('style'); style.id = 'stv_ext_style'; style.innerHTML = `\(escapedCss)`; document.head.appendChild(style); }"
+                webView.evaluateJavaScript(cssInject) { _, error in
+                    if let error {
+                        AppLogger.shared.log("⚠️ [GetTextSTV] Lỗi tiêm CSS: \(error.localizedDescription)")
+                    } else {
+                        AppLogger.shared.log("✅ [GetTextSTV] Tiêm CSS thành công vào trang web (\(urlString)).")
+                    }
+                }
+                webView.evaluateJavaScript(jsContent) { _, error in
+                    if let error {
+                        AppLogger.shared.log("⚠️ [GetTextSTV] Lỗi tiêm JS: \(error.localizedDescription)")
+                    } else {
+                        AppLogger.shared.log("✅ [GetTextSTV] Tiêm JS content.js thành công vào trang web (\(urlString)).")
                     }
                 }
             }

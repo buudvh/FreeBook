@@ -26,31 +26,69 @@ public final class GetTextSTVManager {
         var cssContent = ""
         var jsContent = ""
 
-        // 1. Thử nạp từ Bundle ứng dụng
-        if let cssUrl = Bundle.main.url(forResource: "content", withExtension: "css", subdirectory: "GetTextSTV"),
-           let jsUrl = Bundle.main.url(forResource: "content", withExtension: "js", subdirectory: "GetTextSTV") {
+        // 1. Thử nạp từ Bundle ứng dụng (có hoặc không có subdirectory)
+        if let cssUrl = Bundle.main.url(forResource: "content", withExtension: "css", subdirectory: "GetTextSTV") ?? Bundle.main.url(forResource: "content", withExtension: "css"),
+           let jsUrl = Bundle.main.url(forResource: "content", withExtension: "js", subdirectory: "GetTextSTV") ?? Bundle.main.url(forResource: "content", withExtension: "js") {
             cssContent = (try? String(contentsOf: cssUrl, encoding: .utf8)) ?? ""
             jsContent = (try? String(contentsOf: jsUrl, encoding: .utf8)) ?? ""
         }
 
-        // 2. Thử nạp từ thư mục Resources dự án
+        // 2. Thử nạp từ các đường dẫn đĩa nhị phân dự án
         if cssContent.isEmpty || jsContent.isEmpty {
-            let resCssPath = "Sources/Resources/GetTextSTV/content.css"
-            let resJsPath = "Sources/Resources/GetTextSTV/content.js"
-            cssContent = (try? String(contentsOfFile: resCssPath, encoding: .utf8)) ?? ""
-            jsContent = (try? String(contentsOfFile: resJsPath, encoding: .utf8)) ?? ""
+            let candidatesCss = [
+                "Sources/Resources/GetTextSTV/content.css",
+                "d:\\Study\\FreeBook\\Sources\\Resources\\GetTextSTV\\content.css",
+                "D:\\Study\\GetTextSTV\\extension\\content.css"
+            ]
+            let candidatesJs = [
+                "Sources/Resources/GetTextSTV/content.js",
+                "d:\\Study\\FreeBook\\Sources\\Resources\\GetTextSTV\\content.js",
+                "D:\\Study\\GetTextSTV\\extension\\content.js"
+            ]
+            for path in candidatesCss {
+                if let str = try? String(contentsOfFile: path, encoding: .utf8), !str.isEmpty {
+                    cssContent = str; break
+                }
+            }
+            for path in candidatesJs {
+                if let str = try? String(contentsOfFile: path, encoding: .utf8), !str.isEmpty {
+                    jsContent = str; break
+                }
+            }
         }
 
         let polyfillHeader = """
 
         // --- SAFARI IPHONE (WKWEBVIEW) POLYFILL & NATIVE BRIDGE ---
         (function() {
+            var host = location.hostname.toLowerCase();
+            var href = location.href.toLowerCase();
+            var stvMatches = ["sangtacviet.com", "sangtacviet.vn", "sangtacviet.vip", "sangtacviet.app", "14.225.254.182", "103.82.20.93"];
+            var isSTV = stvMatches.some(function(m) { return host.indexOf(m) !== -1 || href.indexOf(m) !== -1; });
+            if (!isSTV) return;
+
             if (typeof window.chrome === "undefined" || !window.chrome.storage) {
                 window.chrome = window.chrome || {};
                 window.chrome.runtime = window.chrome.runtime || {
                     lastError: null,
                     sendMessage: function(msg, cb) {
-                        if (cb) cb({});
+                        try {
+                            var payload = Object.assign({}, msg || {});
+                            if (payload.type === "GETTEXT_STV_SAVE_CHAPTER") {
+                                payload.action = "saveChapterContent";
+                            } else if (payload.type === "GETTEXT_STV_TOC_LOADED" || payload.toc) {
+                                payload.action = "syncTOC";
+                                payload.tocChapters = payload.toc || payload.chapters || [];
+                            } else if (!payload.action) {
+                                payload.action = payload.type || "syncTOC";
+                            }
+                            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.gettextSTVBridge) {
+                                window.webkit.messageHandlers.gettextSTVBridge.postMessage(payload);
+                            }
+                        } catch(e) {
+                            console.error("STV Bridge Post Error:", e);
+                        }
+                        if (cb) cb({ ok: true });
                     },
                     onMessage: {
                         addListener: function() {}
@@ -123,6 +161,15 @@ public final class GetTextSTVManager {
                     console.error("FreeBook Bridge Error:", e);
                 }
             };
+
+            try {
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.gettextSTVBridge) {
+                    window.webkit.messageHandlers.gettextSTVBridge.postMessage({
+                        action: "log",
+                        message: "✅ [GetTextSTV] Khởi tạo thành công Polyfill + content.js + content.css trên trang: " + location.href
+                    });
+                }
+            } catch(e) {}
         })();
         """
 
