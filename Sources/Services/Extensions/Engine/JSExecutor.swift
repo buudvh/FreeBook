@@ -789,104 +789,135 @@ public final class JSExecutor {
 
         // 9. Đăng ký đối tượng Engine toàn cục (Browser thực tế)
         let engineBootstrap = """
-        var Engine = {
-            newBrowser: function() {
-                var browserId = "browser_" + Math.random().toString(36).substr(2, 9);
-                _nativeBrowserNew(browserId);
-                return {
-                    _id: browserId,
-                    launch: function(url, timeout) {
-                        console.log("🤖 [Engine.Browser] launch(" + url + ")");
-                        var html = _nativeBrowserLaunch(this._id, url, timeout || 5000);
-                        return Html.parseWithBase(html, url);
-                    },
-                    html: function() {
-                        var html = _nativeBrowserGetHtml(this._id);
-                        return Html.parse(html || "");
-                    },
-                    close: function() {
-                        console.log("🤖 [Engine.Browser] close()");
-                        _nativeBrowserClose(this._id);
-                    },
-                    setUserAgent: function(ua) {
-                        console.log("🤖 [Engine.Browser] setUserAgent(" + ua + ")");
-                    },
-                    callJs: function(script, waitTime) {
-                        console.log("🤖 [Engine.Browser] callJs()");
-                        var result = _nativeBrowserCallJs(this._id, script, waitTime || 0);
-                        return result;
-                    },
-                    waitUrl: function(url, timeout) {
-                        console.log("🤖 [Engine.Browser] waitUrl(" + url + ")");
-                        return _nativeBrowserWaitUrl(this._id, url, timeout || 5000);
-                    },
-                    waitForReady: function(probeScript, timeout, interval, stablePasses) {
-                        console.log("🤖 [Engine.Browser] waitForReady()");
-                        var jsonStr = _nativeBrowserWaitForReady(
-                            this._id,
-                            probeScript || "",
-                            timeout || 30000,
-                            interval || 250,
-                            stablePasses || 2
-                        );
-                        try {
-                            return JSON.parse(jsonStr);
-                        } catch(e) {
-                            return { ready: false, failed: true, reason: "Failed to parse result JSON: " + e.message, timedOut: false, cancelled: false };
-                        }
+        if (typeof Engine === "undefined" || Engine === null || typeof Engine !== "object") {
+            var Engine = {};
+        }
+        Engine.newBrowser = function() {
+            var browserId = "browser_" + Math.random().toString(36).substr(2, 9);
+            _nativeBrowserNew(browserId);
+            return {
+                _id: browserId,
+                launch: function(url, timeout) {
+                    console.log("🤖 [Engine.Browser] launch(" + url + ")");
+                    var html = _nativeBrowserLaunch(this._id, url, timeout || 5000);
+                    return Html.parseWithBase(html, url);
+                },
+                html: function() {
+                    var html = _nativeBrowserGetHtml(this._id);
+                    return Html.parse(html || "");
+                },
+                close: function() {
+                    console.log("🤖 [Engine.Browser] close()");
+                    _nativeBrowserClose(this._id);
+                },
+                setUserAgent: function(ua) {
+                    console.log("🤖 [Engine.Browser] setUserAgent(" + ua + ")");
+                },
+                callJs: function(script, waitTime) {
+                    console.log("🤖 [Engine.Browser] callJs()");
+                    var result = _nativeBrowserCallJs(this._id, script, waitTime || 0);
+                    return result;
+                },
+                waitUrl: function(url, timeout) {
+                    console.log("🤖 [Engine.Browser] waitUrl(" + url + ")");
+                    return _nativeBrowserWaitUrl(this._id, url, timeout || 5000);
+                },
+                waitForReady: function(probeScript, timeout, interval, stablePasses) {
+                    console.log("🤖 [Engine.Browser] waitForReady()");
+                    var jsonStr = _nativeBrowserWaitForReady(
+                        this._id,
+                        probeScript || "",
+                        timeout || 30000,
+                        interval || 250,
+                        stablePasses || 2
+                    );
+                    try {
+                        return JSON.parse(jsonStr);
+                    } catch(e) {
+                        return { ready: false, failed: true, reason: "Failed to parse result JSON: " + e.message, timedOut: false, cancelled: false };
                     }
-                };
-            },
-            newVisibleBrowser: function(title) {
-                var browserId = "visible_browser_" + Math.random().toString(36).substr(2, 9);
-                _nativeBrowserNewVisible(browserId, title || "");
-                return {
-                    _id: browserId,
-                    launch: function(url, timeout) {
-                        console.log("👁️ [Engine.VisibleBrowser] launch(" + url + ")");
-                        var html = _nativeBrowserLaunchVisible(this._id, url, timeout || 15000);
-                        return Html.parseWithBase(html, url);
-                    },
-                    html: function() {
-                        var html = _nativeBrowserGetHtmlVisible(this._id);
-                        return Html.parse(html || "");
-                    },
-                    close: function() {
-                        console.log("👁️ [Engine.VisibleBrowser] close()");
-                        _nativeBrowserCloseVisible(this._id);
-                    },
-                    setUserAgent: function(ua) {
-                        console.log("👁️ [Engine.VisibleBrowser] setUserAgent(" + ua + ")");
-                    },
-                    callJs: function(script, waitTime) {
-                        console.log("👁️ [Engine.VisibleBrowser] callJs()");
-                        var result = _nativeBrowserCallJsVisible(this._id, script, waitTime || 0);
-                        return result;
-                    },
-                    waitUrl: function(url, timeout) {
-                        console.log("👁️ [Engine.VisibleBrowser] waitUrl(" + url + ")");
-                        return _nativeBrowserWaitUrlVisible(this._id, url, timeout || 15000);
-                    },
-                    waitForReady: function(probeScript, timeout, interval, stablePasses) {
-                        console.log("👁️ [Engine.VisibleBrowser] waitForReady()");
-                        var jsonStr = _nativeBrowserWaitForReadyVisible(
-                            this._id,
-                            probeScript || "",
-                            timeout || 30000,
-                            interval || 250,
-                            stablePasses || 2
-                        );
-                        try {
-                            return JSON.parse(jsonStr);
-                        } catch(e) {
-                            return { ready: false, failed: true, reason: "Failed to parse result JSON: " + e.message, timedOut: false, cancelled: false };
-                        }
+                }
+            };
+        };
+
+        Engine.newVisibleBrowser = function(title) {
+            var browserId = "visible_browser_" + Math.random().toString(36).substr(2, 9);
+            _nativeBrowserNewVisible(browserId, title || "");
+            return {
+                _id: browserId,
+                launch: function(url, timeout) {
+                    console.log("👁️ [Engine.VisibleBrowser] launch(" + url + ")");
+                    var html = _nativeBrowserLaunchVisible(this._id, url, timeout || 15000);
+                    return Html.parseWithBase(html, url);
+                },
+                html: function() {
+                    var html = _nativeBrowserGetHtmlVisible(this._id);
+                    return Html.parse(html || "");
+                },
+                close: function() {
+                    console.log("👁️ [Engine.VisibleBrowser] close()");
+                    _nativeBrowserCloseVisible(this._id);
+                },
+                setUserAgent: function(ua) {
+                    console.log("👁️ [Engine.VisibleBrowser] setUserAgent(" + ua + ")");
+                },
+                callJs: function(script, waitTime) {
+                    console.log("👁️ [Engine.VisibleBrowser] callJs()");
+                    var result = _nativeBrowserCallJsVisible(this._id, script, waitTime || 0);
+                    return result;
+                },
+                waitUrl: function(url, timeout) {
+                    console.log("👁️ [Engine.VisibleBrowser] waitUrl(" + url + ")");
+                    return _nativeBrowserWaitUrlVisible(this._id, url, timeout || 15000);
+                },
+                waitForReady: function(probeScript, timeout, interval, stablePasses) {
+                    console.log("👁️ [Engine.VisibleBrowser] waitForReady()");
+                    var jsonStr = _nativeBrowserWaitForReadyVisible(
+                        this._id,
+                        probeScript || "",
+                        timeout || 30000,
+                        interval || 250,
+                        stablePasses || 2
+                    );
+                    try {
+                        return JSON.parse(jsonStr);
+                    } catch(e) {
+                        return { ready: false, failed: true, reason: "Failed to parse result JSON: " + e.message, timedOut: false, cancelled: false };
                     }
-                };
-            }
+                }
+            };
         };
         """
+        context.exception = nil
         context.evaluateScript(engineBootstrap)
+        if let exc = context.exception {
+            let desc = exc.toString() ?? "Unknown exception during Engine bootstrap"
+            AppLogger.shared.log("❌ [JSExecutor] Engine bootstrap script error: \(desc)")
+            context.exception = nil
+        }
+
+        let validateScript = """
+        (function() {
+            var browserType = (typeof Engine !== "undefined" && Engine !== null) ? typeof Engine.newBrowser : "undefined";
+            var visibleType = (typeof Engine !== "undefined" && Engine !== null) ? typeof Engine.newVisibleBrowser : "undefined";
+            if (browserType !== "function" || visibleType !== "function") {
+                return "FAIL: Engine.newBrowser=" + browserType + ", Engine.newVisibleBrowser=" + visibleType;
+            }
+            return "OK";
+        })()
+        """
+        let validationResult = context.evaluateScript(validateScript)
+        if let exc = context.exception {
+            let desc = exc.toString() ?? "Unknown exception during Engine validation"
+            AppLogger.shared.log("❌ [JSExecutor] Engine validation exception: \(desc)")
+            context.exception = nil
+        }
+        let valStr = validationResult?.toString() ?? "NIL"
+        if valStr != "OK" {
+            AppLogger.shared.log("⚠️ [JSExecutor] Engine bootstrap validation diagnostic: \(valStr)")
+        } else {
+            AppLogger.shared.log("✅ [JSExecutor] Engine bootstrap validated successfully: newBrowser and newVisibleBrowser are both functions.")
+        }
     }
 
     private func decodeData(_ data: Data) -> String {
@@ -960,7 +991,15 @@ public final class JSExecutor {
 
     /// Inject các cấu hình dưới dạng biến toàn cục vào JSContext
     public func injectGlobals(_ globals: [String: Any]) {
+        let reservedKeys: Set<String> = [
+            "Engine", "Response", "Html", "Script", "Http", "Crypto",
+            "console", "Console", "fetch", "load", "atob", "btoa"
+        ]
         for (key, value) in globals {
+            if reservedKeys.contains(key) {
+                AppLogger.shared.log("⚠️ [JSExecutor] Skipping reserved global key injection: \(key)")
+                continue
+            }
             context.setObject(value, forKeyedSubscript: key as NSCopying & NSObjectProtocol)
         }
     }

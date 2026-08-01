@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.75] - 2026-08-01
+
+### Khắc Phục Lỗi Khởi Tạo `Engine.newVisibleBrowser`, Tự Chẩn Đoán Bootstrap & Bảo Vệ Biến Reserved Globals (`JSExecutor.swift`, `ParserTests.swift`, `.github/workflows/build-ipa.yml`)
+* **Khắc Phục Khởi Tạo & Đăng Ký Độc Lập `Engine.newVisibleBrowser` (`JSExecutor.swift`)**:
+  * Bảo toàn 100% phương thức `Engine.newBrowser` ngầm định (không thay đổi chữ ký, native bridge hay thời gian thực thi).
+  * Thực hiện đăng ký `Engine.newVisibleBrowser` độc lập và trực tiếp sau khi đối tượng `Engine` đã được khởi tạo trong JSContext.
+  * Tích hợp kịch bản tự kiểm tra chẩn đoán ngay sau khi nạp bootstrap (`typeof Engine.newBrowser` và `typeof Engine.newVisibleBrowser`), ghi log chi tiết lỗi nếu xảy ra ngoại lệ JS mà không làm sập ứng dụng sản xuất.
+* **Bảo Vệ Biến Reserved Globals Không Bị Ghi Đè (`JSExecutor.swift`, `ParserTests.swift`)**:
+  * Chặn injection các biến toàn cục hệ thống reserved trong `injectGlobals` (`Engine`, `Response`, `Html`, `Script`, `Http`, `Crypto`, `console`, `Console`, `fetch`, `load`, `atob`, `btoa`), giữ vững các config tiện ích thông thường như `BASE_URL`.
+  * Bổ sung unit tests kiểm tra tính độc lập của `Engine.newBrowser` / `Engine.newVisibleBrowser` và khả năng kháng ghi đè biến reserved.
+* **Cập Nhật GitHub Actions Runner (`.github/workflows/build-ipa.yml`)**:
+  * Tích hợp bước chạy unit test tập trung (`FreeBookTests/ParserTests`) cho FreeBook trên runner macOS trước khi thực hiện bước đóng gói archive IPA.
+
 ## [1.3.74] - 2026-08-01
 
 ### Bổ Sung Trình Duyệt Giao Diện `Engine.newVisibleBrowser` & Tối Ưu Độ Tin Cậy Lưu Chương Nguồn STV (`VisibleWebViewLoader.swift`, `JSExecutor.swift`, `GetTextSTVManager.swift`, `ChapterContentRepository.swift`, `ChapterPersistenceStore.swift`, `BypassWebView.swift`, `ReaderView.swift`)
