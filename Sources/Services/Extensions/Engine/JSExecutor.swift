@@ -264,7 +264,7 @@ public final class JSExecutor {
                 return ["html": "", "status": 500, "raw": "", "headers": [String: String]()]
             }
             let resolvedUrlString = urlString
-            if isDomainBlocked(resolvedUrlString) {
+            if isEngineDomainBlocked(resolvedUrlString) {
                 // AppLogger.shared.log("🚫 [JSExecutor] Blocked network fetch to: \(resolvedUrlString)")
                 return ["html": "", "status": 403, "raw": "", "headers": [String: String]()]
             }
@@ -1121,7 +1121,7 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         if let url = navigationAction.request.url {
             let urlString = url.absoluteString
-            if isDomainBlocked(urlString) {
+            if isEngineDomainBlocked(urlString) {
                 // AppLogger.shared.log("🚫 [JSExecutor.Browser] Blocked WKWebView load to: \(urlString)")
                 decisionHandler(.cancel)
                 return
@@ -1336,7 +1336,7 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
     }
 }
 
-func isDomainBlocked(_ urlString: String) -> Bool {
+func isEngineDomainBlocked(_ urlString: String) -> Bool {
     guard let url = URL(string: urlString), let host = url.host?.lowercased() else {
         return false
     }

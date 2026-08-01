@@ -55,7 +55,7 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
     public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         if let url = navigationAction.request.url {
             let urlString = url.absoluteString
-            if isDomainBlocked(urlString) {
+            if isEngineDomainBlocked(urlString) {
                 decisionHandler(.cancel)
                 return
             }
@@ -130,7 +130,7 @@ class VisibleWebViewLoader: NSObject, UIAdaptivePresentationControllerDelegate {
         self.cleanUp()
     }
 
-    fileprivate func cancelPendingWaitReady(reason: String, cancelled: Bool) {
+    func cancelPendingWaitReady(reason: String, cancelled: Bool) {
         waitReadyTimerWorkItem?.cancel()
         waitReadyTimerWorkItem = nil
         waitReadyTimeoutWorkItem?.cancel()
