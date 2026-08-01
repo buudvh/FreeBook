@@ -115,85 +115,65 @@ struct DictionaryListView: View {
             }
         }
         .navigationTitle(navTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button {
-                            showingAddSheet = true
-                        } label: {
-                            Label("Thêm từ mới", systemImage: "plus")
-                        }
-                        
-                        Button {
-                            showingFileImporter = true
-                        } label: {
-                            Label("Nhập từ điển (\(type.displayName))", systemImage: "square.and.arrow.down")
-                        }
-                        
-                        if !allEntries.isEmpty {
-                            Button {
-                                exportDictionary()
-                            } label: {
-                                Label("Xuất từ điển (\(type.displayName))", systemImage: "square.and.arrow.up")
-                            }
-                        }
-                        
-                        Button(role: .destructive) {
-                            showingDeleteAllAlert = true
-                        } label: {
-                            Label("Xóa tất cả", systemImage: "trash")
-                        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        showingAddSheet = true
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        Label("Thêm từ mới", systemImage: "plus")
                     }
+                    
+                    Button {
+                        showingFileImporter = true
+                    } label: {
+                        Label("Nhập từ điển (\(type.displayName))", systemImage: "square.and.arrow.down")
+                    }
+                    
+                    if !allEntries.isEmpty {
+                        Button {
+                            exportDictionary()
+                        } label: {
+                            Label("Xuất từ điển (\(type.displayName))", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                    
+                    Button(role: .destructive) {
+                        showingDeleteAllAlert = true
+                    } label: {
+                        Label("Xóa tất cả", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
                 }
             }
-            .alert("Xác nhận xóa tất cả", isPresented: $showingDeleteAllAlert) {
-                Button("Xóa tất cả", role: .destructive) {
-                    deleteAllEntries()
-                }
-                Button("Hủy", role: .cancel) {}
-            } message: {
-                if isGlobal {
-                    Text("Bạn có chắc chắn muốn xóa tất cả các từ tự thêm/chỉnh sửa trong từ điển chung \(type.displayName) không?\nDữ liệu mặc định gốc của hệ thống sẽ được giữ nguyên.")
+        }
+        .alert("Xác nhận xóa tất cả", isPresented: $showingDeleteAllAlert) {
+            Button("Xóa tất cả", role: .destructive) {
+                deleteAllEntries()
+            }
+            Button("Hủy", role: .cancel) {}
+        } message: {
+            if isGlobal {
+                Text("Bạn có chắc chắn muốn xóa tất cả các từ tự thêm/chỉnh sửa trong từ điển chung \(type.displayName) không?\nDữ liệu mặc định gốc của hệ thống sẽ được giữ nguyên.")
+            } else {
+                Text("Bạn có chắc chắn muốn xóa toàn bộ từ điển riêng của truyện này không?\nHành động này không thể hoàn tác.")
+            }
+        }
+        .sheet(isPresented: $showingAddSheet) {
+            DictEntrySheet(mode: .add) { key, value in
+                upsertEntry(key: key, value: value)
+            }
+        }
+        .sheet(item: $editingEntry) { entry in
+            DictEntrySheet(mode: .edit(key: entry.key, value: entry.value)) { newKey, newValue in
+                if newKey == entry.key {
+                    upsertEntry(key: newKey, value: newValue)
                 } else {
-                    Text("Bạn có chắc chắn muốn xóa toàn bộ từ điển riêng của truyện này không?\nHành động này không thể hoàn tác.")
+                    updateKey(oldKey: entry.key, newKey: newKey, newValue: newValue)
                 }
             }
-            .sheet(isPresented: $showingAddSheet) {
-                DictEntrySheet(mode: .add) { key, value in
-                    upsertEntry(key: key, value: value)
-                }
-            }
-            .sheet(item: $editingEntry) { entry in
-                DictEntrySheet(mode: .edit(key: entry.key, value: entry.value)) { newKey, newValue in
-                    if newKey == entry.key {
-                        upsertEntry(key: newKey, value: newValue)
-                    } else {
-                        updateKey(oldKey: entry.key, newKey: newKey, newValue: newValue)
-                    }
-                }
-            }
-            .task {
-                await loadData()
-            }
-            .background(
-                DocumentPickerPresenter(
-                    isPresented: $showingFileImporter,
-                    allowedContentTypes: [.plainText],
-                    allowsMultipleSelection: false,
-                    onPick: { urls in
-                        guard let url = urls.first else { return }
-                        let accessing = url.startAccessingSecurityScopedResource()
-                        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-                        importFile(from: url)
-                    },
-                    onCancel: nil
-                )
-            )
-
-
         }
         .sheet(item: $exportDocumentToShare) { doc in
             ShareSheet(activityItems: [doc.url]) { _, completed, _, error in
@@ -204,6 +184,23 @@ struct DictionaryListView: View {
                 }
             }
         }
+        .task {
+            await loadData()
+        }
+        .background(
+            DocumentPickerPresenter(
+                isPresented: $showingFileImporter,
+                allowedContentTypes: [.plainText],
+                allowsMultipleSelection: false,
+                onPick: { urls in
+                    guard let url = urls.first else { return }
+                    let accessing = url.startAccessingSecurityScopedResource()
+                    defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+                    importFile(from: url)
+                },
+                onCancel: nil
+            )
+        )
     }
 
     // MARK: - Subviews
