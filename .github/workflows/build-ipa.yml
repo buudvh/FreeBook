@@ -66,13 +66,12 @@ jobs:
             exit(1)
         '
 
-    - name: Run Focused FreeBook Unit Tests
+    - name: Run Focused FreeBook Engine Unit Tests
       run: |
         set -euo pipefail
         xcodebuild test \
-          -scheme FreeBook \
+          -scheme FreeBookEngineTests \
           -destination 'platform=iOS Simulator,name=iPhone 16' \
-          -only-testing:FreeBookTests/ParserTests \
           -derivedDataPath build_dd \
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGNING_REQUIRED=NO \
