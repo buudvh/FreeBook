@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-01T03:03:19.945717Z",
-  "gitCommit": "59c1250afca28dca79dbcf297c07d6b54aef56aa",
+  "generatedAt": "2026-08-01T03:34:30.818239Z",
+  "gitCommit": "dcbb488f3e47bb6da7b39430b7ba3eadeeb3e293",
   "sourceFileCount": 121,
   "documentCount": 16,
   "documents": [
@@ -31,9 +31,9 @@
     },
     {
       "filename": "02_file_graph.md",
-      "sourceHash": "c1c820e10d30b4e9c19133f9672e6dd50b86f50b800eab7f180f72fc1ff2fcca",
+      "sourceHash": "a24c569d2c2c81f0c304a134a3685446b3953587758ae886cda5b0127e1a765c",
       "generatedHash": "43730f525b7936138703847f627b47fe692381673fd16859c8e029a19bd550f4",
-      "generatedAt": "2026-08-01T03:03:04.621937Z",
+      "generatedAt": "2026-08-01T03:34:16.773602Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",

@@ -18,24 +18,27 @@ enum ChapterTextNormalizer {
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
 
-        let texts = canonicalNewlines
-            .components(separatedBy: "\n")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-
+        let allComponents = canonicalNewlines.components(separatedBy: "\n")
         var location = 0
-        let lines = texts.enumerated().map { id, text -> ChapterTextLine in
+        var lines: [ChapterTextLine] = []
+        var nonEmptyTexts: [String] = []
+
+        for (originalLineIndex, rawText) in allComponents.enumerated() {
+            let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
             let length = text.utf16.count
-            defer { location += length + 1 }
-            return ChapterTextLine(
-                id: id,
-                text: text,
-                utf16Range: NSRange(location: location, length: length)
-            )
+            if !text.isEmpty {
+                nonEmptyTexts.append(text)
+                lines.append(ChapterTextLine(
+                    id: originalLineIndex,
+                    text: text,
+                    utf16Range: NSRange(location: location, length: length)
+                ))
+            }
+            location += length + 1
         }
 
         return NormalizedChapterText(
-            content: texts.joined(separator: "\n"),
+            content: nonEmptyTexts.joined(separator: "\n"),
             lines: lines
         )
     }

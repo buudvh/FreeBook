@@ -2,6 +2,14 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.72] - 2026-08-01
+
+### Khắc Phục Triệt Để Lỗi Trượt Lệch ID Đoạn Văn TTS Bằng `originalLineIndex` (`ChapterTextNormalizer.swift`)
+* **Duy Trì Chỉ Mục Dòng Gốc Khi Lọc Đoạn Văn Rỗng/Dấu (`ChapterTextNormalizer.swift`)**:
+  * Tái cấu trúc vòng lặp phân tách dòng trong `ChapterTextNormalizer.normalize()`, gán thuộc tính `id` của từng `ChapterTextLine` bằng đúng vị trí chỉ mục dòng ban đầu (`originalLineIndex`) trước khi thực hiện lọc bỏ các dòng rỗng.
+  * Giúp các đoạn văn phía sau (như *"Từng cái trải qua..."*) **luôn luôn giữ vững `id = 15`** ở cả luồng TTS và luồng UI ngay cả khi đoạn `14` (`..........`) bị lọc bỏ.
+  * Triệt tiêu 100% nguyên nhân gây lệch trượt `ParentID` trong TTS so với `ItemID` trên Reader UI khi có đoạn chứa toàn dấu bị bỏ qua.
+
 ## [1.3.71] - 2026-08-01
 
 ### Sửa Lỗi Highlight TTS Đoạn Văn Ngắn & Hiển Thị Tên Truyện 2 Dòng Kệ Sách/Lịch Sử (`TTSParagraphBuilder.swift`, `ShelfView.swift`)
