@@ -2,6 +2,13 @@ import SwiftUI
 import UniformTypeIdentifiers
 import SwiftData
 
+enum DictViewTab: Int, CaseIterable, Identifiable {
+    case custom = 0
+    case deleted = 1
+
+    var id: Int { rawValue }
+}
+
 struct DictionaryListView: View {
     struct ExportDocument: Identifiable {
         var id: String { url.absoluteString }
@@ -14,6 +21,7 @@ struct DictionaryListView: View {
 
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var cache = DictionaryCache.shared
+    @ObservedObject private var translationManager = TranslationManager.shared
     @State private var bookEntries: [DictEntry] = []
     @State private var isLoadingBook = false
     @State private var searchText = ""
@@ -23,6 +31,7 @@ struct DictionaryListView: View {
     @State private var showingFileImporter = false
     @State private var showingDeleteAllAlert = false
     @State private var exportDocumentToShare: ExportDocument? = nil
+    @State private var selectedTab: DictViewTab = .custom
 
     private var isGlobal: Bool { bookId == nil }
 
@@ -35,6 +44,14 @@ struct DictionaryListView: View {
         } else {
             return bookEntries
         }
+    }
+
+    private var deletedWordsList: [String] {
+        let set = type == .names ? translationManager.deletedNames : translationManager.deletedVietPhrase
+        let array = Array(set)
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if query.isEmpty { return array.reversed() }
+        return array.reversed().filter { $0.lowercased().contains(query) }
     }
 
     private var isLoading: Bool {
@@ -63,7 +80,17 @@ struct DictionaryListView: View {
 
     var body: some View {
         ZStack {
-            VStack {
+            VStack(spacing: 0) {
+                if isGlobal {
+                    Picker("Chế độ", selection: $selectedTab) {
+                        Text("Từ Chỉnh Sửa").tag(DictViewTab.custom)
+                        Text("Từ Đã Xóa (\(deletedWordsList.count))").tag(DictViewTab.deleted)
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                }
+
                 if isLoading {
                     VStack(spacing: 12) {
                         ProgressView()
@@ -73,104 +100,21 @@ struct DictionaryListView: View {
                             .foregroundColor(.secondary)
                     }
                     .frame(maxHeight: .infinity)
-                } else {
-                    List {
-                        // Stats section
-                        Section {
-                            if searchText.isEmpty {
-                                if displayedEntries.count < allEntries.count {
-                                    Text("Hiển thị \(displayedEntries.count)/\(allEntries.count) từ. Cuộn xuống để tải thêm.")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                } else {
-                                    Text("Tổng cộng \(allEntries.count) từ.")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            } else {
-                                if displayedEntries.count < matchedEntries.count {
-                                    Text("Hiển thị \(displayedEntries.count)/\(matchedEntries.count) kết quả. Cuộn xuống để tải thêm.")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                } else {
-                                    Text("\(matchedEntries.count) kết quả cho \"\(searchText)\"")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                        }
+                } else if isGlobal {
+                    TabView(selection: $selectedTab) {
+                        customEntriesView
+                            .tag(DictViewTab.custom)
 
-                        // Entries
-                        Section {
-                            ForEach(displayedEntries) { entry in
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(entry.key)
-                                            .font(.headline)
-                                            .foregroundStyle(.primary)
-                                        Text(entry.value)
-                                            .font(.subheadline)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "pencil")
-                                        .foregroundColor(.accentColor)
-                                        .font(.subheadline)
-                                }
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    editingEntry = entry
-                                }
-                                .swipeActions(edge: .trailing) {
-                                    Button(role: .destructive) {
-                                        deleteEntry(entry)
-                                    } label: {
-                                        Label("Xóa", systemImage: "trash")
-                                    }
-                                }
-                                .onAppear {
-                                    if entry.id == displayedEntries.last?.id && visibleCount < matchedEntries.count {
-                                        visibleCount += 200
-                                    }
-                                }
-                            }
-                        } header: {
-                            Text("Từ vựng")
-                        }
+                        deletedEntriesView
+                            .tag(DictViewTab.deleted)
                     }
-                    .searchable(text: $searchText, prompt: "Tìm từ...")
-                    .onChange(of: searchText) { _, _ in
-                        visibleCount = 200
-                    }
-                    .overlay {
-                        if displayedEntries.isEmpty && !searchText.isEmpty {
-                            VStack(spacing: 8) {
-                                Image(systemName: "magnifyingglass")
-                                    .font(.largeTitle)
-                                    .foregroundColor(.secondary)
-                                Text("Không tìm thấy kết quả cho \"\(searchText)\"")
-                                    .font(.headline)
-                                    .foregroundColor(.secondary)
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        } else if displayedEntries.isEmpty && searchText.isEmpty && !isLoading {
-                            VStack(spacing: 8) {
-                                Image(systemName: "book.closed")
-                                    .font(.largeTitle)
-                                    .foregroundColor(.secondary)
-                                Text("Chưa có từ nào")
-                                    .font(.headline)
-                                    .foregroundColor(.secondary)
-                                Text("Nhấn + để thêm từ mới hoặc import file .txt")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        }
-                    }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                } else {
+                    customEntriesView
                 }
             }
-            .navigationTitle(navTitle)
+        }
+        .navigationTitle(navTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -260,6 +204,164 @@ struct DictionaryListView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Subviews
+
+    @ViewBuilder
+    private var customEntriesView: some View {
+        List {
+            // Stats section
+            Section {
+                if searchText.isEmpty {
+                    if displayedEntries.count < allEntries.count {
+                        Text("Hiển thị \(displayedEntries.count)/\(allEntries.count) từ. Cuộn xuống để tải thêm.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("Tổng cộng \(allEntries.count) từ.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    if displayedEntries.count < matchedEntries.count {
+                        Text("Hiển thị \(displayedEntries.count)/\(matchedEntries.count) kết quả. Cuộn xuống để tải thêm.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("\(matchedEntries.count) kết quả cho \"\(searchText)\"")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+
+            // Entries
+            Section {
+                ForEach(displayedEntries) { entry in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(entry.key)
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                            Text(entry.value)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        
+                        Button {
+                            editingEntry = entry
+                        } label: {
+                            Image(systemName: "pencil")
+                                .foregroundColor(.accentColor)
+                                .font(.subheadline)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button {
+                            deleteEntry(entry)
+                        } label: {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red)
+                                .font(.subheadline)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.leading, 8)
+                    }
+                    .contentShape(Rectangle())
+                    .onAppear {
+                        if entry.id == displayedEntries.last?.id && visibleCount < matchedEntries.count {
+                            visibleCount += 200
+                        }
+                    }
+                }
+            } header: {
+                Text("Từ vựng")
+            }
+        }
+        .searchable(text: $searchText, prompt: "Tìm từ...")
+        .onChange(of: searchText) { _, _ in
+            visibleCount = 200
+        }
+        .overlay {
+            if displayedEntries.isEmpty && !searchText.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.largeTitle)
+                        .foregroundColor(.secondary)
+                    Text("Không tìm thấy kết quả cho \"\(searchText)\"")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if displayedEntries.isEmpty && searchText.isEmpty && !isLoading {
+                VStack(spacing: 8) {
+                    Image(systemName: "book.closed")
+                        .font(.largeTitle)
+                        .foregroundColor(.secondary)
+                    Text("Chưa có từ nào")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    Text("Nhấn + để thêm từ mới hoặc import file .txt")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var deletedEntriesView: some View {
+        List {
+            Section {
+                Text("Tổng cộng \(deletedWordsList.count) từ đã xóa. Từ mới bị xóa nằm ở trên cùng.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Section {
+                ForEach(deletedWordsList, id: \.self) { word in
+                    HStack {
+                        Text(word)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Button {
+                            restoreDeletedWord(word)
+                        } label: {
+                            Label("Khôi phục", systemImage: "arrow.uturn.backward.circle")
+                                .font(.subheadline)
+                                .foregroundColor(.green)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            } header: {
+                Text("Danh sách từ đã xóa")
+            }
+        }
+        .searchable(text: $searchText, prompt: "Tìm từ đã xóa...")
+        .overlay {
+            if deletedWordsList.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "trash.slash")
+                        .font(.largeTitle)
+                        .foregroundColor(.secondary)
+                    Text("Chưa có từ nào bị xóa")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+    }
+
+    private func restoreDeletedWord(_ word: String) {
+        let isName = type == .names
+        translationManager.removeDeletedWords([word], isName: isName)
+        ToastManager.shared.show(message: "Đã khôi phục: \(word)", type: .success)
     }
 
     // MARK: - Data Operations
@@ -442,6 +544,12 @@ struct DictionaryListView: View {
         var content = ""
         for entry in allEntries {
             content += "\(entry.key)=\(entry.value)\n"
+        }
+        if isGlobal {
+            let set = type == .names ? translationManager.deletedNames : translationManager.deletedVietPhrase
+            for word in Array(set).reversed() {
+                content += "\(word)=\n"
+            }
         }
         return content
     }

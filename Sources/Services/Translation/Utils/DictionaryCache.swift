@@ -53,37 +53,27 @@ public final class DictionaryCache: ObservableObject {
 
     // MARK: - CRUD
 
-    /// Upsert: if key exists, update value; if not, insert new entry.
+    /// Upsert: if key exists, move & update value at index 0; if not, insert at index 0.
     public func upsertEntry(key: String, value: String, type: DictType) async throws {
         var entries = currentEntries(for: type)
-
-        if let idx = entries.firstIndex(where: { $0.key == key }) {
-            entries[idx] = DictEntry(key: key, value: value)
-        } else {
-            entries.append(DictEntry(key: key, value: value))
-            entries.sort { $0.key.localizedCompare($1.key) == .orderedAscending }
-        }
+        entries.removeAll { $0.key == key }
+        entries.insert(DictEntry(key: key, value: value), at: 0)
 
         try await persistAndUpdate(entries: entries, type: type)
     }
 
-    /// Update key: if newKey != oldKey, keep oldKey, upsert newKey.
+    /// Update key: if newKey != oldKey, keep oldKey, upsert newKey at index 0.
     public func updateKey(oldKey: String, newKey: String, newValue: String, type: DictType) async throws {
         var entries = currentEntries(for: type)
 
         if newKey != oldKey {
-            // Keep oldKey (do not remove it), just upsert newKey with newValue
-            if let idx = entries.firstIndex(where: { $0.key == newKey }) {
-                entries[idx] = DictEntry(key: newKey, value: newValue)
-            } else {
-                entries.append(DictEntry(key: newKey, value: newValue))
-                entries.sort { $0.key.localizedCompare($1.key) == .orderedAscending }
-            }
+            // Keep oldKey (do not remove it), just upsert newKey with newValue at index 0
+            entries.removeAll { $0.key == newKey }
+            entries.insert(DictEntry(key: newKey, value: newValue), at: 0)
         } else {
-            // Just update the value of oldKey
-            if let idx = entries.firstIndex(where: { $0.key == oldKey }) {
-                entries[idx] = DictEntry(key: oldKey, value: newValue)
-            }
+            // Update oldKey and move it to index 0
+            entries.removeAll { $0.key == oldKey }
+            entries.insert(DictEntry(key: oldKey, value: newValue), at: 0)
         }
 
         try await persistAndUpdate(entries: entries, type: type)

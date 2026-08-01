@@ -90,10 +90,12 @@ struct DictionaryHubView: View {
         switch type {
         case .vietPhrase:
             let count = translationManager.customVietPhraseDict?.wordCount ?? 0
-            return "\(count) từ chỉnh sửa"
+            let deletedCount = translationManager.deletedVietPhrase.count
+            return "\(count) từ chỉnh sửa • \(deletedCount) từ đã xóa"
         case .names:
             let count = translationManager.customNamesDict?.wordCount ?? 0
-            return "\(count) từ chỉnh sửa"
+            let deletedCount = translationManager.deletedNames.count
+            return "\(count) từ chỉnh sửa • \(deletedCount) từ đã xóa"
         }
     }
 }

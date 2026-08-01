@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.73] - 2026-08-01
+
+### Tích Hợp Quản Lý Từ Đã Xóa & Nâng Cấp UI/UX Từ Điển Chung (`DictionaryListView.swift`, `DictionaryCache.swift`, `DictionaryHubView.swift`)
+* **Tích Hợp Tab Quản Lý & Khôi Phục Từ Đã Xóa (`DictionaryListView.swift`)**:
+  * Bổ sung `TabView` với `.tabViewStyle(.page(indexDisplayMode: .never))` hỗ trợ vuốt tay trái/phải tương tác chuyển qua lại giữa 2 Tab: 📝 **Từ Chỉnh Sửa** và 🗑️ **Từ Đã Xóa**.
+  * Trong Tab **Từ Đã Xóa**: Hiển thị danh sách các từ tiếng Trung bị xóa (`Array(deletedWords).reversed()`) với từ mới bị xóa gần đây nhất nằm ở dòng 1 trên cùng, kèm nút **Khôi phục** `arrow.uturn.backward.circle` trả lại nghĩa mặc định hệ thống.
+* **Loại Bỏ Vuốt Xóa Mặc Định, Thêm Nút Xóa Thùng Rác Trực Tiếp (`DictionaryListView.swift`)**:
+  * Loại bỏ tính năng vuốt xóa vô ý (`.onDelete`), thêm nút bấm **Thùng Rác màu đỏ (`Image(systemName: "trash")`)** trực tiếp trên từng dòng của danh sách Từ Chỉnh Sửa.
+* **Đẩy Từ Mới Thêm/Sửa Lên Đầu Index 0 & Export Đồng Bộ (`DictionaryCache.swift`, `DictionaryListView.swift`)**:
+  * Đưa bản ghi `DictEntry` vừa thêm mới hoặc vừa sửa nghĩa lên thẳng **`Index 0` (Dòng 1 trên cùng)**.
+  * Khi Xuất từ điển (Export): Tự động xuất thêm tất cả các từ trong danh sách từ đã xóa dưới dạng `từ_trung=`.
+* **Cập Nhật Phụ Đề Hub Từ Điển (`DictionaryHubView.swift`)**:
+  * Hiển thị tổng quan chi tiết: *"X từ chỉnh sửa • Y từ đã xóa"*.
+
 ## [1.3.72] - 2026-08-01
 
 ### Khắc Phục Triệt Để Lỗi Trượt Lệch ID Đoạn Văn TTS Bằng `originalLineIndex` (`ChapterTextNormalizer.swift`)
