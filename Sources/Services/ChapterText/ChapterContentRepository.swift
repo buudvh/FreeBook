@@ -84,12 +84,46 @@ actor ChapterContentRepository {
         }
     }
 
-    func flush(bookId: String) async {
-        await persistenceStore?.flush(bookId: bookId)
+    @discardableResult
+    func flush(bookId: String) async -> [String: ChapterPersistenceState] {
+        await persistenceStore?.flush(bookId: bookId) ?? [:]
     }
 
-    func flushAll() async {
-        await persistenceStore?.flushAll()
+    @discardableResult
+    func flushAll() async -> [String: ChapterPersistenceState] {
+        await persistenceStore?.flushAll() ?? [:]
+    }
+
+    func saveCachedChapter(
+        bookId: String,
+        chapterIndex: Int,
+        chapterTitle: String,
+        chapterUrl: String,
+        content: String,
+        container: ModelContainer
+    ) async throws {
+        configure(container: container)
+        guard let persistenceStore else {
+            throw ChapterPersistenceError.unavailableStore
+        }
+        let metadata = ChapterMetadataSnapshot(
+            title: chapterTitle,
+            url: chapterUrl,
+            index: chapterIndex
+        )
+        let key = Chapter.generateId(bookId: bookId, url: chapterUrl, index: chapterIndex)
+        let noBookSnapshot: BookMetadataSnapshot? = nil
+        await persistenceStore.enqueueWrite(
+            key: key,
+            bookId: bookId,
+            book: noBookSnapshot,
+            chapter: metadata,
+            content: content
+        )
+        let results = await persistenceStore.flush(bookId: bookId)
+        guard let state = results[key], state == .persisted else {
+            throw ChapterPersistenceError.writeFailed(key: key)
+        }
     }
 
     func saveChapterList(

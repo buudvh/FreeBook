@@ -396,4 +396,61 @@ final class ParserTests: XCTestCase {
         XCTAssertTrue(resStr.contains("\"failed\":false"), "Should succeed with failed false")
         XCTAssertTrue(resStr.contains("\"chars\":20"), "Should succeed with final stable chars count 20")
     }
+
+    // Kiểm tra Visible Browser flow đồng bộ (async test)
+    func testJSBridgeVisibleBrowserFlow() async throws {
+        let executor = JSExecutor()
+        let script = """
+        function testVisibleBrowser() {
+            var browser = Engine.newVisibleBrowser("Test Window");
+            browser.close();
+            return "OK";
+        }
+        """
+        do {
+            let res = try await executor.runAsync(scriptContent: script, functionName: "testVisibleBrowser", arguments: [])
+            XCTAssertEqual(res.toString(), "OK")
+        } catch {
+            XCTFail("Visible Browser test failed: \(error.localizedDescription)")
+        }
+    }
+
+    func testJSBridgeVisibleBrowserMethods() async throws {
+        let executor = JSExecutor()
+        let script = """
+        function testVisibleMethods() {
+            var browser = Engine.newVisibleBrowser("Test Window Methods");
+            browser.launch("about:blank", 5000);
+            var html = browser.html();
+            var jsRes = browser.callJs("1 + 1", 0);
+            browser.close();
+            return jsRes;
+        }
+        """
+        do {
+            let res = try await executor.runAsync(scriptContent: script, functionName: "testVisibleMethods", arguments: [])
+            XCTAssertEqual(res.toString(), "2")
+        } catch {
+            XCTFail("Visible Browser methods test failed: \(error.localizedDescription)")
+        }
+    }
+
+    func testJSBridgeVisibleBrowserDismissCleanup() async throws {
+        let loader = await MainActor.run { VisibleWebViewLoader(title: "Dismiss Test") }
+        let expectation = self.expectation(description: "onClose callback should be fired exactly once")
+
+        await MainActor.run {
+            loader.onClose = {
+                expectation.fulfill()
+            }
+            // Simulates interactive swipe down or close button tap
+            loader.presentationControllerDidDismiss(UIPresentationController(presentedViewController: loader.viewController, presenting: nil))
+            // Subsequent cleanup calls must be idempotent and not crash or refire onClose
+            loader.cleanUp()
+        }
+
+        await fulfillment(of: [expectation], timeout: 2.0)
+    }
 }
+
+

@@ -429,4 +429,97 @@ final class ChapterContentRepositoryTests: XCTestCase {
         XCTAssertEqual(updatedC1.title, "Updated Index Match")
         XCTAssertEqual(updatedC1.titleTrans, "Tên dịch mới 2")
     }
+
+    func testFlushMatchesBothGeneratedAndUnprefixedKeys() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let bookId = "flush-key-test-book"
+        let book = makeBook(bookId: bookId)
+        context.insert(book)
+        try context.save()
+
+        let store = ChapterPersistenceStore(container: container)
+        let generatedKey = Chapter.generateId(bookId: bookId, url: "http://example.com/ch1", index: 0)
+        let unprefixedKey = "\(bookId)|1|http://example.com/ch2"
+
+        let metadata0 = ChapterMetadataSnapshot(title: "Ch1", url: "http://example.com/ch1", index: 0)
+        let metadata1 = ChapterMetadataSnapshot(title: "Ch2", url: "http://example.com/ch2", index: 1)
+
+        await store.enqueueWrite(key: generatedKey, bookId: bookId, book: nil, chapter: metadata0, content: "Content 1")
+        await store.enqueueWrite(key: unprefixedKey, bookId: bookId, book: nil, chapter: metadata1, content: "Content 2")
+
+        let results = await store.flush(bookId: bookId)
+        XCTAssertEqual(results[generatedKey], .persisted)
+        XCTAssertEqual(results[unprefixedKey], .persisted)
+    }
+
+    func testSaveCachedChapterSuccessAndFailure() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let bookId = "save-cached-test-book"
+        let book = makeBook(bookId: bookId)
+        context.insert(book)
+        try context.save()
+
+        let repository = ChapterContentRepository()
+        try await repository.saveCachedChapter(
+            bookId: bookId,
+            chapterIndex: 0,
+            chapterTitle: "Chapter 1",
+            chapterUrl: "http://example.com/ch1",
+            content: "Test valid content",
+            container: container
+        )
+
+        let readSnapshot = try await repository.load(
+            ChapterContentRequest(
+                bookId: bookId,
+                chapterIndex: 0,
+                title: "Chapter 1",
+                url: "http://example.com/ch1",
+                host: nil,
+                bookMetadata: nil,
+                extensionInfo: nil,
+                forceRefresh: false
+            )
+        )
+        XCTAssertEqual(readSnapshot.document.text.content, "Test valid content")
+
+        do {
+            try await repository.saveCachedChapter(
+                bookId: "non-existent-book-id",
+                chapterIndex: 0,
+                chapterTitle: "Chapter 1",
+                chapterUrl: "http://example.com/ch1",
+                content: "Test content",
+                container: container
+            )
+            XCTFail("Should throw error for missing book")
+        } catch {
+            XCTAssertTrue(error is ChapterPersistenceError)
+        }
+    }
+
+    func testSaveCachedChapterThrowsWhenFlushOmitsTargetKey() async throws {
+        let container = try makeContainer()
+        let repository = ChapterContentRepository()
+        do {
+            try await repository.saveCachedChapter(
+                bookId: "some-book-id",
+                chapterIndex: 0,
+                chapterTitle: "Empty Chap",
+                chapterUrl: "http://example.com/empty",
+                content: "   \n\r\t  ",
+                container: container
+            )
+            XCTFail("Should throw error when content is normalized to empty or persistence fails")
+        } catch let error as ChapterPersistenceError {
+            switch error {
+            case .writeFailed(let key):
+                XCTAssertFalse(key.isEmpty)
+            case .invalidContent, .missingBook, .unavailableStore:
+                break
+            }
+        }
+    }
 }

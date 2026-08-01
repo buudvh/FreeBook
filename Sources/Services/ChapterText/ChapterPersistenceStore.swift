@@ -79,6 +79,7 @@ enum ChapterPersistenceError: LocalizedError {
     case unavailableStore
     case missingBook(bookId: String)
     case invalidContent
+    case writeFailed(key: String)
 
     var errorDescription: String? {
         switch self {
@@ -88,6 +89,8 @@ enum ChapterPersistenceError: LocalizedError {
             return "Không tìm thấy sách \(bookId) để lưu chương"
         case .invalidContent:
             return "Nội dung chương không hợp lệ"
+        case .writeFailed(let key):
+            return "Lưu chương thất bại cho key: \(key)"
         }
     }
 }
@@ -602,24 +605,36 @@ actor ChapterPersistenceStore {
         pendingWrites[key] = PendingWrite(id: writeID, task: task)
     }
 
-    func flush(bookId: String) async {
-        let matching = pendingWrites.filter { $0.key.hasPrefix("\(bookId)|") }
+    @discardableResult
+    func flush(bookId: String) async -> [String: ChapterPersistenceState] {
+        let targetPrefixWithLength = "\(bookId.count):\(bookId)|"
+        let targetPrefixRaw = "\(bookId)|"
+        let matching = pendingWrites.filter { key, _ in
+            key.hasPrefix(targetPrefixWithLength) || key.hasPrefix(targetPrefixRaw)
+        }
+        var results: [String: ChapterPersistenceState] = [:]
         for (key, pending) in matching {
-            _ = await pending.task.value
+            let state = await pending.task.value
+            results[key] = state
             if pendingWrites[key]?.id == pending.id {
                 pendingWrites.removeValue(forKey: key)
             }
         }
+        return results
     }
 
-    func flushAll() async {
+    @discardableResult
+    func flushAll() async -> [String: ChapterPersistenceState] {
         let writes = pendingWrites
+        var results: [String: ChapterPersistenceState] = [:]
         for (key, pending) in writes {
-            _ = await pending.task.value
+            let state = await pending.task.value
+            results[key] = state
             if pendingWrites[key]?.id == pending.id {
                 pendingWrites.removeValue(forKey: key)
             }
         }
+        return results
     }
 
     private func persistWithRetry(

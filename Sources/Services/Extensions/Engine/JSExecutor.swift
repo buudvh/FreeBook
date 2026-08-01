@@ -7,6 +7,7 @@ public final class JSExecutor {
     public let localPath: String?
     public let downloadUrl: String?
     private var activeBrowsers: [String: WebViewLoader] = [:]
+    private var activeVisibleBrowsers: [String: VisibleWebViewLoader] = [:]
 
     public init(localPath: String? = nil, downloadUrl: String? = nil) {
         self.context = JSContext()
@@ -614,6 +615,175 @@ public final class JSExecutor {
         }
         context.setObject(browserCloseBlock, forKeyedSubscript: "_nativeBrowserClose" as NSCopying & NSObjectProtocol)
 
+        // Native bridge hooks cho Visible Browser (Trình duyệt có giao diện)
+        let browserNewVisibleBlock: @convention(block) (String, String) -> Void = { [weak self] browserId, title in
+            guard let self = self else { return }
+            let setupLoader = {
+                let loader = VisibleWebViewLoader(title: title)
+                loader.onClose = { [weak self] in
+                    self?.activeVisibleBrowsers.removeValue(forKey: browserId)
+                }
+                self.activeVisibleBrowsers[browserId] = loader
+            }
+            if Thread.isMainThread {
+                setupLoader()
+            } else {
+                DispatchQueue.main.sync {
+                    setupLoader()
+                }
+            }
+        }
+        context.setObject(browserNewVisibleBlock, forKeyedSubscript: "_nativeBrowserNewVisible" as NSCopying & NSObjectProtocol)
+
+        let browserLaunchVisibleBlock: @convention(block) (String, String, Double) -> String = { [weak self] browserId, urlString, timeoutMs in
+            guard let self = self else { return "" }
+            guard let url = URL(string: urlString) else { return "" }
+            var resultHtml = ""
+
+            let semaphore = DispatchSemaphore(value: 0)
+            DispatchQueue.main.async {
+                guard let loader = self.activeVisibleBrowsers[browserId] else { semaphore.signal(); return }
+                loader.load(url: url, timeout: timeoutMs / 1000.0) { html in
+                    resultHtml = html ?? ""
+                    semaphore.signal()
+                }
+            }
+            _ = semaphore.wait(timeout: .now() + (timeoutMs / 1000.0) + 1.0)
+            return resultHtml
+        }
+        context.setObject(browserLaunchVisibleBlock, forKeyedSubscript: "_nativeBrowserLaunchVisible" as NSCopying & NSObjectProtocol)
+
+        let browserGetHtmlVisibleBlock: @convention(block) (String) -> String = { [weak self] browserId in
+            guard let self = self else { return "" }
+            var resultHtml = ""
+
+            let semaphore = DispatchSemaphore(value: 0)
+            DispatchQueue.main.async {
+                guard let loader = self.activeVisibleBrowsers[browserId] else { semaphore.signal(); return }
+                loader.getHtml { html in
+                    resultHtml = html ?? ""
+                    semaphore.signal()
+                }
+            }
+            _ = semaphore.wait(timeout: .now() + 5.0)
+            return resultHtml
+        }
+        context.setObject(browserGetHtmlVisibleBlock, forKeyedSubscript: "_nativeBrowserGetHtmlVisible" as NSCopying & NSObjectProtocol)
+
+        let browserCallJsVisibleBlock: @convention(block) (String, String, Double) -> String = { [weak self] browserId, script, waitTimeMs in
+            guard let self = self else { return "" }
+            var resultStr = ""
+
+            let semaphore = DispatchSemaphore(value: 0)
+            DispatchQueue.main.async {
+                guard let loader = self.activeVisibleBrowsers[browserId] else { semaphore.signal(); return }
+                loader.callJs(script: script, waitTime: waitTimeMs / 1000.0) { res, _ in
+                    resultStr = res ?? ""
+                    semaphore.signal()
+                }
+            }
+            _ = semaphore.wait(timeout: .now() + (waitTimeMs / 1000.0) + 5.0)
+            return resultStr
+        }
+        context.setObject(browserCallJsVisibleBlock, forKeyedSubscript: "_nativeBrowserCallJsVisible" as NSCopying & NSObjectProtocol)
+
+        let browserWaitUrlVisibleBlock: @convention(block) (String, String, Double) -> Bool = { [weak self] browserId, targetUrl, timeoutMs in
+            guard let self = self else { return false }
+            var waitSuccess = false
+
+            let semaphore = DispatchSemaphore(value: 0)
+            DispatchQueue.main.async {
+                guard let loader = self.activeVisibleBrowsers[browserId] else { semaphore.signal(); return }
+                loader.waitUrl(targetUrl: targetUrl, timeout: timeoutMs / 1000.0) { success in
+                    waitSuccess = success
+                    semaphore.signal()
+                }
+            }
+            _ = semaphore.wait(timeout: .now() + (timeoutMs / 1000.0) + 1.0)
+            return waitSuccess
+        }
+        context.setObject(browserWaitUrlVisibleBlock, forKeyedSubscript: "_nativeBrowserWaitUrlVisible" as NSCopying & NSObjectProtocol)
+
+        let browserWaitForReadyVisibleBlock: @convention(block) (String, String, Double, Double, Double) -> String = { [weak self] browserId, probeScript, timeoutMs, intervalMs, stablePasses in
+            guard let self = self else {
+                return makeReadyResponse(ready: false, failed: true, reason: "JSExecutor was deallocated")
+            }
+            if Thread.isMainThread {
+                AppLogger.shared.log("⚠️ [JSExecutor] _nativeBrowserWaitForReadyVisible called on Main Thread! Deadlock prevented.")
+                return makeReadyResponse(ready: false, failed: true, reason: "Deadlock prevention: Native bridge called on Main Thread")
+            }
+
+            var resultJson = ""
+            var completed = false
+            let lock = NSLock()
+            let semaphore = DispatchSemaphore(value: 0)
+
+            func transitionToTerminal(json: String) -> Bool {
+                lock.lock()
+                defer { lock.unlock() }
+                if !completed {
+                    completed = true
+                    resultJson = json
+                    semaphore.signal()
+                    return true
+                }
+                return false
+            }
+
+            let clampedTimeout = max(1.0, min(60.0, timeoutMs / 1000.0))
+
+            DispatchQueue.main.async {
+                lock.lock()
+                let alreadyCompleted = completed
+                lock.unlock()
+                if alreadyCompleted { return }
+
+                guard let loader = self.activeVisibleBrowsers[browserId] else {
+                    _ = transitionToTerminal(json: makeReadyResponse(ready: false, failed: true, reason: "Browser not found"))
+                    return
+                }
+
+                loader.waitForReady(
+                    probeScript: probeScript,
+                    timeoutMs: timeoutMs,
+                    intervalMs: intervalMs,
+                    stablePasses: Int(stablePasses)
+                ) { responseJson in
+                    _ = transitionToTerminal(json: responseJson)
+                }
+            }
+
+            _ = semaphore.wait(timeout: .now() + clampedTimeout + 5.0)
+
+            let fallbackWon = transitionToTerminal(json: makeReadyResponse(ready: false, failed: true, reason: "Semaphore wait timed out", timedOut: true))
+
+            if fallbackWon {
+                DispatchQueue.main.async {
+                    if let loader = self.activeVisibleBrowsers[browserId] {
+                        loader.cancelPendingWaitReady(reason: "Semaphore wait timed out", cancelled: false)
+                    }
+                }
+            }
+
+            lock.lock()
+            let finalResult = resultJson
+            lock.unlock()
+
+            return finalResult
+        }
+        context.setObject(browserWaitForReadyVisibleBlock, forKeyedSubscript: "_nativeBrowserWaitForReadyVisible" as NSCopying & NSObjectProtocol)
+
+        let browserCloseVisibleBlock: @convention(block) (String) -> Void = { [weak self] browserId in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
+                if let loader = self.activeVisibleBrowsers[browserId] {
+                    loader.cleanUp()
+                }
+                self.activeVisibleBrowsers.removeValue(forKey: browserId)
+            }
+        }
+        context.setObject(browserCloseVisibleBlock, forKeyedSubscript: "_nativeBrowserCloseVisible" as NSCopying & NSObjectProtocol)
+
         // Đăng ký JSCrypto toàn cục
         context.setObject(JSCrypto.self, forKeyedSubscript: "Crypto" as NSCopying & NSObjectProtocol)
 
@@ -653,6 +823,53 @@ public final class JSExecutor {
                     waitForReady: function(probeScript, timeout, interval, stablePasses) {
                         console.log("🤖 [Engine.Browser] waitForReady()");
                         var jsonStr = _nativeBrowserWaitForReady(
+                            this._id,
+                            probeScript || "",
+                            timeout || 30000,
+                            interval || 250,
+                            stablePasses || 2
+                        );
+                        try {
+                            return JSON.parse(jsonStr);
+                        } catch(e) {
+                            return { ready: false, failed: true, reason: "Failed to parse result JSON: " + e.message, timedOut: false, cancelled: false };
+                        }
+                    }
+                };
+            },
+            newVisibleBrowser: function(title) {
+                var browserId = "visible_browser_" + Math.random().toString(36).substr(2, 9);
+                _nativeBrowserNewVisible(browserId, title || "");
+                return {
+                    _id: browserId,
+                    launch: function(url, timeout) {
+                        console.log("👁️ [Engine.VisibleBrowser] launch(" + url + ")");
+                        var html = _nativeBrowserLaunchVisible(this._id, url, timeout || 15000);
+                        return Html.parseWithBase(html, url);
+                    },
+                    html: function() {
+                        var html = _nativeBrowserGetHtmlVisible(this._id);
+                        return Html.parse(html || "");
+                    },
+                    close: function() {
+                        console.log("👁️ [Engine.VisibleBrowser] close()");
+                        _nativeBrowserCloseVisible(this._id);
+                    },
+                    setUserAgent: function(ua) {
+                        console.log("👁️ [Engine.VisibleBrowser] setUserAgent(" + ua + ")");
+                    },
+                    callJs: function(script, waitTime) {
+                        console.log("👁️ [Engine.VisibleBrowser] callJs()");
+                        var result = _nativeBrowserCallJsVisible(this._id, script, waitTime || 0);
+                        return result;
+                    },
+                    waitUrl: function(url, timeout) {
+                        console.log("👁️ [Engine.VisibleBrowser] waitUrl(" + url + ")");
+                        return _nativeBrowserWaitUrlVisible(this._id, url, timeout || 15000);
+                    },
+                    waitForReady: function(probeScript, timeout, interval, stablePasses) {
+                        console.log("👁️ [Engine.VisibleBrowser] waitForReady()");
+                        var jsonStr = _nativeBrowserWaitForReadyVisible(
                             this._id,
                             probeScript || "",
                             timeout || 30000,
@@ -1119,7 +1336,7 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
     }
 }
 
-fileprivate func isDomainBlocked(_ urlString: String) -> Bool {
+func isDomainBlocked(_ urlString: String) -> Bool {
     guard let url = URL(string: urlString), let host = url.host?.lowercased() else {
         return false
     }

@@ -264,7 +264,6 @@ public final class GetTextSTVManager {
         return cleanBookId
     }
 
-    /// Bước 2: Lưu nội dung từng chương chưa có vào đĩa nhị phân `.bin` (`saveChapterContent`)
     public func saveChapterContentFromExtension(
         bookId: String,
         chapterIndex: Int,
@@ -274,22 +273,13 @@ public final class GetTextSTVManager {
         container: ModelContainer
     ) async throws {
         let cleanBookId = GetTextSTVManager.canonicalBookId(from: bookId)
-        let metadata = ChapterMetadataSnapshot(
-            title: chapterTitle,
-            url: chapterUrl,
-            index: chapterIndex
-        )
-
-        let key = Chapter.generateId(bookId: cleanBookId, url: chapterUrl, index: chapterIndex)
-        let store = ChapterPersistenceStore(container: container)
-        let noBookSnapshot: BookMetadataSnapshot? = nil
-        await store.enqueueWrite(
-            key: key,
+        try await ChapterContentRepository.shared.saveCachedChapter(
             bookId: cleanBookId,
-            book: noBookSnapshot,
-            chapter: metadata,
-            content: content
+            chapterIndex: chapterIndex,
+            chapterTitle: chapterTitle,
+            chapterUrl: chapterUrl,
+            content: content,
+            container: container
         )
-        await store.flush(bookId: cleanBookId)
     }
 }

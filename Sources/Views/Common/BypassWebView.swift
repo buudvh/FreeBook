@@ -541,18 +541,22 @@ struct SwiftUIWebView: UIViewRepresentable {
                         let coverUrl = (body["coverUrl"] as? String) ?? (body["bookCoverUrl"] as? String) ?? (body["cover"] as? String) ?? ""
                         let desc = (body["desc"] as? String) ?? (body["bookDesc"] as? String) ?? (body["intro"] as? String) ?? ""
                         if !bookTitle.isEmpty && !tocChapters.isEmpty {
-                            _ = try? await GetTextSTVManager.shared.syncTOCFromExtension(
-                                bookId: bookId,
-                                title: bookTitle,
-                                author: author,
-                                coverUrl: coverUrl,
-                                desc: desc,
-                                sourceUrl: url,
-                                host: host,
-                                tocChapters: tocChapters,
-                                container: context.container
-                            )
-                            AppLogger.shared.log("✅ [GetTextSTV] Đã nạp và đồng bộ mục lục (\(tocChapters.count) chương) cho sách: \(bookTitle)")
+                            do {
+                                _ = try await GetTextSTVManager.shared.syncTOCFromExtension(
+                                    bookId: bookId,
+                                    title: bookTitle,
+                                    author: author,
+                                    coverUrl: coverUrl,
+                                    desc: desc,
+                                    sourceUrl: url,
+                                    host: host,
+                                    tocChapters: tocChapters,
+                                    container: context.container
+                                )
+                                AppLogger.shared.log("✅ [GetTextSTV] Đã nạp và đồng bộ mục lục (\(tocChapters.count) chương) cho sách: \(bookTitle)")
+                            } catch {
+                                AppLogger.shared.log("❌ [GetTextSTV] Lỗi nạp mục lục cho sách \(bookTitle): \(error.localizedDescription)")
+                            }
                         }
                     } else if action == "saveChapterContent" {
                         let chapterIndex = (body["chapterIndex"] as? Int) ?? 0
@@ -560,21 +564,29 @@ struct SwiftUIWebView: UIViewRepresentable {
                         let chapterUrl = (body["chapterUrl"] as? String) ?? url
                         let content = (body["content"] as? String) ?? ""
                         if !content.isEmpty {
-                            try? await GetTextSTVManager.shared.saveChapterContentFromExtension(
-                                bookId: bookId,
-                                chapterIndex: chapterIndex,
-                                chapterTitle: chapterTitle,
-                                chapterUrl: chapterUrl,
-                                content: content,
-                                container: context.container
-                            )
-                            AppLogger.shared.log("✅ [GetTextSTV] Đã lưu thành công chương \(chapterIndex + 1): \(chapterTitle)")
+                            do {
+                                try await GetTextSTVManager.shared.saveChapterContentFromExtension(
+                                    bookId: bookId,
+                                    chapterIndex: chapterIndex,
+                                    chapterTitle: chapterTitle,
+                                    chapterUrl: chapterUrl,
+                                    content: content,
+                                    container: context.container
+                                )
+                                AppLogger.shared.log("✅ [GetTextSTV] Đã lưu thành công chương \(chapterIndex + 1): \(chapterTitle)")
+                            } catch {
+                                AppLogger.shared.log("❌ [GetTextSTV] Lỗi lưu chương \(chapterIndex + 1) (\(chapterTitle)): \(error.localizedDescription)")
+                            }
+                        } else {
+                            AppLogger.shared.log("⚠️ [GetTextSTV] Nội dung chương \(chapterIndex + 1) (\(chapterTitle)) bị rỗng, bỏ qua lưu.")
                         }
                     } else if action == "finishDownload" || action == "stopDownload" {
-                        let cleanBookId = GetTextSTVManager.canonicalBookId(from: bookId.isEmpty ? url : bookId, host: host)
+                        let targetDetailUrl = url.isEmpty ? bookId : url
+                        let cleanBookId = GetTextSTVManager.canonicalBookId(from: targetDetailUrl, host: host)
                         AppLogger.shared.log("✅ [GetTextSTV] Đảm bảo lưu 100% dữ liệu DB trước khi đóng trình duyệt cho bookId: \(cleanBookId)")
+                        await ChapterContentRepository.shared.flush(bookId: cleanBookId)
                         try? context.save()
-                        self.parent.onImport?(cleanBookId, "local_stv", "Sáng Tác Việt")
+                        self.parent.onImport?(targetDetailUrl, "local_stv", "Sáng Tác Việt")
                     }
                 }
             }

@@ -541,14 +541,14 @@ struct ReaderView: View {
         }
         .fullScreenCover(isPresented: $showingBypassBrowser) {
             let browserUrl: String = {
+                if let chapUrl = currentChapterInfo?.url, !chapUrl.isEmpty, chapUrl.hasPrefix("http") {
+                    return chapUrl
+                }
                 if let sourceUrl = localBook?.sourceUrl, !sourceUrl.isEmpty, sourceUrl.hasPrefix("http") {
                     return sourceUrl
                 }
                 if let detailUrl = bookDetailUrl, !detailUrl.isEmpty, detailUrl.hasPrefix("http") {
                     return detailUrl
-                }
-                if let chapUrl = currentChapterInfo?.url, !chapUrl.isEmpty, chapUrl.hasPrefix("http") {
-                    return chapUrl
                 }
                 return "http://14.225.254.182/"
             }()

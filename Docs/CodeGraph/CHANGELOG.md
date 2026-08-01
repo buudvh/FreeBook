@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.74] - 2026-08-01
+
+### Bổ Sung Trình Duyệt Giao Diện `Engine.newVisibleBrowser` & Tối Ưu Độ Tin Cậy Lưu Chương Nguồn STV (`VisibleWebViewLoader.swift`, `JSExecutor.swift`, `GetTextSTVManager.swift`, `ChapterContentRepository.swift`, `ChapterPersistenceStore.swift`, `BypassWebView.swift`, `ReaderView.swift`)
+* **Bổ Sung API Trình Duyệt Có Giao Diện Cho JS Engine (`VisibleWebViewLoader.swift`, `JSExecutor.swift`, `ParserTests.swift`)**:
+  * Định nghĩa phương thức mới `Engine.newVisibleBrowser(title)` trong JS Engine, cho phép các kịch bản JS khởi tạo và hiển thị một giao diện `WKWebView` Modal Sheet trực quan cho người dùng tương tác khi cần thiết.
+  * Xây dựng trợ lý `VisibleWebViewLoader.swift` quản lý vòng đời đóng/mở UI đơn điểm (Single-source-of-truth), hỗ trợ thao tác vuốt xuống (Interactive Swipe-down) thông qua `UIAdaptivePresentationControllerDelegate` và giải phóng bộ nhớ `activeVisibleBrowsers` tức thì.
+  * Giữ nguyên 100% cấu trúc, tính năng và các test case của trình duyệt ngầm `Engine.newBrowser()`.
+* **Nâng Cấp Độ Tin Cậy Lưu Chương Nguồn Sáng Tác Việt - STV (`GetTextSTVManager.swift`, `ChapterContentRepository.swift`, `ChapterPersistenceStore.swift`, `BypassWebView.swift`, `ReaderView.swift`)**:
+  * Khắc phục triệt để lỗi mất dữ liệu khi lưu nội dung chương STV, chuẩn hóa việc sửa lỗi URL và kiểm tra lưu nội dung chương đồng bộ vào cơ sở dữ liệu SQLite.
+  * Đảm bảo tính toàn vẹn dữ liệu khi tải và lưu nội dung chương từ tiện ích STV.
+
 ## [1.3.73] - 2026-08-01
 
 ### Tích Hợp Quản Lý Từ Đã Xóa & Nâng Cấp UI/UX Từ Điển Chung (`DictionaryListView.swift`, `DictionaryCache.swift`, `DictionaryHubView.swift`)
