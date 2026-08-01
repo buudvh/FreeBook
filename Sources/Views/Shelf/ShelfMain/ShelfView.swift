@@ -173,7 +173,6 @@ struct ShelfView: View {
                                         }
                                     }
                                 }
-                                }
 
                                 if shelfBooks.count > shelfLimit {
                                     HStack {
@@ -280,7 +279,6 @@ struct ShelfView: View {
                                             Label("Xóa lịch sử", systemImage: "clock.badge.xmark")
                                         }
                                     }
-                                }
                                 }
 
                                 if historyBooks.count > historyLimit {

@@ -9,9 +9,10 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Chuyển đổi công thức tính `range` trong `TTSParagraphBuilder.swift` sang chỉ mục tương đối nội bộ theo dòng `line.text` (0-indexed), loại bỏ hoàn toàn chỉ mục tuyệt đối cộng dồn của cả chương.
   * Trong `ReaderView.swift`, so sánh trực tiếp `item.id == ttsManager.currentParentParagraphIndex`, gán thẳng `chunkRange` cho `relativeHighlightRange` mà bỏ hẳn việc gọi qua hàm `lineStartOffset` lặp toàn chương.
   * Tự động đưa vị trí bôi đen highlight chính xác 100% từng câu trên UI và cuộn màn hình `Auto-scroll` đưa câu đang đọc vào giữa màn hình mượt mà.
-* **Xóa Mũi Tên Mặc Định `>` ở Lề Phải Kệ Sách & Lịch Sử Đọc (`ShelfView.swift`)**:
+* **Xóa Mũi Tên Mặc Định `>` ở Lề Phải Kệ Sách & Lịch Sử Đọc & Rà Soát Cú Pháp (`ShelfView.swift`, `ReaderView.swift`)**:
   * Sử dụng kỹ thuật bọc `ZStack` với `NavigationLink` ẩn (`.opacity(0)`) cho từng dòng sách trong danh sách Kệ Sách và Lịch Sử Đọc.
   * Loại bỏ hoàn toàn mũi tên `>` (disclosure indicator) mặc định của iOS lề bên phải, giúp giao diện phẳng, đẹp, sạch sẽ và rộng rãi hơn.
+  * Sửa lỗi ngoặc nhọn đóng thừa tại dòng 176 và 284 trong `ShelfView.swift` đảm bảo định vị cấu trúc `body` chuẩn xác, đồng thời dọn dẹp biến `textLen` không sử dụng trong `ReaderView.swift`.
 
 ## [1.3.69] - 2026-08-01
 

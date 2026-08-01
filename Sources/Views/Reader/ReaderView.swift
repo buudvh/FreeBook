@@ -1516,7 +1516,6 @@ struct ReaderView: View {
         let theme = selectedTheme
 
         ForEach(chapter.paragraphItems) { item in
-            let textLen = ((isTrans ? item.translated : item.original) as NSString).length
             let relativeHighlightRange: NSRange? = {
                 guard ttsManager.isPlaying,
                       ttsManager.playingBookId == bookId,
