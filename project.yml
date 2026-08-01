@@ -87,3 +87,16 @@ targets:
         CODE_SIGNING_REQUIRED: "NO"
         CODE_SIGN_IDENTITY: ""
         PRODUCT_BUNDLE_IDENTIFIER: com.raikiri1498.FreeBookEngineTests
+    scheme:
+      testTargets:
+        - FreeBookEngineTests
+
+schemes:
+  FreeBookEngineTests:
+    build:
+      targets:
+        FreeBook: [build]
+        FreeBookEngineTests: [test]
+    test:
+      targets:
+        - name: FreeBookEngineTests
