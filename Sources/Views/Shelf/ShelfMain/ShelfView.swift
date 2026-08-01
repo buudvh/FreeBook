@@ -116,23 +116,18 @@ struct ShelfView: View {
                         } else {
                             List {
                                 ForEach(displayedShelfBooks) { book in
-                                    ZStack(alignment: .leading) {
-                                        NavigationLink(destination: ReaderView(
-                                            bookId: book.bookId,
-                                            extensionPackageId: book.extensionPackageId,
-                                            chapterIndex: book.currentChapterIndex,
-                                            onlineChapters: [],
-                                            bookTitle: nil,
-                                            bookAuthor: nil,
-                                            bookCoverUrl: nil,
-                                            bookDesc: nil,
-                                            bookDetailUrl: book.detailUrl,
-                                            bookSourceName: book.sourceName
-                                        )) {
-                                            EmptyView()
-                                        }
-                                        .opacity(0)
-
+                                    NavigationLink(destination: ReaderView(
+                                        bookId: book.bookId,
+                                        extensionPackageId: book.extensionPackageId,
+                                        chapterIndex: book.currentChapterIndex,
+                                        onlineChapters: [],
+                                        bookTitle: nil,
+                                        bookAuthor: nil,
+                                        bookCoverUrl: nil,
+                                        bookDesc: nil,
+                                        bookDetailUrl: book.detailUrl,
+                                        bookSourceName: book.sourceName
+                                    )) {
                                         bookItemView(book)
                                     }
                                     .contextMenu {
@@ -217,23 +212,18 @@ struct ShelfView: View {
                         } else {
                             List {
                                 ForEach(displayedHistoryBooks) { book in
-                                    ZStack(alignment: .leading) {
-                                        NavigationLink(destination: ReaderView(
-                                            bookId: book.bookId,
-                                            extensionPackageId: book.extensionPackageId,
-                                            chapterIndex: book.currentChapterIndex,
-                                            onlineChapters: [],
-                                            bookTitle: nil,
-                                            bookAuthor: nil,
-                                            bookCoverUrl: nil,
-                                            bookDesc: nil,
-                                            bookDetailUrl: book.detailUrl,
-                                            bookSourceName: book.sourceName
-                                        )) {
-                                            EmptyView()
-                                        }
-                                        .opacity(0)
-
+                                    NavigationLink(destination: ReaderView(
+                                        bookId: book.bookId,
+                                        extensionPackageId: book.extensionPackageId,
+                                        chapterIndex: book.currentChapterIndex,
+                                        onlineChapters: [],
+                                        bookTitle: nil,
+                                        bookAuthor: nil,
+                                        bookCoverUrl: nil,
+                                        bookDesc: nil,
+                                        bookDetailUrl: book.detailUrl,
+                                        bookSourceName: book.sourceName
+                                    )) {
                                         bookItemView(book)
                                     }
                                     .contextMenu {
@@ -496,7 +486,7 @@ struct ShelfView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(DisplayTextFormatter.titleCase(translateIfNeeded(book.title, bookId: book.bookId)))
                     .font(.headline)
-                    .lineLimit(1)
+                    .lineLimit(2)
 
                 HStack(spacing: 8) {
                     if !book.author.isEmpty {

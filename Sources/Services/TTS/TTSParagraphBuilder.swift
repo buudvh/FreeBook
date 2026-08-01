@@ -16,9 +16,11 @@ enum TTSParagraphBuilder {
         maximumLength: Int
     ) -> [TTSParagraph] {
         guard line.text.utf16.count > maximumLength else {
+            let relativeRange = NSRange(location: 0, length: line.text.utf16.count)
+            AppLogger.shared.log("🔊 [TTSParagraphBuilder] Short Chunk (Line \(line.id)): '\(line.text)' | relativeRange=\(relativeRange)")
             return [TTSParagraph(
                 text: line.text,
-                range: line.utf16Range,
+                range: relativeRange,
                 paragraphIndex: line.id
             )]
         }

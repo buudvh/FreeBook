@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.71] - 2026-08-01
+
+### Sửa Lỗi Highlight TTS Đoạn Văn Ngắn & Hiển Thị Tên Truyện 2 Dòng Kệ Sách/Lịch Sử (`TTSParagraphBuilder.swift`, `ShelfView.swift`)
+* **Triệt Tiêu 100% Lỗi Mất Highlight TTS Ở Đoạn Văn Ngắn (`TTSParagraphBuilder.swift`)**:
+  * Sửa lệnh `guard` rút gọn ở dòng 18 trong `chunks(for:maximumLength:)` cho các đoạn văn ngắn ($\le 200$ ký tự), chuyển `line.utf16Range` (chỉ mục tuyệt đối toàn chương) thành `NSRange(location: 0, length: line.text.utf16.count)` (chỉ mục tương đối 0-indexed).
+  * Đảm bảo **100% tất cả các đoạn văn ngắn hay dài** đều có `range` tương đối bắt đầu từ 0, tô màu bôi đen chính xác từng câu trên UI và tự động cuộn `Auto-scroll` lên giữa màn hình mượt mà.
+* **Tăng Số Dòng Hiển Thị Tên Truyện Lên 2 Dòng (`ShelfView.swift`)**:
+  * Đổi `.lineLimit(1)` thành `.lineLimit(2)` cho `Text` tên truyện trong `bookItemView(_ book: Book)` của `ShelfView.swift`.
+  * Cho phép tên truyện dài ở Kệ Sách và Lịch Sử Đọc hiển thị tối đa 2 dòng (rút gọn `...` ở cuối dòng 2 nếu quá dài).
+* **Khôi Phục Mũi Tên Chỉ Báo `>` Mặc Định (`ShelfView.swift`)**:
+  * Khôi phục lại cấu trúc `NavigationLink` trực tiếp mặc định của iOS SwiftUI cho cả 2 danh sách Kệ Sách và Lịch Sử Đọc.
+
 ## [1.3.70] - 2026-08-01
 
 ### Triệt Tiêu Lỗi Lệch Highlight TTS (Relative Indexing) & Xóa Mũi Tên Đồ Họa Lề Phải Sách (`TTSParagraphBuilder.swift`, `ReaderView.swift`, `ShelfView.swift`)
