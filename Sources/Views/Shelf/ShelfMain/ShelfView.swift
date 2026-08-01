@@ -116,18 +116,23 @@ struct ShelfView: View {
                         } else {
                             List {
                                 ForEach(displayedShelfBooks) { book in
-                                    NavigationLink(destination: ReaderView(
-                                        bookId: book.bookId,
-                                        extensionPackageId: book.extensionPackageId,
-                                        chapterIndex: book.currentChapterIndex,
-                                        onlineChapters: [],
-                                        bookTitle: nil,
-                                        bookAuthor: nil,
-                                        bookCoverUrl: nil,
-                                        bookDesc: nil,
-                                        bookDetailUrl: book.detailUrl,
-                                        bookSourceName: book.sourceName
-                                    )) {
+                                    ZStack(alignment: .leading) {
+                                        NavigationLink(destination: ReaderView(
+                                            bookId: book.bookId,
+                                            extensionPackageId: book.extensionPackageId,
+                                            chapterIndex: book.currentChapterIndex,
+                                            onlineChapters: [],
+                                            bookTitle: nil,
+                                            bookAuthor: nil,
+                                            bookCoverUrl: nil,
+                                            bookDesc: nil,
+                                            bookDetailUrl: book.detailUrl,
+                                            bookSourceName: book.sourceName
+                                        )) {
+                                            EmptyView()
+                                        }
+                                        .opacity(0)
+
                                         bookItemView(book)
                                     }
                                     .contextMenu {
@@ -167,6 +172,7 @@ struct ShelfView: View {
                                             Label("Xóa khỏi kệ sách", systemImage: "bookmark.slash")
                                         }
                                     }
+                                }
                                 }
 
                                 if shelfBooks.count > shelfLimit {
@@ -212,18 +218,23 @@ struct ShelfView: View {
                         } else {
                             List {
                                 ForEach(displayedHistoryBooks) { book in
-                                    NavigationLink(destination: ReaderView(
-                                        bookId: book.bookId,
-                                        extensionPackageId: book.extensionPackageId,
-                                        chapterIndex: book.currentChapterIndex,
-                                        onlineChapters: [],
-                                        bookTitle: nil,
-                                        bookAuthor: nil,
-                                        bookCoverUrl: nil,
-                                        bookDesc: nil,
-                                        bookDetailUrl: book.detailUrl,
-                                        bookSourceName: book.sourceName
-                                    )) {
+                                    ZStack(alignment: .leading) {
+                                        NavigationLink(destination: ReaderView(
+                                            bookId: book.bookId,
+                                            extensionPackageId: book.extensionPackageId,
+                                            chapterIndex: book.currentChapterIndex,
+                                            onlineChapters: [],
+                                            bookTitle: nil,
+                                            bookAuthor: nil,
+                                            bookCoverUrl: nil,
+                                            bookDesc: nil,
+                                            bookDetailUrl: book.detailUrl,
+                                            bookSourceName: book.sourceName
+                                        )) {
+                                            EmptyView()
+                                        }
+                                        .opacity(0)
+
                                         bookItemView(book)
                                     }
                                     .contextMenu {
@@ -269,6 +280,7 @@ struct ShelfView: View {
                                             Label("Xóa lịch sử", systemImage: "clock.badge.xmark")
                                         }
                                     }
+                                }
                                 }
 
                                 if historyBooks.count > historyLimit {
