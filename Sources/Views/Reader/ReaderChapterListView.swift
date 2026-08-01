@@ -1357,7 +1357,7 @@ private struct ReaderChapterRowView: View {
                     .font(.body)
                     .foregroundColor(isCurrent ? .blue : theme.textColor)
                     .fontWeight(isCurrent ? .semibold : .regular)
-                    .lineLimit(1)
+                    .lineLimit(2)
                 Spacer()
                 if !chapter.isPlaceholder && chapter.isCached {
                     Image(systemName: "arrow.down.circle.fill")

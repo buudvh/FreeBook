@@ -124,26 +124,24 @@ struct ReaderDefinitionOverlayView: View {
     }
 
     private var originalSentenceRowView: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 12) {
+        HStack(spacing: 4) {
+            HStack(spacing: 3) {
                 Button(action: onExpandSelectionLeft) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .bold))
-                        .frame(width: 36, height: 36)
+                        .font(.system(size: 13, weight: .bold))
+                        .frame(width: 28, height: 28)
                         .background(Color.blue.opacity(0.1))
                         .clipShape(Circle())
                 }
                 Button(action: onShrinkSelectionLeft) {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 16, weight: .bold))
-                        .frame(width: 36, height: 36)
+                        .font(.system(size: 13, weight: .bold))
+                        .frame(width: 28, height: 28)
                         .background(Color.blue.opacity(0.1))
                         .clipShape(Circle())
                 }
             }
             .foregroundColor(.blue)
-
-            Spacer()
 
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -180,27 +178,26 @@ struct ReaderDefinitionOverlayView: View {
                 }
             }
 
-            Spacer()
-
-            HStack(spacing: 12) {
+            HStack(spacing: 3) {
                 Button(action: onShrinkSelectionRight) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .bold))
-                        .frame(width: 36, height: 36)
+                        .font(.system(size: 13, weight: .bold))
+                        .frame(width: 28, height: 28)
                         .background(Color.blue.opacity(0.1))
                         .clipShape(Circle())
                 }
                 Button(action: onExpandSelectionRight) {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 16, weight: .bold))
-                        .frame(width: 36, height: 36)
+                        .font(.system(size: 13, weight: .bold))
+                        .frame(width: 28, height: 28)
                         .background(Color.blue.opacity(0.1))
                         .clipShape(Circle())
                 }
             }
             .foregroundColor(.blue)
         }
-        .padding(10)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 6)
         .frame(maxWidth: .infinity)
         .background(Color.secondary.opacity(0.08))
         .cornerRadius(8)

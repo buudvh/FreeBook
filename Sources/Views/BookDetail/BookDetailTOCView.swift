@@ -134,7 +134,7 @@ struct BookDetailTOCView: View {
                                         Text(displayTitle)
                                             .foregroundColor((localBook?.currentChapterIndex ?? 0) == chap.index ? .accentColor : .primary)
                                             .font(.subheadline)
-                                            .lineLimit(1)
+                                            .lineLimit(2)
                                         Spacer()
                                         if chap.isCached {
                                             Image(systemName: "arrow.down.circle.fill")
@@ -157,7 +157,7 @@ struct BookDetailTOCView: View {
                                         Text(onTranslateChapterTitleIfNeeded(chap))
                                             .foregroundColor(book.currentChapterIndex == chap.index ? .accentColor : .primary)
                                             .font(.subheadline)
-                                            .lineLimit(1)
+                                            .lineLimit(2)
                                         Spacer()
                                         if chap.isCached {
                                             Image(systemName: "arrow.down.circle.fill")
@@ -180,7 +180,7 @@ struct BookDetailTOCView: View {
                                         Text(onTranslateTitleIfNeeded(chap.name))
                                             .font(.subheadline)
                                             .foregroundColor(.primary)
-                                            .lineLimit(1)
+                                            .lineLimit(2)
                                             .padding(.vertical, 12)
                                             .padding(.horizontal)
                                         Divider()

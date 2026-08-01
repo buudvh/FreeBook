@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.69] - 2026-08-01
+
+### Tối Ưu Giao Diện Màn Hình Dịch, Tên Chương 2 Dòng & Log Chẩn Đoán Highlight TTS (`ReaderDefinitionOverlayView.swift`, `ReaderJunkDeleteOverlayView.swift`, `ReaderChapterListView.swift`, `BookDetailTOCView.swift`, `TTSParagraphBuilder.swift`, `TTSManager.swift`, `ReaderView.swift`)
+* **Tối Ưu Không Gian Tràn Lề Hàng 1 Màn Hình Dịch & Xóa Từ Rác (`ReaderDefinitionOverlayView.swift`, `ReaderJunkDeleteOverlayView.swift`)**:
+  * Thu nhỏ kích thước cụm nút điều chỉnh vùng chọn 2 bên từ `36x36` xuống `28x28`, icon `13pt`, spacing `3pt`.
+  * Gỡ bỏ hai `Spacer()` hai bên `ScrollViewReader`, triệt tiêu padding lề 2 bên từ `10pt` xuống `padding(.horizontal, 4)`, giúp thanh cuộn câu tiếng Trung gốc mở rộng chiều ngang tối đa.
+* **Cập Nhật Hiển Thị Tên Chương Tối Đa 2 Dòng Kèm Dấu `...` (`ReaderChapterListView.swift`, `BookDetailTOCView.swift`)**:
+  * Thay đổi `.lineLimit(1)` thành `.lineLimit(2)` trong `ReaderChapterRowView` ở danh sách chương trình đọc.
+  * Thay đổi `.lineLimit(1)` thành `.lineLimit(2)` cho cả 3 trường hợp danh sách chương trong `BookDetailTOCView` mục lục chi tiết truyện.
+* **Bổ Sung Log Chẩn Đoán Luồng Tính Toán Highlight TTS (`TTSParagraphBuilder.swift`, `TTSManager.swift`, `ReaderView.swift`)**:
+  * Ghi log chi tiết text thô từng chunk trong hàng chờ (`paragraphs` queue) kèm `utf16Range` và `line.id` trong `TTSParagraphBuilder.swift`.
+  * Ghi log chi tiết chuỗi `textToSpeak` sau khi áp dụng các quy tắc thay thế từ/ký tự (`TTSReplacementManager`) và giá trị `highlightRange` trong `TTSManager.swift`.
+  * Ghi log vị trí `relativeHighlightRange` quy đổi trên giao diện UI `ReaderView.swift` phục vụ đối soát lệch vị trí bôi đen.
+
 ## [1.3.68] - 2026-07-31
 
 ### Tinh Chỉnh Khoảng Cách Token Dịch Hàng Thứ 2 Màn Hình Dịch & Đồng Bộ Tra Từ Điển (`ReaderDefinitionOverlayView.swift`, `ReaderJunkDeleteOverlayView.swift`, `TranslateUtils.swift`)

@@ -1528,7 +1528,9 @@ struct ReaderView: View {
                 let relLoc = max(0, chunkRange.location - lineStart)
                 let relLen = min(max(0, textLen - relLoc), chunkRange.length)
                 guard relLoc < textLen && relLen > 0 else { return nil }
-                return NSRange(location: relLoc, length: relLen)
+                let calculated = NSRange(location: relLoc, length: relLen)
+                AppLogger.shared.log("🔊 [ReaderView] Calculated relativeHighlightRange for ItemID=\(item.id): chunkRange=\(chunkRange) | lineStart=\(lineStart) | textLen=\(textLen) -> relativeRange=\(calculated)")
+                return calculated
             }()
 
             ParagraphCardView(

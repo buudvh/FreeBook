@@ -57,12 +57,14 @@ enum TTSParagraphBuilder {
             let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             if !text.isEmpty {
                 let leading = raw.prefix(while: { $0.isWhitespace }).utf16.count
+                let chunkRange = NSRange(
+                    location: line.utf16Range.location + utf16Offsets[start] + leading,
+                    length: text.utf16.count
+                )
+                AppLogger.shared.log("🔊 [TTSParagraphBuilder] Chunk (Line \(line.id)): '\(text)' | utf16Range=\(chunkRange)")
                 result.append(TTSParagraph(
                     text: text,
-                    range: NSRange(
-                        location: line.utf16Range.location + utf16Offsets[start] + leading,
-                        length: text.utf16.count
-                    ),
+                    range: chunkRange,
                     paragraphIndex: line.id
                 ))
             }

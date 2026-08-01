@@ -1348,6 +1348,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         // Áp dụng các quy tắc thay thế ký tự trước khi đọc
         let textToSpeak = TTSReplacementManager.shared.applyReplacements(to: paragraph.text)
             .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        AppLogger.shared.log("🔊 [TTSManager] Chunk [\(currentParagraphIndex + 1)/\(paragraphs.count)] (ParentID=\(paragraph.paragraphIndex)): Raw='\(paragraph.text)' | Processed='\(textToSpeak)' | highlightRange=\(paragraph.range)")
+
         guard !textToSpeak.isEmpty else {
             nextParagraph()
             return
