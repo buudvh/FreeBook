@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.75] - 2026-08-03
+
+### Tối Ưu Lưu Trữ Từ Điển Plain Text `.txt` & Trình Chọn Nguồn Import Đa Extension (`TextDictionary.swift`, `TranslationManager.swift`, `DictionaryCache.swift`, `DictionaryListView.swift`, `BypassWebView.swift`)
+* **Tối Ưu Lưu Trữ Từ Điển Plain Text & Tải Nhanh Cấu Trúc Bỏ Qua `.dat` (`TextDictionary.swift`, `TranslationManager.swift`, `DictionaryCache.swift`, `DictionaryListView.swift`)**:
+  * Định nghĩa struct `DictionaryTextRecord` và trợ lý `DictionaryTextFileStore` hỗ trợ parse và lưu trữ tệp từ điển `.txt` trực tiếp, bỏ qua phụ thuộc tệp `.dat` giúp giảm tải I/O.
+  * Chuẩn hóa truy vấn danh sách từ đã xóa qua `deletedNamesList` và `deletedVietPhraseList`, đảm bảo thứ tự hiển thị và lọc dữ liệu chính xác trên UI.
+  * Tối ưu hóa các phương thức import, export, và dọn dẹp bộ nhớ từ điển truyện ngắn gọn, tin cậy.
+* **Tích Hợp Trình Chọn Nguồn Extension Khi Trùng URL Regex Trực Tiếp Trên Trình Duyệt Ngầm `BypassWebView` (`BypassWebView.swift`)**:
+  * Nâng cấp cơ chế khớp regex với `findMatchingExtensions(for:)` trả về toàn bộ danh sách các tiện ích phù hợp với URL hiện tại.
+  * Hiển thị bảng chọn `confirmationDialog` cho phép người dùng chủ động chọn nguồn extension mong muốn khi có từ hai tiện ích trở lên khớp cùng một đường dẫn URL.
+
 ## [1.3.74] - 2026-08-01
 
 ### Bổ Sung Trình Duyệt Giao Diện `Engine.newVisibleBrowser` & Tối Ưu Độ Tin Cậy Lưu Chương Nguồn STV (`VisibleWebViewLoader.swift`, `JSExecutor.swift`, `GetTextSTVManager.swift`, `ChapterContentRepository.swift`, `ChapterPersistenceStore.swift`, `BypassWebView.swift`, `ReaderView.swift`)

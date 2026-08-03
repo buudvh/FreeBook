@@ -2,8 +2,8 @@ import Foundation
 import Combine
 
 /// In-memory cache for global (shared) dictionaries.
-/// Loads entries from `.dat` files on first access, then keeps them in RAM.
-/// CRUD operations update both the cache and the `.dat` file atomically.
+/// Loads custom entries from `.txt` files on first access, then keeps them in RAM.
+/// CRUD operations update the unified custom/deleted `.txt` file atomically.
 @MainActor
 public final class DictionaryCache: ObservableObject {
     public static let shared = DictionaryCache()
@@ -22,32 +22,24 @@ public final class DictionaryCache: ObservableObject {
         case .vietPhrase:
             guard vietPhraseEntries == nil, !isLoadingVP else { return }
             isLoadingVP = true
-            let entries = await loadFromDat(fileName: "VietPhrase.dat")
+            let entries = await loadFromText(type: type)
             vietPhraseEntries = entries
             isLoadingVP = false
         case .names:
             guard namesEntries == nil, !isLoadingNames else { return }
             isLoadingNames = true
-            let entries = await loadFromDat(fileName: "Names.dat")
+            let entries = await loadFromText(type: type)
             namesEntries = entries
             isLoadingNames = false
         }
     }
 
-    private func loadFromDat(fileName: String) async -> [DictEntry] {
+    private func loadFromText(type: DictType) async -> [DictEntry] {
         let translateDir = TranslationManager.shared.translateDirectory
+        let fileUrl = Self.globalCustomTextURL(type: type, translateDir: translateDir)
         return await Task.detached(priority: .userInitiated) {
-            let customName = "Custom" + fileName
-            let fileUrl = translateDir.appendingPathComponent(customName)
-            guard FileManager.default.fileExists(atPath: fileUrl.path) else { return [] }
-
-            let dat = DoubleArrayTrie()
-            try? dat.load(from: fileUrl)
-            guard dat.isLoaded else { return [] }
-
-            let raw = dat.allEntries()
+            let raw = DictionaryTextFileStore.loadEntries(from: fileUrl)
             return raw.map { DictEntry(key: $0.key, value: $0.value) }
-                .sorted { $0.key.localizedCompare($1.key) == .orderedAscending }
         }.value
     }
 
@@ -55,83 +47,59 @@ public final class DictionaryCache: ObservableObject {
 
     /// Upsert: if key exists, move & update value at index 0; if not, insert at index 0.
     public func upsertEntry(key: String, value: String, type: DictType) async throws {
-        var entries = currentEntries(for: type)
-        entries.removeAll { $0.key == key }
-        entries.insert(DictEntry(key: key, value: value), at: 0)
+        let cleanKey = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanValue = DictionaryTextFileStore.normalizeMeaning(value)
+        guard !cleanKey.isEmpty, !cleanValue.isEmpty else { return }
 
-        try await persistAndUpdate(entries: entries, type: type)
+        var records = currentRecords(for: type)
+        records.removeAll { $0.key == cleanKey }
+        records.insert(DictionaryTextRecord(key: cleanKey, value: cleanValue), at: 0)
+
+        try await persistAndUpdate(records: records, type: type)
     }
 
     /// Update key: if newKey != oldKey, keep oldKey, upsert newKey at index 0.
     public func updateKey(oldKey: String, newKey: String, newValue: String, type: DictType) async throws {
-        var entries = currentEntries(for: type)
+        let cleanNewKey = newKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanValue = DictionaryTextFileStore.normalizeMeaning(newValue)
+        guard !cleanNewKey.isEmpty, !cleanValue.isEmpty else { return }
 
-        if newKey != oldKey {
-            // Keep oldKey (do not remove it), just upsert newKey with newValue at index 0
-            entries.removeAll { $0.key == newKey }
-            entries.insert(DictEntry(key: newKey, value: newValue), at: 0)
+        var records = currentRecords(for: type)
+        if newKey == oldKey {
+            records.removeAll { $0.key == oldKey }
         } else {
-            // Update oldKey and move it to index 0
-            entries.removeAll { $0.key == oldKey }
-            entries.insert(DictEntry(key: oldKey, value: newValue), at: 0)
+            records.removeAll { $0.key == cleanNewKey }
         }
+        records.insert(DictionaryTextRecord(key: cleanNewKey, value: cleanValue), at: 0)
 
-        try await persistAndUpdate(entries: entries, type: type)
+        try await persistAndUpdate(records: records, type: type)
     }
 
     public func deleteEntry(key: String, type: DictType) async throws {
-        var entries = currentEntries(for: type)
-        let before = entries.count
-        entries.removeAll { $0.key == key }
-        guard entries.count < before else { return }
+        let cleanKey = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanKey.isEmpty else { return }
 
-        try await persistAndUpdate(entries: entries, type: type)
+        var records = currentRecords(for: type)
+        let before = records.count
+        records.removeAll { $0.key == cleanKey }
+
+        let isName = type == .names
+        if TranslationManager.shared.existsInBaseDictionary(word: cleanKey, isName: isName) {
+            records.insert(DictionaryTextRecord(key: cleanKey, value: ""), at: 0)
+        }
+
+        guard records.count != before || records.first?.key == cleanKey else { return }
+        try await persistAndUpdate(records: records, type: type)
     }
 
     public func importEntries(from url: URL, type: DictType) async throws {
-        let content = try String(contentsOf: url, encoding: .utf8)
-        let lines = content.components(separatedBy: .newlines)
-        
-        var newCustomEntries: [DictEntry] = []
-        var newlyDeleted: Set<String> = []
-        
-        for line in lines {
-            let parts = line.split(separator: "=", maxSplits: 1)
-            if parts.count == 2 {
-                let k = String(parts[0]).trimmingCharacters(in: .whitespacesAndNewlines)
-                let v = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
-                if !k.isEmpty {
-                    if v.isEmpty {
-                        newlyDeleted.insert(k)
-                    } else {
-                        newCustomEntries.append(DictEntry(key: k, value: v))
-                    }
-                }
-            } else if parts.count == 1, line.contains("=") {
-                let k = String(parts[0]).trimmingCharacters(in: .whitespacesAndNewlines)
-                if !k.isEmpty {
-                    newlyDeleted.insert(k)
-                }
-            }
-        }
-        
-        // Save custom entries
-        try await persistAndUpdate(entries: newCustomEntries, type: type)
-        
-        // Save deleted list
-        let isName = type == .names
-        if !newlyDeleted.isEmpty {
-            TranslationManager.shared.addDeletedWords(newlyDeleted, isName: isName)
-        }
-        let customKeys = newCustomEntries.map { $0.key }
-        if !customKeys.isEmpty {
-            TranslationManager.shared.removeDeletedWords(customKeys, isName: isName)
-        }
+        let importedRecords = try DictionaryTextFileStore.parseRecords(from: url)
+        let importedKeys = Set(importedRecords.map { $0.key })
+        let preservedDeletedRecords = currentRecords(for: type)
+            .filter { $0.isDeleted && !importedKeys.contains($0.key) }
 
-        // Reload cache
+        try await persistAndUpdate(records: importedRecords + preservedDeletedRecords, type: type)
         invalidate(type: type)
-        TranslateUtils.clearCache()
-        try await TranslationManager.shared.loadAllDictionaries()
         await loadIfNeeded(type: type)
     }
 
@@ -148,32 +116,32 @@ public final class DictionaryCache: ObservableObject {
     }
     
     public func clearAllEntries(type: DictType) async throws {
-        try await persistAndUpdate(entries: [], type: type)
+        let deletedRecords = currentRecords(for: type).filter { $0.isDeleted }
+        try await persistAndUpdate(records: deletedRecords, type: type)
     }
 
     // MARK: - Helpers
 
-    private func currentEntries(for type: DictType) -> [DictEntry] {
-        switch type {
-        case .vietPhrase: return vietPhraseEntries ?? []
-        case .names: return namesEntries ?? []
-        }
+    private static func globalCustomTextURL(type: DictType, translateDir: URL) -> URL {
+        translateDir.appendingPathComponent("Custom\(type.fileName).txt")
     }
 
-    private func persistAndUpdate(entries: [DictEntry], type: DictType) async throws {
-        let fileName = type == .vietPhrase ? "CustomVietPhrase.dat" : "CustomNames.dat"
+    private func currentRecords(for type: DictType) -> [DictionaryTextRecord] {
         let translateDir = TranslationManager.shared.translateDirectory
-        let datUrl = translateDir.appendingPathComponent(fileName)
+        let fileUrl = Self.globalCustomTextURL(type: type, translateDir: translateDir)
+        return (try? DictionaryTextFileStore.parseRecords(from: fileUrl)) ?? []
+    }
 
-        let raw = entries.map { (key: $0.key, value: $0.value) }
+    private func persistAndUpdate(records: [DictionaryTextRecord], type: DictType) async throws {
+        let translateDir = TranslationManager.shared.translateDirectory
+        let fileUrl = Self.globalCustomTextURL(type: type, translateDir: translateDir)
 
         try await Task.detached(priority: .userInitiated) {
-            if raw.isEmpty {
-                try? FileManager.default.removeItem(at: datUrl)
-            } else {
-                try DoubleArrayTrieBuilder().build(fromEntries: raw, toDatFile: datUrl)
-            }
+            try DictionaryTextFileStore.persist(records: records, to: fileUrl)
         }.value
+
+        let entries = DictionaryTextFileStore.loadEntries(from: fileUrl)
+            .map { DictEntry(key: $0.key, value: $0.value) }
 
         // Update in-memory cache
         switch type {

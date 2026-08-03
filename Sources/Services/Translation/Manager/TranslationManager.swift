@@ -29,6 +29,8 @@ public final class TranslationManager: ObservableObject {
     @Published public private(set) var customNamesDict: TrieDictionary?
     public private(set) var deletedVietPhrase: Set<String> = []
     public private(set) var deletedNames: Set<String> = []
+    @Published public private(set) var deletedVietPhraseList: [String] = []
+    @Published public private(set) var deletedNamesList: [String] = []
     
     private var bookDicts: [String: (vietPhrase: TrieDictionary?, names: TrieDictionary?)] = [:]
     private var txtWordCountsCache: [String: Int] = [:]
@@ -54,9 +56,7 @@ public final class TranslationManager: ObservableObject {
         
         let bookDir = translateDirectory.appendingPathComponent("books").appendingPathComponent(bookId)
         let vpTxtUrl = bookDir.appendingPathComponent("VietPhrase.txt")
-        let vpDatUrl = bookDir.appendingPathComponent("VietPhrase.dat")
         let namesTxtUrl = bookDir.appendingPathComponent("Names.txt")
-        let namesDatUrl = bookDir.appendingPathComponent("Names.dat")
         
         try? FileManager.default.createDirectory(at: bookDir, withIntermediateDirectories: true)
         
@@ -64,104 +64,41 @@ public final class TranslationManager: ObservableObject {
         var names: TrieDictionary?
         
         // Load VietPhrase
-        if FileManager.default.fileExists(atPath: vpDatUrl.path) {
-            let dat = DoubleArrayTrie()
-            try? dat.load(from: vpDatUrl)
-            if dat.isLoaded { vp = dat }
-        } else if FileManager.default.fileExists(atPath: vpTxtUrl.path) {
-            // Compile on the fly
-            try? DoubleArrayTrieBuilder().build(fromTxtFile: vpTxtUrl, toDatFile: vpDatUrl)
-            let dat = DoubleArrayTrie()
-            try? dat.load(from: vpDatUrl)
-            if dat.isLoaded { vp = dat }
+        if FileManager.default.fileExists(atPath: vpTxtUrl.path) {
+            let text = TextDictionary()
+            try? text.load(from: vpTxtUrl)
+            if text.isLoaded, text.wordCount > 0 { vp = text }
         }
         
         // Load Names
-        if FileManager.default.fileExists(atPath: namesDatUrl.path) {
-            let dat = DoubleArrayTrie()
-            try? dat.load(from: namesDatUrl)
-            if dat.isLoaded { names = dat }
-        } else if FileManager.default.fileExists(atPath: namesTxtUrl.path) {
-            // Compile on the fly
-            try? DoubleArrayTrieBuilder().build(fromTxtFile: namesTxtUrl, toDatFile: namesDatUrl)
-            let dat = DoubleArrayTrie()
-            try? dat.load(from: namesDatUrl)
-            if dat.isLoaded { names = dat }
+        if FileManager.default.fileExists(atPath: namesTxtUrl.path) {
+            let text = TextDictionary()
+            try? text.load(from: namesTxtUrl)
+            if text.isLoaded, text.wordCount > 0 { names = text }
         }
         
         let result = (vietPhrase: vp, names: names)
         bookDicts[bookId] = result
         return result
     }
-    
-    private func saveDeletedList(isName: Bool) {
-        let fileName = isName ? "DeletedNames.txt" : "DeletedVietPhrase.txt"
-        let fileUrl = translateDirectory.appendingPathComponent(fileName)
-        let list = isName ? deletedNames : deletedVietPhrase
-        let content = list.joined(separator: "\n")
-        try? content.write(to: fileUrl, atomically: true, encoding: .utf8)
-    }
 
     public func saveCustomEntry(word: String, meaning: String, isName: Bool, bookId: String?) async throws {
-        let fileName: String
-        if bookId != nil {
-            fileName = isName ? "Names.dat" : "VietPhrase.dat"
-        } else {
-            fileName = isName ? "CustomNames.dat" : "CustomVietPhrase.dat"
-        }
+        let fileUrl = customTextURL(isName: isName, bookId: bookId)
+        let cleanWord = word.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanMeaning = DictionaryTextFileStore.normalizeMeaning(meaning)
+        guard !cleanWord.isEmpty, !cleanMeaning.isEmpty else { return }
         
-        let fileUrl: URL
-        if let bid = bookId {
-            let bookDir = translateDirectory.appendingPathComponent("books").appendingPathComponent(bid)
-            try? FileManager.default.createDirectory(at: bookDir, withIntermediateDirectories: true)
-            fileUrl = bookDir.appendingPathComponent(fileName)
-        } else {
-            fileUrl = translateDirectory.appendingPathComponent(fileName)
-        }
+        // 1. Đọc danh sách custom/deleted theo đúng thứ tự file TXT.
+        var records = (try? DictionaryTextFileStore.parseRecords(from: fileUrl)) ?? []
         
-        // 1. Đọc ngược các từ hiện có từ file .dat (nếu có)
-        var entries: [(key: String, value: String)] = []
-        if FileManager.default.fileExists(atPath: fileUrl.path) {
-            let dat = DoubleArrayTrie()
-            try? dat.load(from: fileUrl)
-            if dat.isLoaded {
-                entries = dat.allEntries()
-            }
-        }
+        // 2. Cập nhật hoặc thêm từ mới, đưa entry mới sửa lên đầu danh sách.
+        records.removeAll { $0.key == cleanWord }
+        records.insert(DictionaryTextRecord(key: cleanWord, value: cleanMeaning), at: 0)
         
-        // 2. Cập nhật hoặc thêm từ mới
-        var found = false
-        for i in 0..<entries.count {
-            if entries[i].key == word {
-                entries[i].value = meaning
-                found = true
-                break
-            }
-        }
+        // 3. Ghi TXT-only; helper tự xoá file .dat custom cũ cùng tên nếu còn.
+        try DictionaryTextFileStore.persist(records: records, to: fileUrl)
         
-        if !found {
-            entries.append((key: word, value: meaning))
-        }
-        
-        // 3. Biên dịch trực tiếp ra file .dat ghi đè lên vị trí cũ
-        try DoubleArrayTrieBuilder().build(fromEntries: entries, toDatFile: fileUrl)
-        
-        // 4. Nếu là global, kiểm tra và gỡ khỏi danh sách bị xóa (nếu có)
-        if bookId == nil {
-            if isName {
-                if deletedNames.contains(word) {
-                    deletedNames.remove(word)
-                    saveDeletedList(isName: true)
-                }
-            } else {
-                if deletedVietPhrase.contains(word) {
-                    deletedVietPhrase.remove(word)
-                    saveDeletedList(isName: false)
-                }
-            }
-        }
-        
-        // 5. Reset cache và load lại
+        // 4. Reset cache và load lại
         TranslateUtils.clearCache()
         if let bid = bookId {
             bookDicts.removeValue(forKey: bid)
@@ -176,65 +113,22 @@ public final class TranslationManager: ObservableObject {
     }
     
     public func deleteCustomEntry(word: String, isName: Bool, bookId: String?) async throws {
-        let fileName: String
-        if bookId != nil {
-            fileName = isName ? "Names.dat" : "VietPhrase.dat"
-        } else {
-            fileName = isName ? "CustomNames.dat" : "CustomVietPhrase.dat"
-        }
+        let fileUrl = customTextURL(isName: isName, bookId: bookId)
+        let cleanWord = word.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanWord.isEmpty else { return }
         
-        let fileUrl: URL
-        if let bid = bookId {
-            let bookDir = translateDirectory.appendingPathComponent("books").appendingPathComponent(bid)
-            fileUrl = bookDir.appendingPathComponent(fileName)
-        } else {
-            fileUrl = translateDirectory.appendingPathComponent(fileName)
-        }
+        // 1. Xóa dòng custom/deleted cũ cùng key.
+        var records = (try? DictionaryTextFileStore.parseRecords(from: fileUrl)) ?? []
+        let initialRecords = records
+        records.removeAll { $0.key == cleanWord }
         
-        // 1. Xóa từ trong file Custom (hoặc file Book) nếu tồn tại
-        if FileManager.default.fileExists(atPath: fileUrl.path) {
-            let dat = DoubleArrayTrie()
-            try? dat.load(from: fileUrl)
-            if dat.isLoaded {
-                var entries = dat.allEntries()
-                let initialCount = entries.count
-                entries.removeAll { $0.key == word }
-                if entries.count < initialCount {
-                    if entries.isEmpty {
-                        try? FileManager.default.removeItem(at: fileUrl)
-                    } else {
-                        try DoubleArrayTrieBuilder().build(fromEntries: entries, toDatFile: fileUrl)
-                    }
-                }
-            }
+        // 2. Global delete của từ có trong base dictionary trở thành dòng blacklist `word=`.
+        if bookId == nil, existsInBaseDictionary(word: cleanWord, isName: isName) {
+            records.insert(DictionaryTextRecord(key: cleanWord, value: ""), at: 0)
         }
-        
-        // 2. Nếu là global (bookId == nil), kiểm tra xem từ này có nằm trong từ điển gốc không.
-        // Nếu có, thêm vào danh sách bị xóa (blacklist) để ẩn nó đi.
-        if bookId == nil {
-            let baseFile = isName ? "Names.dat" : "VietPhrase.dat"
-            let baseFileUrl = translateDirectory.appendingPathComponent(baseFile)
-            var existsInBase = false
-            
-            if FileManager.default.fileExists(atPath: baseFileUrl.path) {
-                let dat = DoubleArrayTrie()
-                try? dat.load(from: baseFileUrl)
-                if dat.isLoaded {
-                    if let match = dat.findLongestMatch(text: word, startIndex: 0), match.length == word.count {
-                        existsInBase = true
-                    }
-                }
-            }
-            
-            if existsInBase {
-                if isName {
-                    deletedNames.insert(word)
-                    saveDeletedList(isName: true)
-                } else {
-                    deletedVietPhrase.insert(word)
-                    saveDeletedList(isName: false)
-                }
-            }
+
+        if records != initialRecords {
+            try DictionaryTextFileStore.persist(records: records, to: fileUrl)
         }
         
         // 3. Reset cache và load lại
@@ -251,26 +145,89 @@ public final class TranslationManager: ObservableObject {
         notifyDictionariesDidUpdate()
     }
     
-    public func addDeletedWords(_ words: Set<String>, isName: Bool) {
-        if isName {
-            deletedNames.formUnion(words)
-            saveDeletedList(isName: true)
-        } else {
-            deletedVietPhrase.formUnion(words)
-            saveDeletedList(isName: false)
+    public func addDeletedWords(_ words: [String], isName: Bool) {
+        let fileUrl = customTextURL(isName: isName, bookId: nil)
+        var records = (try? DictionaryTextFileStore.parseRecords(from: fileUrl)) ?? []
+        let deletedRecords = words
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map { DictionaryTextRecord(key: $0, value: "") }
+
+        guard !deletedRecords.isEmpty else { return }
+        let deletedKeys = Set(deletedRecords.map { $0.key })
+        records.removeAll { deletedKeys.contains($0.key) }
+        records.insert(contentsOf: deletedRecords, at: 0)
+
+        if (try? DictionaryTextFileStore.persist(records: records, to: fileUrl)) != nil {
+            updateDeletedState(from: records, isName: isName)
+            TranslateUtils.clearCache()
+            notifyDictionariesDidUpdate()
         }
-        notifyDictionariesDidUpdate()
     }
     
     public func removeDeletedWords(_ words: [String], isName: Bool) {
-        if isName {
-            for w in words { deletedNames.remove(w) }
-            saveDeletedList(isName: true)
-        } else {
-            for w in words { deletedVietPhrase.remove(w) }
-            saveDeletedList(isName: false)
+        let fileUrl = customTextURL(isName: isName, bookId: nil)
+        let wordSet = Set(words.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+        var records = (try? DictionaryTextFileStore.parseRecords(from: fileUrl)) ?? []
+        records.removeAll { $0.isDeleted && wordSet.contains($0.key) }
+
+        if (try? DictionaryTextFileStore.persist(records: records, to: fileUrl)) != nil {
+            updateDeletedState(from: records, isName: isName)
+            TranslateUtils.clearCache()
+            notifyDictionariesDidUpdate()
         }
-        notifyDictionariesDidUpdate()
+    }
+
+    public func existsInBaseDictionary(word: String, isName: Bool) -> Bool {
+        let cleanWord = word.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanWord.isEmpty else { return false }
+
+        let loadedBaseDict = isName ? namesDict : vietPhraseDict
+        if let loadedDict = loadedBaseDict,
+           let match = loadedDict.findLongestMatch(text: cleanWord, startIndex: 0),
+           match.length == cleanWord.count {
+            return true
+        }
+
+        let baseFile = isName ? "Names.dat" : "VietPhrase.dat"
+        let baseFileUrl = translateDirectory.appendingPathComponent(baseFile)
+        guard FileManager.default.fileExists(atPath: baseFileUrl.path) else { return false }
+
+        let dat = DoubleArrayTrie()
+        try? dat.load(from: baseFileUrl)
+        guard dat.isLoaded,
+              let match = dat.findLongestMatch(text: cleanWord, startIndex: 0) else {
+            return false
+        }
+        return match.length == cleanWord.count
+    }
+
+    private func customTextURL(isName: Bool, bookId: String?) -> URL {
+        let fileName: String
+        if bookId != nil {
+            fileName = isName ? "Names.txt" : "VietPhrase.txt"
+        } else {
+            fileName = isName ? "CustomNames.txt" : "CustomVietPhrase.txt"
+        }
+
+        if let bid = bookId {
+            let bookDir = translateDirectory.appendingPathComponent("books").appendingPathComponent(bid)
+            try? FileManager.default.createDirectory(at: bookDir, withIntermediateDirectories: true)
+            return bookDir.appendingPathComponent(fileName)
+        }
+
+        return translateDirectory.appendingPathComponent(fileName)
+    }
+
+    private func updateDeletedState(from records: [DictionaryTextRecord], isName: Bool) {
+        let deletedList = records.filter { $0.isDeleted }.map { $0.key }
+        if isName {
+            deletedNamesList = deletedList
+            deletedNames = Set(deletedList)
+        } else {
+            deletedVietPhraseList = deletedList
+            deletedVietPhrase = Set(deletedList)
+        }
     }
     
     public var translateDirectory: URL {
@@ -319,13 +276,15 @@ public final class TranslationManager: ObservableObject {
         let namesLoaded = tempNames != nil
         await MainActor.run { self.isNamesLoaded = namesLoaded }
         
-        // 1.1 Load Custom Names (Optional)
-        let customNamesDatUrl = translateDirectory.appendingPathComponent("CustomNames.dat")
+        // 1.1 Load Custom Names (Optional, TXT-only)
+        let customNamesTxtUrl = customTextURL(isName: true, bookId: nil)
         var tempCustomNames: TrieDictionary? = nil
-        if FileManager.default.fileExists(atPath: customNamesDatUrl.path) {
-            let dat = DoubleArrayTrie()
-            try? dat.load(from: customNamesDatUrl)
-            if dat.isLoaded { tempCustomNames = dat }
+        var customNameRecords: [DictionaryTextRecord] = []
+        if FileManager.default.fileExists(atPath: customNamesTxtUrl.path) {
+            customNameRecords = (try? DictionaryTextFileStore.parseRecords(from: customNamesTxtUrl)) ?? []
+            let text = TextDictionary()
+            try? text.load(from: customNamesTxtUrl)
+            if text.isLoaded, text.wordCount > 0 { tempCustomNames = text }
         }
         self.customNamesDict = tempCustomNames
         let customNamesLoaded = tempCustomNames != nil
@@ -354,13 +313,15 @@ public final class TranslationManager: ObservableObject {
         let vpLoaded = tempVP != nil
         await MainActor.run { self.isVietPhraseLoaded = vpLoaded }
         
-        // 2.1 Load Custom VietPhrase (Optional)
-        let customVpDatUrl = translateDirectory.appendingPathComponent("CustomVietPhrase.dat")
+        // 2.1 Load Custom VietPhrase (Optional, TXT-only)
+        let customVpTxtUrl = customTextURL(isName: false, bookId: nil)
         var tempCustomVP: TrieDictionary? = nil
-        if FileManager.default.fileExists(atPath: customVpDatUrl.path) {
-            let dat = DoubleArrayTrie()
-            try? dat.load(from: customVpDatUrl)
-            if dat.isLoaded { tempCustomVP = dat }
+        var customVPRecords: [DictionaryTextRecord] = []
+        if FileManager.default.fileExists(atPath: customVpTxtUrl.path) {
+            customVPRecords = (try? DictionaryTextFileStore.parseRecords(from: customVpTxtUrl)) ?? []
+            let text = TextDictionary()
+            try? text.load(from: customVpTxtUrl)
+            if text.isLoaded, text.wordCount > 0 { tempCustomVP = text }
         }
         self.customVietPhraseDict = tempCustomVP
         let customVPLoaded = tempCustomVP != nil
@@ -429,28 +390,9 @@ public final class TranslationManager: ObservableObject {
         self.phienAmMap = tempPA
         await MainActor.run { self.isPhienAmLoaded = paLoaded }
         
-        // 6. Load Deleted lists
-        let delVPUrl = translateDirectory.appendingPathComponent("DeletedVietPhrase.txt")
-        var delVP: Set<String> = []
-        if let content = try? String(contentsOf: delVPUrl, encoding: .utf8) {
-            let lines = content.components(separatedBy: .newlines)
-            for line in lines {
-                let clean = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !clean.isEmpty { delVP.insert(clean) }
-            }
-        }
-        self.deletedVietPhrase = delVP
-
-        let delNamesUrl = translateDirectory.appendingPathComponent("DeletedNames.txt")
-        var delNames: Set<String> = []
-        if let content = try? String(contentsOf: delNamesUrl, encoding: .utf8) {
-            let lines = content.components(separatedBy: .newlines)
-            for line in lines {
-                let clean = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !clean.isEmpty { delNames.insert(clean) }
-            }
-        }
-        self.deletedNames = delNames
+        // 6. Load Deleted lists from unified custom TXT files (`word=` lines)
+        updateDeletedState(from: customVPRecords, isName: false)
+        updateDeletedState(from: customNameRecords, isName: true)
     }
 
     public func notifyDictionariesDidUpdate() {

@@ -3,6 +3,13 @@ import WebKit
 import SwiftData
 
 struct BypassWebView: View {
+    private struct ExtensionMatch: Identifiable {
+        let ext: Extension
+        let regexp: String
+
+        var id: String { ext.packageId }
+    }
+
     let urlString: String
     let host: String?
     var onImport: ((_ detailUrl: String, _ extensionPackageId: String, _ sourceName: String) -> Void)? = nil
@@ -25,6 +32,7 @@ struct BypassWebView: View {
     @State private var inputUrl = ""
     @State private var canGoBack = false
     @State private var canGoForward = false
+    @State private var showingSourcePicker = false
     
     private var activeExtensions: [Extension] {
         allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
@@ -36,8 +44,12 @@ struct BypassWebView: View {
         return URL(string: resolvedString)
     }
     
-    var matchedExtensionInfo: (ext: Extension, regexp: String)? {
-        findMatchingExtension(for: currentUrlString)
+    private var matchingExtensionInfos: [ExtensionMatch] {
+        findMatchingExtensions(for: currentUrlString)
+    }
+
+    private var canImportCurrentPage: Bool {
+        onImport != nil && !matchingExtensionInfos.isEmpty
     }
     
     private var bookExtensions: [Extension] {
@@ -226,159 +238,126 @@ struct BypassWebView: View {
     
     var body: some View {
         NavigationView {
-            ZStack(alignment: .bottom) {
-                VStack(spacing: 0) {
-                    // Thanh địa chỉ URL & Điều hướng
-                    HStack(spacing: 8) {
-                        // Nút Quay lại (Back/Previous)
-                        Button(action: {
-                            webView.goBack()
-                        }) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(canGoBack ? .blue : .gray)
-                                .frame(width: 36, height: 36)
-                                .background(Color(.systemGray6))
-                                .clipShape(Circle())
-                        }
-                        .disabled(!canGoBack)
-                        
-                        // Nút Tiếp tục (Forward)
-                        Button(action: {
-                            webView.goForward()
-                        }) {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(canGoForward ? .blue : .gray)
-                                .frame(width: 36, height: 36)
-                                .background(Color(.systemGray6))
-                                .clipShape(Circle())
-                        }
-                        .disabled(!canGoForward)
-                        
-                        // Nút Home
-                        Button(action: {
-                            loadHomeHtml()
-                        }) {
-                            Image(systemName: "house.fill")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.blue)
-                                .frame(width: 36, height: 36)
-                                .background(Color(.systemGray6))
-                                .clipShape(Circle())
-                        }
-                        
-                        // Ô nhập URL
-                        HStack(spacing: 6) {
-                            Image(systemName: "lock.fill")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            TextField("Nhập địa chỉ web...", text: $inputUrl, onCommit: {
-                                loadEnteredUrl()
-                            })
-                            .font(.system(size: 15))
-                            .keyboardType(.URL)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                            
-                            if !inputUrl.isEmpty {
-                                Button(action: {
-                                    inputUrl = ""
-                                }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(10)
-                        
-                        // Nút Reload / Go
-                        Button(action: {
-                            if inputUrl == currentUrlString || currentUrlString == "about:blank" {
-                                if currentUrlString == "about:blank" {
-                                    loadHomeHtml()
-                                } else {
-                                    webView.reload()
-                                }
-                            } else {
-                                loadEnteredUrl()
-                            }
-                        }) {
-                            Image(systemName: (inputUrl == currentUrlString || currentUrlString == "about:blank") ? "arrow.clockwise" : "arrow.right.circle.fill")
-                                .font(.system(size: 20))
-                                .foregroundColor(.blue)
-                        }
-                    }
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
-                    .background(Color(.systemBackground))
-                    
-                    if isLoading {
-                        ProgressView(value: progress, total: 1.0)
-                            .tint(.blue)
-                            .progressViewStyle(LinearProgressViewStyle())
-                            .frame(height: 3)
-                    } else {
-                        Divider()
-                    }
-                    
-                    SwiftUIWebView(
-                        webView: webView,
-                        url: resolvedUrl,
-                        isLoading: $isLoading,
-                        progress: $progress,
-                        title: $title,
-                        currentUrlString: $currentUrlString,
-                        canGoBack: $canGoBack,
-                        canGoForward: $canGoForward,
-                        onImport: onImport
-                    )
+            VStack(spacing: 0) {
+                SwiftUIWebView(
+                    webView: webView,
+                    url: resolvedUrl,
+                    isLoading: $isLoading,
+                    progress: $progress,
+                    title: $title,
+                    currentUrlString: $currentUrlString,
+                    canGoBack: $canGoBack,
+                    canGoForward: $canGoForward,
+                    onImport: onImport
+                )
+
+                if isLoading {
+                    ProgressView(value: progress, total: 1.0)
+                        .tint(.blue)
+                        .progressViewStyle(LinearProgressViewStyle())
+                        .frame(height: 3)
+                } else {
+                    Divider()
                 }
-                
-                // Banner Import nổi ở đáy nếu khớp regex
-                if let info = matchedExtensionInfo {
-                    VStack(spacing: 0) {
-                        Divider()
-                        HStack(spacing: 16) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Phát hiện link truyện hợp lệ!")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Text(info.ext.name)
-                                    .font(.subheadline)
-                                    .fontWeight(.bold)
-                                    .lineLimit(1)
-                            }
-                            
-                            Spacer()
-                            
+
+                // Thanh địa chỉ URL, điều hướng và import truyện
+                HStack(spacing: 8) {
+                    Button(action: {
+                        webView.goBack()
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(canGoBack ? .blue : .gray)
+                            .frame(width: 36, height: 36)
+                            .background(Color(.systemGray6))
+                            .clipShape(Circle())
+                    }
+                    .disabled(!canGoBack)
+
+                    Button(action: {
+                        webView.goForward()
+                    }) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(canGoForward ? .blue : .gray)
+                            .frame(width: 36, height: 36)
+                            .background(Color(.systemGray6))
+                            .clipShape(Circle())
+                    }
+                    .disabled(!canGoForward)
+
+                    Button(action: {
+                        loadHomeHtml()
+                    }) {
+                        Image(systemName: "house.fill")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.blue)
+                            .frame(width: 36, height: 36)
+                            .background(Color(.systemGray6))
+                            .clipShape(Circle())
+                    }
+
+                    HStack(spacing: 6) {
+                        Image(systemName: "lock.fill")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        TextField("Nhập địa chỉ web...", text: $inputUrl, onCommit: {
+                            loadEnteredUrl()
+                        })
+                        .font(.system(size: 15))
+                        .keyboardType(.URL)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+
+                        if !inputUrl.isEmpty {
                             Button(action: {
-                                onImport?(currentUrlString, info.ext.packageId, info.ext.name)
-                                dismiss()
+                                inputUrl = ""
                             }) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 32))
-                                    .foregroundColor(.blue)
-                                    .background(Color.white.clipShape(Circle()))
-                                    .shadow(radius: 1)
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.gray)
                             }
-                            .buttonStyle(.plain)
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
-                        .background(Color(.systemBackground).opacity(0.95))
-                        .cornerRadius(12)
-                        .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: -2)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 16)
                     }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(.spring(), value: currentUrlString)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(10)
+
+                    Button(action: {
+                        if inputUrl == currentUrlString || currentUrlString == "about:blank" {
+                            if currentUrlString == "about:blank" {
+                                loadHomeHtml()
+                            } else {
+                                webView.reload()
+                            }
+                        } else {
+                            loadEnteredUrl()
+                        }
+                    }) {
+                        Image(systemName: (inputUrl == currentUrlString || currentUrlString == "about:blank") ? "arrow.clockwise" : "arrow.right.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.blue)
+                            .frame(width: 32, height: 36)
+                    }
+
+                    Button(action: {
+                        handleImportTap()
+                    }) {
+                        Label("Import truyện", systemImage: "plus.circle.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .labelStyle(.iconOnly)
+                            .foregroundColor(canImportCurrentPage ? .blue : .gray)
+                            .frame(width: 36, height: 36)
+                            .background(Color(.systemGray6))
+                            .clipShape(Circle())
+                    }
+                    .disabled(!canImportCurrentPage)
+                    .accessibilityLabel("Import truyện")
                 }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .background(Color(.systemBackground))
             }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
@@ -389,6 +368,16 @@ struct BypassWebView: View {
                     }
                     .fontWeight(.bold)
                 }
+            }
+            .confirmationDialog("Chọn nguồn import", isPresented: $showingSourcePicker, titleVisibility: .visible) {
+                ForEach(matchingExtensionInfos) { match in
+                    Button(match.ext.name) {
+                        importBook(with: match)
+                    }
+                }
+                Button("Hủy", role: .cancel) {}
+            } message: {
+                Text(currentUrlString)
             }
             .onAppear {
                 if urlString == "home" {
@@ -407,6 +396,22 @@ struct BypassWebView: View {
                 }
             }
         }
+    }
+
+    private func handleImportTap() {
+        let matches = matchingExtensionInfos
+        guard !matches.isEmpty else { return }
+
+        if matches.count == 1, let match = matches.first {
+            importBook(with: match)
+        } else {
+            showingSourcePicker = true
+        }
+    }
+
+    private func importBook(with match: ExtensionMatch) {
+        onImport?(currentUrlString, match.ext.packageId, match.ext.name)
+        dismiss()
     }
     
     private static var regexpCache: [String: String] = [:]
@@ -431,9 +436,10 @@ struct BypassWebView: View {
         return regexp
     }
     
-    private func findMatchingExtension(for urlString: String) -> (ext: Extension, regexp: String)? {
-        guard !urlString.isEmpty, urlString.lowercased().hasPrefix("http") else { return nil }
+    private func findMatchingExtensions(for urlString: String) -> [ExtensionMatch] {
+        guard !urlString.isEmpty, urlString.lowercased().hasPrefix("http") else { return [] }
         
+        var matches: [ExtensionMatch] = []
         for ext in activeExtensions {
             guard let regexpStr = getExtensionRegexp(localPath: ext.localPath), !regexpStr.isEmpty else {
                 continue
@@ -442,11 +448,11 @@ struct BypassWebView: View {
             if let regex = try? NSRegularExpression(pattern: regexpStr, options: [.caseInsensitive]) {
                 let range = NSRange(location: 0, length: urlString.utf16.count)
                 if regex.firstMatch(in: urlString, options: [], range: range) != nil {
-                    return (ext, regexpStr)
+                    matches.append(ExtensionMatch(ext: ext, regexp: regexpStr))
                 }
             }
         }
-        return nil
+        return matches
     }
 }
 

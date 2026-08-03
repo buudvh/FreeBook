@@ -47,11 +47,10 @@ struct DictionaryListView: View {
     }
 
     private var deletedWordsList: [String] {
-        let set = type == .names ? translationManager.deletedNames : translationManager.deletedVietPhrase
-        let array = Array(set)
+        let array = type == .names ? translationManager.deletedNamesList : translationManager.deletedVietPhraseList
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if query.isEmpty { return array.reversed() }
-        return array.reversed().filter { $0.lowercased().contains(query) }
+        if query.isEmpty { return array }
+        return array.filter { $0.lowercased().contains(query) }
     }
 
     private var isLoading: Bool {
@@ -131,7 +130,7 @@ struct DictionaryListView: View {
                         Label("Nhập từ điển (\(type.displayName))", systemImage: "square.and.arrow.down")
                     }
                     
-                    if !allEntries.isEmpty {
+                    if !allEntries.isEmpty || (isGlobal && !deletedWordsList.isEmpty) {
                         Button {
                             exportDictionary()
                         } label: {
@@ -328,11 +327,12 @@ struct DictionaryListView: View {
                         Button {
                             restoreDeletedWord(word)
                         } label: {
-                            Label("Khôi phục", systemImage: "arrow.uturn.backward.circle")
+                            Image(systemName: "arrow.uturn.backward.circle")
                                 .font(.subheadline)
                                 .foregroundColor(.green)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Khôi phục")
                     }
                 }
             } header: {
@@ -381,32 +381,9 @@ struct DictionaryListView: View {
 
         return await Task.detached(priority: .userInitiated) {
             let bookDir = translateDir.appendingPathComponent("books").appendingPathComponent(bid)
-            let datUrl = bookDir.appendingPathComponent("\(typeFileName).dat")
             let txtUrl = bookDir.appendingPathComponent("\(typeFileName).txt")
-
-            var result: [DictEntry] = []
-
-            if FileManager.default.fileExists(atPath: datUrl.path) {
-                let dat = DoubleArrayTrie()
-                try? dat.load(from: datUrl)
-                if dat.isLoaded {
-                    result = dat.allEntries().map { DictEntry(key: $0.key, value: $0.value) }
-                }
-            } else if let content = try? String(contentsOf: txtUrl, encoding: .utf8) {
-                let lines = content.components(separatedBy: .newlines)
-                for line in lines {
-                    let parts = line.split(separator: "=", maxSplits: 1)
-                    if parts.count == 2 {
-                        let k = String(parts[0]).trimmingCharacters(in: .whitespacesAndNewlines)
-                        let v = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !k.isEmpty && !v.isEmpty {
-                            result.append(DictEntry(key: k, value: v))
-                        }
-                    }
-                }
-            }
-
-            return result.sorted { $0.key.localizedCompare($1.key) == .orderedAscending }
+            return DictionaryTextFileStore.loadEntries(from: txtUrl)
+                .map { DictEntry(key: $0.key, value: $0.value) }
         }.value
     }
 
@@ -487,11 +464,9 @@ struct DictionaryListView: View {
                     guard let bid = bookId else { return }
                     let translateDir = TranslationManager.shared.translateDirectory
                     let bookDir = translateDir.appendingPathComponent("books").appendingPathComponent(bid)
-                    let datUrl = bookDir.appendingPathComponent("\(type.fileName).dat")
                     let txtUrl = bookDir.appendingPathComponent("\(type.fileName).txt")
                     
-                    try? FileManager.default.removeItem(at: datUrl)
-                    try? FileManager.default.removeItem(at: txtUrl)
+                    try? DictionaryTextFileStore.persist(records: [], to: txtUrl)
                     
                     TranslateUtils.clearCache()
                     TranslationManager.shared.clearBookDictCache(for: bid)
@@ -516,14 +491,11 @@ struct DictionaryListView: View {
                     let bookDir = TranslationManager.shared.translateDirectory
                         .appendingPathComponent("books").appendingPathComponent(bid)
                     try FileManager.default.createDirectory(at: bookDir, withIntermediateDirectories: true)
-                    let datUrl = bookDir.appendingPathComponent("\(type.fileName).dat")
-                    try await Task.detached(priority: .userInitiated) {
-                        try DoubleArrayTrieBuilder().build(fromTxtFile: url, toDatFile: datUrl)
-                    }.value
-
-                    // Clean up .txt if exists
                     let txtUrl = bookDir.appendingPathComponent("\(type.fileName).txt")
-                    try? FileManager.default.removeItem(at: txtUrl)
+                    let importedRecords = try DictionaryTextFileStore.parseRecords(from: url)
+                    try await Task.detached(priority: .userInitiated) {
+                        try DictionaryTextFileStore.persist(records: importedRecords, to: txtUrl)
+                    }.value
 
                     TranslateUtils.clearCache()
                     TranslationManager.shared.clearBookDictCache(for: bid)
@@ -538,17 +510,37 @@ struct DictionaryListView: View {
     }
 
     private func exportText() -> String {
+        if let records = currentTextRecords(), !records.isEmpty {
+            return records.map { "\($0.key)=\($0.value)" }.joined(separator: "\n") + "\n"
+        }
+
         var content = ""
         for entry in allEntries {
             content += "\(entry.key)=\(entry.value)\n"
         }
         if isGlobal {
-            let set = type == .names ? translationManager.deletedNames : translationManager.deletedVietPhrase
-            for word in Array(set).reversed() {
+            let deletedWords = type == .names ? translationManager.deletedNamesList : translationManager.deletedVietPhraseList
+            for word in deletedWords {
                 content += "\(word)=\n"
             }
         }
         return content
+    }
+
+    private func currentTextRecords() -> [DictionaryTextRecord]? {
+        let fileURL: URL
+        if isGlobal {
+            fileURL = TranslationManager.shared.translateDirectory
+                .appendingPathComponent("Custom\(type.fileName).txt")
+        } else {
+            guard let bid = bookId else { return nil }
+            fileURL = TranslationManager.shared.translateDirectory
+                .appendingPathComponent("books")
+                .appendingPathComponent(bid)
+                .appendingPathComponent("\(type.fileName).txt")
+        }
+
+        return try? DictionaryTextFileStore.parseRecords(from: fileURL)
     }
 
     private func normalizeFileName(_ name: String) -> String {
