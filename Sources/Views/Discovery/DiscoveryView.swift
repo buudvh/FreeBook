@@ -412,6 +412,9 @@ struct DiscoveryView: View {
                         }
                         headerBrowserTarget = nil
                         ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            navigateToImportedBook = true
+                        }
                     }
                 )
             }

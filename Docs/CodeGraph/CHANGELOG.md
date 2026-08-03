@@ -4,14 +4,30 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.75] - 2026-08-03
 
-### Tối Ưu Lưu Trữ Từ Điển Plain Text `.txt` & Trình Chọn Nguồn Import Đa Extension (`TextDictionary.swift`, `TranslationManager.swift`, `DictionaryCache.swift`, `DictionaryListView.swift`, `BypassWebView.swift`)
-* **Tối Ưu Lưu Trữ Từ Điển Plain Text & Tải Nhanh Cấu Trúc Bỏ Qua `.dat` (`TextDictionary.swift`, `TranslationManager.swift`, `DictionaryCache.swift`, `DictionaryListView.swift`)**:
-  * Định nghĩa struct `DictionaryTextRecord` và trợ lý `DictionaryTextFileStore` hỗ trợ parse và lưu trữ tệp từ điển `.txt` trực tiếp, bỏ qua phụ thuộc tệp `.dat` giúp giảm tải I/O.
-  * Chuẩn hóa truy vấn danh sách từ đã xóa qua `deletedNamesList` và `deletedVietPhraseList`, đảm bảo thứ tự hiển thị và lọc dữ liệu chính xác trên UI.
-  * Tối ưu hóa các phương thức import, export, và dọn dẹp bộ nhớ từ điển truyện ngắn gọn, tin cậy.
-* **Tích Hợp Trình Chọn Nguồn Extension Khi Trùng URL Regex Trực Tiếp Trên Trình Duyệt Ngầm `BypassWebView` (`BypassWebView.swift`)**:
-  * Nâng cấp cơ chế khớp regex với `findMatchingExtensions(for:)` trả về toàn bộ danh sách các tiện ích phù hợp với URL hiện tại.
-  * Hiển thị bảng chọn `confirmationDialog` cho phép người dùng chủ động chọn nguồn extension mong muốn khi có từ hai tiện ích trở lên khớp cùng một đường dẫn URL.
+### Tái Cấu Trúc Từ Điển Tùy Chỉnh TXT Hợp Nhất, Lọc Từ Đã Xóa Dải Chip Gợi Ý & Cập Nhật Logic Count Từ Điển Truyện (`BypassWebView.swift`, `DictionaryListView.swift`, `DictionaryCache.swift`, `TextDictionary.swift`, `TranslationManager.swift`, `ReaderView.swift`, `DictionaryHubView.swift`)
+* **Nâng Cấp Thanh Điều Hướng Dưới & Nút Import Trình Duyệt Bypass (`BypassWebView.swift`, `ShelfView.swift`, `DiscoveryView.swift`, `ReaderView.swift`, `BookDetailView.swift`)**:
+  * Bổ sung thanh điều hướng dưới (bottom navigation) và nút Import trực tiếp trên thanh điều hướng trình duyệt; tự động vô hiệu hóa (disabled) khi URL không khớp biểu thức chính quy (regex match).
+  * Hỗ trợ hiển thị bộ chọn nguồn (source picker) khi có nhiều tiện ích mở rộng (extensions) cùng khớp với URL.
+  * Khắc phục triệt để lỗi không mở trang Chi Tiết Truyện (`BookDetailView`) sau khi hoàn tất Import: Kích hoạt cờ điều hướng `navigateToImportedBook` / `navigateToBookDetail = true` sau khi đóng trình duyệt tại tất cả các điểm gọi (`ShelfView`, `DiscoveryView`, `ReaderView`, `BookDetailView`).
+* **Nâng Cấp Bóc Tách Tiêu Đề Chương Số Ả Rập & Triệt Tiêu Trùng Dấu Hai Chấm (`TranslateUtils.swift`)**:
+  * Khai báo `arabicNumberTitleRegex` (`^\s*(\d{1,5})[\s.:：,.， 、_—\-]+(.*)$`) hỗ trợ bóc tách và định dạng các tiêu đề số Ả Rập dạng `1、...`, `1. ...`, `1: ...` $\rightarrow$ `Chương 1: [Tiêu đề dịch]`.
+  * Tích hợp `cleanLeadingDelimiters` loại bỏ các dấu phân cách đầu chuỗi tên chương, triệt tiêu hoàn toàn lỗi 2 dấu hai chấm liên tiếp (`: :`) khi tiêu đề gốc đã có sẵn dấu hai chấm.
+* **Áp Dụng Loại Trừ Từ Đã Xóa Về Dải Chip Gợi Ý (`ReaderView.swift`)**:
+  * Bổ sung điều kiện kiểm tra `!manager.deletedNames.contains(word)` và `!manager.deletedVietPhrase.contains(word)` trong thuộc tính `suggestionChips`, đảm bảo không gợi ý lại nghĩa mặc định hệ thống cho từ đã bị xóa.
+* **Chuẩn Hóa Đếm Số Từ Từ Điển Truyện Theo TXT (`DictionaryHubView.swift`, `TextDictionary.swift`)**:
+  * Bổ sung phương thức `DictionaryTextFileStore.loadCount(from:)` đếm số từ hoạt động trong tệp `.txt`.
+  * Tái cấu trúc phương thức `bookEntryCount(type:)` sử dụng `DictionaryTextFileStore.loadCount`, loại bỏ hoàn toàn mã đọc header tệp `.dat` cũ.
+* **Bảo Tồn Thứ Tự Từ Đã Xóa & Tối Ưu Nút Khôi Phục Giao Diện (`DictionaryListView.swift`)**:
+  * Đảm bảo thứ tự danh sách từ VietPhrase/Names bị xóa dựa trên danh sách có thứ tự (ordered list) / thứ tự file thay vì hiển thị ngẫu nhiên từ `Set`.
+  * Rút gọn nút Khôi phục thành nút dạng icon (icon-only button) kèm nhãn hỗ trợ truy cập (accessibility label).
+* **Hợp Nhất Luồng Từ Điển Tùy Chỉnh Sang Định Dạng TXT Thuần (`DictionaryCache.swift`, `TranslationManager.swift`)**:
+  * Chuyển toàn bộ luồng từ điển tùy chỉnh VietPhrase/Names sang định dạng TXT; hợp nhất các bản ghi chỉnh sửa (`từ=nghĩa`) và bản ghi xóa (`từ=`) trong cùng các file TXT (`CustomVietPhrase.txt`, `CustomNames.txt`, và `VietPhrase.txt`, `Names.txt` theo từng sách).
+  * Loại bỏ hoàn toàn việc sử dụng file `.dat` tùy chỉnh và các file `Deleted*.txt` riêng lẻ trong luồng tùy chỉnh.
+* **Phân Tích & Chuẩn Hóa Ký Tự Phân Cách Nghĩa Từ Điển (`TextDictionary.swift`)**:
+  * Cập nhật `TextDictionary` và `DictionaryTextFileStore` hỗ trợ phân tích các bản ghi TXT hợp nhất.
+  * Tự động chuẩn hóa tất cả các ký tự phân cách nghĩa `/`, `¦`, `|` về một ký tự chuẩn duy nhất là `/`.
+
+
 
 ## [1.3.74] - 2026-08-01
 

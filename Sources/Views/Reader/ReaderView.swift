@@ -567,6 +567,9 @@ struct ReaderView: View {
 
                     showingBypassBrowser = false
                     ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        navigateToBookDetail = true
+                    }
                 }
             )
         }
@@ -1264,6 +1267,7 @@ struct ReaderView: View {
 
         // 2. Global Names (Names.dat)
         if !hasCustomName,
+           !manager.deletedNames.contains(word),
            let names = manager.namesDict,
            let match = names.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {
@@ -1288,6 +1292,7 @@ struct ReaderView: View {
 
         // 4. Global VietPhrase (VietPhrase.dat)
         if !hasCustomVP,
+           !manager.deletedVietPhrase.contains(word),
            let vp = manager.vietPhraseDict,
            let match = vp.findLongestMatch(text: word, startIndex: 0),
            match.length == word.count {

@@ -94,6 +94,10 @@ enum DictionaryTextFileStore {
             .map { (key: $0.key, value: $0.value) }
     }
 
+    static func loadCount(from textURL: URL) -> Int {
+        return loadEntries(from: textURL).count
+    }
+
     static func persist(records: [DictionaryTextRecord], to textURL: URL) throws {
         var orderedRecords: [DictionaryTextRecord] = []
         var seenKeys = Set<String>()

@@ -300,58 +300,19 @@ public final class TranslateUtils {
         }
         
         let translated: String
-        let enabledRules = getActiveTOCRules()
-        var matchedRule = false
+        let range = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
         
-        for rule in enabledRules {
-            if let regex = try? NSRegularExpression(pattern: rule.rule, options: [.caseInsensitive]) {
-                let range = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
-                if regex.firstMatch(in: trimmed, options: [], range: range) != nil {
-                    matchedRule = true
-                    break
-                }
-            }
+        func cleanLeadingDelimiters(_ input: String) -> String {
+            return input
+                .replacingOccurrences(of: #"^[:：,.， 、_—\-]+"#, with: "", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
         }
         
         let titleNumberRegex = try! NSRegularExpression(pattern: #"(第\s*[0-9一二三四五六七八九十百千零〇两壹贰叁肆伍陆柒捌玖拾佰仟]+\s*[卷回章节幕折集部篇话])"#, options: [])
-        let range = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
+        let arabicNumberTitleRegex = try! NSRegularExpression(pattern: #"^\s*(\d{1,5})[\s.:：,.， 、_—\-]+(.*)$"#, options: [])
         
-        if matchedRule, let match = titleNumberRegex.firstMatch(in: trimmed, options: [], range: range) {
-            if let matchRange = Range(match.range(at: 1), in: trimmed) {
-                let matchedPrefix = String(trimmed[matchRange])
-                
-                let numberPartRegex = try! NSRegularExpression(pattern: #"([0-9一二三四五六七八九十百千零〇两壹贰叁肆伍陆柒捌玖拾佰仟]+)"#, options: [])
-                let unitPartRegex = try! NSRegularExpression(pattern: #"([卷回章节幕折集部篇话])"#, options: [])
-                
-                let prefixRange = NSRange(matchedPrefix.startIndex..<matchedPrefix.endIndex, in: matchedPrefix)
-                
-                var numberVal = ""
-                var unitVal = "Chương"
-                
-                if let numMatch = numberPartRegex.firstMatch(in: matchedPrefix, options: [], range: prefixRange),
-                   let numRange = Range(numMatch.range(at: 1), in: matchedPrefix) {
-                    let numStr = String(matchedPrefix[numRange])
-                    numberVal = String(chineseNumberToInt(numStr))
-                }
-                
-                if let unitMatch = unitPartRegex.firstMatch(in: matchedPrefix, options: [], range: prefixRange),
-                   let unitRange = Range(unitMatch.range(at: 1), in: matchedPrefix) {
-                    let unitStr = String(matchedPrefix[unitRange])
-                    unitVal = chapterUnitMap[unitStr] ?? "Chương"
-                }
-                
-                let preMatch = String(trimmed[..<matchRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
-                let postMatch = String(trimmed[matchRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
-                
-                let translatedPre = preMatch.isEmpty ? "" : translateMeta(preMatch, bookId: bookId) + " "
-                let translatedPost = postMatch.isEmpty ? "" : ": " + translateMeta(postMatch, bookId: bookId)
-                
-                translated = "\(translatedPre)\(unitVal) \(numberVal)\(translatedPost)".trimmingCharacters(in: .whitespacesAndNewlines)
-            } else {
-                translated = translateMeta(trimmed, bookId: bookId)
-            }
-        } else if let match = titleNumberRegex.firstMatch(in: trimmed, options: [], range: range),
-                  let matchRange = Range(match.range(at: 1), in: trimmed) {
+        if let match = titleNumberRegex.firstMatch(in: trimmed, options: [], range: range),
+           let matchRange = Range(match.range(at: 1), in: trimmed) {
             let matchedPrefix = String(trimmed[matchRange])
             
             let numberPartRegex = try! NSRegularExpression(pattern: #"([0-9一二三四五六七八九十百千零〇两壹贰叁肆伍陆柒捌玖拾佰仟]+)"#, options: [])
@@ -375,12 +336,23 @@ public final class TranslateUtils {
             }
             
             let preMatch = String(trimmed[..<matchRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
-            let postMatch = String(trimmed[matchRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let rawPost = String(trimmed[matchRange.upperBound...])
+            let cleanPost = cleanLeadingDelimiters(rawPost)
             
             let translatedPre = preMatch.isEmpty ? "" : translateMeta(preMatch, bookId: bookId) + " "
-            let translatedPost = postMatch.isEmpty ? "" : ": " + translateMeta(postMatch, bookId: bookId)
+            let translatedPost = cleanPost.isEmpty ? "" : ": " + translateMeta(cleanPost, bookId: bookId)
             
             translated = "\(translatedPre)\(unitVal) \(numberVal)\(translatedPost)".trimmingCharacters(in: .whitespacesAndNewlines)
+        } else if let match = arabicNumberTitleRegex.firstMatch(in: trimmed, options: [], range: range),
+                  let numRange = Range(match.range(at: 1), in: trimmed) {
+            let numberVal = String(trimmed[numRange])
+            let rawPost = match.range(at: 2).location != NSNotFound, let postRange = Range(match.range(at: 2), in: trimmed)
+                ? String(trimmed[postRange])
+                : ""
+            let cleanPost = cleanLeadingDelimiters(rawPost)
+            let translatedPost = cleanPost.isEmpty ? "" : ": " + translateMeta(cleanPost, bookId: bookId)
+            
+            translated = "Chương \(numberVal)\(translatedPost)".trimmingCharacters(in: .whitespacesAndNewlines)
         } else {
             translated = translateMeta(trimmed, bookId: bookId)
         }

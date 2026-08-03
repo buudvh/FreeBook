@@ -174,6 +174,19 @@ struct BookDetailView: View {
                 if targetBookId == actualBookId || detailUrl == actualBookId {
                     loadBookData()
                     loadLocalChapterSnapshots()
+                } else {
+                    importedBookId = targetBookId
+                    importedExtensionPackageId = packageId
+                    importedDetailUrl = detailUrl
+                    importedSourceName = sourceName
+                    if let url = URL(string: detailUrl), let scheme = url.scheme, let host = url.host {
+                        importedHost = "\(scheme)://\(host)"
+                    } else {
+                        importedHost = ""
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        navigateToImportedBook = true
+                    }
                 }
                 ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
             }

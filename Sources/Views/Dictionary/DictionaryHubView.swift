@@ -64,26 +64,13 @@ struct DictionaryHubView: View {
     private func bookEntryCount(type: DictType) -> String {
         let bookDir = translationManager.translateDirectory
             .appendingPathComponent("books").appendingPathComponent(bookId)
-        let datUrl = bookDir.appendingPathComponent("\(type.fileName).dat")
+        let txtUrl = bookDir.appendingPathComponent("\(type.fileName).txt")
 
-        guard FileManager.default.fileExists(atPath: datUrl.path) else {
+        let count = DictionaryTextFileStore.loadCount(from: txtUrl)
+        if count == 0 {
             return "Chưa có dữ liệu"
         }
-
-        // Quick header read for word count
-        if let handle = try? FileHandle(forReadingFrom: datUrl),
-           let header = try? handle.read(upToCount: 24),
-           header.count >= 12 {
-            try? handle.close()
-            let size = header.withUnsafeBytes { pointer -> Int32 in
-                guard pointer.count >= 12 else { return 0 }
-                let raw = pointer.load(fromByteOffset: 8, as: Int32.self)
-                return Int32(bigEndian: raw)
-            }
-            if size > 0 { return "\(size) từ" }
-        }
-
-        return "Đã có dữ liệu"
+        return "\(count) từ"
     }
 
     private func globalStatusText(type: DictType) -> String {
