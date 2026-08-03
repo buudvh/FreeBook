@@ -843,6 +843,7 @@ public struct ReaderChapterListView: View {
     public let isLocalTXTBook: Bool
     public let onSelectChapter: (Int) -> Void
     public let onClose: () -> Void
+    public let onLocalTOCRefreshed: ((Int) -> Void)?
 
     public init(
         bookId: String,
@@ -860,7 +861,8 @@ public struct ReaderChapterListView: View {
         onlineChapters: Binding<[ChapterResult]>,
         isLocalTXTBook: Bool = false,
         onSelectChapter: @escaping (Int) -> Void,
-        onClose: @escaping () -> Void
+        onClose: @escaping () -> Void,
+        onLocalTOCRefreshed: ((Int) -> Void)? = nil
     ) {
         self.bookId = bookId
         self.bookTitle = bookTitle
@@ -878,6 +880,7 @@ public struct ReaderChapterListView: View {
         self.isLocalTXTBook = isLocalTXTBook
         self.onSelectChapter = onSelectChapter
         self.onClose = onClose
+        self.onLocalTOCRefreshed = onLocalTOCRefreshed
     }
 
     @Environment(\.modelContext) private var modelContext
@@ -1306,6 +1309,7 @@ public struct ReaderChapterListView: View {
                         }
                         store.updateChapters(totalCount: totalCount, onlineChapters: [])
                         ToastManager.shared.show(message: "Mục lục đã mới nhất", type: .success)
+                        onLocalTOCRefreshed?(totalCount)
                     } else {
                         let saveResult = try await ChapterContentRepository.shared.saveChapterList(
                             bookId: book.bookId,
@@ -1325,6 +1329,7 @@ public struct ReaderChapterListView: View {
                         }
                         store.updateChapters(totalCount: totalCount, onlineChapters: [])
                         ToastManager.shared.show(message: "Đã thêm \(additionSnapshots.count) chương mới", type: .success)
+                        onLocalTOCRefreshed?(totalCount)
                     }
                 } else {
                     let oldCount = onlineChapters.count

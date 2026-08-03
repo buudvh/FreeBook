@@ -258,7 +258,6 @@ struct ReaderDefinitionOverlayView: View {
     private var customMeaningInputView: some View {
         HStack {
             TextField("Nhập nghĩa dịch...", text: $customMeaning)
-                .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
 
             if !customMeaning.isEmpty {

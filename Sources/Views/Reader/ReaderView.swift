@@ -388,9 +388,7 @@ struct ReaderView: View {
                     },
                     onSpeak: {
                         if let pIndex = editingParagraphIndex {
-                            let items = viewModel?.cache.get(chapterIndex)?.paragraphItems ?? []
-                            let absOffset = lineStartOffset(for: pIndex, in: items, isTranslationEnabled: isTranslationEnabled) + selectedDisplayedOffset
-                            startTTS(at: chapterIndex, paragraphIndex: pIndex, startTextOffset: absOffset)
+                            startTTS(at: chapterIndex, paragraphIndex: pIndex, startTextOffset: selectedDisplayedOffset)
                         }
                     },
                     onPhoneme: {
@@ -1090,6 +1088,15 @@ struct ReaderView: View {
                     },
                     onClose: {
                         closeChapterList()
+                    },
+                    onLocalTOCRefreshed: { newTotal in
+                        Task { @MainActor in
+                            self.localChaptersCount = newTotal
+                            self.viewModel?.updateChapterSnapshot(totalCount: newTotal, onlineChapters: [])
+                            if ttsManager.playingBookId == bookId {
+                                ttsManager.refreshChaptersQueueInBackground(bookId: bookId, onlineChapters: nil)
+                            }
+                        }
                     }
                 )
                 .frame(width: geometry.size.width, height: geometry.size.height - 60)
@@ -1684,18 +1691,6 @@ struct ReaderView: View {
             source: source,
             persistProgress: persistProgress
         )
-    }
-
-    private func lineStartOffset(for paragraphID: Int, in items: [ParagraphItem], isTranslationEnabled: Bool) -> Int {
-        if paragraphID == -1 { return 0 }
-        var offset = 0
-        for item in items {
-            if item.isTitle { continue }
-            if item.id == paragraphID { return offset }
-            let text = isTranslationEnabled ? item.translated : item.original
-            offset += (text as NSString).length + 1
-        }
-        return offset
     }
 
     private func startTTS(at index: Int, paragraphIndex: Int, startTextOffset: Int? = nil) {

@@ -2,6 +2,19 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 
+struct ShelfReaderRoute: Identifiable, Hashable {
+    let bookId: String
+    let extensionPackageId: String
+    let chapterIndex: Int
+    let paragraphIndex: Int?
+    let detailUrl: String
+    let sourceName: String
+
+    var id: String {
+        "\(bookId)_\(chapterIndex)_\(paragraphIndex ?? -1)"
+    }
+}
+
 struct ShelfView: View {
     // @Environment: Truy cập context cơ sở dữ liệu của SwiftData.
     // Dùng để thêm mới, chỉnh sửa hoặc xóa dữ liệu Book trong app.
@@ -32,13 +45,8 @@ struct ShelfView: View {
     // @ObservedObject: Theo dõi và cập nhật UI khi lớp dịch vụ TTSManager phát tín hiệu thay đổi trạng thái (phát âm thanh).
     @ObservedObject private var ttsManager = TTSManager.shared
 
-    // Các biến trạng thái phục vụ việc điều hướng (navigation) sang màn hình đọc truyện
-    @State private var navigateToPlayingBookId: String? = nil
-    @State private var navigateToPlayingExtensionId: String = ""
-    @State private var navigateToPlayingChapterIndex: Int = 0
-    @State private var navigateToPlayingParagraphIndex: Int? = nil
-    @State private var navigateToPlayingDetailUrl: String = ""
-    @State private var navigateToPlayingSourceName: String = ""
+    // Biến trạng thái phục vụ việc điều hướng (navigation) sang màn hình đọc truyện từ Widget TTS
+    @State private var activeReaderRoute: ShelfReaderRoute? = nil
     @State private var triggerNavigation = false
 
     // Tùy chọn tác vụ
@@ -347,20 +355,21 @@ struct ShelfView: View {
                 Text("Bạn có chắc chắn muốn xóa toàn bộ lịch sử đọc không? Các truyện lịch sử không ở trên kệ sách sẽ bị xóa hoàn toàn khỏi thiết bị. Truyện đang ở trên kệ sách và truyện đang nghe phát âm thanh sẽ được giữ nguyên.")
             }
             .navigationDestination(isPresented: $triggerNavigation) {
-                if let bookId = navigateToPlayingBookId {
+                if let route = activeReaderRoute {
                     ReaderView(
-                        bookId: bookId,
-                        extensionPackageId: navigateToPlayingExtensionId,
-                        chapterIndex: navigateToPlayingChapterIndex,
+                        bookId: route.bookId,
+                        extensionPackageId: route.extensionPackageId,
+                        chapterIndex: route.chapterIndex,
                         onlineChapters: [],
                         bookTitle: nil,
                         bookAuthor: nil,
                         bookCoverUrl: nil,
                         bookDesc: nil,
-                        bookDetailUrl: navigateToPlayingDetailUrl,
-                        bookSourceName: navigateToPlayingSourceName,
-                        initialParagraphIndex: navigateToPlayingParagraphIndex
+                        bookDetailUrl: route.detailUrl,
+                        bookSourceName: route.sourceName,
+                        initialParagraphIndex: route.paragraphIndex
                     )
+                    .id(route.id)
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openCurrentlyPlayingReader"))) { _ in
@@ -380,13 +389,16 @@ struct ShelfView: View {
                     )
                 } else {
                     let currentPIdx = ttsManager.currentParentParagraphIndex
+                    let route = ShelfReaderRoute(
+                        bookId: bookId,
+                        extensionPackageId: ttsManager.extensionInfo?.packageId ?? "",
+                        chapterIndex: ttsManager.playingChapterIndex,
+                        paragraphIndex: currentPIdx >= 0 ? currentPIdx : nil,
+                        detailUrl: ttsManager.playingBookDetailUrl,
+                        sourceName: ttsManager.playingBookSourceName
+                    )
                     self.selectedTab = 1 // Switch to Shelf tab
-                    self.navigateToPlayingBookId = bookId
-                    self.navigateToPlayingExtensionId = ttsManager.extensionInfo?.packageId ?? ""
-                    self.navigateToPlayingChapterIndex = ttsManager.playingChapterIndex
-                    self.navigateToPlayingParagraphIndex = currentPIdx >= 0 ? currentPIdx : nil
-                    self.navigateToPlayingDetailUrl = ttsManager.playingBookDetailUrl
-                    self.navigateToPlayingSourceName = ttsManager.playingBookSourceName
+                    self.activeReaderRoute = route
                     self.triggerNavigation = true
                 }
             }
