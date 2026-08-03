@@ -124,61 +124,26 @@ class ReaderViewModel: ObservableObject {
     private var cachedLocalBook: Book? = nil
     private var cachedExt: Extension? = nil
     var onChapterCached: ((Int) -> Void)?
-    public func fetchChapter(at index: Int) -> Chapter? {
-        guard ChapterStoreConfiguration.enableSwiftDataTOCWrite else { return nil }
-        let localBookId = bookId
-        let localIndex = index
-        var descriptor = FetchDescriptor<Chapter>(
-            predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.index == localIndex }
-        )
-        descriptor.fetchLimit = 1
-        return (try? modelContext.fetch(descriptor))?.first
-    }
 
     func chapterTitle(at index: Int) -> String {
         if let cached = cache.cache[index], !cached.title.isEmpty {
             return cached.title
         }
-        if ChapterStoreConfiguration.enableSwiftDataTOCWrite, localBook != nil {
-            if let chap = fetchChapter(at: index) { return chap.title }
-        } else if onlineChapters.indices.contains(index) {
+        if onlineChapters.indices.contains(index) {
             return onlineChapters[index].name
         }
         return "Chương \(index + 1)"
     }
 
     public func fetchChapterSnapshot(at index: Int) async -> StoredChapterSnapshot? {
-        if let storeChap = try? await ChapterStore.shared.fetchChapter(bookId: bookId, index: index, url: "") {
-            return storeChap
-        }
-        if let chap = fetchChapter(at: index) {
-            return StoredChapterSnapshot(id: chap.id, bookId: chap.bookId, title: chap.title, url: chap.url, index: chap.index, host: chap.host, titleTrans: chap.titleTrans, isCached: chap.isCached, offset: chap.offset, length: chap.length)
-        }
-        return nil
+        return try? await ChapterStore.shared.fetchChapter(bookId: bookId, index: index, url: "")
     }
 
     public func fetchChaptersMetadata() async -> [TTSChapterInfo] {
         if let storeChaps = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId), !storeChaps.isEmpty {
             return storeChaps.map { TTSChapterInfo(title: $0.title, url: $0.url, index: $0.index, host: $0.host) }
         }
-        let localBookId = bookId
-        var descriptor = FetchDescriptor<Chapter>(
-            predicate: #Predicate<Chapter> { $0.bookId == localBookId }
-        )
-        descriptor.sortBy = [SortDescriptor(\.index, order: .forward)]
-        do {
-            let chapters = try modelContext.fetch(descriptor)
-            return chapters.map { chap in
-                return TTSChapterInfo(
-                    title: chap.title,
-                    url: chap.url,
-                    index: chap.index,
-                    host: chap.host
-                )
-            }
-        } catch {
-            return []
-        }
+        return []
     }
 
     // Lấy danh sách chương online nếu đang đọc trực tuyến
@@ -557,6 +522,7 @@ class ReaderViewModel: ObservableObject {
         guard navigationWorkerTask == nil else { return }
         navigationWorkerTask = Task { [weak self] in
             guard let self else { return }
+            await Task.yield()
             await self.runNavigationWorker()
         }
     }

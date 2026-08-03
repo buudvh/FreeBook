@@ -953,15 +953,6 @@ struct ReaderView: View {
                 ensureViewModel(totalCount: 0)
                 viewModel?.failBootstrap(message: "Lỗi đọc mục lục sách cục bộ")
             }
-        } else if localBookSnapshot != nil && ChapterStoreConfiguration.enableSwiftDataTOCWrite {
-            let localBId = bookId
-            let descriptor = FetchDescriptor<Chapter>(
-                predicate: #Predicate<Chapter> { $0.bookId == localBId }
-            )
-            let count = (try? modelContext.fetchCount(descriptor)) ?? 0
-            self.localChaptersCount = count
-            self.didResolveLocalChapterCount = true
-            ensureViewModel(totalCount: count)
         } else {
             ensureViewModel(totalCount: currentOnlineChapters.count)
         }
@@ -986,7 +977,7 @@ struct ReaderView: View {
             }
             var resolved: ResolvedMeta? = nil
 
-            if localBookSnapshot != nil && !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+            if localBookSnapshot != nil {
                 if let snapshot = await viewModel?.fetchChapterSnapshot(at: targetIndex) {
                     let trimmedUrl = snapshot.url.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !trimmedUrl.isEmpty {
@@ -994,22 +985,6 @@ struct ReaderView: View {
                             title: snapshot.title,
                             url: trimmedUrl,
                             host: snapshot.host ?? localBook?.host ?? ext?.sourceUrl
-                        )
-                    }
-                }
-            } else if localBookSnapshot != nil && ChapterStoreConfiguration.enableSwiftDataTOCWrite {
-                let localBookId = bookId
-                var descriptor = FetchDescriptor<Chapter>(
-                    predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.index == targetIndex }
-                )
-                descriptor.fetchLimit = 1
-                if let chap = (try? modelContext.fetch(descriptor))?.first {
-                    let trimmedUrl = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !trimmedUrl.isEmpty {
-                        resolved = ResolvedMeta(
-                            title: chap.title,
-                            url: trimmedUrl,
-                            host: chap.host
                         )
                     }
                 }
@@ -1966,7 +1941,7 @@ struct ReaderView: View {
                 applyNavigationCommit(commit)
             }
             .animation(
-                reduceMotion || vm.navigationCommit?.animateContent != true
+                reduceMotion || vm.navigationCommit?.animateContent != true || vm.pendingNavigationIndex != nil
                     ? nil
                     : .easeOut(duration: 0.12),
                 value: vm.displayedChapterIndex

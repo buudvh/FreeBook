@@ -12,6 +12,10 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 * **Nâng Cấp Bóc Tách Tiêu Đề Chương Số Ả Rập & Triệt Tiêu Trùng Dấu Hai Chấm (`TranslateUtils.swift`)**:
   * Khai báo `arabicNumberTitleRegex` (`^\s*(\d{1,5})[\s.:：,.， 、_—\-]+(.*)$`) hỗ trợ bóc tách và định dạng các tiêu đề số Ả Rập dạng `1、...`, `1. ...`, `1: ...` $\rightarrow$ `Chương 1: [Tiêu đề dịch]`.
   * Tích hợp `cleanLeadingDelimiters` loại bỏ các dấu phân cách đầu chuỗi tên chương, triệt tiêu hoàn toàn lỗi 2 dấu hai chấm liên tiếp (`: :`) khi tiêu đề gốc đã có sẵn dấu hai chấm.
+* **Dọn Dẹp SwiftData Fallback Chapter Metadata & Tối Ưu Render Skeleton 0ms (`ReaderViewModel.swift`, `ReaderView.swift`, `TTSManager.swift`, `ReaderChapterListView.swift`, `ShelfView.swift`, `DownloadManager.swift`)**:
+  * Chuyển 100% các truy vấn chapter metadata rải rác sang thuần túy **SQLite (`ChapterStore.shared`)**, xóa bỏ hoàn toàn các khối mã fallback `FetchDescriptor<Chapter>` cũ.
+  * Tắt hiệu ứng animation mờ dần 0.12s/0.25s khi đang nạp chương (`pendingNavigationIndex != nil`), giúp giao diện ngắt chương cũ và chuyển ngay sang View Skeleton.
+  * Bổ sung `await Task.yield()` trong worker nạp dữ liệu nhường Main Thread vẽ khung hình Skeleton ngay ở frame đầu tiên (0ms delay) khi bấm Next/Prev chương.
 * **Áp Dụng Loại Trừ Từ Đã Xóa Về Dải Chip Gợi Ý (`ReaderView.swift`)**:
   * Bổ sung điều kiện kiểm tra `!manager.deletedNames.contains(word)` và `!manager.deletedVietPhrase.contains(word)` trong thuộc tính `suggestionChips`, đảm bảo không gợi ý lại nghĩa mặc định hệ thống cho từ đã bị xóa.
 * **Chuẩn Hóa Đếm Số Từ Từ Điển Truyện Theo TXT (`DictionaryHubView.swift`, `TextDictionary.swift`)**:

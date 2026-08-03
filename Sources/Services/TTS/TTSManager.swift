@@ -34,23 +34,7 @@ private actor TTSChapterQueueMetadataWorker {
                 TTSChapterInfo(title: $0.title, url: $0.url, index: $0.index, host: $0.host)
             }
         }
-
-        let context = ModelContext(container)
-        let localBookId = bookId
-        var descriptor = FetchDescriptor<Chapter>(
-            predicate: #Predicate<Chapter> { $0.bookId == localBookId }
-        )
-        descriptor.sortBy = [SortDescriptor(\.index, order: .forward)]
-
-        do {
-            let chapters = try context.fetch(descriptor)
-            return chapters.map {
-                TTSChapterInfo(title: $0.title, url: $0.url, index: $0.index, host: $0.host)
-            }
-        } catch {
-            AppLogger.shared.log("❌ [TTSChapterQueueMetadataWorker] Lỗi fetch metadata queue")
-            return []
-        }
+        return []
     }
 }
 

@@ -88,53 +88,7 @@ actor BackgroundSearchWorker {
                 return []
             }
         }
-
-        let context = ModelContext(container)
-        let localBookId = bookId
-        let localQuery = query
-        let isTrans = isTranslationEnabled
-
-        let descriptor: FetchDescriptor<Chapter>
-        if isTrans {
-            descriptor = FetchDescriptor<Chapter>(
-                predicate: #Predicate<Chapter> { $0.bookId == localBookId && ($0.title.contains(localQuery) || ($0.titleTrans != nil && $0.titleTrans!.contains(localQuery))) },
-                sortBy: [SortDescriptor(\.index, order: isAscending ? .forward : .reverse)]
-            )
-        } else {
-            descriptor = FetchDescriptor<Chapter>(
-                predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.title.contains(localQuery) },
-                sortBy: [SortDescriptor(\.index, order: isAscending ? .forward : .reverse)]
-            )
-        }
-
-        do {
-            let chapters = try context.fetch(descriptor)
-            return chapters.compactMap { chap in
-                let trimmedUrl = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmedUrl.isEmpty else { return nil }
-                let displayTitle: String
-                if isTranslationEnabled {
-                    if let trans = chap.titleTrans, !trans.isEmpty {
-                        displayTitle = trans
-                    } else if TranslateUtils.containsChinese(chap.title) {
-                        displayTitle = TranslateUtils.translateChapterTitle(chap.title, bookId: localBookId)
-                    } else {
-                        displayTitle = chap.title
-                    }
-                } else {
-                    displayTitle = chap.title
-                }
-                return SearchChapterDTO(
-                    index: chap.index,
-                    title: displayTitle,
-                    url: trimmedUrl,
-                    isCached: chap.isCached
-                )
-            }
-        } catch {
-            AppLogger.shared.log("❌ [BackgroundSearchWorker] Lỗi tìm kiếm: \(error.localizedDescription)")
-            return []
-        }
+        return []
     }
 }
 
@@ -181,36 +135,7 @@ actor BackgroundPagingWorker {
             }
             return map
         }
-
-        let context = ModelContext(container)
-        let localBookId = bookId
-        let localMin = minLogicalIndex
-        let localMax = maxLogicalIndex
-
-        let descriptor = FetchDescriptor<Chapter>(
-            predicate: #Predicate<Chapter> { $0.bookId == localBookId && $0.index >= localMin && $0.index <= localMax }
-        )
-
-        let chapters = try context.fetch(descriptor)
-        var map: [Int: (title: String, url: String, isCached: Bool)] = [:]
-        for chap in chapters {
-            let trimmedUrl = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmedUrl.isEmpty else { continue }
-            let displayTitle: String
-            if isTranslationEnabled {
-                if let trans = chap.titleTrans, !trans.isEmpty {
-                    displayTitle = trans
-                } else if TranslateUtils.containsChinese(chap.title) {
-                    displayTitle = TranslateUtils.translateChapterTitle(chap.title, bookId: localBookId)
-                } else {
-                    displayTitle = chap.title
-                }
-            } else {
-                displayTitle = chap.title
-            }
-            map[chap.index] = (displayTitle, trimmedUrl, chap.isCached)
-        }
-        return map
+        return [:]
     }
 }
 
@@ -1297,16 +1222,7 @@ public struct ReaderChapterListView: View {
                     }
 
                     if additionSnapshots.isEmpty {
-                        let totalCount: Int
-                        if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
-                            totalCount = (try? await ChapterStore.shared.fetchCountAndChecksum(bookId: book.bookId))?.count ?? existingURLs.count
-                        } else {
-                            let localBookId = book.bookId
-                            let descriptor = FetchDescriptor<Chapter>(
-                                predicate: #Predicate<Chapter> { $0.bookId == localBookId }
-                            )
-                            totalCount = (try? modelContext.fetchCount(descriptor)) ?? 0
-                        }
+                        let totalCount = (try? await ChapterStore.shared.fetchCountAndChecksum(bookId: book.bookId))?.count ?? existingURLs.count
                         store.updateChapters(totalCount: totalCount, onlineChapters: [])
                         ToastManager.shared.show(message: "Mục lục đã mới nhất", type: .success)
                         onLocalTOCRefreshed?(totalCount)
@@ -1317,16 +1233,7 @@ public struct ReaderChapterListView: View {
                             chapters: additionSnapshots,
                             mode: .upsertPage
                         )
-                        let totalCount: Int
-                        if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
-                            totalCount = saveResult.totalChapters
-                        } else {
-                            let localBookId = book.bookId
-                            let descriptor = FetchDescriptor<Chapter>(
-                                predicate: #Predicate<Chapter> { $0.bookId == localBookId }
-                            )
-                            totalCount = (try? modelContext.fetchCount(descriptor)) ?? 0
-                        }
+                        let totalCount = saveResult.totalChapters
                         store.updateChapters(totalCount: totalCount, onlineChapters: [])
                         ToastManager.shared.show(message: "Đã thêm \(additionSnapshots.count) chương mới", type: .success)
                         onLocalTOCRefreshed?(totalCount)

@@ -479,15 +479,6 @@ public final class DownloadManager: ObservableObject {
                                     length: length
                                 )
 
-                                if ChapterStoreConfiguration.enableSwiftDataTOCWrite {
-                                    let allChaps = (try? bgContext.fetch(FetchDescriptor<Chapter>())) ?? []
-                                    if let freshChapter = allChaps.first(where: { $0.id == targetChapterId }) {
-                                        freshChapter.offset = offset
-                                        freshChapter.length = length
-                                        freshChapter.isCached = true
-                                        try? bgContext.save()
-                                    }
-                                }
                                 savedCount += 1
                                 originalContent = cleaned
                             } catch {
