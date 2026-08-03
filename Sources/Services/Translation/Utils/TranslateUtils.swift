@@ -1224,12 +1224,10 @@ public final class TranslateUtils {
     // MARK: - Tokenizer for interactive reader selection
     
     public static func getTranslationTokens(for sentence: String, bookId: String?) -> [TranslationWordToken] {
-        var converted = ""
-        for char in sentence {
-            converted.append(punctuationMapping[char] ?? String(char))
-        }
-        
-        let tokens = tokenize(converted, bookId: bookId)
+        // Tokenize trực tiếp từ sentence gốc (không qua punctuationMapping converted)
+        // để token.count luôn bằng số ký tự thực trong sentence gốc,
+        // tránh offset lệch khi dấu câu Trung (。，！？…) được expand thành chuỗi dài hơn.
+        let tokens = tokenize(sentence, bookId: bookId)
         var wordTokens: [TranslationWordToken] = []
         let phienAm = TranslationManager.shared.phienAmMap
         

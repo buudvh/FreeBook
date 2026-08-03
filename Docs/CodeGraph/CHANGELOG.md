@@ -2,6 +2,12 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.76] - 2026-08-03
+
+### Sửa Lỗi Offset Lệch Hàng 2 Màn Hình Dịch (`TranslateUtils.swift`)
+* **Root Cause**: `getTranslationTokens` chạy `tokenize` trên chuỗi `converted` (đã map dấu câu Trung qua `punctuationMapping`), trong khi `currentIndex` lại được track trên `sentence` gốc. Dấu câu như `"。"` (1 char) bị expand thành `". "` (2 chars) khiến `token.count` lớn hơn số ký tự thực trong sentence gốc — dẫn đến offset lệch lũy tích sau mỗi dấu câu, token tiếp theo bị tra cứu sai vị trí và hiển thị ký tự gốc tiếng Trung thay vì VP/phiên âm.
+* **Fix**: Tokenize trực tiếp từ `sentence` gốc (không qua `converted`) để `token.count` luôn bằng số ký tự thực, loại bỏ hoàn toàn hiện tượng offset lệch sau dấu câu `。，！？…`.
+
 ## [1.3.75] - 2026-08-03
 
 ### Tái Cấu Trúc Từ Điển Tùy Chỉnh TXT Hợp Nhất, Lọc Từ Đã Xóa Dải Chip Gợi Ý & Cập Nhật Logic Count Từ Điển Truyện (`BypassWebView.swift`, `DictionaryListView.swift`, `DictionaryCache.swift`, `TextDictionary.swift`, `TranslationManager.swift`, `ReaderView.swift`, `DictionaryHubView.swift`)
