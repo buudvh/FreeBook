@@ -799,6 +799,15 @@ public final class ExtensionManager: ObservableObject {
                 return dataVal
             }
         }
+        // Kiểm tra thêm pattern { error: "message" } — một số extension không dùng success field
+        // Nếu bỏ qua, jsValue sẽ được convert thành string rỗng/"[object Object]"
+        // dẫn đến emptyContent error thay vì message thực từ server
+        if let errorVal = jsValue.objectForKeyedSubscript("error"),
+           !errorVal.isUndefined, !errorVal.isNull,
+           let errorMsg = errorVal.toString(), !errorMsg.isEmpty {
+            AppLogger.shared.log("❌ [\(logPrefix)] Response.error (field): \(errorMsg)")
+            throw ExtensionManagerError.sourceResponse(message: errorMsg)
+        }
         return jsValue
     }
 

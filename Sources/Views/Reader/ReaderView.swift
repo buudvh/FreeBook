@@ -1923,7 +1923,7 @@ struct ReaderView: View {
                           chapter.state == .loaded {
                     singleChapterScrollView(chapter: chapter, viewModel: vm)
                         .id("single-chapter-\(chapter.index)")
-                        .transition(.opacity)
+                        .transition(vm.pendingNavigationIndex == nil ? .opacity : .identity)
                 } else {
                     chapterInlineLoadingView(index: presentationIndex)
                 }

@@ -429,6 +429,10 @@ class ReaderViewModel: ObservableObject {
 
         settledPrefetchTask?.cancel()
         settledPrefetchTask = nil
+        // Cancel worker cũ ngay lập tức để startNavigationWorkerIfNeeded
+        // luôn tạo Task mới → Task.yield() luôn chạy → SwiftUI render Skeleton trước I/O
+        navigationWorkerTask?.cancel()
+        navigationWorkerTask = nil
         navigationGeneration += 1
 
         let direction: ReaderNavigationDirection
@@ -458,7 +462,6 @@ class ReaderViewModel: ObservableObject {
         isRetryingNavigation = source == .reload
         queuedNavigation = request
 
-        Task { await prefetcher.cancelAll() }
         navigationDebounceTask?.cancel()
         navigationDebounceTask = nil
 
@@ -481,6 +484,9 @@ class ReaderViewModel: ObservableObject {
                 }
             }
         }
+        // Dời prefetcher.cancelAll() xuống SAU khi worker mới đã được schedule
+        // để SwiftUI có cơ hội render Skeleton trước khi prefetcher cleanup chạy
+        Task { await prefetcher.cancelAll() }
     }
 
     func retryPendingNavigation() {
@@ -548,8 +554,9 @@ class ReaderViewModel: ObservableObject {
                 }
                 commitNavigation(request, origin: origin)
             } catch is CancellationError {
-                guard request.generation == navigationGeneration else { continue }
-                failNavigation(request, message: "Yêu cầu tải chương đã bị hủy")
+                // Task bị hủy từ bên ngoài (requestChapter mới cancel worker cũ)
+                // Không fail navigation — worker thoát sạch, worker mới sẽ xử lý
+                continue
             } catch {
                 guard request.generation == navigationGeneration else { continue }
                 failNavigation(request, message: error.localizedDescription)

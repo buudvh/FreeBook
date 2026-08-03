@@ -2,6 +2,14 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.77] - 2026-08-03
+
+### Skeleton Delay + Response.error Không Báo Message (`ReaderViewModel.swift`, `ReaderView.swift`, `ExtensionManager.swift`)
+* **Step 1** (`ReaderViewModel.swift` – `requestChapter`): Cancel `navigationWorkerTask` ngay đầu hàm (trước `navigationGeneration++`) để `startNavigationWorkerIfNeeded` luôn tạo Task mới → `Task.yield()` luôn chạy → SwiftUI render Skeleton trước I/O. Dời `Task { await prefetcher.cancelAll() }` xuống sau toàn bộ block `startNavigationWorkerIfNeeded`/debounce để SwiftUI có cơ hội render trước.
+* **Step 2** (`ReaderViewModel.swift` – `runNavigationWorker`): `catch is CancellationError` chỉ `continue`, không gọi `failNavigation` — tránh flash error message sai khi worker cũ bị cancel bởi navigation mới.
+* **Step 3** (`ReaderView.swift` – `singleChapterReaderView`): Dùng `.transition(.identity)` thay `.transition(.opacity)` khi `pendingNavigationIndex != nil` để chương cũ biến mất ngay lập tức thay vì fade ra từ từ che Skeleton.
+* **Step 4** (`ExtensionManager.swift` – `verifyJSResponse`): Thêm kiểm tra field `error` trong JS response (`{ error: "message" }` pattern) — trước đây bị bỏ qua dẫn đến `emptyContent` error thay vì message thực từ server.
+
 ## [1.3.76] - 2026-08-03
 
 ### Sửa Lỗi Offset Lệch Hàng 2 Màn Hình Dịch (`TranslateUtils.swift`)
