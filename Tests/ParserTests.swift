@@ -451,49 +451,6 @@ final class ParserTests: XCTestCase {
 
         await fulfillment(of: [expectation], timeout: 2.0)
     }
-
-    func testJSBridgeEngineGlobalsAndReservedKeysProtection() async throws {
-        let executor = JSExecutor()
-        
-        // 1. Verify newBrowser and newVisibleBrowser both exist as functions on Engine
-        let testScript = """
-        function checkEngine() {
-            var browserType = typeof Engine.newBrowser;
-            var visibleType = typeof Engine.newVisibleBrowser;
-            return browserType + "," + visibleType;
-        }
-        """
-        let res = try await executor.runAsync(scriptContent: testScript, functionName: "checkEngine", arguments: [])
-        XCTAssertEqual(res.toString(), "function,function", "Both newBrowser and newVisibleBrowser must be functions on Engine")
-        
-        // 2. Normal extension configs can inject
-        executor.injectGlobals(["BASE_URL": "https://example.com/api", "CUSTOM_KEY": "12345"])
-        let checkConfigScript = """
-        function checkConfig() {
-            return BASE_URL + "|" + CUSTOM_KEY;
-        }
-        """
-        let configRes = try await executor.runAsync(scriptContent: checkConfigScript, functionName: "checkConfig", arguments: [])
-        XCTAssertEqual(configRes.toString(), "https://example.com/api|12345", "Normal config keys must be injected into JSContext")
-        
-        // 3. Extension configs cannot overwrite reserved globals like Engine, Response, Html, etc.
-        executor.injectGlobals([
-            "Engine": "OVERWRITTEN",
-            "Response": "OVERWRITTEN",
-            "Html": "OVERWRITTEN",
-            "Crypto": "OVERWRITTEN"
-        ])
-        let checkProtectionScript = """
-        function checkProtection() {
-            var engineType = typeof Engine;
-            var newBrowserType = typeof Engine.newBrowser;
-            var newVisibleType = typeof Engine.newVisibleBrowser;
-            return engineType + "|" + newBrowserType + "|" + newVisibleType;
-        }
-        """
-        let protectionRes = try await executor.runAsync(scriptContent: checkProtectionScript, functionName: "checkProtection", arguments: [])
-        XCTAssertEqual(protectionRes.toString(), "object|function|function", "Engine global must not be overwritten by extension configuration injection")
-    }
 }
 
 

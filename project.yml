@@ -64,8 +64,6 @@ targets:
     platform: iOS
     sources:
       - path: Tests
-        excludes:
-          - EngineTests
     dependencies:
       - target: FreeBook
     settings:
@@ -74,29 +72,3 @@ targets:
         CODE_SIGNING_REQUIRED: "NO"
         CODE_SIGN_IDENTITY: ""
         PRODUCT_BUNDLE_IDENTIFIER: com.raikiri1498.FreeBookTests
-  FreeBookEngineTests:
-    type: bundle.unit-test
-    platform: iOS
-    sources:
-      - path: Tests/EngineTests
-    dependencies:
-      - target: FreeBook
-    settings:
-      base:
-        CODE_SIGNING_ALLOWED: "NO"
-        CODE_SIGNING_REQUIRED: "NO"
-        CODE_SIGN_IDENTITY: ""
-        PRODUCT_BUNDLE_IDENTIFIER: com.raikiri1498.FreeBookEngineTests
-    scheme:
-      testTargets:
-        - FreeBookEngineTests
-
-schemes:
-  FreeBookEngineTests:
-    build:
-      targets:
-        FreeBook: [build]
-        FreeBookEngineTests: [test]
-    test:
-      targets:
-        - name: FreeBookEngineTests

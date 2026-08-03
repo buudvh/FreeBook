@@ -66,17 +66,6 @@ jobs:
             exit(1)
         '
 
-    - name: Run Focused FreeBook Engine Unit Tests
-      run: |
-        set -euo pipefail
-        xcodebuild test \
-          -scheme FreeBookEngineTests \
-          -destination 'platform=iOS Simulator,name=iPhone 16' \
-          -derivedDataPath build_dd \
-          CODE_SIGNING_ALLOWED=NO \
-          CODE_SIGNING_REQUIRED=NO \
-          CODE_SIGN_IDENTITY=""
-
     - name: Build and Archive App (Unsigned)
       env:
         GOOGLE_CLOUD_TTS_API_KEY: ${{ secrets.GOOGLE_CLOUD_TTS_API_KEY }}

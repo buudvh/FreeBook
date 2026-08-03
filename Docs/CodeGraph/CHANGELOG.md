@@ -2,20 +2,6 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-## [1.3.75] - 2026-08-01
-
-### Khắc Phục Lỗi Khởi Tạo `Engine.newVisibleBrowser`, Tự Chẩn Đoán Bootstrap & Bảo Vệ Biến Reserved Globals (`JSExecutor.swift`, `EngineBootstrapTests.swift`, `project.yml`, `.github/workflows/build-ipa.yml`)
-* **Khắc Phục Khởi Tạo & Đăng Ký Độc Lập `Engine.newVisibleBrowser` (`JSExecutor.swift`)**:
-  * Bảo toàn 100% phương thức `Engine.newBrowser` ngầm định (không thay đổi chữ ký, native bridge hay thời gian thực thi).
-  * Thực hiện đăng ký `Engine.newVisibleBrowser` độc lập và trực tiếp sau khi đối tượng `Engine` đã được khởi tạo trong JSContext.
-  * Tích hợp kịch bản tự kiểm tra chẩn đoán ngay sau khi nạp bootstrap (`typeof Engine.newBrowser` và `typeof Engine.newVisibleBrowser`), ghi log chi tiết lỗi nếu xảy ra ngoại lệ JS mà không làm sập ứng dụng sản xuất.
-* **Bảo Vệ Biến Reserved Globals Không Bị Ghi Đè & Dedicated Test Target (`JSExecutor.swift`, `EngineBootstrapTests.swift`, `project.yml`)**:
-  * Chặn injection 12 biến toàn cục hệ thống reserved trong `injectGlobals` (`Engine`, `Response`, `Html`, `Script`, `Http`, `Crypto`, `console`, `Console`, `fetch`, `load`, `atob`, `btoa`), giữ vững các config tiện ích thông thường như `BASE_URL`.
-  * Xây dựng file unit test lập trường `EngineBootstrapTests.swift` kiểm tra tính độc lập của `Engine.newBrowser` / `Engine.newVisibleBrowser`, snapshot kiểm tra tính bất biến của tất cả 12 biến reserved và việc inject thành công biến thông thường.
-  * Khai báo target test cô lập `FreeBookEngineTests` trong `project.yml` và loại bỏ `EngineTests` khỏi `FreeBookTests` để tránh lỗi biên dịch từ các unit test cũ chưa sửa.
-* **Cập Nhật GitHub Actions Runner (`.github/workflows/build-ipa.yml`)**:
-  * Tích hợp bước chạy unit test cô lập (`-scheme FreeBookEngineTests`) trên runner macOS trước khi thực hiện bước đóng gói archive IPA.
-
 ## [1.3.74] - 2026-08-01
 
 ### Bổ Sung Trình Duyệt Giao Diện `Engine.newVisibleBrowser` & Tối Ưu Độ Tin Cậy Lưu Chương Nguồn STV (`VisibleWebViewLoader.swift`, `JSExecutor.swift`, `GetTextSTVManager.swift`, `ChapterContentRepository.swift`, `ChapterPersistenceStore.swift`, `BypassWebView.swift`, `ReaderView.swift`)
