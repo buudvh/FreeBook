@@ -346,9 +346,11 @@ public final class TranslateUtils {
         } else if let match = arabicNumberTitleRegex.firstMatch(in: trimmed, options: [], range: range),
                   let numRange = Range(match.range(at: 1), in: trimmed) {
             let numberVal = String(trimmed[numRange])
-            let rawPost = match.range(at: 2).location != NSNotFound, let postRange = Range(match.range(at: 2), in: trimmed)
-                ? String(trimmed[postRange])
-                : ""
+            var rawPost = ""
+            if match.range(at: 2).location != NSNotFound,
+               let postRange = Range(match.range(at: 2), in: trimmed) {
+                rawPost = String(trimmed[postRange])
+            }
             let cleanPost = cleanLeadingDelimiters(rawPost)
             let translatedPost = cleanPost.isEmpty ? "" : ": " + translateMeta(cleanPost, bookId: bookId)
             
