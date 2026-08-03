@@ -783,13 +783,6 @@ class ReaderViewModel: ObservableObject {
                     downloadUrl: ext.downloadUrl,
                     configJson: ext.configJson
                 )
-            } else if extensionPackageId == "local_stv" || localBook?.isSTVBook == true {
-                return TTSExtensionInfo(
-                    packageId: "local_stv",
-                    localPath: "",
-                    downloadUrl: "",
-                    configJson: "{}"
-                )
             }
             return nil
         }()

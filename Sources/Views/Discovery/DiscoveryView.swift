@@ -384,7 +384,7 @@ struct DiscoveryView: View {
                     extensionSearchQuery: $extensionSearchQuery,
                     modelContext: modelContext,
                     onImport: { detailUrl, packageId, sourceName in
-                        importedBookId = "\(sourceName.lowercased())_\(detailUrl)"
+                        importedBookId = BookIdUtils.make(extensionPackageId: packageId, detailUrl: detailUrl)
                         importedExtensionPackageId = packageId
                         importedDetailUrl = detailUrl
                         importedSourceName = sourceName
@@ -401,7 +401,7 @@ struct DiscoveryView: View {
                 BypassWebView(
                     urlString: target.urlString,
                     onImport: { detailUrl, packageId, sourceName in
-                        importedBookId = GetTextSTVManager.canonicalBookId(from: detailUrl, host: packageId)
+                        importedBookId = BookIdUtils.make(extensionPackageId: packageId, detailUrl: detailUrl)
                         importedExtensionPackageId = packageId
                         importedDetailUrl = detailUrl
                         importedSourceName = sourceName

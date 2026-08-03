@@ -361,9 +361,6 @@ public final class DownloadManager: ObservableObject {
             // 2. Fetch Extension by filtering in memory
             let allExts = (try? bgContext.fetch(FetchDescriptor<Extension>())) ?? []
             let bgExt = allExts.first(where: { $0.packageId == task.extensionPackageId })
-            if bgExt == nil && !bgBook.isSTVBook && task.extensionPackageId != "local_stv" {
-                throw NSError(domain: "DownloadManager", code: -2, userInfo: [NSLocalizedDescriptionKey: "Không tìm thấy tiện ích bóc tách cho truyện này."])
-            }
 
             // 3. Prepare chapters to process via ChapterStore or SwiftData
             let sortedChapters: [StoredChapterSnapshot]
@@ -401,6 +398,11 @@ public final class DownloadManager: ObservableObject {
                 self.updateProgress(taskId: taskId, progress: 0, total: total)
             }
 
+            var cachedCount = 0
+            var skippedUncachedCount = 0
+            var uncachedAttemptCount = 0
+            var savedCount = 0
+            var failedCount = 0
             var processedCount = 0
             var txtAccumulator = ""
 
@@ -409,12 +411,6 @@ public final class DownloadManager: ObservableObject {
                 let targetChapterTitle = chapter.title
                 let targetChapterUrl = chapter.url
                 let isChapterCached = chapter.isCached
-
-                // Đọc nội dung cache từ file .bin nếu đã được lưu offline
-                var cachedContent: String? = nil
-                if isChapterCached && chapter.length > 0 {
-                    cachedContent = try? await BookBinManager.shared.readChapterContent(bookId: bgBook.bookId, offset: chapter.offset, length: chapter.length)
-                }
 
                 // Check if cancelled
                 let isCancelled = await MainActor.run {
@@ -428,56 +424,84 @@ public final class DownloadManager: ObservableObject {
                     return
                 }
 
+                // Đọc nội dung cache từ file .bin nếu đã được lưu offline
+                var cachedContent: String? = nil
+                if isChapterCached && chapter.length > 0 {
+                    cachedContent = try? await BookBinManager.shared.readChapterContent(bookId: bgBook.bookId, offset: chapter.offset, length: chapter.length)
+                }
+
                 var originalContent = ""
 
                 if isChapterCached, let existingContent = cachedContent, !existingContent.isEmpty {
+                    cachedCount += 1
                     originalContent = existingContent
+                } else if task.taskType == .exportTxt && task.onlyExportCached {
+                    skippedUncachedCount += 1
+                    processedCount += 1
+                    let currentProgress = processedCount
+                    await MainActor.run {
+                        self.updateProgress(taskId: taskId, progress: currentProgress, total: total)
+                    }
+                    continue
                 } else {
-                    if (task.taskType == .exportTxt && task.onlyExportCached) || bgBook.isSTVBook || task.extensionPackageId == "local_stv" {
-                        // Skip this chapter as it is not cached
-                        processedCount += 1
-                        continue
-                    }
-
-                    guard let bgExt = bgExt else {
-                        processedCount += 1
-                        continue
-                    }
-
-                    // Download from extension
-                    let content = try await ExtensionManager.shared.chap(
-                        localPath: bgExt.localPath,
-                        downloadUrl: bgExt.downloadUrl,
-                        url: targetChapterUrl,
-                        host: chapter.host,
-                        configJson: bgExt.configJson
-                    )
-                    let cleaned = content.cleanHTML()
-
-                    if let (offset, length) = try? await BookBinManager.shared.writeChapterContent(bookId: bgBook.bookId, content: cleaned) {
-                        let meta = ChapterMetadataSnapshot(title: chapter.title, url: targetChapterUrl, index: chapter.index, host: chapter.host, titleTrans: chapter.titleTrans)
-                        try? await ChapterStore.shared.upsertCachedChapter(
-                            bookId: bgBook.bookId,
-                            metadata: meta,
-                            isCached: true,
-                            offset: offset,
-                            length: length
-                        )
-
-                        if ChapterStoreConfiguration.enableSwiftDataTOCWrite {
-                            let allChaps = (try? bgContext.fetch(FetchDescriptor<Chapter>())) ?? []
-                            if let freshChapter = allChaps.first(where: { $0.id == targetChapterId }) {
-                                freshChapter.offset = offset
-                                freshChapter.length = length
-                                freshChapter.isCached = true
-                                try? bgContext.save()
+                    uncachedAttemptCount += 1
+                    do {
+                        guard let bgExt = bgExt else {
+                            failedCount += 1
+                            processedCount += 1
+                            let currentProgress = processedCount
+                            await MainActor.run {
+                                self.updateProgress(taskId: taskId, progress: currentProgress, total: total)
                             }
+                            continue
                         }
+
+                        // Download from extension
+                        let content = try await ExtensionManager.shared.chap(
+                            localPath: bgExt.localPath,
+                            downloadUrl: bgExt.downloadUrl,
+                            url: targetChapterUrl,
+                            host: chapter.host,
+                            configJson: bgExt.configJson
+                        )
+                        let cleaned = content.cleanHTML()
+
+                        if cleaned.isEmpty {
+                            failedCount += 1
+                        } else if let (offset, length) = try? await BookBinManager.shared.writeChapterContent(bookId: bgBook.bookId, content: cleaned) {
+                            let meta = ChapterMetadataSnapshot(title: chapter.title, url: targetChapterUrl, index: chapter.index, host: chapter.host, titleTrans: chapter.titleTrans)
+                            do {
+                                try await ChapterStore.shared.upsertCachedChapter(
+                                    bookId: bgBook.bookId,
+                                    metadata: meta,
+                                    isCached: true,
+                                    offset: offset,
+                                    length: length
+                                )
+
+                                if ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+                                    let allChaps = (try? bgContext.fetch(FetchDescriptor<Chapter>())) ?? []
+                                    if let freshChapter = allChaps.first(where: { $0.id == targetChapterId }) {
+                                        freshChapter.offset = offset
+                                        freshChapter.length = length
+                                        freshChapter.isCached = true
+                                        try? bgContext.save()
+                                    }
+                                }
+                                savedCount += 1
+                                originalContent = cleaned
+                            } catch {
+                                failedCount += 1
+                            }
+                        } else {
+                            failedCount += 1
+                        }
+                    } catch {
+                        failedCount += 1
                     }
-                    originalContent = cleaned
                 }
 
-                if task.taskType == .exportTxt {
+                if task.taskType == .exportTxt && !originalContent.isEmpty {
                     // Format for TXT
                     var titleToExport = targetChapterTitle
                     var contentToExport = originalContent
@@ -501,22 +525,40 @@ public final class DownloadManager: ObservableObject {
                 }
             }
 
-            // 4. Save and finish
-            if task.taskType == .exportTxt {
-                let tempDir = FileManager.default.temporaryDirectory
-                let sanitizedTitle = bgBook.title.replacingOccurrences(of: "[\\\\/:*?\"<>|]", with: "_", options: .regularExpression)
-                let fileName = "\(sanitizedTitle).txt"
-                let fileURL = tempDir.appendingPathComponent(fileName)
-                try txtAccumulator.write(to: fileURL, atomically: true, encoding: .utf8)
+            // 4. Save and finish outcome
+            AppLogger.shared.log("📊 [DownloadManager] Tác vụ \(taskId) hoàn tất xử lý: cachedCount=\(cachedCount), savedCount=\(savedCount), skippedUncachedCount=\(skippedUncachedCount), uncachedAttemptCount=\(uncachedAttemptCount), failedCount=\(failedCount)")
+            let isExportTxtEmpty = txtAccumulator.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            let outcome = DownloadTaskOutcomeCalculator.calculateOutcome(
+                taskType: task.taskType,
+                uncachedAttemptCount: uncachedAttemptCount,
+                savedCount: savedCount,
+                failedCount: failedCount,
+                isExportTxtEmpty: isExportTxtEmpty
+            )
 
-                await MainActor.run {
-                    self.markCompleted(taskId: taskId)
-                    self.presentShareSheet(for: fileURL)
-                    self.runNextTaskIfNeeded(container: container)
+            switch outcome {
+            case .completed:
+                if task.taskType == .exportTxt {
+                    let tempDir = FileManager.default.temporaryDirectory
+                    let sanitizedTitle = bgBook.title.replacingOccurrences(of: "[\\\\/:*?\"<>|]", with: "_", options: .regularExpression)
+                    let fileName = "\(sanitizedTitle).txt"
+                    let fileURL = tempDir.appendingPathComponent(fileName)
+                    try txtAccumulator.write(to: fileURL, atomically: true, encoding: .utf8)
+
+                    await MainActor.run {
+                        self.markCompleted(taskId: taskId)
+                        self.presentShareSheet(for: fileURL)
+                        self.runNextTaskIfNeeded(container: container)
+                    }
+                } else {
+                    await MainActor.run {
+                        self.markCompleted(taskId: taskId)
+                        self.runNextTaskIfNeeded(container: container)
+                    }
                 }
-            } else {
+            case .failed(let message):
                 await MainActor.run {
-                    self.markCompleted(taskId: taskId)
+                    self.markFailed(taskId: taskId, error: message)
                     self.runNextTaskIfNeeded(container: container)
                 }
             }

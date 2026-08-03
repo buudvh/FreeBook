@@ -169,7 +169,7 @@ struct BookDetailView: View {
             resolvedHost: resolvedHost,
             onImport: { detailUrl, packageId, sourceName in
                 showingBypassBrowser = false
-                let targetBookId = GetTextSTVManager.canonicalBookId(from: detailUrl, host: packageId)
+                let targetBookId = BookIdUtils.make(extensionPackageId: packageId, detailUrl: detailUrl)
 
                 if targetBookId == actualBookId || detailUrl == actualBookId {
                     loadBookData()
@@ -802,92 +802,81 @@ struct BookDetailView: View {
     }
 
     private func loadBookDetailOnly() {
-        let isSTV = localBook?.isSTVBook == true
-            || extensionPackageId == "local_stv"
-            || sourceName.contains("Sáng Tác Việt")
-        if isSTV {
-            if let book = localBook {
-                self.title = book.title
-                self.author = book.author
-                self.coverUrl = book.coverUrl
-                self.desc = book.desc
-                self.detail = book.desc
-                self.host = book.host ?? ""
-            }
-            self.isLoadingDetail = false
-            return
-        }
+        if let ext = ext, !ext.localPath.isEmpty {
+            isLoadingDetail = true
+            detailErrorMessage = ""
 
-        guard let ext = ext else {
-            detailErrorMessage = "Không tìm thấy tiện ích bóc tách của truyện này!"
-            self.isLoadingDetail = false
-            return
-        }
+            Task {
+                do {
+                    let path = ext.localPath
+                    let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
 
-        guard !ext.localPath.isEmpty else {
-            detailErrorMessage = "Vui lòng cài đặt tiện ích '\(ext.name)' trong phần Tiện Ích trước khi bóc tách nguồn này!"
-            self.isLoadingDetail = false
-            return
-        }
+                    await MainActor.run {
+                        self.title = detailResult.name
+                        self.author = detailResult.author
+                        self.coverUrl = detailResult.cover
+                        self.desc = detailResult.description.cleanHTML()
+                        self.detail = detailResult.detail
+                        self.genres = detailResult.genres
+                        self.suggests = detailResult.suggests
+                        self.comments = detailResult.comments
+                        self.host = detailResult.host
 
-        isLoadingDetail = true
-        detailErrorMessage = ""
-
-        Task {
-            do {
-                let path = ext.localPath
-                let detailResult = try await ExtensionManager.shared.detail(localPath: path, downloadUrl: ext.downloadUrl, url: initialDetailUrl, host: resolvedHost, configJson: ext.configJson)
-
-                await MainActor.run {
-                    self.title = detailResult.name
-                    self.author = detailResult.author
-                    self.coverUrl = detailResult.cover
-                    self.desc = detailResult.description.cleanHTML()
-                    self.detail = detailResult.detail
-                    self.genres = detailResult.genres
-                    self.suggests = detailResult.suggests
-                    self.comments = detailResult.comments
-                    self.host = detailResult.host
-
-                    if let book = localBook {
-                        book.title = detailResult.name
-                        book.author = detailResult.author
-                        book.coverUrl = detailResult.cover
-                        let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(self.cleanDetailText(detailResult.detail))"
-                        book.desc = savedDesc
-                        book.host = detailResult.host
+                        if let book = localBook {
+                            book.title = detailResult.name
+                            book.author = detailResult.author
+                            book.coverUrl = detailResult.cover
+                            let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(self.cleanDetailText(detailResult.detail))"
+                            book.desc = savedDesc
+                            book.host = detailResult.host
+                        }
+                        self.isLoadingDetail = false
                     }
-                    self.isLoadingDetail = false
-                }
-            } catch {
-                await MainActor.run {
-                    self.detailErrorMessage = error.localizedDescription
-                    self.isLoadingDetail = false
+                } catch {
+                    await MainActor.run {
+                        self.detailErrorMessage = error.localizedDescription
+                        self.isLoadingDetail = false
+                    }
                 }
             }
+        } else if let book = localBook {
+            self.title = book.title
+            self.author = book.author
+            self.coverUrl = book.coverUrl
+            self.desc = book.desc
+            self.detail = book.desc
+            self.host = book.host ?? ""
+            self.isLoadingDetail = false
+        } else if let ext = ext {
+            self.detailErrorMessage = "Vui lòng cài đặt tiện ích '\(ext.name)' trong phần Tiện Ích trước khi bóc tách nguồn này!"
+            self.isLoadingDetail = false
+        } else {
+            self.detailErrorMessage = "Không tìm thấy tiện ích bóc tách của truyện này!"
+            self.isLoadingDetail = false
         }
     }
 
     private func loadTOCDataOnly() {
-        let isSTV = localBook?.isSTVBook == true
-            || extensionPackageId == "local_stv"
-            || sourceName.contains("Sáng Tác Việt")
-        if isSTV {
+        if let ext = ext, !ext.localPath.isEmpty {
+            // Tiếp tục luồng nạp online
+        } else if localBook != nil {
             self.loadLocalChapterSnapshots()
             self.syncChaptersList()
             self.updateFilteredLocalChapters()
             self.isLoadingTOC = false
             return
-        }
-
-        guard let ext = ext else {
-            tocErrorMessage = "Không tìm thấy tiện ích bóc tách!"
+        } else if let ext = ext {
+            self.tocErrorMessage = "Vui lòng cài đặt tiện ích '\(ext.name)' trong phần Tiện Ích trước khi bóc tách nguồn này!"
+            self.isLoadingTOC = false
+            return
+        } else {
+            self.tocErrorMessage = "Không tìm thấy tiện ích bóc tách của truyện này!"
             self.isLoadingTOC = false
             return
         }
 
-        guard !ext.localPath.isEmpty else {
-            tocErrorMessage = "Vui lòng cài đặt tiện ích '\(ext.name)'!"
+        guard let ext = ext, !ext.localPath.isEmpty else {
+            tocErrorMessage = "Không tìm thấy tiện ích bóc tách!"
             self.isLoadingTOC = false
             return
         }

@@ -51,13 +51,6 @@ public final class Book {
             || sourceName.lowercased() == "local"
     }
 
-    /// Kiểm tra xem sách có được tải bằng extension Sáng Tác Việt (STV) hay không.
-    public var isSTVBook: Bool {
-        return extensionPackageId.lowercased() == "local_stv"
-            || sourceName.lowercased().contains("sáng tác việt")
-            || sourceName.lowercased().contains("sangtacviet")
-    }
-
     // Hàm khởi tạo (Constructor) để tạo đối tượng Book mới.
     public init(bookId: String, title: String, author: String, coverUrl: String, desc: String, detailUrl: String, sourceName: String, sourceUrl: String, extensionPackageId: String, currentChapterIndex: Int = 0, currentChapterPage: Int = 0, currentChapterTitle: String = "", isOnShelf: Bool = true, isHistory: Bool = false, host: String? = nil) {
         self.bookId = bookId

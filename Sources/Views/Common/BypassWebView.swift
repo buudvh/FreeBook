@@ -48,15 +48,7 @@ struct BypassWebView: View {
         let bookExts = bookExtensions
         let fallbackIconBase64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDdhZmYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMjEgMTZWOGEyIDIgMCAwIDAtMS0xLjczbC03LTRhMiAyIDAgMCAwLTIgMGwtNyA0QTIgMiAwIDAgMCAzIDh2OGEyIDIgMCAwIDAgMSAxLjczbDcgNGEyIDIgMCAwIDAgMiAwbDctNGEyIDIgMCAwIDAgMS0xLzczeiI+PC9wYXRoPjwvc3ZnPg=="
         
-        var extsHtml = """
-        <a class="card" href="http://14.225.254.182/">
-            <div class="ext-header">
-                <img class="ext-icon" src="\(fallbackIconBase64)"/>
-                <div class="ext-name" style="color: #7c3aed; font-weight: bold;">Sáng Tác Việt (STV IP)</div>
-            </div>
-            <div class="ext-url">http://14.225.254.182/</div>
-        </a>
-        """
+        var extsHtml = ""
         
         for ext in bookExts {
             var iconSrc = fallbackIconBase64
@@ -468,34 +460,13 @@ struct SwiftUIWebView: UIViewRepresentable {
     @Binding var canGoBack: Bool
     @Binding var canGoForward: Bool
     var onImport: ((_ detailUrl: String, _ extensionPackageId: String, _ sourceName: String) -> Void)? = nil
-    @Environment(\.modelContext) private var modelContext
     
     func makeUIView(context: Context) -> WKWebView {
         webView.navigationDelegate = context.coordinator
         context.coordinator.setupObservers(for: webView)
         
         let controller = webView.configuration.userContentController
-        controller.removeScriptMessageHandler(forName: "gettextSTVBridge")
-        controller.add(context.coordinator, name: "gettextSTVBridge")
         controller.removeAllUserScripts()
-        
-        let (cssContent, jsContent) = GetTextSTVManager.shared.loadExtensionScripts()
-        if !jsContent.isEmpty {
-            let escapedCss = cssContent.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "`", with: "\\`").replacingOccurrences(of: "$", with: "\\$")
-            let cssScript = WKUserScript(
-                source: "var style = document.createElement('style'); style.innerHTML = `\(escapedCss)`; document.head.appendChild(style);",
-                injectionTime: .atDocumentEnd,
-                forMainFrameOnly: false
-            )
-            let jsScript = WKUserScript(
-                source: jsContent,
-                injectionTime: .atDocumentEnd,
-                forMainFrameOnly: false
-            )
-            controller.addUserScript(cssScript)
-            controller.addUserScript(jsScript)
-            AppLogger.shared.log("✅ [GetTextSTV] Nạp thành công content.css (\(cssContent.count) bytes) và content.js (\(jsContent.count) bytes) vào WKUserContentController.")
-        }
         
         webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
         
@@ -513,108 +484,13 @@ struct SwiftUIWebView: UIViewRepresentable {
         Coordinator(self)
     }
     
-    class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+    class Coordinator: NSObject, WKNavigationDelegate {
         var parent: SwiftUIWebView
         private var observers: [NSKeyValueObservation] = []
         private var lastRequestedURL: URL?
         
         init(_ parent: SwiftUIWebView) {
             self.parent = parent
-        }
-
-        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            if message.name == "gettextSTVBridge", let body = message.body as? [String: Any] {
-                let context = parent.modelContext
-                Task { @MainActor in
-                    let action = (body["action"] as? String) ?? ""
-                    let bookTitle = (body["bookTitle"] as? String) ?? "Sáng Tác Việt"
-                    let bookId = (body["bookId"] as? String) ?? ""
-                    let host = (body["host"] as? String) ?? ""
-                    let url = (body["url"] as? String) ?? ""
-
-                    if action == "log" {
-                        let logMsg = (body["message"] as? String) ?? "✅ [GetTextSTV] Kịch bản JS & CSS đã nạp thành công vào trang WebKit."
-                        AppLogger.shared.log(logMsg)
-                    } else if action == "syncTOC" {
-                        let tocChapters = (body["tocChapters"] as? [[String: Any]]) ?? (body["chapters"] as? [[String: Any]]) ?? []
-                        let author = (body["author"] as? String) ?? (body["bookAuthor"] as? String) ?? "Sáng Tác Việt"
-                        let coverUrl = (body["coverUrl"] as? String) ?? (body["bookCoverUrl"] as? String) ?? (body["cover"] as? String) ?? ""
-                        let desc = (body["desc"] as? String) ?? (body["bookDesc"] as? String) ?? (body["intro"] as? String) ?? ""
-                        if !bookTitle.isEmpty && !tocChapters.isEmpty {
-                            do {
-                                _ = try await GetTextSTVManager.shared.syncTOCFromExtension(
-                                    bookId: bookId,
-                                    title: bookTitle,
-                                    author: author,
-                                    coverUrl: coverUrl,
-                                    desc: desc,
-                                    sourceUrl: url,
-                                    host: host,
-                                    tocChapters: tocChapters,
-                                    container: context.container
-                                )
-                                AppLogger.shared.log("✅ [GetTextSTV] Đã nạp và đồng bộ mục lục (\(tocChapters.count) chương) cho sách: \(bookTitle)")
-                            } catch {
-                                AppLogger.shared.log("❌ [GetTextSTV] Lỗi nạp mục lục cho sách \(bookTitle): \(error.localizedDescription)")
-                            }
-                        }
-                    } else if action == "saveChapterContent" {
-                        let chapterIndex = (body["chapterIndex"] as? Int) ?? 0
-                        let chapterTitle = (body["chapterTitle"] as? String) ?? "Chương"
-                        let chapterUrl = (body["chapterUrl"] as? String) ?? url
-                        let content = (body["content"] as? String) ?? ""
-                        if !content.isEmpty {
-                            do {
-                                try await GetTextSTVManager.shared.saveChapterContentFromExtension(
-                                    bookId: bookId,
-                                    chapterIndex: chapterIndex,
-                                    chapterTitle: chapterTitle,
-                                    chapterUrl: chapterUrl,
-                                    content: content,
-                                    container: context.container
-                                )
-                                AppLogger.shared.log("✅ [GetTextSTV] Đã lưu thành công chương \(chapterIndex + 1): \(chapterTitle)")
-                            } catch {
-                                AppLogger.shared.log("❌ [GetTextSTV] Lỗi lưu chương \(chapterIndex + 1) (\(chapterTitle)): \(error.localizedDescription)")
-                            }
-                        } else {
-                            AppLogger.shared.log("⚠️ [GetTextSTV] Nội dung chương \(chapterIndex + 1) (\(chapterTitle)) bị rỗng, bỏ qua lưu.")
-                        }
-                    } else if action == "finishDownload" || action == "stopDownload" {
-                        let targetDetailUrl = url.isEmpty ? bookId : url
-                        let cleanBookId = GetTextSTVManager.canonicalBookId(from: targetDetailUrl, host: host)
-                        AppLogger.shared.log("✅ [GetTextSTV] Đảm bảo lưu 100% dữ liệu DB trước khi đóng trình duyệt cho bookId: \(cleanBookId)")
-                        await ChapterContentRepository.shared.flush(bookId: cleanBookId)
-                        try? context.save()
-                        self.parent.onImport?(targetDetailUrl, "local_stv", "Sáng Tác Việt")
-                    }
-                }
-            }
-        }
-
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            guard let urlString = webView.url?.absoluteString,
-                  GetTextSTVManager.shared.isSangTacVietURL(urlString) else { return }
-            
-            let (cssContent, jsContent) = GetTextSTVManager.shared.loadExtensionScripts()
-            if !jsContent.isEmpty {
-                let escapedCss = cssContent.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "`", with: "\\`").replacingOccurrences(of: "$", with: "\\$")
-                let cssInject = "if (!document.getElementById('stv_ext_style')) { var style = document.createElement('style'); style.id = 'stv_ext_style'; style.innerHTML = `\(escapedCss)`; document.head.appendChild(style); }"
-                webView.evaluateJavaScript(cssInject) { _, error in
-                    if let error {
-                        AppLogger.shared.log("⚠️ [GetTextSTV] Lỗi tiêm CSS: \(error.localizedDescription)")
-                    } else {
-                        AppLogger.shared.log("✅ [GetTextSTV] Tiêm CSS thành công vào trang web (\(urlString)).")
-                    }
-                }
-                webView.evaluateJavaScript(jsContent) { _, error in
-                    if let error {
-                        AppLogger.shared.log("⚠️ [GetTextSTV] Lỗi tiêm JS: \(error.localizedDescription)")
-                    } else {
-                        AppLogger.shared.log("✅ [GetTextSTV] Tiêm JS content.js thành công vào trang web (\(urlString)).")
-                    }
-                }
-            }
         }
 
         func loadIfNeeded(_ url: URL?, in webView: WKWebView) {

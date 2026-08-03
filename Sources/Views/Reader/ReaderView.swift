@@ -550,13 +550,13 @@ struct ReaderView: View {
                 if let detailUrl = bookDetailUrl, !detailUrl.isEmpty, detailUrl.hasPrefix("http") {
                     return detailUrl
                 }
-                return "http://14.225.254.182/"
+                return "home"
             }()
             BypassWebView(
                 urlString: browserUrl,
                 host: currentChapterHost,
                 onImport: { detailUrl, packageId, sourceName in
-                    importedBookId = GetTextSTVManager.canonicalBookId(from: detailUrl, host: packageId)
+                    importedBookId = BookIdUtils.make(extensionPackageId: packageId, detailUrl: detailUrl)
                     importedExtensionPackageId = packageId
                     importedDetailUrl = detailUrl
                     importedSourceName = sourceName

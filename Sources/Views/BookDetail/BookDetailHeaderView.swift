@@ -106,15 +106,7 @@ struct BookDetailHeaderView: View {
                 }
 
                 HStack(spacing: 6) {
-                    if extensionPackageId == "local_stv" || sourceName.contains("Sáng Tác Việt") {
-                        Text("STV")
-                            .font(.system(size: 10, weight: .bold))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.purple)
-                            .foregroundColor(.white)
-                            .cornerRadius(4)
-                    } else if !localPath.isEmpty {
+                    if !localPath.isEmpty {
                         ExtensionIconView(localPath: localPath, iconUrl: iconUrl ?? "", size: 16)
                     } else {
                         Image(systemName: "puzzlepiece.extension")

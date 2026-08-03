@@ -397,7 +397,7 @@ struct ShelfView: View {
                 BypassWebView(
                     urlString: "home",
                     onImport: { detailUrl, packageId, sourceName in
-                        importedBookId = GetTextSTVManager.canonicalBookId(from: detailUrl, host: packageId)
+                        importedBookId = BookIdUtils.make(extensionPackageId: packageId, detailUrl: detailUrl)
                         importedExtensionPackageId = packageId
                         importedDetailUrl = detailUrl
                         importedSourceName = sourceName
@@ -496,24 +496,13 @@ struct ShelfView: View {
                             .lineLimit(1)
                     }
 
-                    if book.isSTVBook {
-                        Text("STV")
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.purple)
-                            .foregroundColor(.white)
-                            .cornerRadius(4)
-                    } else {
-                        Text(book.sourceName)
-                            .font(.caption2)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.blue.opacity(0.1))
-                            .foregroundColor(.blue)
-                            .cornerRadius(4)
-                    }
+                    Text(book.sourceName)
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.1))
+                        .foregroundColor(.blue)
+                        .cornerRadius(4)
                 }
 
                 let rawChapterTitle = book.currentChapterTitle.isEmpty

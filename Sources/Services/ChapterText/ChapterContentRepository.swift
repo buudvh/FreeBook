@@ -33,7 +33,6 @@ enum ChapterContentRepositoryError: LocalizedError {
     case unavailableExtension
     case timedOut
     case emptyContent
-    case stvContentNotCached
 
     var errorDescription: String? {
         switch self {
@@ -43,8 +42,6 @@ enum ChapterContentRepositoryError: LocalizedError {
             return "Tải chương quá thời gian cho phép"
         case .emptyContent:
             return "Chương không có nội dung"
-        case .stvContentNotCached:
-            return "Chương này chưa được cào từ Sáng Tác Việt. Vui lòng mở trình duyệt web để cào nội dung."
         }
     }
 }
@@ -227,9 +224,6 @@ actor ChapterContentRepository {
             throw ChapterContentRepositoryError.unavailableExtension
         }
 
-        if extensionInfo.packageId == "local_stv" {
-            throw ChapterContentRepositoryError.stvContentNotCached
-        }
         let rawContent = try await fetchFromExtension(request: request, extensionInfo: extensionInfo)
         try Task.checkCancellation()
         let document = makeDocument(request: request, rawContent: rawContent.cleanHTML())
