@@ -1051,6 +1051,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         // Nạp lại phân đoạn
         self.paragraphs = TTSParagraphBuilder.build(from: normalizedChapterText, chunkLength: chunkLength)
 
+        // Memory leak fix: Clear prefetch cache AFTER paragraph rebuild to remove stale audio from old VietPhrase settings
+        if tool != "system" {
+            clearPrefetchCache()
+        }
+
         let key = "showChapterTitle_\(playingBookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
 
@@ -1369,6 +1374,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
         prefetchTasks.removeAll()
         preloadedData.removeAll()
+        
+        // Memory leak fix: Clean up Extension TTS temp files when clearing cache
+        if tool != "system" && tool != "nghitts" && tool != "google" {
+            extService.cleanupAllTempFiles()
+        }
     }
 
     // updatePrefetchWindow: Cập nhật cửa sổ trượt (Sliding Window) tải trước dữ liệu âm thanh
@@ -1498,6 +1508,13 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
             let task = Task { [weak self] in
                 guard let self = self else { return }
+                
+                // Memory leak fix: Ensure temp file cleanup on task cancellation
+                defer {
+                    if Task.isCancelled && self.tool != "system" && self.tool != "nghitts" && self.tool != "google" {
+                        self.extService.cleanupAllTempFiles()
+                    }
+                }
 
                 let offset = max(0, index - self.currentParagraphIndex)
                 if offset >= 1 {
@@ -1697,6 +1714,15 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
 
         Task {
+            // Memory leak fix: Cleanup temp files on task cancellation
+            defer {
+                if Task.isCancelled {
+                    Task { @MainActor in
+                        self.extService.cleanupAllTempFiles()
+                    }
+                }
+            }
+            
             do {
                 let audioData: Data
                 if let activeTask = prefetchTasks[index] {

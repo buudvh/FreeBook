@@ -2,6 +2,10 @@ import Foundation
 import AVFoundation
 
 public final class ExtTTSService {
+    // Memory leak fix: Track temporary files for explicit cleanup
+    private var activeTempFiles: Set<URL> = []
+    private let tempFileLock = NSLock()
+    
     public init() {}
     
     public func synthesizeData(
@@ -53,9 +57,15 @@ public final class ExtTTSService {
         let tempFileUrl = tempDir.appendingPathComponent(UUID().uuidString + "." + fileExt)
         try audioData.write(to: tempFileUrl)
         
-        // Khối dọn dẹp tệp tin tạm
-        defer {
-            try? FileManager.default.removeItem(at: tempFileUrl)
+        // Memory leak fix: Register temp file for explicit cleanup (defer doesn't execute on Task cancellation)
+        tempFileLock.lock()
+        activeTempFiles.insert(tempFileUrl)
+        tempFileLock.unlock()
+        
+        // Memory leak fix: Check for task cancellation before expensive AVAudioFile read
+        guard !Task.isCancelled else {
+            cleanupTempFile(tempFileUrl)
+            throw CancellationError()
         }
         
         // 3. Đọc bằng AVAudioFile và chuyển sang PCMBuffer
@@ -64,10 +74,12 @@ public final class ExtTTSService {
         let frameCount = AVAudioFrameCount(audioFile.length)
         
         guard frameCount > 0 else {
+            cleanupTempFile(tempFileUrl)
             throw NSError(domain: "ExtTTSService", code: -21, userInfo: [NSLocalizedDescriptionKey: "Tệp âm thanh trống sau khi giải mã"])
         }
         
         guard let buffer = AVAudioPCMBuffer(pcmFormat: fileFormat, frameCapacity: frameCount) else {
+            cleanupTempFile(tempFileUrl)
             throw NSError(domain: "ExtTTSService", code: -22, userInfo: [NSLocalizedDescriptionKey: "Không thể khởi tạo AVAudioPCMBuffer"])
         }
         
@@ -75,12 +87,14 @@ public final class ExtTTSService {
         
         // Nếu fileFormat trùng khớp với targetFormat, trả về trực tiếp
         if fileFormat == targetFormat {
+            cleanupTempFile(tempFileUrl)
             return preprocessBufferForExtTTS(buffer)
         }
         
         // Chuyển đổi sang targetFormat bằng AVAudioConverter
         guard let converter = AVAudioConverter(from: fileFormat, to: targetFormat) else {
             AppLogger.shared.log("❌ [ExtTTSService] Không thể tạo AVAudioConverter từ \(fileFormat) sang \(targetFormat)")
+            cleanupTempFile(tempFileUrl)
             return preprocessBufferForExtTTS(buffer)
         }
         converter.sampleRateConverterQuality = AVAudioQuality.max.rawValue
@@ -89,6 +103,7 @@ public final class ExtTTSService {
         let targetFrameCapacity = AVAudioFrameCount(Double(frameCount) * ratio) + 16
         
         guard let targetBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: targetFrameCapacity) else {
+            cleanupTempFile(tempFileUrl)
             return preprocessBufferForExtTTS(buffer)
         }
         
@@ -108,6 +123,7 @@ public final class ExtTTSService {
 
         guard targetBuffer.frameLength > 0 else {
             AppLogger.shared.log("❌ [ExtTTSService] Convert tạo buffer rỗng")
+            cleanupTempFile(tempFileUrl)
             return preprocessBufferForExtTTS(buffer)
         }
 
@@ -115,9 +131,11 @@ public final class ExtTTSService {
             if let error = error {
                 AppLogger.shared.log("❌ [ExtTTSService] Lỗi convert định dạng sang targetFormat: \(error.localizedDescription)")
             }
+            cleanupTempFile(tempFileUrl)
             return preprocessBufferForExtTTS(buffer)
         }
         
+        cleanupTempFile(tempFileUrl)
         return preprocessBufferForExtTTS(targetBuffer)
     }
     
@@ -165,5 +183,24 @@ public final class ExtTTSService {
         }
         
         return buffer
+    }
+    
+    // Memory leak fix: Helper methods for temp file lifecycle management
+    private func cleanupTempFile(_ url: URL) {
+        tempFileLock.lock()
+        activeTempFiles.remove(url)
+        tempFileLock.unlock()
+        try? FileManager.default.removeItem(at: url)
+    }
+    
+    public func cleanupAllTempFiles() {
+        tempFileLock.lock()
+        let files = Array(activeTempFiles)
+        activeTempFiles.removeAll()
+        tempFileLock.unlock()
+        
+        for file in files {
+            try? FileManager.default.removeItem(at: file)
+        }
     }
 }
