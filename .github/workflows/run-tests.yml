@@ -1,0 +1,156 @@
+name: Run Unit Tests
+
+on:
+  push:
+    branches: [ main, sigle_reader ]
+    paths:
+      - 'Sources/**'
+      - 'Tests/**'
+      - 'project.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Sources/**'
+      - 'Tests/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run Unit Tests (iOS Simulator)
+    runs-on: macos-15
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Cache Homebrew + XcodeGen
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/Library/Caches/Homebrew
+          /usr/local/Homebrew
+        key: ${{ runner.os }}-homebrew-xcodegen-${{ hashFiles('project.yml') }}
+        restore-keys: |
+          ${{ runner.os }}-homebrew-xcodegen-
+
+    - name: Install XcodeGen
+      run: brew install xcodegen
+
+    - name: Generate Xcode Project
+      run: xcodegen generate 2>&1 | tee test_error.log
+
+    - name: Resolve Package Dependencies
+      run: |
+        set -euo pipefail
+        xcodebuild -resolvePackageDependencies \
+          -project FreeBook.xcodeproj \
+          -scheme FreeBookTests \
+          -derivedDataPath build_dd \
+          2>&1 | tee -a test_error.log
+
+        # Patch espeak-ng để tránh lỗi compile
+        python3 -c '
+        import os
+        p = "build_dd/SourcePackages/checkouts/espeak-ng-spm/Package.swift"
+        if os.path.exists(p):
+            os.chmod(p, 0o644)
+            with open(p, "r") as f:
+                c = f.read()
+            target = ".define(\"N_PATH_HOME\", to: \"1024\"),"
+            replacement = target + "\n        .unsafeFlags([\"-Wno-error=implicit-function-declaration\", \"-Wno-error=implicit-int\", \"-Wno-error=incompatible-pointer-types\"]),"
+            if target in c:
+                c = c.replace(target, replacement)
+                with open(p, "w") as f:
+                    f.write(c)
+                print("Patched Package.swift successfully!")
+            else:
+                print("Note: Target string not found in Package.swift (may already be patched)")
+        else:
+            print(f"Note: {p} not found, skipping patch")
+        '
+
+    - name: Boot iOS Simulator
+      run: |
+        # Lấy UUID của simulator iPhone 16 (iOS 18)
+        SIM_ID=$(xcrun simctl list devices available --json \
+          | python3 -c "
+        import json, sys
+        data = json.load(sys.stdin)
+        for runtime, devices in data['devices'].items():
+            if 'iOS-18' in runtime or 'iOS 18' in runtime:
+                for d in devices:
+                    if 'iPhone 16' in d['name'] and d['isAvailable']:
+                        print(d['udid'])
+                        exit()
+        ")
+        echo "Simulator UDID: $SIM_ID"
+        if [ -z "$SIM_ID" ]; then
+          echo "Error: Không tìm thấy iPhone 16 simulator với iOS 18"
+          exit 1
+        fi
+        echo "SIM_UDID=$SIM_ID" >> $GITHUB_ENV
+        xcrun simctl boot "$SIM_ID" || true
+
+    - name: Run Unit Tests
+      run: |
+        set -euo pipefail
+        xcodebuild test \
+          -project FreeBook.xcodeproj \
+          -scheme FreeBookTests \
+          -destination "platform=iOS Simulator,id=$SIM_UDID" \
+          -derivedDataPath build_dd \
+          -resultBundlePath TestResults.xcresult \
+          2>&1 | tee -a test_error.log
+
+    - name: Export Test Results Summary
+      if: always()
+      run: |
+        # In tóm tắt test results
+        if [ -d "TestResults.xcresult" ]; then
+          xcrun xcresulttool get --format json --path TestResults.xcresult \
+            | python3 -c "
+        import json, sys
+        data = json.load(sys.stdin)
+        metrics = data.get('metrics', {})
+        tests_count = metrics.get('testsCount', {}).get('_value', '?')
+        failed = metrics.get('testsFailedCount', {}).get('_value', '0')
+        passed = int(tests_count) - int(failed) if tests_count != '?' else '?'
+        print(f'Tests: {tests_count} total, {passed} passed, {failed} failed')
+        " || echo "Không thể parse TestResults.xcresult"
+        fi
+
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: TestResults
+        path: |
+          TestResults.xcresult
+          test_error.log
+        retention-days: 7
+
+    - name: Notify Telegram — Success
+      if: success()
+      env:
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TO_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_TO_CHAT_ID }}
+      run: |
+        COMMIT_MSG=$(git log -1 --pretty=format:"%B")
+        TEXT=$(printf "✅ FreeBook Tests PASSED! 🎉\n\n💬 Commit:\n%s\n\n🔗 Log: https://github.com/%s/actions/runs/%s" \
+          "$COMMIT_MSG" "${{ github.repository }}" "${{ github.run_id }}")
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+             --data-urlencode "text=$TEXT" || true
+
+    - name: Notify Telegram — Failure
+      if: failure()
+      env:
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TO_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_TO_CHAT_ID }}
+      run: |
+        COMMIT_MSG=$(git log -1 --pretty=format:"%B")
+        TEXT=$(printf "❌ FreeBook Tests FAILED! 🛑\n\n💬 Commit:\n%s\n\n🔗 Log: https://github.com/%s/actions/runs/%s" \
+          "$COMMIT_MSG" "${{ github.repository }}" "${{ github.run_id }}")
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+             --data-urlencode "text=$TEXT" || true
