@@ -571,11 +571,6 @@ public final class TranslateUtils {
         var candidates: [NameCandidate] = []
         var i = 0
         while i < length {
-            if isASCIIAlphanumeric(chars[i]) {
-                i = asciiAlphanumericRunEnd(in: chars, from: i, upperBound: length)
-                continue
-            }
-
             let limit = min(length - i, 20)
             let checkText = String(chars[i..<(i + limit)])
             
@@ -659,7 +654,7 @@ public final class TranslateUtils {
         var vpCandidates: [VPCandidate] = []
         var j = 0
         while j < length {
-            if occupiedIndices.contains(j) || !isChineseCharacter(chars[j]) {
+            if occupiedIndices.contains(j) {
                 j += 1
                 continue
             }
@@ -736,13 +731,6 @@ public final class TranslateUtils {
         var currentIndex = 0
         
         while currentIndex < length {
-            if isASCIIAlphanumeric(chars[currentIndex]) {
-                let end = asciiAlphanumericRunEnd(in: chars, from: currentIndex, upperBound: length)
-                output.append(String(chars[currentIndex..<end]))
-                currentIndex = end
-                continue
-            }
-
             if let activeName = selectedNames.first(where: { $0.range.lowerBound == currentIndex }) {
                 output.append(String(chars[activeName.range]))
                 currentIndex = activeName.range.upperBound
@@ -752,6 +740,20 @@ public final class TranslateUtils {
             if let activeVP = selectedVPs.first(where: { $0.range.lowerBound == currentIndex }) {
                 output.append(String(chars[activeVP.range]))
                 currentIndex = activeVP.range.upperBound
+                continue
+            }
+
+            if isASCIIAlphanumeric(chars[currentIndex]) {
+                let nextBoundary = min(
+                    selectedNames.first(where: { $0.range.lowerBound > currentIndex })?.range.lowerBound ?? length,
+                    selectedVPs.first(where: { $0.range.lowerBound > currentIndex })?.range.lowerBound ?? length
+                )
+                var end = currentIndex + 1
+                while end < nextBoundary && isASCIIAlphanumeric(chars[end]) {
+                    end += 1
+                }
+                output.append(String(chars[currentIndex..<end]))
+                currentIndex = end
                 continue
             }
             

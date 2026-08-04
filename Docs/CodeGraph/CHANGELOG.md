@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.78] - 2026-08-04
+
+### Sửa Lỗi Tách Từ "仿佛" & Hỗ Trợ VP/Name Chứa Ký Tự Ngoài Tiếng Trung (`DoubleArrayTrie.swift`, `TextDictionary.swift`, `TranslateUtils.swift`)
+* **Khắc Phục Lỗi Tách Nhầm Từ "仿佛" Khi Từ Điển Có Cụm Dài Hơn**:
+  * Bổ sung phương thức `findAllPrefixMatches(text:startIndex:)` vào `protocol TrieDictionary`, `DoubleArrayTrie` và `TextDictionary` thu thập toàn bộ các mốc tiền tố khớp từ điển nhị phân `.dat` và RAM `.txt` thay vì chỉ giữ 1 match dài nhất (`findLongestMatch`).
+  * Cập nhật Bước 3 pre-scan trong `TranslateUtils.swift` để gom toàn bộ ứng viên VietPhrase $\ge 2$ ký tự. Nhờ đó khi cụm dài `仿佛在` (dài 3) bị loại do tranh chấp với `在一瞬间` (dài 4), thuật toán ở Bước 4 sẽ chọn ứng viên tiếp theo là `仿佛` (dài 2) thay vì bị tách nhầm thành các token đơn lẻ `["仿", "佛"]`.
+* **Hỗ Trợ VP/Name Chứa Ký Tự La Tinh / Số / ASCII (T-shirt, Đội A, 3D, A-1)**:
+  * Gỡ bỏ các câu lệnh tự động bỏ qua (skip) ký tự ASCII ở Bước 1 (Name scan) và ký tự không phải tiếng Trung ở Bước 3 (VP scan) trong `TranslateUtils.swift`.
+  * Đưa việc ưu tiên khớp `activeName` và `activeVP` lên đầu vòng lặp Bước 5 (Token assembly) trước khi fallback gom chuỗi ASCII thô, đồng thời tự động dừng gom chuỗi ASCII tại ranh giới `nextBoundary` của Name/VP kế tiếp.
+
 ## [1.3.77] - 2026-08-03
 
 ### Skeleton Delay + Response.error Không Báo Message (`ReaderViewModel.swift`, `ReaderView.swift`, `ExtensionManager.swift`)
