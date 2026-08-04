@@ -47,6 +47,27 @@ public final class TextDictionary: TrieDictionary {
         
         return nil
     }
+
+    public func findAllPrefixMatches(text: String, startIndex: Int) -> [(length: Int, value: String)] {
+        guard isLoaded else { return [] }
+        
+        let utf16 = Array(text.utf16)
+        let textLen = utf16.count
+        guard startIndex < textLen else { return [] }
+        
+        var matches: [(length: Int, value: String)] = []
+        let limit = min(textLen - startIndex, maxWordLength)
+        for len in stride(from: limit, through: 1, by: -1) {
+            let subRange = startIndex..<(startIndex + len)
+            let subUtf16 = Array(utf16[subRange])
+            let subStr = String(decoding: subUtf16, as: UTF16.self)
+            if let matchedValue = entries[subStr] {
+                matches.append((len, matchedValue))
+            }
+        }
+        
+        return matches
+    }
 }
 
 struct DictionaryTextRecord: Hashable {

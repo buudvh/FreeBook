@@ -521,84 +521,6 @@ public final class TranslateUtils {
         let length: Int
     }
 
-#if DEBUG
-    /// Kết quả debug từng bước của hàm tokenize. Chỉ dùng trong test/debug, không dùng production.
-    public struct TokenizeTrace {
-        public struct NameEntry {
-            public let range: Range<Int>
-            public let text: String
-        }
-        public struct VPScanEntry {
-            public let position: Int
-            public let char: String
-            public let nextNameStart: Int
-            public let maxLimit: Int
-            public let limit: Int
-            /// true nếu skip vì limit < 2
-            public let skippedDueToLimit: Bool
-            /// Độ dài match dài nhất tìm được (0 nếu không tìm thấy)
-            public let longestVPLen: Int
-            /// 8 ký tự đầu của checkText để dễ đọc
-            public let checkTextPrefix: String
-        }
-        public struct VPEntry {
-            public let range: Range<Int>
-            public let text: String
-            public let length: Int
-        }
-
-        public let input: String
-        /// Bước 1: TẤT CẢ ứng viên tên tìm được (chưa lọc)
-        public let allNameCandidates: [NameEntry]
-        /// Bước 2: Tên đã chọn sau conflict resolution
-        public let selectedNames: [NameEntry]
-        /// Bước 3: Log VP scan tại từng vị trí (kể cả các vị trí bị skip)
-        public let vpScanLog: [VPScanEntry]
-        /// Bước 3: TẤT CẢ VP candidates tìm được (longestVPLen >= 2)
-        public let allVPCandidates: [VPEntry]
-        /// Bước 4: VP đã chọn sau conflict resolution
-        public let selectedVPs: [VPEntry]
-        /// Bước 5: Token cuối cùng
-        public let finalTokens: [String]
-
-        public var description: String {
-            var lines: [String] = []
-            lines.append("=== TokenizeTrace ===")
-            lines.append("Input: \(input)")
-            lines.append("")
-            lines.append("[Bước 1] All Name Candidates (\(allNameCandidates.count)):")
-            if allNameCandidates.isEmpty { lines.append("  (không có)") }
-            for n in allNameCandidates { lines.append("  pos=\(n.range.lowerBound)..\(n.range.upperBound-1) \"\(n.text)\"") }
-            lines.append("")
-            lines.append("[Bước 2] Selected Names (\(selectedNames.count)):")
-            if selectedNames.isEmpty { lines.append("  (không có)") }
-            for n in selectedNames { lines.append("  pos=\(n.range.lowerBound)..\(n.range.upperBound-1) \"\(n.text)\"") }
-            lines.append("")
-            lines.append("[Bước 3] VP Scan Log:")
-            for s in vpScanLog {
-                if s.skippedDueToLimit {
-                    lines.append("  j=\(s.position) '\(s.char)' ⚠️ SKIPPED (limit=\(s.limit)<2, nextNameStart=\(s.nextNameStart), maxLimit=\(s.maxLimit))")
-                } else {
-                    let vpResult = s.longestVPLen >= 2 ? "longestVPLen=\(s.longestVPLen) ✅" : "longestVPLen=\(s.longestVPLen) (no VP candidate)"
-                    lines.append("  j=\(s.position) '\(s.char)' checkText=\"\(s.checkTextPrefix)\" " + vpResult)
-                }
-            }
-            lines.append("")
-            lines.append("[Bước 3] All VP Candidates (\(allVPCandidates.count)):")
-            if allVPCandidates.isEmpty { lines.append("  (không có)") }
-            for v in allVPCandidates { lines.append("  pos=\(v.range.lowerBound)..\(v.range.upperBound-1) \"\(v.text)\" len=\(v.length)") }
-            lines.append("")
-            lines.append("[Bước 4] Selected VPs (\(selectedVPs.count)):")
-            if selectedVPs.isEmpty { lines.append("  (không có)") }
-            for v in selectedVPs { lines.append("  pos=\(v.range.lowerBound)..\(v.range.upperBound-1) \"\(v.text)\"") }
-            lines.append("")
-            lines.append("[Bước 5] Final Tokens (\(finalTokens.count)):")
-            for (i, t) in finalTokens.enumerated() { lines.append("  [\(i)] \"\(t)\"") }
-            return lines.joined(separator: "\n")
-        }
-    }
-#endif
-
     private static func isAlphanumeric(_ char: Character) -> Bool {
         guard let scalar = char.unicodeScalars.first else { return false }
         return CharacterSet.alphanumerics.contains(scalar)
@@ -657,43 +579,48 @@ public final class TranslateUtils {
             let limit = min(length - i, 20)
             let checkText = String(chars[i..<(i + limit)])
             
-            var maxNameLen = 0
+            var nameLengths = Set<Int>()
             
             // 1. Book Names
-            if let bookNames = bookNames,
-               let match = bookNames.findLongestMatch(text: checkText, startIndex: 0) {
-                maxNameLen = max(maxNameLen, match.length)
+            if let bookNames = bookNames {
+                for match in bookNames.findAllPrefixMatches(text: checkText, startIndex: 0) {
+                    nameLengths.insert(match.length)
+                }
             }
             
             // 2. Custom Names
-            if let customNames = customNames,
-               let match = customNames.findLongestMatch(text: checkText, startIndex: 0) {
-                maxNameLen = max(maxNameLen, match.length)
+            if let customNames = customNames {
+                for match in customNames.findAllPrefixMatches(text: checkText, startIndex: 0) {
+                    nameLengths.insert(match.length)
+                }
             }
             
             // 3. Base Names
-            if let names = names,
-               let match = names.findLongestMatch(text: checkText, startIndex: 0) {
-                let matchedStr = String(chars[i..<(i + match.length)])
-                if !deletedNames.contains(matchedStr) {
-                    maxNameLen = max(maxNameLen, match.length)
+            if let names = names {
+                for match in names.findAllPrefixMatches(text: checkText, startIndex: 0) {
+                    let matchedStr = String(chars[i..<(i + match.length)])
+                    if !deletedNames.contains(matchedStr) {
+                        nameLengths.insert(match.length)
+                    }
                 }
             }
             
             // 4. Pronouns
-            if let pronouns = pronouns,
-               let match = pronouns.findLongestMatch(text: checkText, startIndex: 0) {
-                maxNameLen = max(maxNameLen, match.length)
+            if let pronouns = pronouns {
+                for match in pronouns.findAllPrefixMatches(text: checkText, startIndex: 0) {
+                    nameLengths.insert(match.length)
+                }
             }
             
             // 5. LuatNhan
-            if let luatNhan = luatNhan,
-               let match = luatNhan.findLongestMatch(text: checkText, startIndex: 0) {
-                maxNameLen = max(maxNameLen, match.length)
+            if let luatNhan = luatNhan {
+                for match in luatNhan.findAllPrefixMatches(text: checkText, startIndex: 0) {
+                    nameLengths.insert(match.length)
+                }
             }
             
-            if maxNameLen > 0 {
-                candidates.append(NameCandidate(range: i..<(i + maxNameLen), length: maxNameLen))
+            for len in nameLengths {
+                candidates.append(NameCandidate(range: i..<(i + len), length: len))
             }
             i += 1
         }
@@ -743,31 +670,34 @@ public final class TranslateUtils {
             
             if limit >= 2 {
                 let checkText = String(chars[j..<(j + limit)])
-                var longestVPLen = 0
+                var vpLengths = Set<Int>()
                 
                 // 1. Book VietPhrase
-                if let bookVP = bookVP,
-                   let match = bookVP.findLongestMatch(text: checkText, startIndex: 0) {
-                    longestVPLen = max(longestVPLen, match.length)
-                }
-                
-                // 2. Custom VietPhrase
-                if let customVP = customVP,
-                   let match = customVP.findLongestMatch(text: checkText, startIndex: 0) {
-                    longestVPLen = max(longestVPLen, match.length)
-                }
-                
-                // 3. Base VietPhrase
-                if let vp = vp,
-                   let match = vp.findLongestMatch(text: checkText, startIndex: 0) {
-                    let matchedStr = String(chars[j..<(j + match.length)])
-                    if !deletedVP.contains(matchedStr) {
-                        longestVPLen = max(longestVPLen, match.length)
+                if let bookVP = bookVP {
+                    for match in bookVP.findAllPrefixMatches(text: checkText, startIndex: 0) where match.length >= 2 {
+                        vpLengths.insert(match.length)
                     }
                 }
                 
-                if longestVPLen >= 2 {
-                    vpCandidates.append(VPCandidate(range: j..<(j + longestVPLen), length: longestVPLen))
+                // 2. Custom VietPhrase
+                if let customVP = customVP {
+                    for match in customVP.findAllPrefixMatches(text: checkText, startIndex: 0) where match.length >= 2 {
+                        vpLengths.insert(match.length)
+                    }
+                }
+                
+                // 3. Base VietPhrase
+                if let vp = vp {
+                    for match in vp.findAllPrefixMatches(text: checkText, startIndex: 0) where match.length >= 2 {
+                        let matchedStr = String(chars[j..<(j + match.length)])
+                        if !deletedVP.contains(matchedStr) {
+                            vpLengths.insert(match.length)
+                        }
+                    }
+                }
+                
+                for len in vpLengths {
+                    vpCandidates.append(VPCandidate(range: j..<(j + len), length: len))
                 }
             }
             j += 1
@@ -854,140 +784,6 @@ public final class TranslateUtils {
         
         return output
     }
-
-#if DEBUG
-    /// Chạy tokenize và trả về trace từng bước để debug. Chỉ dùng trong test/debug.
-    internal static func tokenizeWithTrace(_ text: String, bookId: String? = nil) -> TokenizeTrace {
-        let chars = Array(text)
-        let length = chars.count
-        guard length > 0 else {
-            return TokenizeTrace(
-                input: text, allNameCandidates: [], selectedNames: [],
-                vpScanLog: [], allVPCandidates: [], selectedVPs: [],
-                finalTokens: []
-            )
-        }
-
-        let isPronounsEnabled = UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
-        let isLuatNhanEnabled  = UserDefaults.standard.bool(forKey: "isTranslationLuatNhanEnabled")
-        let names      = TranslationManager.shared.namesDict
-        let customNames = TranslationManager.shared.customNamesDict
-        let deletedNames = TranslationManager.shared.deletedNames
-        let pronouns   = isPronounsEnabled ? TranslationManager.shared.pronounsDict : nil
-        let luatNhan   = isLuatNhanEnabled  ? TranslationManager.shared.luatNhanDict : nil
-        let vp         = TranslationManager.shared.vietPhraseDict
-        let customVP   = TranslationManager.shared.customVietPhraseDict
-        let deletedVP  = TranslationManager.shared.deletedVietPhrase
-        var bookVP: TrieDictionary? = nil
-        var bookNames: TrieDictionary? = nil
-        if let bid = bookId {
-            let bookDicts = TranslationManager.shared.getBookDictionaries(for: bid)
-            bookVP   = bookDicts.vietPhrase
-            bookNames = bookDicts.names
-        }
-
-        // --- Bước 1 ---
-        var rawCandidates: [NameCandidate] = []
-        var i = 0
-        while i < length {
-            if isASCIIAlphanumeric(chars[i]) {
-                i = asciiAlphanumericRunEnd(in: chars, from: i, upperBound: length)
-                continue
-            }
-            let limit = min(length - i, 20)
-            let checkText = String(chars[i..<(i + limit)])
-            var maxNameLen = 0
-            if let m = bookNames?.findLongestMatch(text: checkText, startIndex: 0) { maxNameLen = max(maxNameLen, m.length) }
-            if let m = customNames?.findLongestMatch(text: checkText, startIndex: 0) { maxNameLen = max(maxNameLen, m.length) }
-            if let n = names, let m = n.findLongestMatch(text: checkText, startIndex: 0) {
-                let matchedStr = String(chars[i..<(i + m.length)])
-                if !deletedNames.contains(matchedStr) { maxNameLen = max(maxNameLen, m.length) }
-            }
-            if let m = pronouns?.findLongestMatch(text: checkText, startIndex: 0) { maxNameLen = max(maxNameLen, m.length) }
-            if let m = luatNhan?.findLongestMatch(text: checkText, startIndex: 0) { maxNameLen = max(maxNameLen, m.length) }
-            if maxNameLen > 0 {
-                rawCandidates.append(NameCandidate(range: i..<(i + maxNameLen), length: maxNameLen))
-            }
-            i += 1
-        }
-        let allNameCandidates = rawCandidates.map { TokenizeTrace.NameEntry(range: $0.range, text: String(chars[$0.range])) }
-
-        // --- Bước 2 ---
-        rawCandidates.sort { $0.length != $1.length ? $0.length > $1.length : $0.range.lowerBound < $1.range.lowerBound }
-        var selNames: [NameCandidate] = []
-        var occupiedIndices = Set<Int>()
-        for c in rawCandidates {
-            var overlapping = false
-            for idx in c.range { if occupiedIndices.contains(idx) { overlapping = true; break } }
-            if !overlapping { selNames.append(c); c.range.forEach { occupiedIndices.insert($0) } }
-        }
-        selNames.sort { $0.range.lowerBound < $1.range.lowerBound }
-        let traceSelNames = selNames.map { TokenizeTrace.NameEntry(range: $0.range, text: String(chars[$0.range])) }
-
-        // --- Bước 3 ---
-        var rawVP: [VPCandidate] = []
-        var vpScanLog: [TokenizeTrace.VPScanEntry] = []
-        var j = 0
-        while j < length {
-            if occupiedIndices.contains(j) || !isChineseCharacter(chars[j]) { j += 1; continue }
-            let nextNameStart = selNames.first(where: { $0.range.lowerBound > j })?.range.lowerBound ?? length
-            let maxLimit = nextNameStart - j
-            let limit = min(maxLimit, 20)
-            if limit >= 2 {
-                let checkText = String(chars[j..<(j + limit)])
-                let prefix8 = String(checkText.prefix(8))
-                var longestVPLen = 0
-                if let m = bookVP?.findLongestMatch(text: checkText, startIndex: 0) { longestVPLen = max(longestVPLen, m.length) }
-                if let m = customVP?.findLongestMatch(text: checkText, startIndex: 0) { longestVPLen = max(longestVPLen, m.length) }
-                if let v = vp, let m = v.findLongestMatch(text: checkText, startIndex: 0) {
-                    let matched = String(chars[j..<(j + m.length)])
-                    if !deletedVP.contains(matched) { longestVPLen = max(longestVPLen, m.length) }
-                }
-                vpScanLog.append(TokenizeTrace.VPScanEntry(
-                    position: j, char: String(chars[j]),
-                    nextNameStart: nextNameStart, maxLimit: maxLimit, limit: limit,
-                    skippedDueToLimit: false, longestVPLen: longestVPLen,
-                    checkTextPrefix: prefix8
-                ))
-                if longestVPLen >= 2 {
-                    rawVP.append(VPCandidate(range: j..<(j + longestVPLen), length: longestVPLen))
-                }
-            } else {
-                vpScanLog.append(TokenizeTrace.VPScanEntry(
-                    position: j, char: String(chars[j]),
-                    nextNameStart: nextNameStart, maxLimit: maxLimit, limit: limit,
-                    skippedDueToLimit: true, longestVPLen: 0, checkTextPrefix: ""
-                ))
-            }
-            j += 1
-        }
-        let traceAllVP = rawVP.map { TokenizeTrace.VPEntry(range: $0.range, text: String(chars[$0.range]), length: $0.length) }
-
-        // --- Bước 4 ---
-        rawVP.sort { $0.length != $1.length ? $0.length > $1.length : $0.range.lowerBound < $1.range.lowerBound }
-        var selVP: [VPCandidate] = []
-        for c in rawVP {
-            var overlapping = false
-            for idx in c.range { if occupiedIndices.contains(idx) { overlapping = true; break } }
-            if !overlapping { selVP.append(c); c.range.forEach { occupiedIndices.insert($0) } }
-        }
-        selVP.sort { $0.range.lowerBound < $1.range.lowerBound }
-        let traceSelVP = selVP.map { TokenizeTrace.VPEntry(range: $0.range, text: String(chars[$0.range]), length: $0.length) }
-
-        // Bước 5: dùng tokenize thực để tránh phân kỳ
-        let finalTokens = tokenize(text, bookId: bookId)
-
-        return TokenizeTrace(
-            input: text,
-            allNameCandidates: allNameCandidates,
-            selectedNames: traceSelNames,
-            vpScanLog: vpScanLog,
-            allVPCandidates: traceAllVP,
-            selectedVPs: traceSelVP,
-            finalTokens: finalTokens
-        )
-    }
-#endif
     
     private static func isChineseCharacter(_ char: Character) -> Bool {
         guard let code = char.unicodeScalars.first?.value else { return false }
