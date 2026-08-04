@@ -4,7 +4,7 @@ generator_version: 1.0
 generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
 source_files: 93
-document_version: 4
+document_version: 6
 ---
 
 # Bản đồ Sự kiện & Cơ chế Giao tiếp (Event Graph)
@@ -90,6 +90,9 @@ graph TD
     *   *Xử lý (`ReaderViewModel` / `TranslationManager`)*: 
         *   `ReaderViewModel` giải phóng bộ đệm chương truyện `cache.clear()`.
         *   `TranslationManager` giải phóng cache từ điển của sách `clearBookDictCache()`.
+*   **`translationDictionariesDidUpdate`**:
+    *   *Mục đích*: Đồng bộ chương hiện tại và các chương Reader đã preload sau khi người dùng sửa VP/Name.
+    *   *Xử lý (`ReaderView` / `ReaderViewModel`)*: Xóa translation cache, hủy refresh cũ, rồi rebuild tuần tự chương đang hiển thị trước và các chương cache theo khoảng cách. Sự kiện không xóa audio prefetch của phiên TTS đang phát; nội dung mới được dùng khi người dùng bấm đọc lại hoặc khi TTS nạp chương kế tiếp từ repository.
 *   **`ttsDidAdvanceToNextChapter`**:
     *   *Mục đích*: Nhận biết khi `TTSManager` tự chuyển sang chương tiếp theo độc lập.
     *   *Xử lý (`ReaderView.swift`)*: Nhận thông báo chứa `bookId` và `chapterIndex` để thực hiện đồng bộ giao diện hiển thị (chuyển tab, cuộn) mà không trigger lệnh phát TTS lặp lại.

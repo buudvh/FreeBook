@@ -772,8 +772,6 @@ struct ReaderView: View {
         .onReceive(NotificationCenter.default.publisher(for: .translationDictionariesDidUpdate)) { _ in
             TranslateUtils.clearCache()
             viewModel?.updateCachedTranslatedContent(bookId: bookId)
-            TTSManager.shared.clearPrefetchCache()
-            translationRefreshToken = UUID()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("navigateReaderToPlayingChapter"))) { notification in
             guard let userInfo = notification.userInfo,

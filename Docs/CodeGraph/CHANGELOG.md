@@ -2,6 +2,13 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.79] - 2026-08-04
+
+### Giảm Giật TTS Khi Cập Nhật VP/Name (`ReaderView.swift`, `ReaderViewModel.swift`)
+* Bỏ việc gọi `TTSManager.clearPrefetchCache()` ngay khi nhận `translationDictionariesDidUpdate`, giữ nguyên audio đã tổng hợp của phiên đang phát để không tạo khoảng ngắt ở đoạn kế tiếp.
+* Thay refresh đồng bộ nội dung cache bằng một `translationRefreshTask` có thể hủy, xử lý tuần tự chapter đang hiển thị trước rồi đến các chapter loaded/preload theo khoảng cách.
+* Mỗi chapter được rebuild đầy đủ qua `ReaderParagraphBuilder`, cập nhật đồng thời tiêu đề, nội dung, `ParagraphItem` và translation spans theo VP/Name mới. Khi người dùng bấm đọc lại, Reader dịch từ `originalContent` và khởi tạo phiên TTS mới bằng nội dung đã cập nhật.
+
 ## [1.3.78] - 2026-08-04
 
 ### Sửa Lỗi Tách Từ "仿佛" & Hỗ Trợ VP/Name Chứa Ký Tự Ngoài Tiếng Trung (`DoubleArrayTrie.swift`, `TextDictionary.swift`, `TranslateUtils.swift`)

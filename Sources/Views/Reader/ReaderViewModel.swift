@@ -115,6 +115,7 @@ class ReaderViewModel: ObservableObject {
     private var navigationDebounceTask: Task<Void, Never>? = nil
     private var navigationWorkerTask: Task<Void, Never>? = nil
     private var bootstrapTimeoutTask: Task<Void, Never>? = nil
+    private var translationRefreshTask: Task<Void, Never>? = nil
     private var queuedNavigation: ReaderNavigationRequest?
     private var navigationGeneration = 0
     private let bootstrapChapterIndex: Int
@@ -868,33 +869,39 @@ class ReaderViewModel: ObservableObject {
 
     // Cập nhật lại cache nội dung và tiêu đề dịch khi từ điển thay đổi
     func updateCachedTranslatedContent(bookId: String) {
-        for (_, cached) in cache.cache {
-            if cached.state == .loaded {
-                if TranslateUtils.containsChinese(cached.originalContent) {
-                    cached.content = TranslateUtils.translateContent(cached.originalContent, bookId: bookId)
-                }
-                if TranslateUtils.containsChinese(cached.originalTitle) {
-                    cached.title = TranslateUtils.translateChapterTitle(cached.originalTitle, bookId: bookId)
-                }
-            }
-        }
+        guard bookId == self.bookId else { return }
+        refreshParagraphItems()
     }
 
     // Cập nhật lại giao diện các đoạn văn (ví dụ khi ẩn/hiện tiêu đề chương)
     func refreshParagraphItems() {
-        for (idx, cached) in cache.cache {
-            if cached.state == .loaded {
-                let origTitle = cached.originalTitle
-                let origContent = cached.originalContent
+        translationRefreshTask?.cancel()
 
-                Task {
-                    await processAndSaveChapter(index: idx, originalTitle: origTitle, originalContent: origContent)
-                }
+        let currentIndex = displayedChapterIndex
+        let snapshots = cache.cache.values
+            .filter { $0.state == .loaded }
+            .map { ($0.index, $0.originalTitle, $0.originalContent) }
+            .sorted { lhs, rhs in
+                let lhsDistance = lhs.0 == currentIndex ? 0 : abs(lhs.0 - currentIndex) + 1
+                let rhsDistance = rhs.0 == currentIndex ? 0 : abs(rhs.0 - currentIndex) + 1
+                return lhsDistance < rhsDistance
+            }
+
+        translationRefreshTask = Task { [weak self] in
+            guard let self else { return }
+            for (index, originalTitle, originalContent) in snapshots {
+                guard !Task.isCancelled else { return }
+                await self.processAndSaveChapter(
+                    index: index,
+                    originalTitle: originalTitle,
+                    originalContent: originalContent
+                )
             }
         }
     }
 
     deinit {
         memoryWarningSubscription?.cancel()
+        translationRefreshTask?.cancel()
     }
 }

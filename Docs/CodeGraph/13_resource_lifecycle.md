@@ -4,7 +4,7 @@ generator_version: 1.0
 generated_at: 2026-07-14T09:15:00+07:00
 git_commit: UNKNOWN
 source_files: 87
-document_version: 1
+document_version: 4
 ---
 
 # Vòng đời Tài nguyên Hệ thống (Resource Lifecycle)
@@ -132,6 +132,7 @@ WKWebView được sử dụng để tải các trang web chứa mã bảo vệ 
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - Shared chapter fetch tasks are unstructured repository-owned work so Reader cancellation cannot abort a load needed by TTS; force refresh cancels only the superseded load for the same key.
+- `ReaderViewModel.translationRefreshTask` owns dictionary-driven chapter rebuilds. A newer dictionary update cancels the previous refresh, loaded chapter snapshots are processed sequentially with the displayed chapter first, and deinit cancels the remaining work. Live TTS audio-prefetch tasks are not canceled by this Reader event.
 - Pending SwiftData writes retry up to three times, survive Reader dismissal, and are flushed by Reader/app lifecycle checkpoints. Cached chapter models survive TOC reconciliation when their URL remains present.
 - Book deletion database context changes commit first, spawning a background task (`Task.detached`) for physical file cleanup. Physical file cleanup failures enter a persistent retry queue in `UserDefaults` and undergo retry cycles at app launch up to 3 times before discard.
 - TOC pagination bounds the memory lifecycle: only 3 pages (300 rows) are kept loaded at any time in `loadedRowStates`. When a new page is loaded, pages outside the active window are evicted and their state objects are destroyed, freeing memory.

@@ -4,7 +4,7 @@ generator_version: 1.0
 generated_at: 2026-07-14T22:25:00+07:00
 git_commit: UNKNOWN
 source_files: 87
-document_version: 1
+document_version: 3
 ---
 
 # Hướng dẫn Điều hướng CodeGraph - Dự án FreeBook
@@ -82,7 +82,7 @@ graph TD
 - `ReaderChapterListStore` restricts memory footprint for TOC rows via page fetching (TOC pagination) and a sliding window of 3 adjacent pages (maximum 300 active rows) for large books.
 - `Chapter.generateId(bookId:url:index:)` generates length-prefixed identifiers to prevent collision, while legacy chapter IDs remain intact.
 - Improved cooperative cancellation checks in `DownloadManager` during download and text export tasks.
-- `ReaderViewModel.toggleTranslation` and `refreshParagraphItems` now iterate over all loaded chapters in `cache.cache`, ensuring preloaded/cached chapters are re-translated along with the active chapter when saving or updating dictionary definitions.
+- Dictionary updates enqueue one cancelable Reader refresh that rebuilds the displayed chapter first, then loaded/preloaded chapters by distance. Translation work runs off the MainActor and updates full `ParagraphItem` mappings without clearing live TTS audio prefetch; pressing Reader's listen action starts a new TTS session from the refreshed VP/Name content.
 - `TranslateUtils.tokenize` pre-scans VietPhrase candidates ($L \ge 2$) and resolves overlaps by prioritizing longer length (`length DESC`), then earlier start index (`lowerBound ASC`), while preserving single Chinese character fallback lookup in `performTranslation`.
 
 <!-- GENERATED END -->

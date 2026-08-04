@@ -4,7 +4,7 @@ generator_version: 1.0
 generated_at: 2026-07-14T09:15:00+07:00
 git_commit: UNKNOWN
 source_files: 87
-document_version: 1
+document_version: 3
 ---
 
 # Đồ thị Sở hữu Đối tượng (Ownership Graph)
@@ -17,7 +17,7 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 <!-- GENERATED START -->
 ## Reader ownership update (1.3.11)
 
-`ReaderView` owns one `ReaderViewModel` and one `ReaderChapterListStore` for its lifetime. The store manages a sliding 3-page window holding at most 300 active `ReaderChapterRowState` objects, while positional lightweight metadata (`ChapterRowItem`) spans the entire TOC. `ReaderViewModel` owns the chapter cache, navigation debounce/worker, speculative-prefetch task, and progress repository; its cache callback references the list store only to mutate one row. `TTSManager.shared` remains independent and owns full chapter-queue refresh for playback after Reader has supplied the short startup queue.
+`ReaderView` owns one `ReaderViewModel` and one `ReaderChapterListStore` for its lifetime. The store manages a sliding 3-page window holding at most 300 active `ReaderChapterRowState` objects, while positional lightweight metadata (`ChapterRowItem`) spans the entire TOC. `ReaderViewModel` owns the chapter cache, navigation debounce/worker, speculative-prefetch task, cancelable sequential translation-refresh task, and progress repository; its cache callback references the list store only to mutate one row. `TTSManager.shared` remains independent and owns full chapter-queue refresh for playback after Reader has supplied the short startup queue.
 
 ## 1. Sơ đồ cây Sở hữu Tổng thể
 

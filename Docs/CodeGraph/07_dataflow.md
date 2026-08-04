@@ -4,7 +4,7 @@ generator_version: 1.0
 generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
 source_files: 93
-document_version: 3
+document_version: 5
 ---
 
 # Dòng chảy Dữ liệu & Cơ chế Cache (Data Flow & Caching)
@@ -163,6 +163,7 @@ graph TD
 - Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
+- Dictionary-update data flows from `TranslationManager` notification to a cancelable, sequential Reader cache rebuild: current chapter first, then loaded/preloaded chapters. Existing TTS paragraph audio remains valid for the live session; a new listen action translates from cached `originalContent`, and next-chapter auto-advance translates raw repository content with the latest dictionaries.
 - Chapter data flows `ChapterKey -> shared memory -> ChapterPersistenceStore/SwiftData -> extension fallback`; extension output is normalized once, returned immediately, and upserted with Book/TOC metadata in the background.
 - TOC refresh reconciles by stable URL and preserves cached content/title translation for matched chapters instead of deleting and recreating the relationship.
 - Book deletion coordinates database deletion and side-effect cancellation before dispatching background file deletions. Deletion failures are enqueued in `UserDefaults` queue dataflow and retried at launch.
