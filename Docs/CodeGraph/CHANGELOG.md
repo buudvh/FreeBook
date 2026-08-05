@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.87] - 2026-08-05
+
+### Sửa Lỗi Biên Dịch Swift & Cảnh Báo Build (`TTSBackgroundProcessor.swift`, `ExtTTSService.swift`, `DownloadManager.swift`, `03_type_graph.md`)
+* **Sửa Lỗi Biên Dịch Scope `TTSProcessedChapter`**:
+  * Thêm `public typealias TTSProcessedChapter = ProcessedChapterDTO` trong `TTSBackgroundProcessor.swift` đảm bảo tên kiểu `TTSProcessedChapter` sẵn sàng trong scope khi biên dịch `TTSManager.swift`.
+* **Khắc Phục Cảnh Báo Swift 6 Async Locking & Biến Unused**:
+  * Thay thế `tempFileLock.lock()` / `tempFileLock.unlock()` trong `ExtTTSService.swift` bằng `tempFileLock.withLock { ... }` an toàn trong context `async`.
+  * Loại bỏ khai báo biến không được sử dụng `let targetChapterId = chapter.id` trong `DownloadManager.swift`.
+
 ## [1.3.86] - 2026-08-05
 
 ### Bổ Sung Metric Hiệu Năng AppLogger & Tối Ưu Hot Path (`AppLogger.swift`, `SettingsView.swift`, `ExtensionManager.swift`, `TTSManager.swift`, `ReaderViewModel.swift`)

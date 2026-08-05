@@ -407,7 +407,6 @@ public final class DownloadManager: ObservableObject {
             var txtAccumulator = ""
 
             for chapter in chapsToProcess {
-                let targetChapterId = chapter.id
                 let targetChapterTitle = chapter.title
                 let targetChapterUrl = chapter.url
                 let isChapterCached = chapter.isCached

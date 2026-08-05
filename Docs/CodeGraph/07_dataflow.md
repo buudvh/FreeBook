@@ -15,6 +15,11 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## AppLogger perf summaries and compact response data flows (1.3.86)
+
+* **TTS & Reader Perf Summary Data Flow**: `TTSManager.advanceToNextChapter` -> MainActor context creation -> Async `ChapterContentRepository.load` & `TTSBackgroundProcessor.processChapter` -> Stage timing measurement (`loadMs`, `processMs`, `synthesisMs`, `playerSetupMs`) -> Idempotent metric finalization (`finishTTSAutoAdvancePerf`) -> `[TTSPerf] AutoAdvance` emitted to `AppLogger.shared.log`. Reader translation refresh updates follow a parallel path, emitting `[ReaderPerf] TranslationRefresh`.
+* **Compact Extension Response Data Flow**: JS Extension execution -> `ExtensionManager.verifyJSResponse` -> `AppLogger.shared.isCompactSuccessLogEnabled` check -> Short structural description (`[Array: N items]`, `[Object: N keys]`, `[String: N chars]`, `[Value]`) -> `AppLogger.shared.log` without large payload allocations.
+
 ## TOC Database Optimization Data Flow (1.3.50)
 
 * **TOC Save Data Flow**: `BookDetailView` / `ReaderChapterListView` -> `ChapterContentRepository.saveChapterList` -> `ChapterPersistenceStore.saveChapterList` (actor background `ModelContext`) -> `fetchBook(bookId:in:)` (Predicate with `fetchLimit = 1`) -> Reconcile chapters by URL/Index (preserving `isCached`, `offset`, `length`, `titleTrans`, and active `TTSManager` playing chapter) -> Single atomic `ModelContext.save()` off MainActor -> `refetchBook(bookId:)` on `@MainActor` -> UI state update.

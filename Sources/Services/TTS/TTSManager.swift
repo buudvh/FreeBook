@@ -254,13 +254,16 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     private var activeTTSAutoAdvancePerf: TTSAutoAdvancePerfContext? = nil
     private var paragraph0SynthesisStartUptime: Double = 0
-    private var paragraph0SynthesisMs: Double = 0
     private var paragraph0AudioCacheHit: Bool = false
 
     private func resetParagraph0Timing() {
         paragraph0SynthesisStartUptime = 0
-        paragraph0SynthesisMs = 0
         paragraph0AudioCacheHit = false
+    }
+
+    private func currentParagraph0SynthesisMs() -> Double {
+        guard paragraph0SynthesisStartUptime > 0 && !paragraph0AudioCacheHit else { return 0.0 }
+        return (ProcessInfo.processInfo.systemUptime - paragraph0SynthesisStartUptime) * 1000
     }
 
     @MainActor
@@ -1089,6 +1092,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         logRemoteTrace("pause()") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
         #endif
         guard isPlaying else { return }
+        if activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
+            finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "pause")
+        }
         checkpointProgressAndRelease()
         self.isPlaying = false
         self.lastPausedTime = Date()
@@ -1295,6 +1301,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     public func skipForward() {
         guard currentParagraphIndex >= 0, currentParagraphIndex < paragraphs.count else { return }
+        if activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
+            finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "skip")
+        }
         if currentParagraphIndex + 1 < paragraphs.count {
             stopCurrentPlayback()
             currentParagraphIndex += 1
@@ -1326,9 +1335,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     public func skipBackward() {
-        // let pid = currentPlaybackId ?? "NONE"
-        // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] skipBackward() được gọi.")
         guard isPlaying else { return }
+        if activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
+            finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "skip")
+        }
         if currentParagraphIndex > 0 {
             stopCurrentPlayback()
             currentParagraphIndex -= 1
@@ -1337,8 +1347,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     private func stopCurrentPlayback() {
-        // let pid = currentPlaybackId ?? "NONE"
-        // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] stopCurrentPlayback() được gọi.")
         self.currentPlaybackId = nil
         if tool == "system" {
             siriService.stop()
@@ -1349,9 +1357,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     private func nextParagraph() {
-        // let pid = currentPlaybackId ?? "NONE"
-        // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] nextParagraph() được gọi.")
         guard isPlaying else { return }
+        if activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
+            finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "skip")
+        }
         if currentParagraphIndex + 1 < paragraphs.count {
             currentParagraphIndex += 1
             speakCurrent()
@@ -1425,8 +1434,17 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             do {
                 result = try await ChapterContentRepository.shared.load(request)
             } catch {
+                let loadEndUptime = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
+                let loadMs = isPerfLogging ? (loadEndUptime - perfStartUptime) * 1000 : 0
                 if isPerfLogging {
                     await MainActor.run {
+                        self?.updateTTSAutoAdvanceLoadPerf(
+                            sessionID: expectedSessionID,
+                            generation: expectedGeneration,
+                            chapterIndex: nextChapter.index,
+                            loadMs: loadMs,
+                            origin: "unknown"
+                        )
                         self?.finishTTSAutoAdvancePerf(
                             outcome: "load_failed",
                             endpoint: "error",
@@ -1494,7 +1512,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
             let rawContent = result.document.text.content
 
-            let processed: TTSProcessedChapter
+            let processed: ProcessedChapterDTO
             do {
                 processed = try await processor.processChapter(
                     bookId: expectedBookId,
@@ -1508,8 +1526,16 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     generation: expectedGeneration
                 )
             } catch {
+                let processEndUptime = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
+                let processMs = isPerfLogging ? (processEndUptime - loadEndUptime) * 1000 : 0
                 if isPerfLogging {
                     await MainActor.run {
+                        self.updateTTSAutoAdvanceProcessPerf(
+                            sessionID: expectedSessionID,
+                            generation: expectedGeneration,
+                            chapterIndex: nextChapter.index,
+                            processMs: processMs
+                        )
                         self.finishTTSAutoAdvancePerf(
                             outcome: "process_failed",
                             endpoint: "error",
@@ -1637,6 +1663,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
 
         guard !textToSpeak.isEmpty else {
+            if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
+                finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "empty_chunk")
+            }
             nextParagraph()
             return
         }
@@ -1644,7 +1673,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
             if preloadedData[0] != nil {
                 paragraph0AudioCacheHit = true
-                paragraph0SynthesisMs = 0.0
             } else {
                 paragraph0AudioCacheHit = false
                 paragraph0SynthesisStartUptime = ProcessInfo.processInfo.systemUptime
@@ -1889,12 +1917,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 self.isPlaying = true
                 if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
                     let playerSetupMs = (setupEnd - setupStart) * 1000
-                    let synMs: Double
-                    if paragraph0SynthesisStartUptime > 0 && !paragraph0AudioCacheHit {
-                        synMs = (setupStart - paragraph0SynthesisStartUptime) * 1000
-                    } else {
-                        synMs = paragraph0SynthesisMs
-                    }
+                    let synMs = currentParagraph0SynthesisMs()
                     finishTTSAutoAdvancePerf(
                         outcome: "played",
                         endpoint: "player_play",
@@ -1908,12 +1931,17 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 }
             } else {
                 if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
+                    let playerSetupMs = (setupEnd - setupStart) * 1000
+                    let synMs = currentParagraph0SynthesisMs()
                     finishTTSAutoAdvancePerf(
                         outcome: "player_failed",
                         endpoint: "error",
                         sessionID: sessionID,
                         generation: ttsProcessingGeneration,
-                        chapterIndex: playingChapterIndex
+                        chapterIndex: playingChapterIndex,
+                        synthesisMs: synMs,
+                        playerSetupMs: playerSetupMs,
+                        audioCacheHit: paragraph0AudioCacheHit
                     )
                 }
                 AppLogger.shared.log("❌ [TTSManager] [ID=\(playbackId)] player.play() thất bại")
@@ -1923,13 +1951,19 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 ToastManager.shared.show(message: "Lỗi trình phát âm thanh: Không thể phát dữ liệu audio.", type: .error)
             }
         } catch {
+            let setupEnd = ProcessInfo.processInfo.systemUptime
             if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
+                let playerSetupMs = (setupEnd - setupStart) * 1000
+                let synMs = currentParagraph0SynthesisMs()
                 finishTTSAutoAdvancePerf(
                     outcome: "player_failed",
                     endpoint: "error",
                     sessionID: sessionID,
                     generation: ttsProcessingGeneration,
-                    chapterIndex: playingChapterIndex
+                    chapterIndex: playingChapterIndex,
+                    synthesisMs: synMs,
+                    playerSetupMs: playerSetupMs,
+                    audioCacheHit: paragraph0AudioCacheHit
                 )
             }
             AppLogger.shared.log("❌ [TTSManager] [ID=\(playbackId)] Khởi tạo AVAudioPlayer thất bại: \(error.localizedDescription)")
@@ -1955,12 +1989,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private func playNghiTTS(_ text: String) {
         guard let service = nghiTTSService else {
             if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
+                let synMs = currentParagraph0SynthesisMs()
                 finishTTSAutoAdvancePerf(
                     outcome: "synthesis_failed",
                     endpoint: "error",
                     sessionID: sessionID,
                     generation: ttsProcessingGeneration,
-                    chapterIndex: playingChapterIndex
+                    chapterIndex: playingChapterIndex,
+                    synthesisMs: synMs
                 )
             }
             AppLogger.shared.log("NghiTTS engine not initialized.")
@@ -2004,12 +2040,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 await MainActor.run {
                     guard self.currentPlaybackId == playbackId else { return }
                     if index == 0 && self.activeTTSAutoAdvancePerf?.chapterIndex == self.playingChapterIndex {
+                        let synMs = self.currentParagraph0SynthesisMs()
                         self.finishTTSAutoAdvancePerf(
                             outcome: "synthesis_failed",
                             endpoint: "error",
                             sessionID: self.sessionID,
                             generation: self.ttsProcessingGeneration,
-                            chapterIndex: self.playingChapterIndex
+                            chapterIndex: self.playingChapterIndex,
+                            synthesisMs: synMs
                         )
                     }
                     AppLogger.shared.log("🔊 [TTSManager] Chơi trực tiếp thất bại cho đoạn \(index): \(error.localizedDescription)")
@@ -2062,12 +2100,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 await MainActor.run {
                     guard self.currentPlaybackId == playbackId else { return }
                     if index == 0 && self.activeTTSAutoAdvancePerf?.chapterIndex == self.playingChapterIndex {
+                        let synMs = self.currentParagraph0SynthesisMs()
                         self.finishTTSAutoAdvancePerf(
                             outcome: "synthesis_failed",
                             endpoint: "error",
                             sessionID: self.sessionID,
                             generation: self.ttsProcessingGeneration,
-                            chapterIndex: self.playingChapterIndex
+                            chapterIndex: self.playingChapterIndex,
+                            synthesisMs: synMs
                         )
                     }
                     AppLogger.shared.log("❌ Lỗi Google Cloud TTS: \(error.localizedDescription)")
@@ -2131,12 +2171,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 await MainActor.run {
                     guard self.currentPlaybackId == playbackId else { return }
                     if index == 0 && self.activeTTSAutoAdvancePerf?.chapterIndex == self.playingChapterIndex {
+                        let synMs = self.currentParagraph0SynthesisMs()
                         self.finishTTSAutoAdvancePerf(
                             outcome: "synthesis_failed",
                             endpoint: "error",
                             sessionID: self.sessionID,
                             generation: self.ttsProcessingGeneration,
-                            chapterIndex: self.playingChapterIndex
+                            chapterIndex: self.playingChapterIndex,
+                            synthesisMs: synMs
                         )
                     }
                     AppLogger.shared.log("❌ Lỗi Extension TTS: \(error.localizedDescription)")

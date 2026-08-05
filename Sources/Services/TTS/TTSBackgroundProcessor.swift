@@ -10,6 +10,8 @@ public struct ProcessedChapterDTO: Sendable {
     public let generation: Int
 }
 
+public typealias TTSProcessedChapter = ProcessedChapterDTO
+
 public actor TTSBackgroundProcessor {
     public init() {}
     

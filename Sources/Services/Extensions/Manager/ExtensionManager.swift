@@ -844,6 +844,10 @@ public final class ExtensionManager: ObservableObject {
             if let context = val.context,
                let objectKeys = context.objectForKeyedSubscript("Object")?.objectForKeyedSubscript("keys"),
                let keys = objectKeys.call(withArguments: [val]) {
+                if context.exception != nil {
+                    context.exception = nil
+                    return "[Object]"
+                }
                 let count = Int(keys.forProperty("length").toInt32())
                 return "[Object: \(count) keys]"
             }

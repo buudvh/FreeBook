@@ -58,9 +58,9 @@ public final class ExtTTSService {
         try audioData.write(to: tempFileUrl)
         
         // Memory leak fix: Register temp file for explicit cleanup (defer doesn't execute on Task cancellation)
-        tempFileLock.lock()
-        activeTempFiles.insert(tempFileUrl)
-        tempFileLock.unlock()
+        tempFileLock.withLock {
+            activeTempFiles.insert(tempFileUrl)
+        }
         
         // Memory leak fix: Check for task cancellation before expensive AVAudioFile read
         guard !Task.isCancelled else {

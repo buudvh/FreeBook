@@ -1244,10 +1244,19 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ### 130a. TTSBackgroundProcessor (ACTOR)
 
-*   **Định nghĩa tại**: [Services/TTS/TTSBackgroundProcessor.swift:13](../../Sources/Services/TTS/TTSBackgroundProcessor.swift#L13)
+*   **Định nghĩa tại**: [Services/TTS/TTSBackgroundProcessor.swift:15](../../Sources/Services/TTS/TTSBackgroundProcessor.swift#L15)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Actor`
 *   **Sử dụng (Uses)**: `ChapterTextNormalizer`, `TranslateUtils`, `TTSParagraphBuilder`, `TTSParagraph`
 *   **Được sử dụng bởi (Used by)**: `TTSManager`, `TTSManagerTests`
+
+---
+
+### 130b. ProcessedChapterDTO / TTSProcessedChapter (STRUCT / TYPEALIAS)
+
+*   **Định nghĩa tại**: [Services/TTS/TTSBackgroundProcessor.swift:3](../../Sources/Services/TTS/TTSBackgroundProcessor.swift#L3)
+*   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `Sendable`
+*   **Sử dụng (Uses)**: `TTSParagraph`
+*   **Được sử dụng bởi (Used by)**: `TTSBackgroundProcessor`, `TTSManager`
 
 ---
 

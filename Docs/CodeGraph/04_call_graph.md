@@ -15,6 +15,12 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## AppLogger perf summaries and Extension compact response calls (1.3.86)
+
+* `TTSManager.advanceToNextChapter` creates an active `TTSAutoAdvancePerfContext` on `@MainActor` before launching asynchronous content loading. It updates load/process stage metrics on `ChapterContentRepository.load` and `TTSBackgroundProcessor.processChapter` success or failure, and emits `[TTSPerf] AutoAdvance` log summary upon playback start (`player.play() == true`), error, stop, or supersession.
+* `ReaderViewModel.refreshParagraphItems` instruments translation refresh latency with `ProcessInfo.processInfo.systemUptime` and emits `[ReaderPerf] TranslationRefresh` summary detailing cached and neighbor chapter counts, current/neighbor processing times, and task outcome (`completed`, `cancelled`, `superseded`).
+* `ExtensionManager.verifyJSResponse` checks `AppLogger.shared.isCompactSuccessLogEnabled`. When compact logging is enabled, JSON responses are formatted as `[Array: N items]`, `[Object: N keys]`, `[String: N chars]`, or `[Value]` to eliminate heavy log string allocation.
+
 ## TOC Database Optimization Calls (1.3.50)
 
 * `ChapterContentRepository.shared.saveChapterList(bookId:createSnapshot:chapters:mode:protectedTTSChapter:)` delegates to its configured `ChapterPersistenceStore` actor instance.
