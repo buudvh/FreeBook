@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.85] - 2026-08-05
+
+### Sửa Lỗi Sizing Cache Highlight & Thêm Unit Test TextKit Layout (`ReaderTextView.swift`, `ReaderTextViewTests.swift`)
+* **Sửa Lỗi Sizing Cache Khi Highlight (`ReaderTextView.swift`)**:
+  * Reset `context.coordinator.cachedWidth = nil` và `context.coordinator.cachedHeight = nil` khi `isHighlightChanged == true` trong `updateUIView`.
+  * Đảm bảo `sizeThatFits` được SwiftUI gọi lại sẽ thực thi `uiView.sizeThatFits(...)` và trả về chiều cao thực tế của `UITextView` sau khi dải highlight TTS thay đổi, tránh bị nén chiều cao theo cache cũ gây cắt xén chữ ở dòng cuối cùng.
+* **Thêm Regression Test TextKit (`Tests/ReaderTextViewTests.swift`)**:
+  * Khởi tạo `ReaderTextViewTextKitTests` với chuỗi tiếng Việt chuẩn UTF-8 chứa đoạn văn tiếng Việt bắt đầu bằng `"Tiền Đa Đa nghe xong..."`.
+  * Kiểm tra và khẳng định tính bất biến của các bản chụp line layout (`LineLayoutSnapshot`), số lượng line fragment và `usedRect` ở 3 trạng thái (chưa bôi đen, bôi đen TTS, và đã tắt bôi đen).
+
 ## [1.3.84] - 2026-08-05
 
 ### Tách Cập Nhật VP/Name Khỏi Phiên TTS Đang Hoạt Động (`ReaderView.swift`, `ReaderViewModel.swift`, `TTSManager.swift`)

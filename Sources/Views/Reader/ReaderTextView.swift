@@ -205,6 +205,8 @@ struct ReaderTextView: UIViewRepresentable {
             uiView.attributedText = attributedText
             uiView.selectedRange = NSRange(location: 0, length: 0)
         } else if isHighlightChanged {
+            context.coordinator.cachedWidth = nil
+            context.coordinator.cachedHeight = nil
             context.coordinator.lastHighlightRange = highlightRange
             let storageLength = uiView.textStorage.length
             uiView.textStorage.beginEditing()
