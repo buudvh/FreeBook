@@ -24,13 +24,13 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.85] - 2026-08-05
 
-### Sửa Lỗi Sizing Cache Highlight & Thêm Unit Test TextKit Layout (`ReaderTextView.swift`, `ReaderTextViewTests.swift`)
-* **Sửa Lỗi Sizing Cache Khi Highlight (`ReaderTextView.swift`)**:
-  * Reset `context.coordinator.cachedWidth = nil` và `context.coordinator.cachedHeight = nil` khi `isHighlightChanged == true` trong `updateUIView`.
-  * Đảm bảo `sizeThatFits` được SwiftUI gọi lại sẽ thực thi `uiView.sizeThatFits(...)` và trả về chiều cao thực tế của `UITextView` sau khi dải highlight TTS thay đổi, tránh bị nén chiều cao theo cache cũ gây cắt xén chữ ở dòng cuối cùng.
-* **Thêm Regression Test TextKit (`Tests/ReaderTextViewTests.swift`)**:
+### Sửa Lỗi Highlight TextKit Trực Tiếp Trên NSTextStorage & Thêm Unit Test Layout (`ReaderTextView.swift`, `ReaderTextViewTests.swift`)
+* **Sửa Lỗi Highlight Bằng NSLayoutManager Temporary Attributes (`ReaderTextView.swift`)**:
+  * Chuyển đổi cơ chế bôi đen TTS từ sửa thuộc tính màu trực tiếp trên `NSTextStorage` sang áp dụng `NSLayoutManager.addTemporaryAttributes` / `removeTemporaryAttribute`.
+  * Giữ nguyên thuộc tính kiên định (persistent attributes) của `NSTextStorage`, ngăn chặn TextKit tính toán lại glyph advance hay ngắt dòng trên văn bản căn đều (justified text), triệt tiêu lỗi mất/xén chữ ở mép phải dòng cuối cùng khi bật highlight.
+* **Thêm Regression Test TextKit Temporary Attributes (`Tests/ReaderTextViewTests.swift`)**:
   * Khởi tạo `ReaderTextViewTextKitTests` với chuỗi tiếng Việt chuẩn UTF-8 chứa đoạn văn tiếng Việt bắt đầu bằng `"Tiền Đa Đa nghe xong..."`.
-  * Kiểm tra và khẳng định tính bất biến của các bản chụp line layout (`LineLayoutSnapshot`), số lượng line fragment và `usedRect` ở 3 trạng thái (chưa bôi đen, bôi đen TTS, và đã tắt bôi đen).
+  * Kiểm tra và khẳng định tính bất biến của thuộc tính kiên định `textStorage`, các bản chụp line layout (`LineLayoutSnapshot`), số lượng line fragment và `usedRect` ở 3 trạng thái (chưa bôi đen, bôi đen temporary attributes, và đã xóa temporary attributes).
 
 ## [1.3.84] - 2026-08-05
 

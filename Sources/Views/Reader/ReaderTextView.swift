@@ -193,39 +193,45 @@ struct ReaderTextView: UIViewRepresentable {
             }
             attributedText.addAttribute(.paragraphStyle, value: paragraphStyle, range: fullRange)
 
-            if let highlight = highlightRange, highlight.location != NSNotFound && highlight.location + highlight.length <= nsText.length {
-                let highlightBgColor = theme.highlightUIColor
-                attributedText.addAttribute(.backgroundColor, value: highlightBgColor, range: highlight)
-                if let textFgColor = theme.highlightTextUIColor {
-                    attributedText.addAttribute(.foregroundColor, value: textFgColor, range: highlight)
-                }
-                performAutoScrollIfNeeded(highlight)
-            }
-
             uiView.attributedText = attributedText
             uiView.selectedRange = NSRange(location: 0, length: 0)
+
+            if let old = oldHighlight, old.location != NSNotFound, old.location >= 0, old.location + old.length <= nsText.length {
+                uiView.layoutManager.removeTemporaryAttribute(.backgroundColor, forCharacterRange: old)
+                uiView.layoutManager.removeTemporaryAttribute(.foregroundColor, forCharacterRange: old)
+            }
+
+            if let highlight = highlightRange, highlight.location != NSNotFound, highlight.location >= 0, highlight.location + highlight.length <= nsText.length {
+                var tempAttrs: [NSAttributedString.Key: Any] = [
+                    .backgroundColor: theme.highlightUIColor
+                ]
+                if let textFgColor = theme.highlightTextUIColor {
+                    tempAttrs[.foregroundColor] = textFgColor
+                }
+                uiView.layoutManager.addTemporaryAttributes(tempAttrs, forCharacterRange: highlight)
+                performAutoScrollIfNeeded(highlight)
+            }
         } else if isHighlightChanged {
             context.coordinator.cachedWidth = nil
             context.coordinator.cachedHeight = nil
             context.coordinator.lastHighlightRange = highlightRange
             let storageLength = uiView.textStorage.length
-            uiView.textStorage.beginEditing()
 
             if let old = oldHighlight, old.location != NSNotFound, old.location >= 0, old.location + old.length <= storageLength {
-                uiView.textStorage.removeAttribute(.backgroundColor, range: old)
-                uiView.textStorage.addAttribute(.foregroundColor, value: UIColor(theme.textColor), range: old)
+                uiView.layoutManager.removeTemporaryAttribute(.backgroundColor, forCharacterRange: old)
+                uiView.layoutManager.removeTemporaryAttribute(.foregroundColor, forCharacterRange: old)
             }
 
             if let highlight = highlightRange, highlight.location != NSNotFound, highlight.location >= 0, highlight.location + highlight.length <= storageLength {
-                let highlightBgColor = theme.highlightUIColor
-                uiView.textStorage.addAttribute(.backgroundColor, value: highlightBgColor, range: highlight)
+                var tempAttrs: [NSAttributedString.Key: Any] = [
+                    .backgroundColor: theme.highlightUIColor
+                ]
                 if let textFgColor = theme.highlightTextUIColor {
-                    uiView.textStorage.addAttribute(.foregroundColor, value: textFgColor, range: highlight)
+                    tempAttrs[.foregroundColor] = textFgColor
                 }
+                uiView.layoutManager.addTemporaryAttributes(tempAttrs, forCharacterRange: highlight)
                 performAutoScrollIfNeeded(highlight)
             }
-
-            uiView.textStorage.endEditing()
         }
         
         // Xử lý trigger lấy index ký tự hiển thị đầu tiên
