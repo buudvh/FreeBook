@@ -2,6 +2,12 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.83] - 2026-08-05
+
+### Sửa Lỗi Biên Dịch Swift Do Thiếu Import Foundation (`TTSParagraphBuilder.swift`)
+* **Thêm Import `Foundation`**:
+  * Bổ sung `import Foundation` ở đầu tệp `TTSParagraphBuilder.swift` để định nghĩa đầy đủ các kiểu dữ liệu `NSRange`, `NSIntersectionRange`, `NSMaxRange`, `NSString` và giải quyết lỗi suy luận kiểu dữ liệu (`cannot convert value of type 'Duration' to expected argument type 'Int'`).
+
 ## [1.3.82] - 2026-08-05
 
 ### Tối Ưu Hóa Reading/Highlight & VP/Name Cascade (`TranslationManager.swift`, `TranslateUtils.swift`, `DictionaryCache.swift`, `TTSManager.swift`, `TTSModels.swift`, `TTSBackgroundProcessor.swift`, `TTSParagraphBuilder.swift`, `ChapterCache.swift`, `ParagraphCardView.swift`, `ReaderTextView.swift`, `ReaderView.swift`, `ReaderViewModel.swift`)
