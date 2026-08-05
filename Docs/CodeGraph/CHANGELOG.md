@@ -2,6 +2,30 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.81] - 2026-08-05
+
+### Sửa Lỗi Regression Highlight TTS & Lệch Range Cuối Chunk Cấp Chunk (`ChapterTextNormalizer.swift`, `TTSBackgroundProcessor.swift`, `TTSManager.swift`, `ReaderView.swift`, `ParagraphCardView.swift`, `ReaderSelectionMapper.swift`, `ChapterTextNormalizerTests.swift`)
+* **Nâng cấp Bôi Đen TTS Cấp Chunk (Exact Current Chunk Range)**:
+  * Phân biệt rõ Paragraph Identity và Chunk Identity: `highlightRange` giữ nguyên `NSRange` cấp chunk của `TTSParagraph.range`.
+  * Trong `ParagraphCardView.swift`, bỏ bọc `ReaderSelectionMapper.mapHighlight` và truyền trực tiếp `highlightRange` từ `TTSManager` xuống `ReaderTextView` để tô màu nền đúng dải ký tự của chunk đang đọc, không bôi đen cả paragraph.
+  * Trong `ReaderSelectionMapper.swift`, xóa 3 phương thức `mapHighlight`, `mappedRangeUsingOriginalSpans`, và `proportionalHighlightFallback`.
+* **Nâng Cấp Thuật Toán Chọn Chunk Khi Bấm "Nghe" (`TTSManager.swift`)**:
+  * Khi bôi đen văn bản rồi bấm "Nghe", `startSpeaking` nhận `startTextOffset` là `selectionRange.location` (offset ký tự đầu tiên của selection range).
+  * `TTSManager.continueStartSpeaking` lọc danh sách chunks thuộc `startParagraphIndex`, kiểm tra offset hợp lệ (`offset != NSNotFound`, `offset >= 0`, `minLoc <= offset <= maxEnd`). Nếu offset rơi vào ranh giới/khoảng trắng ngắt chunk do trimming, ưu tiên chọn chunk kế tiếp có `location >= offset`, hoặc chunk liền trước có `NSMaxRange(range) <= offset`; nếu offset không hợp lệ (hoặc `NSNotFound` / vượt ngoài phạm vi đoạn), tự động fallback về chunk đầu tiên của đoạn.
+* **Unified Pipeline & Preserved Gap Content (`ChapterTextNormalizer.swift`, `TTSBackgroundProcessor.swift`)**:
+  * Thêm `ChapterTextNormalizer.reconstructContentPreservingLineIDs(from:)` tái tạo chuỗi raw content từ `cached.paragraphItems` duy trì đúng các ký tự ngắt dòng `\n`.
+  * `TTSBackgroundProcessor.processChapter` thực hiện quy trình Lọc rác raw content 1 lần duy nhất $\rightarrow$ Normalize raw $\rightarrow$ Translate per Line $\rightarrow$ Reconstruct gap-preserved content $\rightarrow$ `normalizeProcessedContent` (không lọc rác lần 2 trên chuỗi dịch), đảm bảo `normalizedContent` giữ ngắt dòng và 100% khớp dải ký tự với Reader UI.
+* **Snapshot Session & Debounced Coalescing Sync (`TTSManager.swift`, `ReaderView.swift`)**:
+  * Thêm `isTranslationEnabled` vào `TTSPreparedChapterKey` và lưu `sessionTranslationEnabled` snapshot cho luồng prefetch trong `TTSManager`.
+  * Bổ sung `ttsManager.clearPreparedChapterCache()` để giải phóng cache chapter chuẩn bị khi đổi từ điển/cài đặt.
+  * Trong `ReaderView.swift`, thêm `scheduleTTSSynchronization()` với debounce 100ms gom nhóm các sự kiện cập nhật từ điển và bật/tắt dịch, tự động đồng bộ lại phiên TTS active nếu đang chạy hoặc dừng an toàn nếu đang paused.
+* **Chuẩn Hóa Tiêu Đề Chương Dịch 1 Lần Duy Nhất (`TTSBackgroundProcessor.swift`, `ReaderView.swift`, `TTSManager.swift`)**:
+  * `TTSChapterInfo.title` thống nhất mang tiêu đề gốc (RAW title). `ReaderView.ttsChapterInfo` và `TTSManager` truyền RAW title vào `TTSBackgroundProcessor.processChapter`.
+  * `TTSBackgroundProcessor.processChapter` là nơi duy nhất chịu trách nhiệm dịch tiêu đề 1 lần duy nhất khi `shouldTranslateRawContent == true`, trả về `ProcessedChapterDTO.chapterTitle`.
+  * Triệt tiêu hoàn toàn lỗi dịch tiêu đề 2 lần (double translation), đảm bảo tiêu đề `TTSParagraph` (`paragraphIndex = -1`), `TTSManager.chapterTitle` (Now Playing/Lock Screen) và tiêu đề hiển thị trên Reader đồng nhất 100%.
+* **Dọn Dẹp Unit Tests Sai ở Commit HEAD**:
+  * Xóa 5 unit test cases testing `mapHighlight` trong `Tests/ChapterTextNormalizerTests.swift` để phù hợp với kiến trúc bôi đen cấp chunk chuẩn.
+
 ## [1.3.80] - 2026-08-05
 
 ### Sửa Lỗi Highlight TTS Lệch Khi Đoạn Văn Nhiều Dấu Câu (`ReaderSelectionMapper.swift`, `ParagraphCardView.swift`, `ReaderView.swift`)

@@ -14,7 +14,15 @@ struct NormalizedChapterText: Sendable, Equatable {
 enum ChapterTextNormalizer {
     static func normalize(_ rawContent: String) -> NormalizedChapterText {
         let cleanRaw = JunkFilterManager.shared.filterRawContent(rawContent)
-        let canonicalNewlines = cleanRaw
+        return normalizeInternal(cleanRaw)
+    }
+
+    static func normalizeProcessedContent(_ content: String) -> NormalizedChapterText {
+        return normalizeInternal(content)
+    }
+
+    private static func normalizeInternal(_ textContent: String) -> NormalizedChapterText {
+        let canonicalNewlines = textContent
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
 
@@ -41,6 +49,16 @@ enum ChapterTextNormalizer {
             content: nonEmptyTexts.joined(separator: "\n"),
             lines: lines
         )
+    }
+
+    static func reconstructContentPreservingLineIDs(from entries: [(id: Int, text: String)]) -> String {
+        let validEntries = entries.filter { $0.id >= 0 && !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        guard let maxId = validEntries.map(\.id).max() else { return "" }
+        var lineArray = [String](repeating: "", count: maxId + 1)
+        for entry in validEntries {
+            lineArray[entry.id] = entry.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return lineArray.joined(separator: "\n")
     }
 }
 

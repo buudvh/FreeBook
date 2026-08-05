@@ -177,6 +177,7 @@ struct ReaderView: View {
     @State private var updateProgressWorkItem: DispatchWorkItem? = nil
     @State private var updateTTSPositionWorkItem: DispatchWorkItem? = nil
     @State private var prepareTTSTask: DispatchWorkItem? = nil
+    @State private var syncTTSTask: Task<Void, Never>? = nil
 
     @State private var localChaptersCount: Int = 0
     @State private var currentChapterTitle: String = ""
@@ -519,14 +520,17 @@ struct ReaderView: View {
         .onChange(of: isTranslationEnabled) { _, newValue in
             applyTranslation()
             chapterListStore?.updateTranslation(isTranslationEnabled: newValue)
+            scheduleTTSSynchronization()
         }
         .onChange(of: isTranslationPronounsEnabled) { _, _ in
             TranslateUtils.clearCache()
             applyTranslation()
+            scheduleTTSSynchronization()
         }
         .onChange(of: isTranslationLuatNhanEnabled) { _, _ in
             TranslateUtils.clearCache()
             applyTranslation()
+            scheduleTTSSynchronization()
         }
         .sheet(isPresented: $showingAddNghiTTSPhonemeSheet) {
             AddWordSheet(initialKey: selectedDisplayedText) { key, val in
@@ -772,6 +776,7 @@ struct ReaderView: View {
         .onReceive(NotificationCenter.default.publisher(for: .translationDictionariesDidUpdate)) { _ in
             TranslateUtils.clearCache()
             viewModel?.updateCachedTranslatedContent(bookId: bookId)
+            scheduleTTSSynchronization()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("navigateReaderToPlayingChapter"))) { notification in
             guard let userInfo = notification.userInfo,
@@ -1614,19 +1619,14 @@ struct ReaderView: View {
 
     private func ttsChapterInfo(at index: Int) async -> TTSChapterInfo? {
         if let snapshot = await viewModel?.fetchChapterSnapshot(at: index) {
-            let rawTitle = snapshot.titleTrans ?? snapshot.title
-            let title = isTranslationEnabled && TranslateUtils.containsChinese(rawTitle)
-                ? TranslateUtils.translateChapterTitle(rawTitle, bookId: bookId)
-                : rawTitle
-            return TTSChapterInfo(title: title, url: snapshot.url, index: snapshot.index, host: snapshot.host)
+            let rawTitle = snapshot.title
+            return TTSChapterInfo(title: rawTitle, url: snapshot.url, index: snapshot.index, host: snapshot.host)
         }
 
         guard currentOnlineChapters.indices.contains(index) else { return nil }
         let chapter = currentOnlineChapters[index]
-        let title = isTranslationEnabled && TranslateUtils.containsChinese(chapter.name)
-            ? TranslateUtils.translateChapterTitle(chapter.name, bookId: bookId)
-            : chapter.name
-        return TTSChapterInfo(title: title, url: chapter.url, index: index, host: chapter.host)
+        let rawTitle = chapter.name
+        return TTSChapterInfo(title: rawTitle, url: chapter.url, index: index, host: chapter.host)
     }
 
     private func nextChapter() {
@@ -1712,11 +1712,44 @@ struct ReaderView: View {
 
     private func getTTSChapterContent(for index: Int) -> String {
         guard let cached = viewModel?.cache.get(index) else { return "" }
-        let rawContent = cached.originalContent.isEmpty ? cached.content : cached.originalContent
-        if isTranslationEnabled && TranslateUtils.containsChinese(rawContent) {
-            return TranslateUtils.translateContent(rawContent, bookId: bookId)
+        if cached.paragraphItems.contains(where: { !$0.isTitle }) {
+            let reconstructed = ChapterTextNormalizer.reconstructContentPreservingLineIDs(
+                from: cached.paragraphItems.filter { !$0.isTitle }.map { (id: $0.id, text: $0.original) }
+            )
+            if !reconstructed.isEmpty {
+                return reconstructed
+            }
         }
-        return rawContent
+        return cached.originalContent.isEmpty ? cached.content : cached.originalContent
+    }
+
+    private func scheduleTTSSynchronization() {
+        syncTTSTask?.cancel()
+        syncTTSTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            guard !Task.isCancelled else { return }
+            performTTSSynchronization()
+        }
+    }
+
+    private func performTTSSynchronization() {
+        TranslateUtils.clearCache()
+        ttsManager.clearPreparedChapterCache()
+        ttsManager.clearPrefetchCache()
+
+        guard ttsManager.showFloatingWidget && ttsManager.playingBookId == bookId else { return }
+
+        let wasPlaying = ttsManager.isPlaying
+        let targetIndex = ttsManager.playingChapterIndex
+        let targetParagraphId = ttsManager.currentParentParagraphIndex
+
+        if wasPlaying {
+            let contentToUse = getTTSChapterContent(for: targetIndex)
+            guard !contentToUse.isEmpty else { return }
+            startTTS(at: targetIndex, paragraphIndex: targetParagraphId)
+        } else {
+            ttsManager.stop()
+        }
     }
 
     private func getSavedParagraphIndex(for idx: Int) -> Int {

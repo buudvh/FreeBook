@@ -13,6 +13,7 @@ private struct TTSPreparedChapterKey: Equatable, Sendable {
     let content: String
     let chunkLength: Int
     let includeChapterTitle: Bool
+    let isTranslationEnabled: Bool
 }
 
 private struct TTSPreparedChapter: Sendable {
@@ -378,6 +379,15 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private var preparationGeneration = 0
     private var preparedChapterKey: TTSPreparedChapterKey? = nil
     private var preparedChapter: TTSPreparedChapter? = nil
+    private var sessionTranslationEnabled: Bool = false
+
+    public func clearPreparedChapterCache() {
+        prepareSpeakingTask?.cancel()
+        prepareSpeakingTask = nil
+        preparationGeneration += 1
+        preparedChapterKey = nil
+        preparedChapter = nil
+    }
     // Now Playing updates include detached translation/cover work. A newer
     // playback state must invalidate older tasks so Lock Screen cannot revert
     // a just-resumed session back to paused (or vice versa).
@@ -402,7 +412,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     // Dữ liệu phân đoạn
     public private(set) var paragraphs: [TTSParagraph] = []
     private var chapterContent: String = ""
-    private var normalizedChapterText = ChapterTextNormalizer.normalize("")
+    private var normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent("")
 
     // Trình phát & Engine
     private let siriService = SiriTTSService()
@@ -682,6 +692,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         guard let currentChapter = chapters.first(where: { $0.index == currentIndex }) else { return }
         let key = "showChapterTitle_\(bookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+        let isTransEnabled = TranslateUtils.isTranslationEnabled
 
         let preparedKey = TTSPreparedChapterKey(
             bookId: bookId,
@@ -689,7 +700,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             chapterTitle: currentChapter.title,
             content: chapterContent,
             chunkLength: chunkLength,
-            includeChapterTitle: showTitle
+            includeChapterTitle: showTitle,
+            isTranslationEnabled: isTransEnabled
         )
         guard preparedChapterKey != preparedKey else { return }
 
@@ -706,7 +718,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     chapterTitle: currentChapter.title,
                     rawContent: chapterContent,
                     chunkLength: preparedKey.chunkLength,
-                    shouldTranslateRawContent: false,
+                    shouldTranslateRawContent: isTransEnabled,
                     includeChapterTitle: showTitle,
                     sessionID: UUID(),
                     generation: expectedPreparationGeneration
@@ -785,6 +797,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         self.configureAudioSession()
         self.setRemoteCommandsEnabled(true)
+        let isTransEnabled = TranslateUtils.isTranslationEnabled
+        self.sessionTranslationEnabled = isTransEnabled
         self.playingBookId = bookId
         self.playingCoverUrl = coverUrl
         self.chaptersQueue = chapters
@@ -814,11 +828,15 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             chapterTitle: expectedTitle,
             content: chapterContent,
             chunkLength: chunkLen,
-            includeChapterTitle: showTitle
+            includeChapterTitle: showTitle,
+            isTranslationEnabled: isTransEnabled
         )
 
         if preparedChapterKey == requestedKey, let preparedChapter {
-            self.normalizedChapterText = ChapterTextNormalizer.normalize(preparedChapter.normalizedContent)
+            self.chapterTitle = isTransEnabled && TranslateUtils.containsChinese(expectedTitle)
+                ? TranslateUtils.translateChapterTitle(expectedTitle, bookId: bookId)
+                : expectedTitle
+            self.normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent(preparedChapter.normalizedContent)
             self.chapterContent = preparedChapter.normalizedContent
             self.paragraphs = preparedChapter.paragraphs
             self.continueStartSpeaking(startParagraphIndex: startParagraphIndex, startTextOffset: startTextOffset)
@@ -835,7 +853,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     chapterTitle: expectedTitle,
                     rawContent: chapterContent,
                     chunkLength: chunkLen,
-                    shouldTranslateRawContent: false,
+                    shouldTranslateRawContent: isTransEnabled,
                     includeChapterTitle: showTitle,
                     sessionID: newSessionID,
                     generation: currentGen
@@ -851,7 +869,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     normalizedContent: processed.normalizedContent,
                     paragraphs: processed.paragraphs
                 )
-                self.normalizedChapterText = ChapterTextNormalizer.normalize(processed.normalizedContent)
+                self.chapterTitle = processed.chapterTitle
+                self.normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent(processed.normalizedContent)
                 self.chapterContent = processed.normalizedContent
                 self.paragraphs = processed.paragraphs
                 self.continueStartSpeaking(startParagraphIndex: startParagraphIndex, startTextOffset: startTextOffset)
@@ -868,22 +887,30 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         var targetIdx = 0
         if startParagraphIndex == -1 {
             targetIdx = 0
-        } else if let offset = startTextOffset {
-            if let idx = paragraphs.firstIndex(where: {
-                $0.paragraphIndex == startParagraphIndex &&
-                $0.range.location <= offset && offset < ($0.range.location + $0.range.length)
-            }) {
-                targetIdx = idx
-            } else if let idx = paragraphs.firstIndex(where: { $0.paragraphIndex == startParagraphIndex }) {
-                targetIdx = idx
-            } else {
-                targetIdx = 0
-            }
         } else {
-            if let idx = paragraphs.firstIndex(where: { $0.paragraphIndex == startParagraphIndex }) {
-                targetIdx = idx
-            } else {
+            let matchingChunks = paragraphs.enumerated().filter { $0.element.paragraphIndex == startParagraphIndex }
+            if matchingChunks.isEmpty {
                 targetIdx = 0
+            } else if let offset = startTextOffset,
+                      offset != NSNotFound,
+                      offset >= 0,
+                      let minLoc = matchingChunks.map({ $0.element.range.location }).min(),
+                      let maxEnd = matchingChunks.map({ NSMaxRange($0.element.range) }).max(),
+                      offset >= minLoc,
+                      offset <= maxEnd {
+                if let exact = matchingChunks.first(where: {
+                    $0.element.range.location <= offset && offset < NSMaxRange($0.element.range)
+                }) {
+                    targetIdx = exact.offset
+                } else if let nextChunk = matchingChunks.first(where: { $0.element.range.location >= offset }) {
+                    targetIdx = nextChunk.offset
+                } else if let prevChunk = matchingChunks.last(where: { NSMaxRange($0.element.range) <= offset }) {
+                    targetIdx = prevChunk.offset
+                } else {
+                    targetIdx = matchingChunks.first!.offset
+                }
+            } else {
+                targetIdx = matchingChunks.first!.offset
             }
         }
 
@@ -1045,7 +1072,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         stopPlayback(keepWidget: true)
 
         if normalizedChapterText.lines.isEmpty && !chapterContent.isEmpty {
-            self.normalizedChapterText = ChapterTextNormalizer.normalize(chapterContent)
+            self.normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent(chapterContent)
         }
 
         // Nạp lại phân đoạn
@@ -1211,12 +1238,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         )
 
         let chunkLen = chunkLength
-        let isTransEnabled = TranslateUtils.isTranslationEnabled
+        let isTransEnabled = self.sessionTranslationEnabled
         let key = "showChapterTitle_\(expectedBookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
-        let expectedTitle = isTransEnabled && TranslateUtils.containsChinese(nextChapter.title)
-            ? TranslateUtils.translateChapterTitle(nextChapter.title, bookId: expectedBookId)
-            : nextChapter.title
+        let rawTitle = nextChapter.title
         let processor = TTSBackgroundProcessor()
 
         Task { [weak self] in
@@ -1235,7 +1260,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 let processed = try await processor.processChapter(
                     bookId: expectedBookId,
                     chapterIndex: nextChapter.index,
-                    chapterTitle: expectedTitle,
+                    chapterTitle: rawTitle,
                     rawContent: rawContent,
                     chunkLength: chunkLen,
                     shouldTranslateRawContent: isTransEnabled,
@@ -1251,7 +1276,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                           self.playingBookId == processed.bookId else {
                         return
                     }
-                    self.applyNextChapter(index: processed.chapterIndex, content: processed.normalizedContent, paragraphs: processed.paragraphs, chapter: nextChapter)
+                    self.applyNextChapter(index: processed.chapterIndex, content: processed.normalizedContent, title: processed.chapterTitle, paragraphs: processed.paragraphs, chapter: nextChapter)
                 }
             } catch {
                 guard let self,
@@ -1264,12 +1289,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    private func applyNextChapter(index: Int, content: String, paragraphs: [TTSParagraph], chapter: TTSChapterInfo) {
+    private func applyNextChapter(index: Int, content: String, title: String, paragraphs: [TTSParagraph], chapter: TTSChapterInfo) {
         checkpointProgress()
         self.playingChapterIndex = index
         self.playingChapterUrl = chapter.url
-        self.chapterTitle = chapter.title
-        self.normalizedChapterText = ChapterTextNormalizer.normalize(content)
+        self.chapterTitle = title
+        self.normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent(content)
         self.chapterContent = content
         self.paragraphs = paragraphs
         self.clearPrefetchCache()
