@@ -16,6 +16,18 @@ public final class AppLogger {
         }
     }
     
+    public var isCompactSuccessLogEnabled: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: "isCompactSuccessLogEnabled") == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: "isCompactSuccessLogEnabled")
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "isCompactSuccessLogEnabled")
+        }
+    }
+
     private var logFileUrl: URL {
         let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
         return paths[0].appendingPathComponent("app_logs.txt")

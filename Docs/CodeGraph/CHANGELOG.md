@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.86] - 2026-08-05
+
+### Bổ Sung Metric Hiệu Năng AppLogger & Tối Ưu Hot Path (`AppLogger.swift`, `SettingsView.swift`, `ExtensionManager.swift`, `TTSManager.swift`, `ReaderViewModel.swift`)
+* **Bổ Sung AppLogger Performance Metrics (Phase 0)**:
+  * Đo đạc hiệu năng chuyển chương tự động TTS (`TTSManager.swift`) dùng `systemUptime`, khởi tạo context ngay trên MainActor trước khi tải chương, theo dõi `synthesisMs`, `playerSetupMs`, `origin`, `audioCacheHit`, và ghi log `[TTSPerf] AutoAdvance` với outcome `played`, `load_failed`, `process_failed`, `cancelled`, `superseded`.
+  * Đo đạc hiệu năng làm mới đoạn văn Reader (`ReaderViewModel.swift`) dùng `systemUptime`, ghi log `[ReaderPerf] TranslationRefresh` với thông số `cachedCount`, `neighborCount`, `currentMs`, `neighborsMs`, `totalMs`, `outcome`.
+* **Tối Ưu Hot Path Log & Cấu Hình Log Rút Gọn JS (Phase 1)**:
+  * Bọc `#if DEBUG ... #endif` tại toàn bộ vị trí gọi `logRemoteTrace` trong `TTSManager.swift` để triệt tiêu mọi phép nối chuỗi và truy vấn hệ thống trong bản Release.
+  * Thêm thuộc tính `isCompactSuccessLogEnabled` và toggle cấu hình "Thu gọn log kết quả Extension" trong Settings (`SettingsView.swift`, `AppLogger.swift`).
+  * Tối ưu `verifyJSResponse` trong `ExtensionManager.swift`: trả về ngay `dataVal` khi tắt log, hoặc định dạng rút gọn `[Array: N items]`, `[Object: N keys]`, `[String: N chars]`, `[Value]` khi bật log rút gọn để tiết kiệm bộ nhớ và dung lượng đĩa.
+
 ## [1.3.85] - 2026-08-05
 
 ### Sửa Lỗi Sizing Cache Highlight & Thêm Unit Test TextKit Layout (`ReaderTextView.swift`, `ReaderTextViewTests.swift`)

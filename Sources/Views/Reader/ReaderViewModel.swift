@@ -997,9 +997,15 @@ class ReaderViewModel: ObservableObject {
             .filter { $0.0 != currentIndex }
             .sorted { abs($0.0 - currentIndex) < abs($1.0 - currentIndex) }
 
+        let isPerfLogging = AppLogger.shared.isLoggingEnabled
+        let startUptime = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
+        let cachedCount = allSnapshots.count
+        let neighborCount = neighborSnapshots.count
+
         translationRefreshTask = Task { [weak self] in
             guard let self else { return }
 
+            let currentStart = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
             if let current = currentSnapshot {
                 await self.processAndSaveChapter(
                     index: current.0,
@@ -1008,11 +1014,25 @@ class ReaderViewModel: ObservableObject {
                     revision: taskRevision
                 )
             }
+            let currentEnd = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
 
-            guard !Task.isCancelled, self.currentRevision == taskRevision else { return }
+            if Task.isCancelled || self.currentRevision != taskRevision {
+                if isPerfLogging {
+                    let endUptime = ProcessInfo.processInfo.systemUptime
+                    let currentMs = (currentEnd - currentStart) * 1000
+                    let totalMs = (endUptime - startUptime) * 1000
+                    let outcome = Task.isCancelled ? "cancelled" : "superseded"
+                    let logLine = String(format: "[ReaderPerf] TranslationRefresh cachedCount=%d neighborCount=%d currentMs=%.2f neighborsMs=0.00 totalMs=%.2f outcome=%@", cachedCount, neighborCount, currentMs, totalMs, outcome)
+                    AppLogger.shared.log(logLine)
+                }
+                return
+            }
 
+            let neighborStart = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
             for neighbor in neighborSnapshots {
-                guard !Task.isCancelled, self.currentRevision == taskRevision else { return }
+                if Task.isCancelled || self.currentRevision != taskRevision {
+                    break
+                }
                 await self.processAndSaveChapter(
                     index: neighbor.0,
                     originalTitle: neighbor.1,
@@ -1020,6 +1040,24 @@ class ReaderViewModel: ObservableObject {
                     revision: taskRevision
                 )
                 await Task.yield()
+            }
+            let neighborEnd = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
+
+            if isPerfLogging {
+                let endUptime = ProcessInfo.processInfo.systemUptime
+                let currentMs = (currentEnd - currentStart) * 1000
+                let neighborsMs = (neighborEnd - neighborStart) * 1000
+                let totalMs = (endUptime - startUptime) * 1000
+                let outcome: String
+                if Task.isCancelled {
+                    outcome = "cancelled"
+                } else if self.currentRevision != taskRevision {
+                    outcome = "superseded"
+                } else {
+                    outcome = "completed"
+                }
+                let logLine = String(format: "[ReaderPerf] TranslationRefresh cachedCount=%d neighborCount=%d currentMs=%.2f neighborsMs=%.2f totalMs=%.2f outcome=%@", cachedCount, neighborCount, currentMs, neighborsMs, totalMs, outcome)
+                AppLogger.shared.log(logLine)
             }
         }
     }

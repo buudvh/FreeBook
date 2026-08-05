@@ -794,7 +794,10 @@ public final class ExtensionManager: ObservableObject {
             }
             if let dataVal = jsValue.objectForKeyedSubscript("data"),
                !dataVal.isUndefined {
-                let dataStr = stringify(dataVal)
+                guard AppLogger.shared.isLoggingEnabled else {
+                    return dataVal
+                }
+                let dataStr = formatSuccessDataLog(dataVal)
                 AppLogger.shared.log("✅ [\(logPrefix)] Response.success: \(dataStr)")
                 return dataVal
             }
@@ -809,6 +812,44 @@ public final class ExtensionManager: ObservableObject {
             throw ExtensionManagerError.sourceResponse(message: errorMsg)
         }
         return jsValue
+    }
+
+    private func formatSuccessDataLog(_ dataVal: JSValue) -> String {
+        if AppLogger.shared.isCompactSuccessLogEnabled {
+            return compactRepresentation(dataVal)
+        } else {
+            return stringify(dataVal)
+        }
+    }
+
+    private func compactRepresentation(_ val: JSValue) -> String {
+        if val.isNull {
+            return "[Null]"
+        }
+        if val.isUndefined {
+            return "[Undefined]"
+        }
+        if val.isArray {
+            let len = Int(val.forProperty("length").toInt32())
+            return "[Array: \(len) items]"
+        }
+        if val.isString {
+            let len = Int(val.forProperty("length").toInt32())
+            return "[String: \(len) chars]"
+        }
+        if val.isNumber || val.isBoolean {
+            return val.toString() ?? ""
+        }
+        if val.isObject {
+            if let context = val.context,
+               let objectKeys = context.objectForKeyedSubscript("Object")?.objectForKeyedSubscript("keys"),
+               let keys = objectKeys.call(withArguments: [val]) {
+                let count = Int(keys.forProperty("length").toInt32())
+                return "[Object: \(count) keys]"
+            }
+            return "[Object]"
+        }
+        return "[Value]"
     }
 
     private func stringify(_ jsValue: JSValue) -> String {

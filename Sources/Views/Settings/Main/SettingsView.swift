@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @AppStorage("isLoggingEnabled") private var isLoggingEnabled = false
+    @AppStorage("isCompactSuccessLogEnabled") private var isCompactSuccessLogEnabled = true
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @AppStorage("isTranslationPronounsEnabled") private var isTranslationPronounsEnabled = false
     @AppStorage("isTranslationLuatNhanEnabled") private var isTranslationLuatNhanEnabled = false
@@ -33,6 +34,21 @@ struct SettingsView: View {
                     }
                     .onChange(of: isLoggingEnabled) { _, newValue in
                         AppLogger.shared.isLoggingEnabled = newValue
+                    }
+
+                    Toggle(isOn: $isCompactSuccessLogEnabled) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Thu gọn log kết quả Extension")
+                                .font(.body)
+                                .fontWeight(.medium)
+                            Text("Rút gọn dữ liệu trả về của extension trong log để tiết kiệm dung lượng đĩa.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .disabled(!isLoggingEnabled)
+                    .onChange(of: isCompactSuccessLogEnabled) { _, newValue in
+                        AppLogger.shared.isCompactSuccessLogEnabled = newValue
                     }
                 }
                 
