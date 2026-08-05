@@ -25,6 +25,77 @@ enum ReaderSelectionMapper {
         return mapUsingHistoricalSentenceFallback(selectionRange, in: item, bookId: bookId)
     }
 
+    /// Ánh xạ vùng highlight của TTS từ hệ tọa độ text GỐC sang hệ tọa độ text ĐANG HIỂN THỊ.
+    ///
+    /// `TTSParagraph.range` được `TTSParagraphBuilder` tính trên `ChapterTextLine.text` (nguyên bản),
+    /// trong khi Reader hiển thị bản dịch khi bật VietPhrase. Áp thẳng range gốc lên text đã dịch
+    /// khiến highlight lệch tích lũy tăng dần theo vị trí chunk trong đoạn.
+    ///
+    /// Nhận `displayText` thay vì cờ bật/tắt dịch để luôn ánh xạ đúng chuỗi thực sự được render —
+    /// `item.translated` có thể cũ khi người dùng vừa bật/tắt dịch mà chương chưa build lại.
+    static func mapHighlight(
+        _ originalRange: NSRange,
+        in item: ParagraphItem,
+        displayText: String
+    ) -> NSRange? {
+        guard isValid(originalRange, in: item.original) else { return nil }
+
+        // Text hiển thị chính là nguyên bản → hai hệ tọa độ đồng nhất.
+        guard displayText != item.original else { return originalRange }
+
+        // Span chỉ dùng được khi chúng được tính trên đúng chuỗi đang hiển thị.
+        if displayText == item.translated,
+           let mapped = mappedRangeUsingOriginalSpans(originalRange, in: item) {
+            return mapped
+        }
+
+        return proportionalHighlightFallback(originalRange, in: item, displayText: displayText)
+    }
+
+    /// Chiều ngược của `mappedRangeUsingSpans`: gộp các span giao với vùng gốc rồi lấy bao đóng
+    /// của chúng trên text đã dịch.
+    private static func mappedRangeUsingOriginalSpans(
+        _ originalRange: NSRange,
+        in item: ParagraphItem
+    ) -> NSRange? {
+        let overlappingSpans = item.translationSpans.filter {
+            NSIntersectionRange($0.originalRange, originalRange).length > 0
+        }
+        guard !overlappingSpans.isEmpty else { return nil }
+
+        let start = overlappingSpans.map(\.translatedLocation).min() ?? 0
+        let end = overlappingSpans.map { $0.translatedLocation + $0.translatedLength }.max() ?? start
+        let mappedRange = NSRange(location: start, length: max(0, end - start))
+        return isValid(mappedRange, in: item.translated) ? mappedRange : nil
+    }
+
+    /// Dự phòng khi không dùng được span — `buildTranslationSpans` trả `[]` nếu có bất kỳ token nào
+    /// không dò được trong chuỗi dịch, và chuỗi hiển thị có thể khác `item.translated` khi từ điển
+    /// vừa đổi. Nội suy theo tỉ lệ độ dài để highlight vẫn bám sát câu thay vì lệch tích lũy hoặc
+    /// biến mất hoàn toàn.
+    private static func proportionalHighlightFallback(
+        _ originalRange: NSRange,
+        in item: ParagraphItem,
+        displayText: String
+    ) -> NSRange? {
+        let originalLength = (item.original as NSString).length
+        let displayLength = (displayText as NSString).length
+        guard originalLength > 0, displayLength > 0 else { return nil }
+
+        let ratio = Double(displayLength) / Double(originalLength)
+        let location = min(
+            displayLength - 1,
+            max(0, Int((Double(originalRange.location) * ratio).rounded()))
+        )
+        let length = min(
+            displayLength - location,
+            max(1, Int((Double(originalRange.length) * ratio).rounded()))
+        )
+
+        let fallbackRange = NSRange(location: location, length: length)
+        return isValid(fallbackRange, in: displayText) ? fallbackRange : nil
+    }
+
     static func mappedRangeUsingSpans(_ selectionRange: NSRange, in item: ParagraphItem) -> NSRange? {
         guard isValid(selectionRange, in: item.translated) else { return nil }
 

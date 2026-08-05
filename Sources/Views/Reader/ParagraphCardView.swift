@@ -28,13 +28,20 @@ struct ParagraphCardView: View {
             }
         }()
 
+        // `highlightRange` đến từ TTS theo hệ tọa độ text GỐC. Ánh xạ tại đây vì đây là nơi duy nhất
+        // biết chắc chuỗi đang thực sự hiển thị (item.translated có thể cũ khi người dùng bật/tắt
+        // dịch mà chương chưa được build lại).
+        let mappedHighlightRange = highlightRange.flatMap {
+            ReaderSelectionMapper.mapHighlight($0, in: item, displayText: displayText)
+        }
+
         ReaderTextView(
             text: displayText,
             fontSize: item.isTitle ? fontSize * 1.5 : fontSize,
             lineSpacing: lineSpacing,
             fontFamily: fontFamily,
             theme: theme,
-            highlightRange: highlightRange,
+            highlightRange: mappedHighlightRange,
             isBold: item.isTitle,
             isCentered: item.isTitle,
             triggerGetVisibleIndex: $triggerGetVisibleIndex,

@@ -15,6 +15,14 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS highlight coordinate invariants (1.3.80)
+
+* `TTSParagraph.range` is always expressed in UTF-16 offsets of the **original** `ChapterTextLine.text`. `TTSManager.highlightRange` and `ReaderView` must preserve that coordinate space; no component may pre-translate it.
+* Any component that paints a TTS highlight onto displayed text must first map the range through `ReaderSelectionMapper.mapHighlight(_:in:displayText:)`. Applying an original-text range directly onto translated text is forbidden.
+* `mapHighlight` receives the **actual displayed string**, not an `isTranslationEnabled` flag. `toggleTranslation` only flips the flag without rebuilding `paragraphItems`, so `ParagraphItem.translated` may lag behind what is rendered.
+* Stored `translationSpans` are authoritative only when the displayed string equals `ParagraphItem.translated`. Otherwise, and whenever `buildTranslationSpans` returned `[]`, the proportional-length fallback applies.
+* Range validity checks guard against crashes only; they must never be relied on as correctness of alignment.
+
 ## Reader/TTS normalized-text invariants (1.3.15)
 
 * `ChapterTextNormalizer` is the only component allowed to canonicalize chapter newlines, remove blank lines, assign paragraph IDs, and calculate UTF-16 ranges.

@@ -2,7 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-## [1.3.79] - 2026-08-04
+## [1.3.80] - 2026-08-05
+
+### Sửa Lỗi Highlight TTS Lệch Khi Đoạn Văn Nhiều Dấu Câu (`ReaderSelectionMapper.swift`, `ParagraphCardView.swift`, `ReaderView.swift`)
+* **Root Cause**: `TTSParagraphBuilder` tính `TTSParagraph.range` theo offset UTF-16 trên `ChapterTextLine.text` (nguyên bản), nhưng `ParagraphCardView` lại render bản dịch VietPhrase. `ReaderView` truyền thẳng `ttsManager.highlightRange` xuống mà không ánh xạ, nên range của hệ tọa độ gốc bị áp lên chuỗi đã dịch có độ dài khác. Vì bản dịch Việt dài hơn nguyên bản Trung, độ lệch tích lũy tăng dần theo vị trí chunk trong đoạn; đoạn nhiều dấu câu bị cắt thành nhiều chunk nên lệch thể hiện rõ nhất. Guard `NSMaxRange(highlight) <= nsText.length` trong `ReaderTextView` chỉ chặn crash chứ không chặn lệch, và còn làm mất highlight ở chunk cuối khi bản dịch ngắn hơn.
+* **Fix**: Bổ sung `ReaderSelectionMapper.mapHighlight(_:in:displayText:)` — chiều ngược của `mappedRangeUsingSpans` — gộp các `TranslationSpan` giao với vùng gốc rồi lấy bao đóng của chúng trên chuỗi hiển thị.
+* Hàm nhận thẳng `displayText` thay vì cờ `isTranslationEnabled`: `toggleTranslation` chỉ đổi cờ mà không rebuild `paragraphItems`, nên `item.translated` có thể cũ so với chuỗi đang render. Span chỉ được dùng khi `displayText == item.translated`; ngược lại rơi về nội suy theo tỉ lệ độ dài.
+* Việc ánh xạ đặt tại `ParagraphCardView` — nơi duy nhất biết chắc chuỗi thực sự được render. `ReaderView` tiếp tục truyền range ở hệ tọa độ gốc.
+* Dự phòng nội suy tỉ lệ cũng phủ trường hợp `buildTranslationSpans` trả `[]` khi có token không dò được trong chuỗi dịch, giữ highlight bám sát câu thay vì biến mất.
+
+
 
 ### Giảm Giật TTS Khi Cập Nhật VP/Name (`ReaderView.swift`, `ReaderViewModel.swift`)
 * Bỏ việc gọi `TTSManager.clearPrefetchCache()` ngay khi nhận `translationDictionariesDidUpdate`, giữ nguyên audio đã tổng hợp của phiên đang phát để không tạo khoảng ngắt ở đoạn kế tiếp.
