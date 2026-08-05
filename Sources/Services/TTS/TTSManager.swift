@@ -261,9 +261,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         paragraph0AudioCacheHit = false
     }
 
-    private func currentParagraph0SynthesisMs() -> Double {
+    private func currentParagraph0SynthesisMs(untilUptime: Double? = nil) -> Double {
         guard paragraph0SynthesisStartUptime > 0 && !paragraph0AudioCacheHit else { return 0.0 }
-        return (ProcessInfo.processInfo.systemUptime - paragraph0SynthesisStartUptime) * 1000
+        let end = untilUptime ?? ProcessInfo.processInfo.systemUptime
+        return max(0.0, (end - paragraph0SynthesisStartUptime) * 1000)
     }
 
     @MainActor
@@ -274,6 +275,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         engine: String
     ) {
         finishTTSAutoAdvancePerf(outcome: "superseded", endpoint: "superseded")
+        ensurePrefetchPerfSummary(sessionID: sessionID, chapterIndex: chapterIndex, engine: engine)
         resetParagraph0Timing()
         guard AppLogger.shared.isLoggingEnabled else { return }
         activeTTSAutoAdvancePerf = TTSAutoAdvancePerfContext(
@@ -362,6 +364,145 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             endpoint
         )
         AppLogger.shared.log(logLine)
+    }
+
+    private struct TTSPrefetchPerfSummary {
+        let sessionID: UUID
+        let chapterIndex: Int
+        let engine: String
+        var immediateHit: Int = 0
+        var waitedHit: Int = 0
+        var miss: Int = 0
+        var failure: Int = 0
+        var retrySuccess: Int = 0
+        var retryFailure: Int = 0
+        var totalWaitMs: Double = 0
+        var maxWaitMs: Double = 0
+    }
+
+    private var activePrefetchPerfSummary: TTSPrefetchPerfSummary? = nil
+    private var prefetchTaskGenerations: [Int: UInt64] = [:]
+    private var nextPrefetchTaskGeneration: UInt64 = 0
+
+    @MainActor
+    private func ensurePrefetchPerfSummary(sessionID: UUID, chapterIndex: Int, engine: String) {
+        guard AppLogger.shared.isLoggingEnabled else {
+            if activePrefetchPerfSummary != nil {
+                activePrefetchPerfSummary = nil
+            }
+            return
+        }
+        if let current = activePrefetchPerfSummary {
+            if current.sessionID == sessionID && current.chapterIndex == chapterIndex && current.engine == engine {
+                return
+            }
+            finishTTSPrefetchPerfSummary()
+        }
+        activePrefetchPerfSummary = TTSPrefetchPerfSummary(
+            sessionID: sessionID,
+            chapterIndex: chapterIndex,
+            engine: engine
+        )
+    }
+
+    @MainActor
+    private func finishTTSPrefetchPerfSummary() {
+        guard let summary = activePrefetchPerfSummary else { return }
+        activePrefetchPerfSummary = nil
+        let total = summary.immediateHit + summary.waitedHit + summary.miss + summary.failure
+        guard total > 0, AppLogger.shared.isLoggingEnabled else { return }
+        let logLine = String(
+            format: "[TTSPerf] PrefetchSummary chapter=%d engine=%@ immediateHit=%d waitedHit=%d miss=%d failure=%d retrySuccess=%d retryFailure=%d totalWaitMs=%.2f maxWaitMs=%.2f",
+            summary.chapterIndex,
+            summary.engine,
+            summary.immediateHit,
+            summary.waitedHit,
+            summary.miss,
+            summary.failure,
+            summary.retrySuccess,
+            summary.retryFailure,
+            summary.totalWaitMs,
+            summary.maxWaitMs
+        )
+        AppLogger.shared.log(logLine)
+    }
+
+    @MainActor
+    private func recordPrefetchResult(sessionID: UUID, chapterIndex: Int, engine: String, index: Int, outcome: String, waitMs: Double = 0) {
+        guard AppLogger.shared.isLoggingEnabled else { return }
+        guard sessionID == self.sessionID, chapterIndex == self.playingChapterIndex else { return }
+        ensurePrefetchPerfSummary(sessionID: sessionID, chapterIndex: chapterIndex, engine: engine)
+        guard var summary = activePrefetchPerfSummary,
+              summary.sessionID == sessionID,
+              summary.chapterIndex == chapterIndex,
+              summary.engine == engine else { return }
+
+        switch outcome {
+        case "hit":
+            summary.immediateHit += 1
+        case "hit_wait":
+            summary.waitedHit += 1
+            summary.totalWaitMs += waitMs
+            summary.maxWaitMs = max(summary.maxWaitMs, waitMs)
+            if waitMs >= 100.0 {
+                AppLogger.shared.log(String(format: "[TTSPerf] SlowPrefetch chapter=%d index=%d engine=%@ waitMs=%.2f", summary.chapterIndex, index, summary.engine, waitMs))
+            }
+        case "miss":
+            summary.miss += 1
+        case "failure":
+            summary.failure += 1
+            summary.totalWaitMs += waitMs
+            summary.maxWaitMs = max(summary.maxWaitMs, waitMs)
+        default:
+            break
+        }
+        activePrefetchPerfSummary = summary
+    }
+
+    @MainActor
+    private func recordPrefetchRetry(sessionID: UUID, chapterIndex: Int, engine: String, success: Bool) {
+        guard AppLogger.shared.isLoggingEnabled else { return }
+        guard sessionID == self.sessionID, chapterIndex == self.playingChapterIndex else { return }
+        guard var summary = activePrefetchPerfSummary,
+              summary.sessionID == sessionID,
+              summary.chapterIndex == chapterIndex,
+              summary.engine == engine else { return }
+        if success {
+            summary.retrySuccess += 1
+        } else {
+            summary.retryFailure += 1
+        }
+        activePrefetchPerfSummary = summary
+    }
+
+    private func isTransientTTSError(_ error: Error) -> Bool {
+        if error is CancellationError { return false }
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain {
+            switch nsError.code {
+            case NSURLErrorTimedOut,
+                 NSURLErrorCannotFindHost,
+                 NSURLErrorCannotConnectToHost,
+                 NSURLErrorNetworkConnectionLost,
+                 NSURLErrorDNSLookupFailed,
+                 NSURLErrorNotConnectedToInternet,
+                 NSURLErrorResourceUnavailable,
+                 NSURLErrorInternationalRoamingOff,
+                 NSURLErrorCallIsActive,
+                 NSURLErrorDataNotAllowed:
+                return true
+            default:
+                break
+            }
+        }
+        let lower = error.localizedDescription.lowercased()
+        if lower.contains("unexpected eof") ||
+           lower.contains("timed out") ||
+           lower.contains("connection reset") ||
+           lower.contains("network connection") {
+            return true
+        }
+        return false
     }
 
     // Sleep Timer (Hẹn giờ tạm dừng đọc)
@@ -1092,9 +1233,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         logRemoteTrace("pause()") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
         #endif
         guard isPlaying else { return }
-        if activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
-            finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "pause")
-        }
+        finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "pause")
         checkpointProgressAndRelease()
         self.isPlaying = false
         self.lastPausedTime = Date()
@@ -1172,6 +1311,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     private func stopPlayback(keepWidget: Bool = false) {
         finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "stop")
+        finishTTSPrefetchPerfSummary()
         checkpointProgressAndRelease()
         sessionID = UUID()
         self.isPlaying = false
@@ -1658,9 +1798,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let textToSpeak = TTSReplacementManager.shared.applyReplacements(to: paragraph.text)
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if AppLogger.shared.isLoggingEnabled {
-            AppLogger.shared.log("🔊 [TTSManager] Chunk [\(currentParagraphIndex + 1)/\(paragraphs.count)] (ParentID=\(paragraph.paragraphIndex)): Raw='\(paragraph.text)' | Processed='\(textToSpeak)' | highlightRange=\(paragraph.range)")
-        }
+        AppLogger.shared.logTTSVerbose("🔊 [TTSManager] Chunk [\(currentParagraphIndex + 1)/\(paragraphs.count)] (ParentID=\(paragraph.paragraphIndex)): Raw='\(paragraph.text.prefix(20))...' | Processed='\(textToSpeak.prefix(20))...' | highlightRange=\(paragraph.range)")
 
         guard !textToSpeak.isEmpty else {
             if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
@@ -1719,6 +1857,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             task.cancel()
         }
         prefetchTasks.removeAll()
+        prefetchTaskGenerations.removeAll()
         preloadedData.removeAll()
         
         // Memory leak fix: Clean up Extension TTS temp files when clearing cache
@@ -1748,6 +1887,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         for idx in tasksToCancel {
             prefetchTasks[idx]?.cancel()
             prefetchTasks.removeValue(forKey: idx)
+            prefetchTaskGenerations.removeValue(forKey: idx)
         }
 
         let cacheKeepIndices = Set(Array(N...(N + count)))
@@ -1768,6 +1908,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
+    @MainActor
+    private func removePrefetchTask(for index: Int, taskGen: UInt64) {
+        if prefetchTaskGenerations[index] == taskGen {
+            prefetchTasks.removeValue(forKey: index)
+            prefetchTaskGenerations.removeValue(forKey: index)
+        }
+    }
+
     private func startPrefetchTask(for index: Int) {
         guard index >= 0 && index < paragraphs.count else { return }
         let rawText = paragraphs[index].text
@@ -1781,6 +1929,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let expectedChapterIndex = playingChapterIndex
         let expectedChapterURL = playingChapterUrl
 
+        nextPrefetchTaskGeneration += 1
+        let taskGen = nextPrefetchTaskGeneration
+        prefetchTaskGenerations[index] = taskGen
+
         if tool == "google" {
             let task = Task { [weak self] in
                 guard let self = self else { return }
@@ -1792,25 +1944,66 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     try? await Task.sleep(nanoseconds: delayMs * 1_000_000)
                 }
 
-                do {
-                    let mp3Data = try await self.googleService.synthesize(text: text, voice: voice, speed: 1.0, pitch: 1.0)
+                let isValidSession = { [weak self] () -> Bool in
+                    guard let self = self else { return false }
+                    return !Task.isCancelled &&
+                           self.sessionID == expectedSessionID &&
+                           self.playingBookId == expectedBookId &&
+                           self.playingChapterIndex == expectedChapterIndex &&
+                           self.playingChapterUrl == expectedChapterURL &&
+                           self.selectedVoice == voice &&
+                           self.tool == toolBeforeStart
+                }
 
-                    if !Task.isCancelled,
-                       self.sessionID == expectedSessionID,
-                       self.playingBookId == expectedBookId,
-                       self.playingChapterIndex == expectedChapterIndex,
-                       self.playingChapterUrl == expectedChapterURL,
-                       self.selectedVoice == voice,
-                       self.tool == toolBeforeStart {
-                        self.preloadedData[index] = mp3Data
+                var audioResult: Data? = nil
+                var attempts = 0
+                var didRetry = false
+                let maxAttempts = 2
+
+                while attempts < maxAttempts {
+                    guard isValidSession() else { break }
+                    attempts += 1
+                    do {
+                        let mp3Data = try await self.googleService.synthesize(text: text, voice: voice, speed: 1.0, pitch: 1.0)
+                        if isValidSession() {
+                            audioResult = mp3Data
+                            if didRetry {
+                                await MainActor.run {
+                                    if isValidSession() {
+                                        self.recordPrefetchRetry(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: toolBeforeStart, success: true)
+                                    }
+                                }
+                            }
+                        }
+                        break
+                    } catch {
+                        if Task.isCancelled || !isValidSession() { break }
+                        if self.isTransientTTSError(error) && attempts < maxAttempts {
+                            didRetry = true
+                            try? await Task.sleep(nanoseconds: 300_000_000)
+                            if !isValidSession() { break }
+                        } else {
+                            await MainActor.run {
+                                guard isValidSession() else { return }
+                                if didRetry {
+                                    self.recordPrefetchRetry(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: toolBeforeStart, success: false)
+                                }
+                                if AppLogger.shared.isLoggingEnabled {
+                                    AppLogger.shared.log("⚠️ [TTSPerf] PrefetchFailure chapter=\(expectedChapterIndex) index=\(index) engine=\(toolBeforeStart)")
+                                }
+                            }
+                            break
+                        }
                     }
-                    if self.sessionID == expectedSessionID {
-                        self.prefetchTasks.removeValue(forKey: index)
+                }
+
+                if let data = audioResult, isValidSession() {
+                    await MainActor.run {
+                        self.preloadedData[index] = data
                     }
-                } catch {
-                    if self.sessionID == expectedSessionID {
-                        self.prefetchTasks.removeValue(forKey: index)
-                    }
+                }
+                await MainActor.run {
+                    self.removePrefetchTask(for: index, taskGen: taskGen)
                 }
             }
             prefetchTasks[index] = task
@@ -1826,25 +2019,37 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     try? await Task.sleep(nanoseconds: delayMs * 1_000_000)
                 }
 
+                let isValidSession = { [weak self] () -> Bool in
+                    guard let self = self else { return false }
+                    return !Task.isCancelled &&
+                           self.sessionID == expectedSessionID &&
+                           self.playingBookId == expectedBookId &&
+                           self.playingChapterIndex == expectedChapterIndex &&
+                           self.playingChapterUrl == expectedChapterURL &&
+                           self.selectedVoice == voice &&
+                           self.tool == toolBeforeStart
+                }
+
+                guard isValidSession() else { return }
+
                 do {
                     let wavData = try await service.synthesize(text: text, voice: voice, speed: 1.0)
-
-                    if !Task.isCancelled,
-                       self.sessionID == expectedSessionID,
-                       self.playingBookId == expectedBookId,
-                       self.playingChapterIndex == expectedChapterIndex,
-                       self.playingChapterUrl == expectedChapterURL,
-                       self.selectedVoice == voice,
-                       self.tool == toolBeforeStart {
-                        self.preloadedData[index] = wavData
-                    }
-                    if self.sessionID == expectedSessionID {
-                        self.prefetchTasks.removeValue(forKey: index)
+                    if isValidSession() {
+                        await MainActor.run {
+                            self.preloadedData[index] = wavData
+                        }
                     }
                 } catch {
-                    if self.sessionID == expectedSessionID {
-                        self.prefetchTasks.removeValue(forKey: index)
+                    await MainActor.run {
+                        guard isValidSession() else { return }
+                        if AppLogger.shared.isLoggingEnabled {
+                            AppLogger.shared.log("⚠️ [TTSPerf] PrefetchFailure chapter=\(expectedChapterIndex) index=\(index) engine=\(toolBeforeStart)")
+                        }
                     }
+                }
+
+                await MainActor.run {
+                    self.removePrefetchTask(for: index, taskGen: taskGen)
                 }
             }
             prefetchTasks[index] = task
@@ -1854,8 +2059,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
             let task = Task { [weak self] in
                 guard let self = self else { return }
-                
-                // Memory leak fix: Ensure temp file cleanup on task cancellation
+
                 defer {
                     if Task.isCancelled && self.tool != "system" && self.tool != "nghitts" && self.tool != "google" {
                         self.extService.cleanupAllTempFiles()
@@ -1869,25 +2073,66 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     try? await Task.sleep(nanoseconds: delayMs * 1_000_000)
                 }
 
-                do {
-                    let audioData = try await self.extService.synthesizeData(text: text, voice: voice, localPath: localPath, configJson: configJson)
+                let isValidSession = { [weak self] () -> Bool in
+                    guard let self = self else { return false }
+                    return !Task.isCancelled &&
+                           self.sessionID == expectedSessionID &&
+                           self.playingBookId == expectedBookId &&
+                           self.playingChapterIndex == expectedChapterIndex &&
+                           self.playingChapterUrl == expectedChapterURL &&
+                           self.selectedVoice == voice &&
+                           self.tool == toolBeforeStart
+                }
 
-                    if !Task.isCancelled,
-                       self.sessionID == expectedSessionID,
-                       self.playingBookId == expectedBookId,
-                       self.playingChapterIndex == expectedChapterIndex,
-                       self.playingChapterUrl == expectedChapterURL,
-                       self.selectedVoice == voice,
-                       self.tool == toolBeforeStart {
-                        self.preloadedData[index] = audioData
+                var audioResult: Data? = nil
+                var attempts = 0
+                var didRetry = false
+                let maxAttempts = 2
+
+                while attempts < maxAttempts {
+                    guard isValidSession() else { break }
+                    attempts += 1
+                    do {
+                        let audioData = try await self.extService.synthesizeData(text: text, voice: voice, localPath: localPath, configJson: configJson)
+                        if isValidSession() {
+                            audioResult = audioData
+                            if didRetry {
+                                await MainActor.run {
+                                    if isValidSession() {
+                                        self.recordPrefetchRetry(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: toolBeforeStart, success: true)
+                                    }
+                                }
+                            }
+                        }
+                        break
+                    } catch {
+                        if Task.isCancelled || !isValidSession() { break }
+                        if self.isTransientTTSError(error) && attempts < maxAttempts {
+                            didRetry = true
+                            try? await Task.sleep(nanoseconds: 300_000_000)
+                            if !isValidSession() { break }
+                        } else {
+                            await MainActor.run {
+                                guard isValidSession() else { return }
+                                if didRetry {
+                                    self.recordPrefetchRetry(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: toolBeforeStart, success: false)
+                                }
+                                if AppLogger.shared.isLoggingEnabled {
+                                    AppLogger.shared.log("⚠️ [TTSPerf] PrefetchFailure chapter=\(expectedChapterIndex) index=\(index) engine=\(toolBeforeStart)")
+                                }
+                            }
+                            break
+                        }
                     }
-                    if self.sessionID == expectedSessionID {
-                        self.prefetchTasks.removeValue(forKey: index)
+                }
+
+                if let data = audioResult, isValidSession() {
+                    await MainActor.run {
+                        self.preloadedData[index] = data
                     }
-                } catch {
-                    if self.sessionID == expectedSessionID {
-                        self.prefetchTasks.removeValue(forKey: index)
-                    }
+                }
+                await MainActor.run {
+                    self.removePrefetchTask(for: index, taskGen: taskGen)
                 }
             }
             prefetchTasks[index] = task
@@ -1917,7 +2162,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 self.isPlaying = true
                 if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
                     let playerSetupMs = (setupEnd - setupStart) * 1000
-                    let synMs = currentParagraph0SynthesisMs()
+                    let synMs = currentParagraph0SynthesisMs(untilUptime: setupStart)
                     finishTTSAutoAdvancePerf(
                         outcome: "played",
                         endpoint: "player_play",
@@ -1932,7 +2177,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             } else {
                 if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
                     let playerSetupMs = (setupEnd - setupStart) * 1000
-                    let synMs = currentParagraph0SynthesisMs()
+                    let synMs = currentParagraph0SynthesisMs(untilUptime: setupStart)
                     finishTTSAutoAdvancePerf(
                         outcome: "player_failed",
                         endpoint: "error",
@@ -1954,7 +2199,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             let setupEnd = ProcessInfo.processInfo.systemUptime
             if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
                 let playerSetupMs = (setupEnd - setupStart) * 1000
-                let synMs = currentParagraph0SynthesisMs()
+                let synMs = currentParagraph0SynthesisMs(untilUptime: setupStart)
                 finishTTSAutoAdvancePerf(
                     outcome: "player_failed",
                     endpoint: "error",
@@ -2007,25 +2252,45 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let index = currentParagraphIndex
         let playbackId = String(UUID().uuidString.prefix(4))
         self.currentPlaybackId = playbackId
+        let expectedSessionID = sessionID
+        let expectedChapterIndex = playingChapterIndex
 
         updatePrefetchWindow()
 
         if let cachedData = preloadedData[index] {
+            recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "hit")
             self.playAudioData(cachedData, withId: playbackId)
             return
         }
 
         Task {
+            let startWait = ProcessInfo.processInfo.systemUptime
             do {
                 let wavData: Data
                 if let activeTask = prefetchTasks[index] {
                     _ = await activeTask.value
+                    let waitMs = (ProcessInfo.processInfo.systemUptime - startWait) * 1000
                     if let cached = preloadedData[index] {
+                        await MainActor.run {
+                            if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
+                                self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "hit_wait", waitMs: waitMs)
+                            }
+                        }
                         wavData = cached
                     } else {
+                        await MainActor.run {
+                            if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
+                                self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "failure", waitMs: waitMs)
+                            }
+                        }
                         wavData = try await service.synthesize(text: text, voice: selectedVoice, speed: 1.0)
                     }
                 } else {
+                    await MainActor.run {
+                        if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
+                            self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "miss")
+                        }
+                    }
                     wavData = try await service.synthesize(text: text, voice: selectedVoice, speed: 1.0)
                 }
 
@@ -2054,6 +2319,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     self.preloadedData.removeValue(forKey: index)
                     self.prefetchTasks[index]?.cancel()
                     self.prefetchTasks.removeValue(forKey: index)
+                    self.prefetchTaskGenerations.removeValue(forKey: index)
                     self.currentPlaybackId = nil
                     self.pause()
                     ToastManager.shared.show(message: "Lỗi NghiTTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
@@ -2067,25 +2333,45 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let voice = selectedVoice
         let playbackId = String(UUID().uuidString.prefix(4))
         self.currentPlaybackId = playbackId
+        let expectedSessionID = sessionID
+        let expectedChapterIndex = playingChapterIndex
 
         updatePrefetchWindow()
 
         if let cachedData = preloadedData[index] {
+            recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "google", index: index, outcome: "hit")
             self.playAudioData(cachedData, withId: playbackId)
             return
         }
 
         Task {
+            let startWait = ProcessInfo.processInfo.systemUptime
             do {
                 let mp3Data: Data
                 if let activeTask = prefetchTasks[index] {
                     _ = await activeTask.value
+                    let waitMs = (ProcessInfo.processInfo.systemUptime - startWait) * 1000
                     if let cached = preloadedData[index] {
+                        await MainActor.run {
+                            if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
+                                self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "google", index: index, outcome: "hit_wait", waitMs: waitMs)
+                            }
+                        }
                         mp3Data = cached
                     } else {
+                        await MainActor.run {
+                            if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
+                                self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "google", index: index, outcome: "failure", waitMs: waitMs)
+                            }
+                        }
                         mp3Data = try await googleService.synthesize(text: text, voice: voice, speed: 1.0, pitch: 1.0)
                     }
                 } else {
+                    await MainActor.run {
+                        if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
+                            self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "google", index: index, outcome: "miss")
+                        }
+                    }
                     mp3Data = try await googleService.synthesize(text: text, voice: voice, speed: 1.0, pitch: 1.0)
                 }
 
@@ -2114,6 +2400,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     self.preloadedData.removeValue(forKey: index)
                     self.prefetchTasks[index]?.cancel()
                     self.prefetchTasks.removeValue(forKey: index)
+                    self.prefetchTaskGenerations.removeValue(forKey: index)
                     self.currentPlaybackId = nil
                     self.pause()
                     ToastManager.shared.show(message: "Lỗi Google TTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
@@ -2129,10 +2416,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let configJson = extensionConfigJson
         let playbackId = String(UUID().uuidString.prefix(4))
         self.currentPlaybackId = playbackId
+        let expectedSessionID = sessionID
+        let expectedChapterIndex = playingChapterIndex
+        let engineName = tool
 
         updatePrefetchWindow()
 
         if let cachedData = preloadedData[index] {
+            recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: engineName, index: index, outcome: "hit")
             self.playAudioData(cachedData, withId: playbackId)
             return
         }
@@ -2147,16 +2438,33 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 }
             }
             
+            let startWait = ProcessInfo.processInfo.systemUptime
             do {
                 let audioData: Data
                 if let activeTask = prefetchTasks[index] {
                     _ = await activeTask.value
+                    let waitMs = (ProcessInfo.processInfo.systemUptime - startWait) * 1000
                     if let cached = preloadedData[index] {
+                        await MainActor.run {
+                            if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
+                                self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: engineName, index: index, outcome: "hit_wait", waitMs: waitMs)
+                            }
+                        }
                         audioData = cached
                     } else {
+                        await MainActor.run {
+                            if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
+                                self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: engineName, index: index, outcome: "failure", waitMs: waitMs)
+                            }
+                        }
                         audioData = try await extService.synthesizeData(text: text, voice: voice, localPath: localPath, configJson: configJson)
                     }
                 } else {
+                    await MainActor.run {
+                        if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
+                            self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: engineName, index: index, outcome: "miss")
+                        }
+                    }
                     audioData = try await extService.synthesizeData(text: text, voice: voice, localPath: localPath, configJson: configJson)
                 }
 
@@ -2185,6 +2493,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     self.preloadedData.removeValue(forKey: index)
                     self.prefetchTasks[index]?.cancel()
                     self.prefetchTasks.removeValue(forKey: index)
+                    self.prefetchTaskGenerations.removeValue(forKey: index)
                     self.currentPlaybackId = nil
                     self.pause()
                     ToastManager.shared.show(message: "Lỗi Extension TTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error)

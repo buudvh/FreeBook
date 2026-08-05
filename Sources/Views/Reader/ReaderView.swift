@@ -1537,7 +1537,7 @@ struct ReaderView: View {
                       item.id == ttsManager.currentParentParagraphIndex,
                       let chunkRange = ttsManager.highlightRange else { return nil }
 
-                AppLogger.shared.log("🔊 [ReaderView] Applied relativeHighlightRange for ItemID=\(item.id): chunkRange=\(chunkRange)")
+                AppLogger.shared.logTTSVerbose("🔊 [ReaderView] Applied relativeHighlightRange for ItemID=\(item.id): chunkRange=\(chunkRange)")
                 // Giữ nguyên hệ tọa độ text gốc; ParagraphCardView ánh xạ sang text đang hiển thị.
                 return chunkRange
             }()

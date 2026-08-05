@@ -28,6 +28,18 @@ public final class AppLogger {
         }
     }
 
+    public var isTTSVerboseLoggingEnabled: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: "isTTSVerboseLoggingEnabled") == nil {
+                return false
+            }
+            return UserDefaults.standard.bool(forKey: "isTTSVerboseLoggingEnabled")
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "isTTSVerboseLoggingEnabled")
+        }
+    }
+
     private var logFileUrl: URL {
         let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
         return paths[0].appendingPathComponent("app_logs.txt")
@@ -70,6 +82,11 @@ public final class AppLogger {
         }
     }
     
+    public func logTTSVerbose(_ message: @autoclosure () -> String) {
+        guard isLoggingEnabled && isTTSVerboseLoggingEnabled else { return }
+        log(message())
+    }
+
     public func clear() {
         try? FileManager.default.removeItem(at: logFileUrl)
     }

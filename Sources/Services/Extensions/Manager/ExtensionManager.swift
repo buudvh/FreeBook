@@ -760,7 +760,7 @@ public final class ExtensionManager: ObservableObject {
     public func ttsGenerate(localPath: String, downloadUrl: String = "", text: String, voice: String, configJson: String = "{}") async throws -> String {
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "tts")
         let scriptName = scriptUrl.lastPathComponent
-        AppLogger.shared.log("🔍 [ExtensionManager][\(scriptName)]: arguments=[\(text), \(voice)], text=\(text), voice=\(voice), configJson=\(configJson)")
+        AppLogger.shared.logTTSVerbose("🔍 [ExtensionManager][\(scriptName)]: textLen=\(text.count), voice=\(voice), configJson=\(configJson)")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)

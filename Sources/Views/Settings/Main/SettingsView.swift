@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @AppStorage("isLoggingEnabled") private var isLoggingEnabled = false
     @AppStorage("isCompactSuccessLogEnabled") private var isCompactSuccessLogEnabled = true
+    @AppStorage("isTTSVerboseLoggingEnabled") private var isTTSVerboseLoggingEnabled = false
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @AppStorage("isTranslationPronounsEnabled") private var isTranslationPronounsEnabled = false
     @AppStorage("isTranslationLuatNhanEnabled") private var isTranslationLuatNhanEnabled = false
@@ -49,6 +50,21 @@ struct SettingsView: View {
                     .disabled(!isLoggingEnabled)
                     .onChange(of: isCompactSuccessLogEnabled) { _, newValue in
                         AppLogger.shared.isCompactSuccessLogEnabled = newValue
+                    }
+
+                    Toggle(isOn: $isTTSVerboseLoggingEnabled) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Ghi log TTS chi tiết")
+                                .font(.body)
+                                .fontWeight(.medium)
+                            Text("Ghi log chi tiết từng chunk, highlight và tham số TTS (có thể giảm hiệu năng).")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .disabled(!isLoggingEnabled)
+                    .onChange(of: isTTSVerboseLoggingEnabled) { _, newValue in
+                        AppLogger.shared.isTTSVerboseLoggingEnabled = newValue
                     }
                 }
                 
