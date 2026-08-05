@@ -2,6 +2,38 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.82] - 2026-08-05
+
+### Tối Ưu Hóa Reading/Highlight & VP/Name Cascade (`TranslationManager.swift`, `TranslateUtils.swift`, `DictionaryCache.swift`, `TTSManager.swift`, `TTSModels.swift`, `TTSBackgroundProcessor.swift`, `TTSParagraphBuilder.swift`, `ChapterCache.swift`, `ParagraphCardView.swift`, `ReaderTextView.swift`, `ReaderView.swift`, `ReaderViewModel.swift`)
+* **Scoped Dictionary Notifications & Generation Counters**:
+  * Thêm `globalGeneration`, `bookGenerations`, `settingsGeneration` vào `TranslateUtils.invalidateCache(bookId:)` giúp xóa cache RAM chọn lọc theo `bookId` và cài đặt; tránh làm cold cache của sách B khi từ điển sách A thay đổi.
+  * Thêm `bookId` vào `userInfo` của thông báo `.translationDictionariesDidUpdate` trong `TranslationManager` để `ReaderView` lọc đúng phạm vi sách.
+* **Bảo Tồn Paused Session & Resume Vị Trí TTS**:
+  * Di chuyển kiểm tra cùng sách lên trước khi xóa cache TTS.
+  * Bổ sung API `updatePreparedChapterContentSilent` trong `TTSManager` giữ phiên TTS paused nguyên trạng thái và widget khi đổi từ điển.
+  * Thêm `sourceRange` vào `TTSParagraph` và cấu trúc `TTSChunkResumeIdentity` lưu `sourceLineId` và `sourceOffset` để resume đúng chunk và bảo toàn hành vi bôi đen chọn "Nghe".
+* **Bảo Vệ Snapshot Readiness & Tối Ưu UI Render**:
+  * Bổ sung `revision` vào `CachedChapter` và `ReaderViewModel`, hoãn TTS sync nếu dữ liệu chương chưa hoàn tất re-translation.
+  * Chuyển công việc dịch ngầm nặng ra off-MainActor với cooperative cancellation và ưu tiên dịch chương hiện tại trước.
+  * Dùng trực tiếp `item.translated` làm `displayText` trong `ParagraphCardView` tạo snapshot nguyên tử với `translationSpans`.
+* **Sửa Lỗi Compile, Đồng Bộ TTS Readiness & Coordinate Selection**:
+  * Phục hồi `let md5 = text.md5()` trong `TranslateUtils.translateText` và chuẩn hóa access control `internal private(set) var currentRevision`.
+  * Bổ sung callback `onCurrentChapterReady` trong `ReaderViewModel` để đảm bảo `performTTSSynchronization()` chỉ kích hoạt khi dữ liệu chương hiện tại hoàn tất re-translation ở `currentRevision`.
+  * Ánh xạ chính xác `sourceOffset` (`selectedWordOffset`) và `TTSChunkResumeIdentity` khi bấm chọn "Nghe" trên văn bản bôi đen dịch thuật.
+  * Xóa bỏ các cache audio/prepared stale trong `updatePreparedChapterContentSilent` khi paused mà không ảnh hưởng tới widget hoặc các sách khác.
+  * Khoanh vùng hoàn toàn `chapterTitleCacheDict` theo `bookId` và định tuyến duy nhất qua `notifyDictionariesDidUpdate()`.
+  * Hoãn tự động swap snapshot re-translation (`isTranslationRefreshDeferred`) khi người dùng đang bật menu/bảng thao tác bôi đen văn bản, bảo vệ 100% active selection.
+* **Tối Ưu Concurrency, Resilient Revision Retry & Per-line Cancellation**:
+  * Thêm vòng lặp retry tự động trong `ReaderViewModel.processAndSaveChapter` giúp nạp chương bình thường tự thử lại với `currentRevision` mới nhất nếu từ điển thay đổi trong lúc dịch ngầm, triệt tiêu hoàn toàn nguy cơ mất chương hoặc commit snapshot cũ.
+  * Bắt và kiểm tra bộ 5 thuộc tính định danh (`isPlaying`, `playingBookId`, `playingChapterIndex`, `sessionID`, `ttsProcessingGeneration`, `preparationGeneration`) trong `TTSManager.updatePreparedChapterContentSilent`, chặn đứng race condition ghi đè từ các tác vụ ngầm cũ.
+  * Tách helper `buildCancellable` trong `ReaderViewModel` hỗ trợ kiểm tra `Task.checkCancellation()` theo từng dòng (per-line), giúp hủy ngay các tác vụ dịch ngầm thừa mà vẫn bảo toàn 100% ngữ nghĩa và dữ liệu `TranslationSpan`.
+* **Scoped Translation Generation Token & Tái Sử Dụng Pretranslated Snapshot**:
+  * Thêm API `TranslateUtils.translationGenerationToken(for: bookId)` kết hợp `globalGeneration`, `bookGeneration`, `settingsGeneration` và bổ sung `translationToken` vào `TTSPreparedChapterKey`. Tự động làm miss cache prepared TTS cũ khi từ điển/cài đặt thay đổi kể cả khi không có floating session.
+  * Tái sử dụng trực tiếp snapshot `ParagraphItem` đã dịch trong `ReaderViewModel` cho `TTSBackgroundProcessor` qua `pretranslatedEntries`, kết hợp kiểm tra validation nghiêm ngặt theo `lineId` và `originalText`. Triệt tiêu hoàn toàn dịch trùng lặp giữa UI và TTS cho chương hiện tại.
+* **Snapshot Validation Metadata & Protection Against Race On Toggle**:
+  * Thêm `isTranslationEnabled` và `translationToken` vào `CachedChapter` và đóng gói thành `TTSPretranslatedSnapshot`.
+  * Trong `TTSBackgroundProcessor`, kiểm tra `snapshot.isTranslationEnabled == shouldTranslateRawContent` và `snapshot.translationToken == TranslateUtils.translationGenerationToken(for: bookId)`. Chặn đứng tuyệt đối việc phát âm nhầm văn bản dịch cũ khi chuyển đổi bật/tắt dịch thuật nhanh hoặc thay đổi từ điển trước khi refresh hoàn tất.
+
 ## [1.3.81] - 2026-08-05
 
 ### Sửa Lỗi Regression Highlight TTS & Lệch Range Cuối Chunk Cấp Chunk (`ChapterTextNormalizer.swift`, `TTSBackgroundProcessor.swift`, `TTSManager.swift`, `ReaderView.swift`, `ParagraphCardView.swift`, `ReaderSelectionMapper.swift`, `ChapterTextNormalizerTests.swift`)

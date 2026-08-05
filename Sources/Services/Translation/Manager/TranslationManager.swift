@@ -99,7 +99,6 @@ public final class TranslationManager: ObservableObject {
         try DictionaryTextFileStore.persist(records: records, to: fileUrl)
         
         // 4. Reset cache và load lại
-        TranslateUtils.clearCache()
         if let bid = bookId {
             bookDicts.removeValue(forKey: bid)
         } else {
@@ -109,7 +108,7 @@ public final class TranslationManager: ObservableObject {
             }
         }
         try await loadAllDictionaries()
-        notifyDictionariesDidUpdate()
+        notifyDictionariesDidUpdate(bookId: bookId)
     }
     
     public func deleteCustomEntry(word: String, isName: Bool, bookId: String?) async throws {
@@ -132,7 +131,6 @@ public final class TranslationManager: ObservableObject {
         }
         
         // 3. Reset cache và load lại
-        TranslateUtils.clearCache()
         if let bid = bookId {
             bookDicts.removeValue(forKey: bid)
         } else {
@@ -142,7 +140,7 @@ public final class TranslationManager: ObservableObject {
             }
         }
         try await loadAllDictionaries()
-        notifyDictionariesDidUpdate()
+        notifyDictionariesDidUpdate(bookId: bookId)
     }
     
     public func addDeletedWords(_ words: [String], isName: Bool) {
@@ -160,7 +158,6 @@ public final class TranslationManager: ObservableObject {
 
         if (try? DictionaryTextFileStore.persist(records: records, to: fileUrl)) != nil {
             updateDeletedState(from: records, isName: isName)
-            TranslateUtils.clearCache()
             notifyDictionariesDidUpdate()
         }
     }
@@ -173,7 +170,6 @@ public final class TranslationManager: ObservableObject {
 
         if (try? DictionaryTextFileStore.persist(records: records, to: fileUrl)) != nil {
             updateDeletedState(from: records, isName: isName)
-            TranslateUtils.clearCache()
             notifyDictionariesDidUpdate()
         }
     }
@@ -395,9 +391,16 @@ public final class TranslationManager: ObservableObject {
         updateDeletedState(from: customNameRecords, isName: true)
     }
 
-    public func notifyDictionariesDidUpdate() {
+    public func notifyDictionariesDidUpdate(bookId: String? = nil) {
+        TranslateUtils.invalidateCache(bookId: bookId)
         Task { @MainActor in
-            NotificationCenter.default.post(name: .translationDictionariesDidUpdate, object: nil)
+            var userInfo: [AnyHashable: Any] = [:]
+            if let bookId { userInfo["bookId"] = bookId }
+            NotificationCenter.default.post(
+                name: .translationDictionariesDidUpdate,
+                object: nil,
+                userInfo: userInfo.isEmpty ? nil : userInfo
+            )
         }
     }
     

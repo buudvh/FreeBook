@@ -116,16 +116,57 @@ struct ReaderTextView: UIViewRepresentable {
         let shouldScroll = isHighlightedNow && !context.coordinator.wasHighlighted
         context.coordinator.wasHighlighted = isHighlightedNow
         
-        // Kiểm tra xem cấu hình có thực sự thay đổi không để tránh gán attributedText đắt đỏ
-        let isConfigChanged = context.coordinator.lastText != text ||
-                              context.coordinator.lastFontSize != fontSize ||
-                              context.coordinator.lastLineSpacing != lineSpacing ||
-                              context.coordinator.lastFontFamilyName != fontFamily.rawValue ||
-                              context.coordinator.lastThemeName != theme.rawValue ||
-                              context.coordinator.lastHighlightRange != highlightRange ||
-                              context.coordinator.lastIsCentered != isCentered
-                              
-        if isConfigChanged {
+        let isTextOrLayoutConfigChanged = context.coordinator.lastText != text ||
+                                          context.coordinator.lastFontSize != fontSize ||
+                                          context.coordinator.lastLineSpacing != lineSpacing ||
+                                          context.coordinator.lastFontFamilyName != fontFamily.rawValue ||
+                                          context.coordinator.lastThemeName != theme.rawValue ||
+                                          context.coordinator.lastIsCentered != isCentered
+
+        let isHighlightChanged = context.coordinator.lastHighlightRange != highlightRange
+        let oldHighlight = context.coordinator.lastHighlightRange
+
+        let performAutoScrollIfNeeded = { (highlight: NSRange) in
+            if shouldScroll {
+                DispatchQueue.main.async {
+                    if let scrollView = uiView.parentScrollView {
+                        guard !scrollView.isDragging && !scrollView.isDecelerating && !scrollView.isTracking else {
+                            return
+                        }
+                        uiView.layoutManager.ensureLayout(for: uiView.textContainer)
+                        let start = uiView.position(from: uiView.beginningOfDocument, offset: highlight.location) ?? uiView.beginningOfDocument
+                        let end = uiView.position(from: start, offset: highlight.length) ?? start
+                        if let textRange = uiView.textRange(from: start, to: end) {
+                            let rect = uiView.firstRect(for: textRange)
+                            guard !rect.isNull && !rect.isEmpty &&
+                                  !rect.origin.x.isNaN && !rect.origin.y.isNaN &&
+                                  !rect.origin.x.isInfinite && !rect.origin.y.isInfinite &&
+                                  !rect.size.width.isNaN && !rect.size.height.isNaN else {
+                                return
+                            }
+                            let rectInScrollView = uiView.convert(rect, to: scrollView)
+                            guard !rectInScrollView.origin.x.isNaN && !rectInScrollView.origin.y.isNaN &&
+                                  !rectInScrollView.origin.x.isInfinite && !rectInScrollView.origin.y.isInfinite &&
+                                  !rectInScrollView.size.width.isNaN && !rectInScrollView.size.height.isNaN else {
+                                return
+                            }
+                            let visibleHeight = scrollView.bounds.height
+                            guard !visibleHeight.isNaN && !visibleHeight.isInfinite && visibleHeight > 0 else {
+                                return
+                            }
+                            let targetY = rectInScrollView.midY - (visibleHeight / 2)
+                            guard !targetY.isNaN && !targetY.isInfinite else {
+                                return
+                            }
+                            let safeTargetY = max(0, targetY)
+                            scrollView.setContentOffset(CGPoint(x: 0, y: safeTargetY), animated: true)
+                        }
+                    }
+                }
+            }
+        }
+
+        if isTextOrLayoutConfigChanged {
             context.coordinator.cachedWidth = nil
             context.coordinator.cachedHeight = nil
             context.coordinator.lastText = text
@@ -135,13 +176,13 @@ struct ReaderTextView: UIViewRepresentable {
             context.coordinator.lastThemeName = theme.rawValue
             context.coordinator.lastHighlightRange = highlightRange
             context.coordinator.lastIsCentered = isCentered
-            
+
             let nsText = text as NSString
             let fullRange = NSRange(location: 0, length: nsText.length)
             let attributedText = NSMutableAttributedString(string: text)
             attributedText.addAttribute(.font, value: font, range: fullRange)
             attributedText.addAttribute(.foregroundColor, value: UIColor(theme.textColor), range: fullRange)
-            
+
             let paragraphStyle = NSMutableParagraphStyle()
             paragraphStyle.lineSpacing = CGFloat(lineSpacing)
             if isCentered {
@@ -151,66 +192,38 @@ struct ReaderTextView: UIViewRepresentable {
                 paragraphStyle.firstLineHeadIndent = CGFloat(fontSize * 1.5)
             }
             attributedText.addAttribute(.paragraphStyle, value: paragraphStyle, range: fullRange)
-            
-            // Tô màu nền & màu chữ cho đoạn văn đang đọc (Highlight)
+
             if let highlight = highlightRange, highlight.location != NSNotFound && highlight.location + highlight.length <= nsText.length {
                 let highlightBgColor = theme.highlightUIColor
                 attributedText.addAttribute(.backgroundColor, value: highlightBgColor, range: highlight)
                 if let textFgColor = theme.highlightTextUIColor {
                     attributedText.addAttribute(.foregroundColor, value: textFgColor, range: highlight)
                 }
-                
-                // Tự động cuộn màn hình (Auto-scroll) để đưa đoạn highlight vào chính giữa màn hình
-                if shouldScroll {
-                    DispatchQueue.main.async {
-                        if let scrollView = uiView.parentScrollView {
-                            // Chỉ tự động cuộn nếu người dùng không tương tác vuốt chạm bằng tay
-                            guard !scrollView.isDragging && !scrollView.isDecelerating && !scrollView.isTracking else {
-                                return
-                            }
-                            
-                            uiView.layoutManager.ensureLayout(for: uiView.textContainer)
-                            let start = uiView.position(from: uiView.beginningOfDocument, offset: highlight.location) ?? uiView.beginningOfDocument
-                            let end = uiView.position(from: start, offset: highlight.length) ?? start
-                            if let textRange = uiView.textRange(from: start, to: end) {
-                                let rect = uiView.firstRect(for: textRange)
-                                guard !rect.isNull && !rect.isEmpty &&
-                                      !rect.origin.x.isNaN && !rect.origin.y.isNaN &&
-                                      !rect.origin.x.isInfinite && !rect.origin.y.isInfinite &&
-                                      !rect.size.width.isNaN && !rect.size.height.isNaN else {
-                                    return
-                                }
-                                
-                                let rectInScrollView = uiView.convert(rect, to: scrollView)
-                                guard !rectInScrollView.origin.x.isNaN && !rectInScrollView.origin.y.isNaN &&
-                                      !rectInScrollView.origin.x.isInfinite && !rectInScrollView.origin.y.isInfinite &&
-                                      !rectInScrollView.size.width.isNaN && !rectInScrollView.size.height.isNaN else {
-                                    return
-                                }
-                                
-                                let visibleHeight = scrollView.bounds.height
-                                guard !visibleHeight.isNaN && !visibleHeight.isInfinite && visibleHeight > 0 else {
-                                    return
-                                }
-                                
-                                let targetY = rectInScrollView.midY - (visibleHeight / 2)
-                                guard !targetY.isNaN && !targetY.isInfinite else {
-                                    return
-                                }
-                                
-                                let safeTargetY = max(0, targetY)
-                                scrollView.setContentOffset(CGPoint(x: 0, y: safeTargetY), animated: true)
-                            }
-                        }
-                    }
-                }
+                performAutoScrollIfNeeded(highlight)
             }
-            
+
             uiView.attributedText = attributedText
-            // Xóa selection cũ để tránh menu tự hiện lại khi TTS highlight thay đổi.
-            // UIKit giữ nguyên selectedRange khi text content không đổi (chỉ đổi màu highlight),
-            // điều này kích hoạt textViewDidChangeSelection với range cũ → menu bị re-show.
             uiView.selectedRange = NSRange(location: 0, length: 0)
+        } else if isHighlightChanged {
+            context.coordinator.lastHighlightRange = highlightRange
+            let storageLength = uiView.textStorage.length
+            uiView.textStorage.beginEditing()
+
+            if let old = oldHighlight, old.location != NSNotFound, old.location >= 0, old.location + old.length <= storageLength {
+                uiView.textStorage.removeAttribute(.backgroundColor, range: old)
+                uiView.textStorage.addAttribute(.foregroundColor, value: UIColor(theme.textColor), range: old)
+            }
+
+            if let highlight = highlightRange, highlight.location != NSNotFound, highlight.location >= 0, highlight.location + highlight.length <= storageLength {
+                let highlightBgColor = theme.highlightUIColor
+                uiView.textStorage.addAttribute(.backgroundColor, value: highlightBgColor, range: highlight)
+                if let textFgColor = theme.highlightTextUIColor {
+                    uiView.textStorage.addAttribute(.foregroundColor, value: textFgColor, range: highlight)
+                }
+                performAutoScrollIfNeeded(highlight)
+            }
+
+            uiView.textStorage.endEditing()
         }
         
         // Xử lý trigger lấy index ký tự hiển thị đầu tiên

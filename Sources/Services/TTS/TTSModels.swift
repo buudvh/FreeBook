@@ -54,11 +54,27 @@ public struct TTSParagraph: Codable, Hashable, Sendable {
     public let text: String
     public let range: NSRange
     public let paragraphIndex: Int
+    public let sourceRange: NSRange
     
-    public init(text: String, range: NSRange, paragraphIndex: Int) {
+    public init(text: String, range: NSRange, paragraphIndex: Int, sourceRange: NSRange? = nil) {
         self.text = text
         self.range = range
         self.paragraphIndex = paragraphIndex
+        self.sourceRange = sourceRange ?? range
+    }
+}
+
+public struct TTSChunkResumeIdentity: Codable, Equatable, Sendable {
+    public let sourceLineId: Int
+    public let sourceOffset: Int
+    public let sourceLength: Int
+    public let chunkOrdinal: Int
+
+    public init(sourceLineId: Int, sourceOffset: Int, sourceLength: Int = 1, chunkOrdinal: Int = 0) {
+        self.sourceLineId = sourceLineId
+        self.sourceOffset = sourceOffset
+        self.sourceLength = sourceLength
+        self.chunkOrdinal = chunkOrdinal
     }
 }
 
@@ -107,5 +123,17 @@ public struct TTSExtensionInfo: Codable, Equatable, Sendable {
         self.localPath = localPath
         self.downloadUrl = downloadUrl
         self.configJson = configJson
+    }
+}
+
+public struct TTSPretranslatedSnapshot: Sendable {
+    public let isTranslationEnabled: Bool
+    public let translationToken: Int
+    public let entries: [TTSLineEntry]
+
+    public init(isTranslationEnabled: Bool, translationToken: Int, entries: [TTSLineEntry]) {
+        self.isTranslationEnabled = isTranslationEnabled
+        self.translationToken = translationToken
+        self.entries = entries
     }
 }

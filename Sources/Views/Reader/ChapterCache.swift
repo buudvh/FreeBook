@@ -60,6 +60,9 @@ class CachedChapter: Identifiable {
     var scrollParagraphIndex: Int = -1
     var paragraphItems: [ParagraphItem] = []
     var isPositionRestored: Bool = false
+    var revision: Int = 0
+    var isTranslationEnabled: Bool = false
+    var translationToken: Int = 0
 
     init(index: Int) {
         self.index = index

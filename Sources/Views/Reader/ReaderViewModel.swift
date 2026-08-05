@@ -108,6 +108,7 @@ class ReaderViewModel: ObservableObject {
     let prefetcher = PrefetchManager()
     let progressStore = ReadingProgressStore.shared
     let modelContext: ModelContext
+    @Published private(set) var currentRevision: Int = 0
 
     private var dbSaveTask: Task<Void, Never>? = nil
     private var prefetchQueueTask: Task<Void, Never>? = nil
@@ -781,7 +782,7 @@ class ReaderViewModel: ObservableObject {
             onChapterCached?(index)
         }
 
-        await processAndSaveChapter(index: index, originalTitle: title, originalContent: cleanedContent)
+        await processAndSaveChapter(index: index, originalTitle: title, originalContent: cleanedContent, revision: currentRevision)
         return result.origin
     }
 
@@ -826,40 +827,145 @@ class ReaderViewModel: ObservableObject {
         )
     }
 
-    // Xử lý dịch thuật và lưu vào RAM Cache
-    private func processAndSaveChapter(index: Int, originalTitle: String, originalContent: String) async {
-        guard !Task.isCancelled else { return }
+    private nonisolated func performChapterTranslationOffMainActor(
+        originalTitle: String,
+        originalContent: String,
+        isTranslationEnabled: Bool,
+        showTitle: Bool,
+        bookId: String
+    ) async throws -> (normalizedContent: String, buildResult: ReaderParagraphBuildResult) {
+        try Task.checkCancellation()
+        let normalizedText = ChapterTextNormalizer.normalize(originalContent)
+        try Task.checkCancellation()
+        let buildResult = try await buildCancellable(
+            originalTitle: originalTitle,
+            normalizedText: normalizedText,
+            isTranslationEnabled: isTranslationEnabled,
+            showTitle: showTitle,
+            bookId: bookId
+        )
+        try Task.checkCancellation()
+        return (normalizedText.content, buildResult)
+    }
 
-        let isTranslationEnabled = self.isTranslationEnabled
-        let bookId = self.bookId
-        let showTitleKey = "showChapterTitle_\(bookId)"
-        let showTitle = UserDefaults.standard.object(forKey: showTitleKey) != nil
-            ? UserDefaults.standard.bool(forKey: showTitleKey)
-            : true
+    private nonisolated func buildCancellable(
+        originalTitle: String,
+        normalizedText: NormalizedChapterText,
+        isTranslationEnabled: Bool,
+        showTitle: Bool,
+        bookId: String
+    ) async throws -> ReaderParagraphBuildResult {
+        try Task.checkCancellation()
 
-        // Chuyển tác vụ dịch thuật và phân tích dòng xuống luồng chạy nền (Task.detached)
-        let result = await Task.detached(priority: .userInitiated) {
-            let normalizedText = ChapterTextNormalizer.normalize(originalContent)
-            return ReaderParagraphBuilder.build(
-                originalTitle: originalTitle,
-                normalizedText: normalizedText,
-                isTranslationEnabled: isTranslationEnabled,
-                showTitle: showTitle,
-                bookId: bookId
+        let titleResult: TranslatedTextResult
+        if isTranslationEnabled && TranslateUtils.containsChinese(originalTitle) {
+            titleResult = TranslateUtils.translateChapterTitleWithMapping(originalTitle, bookId: bookId)
+        } else {
+            titleResult = TranslateUtils.untranslatedTextResult(originalTitle)
+        }
+
+        var translatedLines: [TranslatedTextResult] = []
+        translatedLines.reserveCapacity(normalizedText.lines.count)
+
+        for (index, line) in normalizedText.lines.enumerated() {
+            if index % 5 == 0 {
+                try Task.checkCancellation()
+            }
+            let lineResult: TranslatedTextResult
+            if isTranslationEnabled && TranslateUtils.containsChinese(line.text) {
+                lineResult = TranslateUtils.translateContentWithMapping(line.text, bookId: bookId)
+            } else {
+                lineResult = TranslateUtils.untranslatedTextResult(line.text)
+            }
+            translatedLines.append(lineResult)
+        }
+
+        try Task.checkCancellation()
+
+        var items: [ParagraphItem] = []
+        if showTitle {
+            items.append(ParagraphItem(
+                id: -1,
+                original: originalTitle,
+                translated: titleResult.text,
+                isTitle: true,
+                translationSpans: titleResult.spans
+            ))
+        }
+
+        items.append(contentsOf: normalizedText.lines.indices.map { index in
+            let originalLine = normalizedText.lines[index]
+            let translatedLine = translatedLines[index]
+            return ParagraphItem(
+                id: originalLine.id,
+                original: originalLine.text,
+                translated: translatedLine.text,
+                isTitle: false,
+                translationSpans: translatedLine.spans
             )
-        }.value
+        })
 
-        guard !Task.isCancelled else { return }
+        return ReaderParagraphBuildResult(
+            translatedTitle: titleResult.text,
+            translatedContent: translatedLines.map(\.text).joined(separator: "\n"),
+            paragraphItems: items
+        )
+    }
 
-        // Lưu vào cache trên MainActor
-        let cached = cache.cache[index] ?? cache.setPlaceholder(index)
-        cached.originalTitle = originalTitle
-        cached.originalContent = ChapterTextNormalizer.normalize(originalContent).content
-        cached.title = result.translatedTitle
-        cached.content = result.translatedContent
-        cached.paragraphItems = result.paragraphItems
-        cached.state = .loaded
+    private func processAndSaveChapter(
+        index: Int,
+        originalTitle: String,
+        originalContent: String,
+        revision: Int
+    ) async {
+        var targetRevision = revision
+        while !Task.isCancelled {
+            let activeRevision = self.currentRevision
+            if targetRevision != activeRevision {
+                targetRevision = activeRevision
+            }
 
+            let isTranslationEnabled = self.isTranslationEnabled
+            let bookId = self.bookId
+            let currentToken = TranslateUtils.translationGenerationToken(for: bookId)
+            let showTitleKey = "showChapterTitle_\(bookId)"
+            let showTitle = UserDefaults.standard.object(forKey: showTitleKey) != nil
+                ? UserDefaults.standard.bool(forKey: showTitleKey)
+                : true
+
+            do {
+                let (normContent, result) = try await performChapterTranslationOffMainActor(
+                    originalTitle: originalTitle,
+                    originalContent: originalContent,
+                    isTranslationEnabled: isTranslationEnabled,
+                    showTitle: showTitle,
+                    bookId: bookId
+                )
+
+                guard !Task.isCancelled else { return }
+
+                if self.currentRevision == targetRevision,
+                   self.isTranslationEnabled == isTranslationEnabled,
+                   TranslateUtils.translationGenerationToken(for: bookId) == currentToken {
+                    let cached = cache.cache[index] ?? cache.setPlaceholder(index)
+                    cached.originalTitle = originalTitle
+                    cached.originalContent = normContent
+                    cached.title = result.translatedTitle
+                    cached.content = result.translatedContent
+                    cached.paragraphItems = result.paragraphItems
+                    cached.revision = targetRevision
+                    cached.isTranslationEnabled = isTranslationEnabled
+                    cached.translationToken = currentToken
+                    cached.state = .loaded
+                    return
+                } else {
+                    targetRevision = self.currentRevision
+                    continue
+                }
+            } catch {
+                return
+            }
+        }
     }
 
     // Bật/tắt dịch thuật nhanh từ RAM
@@ -868,34 +974,57 @@ class ReaderViewModel: ObservableObject {
     }
 
     // Cập nhật lại cache nội dung và tiêu đề dịch khi từ điển thay đổi
-    func updateCachedTranslatedContent(bookId: String) {
+    func updateCachedTranslatedContent(bookId: String, onCurrentChapterReady: (@MainActor () -> Void)? = nil) {
         guard bookId == self.bookId else { return }
-        refreshParagraphItems()
+        refreshParagraphItems(onCurrentChapterReady: onCurrentChapterReady)
     }
 
     // Cập nhật lại giao diện các đoạn văn (ví dụ khi ẩn/hiện tiêu đề chương)
-    func refreshParagraphItems() {
+    func refreshParagraphItems(onCurrentChapterReady: (@MainActor () -> Void)? = nil) {
         translationRefreshTask?.cancel()
+        currentRevision += 1
+        let taskRevision = currentRevision
 
         let currentIndex = displayedChapterIndex
-        let snapshots = cache.cache.values
-            .filter { $0.state == .loaded }
+        let allSnapshots = cache.cache.values
+            .filter { $0.state == .loaded || !$0.originalContent.isEmpty }
             .map { ($0.index, $0.originalTitle, $0.originalContent) }
-            .sorted { lhs, rhs in
-                let lhsDistance = lhs.0 == currentIndex ? 0 : abs(lhs.0 - currentIndex) + 1
-                let rhsDistance = rhs.0 == currentIndex ? 0 : abs(rhs.0 - currentIndex) + 1
-                return lhsDistance < rhsDistance
-            }
+
+        guard !allSnapshots.isEmpty else {
+            onCurrentChapterReady?()
+            return
+        }
+
+        let currentSnapshot = allSnapshots.first(where: { $0.0 == currentIndex })
+        let neighborSnapshots = allSnapshots
+            .filter { $0.0 != currentIndex }
+            .sorted { abs($0.0 - currentIndex) < abs($1.0 - currentIndex) }
 
         translationRefreshTask = Task { [weak self] in
             guard let self else { return }
-            for (index, originalTitle, originalContent) in snapshots {
-                guard !Task.isCancelled else { return }
+
+            if let current = currentSnapshot {
                 await self.processAndSaveChapter(
-                    index: index,
-                    originalTitle: originalTitle,
-                    originalContent: originalContent
+                    index: current.0,
+                    originalTitle: current.1,
+                    originalContent: current.2,
+                    revision: taskRevision
                 )
+            }
+
+            guard !Task.isCancelled, self.currentRevision == taskRevision else { return }
+
+            onCurrentChapterReady?()
+
+            for neighbor in neighborSnapshots {
+                guard !Task.isCancelled, self.currentRevision == taskRevision else { return }
+                await self.processAndSaveChapter(
+                    index: neighbor.0,
+                    originalTitle: neighbor.1,
+                    originalContent: neighbor.2,
+                    revision: taskRevision
+                )
+                await Task.yield()
             }
         }
     }

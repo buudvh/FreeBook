@@ -150,8 +150,8 @@ public final class DictionaryCache: ObservableObject {
         }
 
         // Reload translation engine
-        TranslateUtils.clearCache()
         try await TranslationManager.shared.loadAllDictionaries()
+        TranslationManager.shared.notifyDictionariesDidUpdate(bookId: nil)
     }
 }
 

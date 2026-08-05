@@ -21,11 +21,7 @@ struct ParagraphCardView: View {
             guard isTranslationEnabled && TranslateUtils.containsChinese(item.original) else {
                 return item.original
             }
-            if item.isTitle {
-                return TranslateUtils.translateChapterTitle(item.original, bookId: bookId)
-            } else {
-                return TranslateUtils.translateContent(item.original, bookId: bookId)
-            }
+            return item.translated.isEmpty ? item.original : item.translated
         }()
 
         ReaderTextView(

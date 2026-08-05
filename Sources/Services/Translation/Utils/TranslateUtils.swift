@@ -116,11 +116,24 @@ public final class TranslateUtils {
     private static let translationCache = NSCache<NSString, NSString>()
     private static let cacheLock = NSLock()
     private static let tocRulesLock = NSLock()
+    private static var globalGeneration: Int = 0
+    private static var bookGenerations: [String: Int] = [:]
+    private static var settingsGeneration: Int = 0
     private static var chapterTitleCacheDict: [String: [String: String]] = [:]
     private static var cachedAllTOCRules: [TOCRule]? = nil
     private static var cachedTOCRules: [TOCRule]? = nil
     private static var cachedCompiledTOCRegexes: [NSRegularExpression]? = nil
-    
+    public static func translationGenerationToken(for bookId: String?) -> Int {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        let bGen = bookId.flatMap { bookGenerations[$0] } ?? 0
+        var hasher = Hasher()
+        hasher.combine(globalGeneration)
+        hasher.combine(bGen)
+        hasher.combine(settingsGeneration)
+        return hasher.finalize()
+    }
+
     public static func getFirstMeaning(of rawTranslation: String) -> String {
         let separators = CharacterSet(charactersIn: "/¦|")
         let components = rawTranslation.components(separatedBy: separators)
@@ -379,14 +392,20 @@ public final class TranslateUtils {
         }
         
         let md5 = text.md5()
-        let cacheKey = "translate|vietphrase|v2|\(isMeta ? "meta" : "content")|\(bookId ?? "global")|\(md5)" as NSString
+        cacheLock.lock()
+        let bGen = bookId.flatMap { bookGenerations[$0] } ?? 0
+        let cacheKey = "translate|v3|g:\(globalGeneration)|b:\(bGen)|s:\(settingsGeneration)|\(isMeta ? "meta" : "content")|\(bookId ?? "global")|\(md5)" as NSString
+        let cached = translationCache.object(forKey: cacheKey)
+        cacheLock.unlock()
         
-        if let cached = translationCache.object(forKey: cacheKey) {
+        if let cached = cached {
             return cached as String
         }
         
         let translated = performTranslation(text, bookId: bookId)
+        cacheLock.lock()
         translationCache.setObject(translated as NSString, forKey: cacheKey)
+        cacheLock.unlock()
         return translated
     }
     
@@ -1156,9 +1175,29 @@ public final class TranslateUtils {
         cacheLock.unlock()
     }
     
+    public static func invalidateCache(bookId: String? = nil) {
+        cacheLock.lock()
+        if let bid = bookId {
+            bookGenerations[bid] = (bookGenerations[bid] ?? 0) + 1
+            chapterTitleCacheDict.removeValue(forKey: bid)
+            cacheLock.unlock()
+        } else {
+            globalGeneration += 1
+            settingsGeneration += 1
+            chapterTitleCacheDict.removeAll()
+            cacheLock.unlock()
+            invalidateTOCRulesCache()
+        }
+    }
+
     public static func clearCache() {
+        cacheLock.lock()
+        globalGeneration += 1
+        settingsGeneration += 1
+        bookGenerations.removeAll()
         translationCache.removeAllObjects()
-        clearChapterTitleCache()
+        chapterTitleCacheDict.removeAll()
+        cacheLock.unlock()
         invalidateTOCRulesCache()
     }
 

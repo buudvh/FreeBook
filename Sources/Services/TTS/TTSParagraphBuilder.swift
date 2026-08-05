@@ -1,31 +1,61 @@
-import Foundation
+public struct TTSLineEntry: Sendable {
+    public let lineId: Int
+    public let originalText: String
+    public let translatedText: String
+    public let spans: [TranslationSpan]
+
+    public init(lineId: Int, originalText: String, translatedText: String, spans: [TranslationSpan] = []) {
+        self.lineId = lineId
+        self.originalText = originalText
+        self.translatedText = translatedText
+        self.spans = spans
+    }
+}
 
 enum TTSParagraphBuilder {
     static func build(
         from normalizedText: NormalizedChapterText,
         chunkLength: Int
     ) -> [TTSParagraph] {
+        let entries = normalizedText.lines.map {
+            TTSLineEntry(lineId: $0.id, originalText: $0.text, translatedText: $0.text, spans: [])
+        }
+        return buildFromEntries(entries, chunkLength: chunkLength)
+    }
+
+    static func buildFromEntries(
+        _ entries: [TTSLineEntry],
+        chunkLength: Int
+    ) -> [TTSParagraph] {
         let maximumLength = max(chunkLength, 10)
-        return normalizedText.lines.flatMap { line in
-            chunks(for: line, maximumLength: maximumLength)
+        return entries.flatMap { entry in
+            chunks(for: entry, maximumLength: maximumLength)
         }
     }
 
     private static func chunks(
-        for line: ChapterTextLine,
+        for entry: TTSLineEntry,
         maximumLength: Int
     ) -> [TTSParagraph] {
-        guard line.text.utf16.count > maximumLength else {
-            let relativeRange = NSRange(location: 0, length: line.text.utf16.count)
-            AppLogger.shared.log("🔊 [TTSParagraphBuilder] Short Chunk (Line \(line.id)): '\(line.text)' | relativeRange=\(relativeRange)")
+        let textToUse = entry.translatedText
+        guard textToUse.utf16.count > maximumLength else {
+            let relativeRange = NSRange(location: 0, length: textToUse.utf16.count)
+            let srcRange = mapSourceRange(
+                translatedRange: relativeRange,
+                originalText: entry.originalText,
+                translatedText: textToUse,
+                spans: entry.spans
+            )
+            AppLogger.shared.log("🔊 [TTSParagraphBuilder] Short Chunk (Line \(entry.lineId)): '\(textToUse)' | relativeRange=\(relativeRange)")
             return [TTSParagraph(
-                text: line.text,
+                text: textToUse,
                 range: relativeRange,
-                paragraphIndex: line.id
+                paragraphIndex: entry.lineId,
+                sourceRange: srcRange
             )]
         }
 
-        let characters = Array(line.text)
+        let characters = Array(textToUse)
         var utf16Offsets = [Int](repeating: 0, count: characters.count + 1)
         for index in characters.indices {
             utf16Offsets[index + 1] = utf16Offsets[index] + characters[index].utf16.count
@@ -63,11 +93,18 @@ enum TTSParagraphBuilder {
                     location: utf16Offsets[start] + leading,
                     length: text.utf16.count
                 )
-                AppLogger.shared.log("🔊 [TTSParagraphBuilder] Chunk (Line \(line.id)): '\(text)' | relativeRange=\(relativeRange)")
+                let srcRange = mapSourceRange(
+                    translatedRange: relativeRange,
+                    originalText: entry.originalText,
+                    translatedText: textToUse,
+                    spans: entry.spans
+                )
+                AppLogger.shared.log("🔊 [TTSParagraphBuilder] Chunk (Line \(entry.lineId)): '\(text)' | relativeRange=\(relativeRange)")
                 result.append(TTSParagraph(
                     text: text,
                     range: relativeRange,
-                    paragraphIndex: line.id
+                    paragraphIndex: entry.lineId,
+                    sourceRange: srcRange
                 ))
             }
 
@@ -78,5 +115,35 @@ enum TTSParagraphBuilder {
         }
 
         return result
+    }
+
+    private static func mapSourceRange(
+        translatedRange: NSRange,
+        originalText: String,
+        translatedText: String,
+        spans: [TranslationSpan]
+    ) -> NSRange {
+        guard !originalText.isEmpty else { return NSRange(location: 0, length: 0) }
+        guard originalText != translatedText else { return translatedRange }
+
+        let overlappingSpans = spans.filter {
+            NSIntersectionRange($0.translatedRange, translatedRange).length > 0
+        }
+        if !overlappingSpans.isEmpty {
+            let start = overlappingSpans.map(\.originalLocation).min() ?? 0
+            let end = overlappingSpans.map { $0.originalLocation + $0.originalLength }.max() ?? start
+            let range = NSRange(location: start, length: max(0, end - start))
+            if range.location >= 0 && NSMaxRange(range) <= (originalText as NSString).length {
+                return range
+            }
+        }
+
+        let transLength = max(1, (translatedText as NSString).length)
+        let origLength = max(1, (originalText as NSString).length)
+        let ratio = Double(translatedRange.location) / Double(transLength)
+        let loc = min(Int((ratio * Double(origLength)).rounded()), max(0, origLength - 1))
+        let lenRatio = Double(translatedRange.length) / Double(transLength)
+        let len = max(1, min(Int((lenRatio * Double(origLength)).rounded()), max(1, origLength - loc)))
+        return NSRange(location: loc, length: len)
     }
 }

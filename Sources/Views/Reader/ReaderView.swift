@@ -178,6 +178,7 @@ struct ReaderView: View {
     @State private var updateTTSPositionWorkItem: DispatchWorkItem? = nil
     @State private var prepareTTSTask: DispatchWorkItem? = nil
     @State private var syncTTSTask: Task<Void, Never>? = nil
+    @State private var isTranslationRefreshDeferred: Bool = false
 
     @State private var localChaptersCount: Int = 0
     @State private var currentChapterTitle: String = ""
@@ -389,7 +390,13 @@ struct ReaderView: View {
                     },
                     onSpeak: {
                         if let pIndex = editingParagraphIndex {
-                            startTTS(at: chapterIndex, paragraphIndex: pIndex, startTextOffset: selectedDisplayedOffset)
+                            let sourceOffset = isTranslationEnabled ? selectedWordOffset : selectedDisplayedOffset
+                            let resumeIdentity = TTSChunkResumeIdentity(
+                                sourceLineId: pIndex,
+                                sourceOffset: sourceOffset,
+                                sourceLength: selectedWordLength
+                            )
+                            startTTS(at: chapterIndex, paragraphIndex: pIndex, startTextOffset: sourceOffset, resumeIdentity: resumeIdentity)
                         }
                     },
                     onPhoneme: {
@@ -515,22 +522,39 @@ struct ReaderView: View {
         .onChange(of: showingDefinitionSheet) { _, newValue in
             if newValue {
                 searchEngines = SearchEngine.loadEngines()
+            } else {
+                checkAndReleaseDeferredTranslationRefresh()
+            }
+        }
+        .onChange(of: showingFloatingMenu) { _, newValue in
+            if !newValue {
+                checkAndReleaseDeferredTranslationRefresh()
+            }
+        }
+        .onChange(of: showingAddNghiTTSPhonemeSheet) { _, newValue in
+            if !newValue {
+                checkAndReleaseDeferredTranslationRefresh()
+            }
+        }
+        .onChange(of: showingJunkDeleteSheet) { _, newValue in
+            if !newValue {
+                checkAndReleaseDeferredTranslationRefresh()
             }
         }
         .onChange(of: isTranslationEnabled) { _, newValue in
             applyTranslation()
             chapterListStore?.updateTranslation(isTranslationEnabled: newValue)
-            scheduleTTSSynchronization()
+            scheduleCoalescedTranslationRefresh()
         }
         .onChange(of: isTranslationPronounsEnabled) { _, _ in
-            TranslateUtils.clearCache()
+            TranslationManager.shared.notifyDictionariesDidUpdate(bookId: nil)
             applyTranslation()
-            scheduleTTSSynchronization()
+            scheduleCoalescedTranslationRefresh()
         }
         .onChange(of: isTranslationLuatNhanEnabled) { _, _ in
-            TranslateUtils.clearCache()
+            TranslationManager.shared.notifyDictionariesDidUpdate(bookId: nil)
             applyTranslation()
-            scheduleTTSSynchronization()
+            scheduleCoalescedTranslationRefresh()
         }
         .sheet(isPresented: $showingAddNghiTTSPhonemeSheet) {
             AddWordSheet(initialKey: selectedDisplayedText) { key, val in
@@ -773,10 +797,10 @@ struct ReaderView: View {
                 }
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .translationDictionariesDidUpdate)) { _ in
-            TranslateUtils.clearCache()
-            viewModel?.updateCachedTranslatedContent(bookId: bookId)
-            scheduleTTSSynchronization()
+        .onReceive(NotificationCenter.default.publisher(for: .translationDictionariesDidUpdate)) { notification in
+            let notificationBookId = notification.userInfo?["bookId"] as? String
+            guard notificationBookId == nil || notificationBookId == bookId else { return }
+            scheduleCoalescedTranslationRefresh()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("navigateReaderToPlayingChapter"))) { notification in
             guard let userInfo = notification.userInfo,
@@ -1672,7 +1696,7 @@ struct ReaderView: View {
         )
     }
 
-    private func startTTS(at index: Int, paragraphIndex: Int, startTextOffset: Int? = nil) {
+    private func startTTS(at index: Int, paragraphIndex: Int, startTextOffset: Int? = nil, resumeIdentity: TTSChunkResumeIdentity? = nil) {
         guard index >= 0 && index < totalChaptersCount else { return }
         Task {
             guard let currentChapter = await ttsChapterInfo(at: index) else { return }
@@ -1687,6 +1711,7 @@ struct ReaderView: View {
             }
 
             let chapterContentToUse = getTTSChapterContent(for: index)
+            let snapshot = getPretranslatedSnapshot(for: index)
 
             ttsManager.startSpeaking(
                 bookId: bookId,
@@ -1695,11 +1720,13 @@ struct ReaderView: View {
                 chapterContent: chapterContentToUse,
                 startParagraphIndex: paragraphIndex,
                 startTextOffset: startTextOffset,
+                resumeIdentity: resumeIdentity,
                 bookTitle: localBook?.title ?? bookTitle ?? "FreeBook",
                 coverUrl: localBook?.coverUrl ?? bookCoverUrl ?? "",
                 bookDetailUrl: localBook?.detailUrl ?? bookDetailUrl ?? "",
                 bookSourceName: localBook?.sourceName ?? bookSourceName ?? "",
-                extensionInfo: ttsExtensionInfo
+                extensionInfo: ttsExtensionInfo,
+                snapshot: snapshot
             )
             ttsManager.refreshChaptersQueueInBackground(
                 bookId: bookId,
@@ -1708,6 +1735,25 @@ struct ReaderView: View {
                 } : nil
             )
         }
+    }
+
+    private func getPretranslatedSnapshot(for index: Int) -> TTSPretranslatedSnapshot? {
+        guard let cached = viewModel?.cache.get(index), cached.state == .loaded else { return nil }
+        let contentItems = cached.paragraphItems.filter { !$0.isTitle }
+        guard !contentItems.isEmpty else { return nil }
+        let entries = contentItems.map { item in
+            TTSLineEntry(
+                lineId: item.id,
+                originalText: item.original,
+                translatedText: item.translated,
+                spans: item.translationSpans
+            )
+        }
+        return TTSPretranslatedSnapshot(
+            isTranslationEnabled: cached.isTranslationEnabled,
+            translationToken: cached.translationToken,
+            entries: entries
+        )
     }
 
     private func getTTSChapterContent(for index: Int) -> String {
@@ -1723,32 +1769,87 @@ struct ReaderView: View {
         return cached.originalContent.isEmpty ? cached.content : cached.originalContent
     }
 
-    private func scheduleTTSSynchronization() {
+    private var isAnySelectionOrOverlayActive: Bool {
+        showingFloatingMenu || showingDefinitionSheet || showingAddNghiTTSPhonemeSheet || showingJunkDeleteSheet
+    }
+
+    private func checkAndReleaseDeferredTranslationRefresh() {
+        if !isAnySelectionOrOverlayActive && isTranslationRefreshDeferred {
+            isTranslationRefreshDeferred = false
+            scheduleCoalescedTranslationRefresh()
+        }
+    }
+
+    private func scheduleCoalescedTranslationRefresh() {
+        if isAnySelectionOrOverlayActive {
+            isTranslationRefreshDeferred = true
+            return
+        }
+
         syncTTSTask?.cancel()
         syncTTSTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 100_000_000)
+            try? await Task.sleep(nanoseconds: 150_000_000)
             guard !Task.isCancelled else { return }
-            performTTSSynchronization()
+            viewModel?.updateCachedTranslatedContent(bookId: bookId) {
+                performTTSSynchronization()
+            }
         }
     }
 
     private func performTTSSynchronization() {
-        TranslateUtils.clearCache()
-        ttsManager.clearPreparedChapterCache()
-        ttsManager.clearPrefetchCache()
-
         guard ttsManager.showFloatingWidget && ttsManager.playingBookId == bookId else { return }
 
-        let wasPlaying = ttsManager.isPlaying
         let targetIndex = ttsManager.playingChapterIndex
-        let targetParagraphId = ttsManager.currentParentParagraphIndex
+        guard targetIndex >= 0 else { return }
+
+        // Snapshot Readiness Check: Hoãn sync nếu dữ liệu chương hiện tại chưa hoàn tất re-translation!
+        guard let cached = viewModel?.cache.get(targetIndex),
+              cached.state == .loaded,
+              let vm = viewModel, cached.revision == vm.currentRevision else {
+            return
+        }
+
+        let wasPlaying = ttsManager.isPlaying
+        var resumeIdentity: TTSChunkResumeIdentity? = nil
+        let curIdx = ttsManager.currentParagraphIndex
+        if curIdx >= 0 && curIdx < ttsManager.paragraphs.count {
+            let chunk = ttsManager.paragraphs[curIdx]
+            var ordinal = 0
+            for i in 0..<curIdx {
+                if ttsManager.paragraphs[i].paragraphIndex == chunk.paragraphIndex {
+                    ordinal += 1
+                }
+            }
+            resumeIdentity = TTSChunkResumeIdentity(
+                sourceLineId: chunk.paragraphIndex,
+                sourceOffset: chunk.sourceRange.location != NSNotFound ? chunk.sourceRange.location : chunk.range.location,
+                sourceLength: chunk.sourceRange.length,
+                chunkOrdinal: ordinal
+            )
+        }
 
         if wasPlaying {
+            ttsManager.clearPreparedChapterCache()
+            ttsManager.clearPrefetchCache()
             let contentToUse = getTTSChapterContent(for: targetIndex)
             guard !contentToUse.isEmpty else { return }
-            startTTS(at: targetIndex, paragraphIndex: targetParagraphId)
+            let lineId = resumeIdentity?.sourceLineId ?? ttsManager.currentParentParagraphIndex
+            let srcOffset = resumeIdentity?.sourceOffset
+            startTTS(at: targetIndex, paragraphIndex: lineId, startTextOffset: srcOffset, resumeIdentity: resumeIdentity)
         } else {
-            ttsManager.stop()
+            let rawContent = getTTSChapterContent(for: targetIndex)
+            guard !rawContent.isEmpty else { return }
+            let title = currentChapterTitle
+            Task { @MainActor in
+                await ttsManager.updatePreparedChapterContentSilent(
+                    bookId: bookId,
+                    chapterIndex: targetIndex,
+                    chapterTitle: title,
+                    rawContent: rawContent,
+                    resumeIdentity: resumeIdentity,
+                    snapshot: getPretranslatedSnapshot(for: targetIndex)
+                )
+            }
         }
     }
 
