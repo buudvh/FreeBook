@@ -76,7 +76,12 @@ struct ReaderTextView: UIViewRepresentable {
     }
     
     func makeUIView(context: Context) -> UITextView {
-        let textView = AutoSizingTextView()
+        let textView: AutoSizingTextView
+        if #available(iOS 16.0, *) {
+            textView = AutoSizingTextView(usingTextLayoutManager: false)
+        } else {
+            textView = AutoSizingTextView()
+        }
         context.coordinator.parentTextView = textView
         
         textView.isEditable = false
@@ -133,7 +138,7 @@ struct ReaderTextView: UIViewRepresentable {
                         guard !scrollView.isDragging && !scrollView.isDecelerating && !scrollView.isTracking else {
                             return
                         }
-                        uiView.layoutManager.ensureLayout(for: uiView.textContainer)
+                        uiView.layoutManager?.ensureLayout(for: uiView.textContainer)
                         let start = uiView.position(from: uiView.beginningOfDocument, offset: highlight.location) ?? uiView.beginningOfDocument
                         let end = uiView.position(from: start, offset: highlight.length) ?? start
                         if let textRange = uiView.textRange(from: start, to: end) {
@@ -197,8 +202,8 @@ struct ReaderTextView: UIViewRepresentable {
             uiView.selectedRange = NSRange(location: 0, length: 0)
 
             if let old = oldHighlight, old.location != NSNotFound, old.location >= 0, old.location + old.length <= nsText.length {
-                uiView.layoutManager.removeTemporaryAttribute(.backgroundColor, forCharacterRange: old)
-                uiView.layoutManager.removeTemporaryAttribute(.foregroundColor, forCharacterRange: old)
+                uiView.layoutManager?.removeTemporaryAttribute(.backgroundColor, forCharacterRange: old)
+                uiView.layoutManager?.removeTemporaryAttribute(.foregroundColor, forCharacterRange: old)
             }
 
             if let highlight = highlightRange, highlight.location != NSNotFound, highlight.location >= 0, highlight.location + highlight.length <= nsText.length {
@@ -208,7 +213,7 @@ struct ReaderTextView: UIViewRepresentable {
                 if let textFgColor = theme.highlightTextUIColor {
                     tempAttrs[.foregroundColor] = textFgColor
                 }
-                uiView.layoutManager.addTemporaryAttributes(tempAttrs, forCharacterRange: highlight)
+                uiView.layoutManager?.addTemporaryAttributes(tempAttrs, forCharacterRange: highlight)
                 performAutoScrollIfNeeded(highlight)
             }
         } else if isHighlightChanged {
@@ -218,8 +223,8 @@ struct ReaderTextView: UIViewRepresentable {
             let storageLength = uiView.textStorage.length
 
             if let old = oldHighlight, old.location != NSNotFound, old.location >= 0, old.location + old.length <= storageLength {
-                uiView.layoutManager.removeTemporaryAttribute(.backgroundColor, forCharacterRange: old)
-                uiView.layoutManager.removeTemporaryAttribute(.foregroundColor, forCharacterRange: old)
+                uiView.layoutManager?.removeTemporaryAttribute(.backgroundColor, forCharacterRange: old)
+                uiView.layoutManager?.removeTemporaryAttribute(.foregroundColor, forCharacterRange: old)
             }
 
             if let highlight = highlightRange, highlight.location != NSNotFound, highlight.location >= 0, highlight.location + highlight.length <= storageLength {
@@ -229,7 +234,7 @@ struct ReaderTextView: UIViewRepresentable {
                 if let textFgColor = theme.highlightTextUIColor {
                     tempAttrs[.foregroundColor] = textFgColor
                 }
-                uiView.layoutManager.addTemporaryAttributes(tempAttrs, forCharacterRange: highlight)
+                uiView.layoutManager?.addTemporaryAttributes(tempAttrs, forCharacterRange: highlight)
                 performAutoScrollIfNeeded(highlight)
             }
         }
@@ -243,7 +248,7 @@ struct ReaderTextView: UIViewRepresentable {
                     if let scrollView = uiView.parentScrollView {
                         let point = CGPoint(x: 0, y: scrollView.contentOffset.y)
                         let pointInTextView = scrollView.convert(point, to: uiView)
-                        let charIndex = uiView.layoutManager.characterIndex(for: pointInTextView, in: uiView.textContainer, fractionOfDistanceBetweenInsertionPoints: nil)
+                        let charIndex = uiView.layoutManager?.characterIndex(for: pointInTextView, in: uiView.textContainer, fractionOfDistanceBetweenInsertionPoints: nil) ?? 0
                         onGetVisibleIndex(charIndex)
                     } else {
                         onGetVisibleIndex(0)

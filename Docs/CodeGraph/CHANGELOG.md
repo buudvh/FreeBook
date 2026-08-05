@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.88] - 2026-08-06
+
+### Sửa Lỗi Biên Dịch Optional Chaining ReaderTextView & Warning withLock (`ReaderTextView.swift`, `ExtTTSService.swift`)
+* **Sửa Lỗi Truy Cập LayoutManager Optional Chaining (`ReaderTextView.swift`)**:
+  * Thêm toán tử optional chaining `?.` tại toàn bộ các truy xuất `uiView.layoutManager` trong `ReaderTextView.swift` (dòng 138, 204, 205, 214, 223, 224, 233, 246) để tương thích chính xác với thuộc tính optional `layoutManager: NSLayoutManager?`.
+  * Khởi tạo `AutoSizingTextView(usingTextLayoutManager: false)` trên iOS 16+ để ép `UITextView` dùng TextKit 1 cho highlight và căn chỉnh kích thước text.
+* **Khắc Phục Cảnh Báo Giá Trị withLock Không Sử Dụng (`ExtTTSService.swift`)**:
+  * Thêm gán `_ = tempFileLock.withLock { activeTempFiles.insert(tempFileUrl) }` loại bỏ warning `result of call to 'withLock' is unused`.
+
 ## [1.3.87] - 2026-08-05
 
 ### Sửa Lỗi Biên Dịch Swift & Cảnh Báo Build (`TTSBackgroundProcessor.swift`, `ExtTTSService.swift`, `DownloadManager.swift`, `03_type_graph.md`)
