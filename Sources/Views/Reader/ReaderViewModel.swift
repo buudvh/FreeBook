@@ -974,13 +974,13 @@ class ReaderViewModel: ObservableObject {
     }
 
     // Cập nhật lại cache nội dung và tiêu đề dịch khi từ điển thay đổi
-    func updateCachedTranslatedContent(bookId: String, onCurrentChapterReady: (@MainActor () -> Void)? = nil) {
+    func updateCachedTranslatedContent(bookId: String) {
         guard bookId == self.bookId else { return }
-        refreshParagraphItems(onCurrentChapterReady: onCurrentChapterReady)
+        refreshParagraphItems()
     }
 
     // Cập nhật lại giao diện các đoạn văn (ví dụ khi ẩn/hiện tiêu đề chương)
-    func refreshParagraphItems(onCurrentChapterReady: (@MainActor () -> Void)? = nil) {
+    func refreshParagraphItems() {
         translationRefreshTask?.cancel()
         currentRevision += 1
         let taskRevision = currentRevision
@@ -990,10 +990,7 @@ class ReaderViewModel: ObservableObject {
             .filter { $0.state == .loaded || !$0.originalContent.isEmpty }
             .map { ($0.index, $0.originalTitle, $0.originalContent) }
 
-        guard !allSnapshots.isEmpty else {
-            onCurrentChapterReady?()
-            return
-        }
+        guard !allSnapshots.isEmpty else { return }
 
         let currentSnapshot = allSnapshots.first(where: { $0.0 == currentIndex })
         let neighborSnapshots = allSnapshots
@@ -1013,8 +1010,6 @@ class ReaderViewModel: ObservableObject {
             }
 
             guard !Task.isCancelled, self.currentRevision == taskRevision else { return }
-
-            onCurrentChapterReady?()
 
             for neighbor in neighborSnapshots {
                 guard !Task.isCancelled, self.currentRevision == taskRevision else { return }

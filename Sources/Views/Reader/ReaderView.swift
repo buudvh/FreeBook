@@ -177,7 +177,7 @@ struct ReaderView: View {
     @State private var updateProgressWorkItem: DispatchWorkItem? = nil
     @State private var updateTTSPositionWorkItem: DispatchWorkItem? = nil
     @State private var prepareTTSTask: DispatchWorkItem? = nil
-    @State private var syncTTSTask: Task<Void, Never>? = nil
+    @State private var translationRefreshDebounceTask: Task<Void, Never>? = nil
     @State private var isTranslationRefreshDeferred: Bool = false
 
     @State private var localChaptersCount: Int = 0
@@ -1786,70 +1786,11 @@ struct ReaderView: View {
             return
         }
 
-        syncTTSTask?.cancel()
-        syncTTSTask = Task { @MainActor in
+        translationRefreshDebounceTask?.cancel()
+        translationRefreshDebounceTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 150_000_000)
             guard !Task.isCancelled else { return }
-            viewModel?.updateCachedTranslatedContent(bookId: bookId) {
-                performTTSSynchronization()
-            }
-        }
-    }
-
-    private func performTTSSynchronization() {
-        guard ttsManager.showFloatingWidget && ttsManager.playingBookId == bookId else { return }
-
-        let targetIndex = ttsManager.playingChapterIndex
-        guard targetIndex >= 0 else { return }
-
-        // Snapshot Readiness Check: Hoãn sync nếu dữ liệu chương hiện tại chưa hoàn tất re-translation!
-        guard let cached = viewModel?.cache.get(targetIndex),
-              cached.state == .loaded,
-              let vm = viewModel, cached.revision == vm.currentRevision else {
-            return
-        }
-
-        let wasPlaying = ttsManager.isPlaying
-        var resumeIdentity: TTSChunkResumeIdentity? = nil
-        let curIdx = ttsManager.currentParagraphIndex
-        if curIdx >= 0 && curIdx < ttsManager.paragraphs.count {
-            let chunk = ttsManager.paragraphs[curIdx]
-            var ordinal = 0
-            for i in 0..<curIdx {
-                if ttsManager.paragraphs[i].paragraphIndex == chunk.paragraphIndex {
-                    ordinal += 1
-                }
-            }
-            resumeIdentity = TTSChunkResumeIdentity(
-                sourceLineId: chunk.paragraphIndex,
-                sourceOffset: chunk.sourceRange.location != NSNotFound ? chunk.sourceRange.location : chunk.range.location,
-                sourceLength: chunk.sourceRange.length,
-                chunkOrdinal: ordinal
-            )
-        }
-
-        if wasPlaying {
-            ttsManager.clearPreparedChapterCache()
-            ttsManager.clearPrefetchCache()
-            let contentToUse = getTTSChapterContent(for: targetIndex)
-            guard !contentToUse.isEmpty else { return }
-            let lineId = resumeIdentity?.sourceLineId ?? ttsManager.currentParentParagraphIndex
-            let srcOffset = resumeIdentity?.sourceOffset
-            startTTS(at: targetIndex, paragraphIndex: lineId, startTextOffset: srcOffset, resumeIdentity: resumeIdentity)
-        } else {
-            let rawContent = getTTSChapterContent(for: targetIndex)
-            guard !rawContent.isEmpty else { return }
-            let title = currentChapterTitle
-            Task { @MainActor in
-                await ttsManager.updatePreparedChapterContentSilent(
-                    bookId: bookId,
-                    chapterIndex: targetIndex,
-                    chapterTitle: title,
-                    rawContent: rawContent,
-                    resumeIdentity: resumeIdentity,
-                    snapshot: getPretranslatedSnapshot(for: targetIndex)
-                )
-            }
+            viewModel?.updateCachedTranslatedContent(bookId: bookId)
         }
     }
 
