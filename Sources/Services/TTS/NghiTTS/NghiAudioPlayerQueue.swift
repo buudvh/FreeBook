@@ -3,9 +3,18 @@ import Foundation
 
 @MainActor
 final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
-    struct Item: Equatable {
+    struct Item: Equatable, Sendable {
         let paragraphIndex: Int
         let playbackId: String
+    }
+
+    enum QueueState: Equatable, Sendable {
+        case idle
+        case playing(current: Item)
+        case prepared(current: Item, next: Item)
+        case scheduled(current: Item, next: Item, atDeviceTime: TimeInterval)
+        case paused(current: Item, next: Item?, wasScheduled: Bool)
+        case waitingForSynthesis(currentParentIndex: Int)
     }
 
     enum QueueError: LocalizedError {
@@ -27,6 +36,7 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
 
     private(set) var currentItem: Item?
     private(set) var nextItem: Item?
+    private(set) var state: QueueState = .idle
 
     private var currentPlayer: AVAudioPlayer?
     private var nextPlayer: AVAudioPlayer?
@@ -53,6 +63,7 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         let player = try makePlayer(data: data)
         currentPlayer = player
         currentItem = item
+        state = .playing(current: item)
 
         guard player.play() else {
             stop()
@@ -74,18 +85,38 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         nextPlayer = player
         nextData = data
         nextItem = item
+        if let currentItem {
+            state = .prepared(current: currentItem, next: item)
+        }
         scheduleNextIfPossible()
     }
 
     func pause() {
+        let wasScheduled = nextIsScheduled
         currentPlayer?.pause()
-        unscheduleNextKeepingData()
+        if nextIsScheduled {
+            nextPlayer?.stop()
+            nextIsScheduled = false
+            nextPlayer?.prepareToPlay()
+        }
+        if let currentItem {
+            state = .paused(current: currentItem, next: nextItem, wasScheduled: wasScheduled)
+        } else {
+            state = .idle
+        }
     }
 
     @discardableResult
     func resume() -> Bool {
         guard let currentPlayer else { return false }
         guard currentPlayer.play() else { return false }
+        if let currentItem {
+            if let nextItem {
+                state = .prepared(current: currentItem, next: nextItem)
+            } else {
+                state = .playing(current: currentItem)
+            }
+        }
         scheduleNextIfPossible()
         return true
     }
@@ -93,11 +124,13 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
     func updateRate(_ rate: Double) {
         playbackRate = clampedRate(rate)
         currentPlayer?.rate = playbackRate
+        nextPlayer?.rate = playbackRate
 
         if nextIsScheduled {
-            unscheduleNextKeepingData()
-        } else {
-            nextPlayer?.rate = playbackRate
+            // Hủy schedule cũ trên hardware nhưng GIỮ NGUYÊN instance nextPlayer
+            nextPlayer?.stop()
+            nextIsScheduled = false
+            nextPlayer?.prepareToPlay()
         }
 
         scheduleNextIfPossible()
@@ -108,6 +141,7 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         currentPlayer?.delegate = nil
         currentPlayer = nil
         currentItem = nil
+        state = .idle
         discardNext()
     }
 
@@ -139,36 +173,27 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         let effectiveRate = max(0.01, Double(currentPlayer.rate))
         let wallClockRemaining = mediaRemaining / effectiveRate
 
-        // If the current item is effectively over, let the delegate promotion
-        // start the prepared player immediately instead of scheduling in the past.
-        guard wallClockRemaining > 0.005 else { return }
+        // Safe scheduling window: nếu thời gian còn lại giữa 5ms và 50ms, KHÔNG ép schedule bằng atTime.
+        // Giữ nextPlayer ở trạng thái prepared, để khi currentPlayer finish, promoteNextAfterCurrentFinished sẽ play() ngay lập tức.
+        guard wallClockRemaining > 0.050 else {
+            if wallClockRemaining <= 0.005 {
+                AppLogger.shared.log("ℹ️ [NghiAudioPlayerQueue] Audio effectively over (wallClockRemaining <= 5ms); skipping atTime schedule for immediate delegate handoff")
+            } else {
+                AppLogger.shared.log("ℹ️ [NghiAudioPlayerQueue] Remaining time (\(String(format: "%.3f", wallClockRemaining))s) <= 50ms safe window; keeping nextPlayer prepared for immediate finish handoff")
+            }
+            return
+        }
 
         let startTime = currentPlayer.deviceCurrentTime + wallClockRemaining
         nextPlayer.rate = playbackRate
         nextIsScheduled = nextPlayer.play(atTime: startTime)
 
-        if !nextIsScheduled {
-            AppLogger.shared.log("⚠️ [TTSManager] Không thể schedule AVAudioPlayer tiếp theo bằng device clock; sẽ fallback khi đoạn hiện tại kết thúc")
-        }
-    }
-
-    private func unscheduleNextKeepingData() {
-        guard nextPlayer != nil else { return }
-
-        nextPlayer?.stop()
-        nextIsScheduled = false
-
-        guard let nextData else {
-            discardNext()
-            return
-        }
-
-        do {
-            let rebuilt = try makePlayer(data: nextData)
-            nextPlayer = rebuilt
-        } catch {
-            AppLogger.shared.log("⚠️ [TTSManager] Không thể rebuild AVAudioPlayer đã prepare: \(error.localizedDescription)")
-            discardNext()
+        if nextIsScheduled {
+            if let currentItem, let nextItem {
+                state = .scheduled(current: currentItem, next: nextItem, atDeviceTime: startTime)
+            }
+        } else {
+            AppLogger.shared.log("⚠️ [NghiAudioPlayerQueue] Không thể schedule AVAudioPlayer tiếp theo bằng device clock; sẽ fallback khi đoạn hiện tại kết thúc")
         }
     }
 
@@ -179,12 +204,18 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         nextData = nil
         nextItem = nil
         nextIsScheduled = false
+        if let currentItem {
+            state = .playing(current: currentItem)
+        } else {
+            state = .idle
+        }
     }
 
     private func promoteNextAfterCurrentFinished() -> Item? {
         guard let nextPlayer, let nextItem else {
             currentPlayer = nil
             currentItem = nil
+            state = .idle
             return nil
         }
 
@@ -195,6 +226,7 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         self.nextItem = nil
         nextData = nil
         nextIsScheduled = false
+        state = .playing(current: nextItem)
 
         if currentPlayer?.isPlaying != true {
             _ = currentPlayer?.play()
@@ -208,7 +240,8 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
     }
 
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
             if player === self.currentPlayer {
                 let finishedItem = self.currentItem
                 let promotedItem = self.promoteNextAfterCurrentFinished()
@@ -229,7 +262,8 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
     }
 
     nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
             let message = error?.localizedDescription ?? "Unknown AVAudioPlayer decode error"
             AppLogger.shared.log("❌ [TTSManager] AVAudioPlayer decode error: \(message)")
 
@@ -243,3 +277,4 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         }
     }
 }
+

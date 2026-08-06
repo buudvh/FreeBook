@@ -149,5 +149,7 @@ stateDiagram-v2
 - Book deletion transitions from idle -> confirmation -> SQLite database deleted and committed -> background physical file deletion. Physical file deletion failures transition to the `UserDefaults` retry queue and undergo retry attempts at app startup via `drainRetryQueue()`.
 - Download and export tasks support cooperative cancellation, transitioning immediately from `Running` to `Cancelled` when `Task.isCancelled` is detected at chapter boundaries.
 - TOC pages transition between `Unloaded` -> `Loading` -> `Loaded` within `ReaderChapterListStore`'s active sliding window, while pages outside the active window are evicted and transition back to `Unloaded`.
+- `NghiAudioPlayerQueue` manages double-buffering playback state via `NghiQueueState`: `idle` -> `playing` -> `prepared` (N+1 ready in memory) -> `scheduled` (N+1 scheduled with device clock atTime) -> `paused` (schedule invalidated, next player instance preserved in memory) / `waitingForSynthesis` (fallback when prefetch is not ready).
+- `TTSBoundaryKind` (`technicalChunk`, `sentenceEnd`, `paragraphEnd`, `chapterEnd`) eliminates artificial 0.5s pauses for technical split chunks within long sentences.
 
 <!-- GENERATED END -->

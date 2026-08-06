@@ -399,6 +399,9 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
 - **Logging Rule**: Mọi log runtime trong mã nguồn Swift hoặc engine JS phải sử dụng tiện ích `AppLogger` để ghi trực tiếp vào tệp logs `app_logs.txt` trong thư mục `Documents` của thiết bị. Không sử dụng hoặc phụ thuộc vào Xcode Console (do môi trường chạy thực tế là LiveContainer trên iOS vật lý không thể đính Xcode).
 - **Performance & Memory Rules**:
   * Tránh khởi tạo lại thực thể `AVAudioEngine` nhiều lần không cần thiết.
+  * NGHI-TTS playback must run strictly via `AVAudioPlayer` double-buffering queue (`NghiAudioPlayerQueue`). `AVAudioEngine` node streaming path must not be used.
+  * Technical split chunks (`TTSBoundaryKind.technicalChunk`) must not append `paragraphPauseDuration` (0.5s) silence; paragraph silence applies only to `.paragraphEnd` or `.chapterEnd`.
+  * Scheduled handoff transitions must call `commitParagraphState` without re-invoking `speakCurrent()` to prevent double-play bugs.
   * Tránh truy vấn (fetch) SwiftData dư thừa; ưu tiên sử dụng RAM cache (`ChapterCache`, `bookDicts`).
   * Đảm bảo hủy các `Task` chạy ngầm ngắt quãng (`Task.sleep`, prefetch tasks), gỡ bỏ `NotificationCenter` observers khi View hoặc ViewModel deinit để triệt tiêu nguy cơ rò rỉ bộ nhớ (retain cycle).
 

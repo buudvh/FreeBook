@@ -2338,7 +2338,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 guard isValidSession() else { return }
 
                 do {
-                    let wavData = try await service.synthesize(text: text, voice: voice, speed: 1.0, priority: .normal)
+                    let boundaryKind = self.paragraphs.indices.contains(index) ? self.paragraphs[index].boundaryKind : .paragraphEnd
+                    let wavData = try await service.synthesize(text: text, voice: voice, speed: 1.0, boundaryKind: boundaryKind, priority: .normal)
                     if isValidSession() {
                         await MainActor.run {
                             self.preloadedData[index] = wavData
@@ -2486,6 +2487,20 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
+    private func commitParagraphState(index: Int, playbackId: String) {
+        guard index >= 0 && index < paragraphs.count else { return }
+        currentParagraphIndex = index
+        currentPlaybackId = playbackId
+
+        let paragraph = paragraphs[index]
+        highlightRange = paragraph.range
+        currentParentParagraphIndex = paragraph.paragraphIndex
+        recordProgressInMemory()
+
+        updatePrefetchWindow()
+        updateNowPlayingInfo()
+    }
+
     private func handleNghiAudioTransition(_ item: NghiAudioPlayerQueue.Item) {
         guard isPlaying,
               tool == "nghitts",
@@ -2495,20 +2510,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             return
         }
 
-        currentParagraphIndex = item.paragraphIndex
-        currentPlaybackId = item.playbackId
-
-        let paragraph = paragraphs[item.paragraphIndex]
-        highlightRange = paragraph.range
-        currentParentParagraphIndex = paragraph.paragraphIndex
-        recordProgressInMemory()
+        commitParagraphState(index: item.paragraphIndex, playbackId: item.playbackId)
 
         if AppLogger.shared.isLoggingEnabled {
             AppLogger.shared.log("🔊 [TTSPerf] NghiScheduledHandoff index=\(item.paragraphIndex)")
         }
-
-        updatePrefetchWindow()
-        updateNowPlayingInfo()
     }
 
     private func handleNghiAudioFinished(_ item: NghiAudioPlayerQueue.Item, successfully flag: Bool) {
@@ -2930,11 +2936,17 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
 
             do {
-                let voice = await MainActor.run { self.selectedVoice }
+                let (voice, boundaryKind) = await MainActor.run {
+                    (
+                        self.selectedVoice,
+                        self.paragraphs.indices.contains(index) ? self.paragraphs[index].boundaryKind : .paragraphEnd
+                    )
+                }
                 let wavData = try await service.synthesize(
                     text: text,
                     voice: voice,
                     speed: 1.0,
+                    boundaryKind: boundaryKind,
                     priority: .high
                 )
                 await MainActor.run {
@@ -2972,191 +2984,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    private func playNghiTTSStreaming(_ text: String, playbackId: String) {
-        guard let service = nghiTTSService else {
-            stop()
-            return
-        }
 
-        let index = currentParagraphIndex
-        let expectedSessionID = sessionID
-        let expectedChapterIndex = playingChapterIndex
-        let expectedGeneration = ttsProcessingGeneration
-        let reqID = UUID()
-
-        activeStreamingGate?.cancel()
-        activeStreamingTask?.cancel()
-        stopCurrentHardwarePlayer()
-        configureAudioSession()
-
-        let gate = TTSStreamingGate()
-        self.activeStreamingGate = gate
-
-        let synthesisStartUptime = ProcessInfo.processInfo.systemUptime
-        let ctx = TTSStreamingContext(
-            playbackId: playbackId,
-            sessionID: expectedSessionID,
-            chapterIndex: expectedChapterIndex,
-            generation: expectedGeneration,
-            reqID: reqID,
-            gate: gate,
-            synthesisStartUptime: synthesisStartUptime
-        )
-        self.activeStreamingContext = ctx
-
-        let task = Task { [weak self] in
-            do {
-                let fullWAVData = try await service.synthesizeStream(
-                    text: text,
-                    voice: self?.selectedVoice ?? "",
-                    speed: 1.0,
-                    priority: .high,
-                    requestID: reqID
-                ) { [weak self] payload in
-                    guard let self = self else { throw CancellationError() }
-
-                    let shouldWaitOnGate: Bool = try await MainActor.run {
-                        guard self.sessionID == ctx.sessionID,
-                              self.playingChapterIndex == ctx.chapterIndex,
-                              self.ttsProcessingGeneration == ctx.generation,
-                              self.currentPlaybackId == ctx.playbackId else {
-                            throw CancellationError()
-                        }
-
-                        let pcmBuffer = try self.makePCMBuffer(from: payload, ctx: ctx)
-
-                        let chunkPCMDuration = Double(payload.samples.count) / Double(payload.sampleRate)
-                        ctx.rawQueuedPCMSeconds += chunkPCMDuration
-                        ctx.rawInitialBufferedPCMSeconds += chunkPCMDuration
-
-                        let currentSpeed = max(0.1, self.speed)
-                        let effectiveInitialBufferedSec = ctx.rawInitialBufferedPCMSeconds / currentSpeed
-
-                        let firstChunkWallSec = ProcessInfo.processInfo.systemUptime - ctx.synthesisStartUptime
-                        let adaptiveTargetSec = max(1.0, min(1.5, firstChunkWallSec * 1.2))
-                        let isInitialBuffered = (effectiveInitialBufferedSec >= adaptiveTargetSec) || payload.isLast
-
-                        if isInitialBuffered {
-                            ctx.isInitialBufferedReached = true
-                        }
-
-                        try self.scheduleBufferOnPlayerNode(pcmBuffer: pcmBuffer, ctx: ctx, chunkPCMDuration: chunkPCMDuration, isLast: payload.isLast)
-
-                        if !ctx.hasStartedPlaying && isInitialBuffered && self.isPlaying {
-                            self.timePitchNode?.rate = Float(self.speed)
-                            self.eqNode?.bypass = true
-
-                            guard let engine = self.audioEngine, let player = self.playerNode else {
-                                throw TTSError.internalError("AudioEngine or PlayerNode unavailable")
-                            }
-
-                            do {
-                                if !engine.isRunning {
-                                    try engine.start()
-                                }
-                                player.play()
-                                ctx.hasStartedPlaying = true
-                                self.isStreamingNghiPlayback = true
-
-                                self.updatePrefetchWindow()
-
-                                if index == 0 && self.activeTTSAutoAdvancePerf?.chapterIndex == self.playingChapterIndex {
-                                    let setupEnd = ProcessInfo.processInfo.systemUptime
-                                    let playerSetupMs = (setupEnd - ctx.synthesisStartUptime) * 1000
-                                    let synMs = self.currentParagraph0SynthesisMs(untilUptime: ctx.synthesisStartUptime)
-                                    self.finishTTSAutoAdvancePerf(
-                                        outcome: "played",
-                                        endpoint: "player_play",
-                                        sessionID: ctx.sessionID,
-                                        generation: ctx.generation,
-                                        chapterIndex: ctx.chapterIndex,
-                                        synthesisMs: synMs,
-                                        playerSetupMs: playerSetupMs,
-                                        audioCacheHit: false
-                                    )
-                                }
-                                if AppLogger.shared.isLoggingEnabled {
-                                    AppLogger.shared.log("🔊 [TTSManager] Streaming NghiTTS playback started successfully for paragraph \(index)")
-                                }
-                            } catch {
-                                throw TTSError.internalError("Failed to start audio engine: \(error.localizedDescription)")
-                            }
-                        }
-
-                        let effectiveQueued = ctx.rawQueuedPCMSeconds / currentSpeed
-                        return effectiveQueued >= 3.0
-                    }
-
-                    if shouldWaitOnGate {
-                        await ctx.gate.wait()
-                    }
-                }
-
-                await MainActor.run {
-                    guard self?.sessionID == ctx.sessionID,
-                          self?.playingChapterIndex == ctx.chapterIndex,
-                          self?.ttsProcessingGeneration == ctx.generation,
-                          self?.currentPlaybackId == ctx.playbackId else { return }
-
-                    self?.preloadedData[index] = fullWAVData
-                    if self?.activeStreamingContext?.reqID == ctx.reqID {
-                        self?.activeStreamingTask = nil
-                        self?.activeStreamingGate = nil
-                    }
-                }
-
-            } catch {
-                await MainActor.run {
-                    guard let self = self, self.currentPlaybackId == ctx.playbackId else { return }
-
-                    ctx.gate.cancel()
-                    if self.activeStreamingContext?.reqID == ctx.reqID {
-                        self.activeStreamingTask = nil
-                        self.activeStreamingGate = nil
-                    }
-
-                    if error is CancellationError {
-                        if self.activeStreamingContext?.reqID == ctx.reqID {
-                            self.activeStreamingContext = nil
-                        }
-                        return
-                    }
-
-                    if !ctx.hasStartedPlaying {
-                        if index == 0 && self.activeTTSAutoAdvancePerf?.chapterIndex == self.playingChapterIndex {
-                            let synMs = self.currentParagraph0SynthesisMs()
-                            self.finishTTSAutoAdvancePerf(
-                                outcome: "synthesis_failed",
-                                endpoint: "error",
-                                sessionID: self.sessionID,
-                                generation: self.ttsProcessingGeneration,
-                                chapterIndex: self.playingChapterIndex,
-                                synthesisMs: synMs
-                            )
-                        }
-                        if AppLogger.shared.isLoggingEnabled {
-                            AppLogger.shared.log("❌ [TTSManager] Direct streaming failed before audio start for index \(index): \(error.localizedDescription)")
-                        }
-                        self.preloadedData.removeValue(forKey: index)
-                        self.stopCurrentHardwarePlayer()
-                        self.currentPlaybackId = nil
-                        self.pause()
-                        ToastManager.shared.show(message: "Lỗi NghiTTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
-                    } else {
-                        ctx.terminalError = error
-                        if AppLogger.shared.isLoggingEnabled {
-                            AppLogger.shared.log("⚠️ [TTSManager] Streaming error occurred mid-stream for index \(index): \(error.localizedDescription)")
-                        }
-                        if ctx.rawQueuedPCMSeconds <= 0.001 {
-                            self.handleTerminalStreamError(ctx: ctx)
-                        }
-                    }
-                }
-            }
-        }
-
-        self.activeStreamingTask = task
-    }
 
     private func playGoogleTTS(_ text: String) {
         let index = currentParagraphIndex

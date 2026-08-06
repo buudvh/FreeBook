@@ -53,7 +53,8 @@ enum TTSParagraphBuilder {
                 text: textToUse,
                 range: relativeRange,
                 paragraphIndex: entry.lineId,
-                sourceRange: srcRange
+                sourceRange: srcRange,
+                boundaryKind: .paragraphEnd
             )]
         }
 
@@ -65,7 +66,7 @@ enum TTSParagraphBuilder {
 
         let sentenceMarks: Set<Character> = [".", "!", "?", "。", "！", "？"]
         let clauseMarks: Set<Character> = [",", "，", ";", "；", ":", "：", "、"]
-        var result: [TTSParagraph] = []
+        var rawChunks: [(text: String, range: NSRange, srcRange: NSRange)] = []
         var start = 0
 
         while start < characters.count {
@@ -102,12 +103,7 @@ enum TTSParagraphBuilder {
                     spans: entry.spans
                 )
                 AppLogger.shared.logTTSVerbose("🔊 [TTSParagraphBuilder] Chunk (Line \(entry.lineId), len=\(text.count)): '\(text.prefix(20))...' | relativeRange=\(relativeRange)")
-                result.append(TTSParagraph(
-                    text: text,
-                    range: relativeRange,
-                    paragraphIndex: entry.lineId,
-                    sourceRange: srcRange
-                ))
+                rawChunks.append((text: text, range: relativeRange, srcRange: srcRange))
             }
 
             start = end
@@ -116,7 +112,17 @@ enum TTSParagraphBuilder {
             }
         }
 
-        return result
+        return rawChunks.enumerated().map { idx, item in
+            let isLast = (idx == rawChunks.count - 1)
+            let kind: TTSBoundaryKind = isLast ? .paragraphEnd : .technicalChunk
+            return TTSParagraph(
+                text: item.text,
+                range: item.range,
+                paragraphIndex: entry.lineId,
+                sourceRange: item.srcRange,
+                boundaryKind: kind
+            )
+        }
     }
 
     private static func mapSourceRange(

@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.94] - 2026-08-06
+
+### Tối Ưu Hiệu Năng Luồng NGHI-TTS `AVAudioPlayer` Double-Buffering & Loại Bỏ Im Lặng Giả (`NghiAudioPlayerQueue.swift`, `TTSManager.swift`, `TTSModels.swift`, `TTSParagraphBuilder.swift`, `ONNXPiperEngine.swift`, `PiperTTSService.swift`)
+* **Nâng Cấp `NghiAudioPlayerQueue` Mô Hình Trạng Thái Chuẩn (`NghiAudioPlayerQueue.swift`)**:
+  * Định nghĩa `NghiQueueState` (`idle`, `playing`, `prepared`, `scheduled`, `paused`, `waitingForSynthesis`).
+  * Tối ưu `updateRate(_:)` và `pause()`: giữ nguyên player instance `nextPlayer` đã `prepareToPlay()`, không hủy và re-create từ `Data` trên MainThread.
+  * Áp dụng cửa sổ safe schedule $50\text{ms}$ (`wallClockRemaining > 0.050`): nếu remaining time quá sát, giữ next player ở trạng thái `prepared` cho immediate finish handoff thay vì ép schedule `play(atTime:)`.
+  * Đảm bảo concurrency isolation cho delegate `audioPlayerDidFinishPlaying` và `audioPlayerDecodeErrorDidOccur`.
+* **Tách Biệt Trạng Thái UI & Handoff Audio Trong `TTSManager` (`TTSManager.swift`)**:
+  * Tạo helper `commitParagraphState(index:playbackId:)` cập nhật chỉ số đoạn, bôi đen highlight UI, tiến độ đọc và Now Playing info.
+  * Cập nhật `handleNghiAudioTransition`: chỉ gọi `commitParagraphState`, không gọi lại `speakCurrent()` hay `playNghiTTS()`, loại bỏ 100% bug double-play lặp tiếng.
+  * Dọn dẹp hàm dead code `playNghiTTSStreaming`.
+* **Loại Bỏ Im Lặng Giả Cho Chunk Kỹ Thuật (`TTSModels.swift`, `TTSParagraphBuilder.swift`, `ONNXPiperEngine.swift`, `PiperTTSService.swift`)**:
+  * Bổ sung enum `TTSBoundaryKind` (`technicalChunk`, `sentenceEnd`, `paragraphEnd`, `chapterEnd`) vào `TTSParagraph`.
+  * Trong `TTSParagraphBuilder`, gán `.paragraphEnd` cho chunk cuối cùng của dòng văn bản gốc và `.technicalChunk` cho các chunk bị cắt giữa câu.
+  * Trong `ONNXPiperEngine.synthesize`, chỉ chèn `paragraphPauseDuration` (0.5s) khi `boundaryKind == .paragraphEnd` hoặc `.chapterEnd`; triệt tiêu 100% khoảng im lặng 0.5s giả ở giữa câu.
+
 ## [1.3.93] - 2026-08-06
 
 ### Sửa Lỗi Biên Dịch Swift & Cảnh Báo Swift 6 Concurrency (`ONNXPiperEngine.swift`, `NghiAudioPlayerQueue.swift`, `TTSChapterPrefetcher.swift`)

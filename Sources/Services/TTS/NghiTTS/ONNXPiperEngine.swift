@@ -175,12 +175,13 @@ final class ONNXPiperEngine: PiperEngine {
         return Array(samples[start...end])
     }
 
-    func synthesize(text: String, modelONNX: URL, modelConfig: URL, speed: Double) async throws -> Data {
+    func synthesize(text: String, modelONNX: URL, modelConfig: URL, speed: Double, boundaryKind: TTSBoundaryKind = .paragraphEnd) async throws -> Data {
         try await synthesizeInternal(
             text: text,
             modelONNX: modelONNX,
             modelConfig: modelConfig,
             speed: speed,
+            boundaryKind: boundaryKind,
             onChunkPayload: nil
         )
     }
@@ -197,6 +198,7 @@ final class ONNXPiperEngine: PiperEngine {
             modelONNX: modelONNX,
             modelConfig: modelConfig,
             speed: speed,
+            boundaryKind: .paragraphEnd,
             onChunkPayload: onChunkPayload
         )
     }
@@ -206,6 +208,7 @@ final class ONNXPiperEngine: PiperEngine {
         modelONNX: URL,
         modelConfig: URL,
         speed: Double,
+        boundaryKind: TTSBoundaryKind,
         onChunkPayload: ChunkPayloadHandler?
     ) async throws -> Data {
         let runtime = try getRuntime(modelONNX: modelONNX, modelConfig: modelConfig)
@@ -364,7 +367,7 @@ final class ONNXPiperEngine: PiperEngine {
                         trimmedChunk.append(contentsOf: silenceSamples)
                     }
                 }
-            } else {
+            } else if boundaryKind == .paragraphEnd || boundaryKind == .chapterEnd {
                 let paragraphPauseSec = UserDefaults.standard.double(forKey: "paragraphPauseDuration")
                 let actualParagraphPause = paragraphPauseSec > 0 ? paragraphPauseSec : 0.5
                 let scaledParagraphPause = actualParagraphPause / max(0.1, speed)

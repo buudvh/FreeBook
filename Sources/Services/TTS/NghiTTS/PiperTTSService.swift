@@ -1,7 +1,7 @@
 import Foundation
 
 protocol PiperEngine {
-    func synthesize(text: String, modelONNX: URL, modelConfig: URL, speed: Double) async throws -> Data
+    func synthesize(text: String, modelONNX: URL, modelConfig: URL, speed: Double, boundaryKind: TTSBoundaryKind) async throws -> Data
 }
 
 final class PiperTTSService {
@@ -27,6 +27,7 @@ final class PiperTTSService {
         text: String,
         voice: String,
         speed: Double,
+        boundaryKind: TTSBoundaryKind = .paragraphEnd,
         priority: SynthesisPriority = .high,
         requestID: UUID = UUID()
     ) async throws -> Data {
@@ -35,7 +36,7 @@ final class PiperTTSService {
             requestID: requestID
         ) { [weak self] in
             guard let self = self else { throw CancellationError() }
-            return try await self.executeInternalSynthesis(text: text, voice: voice, speed: speed)
+            return try await self.executeInternalSynthesis(text: text, voice: voice, speed: speed, boundaryKind: boundaryKind)
         }
     }
 
@@ -61,7 +62,7 @@ final class PiperTTSService {
         }
     }
 
-    private func executeInternalSynthesis(text: String, voice: String, speed: Double) async throws -> Data {
+    private func executeInternalSynthesis(text: String, voice: String, speed: Double, boundaryKind: TTSBoundaryKind) async throws -> Data {
         let voiceId = voice.toASCIIID
         let modelONNX = modelStore.modelURL(for: voiceId, extension: "onnx")
         let modelConfig = modelStore.modelURL(for: voiceId, extension: "onnx.json")
@@ -97,7 +98,8 @@ final class PiperTTSService {
             text: preprocessedText,
             modelONNX: modelONNX,
             modelConfig: modelConfig,
-            speed: speed
+            speed: speed,
+            boundaryKind: boundaryKind
         )
     }
 

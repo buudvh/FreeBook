@@ -50,17 +50,26 @@ public extension Voice {
     }
 }
 
+public enum TTSBoundaryKind: String, Codable, Sendable {
+    case technicalChunk
+    case sentenceEnd
+    case paragraphEnd
+    case chapterEnd
+}
+
 public struct TTSParagraph: Codable, Hashable, Sendable {
     public let text: String
     public let range: NSRange
     public let paragraphIndex: Int
     public let sourceRange: NSRange
+    public let boundaryKind: TTSBoundaryKind
     
-    public init(text: String, range: NSRange, paragraphIndex: Int, sourceRange: NSRange? = nil) {
+    public init(text: String, range: NSRange, paragraphIndex: Int, sourceRange: NSRange? = nil, boundaryKind: TTSBoundaryKind = .paragraphEnd) {
         self.text = text
         self.range = range
         self.paragraphIndex = paragraphIndex
         self.sourceRange = sourceRange ?? range
+        self.boundaryKind = boundaryKind
     }
 }
 
