@@ -2,6 +2,14 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.90] - 2026-08-06
+
+### Sửa Lỗi Biên Dịch Xcode Build & Bảo Toàn 100% Chữ Khi Highlight (`ReaderTextView.swift`)
+* **Khôi Phục API `textStorage` Chuẩn iOS UIKit**:
+  * Sử dụng `textStorage.beginEditing()`, `textStorage.removeAttribute`, `textStorage.addAttribute` và `textStorage.endEditing()` loại bỏ hoàn toàn lỗi biên dịch `has no member 'removeTemporaryAttribute'` trên Xcode Runner.
+* **Tự Động Mở Rộng Chiều Cao Tránh Mất Chữ Mép Phải**:
+  * Xóa cache `cachedWidth = nil`, `cachedHeight = nil` và phát lệnh `uiView.invalidateIntrinsicContentSize()` ngay khi `isHighlightChanged == true`. Đảm bảo nếu ký tự sát mép phải bị trôi xuống dòng dưới, SwiftUI sẽ tự động dãn khung chiều cao, bảo toàn 100% văn bản không bị cắt mờ.
+
 ## [1.3.89] - 2026-08-06
 
 ### Cập Nhật Triệt Để LayoutManager Optional Chaining (`ReaderTextView.swift`)
