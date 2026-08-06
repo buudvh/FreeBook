@@ -164,6 +164,8 @@ final actor TextPreprocessor {
         return wordMap
     }
 
+    func warmUp() {}
+
     static func getWordsURL() -> URL? {
         let fileManager = FileManager.default
         guard let appSupport = try? fileManager.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true) else {

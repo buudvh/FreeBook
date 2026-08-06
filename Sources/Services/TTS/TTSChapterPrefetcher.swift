@@ -34,6 +34,16 @@ internal final class TTSChapterPrefetcher {
 
     internal init() {}
 
+    internal var reservesNghiAudioSlot: Bool {
+        switch currentState {
+        case .synthesizingAudio(let key, _, _, _, _),
+             .audioReady(let key, _, _, _, _, _, _):
+            return key.tool == "nghitts"
+        default:
+            return false
+        }
+    }
+
     internal func isPrefetchingOrCompleted(for key: TTSPreparedNextChapterKey) -> Bool {
         switch currentState {
         case .loadingContent(let k, _),
@@ -144,7 +154,17 @@ internal final class TTSChapterPrefetcher {
               currentGen == gen,
               currentKey == key else { return }
 
-        guard let firstParagraph = processed.paragraphs.first else { return }
+        let playbackParagraphs: [TTSParagraph]
+        if key.tool == "nghitts" {
+            playbackParagraphs = NghiUtteranceSegmenter.expand(
+                processed.paragraphs,
+                maximumLength: key.chunkLength
+            )
+        } else {
+            playbackParagraphs = processed.paragraphs
+        }
+
+        guard let firstParagraph = playbackParagraphs.first else { return }
         let textToSpeak = TTSReplacementManager.shared.applyReplacements(to: firstParagraph.text)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !textToSpeak.isEmpty else { return }
@@ -171,7 +191,14 @@ internal final class TTSChapterPrefetcher {
 
             do {
                 if key.tool == "nghitts", let service = nghiService {
-                    audioData = try await service.synthesize(text: textToSpeak, voice: key.selectedVoice, speed: 1.0, priority: .low, requestID: reqID)
+                    audioData = try await service.synthesize(
+                        text: textToSpeak,
+                        voice: key.selectedVoice,
+                        speed: 1.0,
+                        boundaryKind: firstParagraph.boundaryKind,
+                        priority: .low,
+                        requestID: reqID
+                    )
                 } else if key.tool == "google" {
                     audioData = try await googleService.synthesize(text: textToSpeak, voice: key.selectedVoice, speed: 1.0, pitch: 1.0)
                 } else if key.tool != "system" {

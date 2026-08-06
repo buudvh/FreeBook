@@ -52,6 +52,9 @@ public extension Voice {
 
 public enum TTSBoundaryKind: String, Codable, Sendable {
     case technicalChunk
+    case phraseEnd
+    case bracketEnd
+    case newlineEnd
     case sentenceEnd
     case paragraphEnd
     case chapterEnd

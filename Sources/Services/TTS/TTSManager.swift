@@ -734,6 +734,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private var prepareSpeakingTask: Task<Void, Never>? = nil
     private var startSpeakingTask: Task<Void, Never>? = nil
     private var chapterQueueRefreshTask: Task<Void, Never>? = nil
+    private var nghiWarmUpTask: Task<Void, Never>? = nil
     private let nextChapterPrefetcher = TTSChapterPrefetcher()
     private var activeStreamingGate: TTSStreamingGate? = nil
     private var activeStreamingContext: TTSStreamingContext? = nil
@@ -761,7 +762,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     // Cache lưu trữ dữ liệu âm thanh đã được tổng hợp trước cho các đoạn văn
     private var preloadedData: [Int: Data] = [:]
+    private var preloadedDurations: [Int: Double] = [:]
     private var prefetchTasks: [Int: Task<Void, Never>] = [:]
+    private var nghiRefillTask: Task<Void, Never>? = nil
+    private var nghiRefillGeneration: UInt64 = 0
+    private var nghiRefillInFlightIndex: Int? = nil
     private var audioPlayer: AVAudioPlayer?
     private let nghiAudioPlayerQueue = NghiAudioPlayerQueue()
 
@@ -796,6 +801,38 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             await ReadingProgressStore.shared.configure(container: container)
             await ChapterContentRepository.shared.configure(container: container)
         }
+        scheduleNghiWarmUp()
+    }
+
+    private func scheduleNghiWarmUp() {
+        nghiWarmUpTask?.cancel()
+        guard let service = nghiTTSService else { return }
+        let voice = tool == "nghitts"
+            ? selectedVoice
+            : UserDefaults.standard.string(forKey: "nghittsVoice")
+                ?? NghiTTSClient.defaultVietnameseVoice.name
+        nghiWarmUpTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
+            do {
+                try await Task.detached(priority: .utility) {
+                    await TextPreprocessor.shared.warmUp()
+                    try await service.prepare(voice: voice)
+                }.value
+            } catch is CancellationError {
+                return
+            } catch {
+                AppLogger.shared.log("[TTSPerf] NghiTTS warm-up failed: \(error.localizedDescription)")
+            }
+            await MainActor.run {
+                self?.nghiWarmUpTask = nil
+            }
+        }
+    }
+
+    private func playbackParagraphs(from baseParagraphs: [TTSParagraph]) -> [TTSParagraph] {
+        guard tool == "nghitts" else { return baseParagraphs }
+        return NghiUtteranceSegmenter.expand(baseParagraphs, maximumLength: chunkLength)
     }
 
     public func updateChaptersQueue(_ chapters: [TTSChapterInfo], for bookId: String) {
@@ -959,7 +996,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.selectedVoice = UserDefaults.standard.string(forKey: "nghittsVoice") ?? "Ngọc Huyền (mới)"
             self.nghittsPrefetchCount = UserDefaults.standard.object(forKey: "nghittsPrefetchCount") != nil ? UserDefaults.standard.integer(forKey: "nghittsPrefetchCount") : 3
             self.chunkLength = UserDefaults.standard.object(forKey: "nghittsChunk") != nil ? UserDefaults.standard.integer(forKey: "nghittsChunk") : 200
-            self.prefetchDelayMs = UserDefaults.standard.object(forKey: "nghittsPrefetchDelay") != nil ? UserDefaults.standard.integer(forKey: "nghittsPrefetchDelay") : 0
+            let savedDelay = UserDefaults.standard.object(forKey: "nghittsPrefetchDelay") != nil ? UserDefaults.standard.integer(forKey: "nghittsPrefetchDelay") : 500
+            self.prefetchDelayMs = savedDelay >= 300 ? savedDelay : 500
         } else if tool == "google" {
             self.speed = UserDefaults.standard.double(forKey: "googleRate") > 0 ? UserDefaults.standard.double(forKey: "googleRate") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "googlePitch") > 0 ? UserDefaults.standard.double(forKey: "googlePitch") : defaultPitch
@@ -1233,7 +1271,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 : expectedTitle
             self.normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent(preparedChapter.normalizedContent)
             self.chapterContent = preparedChapter.normalizedContent
-            self.paragraphs = preparedChapter.paragraphs
+            self.paragraphs = playbackParagraphs(from: preparedChapter.paragraphs)
             self.continueStartSpeaking(startParagraphIndex: startParagraphIndex, startTextOffset: startTextOffset, resumeIdentity: resumeIdentity)
             self.triggerNextChapterPrefetch()
             return
@@ -1268,7 +1306,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 self.chapterTitle = processed.chapterTitle
                 self.normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent(processed.normalizedContent)
                 self.chapterContent = processed.normalizedContent
-                self.paragraphs = processed.paragraphs
+                self.paragraphs = self.playbackParagraphs(from: processed.paragraphs)
                 self.continueStartSpeaking(startParagraphIndex: startParagraphIndex, startTextOffset: startTextOffset, resumeIdentity: resumeIdentity)
                 self.triggerNextChapterPrefetch()
             } catch is CancellationError {
@@ -1360,6 +1398,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         } else if isStreamingNghiPlayback {
             playerNode?.pause()
         } else if tool == "nghitts" {
+            cancelNghiRefill()
             nghiAudioPlayerQueue.pause()
         } else {
             audioPlayer?.pause()
@@ -1568,7 +1607,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
 
         // Nạp lại phân đoạn
-        self.paragraphs = TTSParagraphBuilder.build(from: normalizedChapterText, chunkLength: chunkLength)
+        self.paragraphs = playbackParagraphs(from: TTSParagraphBuilder.build(from: normalizedChapterText, chunkLength: chunkLength))
 
         // Memory leak fix: Clear prefetch cache AFTER paragraph rebuild to remove stale audio from old VietPhrase settings
         if tool != "system" {
@@ -1625,9 +1664,20 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         if activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
             finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "skip")
         }
-        if currentParagraphIndex + 1 < paragraphs.count {
+        let nextIndex: Int?
+        if tool == "nghitts" {
+            let currentParent = paragraphs[currentParagraphIndex].paragraphIndex
+            nextIndex = paragraphs.indices.dropFirst(currentParagraphIndex + 1).first {
+                paragraphs[$0].paragraphIndex != currentParent
+            }
+        } else {
+            let candidate = currentParagraphIndex + 1
+            nextIndex = candidate < paragraphs.count ? candidate : nil
+        }
+
+        if let nextIndex {
             stopCurrentPlayback()
-            currentParagraphIndex += 1
+            currentParagraphIndex = nextIndex
             currentParentParagraphIndex = paragraphs[currentParagraphIndex].paragraphIndex
             highlightRange = nil
             checkpointProgress()
@@ -1660,9 +1710,29 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         if activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
             finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "skip")
         }
-        if currentParagraphIndex > 0 {
+        let previousIndex: Int?
+        if tool == "nghitts", currentParagraphIndex > 0 {
+            let currentParent = paragraphs[currentParagraphIndex].paragraphIndex
+            if let previousParentIndex = (0..<currentParagraphIndex).reversed().first(where: {
+                paragraphs[$0].paragraphIndex != currentParent
+            }) {
+                let previousParent = paragraphs[previousParentIndex].paragraphIndex
+                previousIndex = paragraphs.indices.first(where: {
+                    paragraphs[$0].paragraphIndex == previousParent
+                })
+            } else {
+                previousIndex = nil
+            }
+        } else {
+            previousIndex = currentParagraphIndex > 0 ? currentParagraphIndex - 1 : nil
+        }
+
+        if let previousIndex {
             stopCurrentPlayback()
-            currentParagraphIndex -= 1
+            currentParagraphIndex = previousIndex
+            currentParentParagraphIndex = paragraphs[currentParagraphIndex].paragraphIndex
+            highlightRange = nil
+            checkpointProgress()
             speakCurrent()
         }
     }
@@ -2010,11 +2080,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         self.chapterTitle = title
         self.normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent(content)
         self.chapterContent = content
-        self.paragraphs = paragraphs
+        self.paragraphs = playbackParagraphs(from: paragraphs)
         self.clearCurrentParagraphPrefetchCache()
 
         if let audioData = firstAudioData {
             self.preloadedData[0] = audioData
+            self.preloadedDurations[0] = WAVEncoder.duration(of: audioData)
         }
 
         self.continueStartSpeaking(startParagraphIndex: -1)
@@ -2047,26 +2118,28 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     private func checkAndPromoteNextChapterAudioIfNeeded() {
-        guard isPlaying, tool == "nghitts" else { return }
+        guard isPlaying,
+              tool == "nghitts",
+              currentParagraphIndex >= 0,
+              currentParagraphIndex < paragraphs.count,
+              !nextChapterPrefetcher.reservesNghiAudioSlot else { return }
 
-        let isAtLastParagraph = (currentParagraphIndex == paragraphs.count - 1)
-        let isLastAudioPlaying = nghiAudioPlayerQueue.isPlaying
-
-        let count = max(1, min(10, currentPrefetchCount))
-        let targetIndices = (1...count).compactMap { offset -> Int? in
-            let idx = currentParagraphIndex + offset
-            return idx < paragraphs.count ? idx : nil
+        var remainingParents = Set<Int>()
+        for index in currentParagraphIndex..<paragraphs.count {
+            remainingParents.insert(paragraphs[index].paragraphIndex)
+            if remainingParents.count > 2 { return }
         }
-        let allWindowTargetsPreloaded = targetIndices.allSatisfy { preloadedData[$0] != nil }
-        let noPendingCurrentPrefetchTasks = prefetchTasks.isEmpty
 
-        if (isAtLastParagraph && isLastAudioPlaying) || (allWindowTargetsPreloaded && noPendingCurrentPrefetchTasks) {
-            nextChapterPrefetcher.promoteAudioIfNeeded(
-                nghiService: nghiTTSService,
-                googleService: googleService,
-                extService: extService
-            )
-        }
+        let capacity = max(1, min(10, currentPrefetchCount))
+        let readyCount = nghiReadyFutureCacheCount()
+        let inFlightCount = nghiRefillInFlightIndex == nil ? 0 : 1
+        guard readyCount + inFlightCount < capacity else { return }
+
+        nextChapterPrefetcher.promoteAudioIfNeeded(
+            nghiService: nghiTTSService,
+            googleService: googleService,
+            extService: extService
+        )
     }
 
     // speakCurrent: Bắt đầu phát âm thanh của đoạn văn bản hiện tại (index = currentParagraphIndex)
@@ -2141,12 +2214,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     public func clearCurrentParagraphPrefetchCache() {
+        cancelNghiRefill()
         for task in prefetchTasks.values {
             task.cancel()
         }
         prefetchTasks.removeAll()
         prefetchTaskGenerations.removeAll()
         preloadedData.removeAll()
+        preloadedDurations.removeAll()
         nghiAudioPlayerQueue.clearPreparedNext()
         
         if tool != "system" && tool != "nghitts" && tool != "google" {
@@ -2167,6 +2242,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     // Mục tiêu: Luôn có sẵn âm thanh PCMBuffer của đoạn tiếp theo (N+1) trong bộ đệm để phát ngay khi đoạn hiện tại (N) kết thúc, triệt tiêu hoàn toàn khoảng trễ tổng hợp âm thanh.
     private func updatePrefetchWindow() {
         guard isPlaying, tool != "system" else { return }
+
+        if tool == "nghitts" {
+            updateNghiPrefetchWindow()
+            return
+        }
 
         let N = currentParagraphIndex
         let count = max(1, min(10, currentPrefetchCount))
@@ -2203,10 +2283,165 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 startPrefetchTask(for: idx)
             }
         }
-        if tool == "nghitts" {
-            prepareNextNghiAudioIfPossible()
-        }
         checkAndPromoteNextChapterAudioIfNeeded()
+    }
+
+    private func cancelNghiRefill() {
+        nghiRefillGeneration &+= 1
+        nghiRefillTask?.cancel()
+        nghiRefillTask = nil
+        nghiRefillInFlightIndex = nil
+    }
+
+    private func nghiCurrentChapterCacheCapacity() -> Int {
+        let configured = max(1, min(10, currentPrefetchCount))
+        return max(0, configured - (nextChapterPrefetcher.reservesNghiAudioSlot ? 1 : 0))
+    }
+
+    private func nghiFutureTargetIndices(capacity: Int? = nil) -> [Int] {
+        let limit = capacity ?? nghiCurrentChapterCacheCapacity()
+        guard limit > 0, currentParagraphIndex + 1 < paragraphs.count else { return [] }
+        let end = min(paragraphs.count, currentParagraphIndex + 1 + limit)
+        return Array((currentParagraphIndex + 1)..<end)
+    }
+
+    private func nghiReadyFutureCacheCount() -> Int {
+        preloadedData.keys.reduce(into: 0) { count, index in
+            if index > currentParagraphIndex {
+                count += 1
+            }
+        }
+    }
+
+    private func updateNghiPrefetchWindow() {
+        let targetIndices = nghiFutureTargetIndices()
+        let keepIndices = Set([currentParagraphIndex] + targetIndices)
+
+        if let inFlight = nghiRefillInFlightIndex, !targetIndices.contains(inFlight) {
+            cancelNghiRefill()
+        }
+
+        for index in Array(preloadedData.keys) where !keepIndices.contains(index) {
+            preloadedData.removeValue(forKey: index)
+            preloadedDurations.removeValue(forKey: index)
+        }
+
+        prepareNextNghiAudioIfPossible()
+        scheduleNghiRefill()
+        checkAndPromoteNextChapterAudioIfNeeded()
+    }
+
+    private func isValidNghiRefillContext(
+        sessionID expectedSessionID: UUID,
+        bookID expectedBookID: String,
+        chapterIndex expectedChapterIndex: Int,
+        chapterURL expectedChapterURL: String,
+        voice expectedVoice: String,
+        generation expectedGeneration: Int,
+        refillGeneration expectedRefillGeneration: UInt64
+    ) -> Bool {
+        !Task.isCancelled &&
+        isPlaying &&
+        tool == "nghitts" &&
+        sessionID == expectedSessionID &&
+        playingBookId == expectedBookID &&
+        playingChapterIndex == expectedChapterIndex &&
+        playingChapterUrl == expectedChapterURL &&
+        selectedVoice == expectedVoice &&
+        ttsProcessingGeneration == expectedGeneration &&
+        nghiRefillGeneration == expectedRefillGeneration
+    }
+
+    private func scheduleNghiRefill() {
+        guard isPlaying,
+              tool == "nghitts",
+              nghiRefillTask == nil,
+              let service = nghiTTSService else { return }
+
+        let expectedSessionID = sessionID
+        let expectedBookID = playingBookId
+        let expectedChapterIndex = playingChapterIndex
+        let expectedChapterURL = playingChapterUrl
+        let expectedVoice = selectedVoice
+        let expectedGeneration = ttsProcessingGeneration
+        nghiRefillGeneration &+= 1
+        let refillGeneration = nghiRefillGeneration
+
+        nghiRefillTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer {
+                if self.nghiRefillGeneration == refillGeneration {
+                    self.nghiRefillInFlightIndex = nil
+                    self.nghiRefillTask = nil
+                }
+            }
+
+            while self.isValidNghiRefillContext(
+                sessionID: expectedSessionID,
+                bookID: expectedBookID,
+                chapterIndex: expectedChapterIndex,
+                chapterURL: expectedChapterURL,
+                voice: expectedVoice,
+                generation: expectedGeneration,
+                refillGeneration: refillGeneration
+            ) {
+                let targets = self.nghiFutureTargetIndices()
+                guard let index = targets.first(where: { self.preloadedData[$0] == nil }) else { break }
+
+                let paragraph = self.paragraphs[index]
+                let text = TTSReplacementManager.shared.applyReplacements(to: paragraph.text)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty else { break }
+
+                self.nghiRefillInFlightIndex = index
+                do {
+                    let wavData = try await service.synthesize(
+                        text: text,
+                        voice: expectedVoice,
+                        speed: 1.0,
+                        boundaryKind: paragraph.boundaryKind,
+                        priority: .normal
+                    )
+                    guard self.isValidNghiRefillContext(
+                        sessionID: expectedSessionID,
+                        bookID: expectedBookID,
+                        chapterIndex: expectedChapterIndex,
+                        chapterURL: expectedChapterURL,
+                        voice: expectedVoice,
+                        generation: expectedGeneration,
+                        refillGeneration: refillGeneration
+                    ) else { return }
+
+                    self.nghiRefillInFlightIndex = nil
+                    if self.nghiFutureTargetIndices().contains(index) {
+                        self.preloadedData[index] = wavData
+                        self.preloadedDurations[index] = WAVEncoder.duration(of: wavData)
+                        self.prepareNextNghiAudioIfPossible()
+                        self.checkAndPromoteNextChapterAudioIfNeeded()
+                    }
+                } catch is CancellationError {
+                    return
+                } catch {
+                    self.nghiRefillInFlightIndex = nil
+                    if AppLogger.shared.isLoggingEnabled {
+                        AppLogger.shared.log("[TTSPerf] PrefetchFailure chapter=\(expectedChapterIndex) index=\(index) engine=nghitts")
+                    }
+                    break
+                }
+
+                let hasMoreMissing = self.nghiFutureTargetIndices().contains {
+                    self.preloadedData[$0] == nil
+                }
+                guard hasMoreMissing else { break }
+
+                let delayMs = max(300, self.prefetchDelayMs)
+                do {
+                    try await Task.sleep(nanoseconds: UInt64(delayMs) * 1_000_000)
+                } catch {
+                    return
+                }
+            }
+        }
     }
 
     @MainActor
@@ -2214,14 +2449,15 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         if prefetchTaskGenerations[index] == taskGen {
             prefetchTasks.removeValue(forKey: index)
             prefetchTaskGenerations.removeValue(forKey: index)
-            if tool == "nghitts" {
-                prepareNextNghiAudioIfPossible()
-            }
             checkAndPromoteNextChapterAudioIfNeeded()
         }
     }
 
     private func startPrefetchTask(for index: Int) {
+        if tool == "nghitts" {
+            scheduleNghiRefill()
+            return
+        }
         guard index >= 0 && index < paragraphs.count else { return }
         let rawText = paragraphs[index].text
         let text = TTSReplacementManager.shared.applyReplacements(to: rawText)
@@ -2307,53 +2543,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                         self.preloadedData[index] = data
                     }
                 }
-                await MainActor.run {
-                    self.removePrefetchTask(for: index, taskGen: taskGen)
-                }
-            }
-            prefetchTasks[index] = task
-        } else if tool == "nghitts" {
-            guard let service = nghiTTSService else { return }
-
-            let task = Task { [weak self] in
-                guard let self = self else { return }
-
-                let offset = max(0, index - self.currentParagraphIndex)
-                if offset > 1 && self.prefetchDelayMs > 0 {
-                    let delayMs = UInt64(offset - 1) * UInt64(self.prefetchDelayMs)
-                    try? await Task.sleep(nanoseconds: delayMs * 1_000_000)
-                }
-
-                let isValidSession = { [weak self] () -> Bool in
-                    guard let self = self else { return false }
-                    return !Task.isCancelled &&
-                           self.sessionID == expectedSessionID &&
-                           self.playingBookId == expectedBookId &&
-                           self.playingChapterIndex == expectedChapterIndex &&
-                           self.playingChapterUrl == expectedChapterURL &&
-                           self.selectedVoice == voice &&
-                           self.tool == toolBeforeStart
-                }
-
-                guard isValidSession() else { return }
-
-                do {
-                    let boundaryKind = self.paragraphs.indices.contains(index) ? self.paragraphs[index].boundaryKind : .paragraphEnd
-                    let wavData = try await service.synthesize(text: text, voice: voice, speed: 1.0, boundaryKind: boundaryKind, priority: .normal)
-                    if isValidSession() {
-                        await MainActor.run {
-                            self.preloadedData[index] = wavData
-                        }
-                    }
-                } catch {
-                    await MainActor.run {
-                        guard isValidSession() else { return }
-                        if AppLogger.shared.isLoggingEnabled {
-                            AppLogger.shared.log("⚠️ [TTSPerf] PrefetchFailure chapter=\(expectedChapterIndex) index=\(index) engine=\(toolBeforeStart)")
-                        }
-                    }
-                }
-
                 await MainActor.run {
                     self.removePrefetchTask(for: index, taskGen: taskGen)
                 }
@@ -2484,6 +2673,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         } catch {
             AppLogger.shared.log("⚠️ [TTSPerf] NghiPreparedHandoff failed index=\(nextIndex): \(error.localizedDescription)")
             preloadedData.removeValue(forKey: nextIndex)
+            preloadedDurations.removeValue(forKey: nextIndex)
         }
     }
 
@@ -2510,6 +2700,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             return
         }
 
+        preloadedData.removeValue(forKey: item.paragraphIndex)
+        preloadedDurations.removeValue(forKey: item.paragraphIndex)
         commitParagraphState(index: item.paragraphIndex, playbackId: item.playbackId)
 
         if AppLogger.shared.isLoggingEnabled {
@@ -2523,11 +2715,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         if item.paragraphIndex != currentParagraphIndex {
             if !flag {
                 preloadedData.removeValue(forKey: item.paragraphIndex)
+                preloadedDurations.removeValue(forKey: item.paragraphIndex)
                 if isPlaying,
                    item.paragraphIndex > currentParagraphIndex,
-                   item.paragraphIndex < paragraphs.count,
-                   prefetchTasks[item.paragraphIndex] == nil {
-                    startPrefetchTask(for: item.paragraphIndex)
+                   item.paragraphIndex < paragraphs.count {
+                    scheduleNghiRefill()
                 }
             }
             return
@@ -2559,6 +2751,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             try nghiAudioPlayerQueue.start(data: audioData, item: item, rate: speed)
             currentPlaybackId = playbackId
             isPlaying = true
+            preloadedData.removeValue(forKey: currentParagraphIndex)
+            preloadedDurations.removeValue(forKey: currentParagraphIndex)
 
             let setupEnd = ProcessInfo.processInfo.systemUptime
             if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
@@ -2595,6 +2789,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
             AppLogger.shared.log("❌ [TTSManager] [ID=\(playbackId)] Khởi tạo NghiTTS AVAudioPlayer queue thất bại: \(error.localizedDescription)")
             preloadedData.removeValue(forKey: currentParagraphIndex)
+            preloadedDurations.removeValue(forKey: currentParagraphIndex)
             currentPlaybackId = nil
             pause()
             ToastManager.shared.show(message: "Lỗi trình phát âm thanh: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
@@ -2897,89 +3092,117 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let playbackId = String(UUID().uuidString.prefix(4))
         self.currentPlaybackId = playbackId
         let expectedSessionID = sessionID
+        let expectedBookID = playingBookId
         let expectedChapterIndex = playingChapterIndex
+        let expectedChapterURL = playingChapterUrl
+        let expectedGeneration = ttsProcessingGeneration
+        let expectedVoice = selectedVoice
+        let startupBufferTarget = 1.2
 
         if let cachedData = preloadedData[index] {
             recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "hit")
-            self.playAudioData(cachedData, withId: playbackId)
-            updatePrefetchWindow()
-            return
+            let currentDuration = preloadedDurations[index] ?? WAVEncoder.duration(of: cachedData)
+            preloadedDurations[index] = currentDuration
+            var bufferedDuration = currentDuration / max(0.5, speed)
+            for futureIndex in nghiFutureTargetIndices() {
+                guard let futureData = preloadedData[futureIndex] else { break }
+                let duration = preloadedDurations[futureIndex] ?? WAVEncoder.duration(of: futureData)
+                preloadedDurations[futureIndex] = duration
+                bufferedDuration += duration / max(0.5, speed)
+                if bufferedDuration >= startupBufferTarget { break }
+            }
+            if index != 0 || bufferedDuration >= startupBufferTarget {
+                self.playAudioData(cachedData, withId: playbackId)
+                updatePrefetchWindow()
+                return
+            }
+        } else {
+            recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "miss")
         }
 
-        Task {
-            let startWait = ProcessInfo.processInfo.systemUptime
-            if let activeTask = prefetchTasks[index] {
-                _ = await activeTask.value
-                let waitMs = (ProcessInfo.processInfo.systemUptime - startWait) * 1000
-                if let cached = preloadedData[index] {
-                    await MainActor.run {
-                        if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
-                            self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "hit_wait", waitMs: waitMs)
-                            self.playAudioData(cached, withId: playbackId)
-                            self.updatePrefetchWindow()
-                        }
-                    }
-                    return
-                } else {
-                    await MainActor.run {
-                        if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
-                            self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "failure", waitMs: waitMs)
-                        }
-                    }
-                }
-            } else {
-                await MainActor.run {
-                    if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
-                        self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "miss")
-                    }
-                }
-            }
-
+        cancelNghiRefill()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             do {
-                let (voice, boundaryKind) = await MainActor.run {
-                    (
-                        self.selectedVoice,
-                        self.paragraphs.indices.contains(index) ? self.paragraphs[index].boundaryKind : .paragraphEnd
+                func isValidPlaybackRequest() -> Bool {
+                    !Task.isCancelled &&
+                    self.isPlaying &&
+                    self.currentPlaybackId == playbackId &&
+                    self.sessionID == expectedSessionID &&
+                    self.playingBookId == expectedBookID &&
+                    self.playingChapterIndex == expectedChapterIndex &&
+                    self.playingChapterUrl == expectedChapterURL &&
+                    self.ttsProcessingGeneration == expectedGeneration &&
+                    self.selectedVoice == expectedVoice &&
+                    self.tool == "nghitts"
+                }
+
+                let currentData: Data
+                if let cachedData = self.preloadedData[index] {
+                    currentData = cachedData
+                } else {
+                    let boundaryKind = self.paragraphs.indices.contains(index) ? self.paragraphs[index].boundaryKind : .paragraphEnd
+                    currentData = try await service.synthesize(
+                        text: text,
+                        voice: expectedVoice,
+                        speed: 1.0,
+                        boundaryKind: boundaryKind,
+                        priority: .high
+                    )
+                    guard isValidPlaybackRequest() else { return }
+                }
+
+                var bufferedDuration = WAVEncoder.duration(of: currentData) / max(0.5, self.speed)
+                for futureIndex in self.nghiFutureTargetIndices() where bufferedDuration < startupBufferTarget {
+                    guard isValidPlaybackRequest() else { return }
+                    if let cachedData = self.preloadedData[futureIndex] {
+                        let duration = self.preloadedDurations[futureIndex] ?? WAVEncoder.duration(of: cachedData)
+                        self.preloadedDurations[futureIndex] = duration
+                        bufferedDuration += duration / max(0.5, self.speed)
+                        continue
+                    }
+
+                    let paragraph = self.paragraphs[futureIndex]
+                    let futureText = TTSReplacementManager.shared.applyReplacements(to: paragraph.text)
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !futureText.isEmpty else { continue }
+
+                    let wavData = try await service.synthesize(
+                        text: futureText,
+                        voice: expectedVoice,
+                        speed: 1.0,
+                        boundaryKind: paragraph.boundaryKind,
+                        priority: .high
+                    )
+                    guard isValidPlaybackRequest() else { return }
+                    let duration = WAVEncoder.duration(of: wavData)
+                    self.preloadedData[futureIndex] = wavData
+                    self.preloadedDurations[futureIndex] = duration
+                    bufferedDuration += duration / max(0.5, self.speed)
+                }
+
+                guard isValidPlaybackRequest() else { return }
+                self.playAudioData(currentData, withId: playbackId)
+                self.updatePrefetchWindow()
+            } catch {
+                guard self.currentPlaybackId == playbackId else { return }
+                if index == 0 && self.activeTTSAutoAdvancePerf?.chapterIndex == self.playingChapterIndex {
+                    let synMs = self.currentParagraph0SynthesisMs()
+                    self.finishTTSAutoAdvancePerf(
+                        outcome: "synthesis_failed",
+                        endpoint: "error",
+                        sessionID: self.sessionID,
+                        generation: self.ttsProcessingGeneration,
+                        chapterIndex: self.playingChapterIndex,
+                        synthesisMs: synMs
                     )
                 }
-                let wavData = try await service.synthesize(
-                    text: text,
-                    voice: voice,
-                    speed: 1.0,
-                    boundaryKind: boundaryKind,
-                    priority: .high
-                )
-                await MainActor.run {
-                    guard self.isPlaying && self.currentPlaybackId == playbackId &&
-                          self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex else {
-                        return
-                    }
-                    self.playAudioData(wavData, withId: playbackId)
-                    self.updatePrefetchWindow()
-                }
-            } catch {
-                await MainActor.run {
-                    guard self.currentPlaybackId == playbackId else { return }
-                    if index == 0 && self.activeTTSAutoAdvancePerf?.chapterIndex == self.playingChapterIndex {
-                        let synMs = self.currentParagraph0SynthesisMs()
-                        self.finishTTSAutoAdvancePerf(
-                            outcome: "synthesis_failed",
-                            endpoint: "error",
-                            sessionID: self.sessionID,
-                            generation: self.ttsProcessingGeneration,
-                            chapterIndex: self.playingChapterIndex,
-                            synthesisMs: synMs
-                        )
-                    }
-                    AppLogger.shared.log("❌ Lỗi NghiTTS: \(error.localizedDescription)")
-                    self.preloadedData.removeValue(forKey: index)
-                    self.prefetchTasks[index]?.cancel()
-                    self.prefetchTasks.removeValue(forKey: index)
-                    self.prefetchTaskGenerations.removeValue(forKey: index)
-                    self.currentPlaybackId = nil
-                    self.pause()
-                    ToastManager.shared.show(message: "Lỗi NghiTTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
-                }
+                AppLogger.shared.log("NghiTTS synthesis failed: \(error.localizedDescription)")
+                self.preloadedData.removeValue(forKey: index)
+                self.preloadedDurations.removeValue(forKey: index)
+                self.currentPlaybackId = nil
+                self.pause()
+                ToastManager.shared.show(message: "Lỗi NghiTTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
             }
         }
     }

@@ -30,9 +30,30 @@ enum WAVEncoder {
 
         return data
     }
+
+    static func duration(of data: Data) -> Double {
+        guard data.count >= 44,
+              String(data: data[0..<4], encoding: .ascii) == "RIFF",
+              String(data: data[8..<12], encoding: .ascii) == "WAVE" else {
+            return 0
+        }
+
+        let byteRate = data.readUInt32LE(at: 28)
+        let payloadSize = data.readUInt32LE(at: 40)
+        guard byteRate > 0 else { return 0 }
+        return Double(payloadSize) / Double(byteRate)
+    }
 }
 
 private extension Data {
+    func readUInt32LE(at offset: Int) -> UInt32 {
+        guard offset >= 0, offset + 4 <= count else { return 0 }
+        return UInt32(self[index(startIndex, offsetBy: offset)]) |
+            (UInt32(self[index(startIndex, offsetBy: offset + 1)]) << 8) |
+            (UInt32(self[index(startIndex, offsetBy: offset + 2)]) << 16) |
+            (UInt32(self[index(startIndex, offsetBy: offset + 3)]) << 24)
+    }
+
     mutating func appendASCII(_ string: String) {
         append(contentsOf: string.utf8)
     }

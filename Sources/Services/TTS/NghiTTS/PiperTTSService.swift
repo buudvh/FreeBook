@@ -4,7 +4,7 @@ protocol PiperEngine {
     func synthesize(text: String, modelONNX: URL, modelConfig: URL, speed: Double, boundaryKind: TTSBoundaryKind) async throws -> Data
 }
 
-final class PiperTTSService {
+final class PiperTTSService: @unchecked Sendable {
     private let modelStore: ModelStore
     private let engine: PiperEngine
     private let syncQueue = DispatchQueue(label: "PiperTTSService.sync")
@@ -21,6 +21,20 @@ final class PiperTTSService {
     init(modelStore: ModelStore, engine: PiperEngine = ONNXPiperEngine()) {
         self.modelStore = modelStore
         self.engine = engine
+    }
+
+    func prepare(voice: String) async throws {
+        guard let onnxEngine = engine as? ONNXPiperEngine else { return }
+        let voiceId = voice.toASCIIID
+        let modelONNX = modelStore.modelURL(for: voiceId, extension: "onnx")
+        let modelConfig = modelStore.modelURL(for: voiceId, extension: "onnx.json")
+        guard FileManager.default.fileExists(atPath: modelONNX.path),
+              FileManager.default.fileExists(atPath: modelConfig.path) else {
+            return
+        }
+        try await Task.detached(priority: .utility) {
+            try onnxEngine.prepare(modelONNX: modelONNX, modelConfig: modelConfig)
+        }.value
     }
 
     func synthesize(

@@ -9,7 +9,7 @@ internal struct TTSPCMChunkPayload: Sendable {
     internal let isLast: Bool
 }
 
-final class ONNXPiperEngine: PiperEngine {
+final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
     private struct PiperConfig: Decodable {
         struct AudioConfig: Decodable {
             let sample_rate: Int?
@@ -83,6 +83,10 @@ final class ONNXPiperEngine: PiperEngine {
         )
         cached = runtime
         return runtime
+    }
+
+    func prepare(modelONNX: URL, modelConfig: URL) throws {
+        _ = try getRuntime(modelONNX: modelONNX, modelConfig: modelConfig)
     }
 
     private struct TextChunk {
@@ -161,6 +165,29 @@ final class ONNXPiperEngine: PiperEngine {
         }
 
         return 0.0
+    }
+
+    private func pauseDuration(for boundaryKind: TTSBoundaryKind) -> Double {
+        let defaults = UserDefaults.standard
+        switch boundaryKind {
+        case .technicalChunk:
+            return 0
+        case .phraseEnd:
+            let value = defaults.double(forKey: "phrasePauseDuration")
+            return value > 0 ? value : 0.15
+        case .bracketEnd:
+            let value = defaults.double(forKey: "bracketPauseDuration")
+            return value > 0 ? value : 0.1
+        case .newlineEnd:
+            let value = defaults.double(forKey: "newlinePauseDuration")
+            return value > 0 ? value : 0.4
+        case .sentenceEnd:
+            let value = defaults.double(forKey: "sentencePauseDuration")
+            return value > 0 ? value : 0.3
+        case .paragraphEnd, .chapterEnd:
+            let value = defaults.double(forKey: "paragraphPauseDuration")
+            return value > 0 ? value : 0.5
+        }
     }
 
     private func trimSilence(_ samples: [Float], threshold: Float = 0.002, minSamples: Int = 441) -> [Float] {
@@ -367,13 +394,12 @@ final class ONNXPiperEngine: PiperEngine {
                         trimmedChunk.append(contentsOf: silenceSamples)
                     }
                 }
-            } else if boundaryKind == .paragraphEnd || boundaryKind == .chapterEnd {
-                let paragraphPauseSec = UserDefaults.standard.double(forKey: "paragraphPauseDuration")
-                let actualParagraphPause = paragraphPauseSec > 0 ? paragraphPauseSec : 0.5
-                let scaledParagraphPause = actualParagraphPause / max(0.1, speed)
-                let paragraphSilenceSamplesCount = Int(Double(sampleRate) * scaledParagraphPause)
-                if paragraphSilenceSamplesCount > 0 {
-                    let silenceSamples = [Float](repeating: 0.0, count: paragraphSilenceSamplesCount)
+            } else {
+                let boundaryPause = pauseDuration(for: boundaryKind)
+                let scaledBoundaryPause = boundaryPause / max(0.1, speed)
+                let boundarySilenceSamplesCount = Int(Double(sampleRate) * scaledBoundaryPause)
+                if boundarySilenceSamplesCount > 0 {
+                    let silenceSamples = [Float](repeating: 0.0, count: boundarySilenceSamplesCount)
                     trimmedChunk.append(contentsOf: silenceSamples)
                 }
             }
