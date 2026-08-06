@@ -111,6 +111,10 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         discardNext()
     }
 
+    func clearPreparedNext() {
+        discardNext()
+    }
+
     private func makePlayer(data: Data) throws -> AVAudioPlayer {
         let player = try AVAudioPlayer(data: data)
         player.delegate = self

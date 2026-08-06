@@ -763,6 +763,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private var preloadedData: [Int: Data] = [:]
     private var prefetchTasks: [Int: Task<Void, Never>] = [:]
     private var audioPlayer: AVAudioPlayer?
+    private let nghiAudioPlayerQueue = NghiAudioPlayerQueue()
 
     // Tiến trình tải model NghiTTS
     @Published public var downloadingVoices: [String: Double] = [:] // voiceName -> progress (0.0 ... 1.0)
@@ -921,6 +922,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         super.init()
 
+        configureNghiAudioPlayerQueueCallbacks()
         isInitializing = false
         loadParamsForCurrentTool()
 
@@ -1056,6 +1058,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                         ctx.gate.resume()
                     }
                 }
+            } else if tool == "nghitts" {
+                nghiAudioPlayerQueue.updateRate(speed)
             } else if let player = audioPlayer {
                 player.rate = Float(speed)
             }
@@ -1355,6 +1359,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             siriService.pause()
         } else if isStreamingNghiPlayback {
             playerNode?.pause()
+        } else if tool == "nghitts" {
+            nghiAudioPlayerQueue.pause()
         } else {
             audioPlayer?.pause()
         }
@@ -1369,6 +1375,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         if isPlaying {
             if tool == "system" {
                 siriService.resume()
+            } else if tool == "nghitts" && !isStreamingNghiPlayback {
+                if nghiAudioPlayerQueue.resume() {
+                    isPlaying = true
+                    updatePrefetchWindow()
+                    prepareNextNghiAudioIfPossible()
+                } else {
+                    speakCurrent()
+                }
             } else {
                 if let player = audioPlayer, !player.isPlaying {
                     let ok = player.play()
@@ -1447,6 +1461,17 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
             syncRemoteCommandState()
             updateNowPlayingInfo()
+        } else if tool == "nghitts" {
+            let timeSincePause = lastPausedTime.map { Date().timeIntervalSince($0) } ?? 0.0
+            if timeSincePause > 5.0 || currentPlaybackId == nil {
+                nghiAudioPlayerQueue.stop()
+                speakCurrent()
+            } else if nghiAudioPlayerQueue.resume() {
+                updatePrefetchWindow()
+                prepareNextNghiAudioIfPossible()
+            } else {
+                speakCurrent()
+            }
         } else {
             let timeSincePause = lastPausedTime.map { Date().timeIntervalSince($0) } ?? 0.0
             if timeSincePause > 5.0 || currentPlaybackId == nil {
@@ -2025,7 +2050,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         guard isPlaying, tool == "nghitts" else { return }
 
         let isAtLastParagraph = (currentParagraphIndex == paragraphs.count - 1)
-        let isLastAudioPlaying = (audioPlayer?.isPlaying == true)
+        let isLastAudioPlaying = nghiAudioPlayerQueue.isPlaying
 
         let count = max(1, min(10, currentPrefetchCount))
         let targetIndices = (1...count).compactMap { offset -> Int? in
@@ -2122,6 +2147,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         prefetchTasks.removeAll()
         prefetchTaskGenerations.removeAll()
         preloadedData.removeAll()
+        nghiAudioPlayerQueue.clearPreparedNext()
         
         if tool != "system" && tool != "nghitts" && tool != "google" {
             extService.cleanupAllTempFiles()
@@ -2177,6 +2203,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 startPrefetchTask(for: idx)
             }
         }
+        if tool == "nghitts" {
+            prepareNextNghiAudioIfPossible()
+        }
         checkAndPromoteNextChapterAudioIfNeeded()
     }
 
@@ -2185,6 +2214,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         if prefetchTaskGenerations[index] == taskGen {
             prefetchTasks.removeValue(forKey: index)
             prefetchTaskGenerations.removeValue(forKey: index)
+            if tool == "nghitts" {
+                prepareNextNghiAudioIfPossible()
+            }
             checkAndPromoteNextChapterAudioIfNeeded()
         }
     }
@@ -2412,9 +2444,167 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
+    private func configureNghiAudioPlayerQueueCallbacks() {
+        nghiAudioPlayerQueue.onTransition = { [weak self] item in
+            self?.handleNghiAudioTransition(item)
+        }
+        nghiAudioPlayerQueue.onFinished = { [weak self] item, success in
+            self?.handleNghiAudioFinished(item, successfully: success)
+        }
+    }
+
+    private func prepareNextNghiAudioIfPossible() {
+        guard tool == "nghitts",
+              isPlaying,
+              nghiAudioPlayerQueue.isPlaying else { return }
+
+        let nextIndex = currentParagraphIndex + 1
+        guard nextIndex >= 0, nextIndex < paragraphs.count else {
+            nghiAudioPlayerQueue.clearPreparedNext()
+            return
+        }
+
+        if nghiAudioPlayerQueue.nextItem?.paragraphIndex == nextIndex {
+            return
+        }
+
+        guard let data = preloadedData[nextIndex] else { return }
+
+        let item = NghiAudioPlayerQueue.Item(
+            paragraphIndex: nextIndex,
+            playbackId: String(UUID().uuidString.prefix(4))
+        )
+
+        do {
+            try nghiAudioPlayerQueue.prepareNext(data: data, item: item)
+            if AppLogger.shared.isLoggingEnabled {
+                AppLogger.shared.log("🔊 [TTSPerf] NghiPreparedHandoff index=\(nextIndex)")
+            }
+        } catch {
+            AppLogger.shared.log("⚠️ [TTSPerf] NghiPreparedHandoff failed index=\(nextIndex): \(error.localizedDescription)")
+            preloadedData.removeValue(forKey: nextIndex)
+        }
+    }
+
+    private func handleNghiAudioTransition(_ item: NghiAudioPlayerQueue.Item) {
+        guard isPlaying,
+              tool == "nghitts",
+              item.paragraphIndex == currentParagraphIndex + 1,
+              item.paragraphIndex < paragraphs.count else {
+            nghiAudioPlayerQueue.stop()
+            return
+        }
+
+        currentParagraphIndex = item.paragraphIndex
+        currentPlaybackId = item.playbackId
+
+        let paragraph = paragraphs[item.paragraphIndex]
+        highlightRange = paragraph.range
+        currentParentParagraphIndex = paragraph.paragraphIndex
+        recordProgressInMemory()
+
+        if AppLogger.shared.isLoggingEnabled {
+            AppLogger.shared.log("🔊 [TTSPerf] NghiScheduledHandoff index=\(item.paragraphIndex)")
+        }
+
+        updatePrefetchWindow()
+        updateNowPlayingInfo()
+    }
+
+    private func handleNghiAudioFinished(_ item: NghiAudioPlayerQueue.Item, successfully flag: Bool) {
+        guard tool == "nghitts" else { return }
+
+        if item.paragraphIndex != currentParagraphIndex {
+            if !flag {
+                preloadedData.removeValue(forKey: item.paragraphIndex)
+                if isPlaying,
+                   item.paragraphIndex > currentParagraphIndex,
+                   item.paragraphIndex < paragraphs.count,
+                   prefetchTasks[item.paragraphIndex] == nil {
+                    startPrefetchTask(for: item.paragraphIndex)
+                }
+            }
+            return
+        }
+
+        guard currentPlaybackId == item.playbackId else { return }
+        if flag {
+            nextParagraph()
+        } else {
+            AppLogger.shared.log("⚠️ [TTSManager] NghiTTS AVAudioPlayer phát kết thúc không thành công")
+            currentPlaybackId = nil
+            isPlaying = false
+            syncRemoteCommandState()
+            updateNowPlayingInfo()
+        }
+    }
+
+    private func playNghiAudioData(_ audioData: Data, playbackId: String) {
+        cleanUpTempFile()
+        stopCurrentHardwarePlayer()
+
+        let setupStart = ProcessInfo.processInfo.systemUptime
+        do {
+            configureAudioSession()
+            let item = NghiAudioPlayerQueue.Item(
+                paragraphIndex: currentParagraphIndex,
+                playbackId: playbackId
+            )
+            try nghiAudioPlayerQueue.start(data: audioData, item: item, rate: speed)
+            currentPlaybackId = playbackId
+            isPlaying = true
+
+            let setupEnd = ProcessInfo.processInfo.systemUptime
+            if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
+                let playerSetupMs = (setupEnd - setupStart) * 1000
+                let synMs = currentParagraph0SynthesisMs(untilUptime: setupStart)
+                finishTTSAutoAdvancePerf(
+                    outcome: "played",
+                    endpoint: "player_play",
+                    sessionID: sessionID,
+                    generation: ttsProcessingGeneration,
+                    chapterIndex: playingChapterIndex,
+                    synthesisMs: synMs,
+                    playerSetupMs: playerSetupMs,
+                    audioCacheHit: paragraph0AudioCacheHit
+                )
+            }
+
+            prepareNextNghiAudioIfPossible()
+        } catch {
+            let setupEnd = ProcessInfo.processInfo.systemUptime
+            if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
+                let playerSetupMs = (setupEnd - setupStart) * 1000
+                let synMs = currentParagraph0SynthesisMs(untilUptime: setupStart)
+                finishTTSAutoAdvancePerf(
+                    outcome: "player_failed",
+                    endpoint: "error",
+                    sessionID: sessionID,
+                    generation: ttsProcessingGeneration,
+                    chapterIndex: playingChapterIndex,
+                    synthesisMs: synMs,
+                    playerSetupMs: playerSetupMs,
+                    audioCacheHit: paragraph0AudioCacheHit
+                )
+            }
+            AppLogger.shared.log("❌ [TTSManager] [ID=\(playbackId)] Khởi tạo NghiTTS AVAudioPlayer queue thất bại: \(error.localizedDescription)")
+            preloadedData.removeValue(forKey: currentParagraphIndex)
+            currentPlaybackId = nil
+            pause()
+            ToastManager.shared.show(message: "Lỗi trình phát âm thanh: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
+        }
+
+        updateNowPlayingInfo()
+    }
+
     private func playAudioData(_ audioData: Data, withId customId: String? = nil) {
         let playbackId = customId ?? String(UUID().uuidString.prefix(4))
         self.currentPlaybackId = playbackId
+
+        if tool == "nghitts" {
+            playNghiAudioData(audioData, playbackId: playbackId)
+            return
+        }
 
         cleanUpTempFile()
         stopCurrentHardwarePlayer()
@@ -2598,6 +2788,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     private func stopCurrentHardwarePlayer() {
+        nghiAudioPlayerQueue.stop()
         let hadStreaming = (isStreamingNghiPlayback || activeStreamingContext != nil || activeStreamingTask != nil)
 
         activeStreamingGate?.cancel()
@@ -3704,7 +3895,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 extension TTSManager {
     public nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         Task { @MainActor in
-            guard self.audioPlayer == player else { return }
+            guard self.audioPlayer === player else { return }
             self.stopCurrentHardwarePlayer()
             if flag {
                 self.nextParagraph()
