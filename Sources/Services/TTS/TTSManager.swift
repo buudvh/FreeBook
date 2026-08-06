@@ -2524,8 +2524,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
             engine.disconnectNodeOutput(player)
             engine.disconnectNodeOutput(eq)
+            engine.disconnectNodeOutput(pitch)
             engine.connect(player, to: eq, format: payloadFormat)
             engine.connect(eq, to: pitch, format: payloadFormat)
+            engine.connect(pitch, to: engine.mainMixerNode, format: payloadFormat)
             ctx.streamFormat = payloadFormat
         }
 
@@ -2761,6 +2763,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         activeStreamingGate?.cancel()
         activeStreamingTask?.cancel()
         stopCurrentHardwarePlayer()
+        configureAudioSession()
 
         let gate = TTSStreamingGate()
         self.activeStreamingGate = gate
@@ -2816,7 +2819,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                         try self.scheduleBufferOnPlayerNode(pcmBuffer: pcmBuffer, ctx: ctx, chunkPCMDuration: chunkPCMDuration, isLast: payload.isLast)
 
                         if !ctx.hasStartedPlaying && isInitialBuffered && self.isPlaying {
-                            self.configureAudioSession()
                             self.timePitchNode?.rate = Float(self.speed)
                             self.eqNode?.bypass = true
 
