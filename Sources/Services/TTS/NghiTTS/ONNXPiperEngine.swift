@@ -18,29 +18,69 @@ final class ONNXPiperEngine: PiperEngine {
         let phoneme_id_map: [String: [Int]]?
     }
 
-    private struct CachedSession {
+    private struct CachedRuntime {
         let modelURL: URL
+        let configURL: URL
         let env: ORTEnv
         let session: ORTSession
+        let phonemeIdMap: [String: [Int]]
+        let sampleRate: Int
+        let padId: Int
+        let bosId: Int
+        let eosId: Int
+        let inputNames: [String]
+        let firstOutputName: String
     }
 
-    private var cached: CachedSession?
+    private var cached: CachedRuntime?
     private let sessionLock = NSLock()
 
-    private func getSession(modelONNX: URL) throws -> (ORTEnv, ORTSession) {
+    private func getRuntime(modelONNX: URL, modelConfig: URL) throws -> CachedRuntime {
         sessionLock.lock()
         defer { sessionLock.unlock() }
 
-        if let cached = cached, cached.modelURL == modelONNX {
-            return (cached.env, cached.session)
+        if let cached = cached,
+           cached.modelURL == modelONNX,
+           cached.configURL == modelConfig {
+            return cached
+        }
+
+        guard let configData = try? Data(contentsOf: modelConfig) else {
+            AppLogger.shared.log("🤖 [ONNXPiperEngine] LỖI: Không thể đọc cấu hình mô hình tại \(modelConfig.lastPathComponent)")
+            throw TTSError.internalError("Cannot read Piper config file: \(modelConfig.lastPathComponent)")
+        }
+
+        guard let config = try? JSONDecoder().decode(PiperConfig.self, from: configData),
+              let phonemeIdMap = config.phoneme_id_map else {
+            AppLogger.shared.log("🤖 [ONNXPiperEngine] LỖI: Không thể phân tích cú pháp JSON cấu hình.")
+            throw TTSError.internalError("Failed to parse Piper config file: \(modelConfig.lastPathComponent)")
         }
 
         let env = try ORTEnv(loggingLevel: .warning)
         let options = try ORTSessionOptions()
         let session = try ORTSession(env: env, modelPath: modelONNX.path, sessionOptions: options)
+        let inputNames = try session.inputNames()
+        let outputNames = try session.outputNames()
+        guard let firstOutputName = outputNames.first else {
+            AppLogger.shared.log("🤖 [ONNXPiperEngine] LỖI: Model không có output names.")
+            throw TTSError.internalError("Model has no output names.")
+        }
 
-        cached = CachedSession(modelURL: modelONNX, env: env, session: session)
-        return (env, session)
+        let runtime = CachedRuntime(
+            modelURL: modelONNX,
+            configURL: modelConfig,
+            env: env,
+            session: session,
+            phonemeIdMap: phonemeIdMap,
+            sampleRate: config.audio?.sample_rate ?? 22050,
+            padId: phonemeIdMap["_"]?.first ?? 0,
+            bosId: phonemeIdMap["^"]?.first ?? 1,
+            eosId: phonemeIdMap["$"]?.first ?? 2,
+            inputNames: inputNames,
+            firstOutputName: firstOutputName
+        )
+        cached = runtime
+        return runtime
     }
 
     private struct TextChunk {
@@ -150,29 +190,15 @@ final class ONNXPiperEngine: PiperEngine {
         speed: Double,
         onChunkPayload: @Sendable (TTSPCMChunkPayload) async throws -> Void
     ) async throws -> Data {
-        guard let configData = try? Data(contentsOf: modelConfig) else {
-            AppLogger.shared.log("🤖 [ONNXPiperEngine] LỖI: Không thể đọc cấu hình mô hình tại \(modelConfig.lastPathComponent)")
-            throw TTSError.internalError("Cannot read Piper config file: \(modelConfig.lastPathComponent)")
-        }
-        
-        guard let config = try? JSONDecoder().decode(PiperConfig.self, from: configData),
-              let phonemeIdMap = config.phoneme_id_map else {
-            AppLogger.shared.log("🤖 [ONNXPiperEngine] LỖI: Không thể phân tích cú pháp JSON cấu hình.")
-            throw TTSError.internalError("Failed to parse Piper config file: \(modelConfig.lastPathComponent)")
-        }
-        
-        let sampleRate = config.audio?.sample_rate ?? 22050
-        let padId = phonemeIdMap["_"]?.first ?? 0
-        let bosId = phonemeIdMap["^"]?.first ?? 1
-        let eosId = phonemeIdMap["$"]?.first ?? 2
-        
-        let (_, session) = try getSession(modelONNX: modelONNX)
-        let inputNames = try session.inputNames()
-        let outputNames = try session.outputNames()
-        guard let firstOutputName = outputNames.first else {
-            AppLogger.shared.log("🤖 [ONNXPiperEngine] LỖI: Model không có output names.")
-            throw TTSError.internalError("Model has no output names.")
-        }
+        let runtime = try getRuntime(modelONNX: modelONNX, modelConfig: modelConfig)
+        let sampleRate = runtime.sampleRate
+        let padId = runtime.padId
+        let bosId = runtime.bosId
+        let eosId = runtime.eosId
+        let phonemeIdMap = runtime.phonemeIdMap
+        let session = runtime.session
+        let inputNames = runtime.inputNames
+        let firstOutputName = runtime.firstOutputName
         
         let chunks = chunkTextWithPunctuation(text)
         guard !chunks.isEmpty else {
