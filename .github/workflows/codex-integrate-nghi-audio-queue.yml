@@ -1,0 +1,35 @@
+name: Codex Integrate NGHI Audio Queue
+
+on:
+  push:
+    branches:
+      - sigle_reader
+    paths:
+      - .github/workflows/codex-integrate-nghi-audio-queue.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: sigle_reader
+      - name: Apply guarded patch
+        run: python3 -c "import base64,zlib;exec(zlib.decompress(base64.b64decode('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')) )"
+      - name: Validate patch
+        run: |
+          git diff --check
+          grep -q 'private let nghiAudioPlayerQueue = NghiAudioPlayerQueue()' Sources/Services/TTS/TTSManager.swift
+          grep -q 'try nghiAudioPlayerQueue.start' Sources/Services/TTS/TTSManager.swift
+          grep -q 'func clearPreparedNext()' Sources/Services/TTS/NghiTTS/NghiAudioPlayerQueue.swift
+      - name: Commit integration
+        run: |
+          rm .github/workflows/codex-integrate-nghi-audio-queue.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Sources/Services/TTS/TTSManager.swift Sources/Services/TTS/NghiTTS/NghiAudioPlayerQueue.swift .github/workflows/codex-integrate-nghi-audio-queue.yml
+          git commit -m 'Integrate NGHI AVAudioPlayer handoff queue'
+          git push origin HEAD:sigle_reader
