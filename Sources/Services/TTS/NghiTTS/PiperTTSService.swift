@@ -45,13 +45,33 @@ final class PiperTTSService: @unchecked Sendable {
         priority: SynthesisPriority = .high,
         requestID: UUID = UUID()
     ) async throws -> Data {
-        return try await PiperSynthesisCoordinator.shared.enqueue(
+        let result = try await synthesizeWithDuration(
+            text: text,
+            voice: voice,
+            speed: speed,
+            boundaryKind: boundaryKind,
+            priority: priority,
+            requestID: requestID
+        )
+        return result.data
+    }
+
+    func synthesizeWithDuration(
+        text: String,
+        voice: String,
+        speed: Double,
+        boundaryKind: TTSBoundaryKind = .paragraphEnd,
+        priority: SynthesisPriority = .high,
+        requestID: UUID = UUID()
+    ) async throws -> (data: Data, pcmDuration: Double) {
+        let payload = try await PiperSynthesisCoordinator.shared.enqueuePayload(
             priority: priority,
             requestID: requestID
         ) { [weak self] in
             guard let self = self else { throw CancellationError() }
-            return try await self.executeInternalSynthesis(text: text, voice: voice, speed: speed, boundaryKind: boundaryKind)
+            return try await self.executeInternalSynthesisWithDuration(text: text, voice: voice, speed: speed, boundaryKind: boundaryKind)
         }
+        return (data: payload.data, pcmDuration: payload.pcmDuration)
     }
 
     func synthesizeStream(
@@ -77,6 +97,16 @@ final class PiperTTSService: @unchecked Sendable {
     }
 
     private func executeInternalSynthesis(text: String, voice: String, speed: Double, boundaryKind: TTSBoundaryKind) async throws -> Data {
+        let result = try await executeInternalSynthesisWithDuration(text: text, voice: voice, speed: speed, boundaryKind: boundaryKind)
+        return result.data
+    }
+
+    private func executeInternalSynthesisWithDuration(
+        text: String,
+        voice: String,
+        speed: Double,
+        boundaryKind: TTSBoundaryKind
+    ) async throws -> PiperSynthesisPayload {
         let voiceId = voice.toASCIIID
         let modelONNX = modelStore.modelURL(for: voiceId, extension: "onnx")
         let modelConfig = modelStore.modelURL(for: voiceId, extension: "onnx.json")
@@ -98,23 +128,37 @@ final class PiperTTSService: @unchecked Sendable {
             let scaledDuration = pauseDuration / speed
             let silenceSamplesCount = Int(Double(sampleRate) * scaledDuration)
             let silenceSamples = [Float](repeating: 0.0, count: max(0, silenceSamplesCount))
-            
-            return WAVEncoder.encodePCM16(
+            let silenceData = WAVEncoder.encodePCM16(
                 samples: silenceSamples,
                 sampleRate: sampleRate,
                 channels: 1
             )
+            let pcmDur = Double(silenceSamplesCount) / Double(sampleRate)
+            return PiperSynthesisPayload(data: silenceData, pcmDuration: pcmDur)
         }
 
         let preprocessedText = await TextPreprocessor.shared.preprocess(text)
         
-        return try await engine.synthesize(
-            text: preprocessedText,
-            modelONNX: modelONNX,
-            modelConfig: modelConfig,
-            speed: speed,
-            boundaryKind: boundaryKind
-        )
+        if let onnxEngine = engine as? ONNXPiperEngine {
+            let res = try await onnxEngine.synthesizeWithDuration(
+                text: preprocessedText,
+                modelONNX: modelONNX,
+                modelConfig: modelConfig,
+                speed: speed,
+                boundaryKind: boundaryKind
+            )
+            return PiperSynthesisPayload(data: res.data, pcmDuration: res.pcmDuration)
+        } else {
+            let wavData = try await engine.synthesize(
+                text: preprocessedText,
+                modelONNX: modelONNX,
+                modelConfig: modelConfig,
+                speed: speed,
+                boundaryKind: boundaryKind
+            )
+            let duration = WAVEncoder.duration(of: wavData)
+            return PiperSynthesisPayload(data: wavData, pcmDuration: duration)
+        }
     }
 
     private func executeInternalSynthesisStream(

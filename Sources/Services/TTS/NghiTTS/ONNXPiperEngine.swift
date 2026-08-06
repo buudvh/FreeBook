@@ -60,6 +60,8 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
 
         let env = try ORTEnv(loggingLevel: .warning)
         let options = try ORTSessionOptions()
+        try options.setIntraOpNumThreads(2)
+        try options.setInterOpNumThreads(1)
         let session = try ORTSession(env: env, modelPath: modelONNX.path, sessionOptions: options)
         let inputNames = try session.inputNames()
         let outputNames = try session.outputNames()
@@ -203,6 +205,18 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
     }
 
     func synthesize(text: String, modelONNX: URL, modelConfig: URL, speed: Double, boundaryKind: TTSBoundaryKind = .paragraphEnd) async throws -> Data {
+        let result = try await synthesizeInternal(
+            text: text,
+            modelONNX: modelONNX,
+            modelConfig: modelConfig,
+            speed: speed,
+            boundaryKind: boundaryKind,
+            onChunkPayload: nil
+        )
+        return result.data
+    }
+
+    func synthesizeWithDuration(text: String, modelONNX: URL, modelConfig: URL, speed: Double, boundaryKind: TTSBoundaryKind = .paragraphEnd) async throws -> (data: Data, pcmDuration: Double) {
         try await synthesizeInternal(
             text: text,
             modelONNX: modelONNX,
@@ -220,7 +234,7 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
         speed: Double,
         onChunkPayload: @escaping @Sendable (TTSPCMChunkPayload) async throws -> Void
     ) async throws -> Data {
-        try await synthesizeInternal(
+        let result = try await synthesizeInternal(
             text: text,
             modelONNX: modelONNX,
             modelConfig: modelConfig,
@@ -228,6 +242,7 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
             boundaryKind: .paragraphEnd,
             onChunkPayload: onChunkPayload
         )
+        return result.data
     }
 
     private func synthesizeInternal(
@@ -237,7 +252,7 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
         speed: Double,
         boundaryKind: TTSBoundaryKind,
         onChunkPayload: ChunkPayloadHandler?
-    ) async throws -> Data {
+    ) async throws -> (data: Data, pcmDuration: Double) {
         let runtime = try getRuntime(modelONNX: modelONNX, modelConfig: modelConfig)
         let sampleRate = runtime.sampleRate
         let padId = runtime.padId
@@ -420,10 +435,12 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
             mergedSamples.append(contentsOf: trimmedChunk)
         }
 
-        return WAVEncoder.encodePCM16(
+        let wavData = WAVEncoder.encodePCM16(
             samples: mergedSamples,
             sampleRate: sampleRate,
             channels: 1
         )
+        let pcmDuration = Double(mergedSamples.count) / Double(sampleRate)
+        return (data: wavData, pcmDuration: pcmDuration)
     }
 }

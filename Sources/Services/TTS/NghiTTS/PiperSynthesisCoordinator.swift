@@ -10,6 +10,11 @@ internal enum SynthesisPriority: Int, Comparable, Sendable {
     }
 }
 
+internal struct PiperSynthesisPayload: Sendable {
+    internal let data: Data
+    internal let pcmDuration: Double
+}
+
 internal actor PiperSynthesisCoordinator {
     internal static let shared = PiperSynthesisCoordinator()
     
@@ -17,8 +22,8 @@ internal actor PiperSynthesisCoordinator {
         let id: UUID
         let priority: SynthesisPriority
         let sequenceNumber: UInt64
-        let work: @Sendable () async throws -> Data
-        var continuation: CheckedContinuation<Data, Error>?
+        let work: @Sendable () async throws -> PiperSynthesisPayload
+        var continuation: CheckedContinuation<PiperSynthesisPayload, Error>?
         var isCancelled: Bool = false
     }
     
@@ -32,6 +37,18 @@ internal actor PiperSynthesisCoordinator {
         requestID: UUID,
         work: @escaping @Sendable () async throws -> Data
     ) async throws -> Data {
+        let payload = try await enqueuePayload(priority: priority, requestID: requestID) {
+            let data = try await work()
+            return PiperSynthesisPayload(data: data, pcmDuration: 0.0)
+        }
+        return payload.data
+    }
+
+    internal func enqueuePayload(
+        priority: SynthesisPriority,
+        requestID: UUID,
+        work: @escaping @Sendable () async throws -> PiperSynthesisPayload
+    ) async throws -> PiperSynthesisPayload {
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 self.nextSequenceNumber += 1
@@ -78,7 +95,7 @@ internal actor PiperSynthesisCoordinator {
         }
     }
 
-    private func resumeContinuation(_ req: inout PendingRequest, with result: Result<Data, Error>) {
+    private func resumeContinuation(_ req: inout PendingRequest, with result: Result<PiperSynthesisPayload, Error>) {
         guard let continuation = req.continuation else { return }
         req.continuation = nil
         continuation.resume(with: result)

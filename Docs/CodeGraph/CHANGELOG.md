@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.95] - 2026-08-06
+
+### Hoàn Thiện Tối Ưu Luồng NghiTTS (Buffer Audio Đầu 1-1.5s, ONNX Threads & Thermal Management) (`ONNXPiperEngine.swift`, `PiperTTSService.swift`, `PiperSynthesisCoordinator.swift`, `TTSManager.swift`, `NghiTTSPerformanceTests.swift`)
+* **Tích Hợp `pcmDuration` & Tối Ưu Buffer Audio Đầu Tiên (`ONNXPiperEngine.swift`, `PiperTTSService.swift`, `PiperSynthesisCoordinator.swift`, `TTSManager.swift`)**:
+  * Bổ sung API `synthesizeWithDuration(...)` trong `ONNXPiperEngine` và `PiperTTSService` trả về tuple `(data: Data, pcmDuration: Double)` kết hợp cùng `PiperSynthesisPayload` trong `PiperSynthesisCoordinator`.
+  * Loại bỏ việc decode dữ liệu WAV thủ công qua `WAVEncoder.duration(of:)`, trực tiếp tính toán độ dài PCM hiệu dụng `pcmDuration / playbackRate` tích lũy $1.0 - 1.5$s câu đầu trước khi kích phát `AVAudioPlayer`.
+* **Cấu Hình ONNX Thread Options (`ONNXPiperEngine.swift`)**:
+  * Thiết lập cố định `intra-op = 2` và `inter-op = 1` thông qua `ORTSessionOptions` khi tạo `ORTSession`, tối ưu hóa hiệu năng tổng hợp và giảm sử dụng CPU/nhiệt độ thiết bị.
+* **Theo Dõi & Quản Lý Nhiệt Độ Thiết Bị Thermal State (`TTSManager.swift`)**:
+  * Lắng nghe sự kiện `ProcessInfo.thermalStateDidChangeNotification`.
+  * Tạm dừng luồng prefetch `.normal` khi nhiệt độ thiết bị lên mức `.fair`, `.serious`, hoặc `.critical`; tự động phục hồi prefetch ngầm khi trạng thái nhiệt độ về `.nominal`.
+  * Các yêu cầu phát âm thanh lập tức `.high` vẫn được giữ ưu tiên phục vụ liên tục.
+* **Bổ Sung Unit Tests Hiệu Năng & Dọn Dẹp Dead Code Streaming (`Tests/NghiTTSPerformanceTests.swift`, `TTSManager.swift`)**:
+  * Tạo mới `NghiTTSPerformanceTests.swift` kiểm thử chính xác phép tính `pcmDuration`, tích lũy độ dài buffer hiệu dụng và logic phân cấp `thermalState`.
+  * Dọn dẹp triệt để các lớp và phương thức dead code `AVAudioEngine` streaming cũ (`TTSStreamingGate`, `TTSStreamingContext`, `makePCMBuffer`, `scheduleBufferOnPlayerNode`, `handleBufferCompletion`, `handleTerminalStreamError`), giải phóng dung lượng và giúp codebase gọn gàng, minh bạch.
+
 ## [1.3.94] - 2026-08-06
 
 ### Tối Ưu Hiệu Năng Luồng NGHI-TTS `AVAudioPlayer` Double-Buffering & Loại Bỏ Im Lặng Giả (`NghiAudioPlayerQueue.swift`, `TTSManager.swift`, `TTSModels.swift`, `TTSParagraphBuilder.swift`, `ONNXPiperEngine.swift`, `PiperTTSService.swift`)
