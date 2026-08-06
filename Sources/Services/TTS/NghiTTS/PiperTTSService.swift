@@ -164,7 +164,7 @@ final class PiperTTSService {
 }
 
 struct UnavailablePiperEngine: PiperEngine {
-    func synthesize(text: String, modelONNX: URL, modelConfig: URL, speed: Double) async throws -> Data {
+    func synthesize(text: String, modelONNX: URL, modelConfig: URL, speed: Double, boundaryKind: TTSBoundaryKind = .paragraphEnd) async throws -> Data {
         throw TTSError.engineUnavailable(
             "Native Piper synthesis is not linked yet. Add ONNX Runtime Mobile plus an eSpeak phonemizer binding, then implement PiperEngine."
         )
