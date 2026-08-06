@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.93] - 2026-08-06
+
+### Sửa Lỗi Biên Dịch Swift & Cảnh Báo Swift 6 Concurrency (`ONNXPiperEngine.swift`, `NghiAudioPlayerQueue.swift`, `TTSChapterPrefetcher.swift`)
+* **Khắc Phục Lỗi Biên Dịch `@escaping` (`ONNXPiperEngine.swift`)**:
+  * Thêm thuộc tính `@escaping` cho tham số `onChunkPayload` trong `synthesizeStream` để sửa lỗi passing non-escaping parameter.
+* **Đồng Bộ Delegate Concurrency Swift 6 (`NghiAudioPlayerQueue.swift`)**:
+  * Đánh dấu `nonisolated` cho `audioPlayerDidFinishPlaying` và `audioPlayerDecodeErrorDidOccur`, chuyển xử lý về `@MainActor` Task.
+* **Dọn Dẹp Cảnh Báo `await` Dư Thừa (`TTSChapterPrefetcher.swift`)**:
+  * Xóa bỏ từ khóa `await` dư thừa trước các cuộc gọi phương thức đồng bộ của `@MainActor` class `TTSChapterPrefetcher`.
+
 ## [1.3.92] - 2026-08-06
 
 ### Chuyển Đổi Luồng Phát NghiTTS Sang AVAudioPlayer (`TTSManager.swift`)

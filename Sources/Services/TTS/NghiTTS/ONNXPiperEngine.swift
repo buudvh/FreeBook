@@ -190,7 +190,7 @@ final class ONNXPiperEngine: PiperEngine {
         modelONNX: URL,
         modelConfig: URL,
         speed: Double,
-        onChunkPayload: @Sendable (TTSPCMChunkPayload) async throws -> Void
+        onChunkPayload: @escaping @Sendable (TTSPCMChunkPayload) async throws -> Void
     ) async throws -> Data {
         try await synthesizeInternal(
             text: text,

@@ -77,7 +77,7 @@ internal final class TTSChapterPrefetcher {
             )
 
             guard let result = try? await ChapterContentRepository.shared.load(request), !Task.isCancelled else {
-                await self?.updateStateIfGenerationMatches(
+                self?.updateStateIfGenerationMatches(
                     .failed(key: key, generation: currentGen, stage: "load", reason: "load_failed"),
                     expectedGen: currentGen
                 )
@@ -97,7 +97,7 @@ internal final class TTSChapterPrefetcher {
                 sessionID: sessionID,
                 generation: generation
             ), !Task.isCancelled else {
-                await self?.updateStateIfGenerationMatches(
+                self?.updateStateIfGenerationMatches(
                     .failed(key: key, generation: currentGen, stage: "process", reason: "process_failed"),
                     expectedGen: currentGen
                 )
@@ -106,13 +106,13 @@ internal final class TTSChapterPrefetcher {
             let processTime = ProcessInfo.processInfo.systemUptime
             let processMs = (processTime - loadTime) * 1000
 
-            await self?.updateStateIfGenerationMatches(
+            self?.updateStateIfGenerationMatches(
                 .processedReady(key: key, generation: currentGen, processed: processed, loadMs: loadMs, processMs: processMs),
                 expectedGen: currentGen
             )
 
             if key.tool == "google" || (key.tool != "system" && key.tool != "nghitts") {
-                await self?.startAudioSynthesis(key: key, gen: currentGen, processed: processed, loadMs: loadMs, processMs: processMs, nghiService: nil, googleService: googleService, extService: extService)
+                self?.startAudioSynthesis(key: key, gen: currentGen, processed: processed, loadMs: loadMs, processMs: processMs, nghiService: nil, googleService: googleService, extService: extService)
             }
         }
     }
@@ -179,7 +179,7 @@ internal final class TTSChapterPrefetcher {
                 }
             } catch {
                 if !Task.isCancelled {
-                    await self?.handleSynthesisFailure(
+                    self?.handleSynthesisFailure(
                         key: key,
                         gen: gen,
                         processed: processed,
@@ -195,12 +195,12 @@ internal final class TTSChapterPrefetcher {
             let synthMs = (synthEndTime - synthStartTime) * 1000
 
             if let data = audioData, !data.isEmpty, !Task.isCancelled {
-                await self?.updateStateIfGenerationMatches(
+                self?.updateStateIfGenerationMatches(
                     .audioReady(key: key, generation: gen, processed: processed, audioData: data, loadMs: loadMs, processMs: processMs, synthMs: synthMs),
                     expectedGen: gen
                 )
             } else if !Task.isCancelled {
-                await self?.handleSynthesisFailure(
+                self?.handleSynthesisFailure(
                     key: key,
                     gen: gen,
                     processed: processed,

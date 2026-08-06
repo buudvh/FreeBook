@@ -207,35 +207,39 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         Float(min(2.0, max(0.5, rate)))
     }
 
-    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        if player === currentPlayer {
-            let finishedItem = currentItem
-            let promotedItem = promoteNextAfterCurrentFinished()
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor in
+            if player === self.currentPlayer {
+                let finishedItem = self.currentItem
+                let promotedItem = self.promoteNextAfterCurrentFinished()
 
-            if let promotedItem {
-                onTransition?(promotedItem)
-            } else if let finishedItem {
-                onFinished?(finishedItem, flag)
+                if let promotedItem {
+                    self.onTransition?(promotedItem)
+                } else if let finishedItem {
+                    self.onFinished?(finishedItem, flag)
+                }
+                return
             }
-            return
-        }
 
-        if player === nextPlayer, let nextItem {
-            onFinished?(nextItem, flag)
-            discardNext()
+            if player === self.nextPlayer, let nextItem = self.nextItem {
+                self.onFinished?(nextItem, flag)
+                self.discardNext()
+            }
         }
     }
 
-    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-        let message = error?.localizedDescription ?? "Unknown AVAudioPlayer decode error"
-        AppLogger.shared.log("❌ [TTSManager] AVAudioPlayer decode error: \(message)")
+    nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        Task { @MainActor in
+            let message = error?.localizedDescription ?? "Unknown AVAudioPlayer decode error"
+            AppLogger.shared.log("❌ [TTSManager] AVAudioPlayer decode error: \(message)")
 
-        if player === currentPlayer, let currentItem {
-            onFinished?(currentItem, false)
-            stop()
-        } else if player === nextPlayer, let nextItem {
-            onFinished?(nextItem, false)
-            discardNext()
+            if player === self.currentPlayer, let currentItem = self.currentItem {
+                self.onFinished?(currentItem, false)
+                self.stop()
+            } else if player === self.nextPlayer, let nextItem = self.nextItem {
+                self.onFinished?(nextItem, false)
+                self.discardNext()
+            }
         }
     }
 }
