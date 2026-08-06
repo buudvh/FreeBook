@@ -141,13 +141,6 @@ class ReaderViewModel: ObservableObject {
         return try? await ChapterStore.shared.fetchChapter(bookId: bookId, index: index, url: "")
     }
 
-    public func fetchChaptersMetadata() async -> [TTSChapterInfo] {
-        if let storeChaps = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId), !storeChaps.isEmpty {
-            return storeChaps.map { TTSChapterInfo(title: $0.title, url: $0.url, index: $0.index, host: $0.host) }
-        }
-        return []
-    }
-
     // Lấy danh sách chương online nếu đang đọc trực tuyến
     var onlineChapters: [ChapterResult] = []
     var isTranslationEnabled: Bool = false

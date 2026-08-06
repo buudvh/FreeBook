@@ -41,13 +41,6 @@ enum ChapterLoadState: Equatable {
     case failed(message: String)
 }
 
-extension ChapterLoadState {
-    var failureMessage: String? {
-        if case .failed(let message) = self { return message }
-        return nil
-    }
-}
-
 @available(iOS 17.0, *)
 @Observable
 class CachedChapter: Identifiable {
@@ -164,6 +157,3 @@ class ChapterCache {
         }
     }
 }
-
-@available(iOS 17.0, *)
-typealias SharedChapterCache = ChapterCache

@@ -14,9 +14,9 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   * Lắng nghe sự kiện `ProcessInfo.thermalStateDidChangeNotification`.
   * Tạm dừng luồng prefetch `.normal` khi nhiệt độ thiết bị lên mức `.fair`, `.serious`, hoặc `.critical`; tự động phục hồi prefetch ngầm khi trạng thái nhiệt độ về `.nominal`.
   * Các yêu cầu phát âm thanh lập tức `.high` vẫn được giữ ưu tiên phục vụ liên tục.
-* **Bổ Sung Unit Tests Hiệu Năng & Dọn Dẹp Dead Code Streaming (`Tests/NghiTTSPerformanceTests.swift`, `TTSManager.swift`)**:
-  * Tạo mới `NghiTTSPerformanceTests.swift` kiểm thử chính xác phép tính `pcmDuration`, tích lũy độ dài buffer hiệu dụng và logic phân cấp `thermalState`.
-  * Dọn dẹp triệt để các lớp và phương thức dead code `AVAudioEngine` streaming cũ (`TTSStreamingGate`, `TTSStreamingContext`, `makePCMBuffer`, `scheduleBufferOnPlayerNode`, `handleBufferCompletion`, `handleTerminalStreamError`), giải phóng dung lượng và giúp codebase gọn gàng, minh bạch.
+* **Dọn Dẹp Biến Rác & Dead Code Phân Hệ Reader (`ChapterCache.swift`, `ReaderViewModel.swift`)**:
+  * Loại bỏ `typealias SharedChapterCache` và thuộc tính `var failureMessage: String?` thừa trong `ChapterCache.swift`.
+  * Loại bỏ phương thức dead `fetchChaptersMetadata()` không còn sử dụng trong `ReaderViewModel.swift`.
 
 ## [1.3.94] - 2026-08-06
 
