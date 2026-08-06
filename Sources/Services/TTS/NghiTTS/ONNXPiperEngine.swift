@@ -61,7 +61,6 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
         let env = try ORTEnv(loggingLevel: .warning)
         let options = try ORTSessionOptions()
         try options.setIntraOpNumThreads(2)
-        try options.setInterOpNumThreads(1)
         let session = try ORTSession(env: env, modelPath: modelONNX.path, sessionOptions: options)
         let inputNames = try session.inputNames()
         let outputNames = try session.outputNames()

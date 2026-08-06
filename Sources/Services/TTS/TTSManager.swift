@@ -1361,6 +1361,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 }
             } else {
                 speakCurrent()
+            }
         } else if tool == "nghitts" {
             let timeSincePause = lastPausedTime.map { Date().timeIntervalSince($0) } ?? 0.0
             if timeSincePause > 5.0 || currentPlaybackId == nil {
