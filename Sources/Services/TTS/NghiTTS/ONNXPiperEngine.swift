@@ -32,6 +32,8 @@ final class ONNXPiperEngine: PiperEngine {
         let firstOutputName: String
     }
 
+    private typealias ChunkPayloadHandler = @Sendable (TTSPCMChunkPayload) async throws -> Void
+
     private var cached: CachedRuntime?
     private let sessionLock = NSLock()
 
@@ -91,20 +93,20 @@ final class ONNXPiperEngine: PiperEngine {
     private func chunkTextWithPunctuation(_ text: String) -> [TextChunk] {
         let nsString = text as NSString
         let pattern = "(?:\\r?\\n)+|(?<!\\d)\\.|\\.(?!\\d)|!|\\?|(?<!\\d),|,(?!\\d)|;|:|[\"「」『』【】［］()\\{\\}\\[\\]]"
-        
+
         guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
             return [TextChunk(text: text, punctuation: "")]
         }
-        
+
         let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
         var chunks: [TextChunk] = []
         var lastIndex = 0
-        
+
         for match in matches {
             let range = NSRange(location: lastIndex, length: match.range.location - lastIndex)
             let chunkText = nsString.substring(with: range).trimmingCharacters(in: .whitespacesAndNewlines)
             let punctuation = nsString.substring(with: match.range)
-            
+
             if !chunkText.isEmpty {
                 chunks.append(TextChunk(text: chunkText, punctuation: punctuation))
             } else if !chunks.isEmpty {
@@ -112,17 +114,17 @@ final class ONNXPiperEngine: PiperEngine {
                 let updatedPunct = chunks[lastIdx].punctuation + punctuation
                 chunks[lastIdx] = TextChunk(text: chunks[lastIdx].text, punctuation: updatedPunct)
             }
-            
+
             lastIndex = match.range.location + match.range.length
         }
-        
+
         if lastIndex < nsString.length {
             let chunkText = nsString.substring(from: lastIndex).trimmingCharacters(in: .whitespacesAndNewlines)
             if !chunkText.isEmpty {
                 chunks.append(TextChunk(text: chunkText, punctuation: ""))
             }
         }
-        
+
         return chunks
     }
 
@@ -135,12 +137,12 @@ final class ONNXPiperEngine: PiperEngine {
             }
             return 0.0
         }
-        
+
         if trimmed.contains(".") || trimmed.contains("!") || trimmed.contains("?") {
             let val = UserDefaults.standard.double(forKey: "sentencePauseDuration")
             return val > 0 ? val : 0.3
         }
-        
+
         if trimmed.contains("\"") ||
            trimmed.contains("(") || trimmed.contains(")") ||
            trimmed.contains("[") || trimmed.contains("]") ||
@@ -152,12 +154,12 @@ final class ONNXPiperEngine: PiperEngine {
             let val = UserDefaults.standard.double(forKey: "bracketPauseDuration")
             return val > 0 ? val : 0.1
         }
-        
+
         if trimmed.contains(",") || trimmed.contains(";") || trimmed.contains(":") {
             let val = UserDefaults.standard.double(forKey: "phrasePauseDuration")
             return val > 0 ? val : 0.15
         }
-        
+
         return 0.0
     }
 
@@ -174,12 +176,12 @@ final class ONNXPiperEngine: PiperEngine {
     }
 
     func synthesize(text: String, modelONNX: URL, modelConfig: URL, speed: Double) async throws -> Data {
-        return try await synthesizeStream(
+        try await synthesizeInternal(
             text: text,
             modelONNX: modelONNX,
             modelConfig: modelConfig,
             speed: speed,
-            onChunkPayload: { _ in }
+            onChunkPayload: nil
         )
     }
 
@@ -190,6 +192,22 @@ final class ONNXPiperEngine: PiperEngine {
         speed: Double,
         onChunkPayload: @Sendable (TTSPCMChunkPayload) async throws -> Void
     ) async throws -> Data {
+        try await synthesizeInternal(
+            text: text,
+            modelONNX: modelONNX,
+            modelConfig: modelConfig,
+            speed: speed,
+            onChunkPayload: onChunkPayload
+        )
+    }
+
+    private func synthesizeInternal(
+        text: String,
+        modelONNX: URL,
+        modelConfig: URL,
+        speed: Double,
+        onChunkPayload: ChunkPayloadHandler?
+    ) async throws -> Data {
         let runtime = try getRuntime(modelONNX: modelONNX, modelConfig: modelConfig)
         let sampleRate = runtime.sampleRate
         let padId = runtime.padId
@@ -199,16 +217,16 @@ final class ONNXPiperEngine: PiperEngine {
         let session = runtime.session
         let inputNames = runtime.inputNames
         let firstOutputName = runtime.firstOutputName
-        
+
         let chunks = chunkTextWithPunctuation(text)
         guard !chunks.isEmpty else {
             throw TTSError.internalError("Text contains no speakable chunks.")
         }
-        
+
         var mergedSamples: [Float] = []
         let minSamples = Int(Double(sampleRate) * 0.02)
         var lastGain: Float = 1.0
-        
+
         for (index, chunk) in chunks.enumerated() {
             try Task.checkCancellation()
             let isLastChunk = (index == chunks.count - 1)
@@ -217,11 +235,11 @@ final class ONNXPiperEngine: PiperEngine {
             let phonemes = rawPhonemes
                 .replacingOccurrences(of: "(en)", with: "")
                 .replacingOccurrences(of: "(vi)", with: "")
-            
+
             var phonemeIds: [Int64] = []
             phonemeIds.append(Int64(bosId))
             phonemeIds.append(Int64(padId))
-            
+
             for scalar in phonemes.unicodeScalars {
                 let phonemeStr = String(scalar)
                 if let ids = phonemeIdMap[phonemeStr] {
@@ -234,7 +252,7 @@ final class ONNXPiperEngine: PiperEngine {
                 }
             }
             phonemeIds.append(Int64(eosId))
-            
+
             let inputShape: [NSNumber] = [1, NSNumber(value: phonemeIds.count)]
             let inputData = phonemeIds.withUnsafeBufferPointer { buffer in
                 guard let baseAddress = buffer.baseAddress else { return Data() }
@@ -246,7 +264,7 @@ final class ONNXPiperEngine: PiperEngine {
                 elementType: ORTTensorElementDataType.int64,
                 shape: inputShape
             )
-            
+
             let inputLengthValue: Int64 = Int64(phonemeIds.count)
             let lengthShape: [NSNumber] = [1]
             let lengthData = withUnsafePointer(to: inputLengthValue) { ptr in
@@ -258,7 +276,7 @@ final class ONNXPiperEngine: PiperEngine {
                 elementType: ORTTensorElementDataType.int64,
                 shape: lengthShape
             )
-            
+
             let noiseScale: Float = 0.667
             let lengthScale: Float = Float(1.0 / speed)
             let noiseW: Float = 0.8
@@ -274,13 +292,13 @@ final class ONNXPiperEngine: PiperEngine {
                 elementType: ORTTensorElementDataType.float,
                 shape: scalesShape
             )
-            
+
             var feeds: [String: ORTValue] = [
                 "input": inputTensor,
                 "input_lengths": lengthTensor,
                 "scales": scalesTensor
             ]
-            
+
             var sidNSMutableData: NSMutableData? = nil
             if inputNames.contains("sid") {
                 let speakerId: Int64 = 0
@@ -297,33 +315,33 @@ final class ONNXPiperEngine: PiperEngine {
                 )
                 feeds["sid"] = sidTensor
             }
-            
+
             let outputs = try session.run(
                 withInputs: feeds,
                 outputNames: Set([firstOutputName]),
                 runOptions: nil
             )
             try Task.checkCancellation()
-            
+
             _ = inputNSMutableData
             _ = lengthNSMutableData
             _ = scalesNSMutableData
             if let sidNSMutableData {
                 _ = sidNSMutableData
             }
-            
+
             guard let outputValue = outputs[firstOutputName] else {
                 AppLogger.shared.log("🤖 [ONNXPiperEngine] LỖI: Model không trả về speech tensor '\(firstOutputName)'.")
                 throw TTSError.internalError("Model did not return speech '\(firstOutputName)' tensor.")
             }
-            
+
             let outputData = try outputValue.tensorData() as Data
             let samplesCount = outputData.count / MemoryLayout<Float>.size
             var chunkSamples = [Float](repeating: 0.0, count: samplesCount)
             _ = chunkSamples.withUnsafeMutableBytes { samplesBuffer in
                 outputData.copyBytes(to: samplesBuffer)
             }
-            
+
             var trimmedChunk = trimSilence(chunkSamples, threshold: 0.002, minSamples: minSamples)
 
             var maxVal: Float = 1e-9
@@ -335,7 +353,7 @@ final class ONNXPiperEngine: PiperEngine {
             for i in 0..<trimmedChunk.count {
                 trimmedChunk[i] *= smoothedGain
             }
-            
+
             if !isLastChunk {
                 let pauseDurationSec = self.pauseDuration(for: chunk.punctuation)
                 if pauseDurationSec > 0.0 {
@@ -357,24 +375,26 @@ final class ONNXPiperEngine: PiperEngine {
                 }
             }
 
-            let payload = TTSPCMChunkPayload(
-                samples: trimmedChunk,
-                sampleRate: sampleRate,
-                chunkIndex: index,
-                totalChunks: chunks.count,
-                isLast: isLastChunk
-            )
-            try Task.checkCancellation()
-            try await onChunkPayload(payload)
-            try Task.checkCancellation()
+            if let onChunkPayload {
+                let payload = TTSPCMChunkPayload(
+                    samples: trimmedChunk,
+                    sampleRate: sampleRate,
+                    chunkIndex: index,
+                    totalChunks: chunks.count,
+                    isLast: isLastChunk
+                )
+                try Task.checkCancellation()
+                try await onChunkPayload(payload)
+                try Task.checkCancellation()
+            }
+
             mergedSamples.append(contentsOf: trimmedChunk)
         }
-        
-        let wavData = WAVEncoder.encodePCM16(
+
+        return WAVEncoder.encodePCM16(
             samples: mergedSamples,
             sampleRate: sampleRate,
             channels: 1
         )
-        return wavData
     }
 }
