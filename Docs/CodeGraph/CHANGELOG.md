@@ -2,6 +2,12 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.89] - 2026-08-06
+
+### Cập Nhật Triệt Để LayoutManager Optional Chaining (`ReaderTextView.swift`)
+* **Áp Dụng Optional Chaining Toàn Bộ (`ReaderTextView.swift`)**:
+  * Đã chuyển đổi 100% các cuộc gọi `uiView.layoutManager` (các dòng 141, 205, 206, 216, 226, 227, 237, 251) sang toán tử optional chaining `uiView.layoutManager?.` để tương thích hoàn toàn với kiểu `NSLayoutManager?` trên mọi SDK UIKit / Xcode Runner.
+
 ## [1.3.88] - 2026-08-06
 
 ### Sửa Lỗi Biên Dịch Optional Chaining ReaderTextView & Warning withLock (`ReaderTextView.swift`, `ExtTTSService.swift`)
