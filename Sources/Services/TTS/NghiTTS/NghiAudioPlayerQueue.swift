@@ -10,14 +10,14 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
 
     enum QueueError: LocalizedError {
         case playbackFailed
-        case schedulingFailed
+        case preparationFailed
 
         var errorDescription: String? {
             switch self {
             case .playbackFailed:
                 return "AVAudioPlayer could not start playback."
-            case .schedulingFailed:
-                return "AVAudioPlayer could not schedule the next item."
+            case .preparationFailed:
+                return "AVAudioPlayer could not prepare audio for playback."
             }
         }
     }
@@ -120,7 +120,10 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         player.delegate = self
         player.enableRate = true
         player.rate = playbackRate
-        player.prepareToPlay()
+        guard player.prepareToPlay() else {
+            player.delegate = nil
+            throw QueueError.preparationFailed
+        }
         return player
     }
 
@@ -135,13 +138,17 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         let mediaRemaining = max(0, currentPlayer.duration - currentPlayer.currentTime)
         let effectiveRate = max(0.01, Double(currentPlayer.rate))
         let wallClockRemaining = mediaRemaining / effectiveRate
-        let startTime = currentPlayer.deviceCurrentTime + wallClockRemaining
 
+        // If the current item is effectively over, let the delegate promotion
+        // start the prepared player immediately instead of scheduling in the past.
+        guard wallClockRemaining > 0.005 else { return }
+
+        let startTime = currentPlayer.deviceCurrentTime + wallClockRemaining
         nextPlayer.rate = playbackRate
         nextIsScheduled = nextPlayer.play(atTime: startTime)
 
         if !nextIsScheduled {
-            AppLogger.shared.log("⚠️ [TTSManager] Không thể schedule AVAudioPlayer tiếp theo bằng device clock")
+            AppLogger.shared.log("⚠️ [TTSManager] Không thể schedule AVAudioPlayer tiếp theo bằng device clock; sẽ fallback khi đoạn hiện tại kết thúc")
         }
     }
 
