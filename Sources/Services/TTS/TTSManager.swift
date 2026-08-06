@@ -141,11 +141,15 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             } else {
                 UserDefaults.standard.set(chunkLength, forKey: "extChunkUser_\(tool)")
             }
+            clearPrefetchCache()
         }
     }
 
     @Published public var extensionLocalPath: String {
-        didSet { UserDefaults.standard.set(extensionLocalPath, forKey: "ttsExtensionLocalPath") }
+        didSet {
+            UserDefaults.standard.set(extensionLocalPath, forKey: "ttsExtensionLocalPath")
+            clearPrefetchCache()
+        }
     }
     @Published public var extensionConfigJson: String {
         didSet {
@@ -153,6 +157,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             if tool != "system" && tool != "nghitts" && tool != "google" {
                 loadParamsForCurrentTool()
             }
+            clearPrefetchCache()
         }
     }
 
@@ -644,8 +649,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private var cancellables = Set<AnyCancellable>()
     private var prepareSpeakingTask: Task<Void, Never>? = nil
     private var startSpeakingTask: Task<Void, Never>? = nil
-    private var nextChapterPrefetchTask: Task<Void, Never>? = nil
     private var chapterQueueRefreshTask: Task<Void, Never>? = nil
+    private let nextChapterPrefetcher = TTSChapterPrefetcher()
     private var sessionID = UUID()
     private var ttsProcessingGeneration = 0
     private var preparationGeneration = 0
@@ -835,6 +840,17 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         setupAudioEngine()
         setupRemoteCommandCenter()
         setupInterruptionObserver()
+
+        NotificationCenter.default.publisher(for: NSNotification.Name("translationDictionariesDidUpdate"))
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                guard let self = self else { return }
+                let updatedBookId = notification.userInfo?["bookId"] as? String
+                if updatedBookId == nil || updatedBookId == self.playingBookId {
+                    self.nextChapterPrefetcher.cancel()
+                }
+            }
+            .store(in: &cancellables)
     }
 
     private func loadParamsForCurrentTool() {
@@ -1533,6 +1549,26 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             .min()
     }
 
+    private func makeNextChapterKey(for chapter: TTSChapterInfo) -> TTSPreparedNextChapterKey {
+        let key = "showChapterTitle_\(playingBookId)"
+        let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+        return TTSPreparedNextChapterKey(
+            bookId: playingBookId,
+            chapterIndex: chapter.index,
+            chapterUrl: chapter.url,
+            chapterHost: chapter.host,
+            chapterTitle: chapter.title,
+            tool: tool,
+            selectedVoice: selectedVoice,
+            chunkLength: chunkLength,
+            includeChapterTitle: showTitle,
+            isTranslationEnabled: self.sessionTranslationEnabled,
+            translationToken: TranslateUtils.translationGenerationToken(for: playingBookId),
+            extensionLocalPath: extensionLocalPath,
+            extensionConfigJson: extensionConfigJson
+        )
+    }
+
     private func advanceToNextChapter(nextIdx: Int) {
         guard let nextChapter = chaptersQueue.first(where: { $0.index == nextIdx }) else { return }
         let expectedSessionID = sessionID
@@ -1548,6 +1584,77 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             engine: tool
         )
 
+        let requestedKey = makeNextChapterKey(for: nextChapter)
+        let consumedState = nextChapterPrefetcher.consumeCache(matching: requestedKey)
+
+        switch consumedState {
+        case .audioReady(_, _, let processed, let audioData, _, _, _):
+            updateTTSAutoAdvanceLoadPerf(
+                sessionID: expectedSessionID,
+                generation: expectedGeneration,
+                chapterIndex: nextChapter.index,
+                loadMs: 0.0,
+                origin: "next_prefetch_audio"
+            )
+            updateTTSAutoAdvanceProcessPerf(
+                sessionID: expectedSessionID,
+                generation: expectedGeneration,
+                chapterIndex: nextChapter.index,
+                processMs: 0.0
+            )
+
+            applyNextChapter(
+                index: processed.chapterIndex,
+                content: processed.normalizedContent,
+                title: processed.chapterTitle,
+                paragraphs: processed.paragraphs,
+                chapter: nextChapter,
+                firstAudioData: audioData
+            )
+
+        case .processedReady(_, _, let processed, _, _),
+             .synthesizingAudio(_, _, let processed, _, _):
+            updateTTSAutoAdvanceLoadPerf(
+                sessionID: expectedSessionID,
+                generation: expectedGeneration,
+                chapterIndex: nextChapter.index,
+                loadMs: 0.0,
+                origin: "next_prefetch_dto"
+            )
+            updateTTSAutoAdvanceProcessPerf(
+                sessionID: expectedSessionID,
+                generation: expectedGeneration,
+                chapterIndex: nextChapter.index,
+                processMs: 0.0
+            )
+
+            applyNextChapter(
+                index: processed.chapterIndex,
+                content: processed.normalizedContent,
+                title: processed.chapterTitle,
+                paragraphs: processed.paragraphs,
+                chapter: nextChapter,
+                firstAudioData: nil
+            )
+
+        default:
+            fallbackAdvanceToNextChapter(
+                nextChapter: nextChapter,
+                expectedSessionID: expectedSessionID,
+                expectedGeneration: expectedGeneration,
+                expectedBookId: expectedBookId,
+                expectedChapterURL: expectedChapterURL
+            )
+        }
+    }
+
+    private func fallbackAdvanceToNextChapter(
+        nextChapter: TTSChapterInfo,
+        expectedSessionID: UUID,
+        expectedGeneration: Int,
+        expectedBookId: String,
+        expectedChapterURL: String
+    ) {
         let request = ChapterContentRequest(
             bookId: expectedBookId,
             chapterIndex: nextChapter.index,
@@ -1597,7 +1704,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 guard let self,
                       self.sessionID == expectedSessionID,
                       self.playingBookId == expectedBookId else { return }
-                AppLogger.shared.log("❌ [TTSManager] Không tải được chương \(nextIdx): \(error.localizedDescription)")
+                AppLogger.shared.log("❌ [TTSManager] Không tải được chương \(nextChapter.index): \(error.localizedDescription)")
                 await MainActor.run {
                     self.stop()
                     self.onChapterFinished?()
@@ -1724,7 +1831,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    private func applyNextChapter(index: Int, content: String, title: String, paragraphs: [TTSParagraph], chapter: TTSChapterInfo) {
+    private func applyNextChapter(
+        index: Int,
+        content: String,
+        title: String,
+        paragraphs: [TTSParagraph],
+        chapter: TTSChapterInfo,
+        firstAudioData: Data? = nil
+    ) {
         checkpointProgress()
         self.playingChapterIndex = index
         self.playingChapterUrl = chapter.url
@@ -1732,7 +1846,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         self.normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent(content)
         self.chapterContent = content
         self.paragraphs = paragraphs
-        self.clearPrefetchCache()
+        self.clearCurrentParagraphPrefetchCache()
+
+        if let audioData = firstAudioData {
+            self.preloadedData[0] = audioData
+        }
 
         self.continueStartSpeaking(startParagraphIndex: -1)
 
@@ -1746,35 +1864,43 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     private func triggerNextChapterPrefetch() {
         guard let nextIdx = nextChapterIndex(after: playingChapterIndex),
-              let nextChapter = chaptersQueue.first(where: { $0.index == nextIdx }) else { return }
-        nextChapterPrefetchTask?.cancel()
+              let nextChapter = chaptersQueue.first(where: { $0.index == nextIdx }) else {
+            nextChapterPrefetcher.cancel()
+            return
+        }
 
-        let expectedSessionID = sessionID
-        let expectedBookId = playingBookId
-        let expectedChapterURL = nextChapter.url
-        let request = ChapterContentRequest(
-            bookId: expectedBookId,
-            chapterIndex: nextChapter.index,
-            title: nextChapter.title,
-            url: nextChapter.url,
-            host: nextChapter.host,
-            bookMetadata: nil,
+        let key = makeNextChapterKey(for: nextChapter)
+        nextChapterPrefetcher.startPrefetch(
+            key: key,
+            sessionID: sessionID,
+            generation: ttsProcessingGeneration,
             extensionInfo: extensionInfo,
-            forceRefresh: false
+            processor: TTSBackgroundProcessor(),
+            googleService: googleService,
+            extService: extService
         )
+    }
 
-        nextChapterPrefetchTask = Task {
-            do {
-                _ = try await ChapterContentRepository.shared.load(request)
-                guard !Task.isCancelled,
-                      sessionID == expectedSessionID,
-                      playingBookId == expectedBookId,
-                      chaptersQueue.first(where: { $0.index == nextChapter.index })?.url == expectedChapterURL else { return }
-            } catch {
-                #if DEBUG
-                AppLogger.shared.log("[TTSManager] Prefetch next online chapter \(nextIdx) failed: \(error.localizedDescription)")
-                #endif
-            }
+    private func checkAndPromoteNextChapterAudioIfNeeded() {
+        guard isPlaying, tool == "nghitts" else { return }
+
+        let isAtLastParagraph = (currentParagraphIndex == paragraphs.count - 1)
+        let isLastAudioPlaying = (audioPlayer?.isPlaying == true)
+
+        let count = max(1, min(10, currentPrefetchCount))
+        let targetIndices = (1...count).compactMap { offset -> Int? in
+            let idx = currentParagraphIndex + offset
+            return idx < paragraphs.count ? idx : nil
+        }
+        let allWindowTargetsPreloaded = targetIndices.allSatisfy { preloadedData[$0] != nil }
+        let noPendingCurrentPrefetchTasks = prefetchTasks.isEmpty
+
+        if (isAtLastParagraph && isLastAudioPlaying) || (allWindowTargetsPreloaded && noPendingCurrentPrefetchTasks) {
+            nextChapterPrefetcher.promoteAudioIfNeeded(
+                nghiService: nghiTTSService,
+                googleService: googleService,
+                extService: extService
+            )
         }
     }
 
@@ -1849,10 +1975,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         updateNowPlayingInfo()
     }
 
-    public func clearPrefetchCache() {
-        nextChapterPrefetchTask?.cancel()
-        nextChapterPrefetchTask = nil
-
+    public func clearCurrentParagraphPrefetchCache() {
         for task in prefetchTasks.values {
             task.cancel()
         }
@@ -1860,10 +1983,18 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         prefetchTaskGenerations.removeAll()
         preloadedData.removeAll()
         
-        // Memory leak fix: Clean up Extension TTS temp files when clearing cache
         if tool != "system" && tool != "nghitts" && tool != "google" {
             extService.cleanupAllTempFiles()
         }
+    }
+
+    public func clearAllTTSCaches() {
+        clearCurrentParagraphPrefetchCache()
+        nextChapterPrefetcher.cancel()
+    }
+
+    public func clearPrefetchCache() {
+        clearAllTTSCaches()
     }
 
     // updatePrefetchWindow: Cập nhật cửa sổ trượt (Sliding Window) tải trước dữ liệu âm thanh
@@ -1906,6 +2037,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 startPrefetchTask(for: idx)
             }
         }
+        checkAndPromoteNextChapterAudioIfNeeded()
     }
 
     @MainActor
@@ -1913,6 +2045,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         if prefetchTaskGenerations[index] == taskGen {
             prefetchTasks.removeValue(forKey: index)
             prefetchTaskGenerations.removeValue(forKey: index)
+            checkAndPromoteNextChapterAudioIfNeeded()
         }
     }
 
@@ -2033,7 +2166,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 guard isValidSession() else { return }
 
                 do {
-                    let wavData = try await service.synthesize(text: text, voice: voice, speed: 1.0)
+                    let wavData = try await service.synthesize(text: text, voice: voice, speed: 1.0, priority: .normal)
                     if isValidSession() {
                         await MainActor.run {
                             self.preloadedData[index] = wavData
@@ -2255,11 +2388,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let expectedSessionID = sessionID
         let expectedChapterIndex = playingChapterIndex
 
-        updatePrefetchWindow()
-
         if let cachedData = preloadedData[index] {
             recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "hit")
             self.playAudioData(cachedData, withId: playbackId)
+            updatePrefetchWindow()
             return
         }
 
@@ -2283,7 +2415,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                                 self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "failure", waitMs: waitMs)
                             }
                         }
-                        wavData = try await service.synthesize(text: text, voice: selectedVoice, speed: 1.0)
+                        wavData = try await service.synthesize(text: text, voice: selectedVoice, speed: 1.0, priority: .high)
                     }
                 } else {
                     await MainActor.run {
@@ -2291,7 +2423,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                             self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "miss")
                         }
                     }
-                    wavData = try await service.synthesize(text: text, voice: selectedVoice, speed: 1.0)
+                    wavData = try await service.synthesize(text: text, voice: selectedVoice, speed: 1.0, priority: .high)
                 }
 
                 guard self.isPlaying && self.currentPlaybackId == playbackId else {
@@ -2300,6 +2432,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
                 await MainActor.run {
                     self.playAudioData(wavData, withId: playbackId)
+                    self.updatePrefetchWindow()
                 }
             } catch {
                 await MainActor.run {
@@ -2336,11 +2469,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let expectedSessionID = sessionID
         let expectedChapterIndex = playingChapterIndex
 
-        updatePrefetchWindow()
-
         if let cachedData = preloadedData[index] {
             recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "google", index: index, outcome: "hit")
             self.playAudioData(cachedData, withId: playbackId)
+            updatePrefetchWindow()
             return
         }
 
@@ -2381,6 +2513,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
                 await MainActor.run {
                     self.playAudioData(mp3Data, withId: playbackId)
+                    self.updatePrefetchWindow()
                 }
             } catch {
                 await MainActor.run {
@@ -2420,11 +2553,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let expectedChapterIndex = playingChapterIndex
         let engineName = tool
 
-        updatePrefetchWindow()
-
         if let cachedData = preloadedData[index] {
             recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: engineName, index: index, outcome: "hit")
             self.playAudioData(cachedData, withId: playbackId)
+            updatePrefetchWindow()
             return
         }
 
@@ -2474,6 +2606,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
                 await MainActor.run {
                     self.playAudioData(audioData, withId: playbackId)
+                    self.updatePrefetchWindow()
                 }
             } catch {
                 await MainActor.run {

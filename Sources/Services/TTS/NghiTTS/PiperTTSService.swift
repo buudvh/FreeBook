@@ -23,7 +23,23 @@ final class PiperTTSService {
         self.engine = engine
     }
 
-    func synthesize(text: String, voice: String, speed: Double) async throws -> Data {
+    func synthesize(
+        text: String,
+        voice: String,
+        speed: Double,
+        priority: SynthesisPriority = .high,
+        requestID: UUID = UUID()
+    ) async throws -> Data {
+        return try await PiperSynthesisCoordinator.shared.enqueue(
+            priority: priority,
+            requestID: requestID
+        ) { [weak self] in
+            guard let self = self else { throw CancellationError() }
+            return try await self.executeInternalSynthesis(text: text, voice: voice, speed: speed)
+        }
+    }
+
+    private func executeInternalSynthesis(text: String, voice: String, speed: Double) async throws -> Data {
         let voiceId = voice.toASCIIID
         let modelONNX = modelStore.modelURL(for: voiceId, extension: "onnx")
         let modelConfig = modelStore.modelURL(for: voiceId, extension: "onnx.json")

@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.91] - 2026-08-06
+
+### Tích Hợp PiperSynthesisCoordinator & Promoted Audio Prefetch Chương Tiếp Theo (`PiperSynthesisCoordinator.swift`, `PiperTTSService.swift`, `TTSChapterPrefetcher.swift`, `TTSManager.swift`)
+* **Tích Hợp Hàng Chờ Ưu Tiên Tổng Hợp Piper TTS (`PiperSynthesisCoordinator.swift`, `PiperTTSService.swift`)**:
+  * Xây dựng actor `PiperSynthesisCoordinator` điều phối độ ưu tiên tổng hợp âm thanh (`SynthesisPriority`: `high` cho đoạn đang phát, `normal` cho cửa sổ trượt chương hiện tại, `low` cho prefetch đoạn 0 chương tiếp theo).
+  * Tích hợp `priority` và `requestID` vào `PiperTTSService.synthesize(...)`, đảm bảo các yêu cầu phát âm thanh lập tức luôn được ưu tiên phục vụ trước các tác vụ tổng hợp ngầm.
+* **Tối Ưu Hóa Audio Promotion & Prefetch Chương Tiếp Theo (`TTSChapterPrefetcher.swift`, `TTSManager.swift`)**:
+  * Bổ sung phương thức `promoteAudioIfNeeded` và state `audioReady` trong `TTSChapterPrefetcher` để sẵn sàng tổng hợp âm thanh đoạn 0 chương tiếp theo ngay khi cửa sổ trượt chương hiện tại hoàn tất hoặc khi đang phát đoạn cuối cùng.
+  * Tích hợp `checkAndPromoteNextChapterAudioIfNeeded()` và phân tách API dọn cache `clearCurrentParagraphPrefetchCache()` vs `clearAllTTSCaches()` trong `TTSManager.swift`.
+
 ## [1.3.90] - 2026-08-06
 
 ### Sửa Lỗi Biên Dịch Xcode Build & Bảo Toàn 100% Chữ Khi Highlight (`ReaderTextView.swift`)
