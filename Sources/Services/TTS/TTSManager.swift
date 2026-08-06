@@ -40,6 +40,90 @@ private actor TTSChapterQueueMetadataWorker {
     }
 }
 
+internal final class TTSStreamingGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Never>? = nil
+    private var isSignaled: Bool = false
+    private var isCancelled: Bool = false
+
+    func wait() async {
+        await withCheckedContinuation { cont in
+            lock.lock()
+            if isCancelled || isSignaled {
+                isSignaled = false
+                lock.unlock()
+                cont.resume()
+            } else {
+                self.continuation = cont
+                lock.unlock()
+            }
+        }
+    }
+
+    func resume() {
+        lock.lock()
+        if isCancelled {
+            lock.unlock()
+            return
+        }
+        if let cont = continuation {
+            continuation = nil
+            lock.unlock()
+            cont.resume()
+        } else {
+            isSignaled = true
+            lock.unlock()
+        }
+    }
+
+    func cancel() {
+        lock.lock()
+        isCancelled = true
+        let cont = continuation
+        continuation = nil
+        lock.unlock()
+        cont?.resume()
+    }
+}
+
+@MainActor
+private final class TTSStreamingContext {
+    let playbackId: String
+    let sessionID: UUID
+    let chapterIndex: Int
+    let generation: Int
+    let reqID: UUID
+    let gate: TTSStreamingGate
+    let synthesisStartUptime: Double
+
+    var rawQueuedPCMSeconds: Double = 0.0
+    var rawInitialBufferedPCMSeconds: Double = 0.0
+    var isInitialBufferedReached: Bool = false
+    var hasStartedPlaying: Bool = false
+    var hasFiredFinalCompletion: Bool = false
+    var terminalError: Error? = nil
+    var streamFormat: AVAudioFormat? = nil
+    var converter: AVAudioConverter? = nil
+
+    init(
+        playbackId: String,
+        sessionID: UUID,
+        chapterIndex: Int,
+        generation: Int,
+        reqID: UUID,
+        gate: TTSStreamingGate,
+        synthesisStartUptime: Double
+    ) {
+        self.playbackId = playbackId
+        self.sessionID = sessionID
+        self.chapterIndex = chapterIndex
+        self.generation = generation
+        self.reqID = reqID
+        self.gate = gate
+        self.synthesisStartUptime = synthesisStartUptime
+    }
+}
+
 
 
 @MainActor
@@ -651,6 +735,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private var startSpeakingTask: Task<Void, Never>? = nil
     private var chapterQueueRefreshTask: Task<Void, Never>? = nil
     private let nextChapterPrefetcher = TTSChapterPrefetcher()
+    private var activeStreamingGate: TTSStreamingGate? = nil
+    private var activeStreamingContext: TTSStreamingContext? = nil
+    private var activeStreamingTask: Task<Void, Never>? = nil
+    private var isStreamingNghiPlayback: Bool = false
     private var sessionID = UUID()
     private var ttsProcessingGeneration = 0
     private var preparationGeneration = 0
@@ -960,6 +1048,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         if isPlaying {
             if tool == "system" {
                 // AVSpeechSynthesizer
+            } else if tool == "nghitts" && isStreamingNghiPlayback {
+                timePitchNode?.rate = Float(speed)
+                if let ctx = activeStreamingContext {
+                    let effectiveQueued = ctx.rawQueuedPCMSeconds / max(0.1, speed)
+                    if effectiveQueued < 2.0 {
+                        ctx.gate.resume()
+                    }
+                }
             } else if let player = audioPlayer {
                 player.rate = Float(speed)
             }
@@ -1257,6 +1353,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         if tool == "system" {
             siriService.pause()
+        } else if isStreamingNghiPlayback {
+            playerNode?.pause()
         } else {
             audioPlayer?.pause()
         }
@@ -1307,6 +1405,48 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             } else {
                 speakCurrent()
             }
+        } else if isStreamingNghiPlayback || activeStreamingContext != nil {
+            self.configureAudioSession()
+            self.timePitchNode?.rate = Float(self.speed)
+            self.eqNode?.bypass = true
+            self.isPlaying = true
+            Task { await ReadingProgressStore.shared.claim(bookId: playingBookId, owner: .tts) }
+            setSystemNowPlayingPlaybackState(.playing)
+
+            if let ctx = activeStreamingContext, ctx.isInitialBufferedReached {
+                guard let engine = self.audioEngine, let player = self.playerNode else {
+                    self.stopCurrentHardwarePlayer()
+                    self.currentPlaybackId = nil
+                    self.pause()
+                    if AppLogger.shared.isLoggingEnabled {
+                        AppLogger.shared.log("❌ [TTSManager] Engine or PlayerNode unavailable during resume")
+                    }
+                    ToastManager.shared.show(message: "Lỗi trình phát âm thanh.", type: .error)
+                    return
+                }
+                do {
+                    if !engine.isRunning {
+                        try engine.start()
+                    }
+                    player.play()
+                    self.isStreamingNghiPlayback = true
+                    if !ctx.hasStartedPlaying {
+                        ctx.hasStartedPlaying = true
+                        self.updatePrefetchWindow()
+                    }
+                } catch {
+                    if AppLogger.shared.isLoggingEnabled {
+                        AppLogger.shared.log("❌ [TTSManager] Engine start failed during resume: \(error.localizedDescription)")
+                    }
+                    self.stopCurrentHardwarePlayer()
+                    self.currentPlaybackId = nil
+                    self.pause()
+                    ToastManager.shared.show(message: "Lỗi trình phát: \(error.localizedDescription)", type: .error)
+                    return
+                }
+            }
+            syncRemoteCommandState()
+            updateNowPlayingInfo()
         } else {
             let timeSincePause = lastPausedTime.map { Date().timeIntervalSince($0) } ?? 0.0
             if timeSincePause > 5.0 || currentPlaybackId == nil {
@@ -2354,7 +2494,122 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         updateNowPlayingInfo()
     }
 
+    private func makePCMBuffer(from payload: TTSPCMChunkPayload, ctx: TTSStreamingContext) throws -> AVAudioPCMBuffer {
+        guard !payload.samples.isEmpty else {
+            throw TTSError.internalError("Empty PCM payload encountered")
+        }
+        let srDouble = Double(payload.sampleRate)
+        guard payload.sampleRate > 0 && srDouble.isFinite else {
+            throw TTSError.internalError("Invalid sample rate: \(payload.sampleRate)")
+        }
+        guard payload.samples.count <= Int(AVAudioFrameCount.max) else {
+            throw TTSError.internalError("Sample count exceeds AVAudioFrameCount.max: \(payload.samples.count)")
+        }
+
+        guard let payloadFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: srDouble,
+            channels: 1,
+            interleaved: false
+        ) else {
+            throw TTSError.internalError("Failed to create AVAudioFormat for sampleRate \(payload.sampleRate)")
+        }
+
+        if ctx.streamFormat == nil {
+            guard let engine = audioEngine, let player = playerNode, let pitch = timePitchNode, let eq = eqNode else {
+                throw TTSError.internalError("AudioEngine graph nodes unavailable for format configuration")
+            }
+            if engine.isRunning {
+                engine.stop()
+            }
+            engine.disconnectNodeOutput(player)
+            engine.disconnectNodeOutput(eq)
+            engine.connect(player, to: eq, format: payloadFormat)
+            engine.connect(eq, to: pitch, format: payloadFormat)
+            ctx.streamFormat = payloadFormat
+        }
+
+        let targetFormat = ctx.streamFormat ?? payloadFormat
+
+        guard let payloadBuffer = AVAudioPCMBuffer(
+            pcmFormat: payloadFormat,
+            frameCapacity: AVAudioFrameCount(payload.samples.count)
+        ) else {
+            throw TTSError.internalError("Failed to allocate AVAudioPCMBuffer with capacity \(payload.samples.count)")
+        }
+
+        guard let floatChannelData = payloadBuffer.floatChannelData else {
+            throw TTSError.internalError("AVAudioPCMBuffer floatChannelData is nil")
+        }
+
+        payloadBuffer.frameLength = AVAudioFrameCount(payload.samples.count)
+        payload.samples.withUnsafeBufferPointer { srcPtr in
+            if let baseAddress = srcPtr.baseAddress {
+                floatChannelData[0].initialize(from: baseAddress, count: payload.samples.count)
+            }
+        }
+
+        if payloadFormat == targetFormat {
+            return payloadBuffer
+        }
+
+        if ctx.converter == nil {
+            guard let converter = AVAudioConverter(from: payloadFormat, to: targetFormat) else {
+                throw TTSError.internalError("Failed to create AVAudioConverter from \(payloadFormat) to \(targetFormat)")
+            }
+            converter.sampleRateConverterQuality = AVAudioQuality.max.rawValue
+            ctx.converter = converter
+        }
+
+        guard let converter = ctx.converter else {
+            throw TTSError.internalError("AVAudioConverter is nil")
+        }
+
+        let ratio = targetFormat.sampleRate / payloadFormat.sampleRate
+        let targetCapacity = AVAudioFrameCount(Double(payload.samples.count) * ratio + 100)
+        guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: targetCapacity) else {
+            throw TTSError.internalError("Failed to allocate converted AVAudioPCMBuffer")
+        }
+
+        var error: NSError? = nil
+        var isConsumed = false
+        let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
+            if isConsumed {
+                outStatus.pointee = .noDataNow
+                return nil
+            } else {
+                isConsumed = true
+                outStatus.pointee = .haveData
+                return payloadBuffer
+            }
+        }
+
+        let status = converter.convert(to: convertedBuffer, error: &error, withInputFrom: inputBlock)
+        if let err = error {
+            throw TTSError.internalError("AVAudioConverter error: \(err.localizedDescription)")
+        }
+        if status == .error {
+            throw TTSError.internalError("AVAudioConverter failed with status error")
+        }
+
+        return convertedBuffer
+    }
+
     private func stopCurrentHardwarePlayer() {
+        let hadStreaming = (isStreamingNghiPlayback || activeStreamingContext != nil || activeStreamingTask != nil)
+
+        activeStreamingGate?.cancel()
+        activeStreamingGate = nil
+        activeStreamingTask?.cancel()
+        activeStreamingTask = nil
+        activeStreamingContext = nil
+
+        if hadStreaming || isStreamingNghiPlayback {
+            playerNode?.stop()
+            playerNode?.reset()
+            isStreamingNghiPlayback = false
+        }
+
         if let player = audioPlayer {
             player.stop()
             player.delegate = nil
@@ -2362,7 +2617,64 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
+    private func scheduleBufferOnPlayerNode(
+        pcmBuffer: AVAudioPCMBuffer,
+        ctx: TTSStreamingContext,
+        chunkPCMDuration: Double,
+        isLast: Bool
+    ) throws {
+        guard let player = playerNode else {
+            throw TTSError.internalError("PlayerNode is nil during scheduleBuffer")
+        }
+        let completionHandler: @Sendable (AVAudioPlayerNodeCompletionCallbackType) -> Void = { [weak self] _ in
+            Task { @MainActor in
+                self?.handleBufferCompletion(ctx: ctx, chunkPCMDuration: chunkPCMDuration, isLast: isLast)
+            }
+        }
 
+        if #available(iOS 11.0, *) {
+            player.scheduleBuffer(pcmBuffer, completionCallbackType: .dataPlayedBack, completionHandler: completionHandler)
+        } else {
+            player.scheduleBuffer(pcmBuffer) { [weak self] in
+                Task { @MainActor in
+                    self?.handleBufferCompletion(ctx: ctx, chunkPCMDuration: chunkPCMDuration, isLast: isLast)
+                }
+            }
+        }
+    }
+
+    private func handleBufferCompletion(ctx: TTSStreamingContext, chunkPCMDuration: Double, isLast: Bool) {
+        guard self.sessionID == ctx.sessionID,
+              self.playingChapterIndex == ctx.chapterIndex,
+              self.ttsProcessingGeneration == ctx.generation,
+              self.currentPlaybackId == ctx.playbackId else { return }
+
+        ctx.rawQueuedPCMSeconds = max(0.0, ctx.rawQueuedPCMSeconds - chunkPCMDuration)
+
+        let currentSpeed = max(0.1, self.speed)
+        let effectiveQueued = ctx.rawQueuedPCMSeconds / currentSpeed
+
+        if effectiveQueued < 2.0 {
+            ctx.gate.resume()
+        }
+
+        if isLast && !ctx.hasFiredFinalCompletion {
+            ctx.hasFiredFinalCompletion = true
+            self.nextParagraph()
+        } else if ctx.terminalError != nil && ctx.rawQueuedPCMSeconds <= 0.001 && !ctx.hasFiredFinalCompletion {
+            handleTerminalStreamError(ctx: ctx)
+        }
+    }
+
+    private func handleTerminalStreamError(ctx: TTSStreamingContext) {
+        guard !ctx.hasFiredFinalCompletion else { return }
+        ctx.hasFiredFinalCompletion = true
+        self.stopCurrentHardwarePlayer()
+        self.pause()
+        if let err = ctx.terminalError {
+            ToastManager.shared.show(message: "Lỗi NghiTTS: \(err.localizedDescription). Tạm dừng đọc.", type: .error)
+        }
+    }
 
     private func playNghiTTS(_ text: String) {
         guard let service = nghiTTSService else {
@@ -2397,68 +2709,227 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         Task {
             let startWait = ProcessInfo.processInfo.systemUptime
-            do {
-                let wavData: Data
-                if let activeTask = prefetchTasks[index] {
-                    _ = await activeTask.value
-                    let waitMs = (ProcessInfo.processInfo.systemUptime - startWait) * 1000
-                    if let cached = preloadedData[index] {
-                        await MainActor.run {
-                            if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
-                                self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "hit_wait", waitMs: waitMs)
-                            }
+            if let activeTask = prefetchTasks[index] {
+                _ = await activeTask.value
+                let waitMs = (ProcessInfo.processInfo.systemUptime - startWait) * 1000
+                if let cached = preloadedData[index] {
+                    await MainActor.run {
+                        if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
+                            self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "hit_wait", waitMs: waitMs)
+                            self.playAudioData(cached, withId: playbackId)
+                            self.updatePrefetchWindow()
                         }
-                        wavData = cached
-                    } else {
-                        await MainActor.run {
-                            if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
-                                self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "failure", waitMs: waitMs)
-                            }
-                        }
-                        wavData = try await service.synthesize(text: text, voice: selectedVoice, speed: 1.0, priority: .high)
                     }
+                    return
                 } else {
                     await MainActor.run {
                         if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
-                            self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "miss")
+                            self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "failure", waitMs: waitMs)
                         }
                     }
-                    wavData = try await service.synthesize(text: text, voice: selectedVoice, speed: 1.0, priority: .high)
                 }
+            } else {
+                await MainActor.run {
+                    if self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex {
+                        self.recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "miss")
+                    }
+                }
+            }
 
-                guard self.isPlaying && self.currentPlaybackId == playbackId else {
+            await MainActor.run {
+                guard self.isPlaying && self.currentPlaybackId == playbackId &&
+                      self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex else {
                     return
                 }
+                self.playNghiTTSStreaming(text, playbackId: playbackId)
+            }
+        }
+    }
+
+    private func playNghiTTSStreaming(_ text: String, playbackId: String) {
+        guard let service = nghiTTSService else {
+            stop()
+            return
+        }
+
+        let index = currentParagraphIndex
+        let expectedSessionID = sessionID
+        let expectedChapterIndex = playingChapterIndex
+        let expectedGeneration = ttsProcessingGeneration
+        let reqID = UUID()
+
+        activeStreamingGate?.cancel()
+        activeStreamingTask?.cancel()
+        stopCurrentHardwarePlayer()
+
+        let gate = TTSStreamingGate()
+        self.activeStreamingGate = gate
+
+        let synthesisStartUptime = ProcessInfo.processInfo.systemUptime
+        let ctx = TTSStreamingContext(
+            playbackId: playbackId,
+            sessionID: expectedSessionID,
+            chapterIndex: expectedChapterIndex,
+            generation: expectedGeneration,
+            reqID: reqID,
+            gate: gate,
+            synthesisStartUptime: synthesisStartUptime
+        )
+        self.activeStreamingContext = ctx
+
+        let task = Task { [weak self] in
+            do {
+                let fullWAVData = try await service.synthesizeStream(
+                    text: text,
+                    voice: self?.selectedVoice ?? "",
+                    speed: 1.0,
+                    priority: .high,
+                    requestID: reqID
+                ) { [weak self] payload in
+                    guard let self = self else { throw CancellationError() }
+
+                    let shouldWaitOnGate: Bool = try await MainActor.run {
+                        guard self.sessionID == ctx.sessionID,
+                              self.playingChapterIndex == ctx.chapterIndex,
+                              self.ttsProcessingGeneration == ctx.generation,
+                              self.currentPlaybackId == ctx.playbackId else {
+                            throw CancellationError()
+                        }
+
+                        let pcmBuffer = try self.makePCMBuffer(from: payload, ctx: ctx)
+
+                        let chunkPCMDuration = Double(payload.samples.count) / Double(payload.sampleRate)
+                        ctx.rawQueuedPCMSeconds += chunkPCMDuration
+                        ctx.rawInitialBufferedPCMSeconds += chunkPCMDuration
+
+                        let currentSpeed = max(0.1, self.speed)
+                        let effectiveInitialBufferedSec = ctx.rawInitialBufferedPCMSeconds / currentSpeed
+
+                        let firstChunkWallSec = ProcessInfo.processInfo.systemUptime - ctx.synthesisStartUptime
+                        let adaptiveTargetSec = max(1.0, min(1.5, firstChunkWallSec * 1.2))
+                        let isInitialBuffered = (effectiveInitialBufferedSec >= adaptiveTargetSec) || payload.isLast
+
+                        if isInitialBuffered {
+                            ctx.isInitialBufferedReached = true
+                        }
+
+                        try self.scheduleBufferOnPlayerNode(pcmBuffer: pcmBuffer, ctx: ctx, chunkPCMDuration: chunkPCMDuration, isLast: payload.isLast)
+
+                        if !ctx.hasStartedPlaying && isInitialBuffered && self.isPlaying {
+                            self.configureAudioSession()
+                            self.timePitchNode?.rate = Float(self.speed)
+                            self.eqNode?.bypass = true
+
+                            guard let engine = self.audioEngine, let player = self.playerNode else {
+                                throw TTSError.internalError("AudioEngine or PlayerNode unavailable")
+                            }
+
+                            do {
+                                if !engine.isRunning {
+                                    try engine.start()
+                                }
+                                player.play()
+                                ctx.hasStartedPlaying = true
+                                self.isStreamingNghiPlayback = true
+
+                                self.updatePrefetchWindow()
+
+                                if index == 0 && self.activeTTSAutoAdvancePerf?.chapterIndex == self.playingChapterIndex {
+                                    let setupEnd = ProcessInfo.processInfo.systemUptime
+                                    let playerSetupMs = (setupEnd - ctx.synthesisStartUptime) * 1000
+                                    let synMs = self.currentParagraph0SynthesisMs(untilUptime: ctx.synthesisStartUptime)
+                                    self.finishTTSAutoAdvancePerf(
+                                        outcome: "played",
+                                        endpoint: "player_play",
+                                        sessionID: ctx.sessionID,
+                                        generation: ctx.generation,
+                                        chapterIndex: ctx.chapterIndex,
+                                        synthesisMs: synMs,
+                                        playerSetupMs: playerSetupMs,
+                                        audioCacheHit: false
+                                    )
+                                }
+                                if AppLogger.shared.isLoggingEnabled {
+                                    AppLogger.shared.log("🔊 [TTSManager] Streaming NghiTTS playback started successfully for paragraph \(index)")
+                                }
+                            } catch {
+                                throw TTSError.internalError("Failed to start audio engine: \(error.localizedDescription)")
+                            }
+                        }
+
+                        let effectiveQueued = ctx.rawQueuedPCMSeconds / currentSpeed
+                        return effectiveQueued >= 3.0
+                    }
+
+                    if shouldWaitOnGate {
+                        await ctx.gate.wait()
+                    }
+                }
 
                 await MainActor.run {
-                    self.playAudioData(wavData, withId: playbackId)
-                    self.updatePrefetchWindow()
+                    guard self?.sessionID == ctx.sessionID,
+                          self?.playingChapterIndex == ctx.chapterIndex,
+                          self?.ttsProcessingGeneration == ctx.generation,
+                          self?.currentPlaybackId == ctx.playbackId else { return }
+
+                    self?.preloadedData[index] = fullWAVData
+                    if self?.activeStreamingContext?.reqID == ctx.reqID {
+                        self?.activeStreamingTask = nil
+                        self?.activeStreamingGate = nil
+                    }
                 }
+
             } catch {
                 await MainActor.run {
-                    guard self.currentPlaybackId == playbackId else { return }
-                    if index == 0 && self.activeTTSAutoAdvancePerf?.chapterIndex == self.playingChapterIndex {
-                        let synMs = self.currentParagraph0SynthesisMs()
-                        self.finishTTSAutoAdvancePerf(
-                            outcome: "synthesis_failed",
-                            endpoint: "error",
-                            sessionID: self.sessionID,
-                            generation: self.ttsProcessingGeneration,
-                            chapterIndex: self.playingChapterIndex,
-                            synthesisMs: synMs
-                        )
+                    guard let self = self, self.currentPlaybackId == ctx.playbackId else { return }
+
+                    ctx.gate.cancel()
+                    if self.activeStreamingContext?.reqID == ctx.reqID {
+                        self.activeStreamingTask = nil
+                        self.activeStreamingGate = nil
                     }
-                    AppLogger.shared.log("🔊 [TTSManager] Chơi trực tiếp thất bại cho đoạn \(index): \(error.localizedDescription)")
-                    self.preloadedData.removeValue(forKey: index)
-                    self.prefetchTasks[index]?.cancel()
-                    self.prefetchTasks.removeValue(forKey: index)
-                    self.prefetchTaskGenerations.removeValue(forKey: index)
-                    self.currentPlaybackId = nil
-                    self.pause()
-                    ToastManager.shared.show(message: "Lỗi NghiTTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
+
+                    if error is CancellationError {
+                        if self.activeStreamingContext?.reqID == ctx.reqID {
+                            self.activeStreamingContext = nil
+                        }
+                        return
+                    }
+
+                    if !ctx.hasStartedPlaying {
+                        if index == 0 && self.activeTTSAutoAdvancePerf?.chapterIndex == self.playingChapterIndex {
+                            let synMs = self.currentParagraph0SynthesisMs()
+                            self.finishTTSAutoAdvancePerf(
+                                outcome: "synthesis_failed",
+                                endpoint: "error",
+                                sessionID: self.sessionID,
+                                generation: self.ttsProcessingGeneration,
+                                chapterIndex: self.playingChapterIndex,
+                                synthesisMs: synMs
+                            )
+                        }
+                        if AppLogger.shared.isLoggingEnabled {
+                            AppLogger.shared.log("❌ [TTSManager] Direct streaming failed before audio start for index \(index): \(error.localizedDescription)")
+                        }
+                        self.preloadedData.removeValue(forKey: index)
+                        self.stopCurrentHardwarePlayer()
+                        self.currentPlaybackId = nil
+                        self.pause()
+                        ToastManager.shared.show(message: "Lỗi NghiTTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
+                    } else {
+                        ctx.terminalError = error
+                        if AppLogger.shared.isLoggingEnabled {
+                            AppLogger.shared.log("⚠️ [TTSManager] Streaming error occurred mid-stream for index \(index): \(error.localizedDescription)")
+                        }
+                        if ctx.rawQueuedPCMSeconds <= 0.001 {
+                            self.handleTerminalStreamError(ctx: ctx)
+                        }
+                    }
                 }
             }
         }
+
+        self.activeStreamingTask = task
     }
 
     private func playGoogleTTS(_ text: String) {
