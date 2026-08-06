@@ -1,0 +1,379 @@
+name: Codex Apply NGHI AVAudioPlayer Handoff
+
+on:
+  push:
+    branches: [ sigle_reader ]
+    paths:
+      - '.github/workflows/codex-apply-nghitts-double-buffer.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sigle_reader
+        uses: actions/checkout@v4
+        with:
+          ref: sigle_reader
+
+      - name: Apply guarded TTSManager patch
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('Sources/Services/TTS/TTSManager.swift')
+          text = path.read_text()
+
+          def replace_once(label: str, old: str, new: str):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly 1 match, found {count}')
+              text = text.replace(old, new, 1)
+              print(f'patched: {label}')
+
+          replace_once(
+              'player properties',
+              '''    private var preloadedData: [Int: Data] = [:]
+    private var prefetchTasks: [Int: Task<Void, Never>] = [:]
+    private var audioPlayer: AVAudioPlayer?
+''',
+              '''    private var preloadedData: [Int: Data] = [:]
+    private var prefetchTasks: [Int: Task<Void, Never>] = [:]
+    private var audioPlayer: AVAudioPlayer?
+    private var preparedNextNghiPlayer: AVAudioPlayer?
+    private var preparedNextNghiPlayerIndex: Int?
+    private var preparedNextNghiScheduled = false
+'''
+          )
+
+          replace_once(
+              'speed reschedule',
+              '''            } else if let player = audioPlayer {
+                player.rate = Float(speed)
+            }
+            updateNowPlayingInfo()
+''',
+              '''            } else if let player = audioPlayer {
+                player.rate = Float(speed)
+                if tool == "nghitts" {
+                    clearPreparedNextNghiPlayer()
+                    prepareNextNghiPlayerIfPossible()
+                }
+            }
+            updateNowPlayingInfo()
+'''
+          )
+
+          replace_once(
+              'pause scheduled next',
+              '''        } else {
+            audioPlayer?.pause()
+        }
+        syncRemoteCommandState()
+''',
+              '''        } else {
+            if tool == "nghitts" {
+                clearPreparedNextNghiPlayer()
+            }
+            audioPlayer?.pause()
+        }
+        syncRemoteCommandState()
+'''
+          )
+
+          replace_once(
+              'resume already-playing branch',
+              '''                    if ok {
+                        isPlaying = true
+                    } else {
+                        speakCurrent()
+                    }
+''',
+              '''                    if ok {
+                        isPlaying = true
+                        if tool == "nghitts" {
+                            updatePrefetchWindow()
+                            prepareNextNghiPlayerIfPossible()
+                        }
+                    } else {
+                        speakCurrent()
+                    }
+'''
+          )
+
+          replace_once(
+              'resume normal branch',
+              '''                if let player = audioPlayer {
+                    if !player.isPlaying {
+                        player.play()
+                    }
+                } else {
+                    speakCurrent()
+                }
+''',
+              '''                if let player = audioPlayer {
+                    if !player.isPlaying {
+                        let ok = player.play()
+                        if ok && tool == "nghitts" {
+                            updatePrefetchWindow()
+                            prepareNextNghiPlayerIfPossible()
+                        }
+                    }
+                } else {
+                    speakCurrent()
+                }
+'''
+          )
+
+          replace_once(
+              'clear prefetch prepared player',
+              '''        prefetchTaskGenerations.removeAll()
+        preloadedData.removeAll()
+        
+        if tool != "system" && tool != "nghitts" && tool != "google" {
+''',
+              '''        prefetchTaskGenerations.removeAll()
+        preloadedData.removeAll()
+        clearPreparedNextNghiPlayer()
+        
+        if tool != "system" && tool != "nghitts" && tool != "google" {
+'''
+          )
+
+          replace_once(
+              'prefetch window prepare next',
+              '''        for idx in targetIndices {
+            if preloadedData[idx] == nil && prefetchTasks[idx] == nil {
+                startPrefetchTask(for: idx)
+            }
+        }
+        checkAndPromoteNextChapterAudioIfNeeded()
+''',
+              '''        for idx in targetIndices {
+            if preloadedData[idx] == nil && prefetchTasks[idx] == nil {
+                startPrefetchTask(for: idx)
+            }
+        }
+        if tool == "nghitts" {
+            prepareNextNghiPlayerIfPossible()
+        }
+        checkAndPromoteNextChapterAudioIfNeeded()
+'''
+          )
+
+          replace_once(
+              'prefetch completion prepare next',
+              '''        if prefetchTaskGenerations[index] == taskGen {
+            prefetchTasks.removeValue(forKey: index)
+            prefetchTaskGenerations.removeValue(forKey: index)
+            checkAndPromoteNextChapterAudioIfNeeded()
+        }
+''',
+              '''        if prefetchTaskGenerations[index] == taskGen {
+            prefetchTasks.removeValue(forKey: index)
+            prefetchTaskGenerations.removeValue(forKey: index)
+            if tool == "nghitts" {
+                prepareNextNghiPlayerIfPossible()
+            }
+            checkAndPromoteNextChapterAudioIfNeeded()
+        }
+'''
+          )
+
+          helper_anchor = '''    private func playAudioData(_ audioData: Data, withId customId: String? = nil) {
+'''
+          helper_code = '''    private func clearPreparedNextNghiPlayer() {
+        if let prepared = preparedNextNghiPlayer {
+            prepared.stop()
+            prepared.delegate = nil
+        }
+        preparedNextNghiPlayer = nil
+        preparedNextNghiPlayerIndex = nil
+        preparedNextNghiScheduled = false
+    }
+
+    private func prepareNextNghiPlayerIfPossible() {
+        guard tool == "nghitts",
+              isPlaying,
+              let currentPlayer = audioPlayer,
+              currentPlayer.isPlaying else { return }
+
+        let nextIndex = currentParagraphIndex + 1
+        guard nextIndex >= 0, nextIndex < paragraphs.count else {
+            clearPreparedNextNghiPlayer()
+            return
+        }
+
+        if preparedNextNghiPlayerIndex == nextIndex,
+           preparedNextNghiPlayer != nil,
+           preparedNextNghiScheduled {
+            return
+        }
+
+        guard let audioData = preloadedData[nextIndex] else { return }
+
+        clearPreparedNextNghiPlayer()
+
+        do {
+            let nextPlayer = try AVAudioPlayer(data: audioData)
+            nextPlayer.delegate = self
+            nextPlayer.enableRate = true
+            nextPlayer.rate = Float(speed)
+
+            guard nextPlayer.prepareToPlay() else {
+                AppLogger.shared.log("⚠️ [TTSPerf] NghiPreparedHandoff prepareToPlay failed index=\\(nextIndex)")
+                return
+            }
+
+            let currentRate = max(0.1, Double(currentPlayer.rate))
+            let remainingSourceSeconds = max(0.0, currentPlayer.duration - currentPlayer.currentTime)
+            let remainingWallSeconds = remainingSourceSeconds / currentRate
+            guard remainingWallSeconds > 0.01 else { return }
+
+            let scheduledTime = currentPlayer.deviceCurrentTime + remainingWallSeconds
+            guard nextPlayer.play(atTime: scheduledTime) else {
+                AppLogger.shared.log("⚠️ [TTSPerf] NghiPreparedHandoff playAtTime failed index=\\(nextIndex)")
+                return
+            }
+
+            preparedNextNghiPlayer = nextPlayer
+            preparedNextNghiPlayerIndex = nextIndex
+            preparedNextNghiScheduled = true
+
+            if AppLogger.shared.isLoggingEnabled {
+                AppLogger.shared.log("🔊 [TTSPerf] NghiPreparedHandoff index=\\(nextIndex) remainingMs=\\(String(format: \"%.1f\", remainingWallSeconds * 1000))")
+            }
+        } catch {
+            AppLogger.shared.log("⚠️ [TTSPerf] NghiPreparedHandoff setup failed index=\\(nextIndex): \\(error.localizedDescription)")
+            clearPreparedNextNghiPlayer()
+        }
+    }
+
+    private func promotePreparedNextNghiPlayer(after finishedPlayer: AVAudioPlayer) -> Bool {
+        guard tool == "nghitts",
+              preparedNextNghiScheduled,
+              let nextPlayer = preparedNextNghiPlayer,
+              let nextIndex = preparedNextNghiPlayerIndex,
+              nextIndex == currentParagraphIndex + 1,
+              nextIndex < paragraphs.count else {
+            return false
+        }
+
+        finishedPlayer.delegate = nil
+        audioPlayer = nextPlayer
+        preparedNextNghiPlayer = nil
+        preparedNextNghiPlayerIndex = nil
+        preparedNextNghiScheduled = false
+        currentPlaybackId = String(UUID().uuidString.prefix(4))
+
+        currentParagraphIndex = nextIndex
+        let paragraph = paragraphs[nextIndex]
+        highlightRange = paragraph.range
+        currentParentParagraphIndex = paragraph.paragraphIndex
+        recordProgressInMemory()
+        isPlaying = true
+
+        if AppLogger.shared.isLoggingEnabled {
+            AppLogger.shared.log("🔊 [TTSPerf] NghiScheduledHandoff promoted index=\\(nextIndex)")
+        }
+
+        updatePrefetchWindow()
+        updateNowPlayingInfo()
+        return true
+    }
+
+'''
+          replace_once('insert prepared handoff helpers', helper_anchor, helper_code + helper_anchor)
+
+          replace_once(
+              'stop prepared player',
+              '''    private func stopCurrentHardwarePlayer() {
+        let hadStreaming = (isStreamingNghiPlayback || activeStreamingContext != nil || activeStreamingTask != nil)
+''',
+              '''    private func stopCurrentHardwarePlayer() {
+        clearPreparedNextNghiPlayer()
+        let hadStreaming = (isStreamingNghiPlayback || activeStreamingContext != nil || activeStreamingTask != nil)
+'''
+          )
+
+          replace_once(
+              'delegate scheduled handoff',
+              '''    public nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor in
+            guard self.audioPlayer == player else { return }
+            self.stopCurrentHardwarePlayer()
+            if flag {
+                self.nextParagraph()
+            } else {
+                AppLogger.shared.log("⚠️ [TTSManager] AVAudioPlayer phát kết thúc không thành công")
+                self.isPlaying = false
+            }
+        }
+    }
+
+    public nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        Task { @MainActor in
+            AppLogger.shared.log("❌ [TTSManager] AVAudioPlayer decode error: \\(error?.localizedDescription ?? \"unknown\")")
+            self.isPlaying = false
+        }
+    }
+''',
+              '''    public nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor in
+            guard self.audioPlayer === player else { return }
+            if flag && self.promotePreparedNextNghiPlayer(after: player) {
+                return
+            }
+            self.stopCurrentHardwarePlayer()
+            if flag {
+                self.nextParagraph()
+            } else {
+                AppLogger.shared.log("⚠️ [TTSManager] AVAudioPlayer phát kết thúc không thành công")
+                self.isPlaying = false
+            }
+        }
+    }
+
+    public nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        Task { @MainActor in
+            if self.preparedNextNghiPlayer === player {
+                AppLogger.shared.log("⚠️ [TTSManager] Prepared NghiTTS AVAudioPlayer decode error: \\(error?.localizedDescription ?? \"unknown\")")
+                self.clearPreparedNextNghiPlayer()
+                return
+            }
+            guard self.audioPlayer === player else { return }
+            AppLogger.shared.log("❌ [TTSManager] AVAudioPlayer decode error: \\(error?.localizedDescription ?? \"unknown\")")
+            self.stopCurrentHardwarePlayer()
+            self.isPlaying = false
+        }
+    }
+'''
+          )
+
+          path.write_text(text)
+          PY
+
+      - name: Validate patch shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          grep -q 'private var preparedNextNghiPlayer: AVAudioPlayer?' Sources/Services/TTS/TTSManager.swift
+          grep -q 'nextPlayer.play(atTime: scheduledTime)' Sources/Services/TTS/TTSManager.swift
+          grep -q 'promotePreparedNextNghiPlayer' Sources/Services/TTS/TTSManager.swift
+          test "$(grep -c 'private func prepareNextNghiPlayerIfPossible()' Sources/Services/TTS/TTSManager.swift)" -eq 1
+
+      - name: Commit patch and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/codex-apply-nghitts-double-buffer.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Sources/Services/TTS/TTSManager.swift .github/workflows/codex-apply-nghitts-double-buffer.yml
+          git commit -m 'Optimize NGHI AVAudioPlayer paragraph handoff'
+          git push origin HEAD:sigle_reader
