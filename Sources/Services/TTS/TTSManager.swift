@@ -2811,7 +2811,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                func isValidPlaybackRequest() -> Bool {
+                @MainActor func isValidPlaybackRequest() -> Bool {
                     !Task.isCancelled &&
                     self.isPlaying &&
                     self.currentPlaybackId == playbackId &&

@@ -48,10 +48,12 @@ enum WAVEncoder {
 private extension Data {
     func readUInt32LE(at offset: Int) -> UInt32 {
         guard offset >= 0, offset + 4 <= count else { return 0 }
-        return UInt32(self[index(startIndex, offsetBy: offset)]) |
-            (UInt32(self[index(startIndex, offsetBy: offset + 1)]) << 8) |
-            (UInt32(self[index(startIndex, offsetBy: offset + 2)]) << 16) |
-            (UInt32(self[index(startIndex, offsetBy: offset + 3)]) << 24)
+        let idx = index(startIndex, offsetBy: offset)
+        let b0 = UInt32(self[idx])
+        let b1 = UInt32(self[index(idx, offsetBy: 1)]) << 8
+        let b2 = UInt32(self[index(idx, offsetBy: 2)]) << 16
+        let b3 = UInt32(self[index(idx, offsetBy: 3)]) << 24
+        return b0 | b1 | b2 | b3
     }
 
     mutating func appendASCII(_ string: String) {
