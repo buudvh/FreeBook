@@ -2,6 +2,13 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.92] - 2026-08-06
+
+### Chuyển Đổi Luồng Phát NghiTTS Sang AVAudioPlayer (`TTSManager.swift`)
+* **Chuyển Đổi Luồng Phát NghiTTS sang `AVAudioPlayer` (`TTSManager.swift`)**:
+  * Thay thế việc streaming qua `AVAudioPlayerNode` bằng việc tổng hợp trọn vẹn tệp WAV Data qua `service.synthesize(...)` và phát qua `playAudioData(wavData)` sử dụng `AVAudioPlayer`.
+  * Đồng bộ hoàn hảo trạng thái `play`/`pause`/`stop` và delegate `audioPlayerDidFinishPlaying` với `MPNowPlayingInfoCenter` và `MPRemoteCommandCenter` trên LockScreen & Control Center.
+
 ## [1.3.91] - 2026-08-06
 
 ### Tích Hợp PiperSynthesisCoordinator & Promoted Audio Prefetch Chương Tiếp Theo (`PiperSynthesisCoordinator.swift`, `PiperTTSService.swift`, `TTSChapterPrefetcher.swift`, `TTSManager.swift`)

@@ -2738,12 +2738,45 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 }
             }
 
-            await MainActor.run {
-                guard self.isPlaying && self.currentPlaybackId == playbackId &&
-                      self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex else {
-                    return
+            do {
+                let voice = await MainActor.run { self.selectedVoice }
+                let wavData = try await service.synthesize(
+                    text: text,
+                    voice: voice,
+                    speed: 1.0,
+                    priority: .high
+                )
+                await MainActor.run {
+                    guard self.isPlaying && self.currentPlaybackId == playbackId &&
+                          self.sessionID == expectedSessionID && self.playingChapterIndex == expectedChapterIndex else {
+                        return
+                    }
+                    self.playAudioData(wavData, withId: playbackId)
+                    self.updatePrefetchWindow()
                 }
-                self.playNghiTTSStreaming(text, playbackId: playbackId)
+            } catch {
+                await MainActor.run {
+                    guard self.currentPlaybackId == playbackId else { return }
+                    if index == 0 && self.activeTTSAutoAdvancePerf?.chapterIndex == self.playingChapterIndex {
+                        let synMs = self.currentParagraph0SynthesisMs()
+                        self.finishTTSAutoAdvancePerf(
+                            outcome: "synthesis_failed",
+                            endpoint: "error",
+                            sessionID: self.sessionID,
+                            generation: self.ttsProcessingGeneration,
+                            chapterIndex: self.playingChapterIndex,
+                            synthesisMs: synMs
+                        )
+                    }
+                    AppLogger.shared.log("❌ Lỗi NghiTTS: \(error.localizedDescription)")
+                    self.preloadedData.removeValue(forKey: index)
+                    self.prefetchTasks[index]?.cancel()
+                    self.prefetchTasks.removeValue(forKey: index)
+                    self.prefetchTaskGenerations.removeValue(forKey: index)
+                    self.currentPlaybackId = nil
+                    self.pause()
+                    ToastManager.shared.show(message: "Lỗi NghiTTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
+                }
             }
         }
     }
