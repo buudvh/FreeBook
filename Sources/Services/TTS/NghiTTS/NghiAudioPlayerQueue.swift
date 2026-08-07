@@ -38,7 +38,7 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
     private(set) var nextItem: Item?
     private(set) var state: QueueState = .idle
 
-    private var currentPlayer: AVAudioPlayer?
+    private(set) var currentPlayer: AVAudioPlayer?
     private var nextPlayer: AVAudioPlayer?
     private var nextData: Data?
     private var nextIsScheduled = false

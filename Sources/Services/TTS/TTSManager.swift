@@ -1998,11 +1998,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             if remainingParents.count > 2 { return }
         }
 
-        let capacity = max(1, min(10, currentPrefetchCount))
-        let readyCount = nghiReadyFutureCacheCount()
-        let inFlightCount = nghiRefillInFlightIndex == nil ? 0 : 1
-        guard readyCount + inFlightCount < capacity else { return }
-
         nextChapterPrefetcher.promoteAudioIfNeeded(
             nghiService: nghiTTSService,
             googleService: googleService,
