@@ -69,20 +69,23 @@ struct ReaderDefinitionOverlayView: View {
     var onApplyTranslation: (() -> Void)? = nil
 
     var body: some View {
-        VStack(spacing: 16) {
-            dragIndicatorView
-            headerView
-            originalSentenceRowView
-            translatedTokensRowView
-            customMeaningInputView
-            suggestionChipsView
-            formattingButtonsView
-            typeAndScopePickersView
-            updateButtonView
-            Divider()
-            quickLookupLinksView
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
+                dragIndicatorView
+                headerView
+                originalSentenceRowView
+                translatedTokensRowView
+                customMeaningInputView
+                suggestionChipsView
+                formattingButtonsView
+                typeAndScopePickersView
+                updateButtonView
+                Divider()
+                quickLookupLinksView
+            }
+            .padding()
         }
-        .padding()
+        .scrollDismissesKeyboard(.interactively)
         .background(Color(uiColor: .systemBackground).onTapGesture { hideKeyboard() })
         .presentationDetents([.height(530), .large])
         .sheet(isPresented: $showingManageDefinitionsSheet) {

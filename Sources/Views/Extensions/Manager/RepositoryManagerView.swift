@@ -91,8 +91,15 @@ struct RepositoryManagerView: View {
             }
         }
         
-        // 5. Sắp xếp: đã cài đặt lên đầu, tiếp đến A-Z
+        // 5. Sắp xếp: có bản cập nhật lên ĐẦU TIÊN -> đã cài đặt -> A-Z
         return result.sorted { ext1, ext2 in
+            let hasUpdate1 = ext1.hasUpdate
+            let hasUpdate2 = ext2.hasUpdate
+            
+            if hasUpdate1 != hasUpdate2 {
+                return hasUpdate1 && !hasUpdate2
+            }
+            
             let isInstalled1 = !ext1.localPath.isEmpty
             let isInstalled2 = !ext2.localPath.isEmpty
             
@@ -468,35 +475,30 @@ struct RepositoryManagerView: View {
                     Button(action: {
                         installExtension(ext)
                     }) {
-                        Text("Cài đặt")
-                            .font(.subheadline)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color.accentColor)
+                        Image(systemName: "arrow.down.circle")
+                            .font(.title3)
+                            .foregroundColor(.accentColor)
+                            .padding(6)
+                            .background(Color.accentColor.opacity(0.1))
                             .cornerRadius(6)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Cài đặt \(ext.name)")
                 } else {
                     HStack(spacing: 8) {
                         if ext.hasUpdate {
                             Button(action: {
                                 installExtension(ext)
                             }) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "arrow.clockwise.circle.fill")
-                                    Text("Cập nhật")
-                                }
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color.orange)
-                                .cornerRadius(6)
+                                Image(systemName: "arrow.clockwise.circle.fill")
+                                    .font(.title3)
+                                    .foregroundColor(.orange)
+                                    .padding(6)
+                                    .background(Color.orange.opacity(0.12))
+                                    .cornerRadius(6)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("Cập nhật \(ext.name)")
                         }
                         
                         Button(action: {

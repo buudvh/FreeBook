@@ -373,7 +373,6 @@ struct ReaderView: View {
                         )
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .ignoresSafeArea(.keyboard, edges: .bottom)
                     .zIndex(5)
                 }
 
