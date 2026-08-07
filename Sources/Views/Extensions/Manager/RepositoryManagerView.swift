@@ -34,6 +34,11 @@ struct RepositoryManagerView: View {
     @AppStorage("extFilterLocale") private var filterLocale: String = "all"
     @AppStorage("extFilterAuthor") private var filterAuthor: String = "all"
     
+    // Trạng thái bộ lọc
+    private var isFiltering: Bool {
+        filterType != "all" || filterLocale != "all" || filterAuthor != "all"
+    }
+    
     // Lọc danh sách tác giả động từ database
     private var allAuthors: [String] {
         let authors = allExtensions.map { $0.author }
@@ -107,352 +112,14 @@ struct RepositoryManagerView: View {
                 .background(Color(.systemGroupedBackground))
                 
                 TabView(selection: $selectedTab) {
-                    // TAB 0: CỬA HÀNG TIỆN ÍCH GỘP (HIỂN THỊ HẾT & BỘ LỌC)
-                    VStack(spacing: 8) {
-                        if renderedTab == 0 {
-                            // Thanh hiển thị trạng thái bộ lọc
-                            HStack {
-                                Text("Đang hiển thị \(filteredExtensions.count) tiện ích")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Spacer()
-                                if filterType != "all" || filterLocale != "all" || filterAuthor != "all" {
-                                    Button(action: {
-                                        filterType = "all"
-                                        filterLocale = "all"
-                                        filterAuthor = "all"
-                                    }) {
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "trash.circle")
-                                            Text("Đặt lại bộ lọc")
-                                        }
-                                        .font(.caption)
-                                        .foregroundColor(.red)
-                                    }
-                                }
-                            }
-                            .padding(.horizontal)
-                            .padding(.vertical, 6)
-                            .background(Color(.systemBackground))
-                            
-                            // Thanh Tìm kiếm tiện ích + Nút Filter
-                            HStack(spacing: 8) {
-                                HStack {
-                                    Image(systemName: "magnifyingglass")
-                                        .foregroundColor(.secondary)
-                                    TextField("Tìm tên tiện ích hoặc URL...", text: $storeSearchQuery)
-                                        .autocorrectionDisabled()
-                                        .textInputAutocapitalization(.none)
-                                    
-                                    if !storeSearchQuery.isEmpty {
-                                        Button(action: { storeSearchQuery = "" }) {
-                                            Image(systemName: "xmark.circle.fill")
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
-                                }
-                                .padding(8)
-                                .background(Color(.secondarySystemBackground))
-                                .cornerRadius(10)
-                                
-                                // Nút Filter bên cạnh ô tìm kiếm
-                                Button(action: { showingFilterSheet = true }) {
-                                    let isFiltering = filterType != "all" || filterLocale != "all" || filterAuthor != "all"
-                                    Image(systemName: isFiltering ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
-                                        .font(.title3)
-                                        .foregroundColor(isFiltering ? .orange : .accentColor)
-                                        .padding(8)
-                                        .background(Color(.secondarySystemBackground))
-                                        .cornerRadius(10)
-                                }
-                            }
-                            .padding(.horizontal)
-                            
-                            Divider()
-                            
-                            if !updatableExtensions.isEmpty {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "arrow.clockwise.circle.fill")
-                                        .font(.title2)
-                                        .foregroundColor(.orange)
-                                    
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("Có \(updatableExtensions.count) tiện ích có bản cập nhật mới")
-                                            .font(.subheadline)
-                                            .fontWeight(.semibold)
-                                        Text("Cập nhật ngay để nhận các sửa lỗi & tính năng mới nhất.")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    Button(action: updateAllExtensions) {
-                                        if isUpdatingAll {
-                                            ProgressView()
-                                                .padding(.horizontal, 8)
-                                        } else {
-                                            Text("Cập nhật tất cả")
-                                                .font(.caption)
-                                                .fontWeight(.bold)
-                                                .foregroundColor(.white)
-                                                .padding(.horizontal, 12)
-                                                .padding(.vertical, 6)
-                                                .background(Color.orange)
-                                                .cornerRadius(8)
-                                        }
-                                    }
-                                    .disabled(isUpdatingAll)
-                                    .buttonStyle(.plain)
-                                }
-                                .padding(10)
-                                .background(Color.orange.opacity(0.12))
-                                .cornerRadius(10)
-                                .padding(.horizontal)
-                            }
-                            
-                            if !errorMessage.isEmpty {
-                                Text(errorMessage)
-                                    .foregroundColor(.red)
-                                    .font(.caption)
-                                    .padding(.horizontal)
-                            }
-                            
-                            // Danh sách tiện ích gộp
-                            if filteredExtensions.isEmpty {
-                                VStack(spacing: 12) {
-                                    Spacer()
-                                    Image(systemName: "puzzlepiece.extension")
-                                        .font(.largeTitle)
-                                        .foregroundColor(.secondary)
-                                    Text("Không tìm thấy tiện ích nào")
-                                        .foregroundColor(.secondary)
-                                    Spacer()
-                                }
-                            } else {
-                                List(filteredExtensions) { ext in
-                                    HStack(alignment: .top, spacing: 12) {
-                                        // Icon tiện ích
-                                        if let iconUrl = ext.iconUrl, let url = URL(string: iconUrl) {
-                                            AsyncImage(url: url) { image in
-                                                image.resizable()
-                                            } placeholder: {
-                                                Image(systemName: "puzzlepiece.extension")
-                                                    .foregroundColor(.accentColor)
-                                            }
-                                            .frame(width: 44, height: 44)
-                                            .cornerRadius(8)
-                                        } else {
-                                            Image(systemName: ext.type == "tts" ? "waveform" : "book.closed")
-                                                .resizable()
-                                                .aspectRatio(contentMode: .fit)
-                                                .frame(width: 32, height: 32)
-                                                .padding(6)
-                                                .background(Color.secondary.opacity(0.2))
-                                                .foregroundColor(.accentColor)
-                                                .cornerRadius(8)
-                                        }
-                                        
-                                        VStack(alignment: .leading, spacing: 6) {
-                                            HStack(spacing: 6) {
-                                                Text(ext.name)
-                                                    .font(.headline)
-                                                if ext.hasUpdate, let remote = ext.remoteVersion {
-                                                    Text("v\(ext.version) ➔ v\(remote)")
-                                                        .font(.caption2)
-                                                        .fontWeight(.bold)
-                                                        .padding(.horizontal, 6)
-                                                        .padding(.vertical, 2)
-                                                        .background(Color.orange.opacity(0.15))
-                                                        .foregroundColor(.orange)
-                                                        .cornerRadius(4)
-                                                } else {
-                                                    Text("v\(ext.version)")
-                                                        .font(.caption2)
-                                                        .padding(.horizontal, 6)
-                                                        .padding(.vertical, 2)
-                                                        .background(Color.blue.opacity(0.1))
-                                                        .foregroundColor(.blue)
-                                                        .cornerRadius(4)
-                                                }
-                                                
-                                                Text(getFlagEmoji(ext.locale))
-                                                    .font(.subheadline)
-                                            }
-                                            
-                                            // Badge Type, Tác giả
-                                            HStack(spacing: 6) {
-                                                // Badge Type
-                                                Text(translateType(ext.type))
-                                                    .font(.system(size: 9, weight: .semibold))
-                                                    .padding(.horizontal, 6)
-                                                    .padding(.vertical, 2)
-                                                    .background(ext.type == "tts" ? Color.orange.opacity(0.12) : Color.purple.opacity(0.12))
-                                                    .foregroundColor(ext.type == "tts" ? .orange : .purple)
-                                                    .cornerRadius(4)
-                                                
-                                                // Badge Tác giả
-                                                Text(ext.author)
-                                                    .font(.system(size: 9))
-                                                    .padding(.horizontal, 6)
-                                                    .padding(.vertical, 2)
-                                                    .background(Color.green.opacity(0.1))
-                                                    .foregroundColor(.green)
-                                                    .cornerRadius(4)
-                                            }
-                                            
-                                            Text(ext.sourceUrl)
-                                                .font(.caption2)
-                                                .foregroundColor(.gray)
-                                                .lineLimit(1)
-                                        }
-                                        
-                                        Spacer()
-                                        
-                                        // Nút hành động
-                                        if extensionManager.loadingStates[ext.packageId] == true {
-                                            ProgressView()
-                                                .frame(width: 60)
-                                        } else {
-                                            if ext.localPath.isEmpty {
-                                                Button(action: {
-                                                    installExtension(ext)
-                                                }) {
-                                                    Text("Cài đặt")
-                                                        .font(.subheadline)
-                                                        .fontWeight(.bold)
-                                                        .foregroundColor(.white)
-                                                        .padding(.horizontal, 12)
-                                                        .padding(.vertical, 6)
-                                                        .background(Color.accentColor)
-                                                        .cornerRadius(6)
-                                                }
-                                                .buttonStyle(.plain)
-                                            } else {
-                                                HStack(spacing: 8) {
-                                                    if ext.hasUpdate {
-                                                        Button(action: {
-                                                            installExtension(ext)
-                                                        }) {
-                                                            HStack(spacing: 4) {
-                                                                Image(systemName: "arrow.clockwise.circle.fill")
-                                                                Text("Cập nhật")
-                                                            }
-                                                            .font(.caption)
-                                                            .fontWeight(.bold)
-                                                            .foregroundColor(.white)
-                                                            .padding(.horizontal, 10)
-                                                            .padding(.vertical, 6)
-                                                            .background(Color.orange)
-                                                            .cornerRadius(6)
-                                                        }
-                                                        .buttonStyle(.plain)
-                                                    }
-                                                    
-                                                    Button(action: {
-                                                        selectedExtensionForConfig = ext
-                                                    }) {
-                                                        Image(systemName: "gearshape")
-                                                            .foregroundColor(.blue)
-                                                            .padding(6)
-                                                            .background(Color.blue.opacity(0.1))
-                                                            .cornerRadius(6)
-                                                    }
-                                                    .buttonStyle(.plain)
-                                                    
-                                                    Button(action: {
-                                                        uninstallExtension(ext)
-                                                    }) {
-                                                        Image(systemName: "trash")
-                                                            .foregroundColor(.red)
-                                                            .padding(6)
-                                                            .background(Color.red.opacity(0.1))
-                                                            .cornerRadius(6)
-                                                    }
-                                                    .buttonStyle(.plain)
-                                                }
-                                            }
-                                        }
-                                    }
-                                    .padding(.vertical, 4)
-                                }
-                                .listStyle(.plain)
-                            }
-                        }
-                    }
-                    .background(Color(.systemGroupedBackground).opacity(0.3))
-                    .tag(0)
+                    allExtensionsTab
+                        .tag(0)
                     
-                    // TAB 1: QUẢN LÝ KHO TIỆN ÍCH (Danh sách kho)
-                    List {
-                        if renderedTab == 1 {
-                            if !statusMessage.isEmpty {
-                                Section {
-                                    Text(statusMessage)
-                                        .font(.caption)
-                                        .foregroundColor(.blue)
-                                }
-                            }
-                            
-                            Section(header: Text("Danh sách kho tiện ích")) {
-                                if repositories.isEmpty {
-                                    VStack(alignment: .leading, spacing: 10) {
-                                        Text("Chưa nhập kho tiện ích nào.")
-                                            .font(.headline)
-                                            .foregroundColor(.gray)
-                                        Text("Bạn có thể nhập link kho truyện VBook (định dạng plugin.json) để bắt đầu tải các nguồn bóc tách truyện.")
-                                            .font(.subheadline)
-                                            .foregroundColor(.gray)
-                                        
-                                        Button(action: {
-                                            addSampleRepository()
-                                        }) {
-                                            Text("Nhập kho tiện ích mặc định (buudvh)")
-                                                .font(.subheadline)
-                                                .fontWeight(.semibold)
-                                        }
-                                        .buttonStyle(.borderedProminent)
-                                        .padding(.top, 5)
-                                    }
-                                    .padding(.vertical)
-                                } else {
-                                    ForEach(repositories) { repo in
-                                        HStack {
-                                            VStack(alignment: .leading, spacing: 4) {
-                                                Text(repo.name)
-                                                    .font(.headline)
-                                                Text(repo.url)
-                                                    .font(.caption)
-                                                    .foregroundColor(.gray)
-                                                    .lineLimit(1)
-                                            }
-                                            Spacer()
-                                            
-                                            Button {
-                                                guard !isRefreshingAll else { return }
-                                                repositoryToDelete = repo
-                                                showingDeleteRepositoryAlert = true
-                                            } label: {
-                                                Image(systemName: "trash")
-                                                    .foregroundColor(.red)
-                                                    .padding(8)
-                                                    .background(Color.red.opacity(0.1))
-                                                    .clipShape(Circle())
-                                            }
-                                            .buttonStyle(.borderless)
-                                            .disabled(isRefreshingAll)
-                                            .accessibilityLabel("Xóa kho \(repo.name)")
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .listStyle(.insetGrouped)
-                    .tag(1)
+                    repositoryListTab
+                        .tag(1)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .onChange(of: selectedTab) { oldVal, newVal in
+                .onChange(of: selectedTab) { _, newVal in
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                         renderedTab = newVal
                     }
@@ -460,45 +127,7 @@ struct RepositoryManagerView: View {
             }
             .navigationTitle("Kho Tiện Ích")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                if selectedTab == 0 {
-                    ToolbarItemGroup(placement: .navigationBarTrailing) {
-                        Menu {
-                            Button(action: { showingZipImporter = true }) {
-                                Label("Import tiện ích (.zip)", systemImage: "doc.badge.plus")
-                            }
-                            
-                            Divider()
-                            
-                            Button(role: .destructive, action: { showingUninstallAllAlert = true }) {
-                                Label("Xóa tất cả tiện ích", systemImage: "trash")
-                            }
-                            .disabled(allExtensions.filter { !$0.localPath.isEmpty }.isEmpty)
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
-                                .font(.title3)
-                        }
-                    }
-                }
-                
-                if selectedTab == 1 {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: { showingAddRepo = true }) {
-                            Image(systemName: "plus")
-                        }
-                    }
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button(action: refreshAllRepositories) {
-                            if isRefreshingAll {
-                                ProgressView()
-                            } else {
-                                Image(systemName: "arrow.clockwise")
-                            }
-                        }
-                        .disabled(isRefreshingAll || repositories.isEmpty)
-                    }
-                }
-            }
+            .toolbar { toolbarContent }
             .alert("Xóa tất cả tiện ích?", isPresented: $showingUninstallAllAlert) {
                 Button("Hủy", role: .cancel) { }
                 Button("Xóa sạch", role: .destructive) {
@@ -556,7 +185,401 @@ struct RepositoryManagerView: View {
             }
         }
     }
-    
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        if selectedTab == 0 {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                Menu {
+                    Button(action: { showingZipImporter = true }) {
+                        Label("Import tiện ích (.zip)", systemImage: "doc.badge.plus")
+                    }
+                    
+                    Divider()
+                    
+                    Button(role: .destructive, action: { showingUninstallAllAlert = true }) {
+                        Label("Xóa tất cả tiện ích", systemImage: "trash")
+                    }
+                    .disabled(allExtensions.filter { !$0.localPath.isEmpty }.isEmpty)
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title3)
+                }
+            }
+        }
+        
+        if selectedTab == 1 {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: { showingAddRepo = true }) {
+                    Image(systemName: "plus")
+                }
+            }
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: refreshAllRepositories) {
+                    if isRefreshingAll {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+                .disabled(isRefreshingAll || repositories.isEmpty)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var allExtensionsTab: some View {
+        VStack(spacing: 8) {
+            if renderedTab == 0 {
+                filterStatusBar
+                searchAndFilterBar
+                Divider()
+                updateAllBanner
+                
+                if !errorMessage.isEmpty {
+                    Text(errorMessage)
+                        .foregroundColor(.red)
+                        .font(.caption)
+                        .padding(.horizontal)
+                }
+                
+                if filteredExtensions.isEmpty {
+                    VStack(spacing: 12) {
+                        Spacer()
+                        Image(systemName: "puzzlepiece.extension")
+                            .font(.largeTitle)
+                            .foregroundColor(.secondary)
+                        Text("Không tìm thấy tiện ích nào")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                } else {
+                    List(filteredExtensions) { ext in
+                        extensionRow(ext)
+                    }
+                    .listStyle(.plain)
+                }
+            }
+        }
+        .background(Color(.systemGroupedBackground).opacity(0.3))
+    }
+
+    @ViewBuilder
+    private var filterStatusBar: some View {
+        HStack {
+            Text("Đang hiển thị \(filteredExtensions.count) tiện ích")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Spacer()
+            if isFiltering {
+                Button(action: {
+                    filterType = "all"
+                    filterLocale = "all"
+                    filterAuthor = "all"
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "trash.circle")
+                        Text("Đặt lại bộ lọc")
+                    }
+                    .font(.caption)
+                    .foregroundColor(.red)
+                }
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 6)
+        .background(Color(.systemBackground))
+    }
+
+    @ViewBuilder
+    private var searchAndFilterBar: some View {
+        HStack(spacing: 8) {
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                TextField("Tìm tên tiện ích hoặc URL...", text: $storeSearchQuery)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.none)
+                
+                if !storeSearchQuery.isEmpty {
+                    Button(action: { storeSearchQuery = "" }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding(8)
+            .background(Color(.secondarySystemBackground))
+            .cornerRadius(10)
+            
+            Button(action: { showingFilterSheet = true }) {
+                Image(systemName: isFiltering ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                    .font(.title3)
+                    .foregroundColor(isFiltering ? .orange : .accentColor)
+                    .padding(8)
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(10)
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    @ViewBuilder
+    private var updateAllBanner: some View {
+        if !updatableExtensions.isEmpty {
+            HStack(spacing: 12) {
+                Image(systemName: "arrow.clockwise.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(.orange)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Có \(updatableExtensions.count) tiện ích có bản cập nhật mới")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Text("Cập nhật ngay để nhận các sửa lỗi & tính năng mới nhất.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Button(action: updateAllExtensions) {
+                    if isUpdatingAll {
+                        ProgressView()
+                            .padding(.horizontal, 8)
+                    } else {
+                        Text("Cập nhật tất cả")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.orange)
+                            .cornerRadius(8)
+                    }
+                }
+                .disabled(isUpdatingAll)
+                .buttonStyle(.plain)
+            }
+            .padding(10)
+            .background(Color.orange.opacity(0.12))
+            .cornerRadius(10)
+            .padding(.horizontal)
+        }
+    }
+
+    @ViewBuilder
+    private func extensionRow(_ ext: Extension) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            if let iconUrl = ext.iconUrl, let url = URL(string: iconUrl) {
+                AsyncImage(url: url) { image in
+                    image.resizable()
+                } placeholder: {
+                    Image(systemName: "puzzlepiece.extension")
+                        .foregroundColor(.accentColor)
+                }
+                .frame(width: 44, height: 44)
+                .cornerRadius(8)
+            } else {
+                Image(systemName: ext.type == "tts" ? "waveform" : "book.closed")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 32, height: 32)
+                    .padding(6)
+                    .background(Color.secondary.opacity(0.2))
+                    .foregroundColor(.accentColor)
+                    .cornerRadius(8)
+            }
+            
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Text(ext.name)
+                        .font(.headline)
+                    if ext.hasUpdate, let remote = ext.remoteVersion {
+                        Text("v\(ext.version) ➔ v\(remote)")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.orange.opacity(0.15))
+                            .foregroundColor(.orange)
+                            .cornerRadius(4)
+                    } else {
+                        Text("v\(ext.version)")
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.1))
+                            .foregroundColor(.blue)
+                            .cornerRadius(4)
+                    }
+                    
+                    Text(getFlagEmoji(ext.locale))
+                        .font(.subheadline)
+                }
+                
+                HStack(spacing: 6) {
+                    Text(translateType(ext.type))
+                        .font(.system(size: 9, weight: .semibold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(ext.type == "tts" ? Color.orange.opacity(0.12) : Color.purple.opacity(0.12))
+                        .foregroundColor(ext.type == "tts" ? .orange : .purple)
+                        .cornerRadius(4)
+                    
+                    Text(ext.author)
+                        .font(.system(size: 9))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.green.opacity(0.1))
+                        .foregroundColor(.green)
+                        .cornerRadius(4)
+                }
+                
+                Text(ext.sourceUrl)
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+                    .lineLimit(1)
+            }
+            
+            Spacer()
+            
+            if extensionManager.loadingStates[ext.packageId] == true {
+                ProgressView()
+                    .frame(width: 60)
+            } else {
+                if ext.localPath.isEmpty {
+                    Button(action: {
+                        installExtension(ext)
+                    }) {
+                        Text("Cài đặt")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.accentColor)
+                            .cornerRadius(6)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    HStack(spacing: 8) {
+                        if ext.hasUpdate {
+                            Button(action: {
+                                installExtension(ext)
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "arrow.clockwise.circle.fill")
+                                    Text("Cập nhật")
+                                }
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color.orange)
+                                .cornerRadius(6)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        
+                        Button(action: {
+                            selectedExtensionForConfig = ext
+                        }) {
+                            Image(systemName: "gearshape")
+                                .foregroundColor(.blue)
+                                .padding(6)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button(action: {
+                            uninstallExtension(ext)
+                        }) {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red)
+                                .padding(6)
+                                .background(Color.red.opacity(0.1))
+                                .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private var repositoryListTab: some View {
+        List {
+            if renderedTab == 1 {
+                if !statusMessage.isEmpty {
+                    Section {
+                        Text(statusMessage)
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                    }
+                }
+                
+                Section(header: Text("Danh sách kho tiện ích")) {
+                    if repositories.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Chưa nhập kho tiện ích nào.")
+                                .font(.headline)
+                                .foregroundColor(.gray)
+                            Text("Bạn có thể nhập link kho truyện VBook (định dạng plugin.json) để bắt đầu tải các nguồn bóc tách truyện.")
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
+                            
+                            Button(action: {
+                                addSampleRepository()
+                            }) {
+                                Text("Nhập kho tiện ích mặc định (buudvh)")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .padding(.top, 5)
+                        }
+                        .padding(.vertical)
+                    } else {
+                        ForEach(repositories) { repo in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(repo.name)
+                                        .font(.headline)
+                                    Text(repo.url)
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                        .lineLimit(1)
+                                }
+                                Spacer()
+                                
+                                Button {
+                                    guard !isRefreshingAll else { return }
+                                    repositoryToDelete = repo
+                                    showingDeleteRepositoryAlert = true
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .foregroundColor(.red)
+                                        .padding(8)
+                                        .background(Color.red.opacity(0.1))
+                                        .clipShape(Circle())
+                                }
+                                .buttonStyle(.borderless)
+                                .disabled(isRefreshingAll)
+                                .accessibilityLabel("Xóa kho \(repo.name)")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+    }
+
     private func importExtensionFromZip(_ url: URL) {
         statusMessage = "Đang giải nén & import tiện ích từ file zip..."
         errorMessage = ""
@@ -918,24 +941,6 @@ struct RepositoryManagerView: View {
         }
         return "🌐"
     }
-}
-
-// MARK: - Local Meta Decodable helper
-private struct ExtensionLocalMeta: Codable {
-    let name: String
-    let version: Int?
-    let author: String?
-    let type: String?
-    let locale: String?
-}
-
-// MARK: - Remote Meta Decodable helper
-private struct RemotePluginMeta: Codable {
-    let author: String?
-    let language: String?
-    let type: String?
-    let version: Int?
-    let source: String?
 }
 
 // MARK: - FilterSheet
