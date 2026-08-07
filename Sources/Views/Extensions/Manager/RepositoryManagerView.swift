@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct RepositoryManagerView: View {
     @Environment(\.modelContext) private var modelContext
@@ -181,11 +182,17 @@ struct RepositoryManagerView: View {
             .sheet(item: $selectedExtensionForConfig) { ext in
                 ExtensionConfigView(ext: ext)
             }
-            .sheet(isPresented: $showingZipImporter) {
-                DocumentPickerPresenter(allowedContentTypes: [.zip]) { urls in
-                    guard let url = urls.first else { return }
-                    importExtensionFromZip(url)
-                }
+            .background {
+                DocumentPickerPresenter(
+                    isPresented: $showingZipImporter,
+                    allowedContentTypes: [.zip],
+                    allowsMultipleSelection: false,
+                    onPick: { urls in
+                        guard let url = urls.first else { return }
+                        importExtensionFromZip(url)
+                    },
+                    onCancel: nil
+                )
             }
             .onAppear {
                 renderedTab = selectedTab
