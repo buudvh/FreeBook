@@ -22,52 +22,6 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section(header: Text("Hệ Thống")) {
-                    Toggle(isOn: $isLoggingEnabled) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Ghi log hệ thống")
-                                .font(.body)
-                                .fontWeight(.medium)
-                            Text("Bật ghi log giúp chẩn đoán và sửa lỗi của các VBook extension. Log được lưu trong file app_logs.txt trên thiết bị.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .onChange(of: isLoggingEnabled) { _, newValue in
-                        AppLogger.shared.isLoggingEnabled = newValue
-                    }
-
-                    Toggle(isOn: $isCompactSuccessLogEnabled) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Thu gọn log kết quả Extension")
-                                .font(.body)
-                                .fontWeight(.medium)
-                            Text("Rút gọn dữ liệu trả về của extension trong log để tiết kiệm dung lượng đĩa.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .disabled(!isLoggingEnabled)
-                    .onChange(of: isCompactSuccessLogEnabled) { _, newValue in
-                        AppLogger.shared.isCompactSuccessLogEnabled = newValue
-                    }
-
-                    Toggle(isOn: $isTTSVerboseLoggingEnabled) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Ghi log TTS chi tiết")
-                                .font(.body)
-                                .fontWeight(.medium)
-                            Text("Ghi log chi tiết từng chunk, highlight và tham số TTS (có thể giảm hiệu năng).")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .disabled(!isLoggingEnabled)
-                    .onChange(of: isTTSVerboseLoggingEnabled) { _, newValue in
-                        AppLogger.shared.isTTSVerboseLoggingEnabled = newValue
-                    }
-                }
-                
                 Section(header: Text("Dịch Thuật Quick Translate")) {
                     Toggle(isOn: $isTranslationEnabled) {
                         VStack(alignment: .leading, spacing: 4) {
@@ -259,6 +213,52 @@ struct SettingsView: View {
                     }
                     NavigationLink(destination: NghiTTSSettingsView()) {
                         Label("Cấu hình tiền xử lý & ngắt nghỉ", systemImage: "slider.horizontal.3")
+                    }
+                Section(header: Text("Cấu Hình Ghi Log")) {
+                    Toggle(isOn: $isLoggingEnabled) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Ghi log hệ thống")
+                                .font(.body)
+                                .fontWeight(.medium)
+                            Text("Bật ghi log giúp chẩn đoán và sửa lỗi của các VBook extension. Log được lưu trong file app_logs.txt trên thiết bị.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .onChange(of: isLoggingEnabled) { _, newValue in
+                        AppLogger.shared.isLoggingEnabled = newValue
+                    }
+
+                    if isLoggingEnabled {
+                        Toggle(isOn: $isCompactSuccessLogEnabled) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Thu gọn log kết quả Extension")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                Text("Rút gọn dữ liệu trả về của extension trong log để tiết kiệm dung lượng đĩa.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(.leading, 16)
+                        .onChange(of: isCompactSuccessLogEnabled) { _, newValue in
+                            AppLogger.shared.isCompactSuccessLogEnabled = newValue
+                        }
+
+                        Toggle(isOn: $isTTSVerboseLoggingEnabled) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Ghi log TTS chi tiết")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                Text("Ghi log chi tiết từng chunk, highlight và tham số TTS (có thể giảm hiệu năng).")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(.leading, 16)
+                        .onChange(of: isTTSVerboseLoggingEnabled) { _, newValue in
+                            AppLogger.shared.isTTSVerboseLoggingEnabled = newValue
+                        }
                     }
                 }
                 
