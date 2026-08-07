@@ -683,6 +683,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private var nghiRefillInFlightIndex: Int? = nil
     private var audioPlayer: AVAudioPlayer?
     private let nghiAudioPlayerQueue = NghiAudioPlayerQueue()
+    private let callObserver = TTSCallObserver()
 
     // Trạng thái đệm thời lượng âm thanh & nhiệt độ thiết bị (NghiTTS Optimization)
     @Published public var nghiBufferedDuration: Double = 0.0
@@ -3522,6 +3523,55 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     // MARK: - Audio Session & Engine Notification Handling
 
     private func setupInterruptionObserver() {
+        // 0. System Call Observer (CallKit: Cuộc gọi cellular, FaceTime, Zalo, Messenger, VoIP)
+        callObserver.onCallBegan = { [weak self] in
+            guard let self = self else { return }
+            Task { @MainActor in
+                if self.isPlaying {
+                    AppLogger.shared.log("📞 [TTSManager] Call began. Pausing TTS playback.")
+                    self.wasPlayingBeforeInterruption = true
+                    self.pause()
+                    try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+                }
+            }
+        }
+
+        callObserver.onCallEnded = { [weak self] in
+            guard let self = self else { return }
+            Task { @MainActor in
+                if self.wasPlayingBeforeInterruption {
+                    self.wasPlayingBeforeInterruption = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+                        guard let self = self else { return }
+                        if !self.isPlaying {
+                            AppLogger.shared.log("📞 [TTSManager] Call ended. Resuming TTS playback.")
+                            self.configureAudioSession()
+                            self.resume()
+                        }
+                    }
+                }
+            }
+        }
+
+        // Hook up audioEngineController interruption closures
+        audioEngineController.onInterruptionBegan = { [weak self] in
+            guard let self = self else { return }
+            if self.isPlaying {
+                self.wasPlayingBeforeInterruption = true
+                self.pause()
+                try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            }
+        }
+
+        audioEngineController.onInterruptionEnded = { [weak self] in
+            guard let self = self else { return }
+            if self.wasPlayingBeforeInterruption {
+                self.wasPlayingBeforeInterruption = false
+                self.configureAudioSession()
+                self.resume()
+            }
+        }
+
         // 1. Audio Session Interruption (cuộc gọi, Siri, ứng dụng khác chiếm audio)
         NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)
             .receive(on: RunLoop.main)
@@ -3589,6 +3639,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             if isPlaying {
                 self.wasPlayingBeforeInterruption = true
                 self.pause()
+                try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
             }
         case .ended:
             AppLogger.shared.log("🔊 [TTSManager] Audio session interruption ended. wasPlayingBeforeInterruption = \(self.wasPlayingBeforeInterruption)")
@@ -3602,6 +3653,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     guard let self = self else { return }
                     if !self.isPlaying {
                         AppLogger.shared.log("🔊 [TTSManager] Resuming TTS playback after interruption.")
+                        self.configureAudioSession()
                         self.resume()
                     }
                 }
