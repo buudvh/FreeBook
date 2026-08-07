@@ -214,6 +214,8 @@ struct SettingsView: View {
                     NavigationLink(destination: NghiTTSSettingsView()) {
                         Label("Cấu hình tiền xử lý & ngắt nghỉ", systemImage: "slider.horizontal.3")
                     }
+                }
+                
                 Section(header: Text("Cấu Hình Ghi Log")) {
                     Toggle(isOn: $isLoggingEnabled) {
                         VStack(alignment: .leading, spacing: 4) {
