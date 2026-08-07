@@ -199,7 +199,6 @@ struct SettingsView: View {
                         }
                         .disabled(!importingTypes.isEmpty)
                     }
-                }
                 
                 Section(header: Text("Nghe Truyện (TTS)")) {
                     NavigationLink(destination: TTSSettingsView(isPresentedAsSheet: false)) {

@@ -2,6 +2,14 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.100] - 2026-08-07
+
+### Sửa Lỗi Cấu Trúc Scope & Biên Dịch (`SettingsView.swift`)
+* **Khắc phục lỗi `extraneous '}' at top level` và `cannot find '...' in scope` (`SettingsView.swift`)**:
+  * Xóa dấu đóng ngoặc nhọn `}` thừa ở dòng 202 ngay sau khối `if isTranslationEnabled`.
+  * Khôi phục đúng cấu trúc lồng nhau của `Form`, `NavigationStack`, `body` và `struct SettingsView`.
+  * Đưa các phương thức helper `updateLogStatus()`, `copyLogToClipboard()`, `formatBytes()`, `getStatusText(for:)` trở lại phạm vi của `SettingsView`.
+
 ## [1.3.99] - 2026-08-07
 
 ### Màn Hình Chỉnh Sửa Mã Nguồn Script Tiện Ích Extension (`ExtensionScriptEditorView.swift`)
