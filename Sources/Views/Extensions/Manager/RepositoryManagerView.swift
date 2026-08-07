@@ -38,6 +38,10 @@ struct RepositoryManagerView: View {
     private var isFiltering: Bool {
         filterType != "all" || filterLocale != "all" || filterAuthor != "all"
     }
+
+    private var isUninstallAllDisabled: Bool {
+        allExtensions.filter { !$0.localPath.isEmpty }.isEmpty
+    }
     
     // Lọc danh sách tác giả động từ database
     private var allAuthors: [String] {
@@ -101,33 +105,41 @@ struct RepositoryManagerView: View {
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                Picker("", selection: $selectedTab) {
-                    Text("Tất cả tiện ích").tag(0)
-                    Text("Danh sách kho").tag(1)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.vertical, 6)
-                .background(Color(.systemGroupedBackground))
-                
-                TabView(selection: $selectedTab) {
-                    allExtensionsTab
-                        .tag(0)
-                    
-                    repositoryListTab
-                        .tag(1)
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .onChange(of: selectedTab) { _, newVal in
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                        renderedTab = newVal
-                    }
+            applySheetsAndAlerts(mainContentView)
+        }
+    }
+
+    @ViewBuilder
+    private var mainContentView: some View {
+        VStack(spacing: 0) {
+            Picker("", selection: $selectedTab) {
+                Text("Tất cả tiện ích").tag(0)
+                Text("Danh sách kho").tag(1)
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal)
+            .padding(.vertical, 6)
+            .background(Color(.systemGroupedBackground))
+            
+            TabView(selection: $selectedTab) {
+                allExtensionsTab.tag(0)
+                repositoryListTab.tag(1)
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .onChange(of: selectedTab) { _, newVal in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    renderedTab = newVal
                 }
             }
-            .navigationTitle("Kho Tiện Ích")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { toolbarContent }
+        }
+        .navigationTitle("Kho Tiện Ích")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { toolbarContent }
+    }
+
+    @ViewBuilder
+    private func applySheetsAndAlerts<V: View>(_ content: V) -> some View {
+        content
             .alert("Xóa tất cả tiện ích?", isPresented: $showingUninstallAllAlert) {
                 Button("Hủy", role: .cancel) { }
                 Button("Xóa sạch", role: .destructive) {
@@ -183,7 +195,6 @@ struct RepositoryManagerView: View {
                     refreshAllRepositories()
                 }
             }
-        }
     }
 
     @ToolbarContentBuilder
@@ -200,15 +211,13 @@ struct RepositoryManagerView: View {
                     Button(role: .destructive, action: { showingUninstallAllAlert = true }) {
                         Label("Xóa tất cả tiện ích", systemImage: "trash")
                     }
-                    .disabled(allExtensions.filter { !$0.localPath.isEmpty }.isEmpty)
+                    .disabled(isUninstallAllDisabled)
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.title3)
                 }
             }
-        }
-        
-        if selectedTab == 1 {
+        } else {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingAddRepo = true }) {
                     Image(systemName: "plus")
