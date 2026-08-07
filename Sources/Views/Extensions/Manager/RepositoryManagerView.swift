@@ -20,6 +20,7 @@ struct RepositoryManagerView: View {
     @ObservedObject private var extensionManager = ExtensionManager.shared
     @State private var errorMessage = ""
     @State private var selectedExtensionForConfig: Extension? = nil
+    @State private var selectedExtensionForScriptEditor: Extension? = nil
     @State private var repositoryToDelete: Repository?
     @State private var showingDeleteRepositoryAlert = false
     
@@ -188,6 +189,9 @@ struct RepositoryManagerView: View {
             }
             .sheet(item: $selectedExtensionForConfig) { ext in
                 ExtensionConfigView(ext: ext)
+            }
+            .sheet(item: $selectedExtensionForScriptEditor) { ext in
+                ExtensionScriptEditorView(ext: ext)
             }
             .background {
                 DocumentPickerPresenter(
@@ -511,6 +515,19 @@ struct RepositoryManagerView: View {
                                 .cornerRadius(6)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Cấu hình \(ext.name)")
+                        
+                        Button(action: {
+                            selectedExtensionForScriptEditor = ext
+                        }) {
+                            Image(systemName: "code.square")
+                                .foregroundColor(.purple)
+                                .padding(6)
+                                .background(Color.purple.opacity(0.1))
+                                .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Mã nguồn script \(ext.name)")
                         
                         Button(action: {
                             uninstallExtension(ext)

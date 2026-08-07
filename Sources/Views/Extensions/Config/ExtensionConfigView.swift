@@ -14,6 +14,7 @@ struct ExtensionConfigView: View {
     
     @State private var isLoading = true
     @State private var errorMessage = ""
+    @State private var showingScriptEditor = false
     
     struct ConfigItem: Codable {
         let title: String?
@@ -101,11 +102,23 @@ struct ExtensionConfigView: View {
                                 .padding(.vertical, 4)
                             }
                         }
+                        
+                        Section(header: Text("Mã Nguồn Script")) {
+                            Button(action: {
+                                showingScriptEditor = true
+                            }) {
+                                Label("Chỉnh sửa mã nguồn Script", systemImage: "code.square")
+                                    .foregroundColor(.purple)
+                            }
+                        }
                     }
                 }
             }
             .navigationTitle("Cấu Hình: \(ext.name)")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showingScriptEditor) {
+                ExtensionScriptEditorView(ext: ext)
+            }
             .toolbar {
                 if !configDefinitions.isEmpty {
                     ToolbarItem(placement: .cancellationAction) {

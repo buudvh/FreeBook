@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.99] - 2026-08-07
+
+### Màn Hình Chỉnh Sửa Mã Nguồn Script Tiện Ích Extension (`ExtensionScriptEditorView.swift`)
+* **Xây Dựng Trình Soạn Thảo Script (`ExtensionScriptEditorView.swift`)**:
+  * Tạo mới `ExtensionScriptEditorView` hỗ trợ mở và chỉnh sửa mã nguồn JavaScript (`.js`) và tệp cấu hình `plugin.json` trực tiếp trên ứng dụng.
+  * Tích hợp bộ chọn danh sách script (`scriptSelectorHeader`), trình soạn thảo Monospace (`TextEditor`) tự động tắt autocorrect & autocapitalization, cùng thanh thống kê số dòng/ký tự.
+  * Tích hợp kiểm tra cú pháp JS tức thì (`validateScriptSyntax`) thông qua `JSContext` và `JSONSerialization`.
+  * Hỗ trợ nút **Lưu (Save)** ghi đè file trên đĩa kèm Toast thông báo và nút **Tải lại (Revert)** khôi phục nội dung ban đầu.
+* **Tích Hợp Truy Cập Nhanh (`RepositoryManagerView.swift`, `ExtensionConfigView.swift`)**:
+  * Thêm biểu tượng icon `code.square` màu tím trên từng tiện ích đã cài đặt tại `RepositoryManagerView.swift`.
+  * Thêm mục *"Chỉnh sửa mã nguồn Script"* trong màn hình cấu hình `ExtensionConfigView.swift`.
+
 ## [1.3.98] - 2026-08-07
 
 ### Tính Năng Import Tiện Ích Tệp .ZIP & Menu Dropdown Toolbar (`ExtensionManager.swift`, `RepositoryManagerView.swift`)

@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-07T09:15:25.933292Z",
-  "gitCommit": "d5cf8d620b626c2dc588ddac4503d3b7551af773",
-  "sourceFileCount": 126,
+  "generatedAt": "2026-08-07T09:37:53.581436Z",
+  "gitCommit": "3f72b3a2603558fcbee9130783b0e4b28a79d33e",
+  "sourceFileCount": 127,
   "documentCount": 16,
   "documents": [
     {
@@ -31,9 +31,9 @@
     },
     {
       "filename": "02_file_graph.md",
-      "sourceHash": "9c263b46a5359160ad36fc1b511abbc2202f87236e41b810c77f602ca9aadfbf",
+      "sourceHash": "a650203cdd404fc30587fb5557887331fe5cc5b7f23159952b594825bc9532dd",
       "generatedHash": "43730f525b7936138703847f627b47fe692381673fd16859c8e029a19bd550f4",
-      "generatedAt": "2026-08-07T09:15:25.933292Z",
+      "generatedAt": "2026-08-07T09:37:44.613025Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -145,9 +145,9 @@
     },
     {
       "filename": "03_type_graph.md",
-      "sourceHash": "72be854f87b2e83cb76ac4556bc34419bd06d209d6a35f37c4a2b2126a500ddd",
+      "sourceHash": "b1229da576943d66be05b13215ce268ad677c72c2c6bdf86383930542470b9ed",
       "generatedHash": "3d67c9720e211cb571567722c52e2b25d4bb0edcd772d3741a8cb37bb8eaa379",
-      "generatedAt": "2026-08-07T09:15:25.933292Z",
+      "generatedAt": "2026-08-07T09:37:44.613025Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -441,9 +441,9 @@
     },
     {
       "filename": "14_complexity_report.md",
-      "sourceHash": "bc612c069b8377d9e65c15e15987954fd6c5fa2c1b379321bcdd610beaa046de",
+      "sourceHash": "c28ade7a05cfc5d0d1b6cfe6963897bee5c7c587fd73d8b39e1f22177b037d79",
       "generatedHash": "ccd203d05bb8cf74264ed6928e4c772ba1c8b69ba087bc1f135ae1d36465d94d",
-      "generatedAt": "2026-08-07T09:15:25.933292Z",
+      "generatedAt": "2026-08-07T09:37:44.613025Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
