@@ -2176,15 +2176,15 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     public var nghiWatermarks: (low: Double, high: Double) {
         switch currentThermalState {
         case .nominal:
-            return (low: 6.0, high: 14.0)
+            return (low: 4.0, high: 8.0)
         case .fair:
-            return (low: 4.0, high: 9.0)
+            return (low: 3.0, high: 6.0)
         case .serious:
-            return (low: 2.5, high: 5.0)
+            return (low: 2.0, high: 4.0)
         case .critical:
-            return (low: 1.5, high: 3.0)
+            return (low: 1.0, high: 2.0)
         @unknown default:
-            return (low: 5.0, high: 12.0)
+            return (low: 4.0, high: 8.0)
         }
     }
 
@@ -2375,7 +2375,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 let hasMissingNext = nextIndex < self.paragraphs.count && self.preloadedData[nextIndex] == nil
                 guard hasMissingNext || updatedBuf < watermarks.low else { break }
 
-                let delayMs = max(300, self.prefetchDelayMs)
+                let thermalExtraDelayMs = (self.currentThermalState != .nominal) ? 200 : 0
+                let delayMs = max(300, self.prefetchDelayMs + thermalExtraDelayMs)
                 do {
                     try await Task.sleep(nanoseconds: UInt64(delayMs) * 1_000_000)
                 } catch {

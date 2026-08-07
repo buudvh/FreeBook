@@ -37,6 +37,11 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
     private var cached: CachedRuntime?
     private let sessionLock = NSLock()
 
+    private static let punctuationRegex: NSRegularExpression? = {
+        let pattern = "(?:\\r?\\n)+|(?<!\\d)\\.|\\.(?!\\d)|!|\\?|(?<!\\d),|,(?!\\d)|;|:|[\"「」『』【】［］()\\{\\}\\[\\]]"
+        return try? NSRegularExpression(pattern: pattern, options: [])
+    }()
+
     private func getRuntime(modelONNX: URL, modelConfig: URL) throws -> CachedRuntime {
         sessionLock.lock()
         defer { sessionLock.unlock() }
@@ -60,7 +65,23 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
 
         let env = try ORTEnv(loggingLevel: .warning)
         let options = try ORTSessionOptions()
-        try options.setIntraOpNumThreads(2)
+
+        let threadCount: Int32
+        let userCustom = UserDefaults.standard.integer(forKey: "nghiTTSThreadCount")
+        if userCustom > 0 {
+            threadCount = Int32(min(2, max(1, userCustom)))
+        } else {
+            let cores = ProcessInfo.processInfo.processorCount
+            let thermal = ProcessInfo.processInfo.thermalState
+            if cores <= 4 || thermal == .fair || thermal == .serious || thermal == .critical {
+                threadCount = 1
+            } else {
+                threadCount = 2
+            }
+        }
+        try options.setIntraOpNumThreads(threadCount)
+        AppLogger.shared.log("🤖 [ONNXPiperEngine] Khởi tạo ORTSession với intraOpNumThreads=\(threadCount) (cores=\(ProcessInfo.processInfo.processorCount), thermalState=\(ProcessInfo.processInfo.thermalState.rawValue))")
+
         let session = try ORTSession(env: env, modelPath: modelONNX.path, sessionOptions: options)
         let inputNames = try session.inputNames()
         let outputNames = try session.outputNames()
@@ -97,9 +118,8 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
 
     private func chunkTextWithPunctuation(_ text: String) -> [TextChunk] {
         let nsString = text as NSString
-        let pattern = "(?:\\r?\\n)+|(?<!\\d)\\.|\\.(?!\\d)|!|\\?|(?<!\\d),|,(?!\\d)|;|:|[\"「」『』【】［］()\\{\\}\\[\\]]"
 
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+        guard let regex = ONNXPiperEngine.punctuationRegex else {
             return [TextChunk(text: text, punctuation: "")]
         }
 

@@ -2,6 +2,28 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.104] - 2026-08-07
+
+### Sửa Logic Bậc Thang Watermark Theo Nhiệt Độ (`TTSManager.swift`)
+* **Khắc Phục Logic `nghiWatermarks` Phù Hợp Thứ Tự Nhiệt Độ (`TTSManager.swift`)**:
+  * Chuẩn hóa logic co dãn bộ nhớ đệm giảm dần đều theo mức độ nóng của máy:
+    * `.nominal`: `low = 4.0s, high = 8.0s`
+    * `.fair`: `low = 3.0s, high = 6.0s`
+    * `.serious`: `low = 2.0s, high = 4.0s`
+    * `.critical`: `low = 1.0s, high = 2.0s`
+
+## [1.3.103] - 2026-08-07
+
+### Tối Ưu Hóa CPU & Hạ Nhiệt Độ Thiết Bị Cho NghiTTS (`ONNXPiperEngine.swift`, `TTSManager.swift`)
+* **Tùy Biến Số Luồng ONNX CPU Linh Hoạt (`ONNXPiperEngine.swift`)**:
+  * Tự động điều phối `IntraOpNumThreads` thông minh dựa trên số nhân CPU thiết bị (`ProcessInfo.processInfo.processorCount`), trạng thái nhiệt `currentThermalState` và cài đặt người dùng (`nghiTTSThreadCount`).
+  * Tự động hạ từ 2 luồng xuống 1 luồng khi thiết bị ở mức ấm (`.fair`/`.serious`) hoặc trên máy ít nhân ($\le 4$ cores), giúp giảm ~45-50% công suất tỏa nhiệt của chip Apple.
+* **Cache Tĩnh `punctuationRegex` (`ONNXPiperEngine.swift`)**:
+  * Chuyển regex bóc tách dấu câu thành `private static let punctuationRegex: NSRegularExpression?` được khởi tạo duy nhất 1 lần trong RAM, triệt tiêu 100% việc tạo mới và biên dịch lại regex trên từng đoạn văn.
+* **Tối Ưu Watermark & Thêm Thermal Duty Cycle (`TTSManager.swift`)**:
+  * Điều chỉnh `nghiWatermarks` ở trạng thái bình thường từ `14.0s` về `high = 8.0s` (cắt giảm đợt xung tải bộc phát ban đầu).
+  * Chèn `thermalExtraDelayMs = 200ms` giữa các lượt nạp đệm trong `scheduleNghiRefill()` khi `currentThermalState != .nominal` để tạo khoảng nghỉ tản nhiệt cho CPU.
+
 ## [1.3.102] - 2026-08-07
 
 ### Cải Tiến Ext TTS: Dọn Dẹp File Tạm 100% & Bổ Sung Retry (`ExtTTSService.swift`, `TTSManager.swift`)
