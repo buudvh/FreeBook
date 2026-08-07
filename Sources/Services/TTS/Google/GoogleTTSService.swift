@@ -67,6 +67,7 @@ public final class GoogleTTSService: Sendable {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
+        request.timeoutInterval = 12.0
         
         // Đảm bảo voice được chọn là 1 trong 6 giọng đọc hợp lệ của Google TTS
         let validVoiceIds = Set(GoogleVoice.allVoices.map { $0.id })
@@ -95,6 +96,38 @@ public final class GoogleTTSService: Sendable {
         
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         
+        var attempts = 0
+        let maxAttempts = 2
+        
+        while true {
+            attempts += 1
+            do {
+                return try await performSynthesizeRequest(request: request)
+            } catch {
+                if Task.isCancelled || attempts >= maxAttempts {
+                    throw error
+                }
+                let nsError = error as NSError
+                let msg = error.localizedDescription.lowercased()
+                let isTransient = (nsError.domain == NSURLErrorDomain) ||
+                    nsError.code == 429 ||
+                    (500...599).contains(nsError.code) ||
+                    msg.contains("internal error") ||
+                    msg.contains("timed out") ||
+                    msg.contains("rate limit") ||
+                    msg.contains("service unavailable")
+                
+                if isTransient {
+                    AppLogger.shared.log("⚠️ [GoogleTTSService] Thử lại lượt \(attempts)/\(maxAttempts) do lỗi tạm thời: \(error.localizedDescription)")
+                    try await Task.sleep(nanoseconds: 400_000_000)
+                } else {
+                    throw error
+                }
+            }
+        }
+    }
+
+    private func performSynthesizeRequest(request: URLRequest) async throws -> Data {
         let (data, response) = try await URLSession.shared.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {

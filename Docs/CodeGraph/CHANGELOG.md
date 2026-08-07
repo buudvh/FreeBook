@@ -2,6 +2,25 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.102] - 2026-08-07
+
+### Cải Tiến Ext TTS: Dọn Dẹp File Tạm 100% & Bổ Sung Retry (`ExtTTSService.swift`, `TTSManager.swift`)
+* **Dọn Dẹp 100% Tệp Tin Âm Thanh Tạm (`ExtTTSService.swift`)**:
+  * Sử dụng khối `defer { cleanupTempFile(tempFileUrl) }` ngay sau khi tạo tệp đĩa tạm trong `synthesize(...)`.
+  * Loại bỏ các câu lệnh `cleanupTempFile` dư thừa ở tất cả các nhánh `guard`/`return`/`throw`, đảm bảo dọn dẹp tuyệt đối đĩa đệm `tmp` trong mọi trường hợp (ngoại lệ `AVAudioFile`, lỗi convert hay Task bị hủy).
+* **Bổ Sung Retry Tự Động Cho Ext TTS (`TTSManager.swift`)**:
+  * Mở rộng `isTransientTTSError(_ error:)` nhận diện các domain `"ExtTTSService"` và `"ExtensionManager"`.
+  * Giúp luồng prefetch tự động thử lại khi gặp các sự cố ngắt kết nối mạng tạm thời từ server TTS bên thứ 3.
+
+## [1.3.101] - 2026-08-07
+
+### Tối Ưu Hóa & Sửa Lỗi Lag Google Cloud TTS (`GoogleTTSService.swift`, `TTSManager.swift`)
+* **Thêm Request Timeout 12.0s & Thử Lại Nội Bộ (`GoogleTTSService.swift`)**:
+  * Đặt `request.timeoutInterval = 12.0`s tránh nghẽn luồng prefetch/playback khi mạng lag (mặc định trước đây 60s).
+  * Bổ sung cơ chế thử lại nội bộ (retry) ngắn tối đa 2 lần với delay 400ms khi nhận các lỗi HTTP 5xx, 429 hoặc `Internal error encountered`.
+* **Nhận Diện Lỗi Tạm Thời Google API (`TTSManager.swift`)**:
+  * Mở rộng `isTransientTTSError(_ error:)` nhận diện các từ khóa lỗi server tạm thời (`internal error`, `rate limit`, `resource_exhausted`, `500`, `502`, `503`, `504`) để luồng prefetch tự động retry thay vì hủy task ngay lập tức.
+
 ## [1.3.100] - 2026-08-07
 
 ### Sửa Lỗi Cấu Trúc Scope & Biên Dịch (`SettingsView.swift`)

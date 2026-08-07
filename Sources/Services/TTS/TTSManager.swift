@@ -502,11 +502,26 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 break
             }
         }
+        if nsError.domain == "GoogleTTSService" || nsError.domain == "ExtTTSService" || nsError.domain == "ExtensionManager" {
+            if nsError.code == 429 || (500...599).contains(nsError.code) || nsError.code == -20 || nsError.code == -21 {
+                return true
+            }
+        }
         let lower = error.localizedDescription.lowercased()
         if lower.contains("unexpected eof") ||
            lower.contains("timed out") ||
            lower.contains("connection reset") ||
-           lower.contains("network connection") {
+           lower.contains("network connection") ||
+           lower.contains("internal error") ||
+           lower.contains("rate limit") ||
+           lower.contains("resource_exhausted") ||
+           lower.contains("service unavailable") ||
+           lower.contains("extttsservice") ||
+           lower.contains("extensionmanager") ||
+           lower.contains("503") ||
+           lower.contains("500") ||
+           lower.contains("502") ||
+           lower.contains("504") {
             return true
         }
         return false
