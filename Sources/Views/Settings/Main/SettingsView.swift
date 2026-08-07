@@ -65,8 +65,11 @@ struct SettingsView: View {
                         .onChange(of: isTranslationLuatNhanEnabled) { _, _ in
                             TranslateUtils.clearCache()
                         }
-                        
-                        Section(header: Text("Từ điển chung")) {
+                    }
+                }
+                
+                if isTranslationEnabled {
+                    Section(header: Text("Từ điển chung")) {
                             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                                 Button(action: {
                                     importType = "vietphrase"
