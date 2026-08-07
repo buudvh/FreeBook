@@ -3553,25 +3553,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
         }
 
-        // Hook up audioEngineController interruption closures
-        audioEngineController.onInterruptionBegan = { [weak self] in
-            guard let self = self else { return }
-            if self.isPlaying {
-                self.wasPlayingBeforeInterruption = true
-                self.pause()
-                try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-            }
-        }
-
-        audioEngineController.onInterruptionEnded = { [weak self] in
-            guard let self = self else { return }
-            if self.wasPlayingBeforeInterruption {
-                self.wasPlayingBeforeInterruption = false
-                self.configureAudioSession()
-                self.resume()
-            }
-        }
-
         // 1. Audio Session Interruption (cuộc gọi, Siri, ứng dụng khác chiếm audio)
         NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)
             .receive(on: RunLoop.main)
