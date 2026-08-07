@@ -418,8 +418,18 @@ struct ReaderView: View {
                 )
 
                 if showingJunkDeleteSheet {
-                    VStack {
-                        Spacer()
+                    VStack(spacing: 0) {
+                        // Vùng trống phía trên bắt tap để đóng panel xoá từ rác
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .simultaneousGesture(
+                                TapGesture().onEnded {
+                                    withAnimation {
+                                        showingJunkDeleteSheet = false
+                                    }
+                                }
+                            )
+
                         ReaderJunkDeleteOverlayView(
                             isPresented: $showingJunkDeleteSheet,
                             selectedTheme: selectedTheme,
@@ -447,6 +457,16 @@ struct ReaderView: View {
                         )
                         .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: -4)
                         .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 0 : 8)
+                        .gesture(
+                            DragGesture()
+                                .onEnded { value in
+                                    if value.translation.height > 50 {
+                                        withAnimation {
+                                            showingJunkDeleteSheet = false
+                                        }
+                                    }
+                                }
+                        )
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(6)
