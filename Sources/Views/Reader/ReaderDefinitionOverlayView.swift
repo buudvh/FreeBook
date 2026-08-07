@@ -333,9 +333,9 @@ struct ReaderDefinitionOverlayView: View {
 
             // Cụm 2: Phân loại & Phạm vi Từ điển
             HStack(spacing: 6) {
-                // Loại (Names vs VP)
+                // Loại (NE vs VP)
                 HStack(spacing: 0) {
-                    dictSegmentButton(title: "Names", isSelected: saveAsNameType == true, isPinned: pinnedSaveAsNameType == true) {
+                    dictSegmentButton(title: "NE", isSelected: saveAsNameType == true, isPinned: pinnedSaveAsNameType == true) {
                         saveAsNameType = true
                     } onPin: {
                         onPinNameType(true)
@@ -354,9 +354,9 @@ struct ReaderDefinitionOverlayView: View {
                 .background(Color.secondary.opacity(0.15))
                 .cornerRadius(6)
 
-                // Phạm vi (Riêng vs Chung)
+                // Phạm vi (R vs C)
                 HStack(spacing: 0) {
-                    dictSegmentButton(title: "Riêng", isSelected: saveToBookSpecific == true, isPinned: pinnedSaveToBookSpecific == true) {
+                    dictSegmentButton(title: "R", isSelected: saveToBookSpecific == true, isPinned: pinnedSaveToBookSpecific == true) {
                         saveToBookSpecific = true
                     } onPin: {
                         onPinScope(true)
@@ -365,7 +365,7 @@ struct ReaderDefinitionOverlayView: View {
                     Divider()
                         .frame(height: 14)
 
-                    dictSegmentButton(title: "Chung", isSelected: saveToBookSpecific == false, isPinned: pinnedSaveToBookSpecific == false) {
+                    dictSegmentButton(title: "C", isSelected: saveToBookSpecific == false, isPinned: pinnedSaveToBookSpecific == false) {
                         saveToBookSpecific = false
                     } onPin: {
                         onPinScope(false)
