@@ -2,6 +2,31 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.98] - 2026-08-07
+
+### Tính Năng Import Tiện Ích Tệp .ZIP & Menu Dropdown Toolbar (`ExtensionManager.swift`, `RepositoryManagerView.swift`)
+* **Xây Dựng Hàm `installFromLocalZip` (`ExtensionManager.swift`)**:
+  * Đảm bảo quyền truy cập `security-scoped resource` khi chọn tệp `.zip` từ ứng dụng Tệp.
+  * Giải nén file `.zip` bằng `ZIPFoundation` vào thư mục tạm, tự động tìm và bóc tách dữ liệu từ `plugin.json` (`packageId`, `name`, `author`, `version`, `type`, `locale`, `sourceUrl`).
+  * Di chuyển thư mục giải nén tới `extensions/<package_id>` của ứng dụng.
+* **Gom Thao Tác Vào Menu Dropdown (`RepositoryManagerView.swift`)**:
+  * Thay thế nút chữ đỏ đơn lẻ "Xóa tất cả" bằng biểu tượng **Menu Dropdown (`ellipsis.circle`)** trên thanh công cụ.
+  * Tích hợp 2 mục thao tác: *"Import tiện ích (.zip)"* (mở `DocumentPickerPresenter`) và *"Xóa tất cả tiện ích"* (mở alert cảnh báo xóa).
+  * Viết phương thức `importExtensionFromZip(_ url: URL)` để nạp tiện ích mới từ tệp ZIP và lưu/cập nhật vào CSDL SwiftData.
+
+## [1.3.97] - 2026-08-07
+
+### Tính Năng Cập Nhật Tiện Ích & Cập Nhật Tất Cả (`Extension.swift`, `RepositoryManagerView.swift`)
+* **Bổ Sung Trường Remote Version & Computed Property `hasUpdate` (`Extension.swift`)**:
+  * Thêm thuộc tính `public var remoteVersion: Int?` lưu phiên bản hiển thị trên repository `plugin.json`.
+  * Thêm computed property `public var hasUpdate: Bool` (`!localPath.isEmpty && (remoteVersion ?? 0) > version`).
+* **Cập Nhật Giao Diện Thẻ Tiện Ích & Banner "Cập Nhật Tất Cả" (`RepositoryManagerView.swift`)**:
+  * Đọc và lưu `remoteVersion` từ kho khi đồng bộ `syncExtensions(for:with:)`.
+  * Hiển thị badge phiên bản `v1 ➔ v2` nổi bật màu cam trên từng thẻ tiện ích có bản mới.
+  * Thêm nút **"Cập nhật"** màu cam trực quan bên cạnh nút Cấu hình (bánh răng) và Xóa (thùng rác).
+  * Render **Banner "Cập nhật tất cả"** ở đầu Tab 0 khi có 1 hoặc nhiều tiện ích có bản nâng cấp mới.
+  * Tự động làm mới dữ liệu kho (`refreshAllRepositories()`) khi mở màn hình Kho Tiện Ích (`onAppear`).
+
 ## [1.3.96] - 2026-08-07
 
 ### Tối Ưu Nhiệt Độ & Prefetch Theo Thời Lượng Audio Cho NghiTTS (`TTSManager.swift`, `TTSChapterPrefetcher.swift`, `ONNXPiperEngine.swift`, `TTSSettingsView.swift`)

@@ -13,6 +13,7 @@ struct RepositoryManagerView: View {
     // Trạng thái cho Tab 1: Cửa hàng tiện ích gộp
     @State private var showingAddRepo = false
     @State private var isRefreshingAll = false
+    @State private var isUpdatingAll = false
     @State private var statusMessage = ""
     @State private var storeSearchQuery: String = ""
     @ObservedObject private var extensionManager = ExtensionManager.shared
@@ -21,9 +22,14 @@ struct RepositoryManagerView: View {
     @State private var repositoryToDelete: Repository?
     @State private var showingDeleteRepositoryAlert = false
     
+    private var updatableExtensions: [Extension] {
+        allExtensions.filter { $0.hasUpdate }
+    }
+    
     // Bộ lọc và Trạng thái Sheet/Alert mới
     @State private var showingFilterSheet = false
     @State private var showingUninstallAllAlert = false
+    @State private var showingZipImporter = false
     @AppStorage("extFilterType") private var filterType: String = "all"
     @AppStorage("extFilterLocale") private var filterLocale: String = "all"
     @AppStorage("extFilterAuthor") private var filterAuthor: String = "all"
@@ -164,6 +170,47 @@ struct RepositoryManagerView: View {
                             
                             Divider()
                             
+                            if !updatableExtensions.isEmpty {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "arrow.clockwise.circle.fill")
+                                        .font(.title2)
+                                        .foregroundColor(.orange)
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Có \(updatableExtensions.count) tiện ích có bản cập nhật mới")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                        Text("Cập nhật ngay để nhận các sửa lỗi & tính năng mới nhất.")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Button(action: updateAllExtensions) {
+                                        if isUpdatingAll {
+                                            ProgressView()
+                                                .padding(.horizontal, 8)
+                                        } else {
+                                            Text("Cập nhật tất cả")
+                                                .font(.caption)
+                                                .fontWeight(.bold)
+                                                .foregroundColor(.white)
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 6)
+                                                .background(Color.orange)
+                                                .cornerRadius(8)
+                                        }
+                                    }
+                                    .disabled(isUpdatingAll)
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(10)
+                                .background(Color.orange.opacity(0.12))
+                                .cornerRadius(10)
+                                .padding(.horizontal)
+                            }
+                            
                             if !errorMessage.isEmpty {
                                 Text(errorMessage)
                                     .foregroundColor(.red)
@@ -210,13 +257,24 @@ struct RepositoryManagerView: View {
                                             HStack(spacing: 6) {
                                                 Text(ext.name)
                                                     .font(.headline)
-                                                Text("v\(ext.version)")
-                                                    .font(.caption2)
-                                                    .padding(.horizontal, 6)
-                                                    .padding(.vertical, 2)
-                                                    .background(Color.blue.opacity(0.1))
-                                                    .foregroundColor(.blue)
-                                                    .cornerRadius(4)
+                                                if ext.hasUpdate, let remote = ext.remoteVersion {
+                                                    Text("v\(ext.version) ➔ v\(remote)")
+                                                        .font(.caption2)
+                                                        .fontWeight(.bold)
+                                                        .padding(.horizontal, 6)
+                                                        .padding(.vertical, 2)
+                                                        .background(Color.orange.opacity(0.15))
+                                                        .foregroundColor(.orange)
+                                                        .cornerRadius(4)
+                                                } else {
+                                                    Text("v\(ext.version)")
+                                                        .font(.caption2)
+                                                        .padding(.horizontal, 6)
+                                                        .padding(.vertical, 2)
+                                                        .background(Color.blue.opacity(0.1))
+                                                        .foregroundColor(.blue)
+                                                        .cornerRadius(4)
+                                                }
                                                 
                                                 Text(getFlagEmoji(ext.locale))
                                                     .font(.subheadline)
@@ -272,6 +330,25 @@ struct RepositoryManagerView: View {
                                                 .buttonStyle(.plain)
                                             } else {
                                                 HStack(spacing: 8) {
+                                                    if ext.hasUpdate {
+                                                        Button(action: {
+                                                            installExtension(ext)
+                                                        }) {
+                                                            HStack(spacing: 4) {
+                                                                Image(systemName: "arrow.clockwise.circle.fill")
+                                                                Text("Cập nhật")
+                                                            }
+                                                            .font(.caption)
+                                                            .fontWeight(.bold)
+                                                            .foregroundColor(.white)
+                                                            .padding(.horizontal, 10)
+                                                            .padding(.vertical, 6)
+                                                            .background(Color.orange)
+                                                            .cornerRadius(6)
+                                                        }
+                                                        .buttonStyle(.plain)
+                                                    }
+                                                    
                                                     Button(action: {
                                                         selectedExtensionForConfig = ext
                                                     }) {
@@ -386,11 +463,21 @@ struct RepositoryManagerView: View {
             .toolbar {
                 if selectedTab == 0 {
                     ToolbarItemGroup(placement: .navigationBarTrailing) {
-                        Button(role: .destructive, action: { showingUninstallAllAlert = true }) {
-                            Text("Xóa tất cả")
-                                .foregroundColor(.red)
+                        Menu {
+                            Button(action: { showingZipImporter = true }) {
+                                Label("Import tiện ích (.zip)", systemImage: "doc.badge.plus")
+                            }
+                            
+                            Divider()
+                            
+                            Button(role: .destructive, action: { showingUninstallAllAlert = true }) {
+                                Label("Xóa tất cả tiện ích", systemImage: "trash")
+                            }
+                            .disabled(allExtensions.filter { !$0.localPath.isEmpty }.isEmpty)
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .font(.title3)
                         }
-                        .disabled(allExtensions.filter { !$0.localPath.isEmpty }.isEmpty)
                     }
                 }
                 
@@ -453,10 +540,68 @@ struct RepositoryManagerView: View {
             .sheet(item: $selectedExtensionForConfig) { ext in
                 ExtensionConfigView(ext: ext)
             }
+            .sheet(isPresented: $showingZipImporter) {
+                DocumentPickerPresenter(allowedContentTypes: [.zip]) { urls in
+                    guard let url = urls.first else { return }
+                    importExtensionFromZip(url)
+                }
+            }
             .onAppear {
                 renderedTab = selectedTab
                 if repositories.isEmpty {
                     addSampleRepository()
+                } else {
+                    refreshAllRepositories()
+                }
+            }
+        }
+    }
+    
+    private func importExtensionFromZip(_ url: URL) {
+        statusMessage = "Đang giải nén & import tiện ích từ file zip..."
+        errorMessage = ""
+        
+        Task {
+            do {
+                let result = try await ExtensionManager.shared.installFromLocalZip(fileUrl: url)
+                
+                await MainActor.run {
+                    let existingExt = allExtensions.first(where: { $0.packageId == result.packageId })
+                    if let existing = existingExt {
+                        existing.name = result.name
+                        existing.author = result.author
+                        existing.version = result.version
+                        existing.remoteVersion = result.version
+                        existing.sourceUrl = result.sourceUrl
+                        existing.iconUrl = result.iconUrl
+                        existing.desc = result.desc
+                        existing.type = result.type
+                        existing.locale = result.locale
+                        existing.localPath = result.mainFolderPath
+                    } else {
+                        let newExt = Extension(
+                            packageId: result.packageId,
+                            name: result.name,
+                            author: result.author,
+                            version: result.version,
+                            sourceUrl: result.sourceUrl,
+                            iconUrl: result.iconUrl,
+                            desc: result.desc,
+                            type: result.type,
+                            locale: result.locale,
+                            localPath: result.mainFolderPath,
+                            downloadUrl: "",
+                            remoteVersion: result.version
+                        )
+                        modelContext.insert(newExt)
+                    }
+                    
+                    try? modelContext.save()
+                    statusMessage = "Đã import thành công tiện ích '\(result.name)' v\(result.version)!"
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Lỗi import tệp zip: \(error.localizedDescription)"
                 }
             }
         }
@@ -582,6 +727,7 @@ struct RepositoryManagerView: View {
                 }
             }
             
+            let repoRemoteVersion = item.version ?? 1
             let finalAuthor = resolvedAuthor ?? item.author ?? "Không rõ"
             let finalLocale = resolvedLanguage ?? item.locale ?? "vi_VN"
             let finalType = resolvedType ?? item.type ?? "novel"
@@ -592,6 +738,7 @@ struct RepositoryManagerView: View {
                 existing.name = item.name
                 existing.author = finalAuthor
                 existing.version = finalVersion
+                existing.remoteVersion = repoRemoteVersion
                 existing.sourceUrl = finalSource
                 existing.iconUrl = item.icon
                 existing.desc = item.description
@@ -610,7 +757,8 @@ struct RepositoryManagerView: View {
                     type: finalType,
                     locale: finalLocale,
                     localPath: "",
-                    downloadUrl: item.path
+                    downloadUrl: item.path,
+                    remoteVersion: repoRemoteVersion
                 )
                 newExt.repository = repo
                 modelContext.insert(newExt)
@@ -640,6 +788,12 @@ struct RepositoryManagerView: View {
     }
 
     private func installExtension(_ ext: Extension) {
+        Task {
+            await installExtensionAsync(ext)
+        }
+    }
+
+    private func installExtensionAsync(_ ext: Extension) async {
         var downloadUrl = ext.downloadUrl
         if downloadUrl.isEmpty, let repo = ext.repository {
             if let repoUrl = URL(string: repo.url) {
@@ -650,11 +804,12 @@ struct RepositoryManagerView: View {
             }
         }
         
+        let targetVersion = ext.remoteVersion ?? ext.version
         let finalItem = ExtensionRegistryItem(
             name: ext.name,
             author: ext.author,
             path: downloadUrl,
-            version: ext.version,
+            version: targetVersion,
             source: ext.sourceUrl,
             icon: ext.iconUrl,
             description: ext.desc,
@@ -662,49 +817,65 @@ struct RepositoryManagerView: View {
             locale: ext.locale
         )
         
-        extensionManager.loadingStates[ext.packageId] = true
-        errorMessage = ""
+        await MainActor.run {
+            extensionManager.loadingStates[ext.packageId] = true
+            errorMessage = ""
+        }
         
-        Task {
-            do {
-                let localFolder = try await ExtensionManager.shared.install(item: finalItem, packageId: ext.packageId)
-                
-                // Đọc file plugin.json nội bộ sau khi giải nén để cập nhật chính xác locale/type/sourceUrl
-                var localLocale = ext.locale
-                var localType = ext.type
-                var localVersion = ext.version
-                var localAuthor = ext.author
-                var localSource = ext.sourceUrl
-                
-                let localJsonUrl = URL(fileURLWithPath: localFolder).appendingPathComponent("plugin.json")
-                if let jsonData = try? Data(contentsOf: localJsonUrl),
-                   let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-                    let meta = json["metadata"] as? [String: Any] ?? json
-                    if let v = meta["source"] as? String, !v.isEmpty { localSource = v }
-                    if let v = meta["locale"] as? String, !v.isEmpty { localLocale = v }
-                    if let v = meta["type"] as? String, !v.isEmpty { localType = v }
-                    if let v = meta["version"] as? Int { localVersion = v }
-                    else if let vs = meta["version"] as? String, let vi = Int(vs) { localVersion = vi }
-                    if let v = meta["author"] as? String, !v.isEmpty { localAuthor = v }
-                }
-                
-                await MainActor.run {
-                    ext.localPath = localFolder
-                    ext.locale = localLocale
-                    ext.type = localType
-                    ext.version = localVersion
-                    ext.author = localAuthor
-                    ext.sourceUrl = localSource
-                    try? modelContext.save()
-                    extensionManager.loadingStates[ext.packageId] = false
-                }
-            } catch {
-                await MainActor.run {
-                    errorMessage = "Lỗi cài đặt \(ext.name): \(error.localizedDescription)"
-                    extensionManager.loadingStates[ext.packageId] = false
-                }
+        do {
+            let localFolder = try await ExtensionManager.shared.install(item: finalItem, packageId: ext.packageId)
+            
+            var localLocale = ext.locale
+            var localType = ext.type
+            var localVersion = targetVersion
+            var localAuthor = ext.author
+            var localSource = ext.sourceUrl
+            
+            let localJsonUrl = URL(fileURLWithPath: localFolder).appendingPathComponent("plugin.json")
+            if let jsonData = try? Data(contentsOf: localJsonUrl),
+               let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+                let meta = json["metadata"] as? [String: Any] ?? json
+                if let v = meta["source"] as? String, !v.isEmpty { localSource = v }
+                if let v = meta["locale"] as? String, !v.isEmpty { localLocale = v }
+                if let v = meta["type"] as? String, !v.isEmpty { localType = v }
+                if let v = meta["version"] as? Int { localVersion = v }
+                else if let vs = meta["version"] as? String, let vi = Int(vs) { localVersion = vi }
+                if let v = meta["author"] as? String, !v.isEmpty { localAuthor = v }
+            }
+            
+            await MainActor.run {
+                ext.localPath = localFolder
+                ext.locale = localLocale
+                ext.type = localType
+                ext.version = localVersion
+                ext.remoteVersion = localVersion
+                ext.author = localAuthor
+                ext.sourceUrl = localSource
+                try? modelContext.save()
+                extensionManager.loadingStates[ext.packageId] = false
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = "Lỗi cài đặt/cập nhật \(ext.name): \(error.localizedDescription)"
+                extensionManager.loadingStates[ext.packageId] = false
             }
         }
+    }
+
+    private func updateAllExtensions() {
+        let targets = updatableExtensions
+        guard !targets.isEmpty, !isUpdatingAll else { return }
+        
+        isUpdatingAll = true
+        statusMessage = "Đang cập nhật \(targets.count) tiện ích..."
+        
+        Task {
+            for ext in targets {
+                await installExtensionAsync(ext)
+            }
+            await MainActor.run {
+                isUpdatingAll = false
+                statusMessage = "Đã cập nhật xong tất cả tiện ích!"
     }
     
     private func uninstallExtension(_ ext: Extension) {

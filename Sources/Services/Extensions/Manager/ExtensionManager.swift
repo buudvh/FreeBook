@@ -133,6 +133,95 @@ public final class ExtensionManager: ObservableObject {
         return mainFolder.path
     }
     
+    // Cài đặt extension từ tệp local .zip được chọn từ máy
+    public func installFromLocalZip(fileUrl: URL) async throws -> (
+        mainFolderPath: String,
+        packageId: String,
+        name: String,
+        author: String,
+        version: Int,
+        sourceUrl: String,
+        iconUrl: String?,
+        desc: String?,
+        type: String,
+        locale: String
+    ) {
+        let isAccessing = fileUrl.startAccessingSecurityScopedResource()
+        defer {
+            if isAccessing {
+                fileUrl.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        let tempZipDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: tempZipDir, withIntermediateDirectories: true, attributes: nil)
+        defer {
+            try? FileManager.default.removeItem(at: tempZipDir)
+        }
+
+        let tempZipFile = tempZipDir.appendingPathComponent("imported.zip")
+        try FileManager.default.copyItem(at: fileUrl, to: tempZipFile)
+
+        let tempExtractDir = tempZipDir.appendingPathComponent("extracted", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempExtractDir, withIntermediateDirectories: true, attributes: nil)
+
+        try FileManager.default.unzipItem(at: tempZipFile, to: tempExtractDir)
+
+        let mainFolder = findMainExtensionFolder(at: tempExtractDir)
+        let pluginJsonUrl = mainFolder.appendingPathComponent("plugin.json")
+        guard FileManager.default.fileExists(atPath: pluginJsonUrl.path) else {
+            throw NSError(domain: "ExtensionManager", code: -3, userInfo: [NSLocalizedDescriptionKey: "Không tìm thấy tệp plugin.json trong file zip"])
+        }
+
+        let jsonData = try Data(contentsOf: pluginJsonUrl)
+        guard let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            throw NSError(domain: "ExtensionManager", code: -4, userInfo: [NSLocalizedDescriptionKey: "Tệp plugin.json không hợp lệ"])
+        }
+
+        let meta = json["metadata"] as? [String: Any] ?? json
+        let name = (meta["name"] as? String) ?? (json["name"] as? String) ?? "Tiện ích Import"
+        let author = (meta["author"] as? String) ?? "Không rõ"
+        let locale = (meta["locale"] as? String) ?? (meta["language"] as? String) ?? "vi_VN"
+        let type = (meta["type"] as? String) ?? "novel"
+        let sourceUrl = (meta["source"] as? String) ?? ""
+        let iconUrl = meta["icon"] as? String
+        let desc = meta["description"] as? String
+
+        var version = 1
+        if let v = meta["version"] as? Int { version = v }
+        else if let vs = meta["version"] as? String, let vi = Int(vs) { version = vi }
+
+        let packageId: String
+        if let rawPkg = meta["packageId"] as? String, !rawPkg.isEmpty {
+            packageId = rawPkg
+        } else {
+            packageId = name.lowercased()
+                .replacingOccurrences(of: " ", with: "_")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        let destFolder = extensionsDirectory.appendingPathComponent(packageId, isDirectory: true)
+        if FileManager.default.fileExists(atPath: destFolder.path) {
+            try FileManager.default.removeItem(at: destFolder)
+        }
+        try FileManager.default.createDirectory(at: destFolder.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: nil)
+
+        try FileManager.default.moveItem(at: mainFolder, to: destFolder)
+
+        return (
+            mainFolderPath: destFolder.path,
+            packageId: packageId,
+            name: name,
+            author: author,
+            version: version,
+            sourceUrl: sourceUrl,
+            iconUrl: iconUrl,
+            desc: desc,
+            type: type,
+            locale: locale
+        )
+    }
+    
     private func findMainExtensionFolder(at url: URL) -> URL {
         let pluginJsonUrl = url.appendingPathComponent("plugin.json")
         if FileManager.default.fileExists(atPath: pluginJsonUrl.path) {
