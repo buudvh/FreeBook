@@ -876,8 +876,11 @@ struct RepositoryManagerView: View {
             await MainActor.run {
                 isUpdatingAll = false
                 statusMessage = "Đã cập nhật xong tất cả tiện ích!"
+            }
+        }
     }
     
+    @MainActor
     private func uninstallExtension(_ ext: Extension) {
         guard !ext.localPath.isEmpty else { return }
         ExtensionManager.shared.uninstall(localPath: ext.localPath)
@@ -885,6 +888,7 @@ struct RepositoryManagerView: View {
         try? modelContext.save()
     }
     
+    @MainActor
     private func uninstallAllExtensions() {
         let installed = allExtensions.filter { !$0.localPath.isEmpty }
         for ext in installed {
