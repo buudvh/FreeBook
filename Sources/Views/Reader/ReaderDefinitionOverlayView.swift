@@ -1,23 +1,23 @@
 import SwiftUI
 
 public enum SuggestionChipCategory: String, Sendable {
-    case name       // Từ điển Names -> Màu Tím
-    case vietPhrase // Từ điển VietPhrase -> Màu Xanh Sky Blue
-    case hanViet    // Phiên âm Hán Việt -> Màu Vàng Amber
+    case name       // Từ điển Names -> Màu Đỏ
+    case vietPhrase // Từ điển VietPhrase -> Màu Xanh Dương
+    case hanViet    // Phiên âm Hán Việt -> Màu Xám
 
     public var borderColor: Color {
         switch self {
-        case .name: return Color.purple.opacity(0.45)
+        case .name: return Color.red.opacity(0.45)
         case .vietPhrase: return Color.blue.opacity(0.45)
-        case .hanViet: return Color.orange.opacity(0.45)
+        case .hanViet: return Color.gray.opacity(0.45)
         }
     }
 
     public var textColor: Color {
         switch self {
-        case .name: return Color(red: 0.85, green: 0.65, blue: 1.0)
+        case .name: return Color(red: 1.0, green: 0.45, blue: 0.45)
         case .vietPhrase: return Color(red: 0.45, green: 0.82, blue: 1.0)
-        case .hanViet: return Color(red: 1.0, green: 0.78, blue: 0.4)
+        case .hanViet: return Color(red: 0.75, green: 0.75, blue: 0.75)
         }
     }
 }
@@ -69,23 +69,21 @@ struct ReaderDefinitionOverlayView: View {
     var onApplyTranslation: (() -> Void)? = nil
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 16) {
-                dragIndicatorView
-                headerView
-                originalSentenceRowView
-                translatedTokensRowView
-                customMeaningInputView
-                suggestionChipsView
-                formattingButtonsView
-                typeAndScopePickersView
-                updateButtonView
-                Divider()
-                quickLookupLinksView
-            }
-            .padding()
+        VStack(spacing: 8) {
+            dragIndicatorView
+            headerView
+            originalSentenceRowView
+            translatedTokensRowView
+            customMeaningInputView
+            suggestionChipsView
+            combinedFormattingAndPickersView
+            updateButtonView
+            Divider()
+            quickLookupLinksView
         }
-        .scrollDismissesKeyboard(.interactively)
+        .padding(.horizontal)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
         .background(Color(uiColor: .systemBackground).onTapGesture { hideKeyboard() })
         .presentationDetents([.height(530), .large])
         .sheet(isPresented: $showingManageDefinitionsSheet) {
@@ -310,69 +308,73 @@ struct ReaderDefinitionOverlayView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var formattingButtonsView: some View {
+    private var combinedFormattingAndPickersView: some View {
         HStack(spacing: 8) {
-            ForEach(["aa", "Aa¹", "Aa²", "Aa", "AA"], id: \.self) { format in
-                Button(action: {
-                    customMeaning = onFormatMeaning(customMeaning, format)
-                }) {
-                    Text(format)
-                        .font(.body)
-                        .fontWeight(.bold)
-                        .padding(.vertical, 10)
-                        .frame(maxWidth: .infinity)
-                        .background(Color.secondary.opacity(0.15))
-                        .cornerRadius(8)
+            // Cụm 1: Định dạng chữ (aa, Aa¹, Aa², Aa, AA)
+            HStack(spacing: 2) {
+                ForEach(["aa", "Aa¹", "Aa²", "Aa", "AA"], id: \.self) { format in
+                    Button(action: {
+                        customMeaning = onFormatMeaning(customMeaning, format)
+                    }) {
+                        Text(format)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(Color.secondary.opacity(0.12))
+                            .cornerRadius(6)
+                    }
                 }
             }
-        }
-    }
-
-    private var typeAndScopePickersView: some View {
-        HStack(spacing: 12) {
-            // Cụm 1: Loại (Names vs VP)
-            HStack(spacing: 0) {
-                dictSegmentButton(title: "Names", isSelected: saveAsNameType == true, isPinned: pinnedSaveAsNameType == true) {
-                    saveAsNameType = true
-                } onPin: {
-                    onPinNameType(true)
-                }
-
-                Divider()
-                    .frame(height: 18)
-
-                dictSegmentButton(title: "VP", isSelected: saveAsNameType == false, isPinned: pinnedSaveAsNameType == false) {
-                    saveAsNameType = false
-                } onPin: {
-                    onPinNameType(false)
-                }
-            }
-            .padding(2)
-            .background(Color.secondary.opacity(0.15))
-            .cornerRadius(8)
             .frame(maxWidth: .infinity)
 
-            // Cụm 2: Phạm vi (Riêng vs Chung)
-            HStack(spacing: 0) {
-                dictSegmentButton(title: "Riêng", isSelected: saveToBookSpecific == true, isPinned: pinnedSaveToBookSpecific == true) {
-                    saveToBookSpecific = true
-                } onPin: {
-                    onPinScope(true)
-                }
+            Divider()
+                .frame(height: 20)
 
-                Divider()
-                    .frame(height: 18)
+            // Cụm 2: Phân loại & Phạm vi Từ điển
+            HStack(spacing: 6) {
+                // Loại (Names vs VP)
+                HStack(spacing: 0) {
+                    dictSegmentButton(title: "Names", isSelected: saveAsNameType == true, isPinned: pinnedSaveAsNameType == true) {
+                        saveAsNameType = true
+                    } onPin: {
+                        onPinNameType(true)
+                    }
 
-                dictSegmentButton(title: "Chung", isSelected: saveToBookSpecific == false, isPinned: pinnedSaveToBookSpecific == false) {
-                    saveToBookSpecific = false
-                } onPin: {
-                    onPinScope(false)
+                    Divider()
+                        .frame(height: 14)
+
+                    dictSegmentButton(title: "VP", isSelected: saveAsNameType == false, isPinned: pinnedSaveAsNameType == false) {
+                        saveAsNameType = false
+                    } onPin: {
+                        onPinNameType(false)
+                    }
                 }
+                .padding(2)
+                .background(Color.secondary.opacity(0.15))
+                .cornerRadius(6)
+
+                // Phạm vi (Riêng vs Chung)
+                HStack(spacing: 0) {
+                    dictSegmentButton(title: "Riêng", isSelected: saveToBookSpecific == true, isPinned: pinnedSaveToBookSpecific == true) {
+                        saveToBookSpecific = true
+                    } onPin: {
+                        onPinScope(true)
+                    }
+
+                    Divider()
+                        .frame(height: 14)
+
+                    dictSegmentButton(title: "Chung", isSelected: saveToBookSpecific == false, isPinned: pinnedSaveToBookSpecific == false) {
+                        saveToBookSpecific = false
+                    } onPin: {
+                        onPinScope(false)
+                    }
+                }
+                .padding(2)
+                .background(Color.secondary.opacity(0.15))
+                .cornerRadius(6)
             }
-            .padding(2)
-            .background(Color.secondary.opacity(0.15))
-            .cornerRadius(8)
-            .frame(maxWidth: .infinity)
         }
     }
 
