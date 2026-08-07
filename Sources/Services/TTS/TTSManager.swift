@@ -684,6 +684,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private var audioPlayer: AVAudioPlayer?
     private let nghiAudioPlayerQueue = NghiAudioPlayerQueue()
 
+    // Trạng thái đệm thời lượng âm thanh & nhiệt độ thiết bị (NghiTTS Optimization)
+    @Published public var nghiBufferedDuration: Double = 0.0
+    @Published public var currentThermalState: ProcessInfo.ThermalState = ProcessInfo.processInfo.thermalState
+
     // Tiến trình tải model NghiTTS
     @Published public var downloadingVoices: [String: Double] = [:] // voiceName -> progress (0.0 ... 1.0)
     @Published public var downloadingMessages: [String: String] = [:] // voiceName -> message
@@ -1304,6 +1308,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         } else if tool == "nghitts" {
             cancelNghiRefill()
             nghiAudioPlayerQueue.pause()
+            nextChapterPrefetcher.cancel()
+            Task { await PiperSynthesisCoordinator.shared.cancelAllPending() }
         } else {
             audioPlayer?.pause()
         }
@@ -2153,29 +2159,75 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         nghiRefillTask?.cancel()
         nghiRefillTask = nil
         nghiRefillInFlightIndex = nil
+        Task { await PiperSynthesisCoordinator.shared.cancelAllPending() }
     }
 
-    private func nghiCurrentChapterCacheCapacity() -> Int {
-        let configured = max(1, min(10, currentPrefetchCount))
-        return max(0, configured - (nextChapterPrefetcher.reservesNghiAudioSlot ? 1 : 0))
-    }
-
-    private func nghiFutureTargetIndices(capacity: Int? = nil) -> [Int] {
-        let limit = capacity ?? nghiCurrentChapterCacheCapacity()
-        guard limit > 0, currentParagraphIndex + 1 < paragraphs.count else { return [] }
-        let end = min(paragraphs.count, currentParagraphIndex + 1 + limit)
-        return Array((currentParagraphIndex + 1)..<end)
-    }
-
-    private func nghiReadyFutureCacheCount() -> Int {
-        preloadedData.keys.reduce(into: 0) { count, index in
-            if index > currentParagraphIndex {
-                count += 1
-            }
+    public var nghiWatermarks: (low: Double, high: Double) {
+        switch currentThermalState {
+        case .nominal:
+            return (low: 6.0, high: 14.0)
+        case .fair:
+            return (low: 4.0, high: 9.0)
+        case .serious:
+            return (low: 2.5, high: 5.0)
+        case .critical:
+            return (low: 1.5, high: 3.0)
+        @unknown default:
+            return (low: 5.0, high: 12.0)
         }
     }
 
+    public func calculateNghiBufferedDuration() -> Double {
+        guard tool == "nghitts" else { return 0.0 }
+        let effectiveRate = max(0.5, speed)
+        var total: Double = 0.0
+
+        if let player = nghiAudioPlayerQueue.currentPlayer, player.isPlaying {
+            let remainingMedia = max(0, player.duration - player.currentTime)
+            total += remainingMedia / max(0.01, Double(player.rate))
+        }
+
+        for (idx, data) in preloadedData where idx > currentParagraphIndex {
+            let dur = preloadedDurations[idx] ?? WAVEncoder.duration(of: data)
+            total += dur / effectiveRate
+        }
+
+        return total
+    }
+
+    public func updateNghiBufferedDuration() {
+        let dur = calculateNghiBufferedDuration()
+        if abs(nghiBufferedDuration - dur) > 0.05 {
+            nghiBufferedDuration = dur
+        }
+    }
+
+    private func nghiFutureTargetIndices() -> [Int] {
+        let N = currentParagraphIndex
+        let watermarks = nghiWatermarks
+        guard N + 1 < paragraphs.count else { return [] }
+
+        var targetIndices: [Int] = []
+        let nextIndex = N + 1
+        targetIndices.append(nextIndex)
+
+        var currentBuf = calculateNghiBufferedDuration()
+        var idx = N + 2
+        while idx < paragraphs.count && currentBuf < watermarks.high {
+            targetIndices.append(idx)
+            if let dur = preloadedDurations[idx] {
+                currentBuf += dur / max(0.5, speed)
+            } else {
+                currentBuf += 3.0 / max(0.5, speed)
+            }
+            idx += 1
+        }
+
+        return targetIndices
+    }
+
     private func updateNghiPrefetchWindow() {
+        updateNghiBufferedDuration()
         let targetIndices = nghiFutureTargetIndices()
         let keepIndices = Set([currentParagraphIndex] + targetIndices)
 
@@ -2188,6 +2240,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             preloadedDurations.removeValue(forKey: index)
         }
 
+        updateNghiBufferedDuration()
         prepareNextNghiAudioIfPossible()
         scheduleNghiRefill()
         checkAndPromoteNextChapterAudioIfNeeded()
@@ -2235,6 +2288,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 if self.nghiRefillGeneration == refillGeneration {
                     self.nghiRefillInFlightIndex = nil
                     self.nghiRefillTask = nil
+                    self.updateNghiBufferedDuration()
                 }
             }
 
@@ -2247,8 +2301,22 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 generation: expectedGeneration,
                 refillGeneration: refillGeneration
             ) {
-                let targets = self.nghiFutureTargetIndices()
-                guard let index = targets.first(where: { self.preloadedData[$0] == nil }) else { break }
+                let N = self.currentParagraphIndex
+                let nextIndex = N + 1
+                let watermarks = self.nghiWatermarks
+                let currentBuf = self.calculateNghiBufferedDuration()
+
+                let targetIndex: Int?
+                if nextIndex < self.paragraphs.count && self.preloadedData[nextIndex] == nil {
+                    targetIndex = nextIndex
+                } else if currentBuf < watermarks.high {
+                    let targets = self.nghiFutureTargetIndices()
+                    targetIndex = targets.first(where: { self.preloadedData[$0] == nil })
+                } else {
+                    targetIndex = nil
+                }
+
+                guard let index = targetIndex else { break }
 
                 let paragraph = self.paragraphs[index]
                 let text = TTSReplacementManager.shared.applyReplacements(to: paragraph.text)
@@ -2275,9 +2343,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     ) else { return }
 
                     self.nghiRefillInFlightIndex = nil
-                    if self.nghiFutureTargetIndices().contains(index) {
+                    if self.nghiFutureTargetIndices().contains(index) || index == nextIndex {
                         self.preloadedData[index] = wavData
                         self.preloadedDurations[index] = WAVEncoder.duration(of: wavData)
+                        self.updateNghiBufferedDuration()
                         self.prepareNextNghiAudioIfPossible()
                         self.checkAndPromoteNextChapterAudioIfNeeded()
                     }
@@ -2291,10 +2360,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     break
                 }
 
-                let hasMoreMissing = self.nghiFutureTargetIndices().contains {
-                    self.preloadedData[$0] == nil
-                }
-                guard hasMoreMissing else { break }
+                let updatedBuf = self.calculateNghiBufferedDuration()
+                let hasMissingNext = nextIndex < self.paragraphs.count && self.preloadedData[nextIndex] == nil
+                guard hasMissingNext || updatedBuf < watermarks.low else { break }
 
                 let delayMs = max(300, self.prefetchDelayMs)
                 do {
@@ -3496,6 +3564,18 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 }
                 .store(in: &cancellables)
         }
+
+        // 5. Thermal State Change (thiết bị nóng/mát)
+        NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self = self else { return }
+                self.currentThermalState = ProcessInfo.processInfo.thermalState
+                if self.tool == "nghitts" && self.isPlaying {
+                    self.updateNghiPrefetchWindow()
+                }
+            }
+            .store(in: &cancellables)
     }
 
     private func handleInterruption(notification: Notification) {

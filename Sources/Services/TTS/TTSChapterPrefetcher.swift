@@ -169,16 +169,24 @@ internal final class TTSChapterPrefetcher {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !textToSpeak.isEmpty else { return }
 
-        if key.tool == "nghitts" && nghiService == nil {
-            handleSynthesisFailure(
-                key: key,
-                gen: gen,
-                processed: processed,
-                loadMs: loadMs,
-                processMs: processMs,
-                reason: "service_unavailable"
-            )
-            return
+        if key.tool == "nghitts" {
+            let thermalState = ProcessInfo.processInfo.thermalState
+            if thermalState == .serious || thermalState == .critical {
+                AppLogger.shared.log("ℹ️ [TTSChapterPrefetcher] Bỏ qua prefetch audio chương kế tiếp do thiết bị đang nóng (thermalState=\(thermalState.rawValue))")
+                return
+            }
+
+            if nghiService == nil {
+                handleSynthesisFailure(
+                    key: key,
+                    gen: gen,
+                    processed: processed,
+                    loadMs: loadMs,
+                    processMs: processMs,
+                    reason: "service_unavailable"
+                )
+                return
+            }
         }
 
         currentState = .synthesizingAudio(key: key, generation: gen, processed: processed, loadMs: loadMs, processMs: processMs)

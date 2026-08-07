@@ -371,14 +371,17 @@ struct TTSSettingsView: View {
                             }
                         }
                     } else if ttsManager.tool == "nghitts" {
-                        Stepper(value: $ttsManager.nghittsPrefetchCount, in: 1...10) {
+                        VStack(alignment: .leading, spacing: 6) {
                             HStack {
-                                Text("Số đoạn tải trước (NghiTTS):")
+                                Text("Bộ đệm âm thanh (NghiTTS):")
                                 Spacer()
-                                Text("\(ttsManager.nghittsPrefetchCount) đoạn")
+                                Text("\(String(format: "%.1f", ttsManager.nghiBufferedDuration))s / \(String(format: "%.0f", ttsManager.nghiWatermarks.high))s")
                                     .font(.system(.body, design: .monospaced))
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(.accentColor)
                             }
+                            Text("Tự động ngắt nạp khi đệm đủ thời lượng để tiết kiệm pin & hạ nhiệt máy.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
                     } else if ttsManager.tool == "system" {
                         Text("Siri hệ thống tự động quản lý luồng đọc")

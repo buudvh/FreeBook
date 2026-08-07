@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.96] - 2026-08-07
+
+### Tối Ưu Nhiệt Độ & Prefetch Theo Thời Lượng Audio Cho NghiTTS (`TTSManager.swift`, `TTSChapterPrefetcher.swift`, `ONNXPiperEngine.swift`, `TTSSettingsView.swift`)
+* **Duration-Based Prefetch & Hysteresis Watermarking (`TTSManager.swift`)**:
+  * Chuyển đổi prefetch NghiTTS từ đếm số lượng đoạn cố định (`nghittsPrefetchCount = 3`) sang cơ chế tính thời lượng bộ đệm audio (`calculateNghiBufferedDuration()`).
+  * Áp dụng mốc Low Watermark (5s) / High Watermark (12s). Tự động dừng loop ONNX khi đệm đủ 12 giây, đưa CPU Duty Cycle từ 30%-100% xuống <15%.
+  * Giữ vững bất biến (Invariant): Đoạn $N+1$ luôn được ưu tiên tổng hợp và `prepareNext` ngay lập tức để không gây đứt đệm.
+* **Thermal-Aware Prefetch Policy (`TTSManager.swift`, `TTSChapterPrefetcher.swift`)**:
+  * Lắng nghe sự kiện `ProcessInfo.thermalStateDidChangeNotification`.
+  * Điều chỉnh động mốc Watermark theo 4 mức nhiệt (`.nominal`: 6s/14s, `.fair`: 4s/9s, `.serious`: 2.5s/5s, `.critical`: 1.5s/3s).
+  * Trong `TTSChapterPrefetcher`, tự động bỏ qua tác vụ prefetch audio chương kế tiếp khi thiết bị ở mức nhiệt `.serious` hoặc `.critical`.
+* **Vòng Đời Lifecycle & Cancellation (`TTSManager.swift`)**:
+  * Trong `pause()`, bổ sung hủy `nextChapterPrefetcher.cancel()` và `PiperSynthesisCoordinator.shared.cancelAllPending()` để ngắt triệt để CPU compute.
+  * Cập nhật `nghiRefillGeneration` và discard ngay kết quả ONNX C++ dở dang sau khi Seek/Skip/Stop.
+* **Đồng Bộ Trạng Thái Preload Trực Quan (`TTSSettingsView.swift`)**:
+  * Khai báo `@Published public var nghiBufferedDuration: Double` trong `TTSManager`.
+  * Đồng bộ giao diện cấu hình `TTSSettingsView` hiển thị mốc bộ đệm audio thực tế (`Đã nạp trước: X s / Y s`) và giải thích cơ chế tự ngắt nạp để hạ nhiệt máy.
+
 ## [1.3.95] - 2026-08-06
 
 ### Hoàn Thiện Tối Ưu Luồng NghiTTS (Buffer Audio Đầu 1-1.5s, ONNX Threads & Thermal Management) (`ONNXPiperEngine.swift`, `PiperTTSService.swift`, `PiperSynthesisCoordinator.swift`, `TTSManager.swift`, `NghiTTSPerformanceTests.swift`)
