@@ -3,37 +3,46 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-07T16:22:01.868664Z",
-  "gitCommit": "88e382c6dde684129e1518b95e8ad84adf01e03b",
-  "sourceFileCount": 128,
+  "generatedAt": "2026-08-10T15:52:54.517464Z",
+  "gitCommit": "7a3dd05ae2cbf21b9a1256cd94cbab7faf3cec23",
+  "sourceFileCount": 130,
   "documentCount": 16,
   "documents": [
     {
       "filename": "00_index.md",
       "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "generatedHash": "38cb69ed65f9f5c9063535f54ad3378428928f351f7558813d9525ddfdf2f26f",
-      "generatedAt": "2026-08-04T09:29:06.814811Z",
+      "generatedHash": "6ec86e175dcb0f1b9fc8c82566d7d5942d8078b2dfdb6abee0a01364c2b8b0da",
+      "generatedAt": "2026-08-10T15:50:47.493298Z",
       "sourceFiles": [],
       "documentVersion": 3
     },
     {
       "filename": "01_project.md",
-      "sourceHash": "709c3fad7e79911624348782ad5b34158e633213eede49958baa008144680a23",
-      "generatedHash": "0a32ddec37b30066a4c0e29a0ea08fa86ffb45cb444ebd8c4a7c3a1bcdc20ae0",
-      "generatedAt": "2026-08-01T01:36:58.594140Z",
+      "sourceHash": "2a4266a7bf5014698d699168286de5fd27763d555a45c4e133957dcf4c50b751",
+      "generatedHash": "7b78851b938b9d6d91bc89a92924bdefd9f8457a7159bbaf3c5fd94e6f79cb45",
+      "generatedAt": "2026-08-10T15:52:54.517464Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Views/Reader/ReaderJunkDeleteOverlayView.swift",
-        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift"
+        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
+        "Sources/Services/Extensions/Engine/JSExecutor.swift",
+        "Sources/Services/Extensions/Manager/ExtensionManager.swift",
+        "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
+        "Sources/Services/TTS/Ext/ExtTTSService.swift",
+        "Sources/Services/TTS/Google/GoogleTTSService.swift",
+        "Sources/Services/TTS/RemoteTTSSynthesisCoordinator.swift",
+        "Sources/Services/TTS/TTSChapterPrefetcher.swift",
+        "Sources/Services/TTS/TTSManager.swift",
+        "Sources/Views/Reader/ReaderView.swift"
       ],
       "documentVersion": 1
     },
     {
       "filename": "02_file_graph.md",
-      "sourceHash": "fca9cf02773bc1130fa3d7402db90739e9c0b4143ecfbfbde3872c9e824a90cc",
-      "generatedHash": "43730f525b7936138703847f627b47fe692381673fd16859c8e029a19bd550f4",
-      "generatedAt": "2026-08-07T16:22:01.868664Z",
+      "sourceHash": "c0d1b6f218b72a73d64062bbfbf9fc688403c4496fd3d349a7a550dec6296029",
+      "generatedHash": "179f71570fa3cb44e44773cd0040b2461ed41ef662c986f7f09b375cdb7e3e25",
+      "generatedAt": "2026-08-10T15:52:54.517464Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -139,15 +148,18 @@
         "Sources/Views/TTSWidget/TTSFloatingWidgetView.swift",
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
+        "Sources/Services/TTS/Google/GoogleTTSService.swift",
+        "Sources/Services/TTS/RemoteTTSSynthesisCoordinator.swift"
       ],
       "documentVersion": 2
     },
     {
       "filename": "03_type_graph.md",
-      "sourceHash": "b863554af091a2ce83c864df3674ee6e1e124216cd80a84afe01ed46fe1b04c0",
-      "generatedHash": "3d67c9720e211cb571567722c52e2b25d4bb0edcd772d3741a8cb37bb8eaa379",
-      "generatedAt": "2026-08-07T16:22:01.868664Z",
+      "sourceHash": "38bd58f2bab457c0302e719eae13d722745a45dbb41ea9ceeb8ce9313d7de5fa",
+      "generatedHash": "ea4cbc47860b4f5753d1290f53373558d5efa3957db28a561e5c44b168bca84c",
+      "generatedAt": "2026-08-10T15:52:54.517464Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -242,15 +254,19 @@
         "Sources/Views/TTSWidget/TTSFloatingWidgetView.swift",
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
+        "Sources/Services/TTS/Google/GoogleTTSService.swift",
+        "Sources/Services/TTS/RemoteTTSSynthesisCoordinator.swift",
+        "Sources/Services/TTS/TTSChapterPrefetcher.swift"
       ],
       "documentVersion": 4
     },
     {
       "filename": "04_call_graph.md",
-      "sourceHash": "5cfcb0457230ccd247a2f3744936b63d6660d5ebc231ee3eac307cb62639954d",
-      "generatedHash": "84df94a2d0cdfd2f0a56d5eb2205ce84c0eb683286224f7b1a1d551ad67e8b08",
-      "generatedAt": "2026-08-07T16:22:01.868664Z",
+      "sourceHash": "a04efd6a5852ec2c5bc2f0509ce6af976f5cd649aa7bd423be2f3715d6f4ec4b",
+      "generatedHash": "0dc8ec1b44615f7f7e6105e3dc9353dc377b52e2b9f49064661c5c537118acf8",
+      "generatedAt": "2026-08-10T15:52:54.517464Z",
       "sourceFiles": [
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Services/Download/BookStorageManager.swift",
@@ -266,15 +282,21 @@
         "Sources/Views/Reader/ReaderTextView.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift",
-        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift"
+        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
+        "Sources/Services/Extensions/Manager/ExtensionManager.swift",
+        "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
+        "Sources/Services/TTS/Ext/ExtTTSService.swift",
+        "Sources/Services/TTS/Google/GoogleTTSService.swift",
+        "Sources/Services/TTS/RemoteTTSSynthesisCoordinator.swift",
+        "Sources/Services/TTS/TTSChapterPrefetcher.swift"
       ],
       "documentVersion": 5
     },
     {
       "filename": "05_state_graph.md",
-      "sourceHash": "c5b955fda9a478e0f2164642fe5d66b66e9b9074568f15f3ceb65007647ab8c4",
-      "generatedHash": "7f16433f69faeea41ba7372d46476d7c50bec52c9115da285222730782c8e8f7",
-      "generatedAt": "2026-08-07T16:22:01.868664Z",
+      "sourceHash": "76f19363665a4aa388b16e6114fd9da97409f90a3fafecf9caf1f8cc83c42b68",
+      "generatedHash": "692b37e324cb7e78365c6ea9081cb939ea174b5ddf2f9f60fede81f71572fb56",
+      "generatedAt": "2026-08-10T15:52:54.517464Z",
       "sourceFiles": [
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Services/Download/BookStorageManager.swift",
@@ -284,15 +306,22 @@
         "Sources/Views/Reader/ReaderJunkDeleteOverlayView.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift",
-        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift"
+        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
+        "Sources/Services/Extensions/Engine/JSExecutor.swift",
+        "Sources/Services/Extensions/Manager/ExtensionManager.swift",
+        "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
+        "Sources/Services/TTS/Ext/ExtTTSService.swift",
+        "Sources/Services/TTS/Google/GoogleTTSService.swift",
+        "Sources/Services/TTS/RemoteTTSSynthesisCoordinator.swift",
+        "Sources/Services/TTS/TTSChapterPrefetcher.swift"
       ],
       "documentVersion": 4
     },
     {
       "filename": "06_event_graph.md",
-      "sourceHash": "cad06076caae915950b9712e5561ebf96ef678507ae5b8467d457939de0c8cd0",
-      "generatedHash": "ad85bbbd3555e65bd92859a3b9bb01b5e56b86028d25afcc83514d8ae2304ba8",
-      "generatedAt": "2026-08-07T16:22:01.868664Z",
+      "sourceHash": "b62ce9dbe703b091959bf539d9ab6a73e66eb285c7fbba6695789cf6171207d9",
+      "generatedHash": "6553d6bc41742ac6bade00793b142afc31a5fec05201e731cc57fba9666a50b7",
+      "generatedAt": "2026-08-10T15:52:54.517464Z",
       "sourceFiles": [
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
@@ -306,15 +335,21 @@
         "Sources/Views/Reader/ReaderTextView.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift",
-        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift"
+        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
+        "Sources/Services/Extensions/Manager/ExtensionManager.swift",
+        "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
+        "Sources/Services/TTS/Ext/ExtTTSService.swift",
+        "Sources/Services/TTS/Google/GoogleTTSService.swift",
+        "Sources/Services/TTS/RemoteTTSSynthesisCoordinator.swift",
+        "Sources/Services/TTS/TTSChapterPrefetcher.swift"
       ],
       "documentVersion": 6
     },
     {
       "filename": "07_dataflow.md",
-      "sourceHash": "508baaf0fee15b7f620c8c9b73d70c9a78ea0d7a7393c2b19477a6cf45122a0b",
-      "generatedHash": "a3df2d9e91dd554711de3103875092ad49e425d64ee7cfb1f4be36b105de64c4",
-      "generatedAt": "2026-08-07T16:22:01.868664Z",
+      "sourceHash": "d7bc0930d2a5e92370ce60626e158719f36e89508c0422a348d1469aed785aa9",
+      "generatedHash": "9c7ae7ddd370408a8b217539343d968cb21496709287faeb289147e06b37c823",
+      "generatedAt": "2026-08-10T15:52:54.517464Z",
       "sourceFiles": [
         "Sources/Common/Services/ImageCacheManager.swift",
         "Sources/Services/ChapterText/JunkFilterManager.swift",
@@ -329,15 +364,22 @@
         "Sources/Views/Reader/ReaderSelectionMapper.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift",
-        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift"
+        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
+        "Sources/Services/Extensions/Engine/JSExecutor.swift",
+        "Sources/Services/Extensions/Manager/ExtensionManager.swift",
+        "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
+        "Sources/Services/TTS/Ext/ExtTTSService.swift",
+        "Sources/Services/TTS/Google/GoogleTTSService.swift",
+        "Sources/Services/TTS/RemoteTTSSynthesisCoordinator.swift",
+        "Sources/Services/TTS/TTSChapterPrefetcher.swift"
       ],
       "documentVersion": 5
     },
     {
       "filename": "08_lifecycle.md",
-      "sourceHash": "b5ef3472b38c0471aa6ad727bba27572dcb806a3e72cd86b9c172f7bc9de4a7f",
+      "sourceHash": "56b617e05f57e62c77419a00661c4644242b53327e5a59d60dc98a3b3cc579b5",
       "generatedHash": "e98539224a45d72ac07b4433ec416d7f672dce13bbd14640a37afca5b085e64c",
-      "generatedAt": "2026-08-07T09:02:05.264842Z",
+      "generatedAt": "2026-08-10T15:50:47.493298Z",
       "sourceFiles": [
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Views/Common/BypassWebView.swift",
@@ -355,17 +397,27 @@
     },
     {
       "filename": "09_dependency_rules.md",
-      "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "generatedHash": "834fa3eccc2d541073c844bfb302b96b669a17f42a663b2c3a7013b9dc827f46",
-      "generatedAt": "2026-07-18T04:26:43.794822Z",
-      "sourceFiles": [],
+      "sourceHash": "4f79701d05766fb906241a1ccf4aacf17d0510041607ebe1acf70afb9b97bfc2",
+      "generatedHash": "c78c919a9c11d9ba1b8999e1e9212e4586165e59ce13e3a1829d416f61709dfa",
+      "generatedAt": "2026-08-10T15:52:54.517464Z",
+      "sourceFiles": [
+        "Sources/Services/Extensions/Engine/JSExecutor.swift",
+        "Sources/Services/Extensions/Manager/ExtensionManager.swift",
+        "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
+        "Sources/Services/TTS/Ext/ExtTTSService.swift",
+        "Sources/Services/TTS/Google/GoogleTTSService.swift",
+        "Sources/Services/TTS/RemoteTTSSynthesisCoordinator.swift",
+        "Sources/Services/TTS/TTSChapterPrefetcher.swift",
+        "Sources/Services/TTS/TTSManager.swift",
+        "Sources/Views/Reader/ReaderView.swift"
+      ],
       "documentVersion": 1
     },
     {
       "filename": "10_risk_report.md",
-      "sourceHash": "f8ca38a1d5f7d864fbb032ca9176621c53e7e72bc2ac5e49ef9a144591692f54",
-      "generatedHash": "14c306aaf685d7098c0ce7937a3921d109049a44c898f294c5e94cab7be12e42",
-      "generatedAt": "2026-08-07T16:22:01.868664Z",
+      "sourceHash": "34e7cef12778ca03e59919b78c366c5e03b1ffe75e9f11c8f2910d8c75b721bd",
+      "generatedHash": "fefc823ffd31df3fbbe161936af87538a4037ff4078edd4c4f18f3f42d228fba",
+      "generatedAt": "2026-08-10T15:52:54.517464Z",
       "sourceFiles": [
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
@@ -375,15 +427,21 @@
         "Sources/Views/Reader/ReaderJunkDeleteOverlayView.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift",
-        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift"
+        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
+        "Sources/Services/Extensions/Manager/ExtensionManager.swift",
+        "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
+        "Sources/Services/TTS/Ext/ExtTTSService.swift",
+        "Sources/Services/TTS/Google/GoogleTTSService.swift",
+        "Sources/Services/TTS/RemoteTTSSynthesisCoordinator.swift",
+        "Sources/Services/TTS/TTSChapterPrefetcher.swift"
       ],
       "documentVersion": 2
     },
     {
       "filename": "11_subsystems.md",
-      "sourceHash": "da009886e150fdfc286d19986a984d687bb4ed86f771c9be6d393cbc8b5c376e",
-      "generatedHash": "345620d548df27b7c59635a336267cb339dbf24dcdd8053c204381dad09f08f1",
-      "generatedAt": "2026-08-07T16:22:01.868664Z",
+      "sourceHash": "75c72c563154176cc4b833971504628935aeed8da6f5f0fa9230c90112427439",
+      "generatedHash": "06bc19e5848322022c8e882c8359b48279f1274203ac3e0f869e9adb766b3a7c",
+      "generatedAt": "2026-08-10T15:52:54.517464Z",
       "sourceFiles": [
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Services/Download/BookStorageManager.swift",
@@ -401,15 +459,21 @@
         "Sources/Views/Reader/ReaderTextView.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift",
-        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift"
+        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
+        "Sources/Services/Extensions/Engine/JSExecutor.swift",
+        "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
+        "Sources/Services/TTS/Ext/ExtTTSService.swift",
+        "Sources/Services/TTS/Google/GoogleTTSService.swift",
+        "Sources/Services/TTS/RemoteTTSSynthesisCoordinator.swift",
+        "Sources/Services/TTS/TTSChapterPrefetcher.swift"
       ],
       "documentVersion": 4
     },
     {
       "filename": "12_ownership_graph.md",
-      "sourceHash": "b9096ae59c30c03c48c9755c38e7d76d6ea6aa1b954293b6c51efc43bb7e5130",
-      "generatedHash": "c5437e00aefed9779993c76d211359aa150c0ae4a7cc15fef8b823353eab4365",
-      "generatedAt": "2026-08-07T16:22:01.868664Z",
+      "sourceHash": "8d756f19359ae6c59b0d73d802819da00e7c832899bab36688e5c85b6a4bdfd0",
+      "generatedHash": "e3651fc09caf8a4aa722dd74fa10afd426d9fa185c356eb27f809593fa17ffb5",
+      "generatedAt": "2026-08-10T15:52:54.517464Z",
       "sourceFiles": [
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
@@ -418,15 +482,21 @@
         "Sources/Services/Translation/Manager/TranslationManager.swift",
         "Sources/Views/Reader/ReaderJunkDeleteOverlayView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift",
-        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift"
+        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
+        "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
+        "Sources/Services/TTS/Ext/ExtTTSService.swift",
+        "Sources/Services/TTS/Google/GoogleTTSService.swift",
+        "Sources/Services/TTS/RemoteTTSSynthesisCoordinator.swift",
+        "Sources/Services/TTS/TTSChapterPrefetcher.swift",
+        "Sources/Views/Reader/ReaderView.swift"
       ],
       "documentVersion": 3
     },
     {
       "filename": "13_resource_lifecycle.md",
-      "sourceHash": "bfb2ec2c7670d5c7b95949375c39c654d41262d02b113b7252c9cb88327b23cb",
-      "generatedHash": "1cefaa3c7fc0b5b308229a8c52d703a7f80d9a436c94987e9a5d09d5d9249721",
-      "generatedAt": "2026-08-07T16:22:01.868664Z",
+      "sourceHash": "d47297ec96e8176c8df21a7a058c0a1523799079e89a7a2d1382d2f0f8dbf9ea",
+      "generatedHash": "86bbacf9847e0734d61351ee6c09c156ddb82b8c997b4943a47a05d8f2450129",
+      "generatedAt": "2026-08-10T15:52:54.517464Z",
       "sourceFiles": [
         "Sources/Services/ChapterText/JunkFilterManager.swift",
         "Sources/Services/Extensions/Engine/JSExecutor.swift",
@@ -435,15 +505,21 @@
         "Sources/Views/Reader/ReaderJunkDeleteOverlayView.swift",
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift",
-        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift"
+        "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
+        "Sources/Services/Extensions/Manager/ExtensionManager.swift",
+        "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
+        "Sources/Services/TTS/Ext/ExtTTSService.swift",
+        "Sources/Services/TTS/Google/GoogleTTSService.swift",
+        "Sources/Services/TTS/RemoteTTSSynthesisCoordinator.swift",
+        "Sources/Services/TTS/TTSChapterPrefetcher.swift"
       ],
       "documentVersion": 4
     },
     {
       "filename": "14_complexity_report.md",
-      "sourceHash": "b66f12aa1a239f222d1a93bd36a1d9019818d1d331c92c4642723cba78e7e5fa",
-      "generatedHash": "ccd203d05bb8cf74264ed6928e4c772ba1c8b69ba087bc1f135ae1d36465d94d",
-      "generatedAt": "2026-08-07T16:22:01.868664Z",
+      "sourceHash": "b8df1ce78df2500acb0f5a8b8b12a15d4b554f3dd65aeb886b2b369350223b9c",
+      "generatedHash": "6038d5ac35437244d4eed35c41be0b04b84fb29a4f11bd1734d955665917b89a",
+      "generatedAt": "2026-08-10T15:52:54.517464Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -536,15 +612,17 @@
         "Sources/Views/TTSWidget/TTSFloatingWidgetView.swift",
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
+        "Sources/Services/TTS/RemoteTTSSynthesisCoordinator.swift"
       ],
       "documentVersion": 2
     },
     {
       "filename": "rules.md",
       "sourceHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "generatedHash": "e8088c8d4f03767dc1756b6f90e93f45cd8eabdf25f63c213b7eae55bf57473c",
-      "generatedAt": "2026-08-06T10:00:08.314248Z",
+      "generatedHash": "31d91356ef950aed07c498cb63e94b9b04e63e772fc083b4a2a37a9981aa358f",
+      "generatedAt": "2026-08-10T15:50:47.493298Z",
       "sourceFiles": [],
       "documentVersion": 6
     }

@@ -176,4 +176,8 @@ graph TD
 - Caching paths for books and covers use SHA-256 hex filename dataflow (`sha256Hex(bookId).bin` and `sha256Hex(bookId).jpg`) with automatic path safety validation.
 - `Engine.Browser.waitForReady` passes a JSON string representing DOM readiness (`{ready, failed, reason, chars, encoded}`) from `WKWebView` on the Main Actor to the JS worker thread via native bridge parameters.
 
+- Remote audio data flows `paragraph/voice/session key -> coordinator queue -> one service operation -> deduplicated waiters -> bounded preloadedData window -> AVAudioPlayer`.
+- Google response bytes are deserialized once, inspected for API errors/audio, then Base64-decoded. Binary Ext fetch responses skip text decoding and flow directly through Base64 to `ExtTTSService`.
+- Next-chapter content/paragraph DTOs may be prepared early, but first-paragraph audio enters the remote queue only when at most two parent paragraphs remain.
+
 <!-- GENERATED END -->

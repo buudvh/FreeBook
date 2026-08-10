@@ -119,7 +119,10 @@ public final class GoogleTTSService: Sendable {
                 
                 if isTransient {
                     AppLogger.shared.log("⚠️ [GoogleTTSService] Thử lại lượt \(attempts)/\(maxAttempts) do lỗi tạm thời: \(error.localizedDescription)")
-                    try await Task.sleep(nanoseconds: 400_000_000)
+                    let retryAfter = (nsError.userInfo["retryAfterSeconds"] as? Double) ?? 0
+                    let exponentialDelay = 0.4 * pow(2.0, Double(attempts - 1))
+                    let delay = min(2.0, max(retryAfter, exponentialDelay))
+                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                 } else {
                     throw error
                 }
@@ -134,60 +137,61 @@ public final class GoogleTTSService: Sendable {
             throw NSError(domain: "GoogleTTSService", code: -4, userInfo: [NSLocalizedDescriptionKey: "Phản hồi từ máy chủ không hợp lệ"])
         }
         
-        let rawResponseString = String(data: data, encoding: .utf8) ?? ""
-
         guard (200...299).contains(httpResponse.statusCode) else {
+            let rawResponseString = String(data: data, encoding: .utf8) ?? ""
             AppLogger.shared.log("❌ [GoogleTTSService] Lỗi HTTP \(httpResponse.statusCode): \(rawResponseString)")
-            throw NSError(domain: "GoogleTTSService", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Google TTS API Lỗi HTTP \(httpResponse.statusCode): \(rawResponseString)"])
-        }
-        
-        // 1. Kiểm tra xem có lỗi trong JSON Dict hay bất kỳ phần tử nào của mảng JSON hay không
-        if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [Any] {
-            for element in jsonArray {
-                if let dict = element as? [String: Any],
-                   let errorObj = dict["error"] as? [String: Any],
-                   let message = errorObj["message"] as? String {
-                    var detailMsg = message
-                    if let details = errorObj["details"] as? [[String: Any]],
-                       let firstDetail = details.first,
-                       let violations = firstDetail["violations"] as? [[String: Any]],
-                       let firstViolation = violations.first,
-                       let subject = firstViolation["subject"] as? String {
-                        detailMsg += " (Giọng '\(subject)' không được hỗ trợ)"
-                    }
-                    AppLogger.shared.log("❌ [GoogleTTSService] Google API Error: \(detailMsg)")
-                    throw NSError(domain: "GoogleTTSService", code: -6, userInfo: [NSLocalizedDescriptionKey: "Google TTS Lỗi: \(detailMsg)"])
-                }
+            var userInfo: [String: Any] = [
+                NSLocalizedDescriptionKey: "Google TTS API Lỗi HTTP \(httpResponse.statusCode): \(rawResponseString)"
+            ]
+            if let retryAfterValue = httpResponse.value(forHTTPHeaderField: "Retry-After"),
+               let retryAfterSeconds = Double(retryAfterValue) {
+                userInfo["retryAfterSeconds"] = retryAfterSeconds
             }
-        }
-        
-        if let jsonDict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let errorObj = jsonDict["error"] as? [String: Any],
-           let message = errorObj["message"] as? String {
-            AppLogger.shared.log("❌ [GoogleTTSService] Google API Error: \(message)")
-            throw NSError(domain: "GoogleTTSService", code: -6, userInfo: [NSLocalizedDescriptionKey: "Google TTS Lỗi: \(message)"])
+            throw NSError(domain: "GoogleTTSService", code: httpResponse.statusCode, userInfo: userInfo)
         }
 
-        // 2. Tìm kiếm linh hoạt chuỗi Base64 audio bytes trong tất cả các phần tử của mảng JSON
-        var base64String: String? = nil
-        if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [Any] {
-            for element in jsonArray {
-                if let dict = element as? [String: Any] {
-                    if let audioObj = dict["audio"] as? [String: Any],
-                       let bytes = audioObj["bytes"] as? String,
-                       !bytes.isEmpty {
-                        base64String = bytes
-                        break
-                    } else if let bytes = dict["bytes"] as? String, !bytes.isEmpty {
-                        base64String = bytes
-                        break
-                    }
+        // Parse exactly once. The old path materialized the raw response and
+        // deserialized the same payload up to three times for every chunk.
+        let jsonObject = try JSONSerialization.jsonObject(with: data)
+        let responseElements: [[String: Any]]
+        if let array = jsonObject as? [[String: Any]] {
+            responseElements = array
+        } else if let dictionary = jsonObject as? [String: Any] {
+            responseElements = [dictionary]
+        } else {
+            responseElements = []
+        }
+
+        for dictionary in responseElements {
+            if let errorObject = dictionary["error"] as? [String: Any],
+               let message = errorObject["message"] as? String {
+                var detailedMessage = message
+                if let details = errorObject["details"] as? [[String: Any]],
+                   let firstDetail = details.first,
+                   let violations = firstDetail["violations"] as? [[String: Any]],
+                   let subject = violations.first?["subject"] as? String {
+                    detailedMessage += " (Giọng '\(subject)' không được hỗ trợ)"
                 }
+                AppLogger.shared.log("❌ [GoogleTTSService] Google API Error: \(detailedMessage)")
+                throw NSError(domain: "GoogleTTSService", code: -6, userInfo: [NSLocalizedDescriptionKey: "Google TTS Lỗi: \(detailedMessage)"])
             }
         }
+
+        let base64String = responseElements.lazy.compactMap { dictionary -> String? in
+            if let audioObject = dictionary["audio"] as? [String: Any],
+               let bytes = audioObject["bytes"] as? String,
+               !bytes.isEmpty {
+                return bytes
+            }
+            if let bytes = dictionary["bytes"] as? String, !bytes.isEmpty {
+                return bytes
+            }
+            return nil
+        }.first
         
         guard let validBase64 = base64String,
               let audioData = Data(base64Encoded: validBase64.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            let rawResponseString = String(data: data, encoding: .utf8) ?? ""
             AppLogger.shared.log("❌ [GoogleTTSService] Phản hồi JSON không chứa dữ liệu âm thanh hợp lệ. Response Raw: \(rawResponseString)")
             throw NSError(domain: "GoogleTTSService", code: -5, userInfo: [NSLocalizedDescriptionKey: "Google TTS API không có audio. Chi tiết: \(rawResponseString)"])
         }

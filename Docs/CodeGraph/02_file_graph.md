@@ -1334,4 +1334,10 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 - `ChapterContentRepository.swift` delegates local reads/background upserts to the new `ChapterPersistenceStore.swift`; Reader and TTS callers depend on the repository rather than direct cache flags.
 - `RepositoryManagerView.swift` owns explicit repository-deletion confirmation and no longer installs row swipe actions that compete with its paged `TabView`.
 
+#### Remote TTS additions (2026-08)
+
+- [RemoteTTSSynthesisCoordinator.swift](../../Sources/Services/TTS/RemoteTTSSynthesisCoordinator.swift) is used by `TTSManager`, `TTSChapterPrefetcher`, and `ReaderView`; it owns the single active Google/Ext synthesis slot, priority queue, and request-key deduplication.
+- [ExtTTSRuntime.swift](../../Sources/Services/TTS/Ext/ExtTTSRuntime.swift) is owned by `ExtensionManager`; it owns the persistent TTS-only `JSExecutor` and rebuilds it when extension script/config identity changes.
+- `JSExecutor.swift` exposes script preparation, prepared-function calls, and cancellable native network tasks. `ExtTTSService.swift` owns Ext retry; `GoogleTTSService.swift` owns Google retry and single-pass JSON parsing.
+
 <!-- GENERATED END -->

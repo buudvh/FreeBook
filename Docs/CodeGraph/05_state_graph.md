@@ -152,4 +152,8 @@ stateDiagram-v2
 - `NghiAudioPlayerQueue` manages double-buffering playback state via `NghiQueueState`: `idle` -> `playing` -> `prepared` (N+1 ready in memory) -> `scheduled` (N+1 scheduled with device clock atTime) -> `paused` (schedule invalidated, next player instance preserved in memory) / `waitingForSynthesis` (fallback when prefetch is not ready).
 - `TTSBoundaryKind` (`technicalChunk`, `sentenceEnd`, `paragraphEnd`, `chapterEnd`) eliminates artificial 0.5s pauses for technical split chunks within long sentences.
 
+- Remote synthesis jobs transition `queued -> active -> completed/failed`; cancellation transitions queued waiters directly to cancelled, while a cancellation-insensitive active job keeps the sole slot until its operation actually returns.
+- Duplicate synthesis keys attach a waiter to the existing job instead of creating a second operation. A queued job can be promoted from `prefetch` to `current` priority.
+- Thermal `.serious/.critical` transitions remote prefetch to stopped without preventing the current chunk from being synthesized on demand after playback resumes or thermal pressure falls.
+
 <!-- GENERATED END -->

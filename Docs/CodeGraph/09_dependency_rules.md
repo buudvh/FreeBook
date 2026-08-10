@@ -73,4 +73,8 @@ graph TD
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 
+- `RemoteTTSSynthesisCoordinator` is a service-layer actor and may be used by `TTSManager`, `TTSChapterPrefetcher`, and Reader's selected-text audio action; it must not depend on UI types.
+- `ExtensionManager -> ExtTTSRuntime -> JSExecutor` is the approved TTS-only persistent runtime dependency. Other extension operations must continue constructing function-local executors.
+- Google/Ext service operations must enter through the coordinator at playback call sites; retry remains inside each service to avoid cross-layer nested retry.
+
 <!-- GENERATED END -->

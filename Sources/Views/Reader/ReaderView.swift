@@ -671,7 +671,12 @@ struct ReaderView: View {
             let voice = UserDefaults.standard.string(forKey: "googleVoice") ?? "via"
             Task {
                 do {
-                    let mp3Data = try await googleService.synthesize(text: text, voice: voice, speed: 1.0, pitch: 1.0)
+                    let mp3Data = try await RemoteTTSSynthesisCoordinator.shared.synthesize(
+                        key: "selection|\(UUID().uuidString)|google|\(voice)",
+                        priority: .current
+                    ) {
+                        try await googleService.synthesize(text: text, voice: voice, speed: 1.0, pitch: 1.0)
+                    }
                     await MainActor.run {
                         do {
                             let player = try AVAudioPlayer(data: mp3Data)

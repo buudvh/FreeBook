@@ -108,4 +108,7 @@ graph TD
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 
+- Remote TTS separates buffer depth from execution concurrency: `TTSManager` may target three future chunks, while `RemoteTTSSynthesisCoordinator` runs one Google/Ext operation and prioritizes current playback over speculative work.
+- `ExtensionManager` retains a serialized `ExtTTSRuntime` only for TTS; other extension actions preserve short-lived `JSExecutor` isolation.
+
 <!-- GENERATED END -->

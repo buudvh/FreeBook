@@ -286,4 +286,8 @@ Reader chrome observes the pending target and immediately shows its title, chapt
 - `ReaderChapterListStore` virtualizes Table of Contents row retrieval dynamically using index-based ForEach loop representation, removing lightweight row arrays from class memory entirely. It uses `BackgroundSearchWorker` actor to search SwiftData off the main thread and `BackgroundPagingWorker` actor to fetch page DTOs off the main thread, keeping search result states separate from active paging state.
 - Reusable ReaderWaitOverlayView component provides an instant full-screen wait layer with theme background, a top-left back button calling onBack, translated book/chapter titles, and a centered loading spinner. It is triggered immediately upon tapping 'Read Now', 'Continue Reading', detail TOC chapters, or shelf/history book items across BookDetailView, ShelfView, and ReaderView.
 
+- The TTS subsystem keeps configurable Google/Ext buffer depth but routes every remote synthesis through `RemoteTTSSynthesisCoordinator` (`current`, `prefetch`, `nextChapter` priorities; concurrency one; key deduplication).
+- The Extension subsystem adds a TTS-only persistent `ExtTTSRuntime`; it evaluates `tts.js` once per script/config identity and resets on failure, while all content extraction APIs preserve short-lived executors.
+- Thermal policy adds 500 ms fair-state pacing and cancels speculative remote work at serious/critical states. Next-chapter audio is promoted only near the current chapter boundary.
+
 <!-- GENERATED END -->

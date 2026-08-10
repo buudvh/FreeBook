@@ -281,23 +281,36 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
     ```
 
 ### 5.7. Extension Rules
-*   **Tên**: Tạo thực thể JSExecutor ngắn hạn cho mỗi tác vụ bóc tách
-*   **Loại quy tắc**: **Observed Rule**
-*   **Mô tả**: Mỗi lần chạy bóc tách phải khởi tạo một thực thể `JSExecutor` mới và giải phóng nó sau khi hoàn thành.
-*   **Lý do**: Giải phóng hoàn toàn `JSContext` của JavaScriptCore sau mỗi lần chạy, ngăn rò rỉ bộ nhớ dài hạn của engine JS.
+*   **Tên**: Phân tách vòng đời JSExecutor bóc tách và Ext TTS
+*   **Loại quy tắc**: **Normative Rule**
+*   **Mô tả**:
+    * Các tác vụ bóc tách nội dung (`search`, `detail`, `toc`, `chap`, `home`, `genre`) tiếp tục tạo `JSExecutor` ngắn hạn và giải phóng sau mỗi lần chạy.
+    * Ext TTS được phép dùng một `ExtTTSRuntime` actor giữ `JSExecutor` lâu dài cho extension/config đang hoạt động vì TTS gọi cùng script theo từng chunk. Runtime phải chạy tuần tự, nạp script đúng một lần, reset khi script/config đổi, khi thực thi lỗi hoặc khi session TTS dọn toàn bộ cache.
+*   **Lý do**: Bóc tách cần cô lập trạng thái giữa request; Ext TTS cần tránh tạo và bootstrap lại `JSContext` hàng chục đến hàng trăm lần trong một chương.
 *   **Ví dụ đúng**:
     ```swift
     public func chap(url: String) async throws -> String {
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         return try await executor.runAsync(...)
     }
+
+    actor ExtTTSRuntime {
+        private var executor: JSExecutor? // Chỉ dùng tuần tự cho TTS hiện tại
+    }
     ```
 *   **Ví dụ sai**:
     ```swift
     public final class ExtensionManager {
-        private let sharedExecutor = JSExecutor() // Gây rò rỉ bộ nhớ dài hạn
+        private let sharedExecutor = JSExecutor() // Dùng chung không kiểm soát cho mọi loại script
     }
     ```
+
+### 5.7.1. Remote TTS Scheduling Rules
+* `prefetchDepth` là số chunk muốn giữ trong cache, không phải số request được chạy đồng thời.
+* Mọi tổng hợp Google/Ext, kể cả đọc đoạn được chọn và audio chương kế tiếp, phải đi qua `RemoteTTSSynthesisCoordinator` với tối đa một operation đang hoạt động.
+* Thứ tự ưu tiên bắt buộc là `current > prefetch > nextChapter`; request cùng key phải được gộp để không tổng hợp trùng.
+* `.serious`/`.critical` phải dừng remote prefetch; `.fair` tăng khoảng nghỉ nhưng vẫn cho phép phát chunk hiện tại.
+* Retry chỉ được sở hữu bởi service, tối đa hai attempt tổng cộng cho mỗi synthesis; `TTSManager` không được bọc thêm vòng retry.
 
 ### 5.8. Memory Rules
 *   **Tên**: Tránh giữ strong reference `self` trong callback âm thanh ngầm

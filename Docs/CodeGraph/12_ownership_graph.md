@@ -131,4 +131,8 @@ graph TD
 - `RepositoryManagerView` owns the pending repository deletion selection; `ModelContext` owns the actual cascade only after user confirmation.
 - `BookStorageManager.shared` acts as a Singleton coordinating book deletion; it cascades database deletions to `ModelContext` (database commit first) and triggers asynchronous background sandbox cleanup via `BookBinManager.shared` and `ImageCacheManager.shared` under path safety validation. Failed deletions are owned by a retry queue stored in `UserDefaults` and drained at app launch.
 
+- `RemoteTTSSynthesisCoordinator.shared` owns the sole active remote job plus priority-ordered queued jobs. Job continuations are released on completion/cancellation; active work retains the slot until it returns.
+- `ExtensionManager.shared` owns one `ExtTTSRuntime`; the actor owns one optional TTS `JSExecutor`. This is the only persistent JS context. Search/detail/toc/chap executors remain function-local.
+- `TTSManager` owns paragraph prefetch/playback tasks and cancels them on pause/stop/thermal pressure; `TTSChapterPrefetcher` owns next-chapter content state and only requests its low-priority audio near chapter end.
+
 <!-- GENERATED END -->

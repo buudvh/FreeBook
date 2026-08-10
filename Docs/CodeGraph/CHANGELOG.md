@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.105] - 2026-08-10
+
+### Hạ nhiệt Google/Ext TTS và tách buffer depth khỏi concurrency
+
+* Thêm `RemoteTTSSynthesisCoordinator` chạy tối đa một synthesis, ưu tiên chunk hiện tại, gộp request trùng và giữ `prefetchDepth = 3` như bộ đệm logic.
+* Pause/stop và thermal `.serious/.critical` hủy remote prefetch; `.fair` tăng nhịp nghỉ. Audio chương kế chỉ được tổng hợp gần cuối chương.
+* Bỏ retry lồng trong `TTSManager`; Google và Ext sở hữu tối đa hai attempt. Google parse JSON một lần và tôn trọng `Retry-After` có giới hạn.
+* Thêm `ExtTTSRuntime` actor tái sử dụng `JSExecutor` theo script/config; native fetch có cancellation/timeout và bỏ text decode cho binary audio.
+* `AVAudioSession` không còn cấu hình lại ở từng chunk khi session vẫn hoạt động.
+
 ## [1.3.104] - 2026-08-07
 
 ### Sửa Logic Bậc Thang Watermark Theo Nhiệt Độ (`TTSManager.swift`)

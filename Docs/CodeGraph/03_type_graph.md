@@ -1603,4 +1603,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 - `ChapterKey` identifies shared loads; `BookMetadataSnapshot`, `ChapterMetadataSnapshot`, and `PersistedChapterSnapshot` cross actor boundaries; `ChapterPersistenceStore` owns pending SwiftData writes and retries.
 - `RepositoryManagerView` adds `repositoryToDelete` plus confirmation presentation state while persisted `Repository.isEnabled` remains schema-only compatibility data.
 
+- `RemoteTTSSynthesisCoordinator` is an actor with priority-ordered `Job` values and multiple `Waiter` continuations per synthesis key; its invariant is at most one active operation.
+- `ExtTTSRuntime` is an actor whose `Identity` contains extension path, download URL, script content, and serialized configuration; it owns one optional `JSExecutor` and never returns `JSValue` across the actor boundary.
+
 <!-- GENERATED END -->

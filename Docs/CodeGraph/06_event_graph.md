@@ -137,4 +137,8 @@ graph TD
 - Scrolling placeholder rows in the TOC triggers a `loadPageIfNeeded` event in `ReaderChapterListStore` which launches background tasks to fetch metadata for the visible window.
 - Task cancellation in `DownloadManager` emits cooperative cancellation events at chapter boundaries to halt execution.
 
+- `ProcessInfo.thermalStateDidChangeNotification` now updates both Nghi and remote prefetch policy. `.serious/.critical` emits cancellation to paragraph tasks, next-chapter prefetch, and the remote coordinator.
+- Pause/stop events cancel remote playback/prefetch waiters and reset the Ext runtime on full cache teardown; URLSession cancellation unblocks the synchronous extension fetch bridge.
+- Paragraph-finished events update the depth-three cache window, but scheduler priority—not task creation count—determines execution order.
+
 <!-- GENERATED END -->

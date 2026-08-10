@@ -121,9 +121,9 @@ internal final class TTSChapterPrefetcher {
                 expectedGen: currentGen
             )
 
-            if key.tool == "google" || (key.tool != "system" && key.tool != "nghitts") {
-                self?.startAudioSynthesis(key: key, gen: currentGen, processed: processed, loadMs: loadMs, processMs: processMs, nghiService: nil, googleService: googleService, extService: extService)
-            }
+            // Audio synthesis is promoted near the end of the current chapter.
+            // Loading/processing content early is cheap; remote audio generation
+            // must not compete with the active chapter's paragraph buffer.
         }
     }
 
@@ -133,7 +133,8 @@ internal final class TTSChapterPrefetcher {
         extService: ExtTTSService
     ) {
         guard case .processedReady(let key, let gen, let processed, let loadMs, let processMs) = currentState,
-              gen == activeGeneration, key.tool == "nghitts" else { return }
+              gen == activeGeneration,
+              key.tool != "system" else { return }
 
         startAudioSynthesis(key: key, gen: gen, processed: processed, loadMs: loadMs, processMs: processMs, nghiService: nghiService, googleService: googleService, extService: extService)
     }
@@ -169,13 +170,13 @@ internal final class TTSChapterPrefetcher {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !textToSpeak.isEmpty else { return }
 
-        if key.tool == "nghitts" {
-            let thermalState = ProcessInfo.processInfo.thermalState
-            if thermalState == .serious || thermalState == .critical {
-                AppLogger.shared.log("ℹ️ [TTSChapterPrefetcher] Bỏ qua prefetch audio chương kế tiếp do thiết bị đang nóng (thermalState=\(thermalState.rawValue))")
-                return
-            }
+        let thermalState = ProcessInfo.processInfo.thermalState
+        if thermalState == .serious || thermalState == .critical {
+            AppLogger.shared.log("ℹ️ [TTSChapterPrefetcher] Bỏ qua prefetch audio chương kế tiếp do thiết bị đang nóng (thermalState=\(thermalState.rawValue))")
+            return
+        }
 
+        if key.tool == "nghitts" {
             if nghiService == nil {
                 handleSynthesisFailure(
                     key: key,
@@ -208,9 +209,21 @@ internal final class TTSChapterPrefetcher {
                         requestID: reqID
                     )
                 } else if key.tool == "google" {
-                    audioData = try await googleService.synthesize(text: textToSpeak, voice: key.selectedVoice, speed: 1.0, pitch: 1.0)
+                    let synthesisKey = "next|\(key.bookId)|\(key.chapterIndex)|0|google|\(key.selectedVoice)"
+                    audioData = try await RemoteTTSSynthesisCoordinator.shared.synthesize(
+                        key: synthesisKey,
+                        priority: .nextChapter
+                    ) {
+                        try await googleService.synthesize(text: textToSpeak, voice: key.selectedVoice, speed: 1.0, pitch: 1.0)
+                    }
                 } else if key.tool != "system" {
-                    audioData = try await extService.synthesizeData(text: textToSpeak, voice: key.selectedVoice, localPath: key.extensionLocalPath, configJson: key.extensionConfigJson)
+                    let synthesisKey = "next|\(key.bookId)|\(key.chapterIndex)|0|\(key.tool)|\(key.selectedVoice)"
+                    audioData = try await RemoteTTSSynthesisCoordinator.shared.synthesize(
+                        key: synthesisKey,
+                        priority: .nextChapter
+                    ) {
+                        try await extService.synthesizeData(text: textToSpeak, voice: key.selectedVoice, localPath: key.extensionLocalPath, configJson: key.extensionConfigJson)
+                    }
                 }
             } catch {
                 if !Task.isCancelled {

@@ -71,6 +71,7 @@ public struct ChapterResult: Equatable {
 // MARK: - Extension Manager
 public final class ExtensionManager: ObservableObject {
     public static let shared = ExtensionManager()
+    private let ttsRuntime = ExtTTSRuntime()
     
     @Published public var loadingStates: [String: Bool] = [:]
     
@@ -851,21 +852,29 @@ public final class ExtensionManager: ObservableObject {
         let scriptName = scriptUrl.lastPathComponent
         AppLogger.shared.logTTSVerbose("🔍 [ExtensionManager][\(scriptName)]: textLen=\(text.count), voice=\(voice), configJson=\(configJson)")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
-        
-        let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
-        executor.injectGlobals(configs)
-        
+        let configurationData = try JSONSerialization.data(withJSONObject: configs, options: [.sortedKeys])
+
         do {
-            let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [text, voice])
-            let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: "tts")
-            let resultStr = cleanVal.toString() ?? ""
+            let resultStr = try await ttsRuntime.generate(
+                localPath: localPath,
+                downloadUrl: downloadUrl,
+                scriptContent: scriptContent,
+                configurationData: configurationData,
+                text: text,
+                voice: voice,
+                extensionName: URL(fileURLWithPath: localPath).lastPathComponent
+            )
             updateDiagnostics(action: "tts", input: text, status: "Success", details: "Base64 string length: \(resultStr.count)")
             return resultStr
         } catch {
             updateDiagnostics(action: "tts", input: text, status: "Error", details: error.localizedDescription)
             throw error
         }
+    }
+
+    public func resetTTSRuntime() async {
+        await ttsRuntime.reset()
     }
     private func verifyJSResponse(_ jsValue: JSValue, extName: String = "", scriptName: String = "") throws -> JSValue {
         guard jsValue.isObject else { return jsValue }

@@ -1,7 +1,7 @@
 import Foundation
 import AVFoundation
 
-public final class ExtTTSService {
+public final class ExtTTSService: @unchecked Sendable {
     // Memory leak fix: Track temporary files for explicit cleanup
     private var activeTempFiles: Set<URL> = []
     private let tempFileLock = NSLock()
@@ -14,17 +14,32 @@ public final class ExtTTSService {
         localPath: String,
         configJson: String
     ) async throws -> Data {
-        let base64String = try await ExtensionManager.shared.ttsGenerate(
-            localPath: localPath,
-            text: text,
-            voice: voice,
-            configJson: configJson
-        )
-        
-        guard let audioData = Data(base64Encoded: base64String.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-            throw NSError(domain: "ExtTTSService", code: -20, userInfo: [NSLocalizedDescriptionKey: "Dữ liệu âm thanh Base64 không hợp lệ"])
+        let maxAttempts = 2
+        var attempt = 0
+
+        while true {
+            attempt += 1
+            do {
+                let base64String = try await ExtensionManager.shared.ttsGenerate(
+                    localPath: localPath,
+                    text: text,
+                    voice: voice,
+                    configJson: configJson
+                )
+
+                try Task.checkCancellation()
+                guard let audioData = Data(base64Encoded: base64String.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+                    throw NSError(domain: "ExtTTSService", code: -20, userInfo: [NSLocalizedDescriptionKey: "Dữ liệu âm thanh Base64 không hợp lệ"])
+                }
+                return audioData
+            } catch {
+                if Task.isCancelled || attempt >= maxAttempts || !isTransient(error) {
+                    throw error
+                }
+                AppLogger.shared.log("⚠️ [ExtTTSService] Thử lại lượt \(attempt)/\(maxAttempts) do lỗi tạm thời: \(error.localizedDescription)")
+                try await Task.sleep(nanoseconds: 400_000_000)
+            }
         }
-        return audioData
     }
     
     public func synthesize(
@@ -34,17 +49,14 @@ public final class ExtTTSService {
         configJson: String,
         targetFormat: AVAudioFormat
     ) async throws -> AVAudioPCMBuffer {
-        // 1. Gọi JS để tạo base64 audio
-        let base64String = try await ExtensionManager.shared.ttsGenerate(
-            localPath: localPath,
+        // 1. Tổng hợp và giải mã dữ liệu âm thanh (retry được sở hữu tại
+        // synthesizeData để toàn pipeline không tạo retry lồng nhau).
+        let audioData = try await synthesizeData(
             text: text,
             voice: voice,
+            localPath: localPath,
             configJson: configJson
         )
-        
-        guard let audioData = Data(base64Encoded: base64String.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-            throw NSError(domain: "ExtTTSService", code: -20, userInfo: [NSLocalizedDescriptionKey: "Dữ liệu âm thanh Base64 không hợp lệ"])
-        }
         
         // 2. Ghi ra tệp tin tạm với đuôi tệp phù hợp (.wav vs .mp3) theo Magic Bytes
         let tempDir = FileManager.default.temporaryDirectory
@@ -196,5 +208,23 @@ public final class ExtTTSService {
         for file in files {
             try? FileManager.default.removeItem(at: file)
         }
+    }
+
+    public func resetRuntime() async {
+        await ExtensionManager.shared.resetTTSRuntime()
+    }
+
+    private func isTransient(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        let message = error.localizedDescription.lowercased()
+        return nsError.domain == NSURLErrorDomain ||
+            nsError.code == 408 ||
+            nsError.code == 429 ||
+            (500...599).contains(nsError.code) ||
+            message.contains("timed out") ||
+            message.contains("timeout") ||
+            message.contains("temporarily") ||
+            message.contains("service unavailable") ||
+            message.contains("network")
     }
 }

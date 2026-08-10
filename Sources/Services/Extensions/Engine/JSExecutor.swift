@@ -2,12 +2,16 @@ import Foundation
 import JavaScriptCore
 import WebKit
 
-public final class JSExecutor {
+public final class JSExecutor: @unchecked Sendable {
     public let context: JSContext
     public let localPath: String?
     public let downloadUrl: String?
     private var activeBrowsers: [String: WebViewLoader] = [:]
     private var activeVisibleBrowsers: [String: VisibleWebViewLoader] = [:]
+    private let networkTaskLock = NSLock()
+    private var activeNetworkTasks: [Int: URLSessionDataTask] = [:]
+    private var nextNetworkTaskID = 0
+    private var executionCancelled = false
 
     public init(localPath: String? = nil, downloadUrl: String? = nil) {
         self.context = JSContext()
@@ -263,6 +267,9 @@ public final class JSExecutor {
             guard let self = self else {
                 return ["html": "", "status": 500, "raw": "", "headers": [String: String]()]
             }
+            guard !self.isCurrentExecutionCancelled else {
+                return ["html": "", "status": 499, "raw": "", "headers": [String: String]()]
+            }
             let resolvedUrlString = urlString
             if isEngineDomainBlocked(resolvedUrlString) {
                 // AppLogger.shared.log("🚫 [JSExecutor] Blocked network fetch to: \(resolvedUrlString)")
@@ -308,13 +315,24 @@ public final class JSExecutor {
                 request.httpMethod = "GET"
             }
 
+            let taskID = self.reserveNetworkTaskID()
             let task = URLSession.shared.dataTask(with: request) { data, response, error in
+                defer {
+                    self.unregisterNetworkTask(id: taskID)
+                    semaphore.signal()
+                }
                 if error != nil {
                     // AppLogger.shared.log("❌ [JSExecutor] Fetch error: \(error.localizedDescription)")
                     statusCode = 500
                 }
+                var isBinaryResponse = false
                 if let httpResponse = response as? HTTPURLResponse {
                     statusCode = httpResponse.statusCode
+                    let mimeType = httpResponse.mimeType?.lowercased() ?? ""
+                    isBinaryResponse = mimeType.hasPrefix("audio/") ||
+                        mimeType.hasPrefix("video/") ||
+                        mimeType.hasPrefix("image/") ||
+                        mimeType == "application/octet-stream"
                     for (key, value) in httpResponse.allHeaderFields {
                         if let keyStr = key as? String, let valStr = value as? String {
                             responseHeaders[keyStr] = valStr
@@ -322,13 +340,30 @@ public final class JSExecutor {
                     }
                 }
                 if let data = data {
-                    resultHtml = self.decodeData(data)
+                    // Audio TTS extensions consume base64(). Avoid decoding the
+                    // same binary payload as text before encoding it as Base64.
+                    if !isBinaryResponse {
+                        resultHtml = self.decodeData(data)
+                    }
                     resultRawBase64 = data.base64EncodedString()
                 }
-                semaphore.signal()
+            }
+
+            guard self.registerNetworkTask(task, id: taskID) else {
+                task.cancel()
+                return ["html": "", "status": 499, "raw": "", "headers": [String: String]()]
             }
             task.resume()
-            _ = semaphore.wait(timeout: .now() + 10.0)
+            let waitResult = semaphore.wait(timeout: .now() + 10.0)
+            if waitResult == .timedOut {
+                statusCode = 408
+                self.unregisterNetworkTask(id: taskID)
+                task.cancel()
+                // URLSession cancellation normally completes immediately. The
+                // bounded wait prevents the callback from mutating result state
+                // after this synchronous bridge has returned.
+                _ = semaphore.wait(timeout: .now() + 1.0)
+            }
 
             return ["html": resultHtml, "status": statusCode, "raw": resultRawBase64, "headers": responseHeaders]
         }
@@ -965,7 +1000,54 @@ public final class JSExecutor {
         }
     }
 
-    public func runAsync(scriptContent: String, functionName: String, arguments: [Any]) async throws -> JSValue {
+    private var isCurrentExecutionCancelled: Bool {
+        networkTaskLock.lock()
+        defer { networkTaskLock.unlock() }
+        return executionCancelled
+    }
+
+    private func reserveNetworkTaskID() -> Int {
+        networkTaskLock.lock()
+        defer { networkTaskLock.unlock() }
+        nextNetworkTaskID &+= 1
+        return nextNetworkTaskID
+    }
+
+    private func registerNetworkTask(_ task: URLSessionDataTask, id: Int) -> Bool {
+        networkTaskLock.lock()
+        defer { networkTaskLock.unlock() }
+        guard !executionCancelled else { return false }
+        activeNetworkTasks[id] = task
+        return true
+    }
+
+    private func unregisterNetworkTask(id: Int) {
+        networkTaskLock.lock()
+        activeNetworkTasks.removeValue(forKey: id)
+        networkTaskLock.unlock()
+    }
+
+    private func beginExecution() {
+        networkTaskLock.lock()
+        executionCancelled = false
+        networkTaskLock.unlock()
+    }
+
+    public func cancelCurrentExecution() {
+        networkTaskLock.lock()
+        executionCancelled = true
+        let tasks = Array(activeNetworkTasks.values)
+        activeNetworkTasks.removeAll()
+        networkTaskLock.unlock()
+
+        for task in tasks {
+            task.cancel()
+        }
+    }
+
+    /// Evaluates an extension script once. Persistent TTS runtimes call this
+    /// only when the extension script or configuration identity changes.
+    public func prepareScript(_ scriptContent: String) throws {
         // Reset exception trước khi chạy
         context.exception = nil
 
@@ -978,18 +1060,28 @@ public final class JSExecutor {
             context.exception = nil
             throw NSError(domain: "JSExecutor", code: -501, userInfo: [NSLocalizedDescriptionKey: "JS Compile error: \(desc)"])
         }
+    }
+
+    public func callAsync(functionName: String, arguments: [Any]) async throws -> JSValue {
+        try Task.checkCancellation()
+        beginExecution()
 
         guard let function = context.objectForKeyedSubscript(functionName) else {
             throw NSError(domain: "JSExecutor", code: -404, userInfo: [NSLocalizedDescriptionKey: "JS Function '\(functionName)' not found"])
         }
 
-        guard let result = function.call(withArguments: arguments) else {
-            if let exception = context.exception {
-                let desc = exception.toString() ?? "JS Execution Exception"
-                context.exception = nil
-                throw NSError(domain: "JSExecutor", code: -502, userInfo: [NSLocalizedDescriptionKey: "JS Call error: \(desc)"])
+        let result: JSValue = try await withTaskCancellationHandler {
+            guard let result = function.call(withArguments: arguments) else {
+                if let exception = context.exception {
+                    let desc = exception.toString() ?? "JS Execution Exception"
+                    context.exception = nil
+                    throw NSError(domain: "JSExecutor", code: -502, userInfo: [NSLocalizedDescriptionKey: "JS Call error: \(desc)"])
+                }
+                throw NSError(domain: "JSExecutor", code: -500, userInfo: [NSLocalizedDescriptionKey: "JS execution returned null"])
             }
-            throw NSError(domain: "JSExecutor", code: -500, userInfo: [NSLocalizedDescriptionKey: "JS execution returned null"])
+            return result
+        } onCancel: {
+            self.cancelCurrentExecution()
         }
 
         // Kiểm tra xem call có ném lỗi không (nếu trả về JSValue nhưng vẫn ném lỗi bên trong)
@@ -1004,25 +1096,35 @@ public final class JSExecutor {
               !thenFunc.isUndefined,
               thenFunc.isObject else {
             // Trả về kết quả đồng bộ trực tiếp
+            try Task.checkCancellation()
             return result
         }
 
         // Giải quyết Promise bất đồng bộ
-        return try await withCheckedThrowingContinuation { continuation in
-            let onResolve: @convention(block) (JSValue) -> Void = { value in
-                continuation.resume(returning: value)
-            }
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let onResolve: @convention(block) (JSValue) -> Void = { value in
+                    continuation.resume(returning: value)
+                }
 
-            let onReject: @convention(block) (JSValue) -> Void = { error in
-                let desc = error.toString() ?? "JS Promise rejected"
-                continuation.resume(throwing: NSError(domain: "JSExecutor", code: -1, userInfo: [NSLocalizedDescriptionKey: desc]))
-            }
+                let onReject: @convention(block) (JSValue) -> Void = { error in
+                    let desc = error.toString() ?? "JS Promise rejected"
+                    continuation.resume(throwing: NSError(domain: "JSExecutor", code: -1, userInfo: [NSLocalizedDescriptionKey: desc]))
+                }
 
-            result.invokeMethod("then", withArguments: [
-                JSValue(object: onResolve, in: self.context) as Any,
-                JSValue(object: onReject, in: self.context) as Any
-            ])
+                result.invokeMethod("then", withArguments: [
+                    JSValue(object: onResolve, in: self.context) as Any,
+                    JSValue(object: onReject, in: self.context) as Any
+                ])
+            }
+        } onCancel: {
+            self.cancelCurrentExecution()
         }
+    }
+
+    public func runAsync(scriptContent: String, functionName: String, arguments: [Any]) async throws -> JSValue {
+        try prepareScript(scriptContent)
+        return try await callAsync(functionName: functionName, arguments: arguments)
     }
 }
 

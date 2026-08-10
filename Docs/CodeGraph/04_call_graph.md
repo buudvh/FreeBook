@@ -274,4 +274,8 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 - `DownloadManager` tasks check `Task.isCancelled` at chapter boundaries during download or export tasks to support cooperative cancellation.
 - `Engine.Browser.waitForReady` blocks the JS worker thread using a semaphore while `WebViewLoader` executes a non-blocking loop on the Main Actor, polling `probeScript` and checking for stable snapshot `{chars, encoded}` matching `stablePasses` times.
 
+- Remote playback call chain: `TTSManager.playGoogleTTS/playExtensionTTS -> RemoteTTSSynthesisCoordinator.synthesize(.current) -> GoogleTTSService/ExtTTSService`; future chunks use `.prefetch`, and `TTSChapterPrefetcher` uses `.nextChapter` only near chapter end.
+- Ext call chain: `ExtTTSService.synthesizeData -> ExtensionManager.ttsGenerate -> ExtTTSRuntime.generate -> JSExecutor.callAsync`; script evaluation occurs only when the runtime identity changes.
+- Pause/stop/thermal cancellation removes queued waiters, cancels the active coordinator task, propagates into `JSExecutor.cancelCurrentExecution`, and cancels registered `URLSessionDataTask` objects.
+
 <!-- GENERATED END -->
