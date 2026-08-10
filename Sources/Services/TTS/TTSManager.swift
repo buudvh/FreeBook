@@ -2476,16 +2476,21 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
 
             func isValidSession() -> Bool {
-                !Task.isCancelled &&
-                self.isPlaying &&
-                self.sessionID == expectedSessionID &&
-                self.playingBookId == expectedBookId &&
-                self.playingChapterIndex == expectedChapterIndex &&
-                self.playingChapterUrl == expectedChapterURL &&
-                self.selectedVoice == voice &&
-                self.tool == toolBeforeStart &&
-                self.currentThermalState != .serious &&
-                self.currentThermalState != .critical
+                // Avoid a chained `&&` expression here. In Swift 6 each RHS is
+                // evaluated through a nonisolated autoclosure, which cannot read
+                // these MainActor-isolated properties even though the task itself
+                // runs on MainActor.
+                if Task.isCancelled { return false }
+                if !self.isPlaying { return false }
+                if self.sessionID != expectedSessionID { return false }
+                if self.playingBookId != expectedBookId { return false }
+                if self.playingChapterIndex != expectedChapterIndex { return false }
+                if self.playingChapterUrl != expectedChapterURL { return false }
+                if self.selectedVoice != voice { return false }
+                if self.tool != toolBeforeStart { return false }
+                if self.currentThermalState == .serious { return false }
+                if self.currentThermalState == .critical { return false }
+                return true
             }
 
             guard isValidSession() else { return }
