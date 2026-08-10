@@ -36,4 +36,41 @@ final class NghiTTSPerformanceTests: XCTestCase {
         XCTAssertTrue(critical == .fair || critical == .serious || critical == .critical)
         XCTAssertFalse(nominal == .fair || nominal == .serious || nominal == .critical)
     }
+
+    func testEnergyPolicyShrinksBufferAsTemperatureRises() {
+        let nominal = NghiSynthesisPolicy.watermarks(for: .nominal)
+        let fair = NghiSynthesisPolicy.watermarks(for: .fair)
+        let serious = NghiSynthesisPolicy.watermarks(for: .serious)
+
+        XCTAssertGreaterThan(nominal.high, fair.high)
+        XCTAssertGreaterThan(fair.high, serious.high)
+        XCTAssertEqual(serious.high, 0)
+    }
+
+    func testEnergyPolicyStopsSpeculativeWorkAtSeriousThermalState() {
+        XCTAssertTrue(NghiSynthesisPolicy.allowsSpeculativeRefill(at: .nominal))
+        XCTAssertTrue(NghiSynthesisPolicy.allowsSpeculativeRefill(at: .fair))
+        XCTAssertFalse(NghiSynthesisPolicy.allowsSpeculativeRefill(at: .serious))
+        XCTAssertFalse(NghiSynthesisPolicy.allowsSpeculativeRefill(at: .critical))
+    }
+
+    func testNextChapterAudioRequiresNominalThermalState() {
+        XCTAssertTrue(NghiSynthesisPolicy.allowsNextChapterAudio(at: .nominal))
+        XCTAssertFalse(NghiSynthesisPolicy.allowsNextChapterAudio(at: .fair))
+        XCTAssertFalse(NghiSynthesisPolicy.allowsNextChapterAudio(at: .serious))
+    }
+
+    func testFairThermalStateUsesLongerCooldown() {
+        let nominal = NghiSynthesisPolicy.refillCooldownMilliseconds(
+            for: .nominal,
+            configuredDelay: 500
+        )
+        let fair = NghiSynthesisPolicy.refillCooldownMilliseconds(
+            for: .fair,
+            configuredDelay: 500
+        )
+
+        XCTAssertEqual(nominal, 750)
+        XCTAssertEqual(fair, 1_500)
+    }
 }

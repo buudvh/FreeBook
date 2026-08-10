@@ -312,6 +312,13 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
 * `.serious`/`.critical` phải dừng remote prefetch; `.fair` tăng khoảng nghỉ nhưng vẫn cho phép phát chunk hiện tại.
 * Retry chỉ được sở hữu bởi service, tối đa hai attempt tổng cộng cho mỗi synthesis; `TTSManager` không được bọc thêm vòng retry.
 
+### 5.7.2. NghiTTS Energy Rules
+* NghiTTS synthesis phải tiếp tục đi qua `PiperSynthesisCoordinator` với tối đa một inference đang chạy.
+* ORT/XNNPACK mặc định chỉ dùng một worker; không tăng thread count theo số core vì nghe lâu là sustained workload.
+* `NghiSynthesisPolicy` là nguồn duy nhất cho watermark, cooldown và thermal eligibility; không lặp các hằng số này trong manager/prefetcher.
+* `.serious`/`.critical` phải dừng speculative refill và next-chapter audio. Chunk hiện tại bị thiếu vẫn được phép tổng hợp on-demand.
+* Audio chương kế của NghiTTS chỉ được tạo ở `.nominal`; `.fair` ưu tiên CPU idle cho chương đang phát.
+
 ### 5.8. Memory Rules
 *   **Tên**: Tránh giữ strong reference `self` trong callback âm thanh ngầm
 *   **Loại quy tắc**: **Observed Rule**

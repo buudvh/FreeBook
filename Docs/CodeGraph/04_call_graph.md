@@ -277,5 +277,6 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 - Remote playback call chain: `TTSManager.playGoogleTTS/playExtensionTTS -> RemoteTTSSynthesisCoordinator.synthesize(.current) -> GoogleTTSService/ExtTTSService`; future chunks use `.prefetch`, and `TTSChapterPrefetcher` uses `.nextChapter` only near chapter end.
 - Ext call chain: `ExtTTSService.synthesizeData -> ExtensionManager.ttsGenerate -> ExtTTSRuntime.generate -> JSExecutor.callAsync`; script evaluation occurs only when the runtime identity changes.
 - Pause/stop/thermal cancellation removes queued waiters, cancels the active coordinator task, propagates into `JSExecutor.cancelCurrentExecution`, and cancels registered `URLSessionDataTask` objects.
+- Nghi refill call chain: `TTSManager.updateNghiPrefetchWindow -> scheduleNghiRefill -> NghiSynthesisPolicy cooldown/thermal gate -> PiperTTSService.synthesizeWithDuration -> PiperSynthesisCoordinator -> ONNXPiperEngine`; speculative work is serialized and only current playback demand bypasses the refill gate.
 
 <!-- GENERATED END -->

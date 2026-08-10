@@ -110,5 +110,6 @@ graph TD
 
 - Remote TTS separates buffer depth from execution concurrency: `TTSManager` may target three future chunks, while `RemoteTTSSynthesisCoordinator` runs one Google/Ext operation and prioritizes current playback over speculative work.
 - `ExtensionManager` retains a serialized `ExtTTSRuntime` only for TTS; other extension actions preserve short-lived `JSExecutor` isolation.
+- Offline NghiTTS separates playback demand from speculative energy policy: `PiperSynthesisCoordinator` serializes inference, while `NghiSynthesisPolicy` controls one-worker refill watermarks/cooldowns from the current thermal state.
 
 <!-- GENERATED END -->

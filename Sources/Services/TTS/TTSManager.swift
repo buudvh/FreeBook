@@ -2027,7 +2027,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
               currentParagraphIndex < paragraphs.count,
               !nextChapterPrefetcher.reservesNghiAudioSlot else { return }
 
-        if currentThermalState == .serious || currentThermalState == .critical {
+        if tool == "nghitts" {
+            guard NghiSynthesisPolicy.allowsNextChapterAudio(at: currentThermalState) else {
+                return
+            }
+        } else if currentThermalState == .serious || currentThermalState == .critical {
             return
         }
 
@@ -2210,18 +2214,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     public var nghiWatermarks: (low: Double, high: Double) {
-        switch currentThermalState {
-        case .nominal:
-            return (low: 4.0, high: 8.0)
-        case .fair:
-            return (low: 3.0, high: 6.0)
-        case .serious:
-            return (low: 2.0, high: 4.0)
-        case .critical:
-            return (low: 1.0, high: 2.0)
-        @unknown default:
-            return (low: 4.0, high: 8.0)
-        }
+        NghiSynthesisPolicy.watermarks(for: currentThermalState)
     }
 
     public func calculateNghiBufferedDuration() -> Double {
@@ -2275,6 +2268,15 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     private func updateNghiPrefetchWindow() {
         updateNghiBufferedDuration()
+
+        guard NghiSynthesisPolicy.allowsSpeculativeRefill(at: currentThermalState) else {
+            if nghiRefillTask != nil || nghiRefillInFlightIndex != nil {
+                cancelNghiRefill()
+            }
+            prepareNextNghiAudioIfPossible()
+            return
+        }
+
         let targetIndices = nghiFutureTargetIndices()
         let keepIndices = Set([currentParagraphIndex] + targetIndices)
 
@@ -2317,6 +2319,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private func scheduleNghiRefill() {
         guard isPlaying,
               tool == "nghitts",
+              NghiSynthesisPolicy.allowsSpeculativeRefill(at: currentThermalState),
               nghiRefillTask == nil,
               let service = nghiTTSService else { return }
 
@@ -2370,9 +2373,39 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !text.isEmpty else { break }
 
+                // Give the SoC a real idle window between speculative ONNX
+                // jobs, while preserving at least 1.2 seconds for gapless N+1.
+                let configuredCooldown = NghiSynthesisPolicy.refillCooldownMilliseconds(
+                    for: self.currentThermalState,
+                    configuredDelay: self.prefetchDelayMs
+                )
+                let safeCooldown = min(
+                    configuredCooldown,
+                    max(0, Int((currentBuf - 1.2) * 1_000))
+                )
+                if safeCooldown > 0 {
+                    do {
+                        try await Task.sleep(nanoseconds: UInt64(safeCooldown) * 1_000_000)
+                    } catch {
+                        return
+                    }
+                    guard self.isValidNghiRefillContext(
+                        sessionID: expectedSessionID,
+                        bookID: expectedBookID,
+                        chapterIndex: expectedChapterIndex,
+                        chapterURL: expectedChapterURL,
+                        voice: expectedVoice,
+                        generation: expectedGeneration,
+                        refillGeneration: refillGeneration
+                    ),
+                    NghiSynthesisPolicy.allowsSpeculativeRefill(at: self.currentThermalState) else {
+                        return
+                    }
+                }
+
                 self.nghiRefillInFlightIndex = index
                 do {
-                    let wavData = try await service.synthesize(
+                    let synthesized = try await service.synthesizeWithDuration(
                         text: text,
                         voice: expectedVoice,
                         speed: 1.0,
@@ -2391,8 +2424,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
                     self.nghiRefillInFlightIndex = nil
                     if self.nghiFutureTargetIndices().contains(index) || index == nextIndex {
-                        self.preloadedData[index] = wavData
-                        self.preloadedDurations[index] = WAVEncoder.duration(of: wavData)
+                        self.preloadedData[index] = synthesized.data
+                        self.preloadedDurations[index] = synthesized.pcmDuration
                         self.updateNghiBufferedDuration()
                         self.prepareNextNghiAudioIfPossible()
                         self.checkAndPromoteNextChapterAudioIfNeeded()
@@ -2411,13 +2444,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 let hasMissingNext = nextIndex < self.paragraphs.count && self.preloadedData[nextIndex] == nil
                 guard hasMissingNext || updatedBuf < watermarks.low else { break }
 
-                let thermalExtraDelayMs = (self.currentThermalState != .nominal) ? 200 : 0
-                let delayMs = max(300, self.prefetchDelayMs + thermalExtraDelayMs)
-                do {
-                    try await Task.sleep(nanoseconds: UInt64(delayMs) * 1_000_000)
-                } catch {
-                    return
-                }
+                // The next iteration applies the policy cooldown before work.
             }
         }
     }
@@ -3571,6 +3598,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 guard let self = self else { return }
                 self.currentThermalState = ProcessInfo.processInfo.thermalState
                 if self.isPlaying {
+                    if self.tool == "nghitts",
+                       !NghiSynthesisPolicy.allowsSpeculativeRefill(at: self.currentThermalState) {
+                        self.cancelNghiRefill()
+                        self.nextChapterPrefetcher.cancel()
+                    }
                     if self.tool != "system" && self.tool != "nghitts" &&
                         self.currentThermalState != .serious &&
                         self.currentThermalState != .critical {

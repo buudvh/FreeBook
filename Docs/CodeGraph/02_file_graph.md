@@ -1340,4 +1340,9 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 - [ExtTTSRuntime.swift](../../Sources/Services/TTS/Ext/ExtTTSRuntime.swift) is owned by `ExtensionManager`; it owns the persistent TTS-only `JSExecutor` and rebuilds it when extension script/config identity changes.
 - `JSExecutor.swift` exposes script preparation, prepared-function calls, and cancellable native network tasks. `ExtTTSService.swift` owns Ext retry; `GoogleTTSService.swift` owns Google retry and single-pass JSON parsing.
 
+#### NghiTTS energy policy (2026-08)
+
+- [NghiSynthesisPolicy.swift](../../Sources/Services/TTS/NghiTTS/NghiSynthesisPolicy.swift) is used by `TTSManager` and `TTSChapterPrefetcher`; it owns duration watermarks, refill eligibility, next-chapter eligibility, and cooldown values for each thermal state.
+- [ONNXPiperEngine.swift](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift) configures one ORT worker, full graph optimization, and a one-thread XNNPACK provider with CPU fallback.
+
 <!-- GENERATED END -->

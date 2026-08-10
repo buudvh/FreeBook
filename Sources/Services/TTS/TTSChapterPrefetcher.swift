@@ -171,7 +171,10 @@ internal final class TTSChapterPrefetcher {
         guard !textToSpeak.isEmpty else { return }
 
         let thermalState = ProcessInfo.processInfo.thermalState
-        if thermalState == .serious || thermalState == .critical {
+        let thermalAllowsAudio = key.tool == "nghitts"
+            ? NghiSynthesisPolicy.allowsNextChapterAudio(at: thermalState)
+            : thermalState != .serious && thermalState != .critical
+        if !thermalAllowsAudio {
             AppLogger.shared.log("ℹ️ [TTSChapterPrefetcher] Bỏ qua prefetch audio chương kế tiếp do thiết bị đang nóng (thermalState=\(thermalState.rawValue))")
             return
         }

@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.106] - 2026-08-10
+
+### Giảm nhiệt NghiTTS khi nghe lâu trên thiết bị A13
+
+* Thêm `NghiSynthesisPolicy`: buffer nominal giảm từ 4–8 giây xuống 2.5–5 giây, fair còn 1.5–3 giây và dừng toàn bộ speculative refill ở `.serious/.critical`.
+* Mỗi lượt refill ONNX có khoảng nghỉ thực 750 ms ở nominal hoặc 1.5 giây ở fair, nhưng vẫn bảo toàn tối thiểu 1.2 giây audio để ưu tiên N+1.
+* `ONNXPiperEngine` cố định một worker, bật graph optimization và ưu tiên XNNPACK một luồng với CPU fallback.
+* Audio chương kế của NghiTTS chỉ được tổng hợp khi thermal `.nominal`; thermal transition nóng hủy refill và audio chương kế đang chờ.
+* Refill dùng trực tiếp `pcmDuration` trả về từ Piper thay vì quét lại WAV.
+
 ## [1.3.105] - 2026-08-10
 
 ### Hạ nhiệt Google/Ext TTS và tách buffer depth khỏi concurrency

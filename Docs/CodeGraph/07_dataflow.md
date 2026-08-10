@@ -114,14 +114,16 @@ graph TD
     Siri -->|AVSpeechSynthesizer| AudioOut["Loa / Tai nghe (Âm thanh phát)"]
     
     %% Engine NghiTTS
-    EngineSelect -->|NghiTTS| Nghi["PiperTTSService (Piper Engine offline)"]
-    Nghi -->|Tổng hợp nhị phân| WavData["Dữ liệu WAV thô"]
-    WavData -->|Giải mã PCM nhị phân| PCMBuffer["AVAudioPCMBuffer (RAM)"]
+    EngineSelect -->|NghiTTS| Policy["NghiSynthesisPolicy"]
+    Policy -->|Thermal gate + cooldown| Nghi["PiperTTSService / PiperCoordinator"]
+    Nghi -->|ONNX/XNNPACK 1 worker| WavData["Dữ liệu WAV thô"]
+    WavData -->|Double buffer| NghiQueue["NghiAudioPlayerQueue"]
+    NghiQueue --> AudioOut
     
     %% Engine JS Extension
     EngineSelect -->|Extension JS| ExtTTS["ExtTTSService"]
     ExtTTS -->|Gọi executeCustomScript| JS["JSExecutor (Script JS của extension)"]
-    JS -->|Tải file âm thanh online| PCMBuffer
+    JS -->|Tải file âm thanh online| PCMBuffer["AVAudioPCMBuffer (RAM)"]
     
     PCMBuffer -->|Lưu bộ đệm gối đầu| PreWav["preloadedWavs (RAM Cache: N, N+1)"]
     PreWav -->|Lập lịch phát| PlayerNode["AVAudioPlayerNode.scheduleBuffer(...)"]

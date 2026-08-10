@@ -140,5 +140,6 @@ WKWebView được sử dụng để tải các trang web chứa mã bảo vệ 
 - Remote TTS jobs enter a single priority queue. A job owns its service operation until completion; duplicate callers own only continuations. Pause/stop cancels continuations and the active task, and queued work is released immediately.
 - `ExtTTSRuntime` keeps its `JSExecutor` across chunks of the same extension/config. It cancels registered network tasks and releases the context when identity changes, an execution fails, or full TTS cache cleanup requests reset.
 - Native sync fetch registers each `URLSessionDataTask`, cancels it on Swift task cancellation/timeout, and waits a bounded interval for its completion callback before returning from the JS bridge.
+- The cached NghiTTS ORT session keeps one worker for its lifetime and prefers XNNPACK when available. Refill tasks sleep before speculative inference, are canceled at serious/critical thermal pressure, and resume only through a later prefetch-window update after cooling.
 
 <!-- GENERATED END -->

@@ -133,6 +133,7 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 - **R-10: Remote TTS thermal/CPU burst (Mitigated)**: A depth-three window previously created independent Google/Ext tasks with no concurrency cap and nested retry. Mitigation is one priority coordinator, service-owned retry capped at two attempts, thermal cancellation, and delayed next-chapter audio.
 - **R-11: Persistent Ext TTS JS state (Mitigated)**: Reusing JavaScriptCore can retain extension globals. The runtime is isolated to TTS, serialized, keyed by exact script/config identity, reset on error/full cache teardown, and never shared with search/detail/toc/chap execution.
+- **R-12: Sustained NghiTTS on-device inference heat (Mitigated)**: Piper must compute all speech locally, so serialization alone cannot lower average CPU power. Mitigation fixes ORT/XNNPACK to one worker, reduces thermal watermarks, inserts safe cooldowns, blocks next-chapter audio outside nominal, and stops speculative refill at serious/critical. Residual risk remains for very long sessions because current audio still requires local inference.
 - **Residual risk**: The VBook-compatible synchronous `fetch` API still waits on a worker semaphore. Registered URLSession tasks are now cancellable and binary payload text decoding is skipped, but changing the public JS API to mandatory Promise semantics remains incompatible with existing extensions.
 
 <!-- GENERATED END -->

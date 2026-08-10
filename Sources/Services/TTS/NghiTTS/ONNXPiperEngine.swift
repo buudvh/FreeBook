@@ -66,21 +66,25 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
         let env = try ORTEnv(loggingLevel: .warning)
         let options = try ORTSessionOptions()
 
-        let threadCount: Int32
-        let userCustom = UserDefaults.standard.integer(forKey: "nghiTTSThreadCount")
-        if userCustom > 0 {
-            threadCount = Int32(min(2, max(1, userCustom)))
-        } else {
-            let cores = ProcessInfo.processInfo.processorCount
-            let thermal = ProcessInfo.processInfo.thermalState
-            if cores <= 4 || thermal == .fair || thermal == .serious || thermal == .critical {
-                threadCount = 1
-            } else {
-                threadCount = 2
-            }
-        }
+        // A13 reports 6 logical cores, but continuously driving two ORT
+        // workers raises package power significantly during long playback.
+        // XNNPACK also recommends keeping ORT's own pool at one worker.
+        let threadCount: Int32 = 1
         try options.setIntraOpNumThreads(threadCount)
-        AppLogger.shared.log("🤖 [ONNXPiperEngine] Khởi tạo ORTSession với intraOpNumThreads=\(threadCount) (cores=\(ProcessInfo.processInfo.processorCount), thermalState=\(ProcessInfo.processInfo.thermalState.rawValue))")
+        try options.setGraphOptimizationLevel(.all)
+
+        var executionProvider = "cpu"
+        do {
+            let xnnpackOptions = ORTXnnpackExecutionProviderOptions()
+            xnnpackOptions.intra_op_num_threads = 1
+            try options.appendXnnpackExecutionProvider(with: xnnpackOptions)
+            executionProvider = "xnnpack"
+        } catch {
+            // Not every ORT binary includes XNNPACK. CPU remains a safe fallback.
+            AppLogger.shared.log("ℹ️ [ONNXPiperEngine] XNNPACK không khả dụng, dùng CPU provider: \(error.localizedDescription)")
+        }
+
+        AppLogger.shared.log("🤖 [ONNXPiperEngine] Khởi tạo ORTSession provider=\(executionProvider) intraOpNumThreads=\(threadCount) (cores=\(ProcessInfo.processInfo.processorCount), thermalState=\(ProcessInfo.processInfo.thermalState.rawValue))")
 
         let session = try ORTSession(env: env, modelPath: modelONNX.path, sessionOptions: options)
         let inputNames = try session.inputNames()
