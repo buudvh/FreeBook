@@ -2475,6 +2475,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 }
             }
 
+            @MainActor
             func isValidSession() -> Bool {
                 // Avoid a chained `&&` expression here. In Swift 6 each RHS is
                 // evaluated through a nonisolated autoclosure, which cannot read
