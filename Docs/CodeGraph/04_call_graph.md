@@ -4,7 +4,7 @@ generator_version: 1.0
 generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
 source_files: 93
-document_version: 5
+document_version: 6
 ---
 
 # Đồ thị Lời gọi Hàm (Call Graph)
@@ -15,6 +15,13 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS presentation energy calls (1.3.112)
+
+* `TTSManager.updateNowPlayingInfo` checks `NowPlayingStaticMetadataKey`; a cache hit calls `publishNowPlayingInfo` synchronously, while a miss replaces the sole metadata task, prepares translated titles/local cover once, caches `MPMediaItemArtwork`, then republishes the latest dynamic timeline.
+* Missing artwork calls `downloadNowPlayingCoverIfNeeded` once per static key. A successful callback invalidates only that cached metadata and rebuilds it from the saved local cover.
+* `TTSWidgetStateReader`, `TTSRootPresentationReader`, and `ReaderTTSStateReader` subscribe only to their required `@Published` fields and publish a snapshot only when its value changes.
+* `TTSManager.initialize` and a transition to the Nghi engine call `scheduleNghiWarmUp`; all non-Nghi tool transitions cancel pending warm-up.
+
 ## Reader viewport-gated scroll and serious N+1 calls (1.3.111)
 
 * TTS parent changes call `ReaderView.requestTTSScrollIfNeeded`; it queries `ParagraphTracker.isParagraphInsideSafeViewport` and creates a `.ttsAuto` `ScrollTarget` only when the target midpoint is outside the viewport's 15% safe inset.

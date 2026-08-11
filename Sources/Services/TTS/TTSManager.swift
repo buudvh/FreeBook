@@ -82,6 +82,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             UserDefaults.standard.set(tool, forKey: "ttsTool")
             loadParamsForCurrentTool()
             clearPrefetchCache()
+            if tool == "nghitts" {
+                scheduleNghiWarmUp()
+            } else {
+                nghiWarmUpTask?.cancel()
+                nghiWarmUpTask = nil
+            }
         }
     }
     @Published public var speed: Double {
@@ -684,10 +690,30 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         preparedChapter = nil
     }
 
-    // Now Playing updates include detached translation/cover work. A newer
-    // playback state must invalidate older tasks so Lock Screen cannot revert
-    // a just-resumed session back to paused (or vice versa).
+    private struct NowPlayingStaticMetadataKey: Equatable, Sendable {
+        let bookId: String
+        let bookTitle: String
+        let chapterIndex: Int
+        let chapterTitle: String
+        let coverUrl: String
+        let isTranslationEnabled: Bool
+        let translationToken: Int
+    }
+
+    private struct NowPlayingStaticMetadata {
+        let key: NowPlayingStaticMetadataKey
+        let displayBookTitle: String
+        let displayChapterTitle: String
+        let artwork: MPMediaItemArtwork?
+    }
+
+    // Static title/artwork work is coalesced by book/chapter/translation key.
+    // Paragraph transitions update only the cheap timeline fields.
     private var nowPlayingUpdateGeneration: UInt = 0
+    private var nowPlayingStaticMetadata: NowPlayingStaticMetadata?
+    private var nowPlayingMetadataTaskKey: NowPlayingStaticMetadataKey?
+    private var nowPlayingMetadataTask: Task<Void, Never>?
+    private var nowPlayingCoverDownloadKey: NowPlayingStaticMetadataKey?
 
     // Cache lưu trữ dữ liệu âm thanh đã được tổng hợp trước cho các đoạn văn
     private var preloadedData: [Int: Data] = [:]
@@ -738,16 +764,19 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             await ReadingProgressStore.shared.configure(container: container)
             await ChapterContentRepository.shared.configure(container: container)
         }
-        scheduleNghiWarmUp()
+        if tool == "nghitts" {
+            scheduleNghiWarmUp()
+        }
     }
 
     private func scheduleNghiWarmUp() {
         nghiWarmUpTask?.cancel()
+        guard tool == "nghitts" else {
+            nghiWarmUpTask = nil
+            return
+        }
         guard let service = nghiTTSService else { return }
-        let voice = tool == "nghitts"
-            ? selectedVoice
-            : UserDefaults.standard.string(forKey: "nghittsVoice")
-                ?? NghiTTSClient.defaultVietnameseVoice.name
+        let voice = selectedVoice
         nghiWarmUpTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 500_000_000)
             guard !Task.isCancelled else { return }
@@ -912,6 +941,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 let updatedBookId = notification.userInfo?["bookId"] as? String
                 if updatedBookId == nil || updatedBookId == self.playingBookId {
                     self.nextChapterPrefetcher.cancel()
+                    self.nowPlayingUpdateGeneration &+= 1
+                    self.nowPlayingMetadataTask?.cancel()
+                    self.nowPlayingMetadataTask = nil
+                    self.nowPlayingMetadataTaskKey = nil
+                    self.nowPlayingStaticMetadata = nil
+                    if self.showFloatingWidget {
+                        self.updateNowPlayingInfo()
+                    }
                 }
             }
             .store(in: &cancellables)
@@ -1445,6 +1482,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         chapterQueueRefreshTask?.cancel()
         chapterQueueRefreshTask = nil
         nowPlayingUpdateGeneration &+= 1
+        nowPlayingMetadataTask?.cancel()
+        nowPlayingMetadataTask = nil
+        nowPlayingMetadataTaskKey = nil
+        nowPlayingStaticMetadata = nil
+        nowPlayingCoverDownloadKey = nil
 
         if !keepWidget {
             self.currentParagraphIndex = -1
@@ -3422,86 +3464,129 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     private func updateNowPlayingInfo() {
+        let key = NowPlayingStaticMetadataKey(
+            bookId: playingBookId,
+            bookTitle: bookTitle,
+            chapterIndex: playingChapterIndex,
+            chapterTitle: chapterTitle,
+            coverUrl: playingCoverUrl,
+            isTranslationEnabled: TranslateUtils.isTranslationEnabled,
+            translationToken: TranslateUtils.translationGenerationToken(for: playingBookId)
+        )
+
+        if let metadata = nowPlayingStaticMetadata, metadata.key == key {
+            publishNowPlayingInfo(using: metadata)
+            return
+        }
+
+        // A static load for this exact chapter is already active. Its completion
+        // republishes using the latest paragraph/playback state.
+        guard nowPlayingMetadataTaskKey != key else { return }
+
         nowPlayingUpdateGeneration &+= 1
         let updateGeneration = nowPlayingUpdateGeneration
-        let bid = playingBookId
-        let bTitle = bookTitle
-        let cTitle = chapterTitle
-        let isTransEnabled = TranslateUtils.isTranslationEnabled
-        let pIndex = currentParagraphIndex
-        let pCount = paragraphs.count
-        let coverUrlVal = playingCoverUrl
+        nowPlayingMetadataTask?.cancel()
+        nowPlayingMetadataTaskKey = key
 
-        Task {
-            let (displayBookTitle, displayChapterTitle, image) = await Task.detached(priority: .background) {
+        nowPlayingMetadataTask = Task { [weak self] in
+            let prepared = await Task.detached(priority: .background) {
+                let rawChapterTitle = key.chapterTitle.isEmpty ? "Chương hiện tại" : key.chapterTitle
                 let displayBookTitle: String
                 let displayChapterTitle: String
 
-                if isTransEnabled {
-                    displayBookTitle = TranslateUtils.containsChinese(bTitle)
-                        ? TranslateUtils.translateMeta(bTitle, bookId: bid)
-                        : bTitle
-
-                    let rawChapterTitle = cTitle.isEmpty ? "Chương hiện tại" : cTitle
+                if key.isTranslationEnabled {
+                    displayBookTitle = TranslateUtils.containsChinese(key.bookTitle)
+                        ? TranslateUtils.translateMeta(key.bookTitle, bookId: key.bookId)
+                        : key.bookTitle
                     displayChapterTitle = TranslateUtils.containsChinese(rawChapterTitle)
-                        ? TranslateUtils.translateChapterTitle(rawChapterTitle, bookId: bid)
+                        ? TranslateUtils.translateChapterTitle(rawChapterTitle, bookId: key.bookId)
                         : rawChapterTitle
                 } else {
-                    displayBookTitle = bTitle
-                    displayChapterTitle = cTitle.isEmpty ? "Chương hiện tại" : cTitle
+                    displayBookTitle = key.bookTitle
+                    displayChapterTitle = rawChapterTitle
                 }
 
-                let img = ImageCacheManager.shared.loadLocalCover(for: bid)
-                return (displayBookTitle, displayChapterTitle, img)
+                let image = ImageCacheManager.shared.loadLocalCover(for: key.bookId)
+                return (displayBookTitle, displayChapterTitle, image)
             }.value
 
-            guard updateGeneration == self.nowPlayingUpdateGeneration,
-                  self.playingBookId == bid else { return }
+            guard !Task.isCancelled, let self,
+                  updateGeneration == self.nowPlayingUpdateGeneration,
+                  self.nowPlayingMetadataTaskKey == key,
+                  self.playingBookId == key.bookId else { return }
 
-            let liveIsPlaying = self.isPlaying
-            let liveSpeed = self.speed
-
-            var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
-            info[MPMediaItemPropertyTitle] = displayBookTitle
-
-            let currentPart = pCount == 0 ? "" : " (Đoạn \(pIndex + 1)/\(pCount))"
-            info[MPMediaItemPropertyArtist] = displayChapterTitle + currentPart
-
-            info.removeValue(forKey: MPNowPlayingInfoPropertyIsLiveStream)
-            info[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.audio.rawValue
-            let currentRate = liveIsPlaying ? 1.0 : 0.0
-            let duration = Double(max(1, pCount))
-            let elapsed = min(duration, Double(max(0, pIndex)))
-            let progress = duration > 0 ? min(1.0, max(0.0, elapsed / duration)) : 0.0
-
-            info[MPNowPlayingInfoPropertyPlaybackRate] = currentRate
-            info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = liveSpeed
-            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsed
-            info[MPMediaItemPropertyPlaybackDuration] = duration
-            info[MPNowPlayingInfoPropertyPlaybackProgress] = progress
-
-            if let img = image {
-                let artwork = MPMediaItemArtwork(boundsSize: img.size) { _ in
-                    return img
-                }
-                info[MPMediaItemPropertyArtwork] = artwork
-            } else if !coverUrlVal.isEmpty {
-                ImageCacheManager.shared.downloadAndSaveCover(urlStr: coverUrlVal, bookId: bid) { [weak self] image in
-                    guard image != nil else { return }
-                    DispatchQueue.main.async {
-                        guard let self = self,
-                              self.playingBookId == bid,
-                              self.showFloatingWidget else { return }
-                        self.updateNowPlayingInfo()
-                    }
-                }
+            let artwork = prepared.2.map { image in
+                MPMediaItemArtwork(boundsSize: image.size) { _ in image }
             }
+            self.nowPlayingStaticMetadata = NowPlayingStaticMetadata(
+                key: key,
+                displayBookTitle: prepared.0,
+                displayChapterTitle: prepared.1,
+                artwork: artwork
+            )
+            self.nowPlayingMetadataTask = nil
+            self.nowPlayingMetadataTaskKey = nil
 
-            MPNowPlayingInfoCenter.default().nowPlayingInfo = info
-            MPNowPlayingInfoCenter.default().playbackState = liveIsPlaying ? .playing : .paused
-            #if DEBUG
-            self.logRemoteTrace("updateNowPlayingInfo", details: "liveIsPlaying:\(liveIsPlaying), liveSpeed:\(liveSpeed)") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
-            #endif
+            if prepared.2 == nil {
+                self.downloadNowPlayingCoverIfNeeded(for: key)
+            }
+            self.updateNowPlayingInfo()
+        }
+    }
+
+    private func publishNowPlayingInfo(using metadata: NowPlayingStaticMetadata) {
+        let paragraphIndex = currentParagraphIndex
+        let paragraphCount = paragraphs.count
+        let liveIsPlaying = isPlaying
+        let liveSpeed = speed
+
+        var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+        info[MPMediaItemPropertyTitle] = metadata.displayBookTitle
+
+        let currentPart = paragraphCount == 0 ? "" : " (Đoạn \(paragraphIndex + 1)/\(paragraphCount))"
+        info[MPMediaItemPropertyArtist] = metadata.displayChapterTitle + currentPart
+        info.removeValue(forKey: MPNowPlayingInfoPropertyIsLiveStream)
+        info[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.audio.rawValue
+
+        let currentRate = liveIsPlaying ? 1.0 : 0.0
+        let duration = Double(max(1, paragraphCount))
+        let elapsed = min(duration, Double(max(0, paragraphIndex)))
+        let progress = duration > 0 ? min(1.0, max(0.0, elapsed / duration)) : 0.0
+        info[MPNowPlayingInfoPropertyPlaybackRate] = currentRate
+        info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = liveSpeed
+        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsed
+        info[MPMediaItemPropertyPlaybackDuration] = duration
+        info[MPNowPlayingInfoPropertyPlaybackProgress] = progress
+
+        if let artwork = metadata.artwork {
+            info[MPMediaItemPropertyArtwork] = artwork
+        } else {
+            info.removeValue(forKey: MPMediaItemPropertyArtwork)
+        }
+
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        MPNowPlayingInfoCenter.default().playbackState = liveIsPlaying ? .playing : .paused
+        #if DEBUG
+        logRemoteTrace("updateNowPlayingInfo", details: "liveIsPlaying:\(liveIsPlaying), liveSpeed:\(liveSpeed)") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
+        #endif
+    }
+
+    private func downloadNowPlayingCoverIfNeeded(for key: NowPlayingStaticMetadataKey) {
+        guard !key.coverUrl.isEmpty, nowPlayingCoverDownloadKey != key else { return }
+        nowPlayingCoverDownloadKey = key
+
+        ImageCacheManager.shared.downloadAndSaveCover(urlStr: key.coverUrl, bookId: key.bookId) { [weak self] image in
+            guard image != nil else { return }
+            DispatchQueue.main.async {
+                guard let self,
+                      self.playingBookId == key.bookId,
+                      self.showFloatingWidget else { return }
+                self.nowPlayingCoverDownloadKey = nil
+                if self.nowPlayingStaticMetadata?.key == key {
+                    self.nowPlayingStaticMetadata = nil
+                }
+                self.updateNowPlayingInfo()
+            }
         }
     }
 

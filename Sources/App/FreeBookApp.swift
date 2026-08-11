@@ -35,7 +35,7 @@ struct FreeBookApp: App {
 struct AppLaunchRootView: View {
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var translationManager = TranslationManager.shared
-    @ObservedObject private var ttsManager = TTSManager.shared
+    @StateObject private var ttsPresentation = TTSRootPresentationReader()
 
     var body: some View {
         ZStack {
@@ -50,13 +50,16 @@ struct AppLaunchRootView: View {
             }
             .animation(.easeInOut(duration: 0.5), value: translationManager.isInitialized)
 
-            if translationManager.isInitialized && ttsManager.showFloatingWidget {
+            if translationManager.isInitialized && ttsPresentation.snapshot.showFloatingWidget {
                 TTSFloatingWidgetView()
                     .zIndex(9999)
             }
         }
         .globalToast()
-        .sheet(isPresented: $ttsManager.showingSettingsSheet) {
+        .sheet(isPresented: Binding(
+            get: { ttsPresentation.snapshot.showingSettingsSheet },
+            set: { TTSManager.shared.showingSettingsSheet = $0 }
+        )) {
             TTSSettingsSheet()
         }
         .onAppear {

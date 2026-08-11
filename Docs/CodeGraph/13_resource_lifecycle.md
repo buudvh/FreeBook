@@ -4,7 +4,7 @@ generator_version: 1.0
 generated_at: 2026-07-14T09:15:00+07:00
 git_commit: UNKNOWN
 source_files: 87
-document_version: 4
+document_version: 5
 ---
 
 # Vòng đời Tài nguyên Hệ thống (Resource Lifecycle)
@@ -15,6 +15,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS presentation resource lifecycle (1.3.112)
+
+* The floating cover allocates no recurring timeline/display-rate resource during playback.
+* Projection readers own only selected Combine subscriptions and one small Equatable snapshot. Reader book scoping prevents another session's paragraph/highlight stream from producing view publications.
+* Now Playing owns at most one static metadata task and one cached `MPMediaItemArtwork`. A matching key reuses both; replacement, stop, or dictionary invalidation cancels/clears them. Cover download is requested at most once per static key and a successful save rebuilds the cache.
+* Nghi model warm-up is delayed and cancelable. App initialization schedules it only when Nghi is already selected; switching to Siri/Google/Ext cancels pending preparation.
+
 ## Web-extension DOM ready polling resource lifecycle (1.3.39)
 
 * **Exactly-once completion**: Polling registers a `DispatchQueue.main.asyncAfter` work item. Closing the browser or launching a new wait cancels any pending polling timer and resolves the wait immediately (exactly-once callback).

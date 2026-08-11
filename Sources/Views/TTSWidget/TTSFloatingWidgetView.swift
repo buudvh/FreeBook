@@ -3,8 +3,8 @@ import UIKit
 
 struct TTSFloatingWidgetView: View {
     @StateObject private var viewModel = FloatingWidgetViewModel()
-    @StateObject private var playState = TTSPlayStateReader()
-    @ObservedObject private var ttsManager = TTSManager.shared
+    @StateObject private var ttsState = TTSWidgetStateReader()
+    private let ttsManager = TTSManager.shared
 
     @State private var visualPosition: CGPoint?
     @State private var dragOrigin: CGPoint?
@@ -41,7 +41,7 @@ struct TTSFloatingWidgetView: View {
             )
             let renderPosition = visualPosition ?? restingPosition
             let widgetWidth = viewModel.mode == .peeking ? Layout.peekSize : Layout.width
-            let widgetHeight = viewModel.mode == .peeking ? Layout.peekSize : (ttsManager.timerMode != .off ? Layout.height + 24 : Layout.height)
+            let widgetHeight = viewModel.mode == .peeking ? Layout.peekSize : (ttsState.snapshot.timerMode != .off ? Layout.height + 24 : Layout.height)
 
             widgetBody
                 .frame(width: widgetWidth, height: widgetHeight)
@@ -77,11 +77,11 @@ struct TTSFloatingWidgetView: View {
             Text("Nhập số phút tự động tạm dừng nghe truyện (ví dụ: 90).")
         }
         .onAppear {
-            guard ttsManager.showFloatingWidget else { return }
+            guard ttsState.snapshot.showFloatingWidget else { return }
             viewModel.reveal()
             visualPosition = nil
         }
-        .onChange(of: ttsManager.showFloatingWidget) { _, isVisible in
+        .onChange(of: ttsState.snapshot.showFloatingWidget) { _, isVisible in
             if isVisible {
                 viewModel.reveal()
                 visualPosition = nil
@@ -101,11 +101,11 @@ struct TTSFloatingWidgetView: View {
             collapsedWidget
         } else {
             VStack(spacing: 4) {
-                if ttsManager.timerMode != .off {
+                if ttsState.snapshot.timerMode != .off {
                     HStack(spacing: 4) {
                         Image(systemName: "timer")
                             .font(.system(size: 10, weight: .bold))
-                        Text(ttsManager.sleepTimerBadgeText)
+                        Text(ttsState.snapshot.sleepTimerBadgeText)
                             .font(.system(size: 11, weight: .bold, design: .monospaced))
                     }
                     .foregroundStyle(.white)
@@ -125,8 +125,7 @@ struct TTSFloatingWidgetView: View {
         HStack(spacing: 8) {
             Button(action: openCurrentChapter) {
                 TTSCoverView(
-                    coverURL: ttsManager.playingCoverUrl,
-                    isPlaying: playState.isPlaying,
+                    coverURL: ttsState.snapshot.playingCoverUrl,
                     size: Layout.coverSize
                 )
             }
@@ -138,11 +137,11 @@ struct TTSFloatingWidgetView: View {
                 viewModel.disableAutoHide = true
                 showingTimerMenu = true
             }) {
-                Image(systemName: ttsManager.timerMode != .off ? "timer" : "gearshape.fill")
+                Image(systemName: ttsState.snapshot.timerMode != .off ? "timer" : "gearshape.fill")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(ttsManager.timerMode != .off ? Color.orange : Color.primary)
+                    .foregroundStyle(ttsState.snapshot.timerMode != .off ? Color.orange : Color.primary)
                     .frame(width: Layout.actionButtonSize, height: Layout.actionButtonSize)
-                    .background(Circle().fill(ttsManager.timerMode != .off ? Color.orange.opacity(0.18) : Color.primary.opacity(0.09)))
+                    .background(Circle().fill(ttsState.snapshot.timerMode != .off ? Color.orange.opacity(0.18) : Color.primary.opacity(0.09)))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Cài đặt và Hẹn giờ TTS")
@@ -176,7 +175,7 @@ struct TTSFloatingWidgetView: View {
                     customMinutesInput = "90"
                     showingCustomTimerAlert = true
                 }
-                if ttsManager.timerMode != .off {
+                if ttsState.snapshot.timerMode != .off {
                     Button("❌ Tắt hẹn giờ", role: .destructive) {
                         ttsManager.cancelSleepTimer()
                         viewModel.disableAutoHide = false
@@ -194,14 +193,14 @@ struct TTSFloatingWidgetView: View {
             }
 
             Button(action: togglePlayback) {
-                Image(systemName: playState.isPlaying ? "pause.fill" : "play.fill")
+                Image(systemName: ttsState.snapshot.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: Layout.playButtonSize, height: Layout.playButtonSize)
                     .background(Circle().fill(Color.accentColor))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(playState.isPlaying ? "Tạm dừng đọc" : "Tiếp tục đọc")
+            .accessibilityLabel(ttsState.snapshot.isPlaying ? "Tạm dừng đọc" : "Tiếp tục đọc")
 
             Button(action: skipForward) {
                 Image(systemName: "forward.fill")
@@ -235,8 +234,7 @@ struct TTSFloatingWidgetView: View {
 
     private var collapsedWidget: some View {
         TTSCoverView(
-            coverURL: ttsManager.playingCoverUrl,
-            isPlaying: playState.isPlaying,
+            coverURL: ttsState.snapshot.playingCoverUrl,
             size: Layout.peekSize - 12
         )
         .padding(6)
@@ -353,7 +351,7 @@ struct TTSFloatingWidgetView: View {
     }
 
     private func togglePlayback() {
-        if ttsManager.isPlaying {
+        if ttsState.snapshot.isPlaying {
             ttsManager.pause()
         } else {
             ttsManager.resume()
@@ -373,36 +371,13 @@ struct TTSFloatingWidgetView: View {
 
 private struct TTSCoverView: View {
     let coverURL: String
-    let isPlaying: Bool
     let size: CGFloat
 
-    @State private var baseAngle: Double = 0
-    @State private var rotationStartedAt: Date?
-
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isPlaying)) { context in
-            coverImage
-                .rotationEffect(.degrees(currentAngle(at: context.date)))
-        }
-        .frame(width: size, height: size)
-        .clipShape(Circle())
-        .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
-        .onAppear {
-            if isPlaying, rotationStartedAt == nil {
-                rotationStartedAt = Date()
-            }
-        }
-        .onChange(of: isPlaying) { _, playing in
-            if playing {
-                rotationStartedAt = Date()
-            } else {
-                if let start = rotationStartedAt {
-                    baseAngle += Date().timeIntervalSince(start) * 45
-                }
-                baseAngle = baseAngle.truncatingRemainder(dividingBy: 360)
-                rotationStartedAt = nil
-            }
-        }
+        coverImage
+            .frame(width: size, height: size)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
     }
 
     @ViewBuilder
@@ -431,10 +406,5 @@ private struct TTSCoverView: View {
                 .font(.system(size: size * 0.36, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.88))
         }
-    }
-
-    private func currentAngle(at date: Date) -> Double {
-        guard isPlaying, let start = rotationStartedAt else { return baseAngle }
-        return baseAngle + date.timeIntervalSince(start) * 45
     }
 }

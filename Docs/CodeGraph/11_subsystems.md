@@ -4,7 +4,7 @@ generator_version: 1.0
 generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
 source_files: 93
-document_version: 3
+document_version: 5
 ---
 
 # Phân tích các Phân hệ Cốt lõi (Subsystems)
@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS presentation energy optimization (1.3.112)
+
+The Widget subsystem renders a static cover during sustained playback and consumes a deduplicated `TTSWidgetSnapshot`. App root uses a presentation-only snapshot, Shelf reads TTS identity only when handling the explicit open-reader notification, and Reader uses a book-scoped projection that suppresses unrelated highlight churn.
+
+The TTS subsystem splits Now Playing into cached static metadata (translated book/chapter titles and artwork) and cheap dynamic timeline publication. One cancelable task owns a static-key miss; paragraph changes never repeat title translation or cover decoding after the cache is warm. Piper model warm-up is lazy and exists only while Nghi is selected.
+
 ## Reader viewport gate and serious N+1 buffering (1.3.111)
 
 The Reader subsystem no longer recenters every spoken paragraph: it skips TTS auto-scroll while the target midpoint remains inside a safe viewport band and throttles insignificant frame writes. ReaderEnergy now reports requested, skipped, and executed scrolls plus accepted/skipped frame updates. The remote TTS subsystem preserves only playback-essential N+1 at `.serious` to hide network synthesis latency without increasing concurrency or steady-state request cadence; `.critical` still disables prefetch completely.
@@ -267,7 +273,7 @@ Reader chrome observes the pending target and immediately shows its title, chapt
 - Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
-- The TTS widget presents a compact horizontal capsule over Reader, with a circular rotating cover, play/pause, fast-forward and close actions. Its edge-peek mode preserves the same playback and placement state and expands on drag.
+- The TTS widget presents a compact horizontal capsule over Reader, with a static circular cover, play/pause, fast-forward and close actions. Its edge-peek mode preserves the same playback and placement state and expands on drag.
 
 ---
 
@@ -295,7 +301,7 @@ Reader chrome observes the pending target and immediately shows its title, chapt
 - Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
-- The TTS widget presents a compact horizontal capsule over Reader, with a circular rotating cover, play/pause, fast-forward and close actions. Its edge-peek mode preserves the same playback and placement state and expands on drag.
+- The TTS widget presents a compact horizontal capsule over Reader, with a static circular cover, play/pause, fast-forward and close actions. Its edge-peek mode preserves the same playback and placement state and expands on drag.
 - The Chapter Text subsystem now includes `ChapterPersistenceStore`: shared Reader/TTS loads use RAM, background SwiftData, then extension, with coalesced in-flight work and cache-preserving TOC reconciliation.
 - Extension repository management removes row swipe/toggle behavior in favor of an explicit confirmed delete action compatible with the paged tab gesture.
 - `BookStorageManager` coordinates book deletion, ensuring model context changes are committed to the SQLite database before spawning background threads to delete covers and `.bin` files via `ImageCacheManager` and `BookBinManager` under a path safety sandbox validator.

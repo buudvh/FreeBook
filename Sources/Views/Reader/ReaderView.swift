@@ -165,8 +165,9 @@ struct ReaderView: View {
     @State private var importedHost = ""
     @State private var navigateToBookDetail = false
 
-    // TTS (Giọng đọc): Sử dụng @StateObject để giữ vòng đời của đối tượng TTSManager.shared không bị hủy khi đổi chương
-    @StateObject private var ttsManager = TTSManager.shared
+    // Reader chỉ quan sát projection TTS cần để render; manager singleton vẫn xử lý action.
+    @StateObject private var ttsState = ReaderTTSStateReader()
+    private let ttsManager = TTSManager.shared
     @State private var triggerGetVisibleIndex: UUID? = nil
     @State private var editingParagraphIndex: Int? = nil
     @State private var scrollTarget: ScrollTarget? = nil
@@ -220,13 +221,13 @@ struct ReaderView: View {
     @State private var metadataGeneration: Int = 0
 
     private var isCurrentlyPlayingThisChapter: Bool {
-        ttsManager.isPlaying &&
-        ttsManager.playingBookId == bookId &&
-        ttsManager.playingChapterIndex == chapterIndex
+        ttsState.snapshot.isPlaying &&
+        ttsState.snapshot.playingBookId == bookId &&
+        ttsState.snapshot.playingChapterIndex == chapterIndex
     }
 
     private var isTTSPlayingThisBook: Bool {
-        ttsManager.isPlaying && ttsManager.playingBookId == bookId
+        ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId
     }
 
     private var ttsExtensionInfo: TTSExtensionInfo? {
@@ -739,8 +740,8 @@ struct ReaderView: View {
     private var readerDataObservationView: some View {
         readerPresentationView
 
-        .onChange(of: ttsManager.isPlaying) { _, _ in
-            let ttsOwnsBook = ttsManager.isPlaying && ttsManager.playingBookId == bookId
+        .onChange(of: ttsState.snapshot.isPlaying) { _, _ in
+            let ttsOwnsBook = ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId
             viewModel?.setSpeculativePrefetchEnabled(!ttsOwnsBook)
         }
         .onChange(of: viewModel?.displayedChapterIndex) { _, _ in
@@ -781,6 +782,7 @@ struct ReaderView: View {
             await initializeReaderIfNeeded()
         }
         .onAppear {
+            ttsState.scope(to: bookId)
             ReaderEnergyDiagnostics.shared.beginReaderSession()
         }
         .onDisappear {
@@ -794,7 +796,7 @@ struct ReaderView: View {
             prepareTTSTask?.cancel()
             paragraphTracker.removeAll()
             if let vm = viewModel {
-                let ttsOwnsProgress = ttsManager.isPlaying && ttsManager.playingBookId == bookId
+                let ttsOwnsProgress = ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId
                 Task {
                     await vm.shutdown(saveProgress: !ttsOwnsProgress)
                     await ChapterContentRepository.shared.flush(bookId: bookId)
@@ -805,7 +807,7 @@ struct ReaderView: View {
             if newPhase == .background {
                 ReaderEnergyDiagnostics.shared.flush(reason: "app_background")
             }
-            if newPhase == .background && !(ttsManager.isPlaying && ttsManager.playingBookId == bookId) {
+            if newPhase == .background && !(ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId) {
                 viewModel?.saveProgressImmediately()
             }
         }
@@ -858,14 +860,14 @@ struct ReaderView: View {
                 scrollTarget = ScrollTarget(chapterIndex: targetIndex, paragraphIndex: paragraphIndex)
             }
         }
-        .onChange(of: ttsManager.currentParentParagraphIndex) { _, newValue in
-            guard ttsManager.isPlaying &&
-                  ttsManager.playingBookId == bookId &&
-                  ttsManager.playingChapterIndex >= 0 &&
-                  ttsManager.playingChapterIndex < totalChaptersCount &&
+        .onChange(of: ttsState.snapshot.currentParentParagraphIndex) { _, newValue in
+            guard ttsState.snapshot.isPlaying &&
+                  ttsState.snapshot.playingBookId == bookId &&
+                  ttsState.snapshot.playingChapterIndex >= 0 &&
+                  ttsState.snapshot.playingChapterIndex < totalChaptersCount &&
                   newValue >= 0 else { return }
 
-            let playingChapterIndex = ttsManager.playingChapterIndex
+            let playingChapterIndex = ttsState.snapshot.playingChapterIndex
             guard !isAutoScrollDisabled else { return }
 
             guard chapterIndex == playingChapterIndex else { return }
@@ -954,7 +956,7 @@ struct ReaderView: View {
                 chapterListStore?.markCached(index: index)
             }
             newViewModel.setSpeculativePrefetchEnabled(
-                !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
+                !(ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId)
             )
             viewModel = newViewModel
 
@@ -1135,7 +1137,7 @@ struct ReaderView: View {
                         Task { @MainActor in
                             self.localChaptersCount = newTotal
                             self.viewModel?.updateChapterSnapshot(totalCount: newTotal, onlineChapters: [])
-                            if ttsManager.playingBookId == bookId {
+                            if ttsState.snapshot.playingBookId == bookId {
                                 ttsManager.refreshChaptersQueueInBackground(bookId: bookId, onlineChapters: nil)
                             }
                         }
@@ -1568,11 +1570,11 @@ struct ReaderView: View {
 
         ForEach(chapter.paragraphItems) { item in
             let relativeHighlightRange: NSRange? = {
-                guard ttsManager.isPlaying,
-                      ttsManager.playingBookId == bookId,
-                      ttsManager.playingChapterIndex == chapter.index,
-                      item.id == ttsManager.currentParentParagraphIndex,
-                      let chunkRange = ttsManager.highlightRange else { return nil }
+                guard ttsState.snapshot.isPlaying,
+                      ttsState.snapshot.playingBookId == bookId,
+                      ttsState.snapshot.playingChapterIndex == chapter.index,
+                      item.id == ttsState.snapshot.currentParentParagraphIndex,
+                      let chunkRange = ttsState.snapshot.highlightRange else { return nil }
 
                 // AppLogger.shared.logTTSVerbose("🔊 [ReaderView] Applied relativeHighlightRange for ItemID=\(item.id): chunkRange=\(chunkRange)")
                 // Giữ nguyên hệ tọa độ text gốc; ParagraphCardView ánh xạ sang text đang hiển thị.
@@ -1592,7 +1594,7 @@ struct ReaderView: View {
                 triggerGetVisibleIndex: $triggerGetVisibleIndex,
                 clearSelectionTrigger: $clearSelectionTrigger,
                 onGetVisibleIndex: { visibleOffset in
-                    guard !ttsManager.isPlaying else { return }
+                    guard !ttsState.snapshot.isPlaying else { return }
                     startTTS(at: chapter.index, paragraphIndex: item.id)
                 },
                 onSelectionChange: { paragraphID, selectionRange, minY, maxY in
@@ -1691,7 +1693,7 @@ struct ReaderView: View {
     }
 
     private func nextChapter() {
-        let persistProgress = !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
+        let persistProgress = !(ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId)
         let targetIndex = (viewModel?.pendingNavigationIndex ?? chapterIndex) + 1
         if targetIndex >= 0 && targetIndex < totalChaptersCount {
             viewModel?.stepChapter(by: 1, source: .nextButton, persistProgress: persistProgress)
@@ -1699,7 +1701,7 @@ struct ReaderView: View {
     }
 
     private func prevChapter() {
-        let persistProgress = !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
+        let persistProgress = !(ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId)
         let targetIndex = (viewModel?.pendingNavigationIndex ?? chapterIndex) - 1
         if targetIndex >= 0 && targetIndex < totalChaptersCount {
             viewModel?.stepChapter(by: -1, source: .previousButton, persistProgress: persistProgress)
@@ -1707,7 +1709,7 @@ struct ReaderView: View {
     }
 
     private func selectChapter(at index: Int, scroll: Bool = true) {
-        let persistProgress = !(ttsManager.isPlaying && ttsManager.playingBookId == bookId)
+        let persistProgress = !(ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId)
         requestChapter(
             at: index,
             paragraphIndex: scroll ? -1 : getSavedParagraphIndex(for: index),
@@ -1853,7 +1855,7 @@ struct ReaderView: View {
     }
 
     private func prepareTTSForCurrentState() {
-        guard !ttsManager.isPlaying else { return }
+        guard !ttsState.snapshot.isPlaying else { return }
 
         let index = chapterIndex
         guard index >= 0 && index < totalChaptersCount else { return }
@@ -1882,7 +1884,7 @@ struct ReaderView: View {
     }
 
     private func schedulePrepareTTS() {
-        guard !ttsManager.isPlaying else { return }
+        guard !ttsState.snapshot.isPlaying else { return }
         prepareTTSTask?.cancel()
 
         let workItem = DispatchWorkItem {
@@ -1899,7 +1901,7 @@ struct ReaderView: View {
         updateProgressWorkItem?.cancel()
         let progressWork = DispatchWorkItem { [weak viewModel] in
             guard let top = self.paragraphTracker.getTopVisible(viewportTopY: 80, currentBookId: self.bookId, currentChapterIndex: self.chapterIndex) ?? self.paragraphTracker.topVisible else { return }
-            let ttsOwnsProgress = ttsManager.isPlaying && ttsManager.playingBookId == self.bookId
+            let ttsOwnsProgress = ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == self.bookId
 
             guard let vm = viewModel, top.chapterIndex == vm.displayedChapterIndex else { return }
             if !ttsOwnsProgress {
@@ -1913,13 +1915,13 @@ struct ReaderView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: progressWork)
 
         // 2. Debounce 1.5 giây cho việc đồng bộ con trỏ TTS (tránh re-render ttsManager khi cuộn nhanh)
-        guard ttsManager.isPlaying || ttsManager.showFloatingWidget else { return }
-        guard ttsManager.playingBookId == bookId else { return }
+        guard ttsState.snapshot.isPlaying || ttsState.snapshot.showFloatingWidget else { return }
+        guard ttsState.snapshot.playingBookId == bookId else { return }
 
         updateTTSPositionWorkItem?.cancel()
         let ttsWork = DispatchWorkItem {
             guard let top = self.paragraphTracker.getTopVisible(viewportTopY: 80, currentBookId: self.bookId, currentChapterIndex: self.chapterIndex) ?? self.paragraphTracker.topVisible else { return }
-            guard self.ttsManager.playingChapterIndex == top.chapterIndex else { return }
+            guard self.ttsState.snapshot.playingChapterIndex == top.chapterIndex else { return }
             self.ttsManager.updateParagraphPositionWithoutPlaying(paragraphIndex: top.paragraphIndex)
         }
         self.updateTTSPositionWorkItem = ttsWork
@@ -1929,9 +1931,9 @@ struct ReaderView: View {
 
     private func scrollToTTSHighlightIfNeeded() {
         guard !isAutoScrollDisabled else { return }
-        if ttsManager.isPlaying && ttsManager.playingBookId == bookId && ttsManager.currentParentParagraphIndex >= 0 {
-            let targetIdx = ttsManager.currentParentParagraphIndex
-            let chapIdx = ttsManager.playingChapterIndex
+        if ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId && ttsState.snapshot.currentParentParagraphIndex >= 0 {
+            let targetIdx = ttsState.snapshot.currentParentParagraphIndex
+            let chapIdx = ttsState.snapshot.playingChapterIndex
             if chapIdx == chapterIndex {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                     self.requestTTSScrollIfNeeded(chapterIndex: chapIdx, paragraphIndex: targetIdx)
@@ -2271,7 +2273,7 @@ struct ReaderView: View {
             icon: "headphones",
             tint: selectedTheme.textColor.opacity(0.9),
             action: {
-                if ttsManager.isPlaying || ttsManager.showFloatingWidget {
+                if ttsState.snapshot.isPlaying || ttsState.snapshot.showFloatingWidget {
                     ttsManager.stop()
                 }
                 let viewportTopY = geometry.frame(in: .global).minY + geometry.safeAreaInsets.top + 20

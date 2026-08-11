@@ -4,7 +4,7 @@ generator_version: 1.0
 generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
 source_files: 93
-document_version: 5
+document_version: 7
 ---
 
 # Hướng dẫn Quy định Lập trình (Coding & Architecture Rules)
@@ -15,6 +15,13 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS presentation energy invariants (1.3.112)
+
+* The floating TTS cover must remain static during sustained playback; a continuously scheduled `TimelineView` or display-rate decorative animation is forbidden.
+* App root, Shelf, Reader, and floating widget must not observe the entire `TTSManager` when they render only a subset of its state. Projection readers publish deduplicated snapshots, and Reader highlight state must collapse to inactive when the playing `bookId` does not match its scoped book.
+* Lock Screen book title, chapter title, translation result, and artwork are static metadata keyed by book/chapter/cover/translation generation. Only one static metadata task may be active; paragraph transitions update only timeline, progress, speed, and playback state.
+* NghiTTS model preparation is lazy: app initialization may warm the model only when `tool == "nghitts"`; selecting another engine cancels pending warm-up.
+
 ## TTS highlight coordinate invariants (1.3.80)
 
 * `TTSParagraph.range` is always expressed in UTF-16 offsets of the **original** `ChapterTextLine.text`. `TTSManager.highlightRange` and `ReaderView` must preserve that coordinate space; no component may pre-translate it.

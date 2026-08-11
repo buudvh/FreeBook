@@ -42,8 +42,8 @@ struct ShelfView: View {
     @State private var historyLimit = 50 // Giới hạn số lượng sách hiển thị trong lịch sử đọc
     @State private var isProcessingDeletion = false // Trạng thái đang xóa sách bất đồng bộ (tránh bấm lặp)
 
-    // @ObservedObject: Theo dõi và cập nhật UI khi lớp dịch vụ TTSManager phát tín hiệu thay đổi trạng thái (phát âm thanh).
-    @ObservedObject private var ttsManager = TTSManager.shared
+    // Chỉ đọc snapshot TTS khi nhận sự kiện mở Reader; không redraw toàn bộ Shelf theo từng đoạn.
+    private let ttsManager = TTSManager.shared
 
     // Biến trạng thái phục vụ việc điều hướng (navigation) sang màn hình đọc truyện từ Widget TTS
     @State private var activeReaderRoute: ShelfReaderRoute? = nil

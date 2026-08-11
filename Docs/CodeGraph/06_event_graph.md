@@ -4,7 +4,7 @@ generator_version: 1.0
 generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
 source_files: 93
-document_version: 6
+document_version: 7
 ---
 
 # Bản đồ Sự kiện & Cơ chế Giao tiếp (Event Graph)
@@ -15,6 +15,13 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS presentation energy events (1.3.112)
+
+* Paragraph/playback events update the dynamic Lock Screen timeline immediately after static metadata is cached; they do not emit new translation, local-cover decode, or artwork-construction work.
+* A book/chapter/cover/translation-key event cancels the previous metadata task and starts at most one replacement. Dictionary updates invalidate the matching cache and republish if the widget session remains active.
+* Widget/root/Reader Combine events cross the main RunLoop before snapshots are reread, because `@Published` emits before assignment; equality checks suppress unchanged view invalidations.
+* Selecting Nghi schedules delayed warm-up. Selecting any other engine emits cancellation of the pending warm-up task.
+
 ## Reader viewport and serious-buffer events (1.3.111)
 
 * A TTS parent event whose paragraph midpoint remains inside the Reader safe viewport increments `scrollSkippedVisible` and emits no `scrollTarget`; an out-of-band target emits one `.ttsAuto` target and records execution when `ScrollViewProxy.scrollTo` runs.
@@ -124,7 +131,7 @@ graph TD
 
 ### 2.3. Sự kiện Combine (Publishers)
 *   **`@Published` Properties**:
-    *   `TTSManager` phát các thay đổi về trạng thái `isPlaying`, `currentParagraphIndex`, `downloadingVoices` sang giao diện `TTSFloatingWidgetView` và `TTSPlayStateReader`.
+    *   `TTSManager` phát trạng thái nguồn; `TTSWidgetStateReader`, `TTSRootPresentationReader` và `ReaderTTSStateReader` chỉ chuyển tiếp snapshot cần render sau equality gate. Settings vẫn quan sát đầy đủ cấu hình tải/model.
     *   `DownloadManager` phát các thay đổi về tiến trình `tasks` lên giao diện `DownloadTrackerView`.
 *   **`memoryWarningSubscription`**:
     *   *Định nghĩa*: Đăng ký lắng nghe thông báo bộ nhớ bằng Combine publisher trong `ReaderViewModel.setupSubscriptions()`.

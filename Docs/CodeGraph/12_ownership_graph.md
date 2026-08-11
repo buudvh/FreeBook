@@ -4,7 +4,7 @@ generator_version: 1.0
 generated_at: 2026-07-14T09:15:00+07:00
 git_commit: UNKNOWN
 source_files: 87
-document_version: 3
+document_version: 4
 ---
 
 # Đồ thị Sở hữu Đối tượng (Ownership Graph)
@@ -15,6 +15,12 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS presentation ownership update (1.3.112)
+
+`AppLaunchRootView` owns `TTSRootPresentationReader`; `TTSFloatingWidgetView` owns `TTSWidgetStateReader`; each `ReaderView` owns one book-scoped `ReaderTTSStateReader`. These projection objects own narrow Combine subscriptions but never own playback. `ShelfView` keeps only a non-observing singleton reference for its explicit open-reader notification.
+
+`TTSManager.shared` remains the sole playback owner and additionally owns one Now Playing static metadata task/cache plus the optional Nghi warm-up task. Stop or identity replacement cancels/releases metadata work; non-Nghi selection cancels warm-up.
+
 ## Reader ownership update (1.3.11)
 
 `ReaderView` owns one `ReaderViewModel` and one `ReaderChapterListStore` for its lifetime. The store manages a sliding 3-page window holding at most 300 active `ReaderChapterRowState` objects, while positional lightweight metadata (`ChapterRowItem`) spans the entire TOC. `ReaderViewModel` owns the chapter cache, navigation debounce/worker, speculative-prefetch task, cancelable sequential translation-refresh task, and progress repository; its cache callback references the list store only to mutate one row. `TTSManager.shared` remains independent and owns full chapter-queue refresh for playback after Reader has supplied the short startup queue.
@@ -126,7 +132,7 @@ graph TD
 - Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
-- `TTSFloatingWidgetView` owns `FloatingWidgetViewModel` and the cover animation state; `TTSManager.shared` remains the single owner of playback, chapter identity, and stop semantics.
+- `TTSFloatingWidgetView` owns `FloatingWidgetViewModel` and a narrow widget-state projection; the static cover owns no animation clock. `TTSManager.shared` remains the single owner of playback, chapter identity, and stop semantics.
 - `ChapterContentRepository.shared` owns cross-consumer memory and in-flight chapter loads; `ChapterPersistenceStore` owns background contexts, pending writes, retry, and flush. Reader/TTS retain separate navigation/playback sessions.
 - `RepositoryManagerView` owns the pending repository deletion selection; `ModelContext` owns the actual cascade only after user confirmation.
 - `BookStorageManager.shared` acts as a Singleton coordinating book deletion; it cascades database deletions to `ModelContext` (database commit first) and triggers asynchronous background sandbox cleanup via `BookBinManager.shared` and `ImageCacheManager.shared` under path safety validation. Failed deletions are owned by a retry queue stored in `UserDefaults` and drained at app launch.

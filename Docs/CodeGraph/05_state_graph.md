@@ -4,7 +4,7 @@ generator_version: 1.0
 generated_at: 2026-07-17T22:00:00+07:00
 git_commit: UNKNOWN
 source_files: 91
-document_version: 3
+document_version: 5
 ---
 
 # Máy Trạng thái (State Graph)
@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS presentation state transitions (1.3.112)
+
+* Floating cover presentation is static in both playing and paused states; playback no longer creates a 30 FPS animation state loop.
+* Now Playing static metadata transitions `missing -> preparing -> cached`, keyed by book/chapter/cover/translation generation. Repeated paragraph events while preparing coalesce; key replacement, stop, or dictionary invalidation cancels/invalidates the old preparation.
+* Nghi warm-up transitions `idle -> pending -> prepared` only while Nghi is selected. Switching away cancels `pending` warm-up; normal app initialization with Siri/Google/Ext remains `idle`.
+* Reader projection state retains global play/widget identity but transitions paragraph/highlight fields to inactive whenever the playing book differs from the Reader scope.
+
 ## Book storage and pagination state transitions (1.3.34)
 
 * **Book Deletion State Machine**: Controlled by `BookStorageManager`, moving from `Idle` -> `Confirmation` -> `Database Committed` (deleted from DB and saved) -> `Asynchronous Sandbox Deletion` (deleting `.bin`/`.jpg` on a background thread). If the background file deletion fails, it transitions to `Retry Queue Enqueue` (stored in `UserDefaults` queue) and undergoes retry attempts at app startup via `drainRetryQueue()` until succeeding or reaching the 3-attempt limit.

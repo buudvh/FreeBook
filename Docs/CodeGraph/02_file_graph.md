@@ -4,7 +4,7 @@ generator_version: 1.0
 generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
 source_files: 93
-document_version: 2
+document_version: 3
 ---
 
 # Đồ thị File & Quan hệ Import (File & Import Graph)
@@ -1287,6 +1287,8 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *   **Sử dụng (Uses)**:
     *   [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift)
 *   **Được sử dụng bởi (Used by)**:
+    *   [FreeBookApp.swift](../../Sources/App/FreeBookApp.swift)
+    *   [ReaderView.swift](../../Sources/Views/Reader/ReaderView.swift)
     *   [TTSFloatingWidgetView.swift](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift)
 
 ---

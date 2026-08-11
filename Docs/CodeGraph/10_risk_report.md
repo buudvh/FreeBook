@@ -4,7 +4,7 @@ generator_version: 1.0
 generated_at: 2026-07-14T09:15:00+07:00
 git_commit: UNKNOWN
 source_files: 87
-document_version: 1
+document_version: 3
 ---
 
 # Báo cáo Rủi ro Kỹ thuật (Technical Risk Report)
@@ -15,6 +15,13 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS foreground energy risks mitigated in 1.3.112
+
+* **Mitigated - widget display-rate work:** the global floating cover no longer drives a 30 FPS SwiftUI timeline while playback continues across Reader/Discovery/Shelf.
+* **Mitigated - broad TTS view invalidation:** app root, Shelf, widget, and Reader no longer observe every published manager field. Deduplicated projections suppress unrelated paragraph/highlight/download/timer updates; another book's highlights cannot invalidate the visible Reader.
+* **Mitigated - repeated Lock Screen static work:** translated titles, local cover decode, and artwork construction are cached per static identity and coalesced behind one cancelable task. Paragraph transitions update only dynamic timeline fields.
+* **Mitigated - unconditional Nghi warm-up:** Siri/Google/Ext app launches no longer prepare the Piper model; Nghi selection owns the lazy warm-up lifecycle.
+
 ## Web-extension engine risks mitigated in 1.3.39
 
 * **Deadlock mitigation**: The `waitForReady` JS bridge checks `Thread.isMainThread` and returns a failed JSON readiness DTO immediately instead of waiting on the semaphore, preventing application deadlock.

@@ -4,7 +4,7 @@ generator_version: 1.0
 generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
 source_files: 93
-document_version: 3
+document_version: 4
 ---
 
 # Đồ thị Kiểu dữ liệu (Type Graph)
@@ -15,6 +15,13 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## TTS presentation projection types (1.3.112)
+
+* `TTSWidgetSnapshot` and `TTSWidgetStateReader` expose only playback, visibility, cover, and timer state used by the floating widget.
+* `TTSRootPresentationSnapshot` and `TTSRootPresentationReader` isolate the app root to widget/settings presentation state.
+* `ReaderTTSStateSnapshot` and `ReaderTTSStateReader` retain global playback identity but expose paragraph/highlight state only for the scoped Reader book.
+* `TTSManager.NowPlayingStaticMetadataKey` keys translated Lock Screen titles/artwork by book, chapter, cover URL, translation mode, and translation generation.
+
 ## Reader paragraph and selection types (1.3.14)
 
 * `TranslationSpan` stores original and translated UTF-16 offsets/lengths; `TranslatedTextResult` returns translated text with those spans.
@@ -700,7 +707,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 *   **Định nghĩa tại**: [Views/TTSWidget/TTSFloatingWidgetView.swift:11](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift#L11)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: Không kế thừa hoặc tuân thủ protocol nào
-*   **Sử dụng (Uses)**: `FloatingWidgetViewModel`, `TTSManager`, `TTSPlayStateReader`, `TTSSettingsView`
+*   **Sử dụng (Uses)**: `FloatingWidgetViewModel`, `TTSManager`, `TTSWidgetStateReader`, `TTSSettingsView`
 *   **Được sử dụng bởi (Used by)**: Không được kiểu dữ liệu nội bộ khác tham chiếu trực tiếp
 
 ---
@@ -1291,7 +1298,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 *   **Định nghĩa tại**: [Views/TTSWidget/TTSFloatingWidgetView.swift:2](../../Sources/Views/TTSWidget/TTSFloatingWidgetView.swift#L2)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `View`
-*   **Sử dụng (Uses)**: `FloatingWidgetViewModel`, `TTSManager`, `TTSPlayStateReader`, `TTSSettingsView`
+*   **Sử dụng (Uses)**: `FloatingWidgetViewModel`, `TTSManager`, `TTSWidgetStateReader`, `TTSSettingsView`
 *   **Được sử dụng bởi (Used by)**: `AppLaunchRootView`, `FreeBookApp`
 
 ---
@@ -1301,7 +1308,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *   **Định nghĩa tại**: [Services/TTS/TTSManager.swift:10](../../Sources/Services/TTS/TTSManager.swift#L10)
 *   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `NSObject`, `ObservableObject`
 *   **Sử dụng (Uses)**: `AppLogger`, `Book`, `ExtTTSService`, `ImageCacheManager`, `ModelStore`, `NghiTTSClient`, `ONNXPiperEngine`, `PiperTTSService`, `SiriTTSService`, `TTSBackgroundProcessor`, `TTSChapterInfo`, `TTSExtensionInfo`, `TTSParagraph`, `TTSReplacementManager`, `TranslateUtils`, `Voice`
-*   **Được sử dụng bởi (Used by)**: `AddWordSheet`, `AppLaunchRootView`, `DictionaryMatchInfo`, `EditWordSheet`, `EditingEntry`, `FreeBookApp`, `Layout`, `LoadedChapter`, `MainTabView`, `PageFlipModifier`, `ParagraphTracker`, `ParsedBook`, `ParserChapter`, `ReaderSettingsView`, `ReaderTheme`, `ReaderView`, `ScrollTarget`, `ShelfView`, `TTSDictionaryEditView`, `TTSFloatingWidgetView`, `TTSModelManagerView`, `TTSPlayStateReader`, `TTSSettingsView`
+*   **Được sử dụng bởi (Used by)**: `AddWordSheet`, `AppLaunchRootView`, `DictionaryMatchInfo`, `EditWordSheet`, `EditingEntry`, `FreeBookApp`, `Layout`, `LoadedChapter`, `MainTabView`, `PageFlipModifier`, `ParagraphTracker`, `ParsedBook`, `ParserChapter`, `ReaderSettingsView`, `ReaderTheme`, `ReaderTTSStateReader`, `ReaderView`, `ScrollTarget`, `ShelfView`, `TTSDictionaryEditView`, `TTSFloatingWidgetView`, `TTSModelManagerView`, `TTSRootPresentationReader`, `TTSSettingsView`, `TTSWidgetStateReader`
 
 ---
 
@@ -1323,12 +1330,12 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 ---
 
-### 138. TTSPlayStateReader (CLASS)
+### 138. TTS presentation projection readers (CLASSES / STRUCTS)
 
-*   **Định nghĩa tại**: [Views/TTSWidget/TTSPlayStateReader.swift:9](../../Sources/Views/TTSWidget/TTSPlayStateReader.swift#L9)
-*   **Kế thừa / Tuân thủ (Inherits / Conforms)**: `ObservableObject`
+*   **Định nghĩa tại**: [Views/TTSWidget/TTSPlayStateReader.swift](../../Sources/Views/TTSWidget/TTSPlayStateReader.swift)
+*   **Kiểu**: `TTSWidgetStateReader`, `TTSRootPresentationReader`, `ReaderTTSStateReader` (`ObservableObject`) và các snapshot `Equatable` tương ứng.
 *   **Sử dụng (Uses)**: `TTSManager`
-*   **Được sử dụng bởi (Used by)**: `Layout`, `TTSFloatingWidgetView`
+*   **Được sử dụng bởi (Used by)**: `AppLaunchRootView`, `ReaderView`, `TTSFloatingWidgetView`
 
 ---
 

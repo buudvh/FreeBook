@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.112] - 2026-08-11
+
+### Giảm tải foreground và công việc metadata TTS lặp lại
+
+* Bỏ `TimelineView` quay cover 30 FPS; widget dùng ảnh bìa tĩnh trong lúc phát và tạm dừng.
+* Root, Shelf, widget và Reader không còn quan sát toàn bộ `TTSManager`; các projection snapshot chỉ phát thay đổi cần render và Reader lọc highlight theo `bookId`.
+* Tách Now Playing thành metadata tĩnh được cache theo sách/chương/cover/translation generation và timeline động; chỉ một task metadata được phép hoạt động.
+* NghiTTS chỉ warm-up khi engine Nghi đang được chọn; chuyển sang Siri/Google/Ext hủy warm-up đang chờ.
+* Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng không yêu cầu.
+
 ## [1.3.111] - 2026-08-11
 
 ### Giảm auto-scroll Reader và giữ N+1 thiết yếu khi thermal serious

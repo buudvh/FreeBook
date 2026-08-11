@@ -4,7 +4,7 @@ generator_version: 1.0
 generated_at: 2026-07-17T23:26:29+07:00
 git_commit: UNKNOWN
 source_files: 93
-document_version: 5
+document_version: 6
 ---
 
 # Dòng chảy Dữ liệu & Cơ chế Cache (Data Flow & Caching)
@@ -15,6 +15,13 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS presentation energy data flow (1.3.112)
+
+* **Static Now Playing flow**: book/chapter/cover/translation identity -> one background translation/local-cover read -> one cached title/artwork record -> Lock Screen metadata.
+* **Dynamic Now Playing flow**: paragraph index/count + play state + speed -> elapsed/duration/progress/rate fields; no title translation, image decode, or artwork allocation on a cache hit.
+* **View projection flow**: selected `TTSManager` publishers -> next-main-RunLoop snapshot read -> equality gate -> root/widget/Reader render. An unrelated playing book maps Reader paragraph/highlight to stable inactive values.
+* **Nghi warm-up flow**: persisted/current engine selection -> Nghi-only delayed model preparation; Siri/Google/Ext initialization performs no Piper model warm-up.
+
 ## Reader viewport and serious N+1 data flow (1.3.111)
 
 * **Viewport gate**: paragraph global frame -> `ParagraphTracker` -> target midpoint versus 15%/60–120 point safe inset -> skip counter or `.ttsAuto` `ScrollTarget` -> `ScrollViewProxy.scrollTo` -> executed counter.
