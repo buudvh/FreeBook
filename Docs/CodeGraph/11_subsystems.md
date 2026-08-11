@@ -15,6 +15,10 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## NghiTTS deadline synthesis subsystem (1.3.115)
+
+The TTS subsystem now treats N+1 as deadline work. `TTSManager` owns one refill target at a time and one generation-guarded playback-demand task; playback can await a matching refill instead of duplicating it. `NghiSynthesisPolicy` separates essential and speculative eligibility, preserving only N+1 at `.serious` and demand-only behavior at `.critical`. Piper remains single-inference and returns queue/inference timing for aggregated RTF and underrun diagnostics.
+
 ## Chapter content memory and cancellation subsystem (1.3.114)
 
 The Chapter Text subsystem now combines a cost-aware 12-entry/12-MiB LRU with waiter-aware in-flight coalescing. Reader and TTS attach independent continuations to one chapter operation; cancellation removes only the caller and stops underlying local/extension work after the final waiter leaves. MainTab owns the global memory-warning bridge. TTS separately owns its fallback auto-advance task so session replacement and stop cannot leave chapter processing detached.

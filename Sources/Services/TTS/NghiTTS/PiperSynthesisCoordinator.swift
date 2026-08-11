@@ -13,6 +13,20 @@ internal enum SynthesisPriority: Int, Comparable, Sendable {
 internal struct PiperSynthesisPayload: Sendable {
     internal let data: Data
     internal let pcmDuration: Double
+    internal let queueWaitMs: Double
+    internal let synthesisMs: Double
+
+    internal init(
+        data: Data,
+        pcmDuration: Double,
+        queueWaitMs: Double = 0.0,
+        synthesisMs: Double = 0.0
+    ) {
+        self.data = data
+        self.pcmDuration = pcmDuration
+        self.queueWaitMs = queueWaitMs
+        self.synthesisMs = synthesisMs
+    }
 }
 
 internal actor PiperSynthesisCoordinator {
@@ -22,6 +36,7 @@ internal actor PiperSynthesisCoordinator {
         let id: UUID
         let priority: SynthesisPriority
         let sequenceNumber: UInt64
+        let enqueuedAt: TimeInterval
         let work: @Sendable () async throws -> PiperSynthesisPayload
         var continuation: CheckedContinuation<PiperSynthesisPayload, Error>?
         var isCancelled: Bool = false
@@ -56,6 +71,7 @@ internal actor PiperSynthesisCoordinator {
                     id: requestID,
                     priority: priority,
                     sequenceNumber: self.nextSequenceNumber,
+                    enqueuedAt: ProcessInfo.processInfo.systemUptime,
                     work: work,
                     continuation: continuation,
                     isCancelled: Task.isCancelled
@@ -117,11 +133,26 @@ internal actor PiperSynthesisCoordinator {
                 self.activeRequest = req
                 
                 do {
-                    let data = try await req.work()
+                    let synthesisStartedAt = ProcessInfo.processInfo.systemUptime
+                    let result = try await req.work()
+                    let synthesisFinishedAt = ProcessInfo.processInfo.systemUptime
+                    let measuredResult = PiperSynthesisPayload(
+                        data: result.data,
+                        pcmDuration: result.pcmDuration,
+                        queueWaitMs: max(0, (synthesisStartedAt - req.enqueuedAt) * 1_000),
+                        synthesisMs: max(0, (synthesisFinishedAt - synthesisStartedAt) * 1_000)
+                    )
                     if self.activeRequest?.id == req.id && self.activeRequest?.isCancelled == true {
+                        if AppLogger.shared.isLoggingEnabled {
+                            AppLogger.shared.log(String(
+                                format: "[NghiEnergy] DiscardedActiveSynthesis synthesisMs=%.2f thermal=%@",
+                                measuredResult.synthesisMs,
+                                Self.thermalStateName(ProcessInfo.processInfo.thermalState)
+                            ))
+                        }
                         self.resumeContinuation(&req, with: .failure(CancellationError()))
                     } else {
-                        self.resumeContinuation(&req, with: .success(data))
+                        self.resumeContinuation(&req, with: .success(measuredResult))
                     }
                 } catch {
                     if self.activeRequest?.id == req.id && self.activeRequest?.isCancelled == true {
@@ -142,5 +173,15 @@ internal actor PiperSynthesisCoordinator {
             self.resumeContinuation(&req, with: .failure(CancellationError()))
         }
         pendingQueue.removeAll()
+    }
+
+    private static func thermalStateName(_ state: ProcessInfo.ThermalState) -> String {
+        switch state {
+        case .nominal: return "nominal"
+        case .fair: return "fair"
+        case .serious: return "serious"
+        case .critical: return "critical"
+        @unknown default: return "unknown"
+        }
     }
 }

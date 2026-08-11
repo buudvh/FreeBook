@@ -15,6 +15,10 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## NghiTTS hot-device playback update (1.3.115)
+
+NghiTTS now treats N+1 as no-cooldown deadline work, reuses matching in-flight synthesis on underrun, retains only N+1 at thermal `.serious`, and reports aggregated queue-wait/RTF diagnostics. See state, call, ownership, lifecycle, and risk documents for the revised pipeline.
+
 ## Sơ đồ cấu trúc tài liệu CodeGraph
 
 ```mermaid
@@ -88,6 +92,6 @@ graph TD
 
 - Google/Ext giữ cửa sổ cache tối đa ba chunk nhưng tổng hợp qua một `RemoteTTSSynthesisCoordinator`; chỉ một operation chạy tại một thời điểm, ưu tiên chunk hiện tại và dừng prefetch ở thermal `.serious/.critical`.
 - Ext TTS dùng `ExtTTSRuntime` actor để tái sử dụng một `JSExecutor` theo script/config, trong khi các script bóc tách nội dung vẫn dùng executor ngắn hạn.
-- NghiTTS dùng `NghiSynthesisPolicy` để giới hạn ONNX/XNNPACK ở một worker, giữ buffer 2.5–5 giây khi nominal, chèn cooldown giữa các lượt refill và dừng speculative synthesis ở thermal `.serious/.critical`.
+- NghiTTS dùng `NghiSynthesisPolicy` để giới hạn ONNX/XNNPACK ở một worker, giữ buffer 2.5–5 giây khi nominal, chỉ chèn cooldown từ N+2, giữ N+1 tại `.serious`, và chuyển sang demand-only tại `.critical`.
 
 <!-- GENERATED END -->

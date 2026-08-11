@@ -63,7 +63,7 @@ final class PiperTTSService: @unchecked Sendable {
         boundaryKind: TTSBoundaryKind = .paragraphEnd,
         priority: SynthesisPriority = .high,
         requestID: UUID = UUID()
-    ) async throws -> (data: Data, pcmDuration: Double) {
+    ) async throws -> (data: Data, pcmDuration: Double, queueWaitMs: Double, synthesisMs: Double) {
         let payload = try await PiperSynthesisCoordinator.shared.enqueuePayload(
             priority: priority,
             requestID: requestID
@@ -71,7 +71,12 @@ final class PiperTTSService: @unchecked Sendable {
             guard let self = self else { throw CancellationError() }
             return try await self.executeInternalSynthesisWithDuration(text: text, voice: voice, speed: speed, boundaryKind: boundaryKind)
         }
-        return (data: payload.data, pcmDuration: payload.pcmDuration)
+        return (
+            data: payload.data,
+            pcmDuration: payload.pcmDuration,
+            queueWaitMs: payload.queueWaitMs,
+            synthesisMs: payload.synthesisMs
+        )
     }
 
     func synthesizeStream(

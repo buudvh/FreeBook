@@ -15,6 +15,10 @@ Tài liệu này phác thảo kiến trúc tổng thể, sơ đồ thư mục, c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## NghiTTS deadline-aware thermal architecture (1.3.115)
+
+The offline pipeline remains `TTSManager -> PiperTTSService -> PiperSynthesisCoordinator -> ONNXPiperEngine`, with one inference globally. `TTSManager` adds per-paragraph refill ownership and playback-task ownership so current demand can reuse matching work; policy distinguishes essential N+1 from speculative reserve and timing flows back for RTF diagnostics.
+
 ## 1. Sơ đồ Thư mục & Module
 
 Dự án được tổ chức theo cấu trúc phân tầng rõ rệt dưới thư mục `Sources`:
@@ -111,6 +115,6 @@ graph TD
 
 - Remote TTS separates buffer depth from execution concurrency: `TTSManager` may target three future chunks, while `RemoteTTSSynthesisCoordinator` runs one Google/Ext operation and prioritizes current playback over speculative work.
 - `ExtensionManager` retains a serialized `ExtTTSRuntime` only for TTS; other extension actions preserve short-lived `JSExecutor` isolation.
-- Offline NghiTTS separates playback demand from speculative energy policy: `PiperSynthesisCoordinator` serializes inference, while `NghiSynthesisPolicy` controls one-worker refill watermarks/cooldowns from the current thermal state.
+- Offline NghiTTS separates playback demand, deadline N+1, and speculative reserve: `PiperSynthesisCoordinator` serializes inference, while `NghiSynthesisPolicy` controls essential/speculative eligibility, watermarks, and N+2+ cooldown from thermal state.
 
 <!-- GENERATED END -->

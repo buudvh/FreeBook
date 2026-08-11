@@ -23,6 +23,13 @@ enum NghiSynthesisPolicy {
         thermalState == .nominal || thermalState == .fair
     }
 
+    /// Essential N+1 synthesis is retained at `.serious` so thermal throttling
+    /// does not force every paragraph onto the on-demand path. `.critical`
+    /// remains demand-only to give the system the strongest possible idle gap.
+    static func allowsEssentialRefill(at thermalState: ProcessInfo.ThermalState) -> Bool {
+        thermalState != .critical
+    }
+
     static func allowsNextChapterAudio(at thermalState: ProcessInfo.ThermalState) -> Bool {
         thermalState == .nominal
     }

@@ -15,6 +15,14 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## NghiTTS deadline synthesis and thermal survival invariants (1.3.115)
+
+* Current-chapter N+1 is deadline work, not speculative reserve. It must enter the single Piper coordinator slot without a policy cooldown; cooldown applies only to N+2 and later.
+* If an N+1 refill becomes the current playback demand while its ONNX request is active, `TTSManager` must await and reuse that owned refill result. It must not cancel and enqueue the same paragraph again.
+* `.serious` retains exactly one current-chapter N+1 survival request while rejecting N+2 and next-chapter audio. `.critical` permits only missing-current on-demand synthesis and may therefore have an audible wait under sustained throttling.
+* Nghi playback-demand work must be retained in one generation-guarded task. Pause, stop, engine/session replacement, or newer playback demand cancels the obsolete owner; cancellation must not be reported as a synthesis failure.
+* Nghi energy diagnostics aggregate coordinator queue wait, synthesis time, PCM duration/RTF, underruns, and in-flight reuse in memory. Routine summaries are emitted at most once per 60 seconds, plus lifecycle flushes; underruns and discarded active synthesis may emit immediate diagnostic events.
+
 ## Chapter repository memory and cancellation invariants (1.3.114)
 
 * `ChapterContentRepository` is the sole shared chapter-content cache and must bound normalized documents by both recency and estimated memory cost: at most 12 entries and 12 MiB. A single document larger than the cost budget bypasses shared RAM caching but is still returned to its caller and may remain persistent on disk.
@@ -331,7 +339,8 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
 * NghiTTS synthesis phải tiếp tục đi qua `PiperSynthesisCoordinator` với tối đa một inference đang chạy.
 * ORT/XNNPACK mặc định chỉ dùng một worker; không tăng thread count theo số core vì nghe lâu là sustained workload.
 * `NghiSynthesisPolicy` là nguồn duy nhất cho watermark, cooldown và thermal eligibility; không lặp các hằng số này trong manager/prefetcher.
-* `.serious`/`.critical` phải dừng speculative refill và next-chapter audio. Chunk hiện tại bị thiếu vẫn được phép tổng hợp on-demand.
+* `.serious`/`.critical` phải dừng speculative refill và next-chapter audio. N+1 thiết yếu không có cooldown và vẫn được phép ở `.serious`; `.critical` chỉ cho phép chunk hiện tại bị thiếu tổng hợp on-demand.
+* Refill N+1 đang chạy phải được playback demand tái sử dụng; không được hủy rồi tổng hợp trùng cùng đoạn. Mọi refill xa hơn N+1 mới được áp dụng cooldown theo thermal policy.
 * Audio chương kế của NghiTTS chỉ được tạo ở `.nominal`; `.fair` ưu tiên CPU idle cho chương đang phát.
 
 ### 5.8. Memory Rules

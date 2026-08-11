@@ -15,6 +15,13 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## NghiTTS hot-device lag risks mitigated in 1.3.115
+
+* **Mitigated - cancel/re-synthesize feedback loop:** playback now awaits an active matching N+1 refill instead of canceling it and queueing the same text again after noncancelable `ORTSession.run` has started.
+* **Mitigated - fair-state deadline loss:** essential N+1 bypasses cooldown; idle delay remains only on N+2+ speculative work.
+* **Mitigated - serious-state forced underrun:** `.serious` keeps exactly N+1 survival audio while blocking distant and next-chapter work.
+* **Residual - critical or RTF >= 1:** if throttled inference is no faster than generated audio, gapless playback cannot be guaranteed without a lighter model or another engine. `[NghiEnergy]` summaries expose this condition.
+
 ## Chapter memory and obsolete-work risks mitigated in 1.3.114
 
 * **Mitigated - app-lifetime normalized chapter growth:** shared repository RAM is bounded by both 12 entries and 12 MiB estimated cost, with immediate memory-warning trimming and oversized-document bypass.
@@ -146,7 +153,7 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 - **R-10: Remote TTS thermal/CPU burst (Mitigated)**: A depth-three window previously created independent Google/Ext tasks with no concurrency cap and nested retry. Mitigation is one priority coordinator, service-owned retry capped at two attempts, thermal cancellation, and delayed next-chapter audio.
 - **R-11: Persistent Ext TTS JS state (Mitigated)**: Reusing JavaScriptCore can retain extension globals. The runtime is isolated to TTS, serialized, keyed by exact script/config identity, reset on error/full cache teardown, and never shared with search/detail/toc/chap execution.
-- **R-12: Sustained NghiTTS on-device inference heat (Mitigated)**: Piper must compute all speech locally, so serialization alone cannot lower average CPU power. Mitigation fixes ORT/XNNPACK to one worker, reduces thermal watermarks, inserts safe cooldowns, blocks next-chapter audio outside nominal, and stops speculative refill at serious/critical. Residual risk remains for very long sessions because current audio still requires local inference.
+- **R-12: Sustained NghiTTS on-device inference heat (Mitigated with residual critical-state risk)**: Piper remains one-worker and serialized. Cooldown applies only beyond deadline N+1, `.serious` retains one survival chunk, `.critical` is demand-only, and matching in-flight work is reused to prevent duplicate heat. Very long sessions and measured RTF >= 1 still require a lighter model or another engine for guaranteed gapless playback.
 - **Residual risk**: The VBook-compatible synchronous `fetch` API still waits on a worker semaphore. Registered URLSession tasks are now cancellable and binary payload text decoding is skipped, but changing the public JS API to mandatory Promise semantics remains incompatible with existing extensions.
 
 <!-- GENERATED END -->

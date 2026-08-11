@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## NghiTTS deadline task lifecycle (1.3.115)
+
+* Each refill task allocates one paragraph request and releases itself before optionally scheduling the next target. N+1 starts without cooldown; N+2+ may retain only a cancelable sleep before entering Piper.
+* If playback catches active N+1, its generation-guarded task awaits the refill value. Pause, stop, engine/session replacement, or newer demand cancels the playback owner; the refill/coordinator request follows its own cancellation lifecycle.
+* `.serious` releases distant refill and next-chapter audio but retains N+1. `.critical` releases all refill. Coordinator timing metadata is folded into a small accumulator reset every 60 seconds or at pause/stop.
+
 ## Chapter repository resource lifecycle (1.3.114)
 
 * Shared normalized documents are held by a dual-limit LRU (12 entries and 12 MiB estimated cost). Least-recent entries are released on insertion pressure; all reusable entries are released on memory warning, while active consumer values and persistent storage remain intact.
@@ -153,6 +159,6 @@ WKWebView được sử dụng để tải các trang web chứa mã bảo vệ 
 - Remote TTS jobs enter a single priority queue. A job owns its service operation until completion; duplicate callers own only continuations. At `.serious`, only the current/N+1 lifecycle may survive and distant/next-chapter work is released; `.critical`, pause, or stop cancels the applicable remaining continuations/tasks.
 - `ExtTTSRuntime` keeps its `JSExecutor` across chunks of the same extension/config. It cancels registered network tasks and releases the context when identity changes, an execution fails, or full TTS cache cleanup requests reset.
 - Native sync fetch registers each `URLSessionDataTask`, cancels it on Swift task cancellation/timeout, and waits a bounded interval for its completion callback before returning from the JS bridge.
-- The cached NghiTTS ORT session keeps one worker for its lifetime and prefers XNNPACK when available. Refill tasks sleep before speculative inference, are canceled at serious/critical thermal pressure, and resume only through a later prefetch-window update after cooling.
+- The cached NghiTTS ORT session keeps one worker for its lifetime and prefers XNNPACK when available. Essential N+1 refill has no sleep and survives `.serious`; N+2+ may sleep and is removed under pressure, while `.critical` cancels all refill until a later window update after cooling.
 
 <!-- GENERATED END -->

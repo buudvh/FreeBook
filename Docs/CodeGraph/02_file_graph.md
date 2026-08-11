@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## NghiTTS deadline/thermal file updates (1.3.115)
+
+* `TTSManager.swift` now owns a generation-guarded Nghi playback task, one-paragraph refill tasks, in-flight N+1 reuse, and 60-second energy/RTF aggregation.
+* `NghiSynthesisPolicy.swift` distinguishes essential refill eligibility from speculative refill eligibility so `.serious` can retain only N+1 while `.critical` remains demand-only.
+* `PiperSynthesisCoordinator.swift` attaches queue-wait and synthesis timings to successful payloads; `PiperTTSService.swift` forwards those timings with PCM duration.
+
 ## Chapter repository memory/cancellation file updates (1.3.114)
 
 * `Services/ChapterText/ChapterContentRepository.swift` now owns cost-aware `MemoryEntry` values and waiter-aware `InFlightLoad` tasks. It still depends on `ChapterPersistenceStore` and `ExtensionManager`; no VBook extension API changed.
@@ -1351,7 +1357,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 #### NghiTTS energy policy (2026-08)
 
-- [NghiSynthesisPolicy.swift](../../Sources/Services/TTS/NghiTTS/NghiSynthesisPolicy.swift) is used by `TTSManager` and `TTSChapterPrefetcher`; it owns duration watermarks, refill eligibility, next-chapter eligibility, and cooldown values for each thermal state.
+- [NghiSynthesisPolicy.swift](../../Sources/Services/TTS/NghiTTS/NghiSynthesisPolicy.swift) is used by `TTSManager` and `TTSChapterPrefetcher`; it owns duration watermarks, separate essential/speculative refill eligibility, next-chapter eligibility, and cooldown values for each thermal state.
 - [ONNXPiperEngine.swift](../../Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift) configures one ORT worker, full graph optimization, and a one-thread XNNPACK provider with CPU fallback.
 
 <!-- GENERATED END -->

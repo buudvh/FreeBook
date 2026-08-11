@@ -15,6 +15,10 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## NghiTTS synthesis ownership update (1.3.115)
+
+`TTSManager.shared` owns one `nghiRefillTask` for exactly one paragraph plus one generation-guarded `nghiPlaybackTask`. A playback miss may borrow the refill result by awaiting the task but does not own or cancel that inference. `PiperSynthesisCoordinator.shared` continues to own the sole active inference and now owns its enqueue/start timing metadata until completion.
+
 ## Chapter content ownership update (1.3.114)
 
 `ChapterContentRepository.shared` owns bounded `MemoryEntry` snapshots and one `InFlightLoad` per `ChapterKey`. Each in-flight load owns its task plus UUID waiter continuations; callers own only their waiter lifetime. `MainTabView` owns the memory-warning subscription that trims repository RAM. `TTSManager.shared` now owns `chapterAdvanceTask` and its generation until completion, stop, session replacement, or supersession.
@@ -144,6 +148,6 @@ graph TD
 - `RemoteTTSSynthesisCoordinator.shared` owns the sole active remote job plus priority-ordered queued jobs. Job continuations are released on completion/cancellation; active work retains the slot until it returns.
 - `ExtensionManager.shared` owns one `ExtTTSRuntime`; the actor owns one optional TTS `JSExecutor`. This is the only persistent JS context. Search/detail/toc/chap executors remain function-local.
 - `TTSManager` owns paragraph prefetch/playback tasks and cancels them on pause/stop/thermal pressure; `TTSChapterPrefetcher` owns next-chapter content state and only requests its low-priority audio near chapter end.
-- `NghiSynthesisPolicy` owns no mutable state. `TTSManager` applies its refill/cooldown decision, `TTSChapterPrefetcher` applies its next-chapter decision, and `ONNXPiperEngine` owns the one-worker XNNPACK/CPU session.
+- `NghiSynthesisPolicy` owns no mutable state. `TTSManager` applies its essential/speculative refill and cooldown decisions, `TTSChapterPrefetcher` applies next-chapter eligibility, `PiperSynthesisCoordinator` owns the sole queued/active inference, and `ONNXPiperEngine` owns the one-worker XNNPACK/CPU session.
 
 <!-- GENERATED END -->

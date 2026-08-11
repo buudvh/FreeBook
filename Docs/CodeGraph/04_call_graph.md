@@ -15,6 +15,12 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## NghiTTS deadline synthesis calls (1.3.115)
+
+* `updateNghiPrefetchWindow -> scheduleNghiRefill` selects one target. N+1 enters `PiperTTSService.synthesizeWithDuration` immediately; only N+2+ passes through `NghiSynthesisPolicy.refillCooldownMilliseconds`.
+* On a playback miss, `playNghiTTS` checks `nghiRefillInFlightIndex`. A matching task is awaited and its cached result is played; only a true miss creates a high-priority on-demand request.
+* Coordinator completion returns `queueWaitMs`, `synthesisMs`, and `pcmDuration`; `TTSManager.recordNghiSynthesis` folds them into periodic `[NghiEnergy]` summaries.
+
 ## Bounded chapter cache and subscriber cancellation calls (1.3.114)
 
 * `ChapterContentRepository.load` checks the cost-aware LRU, then registers a UUID waiter on an existing `InFlightLoad` or creates the sole underlying load for that `ChapterKey`.
@@ -316,6 +322,6 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 - Remote playback call chain: `TTSManager.playGoogleTTS/playExtensionTTS -> RemoteTTSSynthesisCoordinator.synthesize(.current) -> GoogleTTSService/ExtTTSService`; future chunks use `.prefetch`, and `TTSChapterPrefetcher` uses `.nextChapter` only near chapter end.
 - Ext call chain: `ExtTTSService.synthesizeData -> ExtensionManager.ttsGenerate -> ExtTTSRuntime.generate -> JSExecutor.callAsync`; script evaluation occurs only when the runtime identity changes.
 - Pause/stop/thermal cancellation removes queued waiters, cancels the active coordinator task, propagates into `JSExecutor.cancelCurrentExecution`, and cancels registered `URLSessionDataTask` objects.
-- Nghi refill call chain: `TTSManager.updateNghiPrefetchWindow -> scheduleNghiRefill -> NghiSynthesisPolicy cooldown/thermal gate -> PiperTTSService.synthesizeWithDuration -> PiperSynthesisCoordinator -> ONNXPiperEngine`; speculative work is serialized and only current playback demand bypasses the refill gate.
+- Nghi refill call chain: `TTSManager.updateNghiPrefetchWindow -> scheduleNghiRefill -> NghiSynthesisPolicy thermal gate -> optional N+2+ cooldown -> PiperTTSService.synthesizeWithDuration -> PiperSynthesisCoordinator -> ONNXPiperEngine`. N+1 is serialized deadline work and can be reused by current playback demand.
 
 <!-- GENERATED END -->

@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## NghiTTS deadline/refill states (1.3.115)
+
+* One target transitions `missing -> refill pending/active -> cached`. If playback reaches that index while active, it transitions to `playback awaiting same task -> played`; it no longer transitions through cancel/discard/re-synthesize.
+* Thermal mapping is `nominal/fair -> N+1 plus bounded speculative reserve`, `serious -> N+1 only`, and `critical -> current missing audio on demand only`.
+* Playback-demand task state is generation guarded: pause/stop/session replacement/new demand transitions the old owner to canceled without entering the ordinary synthesis-error state.
+
 ## Shared chapter load and auto-advance states (1.3.114)
 
 * A shared chapter key transitions `missing -> active(waiters: 1...n) -> completed/failed`. One waiter cancellation leaves the operation active while other consumers remain; final-waiter cancellation transitions it to `cancelled` and propagates cancellation into local lookup/extension execution.
@@ -168,6 +174,6 @@ stateDiagram-v2
 - Remote synthesis jobs transition `queued -> active -> completed/failed`; cancellation transitions queued waiters directly to cancelled, while a cancellation-insensitive active job keeps the sole slot until its operation actually returns.
 - Duplicate synthesis keys attach a waiter to the existing job instead of creating a second operation. A queued job can be promoted from `prefetch` to `current` priority.
 - Thermal `.serious` transitions remote prefetch to a playback-essential N+1-only state and cancels N+2/N+3 plus next-chapter audio. `.critical` transitions all remote prefetch to stopped; a missing current chunk remains eligible for on-demand synthesis.
-- NghiTTS thermal state maps `nominal -> refill 2.5–5s + next-chapter audio`, `fair -> refill 1.5–3s with longer cooldown`, and `serious/critical -> no speculative refill or next-chapter audio`; current missing audio remains an on-demand high-priority request.
+- NghiTTS thermal state maps `nominal -> refill 2.5–5s + next-chapter audio`, `fair -> refill 1.5–3s with cooldown only beyond N+1`, `serious -> N+1 survival only`, and `critical -> no refill`; current missing audio remains an on-demand high-priority request.
 
 <!-- GENERATED END -->

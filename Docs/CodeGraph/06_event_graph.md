@@ -15,6 +15,12 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## NghiTTS deadline and energy events (1.3.115)
+
+* An audio-finish event with no prepared handoff records `[NghiEnergy] Underrun`. If its index matches active refill, playback awaits that task and records `reusedInFlight=true` instead of submitting duplicate ONNX work.
+* Thermal `.serious` cancels only nonessential refill and next-chapter audio; update-window preserves or starts N+1. `.critical` cancels all refill while current-demand synthesis remains available.
+* Successful coordinator operations contribute queue wait, inference wall time, PCM duration, aggregate/max RTF, on-demand count, and reuse count to an in-memory summary emitted every 60 seconds or on pause/stop.
+
 ## Chapter memory/cancellation events (1.3.114)
 
 * `UIApplication.didReceiveMemoryWarningNotification` reaches `MainTabView`, which asynchronously clears only `ChapterContentRepository`'s reusable normalized-document LRU.
@@ -173,7 +179,7 @@ graph TD
 - Task cancellation in `DownloadManager` emits cooperative cancellation events at chapter boundaries to halt execution.
 
 - `ProcessInfo.thermalStateDidChangeNotification` updates both Nghi and remote prefetch policy. Remote `.serious` retains only playback-essential N+1 while `.critical` cancels paragraph prefetch; both states cancel next-chapter audio.
-- For NghiTTS, the same notification cancels `nghiRefillTask` and next-chapter audio at `.serious/.critical`; returning to `.fair/.nominal` re-enters `updateNghiPrefetchWindow` under the policy watermarks.
+- For NghiTTS, the same notification cancels next-chapter audio outside `.nominal`; `.serious` narrows refill to N+1, `.critical` cancels refill, and cooling rebuilds the configured window through `updateNghiPrefetchWindow`.
 - Pause/stop events cancel remote playback/prefetch waiters and reset the Ext runtime on full cache teardown; URLSession cancellation unblocks the synchronous extension fetch bridge.
 - Paragraph-finished events update the depth-three cache window, but scheduler priority—not task creation count—determines execution order.
 

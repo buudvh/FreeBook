@@ -735,9 +735,26 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private var prefetchTasks: [Int: Task<Void, Never>] = [:]
     private var remotePlaybackTask: Task<Void, Never>?
     private var remotePlaybackTaskGeneration: UInt64 = 0
+    private var nghiPlaybackTask: Task<Void, Never>?
+    private var nghiPlaybackTaskGeneration: UInt64 = 0
     private var nghiRefillTask: Task<Void, Never>? = nil
     private var nghiRefillGeneration: UInt64 = 0
     private var nghiRefillInFlightIndex: Int? = nil
+
+    private struct NghiEnergyAccumulator {
+        var startedAt: TimeInterval?
+        var synthesisCount = 0
+        var essentialCount = 0
+        var onDemandCount = 0
+        var underrunCount = 0
+        var reusedInFlightCount = 0
+        var totalQueueWaitMs = 0.0
+        var totalSynthesisMs = 0.0
+        var totalPCMSeconds = 0.0
+        var maxRTF = 0.0
+    }
+
+    private var nghiEnergy = NghiEnergyAccumulator()
     private var audioPlayer: AVAudioPlayer?
     private let nghiAudioPlayerQueue = NghiAudioPlayerQueue()
     private let callObserver = TTSCallObserver()
@@ -1384,6 +1401,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         if tool == "system" {
             siriService.pause()
         } else if tool == "nghitts" {
+            flushNghiEnergySummary(reason: "pause", force: true)
+            cancelNghiPlaybackTask()
             cancelNghiRefill()
             nghiAudioPlayerQueue.pause()
             nextChapterPrefetcher.cancel()
@@ -1486,6 +1505,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private func stopPlayback(keepWidget: Bool = false) {
         finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "stop")
         finishTTSPrefetchPerfSummary()
+        flushNghiEnergySummary(reason: "stop", force: true)
         checkpointProgressAndRelease()
         sessionID = UUID()
         self.isPlaying = false
@@ -2206,6 +2226,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     public func clearCurrentParagraphPrefetchCache() {
+        cancelNghiPlaybackTask()
         cancelNghiRefill()
         remotePlaybackTask?.cancel()
         remotePlaybackTask = nil
@@ -2295,12 +2316,104 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         checkAndPromoteNextChapterAudioIfNeeded()
     }
 
+    private func cancelNghiPlaybackTask() {
+        nghiPlaybackTaskGeneration &+= 1
+        nghiPlaybackTask?.cancel()
+        nghiPlaybackTask = nil
+    }
+
+    private func recordNghiUnderrun(index: Int, reusedInFlight: Bool) {
+        guard AppLogger.shared.isLoggingEnabled else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        if nghiEnergy.startedAt == nil {
+            nghiEnergy.startedAt = now
+        }
+        nghiEnergy.underrunCount += 1
+        if reusedInFlight {
+            nghiEnergy.reusedInFlightCount += 1
+        }
+        AppLogger.shared.log(
+            "[NghiEnergy] Underrun chapter=\(playingChapterIndex) index=\(index) reusedInFlight=\(reusedInFlight) thermal=\(Self.nghiThermalStateName(currentThermalState))"
+        )
+        flushNghiEnergySummary(reason: "interval", force: false)
+    }
+
+    private func recordNghiSynthesis(
+        pcmDuration: Double,
+        queueWaitMs: Double,
+        synthesisMs: Double,
+        essential: Bool,
+        onDemand: Bool
+    ) {
+        guard AppLogger.shared.isLoggingEnabled else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        if nghiEnergy.startedAt == nil {
+            nghiEnergy.startedAt = now
+        }
+        nghiEnergy.synthesisCount += 1
+        if essential { nghiEnergy.essentialCount += 1 }
+        if onDemand { nghiEnergy.onDemandCount += 1 }
+        nghiEnergy.totalQueueWaitMs += queueWaitMs
+        nghiEnergy.totalSynthesisMs += synthesisMs
+        nghiEnergy.totalPCMSeconds += pcmDuration
+        if pcmDuration > 0 {
+            nghiEnergy.maxRTF = max(nghiEnergy.maxRTF, (synthesisMs / 1_000) / pcmDuration)
+        }
+        flushNghiEnergySummary(reason: "interval", force: false)
+    }
+
+    private func flushNghiEnergySummary(reason: String, force: Bool) {
+        guard AppLogger.shared.isLoggingEnabled else {
+            if force { nghiEnergy = NghiEnergyAccumulator() }
+            return
+        }
+        guard let startedAt = nghiEnergy.startedAt else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        let elapsed = max(0, now - startedAt)
+        guard force || elapsed >= 60 else { return }
+        guard nghiEnergy.synthesisCount > 0 || nghiEnergy.underrunCount > 0 else {
+            nghiEnergy = NghiEnergyAccumulator()
+            return
+        }
+
+        let averageQueueWaitMs = nghiEnergy.synthesisCount > 0
+            ? nghiEnergy.totalQueueWaitMs / Double(nghiEnergy.synthesisCount)
+            : 0
+        let aggregateRTF = nghiEnergy.totalPCMSeconds > 0
+            ? (nghiEnergy.totalSynthesisMs / 1_000) / nghiEnergy.totalPCMSeconds
+            : 0
+        AppLogger.shared.log(String(
+            format: "[NghiEnergy] Summary reason=%@ elapsedSec=%.1f synth=%d essential=%d onDemand=%d underrun=%d reusedInFlight=%d avgQueueWaitMs=%.2f aggregateRTF=%.3f maxRTF=%.3f thermal=%@",
+            reason,
+            elapsed,
+            nghiEnergy.synthesisCount,
+            nghiEnergy.essentialCount,
+            nghiEnergy.onDemandCount,
+            nghiEnergy.underrunCount,
+            nghiEnergy.reusedInFlightCount,
+            averageQueueWaitMs,
+            aggregateRTF,
+            nghiEnergy.maxRTF,
+            Self.nghiThermalStateName(currentThermalState)
+        ))
+        nghiEnergy = NghiEnergyAccumulator()
+    }
+
+    private static func nghiThermalStateName(_ state: ProcessInfo.ThermalState) -> String {
+        switch state {
+        case .nominal: return "nominal"
+        case .fair: return "fair"
+        case .serious: return "serious"
+        case .critical: return "critical"
+        @unknown default: return "unknown"
+        }
+    }
+
     private func cancelNghiRefill() {
         nghiRefillGeneration &+= 1
         nghiRefillTask?.cancel()
         nghiRefillTask = nil
         nghiRefillInFlightIndex = nil
-        Task { await PiperSynthesisCoordinator.shared.cancelAllPending() }
     }
 
     public var nghiWatermarks: (low: Double, high: Double) {
@@ -2335,11 +2448,18 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private func nghiFutureTargetIndices() -> [Int] {
         let N = currentParagraphIndex
         let watermarks = nghiWatermarks
-        guard N + 1 < paragraphs.count else { return [] }
+        guard NghiSynthesisPolicy.allowsEssentialRefill(at: currentThermalState),
+              N + 1 < paragraphs.count else { return [] }
 
         var targetIndices: [Int] = []
         let nextIndex = N + 1
         targetIndices.append(nextIndex)
+
+        // Under serious thermal pressure only N+1 is allowed. It is playback
+        // survival work, not a speculative reserve.
+        guard NghiSynthesisPolicy.allowsSpeculativeRefill(at: currentThermalState) else {
+            return targetIndices
+        }
 
         var currentBuf = calculateNghiBufferedDuration()
         var idx = N + 2
@@ -2359,10 +2479,16 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private func updateNghiPrefetchWindow() {
         updateNghiBufferedDuration()
 
-        guard NghiSynthesisPolicy.allowsSpeculativeRefill(at: currentThermalState) else {
+        guard NghiSynthesisPolicy.allowsEssentialRefill(at: currentThermalState) else {
             if nghiRefillTask != nil || nghiRefillInFlightIndex != nil {
                 cancelNghiRefill()
             }
+            let keepIndices = Set([currentParagraphIndex, currentParagraphIndex + 1])
+            for index in Array(preloadedData.keys) where !keepIndices.contains(index) {
+                preloadedData.removeValue(forKey: index)
+                preloadedDurations.removeValue(forKey: index)
+            }
+            updateNghiBufferedDuration()
             prepareNextNghiAudioIfPossible()
             return
         }
@@ -2409,9 +2535,30 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private func scheduleNghiRefill() {
         guard isPlaying,
               tool == "nghitts",
-              NghiSynthesisPolicy.allowsSpeculativeRefill(at: currentThermalState),
+              NghiSynthesisPolicy.allowsEssentialRefill(at: currentThermalState),
               nghiRefillTask == nil,
               let service = nghiTTSService else { return }
+
+        let N = currentParagraphIndex
+        let nextIndex = N + 1
+        let watermarks = nghiWatermarks
+        let currentBuf = calculateNghiBufferedDuration()
+        let targetIndex: Int?
+        if nextIndex < paragraphs.count && preloadedData[nextIndex] == nil {
+            targetIndex = nextIndex
+        } else if NghiSynthesisPolicy.allowsSpeculativeRefill(at: currentThermalState),
+                  currentBuf < watermarks.high {
+            targetIndex = nghiFutureTargetIndices().first(where: { preloadedData[$0] == nil })
+        } else {
+            targetIndex = nil
+        }
+
+        guard let index = targetIndex else { return }
+        let paragraph = paragraphs[index]
+        let text = TTSReplacementManager.shared.applyReplacements(to: paragraph.text)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        let isEssentialNext = index == nextIndex
 
         let expectedSessionID = sessionID
         let expectedBookID = playingBookId
@@ -2421,18 +2568,23 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let expectedGeneration = ttsProcessingGeneration
         nghiRefillGeneration &+= 1
         let refillGeneration = nghiRefillGeneration
+        nghiRefillInFlightIndex = index
 
         nghiRefillTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            var shouldContinueRefill = false
             defer {
                 if self.nghiRefillGeneration == refillGeneration {
                     self.nghiRefillInFlightIndex = nil
                     self.nghiRefillTask = nil
                     self.updateNghiBufferedDuration()
+                    if shouldContinueRefill {
+                        self.scheduleNghiRefill()
+                    }
                 }
             }
 
-            while self.isValidNghiRefillContext(
+            guard self.isValidNghiRefillContext(
                 sessionID: expectedSessionID,
                 bookID: expectedBookID,
                 chapterIndex: expectedChapterIndex,
@@ -2440,31 +2592,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 voice: expectedVoice,
                 generation: expectedGeneration,
                 refillGeneration: refillGeneration
-            ) {
-                let N = self.currentParagraphIndex
-                let nextIndex = N + 1
-                let watermarks = self.nghiWatermarks
-                let currentBuf = self.calculateNghiBufferedDuration()
+            ) else { return }
 
-                let targetIndex: Int?
-                if nextIndex < self.paragraphs.count && self.preloadedData[nextIndex] == nil {
-                    targetIndex = nextIndex
-                } else if currentBuf < watermarks.high {
-                    let targets = self.nghiFutureTargetIndices()
-                    targetIndex = targets.first(where: { self.preloadedData[$0] == nil })
-                } else {
-                    targetIndex = nil
-                }
-
-                guard let index = targetIndex else { break }
-
-                let paragraph = self.paragraphs[index]
-                let text = TTSReplacementManager.shared.applyReplacements(to: paragraph.text)
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !text.isEmpty else { break }
-
-                // Give the SoC a real idle window between speculative ONNX
-                // jobs, while preserving at least 1.2 seconds for gapless N+1.
+            // N+1 is deadline work and must start immediately. Cooldown applies
+            // only to N+2 and later speculative reserve.
+            if !isEssentialNext {
                 let configuredCooldown = NghiSynthesisPolicy.refillCooldownMilliseconds(
                     for: self.currentThermalState,
                     configuredDelay: self.prefetchDelayMs
@@ -2488,53 +2620,60 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                         generation: expectedGeneration,
                         refillGeneration: refillGeneration
                     ),
-                    NghiSynthesisPolicy.allowsSpeculativeRefill(at: self.currentThermalState) else {
+                    NghiSynthesisPolicy.allowsSpeculativeRefill(at: self.currentThermalState),
+                    self.nghiFutureTargetIndices().contains(index) else {
                         return
                     }
                 }
+            }
 
-                self.nghiRefillInFlightIndex = index
-                do {
-                    let synthesized = try await service.synthesizeWithDuration(
-                        text: text,
-                        voice: expectedVoice,
-                        speed: 1.0,
-                        boundaryKind: paragraph.boundaryKind,
-                        priority: .normal
-                    )
-                    guard self.isValidNghiRefillContext(
-                        sessionID: expectedSessionID,
-                        bookID: expectedBookID,
-                        chapterIndex: expectedChapterIndex,
-                        chapterURL: expectedChapterURL,
-                        voice: expectedVoice,
-                        generation: expectedGeneration,
-                        refillGeneration: refillGeneration
-                    ) else { return }
+            do {
+                let synthesized = try await service.synthesizeWithDuration(
+                    text: text,
+                    voice: expectedVoice,
+                    speed: 1.0,
+                    boundaryKind: paragraph.boundaryKind,
+                    priority: .normal
+                )
+                guard self.isValidNghiRefillContext(
+                    sessionID: expectedSessionID,
+                    bookID: expectedBookID,
+                    chapterIndex: expectedChapterIndex,
+                    chapterURL: expectedChapterURL,
+                    voice: expectedVoice,
+                    generation: expectedGeneration,
+                    refillGeneration: refillGeneration
+                ) else { return }
 
-                    self.nghiRefillInFlightIndex = nil
-                    if self.nghiFutureTargetIndices().contains(index) || index == nextIndex {
-                        self.preloadedData[index] = synthesized.data
-                        self.preloadedDurations[index] = synthesized.pcmDuration
-                        self.updateNghiBufferedDuration()
-                        self.prepareNextNghiAudioIfPossible()
-                        self.checkAndPromoteNextChapterAudioIfNeeded()
-                    }
-                } catch is CancellationError {
-                    return
-                } catch {
-                    self.nghiRefillInFlightIndex = nil
-                    if AppLogger.shared.isLoggingEnabled {
-                        AppLogger.shared.log("[TTSPerf] PrefetchFailure chapter=\(expectedChapterIndex) index=\(index) engine=nghitts")
-                    }
-                    break
+                self.recordNghiSynthesis(
+                    pcmDuration: synthesized.pcmDuration,
+                    queueWaitMs: synthesized.queueWaitMs,
+                    synthesisMs: synthesized.synthesisMs,
+                    essential: isEssentialNext,
+                    onDemand: false
+                )
+
+                let isStillNeeded = index == self.currentParagraphIndex ||
+                    self.nghiFutureTargetIndices().contains(index)
+                if isStillNeeded {
+                    self.preloadedData[index] = synthesized.data
+                    self.preloadedDurations[index] = synthesized.pcmDuration
+                    self.updateNghiBufferedDuration()
+                    self.prepareNextNghiAudioIfPossible()
+                    self.checkAndPromoteNextChapterAudioIfNeeded()
                 }
 
                 let updatedBuf = self.calculateNghiBufferedDuration()
-                let hasMissingNext = nextIndex < self.paragraphs.count && self.preloadedData[nextIndex] == nil
-                guard hasMissingNext || updatedBuf < watermarks.low else { break }
-
-                // The next iteration applies the policy cooldown before work.
+                let currentNextIndex = self.currentParagraphIndex + 1
+                let hasMissingNext = currentNextIndex < self.paragraphs.count &&
+                    self.preloadedData[currentNextIndex] == nil
+                shouldContinueRefill = hasMissingNext || updatedBuf < self.nghiWatermarks.low
+            } catch is CancellationError {
+                return
+            } catch {
+                if AppLogger.shared.isLoggingEnabled {
+                    AppLogger.shared.log("[TTSPerf] PrefetchFailure chapter=\(expectedChapterIndex) index=\(index) engine=nghitts")
+                }
             }
         }
     }
@@ -2927,6 +3066,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             return
         }
 
+        cancelNghiPlaybackTask()
         let index = currentParagraphIndex
         let playbackId = String(UUID().uuidString.prefix(4))
         self.currentPlaybackId = playbackId
@@ -2937,6 +3077,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let expectedGeneration = ttsProcessingGeneration
         let expectedVoice = selectedVoice
         let startupBufferTarget = 1.2
+        let playbackTaskGeneration = nghiPlaybackTaskGeneration
 
         if let cachedData = preloadedData[index] {
             recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "hit")
@@ -2959,9 +3100,29 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "nghitts", index: index, outcome: "miss")
         }
 
-        cancelNghiRefill()
-        Task { @MainActor [weak self] in
+        let reusableRefillIndex = nghiRefillInFlightIndex
+        let reusableRefillTask: Task<Void, Never>?
+        if let reusableRefillIndex,
+           reusableRefillIndex == index || nghiFutureTargetIndices().contains(reusableRefillIndex) {
+            reusableRefillTask = nghiRefillTask
+        } else {
+            reusableRefillTask = nil
+        }
+        let reusesCurrentSynthesis = reusableRefillIndex == index && reusableRefillTask != nil
+        if index > 0 && preloadedData[index] == nil {
+            recordNghiUnderrun(index: index, reusedInFlight: reusesCurrentSynthesis)
+        }
+        if reusableRefillTask == nil {
+            cancelNghiRefill()
+        }
+
+        nghiPlaybackTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            defer {
+                if self.nghiPlaybackTaskGeneration == playbackTaskGeneration {
+                    self.nghiPlaybackTask = nil
+                }
+            }
             do {
                 @MainActor func isValidPlaybackRequest() -> Bool {
                     !Task.isCancelled &&
@@ -2972,8 +3133,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     self.playingChapterIndex == expectedChapterIndex &&
                     self.playingChapterUrl == expectedChapterURL &&
                     self.ttsProcessingGeneration == expectedGeneration &&
+                    self.nghiPlaybackTaskGeneration == playbackTaskGeneration &&
                     self.selectedVoice == expectedVoice &&
                     self.tool == "nghitts"
+                }
+
+                if let reusableRefillTask {
+                    await reusableRefillTask.value
+                    guard isValidPlaybackRequest() else { return }
                 }
 
                 let currentData: Data
@@ -2981,7 +3148,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     currentData = cachedData
                 } else {
                     let boundaryKind = self.paragraphs.indices.contains(index) ? self.paragraphs[index].boundaryKind : .paragraphEnd
-                    currentData = try await service.synthesize(
+                    let synthesized = try await service.synthesizeWithDuration(
                         text: text,
                         voice: expectedVoice,
                         speed: 1.0,
@@ -2989,6 +3156,15 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                         priority: .high
                     )
                     guard isValidPlaybackRequest() else { return }
+                    currentData = synthesized.data
+                    self.preloadedDurations[index] = synthesized.pcmDuration
+                    self.recordNghiSynthesis(
+                        pcmDuration: synthesized.pcmDuration,
+                        queueWaitMs: synthesized.queueWaitMs,
+                        synthesisMs: synthesized.synthesisMs,
+                        essential: true,
+                        onDemand: true
+                    )
                 }
 
                 var bufferedDuration = WAVEncoder.duration(of: currentData) / max(0.5, self.speed)
@@ -3001,12 +3177,24 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                         continue
                     }
 
+                    if self.nghiRefillInFlightIndex == futureIndex,
+                       let inFlightTask = self.nghiRefillTask {
+                        await inFlightTask.value
+                        guard isValidPlaybackRequest() else { return }
+                        if let cachedData = self.preloadedData[futureIndex] {
+                            let duration = self.preloadedDurations[futureIndex] ?? WAVEncoder.duration(of: cachedData)
+                            self.preloadedDurations[futureIndex] = duration
+                            bufferedDuration += duration / max(0.5, self.speed)
+                            continue
+                        }
+                    }
+
                     let paragraph = self.paragraphs[futureIndex]
                     let futureText = TTSReplacementManager.shared.applyReplacements(to: paragraph.text)
                         .trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !futureText.isEmpty else { continue }
 
-                    let wavData = try await service.synthesize(
+                    let synthesized = try await service.synthesizeWithDuration(
                         text: futureText,
                         voice: expectedVoice,
                         speed: 1.0,
@@ -3014,15 +3202,24 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                         priority: .high
                     )
                     guard isValidPlaybackRequest() else { return }
-                    let duration = WAVEncoder.duration(of: wavData)
-                    self.preloadedData[futureIndex] = wavData
-                    self.preloadedDurations[futureIndex] = duration
+                    let duration = synthesized.pcmDuration
+                    self.preloadedData[futureIndex] = synthesized.data
+                    self.preloadedDurations[futureIndex] = synthesized.pcmDuration
                     bufferedDuration += duration / max(0.5, self.speed)
+                    self.recordNghiSynthesis(
+                        pcmDuration: synthesized.pcmDuration,
+                        queueWaitMs: synthesized.queueWaitMs,
+                        synthesisMs: synthesized.synthesisMs,
+                        essential: true,
+                        onDemand: false
+                    )
                 }
 
                 guard isValidPlaybackRequest() else { return }
                 self.playAudioData(currentData, withId: playbackId)
                 self.updatePrefetchWindow()
+            } catch is CancellationError {
+                return
             } catch {
                 guard self.currentPlaybackId == playbackId else { return }
                 if index == 0 && self.activeTTSAutoAdvancePerf?.chapterIndex == self.playingChapterIndex {
@@ -3748,10 +3945,13 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     )
                 }
                 if self.isPlaying {
-                    if self.tool == "nghitts",
-                       !NghiSynthesisPolicy.allowsSpeculativeRefill(at: self.currentThermalState) {
-                        self.cancelNghiRefill()
-                        self.nextChapterPrefetcher.cancel()
+                    if self.tool == "nghitts" {
+                        if !NghiSynthesisPolicy.allowsEssentialRefill(at: self.currentThermalState) {
+                            self.cancelNghiRefill()
+                        }
+                        if !NghiSynthesisPolicy.allowsNextChapterAudio(at: self.currentThermalState) {
+                            self.nextChapterPrefetcher.cancel()
+                        }
                     }
                     if self.tool != "system" && self.tool != "nghitts" &&
                         self.currentThermalState != .serious &&

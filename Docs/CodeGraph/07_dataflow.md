@@ -15,6 +15,12 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## NghiTTS synthesis-result data flow (1.3.115)
+
+* Paragraph N+1 flows through one manager-owned refill task into the single Piper coordinator slot. If playback catches it, the same task result flows into `preloadedData[current]` and then `NghiAudioPlayerQueue`; no second request is created.
+* Coordinator timing flows as `enqueuedAt -> queueWaitMs + synthesisMs`; Piper adds `pcmDuration`, and `TTSManager` derives aggregate/max RTF plus underrun/reuse counts without per-paragraph summary writes.
+* At `.serious`, only N+1 may enter the current-chapter refill flow. N+2+ and next-chapter audio are rejected; `.critical` admits only explicit missing-current demand.
+
 ## Bounded chapter content data flow (1.3.114)
 
 * Chapter data flows `ChapterKey -> 12-entry/12-MiB cost-aware LRU -> persistent cache -> extension`. Each hit advances a monotonic recency sequence; insertion evicts least-recent entries until both limits hold, and oversized documents bypass shared RAM.

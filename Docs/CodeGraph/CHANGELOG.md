@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.115] - 2026-08-11
+
+### Loại bỏ vòng lặp hụt buffer/tổng hợp trùng của NghiTTS khi nóng
+
+* N+1 trở thành deadline synthesis không chịu cooldown; N+2 trở đi vẫn dùng cooldown để giữ khoảng nghỉ CPU.
+* Mỗi refill task chỉ sở hữu một đoạn. Khi playback bắt kịp N+1 đang chạy, task playback có generation guard sẽ chờ và dùng lại kết quả thay vì hủy rồi tổng hợp trùng.
+* Thermal `.serious` chỉ giữ N+1 survival buffer và hủy audio chương kế; `.critical` tiếp tục demand-only.
+* Piper trả queue wait, synthesis time và PCM duration; `TTSManager` ghi `[NghiEnergy]` underrun tức thời và summary RTF tổng hợp tối đa mỗi 60 giây/các mốc pause-stop.
+* `cancelNghiRefill` không còn hủy toàn bộ hàng chờ Piper, tránh race có thể xóa nhầm request playback vừa enqueue.
+* Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng không yêu cầu.
+
 ## [1.3.114] - 2026-08-11
 
 ### Giới hạn RAM chương dùng chung và truyền cancellation theo consumer
