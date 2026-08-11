@@ -2161,14 +2161,18 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             return
         }
 
-        if currentThermalState == .serious || currentThermalState == .critical {
+        if currentThermalState == .critical {
             cancelRemotePrefetchTasks()
             nextChapterPrefetcher.cancel()
             return
         }
 
         let N = currentParagraphIndex
-        let count = max(1, min(10, currentPrefetchCount))
+        if currentThermalState == .serious {
+            nextChapterPrefetcher.cancel()
+        }
+        let configuredCount = max(1, min(10, currentPrefetchCount))
+        let count = currentThermalState == .serious ? 1 : configuredCount
         let targetIndices = (1...count).compactMap { offset -> Int? in
             let idx = N + offset
             return idx < paragraphs.count ? idx : nil
@@ -2516,8 +2520,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 if self.playingChapterUrl != expectedChapterURL { return false }
                 if self.selectedVoice != voice { return false }
                 if self.tool != toolBeforeStart { return false }
-                if self.currentThermalState == .serious { return false }
                 if self.currentThermalState == .critical { return false }
+                if self.currentThermalState == .serious {
+                    let currentIndex = self.currentParagraphIndex
+                    if index != currentIndex && index != currentIndex + 1 { return false }
+                }
                 return true
             }
 

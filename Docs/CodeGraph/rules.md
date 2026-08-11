@@ -309,7 +309,7 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
 * `prefetchDepth` là số chunk muốn giữ trong cache, không phải số request được chạy đồng thời.
 * Mọi tổng hợp Google/Ext, kể cả đọc đoạn được chọn và audio chương kế tiếp, phải đi qua `RemoteTTSSynthesisCoordinator` với tối đa một operation đang hoạt động.
 * Thứ tự ưu tiên bắt buộc là `current > prefetch > nextChapter`; request cùng key phải được gộp để không tổng hợp trùng.
-* `.serious`/`.critical` phải dừng remote prefetch; `.fair` tăng khoảng nghỉ nhưng vẫn cho phép phát chunk hiện tại.
+* `.critical` phải dừng toàn bộ remote prefetch. `.serious` chỉ được giữ đúng N+1 thiết yếu cho playback, đồng thời phải hủy N+2/N+3 và next-chapter audio; `.fair` tăng khoảng nghỉ nhưng vẫn cho phép phát chunk hiện tại.
 * Retry chỉ được sở hữu bởi service, tối đa hai attempt tổng cộng cho mỗi synthesis; `TTSManager` không được bọc thêm vòng retry.
 
 ### 5.7.2. NghiTTS Energy Rules

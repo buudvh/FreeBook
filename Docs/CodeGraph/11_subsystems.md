@@ -15,6 +15,10 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader viewport gate and serious N+1 buffering (1.3.111)
+
+The Reader subsystem no longer recenters every spoken paragraph: it skips TTS auto-scroll while the target midpoint remains inside a safe viewport band and throttles insignificant frame writes. ReaderEnergy now reports requested, skipped, and executed scrolls plus accepted/skipped frame updates. The remote TTS subsystem preserves only playback-essential N+1 at `.serious` to hide network synthesis latency without increasing concurrency or steady-state request cadence; `.critical` still disables prefetch completely.
+
 ## Reader energy diagnostics (1.3.110)
 
 The Reader subsystem aggregates UI update, highlight mutation, geometry rebuild, intrinsic-size invalidation, and TTS scroll-target counts in memory. It writes one `[ReaderEnergy]` summary through `AppLogger` about once per minute and at lifecycle/thermal boundaries. Predictions discount each visible text view's initial render so one-time mounting is not mislabeled as sustained layout churn.
@@ -301,6 +305,6 @@ Reader chrome observes the pending target and immediately shows its title, chapt
 
 - The TTS subsystem keeps configurable Google/Ext buffer depth but routes every remote synthesis through `RemoteTTSSynthesisCoordinator` (`current`, `prefetch`, `nextChapter` priorities; concurrency one; key deduplication).
 - The Extension subsystem adds a TTS-only persistent `ExtTTSRuntime`; it evaluates `tts.js` once per script/config identity and resets on failure, while all content extraction APIs preserve short-lived executors.
-- Thermal policy adds 500 ms fair-state pacing and cancels speculative remote work at serious/critical states. Next-chapter audio is promoted only near the current chapter boundary.
+- Thermal policy adds 500 ms fair-state pacing, limits `.serious` remote work to N+1, and cancels all remote prefetch at `.critical`. Both hot states disable next-chapter audio.
 
 <!-- GENERATED END -->

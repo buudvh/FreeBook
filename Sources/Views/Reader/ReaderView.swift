@@ -171,6 +171,8 @@ struct ReaderView: View {
     @State private var editingParagraphIndex: Int? = nil
     @State private var scrollTarget: ScrollTarget? = nil
     @State private var readerViewportHeight: CGFloat = 360
+    @State private var readerViewportMinY: CGFloat = 0
+    @State private var readerViewportMaxY: CGFloat = 0
     @State private var isRestoringReaderPosition = true
     @State private var isAutoScrollDisabled = false
     @State private var viewModel: ReaderViewModel? = nil
@@ -867,9 +869,7 @@ struct ReaderView: View {
             guard !isAutoScrollDisabled else { return }
 
             guard chapterIndex == playingChapterIndex else { return }
-
-            ReaderEnergyDiagnostics.shared.recordTTSScrollTarget()
-            scrollTarget = ScrollTarget(chapterIndex: playingChapterIndex, paragraphIndex: newValue)
+            requestTTSScrollIfNeeded(chapterIndex: playingChapterIndex, paragraphIndex: newValue)
         }
         .toolbar(.hidden, for: .tabBar)
     }
@@ -1934,11 +1934,31 @@ struct ReaderView: View {
             let chapIdx = ttsManager.playingChapterIndex
             if chapIdx == chapterIndex {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                    ReaderEnergyDiagnostics.shared.recordTTSScrollTarget()
-                    self.scrollTarget = ScrollTarget(chapterIndex: chapIdx, paragraphIndex: targetIdx)
+                    self.requestTTSScrollIfNeeded(chapterIndex: chapIdx, paragraphIndex: targetIdx)
                 }
             }
         }
+    }
+
+    private func requestTTSScrollIfNeeded(chapterIndex: Int, paragraphIndex: Int) {
+        let isInsideSafeViewport = paragraphTracker.isParagraphInsideSafeViewport(
+            bookId: bookId,
+            chapterIndex: chapterIndex,
+            paragraphIndex: paragraphIndex,
+            viewportMinY: readerViewportMinY,
+            viewportMaxY: readerViewportMaxY
+        )
+        if isInsideSafeViewport {
+            ReaderEnergyDiagnostics.shared.recordTTSScrollSkippedVisible()
+            return
+        }
+
+        ReaderEnergyDiagnostics.shared.recordTTSScrollTarget()
+        scrollTarget = ScrollTarget(
+            chapterIndex: chapterIndex,
+            paragraphIndex: paragraphIndex,
+            reason: .ttsAuto
+        )
     }
 
     @ViewBuilder
@@ -2009,8 +2029,14 @@ struct ReaderView: View {
             guard let cached = vm.cache.get(target.chapterIndex), cached.state == .loaded else { return false }
             let hasParagraph = cached.paragraphItems.contains(where: { $0.id == target.paragraphIndex })
             if hasParagraph {
+                if target.reason == .ttsAuto {
+                    ReaderEnergyDiagnostics.shared.recordTTSScrollExecuted()
+                }
                 proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
             } else {
+                if target.reason == .ttsAuto {
+                    ReaderEnergyDiagnostics.shared.recordTTSScrollExecuted()
+                }
                 proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
             }
             completeReaderPositionRestore(after: 0.25)
@@ -2043,10 +2069,10 @@ struct ReaderView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .contentShape(Rectangle())
             .onAppear {
-                readerViewportHeight = max(geometry.size.height, 360)
+                updateReaderViewport(geometry.frame(in: .global))
             }
-            .onChange(of: geometry.size.height) { _, height in
-                readerViewportHeight = max(height, 360)
+            .onChange(of: geometry.frame(in: .global)) { _, frame in
+                updateReaderViewport(frame)
             }
             .onChange(of: vm.navigationCommit) { _, commit in
                 guard let commit else { return }
@@ -2059,6 +2085,12 @@ struct ReaderView: View {
                 value: vm.displayedChapterIndex
             )
         }
+    }
+
+    private func updateReaderViewport(_ frame: CGRect) {
+        readerViewportHeight = max(frame.height, 360)
+        readerViewportMinY = frame.minY
+        readerViewportMaxY = frame.maxY
     }
 
     private func singleChapterScrollView(
@@ -2284,6 +2316,18 @@ struct ReaderView: View {
 struct ScrollTarget: Equatable {
     let chapterIndex: Int
     let paragraphIndex: Int
+    let reason: Reason
+
+    enum Reason: Equatable {
+        case navigation
+        case ttsAuto
+    }
+
+    init(chapterIndex: Int, paragraphIndex: Int, reason: Reason = .navigation) {
+        self.chapterIndex = chapterIndex
+        self.paragraphIndex = paragraphIndex
+        self.reason = reason
+    }
 }
 
 struct ParagraphFrame: Equatable {
@@ -2294,7 +2338,9 @@ struct ParagraphFrame: Equatable {
     let maxY: CGFloat
 }
 
+@MainActor
 class ParagraphTracker {
+    private static let minimumFrameDelta: CGFloat = 8
     private var visibleParagraphs: Set<ReadingContext> = []
     private var frames: [ReadingContext: ParagraphFrame] = [:]
 
@@ -2304,8 +2350,15 @@ class ParagraphTracker {
 
     func updateFrame(bookId: String, chapterIndex: Int, paragraphIndex: Int, minY: CGFloat, maxY: CGFloat) {
         let ctx = ReadingContext(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex)
+        if let previous = frames[ctx],
+           abs(previous.minY - minY) < Self.minimumFrameDelta,
+           abs(previous.maxY - maxY) < Self.minimumFrameDelta {
+            ReaderEnergyDiagnostics.shared.recordParagraphFrameUpdate(accepted: false)
+            return
+        }
         visibleParagraphs.insert(ctx)
         frames[ctx] = ParagraphFrame(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex, minY: minY, maxY: maxY)
+        ReaderEnergyDiagnostics.shared.recordParagraphFrameUpdate(accepted: true)
     }
 
     func remove(bookId: String, chapterIndex: Int, paragraphIndex: Int) {
@@ -2317,6 +2370,25 @@ class ParagraphTracker {
     func removeAll() {
         visibleParagraphs.removeAll()
         frames.removeAll()
+    }
+
+    func isParagraphInsideSafeViewport(
+        bookId: String,
+        chapterIndex: Int,
+        paragraphIndex: Int,
+        viewportMinY: CGFloat,
+        viewportMaxY: CGFloat
+    ) -> Bool {
+        guard viewportMaxY > viewportMinY else { return false }
+        let context = ReadingContext(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex)
+        guard let frame = frames[context] else { return false }
+
+        let viewportHeight = viewportMaxY - viewportMinY
+        let safeInset = min(120, max(60, viewportHeight * 0.15))
+        let safeMinY = viewportMinY + safeInset
+        let safeMaxY = viewportMaxY - safeInset
+        let midpoint = (frame.minY + frame.maxY) / 2
+        return midpoint >= safeMinY && midpoint <= safeMaxY
     }
 
     func getTopVisible(viewportTopY: CGFloat, currentBookId: String, currentChapterIndex: Int) -> ReadingContext? {

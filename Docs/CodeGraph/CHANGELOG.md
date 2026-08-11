@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.111] - 2026-08-11
+
+### Giảm auto-scroll Reader và giữ N+1 thiết yếu khi thermal serious
+
+* Reader bỏ qua auto-scroll nếu tâm paragraph TTS còn trong vùng an toàn 15% của viewport; chỉ target ngoài vùng mới được căn giữa.
+* `ParagraphTracker` bỏ qua frame movement dưới 8 pt; `[ReaderEnergy]` thêm scroll requested/skipped/executed và frame accepted/skipped.
+* Sửa dự đoán Reader để không coi intrinsic invalidation lúc mount ban đầu là repeated layout churn.
+* Google/Ext ở `.serious` chỉ giữ N+1, hủy N+2/N+3 và next-chapter audio; `.critical` vẫn tắt hoàn toàn prefetch.
+* Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng yêu cầu.
+
 ## [1.3.110] - 2026-08-11
 
 ### Thêm log tổng hợp tải render của Reader

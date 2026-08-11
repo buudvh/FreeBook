@@ -15,6 +15,11 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader viewport and serious N+1 data flow (1.3.111)
+
+* **Viewport gate**: paragraph global frame -> `ParagraphTracker` -> target midpoint versus 15%/60–120 point safe inset -> skip counter or `.ttsAuto` `ScrollTarget` -> `ScrollViewProxy.scrollTo` -> executed counter.
+* **Serious buffer**: current remote chunk N -> thermal-constrained target list `[N+1]` -> single coordinator slot -> `preloadedData[N+1]`; N+2/N+3 and next-chapter data do not enter the serious-state window.
+
 ## Remote TTS energy diagnostic data flow (1.3.107)
 
 * **Energy summary flow**: Google/Ext text request -> coordinator `Job(engine, textLength, priority)` -> actual serialized operation -> elapsed time/result byte aggregation -> request/minute, bytes/minute, busy percentage, queue/dedup and thermal calculation -> `energyPrediction` -> one `[TTSEnergy] Summary` written by `AppLogger` approximately every 60 seconds.

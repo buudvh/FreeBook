@@ -154,7 +154,7 @@ stateDiagram-v2
 
 - Remote synthesis jobs transition `queued -> active -> completed/failed`; cancellation transitions queued waiters directly to cancelled, while a cancellation-insensitive active job keeps the sole slot until its operation actually returns.
 - Duplicate synthesis keys attach a waiter to the existing job instead of creating a second operation. A queued job can be promoted from `prefetch` to `current` priority.
-- Thermal `.serious/.critical` transitions remote prefetch to stopped without preventing the current chunk from being synthesized on demand after playback resumes or thermal pressure falls.
+- Thermal `.serious` transitions remote prefetch to a playback-essential N+1-only state and cancels N+2/N+3 plus next-chapter audio. `.critical` transitions all remote prefetch to stopped; a missing current chunk remains eligible for on-demand synthesis.
 - NghiTTS thermal state maps `nominal -> refill 2.5–5s + next-chapter audio`, `fair -> refill 1.5–3s with longer cooldown`, and `serious/critical -> no speculative refill or next-chapter audio`; current missing audio remains an on-demand high-priority request.
 
 <!-- GENERATED END -->

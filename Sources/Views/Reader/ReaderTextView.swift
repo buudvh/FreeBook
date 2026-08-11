@@ -424,6 +424,10 @@ final class ReaderEnergyDiagnostics {
         var explicitSizeInvalidations = 0
         var contentSizeInvalidations = 0
         var ttsScrollTargets = 0
+        var ttsScrollSkippedVisible = 0
+        var ttsScrollExecuted = 0
+        var frameUpdates = 0
+        var frameUpdatesSkipped = 0
     }
 
     private static let summaryInterval: TimeInterval = 60
@@ -466,6 +470,24 @@ final class ReaderEnergyDiagnostics {
         updateWindow { $0.ttsScrollTargets += 1 }
     }
 
+    func recordTTSScrollSkippedVisible() {
+        updateWindow { $0.ttsScrollSkippedVisible += 1 }
+    }
+
+    func recordTTSScrollExecuted() {
+        updateWindow { $0.ttsScrollExecuted += 1 }
+    }
+
+    func recordParagraphFrameUpdate(accepted: Bool) {
+        updateWindow { snapshot in
+            if accepted {
+                snapshot.frameUpdates += 1
+            } else {
+                snapshot.frameUpdatesSkipped += 1
+            }
+        }
+    }
+
     func flush(reason: String) {
         emitSummary(reason: reason, resetWindow: false)
         window = nil
@@ -487,7 +509,7 @@ final class ReaderEnergyDiagnostics {
 
         let now = ProcessInfo.processInfo.systemUptime
         let elapsedSeconds = max(0.1, now - snapshot.startedAt)
-        let totalEvents = snapshot.updateUIViewCount + snapshot.ttsScrollTargets
+        let totalEvents = snapshot.updateUIViewCount + snapshot.ttsScrollTargets + snapshot.frameUpdates
         guard totalEvents > 0 else {
             if resetWindow {
                 window = Window(startedAt: now)
@@ -502,9 +524,9 @@ final class ReaderEnergyDiagnostics {
         let sizeInvalidations = snapshot.explicitSizeInvalidations + snapshot.contentSizeInvalidations
         let sizeInvalidationRPM = Double(sizeInvalidations) * 60 / elapsedSeconds
         let scrollRPM = Double(snapshot.ttsScrollTargets) * 60 / elapsedSeconds
+        let executedScrollRPM = Double(snapshot.ttsScrollExecuted) * 60 / elapsedSeconds
+        let frameUpdateRPM = Double(snapshot.frameUpdates) * 60 / elapsedSeconds
         let repeatedGeometryRebuilds = max(0, snapshot.geometryRebuilds - snapshot.uniqueViews.count)
-        let expectedInitialSizeInvalidations = snapshot.uniqueViews.count * 2
-        let excessSizeInvalidations = max(0, sizeInvalidations - expectedInitialSizeInvalidations)
         let thermal = ProcessInfo.processInfo.thermalState
         let prediction = Self.prediction(
             elapsedSeconds: elapsedSeconds,
@@ -512,12 +534,12 @@ final class ReaderEnergyDiagnostics {
             repeatedUpdateRPM: repeatedUpdateRPM,
             highlightRPM: highlightRPM,
             repeatedGeometryRebuilds: repeatedGeometryRebuilds,
-            excessSizeInvalidations: excessSizeInvalidations,
-            scrollRPM: scrollRPM
+            executedScrollRPM: executedScrollRPM,
+            frameUpdateRPM: frameUpdateRPM
         )
 
         let message = String(
-            format: "[ReaderEnergy] Summary reason=%@ state=%@ elapsedSec=%.1f updateUIView=%d updateRPM=%.1f repeatUpdateRPM=%.1f uniqueViews=%d highlight=%d highlightRPM=%.1f geometry=%d repeatGeometry=%d theme=%d explicitSizeInvalidation=%d contentSizeInvalidation=%d excessSizeInvalidation=%d sizeInvalidationRPM=%.1f ttsScrollTarget=%d scrollRPM=%.1f thermal=%@ prediction=%@",
+            format: "[ReaderEnergy] Summary reason=%@ state=%@ elapsedSec=%.1f updateUIView=%d updateRPM=%.1f repeatUpdateRPM=%.1f uniqueViews=%d highlight=%d highlightRPM=%.1f geometry=%d repeatGeometry=%d theme=%d explicitSizeInvalidation=%d contentSizeInvalidation=%d sizeInvalidationRPM=%.1f ttsScrollTarget=%d scrollRPM=%.1f scrollSkippedVisible=%d scrollExecuted=%d executedScrollRPM=%.1f frameUpdate=%d frameUpdateRPM=%.1f frameUpdateSkipped=%d thermal=%@ prediction=%@",
             reason,
             Self.applicationStateName(),
             elapsedSeconds,
@@ -532,10 +554,15 @@ final class ReaderEnergyDiagnostics {
             snapshot.themeRebuilds,
             snapshot.explicitSizeInvalidations,
             snapshot.contentSizeInvalidations,
-            excessSizeInvalidations,
             sizeInvalidationRPM,
             snapshot.ttsScrollTargets,
             scrollRPM,
+            snapshot.ttsScrollSkippedVisible,
+            snapshot.ttsScrollExecuted,
+            executedScrollRPM,
+            snapshot.frameUpdates,
+            frameUpdateRPM,
+            snapshot.frameUpdatesSkipped,
             Self.thermalStateName(thermal),
             prediction
         )
@@ -552,28 +579,35 @@ final class ReaderEnergyDiagnostics {
         repeatedUpdateRPM: Double,
         highlightRPM: Double,
         repeatedGeometryRebuilds: Int,
-        excessSizeInvalidations: Int,
-        scrollRPM: Double
+        executedScrollRPM: Double,
+        frameUpdateRPM: Double
     ) -> String {
         if elapsedSeconds < 20 {
             return "insufficient_sample"
         }
 
         let hasThermalPressure = thermalState == .serious || thermalState == .critical
-        let hasLayoutChurn = repeatedGeometryRebuilds >= 5 || excessSizeInvalidations >= 10
-        let hasElevatedHighlightActivity = highlightRPM >= 30 || scrollRPM >= 18
+        let hasRepeatedGeometryChurn = repeatedGeometryRebuilds >= 5
+        let hasElevatedScrollActivity = executedScrollRPM >= 10 || frameUpdateRPM >= 120
+        let hasElevatedHighlightActivity = highlightRPM >= 30
 
-        if hasThermalPressure && hasLayoutChurn {
+        if hasThermalPressure && hasRepeatedGeometryChurn {
             return "reader_layout_thermal_pressure_likely"
         }
+        if hasThermalPressure && hasElevatedScrollActivity {
+            return "reader_scroll_thermal_pressure_likely"
+        }
         if hasThermalPressure && hasElevatedHighlightActivity {
-            return "reader_activity_with_thermal_pressure"
+            return "reader_updates_with_thermal_pressure"
         }
         if hasThermalPressure {
             return "thermal_pressure_not_explained_by_reader_updates"
         }
-        if hasLayoutChurn {
+        if hasRepeatedGeometryChurn {
             return "reader_layout_churn_likely"
+        }
+        if hasElevatedScrollActivity {
+            return "reader_scroll_activity_elevated"
         }
         if hasElevatedHighlightActivity || repeatedUpdateRPM >= 60 {
             return "reader_update_rate_elevated"

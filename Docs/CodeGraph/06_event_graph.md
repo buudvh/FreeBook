@@ -15,6 +15,12 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader viewport and serious-buffer events (1.3.111)
+
+* A TTS parent event whose paragraph midpoint remains inside the Reader safe viewport increments `scrollSkippedVisible` and emits no `scrollTarget`; an out-of-band target emits one `.ttsAuto` target and records execution when `ScrollViewProxy.scrollTo` runs.
+* Paragraph geometry callbacks with less than 8 points of movement are counted but do not rewrite `ParagraphTracker` frame state.
+* A remote thermal transition to `.serious` cancels distant/next-chapter work and schedules only N+1. `.critical` cancels the remaining remote prefetch; cooling rebuilds the configured window through the existing update event.
+
 ## Reader energy diagnostic events (1.3.110)
 
 * Reader render, highlight, geometry, intrinsic-size, and TTS scroll-target events increment main-actor counters only. The diagnostic path emits no per-event file I/O.
@@ -153,7 +159,7 @@ graph TD
 - Scrolling placeholder rows in the TOC triggers a `loadPageIfNeeded` event in `ReaderChapterListStore` which launches background tasks to fetch metadata for the visible window.
 - Task cancellation in `DownloadManager` emits cooperative cancellation events at chapter boundaries to halt execution.
 
-- `ProcessInfo.thermalStateDidChangeNotification` now updates both Nghi and remote prefetch policy. `.serious/.critical` emits cancellation to paragraph tasks, next-chapter prefetch, and the remote coordinator.
+- `ProcessInfo.thermalStateDidChangeNotification` updates both Nghi and remote prefetch policy. Remote `.serious` retains only playback-essential N+1 while `.critical` cancels paragraph prefetch; both states cancel next-chapter audio.
 - For NghiTTS, the same notification cancels `nghiRefillTask` and next-chapter audio at `.serious/.critical`; returning to `.fair/.nominal` re-enters `updateNghiPrefetchWindow` under the policy watermarks.
 - Pause/stop events cancel remote playback/prefetch waiters and reset the Ext runtime on full cache teardown; URLSession cancellation unblocks the synchronous extension fetch bridge.
 - Paragraph-finished events update the depth-three cache window, but scheduler priority—not task creation count—determines execution order.
