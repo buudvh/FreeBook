@@ -138,4 +138,22 @@ final class RemoteTTSSynthesisCoordinatorTests: XCTestCase {
             "thermal_pressure_confirmed"
         )
     }
+
+    func testFirstEnqueueWithLoggingEnabledDoesNotTriggerExclusiveAccessTrap() async throws {
+        let previousLoggingState = AppLogger.shared.isLoggingEnabled
+        AppLogger.shared.isLoggingEnabled = true
+        defer { AppLogger.shared.isLoggingEnabled = previousLoggingState }
+
+        let coordinator = RemoteTTSSynthesisCoordinator()
+        let result = try await coordinator.synthesize(
+            key: "logging-enabled",
+            engine: "test",
+            textLength: 12,
+            priority: .current
+        ) {
+            Data([1, 2, 3])
+        }
+
+        XCTAssertEqual(result, Data([1, 2, 3]))
+    }
 }

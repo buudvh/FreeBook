@@ -296,12 +296,18 @@ internal actor RemoteTTSSynthesisCoordinator {
 
     private func recordDeduplicatedWaiter() {
         ensureEnergyWindow()
-        energyWindow?.deduplicatedWaiters += 1
+        guard var window = energyWindow else { return }
+        window.deduplicatedWaiters += 1
+        energyWindow = window
     }
 
     private func updateMaximumQueueDepth() {
         ensureEnergyWindow()
-        energyWindow?.maxQueueDepth = max(energyWindow?.maxQueueDepth ?? 0, queue.count)
+        // Optional-chaining assignment that also reads energyWindow on its RHS
+        // can hold an overlapping _modify access and trap at runtime.
+        guard var window = energyWindow else { return }
+        window.maxQueueDepth = max(window.maxQueueDepth, queue.count)
+        energyWindow = window
     }
 
     private func emitEnergySummary(

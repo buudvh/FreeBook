@@ -2,6 +2,13 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.108] - 2026-08-11
+
+### Sửa crash khi bắt đầu TTS lúc App Log đang bật
+
+* Thay phép đọc/ghi optional trực tiếp trên `EnergyWindow.maxQueueDepth` và `deduplicatedWaiters` bằng quy trình copy-update-assign, tránh Swift exclusive-access trap ngay tại request remote đầu tiên.
+* Thêm regression test chạy synthesis đầu tiên với `AppLogger.isLoggingEnabled = true`.
+
 ## [1.3.107] - 2026-08-11
 
 ### Thêm log dự đoán tải năng lượng Google/Ext TTS
