@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Chapter repository memory/cancellation file updates (1.3.114)
+
+* `Services/ChapterText/ChapterContentRepository.swift` now owns cost-aware `MemoryEntry` values and waiter-aware `InFlightLoad` tasks. It still depends on `ChapterPersistenceStore` and `ExtensionManager`; no VBook extension API changed.
+* `Views/MainTabView.swift` forwards the application memory-warning notification to `ChapterContentRepository.trimMemoryCache()` while retaining its existing configure/background-flush calls.
+* `Services/TTS/TTSManager.swift` now owns `chapterAdvanceTask` and its generation, canceling fallback auto-advance when playback stops, an engine/session is replaced, or a newer advance supersedes it.
+
 ## Reader files added in 1.3.14
 
 * [`ReaderParagraphBuilder.swift`](../../Sources/Views/Reader/ReaderParagraphBuilder.swift) depends on `TranslateUtils` and `ParagraphItem`; it is called by both `ReaderViewModel` and the legacy `ReaderView` loading path.

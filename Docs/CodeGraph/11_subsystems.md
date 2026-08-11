@@ -15,6 +15,10 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Chapter content memory and cancellation subsystem (1.3.114)
+
+The Chapter Text subsystem now combines a cost-aware 12-entry/12-MiB LRU with waiter-aware in-flight coalescing. Reader and TTS attach independent continuations to one chapter operation; cancellation removes only the caller and stops underlying local/extension work after the final waiter leaves. MainTab owns the global memory-warning bridge. TTS separately owns its fallback auto-advance task so session replacement and stop cannot leave chapter processing detached.
+
 ## TTS presentation energy optimization (1.3.112)
 
 The Widget subsystem renders a static cover during sustained playback and consumes a deduplicated `TTSWidgetSnapshot`. Its parent-owned image loader keys work by book ID and cover URL, so expanded/peeking transitions reuse one decoded image without another request. App root uses a presentation-only snapshot, Shelf reads TTS identity only when handling the explicit open-reader notification, and Reader uses a book-scoped projection that suppresses unrelated highlight churn.

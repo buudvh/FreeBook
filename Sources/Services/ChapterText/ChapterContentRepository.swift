@@ -49,36 +49,70 @@ enum ChapterContentRepositoryError: LocalizedError {
 actor ChapterContentRepository {
     static let shared = ChapterContentRepository()
 
-    private struct InFlightLoad {
-        let id: UUID
-        let task: Task<ChapterContentResult, Error>
+    private struct MemoryEntry {
+        let document: ChapterDocument
+        let estimatedCost: Int
+        var lastAccess: UInt64
     }
 
+    private struct InFlightWaiter {
+        let continuation: CheckedContinuation<ChapterContentResult, Error>
+    }
+
+    private struct InFlightLoad {
+        let id: UUID
+        let task: Task<Void, Never>
+        var waiters: [UUID: InFlightWaiter]
+    }
+
+    private let maxMemoryEntryCount: Int
+    private let maxMemoryCost: Int
     private var persistenceStore: ChapterPersistenceStore?
     private var configuredContainerID: ObjectIdentifier?
-    private var memory: [ChapterKey: ChapterDocument] = [:]
+    private var memory: [ChapterKey: MemoryEntry] = [:]
+    private var totalMemoryCost = 0
+    private var memoryAccessSequence: UInt64 = 0
     private var inFlightLoads: [ChapterKey: InFlightLoad] = [:]
+
+    init(
+        maxMemoryEntryCount: Int = 12,
+        maxMemoryCost: Int = 12 * 1_024 * 1_024
+    ) {
+        self.maxMemoryEntryCount = max(0, maxMemoryEntryCount)
+        self.maxMemoryCost = max(0, maxMemoryCost)
+    }
 
     func configure(container: ModelContainer) {
         let containerID = ObjectIdentifier(container)
         guard configuredContainerID != containerID else { return }
-        for load in inFlightLoads.values {
-            load.task.cancel()
-        }
-        inFlightLoads.removeAll()
-        memory.removeAll()
+        cancelAllInFlightLoads()
+        trimMemoryCache()
         persistenceStore = ChapterPersistenceStore(container: container)
         configuredContainerID = containerID
     }
 
     func store(_ document: ChapterDocument, bookId: String) {
-        memory[ChapterKey(bookId: bookId, chapterIndex: document.chapterIndex, url: document.url)] = document
+        storeInMemory(
+            document,
+            for: ChapterKey(bookId: bookId, chapterIndex: document.chapterIndex, url: document.url)
+        )
     }
 
     func remove(bookId: String, chapterIndex: Int) {
-        memory = memory.filter { key, _ in
-            key.bookId != bookId || key.chapterIndex != chapterIndex
+        let keys = memory.keys.filter {
+            $0.bookId == bookId && $0.chapterIndex == chapterIndex
         }
+        for key in keys {
+            removeMemoryEntry(for: key)
+        }
+    }
+
+    /// Releases only the repository's reusable RAM snapshots. Active Reader/TTS
+    /// consumers retain their own document values, and persistent content remains
+    /// available through the local-first store.
+    func trimMemoryCache() {
+        memory.removeAll(keepingCapacity: false)
+        totalMemoryCost = 0
     }
 
     @discardableResult
@@ -149,37 +183,114 @@ actor ChapterContentRepository {
             url: request.url
         )
 
-        if !request.forceRefresh, let document = memory[key] {
+        if !request.forceRefresh, let document = memoryDocument(for: key) {
             return ChapterContentResult(document: document, origin: .memory)
         }
 
-        if !request.forceRefresh, let inFlight = inFlightLoads[key] {
-            return try await inFlight.task.value
+        let waiterID = UUID()
+        return try await withTaskCancellationHandler {
+            try Task.checkCancellation()
+            return try await withCheckedThrowingContinuation { continuation in
+                if Task.isCancelled {
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+                registerWaiter(
+                    id: waiterID,
+                    continuation: continuation,
+                    request: request,
+                    key: key
+                )
+            }
+        } onCancel: {
+            Task {
+                await self.cancelWaiter(id: waiterID, key: key)
+            }
         }
-        if request.forceRefresh, let inFlight = inFlightLoads[key] {
-            inFlight.task.cancel()
+    }
+
+    private func registerWaiter(
+        id waiterID: UUID,
+        continuation: CheckedContinuation<ChapterContentResult, Error>,
+        request: ChapterContentRequest,
+        key: ChapterKey
+    ) {
+        if !request.forceRefresh, let document = memoryDocument(for: key) {
+            continuation.resume(returning: ChapterContentResult(document: document, origin: .memory))
+            return
         }
 
-        let task = Task { [weak self] () throws -> ChapterContentResult in
-            guard let self else {
-                throw ChapterContentRepositoryError.emptyContent
-            }
-            return try await self.loadUnshared(request, key: key)
+        if !request.forceRefresh, var inFlight = inFlightLoads[key] {
+            inFlight.waiters[waiterID] = InFlightWaiter(continuation: continuation)
+            inFlightLoads[key] = inFlight
+            return
         }
+
+        if request.forceRefresh {
+            cancelInFlightLoad(for: key)
+        }
+
         let loadID = UUID()
-        inFlightLoads[key] = InFlightLoad(id: loadID, task: task)
+        let task = Task { [weak self] in
+            guard let self else { return }
+            let result: Result<ChapterContentResult, Error>
+            do {
+                try Task.checkCancellation()
+                result = .success(try await self.loadUnshared(request, key: key))
+            } catch {
+                result = .failure(error)
+            }
+            await self.finishInFlightLoad(for: key, loadID: loadID, result: result)
+        }
 
-        do {
-            let result = try await task.value
-            if inFlightLoads[key]?.id == loadID {
-                inFlightLoads.removeValue(forKey: key)
+        inFlightLoads[key] = InFlightLoad(
+            id: loadID,
+            task: task,
+            waiters: [waiterID: InFlightWaiter(continuation: continuation)]
+        )
+    }
+
+    private func cancelWaiter(id waiterID: UUID, key: ChapterKey) {
+        guard var inFlight = inFlightLoads[key],
+              let waiter = inFlight.waiters.removeValue(forKey: waiterID) else { return }
+
+        waiter.continuation.resume(throwing: CancellationError())
+        if inFlight.waiters.isEmpty {
+            inFlight.task.cancel()
+            inFlightLoads.removeValue(forKey: key)
+        } else {
+            inFlightLoads[key] = inFlight
+        }
+    }
+
+    private func finishInFlightLoad(
+        for key: ChapterKey,
+        loadID: UUID,
+        result: Result<ChapterContentResult, Error>
+    ) {
+        guard let inFlight = inFlightLoads[key], inFlight.id == loadID else { return }
+        inFlightLoads.removeValue(forKey: key)
+        for waiter in inFlight.waiters.values {
+            waiter.continuation.resume(with: result)
+        }
+    }
+
+    private func cancelInFlightLoad(for key: ChapterKey) {
+        guard let inFlight = inFlightLoads.removeValue(forKey: key) else { return }
+        inFlight.task.cancel()
+        for waiter in inFlight.waiters.values {
+            waiter.continuation.resume(throwing: CancellationError())
+        }
+    }
+
+    private func cancelAllInFlightLoads() {
+        let loads = Array(inFlightLoads.values)
+        inFlightLoads.removeAll()
+        for inFlight in loads {
+            inFlight.task.cancel()
+            for waiter in inFlight.waiters.values {
+                waiter.continuation.resume(throwing: CancellationError())
             }
-            return result
-        } catch {
-            if inFlightLoads[key]?.id == loadID {
-                inFlightLoads.removeValue(forKey: key)
-            }
-            throw error
         }
     }
 
@@ -187,7 +298,7 @@ actor ChapterContentRepository {
         _ request: ChapterContentRequest,
         key: ChapterKey
     ) async throws -> ChapterContentResult {
-        if !request.forceRefresh, let document = memory[key] {
+        if !request.forceRefresh, let document = memoryDocument(for: key) {
             return ChapterContentResult(document: document, origin: .memory)
         }
 
@@ -200,9 +311,11 @@ actor ChapterContentRepository {
                 ) {
                     try Task.checkCancellation()
                     let document = makeDocument(request: request, rawContent: persisted.content)
-                    memory[key] = document
+                    storeInMemory(document, for: key)
                     return ChapterContentResult(document: document, origin: .persistentCache)
                 }
+            } catch is CancellationError {
+                throw CancellationError()
             } catch {
                 AppLogger.shared.log(
                     "❌ [ChapterContentRepository] Không thể đọc cache local \(request.bookId)#\(request.chapterIndex): \(error.localizedDescription)"
@@ -213,6 +326,8 @@ actor ChapterContentRepository {
         if let metadata = request.bookMetadata, let store = persistenceStore {
             do {
                 try await store.ensureBook(metadata)
+            } catch is CancellationError {
+                throw CancellationError()
             } catch {
                 AppLogger.shared.log(
                     "❌ [ChapterContentRepository] Không thể chuẩn bị metadata local \(request.bookId): \(error.localizedDescription)"
@@ -220,6 +335,7 @@ actor ChapterContentRepository {
             }
         }
 
+        try Task.checkCancellation()
         guard let extensionInfo = request.extensionInfo else {
             throw ChapterContentRepositoryError.unavailableExtension
         }
@@ -233,7 +349,7 @@ actor ChapterContentRepository {
 
         try Task.checkCancellation()
 
-        memory[key] = document
+        storeInMemory(document, for: key)
         let chapter = ChapterMetadataSnapshot(
             title: request.title,
             url: request.url,
@@ -248,6 +364,54 @@ actor ChapterContentRepository {
             content: document.text.content
         )
         return ChapterContentResult(document: document, origin: .extensionFetch)
+    }
+
+    private func memoryDocument(for key: ChapterKey) -> ChapterDocument? {
+        guard var entry = memory[key] else { return nil }
+        memoryAccessSequence &+= 1
+        entry.lastAccess = memoryAccessSequence
+        memory[key] = entry
+        return entry.document
+    }
+
+    private func storeInMemory(_ document: ChapterDocument, for key: ChapterKey) {
+        removeMemoryEntry(for: key)
+
+        let cost = estimatedMemoryCost(of: document)
+        guard maxMemoryEntryCount > 0, maxMemoryCost > 0, cost <= maxMemoryCost else { return }
+
+        memoryAccessSequence &+= 1
+        memory[key] = MemoryEntry(
+            document: document,
+            estimatedCost: cost,
+            lastAccess: memoryAccessSequence
+        )
+        totalMemoryCost += cost
+        evictMemoryIfNeeded()
+    }
+
+    private func removeMemoryEntry(for key: ChapterKey) {
+        guard let removed = memory.removeValue(forKey: key) else { return }
+        totalMemoryCost = max(0, totalMemoryCost - removed.estimatedCost)
+    }
+
+    private func evictMemoryIfNeeded() {
+        while memory.count > maxMemoryEntryCount || totalMemoryCost > maxMemoryCost {
+            guard let leastRecentKey = memory.min(by: {
+                $0.value.lastAccess < $1.value.lastAccess
+            })?.key else { break }
+            removeMemoryEntry(for: leastRecentKey)
+        }
+    }
+
+    private func estimatedMemoryCost(of document: ChapterDocument) -> Int {
+        var cost = document.title.utf8.count + document.url.utf8.count
+        cost += document.host?.utf8.count ?? 0
+        cost += document.text.content.utf8.count
+        for line in document.text.lines {
+            cost += line.text.utf8.count + 64
+        }
+        return max(1, cost)
     }
 
     private func makeDocument(

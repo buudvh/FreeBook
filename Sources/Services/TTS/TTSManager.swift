@@ -80,6 +80,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public var tool: String {
         didSet {
             UserDefaults.standard.set(tool, forKey: "ttsTool")
+            cancelChapterAdvanceTask()
             loadParamsForCurrentTool()
             clearPrefetchCache()
             if tool == "nghitts" {
@@ -673,6 +674,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private var prepareSpeakingTask: Task<Void, Never>? = nil
     private var startSpeakingTask: Task<Void, Never>? = nil
     private var chapterQueueRefreshTask: Task<Void, Never>? = nil
+    private var chapterAdvanceTask: Task<Void, Never>? = nil
+    private var chapterAdvanceTaskGeneration: UInt64 = 0
     private var nghiWarmUpTask: Task<Void, Never>? = nil
     private let nextChapterPrefetcher = TTSChapterPrefetcher()
     private var sessionID = UUID()
@@ -688,6 +691,17 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         preparationGeneration += 1
         preparedChapterKey = nil
         preparedChapter = nil
+    }
+
+    private func cancelChapterAdvanceTask() {
+        chapterAdvanceTaskGeneration &+= 1
+        chapterAdvanceTask?.cancel()
+        chapterAdvanceTask = nil
+    }
+
+    private func clearChapterAdvanceTask(ifGenerationMatches generation: UInt64) {
+        guard chapterAdvanceTaskGeneration == generation else { return }
+        chapterAdvanceTask = nil
     }
 
     private struct NowPlayingStaticMetadataKey: Equatable, Sendable {
@@ -1191,6 +1205,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         prepareSpeakingTask = nil
         startSpeakingTask?.cancel()
         startSpeakingTask = nil
+        cancelChapterAdvanceTask()
 
         let newSessionID = UUID()
         self.sessionID = newSessionID
@@ -1481,6 +1496,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         startSpeakingTask = nil
         chapterQueueRefreshTask?.cancel()
         chapterQueueRefreshTask = nil
+        cancelChapterAdvanceTask()
         nowPlayingUpdateGeneration &+= 1
         nowPlayingMetadataTask?.cancel()
         nowPlayingMetadataTask = nil
@@ -1751,6 +1767,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     private func advanceToNextChapter(nextIdx: Int) {
         guard let nextChapter = chaptersQueue.first(where: { $0.index == nextIdx }) else { return }
+        cancelChapterAdvanceTask()
         let expectedSessionID = sessionID
         self.ttsProcessingGeneration += 1
         let expectedGeneration = self.ttsProcessingGeneration
@@ -1856,39 +1873,52 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let isPerfLogging = AppLogger.shared.isLoggingEnabled
         let perfStartUptime = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
 
-        Task { [weak self] in
+        chapterAdvanceTaskGeneration &+= 1
+        let taskGeneration = chapterAdvanceTaskGeneration
+        chapterAdvanceTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer {
+                self.clearChapterAdvanceTask(ifGenerationMatches: taskGeneration)
+            }
+
             let result: ChapterContentResult
             do {
-                result = try await ChapterContentRepository.shared.load(request)
+                result = try await self.loadChapterForAutoAdvance(request)
+            } catch is CancellationError {
+                if isPerfLogging {
+                    self.finishTTSAutoAdvancePerf(
+                        outcome: "cancelled",
+                        endpoint: "cancelled",
+                        sessionID: expectedSessionID,
+                        generation: expectedGeneration,
+                        chapterIndex: nextChapter.index
+                    )
+                }
+                return
             } catch {
                 let loadEndUptime = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
                 let loadMs = isPerfLogging ? (loadEndUptime - perfStartUptime) * 1000 : 0
                 if isPerfLogging {
-                    await MainActor.run {
-                        self?.updateTTSAutoAdvanceLoadPerf(
-                            sessionID: expectedSessionID,
-                            generation: expectedGeneration,
-                            chapterIndex: nextChapter.index,
-                            loadMs: loadMs,
-                            origin: "unknown"
-                        )
-                        self?.finishTTSAutoAdvancePerf(
-                            outcome: "load_failed",
-                            endpoint: "error",
-                            sessionID: expectedSessionID,
-                            generation: expectedGeneration,
-                            chapterIndex: nextChapter.index
-                        )
-                    }
+                    self.updateTTSAutoAdvanceLoadPerf(
+                        sessionID: expectedSessionID,
+                        generation: expectedGeneration,
+                        chapterIndex: nextChapter.index,
+                        loadMs: loadMs,
+                        origin: "unknown"
+                    )
+                    self.finishTTSAutoAdvancePerf(
+                        outcome: "load_failed",
+                        endpoint: "error",
+                        sessionID: expectedSessionID,
+                        generation: expectedGeneration,
+                        chapterIndex: nextChapter.index
+                    )
                 }
-                guard let self,
-                      self.sessionID == expectedSessionID,
+                guard self.sessionID == expectedSessionID,
                       self.playingBookId == expectedBookId else { return }
                 AppLogger.shared.log("❌ [TTSManager] Không tải được chương \(nextChapter.index): \(error.localizedDescription)")
-                await MainActor.run {
-                    self.stop()
-                    self.onChapterFinished?()
-                }
+                self.stop()
+                self.onChapterFinished?()
                 return
             }
 
@@ -1905,34 +1935,29 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
 
             if isPerfLogging {
-                await MainActor.run {
-                    self?.updateTTSAutoAdvanceLoadPerf(
-                        sessionID: expectedSessionID,
-                        generation: expectedGeneration,
-                        chapterIndex: nextChapter.index,
-                        loadMs: loadMs,
-                        origin: originStr
-                    )
-                }
+                self.updateTTSAutoAdvanceLoadPerf(
+                    sessionID: expectedSessionID,
+                    generation: expectedGeneration,
+                    chapterIndex: nextChapter.index,
+                    loadMs: loadMs,
+                    origin: originStr
+                )
             }
 
-            guard let self,
-                  self.isPlaying,
+            guard self.isPlaying,
                   self.sessionID == expectedSessionID,
                   self.ttsProcessingGeneration == expectedGeneration,
                   self.playingBookId == expectedBookId,
                   self.chaptersQueue.first(where: { $0.index == nextChapter.index })?.url == expectedChapterURL,
                   self.playingChapterIndex < nextChapter.index else {
                 if isPerfLogging {
-                    await MainActor.run {
-                        self?.finishTTSAutoAdvancePerf(
-                            outcome: "superseded",
-                            endpoint: "superseded",
-                            sessionID: expectedSessionID,
-                            generation: expectedGeneration,
-                            chapterIndex: nextChapter.index
-                        )
-                    }
+                    self.finishTTSAutoAdvancePerf(
+                        outcome: "superseded",
+                        endpoint: "superseded",
+                        sessionID: expectedSessionID,
+                        generation: expectedGeneration,
+                        chapterIndex: nextChapter.index
+                    )
                 }
                 return
             }
@@ -1952,62 +1977,81 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     sessionID: expectedSessionID,
                     generation: expectedGeneration
                 )
+            } catch is CancellationError {
+                if isPerfLogging {
+                    self.finishTTSAutoAdvancePerf(
+                        outcome: "cancelled",
+                        endpoint: "cancelled",
+                        sessionID: expectedSessionID,
+                        generation: expectedGeneration,
+                        chapterIndex: nextChapter.index
+                    )
+                }
+                return
             } catch {
                 let processEndUptime = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
                 let processMs = isPerfLogging ? (processEndUptime - loadEndUptime) * 1000 : 0
                 if isPerfLogging {
-                    await MainActor.run {
-                        self.updateTTSAutoAdvanceProcessPerf(
-                            sessionID: expectedSessionID,
-                            generation: expectedGeneration,
-                            chapterIndex: nextChapter.index,
-                            processMs: processMs
-                        )
-                        self.finishTTSAutoAdvancePerf(
-                            outcome: "process_failed",
-                            endpoint: "error",
-                            sessionID: expectedSessionID,
-                            generation: expectedGeneration,
-                            chapterIndex: nextChapter.index
-                        )
-                    }
+                    self.updateTTSAutoAdvanceProcessPerf(
+                        sessionID: expectedSessionID,
+                        generation: expectedGeneration,
+                        chapterIndex: nextChapter.index,
+                        processMs: processMs
+                    )
+                    self.finishTTSAutoAdvancePerf(
+                        outcome: "process_failed",
+                        endpoint: "error",
+                        sessionID: expectedSessionID,
+                        generation: expectedGeneration,
+                        chapterIndex: nextChapter.index
+                    )
                 }
-                await MainActor.run {
-                    self.stop()
-                    self.onChapterFinished?()
-                }
+                self.stop()
+                self.onChapterFinished?()
                 return
             }
 
             let processEndUptime = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
             let processMs = isPerfLogging ? (processEndUptime - loadEndUptime) * 1000 : 0
 
-            await MainActor.run {
-                guard self.isPlaying,
-                      self.sessionID == processed.sessionID,
-                      self.ttsProcessingGeneration == processed.generation,
-                      self.playingBookId == processed.bookId else {
-                    if isPerfLogging {
-                        self.finishTTSAutoAdvancePerf(
-                            outcome: "superseded",
-                            endpoint: "superseded",
-                            sessionID: expectedSessionID,
-                            generation: expectedGeneration,
-                            chapterIndex: nextChapter.index
-                        )
-                    }
-                    return
-                }
+            guard self.isPlaying,
+                  self.sessionID == processed.sessionID,
+                  self.ttsProcessingGeneration == processed.generation,
+                  self.playingBookId == processed.bookId else {
                 if isPerfLogging {
-                    self.updateTTSAutoAdvanceProcessPerf(
+                    self.finishTTSAutoAdvancePerf(
+                        outcome: "superseded",
+                        endpoint: "superseded",
                         sessionID: expectedSessionID,
                         generation: expectedGeneration,
-                        chapterIndex: processed.chapterIndex,
-                        processMs: processMs
+                        chapterIndex: nextChapter.index
                     )
                 }
-                self.applyNextChapter(index: processed.chapterIndex, content: processed.normalizedContent, title: processed.chapterTitle, paragraphs: processed.paragraphs, chapter: nextChapter)
+                return
             }
+            if isPerfLogging {
+                self.updateTTSAutoAdvanceProcessPerf(
+                    sessionID: expectedSessionID,
+                    generation: expectedGeneration,
+                    chapterIndex: processed.chapterIndex,
+                    processMs: processMs
+                )
+            }
+            self.applyNextChapter(index: processed.chapterIndex, content: processed.normalizedContent, title: processed.chapterTitle, paragraphs: processed.paragraphs, chapter: nextChapter)
+        }
+    }
+
+    private func loadChapterForAutoAdvance(
+        _ request: ChapterContentRequest
+    ) async throws -> ChapterContentResult {
+        do {
+            return try await ChapterContentRepository.shared.load(request)
+        } catch is CancellationError {
+            // A force-refresh consumer may supersede the shared repository load
+            // without canceling this playback task. Reattach once to that fresh
+            // load; a real stop/session cancellation still exits immediately.
+            try Task.checkCancellation()
+            return try await ChapterContentRepository.shared.load(request)
         }
     }
 

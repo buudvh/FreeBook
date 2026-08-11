@@ -15,6 +15,10 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Chapter content ownership update (1.3.114)
+
+`ChapterContentRepository.shared` owns bounded `MemoryEntry` snapshots and one `InFlightLoad` per `ChapterKey`. Each in-flight load owns its task plus UUID waiter continuations; callers own only their waiter lifetime. `MainTabView` owns the memory-warning subscription that trims repository RAM. `TTSManager.shared` now owns `chapterAdvanceTask` and its generation until completion, stop, session replacement, or supersession.
+
 ## TTS presentation ownership update (1.3.112)
 
 `AppLaunchRootView` owns `TTSRootPresentationReader`; `TTSFloatingWidgetView` owns `TTSWidgetStateReader` and one `TTSCoverImageLoader`; each `ReaderView` owns one book-scoped `ReaderTTSStateReader`. The cover loader retains one decoded image across expanded/peeking child replacement. These projection objects own narrow Combine subscriptions but never own playback. `ShelfView` keeps only a non-observing singleton reference for its explicit open-reader notification.
@@ -133,7 +137,7 @@ graph TD
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - `TTSFloatingWidgetView` owns `FloatingWidgetViewModel` and a narrow widget-state projection; the static cover owns no animation clock. `TTSManager.shared` remains the single owner of playback, chapter identity, and stop semantics.
-- `ChapterContentRepository.shared` owns cross-consumer memory and in-flight chapter loads; `ChapterPersistenceStore` owns background contexts, pending writes, retry, and flush. Reader/TTS retain separate navigation/playback sessions.
+- `ChapterContentRepository.shared` owns bounded cross-consumer memory and waiter-aware in-flight chapter loads; `ChapterPersistenceStore` owns background contexts, pending writes, retry, and flush. Reader/TTS retain separate waiter and navigation/playback lifetimes.
 - `RepositoryManagerView` owns the pending repository deletion selection; `ModelContext` owns the actual cascade only after user confirmation.
 - `BookStorageManager.shared` acts as a Singleton coordinating book deletion; it cascades database deletions to `ModelContext` (database commit first) and triggers asynchronous background sandbox cleanup via `BookBinManager.shared` and `ImageCacheManager.shared` under path safety validation. Failed deletions are owned by a retry queue stored in `UserDefaults` and drained at app launch.
 

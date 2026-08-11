@@ -107,6 +107,7 @@ graph TD
 - Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
+- `ChapterContentRepository` bounds shared normalized documents with a 12-entry/12-MiB cost-aware LRU. Its in-flight chapter operation owns per-consumer continuations, so Reader and TTS can share work while final-subscriber cancellation still reaches the extension fetch.
 
 - Remote TTS separates buffer depth from execution concurrency: `TTSManager` may target three future chunks, while `RemoteTTSSynthesisCoordinator` runs one Google/Ext operation and prioritizes current playback over speculative work.
 - `ExtensionManager` retains a serialized `ExtTTSRuntime` only for TTS; other extension actions preserve short-lived `JSExecutor` isolation.

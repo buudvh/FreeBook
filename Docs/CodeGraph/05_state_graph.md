@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Shared chapter load and auto-advance states (1.3.114)
+
+* A shared chapter key transitions `missing -> active(waiters: 1...n) -> completed/failed`. One waiter cancellation leaves the operation active while other consumers remain; final-waiter cancellation transitions it to `cancelled` and propagates cancellation into local lookup/extension execution.
+* Repository memory entries transition `cached -> recently used -> evicted` when either the 12-entry or 12-MiB limit is exceeded. A memory warning transitions all reusable entries directly to evicted without invalidating caller-owned documents or disk content.
+* Fallback TTS auto-advance transitions `idle -> loading/processing -> applied`. Stop, engine/session replacement, or a newer advance transitions the owned task to `cancelled`; cancellation and supersession never enter the ordinary load-failure stop path. A repository-only force-refresh supersession transitions through one reattach attempt while playback remains active.
+
 ## TTS presentation state transitions (1.3.112)
 
 * Floating cover presentation is static in both playing and paused states; playback no longer creates a 30 FPS animation state loop.

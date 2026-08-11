@@ -15,6 +15,13 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Bounded chapter cache and subscriber cancellation calls (1.3.114)
+
+* `ChapterContentRepository.load` checks the cost-aware LRU, then registers a UUID waiter on an existing `InFlightLoad` or creates the sole underlying load for that `ChapterKey`.
+* Caller cancellation invokes `cancelWaiter`; it resumes that continuation immediately and calls `Task.cancel()` on the underlying load only when no waiter remains. Completion calls `finishInFlightLoad` once and resumes all still-registered waiters.
+* Persistent read and metadata preparation rethrow `CancellationError` instead of falling through to extension fetching. Successful extension content still passes a cancellation checkpoint before `storeInMemory` and `ChapterPersistenceStore.enqueueWrite`.
+* `TTSManager.fallbackAdvanceToNextChapter` stores its task in `chapterAdvanceTask`; engine selection, `startSpeaking`, `stopPlayback`, and a newer `advanceToNextChapter` call `cancelChapterAdvanceTask` before stale work can commit. `loadChapterForAutoAdvance` reattaches once when repository force-refresh supersedes the shared load but the playback task itself is not canceled.
+
 ## TTS presentation energy calls (1.3.112)
 
 * `TTSManager.updateNowPlayingInfo` checks `NowPlayingStaticMetadataKey`; a cache hit calls `publishNowPlayingInfo` synchronously, while a miss replaces the sole metadata task, prepares translated titles/local cover once, caches `MPMediaItemArtwork`, then republishes the latest dynamic timeline.

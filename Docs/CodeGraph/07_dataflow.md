@@ -15,6 +15,13 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Bounded chapter content data flow (1.3.114)
+
+* Chapter data flows `ChapterKey -> 12-entry/12-MiB cost-aware LRU -> persistent cache -> extension`. Each hit advances a monotonic recency sequence; insertion evicts least-recent entries until both limits hold, and oversized documents bypass shared RAM.
+* Concurrent Reader/TTS consumers flow into UUID waiter continuations on one in-flight task. A canceled consumer exits immediately; the underlying local/extension flow continues only while another waiter remains.
+* A memory warning flows from `MainTabView` to `trimMemoryCache`; active view/playback snapshots and disk content are outside that eviction path.
+* Fallback next-chapter data now flows through an owned `TTSManager.chapterAdvanceTask`, with generation/session validation and cancellation-aware load/process stages before `applyNextChapter`.
+
 ## TTS presentation energy data flow (1.3.112)
 
 * **Static Now Playing flow**: book/chapter/cover/translation identity -> one background translation/local-cover read -> one cached title/artwork record -> Lock Screen metadata.
@@ -189,7 +196,7 @@ graph TD
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - Dictionary-update data flows from `TranslationManager` notification to a cancelable, sequential Reader cache rebuild: current chapter first, then loaded/preloaded chapters. Existing TTS paragraph audio remains valid for the live session; a new listen action translates from cached `originalContent`, and next-chapter auto-advance translates raw repository content with the latest dictionaries.
-- Chapter data flows `ChapterKey -> shared memory -> ChapterPersistenceStore/SwiftData -> extension fallback`; extension output is normalized once, returned immediately, and upserted with Book/TOC metadata in the background.
+- Chapter data flows `ChapterKey -> bounded shared LRU -> ChapterPersistenceStore/SwiftData -> extension fallback`; extension output is normalized once, returned immediately, and upserted with Book/TOC metadata in the background.
 - TOC refresh reconciles by stable URL and preserves cached content/title translation for matched chapters instead of deleting and recreating the relationship.
 - Book deletion coordinates database deletion and side-effect cancellation before dispatching background file deletions. Deletion failures are enqueued in `UserDefaults` queue dataflow and retried at launch.
 - `ReaderChapterListStore` dynamically pages chapter DTO metadata via `BackgroundPagingWorker` actor, anti-jitter generation checks, per-page de-duplication, and deferred atomic swaps, maintaining <= 300 active row states in RAM without storing flat item arrays.

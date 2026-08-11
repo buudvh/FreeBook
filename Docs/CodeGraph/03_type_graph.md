@@ -15,6 +15,12 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Chapter repository ownership types (1.3.114)
+
+* `ChapterContentRepository.MemoryEntry` stores one normalized `ChapterDocument`, its deterministic estimated byte cost, and an access sequence used for bounded LRU eviction.
+* `ChapterContentRepository.InFlightLoad` owns one underlying `Task<Void, Never>` plus multiple UUID-keyed `InFlightWaiter` continuations for Reader/TTS consumers of the same `ChapterKey`.
+* `TTSManager` adds an owned optional `chapterAdvanceTask` and `chapterAdvanceTaskGeneration`; these are private lifecycle state, not a public API change.
+
 ## TTS presentation projection types (1.3.112)
 
 * `TTSWidgetSnapshot` and `TTSWidgetStateReader` expose only playback, visibility, book/cover identity, and timer state used by the floating widget. `TTSCoverImageLoader` owns one decoded image keyed by book ID and cover URL across expanded/peeking child replacement.

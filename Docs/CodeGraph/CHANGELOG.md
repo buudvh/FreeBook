@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.114] - 2026-08-11
+
+### Giới hạn RAM chương dùng chung và truyền cancellation theo consumer
+
+* Chuyển `ChapterContentRepository` sang cost-aware LRU tối đa 12 document/12 MiB; document quá lớn không giữ trong RAM dùng chung và memory warning chỉ xóa reusable snapshots.
+* Thay in-flight chapter load bằng một task dùng chung có waiter UUID riêng cho Reader/TTS: hủy một consumer trả về ngay, còn underlying load chỉ bị hủy khi waiter cuối cùng rời đi.
+* Không nuốt `CancellationError` ở nhánh đọc persistent cache/chuẩn bị metadata, tránh tiếp tục gọi extension sau khi request đã hết người dùng.
+* `TTSManager` sở hữu và generation-guard fallback auto-advance task; stop, thay session hoặc advance mới hủy task cũ mà không biến cancellation thành lỗi dừng phát, đồng thời reattach một lần nếu repository chỉ bị force-refresh supersede.
+* Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng không yêu cầu.
+
 ## [1.3.113] - 2026-08-11
 
 ### Sửa lỗi chức năng xuất tệp TXT và bổ sung cơ chế lưu vết / chia sẻ lại file

@@ -15,6 +15,12 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Chapter memory and obsolete-work risks mitigated in 1.3.114
+
+* **Mitigated - app-lifetime normalized chapter growth:** shared repository RAM is bounded by both 12 entries and 12 MiB estimated cost, with immediate memory-warning trimming and oversized-document bypass.
+* **Mitigated - cancellation-insensitive shared waiters:** Reader/TTS retain per-consumer continuations. Canceling one no longer blocks that caller until unrelated shared work completes, while final-subscriber cancellation reaches the extension task.
+* **Mitigated - orphaned fallback auto-advance:** TTS now owns and generation-guards the load/process task; stop/session replacement/newer advance cancels it and cancellation cannot be misreported as a fatal playback load error.
+
 ## TTS foreground energy risks mitigated in 1.3.112
 
 * **Mitigated - widget display-rate work:** the global floating cover no longer drives a 30 FPS SwiftUI timeline while playback continues across Reader/Discovery/Shelf.
@@ -30,7 +36,7 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 ## Reader risks mitigated in 1.3.10
 
 * **Mitigated - stale rendered window:** the vertical reader now advances `stableIndexes` together with the active chapter window, preventing a permanent stop at the initial `n+2` boundary.
-* **Mitigated - cancellation-insensitive extension fetches:** canceled tasks remain active until completion, and `ReaderPrefetchGate` enforces one global two-request cap across Reader instances. Requests from a dismissed Reader therefore cannot overlap an unbounded new batch after Discovery -> Read Now navigation.
+* **Mitigated - extension fetch overlap:** `ReaderPrefetchGate` enforces one global two-request cap across Reader instances. Repository waiters now leave immediately on cancellation and cancel the underlying extension task when no Reader/TTS consumer remains, while a still-shared operation retains its gate slot until completion.
 * **Mitigated - hidden overlay work:** chapter-list queries and eager full-list title translation no longer run throughout ordinary reading and TTS updates. TTS full-queue metadata refresh is owned by `TTSManager` and uses background SwiftData for local books.
 * **Mitigated - large TOC jump latency:** opening the chapter list positions directly at the current row without animating through all preceding chapters and reuses Reader-owned SwiftData objects.
 * **Mitigated - shelf/discovery tab swipe jank:** Shelf rows no longer scan chapter relationships while rendering, and Discovery keeps only the selected category page plus adjacent pages fully mounted during horizontal paging.
