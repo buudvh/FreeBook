@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-11T09:47:46.560704Z",
-  "gitCommit": "58f032546ae7bc352f01183408459db089c38c60",
-  "sourceFileCount": 132,
+  "generatedAt": "2026-08-11T09:58:47.511301Z",
+  "gitCommit": "ab2b05ba79e84f668fc3d8e6ea1ad58e6293a00c",
+  "sourceFileCount": 133,
   "documentCount": 16,
   "documents": [
     {
@@ -42,9 +42,9 @@
     },
     {
       "filename": "02_file_graph.md",
-      "sourceHash": "6936b7fe5e72d730644c4acf79256cdc450fa84f1930c36e07dc3f4bd9af4b46",
-      "generatedHash": "75aaa62788d1b1696e2905003aa0fa3e944fd624aa6e07bf07f12bef4e355375",
-      "generatedAt": "2026-08-11T09:47:46.560704Z",
+      "sourceHash": "60a2788597461de7467da79569ff854beef2c75bec5e678f536413fa1f57b44f",
+      "generatedHash": "b08de65ea02ec5e6bddad31cf28d650615c9c87d2b802270a11f47ac61d9fb65",
+      "generatedAt": "2026-08-11T09:58:47.511301Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -160,9 +160,9 @@
     },
     {
       "filename": "03_type_graph.md",
-      "sourceHash": "485e52b06449b72e95bd195843616e7f3fa9a629b1d8c925c243dd668ffa2a36",
+      "sourceHash": "69834edd1a28de393e5055b3a3a372e1f8bc3eb7976263a2bcb85ddfb3ba162b",
       "generatedHash": "681445409e829c1bdfbcf3db40b40e483fe6f386aac806f864bbcbbfcd64e4eb",
-      "generatedAt": "2026-08-11T09:47:46.560704Z",
+      "generatedAt": "2026-08-11T09:55:49.968869Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -521,9 +521,9 @@
     },
     {
       "filename": "14_complexity_report.md",
-      "sourceHash": "9a418e07f6efa6c9e24cbb9605992a7ce7008da81f2f8449bbde7f477b041573",
+      "sourceHash": "41b05f107e428e884fd234cd635c0715d294b28a6b307bd99ef9497fae701b12",
       "generatedHash": "6038d5ac35437244d4eed35c41be0b04b84fb29a4f11bd1734d955665917b89a",
-      "generatedAt": "2026-08-11T09:47:46.560704Z",
+      "generatedAt": "2026-08-11T09:55:49.968869Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",

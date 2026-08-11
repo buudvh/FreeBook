@@ -72,7 +72,7 @@ struct SuggestRowView: View {
                                     .font(.caption)
                                     .fontWeight(.medium)
                                     .foregroundColor(.primary)
-                                    .lineLimit(2)
+                                    .lineLimit(3)
                                     .multilineTextAlignment(.leading)
                                 
                                 Spacer(minLength: 0)

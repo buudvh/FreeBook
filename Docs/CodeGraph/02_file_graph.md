@@ -859,6 +859,16 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
+### 52d. [FlowLayout.swift](../../Sources/Views/Common/FlowLayout.swift)
+
+*   **Đường dẫn**: `Views/Common/FlowLayout.swift`
+*   **Imports (Import Graph)**: `SwiftUI`
+*   **Sử dụng (Uses)**: Không phụ thuộc trực tiếp vào file nội bộ nào khác
+*   **Được sử dụng bởi (Used by)**:
+    *   [BookDetailHeaderView.swift](../../Sources/Views/BookDetail/BookDetailHeaderView.swift)
+
+---
+
 ### 53. [BookDictionaryView.swift](../../Sources/Views/Dictionary/BookDictionaryView.swift)
 
 *   **Đường dẫn**: `Views/Dictionary/BookDictionaryView.swift`

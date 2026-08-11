@@ -38,6 +38,10 @@ struct BookDetailHeaderView: View {
                 errorView
             } else {
                 headerContentView
+                if !genres.isEmpty {
+                    Divider()
+                    genresSectionView
+                }
                 Divider()
                 descriptionView
             }
@@ -126,31 +130,6 @@ struct BookDetailHeaderView: View {
                         .foregroundColor(.secondary)
                         .lineLimit(4)
                 }
-
-                if !genres.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(genres) { genre in
-                                NavigationLink(destination: CategoryNovelsListView(
-                                    category: genre,
-                                    extensionPackageId: extensionPackageId,
-                                    localPath: localPath,
-                                    downloadUrl: downloadUrl,
-                                    configJson: configJson,
-                                    sourceName: sourceName
-                                )) {
-                                    Text(onTranslateMetaIfNeeded(genre.title))
-                                        .font(.caption2)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(Color.blue.opacity(0.1))
-                                        .foregroundColor(.blue)
-                                        .cornerRadius(8)
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
         .padding(.horizontal)
@@ -163,6 +142,35 @@ struct BookDetailHeaderView: View {
             return DisplayTextFormatter.titleCase(TranslateUtils.translateAuthorHanViet(trimmed))
         }
         return DisplayTextFormatter.titleCase(trimmed)
+    }
+
+    private var genresSectionView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Thể loại")
+                .font(.headline)
+
+            FlowLayout(spacing: 8) {
+                ForEach(genres) { genre in
+                    NavigationLink(destination: CategoryNovelsListView(
+                        category: genre,
+                        extensionPackageId: extensionPackageId,
+                        localPath: localPath,
+                        downloadUrl: downloadUrl,
+                        configJson: configJson,
+                        sourceName: sourceName
+                    )) {
+                        Text(onTranslateMetaIfNeeded(genre.title))
+                            .font(.caption2)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Color.blue.opacity(0.1))
+                            .foregroundColor(.blue)
+                            .cornerRadius(8)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal)
     }
 
     private var descriptionView: some View {

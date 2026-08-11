@@ -6,11 +6,12 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ### Nâng cấp giao diện đề xuất (Suggest 2 cột) và ExpandableTextView tự động đo chiều cao
 
-* Chuyển danh sách truyện gợi ý/đề xuất (`SuggestRowView`) trong màn hình chi tiết truyện sang giao diện 2 cột (`LazyVGrid`), với bìa sách nằm bên trái và tên truyện nằm bên trái hiển thị tối đa 2 dòng.
+* Chuyển danh sách truyện gợi ý/đề xuất (`SuggestRowView`) trong màn hình chi tiết truyện sang giao diện 2 cột (`LazyVGrid`), với bìa sách nằm bên trái và tên truyện hiển thị tối đa 3 dòng.
 * Cập nhật giao diện khung xương chờ tải (skeleton placeholder) trong `BookDetailView` đồng bộ với bố cục 2 cột mới.
 * Xây dựng component `ExpandableTextView` sử dụng SwiftUI `PreferenceKey` và `GeometryReader` để đo chiều cao văn bản thực tế sau bước layout pass, so sánh `fullHeight` và `truncatedHeight` để tự động bật/tắt nút "Xem thêm / Thu gọn" chính xác 100%.
 * Áp dụng `ExpandableTextView` cho phần Giới thiệu (`BookDetailHeaderView`) với tối đa 4 dòng khi thu gọn, khắc phục lỗi mất chữ khi văn bản ít ký tự nhưng xuống dòng nhiều.
 * Áp dụng `ExpandableTextView` cho phần Bình luận (`CommentSectionView` và `AllCommentsView`) với tối đa 3 dòng khi thu gọn.
+* Tách danh sách Thể loại (`genres`) thành 1 section riêng nằm trên phần Giới thiệu trong `BookDetailHeaderView`, sử dụng component `FlowLayout` tự động xuống dòng linh hoạt thay vì cuộn ngang.
 * Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng không yêu cầu.
 
 ## [1.3.115] - 2026-08-11
