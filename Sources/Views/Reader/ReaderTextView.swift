@@ -107,6 +107,7 @@ struct ReaderTextView: UIViewRepresentable {
     
     func updateUIView(_ uiView: UITextView, context: Context) {
         context.coordinator.parent = self
+        ReaderEnergyDiagnostics.shared.recordUIViewUpdate(for: context.coordinator)
         
         let font: UIFont
         if let customFontName = fontFamily.fontName, let customFont = UIFont(name: customFontName, size: CGFloat(fontSize)) {
@@ -131,8 +132,11 @@ struct ReaderTextView: UIViewRepresentable {
 
         if shouldRebuildAttributedText {
             if isTextOrLayoutConfigChanged {
+                ReaderEnergyDiagnostics.shared.recordGeometryRebuild()
                 context.coordinator.cachedWidth = nil
                 context.coordinator.cachedHeight = nil
+            } else {
+                ReaderEnergyDiagnostics.shared.recordThemeRebuild()
             }
             context.coordinator.lastText = text
             context.coordinator.lastFontSize = fontSize
@@ -169,9 +173,11 @@ struct ReaderTextView: UIViewRepresentable {
             uiView.attributedText = attributedText
             uiView.selectedRange = NSRange(location: 0, length: 0)
             if isTextOrLayoutConfigChanged {
+                ReaderEnergyDiagnostics.shared.recordExplicitSizeInvalidation()
                 uiView.invalidateIntrinsicContentSize()
             }
         } else if isHighlightChanged {
+            ReaderEnergyDiagnostics.shared.recordHighlightMutation()
             context.coordinator.lastHighlightRange = highlightRange
             let storageLength = uiView.textStorage.length
             uiView.textStorage.beginEditing()
@@ -390,6 +396,7 @@ class AutoSizingTextView: ReaderUITextView {
             let widthChanged = abs(contentSize.width - oldValue.width) > 0.5
             let heightChanged = abs(contentSize.height - oldValue.height) > 0.5
             if widthChanged || heightChanged {
+                ReaderEnergyDiagnostics.shared.recordContentSizeInvalidation()
                 invalidateIntrinsicContentSize()
             }
         }
@@ -400,6 +407,197 @@ class AutoSizingTextView: ReaderUITextView {
             width: UIView.noIntrinsicMetric,
             height: contentSize.height
         )
+    }
+}
+
+@MainActor
+final class ReaderEnergyDiagnostics {
+    static let shared = ReaderEnergyDiagnostics()
+
+    private struct Window {
+        let startedAt: TimeInterval
+        var updateUIViewCount = 0
+        var uniqueViews: Set<ObjectIdentifier> = []
+        var highlightMutations = 0
+        var geometryRebuilds = 0
+        var themeRebuilds = 0
+        var explicitSizeInvalidations = 0
+        var contentSizeInvalidations = 0
+        var ttsScrollTargets = 0
+    }
+
+    private static let summaryInterval: TimeInterval = 60
+    private var window: Window?
+
+    private init() {}
+
+    func beginReaderSession() {
+        window = Window(startedAt: ProcessInfo.processInfo.systemUptime)
+    }
+
+    func recordUIViewUpdate(for coordinator: AnyObject) {
+        updateWindow { snapshot in
+            snapshot.updateUIViewCount += 1
+            snapshot.uniqueViews.insert(ObjectIdentifier(coordinator))
+        }
+    }
+
+    func recordHighlightMutation() {
+        updateWindow { $0.highlightMutations += 1 }
+    }
+
+    func recordGeometryRebuild() {
+        updateWindow { $0.geometryRebuilds += 1 }
+    }
+
+    func recordThemeRebuild() {
+        updateWindow { $0.themeRebuilds += 1 }
+    }
+
+    func recordExplicitSizeInvalidation() {
+        updateWindow { $0.explicitSizeInvalidations += 1 }
+    }
+
+    func recordContentSizeInvalidation() {
+        updateWindow { $0.contentSizeInvalidations += 1 }
+    }
+
+    func recordTTSScrollTarget() {
+        updateWindow { $0.ttsScrollTargets += 1 }
+    }
+
+    func flush(reason: String) {
+        emitSummary(reason: reason, resetWindow: false)
+        window = nil
+    }
+
+    private func updateWindow(_ mutation: (inout Window) -> Void) {
+        let now = ProcessInfo.processInfo.systemUptime
+        var snapshot = window ?? Window(startedAt: now)
+        mutation(&snapshot)
+        window = snapshot
+
+        if now - snapshot.startedAt >= Self.summaryInterval {
+            emitSummary(reason: "interval", resetWindow: true)
+        }
+    }
+
+    private func emitSummary(reason: String, resetWindow: Bool) {
+        guard let snapshot = window else { return }
+
+        let now = ProcessInfo.processInfo.systemUptime
+        let elapsedSeconds = max(0.1, now - snapshot.startedAt)
+        let totalEvents = snapshot.updateUIViewCount + snapshot.ttsScrollTargets
+        guard totalEvents > 0 else {
+            if resetWindow {
+                window = Window(startedAt: now)
+            }
+            return
+        }
+
+        let updateRPM = Double(snapshot.updateUIViewCount) * 60 / elapsedSeconds
+        let repeatedUpdates = max(0, snapshot.updateUIViewCount - snapshot.uniqueViews.count)
+        let repeatedUpdateRPM = Double(repeatedUpdates) * 60 / elapsedSeconds
+        let highlightRPM = Double(snapshot.highlightMutations) * 60 / elapsedSeconds
+        let sizeInvalidations = snapshot.explicitSizeInvalidations + snapshot.contentSizeInvalidations
+        let sizeInvalidationRPM = Double(sizeInvalidations) * 60 / elapsedSeconds
+        let scrollRPM = Double(snapshot.ttsScrollTargets) * 60 / elapsedSeconds
+        let repeatedGeometryRebuilds = max(0, snapshot.geometryRebuilds - snapshot.uniqueViews.count)
+        let expectedInitialSizeInvalidations = snapshot.uniqueViews.count * 2
+        let excessSizeInvalidations = max(0, sizeInvalidations - expectedInitialSizeInvalidations)
+        let thermal = ProcessInfo.processInfo.thermalState
+        let prediction = Self.prediction(
+            elapsedSeconds: elapsedSeconds,
+            thermalState: thermal,
+            repeatedUpdateRPM: repeatedUpdateRPM,
+            highlightRPM: highlightRPM,
+            repeatedGeometryRebuilds: repeatedGeometryRebuilds,
+            excessSizeInvalidations: excessSizeInvalidations,
+            scrollRPM: scrollRPM
+        )
+
+        let message = String(
+            format: "[ReaderEnergy] Summary reason=%@ state=%@ elapsedSec=%.1f updateUIView=%d updateRPM=%.1f repeatUpdateRPM=%.1f uniqueViews=%d highlight=%d highlightRPM=%.1f geometry=%d repeatGeometry=%d theme=%d explicitSizeInvalidation=%d contentSizeInvalidation=%d excessSizeInvalidation=%d sizeInvalidationRPM=%.1f ttsScrollTarget=%d scrollRPM=%.1f thermal=%@ prediction=%@",
+            reason,
+            Self.applicationStateName(),
+            elapsedSeconds,
+            snapshot.updateUIViewCount,
+            updateRPM,
+            repeatedUpdateRPM,
+            snapshot.uniqueViews.count,
+            snapshot.highlightMutations,
+            highlightRPM,
+            snapshot.geometryRebuilds,
+            repeatedGeometryRebuilds,
+            snapshot.themeRebuilds,
+            snapshot.explicitSizeInvalidations,
+            snapshot.contentSizeInvalidations,
+            excessSizeInvalidations,
+            sizeInvalidationRPM,
+            snapshot.ttsScrollTargets,
+            scrollRPM,
+            Self.thermalStateName(thermal),
+            prediction
+        )
+        AppLogger.shared.log(message)
+
+        if resetWindow {
+            window = Window(startedAt: now)
+        }
+    }
+
+    private static func prediction(
+        elapsedSeconds: TimeInterval,
+        thermalState: ProcessInfo.ThermalState,
+        repeatedUpdateRPM: Double,
+        highlightRPM: Double,
+        repeatedGeometryRebuilds: Int,
+        excessSizeInvalidations: Int,
+        scrollRPM: Double
+    ) -> String {
+        if elapsedSeconds < 20 {
+            return "insufficient_sample"
+        }
+
+        let hasThermalPressure = thermalState == .serious || thermalState == .critical
+        let hasLayoutChurn = repeatedGeometryRebuilds >= 5 || excessSizeInvalidations >= 10
+        let hasElevatedHighlightActivity = highlightRPM >= 30 || scrollRPM >= 18
+
+        if hasThermalPressure && hasLayoutChurn {
+            return "reader_layout_thermal_pressure_likely"
+        }
+        if hasThermalPressure && hasElevatedHighlightActivity {
+            return "reader_activity_with_thermal_pressure"
+        }
+        if hasThermalPressure {
+            return "thermal_pressure_not_explained_by_reader_updates"
+        }
+        if hasLayoutChurn {
+            return "reader_layout_churn_likely"
+        }
+        if hasElevatedHighlightActivity || repeatedUpdateRPM >= 60 {
+            return "reader_update_rate_elevated"
+        }
+        return "reader_render_load_low"
+    }
+
+    private static func applicationStateName() -> String {
+        switch UIApplication.shared.applicationState {
+        case .active: return "foreground"
+        case .background: return "background"
+        case .inactive: return "inactive"
+        @unknown default: return "unknown"
+        }
+    }
+
+    private static func thermalStateName(_ state: ProcessInfo.ThermalState) -> String {
+        switch state {
+        case .nominal: return "nominal"
+        case .fair: return "fair"
+        case .serious: return "serious"
+        case .critical: return "critical"
+        @unknown default: return "unknown"
+        }
     }
 }
 

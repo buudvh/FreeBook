@@ -778,7 +778,11 @@ struct ReaderView: View {
         .task(id: readerBootstrapKey) {
             await initializeReaderIfNeeded()
         }
+        .onAppear {
+            ReaderEnergyDiagnostics.shared.beginReaderSession()
+        }
         .onDisappear {
+            ReaderEnergyDiagnostics.shared.flush(reason: "reader_disappear")
             metadataTask?.cancel()
             if ReaderView.activeBookId == bookId {
                 ReaderView.activeBookId = nil
@@ -796,6 +800,9 @@ struct ReaderView: View {
             }
         }
         .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background {
+                ReaderEnergyDiagnostics.shared.flush(reason: "app_background")
+            }
             if newPhase == .background && !(ttsManager.isPlaying && ttsManager.playingBookId == bookId) {
                 viewModel?.saveProgressImmediately()
             }
@@ -828,6 +835,9 @@ struct ReaderView: View {
             guard notificationBookId == nil || notificationBookId == bookId else { return }
             scheduleCoalescedTranslationRefresh()
         }
+        .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in
+            ReaderEnergyDiagnostics.shared.flush(reason: "thermal_change")
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("navigateReaderToPlayingChapter"))) { notification in
             guard let userInfo = notification.userInfo,
                   let bid = userInfo["bookId"] as? String,
@@ -858,6 +868,7 @@ struct ReaderView: View {
 
             guard chapterIndex == playingChapterIndex else { return }
 
+            ReaderEnergyDiagnostics.shared.recordTTSScrollTarget()
             scrollTarget = ScrollTarget(chapterIndex: playingChapterIndex, paragraphIndex: newValue)
         }
         .toolbar(.hidden, for: .tabBar)
@@ -1923,6 +1934,7 @@ struct ReaderView: View {
             let chapIdx = ttsManager.playingChapterIndex
             if chapIdx == chapterIndex {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    ReaderEnergyDiagnostics.shared.recordTTSScrollTarget()
                     self.scrollTarget = ScrollTarget(chapterIndex: chapIdx, paragraphIndex: targetIdx)
                 }
             }

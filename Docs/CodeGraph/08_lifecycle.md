@@ -15,6 +15,11 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader energy diagnostic lifecycle (1.3.110)
+
+* `ReaderView.onAppear` starts a fresh `ReaderEnergyDiagnostics` window. Interval summaries reset the window while the Reader remains visible.
+* A thermal transition or app background flushes and clears the partial window; Reader disappearance performs a final flush. The singleton retains counters only for the active window and owns no timer, observer, view, or task.
+
 ## Reader highlight layout lifecycle (1.3.109)
 
 * Highlight-only updates preserve `ReaderTextView`'s cached width and height. Measurement is invalidated only when text or layout-affecting configuration changes, while theme-only recoloring retains geometry.

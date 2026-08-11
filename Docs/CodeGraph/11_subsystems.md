@@ -15,6 +15,10 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader energy diagnostics (1.3.110)
+
+The Reader subsystem aggregates UI update, highlight mutation, geometry rebuild, intrinsic-size invalidation, and TTS scroll-target counts in memory. It writes one `[ReaderEnergy]` summary through `AppLogger` about once per minute and at lifecycle/thermal boundaries. Predictions discount each visible text view's initial render so one-time mounting is not mislabeled as sustained layout churn.
+
 ## Reader highlight rendering optimization (1.3.109)
 
 The Reader subsystem treats TTS highlight movement as a color-only text-storage update, preserving paragraph measurements and suppressing unchanged intrinsic-size invalidations. `ReaderView` is the sole owner of TTS auto-scroll via its paragraph-level `scrollTarget`; the embedded `ReaderTextView` no longer starts a competing UIKit scroll animation.

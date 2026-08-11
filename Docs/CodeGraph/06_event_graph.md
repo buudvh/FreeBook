@@ -15,6 +15,11 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader energy diagnostic events (1.3.110)
+
+* Reader render, highlight, geometry, intrinsic-size, and TTS scroll-target events increment main-actor counters only. The diagnostic path emits no per-event file I/O.
+* The next render event after approximately 60 seconds emits one `[ReaderEnergy] Summary`. Thermal-state change, app background, and Reader disappearance flush a partial window so Reader activity can be aligned with `[TTSEnergy]` transitions.
+
 ## Reader highlight event optimization (1.3.109)
 
 * A TTS chunk highlight event mutates only text-storage color attributes in the matching `ReaderTextView`; it does not clear cached measurements or trigger intrinsic-size invalidation.

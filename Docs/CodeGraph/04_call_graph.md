@@ -15,6 +15,12 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader energy diagnostic calls (1.3.110)
+
+* `ReaderTextView.updateUIView` and `AutoSizingTextView.contentSize.didSet` update in-memory counters in the main-actor `ReaderEnergyDiagnostics` singleton; they do not write a log line per render event.
+* `ReaderView` records TTS paragraph scroll targets and flushes the current window on a one-minute interval, thermal transition, app backgrounding, or Reader disappearance.
+* `ReaderEnergyDiagnostics.emitSummary` calculates repeated-update, highlight, repeated-geometry, excess-size-invalidation, and scroll rates, then writes one `[ReaderEnergy] Summary` through `AppLogger.shared.log` with a conservative prediction.
+
 ## Reader highlight and auto-scroll calls (1.3.109)
 
 * `ReaderTextView.updateUIView` changes only foreground/background attributes when the TTS highlight range changes; it does not invalidate the size cache or intrinsic content size for a color-only update.

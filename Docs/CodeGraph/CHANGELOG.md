@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.110] - 2026-08-11
+
+### Thêm log tổng hợp tải render của Reader
+
+* Thêm `[ReaderEnergy] Summary` qua `AppLogger`, tổng hợp `updateUIView`, highlight-only, geometry/theme rebuild, intrinsic-size invalidation và TTS scroll target.
+* Chỉ ghi khoảng một dòng mỗi phút hoặc tại thermal/background/disappear boundary; các sự kiện render chỉ tăng bộ đếm RAM.
+* Dự đoán loại trừ lượt mount đầu của từng `ReaderTextView`, tránh gán nhầm chi phí khởi tạo thành layout churn kéo dài.
+* Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng yêu cầu.
+
 ## [1.3.109] - 2026-08-11
 
 ### Giảm layout churn khi Reader hiển thị highlight TTS
