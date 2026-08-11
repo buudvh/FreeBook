@@ -407,11 +407,19 @@ struct BookDetailView: View {
                         Divider()
                         VStack(alignment: .leading, spacing: 8) {
                             SkeletonView(width: 120, height: 18)
-                            HStack(spacing: 14) {
+                            let columns = [
+                                GridItem(.flexible(), spacing: 12),
+                                GridItem(.flexible(), spacing: 12)
+                            ]
+                            LazyVGrid(columns: columns, spacing: 12) {
                                 ForEach(0..<4) { _ in
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        SkeletonView(width: 80, height: 110)
-                                        SkeletonView(width: 80, height: 12)
+                                    HStack(alignment: .top, spacing: 10) {
+                                        SkeletonView(width: 48, height: 68)
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            SkeletonView(width: 100, height: 12)
+                                            SkeletonView(width: 60, height: 12)
+                                        }
+                                        Spacer(minLength: 0)
                                     }
                                 }
                             }

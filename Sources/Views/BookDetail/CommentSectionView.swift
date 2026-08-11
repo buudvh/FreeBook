@@ -72,11 +72,13 @@ struct CommentSectionView: View {
                             
                             let cleanedDesc = comment.description.cleanHTML()
                             let commentText = (isTranslationEnabled && TranslateUtils.containsChinese(cleanedDesc)) ? TranslateUtils.translateMeta(cleanedDesc) : cleanedDesc
-                            Text(commentText)
-                                .font(.footnote)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.leading)
-                                .padding(.leading, 32)
+                            ExpandableTextView(
+                                text: commentText,
+                                lineLimit: 3,
+                                font: .footnote,
+                                foregroundColor: .secondary
+                            )
+                            .padding(.leading, 32)
                         }
                         
                         Divider()

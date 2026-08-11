@@ -169,28 +169,12 @@ struct BookDetailHeaderView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Giới thiệu")
                 .font(.headline)
-            Text(onTranslateMetaIfNeeded(desc))
-                .font(.body)
-                .foregroundColor(.secondary)
-                .lineLimit(isDescExpanded ? nil : 4)
-
-            if desc.count > 150 {
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isDescExpanded.toggle()
-                    }
-                }) {
-                    HStack(spacing: 4) {
-                        Text(isDescExpanded ? "Thu gọn" : "Xem thêm")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        Image(systemName: isDescExpanded ? "chevron.up" : "chevron.down")
-                            .font(.caption)
-                    }
-                    .foregroundColor(.accentColor)
-                }
-                .padding(.top, 2)
-            }
+            ExpandableTextView(
+                text: onTranslateMetaIfNeeded(desc),
+                lineLimit: 4,
+                font: .body,
+                foregroundColor: .secondary
+            )
         }
         .padding(.horizontal)
     }

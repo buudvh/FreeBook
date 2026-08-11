@@ -56,11 +56,13 @@ struct AllCommentsView: View {
                             
                             let cleanedDesc = comment.description.cleanHTML()
                             let commentText = (isTranslationEnabled && TranslateUtils.containsChinese(cleanedDesc)) ? TranslateUtils.translateMeta(cleanedDesc) : cleanedDesc
-                            Text(commentText)
-                                .font(.footnote)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.leading)
-                                .padding(.leading, 36)
+                            ExpandableTextView(
+                                text: commentText,
+                                lineLimit: 3,
+                                font: .footnote,
+                                foregroundColor: .secondary
+                            )
+                            .padding(.leading, 36)
                         }
                         .padding(.vertical, 4)
                         .onAppear {

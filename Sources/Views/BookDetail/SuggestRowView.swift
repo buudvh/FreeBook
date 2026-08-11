@@ -49,38 +49,40 @@ struct SuggestRowView: View {
                     .foregroundColor(.secondary)
                     .padding(.horizontal)
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 14) {
-                        ForEach(novels) { novel in
-                            NavigationLink(destination: BookDetailView(
-                                bookId: novel.link,
-                                extensionPackageId: extensionPackageId,
-                                initialDetailUrl: novel.link,
-                                sourceName: sourceName,
-                                initialHost: novel.host
-                            )) {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    BookCoverView(bookId: novel.link, coverUrl: novel.cover, width: 80, height: 110)
-                                        .cornerRadius(6)
-                                        .shadow(radius: 1.5)
-                                    
-                                    let displayName = (isTranslationEnabled && TranslateUtils.containsChinese(novel.name)) ? TranslateUtils.translateMeta(novel.name) : novel.name
-                                    Text(DisplayTextFormatter.titleCase(displayName))
-                                        .font(.caption2)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.primary)
-                                        .lineLimit(2)
-                                        .multilineTextAlignment(.leading)
-                                        .frame(height: 30, alignment: .top)
-                                }
-                                .frame(width: 80)
+                let columns = [
+                    GridItem(.flexible(), spacing: 12),
+                    GridItem(.flexible(), spacing: 12)
+                ]
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(novels) { novel in
+                        NavigationLink(destination: BookDetailView(
+                            bookId: novel.link,
+                            extensionPackageId: extensionPackageId,
+                            initialDetailUrl: novel.link,
+                            sourceName: sourceName,
+                            initialHost: novel.host
+                        )) {
+                            HStack(alignment: .top, spacing: 10) {
+                                BookCoverView(bookId: novel.link, coverUrl: novel.cover, width: 48, height: 68)
+                                    .cornerRadius(6)
+                                    .shadow(radius: 1)
+                                
+                                let displayName = (isTranslationEnabled && TranslateUtils.containsChinese(novel.name)) ? TranslateUtils.translateMeta(novel.name) : novel.name
+                                Text(DisplayTextFormatter.titleCase(displayName))
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.primary)
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
+                                
+                                Spacer(minLength: 0)
                             }
-                            .buttonStyle(.plain)
                         }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.horizontal)
-                    .padding(.vertical, 4)
                 }
+                .padding(.horizontal)
+                .padding(.vertical, 4)
             }
         }
         .task {
