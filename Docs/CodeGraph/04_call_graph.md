@@ -15,6 +15,13 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Remote TTS energy diagnostic calls (1.3.107)
+
+* Google/Ext callers pass `engine` and `textLength` to `RemoteTTSSynthesisCoordinator.synthesize`; the coordinator records only jobs that actually enter its single synthesis slot, so deduplicated waiters are not miscounted as network/JS operations.
+* `RemoteTTSSynthesisCoordinator.complete` accumulates result bytes and elapsed synthesis time, then calls `emitEnergySummary` after approximately 60 seconds. `energyPrediction` classifies the window as low, elevated, sustained/background likely load, or confirmed thermal pressure and writes one `[TTSEnergy] Summary` through `AppLogger.shared.log`.
+* `TTSManager.setupInterruptionObserver` forwards `UIApplication.didEnterBackgroundNotification`, `UIApplication.willEnterForegroundNotification`, and `ProcessInfo.thermalStateDidChangeNotification` to the coordinator so screen-off/background windows and thermal transitions are separated in the diagnostic output.
+* Per-chunk calls to `logTTSVerbose` in `TTSParagraphBuilder`, `TTSManager`, `ExtensionManager.ttsGenerate`, and `ReaderView` are commented out; error, retry, transition, and aggregate performance logs remain active.
+
 ## AppLogger perf summaries and Extension compact response calls (1.3.86)
 
 * `TTSManager.advanceToNextChapter` creates an active `TTSAutoAdvancePerfContext` on `@MainActor` before launching asynchronous content loading. It updates load/process stage metrics on `ChapterContentRepository.load` and `TTSBackgroundProcessor.processChapter` success or failure, and emits `[TTSPerf] AutoAdvance` log summary upon playback start (`player.play() == true`), error, stop, or supersession.

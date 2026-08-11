@@ -2068,7 +2068,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let textToSpeak = TTSReplacementManager.shared.applyReplacements(to: paragraph.text)
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
-        AppLogger.shared.logTTSVerbose("🔊 [TTSManager] Chunk [\(currentParagraphIndex + 1)/\(paragraphs.count)] (ParentID=\(paragraph.paragraphIndex)): Raw='\(paragraph.text.prefix(20))...' | Processed='\(textToSpeak.prefix(20))...' | highlightRange=\(paragraph.range)")
+        // AppLogger.shared.logTTSVerbose("🔊 [TTSManager] Chunk [\(currentParagraphIndex + 1)/\(paragraphs.count)] (ParentID=\(paragraph.paragraphIndex)): Raw='\(paragraph.text.prefix(20))...' | Processed='\(textToSpeak.prefix(20))...' | highlightRange=\(paragraph.range)")
 
         guard !textToSpeak.isEmpty else {
             if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
@@ -2526,6 +2526,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             do {
                 let data = try await RemoteTTSSynthesisCoordinator.shared.synthesize(
                     key: synthesisKey,
+                    engine: toolBeforeStart,
+                    textLength: text.count,
                     priority: .prefetch
                 ) {
                     if toolBeforeStart == "google" {
@@ -2989,6 +2991,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             do {
                 let mp3Data = try await RemoteTTSSynthesisCoordinator.shared.synthesize(
                     key: synthesisKey,
+                    engine: "google",
+                    textLength: text.count,
                     priority: .current
                 ) {
                     try await service.synthesize(text: text, voice: voice, speed: 1.0, pitch: 1.0)
@@ -3078,6 +3082,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             do {
                 let audioData = try await RemoteTTSSynthesisCoordinator.shared.synthesize(
                     key: synthesisKey,
+                    engine: engineName,
+                    textLength: text.count,
                     priority: .current
                 ) {
                     try await service.synthesizeData(
@@ -3597,6 +3603,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             .sink { [weak self] _ in
                 guard let self = self else { return }
                 self.currentThermalState = ProcessInfo.processInfo.thermalState
+                let engine = self.tool
+                let isPlaying = self.isPlaying
+                Task {
+                    await RemoteTTSSynthesisCoordinator.shared.recordThermalStateChange(
+                        engine: engine,
+                        isPlaying: isPlaying
+                    )
+                }
                 if self.isPlaying {
                     if self.tool == "nghitts",
                        !NghiSynthesisPolicy.allowsSpeculativeRefill(at: self.currentThermalState) {
@@ -3609,6 +3623,39 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                         self.triggerNextChapterPrefetch()
                     }
                     self.updatePrefetchWindow()
+                }
+            }
+            .store(in: &cancellables)
+
+        // 6. App lifecycle, dùng để tách riêng tải remote khi màn hình bật và khi khóa máy.
+        NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                let engine = self.tool
+                let isPlaying = self.isPlaying
+                Task {
+                    await RemoteTTSSynthesisCoordinator.shared.setApplicationState(
+                        "background",
+                        engine: engine,
+                        isPlaying: isPlaying
+                    )
+                }
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                let engine = self.tool
+                let isPlaying = self.isPlaying
+                Task {
+                    await RemoteTTSSynthesisCoordinator.shared.setApplicationState(
+                        "foreground",
+                        engine: engine,
+                        isPlaying: isPlaying
+                    )
                 }
             }
             .store(in: &cancellables)

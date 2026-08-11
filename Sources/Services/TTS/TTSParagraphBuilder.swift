@@ -48,7 +48,7 @@ enum TTSParagraphBuilder {
                 translatedText: textToUse,
                 spans: entry.spans
             )
-            AppLogger.shared.logTTSVerbose("🔊 [TTSParagraphBuilder] Short Chunk (Line \(entry.lineId), len=\(textToUse.count)): '\(textToUse.prefix(20))...' | relativeRange=\(relativeRange)")
+            // AppLogger.shared.logTTSVerbose("🔊 [TTSParagraphBuilder] Short Chunk (Line \(entry.lineId), len=\(textToUse.count)): '\(textToUse.prefix(20))...' | relativeRange=\(relativeRange)")
             return [TTSParagraph(
                 text: textToUse,
                 range: relativeRange,
@@ -102,7 +102,7 @@ enum TTSParagraphBuilder {
                     translatedText: textToUse,
                     spans: entry.spans
                 )
-                AppLogger.shared.logTTSVerbose("🔊 [TTSParagraphBuilder] Chunk (Line \(entry.lineId), len=\(text.count)): '\(text.prefix(20))...' | relativeRange=\(relativeRange)")
+                // AppLogger.shared.logTTSVerbose("🔊 [TTSParagraphBuilder] Chunk (Line \(entry.lineId), len=\(text.count)): '\(text.prefix(20))...' | relativeRange=\(relativeRange)")
                 rawChunks.append((text: text, range: relativeRange, srcRange: srcRange))
             }
 

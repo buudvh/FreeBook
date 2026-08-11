@@ -673,6 +673,8 @@ struct ReaderView: View {
                 do {
                     let mp3Data = try await RemoteTTSSynthesisCoordinator.shared.synthesize(
                         key: "selection|\(UUID().uuidString)|google|\(voice)",
+                        engine: "google",
+                        textLength: text.count,
                         priority: .current
                     ) {
                         try await googleService.synthesize(text: text, voice: voice, speed: 1.0, pitch: 1.0)
@@ -1561,7 +1563,7 @@ struct ReaderView: View {
                       item.id == ttsManager.currentParentParagraphIndex,
                       let chunkRange = ttsManager.highlightRange else { return nil }
 
-                AppLogger.shared.logTTSVerbose("🔊 [ReaderView] Applied relativeHighlightRange for ItemID=\(item.id): chunkRange=\(chunkRange)")
+                // AppLogger.shared.logTTSVerbose("🔊 [ReaderView] Applied relativeHighlightRange for ItemID=\(item.id): chunkRange=\(chunkRange)")
                 // Giữ nguyên hệ tọa độ text gốc; ParagraphCardView ánh xạ sang text đang hiển thị.
                 return chunkRange
             }()

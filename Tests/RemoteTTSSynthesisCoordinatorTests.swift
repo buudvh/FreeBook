@@ -108,4 +108,34 @@ final class RemoteTTSSynthesisCoordinatorTests: XCTestCase {
         let order = await probe.order
         XCTAssertEqual(order, ["blocker", "current", "future"])
     }
+
+    func testEnergyPredictionDistinguishesBackgroundRemoteLoad() {
+        XCTAssertEqual(
+            RemoteTTSSynthesisCoordinator.energyPrediction(
+                applicationState: "background",
+                requestsPerMinute: 16,
+                busyPercent: 20,
+                thermalState: .nominal
+            ),
+            "background_remote_load_likely"
+        )
+        XCTAssertEqual(
+            RemoteTTSSynthesisCoordinator.energyPrediction(
+                applicationState: "foreground",
+                requestsPerMinute: 5,
+                busyPercent: 15,
+                thermalState: .nominal
+            ),
+            "remote_load_low"
+        )
+        XCTAssertEqual(
+            RemoteTTSSynthesisCoordinator.energyPrediction(
+                applicationState: "background",
+                requestsPerMinute: 5,
+                busyPercent: 15,
+                thermalState: .serious
+            ),
+            "thermal_pressure_confirmed"
+        )
+    }
 }

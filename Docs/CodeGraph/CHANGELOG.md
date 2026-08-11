@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.107] - 2026-08-11
+
+### Thêm log dự đoán tải năng lượng Google/Ext TTS
+
+* Comment các log thành công theo từng chunk ở `TTSParagraphBuilder`, `TTSManager`, `ExtensionManager.ttsGenerate` và `ReaderView`; giữ nguyên log lỗi/retry.
+* `RemoteTTSSynthesisCoordinator` tổng hợp `[TTSEnergy]` khoảng mỗi 60 giây: request/phút, priority, dedup, ký tự, audio bytes, synthesis busy time, queue depth, thermal và dự đoán mức tải.
+* Tách cửa sổ foreground/background theo notification của UIKit để log khi khóa màn hình phản ánh riêng tải remote trong nền.
+* Bổ sung unit test cho phân loại tải background/thermal và cập nhật CodeGraph tương ứng.
+
 ## [1.3.106] - 2026-08-10
 
 ### Giảm nhiệt NghiTTS khi nghe lâu trên thiết bị A13

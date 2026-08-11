@@ -1337,6 +1337,7 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 #### Remote TTS additions (2026-08)
 
 - [RemoteTTSSynthesisCoordinator.swift](../../Sources/Services/TTS/RemoteTTSSynthesisCoordinator.swift) is used by `TTSManager`, `TTSChapterPrefetcher`, and `ReaderView`; it owns the single active Google/Ext synthesis slot, priority queue, and request-key deduplication.
+- The coordinator also depends on `AppLogger` for low-frequency `[TTSEnergy]` summaries. Callers attach engine and text-length metadata; per-chunk TTS/highlight/script invocation logs remain commented out to avoid diagnostic I/O becoming part of the measured load.
 - [ExtTTSRuntime.swift](../../Sources/Services/TTS/Ext/ExtTTSRuntime.swift) is owned by `ExtensionManager`; it owns the persistent TTS-only `JSExecutor` and rebuilds it when extension script/config identity changes.
 - `JSExecutor.swift` exposes script preparation, prepared-function calls, and cancellable native network tasks. `ExtTTSService.swift` owns Ext retry; `GoogleTTSService.swift` owns Google retry and single-pass JSON parsing.
 

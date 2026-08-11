@@ -1603,7 +1603,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 - `ChapterKey` identifies shared loads; `BookMetadataSnapshot`, `ChapterMetadataSnapshot`, and `PersistedChapterSnapshot` cross actor boundaries; `ChapterPersistenceStore` owns pending SwiftData writes and retries.
 - `RepositoryManagerView` adds `repositoryToDelete` plus confirmation presentation state while persisted `Repository.isEnabled` remains schema-only compatibility data.
 
-- `RemoteTTSSynthesisCoordinator` is an actor with priority-ordered `Job` values and multiple `Waiter` continuations per synthesis key; its invariant is at most one active operation.
+- `RemoteTTSSynthesisCoordinator` is an actor with priority-ordered `Job` values and multiple `Waiter` continuations per synthesis key; its invariant is at most one active operation. Its private `EnergyWindow` aggregates actual operation count, priority mix, text/audio volume, synthesis busy time, queue depth, deduplication, app state, and thermal state for one-minute `[TTSEnergy]` summaries.
 - `ExtTTSRuntime` is an actor whose `Identity` contains extension path, download URL, script content, and serialized configuration; it owns one optional `JSExecutor` and never returns `JSValue` across the actor boundary.
 - `NghiSynthesisPolicy` is a stateless namespace whose thermal mappings are consumed by `TTSManager` and `TTSChapterPrefetcher`; it owns no task or audio data.
 

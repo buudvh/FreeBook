@@ -15,6 +15,12 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Remote TTS energy diagnostic data flow (1.3.107)
+
+* **Energy summary flow**: Google/Ext text request -> coordinator `Job(engine, textLength, priority)` -> actual serialized operation -> elapsed time/result byte aggregation -> request/minute, bytes/minute, busy percentage, queue/dedup and thermal calculation -> `energyPrediction` -> one `[TTSEnergy] Summary` written by `AppLogger` approximately every 60 seconds.
+* **Lifecycle segmentation flow**: UIKit background/foreground notification -> `TTSManager` MainActor observer -> coordinator `setApplicationState` -> flush previous window -> subsequent synthesis metrics attributed to the new screen/app state.
+* The summary contains counts and sizes only. Raw paragraph text, replacement output, highlight ranges, Ext config JSON, and successful per-request script calls are no longer written by the commented verbose statements.
+
 ## AppLogger perf summaries and compact response data flows (1.3.86)
 
 * **TTS & Reader Perf Summary Data Flow**: `TTSManager.advanceToNextChapter` -> MainActor context creation -> Async `ChapterContentRepository.load` & `TTSBackgroundProcessor.processChapter` -> Stage timing measurement (`loadMs`, `processMs`, `synthesisMs`, `playerSetupMs`) -> Idempotent metric finalization (`finishTTSAutoAdvancePerf`) -> `[TTSPerf] AutoAdvance` emitted to `AppLogger.shared.log`. Reader translation refresh updates follow a parallel path, emitting `[ReaderPerf] TranslationRefresh`.

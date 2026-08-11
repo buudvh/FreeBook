@@ -215,6 +215,8 @@ internal final class TTSChapterPrefetcher {
                     let synthesisKey = "next|\(key.bookId)|\(key.chapterIndex)|0|google|\(key.selectedVoice)"
                     audioData = try await RemoteTTSSynthesisCoordinator.shared.synthesize(
                         key: synthesisKey,
+                        engine: "google",
+                        textLength: textToSpeak.count,
                         priority: .nextChapter
                     ) {
                         try await googleService.synthesize(text: textToSpeak, voice: key.selectedVoice, speed: 1.0, pitch: 1.0)
@@ -223,6 +225,8 @@ internal final class TTSChapterPrefetcher {
                     let synthesisKey = "next|\(key.bookId)|\(key.chapterIndex)|0|\(key.tool)|\(key.selectedVoice)"
                     audioData = try await RemoteTTSSynthesisCoordinator.shared.synthesize(
                         key: synthesisKey,
+                        engine: key.tool,
+                        textLength: textToSpeak.count,
                         priority: .nextChapter
                     ) {
                         try await extService.synthesizeData(text: textToSpeak, voice: key.selectedVoice, localPath: key.extensionLocalPath, configJson: key.extensionConfigJson)

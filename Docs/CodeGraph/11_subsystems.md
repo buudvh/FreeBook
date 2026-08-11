@@ -15,6 +15,10 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Remote TTS energy diagnostics (1.3.107)
+
+The TTS subsystem keeps one actor-owned diagnostic window inside `RemoteTTSSynthesisCoordinator`. It distinguishes foreground/background operation, records only actual serialized Google/Ext synthesis jobs, and emits a compact `[TTSEnergy]` summary through `AppLogger` about once per minute or at lifecycle/thermal/cancellation boundaries. The diagnostic path does not alter scheduling, cache depth, audio playback, or paragraph/highlight state. High-frequency successful chunk, builder, highlight, and `tts.js` invocation logs are commented out; faults and retries remain logged.
+
 ## TOC Database Persistence Subsystem (1.3.50)
 
 * **Chapter Persistence & TOC Optimization**: Offloads table-of-contents database persistence off `@MainActor` to `ChapterPersistenceStore` (background `actor`) wrapped by `ChapterContentRepository`.
