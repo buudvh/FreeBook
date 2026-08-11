@@ -15,6 +15,12 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader highlight and auto-scroll calls (1.3.109)
+
+* `ReaderTextView.updateUIView` changes only foreground/background attributes when the TTS highlight range changes; it does not invalidate the size cache or intrinsic content size for a color-only update.
+* Text, font, line spacing, boldness, or alignment changes remain responsible for invalidating measurement. `AutoSizingTextView` invalidates intrinsic size only when `contentSize` changes by more than 0.5 point.
+* `ReaderTextView` no longer calls its parent `UIScrollView.setContentOffset` for a new highlight. `ReaderView` is the sole TTS auto-scroll caller through `scrollTarget` and `ScrollViewProxy.scrollTo` when the parent paragraph changes.
+
 ## Remote TTS energy diagnostic calls (1.3.107)
 
 * Google/Ext callers pass `engine` and `textLength` to `RemoteTTSSynthesisCoordinator.synthesize`; the coordinator records only jobs that actually enter its single synthesis slot, so deduplicated waiters are not miscounted as network/JS operations.

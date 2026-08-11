@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.109] - 2026-08-11
+
+### Giảm layout churn khi Reader hiển thị highlight TTS
+
+* Highlight-only chỉ đổi thuộc tính màu trong `textStorage`, không xóa cache đo kích thước hay invalidate intrinsic size.
+* Chỉ invalidate phép đo khi text/font/spacing/bold/alignment thực sự đổi; bỏ qua các lần `contentSize` thay đổi không đáng kể.
+* Gỡ auto-scroll UIKit bên trong `ReaderTextView`; `ReaderView.scrollTarget`/`ScrollViewReader` là cơ chế auto-scroll TTS duy nhất.
+* Bổ sung workflow rule: không tạo hoặc sửa unit test khi người dùng chưa yêu cầu rõ ràng.
+
 ## [1.3.108] - 2026-08-11
 
 ### Sửa crash khi bắt đầu TTS lúc App Log đang bật

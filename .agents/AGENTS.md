@@ -38,6 +38,11 @@ graph TD
 7.  **Xác thực**: Chạy kịch bản `validate_links.py` để đảm bảo không lỗi link, không mồ côi.
 8.  **Kết thúc**: Phản hồi với cụm từ kết quả tiêu chuẩn.
 
+### 2.1. Quy tắc ủy quyền Unit Test
+
+*   Không tạo mới, bổ sung hoặc chỉnh sửa unit test nếu người dùng chưa yêu cầu rõ ràng.
+*   Quy tắc này không cấm chạy các unit test hiện có hoặc thực hiện các bước kiểm tra tĩnh/validation không làm thay đổi test.
+
 ---
 
 ## 3. Thứ tự Ưu tiên Thẩm quyền (Priority of Authority / Source of Truth Hierarchy)

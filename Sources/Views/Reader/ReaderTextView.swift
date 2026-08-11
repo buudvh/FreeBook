@@ -117,67 +117,28 @@ struct ReaderTextView: UIViewRepresentable {
                 : UIFont.systemFont(ofSize: CGFloat(fontSize))
         }
             
-        let isHighlightedNow = highlightRange != nil
-        let shouldScroll = isHighlightedNow && !context.coordinator.wasHighlighted
-        context.coordinator.wasHighlighted = isHighlightedNow
-        
         let isTextOrLayoutConfigChanged = context.coordinator.lastText != text ||
                                           context.coordinator.lastFontSize != fontSize ||
                                           context.coordinator.lastLineSpacing != lineSpacing ||
                                           context.coordinator.lastFontFamilyName != fontFamily.rawValue ||
-                                          context.coordinator.lastThemeName != theme.rawValue ||
+                                          context.coordinator.lastIsBold != isBold ||
                                           context.coordinator.lastIsCentered != isCentered
+        let isThemeChanged = context.coordinator.lastThemeName != theme.rawValue
+        let shouldRebuildAttributedText = isTextOrLayoutConfigChanged || isThemeChanged
 
         let isHighlightChanged = context.coordinator.lastHighlightRange != highlightRange
         let oldHighlight = context.coordinator.lastHighlightRange
 
-        let performAutoScrollIfNeeded = { (highlight: NSRange) in
-            if shouldScroll {
-                DispatchQueue.main.async {
-                    if let scrollView = uiView.parentScrollView {
-                        guard !scrollView.isDragging && !scrollView.isDecelerating && !scrollView.isTracking else {
-                            return
-                        }
-                        uiView.layoutManager.ensureLayout(for: uiView.textContainer)
-                        let start = uiView.position(from: uiView.beginningOfDocument, offset: highlight.location) ?? uiView.beginningOfDocument
-                        let end = uiView.position(from: start, offset: highlight.length) ?? start
-                        if let textRange = uiView.textRange(from: start, to: end) {
-                            let rect = uiView.firstRect(for: textRange)
-                            guard !rect.isNull && !rect.isEmpty &&
-                                  !rect.origin.x.isNaN && !rect.origin.y.isNaN &&
-                                  !rect.origin.x.isInfinite && !rect.origin.y.isInfinite &&
-                                  !rect.size.width.isNaN && !rect.size.height.isNaN else {
-                                return
-                            }
-                            let rectInScrollView = uiView.convert(rect, to: scrollView)
-                            guard !rectInScrollView.origin.x.isNaN && !rectInScrollView.origin.y.isNaN &&
-                                  !rectInScrollView.origin.x.isInfinite && !rectInScrollView.origin.y.isInfinite &&
-                                  !rectInScrollView.size.width.isNaN && !rectInScrollView.size.height.isNaN else {
-                                return
-                            }
-                            let visibleHeight = scrollView.bounds.height
-                            guard !visibleHeight.isNaN && !visibleHeight.isInfinite && visibleHeight > 0 else {
-                                return
-                            }
-                            let targetY = rectInScrollView.midY - (visibleHeight / 2)
-                            guard !targetY.isNaN && !targetY.isInfinite else {
-                                return
-                            }
-                            let safeTargetY = max(0, targetY)
-                            scrollView.setContentOffset(CGPoint(x: 0, y: safeTargetY), animated: true)
-                        }
-                    }
-                }
+        if shouldRebuildAttributedText {
+            if isTextOrLayoutConfigChanged {
+                context.coordinator.cachedWidth = nil
+                context.coordinator.cachedHeight = nil
             }
-        }
-
-        if isTextOrLayoutConfigChanged {
-            context.coordinator.cachedWidth = nil
-            context.coordinator.cachedHeight = nil
             context.coordinator.lastText = text
             context.coordinator.lastFontSize = fontSize
             context.coordinator.lastLineSpacing = lineSpacing
             context.coordinator.lastFontFamilyName = fontFamily.rawValue
+            context.coordinator.lastIsBold = isBold
             context.coordinator.lastThemeName = theme.rawValue
             context.coordinator.lastHighlightRange = highlightRange
             context.coordinator.lastIsCentered = isCentered
@@ -203,14 +164,14 @@ struct ReaderTextView: UIViewRepresentable {
                 if let textFgColor = theme.highlightTextUIColor {
                     attributedText.addAttribute(.foregroundColor, value: textFgColor, range: highlight)
                 }
-                performAutoScrollIfNeeded(highlight)
             }
 
             uiView.attributedText = attributedText
             uiView.selectedRange = NSRange(location: 0, length: 0)
+            if isTextOrLayoutConfigChanged {
+                uiView.invalidateIntrinsicContentSize()
+            }
         } else if isHighlightChanged {
-            context.coordinator.cachedWidth = nil
-            context.coordinator.cachedHeight = nil
             context.coordinator.lastHighlightRange = highlightRange
             let storageLength = uiView.textStorage.length
             uiView.textStorage.beginEditing()
@@ -225,11 +186,9 @@ struct ReaderTextView: UIViewRepresentable {
                 if let textFgColor = theme.highlightTextUIColor {
                     uiView.textStorage.addAttribute(.foregroundColor, value: textFgColor, range: highlight)
                 }
-                performAutoScrollIfNeeded(highlight)
             }
 
             uiView.textStorage.endEditing()
-            uiView.invalidateIntrinsicContentSize()
         }
         
         // Xử lý trigger lấy index ký tự hiển thị đầu tiên
@@ -261,7 +220,6 @@ struct ReaderTextView: UIViewRepresentable {
             }
         }
         
-        uiView.invalidateIntrinsicContentSize()
         context.coordinator.setupScrollObservation(for: uiView)
     }
 
@@ -280,11 +238,11 @@ struct ReaderTextView: UIViewRepresentable {
         weak var parentTextView: UITextView?
         var lastTriggeredId: UUID?
         var lastClearTriggerId: UUID?
-        var wasHighlighted: Bool = false
         var lastText: String? = nil
         var lastFontSize: Double? = nil
         var lastLineSpacing: Double? = nil
         var lastFontFamilyName: String? = nil
+        var lastIsBold: Bool? = nil
         var lastThemeName: String? = nil
         var lastHighlightRange: NSRange? = nil
         var lastIsCentered: Bool? = nil
@@ -429,7 +387,11 @@ class AutoSizingTextView: ReaderUITextView {
 
     override var contentSize: CGSize {
         didSet {
-            invalidateIntrinsicContentSize()
+            let widthChanged = abs(contentSize.width - oldValue.width) > 0.5
+            let heightChanged = abs(contentSize.height - oldValue.height) > 0.5
+            if widthChanged || heightChanged {
+                invalidateIntrinsicContentSize()
+            }
         }
     }
 
