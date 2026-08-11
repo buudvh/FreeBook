@@ -17,7 +17,7 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 <!-- GENERATED START -->
 ## TTS presentation resource lifecycle (1.3.112)
 
-* The floating cover allocates no recurring timeline/display-rate resource during playback.
+* The floating cover allocates no recurring timeline/display-rate resource during playback. Its parent-owned loader retains one decoded `UIImage` and a book/URL key; expanded/peeking transitions reuse them and only a true cover-identity change initiates local/remote loading.
 * Projection readers own only selected Combine subscriptions and one small Equatable snapshot. Reader book scoping prevents another session's paragraph/highlight stream from producing view publications.
 * Now Playing owns at most one static metadata task and one cached `MPMediaItemArtwork`. A matching key reuses both; replacement, stop, or dictionary invalidation cancels/clears them. Cover download is requested at most once per static key and a successful save rebuilds the cache.
 * Nghi model warm-up is delayed and cancelable. App initialization schedules it only when Nghi is already selected; switching to Siri/Google/Ext cancels pending preparation.

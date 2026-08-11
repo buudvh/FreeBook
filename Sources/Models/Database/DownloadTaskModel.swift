@@ -20,6 +20,7 @@ public final class DownloadTaskModel {
     public var limitRaw: Int
     public var translate: Bool
     public var onlyExportCached: Bool
+    public var exportFilePath: String?
     public var createdAt: Date
 
     public init(
@@ -39,6 +40,7 @@ public final class DownloadTaskModel {
         limitRaw: Int,
         translate: Bool,
         onlyExportCached: Bool,
+        exportFilePath: String? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -57,6 +59,7 @@ public final class DownloadTaskModel {
         self.limitRaw = limitRaw
         self.translate = translate
         self.onlyExportCached = onlyExportCached
+        self.exportFilePath = exportFilePath
         self.createdAt = createdAt
     }
 }

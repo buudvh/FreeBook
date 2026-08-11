@@ -17,7 +17,7 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 <!-- GENERATED START -->
 ## TTS presentation energy optimization (1.3.112)
 
-The Widget subsystem renders a static cover during sustained playback and consumes a deduplicated `TTSWidgetSnapshot`. App root uses a presentation-only snapshot, Shelf reads TTS identity only when handling the explicit open-reader notification, and Reader uses a book-scoped projection that suppresses unrelated highlight churn.
+The Widget subsystem renders a static cover during sustained playback and consumes a deduplicated `TTSWidgetSnapshot`. Its parent-owned image loader keys work by book ID and cover URL, so expanded/peeking transitions reuse one decoded image without another request. App root uses a presentation-only snapshot, Shelf reads TTS identity only when handling the explicit open-reader notification, and Reader uses a book-scoped projection that suppresses unrelated highlight churn.
 
 The TTS subsystem splits Now Playing into cached static metadata (translated book/chapter titles and artwork) and cheap dynamic timeline publication. One cancelable task owns a static-key miss; paragraph changes never repeat title translation or cover decoding after the cache is warm. Piper model warm-up is lazy and exists only while Nghi is selected.
 

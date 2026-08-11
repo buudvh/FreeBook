@@ -4,6 +4,7 @@ import UIKit
 struct TTSFloatingWidgetView: View {
     @StateObject private var viewModel = FloatingWidgetViewModel()
     @StateObject private var ttsState = TTSWidgetStateReader()
+    @StateObject private var coverLoader = TTSCoverImageLoader()
     private let ttsManager = TTSManager.shared
 
     @State private var visualPosition: CGPoint?
@@ -78,6 +79,7 @@ struct TTSFloatingWidgetView: View {
         }
         .onAppear {
             guard ttsState.snapshot.showFloatingWidget else { return }
+            refreshCover()
             viewModel.reveal()
             visualPosition = nil
         }
@@ -89,6 +91,12 @@ struct TTSFloatingWidgetView: View {
                 viewModel.hide()
                 visualPosition = nil
             }
+        }
+        .onChange(of: ttsState.snapshot.playingBookId) { _, _ in
+            refreshCover()
+        }
+        .onChange(of: ttsState.snapshot.playingCoverUrl) { _, _ in
+            refreshCover()
         }
         .onDisappear {
             viewModel.cancelTasks()
@@ -125,7 +133,7 @@ struct TTSFloatingWidgetView: View {
         HStack(spacing: 8) {
             Button(action: openCurrentChapter) {
                 TTSCoverView(
-                    coverURL: ttsState.snapshot.playingCoverUrl,
+                    image: coverLoader.image,
                     size: Layout.coverSize
                 )
             }
@@ -234,7 +242,7 @@ struct TTSFloatingWidgetView: View {
 
     private var collapsedWidget: some View {
         TTSCoverView(
-            coverURL: ttsState.snapshot.playingCoverUrl,
+            image: coverLoader.image,
             size: Layout.peekSize - 12
         )
         .padding(6)
@@ -367,10 +375,17 @@ struct TTSFloatingWidgetView: View {
     private func stopTTS() {
         ttsManager.stop()
     }
+
+    private func refreshCover() {
+        coverLoader.load(
+            bookId: ttsState.snapshot.playingBookId,
+            coverURL: ttsState.snapshot.playingCoverUrl
+        )
+    }
 }
 
 private struct TTSCoverView: View {
-    let coverURL: String
+    let image: UIImage?
     let size: CGFloat
 
     var body: some View {
@@ -382,14 +397,10 @@ private struct TTSCoverView: View {
 
     @ViewBuilder
     private var coverImage: some View {
-        if let url = URL(string: coverURL), !coverURL.isEmpty {
-            AsyncImage(url: url) { phase in
-                if case .success(let image) = phase {
-                    image.resizable().scaledToFill()
-                } else {
-                    fallback
-                }
-            }
+        if let image {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
         } else {
             fallback
         }
@@ -405,6 +416,45 @@ private struct TTSCoverView: View {
             Image(systemName: "book.fill")
                 .font(.system(size: size * 0.36, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.88))
+        }
+    }
+}
+
+@MainActor
+private final class TTSCoverImageLoader: ObservableObject {
+    @Published private(set) var image: UIImage?
+
+    private struct Key: Equatable {
+        let bookId: String
+        let coverURL: String
+    }
+
+    private var key: Key?
+    private var generation: UInt = 0
+
+    func load(bookId: String, coverURL: String) {
+        let newKey = Key(bookId: bookId, coverURL: coverURL)
+        guard newKey != key else { return }
+
+        key = newKey
+        generation &+= 1
+        let expectedGeneration = generation
+
+        if !bookId.isEmpty, let localImage = ImageCacheManager.shared.loadLocalCover(for: bookId) {
+            image = localImage
+            return
+        }
+
+        image = nil
+        guard !bookId.isEmpty, !coverURL.isEmpty else { return }
+
+        ImageCacheManager.shared.downloadAndSaveCover(urlStr: coverURL, bookId: bookId) { [weak self] image in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      self.generation == expectedGeneration,
+                      self.key == newKey else { return }
+                self.image = image
+            }
         }
     }
 }

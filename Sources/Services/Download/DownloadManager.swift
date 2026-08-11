@@ -57,6 +57,7 @@ public struct DownloadTask: Identifiable {
     public let limit: ChapterLimitOption
     public let translate: Bool
     public let onlyExportCached: Bool
+    public var exportFilePath: String? = nil
 }
 
 public final class DownloadManager: ObservableObject {
@@ -93,7 +94,8 @@ public final class DownloadManager: ObservableObject {
                     startFromCurrent: model.startFromCurrent,
                     limit: ChapterLimitOption(rawValue: model.limitRaw) ?? .all,
                     translate: model.translate,
-                    onlyExportCached: model.onlyExportCached
+                    onlyExportCached: model.onlyExportCached,
+                    exportFilePath: model.exportFilePath
                 )
 
                 if task.status == .running || task.status == .pending {
@@ -276,12 +278,18 @@ public final class DownloadManager: ObservableObject {
     }
 
     @MainActor
-    private func markCompleted(taskId: UUID) {
+    private func markCompleted(taskId: UUID, exportFilePath: String? = nil) {
         if let index = tasks.firstIndex(where: { $0.id == taskId }) {
             tasks[index].status = .completed
+            if let path = exportFilePath {
+                tasks[index].exportFilePath = path
+            }
 
             updateTaskInDB(taskId: taskId) { model in
                 model.statusRaw = TaskStatus.completed.rawValue
+                if let path = exportFilePath {
+                    model.exportFilePath = path
+                }
             }
 
             let title = tasks[index].bookTitle
@@ -529,14 +537,17 @@ public final class DownloadManager: ObservableObject {
             switch outcome {
             case .completed:
                 if task.taskType == .exportTxt {
-                    let tempDir = FileManager.default.temporaryDirectory
+                    let exportDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Exports", isDirectory: true)
+                    try? FileManager.default.createDirectory(at: exportDir, withIntermediateDirectories: true)
+
                     let sanitizedTitle = bgBook.title.replacingOccurrences(of: "[\\\\/:*?\"<>|]", with: "_", options: .regularExpression)
                     let fileName = "\(sanitizedTitle).txt"
-                    let fileURL = tempDir.appendingPathComponent(fileName)
+                    let fileURL = exportDir.appendingPathComponent(fileName)
                     try txtAccumulator.write(to: fileURL, atomically: true, encoding: .utf8)
+                    let savedPath = fileURL.path
 
                     await MainActor.run {
-                        self.markCompleted(taskId: taskId)
+                        self.markCompleted(taskId: taskId, exportFilePath: savedPath)
                         self.presentShareSheet(for: fileURL)
                         self.runNextTaskIfNeeded(container: container)
                     }
@@ -572,15 +583,37 @@ public final class DownloadManager: ObservableObject {
     }
 
     @MainActor
-    private func presentShareSheet(for fileURL: URL) {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController else {
+    public func shareExportedFile(taskId: UUID) {
+        guard let task = tasks.first(where: { $0.id == taskId }),
+              let path = task.exportFilePath,
+              FileManager.default.fileExists(atPath: path) else {
+            ToastManager.shared.show(message: "Tệp xuất không tồn tại hoặc đã bị xóa.", type: .error)
+            return
+        }
+        let fileURL = URL(fileURLWithPath: path)
+        presentShareSheet(for: fileURL)
+    }
+
+    @MainActor
+    public func presentShareSheet(for fileURL: URL) {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard let windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first,
+              let window = windowScene.windows.first(where: { $0.isKeyWindow }) ?? windowScene.windows.first,
+              let rootVC = window.rootViewController else {
+            AppLogger.shared.log("⚠️ [DownloadManager] Không tìm thấy rootViewController để mở share sheet.")
             return
         }
 
         var topVC = rootVC
         while let presented = topVC.presentedViewController {
             topVC = presented
+        }
+
+        if topVC.isBeingPresented || topVC.isBeingDismissed {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.presentShareSheet(for: fileURL)
+            }
+            return
         }
 
         let activityVC = UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)

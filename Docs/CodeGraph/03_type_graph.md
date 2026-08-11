@@ -17,7 +17,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 <!-- GENERATED START -->
 ## TTS presentation projection types (1.3.112)
 
-* `TTSWidgetSnapshot` and `TTSWidgetStateReader` expose only playback, visibility, cover, and timer state used by the floating widget.
+* `TTSWidgetSnapshot` and `TTSWidgetStateReader` expose only playback, visibility, book/cover identity, and timer state used by the floating widget. `TTSCoverImageLoader` owns one decoded image keyed by book ID and cover URL across expanded/peeking child replacement.
 * `TTSRootPresentationSnapshot` and `TTSRootPresentationReader` isolate the app root to widget/settings presentation state.
 * `ReaderTTSStateSnapshot` and `ReaderTTSStateReader` retain global playback identity but expose paragraph/highlight state only for the scoped Reader book.
 * `TTSManager.NowPlayingStaticMetadataKey` keys translated Lock Screen titles/artwork by book, chapter, cover URL, translation mode, and translation generation.

@@ -108,6 +108,16 @@ struct DownloadTrackerView: View {
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.plain)
+            } else if task.status == .completed, let path = task.exportFilePath, FileManager.default.fileExists(atPath: path) {
+                Button(action: {
+                    downloadManager.shareExportedFile(taskId: task.id)
+                }) {
+                    Image(systemName: "square.and.arrow.up.fill")
+                        .resizable()
+                        .frame(width: 22, height: 22)
+                        .foregroundColor(.orange)
+                }
+                .buttonStyle(.plain)
             } else if task.status == .failed || task.status == .cancelled {
                 Button(action: {
                     downloadManager.retryTask(taskId: task.id)
@@ -122,6 +132,14 @@ struct DownloadTrackerView: View {
         }
         .padding(.vertical, 4)
         .contextMenu {
+            if task.status == .completed, let path = task.exportFilePath, FileManager.default.fileExists(atPath: path) {
+                Button {
+                    downloadManager.shareExportedFile(taskId: task.id)
+                } label: {
+                    Label("Xuất / Chia sẻ file TXT", systemImage: "square.and.arrow.up")
+                }
+            }
+
             if task.status == .failed || task.status == .cancelled {
                 Button {
                     downloadManager.retryTask(taskId: task.id)

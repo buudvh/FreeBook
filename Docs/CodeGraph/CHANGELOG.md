@@ -2,11 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.113] - 2026-08-11
+
+### Sửa lỗi chức năng xuất tệp TXT và bổ sung cơ chế lưu vết / chia sẻ lại file
+
+* Khắc phục cơ chế lấy active `UIWindowScene` và `rootViewController` tin cậy trong `DownloadManager.presentShareSheet(for:)`, đồng thời tự động trì hoãn an toàn khi `topVC` đang chuyển cảnh (`isBeingPresented`/`isBeingDismissed`).
+* Bổ sung thuộc tính `exportFilePath: String?` vào `DownloadTaskModel` (SwiftData) và `DownloadTask` để lưu vết đường dẫn tệp TXT được xuất ra thư mục `Exports` bền vững trong Sandbox.
+* Thêm nút "Xuất file TXT" / "Chia sẻ" trực tiếp trên từng hàng tác vụ hoàn thành trong `DownloadTrackerView` và context menu, cho phép người dùng mở lại tệp TXT đã xuất bất kỳ lúc nào.
+* Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng không yêu cầu.
+
 ## [1.3.112] - 2026-08-11
 
 ### Giảm tải foreground và công việc metadata TTS lặp lại
 
-* Bỏ `TimelineView` quay cover 30 FPS; widget dùng ảnh bìa tĩnh trong lúc phát và tạm dừng.
+* Bỏ `TimelineView` quay cover 30 FPS; widget dùng ảnh bìa tĩnh trong lúc phát và tạm dừng. Loader ảnh thuộc widget cha giữ cùng `UIImage` khi đổi expanded/peeking, không tạo lại `AsyncImage` hoặc request cover.
 * Root, Shelf, widget và Reader không còn quan sát toàn bộ `TTSManager`; các projection snapshot chỉ phát thay đổi cần render và Reader lọc highlight theo `bookId`.
 * Tách Now Playing thành metadata tĩnh được cache theo sách/chương/cover/translation generation và timeline động; chỉ một task metadata được phép hoạt động.
 * NghiTTS chỉ warm-up khi engine Nghi đang được chọn; chuyển sang Siri/Google/Ext hủy warm-up đang chờ.

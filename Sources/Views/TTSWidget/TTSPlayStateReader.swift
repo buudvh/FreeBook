@@ -4,6 +4,7 @@ import Combine
 struct TTSWidgetSnapshot: Equatable {
     var isPlaying = false
     var showFloatingWidget = false
+    var playingBookId = ""
     var playingCoverUrl = ""
     var timerMode: TTSManager.SleepTimerMode = .off
     var sleepTimerBadgeText = ""
@@ -23,6 +24,9 @@ final class TTSWidgetStateReader: ObservableObject {
             self?.refresh(from: manager)
         }.store(in: &cancellables)
         manager.$showFloatingWidget.map { _ in () }.receive(on: RunLoop.main).sink { [weak self, weak manager] in
+            self?.refresh(from: manager)
+        }.store(in: &cancellables)
+        manager.$playingBookId.map { _ in () }.receive(on: RunLoop.main).sink { [weak self, weak manager] in
             self?.refresh(from: manager)
         }.store(in: &cancellables)
         manager.$playingCoverUrl.map { _ in () }.receive(on: RunLoop.main).sink { [weak self, weak manager] in
@@ -50,6 +54,7 @@ final class TTSWidgetStateReader: ObservableObject {
         TTSWidgetSnapshot(
             isPlaying: manager.isPlaying,
             showFloatingWidget: manager.showFloatingWidget,
+            playingBookId: manager.playingBookId,
             playingCoverUrl: manager.playingCoverUrl,
             timerMode: manager.timerMode,
             sleepTimerBadgeText: manager.sleepTimerBadgeText

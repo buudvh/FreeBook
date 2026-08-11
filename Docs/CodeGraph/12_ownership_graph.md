@@ -17,7 +17,7 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 <!-- GENERATED START -->
 ## TTS presentation ownership update (1.3.112)
 
-`AppLaunchRootView` owns `TTSRootPresentationReader`; `TTSFloatingWidgetView` owns `TTSWidgetStateReader`; each `ReaderView` owns one book-scoped `ReaderTTSStateReader`. These projection objects own narrow Combine subscriptions but never own playback. `ShelfView` keeps only a non-observing singleton reference for its explicit open-reader notification.
+`AppLaunchRootView` owns `TTSRootPresentationReader`; `TTSFloatingWidgetView` owns `TTSWidgetStateReader` and one `TTSCoverImageLoader`; each `ReaderView` owns one book-scoped `ReaderTTSStateReader`. The cover loader retains one decoded image across expanded/peeking child replacement. These projection objects own narrow Combine subscriptions but never own playback. `ShelfView` keeps only a non-observing singleton reference for its explicit open-reader notification.
 
 `TTSManager.shared` remains the sole playback owner and additionally owns one Now Playing static metadata task/cache plus the optional Nghi warm-up task. Stop or identity replacement cancels/releases metadata work; non-Nghi selection cancels warm-up.
 

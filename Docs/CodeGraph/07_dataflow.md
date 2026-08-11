@@ -19,7 +19,7 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 
 * **Static Now Playing flow**: book/chapter/cover/translation identity -> one background translation/local-cover read -> one cached title/artwork record -> Lock Screen metadata.
 * **Dynamic Now Playing flow**: paragraph index/count + play state + speed -> elapsed/duration/progress/rate fields; no title translation, image decode, or artwork allocation on a cache hit.
-* **View projection flow**: selected `TTSManager` publishers -> next-main-RunLoop snapshot read -> equality gate -> root/widget/Reader render. An unrelated playing book maps Reader paragraph/highlight to stable inactive values.
+* **View projection flow**: selected `TTSManager` publishers -> next-main-RunLoop snapshot read -> equality gate -> root/widget/Reader render. An unrelated playing book maps Reader paragraph/highlight to stable inactive values. Widget book/cover identity loads one local/remote image into its parent-owned loader; expanded/peeking children consume the same decoded `UIImage`.
 * **Nghi warm-up flow**: persisted/current engine selection -> Nghi-only delayed model preparation; Siri/Google/Ext initialization performs no Piper model warm-up.
 
 ## Reader viewport and serious N+1 data flow (1.3.111)
