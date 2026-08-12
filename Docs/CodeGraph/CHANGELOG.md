@@ -2,6 +2,13 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.129] - 2026-08-12
+
+### Xóa khối modifier navigationDestination bị trùng lặp gây nên lỗi Swift compiler type-checker timeout
+
+* Phát hiện và loại bỏ khối modifier `.navigationDestination(isPresented: $triggerNavigation)` bị trùng lặp từ trước trong `ShelfView.swift`.
+* Khắc phục triệt để và dứt điểm lỗi biên dịch `the compiler is unable to type-check this expression in reasonable time`.
+
 ## [1.3.128] - 2026-08-12
 
 ### Phân tách shelfTabView và historyTabView trong ShelfView giải quyết triệt me lỗi type-checker timeout

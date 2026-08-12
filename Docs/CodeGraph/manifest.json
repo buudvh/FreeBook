@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-12T08:20:06.396695Z",
-  "gitCommit": "4d63c9e2758c990907ef461b6e47bbd7fbc088ad",
+  "generatedAt": "2026-08-12T08:28:25.989322Z",
+  "gitCommit": "66e347fdfd8bdde9cb54f3f3a614fe1698f377d9",
   "sourceFileCount": 135,
   "documentCount": 16,
   "documents": [
@@ -42,9 +42,9 @@
     },
     {
       "filename": "02_file_graph.md",
-      "sourceHash": "12f754f6418e9b607b940dace3379013462d480c626749f773dbff262333532a",
+      "sourceHash": "b6ebdb7ce3c78d68eefc410d65ded8f3cf247efc79bf0be20bdc0b1384f8d452",
       "generatedHash": "004003092e54b34a20b9ae92306cdb676e60ad47e379ef1ae63a8a88c7c23e16",
-      "generatedAt": "2026-08-12T08:19:57.042533Z",
+      "generatedAt": "2026-08-12T08:28:18.060535Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -160,9 +160,9 @@
     },
     {
       "filename": "03_type_graph.md",
-      "sourceHash": "7d6476d4d1acbe7062641a35682bf9defa431029549c8b0fa6257b881537ccb2",
+      "sourceHash": "2ebc67e9c334da981ca573f35b7275bc42c9cb9fe0825aaacc3b74d7a67877bc",
       "generatedHash": "681445409e829c1bdfbcf3db40b40e483fe6f386aac806f864bbcbbfcd64e4eb",
-      "generatedAt": "2026-08-12T08:19:57.042533Z",
+      "generatedAt": "2026-08-12T08:28:18.060535Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",
@@ -521,9 +521,9 @@
     },
     {
       "filename": "14_complexity_report.md",
-      "sourceHash": "04caecec75e5fcbd14debea187836a587d3be6c99e5a18a46b8e9f04bc84323b",
+      "sourceHash": "4ee45af73498b18c3fdf3635d01f65c626c764a37e574ca227e6a80e84137233",
       "generatedHash": "6038d5ac35437244d4eed35c41be0b04b84fb29a4f11bd1734d955665917b89a",
-      "generatedAt": "2026-08-12T08:19:57.042533Z",
+      "generatedAt": "2026-08-12T08:28:18.060535Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/String+Crypto.swift",

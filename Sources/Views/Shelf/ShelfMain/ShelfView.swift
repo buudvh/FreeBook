@@ -164,22 +164,6 @@ struct ShelfView: View {
                     }
                 }
             }
-            .navigationDestination(isPresented: $triggerNavigation) {
-                if let route = activeReaderRoute {
-                    ReaderView(
-                        bookId: route.bookId,
-                        extensionPackageId: route.extensionPackageId,
-                        chapterIndex: route.chapterIndex,
-                        onlineChapters: [],
-                        bookTitle: route.bookTitle,
-                        bookAuthor: route.bookAuthor,
-                        bookCoverUrl: route.bookCoverUrl,
-                        bookDesc: route.bookDesc,
-                        bookDetailUrl: route.bookDetailUrl,
-                        bookSourceName: route.bookSourceName
-                    )
-                }
-            }
             .navigationDestination(isPresented: $navigateToChangeSource) {
                 changeSourceDestinationView
             }
