@@ -2,6 +2,14 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.130] - 2026-08-12
+
+### Tự động ẩn kết quả nguồn truyện trùng lập khi thực hiện Đổi nguồn
+
+* Cập nhật `SearchView.swift`: Bổ sung helper `isSameBookSource` kiểm tra đối chiếu `bookId` và `detailUrl` với `changeSourceTargetBook`.
+* Lọc ẩn nguồn truyện hiện tại khỏi danh sách kết quả tìm kiếm ở cả 2 chế độ hiển thị Tìm kiếm đa nguồn và Tìm kiếm đơn nguồn khi ở màn hình Đổi nguồn.
+* Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng không yêu cầu.
+
 ## [1.3.129] - 2026-08-12
 
 ### Xóa khối modifier navigationDestination bị trùng lặp gây nên lỗi Swift compiler type-checker timeout

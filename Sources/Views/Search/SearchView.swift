@@ -280,7 +280,8 @@ struct SearchView: View {
                                     }
                                     
                                 case .found(let results):
-                                    if !results.isEmpty {
+                                    let displayResults = changeSourceTargetBook != nil ? results.filter { !isSameBookSource(result: $0, ext: ext) } : results
+                                    if !displayResults.isEmpty {
                                         VStack(alignment: .leading, spacing: 8) {
                                             HStack {
                                                 Text(ext.name)
@@ -307,7 +308,7 @@ struct SearchView: View {
                                             
                                             ScrollView(.horizontal, showsIndicators: false) {
                                                 HStack(spacing: 16) {
-                                                    ForEach(results, id: \.link) { result in
+                                                    ForEach(displayResults, id: \.link) { result in
                                                         if changeSourceTargetBook != nil {
                                                             Button(action: {
                                                                 changeSourceTargetResult = result
@@ -401,7 +402,8 @@ struct SearchView: View {
     
     @ViewBuilder
     private var singleSourceResultsView: some View {
-        List(searchResults) { item in
+        let displayResults = changeSourceTargetBook != nil ? searchResults.filter { !isSameBookSource(result: $0.result, ext: $0.ext) } : searchResults
+        List(displayResults) { item in
             if changeSourceTargetBook != nil {
                 Button(action: {
                     changeSourceTargetResult = item.result
@@ -573,6 +575,37 @@ struct SearchView: View {
         }
     }
     
+    private func isSameBookSource(result: SearchNovelResult, ext: Extension) -> Bool {
+        guard let target = changeSourceTargetBook else { return false }
+        
+        let resultBookId = BookIdUtils.make(extensionPackageId: ext.packageId, detailUrl: result.link)
+        if resultBookId == target.bookId {
+            return true
+        }
+        
+        if !target.extensionPackageId.isEmpty && target.extensionPackageId == ext.packageId {
+            if target.detailUrl == result.link || normalizeUrlForSearch(target.detailUrl) == normalizeUrlForSearch(result.link) {
+                return true
+            }
+        }
+        
+        return false
+    }
+
+    private func normalizeUrlForSearch(_ url: String) -> String {
+        guard !url.isEmpty else { return "" }
+        var str = url.lowercased()
+        if str.hasPrefix("http://") {
+            str = String(str.dropFirst(7))
+        } else if str.hasPrefix("https://") {
+            str = String(str.dropFirst(8))
+        }
+        if str.hasSuffix("/") {
+            str = String(str.dropLast())
+        }
+        return str
+    }
+
     private func executeSourceChange(to result: SearchNovelResult, ext: Extension) async {
         guard let oldBook = changeSourceTargetBook else { return }
         
