@@ -126,7 +126,7 @@ public final class VisibleWebViewLoader: NSObject, UIAdaptivePresentationControl
         cleanUp()
     }
 
-    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+    public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
         self.cleanUp()
     }
 

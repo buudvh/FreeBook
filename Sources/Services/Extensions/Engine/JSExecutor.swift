@@ -659,7 +659,9 @@ public final class JSExecutor: @unchecked Sendable {
                     self?.activeVisibleBrowsers.removeValue(forKey: browserId)
                 }
                 self.activeVisibleBrowsers[browserId] = loader
-                loader.presentUIIfNeeded()
+                Task { @MainActor in
+                    loader.presentUIIfNeeded()
+                }
             }
             if Thread.isMainThread {
                 setupLoader()
