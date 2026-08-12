@@ -29,8 +29,10 @@ public struct ExtensionScriptEditorView: View {
     @State private var errorMessage = ""
     @State private var syntaxStatusMessage: String? = nil
     @State private var isSyntaxValid: Bool = true
-    @State private var showingDiscardAlert = false
-    @State private var fontSize: CGFloat = 14.0
+    @AppStorage("scriptEditorFontSize") private var scriptEditorFontSize: Double = 11.0
+    private var fontSize: CGFloat {
+        CGFloat(scriptEditorFontSize)
+    }
 
     private let quickSymbols = ["{", "}", "(", ")", "[", "]", "=", ";", ":", "\"", "'", "=>", ".", ",", "fetch", "function"]
     
@@ -279,26 +281,26 @@ public struct ExtensionScriptEditorView: View {
             // Nút chỉnh cỡ chữ A- và A+
             HStack(spacing: 4) {
                 Button(action: {
-                    if fontSize > 11 { fontSize -= 1 }
+                    if scriptEditorFontSize > 9.0 { scriptEditorFontSize -= 1.0 }
                 }) {
                     Text("A-")
                         .font(.caption2)
                         .fontWeight(.bold)
                 }
-                .disabled(fontSize <= 11)
+                .disabled(scriptEditorFontSize <= 9.0)
                 
                 Text("\(Int(fontSize))pt")
                     .font(.caption2)
                     .foregroundColor(.secondary)
                 
                 Button(action: {
-                    if fontSize < 22 { fontSize += 1 }
+                    if scriptEditorFontSize < 22.0 { scriptEditorFontSize += 1.0 }
                 }) {
                     Text("A+")
                         .font(.caption2)
                         .fontWeight(.bold)
                 }
-                .disabled(fontSize >= 22)
+                .disabled(scriptEditorFontSize >= 22.0)
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 3)

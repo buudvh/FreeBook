@@ -2,6 +2,14 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.131] - 2026-08-12
+
+### Lưu trữ lâu dài cài đặt Cỡ chữ (FontSize) mặc định 11pt trong Trình biên tập Script
+
+* Cập nhật `ExtensionScriptEditorView.swift`: Thay thế `@State private var fontSize` bằng `@AppStorage("scriptEditorFontSize") private var scriptEditorFontSize: Double = 11.0` với kích thước mặc định ban đầu 11pt.
+* Ghi nhớ tự động cỡ chữ tùy chỉnh từ nút `A-`/`A+` qua các lần đóng/mở lại trình biên tập script và khởi động lại ứng dụng.
+* Tuân thủ quy định: Không thực hiện tự động push code lên Git repository.
+
 ## [1.3.130] - 2026-08-12
 
 ### Tự động ẩn kết quả nguồn truyện trùng lập khi thực hiện Đổi nguồn
