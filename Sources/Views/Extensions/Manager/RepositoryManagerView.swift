@@ -497,9 +497,6 @@ struct RepositoryManagerView: View {
                                 HStack(spacing: 4) {
                                     Image(systemName: "arrow.clockwise.circle.fill")
                                         .font(.system(size: 14, weight: .bold))
-                                    Text("Cập nhật")
-                                        .font(.caption)
-                                        .fontWeight(.bold)
                                 }
                                 .padding(.horizontal, 8)
                                 .frame(height: 34)

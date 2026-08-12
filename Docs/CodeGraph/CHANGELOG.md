@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.121] - 2026-08-12
+
+### Bảo toàn trạng thái Kệ sách (isOnShelf) và Lịch sử (isHistory) khi đổi nguồn
+
+* Cập nhật `executeSourceChange` trong `SearchView.swift`: Thay thế cờ cài đặt cứng `isOnShelf: true` bằng `isOnShelf: oldBook.isOnShelf`.
+* Khi thực hiện đổi nguồn cho bộ truyện, nếu truyện nguồn cũ chỉ thuộc danh sách Lịch sử đọc (`isHistory == true`, `isOnShelf == false`), truyện nguồn mới được tạo sẽ giữ nguyên vị trí trong Lịch sử mà không bị thêm nhầm lên Kệ sách.
+* Nếu truyện nguồn cũ thuộc Kệ sách (`isOnShelf == true`), truyện nguồn mới sẽ được thêm vào Kệ sách chuẩn xác.
+* Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng không yêu cầu.
+
 ## [1.3.120] - 2026-08-12
 
 ### Tích hợp trình tô màu cú pháp Syntax Highlighting phong cách VS Code Dark+ cho trình biên tập Script

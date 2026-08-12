@@ -614,7 +614,7 @@ struct SearchView: View {
                 currentChapterIndex: initialChapterIndex,
                 currentChapterPage: 0,
                 currentChapterTitle: initialChapterTitle,
-                isOnShelf: true,
+                isOnShelf: oldBook.isOnShelf,
                 isHistory: oldBook.isHistory,
                 host: detailResult.host
             )
