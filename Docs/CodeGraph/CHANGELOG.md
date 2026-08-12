@@ -2,6 +2,13 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.128] - 2026-08-12
+
+### Phân tách shelfTabView và historyTabView trong ShelfView giải quyết triệt me lỗi type-checker timeout
+
+* Tách 2 tab Kệ sách (`shelfTabView`) và Lịch sử đọc (`historyTabView`) thành các thuộc tính `@ViewBuilder private var` độc lập trong `ShelfView.swift`.
+* Giảm độ sâu của cây generic trong `ShelfView.body`, khắc phục triệt để lỗi biên dịch Swift compiler `the compiler is unable to type-check this expression in reasonable time`.
+
 ## [1.3.127] - 2026-08-12
 
 ### Khắc phục lỗi ngoặc đóng làm mở lại body của ShelfView

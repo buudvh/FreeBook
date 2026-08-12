@@ -103,226 +103,20 @@ struct ShelfView: View {
 
                 Divider()
 
-                TabView(selection: $selectedTab) {
-                    // TAB TẢI TRƯỚC
-                    DownloadTrackerView()
-                        .tag(0)
+                    TabView(selection: $selectedTab) {
+                        // TAB TẢI TRƯỚC
+                        DownloadTrackerView()
+                            .tag(0)
 
-                    // TAB KỆ SÁCH
-                    Group {
-                        if shelfBooks.isEmpty {
-                            VStack(spacing: 20) {
-                                Image(systemName: "books.vertical")
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(width: 80, height: 80)
-                                    .foregroundColor(.secondary)
+                        // TAB KỆ SÁCH
+                        shelfTabView
+                            .tag(1)
 
-                                Text("Kệ sách của bạn đang trống")
-                                    .font(.title3)
-                                    .fontWeight(.semibold)
-
-                                Text("Đi tới phần Tìm Kiếm hoặc Khám Phá để thêm các truyện yêu thích vào kệ sách.")
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal, 40)
-                            }
-                            .frame(maxHeight: .infinity)
-                        } else {
-                            List {
-                                ForEach(displayedShelfBooks) { book in
-                                    NavigationLink(destination: ReaderView(
-                                        bookId: book.bookId,
-                                        extensionPackageId: book.extensionPackageId,
-                                        chapterIndex: book.currentChapterIndex,
-                                        onlineChapters: [],
-                                        bookTitle: nil,
-                                        bookAuthor: nil,
-                                        bookCoverUrl: nil,
-                                        bookDesc: nil,
-                                        bookDetailUrl: book.detailUrl,
-                                        bookSourceName: book.sourceName
-                                    )) {
-                                        bookItemView(book)
-                                    }
-                                    .contextMenu {
-                                        if !book.isLocalBook {
-                                            NavigationLink(destination: BookDetailView(
-                                                bookId: book.bookId,
-                                                extensionPackageId: book.extensionPackageId,
-                                                initialDetailUrl: book.detailUrl,
-                                                sourceName: book.sourceName,
-                                                initialHost: book.host
-                                            )) {
-                                                Label("Xem chi tiết", systemImage: "info.circle")
-                                            }
-
-                                            Button {
-                                                changeSourceTargetBook = book
-                                                navigateToChangeSource = true
-                                            } label: {
-                                                Label("Đổi nguồn", systemImage: "arrow.triangle.2.circlepath")
-                                            }
-                                        }
-
-                                        Button {
-                                            prepareTaskForBook(book, type: .download)
-                                        } label: {
-                                            Label("Tải truyện", systemImage: "arrow.down.circle")
-                                        }
-
-                                        Button {
-                                            prepareTaskForBook(book, type: .exportTxt)
-                                        } label: {
-                                            Label("Xuất ebook TXT", systemImage: "square.and.arrow.up")
-                                        }
-
-                                        Button {
-                                            retranslateChapterTitles(for: book)
-                                        } label: {
-                                            Label("Dịch lại tên chương", systemImage: "arrow.clockwise.circle")
-                                        }
-
-                                        Button(role: .destructive) {
-                                            removeFromShelf(book)
-                                        } label: {
-                                            Label("Xóa khỏi kệ sách", systemImage: "bookmark.slash")
-                                        }
-                                    }
-                                }
-
-                                if shelfBooks.count > shelfLimit {
-                                    HStack {
-                                        Spacer()
-                                        ProgressView()
-                                            .onAppear {
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                                    shelfLimit += 50
-                                                }
-                                            }
-                                        Spacer()
-                                    }
-                                    .listRowSeparator(.hidden)
-                                }
-                            }
-                            .listStyle(.plain)
-                        }
+                        // TAB LỊCH SỬ
+                        historyTabView
+                            .tag(2)
                     }
-                    .tag(1)
-
-                    // TAB LỊCH SỬ
-                    Group {
-                        if historyBooks.isEmpty {
-                            VStack(spacing: 20) {
-                                Image(systemName: "clock.arrow.circlepath")
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(width: 80, height: 80)
-                                    .foregroundColor(.secondary)
-
-                                Text("Lịch sử đọc trống")
-                                    .font(.title3)
-                                    .fontWeight(.semibold)
-
-                                Text("Lịch sử sẽ tự động ghi nhớ sau khi bạn bắt đầu đọc một chương truyện.")
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal, 40)
-                            }
-                            .frame(maxHeight: .infinity)
-                        } else {
-                            List {
-                                ForEach(displayedHistoryBooks) { book in
-                                    NavigationLink(destination: ReaderView(
-                                        bookId: book.bookId,
-                                        extensionPackageId: book.extensionPackageId,
-                                        chapterIndex: book.currentChapterIndex,
-                                        onlineChapters: [],
-                                        bookTitle: nil,
-                                        bookAuthor: nil,
-                                        bookCoverUrl: nil,
-                                        bookDesc: nil,
-                                        bookDetailUrl: book.detailUrl,
-                                        bookSourceName: book.sourceName
-                                    )) {
-                                        bookItemView(book)
-                                    }
-                                    .contextMenu {
-                                        NavigationLink(destination: BookDetailView(
-                                            bookId: book.bookId,
-                                            extensionPackageId: book.extensionPackageId,
-                                            initialDetailUrl: book.detailUrl,
-                                            sourceName: book.sourceName,
-                                            initialHost: book.host
-                                        )) {
-                                            Label("Xem chi tiết", systemImage: "info.circle")
-                                        }
-
-                                        if !book.isOnShelf {
-                                            Button {
-                                                addToShelf(book)
-                                            } label: {
-                                                Label("Thêm vào kệ sách", systemImage: "bookmark.badge.plus")
-                                            }
-                                        }
-
-                                        if !book.isLocalBook {
-                                            Button {
-                                                changeSourceTargetBook = book
-                                                navigateToChangeSource = true
-                                            } label: {
-                                                Label("Đổi nguồn", systemImage: "arrow.triangle.2.circlepath")
-                                            }
-                                        }
-
-                                        Button {
-                                            prepareTaskForBook(book, type: .download)
-                                        } label: {
-                                            Label("Tải truyện", systemImage: "arrow.down.circle")
-                                        }
-
-                                        Button {
-                                            prepareTaskForBook(book, type: .exportTxt)
-                                        } label: {
-                                            Label("Xuất ebook TXT", systemImage: "square.and.arrow.up")
-                                        }
-
-                                        Button {
-                                            retranslateChapterTitles(for: book)
-                                        } label: {
-                                            Label("Dịch lại tên chương", systemImage: "arrow.clockwise.circle")
-                                        }
-
-                                        Button(role: .destructive) {
-                                            removeFromHistory(book)
-                                        } label: {
-                                            Label("Xóa lịch sử", systemImage: "clock.badge.xmark")
-                                        }
-                                    }
-                                }
-
-                                if historyBooks.count > historyLimit {
-                                    HStack {
-                                        Spacer()
-                                        ProgressView()
-                                            .onAppear {
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                                    historyLimit += 50
-                                                }
-                                            }
-                                        Spacer()
-                                    }
-                                    .listRowSeparator(.hidden)
-                                }
-                            }
-                            .listStyle(.plain)
-                        }
-                    }
-                    .tag(2)
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
+                    .tabViewStyle(.page(indexDisplayMode: .never))
             }
             .navigationTitle(selectedTab == 0 ? "Downloads" : (selectedTab == 1 ? "Kệ Sách" : "Lịch Sử Đọc"))
             .navigationBarTitleDisplayMode(.inline)
@@ -548,6 +342,222 @@ struct ShelfView: View {
                     navigateToChangeSource = false
                 }
             )
+        }
+    }
+
+    @ViewBuilder
+    private var shelfTabView: some View {
+        Group {
+            if shelfBooks.isEmpty {
+                VStack(spacing: 20) {
+                    Image(systemName: "books.vertical")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 80, height: 80)
+                        .foregroundColor(.secondary)
+
+                    Text("Kệ sách của bạn đang trống")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+
+                    Text("Đi tới phần Tìm Kiếm hoặc Khám Phá để thêm các truyện yêu thích vào kệ sách.")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                }
+                .frame(maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(displayedShelfBooks) { book in
+                        NavigationLink(destination: ReaderView(
+                            bookId: book.bookId,
+                            extensionPackageId: book.extensionPackageId,
+                            chapterIndex: book.currentChapterIndex,
+                            onlineChapters: [],
+                            bookTitle: nil,
+                            bookAuthor: nil,
+                            bookCoverUrl: nil,
+                            bookDesc: nil,
+                            bookDetailUrl: book.detailUrl,
+                            bookSourceName: book.sourceName
+                        )) {
+                            bookItemView(book)
+                        }
+                        .contextMenu {
+                            if !book.isLocalBook {
+                                NavigationLink(destination: BookDetailView(
+                                    bookId: book.bookId,
+                                    extensionPackageId: book.extensionPackageId,
+                                    initialDetailUrl: book.detailUrl,
+                                    sourceName: book.sourceName,
+                                    initialHost: book.host
+                                )) {
+                                    Label("Xem chi tiết", systemImage: "info.circle")
+                                }
+
+                                Button {
+                                    changeSourceTargetBook = book
+                                    navigateToChangeSource = true
+                                } label: {
+                                    Label("Đổi nguồn", systemImage: "arrow.triangle.2.circlepath")
+                                }
+                            }
+
+                            Button {
+                                prepareTaskForBook(book, type: .download)
+                            } label: {
+                                Label("Tải truyện", systemImage: "arrow.down.circle")
+                            }
+
+                            Button {
+                                prepareTaskForBook(book, type: .exportTxt)
+                            } label: {
+                                Label("Xuất ebook TXT", systemImage: "square.and.arrow.up")
+                            }
+
+                            Button {
+                                retranslateChapterTitles(for: book)
+                            } label: {
+                                Label("Dịch lại tên chương", systemImage: "arrow.clockwise.circle")
+                            }
+
+                            Button(role: .destructive) {
+                                removeFromShelf(book)
+                            } label: {
+                                Label("Xóa khỏi kệ sách", systemImage: "bookmark.slash")
+                            }
+                        }
+                    }
+
+                    if shelfBooks.count > shelfLimit {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                                .onAppear {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                        shelfLimit += 50
+                                    }
+                                }
+                            Spacer()
+                        }
+                        .listRowSeparator(.hidden)
+                    }
+                }
+                .listStyle(.plain)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var historyTabView: some View {
+        Group {
+            if historyBooks.isEmpty {
+                VStack(spacing: 20) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 80, height: 80)
+                        .foregroundColor(.secondary)
+
+                    Text("Lịch sử đọc trống")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+
+                    Text("Lịch sử sẽ tự động ghi nhớ sau khi bạn bắt đầu đọc một chương truyện.")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                }
+                .frame(maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(displayedHistoryBooks) { book in
+                        NavigationLink(destination: ReaderView(
+                            bookId: book.bookId,
+                            extensionPackageId: book.extensionPackageId,
+                            chapterIndex: book.currentChapterIndex,
+                            onlineChapters: [],
+                            bookTitle: nil,
+                            bookAuthor: nil,
+                            bookCoverUrl: nil,
+                            bookDesc: nil,
+                            bookDetailUrl: book.detailUrl,
+                            bookSourceName: book.sourceName
+                        )) {
+                            bookItemView(book)
+                        }
+                        .contextMenu {
+                            NavigationLink(destination: BookDetailView(
+                                bookId: book.bookId,
+                                extensionPackageId: book.extensionPackageId,
+                                initialDetailUrl: book.detailUrl,
+                                sourceName: book.sourceName,
+                                initialHost: book.host
+                            )) {
+                                Label("Xem chi tiết", systemImage: "info.circle")
+                            }
+
+                            if !book.isOnShelf {
+                                Button {
+                                    addToShelf(book)
+                                } label: {
+                                    Label("Thêm vào kệ sách", systemImage: "bookmark.badge.plus")
+                                }
+                            }
+
+                            if !book.isLocalBook {
+                                Button {
+                                    changeSourceTargetBook = book
+                                    navigateToChangeSource = true
+                                } label: {
+                                    Label("Đổi nguồn", systemImage: "arrow.triangle.2.circlepath")
+                                }
+                            }
+
+                            Button {
+                                prepareTaskForBook(book, type: .download)
+                            } label: {
+                                Label("Tải truyện", systemImage: "arrow.down.circle")
+                            }
+
+                            Button {
+                                prepareTaskForBook(book, type: .exportTxt)
+                            } label: {
+                                Label("Xuất ebook TXT", systemImage: "square.and.arrow.up")
+                            }
+
+                            Button {
+                                retranslateChapterTitles(for: book)
+                            } label: {
+                                Label("Dịch lại tên chương", systemImage: "arrow.clockwise.circle")
+                            }
+
+                            Button(role: .destructive) {
+                                removeFromHistory(book)
+                            } label: {
+                                Label("Xóa lịch sử", systemImage: "clock.badge.xmark")
+                            }
+                        }
+                    }
+
+                    if historyBooks.count > historyLimit {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                                .onAppear {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                        historyLimit += 50
+                                    }
+                                }
+                            Spacer()
+                        }
+                        .listRowSeparator(.hidden)
+                    }
+                }
+                .listStyle(.plain)
+            }
         }
     }
 
