@@ -29,6 +29,7 @@ public struct ExtensionScriptEditorView: View {
     @State private var errorMessage = ""
     @State private var syntaxStatusMessage: String? = nil
     @State private var isSyntaxValid: Bool = true
+    @State private var showingDiscardAlert = false
     @AppStorage("scriptEditorFontSize") private var scriptEditorFontSize: Double = 11.0
     private var fontSize: CGFloat {
         CGFloat(scriptEditorFontSize)

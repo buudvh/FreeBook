@@ -2,6 +2,14 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.132] - 2026-08-12
+
+### Khắc phục thiếu biến showingDiscardAlert trong ExtensionScriptEditorView
+
+* Khôi phục biến `@State private var showingDiscardAlert = false` trong `ExtensionScriptEditorView.swift`.
+* Sửa lỗi biên dịch `cannot find 'showingDiscardAlert' in scope` và lỗi suy luận kiểu dữ liệu kéo theo của `body`.
+* Tuân thủ quy định: Không thực hiện tự động push code lên Git repository.
+
 ## [1.3.131] - 2026-08-12
 
 ### Lưu trữ lâu dài cài đặt Cỡ chữ (FontSize) mặc định 11pt trong Trình biên tập Script
