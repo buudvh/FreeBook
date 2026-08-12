@@ -648,17 +648,7 @@ struct ReaderView: View {
 
                 NavigationLink(
                     destination: LazyView {
-                        if let book = localBook {
-                            SearchView(
-                                activeExtensions: allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled },
-                                selectedExtension: nil,
-                                initialSearchQuery: book.title,
-                                changeSourceTargetBook: book,
-                                onSourceChanged: {
-                                    navigateToChangeSource = false
-                                }
-                            )
-                        }
+                        changeSourceDestinationView
                     },
                     isActive: $navigateToChangeSource
                 ) {
@@ -666,6 +656,25 @@ struct ReaderView: View {
                 }
             }
         )
+    }
+
+    @ViewBuilder
+    private var changeSourceDestinationView: some View {
+        if let book = localBook {
+            SearchView(
+                activeExtensions: activeExtensions,
+                selectedExtension: nil,
+                initialSearchQuery: book.title,
+                changeSourceTargetBook: book,
+                onSourceChanged: {
+                    navigateToChangeSource = false
+                }
+            )
+        }
+    }
+
+    private var activeExtensions: [Extension] {
+        allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
     }
 
     @State private var selectionAudioPlayer: AVAudioPlayer? = nil

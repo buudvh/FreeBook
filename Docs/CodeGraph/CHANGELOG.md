@@ -2,6 +2,13 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.125] - 2026-08-12
+
+### Khắc phục lỗi Swift type-checker timeout trong ShelfView và ReaderView
+
+* Tách `changeSourceDestinationView` thành thuộc tính `@ViewBuilder private var` độc lập trong cả `ShelfView.swift` và `ReaderView.swift`.
+* Khắc phục triệt để lỗi biên dịch Swift compiler `the compiler is unable to type-check this expression in reasonable time` khi xử lý biểu thức phức tạp trong `GeometryReader` và `NavigationStack` / `navigationDestination`.
+
 ## [1.3.124] - 2026-08-12
 
 ### Sửa lỗi biên dịch Xcode trong ShelfView, ReaderView và loại bỏ cảnh báo Swift 6

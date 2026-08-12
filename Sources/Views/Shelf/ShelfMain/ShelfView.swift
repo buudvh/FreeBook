@@ -387,18 +387,7 @@ struct ShelfView: View {
                 }
             }
             .navigationDestination(isPresented: $navigateToChangeSource) {
-                if let targetBook = changeSourceTargetBook {
-                    SearchView(
-                        activeExtensions: activeExtensions,
-                        selectedExtension: nil,
-                        initialSearchQuery: targetBook.title,
-                        changeSourceTargetBook: targetBook,
-                        onSourceChanged: {
-                            changeSourceTargetBook = nil
-                            navigateToChangeSource = false
-                        }
-                    )
-                }
+                changeSourceDestinationView
             }
             .alert("Xóa tất cả lịch sử", isPresented: $showingClearHistoryAlert) {
                 Button("Xóa tất cả", role: .destructive) {
@@ -502,8 +491,26 @@ struct ShelfView: View {
                         showingFilePicker = false
                     }
                 )
-            }
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var changeSourceDestinationView: some View {
+        if let targetBook = changeSourceTargetBook {
+            SearchView(
+                activeExtensions: activeExtensions,
+                selectedExtension: nil,
+                initialSearchQuery: targetBook.title,
+                changeSourceTargetBook: targetBook,
+                onSourceChanged: {
+                    changeSourceTargetBook = nil
+                    navigateToChangeSource = false
+                }
+            )
+        }
+    }
 
                 if isImporting {
                     Color.black.opacity(0.4)
