@@ -533,6 +533,7 @@ struct ShelfView: View {
             .background(Color.black.opacity(0.8).cornerRadius(12))
         }
     }
+}
 
     @ViewBuilder
     private var changeSourceDestinationView: some View {

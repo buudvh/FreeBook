@@ -2,6 +2,13 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.127] - 2026-08-12
+
+### Khắc phục lỗi ngoặc đóng làm mở lại body của ShelfView
+
+* Căn chỉnh chính xác các ngoặc đóng `}` của `ZStack`, `NavigationStack` và `var body: some View` trong `ShelfView.swift`.
+* Đảm bảo `var body: some View` được đóng hoàn toàn trước khi bắt đầu khai báo các thuộc tính và phương thức `private` trong `ShelfView`, khắc phục triệt để lỗi `attribute 'private' can only be used in a non-local scope` và `expected '}' in struct`.
+
 ## [1.3.126] - 2026-08-12
 
 ### Khắc phục lỗi ngoặc đóng làm gián đoạn khai báo struct trong ShelfView
