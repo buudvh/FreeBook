@@ -2,6 +2,13 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.126] - 2026-08-12
+
+### Khắc phục lỗi ngoặc đóng làm gián đoạn khai báo struct trong ShelfView
+
+* Sửa lỗi ngoặc đóng thừa làm kết thúc sớm khối `struct ShelfView: View` trong `ShelfView.swift`.
+* Đặt thuộc tính `@ViewBuilder private var changeSourceDestinationView: some View` bên trong phạm vi `struct ShelfView`, giúp toàn bộ các phương thức helper khôi phục đúng scope của `ShelfView`.
+
 ## [1.3.125] - 2026-08-12
 
 ### Khắc phục lỗi Swift type-checker timeout trong ShelfView và ReaderView

@@ -491,8 +491,46 @@ struct ShelfView: View {
                         showingFilePicker = false
                     }
                 )
-                }
             }
+        }
+
+        if isImporting {
+            Color.black.opacity(0.4)
+                .edgesIgnoringSafeArea(.all)
+                .transition(.opacity)
+
+            VStack(spacing: 20) {
+                ProgressView(value: importProgress)
+                    .progressViewStyle(.linear)
+                    .frame(width: 220)
+                    .tint(.blue)
+
+                Text(importStatusText)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(30)
+            .background(
+                RoundedRectangle(cornerRadius: 15)
+                    .fill(Color(red: 0.15, green: 0.15, blue: 0.15).opacity(0.95))
+            )
+            .transition(.scale)
+        }
+
+        if isProcessingDeletion {
+            Color.black.opacity(0.3)
+                .edgesIgnoringSafeArea(.all)
+            VStack(spacing: 12) {
+                ProgressView()
+                    .tint(.white)
+                Text("Đang dọn dẹp sách...")
+                    .font(.subheadline)
+                    .foregroundColor(.white)
+            }
+            .padding(20)
+            .background(Color.black.opacity(0.8).cornerRadius(12))
         }
     }
 
@@ -511,47 +549,6 @@ struct ShelfView: View {
             )
         }
     }
-
-                if isImporting {
-                    Color.black.opacity(0.4)
-                        .edgesIgnoringSafeArea(.all)
-                        .transition(.opacity)
-
-                    VStack(spacing: 20) {
-                        ProgressView(value: importProgress)
-                            .progressViewStyle(.linear)
-                            .frame(width: 220)
-                            .tint(.blue)
-
-                        Text(importStatusText)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(30)
-                    .background(
-                        RoundedRectangle(cornerRadius: 15)
-                            .fill(Color(red: 0.15, green: 0.15, blue: 0.15).opacity(0.95))
-                    )
-                    .transition(.scale)
-                }
-
-                if isProcessingDeletion {
-                    Color.black.opacity(0.3)
-                        .edgesIgnoringSafeArea(.all)
-                    VStack(spacing: 12) {
-                        ProgressView()
-                            .tint(.white)
-                        Text("Đang dọn dẹp sách...")
-                            .font(.subheadline)
-                            .foregroundColor(.white)
-                    }
-                    .padding(20)
-                    .background(Color.black.opacity(0.8).cornerRadius(12))
-                }
-            }
-        }
 
     @ViewBuilder
     private func bookItemView(_ book: Book) -> some View {
