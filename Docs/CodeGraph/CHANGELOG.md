@@ -13,7 +13,8 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 * Áp dụng `ExpandableTextView` cho phần Bình luận (`CommentSectionView` và `AllCommentsView`) với tối đa 3 dòng khi thu gọn.
 * Tách danh sách Thể loại (`genres`) thành 1 section riêng nằm trên phần Giới thiệu trong `BookDetailHeaderView`, sử dụng component `FlowLayout` tự động xuống dòng linh hoạt thay vì cuộn ngang.
 * Khắc phục lỗi `DownloadManager`: Thêm `cancelledTaskIds` để lập tức dừng tiến trình tải ngầm khi xóa tác vụ; đồng thời reset cờ `isCancelled = false` trong RAM và DB khi bấm Tải lại (Retry) tác vụ đã bị hủy.
-* Khắc phục lỗi `newVisibleBrowser`: Gọi `loader.presentUIIfNeeded()` lập tức khi đối tượng được khởi tạo trong JS và nâng cấp cơ chế tìm kiếm `UIWindowScene` active/thử lại khi màn hình bận.
+* Khắc phục lỗi `newVisibleBrowser`: Gọi `loader.presentUIIfNeeded()` lập tức khi đối tượng được khởi tạo trong JS, nâng cấp cơ chế tìm kiếm `UIWindowScene` active/thử lại khi màn hình bận.
+* Xây dựng giao diện Dạng Tab cho `newVisibleBrowser` (`VisibleBrowserTabManager` & `TabbedVisibleBrowserViewController`): Khi có nhiều trình duyệt bật cùng lúc, các trình duyệt mới sẽ được gộp vào dạng Tab trên cùng một cửa sổ modal thay vì mở đè nhiều cửa sổ, hỗ trợ tự động đánh số phân biệt tiêu đề trùng ("Tab 1", "Tab 1 (2)").
 * Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng không yêu cầu.
 
 ## [1.3.115] - 2026-08-11

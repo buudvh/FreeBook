@@ -654,7 +654,7 @@ public final class JSExecutor: @unchecked Sendable {
         let browserNewVisibleBlock: @convention(block) (String, String) -> Void = { [weak self] browserId, title in
             guard let self = self else { return }
             let setupLoader = {
-                let loader = VisibleWebViewLoader(title: title)
+                let loader = VisibleWebViewLoader(id: browserId, title: title)
                 loader.onClose = { [weak self] in
                     self?.activeVisibleBrowsers.removeValue(forKey: browserId)
                 }

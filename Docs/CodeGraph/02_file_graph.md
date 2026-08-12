@@ -301,6 +301,18 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 
 ---
 
+### 18b. [VisibleBrowserTabManager.swift](../../Sources/Services/Extensions/Engine/VisibleBrowserTabManager.swift)
+
+*   **Đường dẫn**: `Services/Extensions/Engine/VisibleBrowserTabManager.swift`
+*   **Imports (Import Graph)**: `Foundation`, `UIKit`, `WebKit`
+*   **Sử dụng (Uses)**:
+    *   [VisibleWebViewLoader.swift](../../Sources/Services/Extensions/Engine/VisibleWebViewLoader.swift)
+*   **Được sử dụng bởi (Used by)**:
+    *   [VisibleWebViewLoader.swift](../../Sources/Services/Extensions/Engine/VisibleWebViewLoader.swift)
+    *   [JSExecutor.swift](../../Sources/Services/Extensions/Engine/JSExecutor.swift)
+
+---
+
 ### 19. [ExtensionManager.swift](../../Sources/Services/Extensions/Manager/ExtensionManager.swift)
 
 *   **Đường dẫn**: `Services/Extensions/Manager/ExtensionManager.swift`

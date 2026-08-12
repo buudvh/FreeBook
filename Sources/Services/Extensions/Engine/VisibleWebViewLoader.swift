@@ -5,7 +5,7 @@ import WebKit
 // MARK: - Visible WKWebView Controller & Loader Helper
 public final class VisibleWebViewController: UIViewController, WKNavigationDelegate {
     let webView: WKWebView
-    private let titleString: String
+    let titleString: String
     var onDismiss: (() -> Void)?
     
     fileprivate var navigationCompletion: ((String?) -> Void)?
@@ -101,10 +101,10 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
     }
 }
 
-class VisibleWebViewLoader: NSObject, UIAdaptivePresentationControllerDelegate {
+public final class VisibleWebViewLoader: NSObject, UIAdaptivePresentationControllerDelegate {
+    public let id: String
+    public var titleString: String { viewController.titleString }
     let viewController: VisibleWebViewController
-    private var navController: UINavigationController?
-    private var isPresented = false
     private var isCleaningUp = false
     var onClose: (() -> Void)?
 
@@ -113,7 +113,8 @@ class VisibleWebViewLoader: NSObject, UIAdaptivePresentationControllerDelegate {
     private var waitReadyTimerWorkItem: DispatchWorkItem?
     private var waitReadyTimeoutWorkItem: DispatchWorkItem?
 
-    init(title: String) {
+    init(id: String = UUID().uuidString, title: String) {
+        self.id = id
         self.viewController = VisibleWebViewController(title: title)
         super.init()
         self.viewController.onDismiss = { [weak self] in
@@ -126,7 +127,6 @@ class VisibleWebViewLoader: NSObject, UIAdaptivePresentationControllerDelegate {
     }
 
     func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
-        self.isPresented = false
         self.cleanUp()
     }
 
@@ -156,10 +156,8 @@ class VisibleWebViewLoader: NSObject, UIAdaptivePresentationControllerDelegate {
             self.viewController.navigationCompletion = nil
             self.viewController.waitUrlCompletion = nil
             self.cancelPendingWaitReady(reason: "Browser closed/cleaned up", cancelled: true)
-            if isPresented, let nav = navController {
-                isPresented = false
-                nav.dismiss(animated: true, completion: nil)
-            }
+
+            VisibleBrowserTabManager.shared.removeTab(id: id)
 
             let callback = onClose
             onClose = nil
@@ -171,35 +169,24 @@ class VisibleWebViewLoader: NSObject, UIAdaptivePresentationControllerDelegate {
         }
     }
 
+    func cleanUpQuietly() {
+        guard !isCleaningUp else { return }
+        isCleaningUp = true
+
+        self.viewController.webView.navigationDelegate = nil
+        self.viewController.webView.stopLoading()
+        self.viewController.navigationCompletion = nil
+        self.viewController.waitUrlCompletion = nil
+        self.cancelPendingWaitReady(reason: "Browser closed/cleaned up", cancelled: true)
+
+        let callback = onClose
+        onClose = nil
+        callback?()
+    }
+
     @MainActor
     func presentUIIfNeeded() {
-        guard !isPresented else { return }
-        
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        guard let windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first,
-              let window = windowScene.windows.first(where: { $0.isKeyWindow }) ?? windowScene.windows.first,
-              let rootVC = window.rootViewController else {
-            return
-        }
-
-        var topVC = rootVC
-        while let presented = topVC.presentedViewController {
-            topVC = presented
-        }
-
-        if topVC.isBeingPresented || topVC.isBeingDismissed {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                self.presentUIIfNeeded()
-            }
-            return
-        }
-
-        let nav = UINavigationController(rootViewController: viewController)
-        nav.modalPresentationStyle = .pageSheet
-        nav.presentationController?.delegate = self
-        self.navController = nav
-        self.isPresented = true
-        topVC.present(nav, animated: true, completion: nil)
+        VisibleBrowserTabManager.shared.addTab(id: id, loader: self)
     }
 
     func load(url: URL, timeout: TimeInterval, completion: @escaping (String?) -> Void) {
