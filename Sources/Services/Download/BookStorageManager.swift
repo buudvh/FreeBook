@@ -24,7 +24,8 @@ public final class BookStorageManager {
 
     // Xóa toàn bộ lịch sử (Chỉ xóa sách không ở trên kệ, trừ sách đang phát TTS)
     public func clearAllHistory(historyBooks: [Book], context: ModelContext) throws {
-        let playingId = TTSManager.shared.playingBookId
+        let isTTSActive = TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget
+        let playingId = isTTSActive ? TTSManager.shared.playingBookId : ""
         let toDelete = historyBooks.filter { !$0.isOnShelf && (playingId.isEmpty || $0.bookId != playingId) }
         guard !toDelete.isEmpty else { return }
         let bookIds = toDelete.map { $0.bookId }
@@ -38,7 +39,8 @@ public final class BookStorageManager {
 
     // API Xóa bất đồng bộ lõi theo danh sách bookId sử dụng ModelContainer (Non-blocking UI)
     public func deleteBooksAsync(bookIds: [String], container: ModelContainer) async throws {
-        let playingId = TTSManager.shared.playingBookId
+        let isTTSActive = TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget
+        let playingId = isTTSActive ? TTSManager.shared.playingBookId : ""
         let validBookIds = Array(Set(bookIds)).filter { playingId.isEmpty || $0 != playingId }
         guard !validBookIds.isEmpty else { return }
 
@@ -106,7 +108,8 @@ public final class BookStorageManager {
 
     // Async clear-all lịch sử chỉ xóa sách không nằm trên kệ (và không phải sách đang phát TTS)
     public func clearAllOffShelfHistoryAsync(container: ModelContainer) async throws {
-        let playingId = TTSManager.shared.playingBookId
+        let isTTSActive = TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget
+        let playingId = isTTSActive ? TTSManager.shared.playingBookId : ""
 
         let deletedIds: [String] = try await Task.detached(priority: .userInitiated) {
             let bgContext = ModelContext(container)
@@ -169,7 +172,8 @@ public final class BookStorageManager {
 
     // Xóa hàng loạt sách và thực hiện side-effects (Đồng bộ)
     public func deleteBooks(bookIds: [String], context: ModelContext) throws {
-        let playingId = TTSManager.shared.playingBookId
+        let isTTSActive = TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget
+        let playingId = isTTSActive ? TTSManager.shared.playingBookId : ""
         let uniqueBookIds = Array(Set(bookIds)).filter { playingId.isEmpty || $0 != playingId }
         guard !uniqueBookIds.isEmpty else { return }
 

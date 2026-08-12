@@ -2,6 +2,28 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.123] - 2026-08-12
+
+### Sửa lỗi xóa sách sau khi tắt TTS, lỗi trùng lặp Mục lục nhiều trang và cải tiến tạm dừng khi đọc hết truyện
+
+* Cập nhật `TTSManager.swift`:
+  - Reset `self.playingBookId = ""` khi dừng TTS hoàn toàn (`stopPlayback` với `!keepWidget`).
+  - Trong `skipForward` và `nextParagraph`, khi phát đến hết nội dung chương cuối cùng của bộ truyện, thay thế lệnh `stop()` bằng `pause()` kèm thông báo *"📖 Đã phát hết nội dung bộ truyện"* để giữ widget nổi ở trạng thái Tạm dừng thay vì tắt hẳn.
+* Cập nhật `BookStorageManager.swift`:
+  - Kiểm tra trạng thái TTS thực tế (`isTTSActive = isPlaying || showFloatingWidget`) trước khi áp dụng cờ bảo vệ `playingBookId`, giúp xóa thành công sách sau khi đã tắt nghe TTS.
+* Cập nhật `ChapterPersistenceStore.swift`:
+  - Thêm chuẩn hóa URL `normalizeUrl` trong `ReconciliationPool` (bỏ `http://`/`https://` và dấu `/` cuối) để đối chiếu và cập nhật chính xác các chương đã có khi tải mục lục nhiều trang, ngăn chèn trùng lặp mục lục.
+* Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng không yêu cầu.
+
+## [1.3.122] - 2026-08-12
+
+### Thêm nút Đổi nguồn khi nhấn giữ sách ở Kệ sách, Lịch sử và trong Trình đọc (Reader)
+
+* Cập nhật `ShelfView.swift`: Thêm nút **"Đổi nguồn"** (`arrow.triangle.2.circlepath`) vào menu ngữ cảnh (Context Menu) khi nhấn giữ một bộ truyện online (`!book.isLocalBook`) ở cả 2 tab **Kệ sách** và **Lịch sử đọc**.
+* Cập nhật `ReaderHeaderFooterOverlayView.swift` & `ReaderView.swift`: Thêm nút **"Đổi nguồn truyện"** vào `Menu` tùy chọn `...` góc trên bên phải của Trình đọc (Reader).
+* Khi kích hoạt từ 1 trong 3 vị trí trên, ứng dụng mở màn hình `SearchView` điền sẵn tên truyện để người dùng chọn nguồn mới mượt mượt và nhanh chóng.
+* Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng không yêu cầu.
+
 ## [1.3.121] - 2026-08-12
 
 ### Bảo toàn trạng thái Kệ sách (isOnShelf) và Lịch sử (isHistory) khi đổi nguồn

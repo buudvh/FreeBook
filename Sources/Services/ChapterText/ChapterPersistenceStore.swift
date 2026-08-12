@@ -822,17 +822,33 @@ fileprivate class ReconciliationPool {
     private var indexMap: [Int: [Chapter]] = [:]
     private var consumed: Set<PersistentIdentifier> = []
 
+    private static func normalizeUrl(_ url: String) -> String {
+        guard !url.isEmpty else { return "" }
+        var str = url.lowercased()
+        if str.hasPrefix("http://") {
+            str = String(str.dropFirst(7))
+        } else if str.hasPrefix("https://") {
+            str = String(str.dropFirst(8))
+        }
+        if str.hasSuffix("/") {
+            str = String(str.dropLast())
+        }
+        return str
+    }
+
     init(chapters: [Chapter]) {
         for chap in chapters {
-            if !chap.url.isEmpty {
-                urlMap[chap.url, default: []].append(chap)
+            let norm = Self.normalizeUrl(chap.url)
+            if !norm.isEmpty {
+                urlMap[norm, default: []].append(chap)
             }
             indexMap[chap.index, default: []].append(chap)
         }
     }
 
     func consume(url: String, index: Int) -> Chapter? {
-        if !url.isEmpty, let list = urlMap[url] {
+        let norm = Self.normalizeUrl(url)
+        if !norm.isEmpty, let list = urlMap[norm] {
             for chap in list {
                 if !consumed.contains(chap.persistentModelID) {
                     consumed.insert(chap.persistentModelID)

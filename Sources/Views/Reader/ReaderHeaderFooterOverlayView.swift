@@ -23,6 +23,7 @@ struct ReaderHeaderFooterOverlayView: View {
 
     let onDismiss: () -> Void
     let onReloadChapter: () -> Void
+    let onChangeSource: () -> Void
     let onToggleChapterTitle: () -> Void
     let onOpenChapterList: () -> Void
     let onPrevChapter: () -> Void
@@ -70,6 +71,12 @@ struct ReaderHeaderFooterOverlayView: View {
 
                         Button(action: { showingBypassBrowser = true }) {
                             Label("Mở bằng trình duyệt", systemImage: "safari")
+                        }
+
+                        if !isLocalTXTBook {
+                            Button(action: onChangeSource) {
+                                Label("Đổi nguồn truyện", systemImage: "arrow.triangle.2.circlepath")
+                            }
                         }
 
                         Button(action: { showingSettings = true }) {

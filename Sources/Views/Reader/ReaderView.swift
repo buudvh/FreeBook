@@ -164,6 +164,7 @@ struct ReaderView: View {
     @State private var importedSourceName = ""
     @State private var importedHost = ""
     @State private var navigateToBookDetail = false
+    @State private var navigateToChangeSource = false
 
     // Reader chỉ quan sát projection TTS cần để render; manager singleton vẫn xử lý action.
     @StateObject private var ttsState = ReaderTTSStateReader()
@@ -644,6 +645,25 @@ struct ReaderView: View {
                 ) {
                     EmptyView()
                 }
+
+                NavigationLink(
+                    destination: LazyView {
+                        if let book = localBook {
+                            SearchView(
+                                activeExtensions: allExtensions.filter { $0.isActive },
+                                selectedExtension: nil,
+                                initialSearchQuery: book.title,
+                                changeSourceTargetBook: book,
+                                onSourceChanged: {
+                                    navigateToChangeSource = false
+                                }
+                            )
+                        }
+                    },
+                    isActive: $navigateToChangeSource
+                ) {
+                    EmptyView()
+                }
             }
         )
     }
@@ -911,6 +931,9 @@ struct ReaderView: View {
                 readerProgressPercent: readerProgressPercent,
                 onDismiss: { dismiss() },
                 onReloadChapter: reloadCurrentChapterFromMenu,
+                onChangeSource: {
+                    navigateToChangeSource = true
+                },
                 onToggleChapterTitle: toggleChapterTitleVisibility,
                 onOpenChapterList: {
                     _ = getOrInitChapterListStore()

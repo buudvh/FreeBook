@@ -23,6 +23,10 @@ struct ShelfView: View {
     // @Query: Tự động tải danh sách Book từ database lên, sắp xếp theo ngày đọc gần nhất giảm dần.
     // SwiftUI sẽ tự động vẽ lại giao diện bất cứ khi nào danh sách sách trong database thay đổi.
     @Query(sort: \Book.lastReadDate, order: .reverse) private var allBooks: [Book]
+    @Query(filter: #Predicate<Extension> { $0.isActive == true }) private var activeExtensions: [Extension]
+    
+    @State private var changeSourceTargetBook: Book? = nil
+    @State private var navigateToChangeSource = false
 
     // @State: Biến trạng thái nội bộ của View. Khi giá trị thay đổi, UI sẽ tự động vẽ lại.
     @State private var selectedTab = 1 // Tab đang chọn: 0 là Tải trước, 1 là Kệ Sách, 2 là Lịch Sử
@@ -149,6 +153,13 @@ struct ShelfView: View {
                                             )) {
                                                 Label("Xem chi tiết", systemImage: "info.circle")
                                             }
+
+                                            Button {
+                                                changeSourceTargetBook = book
+                                                navigateToChangeSource = true
+                                            } label: {
+                                                Label("Đổi nguồn", systemImage: "arrow.triangle.2.circlepath")
+                                            }
                                         }
 
                                         Button {
@@ -253,6 +264,15 @@ struct ShelfView: View {
                                             }
                                         }
 
+                                        if !book.isLocalBook {
+                                            Button {
+                                                changeSourceTargetBook = book
+                                                navigateToChangeSource = true
+                                            } label: {
+                                                Label("Đổi nguồn", systemImage: "arrow.triangle.2.circlepath")
+                                            }
+                                        }
+
                                         Button {
                                             prepareTaskForBook(book, type: .download)
                                         } label: {
@@ -344,6 +364,36 @@ struct ShelfView: View {
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
+                }
+            }
+            .navigationDestination(isPresented: $triggerNavigation) {
+                if let route = activeReaderRoute {
+                    ReaderView(
+                        bookId: route.bookId,
+                        extensionPackageId: route.extensionPackageId,
+                        chapterIndex: route.chapterIndex,
+                        onlineChapters: [],
+                        bookTitle: route.bookTitle,
+                        bookAuthor: route.bookAuthor,
+                        bookCoverUrl: route.bookCoverUrl,
+                        bookDesc: route.bookDesc,
+                        bookDetailUrl: route.bookDetailUrl,
+                        bookSourceName: route.bookSourceName
+                    )
+                }
+            }
+            .navigationDestination(isPresented: $navigateToChangeSource) {
+                if let targetBook = changeSourceTargetBook {
+                    SearchView(
+                        activeExtensions: activeExtensions,
+                        selectedExtension: nil,
+                        initialSearchQuery: targetBook.title,
+                        changeSourceTargetBook: targetBook,
+                        onSourceChanged: {
+                            changeSourceTargetBook = nil
+                            navigateToChangeSource = false
+                        }
+                    )
                 }
             }
             .alert("Xóa tất cả lịch sử", isPresented: $showingClearHistoryAlert) {

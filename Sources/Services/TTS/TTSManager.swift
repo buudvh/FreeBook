@@ -1525,6 +1525,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         nowPlayingCoverDownloadKey = nil
 
         if !keepWidget {
+            self.playingBookId = ""
             self.currentParagraphIndex = -1
             self.currentParentParagraphIndex = -1
             self.savedParagraphIdentityBeforeSettings = -1
@@ -1680,7 +1681,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             if let nextIdx = nextChapterIndex(after: playingChapterIndex) {
                 advanceToNextChapter(nextIdx: nextIdx)
             } else {
-                stop()
+                stopCurrentPlayback()
+                pause()
+                ToastManager.shared.show(message: "📖 Đã phát hết nội dung bộ truyện.", type: .info)
                 onChapterFinished?()
             }
         }
@@ -1749,7 +1752,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 advanceToNextChapter(nextIdx: nextIdx)
             } else {
                 // Đã hết sách hoàn toàn
-                stop()
+                stopCurrentPlayback()
+                pause()
+                ToastManager.shared.show(message: "📖 Đã phát hết nội dung bộ truyện.", type: .info)
                 onChapterFinished?()
             }
         }
