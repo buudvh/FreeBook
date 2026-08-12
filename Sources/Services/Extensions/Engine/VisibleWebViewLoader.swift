@@ -172,17 +172,26 @@ class VisibleWebViewLoader: NSObject, UIAdaptivePresentationControllerDelegate {
     }
 
     @MainActor
-    private func presentUIIfNeeded() {
+    func presentUIIfNeeded() {
         guard !isPresented else { return }
         
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController else {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard let windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first,
+              let window = windowScene.windows.first(where: { $0.isKeyWindow }) ?? windowScene.windows.first,
+              let rootVC = window.rootViewController else {
             return
         }
 
         var topVC = rootVC
         while let presented = topVC.presentedViewController {
             topVC = presented
+        }
+
+        if topVC.isBeingPresented || topVC.isBeingDismissed {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.presentUIIfNeeded()
+            }
+            return
         }
 
         let nav = UINavigationController(rootViewController: viewController)

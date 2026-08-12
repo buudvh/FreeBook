@@ -64,6 +64,7 @@ public final class DownloadManager: ObservableObject {
     public static let shared = DownloadManager()
 
     @Published public var tasks: [DownloadTask] = []
+    public var cancelledTaskIds: Set<UUID> = []
     private var container: ModelContainer?
 
     private init() {}
@@ -116,6 +117,8 @@ public final class DownloadManager: ObservableObject {
     }
 
     public func deleteTask(taskId: UUID) {
+        cancelTask(taskId: taskId)
+
         guard let container = container else { return }
         let context = ModelContext(container)
         let allModels = (try? context.fetch(FetchDescriptor<DownloadTaskModel>())) ?? []
@@ -134,13 +137,17 @@ public final class DownloadManager: ObservableObject {
         let task = tasks[idx]
         guard task.status == .failed || task.status == .cancelled else { return }
 
+        cancelledTaskIds.remove(taskId)
+
         tasks[idx].status = .pending
+        tasks[idx].isCancelled = false
         tasks[idx].progressCount = 0
         tasks[idx].errorMessage = nil
 
         if let container = self.container {
             updateTaskInDB(taskId: taskId) { model in
-                model.statusRaw = "pending"
+                model.statusRaw = TaskStatus.pending.rawValue
+                model.isCancelled = false
                 model.progressCount = 0
                 model.errorMessage = nil
             }
@@ -219,6 +226,7 @@ public final class DownloadManager: ObservableObject {
     }
 
     public func cancelTask(taskId: UUID) {
+        cancelledTaskIds.insert(taskId)
         if let index = tasks.firstIndex(where: { $0.id == taskId }) {
             tasks[index].status = .cancelled
             tasks[index].isCancelled = true
@@ -259,6 +267,9 @@ public final class DownloadManager: ObservableObject {
     }
 
     public func isTaskCancelled(taskId: UUID) -> Bool {
+        if cancelledTaskIds.contains(taskId) {
+            return true
+        }
         return tasks.first(where: { $0.id == taskId })?.isCancelled ?? false
     }
 

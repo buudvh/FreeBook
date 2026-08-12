@@ -4,7 +4,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.116] - 2026-08-11
 
-### Nâng cấp giao diện đề xuất (Suggest 2 cột) và ExpandableTextView tự động đo chiều cao
+### Nâng cấp giao diện đề xuất (Suggest 2 cột), ExpandableTextView và sửa lỗi DownloadManager & newVisibleBrowser
 
 * Chuyển danh sách truyện gợi ý/đề xuất (`SuggestRowView`) trong màn hình chi tiết truyện sang giao diện 2 cột (`LazyVGrid`), với bìa sách nằm bên trái và tên truyện hiển thị tối đa 3 dòng.
 * Cập nhật giao diện khung xương chờ tải (skeleton placeholder) trong `BookDetailView` đồng bộ với bố cục 2 cột mới.
@@ -12,6 +12,8 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 * Áp dụng `ExpandableTextView` cho phần Giới thiệu (`BookDetailHeaderView`) với tối đa 4 dòng khi thu gọn, khắc phục lỗi mất chữ khi văn bản ít ký tự nhưng xuống dòng nhiều.
 * Áp dụng `ExpandableTextView` cho phần Bình luận (`CommentSectionView` và `AllCommentsView`) với tối đa 3 dòng khi thu gọn.
 * Tách danh sách Thể loại (`genres`) thành 1 section riêng nằm trên phần Giới thiệu trong `BookDetailHeaderView`, sử dụng component `FlowLayout` tự động xuống dòng linh hoạt thay vì cuộn ngang.
+* Khắc phục lỗi `DownloadManager`: Thêm `cancelledTaskIds` để lập tức dừng tiến trình tải ngầm khi xóa tác vụ; đồng thời reset cờ `isCancelled = false` trong RAM và DB khi bấm Tải lại (Retry) tác vụ đã bị hủy.
+* Khắc phục lỗi `newVisibleBrowser`: Gọi `loader.presentUIIfNeeded()` lập tức khi đối tượng được khởi tạo trong JS và nâng cấp cơ chế tìm kiếm `UIWindowScene` active/thử lại khi màn hình bận.
 * Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng không yêu cầu.
 
 ## [1.3.115] - 2026-08-11
