@@ -29,6 +29,7 @@ struct DiscoveryView: View {
     
     @State private var selectedExtensionId: String = ""
     @State private var isLoading = true
+    @State private var needsReloadActiveExtension = false
     
     // Nguồn dữ liệu danh mục của tiện ích
     @State private var homeItems: [CategoryResult] = []
@@ -325,10 +326,22 @@ struct DiscoveryView: View {
                     }
                 }
                 
-                if !selectedExtensionId.isEmpty && homeItems.isEmpty && genreItems.isEmpty && discoveryError.isEmpty {
+                if needsReloadActiveExtension {
+                    needsReloadActiveExtension = false
+                    if !selectedExtensionId.isEmpty {
+                        loadDiscoveryData()
+                    }
+                } else if !selectedExtensionId.isEmpty && homeItems.isEmpty && genreItems.isEmpty && discoveryError.isEmpty {
                     loadDiscoveryData()
                 } else if selectedExtensionId.isEmpty {
                     isLoading = false
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("extensionDidUpdate"))) { notification in
+                if let packageId = notification.userInfo?["packageId"] as? String {
+                    if packageId == selectedExtensionId {
+                        needsReloadActiveExtension = true
+                    }
                 }
             }
             // Sheet hiển thị danh sách thể loại đầy đủ (Genres)

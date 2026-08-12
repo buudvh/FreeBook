@@ -150,7 +150,13 @@ struct SearchView: View {
             Button("Hủy", role: .cancel) {}
         } message: { result in
             let extName = changeSourceTargetExtension?.name ?? "Nguồn mới"
-            Text("Bạn có chắc chắn muốn thay đổi nguồn cho truyện sang '\(extName)' không?\nSách cũ trên kệ sẽ bị xóa và các cài đặt dịch riêng, từ điển riêng cũng như tiến độ đọc chương sẽ được chuyển qua sách mới.")
+            let oldBookId = changeSourceTargetBook?.bookId ?? ""
+            let isPlayingTTS = (TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget) && TTSManager.shared.playingBookId == oldBookId
+            if isPlayingTTS {
+                Text("Bạn đang nghe phát âm thanh cho truyện này. Nguồn mới '\(extName)' sẽ được thêm vào kệ sách mà không xóa nguồn cũ để quá trình nghe không bị gián đoạn.")
+            } else {
+                Text("Bạn có chắc chắn muốn thay đổi nguồn cho truyện sang '\(extName)' không?\nSách cũ trên kệ sẽ bị xóa và các cài đặt dịch riêng, từ điển riêng cũng như tiến độ đọc chương sẽ được chuyển qua sách mới.")
+            }
         }
     }
     
@@ -573,6 +579,7 @@ struct SearchView: View {
         let oldBookId = oldBook.bookId
         let newBookId = UUID().uuidString
         let oldChapterIndex = oldBook.currentChapterIndex
+        let isPlayingTTS = (TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget) && TTSManager.shared.playingBookId == oldBookId
         
         do {
             let path = ext.localPath
@@ -639,25 +646,35 @@ struct SearchView: View {
                             try? FileManager.default.copyItem(at: oldFile, to: newFile)
                         }
                     }
-                    try? FileManager.default.removeItem(at: oldDir)
+                    if !isPlayingTTS {
+                        try? FileManager.default.removeItem(at: oldDir)
+                    }
                 }
 
-                if let freshOldBook = (try? modelContext.fetch(FetchDescriptor<Book>(predicate: #Predicate<Book> { $0.bookId == oldBookId })))?.first {
-                    modelContext.delete(freshOldBook)
-                } else {
-                    modelContext.delete(oldBook)
+                if !isPlayingTTS {
+                    if let freshOldBook = (try? modelContext.fetch(FetchDescriptor<Book>(predicate: #Predicate<Book> { $0.bookId == oldBookId })))?.first {
+                        modelContext.delete(freshOldBook)
+                    } else {
+                        modelContext.delete(oldBook)
+                    }
+                    try? modelContext.save()
+
+                    TranslateUtils.clearCache()
+                    TranslationManager.shared.clearBookDictCache(for: oldBookId)
                 }
 
-                try? modelContext.save()
-
-                TranslateUtils.clearCache()
-                TranslationManager.shared.clearBookDictCache(for: oldBookId)
                 TranslationManager.shared.clearBookDictCache(for: newBookId)
+
+                if isPlayingTTS {
+                    ToastManager.shared.show(message: "Đã thêm nguồn mới '\(ext.name)' vào kệ sách!", type: .success)
+                }
 
                 onSourceChanged?()
             }
 
-            try? await ChapterStore.shared.deleteBook(bookId: oldBookId)
+            if !isPlayingTTS {
+                try? await ChapterStore.shared.deleteBook(bookId: oldBookId)
+            }
         } catch {
             print("❌ Lỗi đổi nguồn truyện: \(error.localizedDescription)")
         }

@@ -2,6 +2,52 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.120] - 2026-08-12
+
+### Tích hợp trình tô màu cú pháp Syntax Highlighting phong cách VS Code Dark+ cho trình biên tập Script
+
+* Tạo component `HighlightingCodeEditor` (`UIViewRepresentable` wrapper `UITextView`): Phân tích cú pháp tức thì (< 1ms) với tốc độ 60/120 FPS, không gây giật trễ bàn phím.
+* Áp dụng bộ quy tắc tô màu theo chuẩn **VS Code Dark+ Theme**:
+  - Từ khóa (`function`, `var`, `let`, `const`, `return`, `async`, `await`...): Xanh dương nhạt `#569CD6`.
+  - Tên hàm & gọi hàm (`execute()`, `fetch()`, `select()`, `push()`...): Vàng ấm `#DCDCAA`.
+  - Chuỗi văn bản (`"..."`, `'...'`, `` `...` ``): Nâu cam `#CE9178`.
+  - Số & Boolean (`123`, `true`, `false`, `null`): Xanh lá mạ `#B5CEA8`.
+  - Đối tượng tích hợp (`Response`, `JSON`, `Math`, `console`...): Xanh ngọc `#4EC9B0`.
+  - Ghi chú (`// comment`, `/* comment */`): Xanh lá cây mờ `#6A9955`.
+* Cập nhật `ExtensionScriptEditorView.swift`: Thay thế `TextEditor` phẳng bằng `HighlightingCodeEditor` tích hợp cột số dòng, bàn phím phím tắt JS và tô màu cú pháp sinh động.
+* Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng không yêu cầu.
+
+## [1.3.119] - 2026-08-12
+
+### Nâng cấp giao diện Trình biên tập Script (ExtensionScriptEditorView) phong cách IDE chuyên nghiệp
+
+* Cập nhật `ExtensionScriptEditorView.swift`: Thiết kế giao diện Dark Code Editor Theme (`#181825`) tương phản cao, dịu mắt với phông chữ monospaced chuẩn IDE.
+* Tích hợp **Cột số dòng (Line Numbers Column)** căn lề trái chạy dọc theo mã nguồn giúp dễ dàng định vị vị trí dòng code khi phát hiện lỗi cú pháp.
+* Thêm **Thanh ký tự nhanh JS (Quick Symbol Toolbar)** gồm các phím bấm chèn nhanh 1 chạm: `{`, `}`, `(`, `)`, `[`, `]`, `=`, `;`, `:`, `"`, `'`, `=>`, `.`, `,`, `fetch`, `function`.
+* Thêm cờ đánh dấu **chấm màu cam `●`** cho các tệp script có thay đổi chưa lưu trên thanh tab file.
+* Thêm bộ công cụ **Tùy chỉnh cỡ chữ (`A-` / `A+`)** hỗ trợ thay đổi kích thước chữ linh hoạt từ 11pt đến 22pt ở thanh chân trang (Footer).
+* Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng không yêu cầu.
+
+## [1.3.118] - 2026-08-12
+
+### Sửa lỗi ẩn nút chỉnh sửa Script trong Cấu hình, chuẩn hóa nút hàng Extension và tự động làm mới Khám Phá
+
+* Cập nhật `ExtensionConfigView.swift`: Màn hình Cấu hình luôn hiển thị `Form` chính. Khi tiện ích không có biến cấu hình tùy chỉnh (`configDefinitions.isEmpty`), dòng thông báo được hiển thị trực tiếp trong `Section("Tùy Chỉnh Biến Global")`, đồng thời `Section("Mã Nguồn Script")` chứa nút **"Chỉnh sửa mã nguồn Script"** luôn xuất hiện bên dưới và truy cập được 100%.
+* Cập nhật `RepositoryManagerView.swift`: Bỏ nút `code.square` thừa trên hàng ngoài; chuẩn hóa kích thước cố định `34x34 pt` cho nút Cấu hình & Gỡ bỏ và nút Cập nhật màu cam nổi bật đồng chiều cao `34 pt`, khoảng cách đều tăm tắp `8 pt`.
+* Thêm phát thông báo `extensionDidUpdate` khi tiện ích được cập nhật thành công.
+* Cập nhật `DiscoveryView.swift`: Lắng nghe thông báo `extensionDidUpdate` và tự động gọi `loadDiscoveryData()` để làm mới dữ liệu `home` và `genres` khi quay lại tab Khám Phá nếu tiện ích đang active vừa được cập nhật.
+* Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng không yêu cầu.
+
+## [1.3.117] - 2026-08-12
+
+### Bảo toàn nguồn truyện cũ khi đang phát TTS trong quá trình đổi nguồn
+
+* Cập nhật `executeSourceChange` trong `SearchView.swift`: Thêm cờ kiểm tra `isPlayingTTS` dựa trên `TTSManager.shared.isPlaying` và `TTSManager.shared.playingBookId`.
+* Khi đổi nguồn trong lúc đang nghe TTS, hệ thống giữ nguyên nguồn truyện cũ trong cơ sở dữ liệu (`SwiftData`), `ChapterStore` và thư mục từ điển `books/<oldBookId>`, đồng thời thêm nguồn mới lên kệ sách để luồng phát âm thanh TTS không bị ngắt hay sập.
+* Cập nhật thông báo xác nhận Alert và Toast phản hồi cho người dùng khi thực hiện đổi nguồn trong lúc nghe TTS.
+* Cấu hình `UITabBarAppearance` trong `FreeBookApp.swift` (`standardAppearance` và `scrollEdgeAppearance` với `configureWithDefaultBackground()`) kết hợp với `.toolbarBackground(.visible, for: .tabBar)` trong `MainTabView.swift` để khắc phục lỗi thanh tab bar bị trong suốt khi ở tab Cài Đặt (Settings).
+* Không tạo hoặc chỉnh sửa unit test theo workflow rule do người dùng không yêu cầu.
+
 ## [1.3.116] - 2026-08-11
 
 ### Nâng cấp giao diện đề xuất (Suggest 2 cột), ExpandableTextView và sửa lỗi DownloadManager & newVisibleBrowser

@@ -480,11 +480,11 @@ struct RepositoryManagerView: View {
                         installExtension(ext)
                     }) {
                         Image(systemName: "arrow.down.circle")
-                            .font(.title3)
+                            .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(.accentColor)
-                            .padding(6)
+                            .frame(width: 34, height: 34)
                             .background(Color.accentColor.opacity(0.1))
-                            .cornerRadius(6)
+                            .cornerRadius(8)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Cài đặt \(ext.name)")
@@ -494,12 +494,18 @@ struct RepositoryManagerView: View {
                             Button(action: {
                                 installExtension(ext)
                             }) {
-                                Image(systemName: "arrow.clockwise.circle.fill")
-                                    .font(.title3)
-                                    .foregroundColor(.orange)
-                                    .padding(6)
-                                    .background(Color.orange.opacity(0.12))
-                                    .cornerRadius(6)
+                                HStack(spacing: 4) {
+                                    Image(systemName: "arrow.clockwise.circle.fill")
+                                        .font(.system(size: 14, weight: .bold))
+                                    Text("Cập nhật")
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                }
+                                .padding(.horizontal, 8)
+                                .frame(height: 34)
+                                .background(Color.orange)
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Cập nhật \(ext.name)")
@@ -509,36 +515,27 @@ struct RepositoryManagerView: View {
                             selectedExtensionForConfig = ext
                         }) {
                             Image(systemName: "gearshape")
+                                .font(.system(size: 15, weight: .medium))
                                 .foregroundColor(.blue)
-                                .padding(6)
+                                .frame(width: 34, height: 34)
                                 .background(Color.blue.opacity(0.1))
-                                .cornerRadius(6)
+                                .cornerRadius(8)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Cấu hình \(ext.name)")
                         
                         Button(action: {
-                            selectedExtensionForScriptEditor = ext
-                        }) {
-                            Image(systemName: "code.square")
-                                .foregroundColor(.purple)
-                                .padding(6)
-                                .background(Color.purple.opacity(0.1))
-                                .cornerRadius(6)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Mã nguồn script \(ext.name)")
-                        
-                        Button(action: {
                             uninstallExtension(ext)
                         }) {
                             Image(systemName: "trash")
+                                .font(.system(size: 15, weight: .medium))
                                 .foregroundColor(.red)
-                                .padding(6)
+                                .frame(width: 34, height: 34)
                                 .background(Color.red.opacity(0.1))
-                                .cornerRadius(6)
+                                .cornerRadius(8)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Gỡ cài đặt \(ext.name)")
                     }
                 }
             }
@@ -911,6 +908,12 @@ struct RepositoryManagerView: View {
                 ext.sourceUrl = localSource
                 try? modelContext.save()
                 extensionManager.loadingStates[ext.packageId] = false
+                
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("extensionDidUpdate"),
+                    object: nil,
+                    userInfo: ["packageId": ext.packageId]
+                )
             }
         } catch {
             await MainActor.run {

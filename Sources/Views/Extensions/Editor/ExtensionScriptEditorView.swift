@@ -23,11 +23,22 @@ public struct ExtensionScriptEditorView: View {
     @State private var selectedScriptId: String = ""
     @State private var scriptContent: String = ""
     @State private var originalScriptContent: String = ""
+    @State private var modifiedFileIds: Set<String> = []
+    
     @State private var isLoading = true
     @State private var errorMessage = ""
     @State private var syntaxStatusMessage: String? = nil
     @State private var isSyntaxValid: Bool = true
     @State private var showingDiscardAlert = false
+    @State private var fontSize: CGFloat = 14.0
+
+    private let quickSymbols = ["{", "}", "(", ")", "[", "]", "=", ";", ":", "\"", "'", "=>", ".", ",", "fetch", "function"]
+    
+    // Hex Catppuccin Dark Editor Colors
+    private let editorBg = Color(red: 24/255, green: 24/255, blue: 37/255)
+    private let lineNumBg = Color(red: 30/255, green: 30/255, blue: 46/255)
+    private let textFg = Color(red: 205/255, green: 214/255, blue: 244/255)
+    private let lineNumFg = Color(red: 108/255, green: 112/255, blue: 134/255)
 
     public init(ext: Extension) {
         self.ext = ext
@@ -84,20 +95,22 @@ public struct ExtensionScriptEditorView: View {
                                     .foregroundColor(isSyntaxValid ? .green : .red)
                                 Text(syntaxMsg)
                                     .font(.caption)
+                                    .fontWeight(.medium)
                                     .foregroundColor(isSyntaxValid ? .green : .red)
                                 Spacer()
                             }
                             .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(isSyntaxValid ? Color.green.opacity(0.1) : Color.red.opacity(0.1))
+                            .padding(.vertical, 8)
+                            .background(isSyntaxValid ? Color.green.opacity(0.12) : Color.red.opacity(0.12))
                         }
 
-                        TextEditor(text: $scriptContent)
-                            .font(.system(.body, design: .monospaced))
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
-                            .padding(4)
+                        // IDE Code Canvas (Số dòng + TextEditor)
+                        codeEditorCanvas
 
+                        // Thanh phím ký tự nhanh JS
+                        quickSymbolToolbar
+
+                        // Thanh Footer thông tin & công cụ
                         editorFooter
                     }
                 }
@@ -107,7 +120,7 @@ public struct ExtensionScriptEditorView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Đóng") {
-                        if hasUnsavedChanges {
+                        if hasUnsavedChanges || !modifiedFileIds.isEmpty {
                             showingDiscardAlert = true
                         } else {
                             dismiss()
@@ -140,20 +153,75 @@ public struct ExtensionScriptEditorView: View {
         }
     }
 
+    // MARK: - Code Editor Canvas
+
+    private var codeEditorCanvas: some View {
+        let lines = scriptContent.components(separatedBy: "\n")
+        let totalLines = max(1, lines.count)
+
+        return HStack(spacing: 0) {
+            // Cột số dòng
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .trailing, spacing: 0) {
+                    ForEach(1...totalLines, id: \.self) { lineNum in
+                        Text("\(lineNum)")
+                            .font(.system(size: fontSize, weight: .regular, design: .monospaced))
+                            .foregroundColor(lineNumFg)
+                            .frame(height: fontSize * 1.35, alignment: .trailing)
+                    }
+                }
+                .padding(.leading, 8)
+                .padding(.trailing, 8)
+                .padding(.top, 8)
+            }
+            .frame(width: max(38, CGFloat(String(totalLines).count * 10 + 16)))
+            .background(lineNumBg)
+
+            Divider()
+                .background(Color.white.opacity(0.1))
+
+            // Khung biên tập HighlightingCodeEditor
+            HighlightingCodeEditor(text: Binding(
+                get: { scriptContent },
+                set: { newValue in
+                    scriptContent = newValue
+                    if newValue != originalScriptContent {
+                        modifiedFileIds.insert(selectedScriptId)
+                    } else {
+                        modifiedFileIds.remove(selectedScriptId)
+                    }
+                }
+            ), fontSize: fontSize)
+            .background(editorBg)
+        }
+        .background(editorBg)
+    }
+
+    // MARK: - Header & Tabs
+
     private var scriptSelectorHeader: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(scriptFiles) { file in
                     let isSelected = file.id == selectedScriptId
+                    let isModified = (isSelected && hasUnsavedChanges) || modifiedFileIds.contains(file.id)
+                    
                     Button(action: {
                         switchScript(to: file)
                     }) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 6) {
                             Image(systemName: file.isPluginJson ? "gearshape.doc.fill" : "curlybraces")
                                 .font(.caption)
+                            
                             Text(file.fileName)
                                 .font(.subheadline)
                                 .fontWeight(isSelected ? .bold : .regular)
+
+                            if isModified {
+                                Circle()
+                                    .fill(Color.orange)
+                                    .frame(width: 6, height: 6)
+                            }
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
@@ -169,20 +237,78 @@ public struct ExtensionScriptEditorView: View {
         .background(Color(uiColor: .secondarySystemBackground))
     }
 
+    // MARK: - Quick Symbol Toolbar
+
+    private var quickSymbolToolbar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(quickSymbols, id: \.self) { sym in
+                    Button(action: {
+                        insertSymbol(sym)
+                    }) {
+                        Text(sym)
+                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color(uiColor: .tertiarySystemFill))
+                            .foregroundColor(.primary)
+                            .cornerRadius(6)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+        }
+        .background(Color(uiColor: .secondarySystemBackground))
+    }
+
+    // MARK: - Footer
+
     private var editorFooter: some View {
-        HStack {
+        HStack(spacing: 12) {
             let lineCount = scriptContent.components(separatedBy: .newlines).count
             let charCount = scriptContent.count
+            
             Text("\(lineCount) dòng • \(charCount) ký tự")
                 .font(.caption2)
                 .foregroundColor(.secondary)
 
             Spacer()
 
+            // Nút chỉnh cỡ chữ A- và A+
+            HStack(spacing: 4) {
+                Button(action: {
+                    if fontSize > 11 { fontSize -= 1 }
+                }) {
+                    Text("A-")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                }
+                .disabled(fontSize <= 11)
+                
+                Text("\(Int(fontSize))pt")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                
+                Button(action: {
+                    if fontSize < 22 { fontSize += 1 }
+                }) {
+                    Text("A+")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                }
+                .disabled(fontSize >= 22)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(Color(uiColor: .tertiarySystemFill))
+            .cornerRadius(6)
+
             Button(action: validateScriptSyntax) {
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.shield")
-                    Text("Kiểm tra Cú pháp")
+                    Text("Cú pháp")
                 }
                 .font(.caption)
             }
@@ -202,7 +328,16 @@ public struct ExtensionScriptEditorView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(Color(uiColor: .secondarySystemBackground))
+        .background(Color(uiColor: .systemBackground))
+    }
+
+    // MARK: - Helper Methods
+
+    private func insertSymbol(_ symbol: String) {
+        scriptContent.append(symbol)
+        if scriptContent != originalScriptContent {
+            modifiedFileIds.insert(selectedScriptId)
+        }
     }
 
     private func loadScriptFiles() {
@@ -282,6 +417,7 @@ public struct ExtensionScriptEditorView: View {
         do {
             try scriptContent.write(to: currentFile.fileUrl, atomically: true, encoding: .utf8)
             self.originalScriptContent = scriptContent
+            self.modifiedFileIds.remove(currentFile.id)
             ToastManager.shared.show(message: "Đã lưu \(currentFile.fileName) thành công!", type: .success)
             validateScriptSyntax()
         } catch {
@@ -292,6 +428,7 @@ public struct ExtensionScriptEditorView: View {
     private func revertCurrentScript() {
         guard let currentFile = currentScriptFile else { return }
         loadScriptContent(from: currentFile.fileUrl)
+        self.modifiedFileIds.remove(currentFile.id)
         ToastManager.shared.show(message: "Đã khôi phục \(currentFile.fileName)", type: .info)
     }
 

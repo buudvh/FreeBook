@@ -1,11 +1,17 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 @main
 struct FreeBookApp: App {
     let container: ModelContainer
 
     init() {
+        let tabBarAppearance = UITabBarAppearance()
+        tabBarAppearance.configureWithDefaultBackground()
+        UITabBar.appearance().standardAppearance = tabBarAppearance
+        UITabBar.appearance().scrollEdgeAppearance = tabBarAppearance
+
         do {
             let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)

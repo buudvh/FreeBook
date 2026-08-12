@@ -39,67 +39,60 @@ struct ExtensionConfigView: View {
                             .buttonStyle(.bordered)
                     }
                     .padding()
-                } else if configDefinitions.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .resizable()
-                            .frame(width: 50, height: 50)
-                            .foregroundColor(.green)
-                        Text("Tiện ích '\(ext.name)' không có cấu hình bổ sung.")
-                            .font(.headline)
-                            .multilineTextAlignment(.center)
-                        Button("Đóng") { dismiss() }
-                            .buttonStyle(.borderedProminent)
-                    }
-                    .padding()
                 } else {
                     Form {
                         Section(header: Text("Tùy Chỉnh Biến Global")) {
-                            ForEach(Array(configDefinitions.keys).sorted(), id: \.self) { key in
-                                let definition = configDefinitions[key]!
-                                let title = definition.title ?? key
-                                
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text(title)
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
+                            if !configDefinitions.isEmpty {
+                                ForEach(Array(configDefinitions.keys).sorted(), id: \.self) { key in
+                                    let definition = configDefinitions[key]!
+                                    let title = definition.title ?? key
                                     
-                                    // Hiển thị Input tùy theo định dạng
-                                    if definition.format == "boolean" || definition.mode == "toggle" {
-                                        Toggle(isOn: Binding(
-                                            get: { (userValues[key] ?? definition.default ?? "false") == "true" },
-                                            set: { userValues[key] = $0 ? "true" : "false" }
-                                        )) {
-                                            Text(key)
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(title)
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                        
+                                        if definition.format == "boolean" || definition.mode == "toggle" {
+                                            Toggle(isOn: Binding(
+                                                get: { (userValues[key] ?? definition.default ?? "false") == "true" },
+                                                set: { userValues[key] = $0 ? "true" : "false" }
+                                            )) {
+                                                Text(key)
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+                                            }
+                                        } else if definition.format == "number" {
+                                            TextField(definition.default ?? "", text: Binding(
+                                                get: { userValues[key] ?? "" },
+                                                set: { userValues[key] = $0 }
+                                            ))
+                                            .keyboardType(.numberPad)
+                                            .textFieldStyle(.roundedBorder)
+                                            .autocorrectionDisabled()
+                                            .textInputAutocapitalization(.none)
+                                        } else {
+                                            TextField(definition.default ?? "", text: Binding(
+                                                get: { userValues[key] ?? "" },
+                                                set: { userValues[key] = $0 }
+                                            ))
+                                            .textFieldStyle(.roundedBorder)
+                                            .autocorrectionDisabled()
+                                            .textInputAutocapitalization(.none)
                                         }
-                                    } else if definition.format == "number" {
-                                        TextField(definition.default ?? "", text: Binding(
-                                            get: { userValues[key] ?? "" },
-                                            set: { userValues[key] = $0 }
-                                        ))
-                                        .keyboardType(.numberPad)
-                                        .textFieldStyle(.roundedBorder)
-                                        .autocorrectionDisabled()
-                                        .textInputAutocapitalization(.none)
-                                    } else {
-                                        TextField(definition.default ?? "", text: Binding(
-                                            get: { userValues[key] ?? "" },
-                                            set: { userValues[key] = $0 }
-                                        ))
-                                        .textFieldStyle(.roundedBorder)
-                                        .autocorrectionDisabled()
-                                        .textInputAutocapitalization(.none)
+                                        
+                                        if let defaultVal = definition.default {
+                                            Text("Mặc định: \(defaultVal)")
+                                                .font(.caption2)
+                                                .foregroundColor(.gray)
+                                        }
                                     }
-                                    
-                                    if let defaultVal = definition.default {
-                                        Text("Mặc định: \(defaultVal)")
-                                            .font(.caption2)
-                                            .foregroundColor(.gray)
-                                    }
+                                    .padding(.vertical, 4)
                                 }
-                                .padding(.vertical, 4)
+                            } else {
+                                Text("Tiện ích này không có cấu hình tùy chỉnh bổ sung.")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .padding(.vertical, 4)
                             }
                         }
                         
@@ -129,6 +122,12 @@ struct ExtensionConfigView: View {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Lưu") {
                             saveConfig()
+                        }
+                    }
+                } else {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Đóng") {
+                            dismiss()
                         }
                     }
                 }
