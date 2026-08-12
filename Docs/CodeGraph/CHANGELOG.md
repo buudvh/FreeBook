@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.124] - 2026-08-12
+
+### Sửa lỗi biên dịch Xcode trong ShelfView, ReaderView và loại bỏ cảnh báo Swift 6
+
+* Cập nhật `ShelfView.swift`: Thay thế `@Query(filter: #Predicate<Extension> { $0.isActive == true })` bằng `@Query private var allExtensions: [Extension]` và computed property `activeExtensions` filtering `!$0.localPath.isEmpty && $0.isEnabled`. Khắc phục lỗi `Extension has no member isActive` và lỗi `ShelfView initializer is inaccessible due to private protection level`.
+* Cập nhật `ReaderView.swift`: Thay thế `$0.isActive` bằng `!$0.localPath.isEmpty && $0.isEnabled` trong `allExtensions.filter`.
+* Cập nhật `TTSPlayStateReader.swift`: Thay giá trị mặc định của thuộc tính tĩnh `manager: TTSManager = .shared` trong tham số khởi tạo bằng `manager: TTSManager? = nil` và gán nội bộ `manager ?? TTSManager.shared` để tránh cảnh báo phân lập MainActor trong môi trường Swift 6.
+* Cập nhật `ExtensionManager.swift`: Loại bỏ biến `scriptName` không dùng.
+
 ## [1.3.123] - 2026-08-12
 
 ### Sửa lỗi xóa sách sau khi tắt TTS, lỗi trùng lặp Mục lục nhiều trang và cải tiến tạm dừng khi đọc hết truyện

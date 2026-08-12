@@ -17,7 +17,8 @@ final class TTSWidgetStateReader: ObservableObject {
     @Published private(set) var snapshot = TTSWidgetSnapshot()
     private var cancellables = Set<AnyCancellable>()
 
-    init(manager: TTSManager = .shared) {
+    init(manager: TTSManager? = nil) {
+        let manager = manager ?? TTSManager.shared
         snapshot = Self.makeSnapshot(from: manager)
 
         manager.$isPlaying.map { _ in () }.receive(on: RunLoop.main).sink { [weak self, weak manager] in
@@ -73,7 +74,8 @@ final class TTSRootPresentationReader: ObservableObject {
     @Published private(set) var snapshot = TTSRootPresentationSnapshot()
     private var cancellables = Set<AnyCancellable>()
 
-    init(manager: TTSManager = .shared) {
+    init(manager: TTSManager? = nil) {
+        let manager = manager ?? TTSManager.shared
         snapshot = Self.makeSnapshot(from: manager)
 
         manager.$showFloatingWidget.map { _ in () }.receive(on: RunLoop.main).sink { [weak self, weak manager] in
@@ -118,7 +120,8 @@ final class ReaderTTSStateReader: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private let manager: TTSManager
 
-    init(manager: TTSManager = .shared) {
+    init(manager: TTSManager? = nil) {
+        let manager = manager ?? TTSManager.shared
         self.manager = manager
         snapshot = ReaderTTSStateSnapshot(
             isPlaying: manager.isPlaying,

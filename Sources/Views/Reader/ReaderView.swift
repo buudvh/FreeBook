@@ -650,7 +650,7 @@ struct ReaderView: View {
                     destination: LazyView {
                         if let book = localBook {
                             SearchView(
-                                activeExtensions: allExtensions.filter { $0.isActive },
+                                activeExtensions: allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled },
                                 selectedExtension: nil,
                                 initialSearchQuery: book.title,
                                 changeSourceTargetBook: book,

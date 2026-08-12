@@ -23,7 +23,11 @@ struct ShelfView: View {
     // @Query: Tự động tải danh sách Book từ database lên, sắp xếp theo ngày đọc gần nhất giảm dần.
     // SwiftUI sẽ tự động vẽ lại giao diện bất cứ khi nào danh sách sách trong database thay đổi.
     @Query(sort: \Book.lastReadDate, order: .reverse) private var allBooks: [Book]
-    @Query(filter: #Predicate<Extension> { $0.isActive == true }) private var activeExtensions: [Extension]
+    @Query private var allExtensions: [Extension]
+    
+    private var activeExtensions: [Extension] {
+        allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
+    }
     
     @State private var changeSourceTargetBook: Book? = nil
     @State private var navigateToChangeSource = false

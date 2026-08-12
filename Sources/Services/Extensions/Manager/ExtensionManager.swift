@@ -849,8 +849,6 @@ public final class ExtensionManager: ObservableObject {
     // Tạo âm thanh TTS từ extension
     public func ttsGenerate(localPath: String, downloadUrl: String = "", text: String, voice: String, configJson: String = "{}") async throws -> String {
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "tts")
-        let scriptName = scriptUrl.lastPathComponent
-        // AppLogger.shared.logTTSVerbose("🔍 [ExtensionManager][\(scriptName)]: textLen=\(text.count), voice=\(voice), configJson=\(configJson)")
         let scriptContent = try String(contentsOf: scriptUrl, encoding: .utf8)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         let configurationData = try JSONSerialization.data(withJSONObject: configs, options: [.sortedKeys])
