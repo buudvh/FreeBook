@@ -3,14 +3,16 @@ import SwiftUI
 private struct FullHeightPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
+        let next = nextValue()
+        if next > 0 { value = next }
     }
 }
 
-private struct TruncatedHeightPreferenceKey: PreferenceKey {
+private struct CollapsedHeightPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
+        let next = nextValue()
+        if next > 0 { value = next }
     }
 }
 
@@ -23,7 +25,7 @@ public struct ExpandableTextView: View {
     @State private var isExpanded = false
     @State private var isTruncated = false
     @State private var fullHeight: CGFloat = 0
-    @State private var truncatedHeight: CGFloat = 0
+    @State private var collapsedHeight: CGFloat = 0
     
     public init(
         text: String,
@@ -45,29 +47,49 @@ public struct ExpandableTextView: View {
                 .lineLimit(isExpanded ? nil : lineLimit)
                 .multilineTextAlignment(.leading)
                 .background(
-                    GeometryReader { geo in
-                        Color.clear.preference(key: TruncatedHeightPreferenceKey.self, value: geo.size.height)
-                    }
+                    // Measurer 1: Measure collapsed height (always constrained to lineLimit)
+                    Text(text)
+                        .font(font)
+                        .lineLimit(lineLimit)
+                        .multilineTextAlignment(.leading)
+                        .background(
+                            GeometryReader { geo in
+                                Color.clear.preference(key: CollapsedHeightPreferenceKey.self, value: geo.size.height)
+                            }
+                        )
+                        .opacity(0)
                 )
                 .background(
+                    // Measurer 2: Measure full unconstrained height
                     Text(text)
                         .font(font)
                         .lineLimit(nil)
                         .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                         .background(
                             GeometryReader { fullGeo in
                                 Color.clear.preference(key: FullHeightPreferenceKey.self, value: fullGeo.size.height)
                             }
                         )
-                        .hidden()
+                        .opacity(0)
                 )
                 .onPreferenceChange(FullHeightPreferenceKey.self) { newFullHeight in
-                    self.fullHeight = newFullHeight
-                    checkTruncation()
+                    if newFullHeight > 0 {
+                        self.fullHeight = newFullHeight
+                        checkTruncation()
+                    }
                 }
-                .onPreferenceChange(TruncatedHeightPreferenceKey.self) { newTruncatedHeight in
-                    self.truncatedHeight = newTruncatedHeight
-                    checkTruncation()
+                .onPreferenceChange(CollapsedHeightPreferenceKey.self) { newCollapsedHeight in
+                    if newCollapsedHeight > 0 {
+                        self.collapsedHeight = newCollapsedHeight
+                        checkTruncation()
+                    }
+                }
+                .onAppear {
+                    initialCheck()
+                }
+                .onChange(of: text) { _, _ in
+                    initialCheck()
                 }
             
             if isTruncated {
@@ -90,9 +112,19 @@ public struct ExpandableTextView: View {
         }
     }
     
+    private func initialCheck() {
+        let lineCount = text.components(separatedBy: .newlines).count
+        let charThreshold = lineLimit * 30
+        let estimated = lineCount > lineLimit || text.count > charThreshold
+        if isTruncated != estimated && fullHeight == 0 {
+            isTruncated = estimated
+        }
+        checkTruncation()
+    }
+    
     private func checkTruncation() {
-        if fullHeight > 0 && truncatedHeight > 0 {
-            let truncated = fullHeight > truncatedHeight + 2.0
+        if fullHeight > 0 && collapsedHeight > 0 {
+            let truncated = fullHeight > collapsedHeight + 1.5
             if isTruncated != truncated {
                 isTruncated = truncated
             }
