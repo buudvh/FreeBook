@@ -869,7 +869,7 @@ public final class TranslateUtils {
                 in: translated,
                 searchRange: searchRange
             ) else {
-                return []
+                continue
             }
 
             spans.append(TranslationSpan(

@@ -6,6 +6,10 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ### Sửa toàn bộ các lỗi biên dịch Swift (Swift Compilation Fixes)
 
+* **Sửa lỗi lệch vị trí bôi đen văn bản dịch (Selection Mapping Fix)**:
+  - `TranslateUtils+Tokenization.swift`: Chuẩn hóa `originalOffset` và `originalLength` trong `getTranslationTokens` và `snapToToken` theo UTF-16 code units (`NSString`), triệt tiêu hiện tượng offset Hán tự gốc bị trượt khi câu chứa các dấu câu đặc biệt.
+  - `TranslateUtils.swift`: Trong `buildTranslationSpans`, tiếp tục ghi nhận danh sách `TranslationSpan` từ vựng khi một token dấu câu không khớp.
+  - `ReaderSelectionMapper.swift`: Cập nhật `selectionIsCovered` bỏ qua các ký tự dấu câu/khoảng trắng khi bôi đen, giúp tra cứu chính xác từ Hán tự gốc cho các thao tác dịch từ, nghe từ vị trí chọn và xóa từ rác từ điển.
 * **Sửa lỗi cú pháp ngoặc đóng `}` & Logic bị thiếu**:
   - Bổ sung ngoặc `}` bị thiếu ở cuối file `JSExecutor.swift`, `ReaderChapterListView.swift`, `ShelfView.swift`.
   - `JSExecutor.swift`: Bổ sung câu lệnh `throw NSError(...)` khi `context.exception` có lỗi compile JS.

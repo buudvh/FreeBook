@@ -6,14 +6,14 @@ extension TranslateUtils {
         var wordTokens: [TranslationWordToken] = []
         let phienAm = TranslationManager.shared.phienAmMap
         
-        var currentIndex = 0
-        let chars = Array(sentence)
-        let length = chars.count
+        let nsSentence = sentence as NSString
+        var currentUTF16Offset = 0
+        let totalUTF16Length = nsSentence.length
         
         for token in tokens {
-            let tokenLen = token.count
-            guard currentIndex + tokenLen <= length else { break }
-            let originalText = String(chars[currentIndex..<(currentIndex + tokenLen)])
+            let tokenUTF16Length = (token as NSString).length
+            guard currentUTF16Offset + tokenUTF16Length <= totalUTF16Length else { break }
+            let originalText = nsSentence.substring(with: NSRange(location: currentUTF16Offset, length: tokenUTF16Length))
             
             let (translatedToken, isMatched) = resolveTokenMeaning(for: token, bookId: bookId, phienAm: phienAm)
             
@@ -22,12 +22,12 @@ extension TranslateUtils {
                 wordTokens.append(TranslationWordToken(
                     originalText: originalText,
                     translatedText: isMatched ? trimmedTrans : (trimmedTrans.isEmpty ? originalText : trimmedTrans),
-                    originalOffset: currentIndex,
-                    originalLength: tokenLen
+                    originalOffset: currentUTF16Offset,
+                    originalLength: tokenUTF16Length
                 ))
             }
             
-            currentIndex += tokenLen
+            currentUTF16Offset += tokenUTF16Length
         }
         
         return wordTokens

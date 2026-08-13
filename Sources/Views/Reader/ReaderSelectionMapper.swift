@@ -129,10 +129,18 @@ enum ReaderSelectionMapper {
         by spans: [TranslationSpan]
     ) -> Bool {
         let text = translated as NSString
+        let ignoredSet = CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters)
         for index in selectionRange.location..<NSMaxRange(selectionRange) {
             let character = text.character(at: index)
-            if let scalar = UnicodeScalar(character), CharacterSet.whitespacesAndNewlines.contains(scalar) {
-                continue
+            if let scalar = UnicodeScalar(character) {
+                if ignoredSet.contains(scalar) {
+                    continue
+                }
+                // Dấu ngoặc kép, dấu ba chấm Hán ngữ / Việt ngữ đặc biệt
+                let charStr = String(scalar)
+                if ["“", "”", "《", "》", "【", "】", "「", "」", "：", "；", "…", "—", "’", "‘", "–"].contains(charStr) {
+                    continue
+                }
             }
             if !spans.contains(where: { NSLocationInRange(index, $0.translatedRange) }) {
                 return false
