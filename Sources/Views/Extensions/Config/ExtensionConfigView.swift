@@ -2,19 +2,19 @@ import SwiftUI
 import SwiftData
 
 struct ExtensionConfigView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) internal var dismiss
+    @Environment(\.modelContext) internal var modelContext
     
     var ext: Extension
     
     // Lưu các cấu hình định nghĩa trong plugin.json
-    @State private var configDefinitions: [String: ConfigItem] = [:]
+    @State internal var configDefinitions: [String: ConfigItem] = [:]
     // Lưu các giá trị hiện tại người dùng nhập vào
-    @State private var userValues: [String: String] = [:]
+    @State internal var userValues: [String: String] = [:]
     
-    @State private var isLoading = true
-    @State private var errorMessage = ""
-    @State private var showingScriptEditor = false
+    @State internal var isLoading = true
+    @State internal var errorMessage = ""
+    @State internal var showingScriptEditor = false
     
     struct ConfigItem: Codable {
         let title: String?
@@ -138,7 +138,7 @@ struct ExtensionConfigView: View {
         }
     }
     
-    private func loadConfigDefinitions() {
+    internal func loadConfigDefinitions() {
         guard !ext.localPath.isEmpty else {
             errorMessage = "Tiện ích chưa được cài đặt cục bộ."
             isLoading = false
@@ -218,7 +218,7 @@ struct ExtensionConfigView: View {
         }
     }
     
-    private func saveConfig() {
+    internal func saveConfig() {
         do {
             var typedDict: [String: Any] = [:]
             for (key, strVal) in userValues {
@@ -241,12 +241,18 @@ struct ExtensionConfigView: View {
             
             let data = try JSONSerialization.data(withJSONObject: typedDict, options: [])
             if let jsonString = String(data: data, encoding: .utf8) {
-                ext.configJson = jsonString
-                try? modelContext.save()
+                let cmd = ExtensionConfigCommand(packageId: ext.packageId, configJson: jsonString)
+                let res = ExtensionTransactionCoordinator.shared.saveExtensionConfig(command: cmd, in: modelContext)
+                switch res {
+                case .success:
+                    ToastManager.shared.show(message: "Đã lưu cấu hình thành công!", type: .success)
+                    dismiss()
+                case .failure(let err):
+                    errorMessage = err.localizedDescription
+                }
             }
-            dismiss()
         } catch {
-            // print("Lỗi lưu cấu hình: \(error.localizedDescription)")
+            errorMessage = error.localizedDescription
         }
     }
 }

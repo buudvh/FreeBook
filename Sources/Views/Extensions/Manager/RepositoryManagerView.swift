@@ -3,113 +3,75 @@ import SwiftData
 import UniformTypeIdentifiers
 
 struct RepositoryManagerView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Repository.name) private var repositories: [Repository]
-    @Query private var allExtensions: [Extension]
+    @Environment(\.modelContext) internal var modelContext
+    @Query(sort: \Repository.name) internal var repositories: [Repository]
+    @Query internal var allExtensions: [Extension]
     
     // Quản lý Tab chính của view
-    @State private var selectedTab = 0 // 0: Tất cả tiện ích, 1: Danh sách kho
-    @State private var renderedTab = 0
+    @State internal var selectedTab = 0 // 0: Tất cả tiện ích, 1: Danh sách kho
+    @State internal var renderedTab = 0
     
     // Trạng thái cho Tab 1: Cửa hàng tiện ích gộp
-    @State private var showingAddRepo = false
-    @State private var isRefreshingAll = false
-    @State private var isUpdatingAll = false
-    @State private var statusMessage = ""
-    @State private var storeSearchQuery: String = ""
-    @ObservedObject private var extensionManager = ExtensionManager.shared
-    @State private var errorMessage = ""
-    @State private var selectedExtensionForConfig: Extension? = nil
-    @State private var selectedExtensionForScriptEditor: Extension? = nil
-    @State private var repositoryToDelete: Repository?
-    @State private var showingDeleteRepositoryAlert = false
+    @State internal var showingAddRepo = false
+    @State internal var isRefreshingAll = false
+    @State internal var isUpdatingAll = false
+    @State internal var statusMessage = ""
+    @State internal var storeSearchQuery: String = ""
+    @ObservedObject internal var extensionManager = ExtensionManager.shared
+    @State internal var errorMessage = ""
+    @State internal var selectedExtensionForConfig: Extension? = nil
+    @State internal var selectedExtensionForScriptEditor: Extension? = nil
+    @State internal var repositoryToDelete: Repository?
+    @State internal var showingDeleteRepositoryAlert = false
     
-    private var updatableExtensions: [Extension] {
+    internal var updatableExtensions: [Extension] {
         allExtensions.filter { $0.hasUpdate }
     }
     
     // Bộ lọc và Trạng thái Sheet/Alert mới
-    @State private var showingFilterSheet = false
-    @State private var showingUninstallAllAlert = false
-    @State private var showingZipImporter = false
-    @AppStorage("extFilterType") private var filterType: String = "all"
-    @AppStorage("extFilterLocale") private var filterLocale: String = "all"
-    @AppStorage("extFilterAuthor") private var filterAuthor: String = "all"
+    @State internal var showingFilterSheet = false
+    @State internal var showingUninstallAllAlert = false
+    @State internal var showingZipImporter = false
+    @AppStorage("extFilterType") internal var filterType: String = "all"
+    @AppStorage("extFilterLocale") internal var filterLocale: String = "all"
+    @AppStorage("extFilterAuthor") internal var filterAuthor: String = "all"
     
     // Trạng thái bộ lọc
-    private var isFiltering: Bool {
+    internal var isFiltering: Bool {
         filterType != "all" || filterLocale != "all" || filterAuthor != "all"
     }
 
-    private var isUninstallAllDisabled: Bool {
+    internal var isUninstallAllDisabled: Bool {
         allExtensions.filter { !$0.localPath.isEmpty }.isEmpty
     }
     
     // Lọc danh sách tác giả động từ database
-    private var allAuthors: [String] {
+    internal var allAuthors: [String] {
         let authors = allExtensions.map { $0.author }
         return Array(Set(authors)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
     
     // Lọc danh sách ngôn ngữ động từ database
-    private var allLocales: [String] {
+    internal var allLocales: [String] {
         let locales = allExtensions.map { $0.locale }
         return Array(Set(locales)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
     
     // Lọc danh sách loại tiện ích động từ database (loại trừ comic)
-    private var allTypes: [String] {
+    internal var allTypes: [String] {
         let types = allExtensions.map { $0.type }.filter { $0 != "comic" }
         return Array(Set(types)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
     
     // Danh sách tiện ích sau khi lọc theo các tiêu chí và tìm kiếm
-    private var filteredExtensions: [Extension] {
-        var result = allExtensions.filter { $0.type != "comic" } // Loại bỏ hoàn toàn comic
-        
-        // 1. Lọc theo Tác giả
-        if filterAuthor != "all" {
-            result = result.filter { $0.author == filterAuthor }
-        }
-        
-        // 2. Lọc theo Loại tiện ích (Type Ext)
-        if filterType != "all" {
-            result = result.filter { $0.type == filterType }
-        }
-        
-        // 3. Lọc theo Ngôn ngữ (Locale)
-        if filterLocale != "all" {
-            result = result.filter { $0.locale == filterLocale }
-        }
-        
-        // 4. Lọc theo Từ khóa tìm kiếm
-        let trimmedQuery = storeSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedQuery.isEmpty {
-            result = result.filter {
-                $0.name.localizedCaseInsensitiveContains(trimmedQuery) ||
-                $0.sourceUrl.localizedCaseInsensitiveContains(trimmedQuery) ||
-                $0.desc?.localizedCaseInsensitiveContains(trimmedQuery) ?? false
-            }
-        }
-        
-        // 5. Sắp xếp: có bản cập nhật lên ĐẦU TIÊN -> đã cài đặt -> A-Z
-        return result.sorted { ext1, ext2 in
-            let hasUpdate1 = ext1.hasUpdate
-            let hasUpdate2 = ext2.hasUpdate
-            
-            if hasUpdate1 != hasUpdate2 {
-                return hasUpdate1 && !hasUpdate2
-            }
-            
-            let isInstalled1 = !ext1.localPath.isEmpty
-            let isInstalled2 = !ext2.localPath.isEmpty
-            
-            if isInstalled1 != isInstalled2 {
-                return isInstalled1 && !isInstalled2
-            }
-            
-            return ext1.name.localizedCaseInsensitiveCompare(ext2.name) == .orderedAscending
-        }
+    internal var filteredExtensions: [Extension] {
+        RepositoryFilterPolicy.shared.filterExtensions(
+            allExtensions,
+            query: storeSearchQuery,
+            author: filterAuthor,
+            type: filterType,
+            locale: filterLocale
+        )
     }
     
     var body: some View {
@@ -119,7 +81,7 @@ struct RepositoryManagerView: View {
     }
 
     @ViewBuilder
-    private var mainContentView: some View {
+    internal var mainContentView: some View {
         VStack(spacing: 0) {
             Picker("", selection: $selectedTab) {
                 Text("Tất cả tiện ích").tag(0)
@@ -147,7 +109,7 @@ struct RepositoryManagerView: View {
     }
 
     @ViewBuilder
-    private func applySheetsAndAlerts<V: View>(_ content: V) -> some View {
+    internal func applySheetsAndAlerts<V: View>(_ content: V) -> some View {
         content
             .alert("Xóa tất cả tiện ích?", isPresented: $showingUninstallAllAlert) {
                 Button("Hủy", role: .cancel) { }
@@ -216,7 +178,7 @@ struct RepositoryManagerView: View {
     }
 
     @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
+    internal var toolbarContent: some ToolbarContent {
         if selectedTab == 0 {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 Menu {
@@ -255,7 +217,7 @@ struct RepositoryManagerView: View {
     }
 
     @ViewBuilder
-    private var allExtensionsTab: some View {
+    internal var allExtensionsTab: some View {
         VStack(spacing: 8) {
             if renderedTab == 0 {
                 filterStatusBar
@@ -292,7 +254,7 @@ struct RepositoryManagerView: View {
     }
 
     @ViewBuilder
-    private var filterStatusBar: some View {
+    internal var filterStatusBar: some View {
         HStack {
             Text("Đang hiển thị \(filteredExtensions.count) tiện ích")
                 .font(.caption)
@@ -319,7 +281,7 @@ struct RepositoryManagerView: View {
     }
 
     @ViewBuilder
-    private var searchAndFilterBar: some View {
+    internal var searchAndFilterBar: some View {
         HStack(spacing: 8) {
             HStack {
                 Image(systemName: "magnifyingglass")
@@ -352,7 +314,7 @@ struct RepositoryManagerView: View {
     }
 
     @ViewBuilder
-    private var updateAllBanner: some View {
+    internal var updateAllBanner: some View {
         if !updatableExtensions.isEmpty {
             HStack(spacing: 12) {
                 Image(systemName: "arrow.clockwise.circle.fill")
@@ -396,7 +358,7 @@ struct RepositoryManagerView: View {
     }
 
     @ViewBuilder
-    private func extensionRow(_ ext: Extension) -> some View {
+    internal func extensionRow(_ ext: Extension) -> some View {
         HStack(alignment: .top, spacing: 12) {
             if let iconUrl = ext.iconUrl, let url = URL(string: iconUrl) {
                 AsyncImage(url: url) { image in
@@ -541,7 +503,7 @@ struct RepositoryManagerView: View {
     }
 
     @ViewBuilder
-    private var repositoryListTab: some View {
+    internal var repositoryListTab: some View {
         List {
             if renderedTab == 1 {
                 if !statusMessage.isEmpty {
@@ -609,7 +571,7 @@ struct RepositoryManagerView: View {
         .listStyle(.insetGrouped)
     }
 
-    private func importExtensionFromZip(_ url: URL) {
+    internal func importExtensionFromZip(_ url: URL) {
         statusMessage = "Đang giải nén & import tiện ích từ file zip..."
         errorMessage = ""
         
@@ -618,38 +580,14 @@ struct RepositoryManagerView: View {
                 let result = try await ExtensionManager.shared.installFromLocalZip(fileUrl: url)
                 
                 await MainActor.run {
-                    let existingExt = allExtensions.first(where: { $0.packageId == result.packageId })
-                    if let existing = existingExt {
-                        existing.name = result.name
-                        existing.author = result.author
-                        existing.version = result.version
-                        existing.remoteVersion = result.version
-                        existing.sourceUrl = result.sourceUrl
-                        existing.iconUrl = result.iconUrl
-                        existing.desc = result.desc
-                        existing.type = result.type
-                        existing.locale = result.locale
-                        existing.localPath = result.mainFolderPath
-                    } else {
-                        let newExt = Extension(
-                            packageId: result.packageId,
-                            name: result.name,
-                            author: result.author,
-                            version: result.version,
-                            sourceUrl: result.sourceUrl,
-                            iconUrl: result.iconUrl,
-                            desc: result.desc,
-                            type: result.type,
-                            locale: result.locale,
-                            localPath: result.mainFolderPath,
-                            downloadUrl: "",
-                            remoteVersion: result.version
-                        )
-                        modelContext.insert(newExt)
+                    let cmd = UpsertExtensionCommand(packageId: result.packageId, name: result.name, author: result.author, version: result.version, remoteVersion: result.version, sourceUrl: result.sourceUrl, iconUrl: result.iconUrl, desc: result.desc, type: result.type, locale: result.locale, localPath: result.mainFolderPath, downloadUrl: "", configJson: nil, repositoryUrl: nil)
+                    let res = ExtensionTransactionCoordinator.shared.upsertExtension(command: cmd, in: modelContext)
+                    switch res {
+                    case .success:
+                        statusMessage = "Đã import thành công tiện ích '\(result.name)' v\(result.version)!"
+                    case .failure(let err):
+                        errorMessage = "Lỗi lưu tiện ích import: \(err.localizedDescription)"
                     }
-                    
-                    try? modelContext.save()
-                    statusMessage = "Đã import thành công tiện ích '\(result.name)' v\(result.version)!"
                 }
             } catch {
                 await MainActor.run {
@@ -659,11 +597,11 @@ struct RepositoryManagerView: View {
         }
     }
     
-    private func addSampleRepository() {
+    internal func addSampleRepository() {
         addNewRepository(name: "Kho mặc định (buudvh)", url: "https://raw.githubusercontent.com/buudvh/leech_story_ext/main/plugin.json")
     }
     
-    private func addNewRepository(name: String, url: String) {
+    internal func addNewRepository(name: String, url: String) {
         let trimmedUrl = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedUrl.isEmpty else { return }
         
@@ -679,15 +617,25 @@ struct RepositoryManagerView: View {
             do {
                 let items = try await ExtensionManager.shared.fetchRegistry(from: trimmedUrl)
                 
-                let newRepo = Repository(url: trimmedUrl, name: name.isEmpty ? "Kho Tiện Ích Mới" : name)
-                modelContext.insert(newRepo)
-                
-                await syncExtensions(for: newRepo, with: items)
-                try? modelContext.save()
-                
-                await MainActor.run {
-                    statusMessage = "Đã nhập thành công kho '\(newRepo.name)' với \(items.count) nguồn truyện."
-                    isRefreshingAll = false
+                let repoName = name.isEmpty ? "Kho Tiện Ích Mới" : name
+                let result = ExtensionTransactionCoordinator.shared.addRepository(url: trimmedUrl, name: repoName, in: modelContext)
+                switch result {
+                case .success:
+                    let syncRes = await syncExtensions(for: trimmedUrl, with: items)
+                    await MainActor.run {
+                        switch syncRes {
+                        case .success:
+                            statusMessage = "Đã nhập thành công kho '\(repoName)' với \(items.count) nguồn truyện."
+                        case .failure(let error):
+                            errorMessage = "Lỗi đồng bộ tiện ích kho '\(repoName)': \(error.localizedDescription)"
+                        }
+                        isRefreshingAll = false
+                    }
+                case .failure(let error):
+                    await MainActor.run {
+                        statusMessage = "Lỗi khi lưu kho truyện: \(error.localizedDescription)"
+                        isRefreshingAll = false
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -698,7 +646,7 @@ struct RepositoryManagerView: View {
         }
     }
     
-    private func refreshAllRepositories() {
+    internal func refreshAllRepositories() {
         guard !repositories.isEmpty else { return }
         isRefreshingAll = true
         statusMessage = "Đang cập nhật lại các kho..."
@@ -708,14 +656,20 @@ struct RepositoryManagerView: View {
             for repo in repositories {
                 do {
                     let items = try await ExtensionManager.shared.fetchRegistry(from: repo.url)
-                    await syncExtensions(for: repo, with: items)
-                    repo.lastUpdated = Date()
-                    updatedCount += 1
+                    let syncRes = await syncExtensions(for: repo.url, with: items)
+                    if case .failure(let err) = syncRes {
+                        AppLogger.shared.log("⚠️ [RepoRefresh] Sync failed for repo \(repo.name): \(err.localizedDescription)")
+                        continue
+                    }
+                    let touchRes = ExtensionTransactionCoordinator.shared.touchRepositoryLastUpdated(url: repo.url, in: modelContext)
+                    switch touchRes {
+                    case .success: updatedCount += 1
+                    case .failure(let err): AppLogger.shared.log("⚠️ [RepoRefresh] Touch lastUpdated failed for repo \(repo.name): \(err.localizedDescription)")
+                    }
                 } catch {
-                    // print("Lỗi cập nhật kho \(repo.name): \(error.localizedDescription)")
+                    AppLogger.shared.log("⚠️ [RepoRefresh] Fetch registry failed for repo \(repo.name): \(error.localizedDescription)")
                 }
             }
-            try? modelContext.save()
             
             await MainActor.run {
                 statusMessage = "Đã cập nhật \(updatedCount) kho tiện ích."
@@ -725,15 +679,14 @@ struct RepositoryManagerView: View {
     }
     
     @MainActor
-    private func syncExtensions(for repo: Repository, with items: [ExtensionRegistryItem]) async {
-        let currentExts = repo.extensions
-        
+    @discardableResult
+    internal func syncExtensions(for repoUrl: String, with items: [ExtensionRegistryItem]) async -> Result<Void, ExtensionTransactionError> {
         for item in items {
             let packageId = item.name.lowercased()
                 .replacingOccurrences(of: " ", with: "_")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             
-            let existingExt = currentExts.first(where: { $0.packageId == packageId })
+            let existingExt = allExtensions.first(where: { $0.packageId == packageId })
             let localPath = existingExt?.localPath ?? ""
             
             var resolvedAuthor: String? = nil
@@ -786,314 +739,13 @@ struct RepositoryManagerView: View {
             let finalVersion = resolvedVersion ?? item.version ?? 1
             let finalSource = resolvedSource ?? item.source ?? ""
             
-            if let existing = existingExt {
-                existing.name = item.name
-                existing.author = finalAuthor
-                existing.version = finalVersion
-                existing.remoteVersion = repoRemoteVersion
-                existing.sourceUrl = finalSource
-                existing.iconUrl = item.icon
-                existing.desc = item.description
-                existing.type = finalType
-                existing.locale = finalLocale
-                existing.downloadUrl = item.path
-            } else {
-                let newExt = Extension(
-                    packageId: packageId,
-                    name: item.name,
-                    author: finalAuthor,
-                    version: finalVersion,
-                    sourceUrl: finalSource,
-                    iconUrl: item.icon,
-                    desc: item.description,
-                    type: finalType,
-                    locale: finalLocale,
-                    localPath: "",
-                    downloadUrl: item.path,
-                    remoteVersion: repoRemoteVersion
-                )
-                newExt.repository = repo
-                modelContext.insert(newExt)
-            }
+            let cmd = UpsertExtensionCommand(packageId: packageId, name: item.name, author: finalAuthor, version: finalVersion, remoteVersion: repoRemoteVersion, sourceUrl: finalSource, iconUrl: item.icon, desc: item.description, type: finalType, locale: finalLocale, localPath: localPath.isEmpty ? nil : localPath, downloadUrl: item.path, configJson: nil, repositoryUrl: repoUrl)
+            let res = ExtensionTransactionCoordinator.shared.upsertExtension(command: cmd, in: modelContext)
+            if case .failure(let err) = res { return .failure(err) }
         }
+        return .success(())
     }
     
-    private func deleteRepository(_ repo: Repository) {
-        guard !isRefreshingAll else {
-            statusMessage = "Hãy chờ cập nhật kho hoàn tất trước khi xóa."
-            return
-        }
 
-        if (TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget),
-           let playingPackageId = TTSManager.shared.extensionInfo?.packageId,
-           repo.extensions.contains(where: { $0.packageId == playingPackageId }) {
-            statusMessage = "Không thể xóa kho đang được TTS sử dụng. Hãy dừng TTS trước."
-            return
-        }
 
-        for ext in repo.extensions where !ext.localPath.isEmpty {
-            ExtensionManager.shared.uninstall(localPath: ext.localPath)
-        }
-        modelContext.delete(repo)
-        try? modelContext.save()
-        statusMessage = "Đã xóa kho tiện ích."
-    }
-
-    private func installExtension(_ ext: Extension) {
-        Task {
-            await installExtensionAsync(ext)
-        }
-    }
-
-    private func installExtensionAsync(_ ext: Extension) async {
-        var downloadUrl = ext.downloadUrl
-        if downloadUrl.isEmpty, let repo = ext.repository {
-            if let repoUrl = URL(string: repo.url) {
-                let baseRepoUrl = repoUrl.deletingLastPathComponent().absoluteString
-                downloadUrl = "\(baseRepoUrl)extensions/\(ext.packageId)/plugin.zip"
-            } else {
-                downloadUrl = repo.url.replacingOccurrences(of: "plugin.json", with: "extensions/\(ext.packageId)/plugin.zip")
-            }
-        }
-        
-        let targetVersion = ext.remoteVersion ?? ext.version
-        let finalItem = ExtensionRegistryItem(
-            name: ext.name,
-            author: ext.author,
-            path: downloadUrl,
-            version: targetVersion,
-            source: ext.sourceUrl,
-            icon: ext.iconUrl,
-            description: ext.desc,
-            type: ext.type,
-            locale: ext.locale
-        )
-        
-        await MainActor.run {
-            extensionManager.loadingStates[ext.packageId] = true
-            errorMessage = ""
-        }
-        
-        do {
-            let localFolder = try await ExtensionManager.shared.install(item: finalItem, packageId: ext.packageId)
-            
-            var localLocale = ext.locale
-            var localType = ext.type
-            var localVersion = targetVersion
-            var localAuthor = ext.author
-            var localSource = ext.sourceUrl
-            
-            let localJsonUrl = URL(fileURLWithPath: localFolder).appendingPathComponent("plugin.json")
-            if let jsonData = try? Data(contentsOf: localJsonUrl),
-               let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-                let meta = json["metadata"] as? [String: Any] ?? json
-                if let v = meta["source"] as? String, !v.isEmpty { localSource = v }
-                if let v = meta["locale"] as? String, !v.isEmpty { localLocale = v }
-                if let v = meta["type"] as? String, !v.isEmpty { localType = v }
-                if let v = meta["version"] as? Int { localVersion = v }
-                else if let vs = meta["version"] as? String, let vi = Int(vs) { localVersion = vi }
-                if let v = meta["author"] as? String, !v.isEmpty { localAuthor = v }
-            }
-            
-            await MainActor.run {
-                ext.localPath = localFolder
-                ext.locale = localLocale
-                ext.type = localType
-                ext.version = localVersion
-                ext.remoteVersion = localVersion
-                ext.author = localAuthor
-                ext.sourceUrl = localSource
-                try? modelContext.save()
-                extensionManager.loadingStates[ext.packageId] = false
-                
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("extensionDidUpdate"),
-                    object: nil,
-                    userInfo: ["packageId": ext.packageId]
-                )
-            }
-        } catch {
-            await MainActor.run {
-                errorMessage = "Lỗi cài đặt/cập nhật \(ext.name): \(error.localizedDescription)"
-                extensionManager.loadingStates[ext.packageId] = false
-            }
-        }
-    }
-
-    private func updateAllExtensions() {
-        let targets = updatableExtensions
-        guard !targets.isEmpty, !isUpdatingAll else { return }
-        
-        isUpdatingAll = true
-        statusMessage = "Đang cập nhật \(targets.count) tiện ích..."
-        
-        Task {
-            for ext in targets {
-                await installExtensionAsync(ext)
-            }
-            await MainActor.run {
-                isUpdatingAll = false
-                statusMessage = "Đã cập nhật xong tất cả tiện ích!"
-            }
-        }
-    }
-    
-    @MainActor
-    private func uninstallExtension(_ ext: Extension) {
-        guard !ext.localPath.isEmpty else { return }
-        ExtensionManager.shared.uninstall(localPath: ext.localPath)
-        ext.localPath = ""
-        try? modelContext.save()
-    }
-    
-    @MainActor
-    private func uninstallAllExtensions() {
-        let installed = allExtensions.filter { !$0.localPath.isEmpty }
-        for ext in installed {
-            ExtensionManager.shared.uninstall(localPath: ext.localPath)
-            ext.localPath = ""
-        }
-        try? modelContext.save()
-    }
-    
-    private func translateType(_ type: String) -> String {
-        switch type {
-        case "novel": return "Truyện chữ"
-        case "chinese_novel": return "Truyện Trung"
-        case "tts": return "Giọng đọc (TTS)"
-        default: return type.capitalized
-        }
-    }
-    
-    private func getFlagEmoji(_ locale: String) -> String {
-        let cleanLocale = locale.lowercased()
-        if cleanLocale.contains("vi") {
-            return "🇻🇳"
-        } else if cleanLocale.contains("zh") || cleanLocale.contains("cn") {
-            return "🇨🇳"
-        } else if cleanLocale.contains("en") {
-            return "🇺🇸"
-        }
-        return "🌐"
-    }
-}
-
-// MARK: - FilterSheet
-struct FilterSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let allAuthors: [String]
-    let allLocales: [String]
-    let allTypes: [String]
-    
-    @Binding var filterType: String
-    @Binding var filterLocale: String
-    @Binding var filterAuthor: String
-    
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section(header: Text("Loại tiện ích")) {
-                    Picker("Loại", selection: $filterType) {
-                        Text("Tất cả").tag("all")
-                        ForEach(allTypes, id: \.self) { type in
-                            Text(translateType(type)).tag(type)
-                        }
-                    }
-                }
-                
-                Section(header: Text("Ngôn ngữ")) {
-                    Picker("Ngôn ngữ", selection: $filterLocale) {
-                        Text("Tất cả").tag("all")
-                        ForEach(allLocales, id: \.self) { locale in
-                            Text(translateLocale(locale)).tag(locale)
-                        }
-                    }
-                }
-                
-                Section(header: Text("Tác giả")) {
-                    Picker("Tác giả", selection: $filterAuthor) {
-                        Text("Tất cả").tag("all")
-                        ForEach(allAuthors, id: \.self) { author in
-                            Text(author).tag(author)
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Bộ lọc tiện ích")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Xong") {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Đặt lại") {
-                        filterType = "all"
-                        filterLocale = "all"
-                        filterAuthor = "all"
-                        dismiss()
-                    }
-                    .foregroundColor(.red)
-                }
-            }
-        }
-    }
-    
-    private func translateType(_ type: String) -> String {
-        switch type {
-        case "novel": return "Truyện chữ (Novel)"
-        case "chinese_novel": return "Truyện Trung Quốc (Chinese)"
-        case "tts": return "Giọng đọc (TTS)"
-        default: return type.capitalized
-        }
-    }
-    
-    private func translateLocale(_ locale: String) -> String {
-        switch locale {
-        case "vi_VN": return "Tiếng Việt"
-        case "zh_CN": return "Tiếng Trung"
-        case "en_US": return "Tiếng Anh"
-        default: return locale
-        }
-    }
-}
-
-// MARK: - AddRepositoryView Sheet
-struct AddRepositoryView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var name = ""
-    @State private var url = ""
-    
-    var onAdd: (String, String) -> Void
-    
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section(header: Text("Thông tin kho mới")) {
-                    TextField("Tên kho truyện (Tùy chọn)", text: $name)
-                    TextField("Link plugin.json của kho truyện", text: $url)
-                        .keyboardType(.URL)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.none)
-                }
-            }
-            .navigationTitle("Nhập Kho Tiện Ích")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Nhập") {
-                        onAdd(name, url)
-                        dismiss()
-                    }
-                    .disabled(url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
-        }
-    }
 }

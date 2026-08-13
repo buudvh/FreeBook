@@ -49,10 +49,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     public static let shared = TTSManager()
 
     // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
-    private var remoteTraceSequenceCount = 0
+    internal var remoteTraceSequenceCount = 0
 
     // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
-    private func logRemoteTrace(_ event: String, details: String = "") {
+    internal func logRemoteTrace(_ event: String, details: String = "") {
         #if DEBUG
         guard AppLogger.shared.isLoggingEnabled else { return }
         remoteTraceSequenceCount += 1
@@ -272,7 +272,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public var showFloatingWidget: Bool = false
     @Published public var showingSettingsSheet: Bool = false
 
-    private struct TTSAutoAdvancePerfContext {
+    internal struct TTSAutoAdvancePerfContext {
         let sessionID: UUID
         let generation: Int
         let chapterIndex: Int
@@ -287,161 +287,25 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         var isFinished: Bool = false
     }
 
-    private var activeTTSAutoAdvancePerf: TTSAutoAdvancePerfContext? = nil
-    private var paragraph0SynthesisStartUptime: Double = 0
-    private var paragraph0AudioCacheHit: Bool = false
+    internal var activeTTSAutoAdvancePerf: TTSAutoAdvancePerfContext? = nil
+    internal var paragraph0SynthesisStartUptime: Double = 0
+    internal var paragraph0AudioCacheHit: Bool = false
 
-    private func resetParagraph0Timing() {
+    internal func resetParagraph0Timing() {
         paragraph0SynthesisStartUptime = 0
         paragraph0AudioCacheHit = false
     }
 
-    private func currentParagraph0SynthesisMs(untilUptime: Double? = nil) -> Double {
+    internal func currentParagraph0SynthesisMs(untilUptime: Double? = nil) -> Double {
         guard paragraph0SynthesisStartUptime > 0 && !paragraph0AudioCacheHit else { return 0.0 }
         let end = untilUptime ?? ProcessInfo.processInfo.systemUptime
         return max(0.0, (end - paragraph0SynthesisStartUptime) * 1000)
     }
 
-    @MainActor
-    private func createTTSAutoAdvancePerf(
-        sessionID: UUID,
-        generation: Int,
-        chapterIndex: Int,
-        engine: String
-    ) {
-        finishTTSAutoAdvancePerf(outcome: "superseded", endpoint: "superseded")
-        ensurePrefetchPerfSummary(sessionID: sessionID, chapterIndex: chapterIndex, engine: engine)
-        resetParagraph0Timing()
-        guard AppLogger.shared.isLoggingEnabled else { return }
-        activeTTSAutoAdvancePerf = TTSAutoAdvancePerfContext(
-            sessionID: sessionID,
-            generation: generation,
-            chapterIndex: chapterIndex,
-            engine: engine,
-            startUptime: ProcessInfo.processInfo.systemUptime
-        )
-    }
+
 
     @MainActor
-    private func updateTTSAutoAdvanceLoadPerf(
-        sessionID: UUID,
-        generation: Int,
-        chapterIndex: Int,
-        loadMs: Double,
-        origin: String
-    ) {
-        guard var ctx = activeTTSAutoAdvancePerf,
-              !ctx.isFinished,
-              ctx.sessionID == sessionID,
-              ctx.generation == generation,
-              ctx.chapterIndex == chapterIndex else { return }
-        ctx.loadMs = loadMs
-        ctx.origin = origin
-        activeTTSAutoAdvancePerf = ctx
-    }
-
-    @MainActor
-    private func updateTTSAutoAdvanceProcessPerf(
-        sessionID: UUID,
-        generation: Int,
-        chapterIndex: Int,
-        processMs: Double
-    ) {
-        guard var ctx = activeTTSAutoAdvancePerf,
-              !ctx.isFinished,
-              ctx.sessionID == sessionID,
-              ctx.generation == generation,
-              ctx.chapterIndex == chapterIndex else { return }
-        ctx.processMs = processMs
-        activeTTSAutoAdvancePerf = ctx
-    }
-
-    @MainActor
-    private func finishTTSAutoAdvancePerf(
-        outcome: String,
-        endpoint: String,
-        sessionID: UUID? = nil,
-        generation: Int? = nil,
-        chapterIndex: Int? = nil,
-        synthesisMs: Double = 0,
-        playerSetupMs: Double = 0,
-        audioCacheHit: Bool? = nil
-    ) {
-        guard var ctx = activeTTSAutoAdvancePerf, !ctx.isFinished else { return }
-        if let sID = sessionID, ctx.sessionID != sID { return }
-        if let gen = generation, ctx.generation != gen { return }
-        if let chIdx = chapterIndex, ctx.chapterIndex != chIdx { return }
-
-        ctx.isFinished = true
-        activeTTSAutoAdvancePerf = nil
-
-        let endUptime = ProcessInfo.processInfo.systemUptime
-        let totalMs = (endUptime - ctx.startUptime) * 1000
-
-        let finalSynMs = synthesisMs > 0 ? synthesisMs : ctx.synthesisMs
-        let finalSetupMs = playerSetupMs > 0 ? playerSetupMs : ctx.playerSetupMs
-        let finalCacheHit = audioCacheHit ?? ctx.audioCacheHit
-
-        resetParagraph0Timing()
-
-        let logLine = String(
-            format: "[TTSPerf] AutoAdvance chapter=%d engine=%@ origin=%@ loadMs=%.2f processMs=%.2f synthesisMs=%.2f playerSetupMs=%.2f totalMs=%.2f cacheHit=%@ outcome=%@ endpoint=%@",
-            ctx.chapterIndex,
-            ctx.engine,
-            ctx.origin,
-            ctx.loadMs,
-            ctx.processMs,
-            finalSynMs,
-            finalSetupMs,
-            totalMs,
-            finalCacheHit ? "true" : "false",
-            outcome,
-            endpoint
-        )
-        AppLogger.shared.log(logLine)
-    }
-
-    private struct TTSPrefetchPerfSummary {
-        let sessionID: UUID
-        let chapterIndex: Int
-        let engine: String
-        var immediateHit: Int = 0
-        var waitedHit: Int = 0
-        var miss: Int = 0
-        var failure: Int = 0
-        var retrySuccess: Int = 0
-        var retryFailure: Int = 0
-        var totalWaitMs: Double = 0
-        var maxWaitMs: Double = 0
-    }
-
-    private var activePrefetchPerfSummary: TTSPrefetchPerfSummary? = nil
-    private var prefetchTaskGenerations: [Int: UInt64] = [:]
-    private var nextPrefetchTaskGeneration: UInt64 = 0
-
-    @MainActor
-    private func ensurePrefetchPerfSummary(sessionID: UUID, chapterIndex: Int, engine: String) {
-        guard AppLogger.shared.isLoggingEnabled else {
-            if activePrefetchPerfSummary != nil {
-                activePrefetchPerfSummary = nil
-            }
-            return
-        }
-        if let current = activePrefetchPerfSummary {
-            if current.sessionID == sessionID && current.chapterIndex == chapterIndex && current.engine == engine {
-                return
-            }
-            finishTTSPrefetchPerfSummary()
-        }
-        activePrefetchPerfSummary = TTSPrefetchPerfSummary(
-            sessionID: sessionID,
-            chapterIndex: chapterIndex,
-            engine: engine
-        )
-    }
-
-    @MainActor
-    private func finishTTSPrefetchPerfSummary() {
+    internal func finishTTSPrefetchPerfSummary() {
         guard let summary = activePrefetchPerfSummary else { return }
         activePrefetchPerfSummary = nil
         let total = summary.immediateHit + summary.waitedHit + summary.miss + summary.failure
@@ -463,7 +327,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     @MainActor
-    private func recordPrefetchResult(sessionID: UUID, chapterIndex: Int, engine: String, index: Int, outcome: String, waitMs: Double = 0) {
+    internal func recordPrefetchResult(sessionID: UUID, chapterIndex: Int, engine: String, index: Int, outcome: String, waitMs: Double = 0) {
         guard AppLogger.shared.isLoggingEnabled else { return }
         guard sessionID == self.sessionID, chapterIndex == self.playingChapterIndex else { return }
         ensurePrefetchPerfSummary(sessionID: sessionID, chapterIndex: chapterIndex, engine: engine)
@@ -560,14 +424,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         case off
         case minutes(Int)
         case endOfChapter
-
-        public var title: String {
-            switch self {
-            case .off: return "Tắt"
-            case .minutes(let m): return "\(m) phút"
-            case .endOfChapter: return "Hết chương"
-            }
-        }
     }
 
     @Published public var timerMode: SleepTimerMode = .off
@@ -579,45 +435,40 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         switch timerMode {
         case .off:
             return ""
-        case .endOfChapter:
-            return "📖 Hết chương"
-        case .minutes(let m):
+        case .minutes:
             if isTimerRunning && sleepTimerRemainingSeconds > 0 {
                 let mins = sleepTimerRemainingSeconds / 60
                 let secs = sleepTimerRemainingSeconds % 60
-                if mins >= 60 {
-                    let hrs = mins / 60
-                    let remMins = mins % 60
-                    return String(format: "⏱️ %dh%02dm", hrs, remMins)
-                } else if mins > 0 {
-                    return String(format: "⏱️ %dm%02ds", mins, secs)
-                } else {
-                    return String(format: "⏱️ %ds", secs)
-                }
-            } else {
-                return "⏱️ \(m)m"
+                return String(format: "%d:%02d", mins, secs)
             }
+            return ""
+        case .endOfChapter:
+            return "Hết bài"
         }
     }
 
     public func startSleepTimer(minutes: Int) {
-        let clamped = max(1, minutes)
-        self.timerMode = .minutes(clamped)
-        self.startTimerCountdown(minutes: clamped)
-        let msg = "Đã hẹn giờ: Tạm dừng đọc sau \(clamped) phút."
-        ToastManager.shared.show(message: msg, type: .info)
+        if minutes <= 0 {
+            cancelSleepTimer()
+            return
+        }
+        timerMode = .minutes(minutes)
+        if isPlaying {
+            startTimerCountdown(minutes: minutes)
+        } else {
+            stopTimerCountdown(keepMode: true)
+            sleepTimerRemainingSeconds = minutes * 60
+        }
     }
 
     public func setStopAtEndOfChapter() {
-        self.timerMode = .endOfChapter
-        self.stopTimerCountdown(keepMode: true)
-        ToastManager.shared.show(message: "Đã hẹn giờ: Tạm dừng khi đọc hết chương hiện tại.", type: .info)
+        stopTimerCountdown(keepMode: false)
+        timerMode = .endOfChapter
     }
 
     public func cancelSleepTimer() {
-        self.timerMode = .off
-        self.stopTimerCountdown(keepMode: false)
-        ToastManager.shared.show(message: "Đã tắt hẹn giờ tạm dừng.", type: .info)
+        stopTimerCountdown(keepMode: false)
+        timerMode = .off
     }
 
     public func startTimerCountdown(minutes: Int) {
@@ -625,18 +476,15 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         self.sleepTimerRemainingSeconds = minutes * 60
         self.isTimerRunning = true
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.sleepTimerObj = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        self.sleepTimerObj = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
                 guard let self = self else { return }
-                Task { @MainActor [weak self] in
-                    guard let self = self else { return }
-                    if self.sleepTimerRemainingSeconds > 1 {
-                        self.sleepTimerRemainingSeconds -= 1
-                    } else {
-                        self.sleepTimerRemainingSeconds = 0
-                        self.onSleepTimerExpired()
-                    }
+                if self.sleepTimerRemainingSeconds > 1 {
+                    self.sleepTimerRemainingSeconds -= 1
+                } else {
+                    self.sleepTimerRemainingSeconds = 0
+                    self.stopTimerCountdown(keepMode: false)
+                    self.onSleepTimerExpired()
                 }
             }
         }
@@ -645,27 +493,22 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     public func stopTimerCountdown(keepMode: Bool) {
         sleepTimerObj?.invalidate()
         sleepTimerObj = nil
-        self.isTimerRunning = false
+        isTimerRunning = false
         if !keepMode {
-            self.timerMode = .off
-            self.sleepTimerRemainingSeconds = 0
+            timerMode = .off
+            sleepTimerRemainingSeconds = 0
         }
     }
 
     public func restartSleepTimerIfNeeded() {
-        guard isPlaying else { return }
-        switch timerMode {
-        case .minutes(let m):
+        if case .minutes(let mins) = timerMode {
             if !isTimerRunning || sleepTimerRemainingSeconds <= 0 {
-                startTimerCountdown(minutes: m)
+                startTimerCountdown(minutes: mins)
             }
-        case .endOfChapter, .off:
-            break
         }
     }
 
     private func onSleepTimerExpired() {
-        stopTimerCountdown(keepMode: true)
         pause()
         let label: String
         if case .minutes(let m) = timerMode {
@@ -673,8 +516,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         } else {
             label = ""
         }
-        ToastManager.shared.show(message: "⏱️ Hẹn giờ\(label): Đã tự động tạm dừng đọc.", type: .info)
+        TTSPresentationEventCenter.shared.send(.showToast(message: "⏱️ Hẹn giờ\(label): Đã tự động tạm dừng đọc.", type: .info))
     }
+
 
     // Thông tin phát nhạc độc lập toàn cục
     @Published public private(set) var playingBookId: String = ""
@@ -685,29 +529,29 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public private(set) var playingBookSourceName: String = ""
     @Published public private(set) var extensionInfo: TTSExtensionInfo? = nil
 
-    private var chaptersQueue: [TTSChapterInfo] = []
-    private var currentPlaybackId: String? = nil
-    private var wasPlayingBeforeSettings = false
-    private var savedParagraphIdentityBeforeSettings: Int = -1
-    private var wasPlayingBeforeInterruption = false
-    private var lastPausedTime: Date? = nil
-    private var cancellables = Set<AnyCancellable>()
-    private var prepareSpeakingTask: Task<Void, Never>? = nil
-    private var startSpeakingTask: Task<Void, Never>? = nil
-    private var chapterQueueRefreshTask: Task<Void, Never>? = nil
-    private var chapterAdvanceTask: Task<Void, Never>? = nil
-    private var chapterAdvanceTaskGeneration: UInt64 = 0
-    private var nghiWarmUpTask: Task<Void, Never>? = nil
-    private let audioSynthesisWorker = TTSAudioSynthesisWorker()
-    private lazy var nextChapterPrefetcher = TTSChapterPrefetcher(audioWorker: audioSynthesisWorker)
-    private var claimedSynthesisTask: Task<Data, Error>? = nil
-    private var claimedSynthesisTaskKey: String? = nil
-    private var sessionID = UUID()
-    private var ttsProcessingGeneration = 0
-    private var preparationGeneration = 0
-    private var preparedChapterKey: TTSPreparedChapterKey? = nil
-    private var preparedChapter: TTSPreparedChapter? = nil
-    private var sessionTranslationEnabled: Bool = false
+    internal var chaptersQueue: [TTSChapterInfo] = []
+    internal var currentPlaybackId: String? = nil
+    internal var wasPlayingBeforeSettings = false
+    internal var savedParagraphIdentityBeforeSettings: Int = -1
+    internal var wasPlayingBeforeInterruption = false
+    internal var lastPausedTime: Date? = nil
+    internal var cancellables = Set<AnyCancellable>()
+    internal var prepareSpeakingTask: Task<Void, Never>? = nil
+    internal var startSpeakingTask: Task<Void, Never>? = nil
+    internal var chapterQueueRefreshTask: Task<Void, Never>? = nil
+    internal var chapterAdvanceTask: Task<Void, Never>? = nil
+    internal var chapterAdvanceTaskGeneration: UInt64 = 0
+    internal var nghiWarmUpTask: Task<Void, Never>? = nil
+    internal let audioSynthesisWorker = TTSAudioSynthesisWorker()
+    internal lazy var nextChapterPrefetcher = TTSChapterPrefetcher(audioWorker: audioSynthesisWorker)
+    internal var claimedSynthesisTask: Task<Data, Error>? = nil
+    internal var claimedSynthesisTaskKey: String? = nil
+    internal var sessionID = UUID()
+    internal var ttsProcessingGeneration = 0
+    internal var preparationGeneration = 0
+    internal var preparedChapterKey: TTSPreparedChapterKey? = nil
+    internal var preparedChapter: TTSPreparedChapter? = nil
+    internal var sessionTranslationEnabled: Bool = false
 
     public func clearPreparedChapterCache() {
         prepareSpeakingTask?.cancel()
@@ -717,7 +561,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         preparedChapter = nil
     }
 
-    private func cancelClaimedSynthesisTask() {
+    internal func cancelClaimedSynthesisTask() {
         claimedSynthesisTask?.cancel()
         claimedSynthesisTask = nil
         claimedSynthesisTaskKey = nil
@@ -735,7 +579,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         chapterAdvanceTask = nil
     }
 
-    private struct NowPlayingStaticMetadataKey: Equatable, Sendable {
+    internal struct NowPlayingStaticMetadataKey: Equatable, Sendable {
         let bookId: String
         let bookTitle: String
         let chapterIndex: Int
@@ -745,7 +589,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let translationToken: Int
     }
 
-    private struct NowPlayingStaticMetadata {
+    internal struct NowPlayingStaticMetadata {
         let key: NowPlayingStaticMetadataKey
         let displayBookTitle: String
         let displayChapterTitle: String
@@ -754,24 +598,24 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     // Static title/artwork work is coalesced by book/chapter/translation key.
     // Paragraph transitions update only the cheap timeline fields.
-    private var nowPlayingUpdateGeneration: UInt = 0
-    private var nowPlayingStaticMetadata: NowPlayingStaticMetadata?
-    private var nowPlayingMetadataTaskKey: NowPlayingStaticMetadataKey?
-    private var nowPlayingMetadataTask: Task<Void, Never>?
-    private var nowPlayingCoverDownloadKey: NowPlayingStaticMetadataKey?
+    internal var nowPlayingUpdateGeneration: UInt = 0
+    internal var nowPlayingStaticMetadata: NowPlayingStaticMetadata?
+    internal var nowPlayingMetadataTaskKey: NowPlayingStaticMetadataKey?
+    internal var nowPlayingMetadataTask: Task<Void, Never>?
+    internal var nowPlayingCoverDownloadKey: NowPlayingStaticMetadataKey?
 
     // Cache lưu trữ dữ liệu âm thanh đã được tổng hợp trước cho các đoạn văn
-    private var preloadedData: [Int: Data] = [:]
-    private var preloadedDurations: [Int: Double] = [:]
-    private var prefetchTasks: [Int: Task<Void, Never>] = [:]
-    private var remotePlaybackTask: Task<Void, Never>?
-    private var remotePlaybackTaskGeneration: UInt64 = 0
-    private var nghiPlaybackTask: Task<Void, Never>?
-    private var nghiPlaybackTaskGeneration: UInt64 = 0
-    private var nghiRefillTask: Task<Void, Never>? = nil
-    private var nghiRefillGeneration: UInt64 = 0
-    private var nghiRefillInFlightIndex: Int? = nil
-    private var nghiWakeTask: Task<Void, Never>? = nil
+    internal var preloadedData: [Int: Data] = [:]
+    internal var preloadedDurations: [Int: Double] = [:]
+    internal var prefetchTasks: [Int: Task<Void, Never>] = [:]
+    internal var remotePlaybackTask: Task<Void, Never>?
+    internal var remotePlaybackTaskGeneration: UInt64 = 0
+    internal var nghiPlaybackTask: Task<Void, Never>?
+    internal var nghiPlaybackTaskGeneration: UInt64 = 0
+    internal var nghiRefillTask: Task<Void, Never>? = nil
+    internal var nghiRefillGeneration: UInt64 = 0
+    internal var nghiRefillInFlightIndex: Int? = nil
+    internal var nghiWakeTask: Task<Void, Never>? = nil
 
     private struct TTSSettingsSnapshot: Equatable {
         let tool: String
@@ -818,7 +662,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         )
     }
 
-    private struct NghiEnergyAccumulator {
+    internal struct NghiEnergyAccumulator {
         var startedAt: TimeInterval?
         var synthesisCount = 0
         var essentialCount = 0
@@ -831,11 +675,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         var maxRTF = 0.0
     }
 
-    private var nghiEnergy = NghiEnergyAccumulator()
-    private var audioPlayer: AVAudioPlayer?
-    private let nghiAudioPlayerQueue = NghiAudioPlayerQueue()
-    private let callObserver = TTSCallObserver()
-    private var isAudioSessionConfigured = false
+    internal var nghiEnergy = NghiEnergyAccumulator()
+    internal var audioPlayer: AVAudioPlayer?
+    internal let nghiAudioPlayerQueue = NghiAudioPlayerQueue()
+    internal let callObserver = TTSCallObserver()
+    internal var isAudioSessionConfigured = false
 
     // Trạng thái đệm thời lượng âm thanh & nhiệt độ thiết bị (NghiTTS Optimization)
     @Published public var nghiBufferedDuration: Double = 0.0
@@ -859,8 +703,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     // Trình phát & Engine
     private let siriService = SiriTTSService()
-    private let extService = ExtTTSService()
-    private let googleService = GoogleTTSService()
+    internal let extService = ExtTTSService()
+    internal let googleService = GoogleTTSService()
     private var nghiTTSService: PiperTTSService?
     public private(set) var nghiTTSClient: NghiTTSClient?
     private var modelStore: ModelStore?
@@ -990,7 +834,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     // AVAudioEngine cho NghiTTS
-    private var audioEngine: AVAudioEngine?
+    internal var audioEngine: AVAudioEngine?
     private var playerNode: AVAudioPlayerNode?
     private var timePitchNode: AVAudioUnitTimePitch?
     private var eqNode: AVAudioUnitEQ?
@@ -1047,6 +891,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         setupAudioEngine()
         setupRemoteCommandCenter()
         setupInterruptionObserver()
+
+
+
 
         NotificationCenter.default.publisher(for: NSNotification.Name("translationDictionariesDidUpdate"))
             .receive(on: RunLoop.main)
@@ -1137,55 +984,23 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    private func setupAudioEngine() {
-        let engine = AVAudioEngine()
-        let player = AVAudioPlayerNode()
-        let pitchNode = AVAudioUnitTimePitch()
-        let eqNode = AVAudioUnitEQ(numberOfBands: 2)
+    public let audioEngineController = TTSAudioEngineController()
+    public let audioSessionController = TTSAudioSessionController()
+    public let nowPlayingController = TTSNowPlayingController()
 
-        let band0 = eqNode.bands[0]
-        band0.filterType = .lowPass
-        band0.frequency = 6500.0
-        band0.bandwidth = 1.0
-        band0.bypass = false
-
-        let band1 = eqNode.bands[1]
-        band1.filterType = .highShelf
-        band1.frequency = 7500.0
-        band1.gain = -12.0
-        band1.bypass = false
-
-        eqNode.bypass = false
-
-        engine.attach(player)
-        engine.attach(eqNode)
-        engine.attach(pitchNode)
-
-        // Connect Player -> EQ -> TimePitch -> mainMixer
-        engine.connect(player, to: eqNode, format: nil)
-        engine.connect(eqNode, to: pitchNode, format: nil)
-        engine.connect(pitchNode, to: engine.mainMixerNode, format: nil)
-
-        self.audioEngine = engine
-        self.playerNode = player
-        self.timePitchNode = pitchNode
-        self.eqNode = eqNode
+    internal func setupAudioEngine() {
+        audioEngineController.configureEngine(speed: speed, pitch: pitch)
+        self.audioEngine = audioEngineController.audioEngine
+        self.playerNode = audioEngineController.playerNode
+        self.timePitchNode = audioEngineController.pitchNode
+        self.eqNode = audioEngineController.eqNode
     }
 
-    private func configureAudioSession() {
-        let session = AVAudioSession.sharedInstance()
-        if isAudioSessionConfigured,
-           session.category == .playback,
-           session.mode == .spokenAudio {
-            return
-        }
-        do {
-            try session.setCategory(.playback, mode: .spokenAudio, options: [])
-            try session.setActive(true)
+    internal func configureAudioSession() {
+        if isAudioSessionConfigured { return }
+        audioSessionController.activate()
+        if audioSessionController.configureAudioSession() {
             isAudioSessionConfigured = true
-        } catch {
-            isAudioSessionConfigured = false
-            AppLogger.shared.log("Failed to configure AVAudioSession: \(error.localizedDescription)")
         }
         #if DEBUG
         logRemoteTrace("configureAudioSession") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
@@ -1787,7 +1602,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             if timerMode == .endOfChapter {
                 stopCurrentPlayback()
                 pause()
-                ToastManager.shared.show(message: "📖 Hẹn giờ: Đã tự động tạm dừng khi đọc hết chương.", type: .info)
+                TTSPresentationEventCenter.shared.send(.showToast(message: "📖 Hẹn giờ: Đã tự động tạm dừng khi đọc hết chương.", type: .info))
                 return
             }
             stopCurrentPlayback()
@@ -1796,7 +1611,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             } else {
                 stopCurrentPlayback()
                 pause()
-                ToastManager.shared.show(message: "📖 Đã phát hết nội dung bộ truyện.", type: .info)
+                TTSPresentationEventCenter.shared.send(.showToast(message: "📖 Đã phát hết nội dung bộ truyện.", type: .info))
                 onChapterFinished?()
             }
         }
@@ -1834,7 +1649,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    private func stopCurrentPlayback() {
+    internal func stopCurrentPlayback() {
         self.currentPlaybackId = nil
         if tool == "system" {
             siriService.stop()
@@ -1857,7 +1672,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             if timerMode == .endOfChapter {
                 stopCurrentPlayback()
                 pause()
-                ToastManager.shared.show(message: "📖 Hẹn giờ: Đã tự động tạm dừng khi đọc hết chương.", type: .info)
+                TTSPresentationEventCenter.shared.send(.showToast(message: "📖 Hẹn giờ: Đã tự động tạm dừng khi đọc hết chương.", type: .info))
                 return
             }
             if let nextIdx = nextChapterIndex(after: playingChapterIndex) {
@@ -1867,7 +1682,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 // Đã hết sách hoàn toàn
                 stopCurrentPlayback()
                 pause()
-                ToastManager.shared.show(message: "📖 Đã phát hết nội dung bộ truyện.", type: .info)
+                TTSPresentationEventCenter.shared.send(.showToast(message: "📖 Đã phát hết nội dung bộ truyện.", type: .info))
                 onChapterFinished?()
             }
         }
@@ -2376,7 +2191,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     // speakCurrent: Bắt đầu phát âm thanh của đoạn văn bản hiện tại (index = currentParagraphIndex)
-    private func speakCurrent() {
+    internal func speakCurrent() {
         // let pid = currentPlaybackId ?? "NONE"
         // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] speakCurrent() được gọi. index=\(currentParagraphIndex)")
 
@@ -2446,46 +2261,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         updateNowPlayingInfo()
     }
 
-    public func clearCurrentParagraphPrefetchCache() {
-        cancelNghiPlaybackTask()
-        cancelNghiRefill()
-        cancelClaimedSynthesisTask()
-        remotePlaybackTask?.cancel()
-        remotePlaybackTask = nil
-        cancelRemotePrefetchTasks()
-        preloadedData.removeAll()
-        preloadedDurations.removeAll()
-        nghiAudioPlayerQueue.clearPreparedNext()
-        
-        if tool != "system" && tool != "nghitts" && tool != "google" {
-            extService.cleanupAllTempFiles()
-        }
-    }
 
-    public func clearAllTTSCaches() {
-        clearCurrentParagraphPrefetchCache()
-        nextChapterPrefetcher.cancel()
-        Task {
-            await audioSynthesisWorker.cancelPrefetchTasks()
-            await extService.resetRuntime()
-        }
-    }
-
-    public func clearPrefetchCache() {
-        clearAllTTSCaches()
-    }
-
-    private func cancelRemotePrefetchTasks() {
-        for task in prefetchTasks.values {
-            task.cancel()
-        }
-        prefetchTasks.removeAll()
-        prefetchTaskGenerations.removeAll()
-    }
 
     // updatePrefetchWindow: Cập nhật cửa sổ trượt (Sliding Window) tải trước dữ liệu âm thanh
     // Mục tiêu: Luôn có sẵn âm thanh PCMBuffer của đoạn tiếp theo (N+1) trong bộ đệm để phát ngay khi đoạn hiện tại (N) kết thúc, triệt tiêu hoàn toàn khoảng trễ tổng hợp âm thanh.
-    private func updatePrefetchWindow() {
+    internal func updatePrefetchWindow() {
         guard isPlaying, tool != "system" else { return }
 
         if tool == "nghitts" {
@@ -2531,11 +2311,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         checkAndPromoteNextChapterAudioIfNeeded()
     }
 
-    private func cancelNghiPlaybackTask() {
-        nghiPlaybackTaskGeneration &+= 1
-        nghiPlaybackTask?.cancel()
-        nghiPlaybackTask = nil
-    }
+
 
     private func recordNghiUnderrun(index: Int, reusedInFlight: Bool) {
         guard AppLogger.shared.isLoggingEnabled else { return }
@@ -2553,83 +2329,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         flushNghiEnergySummary(reason: "interval", force: false)
     }
 
-    private func recordNghiSynthesis(
-        pcmDuration: Double,
-        queueWaitMs: Double,
-        synthesisMs: Double,
-        essential: Bool,
-        onDemand: Bool
-    ) {
-        guard AppLogger.shared.isLoggingEnabled else { return }
-        let now = ProcessInfo.processInfo.systemUptime
-        if nghiEnergy.startedAt == nil {
-            nghiEnergy.startedAt = now
-        }
-        nghiEnergy.synthesisCount += 1
-        if essential { nghiEnergy.essentialCount += 1 }
-        if onDemand { nghiEnergy.onDemandCount += 1 }
-        nghiEnergy.totalQueueWaitMs += queueWaitMs
-        nghiEnergy.totalSynthesisMs += synthesisMs
-        nghiEnergy.totalPCMSeconds += pcmDuration
-        if pcmDuration > 0 {
-            nghiEnergy.maxRTF = max(nghiEnergy.maxRTF, (synthesisMs / 1_000) / pcmDuration)
-        }
-        flushNghiEnergySummary(reason: "interval", force: false)
-    }
 
-    private func flushNghiEnergySummary(reason: String, force: Bool) {
-        guard AppLogger.shared.isLoggingEnabled else {
-            if force { nghiEnergy = NghiEnergyAccumulator() }
-            return
-        }
-        guard let startedAt = nghiEnergy.startedAt else { return }
-        let now = ProcessInfo.processInfo.systemUptime
-        let elapsed = max(0, now - startedAt)
-        guard force || elapsed >= 60 else { return }
-        guard nghiEnergy.synthesisCount > 0 || nghiEnergy.underrunCount > 0 else {
-            nghiEnergy = NghiEnergyAccumulator()
-            return
-        }
-
-        let averageQueueWaitMs = nghiEnergy.synthesisCount > 0
-            ? nghiEnergy.totalQueueWaitMs / Double(nghiEnergy.synthesisCount)
-            : 0
-        let aggregateRTF = nghiEnergy.totalPCMSeconds > 0
-            ? (nghiEnergy.totalSynthesisMs / 1_000) / nghiEnergy.totalPCMSeconds
-            : 0
-        AppLogger.shared.log(String(
-            format: "[NghiEnergy] Summary reason=%@ elapsedSec=%.1f synth=%d essential=%d onDemand=%d underrun=%d reusedInFlight=%d avgQueueWaitMs=%.2f aggregateRTF=%.3f maxRTF=%.3f thermal=%@",
-            reason,
-            elapsed,
-            nghiEnergy.synthesisCount,
-            nghiEnergy.essentialCount,
-            nghiEnergy.onDemandCount,
-            nghiEnergy.underrunCount,
-            nghiEnergy.reusedInFlightCount,
-            averageQueueWaitMs,
-            aggregateRTF,
-            nghiEnergy.maxRTF,
-            Self.nghiThermalStateName(currentThermalState)
-        ))
-        nghiEnergy = NghiEnergyAccumulator()
-    }
-
-    private static func nghiThermalStateName(_ state: ProcessInfo.ThermalState) -> String {
-        switch state {
-        case .nominal: return "nominal"
-        case .fair: return "fair"
-        case .serious: return "serious"
-        case .critical: return "critical"
-        @unknown default: return "unknown"
-        }
-    }
 
     private func cancelNghiWakeTask() {
         nghiWakeTask?.cancel()
         nghiWakeTask = nil
     }
 
-    private func cancelNghiRefill() {
+    internal func cancelNghiRefill() {
         nghiRefillGeneration &+= 1
         nghiRefillTask?.cancel()
         nghiRefillTask = nil
@@ -3146,13 +2853,13 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             preloadedDurations.removeValue(forKey: currentParagraphIndex)
             currentPlaybackId = nil
             pause()
-            ToastManager.shared.show(message: "Lỗi trình phát âm thanh: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
+            TTSPresentationEventCenter.shared.send(.showToast(message: "Lỗi trình phát âm thanh: \(error.localizedDescription). Tạm dừng đọc.", type: .error))
         }
 
         updateNowPlayingInfo()
     }
 
-    private func playAudioData(_ audioData: Data, withId customId: String? = nil) {
+    internal func playAudioData(_ audioData: Data, withId customId: String? = nil) {
         let playbackId = customId ?? String(UUID().uuidString.prefix(4))
         self.currentPlaybackId = playbackId
 
@@ -3211,7 +2918,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 self.preloadedData.removeValue(forKey: currentParagraphIndex)
                 self.currentPlaybackId = nil
                 self.pause()
-                ToastManager.shared.show(message: "Lỗi trình phát âm thanh: Không thể phát dữ liệu audio.", type: .error)
+                TTSPresentationEventCenter.shared.send(.showToast(message: "Lỗi trình phát âm thanh: Không thể phát dữ liệu audio.", type: .error))
             }
         } catch {
             let setupEnd = ProcessInfo.processInfo.systemUptime
@@ -3233,7 +2940,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.preloadedData.removeValue(forKey: currentParagraphIndex)
             self.currentPlaybackId = nil
             self.pause()
-            ToastManager.shared.show(message: "Lỗi trình phát âm thanh: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
+            TTSPresentationEventCenter.shared.send(.showToast(message: "Lỗi trình phát âm thanh: \(error.localizedDescription). Tạm dừng đọc.", type: .error))
         }
 
         updateNowPlayingInfo()
@@ -3393,224 +3100,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 self.preloadedDurations.removeValue(forKey: index)
                 self.currentPlaybackId = nil
                 self.pause()
-                ToastManager.shared.show(message: "Lỗi NghiTTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
+                TTSPresentationEventCenter.shared.send(.showToast(message: "Lỗi NghiTTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error))
             }
         }
     }
 
 
 
-    private func playGoogleTTS(_ text: String) {
-        let index = currentParagraphIndex
-        let voice = selectedVoice
-        let pitchToUse = pitch
-        let playbackId = String(UUID().uuidString.prefix(4))
-        self.currentPlaybackId = playbackId
-        let expectedSessionID = sessionID
-        let expectedChapterIndex = playingChapterIndex
-        let expectedBookID = playingBookId
-        let expectedChapterURL = playingChapterUrl
-        let service = googleService
-        let synthesisKey = TTSSynthesisIdentity.computeKey(
-            chapterURL: expectedChapterURL,
-            chapterIndex: expectedChapterIndex,
-            paragraphIndex: index,
-            finalText: text,
-            engine: "google",
-            voice: voice,
-            googlePitch: pitchToUse,
-            extensionFingerprint: nil
-        )
 
-        if let cachedData = preloadedData[index] {
-            recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "google", index: index, outcome: "hit")
-            self.playAudioData(cachedData, withId: playbackId)
-            updatePrefetchWindow()
-            return
-        }
-
-        let wasPrefetching = prefetchTasks[index] != nil
-        remotePlaybackTask?.cancel()
-        remotePlaybackTaskGeneration &+= 1
-        let taskGeneration = remotePlaybackTaskGeneration
-        let startWait = ProcessInfo.processInfo.systemUptime
-
-        let audioSynthesisWorkerRef = self.audioSynthesisWorker
-
-        remotePlaybackTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            defer {
-                if self.remotePlaybackTaskGeneration == taskGeneration {
-                    self.remotePlaybackTask = nil
-                }
-            }
-
-            do {
-                let mp3Data = try await audioSynthesisWorkerRef.synthesizeParagraph(
-                    synthesisKey: synthesisKey,
-                    engine: "google",
-                    textLength: text.count,
-                    priority: .current,
-                    offset: 0,
-                    prefetchDelayMs: 0
-                ) {
-                    try await service.synthesize(text: text, voice: voice, speed: 1.0, pitch: pitchToUse)
-                }
-
-                guard !Task.isCancelled,
-                      self.isPlaying,
-                      self.currentPlaybackId == playbackId,
-                      self.sessionID == expectedSessionID,
-                      self.playingBookId == expectedBookID,
-                      self.playingChapterIndex == expectedChapterIndex,
-                      self.playingChapterUrl == expectedChapterURL,
-                      self.tool == "google",
-                      self.selectedVoice == voice else { return }
-
-                let waitMs = (ProcessInfo.processInfo.systemUptime - startWait) * 1000
-                self.recordPrefetchResult(
-                    sessionID: expectedSessionID,
-                    chapterIndex: expectedChapterIndex,
-                    engine: "google",
-                    index: index,
-                    outcome: wasPrefetching ? "hit_wait" : "miss",
-                    waitMs: wasPrefetching ? waitMs : 0
-                )
-                self.playAudioData(mp3Data, withId: playbackId)
-                self.updatePrefetchWindow()
-            } catch is CancellationError {
-                return
-            } catch {
-                guard self.currentPlaybackId == playbackId else { return }
-                if index == 0 && self.activeTTSAutoAdvancePerf?.chapterIndex == self.playingChapterIndex {
-                    let synMs = self.currentParagraph0SynthesisMs()
-                    self.finishTTSAutoAdvancePerf(
-                        outcome: "synthesis_failed",
-                        endpoint: "error",
-                        sessionID: self.sessionID,
-                        generation: self.ttsProcessingGeneration,
-                        chapterIndex: self.playingChapterIndex,
-                        synthesisMs: synMs
-                    )
-                }
-                AppLogger.shared.log("❌ Lỗi Google Cloud TTS: \(error.localizedDescription)")
-                self.preloadedData.removeValue(forKey: index)
-                self.currentPlaybackId = nil
-                self.pause()
-                ToastManager.shared.show(message: "Lỗi Google TTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
-            }
-        }
-    }
-
-    private func playExtensionTTS(_ text: String) {
-        let index = currentParagraphIndex
-        let voice = selectedVoice
-        let localPath = extensionLocalPath
-        let configJson = extensionConfigJson
-        let playbackId = String(UUID().uuidString.prefix(4))
-        self.currentPlaybackId = playbackId
-        let expectedSessionID = sessionID
-        let expectedChapterIndex = playingChapterIndex
-        let expectedBookID = playingBookId
-        let expectedChapterURL = playingChapterUrl
-        let engineName = tool
-        let service = extService
-        let extFingerprint = ExtensionManager.shared.getTTSRuntimeFingerprint(localPath: localPath, configJson: configJson)
-        let synthesisKey = TTSSynthesisIdentity.computeKey(
-            chapterURL: expectedChapterURL,
-            chapterIndex: expectedChapterIndex,
-            paragraphIndex: index,
-            finalText: text,
-            engine: engineName,
-            voice: voice,
-            googlePitch: nil,
-            extensionFingerprint: extFingerprint
-        )
-
-        if let cachedData = preloadedData[index] {
-            recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: engineName, index: index, outcome: "hit")
-            self.playAudioData(cachedData, withId: playbackId)
-            updatePrefetchWindow()
-            return
-        }
-
-        let wasPrefetching = prefetchTasks[index] != nil
-        remotePlaybackTask?.cancel()
-        remotePlaybackTaskGeneration &+= 1
-        let taskGeneration = remotePlaybackTaskGeneration
-        let startWait = ProcessInfo.processInfo.systemUptime
-
-        let audioSynthesisWorkerRef = self.audioSynthesisWorker
-
-        remotePlaybackTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            defer {
-                if self.remotePlaybackTaskGeneration == taskGeneration {
-                    self.remotePlaybackTask = nil
-                }
-            }
-
-            do {
-                let audioData = try await audioSynthesisWorkerRef.synthesizeParagraph(
-                    synthesisKey: synthesisKey,
-                    engine: engineName,
-                    textLength: text.count,
-                    priority: .current,
-                    offset: 0,
-                    prefetchDelayMs: 0
-                ) {
-                    try await service.synthesizeData(
-                        text: text,
-                        voice: voice,
-                        localPath: localPath,
-                        configJson: configJson
-                    )
-                }
-
-                guard !Task.isCancelled,
-                      self.isPlaying,
-                      self.currentPlaybackId == playbackId,
-                      self.sessionID == expectedSessionID,
-                      self.playingBookId == expectedBookID,
-                      self.playingChapterIndex == expectedChapterIndex,
-                      self.playingChapterUrl == expectedChapterURL,
-                      self.tool == engineName,
-                      self.selectedVoice == voice else { return }
-
-                let waitMs = (ProcessInfo.processInfo.systemUptime - startWait) * 1000
-                self.recordPrefetchResult(
-                    sessionID: expectedSessionID,
-                    chapterIndex: expectedChapterIndex,
-                    engine: engineName,
-                    index: index,
-                    outcome: wasPrefetching ? "hit_wait" : "miss",
-                    waitMs: wasPrefetching ? waitMs : 0
-                )
-                self.playAudioData(audioData, withId: playbackId)
-                self.updatePrefetchWindow()
-            } catch is CancellationError {
-                return
-            } catch {
-                guard self.currentPlaybackId == playbackId else { return }
-                if index == 0 && self.activeTTSAutoAdvancePerf?.chapterIndex == self.playingChapterIndex {
-                    let synMs = self.currentParagraph0SynthesisMs()
-                    self.finishTTSAutoAdvancePerf(
-                        outcome: "synthesis_failed",
-                        endpoint: "error",
-                        sessionID: self.sessionID,
-                        generation: self.ttsProcessingGeneration,
-                        chapterIndex: self.playingChapterIndex,
-                        synthesisMs: synMs
-                    )
-                }
-                AppLogger.shared.log("❌ Lỗi Extension TTS: \(error.localizedDescription)")
-                self.preloadedData.removeValue(forKey: index)
-                self.currentPlaybackId = nil
-                self.pause()
-                ToastManager.shared.show(message: "Lỗi Extension TTS: \(error.localizedDescription). Tạm dừng đọc.", type: .error)
-            }
-        }
-    }
 
     private func cleanUpTempFile() {
         // File tạm được dọn dẹp trực tiếp trong ExtTTSService.synthesize
@@ -3620,72 +3117,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     // MARK: - Lock Screen & Remote Control Sync
 
-    private func setRemoteCommandsEnabled(_ enabled: Bool) {
-        #if DEBUG
-        logRemoteTrace("setRemoteCommandsEnabled(\(enabled))") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
-        #endif
-        let commandCenter = MPRemoteCommandCenter.shared()
-        commandCenter.playCommand.isEnabled = enabled
-        commandCenter.pauseCommand.isEnabled = enabled
-        commandCenter.togglePlayPauseCommand.isEnabled = enabled
-        commandCenter.nextTrackCommand.isEnabled = enabled
-        commandCenter.previousTrackCommand.isEnabled = enabled
 
-        commandCenter.skipForwardCommand.isEnabled = false
-        commandCenter.skipBackwardCommand.isEnabled = false
-
-        if enabled {
-            UIApplication.shared.beginReceivingRemoteControlEvents()
-        } else {
-            UIApplication.shared.endReceivingRemoteControlEvents()
-        }
-    }
-
-    private func syncRemoteCommandState() {
-        let commandCenter = MPRemoteCommandCenter.shared()
-        let active = !playingBookId.isEmpty && showFloatingWidget
-        let playing = active && isPlaying
-        let paused = active && !isPlaying
-        commandCenter.playCommand.isEnabled = paused
-        commandCenter.pauseCommand.isEnabled = playing
-        commandCenter.togglePlayPauseCommand.isEnabled = active
-        commandCenter.nextTrackCommand.isEnabled = active
-        commandCenter.previousTrackCommand.isEnabled = active
-        #if DEBUG
-        logRemoteTrace("syncRemoteCommandState", details: "active:\(active), playing:\(playing), paused:\(paused)") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
-        #endif
-    }
-
-    /// Synchronously publishes relative current (1.0/0.0) and default (TTS speed) playback rates
-    /// along with a complete finite paragraph timeline (elapsed, duration, progress) to iOS Now Playing
-    /// metadata without waiting for the asynchronous metadata refresh.
-    /// The playbackState assignment is retained for system compatibility and logging.
-    @MainActor
-    private func setSystemNowPlayingPlaybackState(_ state: MPNowPlayingPlaybackState) {
-        let center = MPNowPlayingInfoCenter.default()
-        var info = center.nowPlayingInfo ?? [:]
-        let currentRate = (state == .playing) ? 1.0 : 0.0
-        let pIndex = self.currentParagraphIndex
-        let pCount = self.paragraphs.count
-        let duration = Double(max(1, pCount))
-        let elapsed = min(duration, Double(max(0, pIndex)))
-        let progress = duration > 0 ? min(1.0, max(0.0, elapsed / duration)) : 0.0
-
-        info[MPNowPlayingInfoPropertyPlaybackRate] = currentRate
-        info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = self.speed
-        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsed
-        info[MPMediaItemPropertyPlaybackDuration] = duration
-        info[MPNowPlayingInfoPropertyPlaybackProgress] = progress
-
-        center.nowPlayingInfo = info
-        center.playbackState = state
-
-        // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
-        #if DEBUG
-        let thread = Thread.isMainThread ? "Main" : "Bg"
-        AppLogger.shared.log("🔍 [TTSTrace] setSystemNowPlayingPlaybackState | Thread:\(thread) | state:\(state.rawValue) | currentRate:\(currentRate) | defaultRate:\(self.speed) | elapsed:\(elapsed) | duration:\(duration) | progress:\(String(format: "%.2f", progress))")
-        #endif
-    }
 
     enum RemoteTransportAction {
         case play
@@ -3761,133 +3193,30 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     private func setupRemoteCommandCenter() {
-        let commandCenter = MPRemoteCommandCenter.shared()
-
-        commandCenter.togglePlayPauseCommand.removeTarget(nil)
-        commandCenter.playCommand.removeTarget(nil)
-        commandCenter.pauseCommand.removeTarget(nil)
-        commandCenter.nextTrackCommand.removeTarget(nil)
-        commandCenter.previousTrackCommand.removeTarget(nil)
-
-        // Toggle Play / Pause
-        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
-            guard self != nil else { return .commandFailed }
-            let isMain = Thread.isMainThread
-            let entryUptime = DispatchTime.now().uptimeNanoseconds
-            let eventId = String(UUID().uuidString.prefix(8))
-
-            if isMain {
-                return MainActor.assumeIsolated {
-                    guard let self = self else { return .commandFailed }
-                    return self.dispatchRemoteTransportCommand(
-                        .toggle,
-                        entryUptime: entryUptime,
-                        isMain: true,
-                        eventId: eventId
-                    )
-                }
-            } else {
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
-                    _ = self.dispatchRemoteTransportCommand(
-                        .toggle,
-                        entryUptime: entryUptime,
-                        isMain: false,
-                        eventId: eventId
-                    )
-                }
-                return .success
-            }
+        nowPlayingController.onPlayCommand = { [weak self] in
+            guard let self = self else { return }
+            _ = self.dispatchRemoteTransportCommand(.play, entryUptime: DispatchTime.now().uptimeNanoseconds, isMain: true, eventId: "RPT")
         }
-
-        // Play
-        commandCenter.playCommand.addTarget { [weak self] _ in
-            guard self != nil else { return .commandFailed }
-            let isMain = Thread.isMainThread
-            let entryUptime = DispatchTime.now().uptimeNanoseconds
-            let eventId = String(UUID().uuidString.prefix(8))
-
-            if isMain {
-                return MainActor.assumeIsolated {
-                    guard let self = self else { return .commandFailed }
-                    return self.dispatchRemoteTransportCommand(
-                        .play,
-                        entryUptime: entryUptime,
-                        isMain: true,
-                        eventId: eventId
-                    )
-                }
-            } else {
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
-                    _ = self.dispatchRemoteTransportCommand(
-                        .play,
-                        entryUptime: entryUptime,
-                        isMain: false,
-                        eventId: eventId
-                    )
-                }
-                return .success
-            }
+        nowPlayingController.onPauseCommand = { [weak self] in
+            guard let self = self else { return }
+            _ = self.dispatchRemoteTransportCommand(.pause, entryUptime: DispatchTime.now().uptimeNanoseconds, isMain: true, eventId: "RPT")
         }
-
-        // Pause
-        commandCenter.pauseCommand.addTarget { [weak self] _ in
-            guard self != nil else { return .commandFailed }
-            let isMain = Thread.isMainThread
-            let entryUptime = DispatchTime.now().uptimeNanoseconds
-            let eventId = String(UUID().uuidString.prefix(8))
-
-            if isMain {
-                return MainActor.assumeIsolated {
-                    guard let self = self else { return .commandFailed }
-                    return self.dispatchRemoteTransportCommand(
-                        .pause,
-                        entryUptime: entryUptime,
-                        isMain: true,
-                        eventId: eventId
-                    )
-                }
-            } else {
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
-                    _ = self.dispatchRemoteTransportCommand(
-                        .pause,
-                        entryUptime: entryUptime,
-                        isMain: false,
-                        eventId: eventId
-                    )
-                }
-                return .success
-            }
+        nowPlayingController.onNextCommand = { [weak self] in
+            guard let self = self else { return }
+            self.handleRemoteTransportCommandOnMain(.next)
         }
-
-        // Next Track (Đoạn sau)
-        commandCenter.nextTrackCommand.addTarget { [weak self] _ in
-            guard self != nil else { return .commandFailed }
-            DispatchQueue.main.async { [weak self] in
-                self?.handleRemoteTransportCommandOnMain(.next)
-            }
-            return .success
+        nowPlayingController.onPreviousCommand = { [weak self] in
+            guard let self = self else { return }
+            self.handleRemoteTransportCommandOnMain(.previous)
         }
-
-        // Prev Track (Đoạn trước)
-        commandCenter.previousTrackCommand.addTarget { [weak self] _ in
-            guard self != nil else { return .commandFailed }
-            DispatchQueue.main.async { [weak self] in
-                self?.handleRemoteTransportCommandOnMain(.previous)
-            }
-            return .success
-        }
-
-        // Mặc định ban đầu vô hiệu hóa các remote commands cho đến khi bắt đầu phát thực sự
+        nowPlayingController.setupRemoteCommandCenter()
         self.setRemoteCommandsEnabled(false)
         #if DEBUG
-        logRemoteTrace("setupRemoteCommandCenter") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
+        logRemoteTrace("setupRemoteCommandCenter")
         #endif
     }
 
-    private func updateNowPlayingInfo() {
+    internal func updateNowPlayingInfo() {
         let key = NowPlayingStaticMetadataKey(
             bookId: playingBookId,
             bookTitle: bookTitle,
@@ -3958,61 +3287,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    private func publishNowPlayingInfo(using metadata: NowPlayingStaticMetadata) {
-        let paragraphIndex = currentParagraphIndex
-        let paragraphCount = paragraphs.count
-        let liveIsPlaying = isPlaying
-        let liveSpeed = speed
-
-        var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
-        info[MPMediaItemPropertyTitle] = metadata.displayBookTitle
-
-        let currentPart = paragraphCount == 0 ? "" : " (Đoạn \(paragraphIndex + 1)/\(paragraphCount))"
-        info[MPMediaItemPropertyArtist] = metadata.displayChapterTitle + currentPart
-        info.removeValue(forKey: MPNowPlayingInfoPropertyIsLiveStream)
-        info[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.audio.rawValue
-
-        let currentRate = liveIsPlaying ? 1.0 : 0.0
-        let duration = Double(max(1, paragraphCount))
-        let elapsed = min(duration, Double(max(0, paragraphIndex)))
-        let progress = duration > 0 ? min(1.0, max(0.0, elapsed / duration)) : 0.0
-        info[MPNowPlayingInfoPropertyPlaybackRate] = currentRate
-        info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = liveSpeed
-        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsed
-        info[MPMediaItemPropertyPlaybackDuration] = duration
-        info[MPNowPlayingInfoPropertyPlaybackProgress] = progress
-
-        if let artwork = metadata.artwork {
-            info[MPMediaItemPropertyArtwork] = artwork
-        } else {
-            info.removeValue(forKey: MPMediaItemPropertyArtwork)
-        }
-
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
-        MPNowPlayingInfoCenter.default().playbackState = liveIsPlaying ? .playing : .paused
-        #if DEBUG
-        logRemoteTrace("updateNowPlayingInfo", details: "liveIsPlaying:\(liveIsPlaying), liveSpeed:\(liveSpeed)") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
-        #endif
-    }
-
-    private func downloadNowPlayingCoverIfNeeded(for key: NowPlayingStaticMetadataKey) {
-        guard !key.coverUrl.isEmpty, nowPlayingCoverDownloadKey != key else { return }
-        nowPlayingCoverDownloadKey = key
-
-        ImageCacheManager.shared.downloadAndSaveCover(urlStr: key.coverUrl, bookId: key.bookId) { [weak self] image in
-            guard image != nil else { return }
-            DispatchQueue.main.async {
-                guard let self,
-                      self.playingBookId == key.bookId,
-                      self.showFloatingWidget else { return }
-                self.nowPlayingCoverDownloadKey = nil
-                if self.nowPlayingStaticMetadata?.key == key {
-                    self.nowPlayingStaticMetadata = nil
-                }
-                self.updateNowPlayingInfo()
-            }
-        }
-    }
 
     // MARK: - NghiTTS Downloader Wrapper
 
@@ -4170,140 +3444,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             .store(in: &cancellables)
     }
 
-    private func handleInterruption(notification: Notification) {
-        #if DEBUG
-        logRemoteTrace("handleInterruption", details: "userInfo:\(notification.userInfo ?? [:])") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
-        #endif
-        guard let userInfo = notification.userInfo,
-              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
-              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
-            return
-        }
 
-        switch type {
-        case .began:
-            AppLogger.shared.log("🔊 [TTSManager] Audio session interruption began. isPlaying = \(self.isPlaying)")
-            if isPlaying {
-                self.wasPlayingBeforeInterruption = true
-                self.pause()
-                try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-                self.isAudioSessionConfigured = false
-            }
-        case .ended:
-            AppLogger.shared.log("🔊 [TTSManager] Audio session interruption ended. wasPlayingBeforeInterruption = \(self.wasPlayingBeforeInterruption)")
-
-            // Đối với ứng dụng đọc truyện, luôn khôi phục nếu trước đó đang đọc
-            if self.wasPlayingBeforeInterruption {
-                self.wasPlayingBeforeInterruption = false
-
-                // Trì hoãn một chút để hệ thống nhả hoàn toàn Audio Session
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                    guard let self = self else { return }
-                    if !self.isPlaying {
-                        AppLogger.shared.log("🔊 [TTSManager] Resuming TTS playback after interruption.")
-                        self.configureAudioSession()
-                        self.resume()
-                    }
-                }
-            }
-        @unknown default:
-            break
-        }
-    }
-
-    private func handleRouteChange(notification: Notification) {
-        #if DEBUG
-        logRemoteTrace("handleRouteChange", details: "userInfo:\(notification.userInfo ?? [:])") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
-        #endif
-        guard let userInfo = notification.userInfo,
-              let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
-              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
-            return
-        }
-
-        AppLogger.shared.log("🔊 [TTSManager] Route change: reason=\(reason.rawValue)")
-
-        switch reason {
-        case .oldDeviceUnavailable:
-            // Thiết bị phát cũ bị ngắt (rút tai nghe, tắt Bluetooth)
-            // AVAudioEngine tự dừng khi route thay đổi, cần restart
-            if isPlaying {
-                AppLogger.shared.log("🔊 [TTSManager] Old device unavailable. Reconfiguring and restarting current paragraph.")
-                let currentIdx = currentParagraphIndex
-
-                // Dừng playback hiện tại
-                stopCurrentPlayback()
-
-                // Reconfigure audio session cho thiết bị mới
-                configureAudioSession()
-
-                // Phát lại đoạn hiện tại
-                currentParagraphIndex = currentIdx
-                speakCurrent()
-            }
-
-        case .newDeviceAvailable:
-            // Thiết bị phát mới được kết nối (cắm tai nghe, bật Bluetooth)
-            // AVAudioEngine sẽ tự động chuyển đổi, chỉ cần đảm bảo session đúng
-            if isPlaying {
-                configureAudioSession()
-            }
-
-        default:
-            break
-        }
-    }
-
-    private func handleMediaServicesReset() {
-        #if DEBUG
-        logRemoteTrace("handleMediaServicesReset") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
-        #endif
-        // Media services bị reset: tất cả AVAudioEngine/PlayerNode đều trở thành invalid
-        AppLogger.shared.log("🔊 [TTSManager] Media services were reset. Rebuilding audio engine.")
-        let wasPlaying = isPlaying
-        let currentIdx = currentParagraphIndex
-        isAudioSessionConfigured = false
-
-        // Tạo mới hoàn toàn engine, player, pitchNode
-        setupAudioEngine()
-
-        // Đăng ký lại engine configuration change observer cho engine mới
-        if let engine = audioEngine {
-            NotificationCenter.default.publisher(for: .AVAudioEngineConfigurationChange, object: engine)
-                .receive(on: RunLoop.main)
-                .sink { [weak self] _ in
-                    guard let self = self else { return }
-                    self.handleEngineConfigChange()
-                }
-                .store(in: &cancellables)
-        }
-
-        // Khôi phục playback nếu trước đó đang phát
-        if wasPlaying && currentIdx >= 0 && currentIdx < paragraphs.count {
-            configureAudioSession()
-            self.isPlaying = true
-            speakCurrent()
-        }
-    }
-
-    private func handleEngineConfigChange() {
-        #if DEBUG
-        logRemoteTrace("handleEngineConfigChange") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
-        #endif
-        // Hardware configuration thay đổi (sample rate, channel count)
-        // Engine tự dừng, cần restart
-        AppLogger.shared.log("🔊 [TTSManager] Engine configuration changed.")
-
-        guard isPlaying else { return }
-        let currentIdx = currentParagraphIndex
-
-        stopCurrentPlayback()
-        configureAudioSession()
-
-        // Phát lại đoạn hiện tại
-        currentParagraphIndex = currentIdx
-        speakCurrent()
-    }
 }
 
 extension TTSManager {

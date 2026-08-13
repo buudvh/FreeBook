@@ -2,6 +2,31 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.143] - 2026-08-13
+
+### Điều chỉnh GitHub Actions Build IPA
+
+* **Bỏ Architecture Checker khỏi Build IPA**: Gỡ bước `Run Architecture Compliance Check` khỏi `.github/workflows/build-ipa.yml` theo quyết định trực tiếp của maintainer. `Scripts/check_architecture.py` vẫn được giữ lại như công cụ kiểm tra thủ công/local, nhưng không còn là gate của workflow build IPA.
+
+## [1.3.142] - 2026-08-13
+
+### Tái Cấu Trúc Mã Nguồn FreeBook iOS (Refactor v4.1/v4.2/v5.0)
+
+* **Thiết lập Tooling Check Kiến Trúc & GitHub Actions**: Tạo `Scripts/check_architecture.py` và `Scripts/architecture_allowlist.json` (schema v2 với mảng `violations`), hỗ trợ chốt chặn baseline (ratcheting). Tích hợp vào workflow `.github/workflows/build-ipa.yml`.
+* **Phân Tách Subsystem TTS & Uncoupling Sự Kiện Presentation**:
+  - Hợp nhất vòng đời Audio Session, EQ 2-band (lowPass 6500Hz & highShelf 7500Hz -12dB), Now Playing và Interruption Observer trong `TTSManager`.
+  - Khôi phục tương thích 100% stored `@Published` timer properties, `SleepTimerMode` enum và `$sleepTimerRemainingSeconds` publisher cho `TTSPlayStateReader`.
+  - Triển khai `TTSPresentationEventCenter` và `DownloadPresentationEventCenter` thread-safe `Sendable` non-`@MainActor` để phát Toast qua `AsyncStream` về `AppLaunchRootView` (`FreeBookApp.swift`).
+* **Tách Các File Dịch Vụ Monolith**: Tách DTO `TOCRule`, Actor `TOCRuleSaveCoordinator`, Thuật toán `VietPhraseTokenizer` (~245 dòng) và Platform Adapter `WebViewLoader`.
+* **Domain Stores & SwiftData Transaction Coordinators (Manager Approval A)**:
+  - Di chuyển `PrefetchManager.swift` sang `Sources/Services/ChapterText/`.
+  - Tách `ReaderChapterListStore`, `ChapterListSearchCoordinator`, `BackgroundSearchWorker`, `BackgroundPagingWorker`, `ReaderChapterListPageFetcher`.
+  - Xây dựng `ExtensionTransactionCoordinator` & `BookTransactionCoordinator` tiếp nhận Command DTOs/IDs bất biến. Loại bỏ 100% lệnh `modelContext.insert/delete/save` trực tiếp trong tất cả SwiftUI Views.
+* **Tách Thành Phần Giao Diện & Safe Actor Boundaries**:
+  - Tách `BookDetailLoader` sử dụng `ExtensionExecutionSnapshot` DTO bất biến qua ranh giới actor.
+  - Bổ sung `ReaderSelectionCoordinator`, `ReaderScrollCoordinator`, `RepositoryFilterPolicy`, `ReaderProgressScheduler`. Tất cả các file mới <= 400 dòng vật lý và 1 type chính.
+* **Khóa Ràng Buộc Khống Chế Unit Tests (Manager Decision: Option B REJECTED and LOCKED)**: Đã giữ nguyên 100% thư mục `Tests/` (0 file bị tạo, sửa, đổi tên, di chuyển hay xóa), đáp ứng tuyệt đối quy tắc Rule 2.1 trong AGENTS.md.
+
 ## [1.3.141] - 2026-08-13
 
 ### Triển khai NghiTTS SafeCachedTime Prefetch Scheduler & Cấu hình Người dùng Persisted

@@ -927,8 +927,10 @@ struct ExtensionSelectorView: View {
     }
     
     private func togglePin(_ ext: Extension) {
-        ext.isPinned.toggle()
-        try? modelContext.save()
+        let res = ExtensionTransactionCoordinator.shared.togglePinned(packageId: ext.packageId, in: modelContext)
+        if case .failure(let err) = res {
+            AppLogger.shared.log("❌ [DiscoveryView] Lỗi ghim tiện ích: \(err.localizedDescription)")
+        }
     }
 }
 
@@ -988,18 +990,9 @@ struct DiscoveryMainSkeletonView: View {
 
 fileprivate func normalizeLink(_ link: String) -> String {
     var clean = link.trimmingCharacters(in: .whitespacesAndNewlines)
-    if clean.hasPrefix("http://") || clean.hasPrefix("https://") {
-        if let range = clean.range(of: "://") {
-            let afterScheme = clean[range.upperBound...]
-            if let slashIndex = afterScheme.firstIndex(of: "/") {
-                clean = String(afterScheme[slashIndex...])
-            } else {
-                clean = "/"
-            }
-        }
+    if let range = clean.range(of: "://") {
+        let afterScheme = clean[range.upperBound...]
+        clean = afterScheme.firstIndex(of: "/").map { String(afterScheme[$0...]) } ?? "/"
     }
-    if !clean.hasPrefix("/") {
-        clean = "/" + clean
-    }
-    return clean
+    return clean.hasPrefix("/") ? clean : "/" + clean
 }

@@ -685,12 +685,10 @@ struct SearchView: View {
                 }
 
                 if !isPlayingTTS {
-                    if let freshOldBook = (try? modelContext.fetch(FetchDescriptor<Book>(predicate: #Predicate<Book> { $0.bookId == oldBookId })))?.first {
-                        modelContext.delete(freshOldBook)
-                    } else {
-                        modelContext.delete(oldBook)
+                    let delRes = BookTransactionCoordinator.shared.deleteBook(bookId: oldBookId, in: modelContext)
+                    if case .failure(let err) = delRes {
+                        errorMessage = "Lỗi xóa sách cũ: \(err.localizedDescription)"
                     }
-                    try? modelContext.save()
 
                     TranslateUtils.clearCache()
                     TranslationManager.shared.clearBookDictCache(for: oldBookId)

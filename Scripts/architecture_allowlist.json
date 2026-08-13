@@ -1,0 +1,744 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": 2,
+  "violations": [
+    {
+      "path": "Sources/Services/TTS/TTSManager.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 3470,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy TTS Manager file awaiting micro-batch unbundling",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Reader/ReaderView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 2053,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy ReaderView awaiting component extractions",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/BookDetail/BookDetailView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 1201,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy BookDetailView awaiting component extractions",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/Extensions/Engine/JSExecutor.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 1066,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy JSExecutor file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/Translation/Utils/TranslateUtils.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 917,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy TranslateUtils file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/Preprocessing/TextPreprocessor.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 1121,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy TextPreprocessor file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Extensions/Manager/RepositoryManagerView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 751,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy RepositoryManagerView file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Reader/ReaderViewModel.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 830,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy ReaderViewModel file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/Extensions/Manager/ExtensionManager.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 1022,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy ExtensionManager file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Discovery/DiscoveryView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 998,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy DiscoveryView file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/ChapterText/ChapterStore/ChapterStoreDatabase.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 977,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy ChapterStoreDatabase file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Shelf/ShelfMain/ShelfView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 942,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy ShelfView file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/ChapterText/ChapterPersistenceStore.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 884,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy ChapterPersistenceStore file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Search/SearchView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 872,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy SearchView file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Dictionary/DictionaryListView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 690,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy DictionaryListView file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Reader/ReaderTextView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 651,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy ReaderTextView file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/Translation/Manager/TranslationManager.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 642,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy TranslationManager file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Settings/TTS/TTSDictionaryEditView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 641,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy TTSDictionaryEditView file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/Download/DownloadManager.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 640,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy DownloadManager file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Common/BypassWebView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 599,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy BypassWebView file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Settings/Translation/TOCRulesConfigView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 585,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy TOCRulesConfigView file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/Extensions/Engine/JSDom.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 555,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy JSDom file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Reader/ReaderChapterListView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 408,
+      "owner": "legacy_refactor",
+      "reason": "Legacy ReaderChapterListView file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/TTSWidget/TTSSettingsView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 519,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy TTSSettingsView file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Settings/TTS/TTSModelManagerView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 478,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy TTSModelManagerView file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Extensions/Editor/ExtensionScriptEditorView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 474,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy ExtensionScriptEditorView file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 469,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy ONNXPiperEngine file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Reader/ReaderDefinitionOverlayView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 468,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy ReaderDefinitionOverlayView file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/TTSWidget/TTSFloatingWidgetView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 460,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy TTSFloatingWidgetView file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/ChapterText/ChapterContentRepository.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 455,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy ChapterContentRepository file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Settings/Main/SettingsView.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 453,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy SettingsView file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/RemoteTTSSynthesisCoordinator.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 429,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy RemoteTTSSynthesisCoordinator file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/Preprocessing/JapaneseTransliterator.swift",
+      "rule": "FILE_SIZE_LIMIT",
+      "baseline_value": 411,
+      "owner": "legacy_refactor",
+      "reason": "Oversized legacy JapaneseTransliterator file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/App/FreeBookApp.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Common/Services/ToastManager.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Models/Dictionaries/TextDictionary.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/ChapterText/ChapterTextNormalizer.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/ChapterText/JunkFilterManager.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/ChapterText/ChapterStore/ChapterStorePath.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/Extensions/Engine/VisibleBrowserTabManager.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/Extensions/Engine/VisibleWebViewLoader.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/Logging/AppLogger.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/ReadingProgress/ReadingProgressStore.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/Translation/Utils/DictionaryCache.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/TTSBackgroundProcessor.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/TTSChapterPrefetcher.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/TTSChapterTextWorker.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/TTSModels.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/TTSParagraphBuilder.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/Google/GoogleTTSService.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/NghiTTS/ModelStore.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/NghiTTS/PiperSynthesisCoordinator.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/NghiTTS/PiperTTSService.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/Preprocessing/TTSReplacementManager.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Common/DocumentPicker.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Common/ExpandableTextView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Dictionary/BookDictionaryView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Dictionary/DictionaryHubView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Reader/ChapterCache.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Reader/ParagraphCardView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Reader/ReaderParagraphBuilder.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Settings/TTS/NghiTTSSettingsView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/TTSWidget/WidgetState.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/ChapterText/ChapterContentRepository.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/ChapterText/ChapterPersistenceStore.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/ChapterText/ChapterStore/ChapterStoreDatabase.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/Download/DownloadManager.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/Extensions/Engine/JSDom.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/Extensions/Manager/ExtensionManager.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/TTSManager.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/NghiTTS/ONNXPiperEngine.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Services/TTS/Preprocessing/TextPreprocessor.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/BookDetail/BookDetailView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Common/BypassWebView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Dictionary/DictionaryListView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Discovery/DiscoveryView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Extensions/Editor/ExtensionScriptEditorView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Reader/ReaderDefinitionOverlayView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Reader/ReaderTextView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Reader/ReaderView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Reader/ReaderViewModel.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Search/SearchView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Settings/Main/SettingsView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Settings/TTS/TTSDictionaryEditView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/Shelf/ShelfMain/ShelfView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "path": "Sources/Views/TTSWidget/TTSFloatingWidgetView.swift",
+      "rule": "MULTI_PRIMARY_TYPES",
+      "owner": "legacy_refactor",
+      "reason": "Legacy unrefactored multi-type file",
+      "createdAt": "2026-08-13",
+      "expiresAt": "2026-12-31"
+    }
+  ],
+  "schema_version": 2
+}

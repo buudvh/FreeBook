@@ -16,42 +16,42 @@ public struct ScriptFileInfo: Identifiable, Hashable, Sendable {
 }
 
 public struct ExtensionScriptEditorView: View {
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismiss) internal var dismiss
     public let ext: Extension
 
-    @State private var scriptFiles: [ScriptFileInfo] = []
-    @State private var selectedScriptId: String = ""
-    @State private var scriptContent: String = ""
-    @State private var originalScriptContent: String = ""
-    @State private var modifiedFileIds: Set<String> = []
+    @State internal var scriptFiles: [ScriptFileInfo] = []
+    @State internal var selectedScriptId: String = ""
+    @State internal var scriptContent: String = ""
+    @State internal var originalScriptContent: String = ""
+    @State internal var modifiedFileIds: Set<String> = []
     
-    @State private var isLoading = true
-    @State private var errorMessage = ""
-    @State private var syntaxStatusMessage: String? = nil
-    @State private var isSyntaxValid: Bool = true
-    @State private var showingDiscardAlert = false
-    @AppStorage("scriptEditorFontSize") private var scriptEditorFontSize: Double = 11.0
-    private var fontSize: CGFloat {
+    @State internal var isLoading = true
+    @State internal var errorMessage = ""
+    @State internal var syntaxStatusMessage: String? = nil
+    @State internal var isSyntaxValid: Bool = true
+    @State internal var showingDiscardAlert = false
+    @AppStorage("scriptEditorFontSize") internal var scriptEditorFontSize: Double = 11.0
+    internal var fontSize: CGFloat {
         CGFloat(scriptEditorFontSize)
     }
 
-    private let quickSymbols = ["{", "}", "(", ")", "[", "]", "=", ";", ":", "\"", "'", "=>", ".", ",", "fetch", "function"]
+    internal let quickSymbols = ["{", "}", "(", ")", "[", "]", "=", ";", ":", "\"", "'", "=>", ".", ",", "fetch", "function"]
     
     // Hex Catppuccin Dark Editor Colors
-    private let editorBg = Color(red: 24/255, green: 24/255, blue: 37/255)
-    private let lineNumBg = Color(red: 30/255, green: 30/255, blue: 46/255)
-    private let textFg = Color(red: 205/255, green: 214/255, blue: 244/255)
-    private let lineNumFg = Color(red: 108/255, green: 112/255, blue: 134/255)
+    internal let editorBg = Color(red: 24/255, green: 24/255, blue: 37/255)
+    internal let lineNumBg = Color(red: 30/255, green: 30/255, blue: 46/255)
+    internal let textFg = Color(red: 205/255, green: 214/255, blue: 244/255)
+    internal let lineNumFg = Color(red: 108/255, green: 112/255, blue: 134/255)
 
     public init(ext: Extension) {
         self.ext = ext
     }
 
-    private var hasUnsavedChanges: Bool {
+    internal var hasUnsavedChanges: Bool {
         scriptContent != originalScriptContent
     }
 
-    private var currentScriptFile: ScriptFileInfo? {
+    internal var currentScriptFile: ScriptFileInfo? {
         scriptFiles.first(where: { $0.id == selectedScriptId })
     }
 
@@ -158,7 +158,7 @@ public struct ExtensionScriptEditorView: View {
 
     // MARK: - Code Editor Canvas
 
-    private var codeEditorCanvas: some View {
+    internal var codeEditorCanvas: some View {
         let lines = scriptContent.components(separatedBy: "\n")
         let totalLines = max(1, lines.count)
 
@@ -202,7 +202,7 @@ public struct ExtensionScriptEditorView: View {
 
     // MARK: - Header & Tabs
 
-    private var scriptSelectorHeader: some View {
+    internal var scriptSelectorHeader: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(scriptFiles) { file in
@@ -242,7 +242,7 @@ public struct ExtensionScriptEditorView: View {
 
     // MARK: - Quick Symbol Toolbar
 
-    private var quickSymbolToolbar: some View {
+    internal var quickSymbolToolbar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 ForEach(quickSymbols, id: \.self) { sym in
@@ -268,7 +268,7 @@ public struct ExtensionScriptEditorView: View {
 
     // MARK: - Footer
 
-    private var editorFooter: some View {
+    internal var editorFooter: some View {
         HStack(spacing: 12) {
             let lineCount = scriptContent.components(separatedBy: .newlines).count
             let charCount = scriptContent.count
@@ -336,14 +336,14 @@ public struct ExtensionScriptEditorView: View {
 
     // MARK: - Helper Methods
 
-    private func insertSymbol(_ symbol: String) {
+    internal func insertSymbol(_ symbol: String) {
         scriptContent.append(symbol)
         if scriptContent != originalScriptContent {
             modifiedFileIds.insert(selectedScriptId)
         }
     }
 
-    private func loadScriptFiles() {
+    internal func loadScriptFiles() {
         isLoading = true
         errorMessage = ""
 
@@ -397,7 +397,7 @@ public struct ExtensionScriptEditorView: View {
         isLoading = false
     }
 
-    private func loadScriptContent(from url: URL) {
+    internal func loadScriptContent(from url: URL) {
         do {
             let content = try String(contentsOf: url, encoding: .utf8)
             self.scriptContent = content
@@ -409,12 +409,12 @@ public struct ExtensionScriptEditorView: View {
         }
     }
 
-    private func switchScript(to file: ScriptFileInfo) {
+    internal func switchScript(to file: ScriptFileInfo) {
         self.selectedScriptId = file.id
         loadScriptContent(from: file.fileUrl)
     }
 
-    private func saveCurrentScript() {
+    internal func saveCurrentScript() {
         guard let currentFile = currentScriptFile else { return }
 
         do {
@@ -428,14 +428,14 @@ public struct ExtensionScriptEditorView: View {
         }
     }
 
-    private func revertCurrentScript() {
+    internal func revertCurrentScript() {
         guard let currentFile = currentScriptFile else { return }
         loadScriptContent(from: currentFile.fileUrl)
         self.modifiedFileIds.remove(currentFile.id)
         ToastManager.shared.show(message: "Đã khôi phục \(currentFile.fileName)", type: .info)
     }
 
-    private func validateScriptSyntax() {
+    internal func validateScriptSyntax() {
         guard let currentFile = currentScriptFile else { return }
         if currentFile.isPluginJson {
             if let data = scriptContent.data(using: .utf8) {

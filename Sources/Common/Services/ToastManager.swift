@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-public enum ToastType: Sendable {
+public enum ToastType: Sendable, Equatable {
     case info
     case success
     case error

@@ -85,7 +85,7 @@ struct ReaderView: View {
 
     // @Environment: Lấy các biến môi trường của hệ thống
     @Environment(\.modelContext) private var modelContext // Context quản lý dữ liệu SwiftData
-    @Environment(\.dismiss) private var dismiss // Hàm dùng để đóng màn hình hiện tại và quay về màn hình trước
+    @Environment(\.dismiss) internal var dismiss // Hàm dùng để đóng màn hình hiện tại và quay về màn hình trước
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -109,7 +109,7 @@ struct ReaderView: View {
     let bookSourceName: String?
     var initialParagraphIndex: Int? = nil
 
-    @State private var showChapterTitle = true // Ẩn/Hiện tiêu đề chương trên đầu màn hình đọc
+    @State internal var showChapterTitle = true // Ẩn/Hiện tiêu đề chương trên đầu màn hình đọc
 
 
     // Các biến trạng thái hỗ trợ bôi đen từ/câu để tra cứu từ điển
@@ -141,22 +141,22 @@ struct ReaderView: View {
     @State private var wordSynthesizer: AVSpeechSynthesizer? = nil
 
     // Cấu hình giao diện đọc (lưu trữ lâu dài qua UserDefaults nhờ @AppStorage)
-    @AppStorage("readerFontSize") private var fontSize: Double = 20.0 // Cỡ chữ của văn bản đọc
-    @AppStorage("readerLineSpacing") private var lineSpacing: Double = 10.0 // Khoảng cách giữa các dòng
-    @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false // Trạng thái bật/tắt tự động dịch thuật
-    @AppStorage("isTranslationPronounsEnabled") private var isTranslationPronounsEnabled = false // Bật dịch đại từ
-    @AppStorage("isTranslationLuatNhanEnabled") private var isTranslationLuatNhanEnabled = false // Bật dịch luật nhân
-    @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark // Theme giao diện đọc (Sáng, Trầm ấm, Tối)
-    @AppStorage("readerFontFamily") private var fontFamily: ReaderFontFamily = .georgia // Phông chữ đọc sách
-    @AppStorage("hasOpenedReader") private var hasOpenedReader = false
-    @State private var showingSettings = false // Hiện bảng cài đặt font chữ, màu nền
-    @State private var showingTOCRules = false
-    @State private var showingJunkDeleteSheet = false
-    @State private var junkPatternInput = ""
-    @State private var showingJunkFilterManagerSheet = false
+    @AppStorage("readerFontSize") internal var fontSize: Double = 20.0 // Cỡ chữ của văn bản đọc
+    @AppStorage("readerLineSpacing") internal var lineSpacing: Double = 10.0 // Khoảng cách giữa các dòng
+    @AppStorage("isTranslationEnabled") internal var isTranslationEnabled = false // Trạng thái bật/tắt tự động dịch thuật
+    @AppStorage("isTranslationPronounsEnabled") internal var isTranslationPronounsEnabled = false // Bật dịch đại từ
+    @AppStorage("isTranslationLuatNhanEnabled") internal var isTranslationLuatNhanEnabled = false // Bật dịch luật nhân
+    @AppStorage("readerSelectedTheme") internal var selectedTheme: ReaderTheme = .dark // Theme giao diện đọc (Sáng, Trầm ấm, Tối)
+    @AppStorage("readerFontFamily") internal var fontFamily: ReaderFontFamily = .georgia // Phông chữ đọc sách
+    @AppStorage("hasOpenedReader") internal var hasOpenedReader = false
+    @State internal var showingSettings = false // Hiện bảng cài đặt font chữ, màu nền
+    @State internal var showingTOCRules = false
+    @State internal var showingJunkDeleteSheet = false
+    @State internal var junkPatternInput = ""
+    @State internal var showingJunkFilterManagerSheet = false
 
     // Trạng thái bypass Cloudflare và import sách
-    @State private var showingBypassBrowser = false
+    @State internal var showingBypassBrowser = false
     @State private var lookupRoute: ReaderLookupRoute?
     @State private var importedBookId = ""
     @State private var importedExtensionPackageId = ""
@@ -167,45 +167,42 @@ struct ReaderView: View {
     @State private var navigateToChangeSource = false
 
     // Reader chỉ quan sát projection TTS cần để render; manager singleton vẫn xử lý action.
-    @StateObject private var ttsState = ReaderTTSStateReader()
-    private let ttsManager = TTSManager.shared
+    @StateObject internal var ttsState = ReaderTTSStateReader()
+    internal let ttsManager = TTSManager.shared
     @State private var triggerGetVisibleIndex: UUID? = nil
     @State private var editingParagraphIndex: Int? = nil
-    @State private var scrollTarget: ScrollTarget? = nil
+    @State internal var scrollTarget: ScrollTarget? = nil
     @State private var readerViewportHeight: CGFloat = 360
-    @State private var readerViewportMinY: CGFloat = 0
-    @State private var readerViewportMaxY: CGFloat = 0
-    @State private var isRestoringReaderPosition = true
-    @State private var isAutoScrollDisabled = false
-    @State private var viewModel: ReaderViewModel? = nil
+    @State internal var readerViewportMinY: CGFloat = 0
+    @State internal var readerViewportMaxY: CGFloat = 0
+    @State internal var isRestoringReaderPosition = true
+    @State internal var isAutoScrollDisabled = false
+    @State internal var viewModel: ReaderViewModel? = nil
     @State private var updateProgressWorkItem: DispatchWorkItem? = nil
     @State private var updateTTSPositionWorkItem: DispatchWorkItem? = nil
     @State private var prepareTTSTask: DispatchWorkItem? = nil
     @State private var translationRefreshDebounceTask: Task<Void, Never>? = nil
     @State private var isTranslationRefreshDeferred: Bool = false
 
-    @State private var localChaptersCount: Int = 0
-    @State private var currentChapterTitle: String = ""
-    @State private var currentChapterUrl: String = ""
+    @State internal var localChaptersCount: Int = 0
+    @State internal var currentChapterTitle: String = ""
+    @State internal var currentChapterUrl: String = ""
     @State private var didResolveLocalChapterCount = false
 
-    @State private var paragraphTracker = ParagraphTracker()
+    @State internal var paragraphTracker = ParagraphTracker()
     @State private var translationRefreshToken = UUID()
 
-    @State private var showingChapterList = false
-    @State private var showingBookDictionary = false
-    @State private var currentOnlineChapters: [ChapterResult] = []
-    @State private var chapterListStore: ReaderChapterListStore? = nil
-    // SwiftData's @Query can deliver after the Reader has already appeared.
-    // Keep a one-time local snapshot so the first render has Book/TOC metadata
-    // even when this screen was opened from history or the shelf.
-    @State private var localBookSnapshot: Book? = nil
+    @State internal var showingChapterList = false
+    @State internal var showingBookDictionary = false
+    @State internal var currentOnlineChapters: [ChapterResult] = []
+    @State internal var chapterListStore: ReaderChapterListStore? = nil
+    @State internal var localBookSnapshot: Book? = nil
 
-    private var localBook: Book? {
+    internal var localBook: Book? {
         allBooks.first(where: { $0.bookId == bookId }) ?? localBookSnapshot
     }
 
-    private var ext: Extension? {
+    internal var ext: Extension? {
         allExtensions.first(where: { $0.packageId == extensionPackageId })
     }
 
@@ -227,7 +224,7 @@ struct ReaderView: View {
         ttsState.snapshot.playingChapterIndex == chapterIndex
     }
 
-    private var isTTSPlayingThisBook: Bool {
+    internal var isTTSPlayingThisBook: Bool {
         ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId
     }
 
@@ -241,8 +238,7 @@ struct ReaderView: View {
         )
     }
 
-    // Tổng số chương hiện có
-    private var totalChaptersCount: Int {
+    internal var totalChaptersCount: Int {
         if let vm = viewModel {
             return vm.totalChaptersCount
         }
@@ -255,7 +251,7 @@ struct ReaderView: View {
         return (currentChapterTitle, currentChapterUrl)
     }
 
-    private func getChapterTitle(at index: Int) -> String {
+    internal func getChapterTitle(at index: Int) -> String {
         guard index >= 0 && index < totalChaptersCount else { return "Chương \(index + 1)" }
 
         let title: String
@@ -280,7 +276,7 @@ struct ReaderView: View {
             : title
     }
 
-    private var displayedBookTitle: String {
+    internal var displayedBookTitle: String {
         let rawTitle = bookTitle ?? localBook?.title ?? localBookSnapshot?.title ?? ""
         guard !rawTitle.isEmpty else { return "" }
         return isTranslationEnabled && TranslateUtils.containsChinese(rawTitle)
@@ -1198,14 +1194,14 @@ struct ReaderView: View {
 
 
 
-    private func translateMetaIfNeeded(_ text: String) -> String {
+    internal func translateMetaIfNeeded(_ text: String) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }
         return TranslateUtils.translateMeta(text, bookId: bookId)
     }
 
-    private func translateChapterTitleIfNeeded(_ text: String) -> String {
+    internal func translateChapterTitleIfNeeded(_ text: String) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }
@@ -1240,62 +1236,11 @@ struct ReaderView: View {
     // MARK: - Advanced Translation Editor Helpers
 
     private func getHanViet(for word: String) -> String {
-        let phienAm = TranslationManager.shared.phienAmMap
-        var list: [String] = []
-        for char in word {
-            list.append(phienAm[String(char)] ?? String(char))
-        }
-        return list.joined(separator: " ").capitalized
+        ReaderSelectionCoordinator.shared.getHanViet(for: word)
     }
 
     private func formatMeaning(_ input: String, style: String) -> String {
-        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return input }
-
-        let words = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
-        guard !words.isEmpty else { return input }
-
-        var formattedWords: [String] = []
-
-        switch style {
-        case "aa": // viết thường hoàn toàn
-            formattedWords = words.map { $0.lowercased() }
-
-        case "Aa¹": // viết hoa từ đầu tiên
-            for (index, word) in words.enumerated() {
-                if index == 0 {
-                    formattedWords.append(word.prefix(1).uppercased() + word.dropFirst().lowercased())
-                } else {
-                    formattedWords.append(word.lowercased())
-                }
-            }
-
-        case "Aa²": // viết hoa 2 từ đầu tiên
-            for (index, word) in words.enumerated() {
-                if index < 2 {
-                    formattedWords.append(word.prefix(1).uppercased() + word.dropFirst().lowercased())
-                } else {
-                    formattedWords.append(word.lowercased())
-                }
-            }
-
-        case "Aa": // viết hoa tất cả các từ trừ từ cuối cùng
-            for (index, word) in words.enumerated() {
-                if index < words.count - 1 {
-                    formattedWords.append(word.prefix(1).uppercased() + word.dropFirst().lowercased())
-                } else {
-                    formattedWords.append(word.lowercased())
-                }
-            }
-
-        case "AA": // viết kiểu title
-            formattedWords = words.map { $0.prefix(1).uppercased() + $0.dropFirst().lowercased() }
-
-        default:
-            return input
-        }
-
-        return formattedWords.joined(separator: " ")
+        ReaderSelectionCoordinator.shared.formatMeaning(input, style: style)
     }
 
     private var suggestionChips: [SuggestionChip] {
@@ -1767,7 +1712,7 @@ struct ReaderView: View {
         )
     }
 
-    private func startTTS(at index: Int, paragraphIndex: Int, startTextOffset: Int? = nil, resumeIdentity: TTSChunkResumeIdentity? = nil) {
+    internal func startTTS(at index: Int, paragraphIndex: Int, startTextOffset: Int? = nil, resumeIdentity: TTSChunkResumeIdentity? = nil) {
         guard index >= 0 && index < totalChaptersCount else { return }
         Task {
             guard let currentChapter = await ttsChapterInfo(at: index) else { return }
@@ -1865,7 +1810,7 @@ struct ReaderView: View {
         }
     }
 
-    private func getSavedParagraphIndex(for idx: Int) -> Int {
+    internal func getSavedParagraphIndex(for idx: Int) -> Int {
         if let book = localBook {
             if idx == book.currentChapterIndex {
                 return book.currentChapterPage
@@ -1916,7 +1861,7 @@ struct ReaderView: View {
         }
     }
 
-    private func schedulePrepareTTS() {
+    internal func schedulePrepareTTS() {
         guard !ttsState.snapshot.isPlaying, !ttsManager.isPlaying else { return }
         prepareTTSTask?.cancel()
 
@@ -1963,125 +1908,17 @@ struct ReaderView: View {
     }
 
 
-    private func scrollToTTSHighlightIfNeeded() {
-        guard !isAutoScrollDisabled else { return }
-        if ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId && ttsState.snapshot.currentParentParagraphIndex >= 0 {
-            let targetIdx = ttsState.snapshot.currentParentParagraphIndex
-            let chapIdx = ttsState.snapshot.playingChapterIndex
-            if chapIdx == chapterIndex {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                    self.requestTTSScrollIfNeeded(chapterIndex: chapIdx, paragraphIndex: targetIdx)
-                }
-            }
-        }
-    }
 
-    private func requestTTSScrollIfNeeded(chapterIndex: Int, paragraphIndex: Int) {
-        let isInsideSafeViewport = paragraphTracker.isParagraphInsideSafeViewport(
-            bookId: bookId,
-            chapterIndex: chapterIndex,
-            paragraphIndex: paragraphIndex,
-            viewportMinY: readerViewportMinY,
-            viewportMaxY: readerViewportMaxY
-        )
-        if isInsideSafeViewport {
-            ReaderEnergyDiagnostics.shared.recordTTSScrollSkippedVisible()
-            return
-        }
-
-        ReaderEnergyDiagnostics.shared.recordTTSScrollTarget()
-        scrollTarget = ScrollTarget(
-            chapterIndex: chapterIndex,
-            paragraphIndex: paragraphIndex,
-            reason: .ttsAuto
-        )
-    }
-
-    @ViewBuilder
-    private var readerContentView: some View {
-        if let vm = viewModel {
-            ReaderViewModelObserver(viewModel: vm) { observedViewModel in
-                singleChapterReaderView(viewModel: observedViewModel)
-            }
-        } else {
-            chapterInlineLoadingView(index: chapterIndex)
-        }
-    }
-
-    private func chapterInlineLoadingView(index: Int) -> some View {
-        VStack(spacing: 24) {
-            Text(getChapterTitle(at: index))
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundColor(selectedTheme.textColor)
-                .multilineTextAlignment(.center)
-                .lineLimit(3)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 40)
-
-            chapterSkeletonLines
-        }
-        .frame(maxWidth: .infinity, minHeight: 360)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Đang tải \(getChapterTitle(at: index))")
-    }
-
-    private func chapterBootstrapErrorView(message: String) -> some View {
-        VStack(spacing: 18) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 34))
-                .foregroundColor(.red)
-            Text(message)
-                .font(.subheadline)
-                .foregroundColor(selectedTheme.textColor)
-                .multilineTextAlignment(.center)
-            Button("Quay lại") { dismiss() }
-                .buttonStyle(.bordered)
-        }
-        .padding(32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var chapterSkeletonLines: some View {
-        let widthFactors: [CGFloat] = [1, 0.94, 0.82, 1, 0.9, 0.76, 1, 0.86]
-        return GeometryReader { geometry in
-            let availableWidth = max(0, geometry.size.width - 36)
-
-            VStack(alignment: .leading, spacing: 14) {
-                ForEach(widthFactors.indices, id: \.self) { index in
-                    SkeletonView(width: availableWidth * widthFactors[index], height: 16)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 18)
-        }
-        .frame(height: 226)
-    }
 
     private func attemptScroll(to target: ScrollTarget, proxy: ScrollViewProxy, vm: ReaderViewModel) -> Bool {
-        guard vm.cache.get(target.chapterIndex)?.state == .loaded else { return false }
-
-        if target.paragraphIndex >= 0 {
-            guard let cached = vm.cache.get(target.chapterIndex), cached.state == .loaded else { return false }
-            let hasParagraph = cached.paragraphItems.contains(where: { $0.id == target.paragraphIndex })
-            if hasParagraph {
-                if target.reason == .ttsAuto {
-                    ReaderEnergyDiagnostics.shared.recordTTSScrollExecuted()
-                }
-                proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
-            } else {
-                if target.reason == .ttsAuto {
-                    ReaderEnergyDiagnostics.shared.recordTTSScrollExecuted()
-                }
-                proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
-            }
-            completeReaderPositionRestore(after: 0.25)
-            return true
+        let reqTarget = ReaderScrollTarget(
+            chapterIndex: target.chapterIndex,
+            paragraphIndex: target.paragraphIndex,
+            reason: target.reason == .ttsAuto ? .ttsAuto : (target.reason == .initialRestore ? .initialRestore : .userNavigation)
+        )
+        return ReaderScrollCoordinator.shared.attemptScroll(to: reqTarget, proxy: proxy, cache: vm.cache) {
+            self.completeReaderPositionRestore(after: 0.25)
         }
-
-        proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
-        completeReaderPositionRestore(after: 0.25)
-        return true
     }
 
     @ViewBuilder
@@ -2195,158 +2032,7 @@ struct ReaderView: View {
         // Reader navigation is intentionally independent from the active TTS chapter.
     }
 
-    private func chapterNavigationErrorView(
-        failure: ReaderChapterLoadFailure,
-        viewModel vm: ReaderViewModel
-    ) -> some View {
-        VStack(spacing: 18) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 34))
-                .foregroundColor(.red)
 
-            Text(translateChapterTitleIfNeeded(failure.chapterTitle))
-                .font(.title3.weight(.semibold))
-                .foregroundColor(selectedTheme.textColor)
-                .multilineTextAlignment(.center)
-                .lineLimit(3)
-
-            Text(failure.sourceMessage)
-                .font(.subheadline)
-                .foregroundColor(selectedTheme.textColor.opacity(0.78))
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Button(action: { vm.retryPendingNavigation() }) {
-                HStack(spacing: 8) {
-                    if vm.isRetryingNavigation {
-                        ProgressView().tint(selectedTheme.textColor)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    Text("Tải lại")
-                }
-                .font(.body.weight(.semibold))
-                .foregroundColor(selectedTheme.textColor)
-                .frame(minWidth: 132, minHeight: 44)
-                .background(selectedTheme.textColor.opacity(0.1))
-                .cornerRadius(8)
-            }
-            .disabled(vm.isRetryingNavigation)
-        }
-        .padding(32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func completeReaderPositionRestore(after delay: TimeInterval = 0) {
-        guard isRestoringReaderPosition else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            paragraphTracker.removeAll()
-            isRestoringReaderPosition = false
-        }
-    }
-
-    private func restoreReaderPositionIfNeeded(proxy: ScrollViewProxy, chapter: CachedChapter) {
-        guard !chapter.isPositionRestored else {
-            schedulePrepareTTS()
-            return
-        }
-        chapter.isPositionRestored = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            let savedPIdx = getSavedParagraphIndex(for: chapter.index)
-            let hasValidParagraph = chapter.paragraphItems.contains(where: { $0.id == savedPIdx })
-            if savedPIdx >= 0 && hasValidParagraph {
-                proxy.scrollTo("paragraph-\(chapter.index)-\(savedPIdx)", anchor: .top)
-            } else {
-                proxy.scrollTo("chapter-\(chapter.index)", anchor: .top)
-            }
-            completeReaderPositionRestore()
-            schedulePrepareTTS()
-        }
-    }
-
-    private var readerBookDisplayTitle: String {
-        DisplayTextFormatter.titleCase(translateMetaIfNeeded(localBook?.title ?? bookTitle ?? "FreeBook"))
-    }
-
-    private var readerPresentedChapterIndex: Int {
-        viewModel?.pendingNavigationIndex ?? viewModel?.displayedChapterIndex ?? chapterIndex
-    }
-
-    private var readerChapterDisplayTitle: String {
-        getChapterTitle(at: readerPresentedChapterIndex)
-    }
-
-    private var readerProgressPercent: Double {
-        guard totalChaptersCount > 0 else { return 0 }
-        return (Double(readerPresentedChapterIndex + 1) / Double(totalChaptersCount)) * 100
-    }
-
-    private var readerChromeBackground: Color {
-        selectedTheme == .dark ? Color.black.opacity(0.78) : Color.white.opacity(0.72)
-    }
-
-
-
-    private func toggleChapterTitleVisibility() {
-        showChapterTitle.toggle()
-        UserDefaults.standard.set(showChapterTitle, forKey: "showChapterTitle_\(bookId)")
-        viewModel?.refreshParagraphItems()
-    }
-
-    private func reloadCurrentChapterFromMenu() {
-        paragraphTracker.removeAll()
-        isRestoringReaderPosition = true
-        viewModel?.reloadDisplayedChapter()
-    }
-
-    @ViewBuilder
-    private func readerTTSControl(geometry: GeometryProxy) -> some View {
-        readerEdgeButton(
-            // Keep this as the Reader listen action. It must not become a
-            // global stop control when another book owns the TTS session.
-            icon: "headphones",
-            tint: selectedTheme.textColor.opacity(0.9),
-            action: {
-                if ttsState.snapshot.isPlaying || ttsState.snapshot.showFloatingWidget {
-                    ttsManager.stop()
-                }
-                let viewportTopY = geometry.frame(in: .global).minY + geometry.safeAreaInsets.top + 20
-                if let top = paragraphTracker.getTopVisible(viewportTopY: viewportTopY, currentBookId: bookId, currentChapterIndex: chapterIndex) {
-                    startTTS(at: top.chapterIndex, paragraphIndex: top.paragraphIndex)
-                } else if let top = paragraphTracker.topVisible {
-                    startTTS(at: top.chapterIndex, paragraphIndex: top.paragraphIndex)
-                } else {
-                    let savedPIdx = getSavedParagraphIndex(for: chapterIndex)
-                    let targetPIdx: Int
-                    if savedPIdx >= 0 {
-                        targetPIdx = savedPIdx
-                    } else if let vm = viewModel, vm.readingContext.chapterIndex == chapterIndex, vm.readingContext.paragraphIndex >= 0 {
-                        targetPIdx = vm.readingContext.paragraphIndex
-                    } else {
-                        targetPIdx = -1
-                    }
-                    startTTS(at: chapterIndex, paragraphIndex: targetPIdx)
-                }
-            }
-        )
-        .accessibilityLabel(isTTSPlayingThisBook ? "Dừng đọc thành tiếng" : "Đọc thành tiếng")
-        .padding(8)
-        .background(.ultraThinMaterial, in: Circle())
-        .shadow(color: Color.black.opacity(0.18), radius: 12, x: 0, y: 4)
-        .padding(.trailing, 8)
-        .padding(.bottom, 12)
-    }
-
-    private func readerEdgeButton(icon: String, tint: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(tint)
-                .frame(width: 44, height: 44)
-                .background(Color.black.opacity(selectedTheme == .dark ? 0.34 : 0.12))
-                .clipShape(Circle())
-        }
-    }
 }
 
 struct ScrollTarget: Equatable {
@@ -2363,231 +2049,5 @@ struct ScrollTarget: Equatable {
         self.chapterIndex = chapterIndex
         self.paragraphIndex = paragraphIndex
         self.reason = reason
-    }
-}
-
-struct ParagraphFrame: Equatable {
-    let bookId: String
-    let chapterIndex: Int
-    let paragraphIndex: Int
-    let minY: CGFloat
-    let maxY: CGFloat
-}
-
-@MainActor
-class ParagraphTracker {
-    private static let minimumFrameDelta: CGFloat = 8
-    private var visibleParagraphs: Set<ReadingContext> = []
-    private var frames: [ReadingContext: ParagraphFrame] = [:]
-
-    func insert(bookId: String, chapterIndex: Int, paragraphIndex: Int) {
-        visibleParagraphs.insert(ReadingContext(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex))
-    }
-
-    func updateFrame(bookId: String, chapterIndex: Int, paragraphIndex: Int, minY: CGFloat, maxY: CGFloat) {
-        let ctx = ReadingContext(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex)
-        if let previous = frames[ctx],
-           abs(previous.minY - minY) < Self.minimumFrameDelta,
-           abs(previous.maxY - maxY) < Self.minimumFrameDelta {
-            ReaderEnergyDiagnostics.shared.recordParagraphFrameUpdate(accepted: false)
-            return
-        }
-        visibleParagraphs.insert(ctx)
-        frames[ctx] = ParagraphFrame(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex, minY: minY, maxY: maxY)
-        ReaderEnergyDiagnostics.shared.recordParagraphFrameUpdate(accepted: true)
-    }
-
-    func remove(bookId: String, chapterIndex: Int, paragraphIndex: Int) {
-        let ctx = ReadingContext(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex)
-        visibleParagraphs.remove(ctx)
-        frames.removeValue(forKey: ctx)
-    }
-
-    func removeAll() {
-        visibleParagraphs.removeAll()
-        frames.removeAll()
-    }
-
-    func isParagraphInsideSafeViewport(
-        bookId: String,
-        chapterIndex: Int,
-        paragraphIndex: Int,
-        viewportMinY: CGFloat,
-        viewportMaxY: CGFloat
-    ) -> Bool {
-        guard viewportMaxY > viewportMinY else { return false }
-        let context = ReadingContext(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex)
-        guard let frame = frames[context] else { return false }
-
-        let viewportHeight = viewportMaxY - viewportMinY
-        let safeInset = min(120, max(60, viewportHeight * 0.15))
-        let safeMinY = viewportMinY + safeInset
-        let safeMaxY = viewportMaxY - safeInset
-        let midpoint = (frame.minY + frame.maxY) / 2
-        return midpoint >= safeMinY && midpoint <= safeMaxY
-    }
-
-    func getTopVisible(viewportTopY: CGFloat, currentBookId: String, currentChapterIndex: Int) -> ReadingContext? {
-        let candidates = frames.values.filter {
-            $0.bookId == currentBookId &&
-            $0.chapterIndex == currentChapterIndex &&
-            $0.maxY > viewportTopY + 5
-        }
-
-        if !candidates.isEmpty {
-            let sorted = candidates.sorted {
-                if abs($0.minY - $1.minY) < 1.0 {
-                    return $0.paragraphIndex < $1.paragraphIndex
-                }
-                return $0.minY < $1.minY
-            }
-            if let best = sorted.first {
-                return ReadingContext(bookId: best.bookId, chapterIndex: best.chapterIndex, paragraphIndex: best.paragraphIndex)
-            }
-        }
-
-        return topVisible
-    }
-
-    var topVisible: ReadingContext? {
-        visibleParagraphs.sorted {
-            if $0.chapterIndex == $1.chapterIndex {
-                return $0.paragraphIndex < $1.paragraphIndex
-            }
-            return $0.chapterIndex < $1.chapterIndex
-        }.first
-    }
-}
-
-// MARK: - Floating Selection Menu
-
-struct FloatingSelectionMenu: View {
-    let selectionMinY: CGFloat   // Tọa độ Y trên cùng của selection (window coordinates từ UIKit)
-    let selectionMaxY: CGFloat   // Tọa độ Y dưới cùng của selection (window coordinates từ UIKit)
-    let geometryOriginY: CGFloat // Tọa độ Y toàn cục của GeometryReader (để chuyển đổi sang local)
-    let screenWidth: CGFloat
-    let onTranslate: () -> Void
-    let onSpeak: () -> Void
-    let onPhoneme: () -> Void
-    let onCopy: () -> Void
-    let onReadSelected: () -> Void
-    let onDeleteJunk: () -> Void
-
-    // Chiều rộng tổng của menu (6 nút × 60 + padding)
-    private let menuWidth: CGFloat = 370
-    // Khoảng cách giữa menu và cạnh trên/dưới vùng bôi đen
-    private let gap: CGFloat = 36
-
-    var body: some View {
-        HStack(spacing: 0) {
-            Button(action: onTranslate) {
-                VStack(spacing: 3) {
-                    Image(systemName: "character.book.closed.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Dịch")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                .foregroundColor(.white)
-                .frame(width: 60, height: 48)
-            }
-
-            Divider()
-                .frame(height: 24)
-                .background(Color.white.opacity(0.15))
-
-            Button(action: onSpeak) {
-                VStack(spacing: 3) {
-                    Image(systemName: "headphones")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Nghe")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                .foregroundColor(.white)
-                .frame(width: 60, height: 48)
-            }
-
-            Divider()
-                .frame(height: 24)
-                .background(Color.white.opacity(0.15))
-
-            Button(action: onPhoneme) {
-                VStack(spacing: 3) {
-                    Image(systemName: "music.note")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Phiên âm")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                .foregroundColor(.white)
-                .frame(width: 60, height: 48)
-            }
-
-            Divider()
-                .frame(height: 24)
-                .background(Color.white.opacity(0.15))
-
-            Button(action: onCopy) {
-                VStack(spacing: 3) {
-                    Image(systemName: "doc.on.doc.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Copy")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                .foregroundColor(.white)
-                .frame(width: 60, height: 48)
-            }
-
-            Divider()
-                .frame(height: 24)
-                .background(Color.white.opacity(0.15))
-
-            Button(action: onReadSelected) {
-                VStack(spacing: 3) {
-                    Image(systemName: "speaker.wave.2.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Đọc")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                .foregroundColor(.white)
-                .frame(width: 60, height: 48)
-            }
-
-            Divider()
-                .frame(height: 24)
-                .background(Color.white.opacity(0.15))
-
-            Button(action: onDeleteJunk) {
-                VStack(spacing: 3) {
-                    Image(systemName: "trash.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Xoá")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                .foregroundColor(.red)
-                .frame(width: 60, height: 48)
-            }
-        }
-        .padding(.horizontal, 4)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(red: 0.1, green: 0.1, blue: 0.12).opacity(0.92))
-                .shadow(color: Color.black.opacity(0.24), radius: 6, x: 0, y: 3)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-        )
-        .fixedSize()
-        .position(
-            // X: căn giữa màn hình, giới hạn trong lề an toàn
-            x: min(max(screenWidth / 2, menuWidth / 2 + 16), screenWidth - menuWidth / 2 - 16),
-            // Y: chuyển đổi từ window coords sang local coords của GeometryReader
-            // Nếu có đủ không gian phía trên (>80pt tính từ đỉnh GeometryReader) → đặt TRÊN selection
-            // Ngược lại → đặt DƯỚI selection
-            y: {
-                let localMinY = selectionMinY - geometryOriginY
-                let localMaxY = selectionMaxY - geometryOriginY
-                return localMinY > 80 ? localMinY - gap : localMaxY + gap
-            }()
-        )
     }
 }

@@ -654,8 +654,10 @@ struct ShelfView: View {
                 let targetBook = (try? self.modelContext.fetch(bookDescriptor))?.first
 
                 if let newCurrentTitle = translatedCurrentTitle {
-                    targetBook?.currentChapterTitle = newCurrentTitle
-                    try? self.modelContext.save()
+                    let res = BookTransactionCoordinator.shared.updateCurrentChapterTitle(bookId: bookId, title: newCurrentTitle, in: self.modelContext)
+                    if case .failure(let err) = res {
+                        ToastManager.shared.show(message: "Lỗi cập nhật tên chương: \(err.localizedDescription)", type: .error)
+                    }
                 }
                 ToastManager.shared.show(message: "Đã dịch lại xong tên chương cho: \(bookTitle)")
             }
@@ -668,12 +670,13 @@ struct ShelfView: View {
     }
 
     private func addToShelf(_ book: Book) {
-        book.isOnShelf = true
-        do {
-            try modelContext.save()
-            ToastManager.shared.show(message: "Đã thêm '\(book.title)' vào kệ sách")
-        } catch {
-            AppLogger.shared.log("❌ Lỗi khi thêm sách vào kệ tại ShelfView: \(error.localizedDescription)")
+        let res = BookTransactionCoordinator.shared.setOnShelf(bookId: book.bookId, isOnShelf: true, in: modelContext)
+        switch res {
+        case .success:
+            ToastManager.shared.show(message: "Đã thêm '\(book.title)' vào kệ sách", type: .success)
+        case .failure(let err):
+            AppLogger.shared.log("❌ [ShelfView] Lỗi thêm vào kệ: \(err.localizedDescription)")
+            ToastManager.shared.show(message: "Không thể thêm vào kệ sách: \(err.localizedDescription)", type: .error)
         }
     }
 
@@ -852,7 +855,7 @@ struct ShelfView: View {
                 await MainActor.run {
                     self.importStatusText = "Đang tạo cuốn sách mới..."
 
-                    let newBook = Book(
+                    let cmd = AddBookToShelfCommand(
                         bookId: newBookId,
                         title: parsed.title,
                         author: "Local",
@@ -860,15 +863,21 @@ struct ShelfView: View {
                         desc: "Truyện nhập cục bộ từ file \(fileName).",
                         detailUrl: "local://\(newBookId)",
                         sourceName: "Local",
-                        sourceUrl: "local://",
+                        sourceUrl: "local://\(newBookId)",
                         extensionPackageId: "local",
                         currentChapterIndex: 0,
                         currentChapterPage: 0,
-                        currentChapterTitle: parsed.chapters.first?.title ?? "",
+                        currentChapterTitle: "",
                         isOnShelf: true,
-                        isHistory: false
+                        isHistory: false,
+                        host: "local://"
                     )
-                    self.modelContext.insert(newBook)
+                    let createRes = BookTransactionCoordinator.shared.addBookToShelf(command: cmd, in: self.modelContext)
+                    guard case .success(let newBook) = createRes else {
+                        self.isImporting = false
+                        ToastManager.shared.show(message: "Lỗi tạo sách local trong CSDL", type: .error)
+                        return
+                    }
 
                     // Thực hiện chèn từng chương vào database / ChapterStore
                     Task {
@@ -893,32 +902,22 @@ struct ShelfView: View {
                                 )
 
                                 if ChapterStoreConfiguration.enableSwiftDataTOCWrite {
-                                    let chapId = Chapter.hashUrl(url)
-                                    let newChap = Chapter(
-                                        id: chapId,
-                                        bookId: newBookId,
-                                        title: chapData.title,
-                                        url: url,
-                                        index: idx,
-                                        isCached: true,
-                                        offset: offset,
-                                        length: length
-                                    )
-                                    newChap.book = newBook
-                                    self.modelContext.insert(newChap)
+                                    let res = BookTransactionCoordinator.shared.insertChapterDTO(bookId: newBook.bookId, title: chapData.title, url: url, index: idx, isCached: true, offset: offset, length: length, in: self.modelContext)
+                                    if case .failure(let err) = res {
+                                        AppLogger.shared.log("⚠️ [ShelfImport] Failed to insert chapter \(idx): \(err.localizedDescription)")
+                                    }
                                 }
 
-                                // Cập nhật tiến độ sau mỗi 50 chương và nhường thread (sleep 1ms) để tránh treo/khựng UI
-                                if idx % 50 == 0 || idx == totalChapters - 1 {
-                                    let progress = Double(idx + 1) / Double(totalChapters)
-                                    self.importProgress = progress
-                                    self.importStatusText = "Đang nhập chương \(idx + 1)/\(totalChapters) (\(Int(progress * 100))%)"
-                                    try? await Task.sleep(nanoseconds: 1_000_000) // Sleep 1ms
-                                }
-                            }
+                                 // Cập nhật tiến độ sau mỗi 50 chương và nhường thread (sleep 1ms) để tránh treo/khựng UI
+                                 if idx % 50 == 0 || idx == totalChapters - 1 {
+                                     let progress = Double(idx + 1) / Double(totalChapters)
+                                     self.importProgress = progress
+                                     self.importStatusText = "Đang nhập chương \(idx + 1)/\(totalChapters) (\(Int(progress * 100))%)"
+                                     try? await Task.sleep(nanoseconds: 1_000_000) // Sleep 1ms
+                                 }
+                             }
 
-                            self.importStatusText = "Đang ghi dữ liệu xuống bộ nhớ..."
-                            try self.modelContext.save()
+                             self.importStatusText = "Đang ghi dữ liệu xuống bộ nhớ..."
 
                             AppLogger.shared.log("✅ Đã nhập thành công truyện: \(parsed.title) (\(totalChapters) chương)")
                             ToastManager.shared.show(message: "Đã nhập thành công: \(parsed.title)")
@@ -941,8 +940,3 @@ struct ShelfView: View {
             }
         }
     }
-}
-
-#Preview {
-    ShelfView()
-}

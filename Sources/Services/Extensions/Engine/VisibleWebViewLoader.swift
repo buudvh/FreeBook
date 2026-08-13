@@ -8,9 +8,9 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
     let titleString: String
     var onDismiss: (() -> Void)?
     
-    fileprivate var navigationCompletion: ((String?) -> Void)?
-    fileprivate var waitUrlCompletion: ((Bool) -> Void)?
-    fileprivate var targetUrlToWait: String?
+    internal var navigationCompletion: ((String?) -> Void)?
+    internal var waitUrlCompletion: ((Bool) -> Void)?
+    internal var targetUrlToWait: String?
 
     init(title: String) {
         self.titleString = title
@@ -48,7 +48,7 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
         ])
     }
 
-    @objc private func handleClose() {
+    @objc internal func handleClose() {
         onDismiss?()
     }
 
@@ -63,7 +63,7 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
         decisionHandler(.allow)
     }
 
-    private func checkWaitUrl(_ currentUrl: String?) {
+    internal func checkWaitUrl(_ currentUrl: String?) {
         guard let current = currentUrl, let target = targetUrlToWait, let comp = waitUrlCompletion else { return }
         if current.contains(target) {
             self.waitUrlCompletion = nil
@@ -105,13 +105,13 @@ public final class VisibleWebViewLoader: NSObject, UIAdaptivePresentationControl
     public let id: String
     public var titleString: String { viewController.titleString }
     let viewController: VisibleWebViewController
-    private var isCleaningUp = false
+    internal var isCleaningUp = false
     var onClose: (() -> Void)?
 
-    private var waitForReadyCompletion: ((String) -> Void)?
-    private var isWaitingForReady = false
-    private var waitReadyTimerWorkItem: DispatchWorkItem?
-    private var waitReadyTimeoutWorkItem: DispatchWorkItem?
+    internal var waitForReadyCompletion: ((String) -> Void)?
+    internal var isWaitingForReady = false
+    internal var waitReadyTimerWorkItem: DispatchWorkItem?
+    internal var waitReadyTimeoutWorkItem: DispatchWorkItem?
 
     init(id: String = UUID().uuidString, title: String) {
         self.id = id

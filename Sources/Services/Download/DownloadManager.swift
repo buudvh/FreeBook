@@ -305,7 +305,7 @@ public final class DownloadManager: ObservableObject {
 
             let title = tasks[index].bookTitle
             let type = tasks[index].taskType.rawValue
-            ToastManager.shared.show(message: "Đã xong: \(type) '\(title)' thành công!", type: .success)
+            DownloadPresentationEventCenter.shared.send(.showToast(message: "Đã xong: \(type) '\(title)' thành công!", type: .success))
         }
     }
 
@@ -322,7 +322,7 @@ public final class DownloadManager: ObservableObject {
 
             let title = tasks[index].bookTitle
             let type = tasks[index].taskType.rawValue
-            ToastManager.shared.show(message: "Lỗi \(type) '\(title)': \(error)", type: .error)
+            DownloadPresentationEventCenter.shared.send(.showToast(message: "Lỗi \(type) '\(title)': \(error)", type: .error))
         }
     }
 
@@ -337,7 +337,7 @@ public final class DownloadManager: ObservableObject {
 
             let title = tasks[index].bookTitle
             let type = tasks[index].taskType.rawValue
-            ToastManager.shared.show(message: "Đã hủy tác vụ: \(type) '\(title)'")
+            DownloadPresentationEventCenter.shared.send(.showToast(message: "Đã hủy tác vụ: \(type) '\(title)'", type: .info))
         }
     }
 
@@ -598,7 +598,7 @@ public final class DownloadManager: ObservableObject {
         guard let task = tasks.first(where: { $0.id == taskId }),
               let path = task.exportFilePath,
               FileManager.default.fileExists(atPath: path) else {
-            ToastManager.shared.show(message: "Tệp xuất không tồn tại hoặc đã bị xóa.", type: .error)
+            DownloadPresentationEventCenter.shared.send(.showToast(message: "Tệp xuất không tồn tại hoặc đã bị xóa.", type: .error))
             return
         }
         let fileURL = URL(fileURLWithPath: path)

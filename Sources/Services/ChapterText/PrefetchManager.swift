@@ -1,39 +1,36 @@
 import Foundation
 
-private actor ReaderPrefetchGate {
-    static let shared = ReaderPrefetchGate(limit: 2)
-
-    private let limit: Int
-    private var activeCount = 0
-
-    init(limit: Int) {
-        self.limit = limit
-    }
-
-    func acquire() async throws {
-        while activeCount >= limit {
-            try Task.checkCancellation()
-            try await Task.sleep(nanoseconds: 25_000_000)
-        }
-        try Task.checkCancellation()
-        activeCount += 1
-    }
-
-    func release() {
-        activeCount = max(0, activeCount - 1)
-    }
-}
-
 actor PrefetchManager {
+    private actor ReaderPrefetchGate {
+        static let shared = ReaderPrefetchGate(limit: 2)
+
+        private let limit: Int
+        private var activeCount = 0
+
+        init(limit: Int) {
+            self.limit = limit
+        }
+
+        func acquire() async throws {
+            while activeCount >= limit {
+                try Task.checkCancellation()
+                try await Task.sleep(nanoseconds: 25_000_000)
+            }
+            try Task.checkCancellation()
+            activeCount += 1
+        }
+
+        func release() {
+            activeCount = max(0, activeCount - 1)
+        }
+    }
     private let maxConcurrentRequests = 2
     private var queue: [Int] = []
     private var activeTasks: [Int: Task<Void, Never>] = [:]
     
     typealias FetchBlock = (Int) async throws -> Void
     
-    // Đồng bộ hàng đợi theo cửa sổ hiển thị mới và hủy bỏ các task cũ ngoài window
     func updateQueue(withVisibleIndexes indexes: Set<Int>, activeIndex: Int, fetcher: @escaping FetchBlock) async {
-        // 1. Hủy bỏ và loại bỏ các tác vụ đang chạy nằm ngoài cửa sổ mới
         let tasksToCancel = activeTasks.filter { !indexes.contains($0.key) }
         for (idx, task) in tasksToCancel {
             task.cancel()
@@ -42,10 +39,8 @@ actor PrefetchManager {
             #endif
         }
         
-        // 2. Loại bỏ các index đang chờ trong hàng đợi nằm ngoài cửa sổ mới
         queue = queue.filter { indexes.contains($0) }
         
-        // 3. Đưa activeIndex lên đầu hàng đợi nếu chưa chạy và thuộc cửa sổ
         if indexes.contains(activeIndex) {
             if !queue.contains(activeIndex) && activeTasks[activeIndex] == nil {
                 queue.insert(activeIndex, at: 0)
@@ -55,7 +50,6 @@ actor PrefetchManager {
             }
         }
         
-        // 4. Thêm các index mới khác trong cửa sổ vào hàng đợi
         for idx in indexes {
             if idx != activeIndex {
                 if !queue.contains(idx) && activeTasks[idx] == nil {
@@ -64,7 +58,6 @@ actor PrefetchManager {
             }
         }
         
-        // 5. Kích hoạt xử lý hàng đợi
         await processQueue(fetcher: fetcher)
     }
     
@@ -84,7 +77,6 @@ actor PrefetchManager {
                     throw error
                 }
             } catch is CancellationError {
-                // Cancellation while waiting for the global slot is expected.
             } catch {
                 #if DEBUG
                 AppLogger.shared.log("⚠️ [PrefetchManager] Tải thất bại chương \(nextIndex): \(error.localizedDescription)")
@@ -94,7 +86,6 @@ actor PrefetchManager {
         }
         activeTasks[nextIndex] = task
         
-        // Gọi đệ quy lấp đầy worker
         await processQueue(fetcher: fetcher)
     }
     

@@ -72,5 +72,21 @@ struct AppLaunchRootView: View {
             BookStorageManager.shared.drainRetryQueue()
             BookStorageManager.shared.retryFailedChapterStoreDeletions()
         }
+        .task {
+            for await event in TTSPresentationEventCenter.shared.stream {
+                switch event {
+                case .showToast(let msg, let type):
+                    ToastManager.shared.show(message: msg, type: type)
+                }
+            }
+        }
+        .task {
+            for await event in DownloadPresentationEventCenter.shared.stream {
+                switch event {
+                case .showToast(let msg, let type):
+                    ToastManager.shared.show(message: msg, type: type)
+                }
+            }
+        }
     }
 }

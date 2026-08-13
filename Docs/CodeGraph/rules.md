@@ -15,6 +15,45 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Normative Architecture Rules (Refactor v4.1/v4.2/v5.0)
+
+* **Physical File Line Limit**: New Swift files created during refactoring must stay <= 400 physical lines. Legacy files exceeding 400 lines are tracked in `Scripts/architecture_allowlist.json` and must ratchet downward.
+* **One Primary Type Per File**: Each Swift file must declare exactly one primary type (class, struct, enum, or actor).
+* **SwiftData Write Coordinators**: SwiftUI Views must not perform direct `modelContext` write mutations (`insert`, `delete`, `save`). All write transactions are owned by domain transaction coordinators (`ExtensionTransactionCoordinator`, `BookTransactionCoordinator`) accepting immutable Command DTOs/IDs.
+* **Services Layer Boundaries**: `Sources/Services/` must not import `SwiftUI` (except designated platform adapters like `WebViewLoader.swift`) and must not invoke `ToastManager.shared` directly.
+* **Presentation Event Center**: UI presentation events (toasts) emitted by background services use thread-safe `AsyncStream` event centers (`TTSPresentationEventCenter`, `DownloadPresentationEventCenter`) with `AppLaunchRootView` as the sole UI presentation subscriber.
+* **VBook JS Runtime Boundaries**: Extraction operations use short-lived `JSExecutor` instances; only `ExtTTSRuntime` may persist a long-lived runtime. All extension calls must preserve `execute(...)`, `runAsync`, global API injections (`Html`, `Engine`, `Response`, `fetch`), and root vs `src/` script path resolution.
+* **Logging and Observability**: Log via `AppLogger.shared` with structured tags; do not use raw `print`. Never log secrets, full chapter payloads, or sensitive user data.
+* **Security**: Enforce `validatePathSafety(for:)` on all physical file operations. Validate external URLs and input data at extension boundaries. Never expose API keys.
+* **Test Placement & Test Lock Rule (AGENTS.md Rule 2.1)**: Unit test modifications are strictly forbidden. DO NOT create, edit, rename, move, delete, or format any file under `Tests/`.
+* **UI Views & Event Handlers**: SwiftUI Views must perform zero direct file I/O or SwiftData mutations. `@Query` reads are permitted for reactive presentation only; user actions must dispatch command DTOs to Coordinators.
+* **Code Placement Naming Matrix**:
+  - `View`: SwiftUI visual interface element under `Sources/Views/`
+  - `ViewModel`: `@MainActor` state model binding View to Services/Coordinators
+  - `Coordinator`: Domain transaction or flow manager handling multi-step processes or persistence
+  - `Repository`: Single source of truth data access layer for domain entities
+  - `Store`: Specialized low-level persistence engine (e.g., `ChapterStore`, `ReadingProgressStore`)
+  - `Service`: Core business logic or platform interface under `Sources/Services/`
+  - `Engine`: Low-level execution engine (e.g., `JSExecutor`, `ONNXPiperEngine`)
+  - `Adapter`: Platform or framework bridge layer
+  - `Worker`: Background unit of work actor/task (e.g., `BackgroundPagingWorker`)
+  - `DTO` / `Command`: Immutable value types representing transactions or payloads
+  - `Snapshot`: Immutable thread-safe copy of entity state for cross-isolation transport
+  - `Mapper` / `Formatter`: Pure functional converter between models or text formatting
+
+* **Add-Code Checklist**:
+  1. Primary directory placement: `Sources/App`, `Sources/Common`, `Sources/Models`, `Sources/Services`, `Sources/Views`.
+  2. Dependencies: Views -> ViewModel/Coordinator -> Services/Repositories -> Models. Views MUST NOT import SwiftData or perform direct `modelContext` write mutations.
+  3. Physical Line Limit: Max 400 lines for new files; legacy allowlisted files must ratchet down.
+  4. Exactly 1 primary type per file.
+  5. Services must not import SwiftUI (except platform adapters) or invoke ToastManager.shared.
+  6. Unit test modifications under `Tests/` are strictly forbidden (Rule 2.1).
+  7. CodeGraph docs must be updated factually and validated with `validate_links.py`.
+
+## Thermal State Invariants (Phase 0.1)
+
+* `ProcessInfo.ThermalState` is diagnostic/logging-only for NghiTTS and does not cancel or suppress audio refill or next-chapter prefetch.
+
 ## NghiTTS safeCachedTimeSeconds prefetch and contiguous scheduler invariants (1.3.116)
 
 * `nghittsSafeCachedTimeSeconds` is a user-configurable, persistent NghiTTS duration setting (`UserDefaults` key `"nghittsSafeCachedTimeSeconds"`, default 8.0s, allowed 4.0...20.0s, UI step 1.0s). Old installations without the key fallback to 8.0s without error.
@@ -462,6 +501,5 @@ Trước khi kết thúc lượt và thông báo hoàn thành, AI bắt buộc p
 - [ ] **Architecture**: Tái sử dụng components cũ tối đa, tránh tạo logic trùng lặp, giữ vững Clean Architecture?
 - [ ] **Extension**: Giữ nguyên tính tương thích ngược, không đổi API của tiện ích mở rộng nếu không được yêu cầu?
 - [ ] **TTS & Audio**: Dọn dẹp preloadedWavs RAM cache đoạn văn đúng cửa sổ trượt [N, N+1], tránh retain cycle?
-- [ ] **CodeGraph**: Cập nhật chính xác các tài liệu bị ảnh hưởng trực tiếp bên trong thẻ `GENERATED`?
 - [ ] **Validation**: Chạy kịch bản `validate_links.py` và PASS 100%, cập nhật manifest.json và CHANGELOG.md thành công?
 <!-- GENERATED END -->

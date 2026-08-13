@@ -26,10 +26,10 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
     private(set) var tabs: [VisibleBrowserTabItem] = []
     private(set) var activeTabId: String?
 
-    private var containerViewController: TabbedVisibleBrowserViewController?
-    private var navController: UINavigationController?
-    private var isPresented = false
-    private var isDismissing = false
+    internal var containerViewController: TabbedVisibleBrowserViewController?
+    internal var navController: UINavigationController?
+    internal var isPresented = false
+    internal var isDismissing = false
 
     private override init() {
         super.init()
@@ -102,7 +102,7 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
         dismissContainer()
     }
 
-    private func presentContainerView(initialActiveId: String) {
+    internal func presentContainerView(initialActiveId: String) {
         guard !isPresented, !isDismissing else { return }
 
         let container = TabbedVisibleBrowserViewController()
@@ -136,7 +136,7 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
         topVC.present(nav, animated: true, completion: nil)
     }
 
-    private func dismissContainer() {
+    internal func dismissContainer() {
         guard isPresented, !isDismissing else { return }
         isDismissing = true
 
@@ -168,11 +168,11 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
 // MARK: - Tabbed Container View Controller
 @MainActor
 public final class TabbedVisibleBrowserViewController: UIViewController {
-    private let tabBarScrollView = UIScrollView()
-    private let tabBarStackView = UIStackView()
-    private let containerView = UIView()
+    internal let tabBarScrollView = UIScrollView()
+    internal let tabBarStackView = UIStackView()
+    internal let containerView = UIView()
 
-    private var currentChildVC: UIViewController?
+    internal var currentChildVC: UIViewController?
 
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -182,7 +182,7 @@ public final class TabbedVisibleBrowserViewController: UIViewController {
         reloadTabs()
     }
 
-    private func setupNavigationBar() {
+    internal func setupNavigationBar() {
         title = "Trình duyệt"
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             title: "Đóng tất cả",
@@ -192,11 +192,11 @@ public final class TabbedVisibleBrowserViewController: UIViewController {
         )
     }
 
-    @objc private func handleCloseAll() {
+    @objc internal func handleCloseAll() {
         VisibleBrowserTabManager.shared.removeAllTabs()
     }
 
-    private func setupUI() {
+    internal func setupUI() {
         tabBarScrollView.showsHorizontalScrollIndicator = false
         tabBarScrollView.alwaysBounceHorizontal = true
         tabBarScrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -268,7 +268,7 @@ public final class TabbedVisibleBrowserViewController: UIViewController {
         }
     }
 
-    private func createTabPillView(tabItem: VisibleBrowserTabItem, isActive: Bool) -> UIView {
+    internal func createTabPillView(tabItem: VisibleBrowserTabItem, isActive: Bool) -> UIView {
         let pillView = UIView()
         pillView.layer.cornerRadius = 18
         pillView.clipsToBounds = true
@@ -315,17 +315,17 @@ public final class TabbedVisibleBrowserViewController: UIViewController {
         return pillView
     }
 
-    @objc private func handleTabTap(_ gesture: UITapGestureRecognizer) {
+    @objc internal func handleTabTap(_ gesture: UITapGestureRecognizer) {
         guard let pillView = gesture.view, let id = pillView.accessibilityIdentifier else { return }
         VisibleBrowserTabManager.shared.selectTab(id: id)
     }
 
-    @objc private func handleCloseTabTap(_ sender: UIButton) {
+    @objc internal func handleCloseTabTap(_ sender: UIButton) {
         guard let id = sender.accessibilityIdentifier else { return }
         VisibleBrowserTabManager.shared.removeTab(id: id)
     }
 
-    private func displayChildViewController(_ childVC: UIViewController) {
+    internal func displayChildViewController(_ childVC: UIViewController) {
         if currentChildVC == childVC { return }
 
         removeCurrentChildVC()
@@ -338,7 +338,7 @@ public final class TabbedVisibleBrowserViewController: UIViewController {
         currentChildVC = childVC
     }
 
-    private func removeCurrentChildVC() {
+    internal func removeCurrentChildVC() {
         guard let child = currentChildVC else { return }
         child.willMove(toParent: nil)
         child.view.removeFromSuperview()

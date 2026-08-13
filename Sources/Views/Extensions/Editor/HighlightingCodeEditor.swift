@@ -56,15 +56,15 @@ public struct HighlightingCodeEditor: UIViewRepresentable {
         var parent: HighlightingCodeEditor
 
         // Màu sắc chuẩn VS Code Dark+ Theme
-        private let colorDefault = UIColor(red: 205/255, green: 214/255, blue: 244/255, alpha: 1.0) // #CDD6F4
-        private let colorKeyword = UIColor(red: 86/255, green: 156/255, blue: 214/255, alpha: 1.0) // #569CD6
-        private let colorFunction = UIColor(red: 220/255, green: 220/255, blue: 170/255, alpha: 1.0) // #DCDCAA
-        private let colorString = UIColor(red: 206/255, green: 145/255, blue: 120/255, alpha: 1.0) // #CE9178
-        private let colorNumber = UIColor(red: 181/255, green: 206/255, blue: 168/255, alpha: 1.0) // #B5CEA8
-        private let colorBuiltin = UIColor(red: 78/255, green: 201/255, blue: 176/255, alpha: 1.0) // #4EC9B0
-        private let colorComment = UIColor(red: 106/255, green: 153/255, blue: 85/255, alpha: 1.0) // #6A9955
+        internal let colorDefault = UIColor(red: 205/255, green: 214/255, blue: 244/255, alpha: 1.0) // #CDD6F4
+        internal let colorKeyword = UIColor(red: 86/255, green: 156/255, blue: 214/255, alpha: 1.0) // #569CD6
+        internal let colorFunction = UIColor(red: 220/255, green: 220/255, blue: 170/255, alpha: 1.0) // #DCDCAA
+        internal let colorString = UIColor(red: 206/255, green: 145/255, blue: 120/255, alpha: 1.0) // #CE9178
+        internal let colorNumber = UIColor(red: 181/255, green: 206/255, blue: 168/255, alpha: 1.0) // #B5CEA8
+        internal let colorBuiltin = UIColor(red: 78/255, green: 201/255, blue: 176/255, alpha: 1.0) // #4EC9B0
+        internal let colorComment = UIColor(red: 106/255, green: 153/255, blue: 85/255, alpha: 1.0) // #6A9955
 
-        private var regexCache: [String: NSRegularExpression] = [:]
+        internal var regexCache: [String: NSRegularExpression] = [:]
 
         init(_ parent: HighlightingCodeEditor) {
             self.parent = parent
@@ -72,7 +72,7 @@ public struct HighlightingCodeEditor: UIViewRepresentable {
             precompileRegexes()
         }
 
-        private func precompileRegexes() {
+        internal func precompileRegexes() {
             let patterns: [(String, String)] = [
                 ("comment", "//.*$|/\\*[\\s\\S]*?\\*/"),
                 ("string", "\"([^\"\\\\]|\\\\.)*\"|'([^'\\\\]|\\\\.)*'|`([^`\\\\]|\\\\.)*`"),

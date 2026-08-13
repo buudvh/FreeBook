@@ -1,7 +1,7 @@
 import Foundation
 
 public enum DisplayTextFormatter {
-    private static let preservedTokens: Set<String> = [
+    internal static let preservedTokens: Set<String> = [
         "TTS", "AI", "VIP", "iOS", "API", "URL", "ID", "PDF", "OK", "3D", "2D", "UI", "UX"
     ]
 
@@ -21,7 +21,7 @@ public enum DisplayTextFormatter {
         return formatString(text)
     }
 
-    private static func formatString(_ text: String) -> String {
+    internal static func formatString(_ text: String) -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let words = trimmed.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
         let formattedWords = words.map { word -> String in

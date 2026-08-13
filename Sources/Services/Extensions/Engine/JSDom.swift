@@ -102,7 +102,7 @@ import SwiftSoup
 // MARK: - Concrete Implementations
 
 @objc public final class JSHtml: NSObject, JSHtmlExport {
-    private static func fixUnclosedATags(_ html: String) -> String {
+    internal static func fixUnclosedATags(_ html: String) -> String {
         let pattern = "(<a[^>]*class=\\s*[\"'](?:imgbox|img-box|cover|book-cover|bookcover|picbox|imagebox)[\"'][^>]*>\\s*<img[^>]*>)"
         if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
             let range = NSRange(location: 0, length: html.utf16.count)
@@ -135,7 +135,7 @@ import SwiftSoup
         }
     }
     
-    private static func cleanAds(from doc: Document) {
+    internal static func cleanAds(from doc: Document) {
         let adSelectors = [
             "div.panel-g",
             "div.ads", "div.ad", "div.a_d", "div.gg-ad", "div.gg_ad", "div.mgid-widget",
@@ -216,7 +216,7 @@ import SwiftSoup
 }
 
 @objc public final class JSDocument: NSObject, JSDocumentExport {
-    private let doc: Document
+    internal let doc: Document
     
     init(_ doc: Document) {
         self.doc = doc
@@ -257,7 +257,7 @@ import SwiftSoup
 }
 
 @objc public final class JSElement: NSObject, JSElementExport {
-    private let element: Element?
+    internal let element: Element?
     
     init(_ element: Element?) {
         self.element = element
@@ -438,7 +438,7 @@ import SwiftSoup
 }
 
 @objc public final class JSElements: NSObject, JSElementsExport {
-    private let elements: Elements
+    internal let elements: Elements
     
     init(_ elements: Elements) {
         self.elements = elements

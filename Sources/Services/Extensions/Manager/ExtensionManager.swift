@@ -72,14 +72,14 @@ public struct ChapterResult: Equatable {
 // MARK: - Extension Manager
 public final class ExtensionManager: ObservableObject {
     public static let shared = ExtensionManager()
-    private let ttsRuntime = ExtTTSRuntime()
+    internal let ttsRuntime = ExtTTSRuntime()
     
-    private var fingerprintCache: [String: String] = [:]
+    internal var fingerprintCache: [String: String] = [:]
     @Published public var loadingStates: [String: Bool] = [:]
     
     private init() {}
     
-    private var extensionsDirectory: URL {
+    internal var extensionsDirectory: URL {
         let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
         let directory = paths[0].appendingPathComponent("extensions", isDirectory: true)
         if !FileManager.default.fileExists(atPath: directory.path) {
@@ -225,7 +225,7 @@ public final class ExtensionManager: ObservableObject {
         )
     }
     
-    private func findMainExtensionFolder(at url: URL) -> URL {
+    internal func findMainExtensionFolder(at url: URL) -> URL {
         let pluginJsonUrl = url.appendingPathComponent("plugin.json")
         if FileManager.default.fileExists(atPath: pluginJsonUrl.path) {
             return url
@@ -254,7 +254,7 @@ public final class ExtensionManager: ObservableObject {
     
     // getScriptPath: Đọc cấu trúc tệp cấu hình plugin.json để xác định đường dẫn thực tế của file script JS cần chạy
     // Hỗ trợ tìm kiếm dự phòng (fallback) cả ở thư mục gốc của extension lẫn thư mục src/
-    private func getScriptPath(extensionPath: String, scriptKey: String) throws -> URL {
+    internal func getScriptPath(extensionPath: String, scriptKey: String) throws -> URL {
         let extUrl = URL(fileURLWithPath: extensionPath)
         let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
         
@@ -526,7 +526,7 @@ public final class ExtensionManager: ObservableObject {
         }
     }
 
-    private func toDictionaryArray(_ value: JSValue) -> [[String: JSValue]] {
+    internal func toDictionaryArray(_ value: JSValue) -> [[String: JSValue]] {
         guard let context = value.context,
             let objectKeys = context.objectForKeyedSubscript("Object")
                                     .objectForKeyedSubscript("keys") else {
@@ -914,7 +914,7 @@ public final class ExtensionManager: ObservableObject {
         fingerprintCache.removeAll()
         await ttsRuntime.reset()
     }
-    private func verifyJSResponse(_ jsValue: JSValue, extName: String = "", scriptName: String = "") throws -> JSValue {
+    internal func verifyJSResponse(_ jsValue: JSValue, extName: String = "", scriptName: String = "") throws -> JSValue {
         guard jsValue.isObject else { return jsValue }
         
         let logPrefix = extName.isEmpty ? "ExtensionManager" : "\(extName)\(scriptName.isEmpty ? "" : " - ")\(scriptName)"
@@ -950,7 +950,7 @@ public final class ExtensionManager: ObservableObject {
         return jsValue
     }
 
-    private func formatSuccessDataLog(_ dataVal: JSValue) -> String {
+    internal func formatSuccessDataLog(_ dataVal: JSValue) -> String {
         if AppLogger.shared.isCompactSuccessLogEnabled {
             return compactRepresentation(dataVal)
         } else {
@@ -958,7 +958,7 @@ public final class ExtensionManager: ObservableObject {
         }
     }
 
-    private func compactRepresentation(_ val: JSValue) -> String {
+    internal func compactRepresentation(_ val: JSValue) -> String {
         if val.isNull {
             return "[Null]"
         }
@@ -992,7 +992,7 @@ public final class ExtensionManager: ObservableObject {
         return "[Value]"
     }
 
-    private func stringify(_ jsValue: JSValue) -> String {
+    internal func stringify(_ jsValue: JSValue) -> String {
         if let jsonModule = jsValue.context.objectForKeyedSubscript("JSON"),
            let stringifyFunc = jsonModule.objectForKeyedSubscript("stringify"),
            let result = stringifyFunc.call(withArguments: [jsValue]) {
@@ -1001,7 +1001,7 @@ public final class ExtensionManager: ObservableObject {
         return jsValue.toString() ?? ""
     }
     
-    private func updateDiagnostics(action: String, input: String, status: String, details: String) {
+    internal func updateDiagnostics(action: String, input: String, status: String, details: String) {
         Task { @MainActor in
             AppDiagnostics.shared.lastCall = AppDiagnostics.CallInfo(
                 action: action,
