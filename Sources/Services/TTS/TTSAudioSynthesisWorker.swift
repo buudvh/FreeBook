@@ -1,10 +1,8 @@
 import Foundation
 
 /// Worker 2 chuyên trách tổng hợp âm thanh TTS (Audio Synthesis Worker)
-/// Quản lý việc nạp đệm âm thanh MP3/PCM vào RAM đệm cho Google TTS, Ext TTS và NghiTTS.
+/// Facade stateless quản lý pacing + coordinator synthesis. Callers own Tasks.
 internal actor TTSAudioSynthesisWorker {
-    private var inFlightTasks: [Int: Task<Data?, Error>] = [:]
-
     internal init() {}
 
     /// Tổng hợp âm thanh cho một đoạn văn với khoảng dãn nạp bậc thang
@@ -32,24 +30,12 @@ internal actor TTSAudioSynthesisWorker {
     }
 
     /// Hủy các tác vụ nạp trước (prefetch), giữ nguyên tác vụ đang đọc đoạn hiện tại (.current)
-    internal func cancelPrefetchTasks() {
-        for task in inFlightTasks.values {
-            task.cancel()
-        }
-        inFlightTasks.removeAll()
-        Task {
-            await RemoteTTSSynthesisCoordinator.shared.cancelPrefetchOnly()
-        }
+    internal func cancelPrefetchTasks() async {
+        await RemoteTTSSynthesisCoordinator.shared.cancelPrefetchOnly()
     }
 
     /// Hủy toàn bộ tác vụ tổng hợp âm thanh đang chờ
-    internal func cancelAll() {
-        for task in inFlightTasks.values {
-            task.cancel()
-        }
-        inFlightTasks.removeAll()
-        Task {
-            await RemoteTTSSynthesisCoordinator.shared.cancelAll()
-        }
+    internal func cancelAll() async {
+        await RemoteTTSSynthesisCoordinator.shared.cancelAll()
     }
 }

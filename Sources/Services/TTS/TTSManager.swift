@@ -119,6 +119,15 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 UserDefaults.standard.set(pitch, forKey: "extPitch_\(tool)")
             }
             updatePlaybackParams()
+            if !isInitializing && tool == "google" && oldValue != pitch {
+                cancelClaimedSynthesisTask()
+                remotePlaybackTask?.cancel()
+                remotePlaybackTask = nil
+                nextChapterPrefetcher.cancel()
+                Task { await audioSynthesisWorker.cancelPrefetchTasks() }
+                preloadedData.removeAll()
+                preloadedDurations.removeAll()
+            }
         }
     }
     @Published public var selectedVoice: String {
@@ -676,9 +685,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private var chapterAdvanceTask: Task<Void, Never>? = nil
     private var chapterAdvanceTaskGeneration: UInt64 = 0
     private var nghiWarmUpTask: Task<Void, Never>? = nil
-    private let nextChapterPrefetcher = TTSChapterPrefetcher()
-    private let chapterTextWorker = TTSChapterTextWorker()
     private let audioSynthesisWorker = TTSAudioSynthesisWorker()
+    private lazy var nextChapterPrefetcher = TTSChapterPrefetcher(audioWorker: audioSynthesisWorker)
+    private var claimedSynthesisTask: Task<Data, Error>? = nil
+    private var claimedSynthesisTaskKey: String? = nil
     private var sessionID = UUID()
     private var ttsProcessingGeneration = 0
     private var preparationGeneration = 0
@@ -694,10 +704,17 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         preparedChapter = nil
     }
 
+    private func cancelClaimedSynthesisTask() {
+        claimedSynthesisTask?.cancel()
+        claimedSynthesisTask = nil
+        claimedSynthesisTaskKey = nil
+    }
+
     private func cancelChapterAdvanceTask() {
         chapterAdvanceTaskGeneration &+= 1
         chapterAdvanceTask?.cancel()
         chapterAdvanceTask = nil
+        cancelClaimedSynthesisTask()
     }
 
     private func clearChapterAdvanceTask(ifGenerationMatches generation: UInt64) {
@@ -1396,6 +1413,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         logRemoteTrace("pause()") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
         #endif
         guard isPlaying else { return }
+        cancelChapterAdvanceTask()
         finishTTSAutoAdvancePerf(outcome: "cancelled", endpoint: "pause")
         checkpointProgressAndRelease()
         self.isPlaying = false
@@ -1777,6 +1795,15 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private func makeNextChapterKey(for chapter: TTSChapterInfo) -> TTSPreparedNextChapterKey {
         let key = "showChapterTitle_\(playingBookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+        let extFingerprint: String?
+        if tool == "system" || tool == "nghitts" || tool == "google" {
+            extFingerprint = nil
+        } else {
+            extFingerprint = ExtensionManager.shared.getTTSRuntimeFingerprint(
+                localPath: extensionLocalPath,
+                configJson: extensionConfigJson
+            )
+        }
         return TTSPreparedNextChapterKey(
             bookId: playingBookId,
             chapterIndex: chapter.index,
@@ -1785,12 +1812,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             chapterTitle: chapter.title,
             tool: tool,
             selectedVoice: selectedVoice,
+            googlePitch: tool == "google" ? pitch : nil,
             chunkLength: chunkLength,
             includeChapterTitle: showTitle,
             isTranslationEnabled: self.sessionTranslationEnabled,
             translationToken: TranslateUtils.translationGenerationToken(for: playingBookId),
             extensionLocalPath: extensionLocalPath,
-            extensionConfigJson: extensionConfigJson
+            extensionConfigJson: extensionConfigJson,
+            extensionFingerprint: extFingerprint
         )
     }
 
@@ -1814,19 +1843,19 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let consumedState = nextChapterPrefetcher.consumeCache(matching: requestedKey)
 
         switch consumedState {
-        case .audioReady(_, _, let processed, let audioData, _, _, _):
+        case .audioReady(_, _, let processed, let audioData, let loadMs, let processMs, let synthMs):
             updateTTSAutoAdvanceLoadPerf(
                 sessionID: expectedSessionID,
                 generation: expectedGeneration,
                 chapterIndex: nextChapter.index,
-                loadMs: 0.0,
+                loadMs: loadMs,
                 origin: "next_prefetch_audio"
             )
             updateTTSAutoAdvanceProcessPerf(
                 sessionID: expectedSessionID,
                 generation: expectedGeneration,
                 chapterIndex: nextChapter.index,
-                processMs: 0.0
+                processMs: processMs
             )
 
             applyNextChapter(
@@ -1838,20 +1867,102 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 firstAudioData: audioData
             )
 
-        case .processedReady(_, _, let processed, _, _),
-             .synthesizingAudio(_, _, let processed, _, _):
+        case .synthesizingAudio(_, _, let processed, let task, let synthesisKey, let loadMs, let processMs):
             updateTTSAutoAdvanceLoadPerf(
                 sessionID: expectedSessionID,
                 generation: expectedGeneration,
                 chapterIndex: nextChapter.index,
-                loadMs: 0.0,
+                loadMs: loadMs,
                 origin: "next_prefetch_dto"
             )
             updateTTSAutoAdvanceProcessPerf(
                 sessionID: expectedSessionID,
                 generation: expectedGeneration,
                 chapterIndex: nextChapter.index,
-                processMs: 0.0
+                processMs: processMs
+            )
+
+            self.claimedSynthesisTask = task
+            self.claimedSynthesisTaskKey = synthesisKey
+            let currentGen = self.chapterAdvanceTaskGeneration
+
+            let advanceTask = Task { @MainActor [weak self] in
+                guard let self else { return }
+                defer {
+                    if self.claimedSynthesisTaskKey == synthesisKey {
+                        self.claimedSynthesisTask = nil
+                        self.claimedSynthesisTaskKey = nil
+                    }
+                }
+
+                await RemoteTTSSynthesisCoordinator.shared.promote(key: synthesisKey, to: .current)
+                if AppLogger.shared.isLoggingEnabled {
+                    AppLogger.shared.log("[TTSHandoff] Claimed in-flight synthesis task chapter=\(nextChapter.index) engine=\(requestedKey.tool)")
+                }
+
+                var firstAudioData: Data? = nil
+
+                do {
+                    let data = try await task.value
+                    if !data.isEmpty {
+                        firstAudioData = data
+                    }
+                } catch is CancellationError {
+                    return
+                } catch {
+                    if AppLogger.shared.isLoggingEnabled {
+                        AppLogger.shared.log("⚠️ [TTSHandoff] In-flight synthesis task failed: \(error.localizedDescription). Falling back to current synthesis.")
+                    }
+                }
+
+                @MainActor
+                func isValidState() -> Bool {
+                    if Task.isCancelled { return false }
+                    if self.chapterAdvanceTaskGeneration != currentGen { return false }
+                    if !self.isPlaying { return false }
+                    if self.sessionID != expectedSessionID { return false }
+                    if self.ttsProcessingGeneration != expectedGeneration { return false }
+                    if self.playingBookId != expectedBookId { return false }
+                    if self.chaptersQueue.first(where: { $0.index == nextChapter.index })?.url != expectedChapterURL { return false }
+                    if self.playingChapterIndex >= nextChapter.index { return false }
+                    if self.tool != requestedKey.tool { return false }
+                    if self.selectedVoice != requestedKey.selectedVoice { return false }
+                    if requestedKey.tool == "google" && self.pitch != requestedKey.googlePitch { return false }
+                    if requestedKey.tool != "system" && requestedKey.tool != "nghitts" && requestedKey.tool != "google" {
+                        if self.extensionLocalPath != requestedKey.extensionLocalPath { return false }
+                        if self.extensionConfigJson != requestedKey.extensionConfigJson { return false }
+                        let currentFingerprint = ExtensionManager.shared.getTTSRuntimeFingerprint(localPath: self.extensionLocalPath, configJson: self.extensionConfigJson)
+                        if currentFingerprint != requestedKey.extensionFingerprint { return false }
+                    }
+                    return true
+                }
+
+                guard isValidState() else { return }
+
+                self.applyNextChapter(
+                    index: processed.chapterIndex,
+                    content: processed.normalizedContent,
+                    title: processed.chapterTitle,
+                    paragraphs: processed.paragraphs,
+                    chapter: nextChapter,
+                    firstAudioData: firstAudioData
+                )
+            }
+            self.chapterAdvanceTask = advanceTask
+
+        case .processedReady(_, _, let processed, let loadMs, let processMs):
+            updateTTSAutoAdvanceLoadPerf(
+                sessionID: expectedSessionID,
+                generation: expectedGeneration,
+                chapterIndex: nextChapter.index,
+                loadMs: loadMs,
+                origin: "next_prefetch_dto"
+            )
+            updateTTSAutoAdvanceProcessPerf(
+                sessionID: expectedSessionID,
+                generation: expectedGeneration,
+                chapterIndex: nextChapter.index,
+                processMs: processMs
             )
 
             applyNextChapter(
@@ -2120,7 +2231,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         guard let nextIdx = nextChapterIndex(after: playingChapterIndex),
               let nextChapter = chaptersQueue.first(where: { $0.index == nextIdx }) else {
             nextChapterPrefetcher.cancel()
-            Task { await chapterTextWorker.cancel() }
             return
         }
 
@@ -2134,35 +2244,18 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
         let remainingCount = remainingParents.isEmpty ? 99 : remainingParents.count
 
-        Task { [weak self] in
-            guard let self = self else { return }
-            let shouldPrefetch = await self.chapterTextWorker.shouldTriggerPrefetch(
-                isPlaying: self.isPlaying,
-                currentParagraphIndex: self.currentParagraphIndex,
-                totalParagraphs: self.paragraphs.count,
-                remainingParentCount: remainingCount,
-                nextKey: key
-            )
-            if shouldPrefetch {
-                await self.chapterTextWorker.startPrefetch(
-                    key: key,
-                    sessionID: self.sessionID,
-                    generation: self.ttsProcessingGeneration,
-                    extensionInfo: self.extensionInfo,
-                    processor: TTSBackgroundProcessor()
-                )
-            }
-        }
+        let isPastHalfway = currentParagraphIndex >= paragraphs.count / 2
+        let isNearEnd = remainingCount <= 3
 
-        nextChapterPrefetcher.startPrefetch(
-            key: key,
-            sessionID: sessionID,
-            generation: ttsProcessingGeneration,
-            extensionInfo: extensionInfo,
-            processor: TTSBackgroundProcessor(),
-            googleService: googleService,
-            extService: extService
-        )
+        if isPastHalfway || isNearEnd {
+            nextChapterPrefetcher.startPrefetch(
+                key: key,
+                sessionID: sessionID,
+                generation: ttsProcessingGeneration,
+                extensionInfo: extensionInfo,
+                processor: TTSBackgroundProcessor()
+            )
+        }
     }
 
     private func checkAndPromoteNextChapterAudioIfNeeded() {
@@ -2185,6 +2278,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
 
         nextChapterPrefetcher.promoteAudioIfNeeded(
+            remainingParentCount: remainingParents.count,
             nghiService: nghiTTSService,
             googleService: googleService,
             extService: extService
@@ -2265,6 +2359,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     public func clearCurrentParagraphPrefetchCache() {
         cancelNghiPlaybackTask()
         cancelNghiRefill()
+        cancelClaimedSynthesisTask()
         remotePlaybackTask?.cancel()
         remotePlaybackTask = nil
         cancelRemotePrefetchTasks()
@@ -2281,7 +2376,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         clearCurrentParagraphPrefetchCache()
         nextChapterPrefetcher.cancel()
         Task {
-            await chapterTextWorker.cancel()
             await audioSynthesisWorker.cancelPrefetchTasks()
             await extService.resetRuntime()
         }
@@ -2730,6 +2824,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         guard !text.isEmpty else { return }
         let voice = selectedVoice
         let toolBeforeStart = tool
+        let pitchToUse = pitch
         let expectedSessionID = sessionID
         let expectedBookId = playingBookId
         let expectedChapterIndex = playingChapterIndex
@@ -2743,7 +2838,24 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let configJson = extensionConfigJson
         let googleService = self.googleService
         let extService = self.extService
-        let synthesisKey = "paragraph|\(expectedSessionID.uuidString)|\(expectedChapterIndex)|\(index)|\(toolBeforeStart)|\(voice)"
+        let audioSynthesisWorkerRef = self.audioSynthesisWorker
+
+        let extFingerprint: String?
+        if toolBeforeStart == "google" {
+            extFingerprint = nil
+        } else {
+            extFingerprint = ExtensionManager.shared.getTTSRuntimeFingerprint(localPath: localPath, configJson: configJson)
+        }
+        let synthesisKey = TTSSynthesisIdentity.computeKey(
+            chapterURL: expectedChapterURL,
+            chapterIndex: expectedChapterIndex,
+            paragraphIndex: index,
+            finalText: text,
+            engine: toolBeforeStart,
+            voice: voice,
+            googlePitch: toolBeforeStart == "google" ? pitchToUse : nil,
+            extensionFingerprint: extFingerprint
+        )
 
         let task = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -2752,21 +2864,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
 
             let offset = max(0, index - self.currentParagraphIndex)
-            if offset >= 1 {
-                let delayStepMs = max(300, self.prefetchDelayMs)
-                do {
-                    try await Task.sleep(nanoseconds: UInt64(offset * delayStepMs) * 1_000_000)
-                } catch {
-                    return
-                }
-            }
 
             @MainActor
             func isValidSession() -> Bool {
-                // Avoid a chained `&&` expression here. In Swift 6 each RHS is
-                // evaluated through a nonisolated autoclosure, which cannot read
-                // these MainActor-isolated properties even though the task itself
-                // runs on MainActor.
                 if Task.isCancelled { return false }
                 if !self.isPlaying { return false }
                 if self.sessionID != expectedSessionID { return false }
@@ -2781,14 +2881,16 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             guard isValidSession() else { return }
 
             do {
-                let data = try await RemoteTTSSynthesisCoordinator.shared.synthesize(
-                    key: synthesisKey,
+                let data = try await audioSynthesisWorkerRef.synthesizeParagraph(
+                    synthesisKey: synthesisKey,
                     engine: toolBeforeStart,
                     textLength: text.count,
-                    priority: .prefetch
+                    priority: .prefetch,
+                    offset: offset,
+                    prefetchDelayMs: self.prefetchDelayMs
                 ) {
                     if toolBeforeStart == "google" {
-                        return try await googleService.synthesize(text: text, voice: voice, speed: 1.0, pitch: 1.0)
+                        return try await googleService.synthesize(text: text, voice: voice, speed: 1.0, pitch: pitchToUse)
                     }
                     return try await extService.synthesizeData(
                         text: text,
@@ -3273,6 +3375,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private func playGoogleTTS(_ text: String) {
         let index = currentParagraphIndex
         let voice = selectedVoice
+        let pitchToUse = pitch
         let playbackId = String(UUID().uuidString.prefix(4))
         self.currentPlaybackId = playbackId
         let expectedSessionID = sessionID
@@ -3280,7 +3383,16 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let expectedBookID = playingBookId
         let expectedChapterURL = playingChapterUrl
         let service = googleService
-        let synthesisKey = "paragraph|\(expectedSessionID.uuidString)|\(expectedChapterIndex)|\(index)|google|\(voice)"
+        let synthesisKey = TTSSynthesisIdentity.computeKey(
+            chapterURL: expectedChapterURL,
+            chapterIndex: expectedChapterIndex,
+            paragraphIndex: index,
+            finalText: text,
+            engine: "google",
+            voice: voice,
+            googlePitch: pitchToUse,
+            extensionFingerprint: nil
+        )
 
         if let cachedData = preloadedData[index] {
             recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "google", index: index, outcome: "hit")
@@ -3295,6 +3407,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let taskGeneration = remotePlaybackTaskGeneration
         let startWait = ProcessInfo.processInfo.systemUptime
 
+        let audioSynthesisWorkerRef = self.audioSynthesisWorker
+
         remotePlaybackTask = Task { @MainActor [weak self] in
             guard let self else { return }
             defer {
@@ -3304,13 +3418,15 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
 
             do {
-                let mp3Data = try await RemoteTTSSynthesisCoordinator.shared.synthesize(
-                    key: synthesisKey,
+                let mp3Data = try await audioSynthesisWorkerRef.synthesizeParagraph(
+                    synthesisKey: synthesisKey,
                     engine: "google",
                     textLength: text.count,
-                    priority: .current
+                    priority: .current,
+                    offset: 0,
+                    prefetchDelayMs: 0
                 ) {
-                    try await service.synthesize(text: text, voice: voice, speed: 1.0, pitch: 1.0)
+                    try await service.synthesize(text: text, voice: voice, speed: 1.0, pitch: pitchToUse)
                 }
 
                 guard !Task.isCancelled,
@@ -3371,7 +3487,17 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let expectedChapterURL = playingChapterUrl
         let engineName = tool
         let service = extService
-        let synthesisKey = "paragraph|\(expectedSessionID.uuidString)|\(expectedChapterIndex)|\(index)|\(engineName)|\(voice)"
+        let extFingerprint = ExtensionManager.shared.getTTSRuntimeFingerprint(localPath: localPath, configJson: configJson)
+        let synthesisKey = TTSSynthesisIdentity.computeKey(
+            chapterURL: expectedChapterURL,
+            chapterIndex: expectedChapterIndex,
+            paragraphIndex: index,
+            finalText: text,
+            engine: engineName,
+            voice: voice,
+            googlePitch: nil,
+            extensionFingerprint: extFingerprint
+        )
 
         if let cachedData = preloadedData[index] {
             recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: engineName, index: index, outcome: "hit")
@@ -3386,6 +3512,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let taskGeneration = remotePlaybackTaskGeneration
         let startWait = ProcessInfo.processInfo.systemUptime
 
+        let audioSynthesisWorkerRef = self.audioSynthesisWorker
+
         remotePlaybackTask = Task { @MainActor [weak self] in
             guard let self else { return }
             defer {
@@ -3395,11 +3523,13 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
 
             do {
-                let audioData = try await RemoteTTSSynthesisCoordinator.shared.synthesize(
-                    key: synthesisKey,
+                let audioData = try await audioSynthesisWorkerRef.synthesizeParagraph(
+                    synthesisKey: synthesisKey,
                     engine: engineName,
                     textLength: text.count,
-                    priority: .current
+                    priority: .current,
+                    offset: 0,
+                    prefetchDelayMs: 0
                 ) {
                     try await service.synthesizeData(
                         text: text,

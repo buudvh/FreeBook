@@ -260,6 +260,9 @@ struct TTSSettingsView: View {
                     Slider(value: $ttsManager.speed, in: 0.5...5.0, step: 0.1)
                 }
                 
+                let isExtensionTool = ttsManager.tool != "system" && ttsManager.tool != "nghitts" && ttsManager.tool != "google"
+                let disablePitch = ttsManager.tool == "nghitts" || isExtensionTool
+
                 VStack(alignment: .leading, spacing: 6) {
                     Stepper(value: $ttsManager.pitch, in: 0.5...2.0, step: 0.1) {
                         HStack {
@@ -269,12 +272,16 @@ struct TTSSettingsView: View {
                                 .font(.system(.body, design: .monospaced))
                         }
                     }
-                    .disabled(ttsManager.tool == "nghitts")
+                    .disabled(disablePitch)
 
                     Slider(value: $ttsManager.pitch, in: 0.5...2.0, step: 0.1)
-                        .disabled(ttsManager.tool == "nghitts")
+                        .disabled(disablePitch)
                     if ttsManager.tool == "nghitts" {
                         Text("(*) NghiTTS không hỗ trợ chỉnh cao độ thời gian thực")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    } else if isExtensionTool {
+                        Text("(*) Extension TTS không hỗ trợ chỉnh cao độ")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
@@ -294,8 +301,13 @@ struct TTSSettingsView: View {
                         ttsManager.chunkLength = 100
                         ttsManager.prefetchDelayMs = 350
                     } else {
-                        ttsManager.extPrefetchCount = 2
-                        ttsManager.chunkLength = 100
+                        let parsed = ttsManager.parseExtensionConfigParams(jsonString: ttsManager.extensionConfigJson, localPath: ttsManager.extensionLocalPath)
+                        if parsed.preloadSize == nil {
+                            ttsManager.extPrefetchCount = 2
+                        }
+                        if parsed.maxLength == nil {
+                            ttsManager.chunkLength = 100
+                        }
                         ttsManager.prefetchDelayMs = 350
                     }
                 }) {

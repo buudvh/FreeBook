@@ -90,6 +90,18 @@ internal actor RemoteTTSSynthesisCoordinator {
         }
     }
 
+    internal func promote(key: String, to priority: Priority) {
+        guard let index = queue.firstIndex(where: { $0.key == key }) else { return }
+        if priority.rawValue < queue[index].priority.rawValue {
+            let engine = queue[index].engine
+            queue[index].priority = priority
+            sortQueue()
+            if AppLogger.shared.isLoggingEnabled {
+                AppLogger.shared.log("[TTSPriority] Promoted queued job to \(priority) engine=\(engine)")
+            }
+        }
+    }
+
     internal func setApplicationState(_ state: String, engine: String, isPlaying: Bool) {
         guard state != applicationState else { return }
         emitEnergySummary(reason: "app_state_change")

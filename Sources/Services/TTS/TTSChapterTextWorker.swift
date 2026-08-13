@@ -1,11 +1,17 @@
 import Foundation
 
+internal struct TextPrefetchResult: Sendable {
+    internal let dto: ProcessedChapterDTO
+    internal let loadMs: Double
+    internal let processMs: Double
+}
+
 /// Worker 1 chuyên trách nạp trước và chuẩn hóa văn bản DTO chương tiếp theo (Next Chapter Text Worker)
 /// Độc lập hoàn toàn với Trình đọc (Reader UI) và luồng tổng hợp âm thanh (TTSAudioSynthesisWorker).
 internal actor TTSChapterTextWorker {
-    private var cachedDTO: ProcessedChapterDTO?
+    private var cachedResult: TextPrefetchResult?
     private var cachedKey: TTSPreparedNextChapterKey?
-    private var fetchTask: Task<ProcessedChapterDTO?, Never>?
+    private var fetchTask: Task<TextPrefetchResult?, Never>?
     private var activeGeneration: UInt64 = 0
 
     internal init() {}
@@ -19,18 +25,17 @@ internal actor TTSChapterTextWorker {
         nextKey: TTSPreparedNextChapterKey
     ) -> Bool {
         guard isPlaying, totalParagraphs > 0 else { return false }
-        if cachedKey == nextKey && (cachedDTO != nil || fetchTask != nil) {
+        if cachedKey == nextKey && (cachedResult != nil || fetchTask != nil) {
             return false
         }
         
-        // Điều kiện kích hoạt: Nghe >= 50% số đoạn HOẶC còn <= 3 đoạn văn cha
         let isPastHalfway = currentParagraphIndex >= totalParagraphs / 2
         let isNearEnd = remainingParentCount <= 3
         
         return isPastHalfway || isNearEnd
     }
 
-    /// Kích hoạt tải ngầm văn bản DTO của chương tiếp theo
+    /// Kích hoạt tải ngầm văn bản DTO của chương tiếp theo với đo đạc thời gian thực tế
     internal func startPrefetch(
         key: TTSPreparedNextChapterKey,
         sessionID: UUID,
@@ -38,7 +43,7 @@ internal actor TTSChapterTextWorker {
         extensionInfo: TTSExtensionInfo?,
         processor: TTSBackgroundProcessor
     ) {
-        if cachedKey == key && (cachedDTO != nil || fetchTask != nil) {
+        if cachedKey == key && (cachedResult != nil || fetchTask != nil) {
             return
         }
 
@@ -48,6 +53,7 @@ internal actor TTSChapterTextWorker {
         cachedKey = key
 
         fetchTask = Task(priority: .utility) { [weak self] in
+            let loadStart = ProcessInfo.processInfo.systemUptime
             let request = ChapterContentRequest(
                 bookId: key.bookId,
                 chapterIndex: key.chapterIndex,
@@ -62,7 +68,10 @@ internal actor TTSChapterTextWorker {
             guard let result = try? await ChapterContentRepository.shared.load(request), !Task.isCancelled else {
                 return nil
             }
+            let loadEnd = ProcessInfo.processInfo.systemUptime
+            let loadMs = (loadEnd - loadStart) * 1000
 
+            let processStart = ProcessInfo.processInfo.systemUptime
             guard let processed = try? await processor.processChapter(
                 bookId: key.bookId,
                 chapterIndex: key.chapterIndex,
@@ -76,24 +85,28 @@ internal actor TTSChapterTextWorker {
             ), !Task.isCancelled else {
                 return nil
             }
+            let processEnd = ProcessInfo.processInfo.systemUptime
+            let processMs = (processEnd - processStart) * 1000
+
+            let prefetchResult = TextPrefetchResult(dto: processed, loadMs: loadMs, processMs: processMs)
 
             if let self = self {
-                await self.saveProcessedDTO(processed, for: key, generation: currentGen)
+                await self.saveProcessedResult(prefetchResult, for: key, generation: currentGen)
             }
-            return processed
+            return prefetchResult
         }
     }
 
-    private func saveProcessedDTO(_ dto: ProcessedChapterDTO, for key: TTSPreparedNextChapterKey, generation: UInt64) {
+    private func saveProcessedResult(_ result: TextPrefetchResult, for key: TTSPreparedNextChapterKey, generation: UInt64) {
         guard generation == activeGeneration else { return }
-        self.cachedDTO = dto
+        self.cachedResult = result
         self.cachedKey = key
     }
 
-    /// Lấy sẵn DTO chương kế đã nạp trước (nếu có)
-    internal func getReadyDTO(for key: TTSPreparedNextChapterKey) async -> ProcessedChapterDTO? {
-        if cachedKey == key, let dto = cachedDTO {
-            return dto
+    /// Lấy kết quả nạp trước văn bản với thời gian thực tế
+    internal func getReadyResult(for key: TTSPreparedNextChapterKey) async -> TextPrefetchResult? {
+        if cachedKey == key, let result = cachedResult {
+            return result
         }
         if cachedKey == key, let task = fetchTask {
             return await task.value
@@ -106,7 +119,7 @@ internal actor TTSChapterTextWorker {
         activeGeneration += 1
         fetchTask?.cancel()
         fetchTask = nil
-        cachedDTO = nil
+        cachedResult = nil
         cachedKey = nil
     }
 }

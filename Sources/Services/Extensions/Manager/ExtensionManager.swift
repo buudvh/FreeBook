@@ -2,6 +2,7 @@ import Foundation
 import ZIPFoundation
 import JavaScriptCore
 import Combine
+import CryptoKit
 
 // MARK: - Helper Structs for Registry
 public struct RegistryResponse: Codable {
@@ -73,6 +74,7 @@ public final class ExtensionManager: ObservableObject {
     public static let shared = ExtensionManager()
     private let ttsRuntime = ExtTTSRuntime()
     
+    private var fingerprintCache: [String: String] = [:]
     @Published public var loadingStates: [String: Bool] = [:]
     
     private init() {}
@@ -871,7 +873,45 @@ public final class ExtensionManager: ObservableObject {
         }
     }
 
+    public func getTTSRuntimeFingerprint(localPath: String, configJson: String) -> String? {
+        guard let scriptUrl = try? getScriptPath(extensionPath: localPath, scriptKey: "tts"),
+              let scriptData = try? Data(contentsOf: scriptUrl) else {
+            return nil
+        }
+
+        let modDate = (try? FileManager.default.attributesOfItem(atPath: scriptUrl.path)[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        let cacheKey = "\(localPath)|\(configJson)|\(modDate)"
+        if let cached = fingerprintCache[cacheKey] {
+            return cached
+        }
+
+        var hasher = SHA256()
+
+        var scriptLen = UInt64(scriptData.count).littleEndian
+        hasher.update(data: Data(bytes: &scriptLen, count: 8))
+        hasher.update(data: scriptData)
+
+        let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
+        guard let configData = try? JSONSerialization.data(withJSONObject: configs, options: [.sortedKeys]) else {
+            return nil
+        }
+        var configLen = UInt64(configData.count).littleEndian
+        hasher.update(data: Data(bytes: &configLen, count: 8))
+        hasher.update(data: configData)
+
+        let pathData = Data(localPath.utf8)
+        var pathLen = UInt64(pathData.count).littleEndian
+        hasher.update(data: Data(bytes: &pathLen, count: 8))
+        hasher.update(data: pathData)
+
+        let digest = hasher.finalize()
+        let result = digest.map { String(format: "%02x", $0) }.joined()
+        fingerprintCache[cacheKey] = result
+        return result
+    }
+
     public func resetTTSRuntime() async {
+        fingerprintCache.removeAll()
         await ttsRuntime.reset()
     }
     private func verifyJSResponse(_ jsValue: JSValue, extName: String = "", scriptName: String = "") throws -> JSValue {

@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.140] - 2026-08-13
+
+### Cải tiến luồng nạp trước TTS Remote, chuyển giao tác vụ âm thanh và quản lý bộ đệm theo vòng đời
+
+* Google TTS và Extension TTS không còn bị hạn chế nạp trước theo mức nhiệt độ thiết bị; chính sách quản lý nhiệt độ được giữ nguyên đối với NghiTTS.
+* Tác vụ tổng hợp âm thanh cho chương kế tiếp đang chạy được tiếp quản và đẩy lên ưu tiên cao để phát tiếp ngay, thay vì bị hủy và tổng hợp lại từ đầu.
+* Độ cao giọng đọc (pitch) của Google TTS được truyền chính xác khi tạo âm thanh và tự động xóa bộ đệm cũ khi người dùng thay đổi pitch.
+* Tạo mã nhận dạng (fingerprint) theo script và cấu hình của Extension TTS để ngăn tái sử dụng âm thanh cũ khi tiện ích có thay đổi.
+* Hủy ngay các tác vụ nạp trước hoặc tác vụ đang chờ đã lỗi thời khi người dùng Tạm dừng, đổi trình đọc, đổi giọng, đổi pitch hoặc thay đổi cấu hình.
+* Nút Đặt lại Cài đặt Extension tôn trọng thông số `preload_size` và `max_length` từ extension, đồng thời tắt thanh điều chỉnh pitch cho Extension TTS do chưa hỗ trợ.
+* Các bộ xử lý nạp trước văn bản và âm thanh (`TTSChapterTextWorker` & `TTSAudioSynthesisWorker`) trực tiếp quản lý luồng dữ liệu DTO và thời gian thực tế, sử dụng khóa định danh tổng hợp ổn định để tránh trùng lặp qua coordinator.
+
 ## [1.3.139] - 2026-08-13
 
 ### Tái cấu trúc Giao diện Cài đặt TTS thành 5 Section Chuẩn mực & Tinh chỉnh Stepper Nạp trước
