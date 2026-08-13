@@ -201,7 +201,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public var prefetchDelayMs: Int {
         didSet {
             guard !isInitializing else { return }
-            let clampedValue = (tool == "google" || (tool != "system" && tool != "nghitts")) ? max(300, prefetchDelayMs) : prefetchDelayMs
+            let isRemoteTTS = (tool != "system" && tool != "nghitts")
+            let clampedValue = isRemoteTTS ? max(300, prefetchDelayMs) : prefetchDelayMs
             UserDefaults.standard.set(clampedValue, forKey: "ttsPrefetchDelayMs")
             if tool == "nghitts" {
                 UserDefaults.standard.set(clampedValue, forKey: "nghittsPrefetchDelay")

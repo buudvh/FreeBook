@@ -2,16 +2,16 @@ import Foundation
 
 /// Worker 1 chuyên trách nạp trước và chuẩn hóa văn bản DTO chương tiếp theo (Next Chapter Text Worker)
 /// Độc lập hoàn toàn với Trình đọc (Reader UI) và luồng tổng hợp âm thanh (TTSAudioSynthesisWorker).
-public actor TTSChapterTextWorker {
+internal actor TTSChapterTextWorker {
     private var cachedDTO: ProcessedChapterDTO?
     private var cachedKey: TTSPreparedNextChapterKey?
     private var fetchTask: Task<ProcessedChapterDTO?, Never>?
     private var activeGeneration: UInt64 = 0
 
-    public init() {}
+    internal init() {}
 
     /// Kiểm tra xem có cần nạp trước văn bản chương hay không dựa trên điều kiện tiến độ nghe
-    public func shouldTriggerPrefetch(
+    internal func shouldTriggerPrefetch(
         isPlaying: Bool,
         currentParagraphIndex: Int,
         totalParagraphs: Int,
@@ -31,7 +31,7 @@ public actor TTSChapterTextWorker {
     }
 
     /// Kích hoạt tải ngầm văn bản DTO của chương tiếp theo
-    public func startPrefetch(
+    internal func startPrefetch(
         key: TTSPreparedNextChapterKey,
         sessionID: UUID,
         generation: Int,
@@ -91,7 +91,7 @@ public actor TTSChapterTextWorker {
     }
 
     /// Lấy sẵn DTO chương kế đã nạp trước (nếu có)
-    public func getReadyDTO(for key: TTSPreparedNextChapterKey) async -> ProcessedChapterDTO? {
+    internal func getReadyDTO(for key: TTSPreparedNextChapterKey) async -> ProcessedChapterDTO? {
         if cachedKey == key, let dto = cachedDTO {
             return dto
         }
@@ -102,7 +102,7 @@ public actor TTSChapterTextWorker {
     }
 
     /// Hủy tác vụ nạp trước và giải phóng bộ đệm văn bản
-    public func cancel() {
+    internal func cancel() {
         activeGeneration += 1
         fetchTask?.cancel()
         fetchTask = nil

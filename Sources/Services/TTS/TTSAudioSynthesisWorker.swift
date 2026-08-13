@@ -2,13 +2,13 @@ import Foundation
 
 /// Worker 2 chuyên trách tổng hợp âm thanh TTS (Audio Synthesis Worker)
 /// Quản lý việc nạp đệm âm thanh MP3/PCM vào RAM đệm cho Google TTS, Ext TTS và NghiTTS.
-public actor TTSAudioSynthesisWorker {
+internal actor TTSAudioSynthesisWorker {
     private var inFlightTasks: [Int: Task<Data?, Error>] = [:]
 
-    public init() {}
+    internal init() {}
 
     /// Tổng hợp âm thanh cho một đoạn văn với khoảng dãn nạp bậc thang
-    public func synthesizeParagraph(
+    internal func synthesizeParagraph(
         synthesisKey: String,
         engine: String,
         textLength: Int,
@@ -32,7 +32,7 @@ public actor TTSAudioSynthesisWorker {
     }
 
     /// Hủy toàn bộ tác vụ tổng hợp âm thanh đang chờ
-    public func cancelAll() {
+    internal func cancelAll() {
         for task in inFlightTasks.values {
             task.cancel()
         }
