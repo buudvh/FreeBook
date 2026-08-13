@@ -300,7 +300,7 @@ public final class ExtensionManager: ObservableObject {
         return config.values.contains { $0 is [String: Any] }
     }
     
-    private func getCombinedConfigs(localPath: String, configJson: String) -> [String: Any] {
+    public func getCombinedConfigs(localPath: String, configJson: String) -> [String: Any] {
         var combined: [String: Any] = [:]
         
         // 1. Đọc default config từ plugin.json trong thư mục localPath

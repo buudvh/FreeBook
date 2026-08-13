@@ -226,23 +226,19 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    public func parseExtensionConfigParams(jsonString: String) -> (preloadSize: Int?, maxLength: Int?) {
-        guard let data = jsonString.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return (nil, nil)
-        }
-        
-        var pSize: Int? = nil
-        var mLen: Int? = nil
-        
-        if let config = json["config"] as? [String: Any] {
-            pSize = config["preload_size"] as? Int ?? (config["preload_size"] as? String).flatMap { Int($0) }
-            mLen = config["max_length"] as? Int ?? (config["max_length"] as? String).flatMap { Int($0) }
-        } else {
-            pSize = json["preload_size"] as? Int ?? (json["preload_size"] as? String).flatMap { Int($0) }
-            mLen = json["max_length"] as? Int ?? (json["max_length"] as? String).flatMap { Int($0) }
-        }
-        
+    private func extractInt(from value: Any?) -> Int? {
+        if let i = value as? Int { return i }
+        if let n = value as? NSNumber { return n.intValue }
+        if let d = value as? Double { return Int(d) }
+        if let s = value as? String { return Int(s.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        return nil
+    }
+
+    public func parseExtensionConfigParams(jsonString: String, localPath: String? = nil) -> (preloadSize: Int?, maxLength: Int?) {
+        let path = (localPath != nil && !localPath!.isEmpty) ? localPath! : extensionLocalPath
+        let configs = ExtensionManager.shared.getCombinedConfigs(localPath: path, configJson: jsonString)
+        let pSize = extractInt(from: configs["preload_size"])
+        let mLen = extractInt(from: configs["max_length"])
         return (pSize, mLen)
     }
 
@@ -1024,7 +1020,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.pitch = UserDefaults.standard.double(forKey: "extPitch_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extPitch_\(tool)") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "extVoice_\(tool)") ?? ""
             
-            let parsed = parseExtensionConfigParams(jsonString: extensionConfigJson)
+            let parsed = parseExtensionConfigParams(jsonString: extensionConfigJson, localPath: extensionLocalPath)
             let countToUse = parsed.preloadSize ?? 3
             self.extPrefetchCount = max(2, min(10, countToUse))
             self.chunkLength = parsed.maxLength ?? 200

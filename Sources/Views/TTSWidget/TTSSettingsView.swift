@@ -27,7 +27,8 @@ struct TTSSettingsView: View {
     @State private var hasResumed = false
     
     private var currentExtParams: (preloadSize: Int?, maxLength: Int?) {
-        ttsManager.parseExtensionConfigParams(jsonString: ttsManager.extensionConfigJson)
+        let path = allExtensions.first(where: { $0.packageId == ttsManager.tool })?.localPath ?? ttsManager.extensionLocalPath
+        return ttsManager.parseExtensionConfigParams(jsonString: ttsManager.extensionConfigJson, localPath: path)
     }
 
     private var hasNoDictionary: Bool {
@@ -481,10 +482,13 @@ struct TTSSettingsView: View {
                 }
                 
                 if ttsManager.tool != "system" && ttsManager.tool != "nghitts" && ttsManager.tool != "google" {
-                    if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }),
-                       ttsManager.extensionConfigJson != ext.configJson {
-                        ttsManager.extensionLocalPath = ext.localPath
-                        ttsManager.extensionConfigJson = ext.configJson
+                    if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
+                        if ttsManager.extensionLocalPath != ext.localPath {
+                            ttsManager.extensionLocalPath = ext.localPath
+                        }
+                        if ttsManager.extensionConfigJson != ext.configJson {
+                            ttsManager.extensionConfigJson = ext.configJson
+                        }
                     }
                     loadExtensionVoices(packageId: ttsManager.tool)
                 }
@@ -509,7 +513,7 @@ struct TTSSettingsView: View {
                 }
             }
             .onChange(of: ttsManager.tool) { _, newVal in
-                if newVal != "system" && newVal != "nghitts" {
+                if newVal != "system" && newVal != "nghitts" && newVal != "google" {
                     if let ext = allExtensions.first(where: { $0.packageId == newVal }) {
                         ttsManager.extensionLocalPath = ext.localPath
                         ttsManager.extensionConfigJson = ext.configJson
