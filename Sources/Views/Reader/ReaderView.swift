@@ -1920,8 +1920,8 @@ struct ReaderView: View {
         guard !ttsState.snapshot.isPlaying, !ttsManager.isPlaying else { return }
         prepareTTSTask?.cancel()
 
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self = self, !self.ttsState.snapshot.isPlaying, !self.ttsManager.isPlaying else { return }
+        let workItem = DispatchWorkItem {
+            guard !self.ttsState.snapshot.isPlaying, !self.ttsManager.isPlaying else { return }
             self.prepareTTSForCurrentState()
         }
         self.prepareTTSTask = workItem
