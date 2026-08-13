@@ -24,6 +24,7 @@ struct TTSSettingsView: View {
     @State private var showingReplacementManagerSheet = false
     @AppStorage("google_cloud_tts_custom_api_key") private var customGoogleApiKey: String = ""
     @State private var showApiKey: Bool = false
+    @State private var hasResumed = false
 
     private var hasNoDictionary: Bool {
         let path = (try? ModelStore())?.rootURL.appendingPathComponent("non-vietnamese-words.plist").path ?? ""
@@ -397,13 +398,27 @@ struct TTSSettingsView: View {
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     } else {
-                        Stepper(value: $ttsManager.extPrefetchCount, in: 2...10) {
-                            HStack {
-                                Text("Số đoạn tải trước (Extension TTS):")
-                                Spacer()
-                                Text("\(ttsManager.extPrefetchCount) đoạn")
-                                    .font(.system(.body, design: .monospaced))
-                                    .foregroundColor(.secondary)
+                        let extParams = parseExtensionConfigParams(jsonString: ttsManager.extensionConfigJson)
+                        if extParams.preloadSize == nil {
+                            Stepper(value: $ttsManager.extPrefetchCount, in: 2...10) {
+                                HStack {
+                                    Text("Số đoạn tải trước (Extension TTS):")
+                                    Spacer()
+                                    Text("\(ttsManager.extPrefetchCount) đoạn")
+                                        .font(.system(.body, design: .monospaced))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                        if extParams.maxLength == nil {
+                            Stepper(value: $ttsManager.chunkLength, in: 50...500, step: 25) {
+                                HStack {
+                                    Text("Độ dài đoạn văn (Extension TTS):")
+                                    Spacer()
+                                    Text("\(ttsManager.chunkLength) ký tự")
+                                        .font(.system(.body, design: .monospaced))
+                                        .foregroundColor(.secondary)
+                                }
                             }
                         }
                     }
@@ -452,6 +467,7 @@ struct TTSSettingsView: View {
                 }
             }
             .onAppear {
+                self.hasResumed = false
                 // Tạm dừng phát để cấu hình
                 ttsManager.prepareForSettings()
                 
@@ -462,7 +478,8 @@ struct TTSSettingsView: View {
                 }
                 
                 if ttsManager.tool != "system" && ttsManager.tool != "nghitts" && ttsManager.tool != "google" {
-                    if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
+                    if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }),
+                       ttsManager.extensionConfigJson != ext.configJson {
                         ttsManager.extensionLocalPath = ext.localPath
                         ttsManager.extensionConfigJson = ext.configJson
                     }
@@ -474,8 +491,8 @@ struct TTSSettingsView: View {
                 }
             }
             .onDisappear {
-                // Chỉ lưu và khôi phục khi View thực sự bị đóng/pop hoàn toàn khỏi stack
-                if !presentationMode.wrappedValue.isPresented {
+                if !hasResumed {
+                    hasResumed = true
                     // 1. Tự động lưu cấu hình extension (nếu có thay đổi)
                     if ttsManager.tool != "system" && ttsManager.tool != "nghitts" && ttsManager.tool != "google" {
                         if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }),

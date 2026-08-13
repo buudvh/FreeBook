@@ -31,6 +31,17 @@ internal actor TTSAudioSynthesisWorker {
         )
     }
 
+    /// Hủy các tác vụ nạp trước (prefetch), giữ nguyên tác vụ đang đọc đoạn hiện tại (.current)
+    internal func cancelPrefetchTasks() {
+        for task in inFlightTasks.values {
+            task.cancel()
+        }
+        inFlightTasks.removeAll()
+        Task {
+            await RemoteTTSSynthesisCoordinator.shared.cancelPrefetchOnly()
+        }
+    }
+
     /// Hủy toàn bộ tác vụ tổng hợp âm thanh đang chờ
     internal func cancelAll() {
         for task in inFlightTasks.values {

@@ -129,6 +129,19 @@ internal actor RemoteTTSSynthesisCoordinator {
         activeTask?.cancel()
     }
 
+    internal func cancelPrefetchOnly() {
+        let cancellation = CancellationError()
+        queue.removeAll { job in
+            if job.priority != .current {
+                for waiter in job.waiters {
+                    waiter.continuation.resume(throwing: cancellation)
+                }
+                return true
+            }
+            return false
+        }
+    }
+
     private func enqueue(
         key: String,
         engine: String,

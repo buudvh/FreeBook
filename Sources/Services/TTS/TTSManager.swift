@@ -2286,7 +2286,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         nextChapterPrefetcher.cancel()
         Task {
             await chapterTextWorker.cancel()
-            await audioSynthesisWorker.cancelAll()
+            await audioSynthesisWorker.cancelPrefetchTasks()
             await extService.resetRuntime()
         }
     }
