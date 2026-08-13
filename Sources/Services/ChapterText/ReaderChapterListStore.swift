@@ -17,8 +17,8 @@ public final class ReaderChapterListStore {
     private var currentSearchQuery = ""
 
     public let bookId: String
-    private let modelContext: ModelContext?
-    private var onlineChapters: [ChapterResult] = []
+    internal let modelContext: ModelContext?
+    internal var onlineChapters: [ChapterResult] = []
 
     public private(set) var totalCount: Int = 0
     public private(set) var isAscending: Bool = true

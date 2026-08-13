@@ -108,7 +108,7 @@ class ReaderViewModel: ObservableObject {
     let prefetcher = PrefetchManager()
     let progressStore = ReadingProgressStore.shared
     let modelContext: ModelContext
-    @Published private(set) var currentRevision: Int = 0
+    @Published internal(set) var currentRevision: Int = 0
 
     private var dbSaveTask: Task<Void, Never>? = nil
     private var prefetchQueueTask: Task<Void, Never>? = nil

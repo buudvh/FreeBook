@@ -11,7 +11,7 @@ public actor BookDetailLoader {
         snapshot: ExtensionExecutionSnapshot,
         url: String,
         host: String?
-    ) async throws -> DetailResult {
+    ) async throws -> NovelDetailResult {
         return try await ExtensionManager.shared.detail(
             localPath: snapshot.localPath,
             downloadUrl: snapshot.downloadUrl,

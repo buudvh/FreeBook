@@ -17,6 +17,8 @@ public final class ReaderProgressScheduler {
         page: Int,
         progressStore: ReadingProgressStore
     ) {
-        progressStore.scheduleSave(bookId: bookId, chapterIndex: chapterIndex, page: page)
+        Task {
+            await progressStore.scheduleSave(bookId: bookId, chapterIndex: chapterIndex, page: page)
+        }
     }
 }

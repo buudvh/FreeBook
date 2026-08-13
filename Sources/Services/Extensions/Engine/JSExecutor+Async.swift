@@ -64,27 +64,4 @@ extension JSExecutor {
     }
 }
 
-internal func makeReadyResponse(
-    ready: Bool,
-    failed: Bool,
-    reason: String,
-    chars: Int = 0,
-    encoded: Int = 0,
-    timedOut: Bool = false,
-    cancelled: Bool = false
-) -> String {
-    let dict: [String: Any] = [
-        "ready": ready,
-        "failed": failed,
-        "reason": reason,
-        "chars": chars,
-        "encoded": encoded,
-        "timedOut": timedOut,
-        "cancelled": cancelled
-    ]
-    if let data = try? JSONSerialization.data(withJSONObject: dict, options: []),
-       let str = String(data: data, encoding: .utf8) {
-        return str
-    }
-    return "{\"ready\":false,\"failed\":true,\"reason\":\"JSON serialization error\",\"timedOut\":false,\"cancelled\":false}"
-}
+

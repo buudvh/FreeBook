@@ -11,6 +11,15 @@ extension ReaderChapterListStore {
         return startIdx..<endIdx
     }
 
+    func publishCachedPageIfAvailable(_ page: Int) -> Bool {
+        guard let cached = pageCache[page] else { return false }
+        for (idx, item) in cached {
+            loadedRowStates[idx] = ReaderChapterRowState(index: idx, title: item.title, isPlaceholder: false, isDownloaded: item.isCached)
+        }
+        loadedPages.insert(page)
+        return true
+    }
+
     func hasLoadedRows(for page: Int) -> Bool {
         guard let range = pageRange(for: page) else { return false }
         return range.contains { loadedRowStates[$0] != nil }
@@ -68,7 +77,7 @@ extension ReaderChapterListStore {
             let localBookId = bookId
             let worker = BackgroundPagingWorker(container: context.container)
             do {
-                fetchedData = try await worker.fetchPage(bookId: localBookId, minLogicalIndex: minLogicalIndex, maxLogicalIndex: maxLogicalIndex, isTranslationEnabled: transEnabled)
+                fetchedData = try await worker.fetchPage(bookId: localBookId, minLogicalIndex: minLogicalIndex, maxLogicalIndex: maxLogicalIndex, isTranslationEnabled: isTranslationEnabled)
             } catch {
                 fetchedData = nil
             }

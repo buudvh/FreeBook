@@ -687,7 +687,7 @@ struct SearchView: View {
                 if !isPlayingTTS {
                     let delRes = BookTransactionCoordinator.shared.deleteBook(bookId: oldBookId, in: modelContext)
                     if case .failure(let err) = delRes {
-                        errorMessage = "Lỗi xóa sách cũ: \(err.localizedDescription)"
+                        searchStatusMessage = "Lỗi xóa sách cũ: \(err.localizedDescription)"
                     }
 
                     TranslateUtils.clearCache()

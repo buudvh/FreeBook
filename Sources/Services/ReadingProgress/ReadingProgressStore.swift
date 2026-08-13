@@ -1,28 +1,49 @@
 import Foundation
 import SwiftData
 
-enum ReadingProgressOwner: String, Sendable, Equatable {
+public enum ReadingProgressOwner: String, Sendable, Equatable {
     case reader
     case tts
 }
 
-struct ReadingProgressSnapshot: Sendable, Equatable {
-    let bookId: String
-    let chapterIndex: Int
-    let paragraphIndex: Int
-    let chapterTitle: String?
-    let owner: ReadingProgressOwner
-    let recordedAt: Date
+public struct ReadingProgressSnapshot: Sendable, Equatable {
+    public let bookId: String
+    public let chapterIndex: Int
+    public let paragraphIndex: Int
+    public let chapterTitle: String?
+    public let owner: ReadingProgressOwner
+    public let recordedAt: Date
+
+    public init(
+        bookId: String,
+        chapterIndex: Int,
+        paragraphIndex: Int,
+        chapterTitle: String? = nil,
+        owner: ReadingProgressOwner = .reader,
+        recordedAt: Date = Date()
+    ) {
+        self.bookId = bookId
+        self.chapterIndex = chapterIndex
+        self.paragraphIndex = paragraphIndex
+        self.chapterTitle = chapterTitle
+        self.owner = owner
+        self.recordedAt = recordedAt
+    }
 }
 
-actor ReadingProgressStore {
-    static let shared = ReadingProgressStore()
+public actor ReadingProgressStore {
+    public static let shared = ReadingProgressStore()
 
     private var container: ModelContainer?
     private var latestByBook: [String: ReadingProgressSnapshot] = [:]
     private var ownerByBook: [String: ReadingProgressOwner] = [:]
 
-    func configure(container: ModelContainer) {
+    public func scheduleSave(bookId: String, chapterIndex: Int, page: Int) {
+        let snapshot = ReadingProgressSnapshot(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: page)
+        record(snapshot)
+    }
+
+    public func configure(container: ModelContainer) {
         self.container = container
     }
 

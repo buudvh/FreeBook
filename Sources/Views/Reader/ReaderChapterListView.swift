@@ -399,10 +399,12 @@ public struct ReaderChapterListView: View {
             for item in toWarm {
                 let translated = TranslateUtils.translateChapterTitle(item.rawTitle, bookId: currentBookId)
                 results[item.index] = translated
-            }
             let finalResults = results
             await MainActor.run {
                 self.displayTitleCache.merge(finalResults) { current, _ in current }
             }
         }
     }
+}
+
+

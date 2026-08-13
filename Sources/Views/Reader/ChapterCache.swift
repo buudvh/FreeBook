@@ -10,14 +10,14 @@ struct ReadingProgress {
     }
 }
 
-struct ReadingContext: Hashable {
-    let bookId: String
-    let chapterIndex: Int
-    let paragraphIndex: Int
-    let characterOffset: Int?
-    let paragraphProgress: Double?
+public struct ReadingContext: Hashable, Sendable {
+    public let bookId: String
+    public let chapterIndex: Int
+    public let paragraphIndex: Int
+    public let characterOffset: Int?
+    public let paragraphProgress: Double?
 
-    init(
+    public init(
         bookId: String,
         chapterIndex: Int,
         paragraphIndex: Int,
@@ -32,7 +32,7 @@ struct ReadingContext: Hashable {
     }
 }
 
-enum ChapterLoadState: Equatable {
+public enum ChapterLoadState: Equatable {
     case notLoaded
     case placeholder
     case prefetching
@@ -42,7 +42,7 @@ enum ChapterLoadState: Equatable {
 }
 
 extension ChapterLoadState {
-    var failureMessage: String? {
+    public var failureMessage: String? {
         if case .failed(let message) = self { return message }
         return nil
     }
@@ -50,32 +50,34 @@ extension ChapterLoadState {
 
 @available(iOS 17.0, *)
 @Observable
-class CachedChapter: Identifiable {
-    let index: Int
-    var state: ChapterLoadState = .placeholder
-    var title: String = ""
-    var content: String = ""
-    var originalTitle: String = ""
-    var originalContent: String = ""
-    var scrollParagraphIndex: Int = -1
-    var paragraphItems: [ParagraphItem] = []
-    var isPositionRestored: Bool = false
-    var revision: Int = 0
-    var isTranslationEnabled: Bool = false
-    var translationToken: Int = 0
+public class CachedChapter: Identifiable {
+    public let index: Int
+    public var state: ChapterLoadState = .placeholder
+    public var title: String = ""
+    public var content: String = ""
+    public var originalTitle: String = ""
+    public var originalContent: String = ""
+    public var scrollParagraphIndex: Int = -1
+    public var paragraphItems: [ParagraphItem] = []
+    public var isPositionRestored: Bool = false
+    public var revision: Int = 0
+    public var isTranslationEnabled: Bool = false
+    public var translationToken: Int = 0
 
-    init(index: Int) {
+    public init(index: Int) {
         self.index = index
     }
 }
 
 @available(iOS 17.0, *)
 @Observable
-class ChapterCache {
-    var cache: [Int: CachedChapter] = [:]
+public class ChapterCache {
+    public var cache: [Int: CachedChapter] = [:]
     @ObservationIgnored private var releaseTasks: [Int: Task<Void, Never>] = [:]
 
-    func get(_ index: Int) -> CachedChapter? {
+    public init() {}
+
+    public func get(_ index: Int) -> CachedChapter? {
         if let item = cache[index] {
             // Hủy task giải phóng bộ nhớ nếu người dùng quay lại đọc chương này
             releaseTasks[index]?.cancel()

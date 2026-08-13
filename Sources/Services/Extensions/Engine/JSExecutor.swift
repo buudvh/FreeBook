@@ -1064,3 +1064,5 @@ public final class JSExecutor: @unchecked Sendable {
             throw NSError(domain: "JSExecutor", code: -501, userInfo: [NSLocalizedDescriptionKey: "JS Compile error: \(desc)"])
         }
     }
+}
+

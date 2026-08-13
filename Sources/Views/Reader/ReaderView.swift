@@ -901,6 +901,13 @@ struct ReaderView: View {
         .toolbar(.hidden, for: .tabBar)
     }
 
+    @ViewBuilder
+    private var readerContentView: some View {
+        if let vm = viewModel {
+            singleChapterReaderView(viewModel: vm)
+        }
+    }
+
     private func readerMainContent(geometry: GeometryProxy) -> some View {
         ZStack {
             VStack(spacing: 0) {
@@ -2043,6 +2050,7 @@ struct ScrollTarget: Equatable {
     enum Reason: Equatable {
         case navigation
         case ttsAuto
+        case initialRestore
     }
 
     init(chapterIndex: Int, paragraphIndex: Int, reason: Reason = .navigation) {

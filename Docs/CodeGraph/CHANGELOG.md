@@ -2,6 +2,33 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.145] - 2026-08-13
+
+### Sửa toàn bộ các lỗi biên dịch Swift (Swift Compilation Fixes)
+
+* **Sửa lỗi cú pháp ngoặc đóng `}` & Logic bị thiếu**:
+  - Bổ sung ngoặc `}` bị thiếu ở cuối file `JSExecutor.swift`, `ReaderChapterListView.swift`, `ShelfView.swift`.
+  - `JSExecutor.swift`: Bổ sung câu lệnh `throw NSError(...)` khi `context.exception` có lỗi compile JS.
+  - `ReaderChapterListView.swift`: Bổ sung `let finalResults = results` trước khi merge cache.
+  - `ShelfView.swift`: Bổ sung `self.isImporting = false` trong catch handler import TXT.
+* **Khôi phục kiểu dữ liệu DTO & Class**:
+  - `BookDetailLoader.swift`: Cập nhật `DetailResult` thành `NovelDetailResult`.
+  - `TOCRule.swift`: Cập nhật cấu trúc `TOCRule` hỗ trợ alias `pattern` <-> `rule`, thuộc tính `example`, `enabled`, `replace`, `isRegex` và các initializers.
+  - `TOCRuleImportError.swift`: Bổ sung các case lỗi import quy tắc TOC.
+  - `TOCImportPreview.swift`: Bổ sung thuộc tính và initializers thống kê import quy tắc.
+  - `TTSAudioSessionController.swift`: Tạo mới tệp adapter quản lý `AVAudioSession`.
+  - `TTSManager.swift`: Bổ sung `TTSPrefetchPerfSummary` và các biến theo dõi telemetry prefetch.
+* **Sửa vi phạm mức độ truy cập &Ambiguity**:
+  - `JSExecutor+Async.swift`: Loại bỏ hàm `makeReadyResponse` bị định nghĩa trùng lặp ở top-level.
+  - `ChapterCache.swift`: Chuyển `ReadingContext`, `ChapterLoadState`, `CachedChapter`, `ChapterCache` thành `public`.
+  - `ReaderChapterListStore.swift`: Chuyển `modelContext` và `onlineChapters` thành `internal`.
+  - `ReaderChapterListPageFetcher.swift`: Sửa tên biến `isTranslationEnabled` và bổ sung `publishCachedPageIfAvailable`.
+  - `ReadingProgressStore.swift` & `ReaderProgressScheduler.swift`: Chuyển `ReadingProgressStore` và các struct liên quan thành `public`, hỗ trợ gọi async `scheduleSave`.
+  - `ReaderView.swift`: Thêm `readerContentView` ViewBuilder và case `initialRestore` cho `ScrollTarget.Reason`.
+  - `ReaderViewModel.swift`: Sửa `currentRevision` setter thành `internal(set)`.
+  - `SearchView.swift`: Sửa `errorMessage` thành `searchStatusMessage`.
+  - `VietPhraseTokenizer.swift` & `TranslateUtils.swift`: Định danh `VietPhraseTokenizer.isChineseCharacter` `internal static`.
+
 ## [1.3.144] - 2026-08-13
 
 ### Sửa lỗi CI Build IPA sau refactor TTS

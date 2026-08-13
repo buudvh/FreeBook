@@ -6,7 +6,7 @@ import QuartzCore
 import UIKit
 import SwiftData
 
-private struct TTSPreparedChapterKey: Equatable, Sendable {
+internal struct TTSPreparedChapterKey: Equatable, Sendable {
     let bookId: String
     let chapterIndex: Int
     let chapterTitle: String
@@ -17,9 +17,19 @@ private struct TTSPreparedChapterKey: Equatable, Sendable {
     let translationToken: Int
 }
 
-private struct TTSPreparedChapter: Sendable {
+internal struct TTSPreparedChapter: Sendable {
     let normalizedContent: String
     let paragraphs: [TTSParagraph]
+}
+
+public struct TTSPrefetchPerfSummary: Sendable {
+    public var startTime: Date
+    public var prefetchCount: Int
+
+    public init(startTime: Date = Date(), prefetchCount: Int = 0) {
+        self.startTime = startTime
+        self.prefetchCount = prefetchCount
+    }
 }
 
 @available(iOS 17.0, *)
@@ -550,8 +560,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal var ttsProcessingGeneration = 0
     internal var preparationGeneration = 0
     internal var preparedChapterKey: TTSPreparedChapterKey? = nil
-    internal var preparedChapter: TTSPreparedChapter? = nil
     internal var sessionTranslationEnabled: Bool = false
+    internal var activePrefetchPerfSummary: TTSPrefetchPerfSummary? = nil
+    internal var prefetchTaskGenerations: [Int: Int] = [:]
+    internal var nextPrefetchTaskGeneration: Int = 0
 
     public func clearPreparedChapterCache() {
         prepareSpeakingTask?.cancel()

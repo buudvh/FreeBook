@@ -100,11 +100,7 @@ extension TTSManager {
         AppLogger.shared.log(logLine)
     }
 
-    internal func currentParagraph0SynthesisMs(untilUptime: Double? = nil) -> Double {
-        guard paragraph0SynthesisStartUptime > 0 && !paragraph0AudioCacheHit else { return 0.0 }
-        let end = untilUptime ?? ProcessInfo.processInfo.systemUptime
-        return max(0.0, (end - paragraph0SynthesisStartUptime) * 1000)
-    }
+
 
     @MainActor
     internal func ensurePrefetchPerfSummary(sessionID: UUID, chapterIndex: Int, engine: String) {

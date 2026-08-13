@@ -251,7 +251,7 @@ public enum VietPhraseTokenizer {
         return (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122)
     }
 
-    private static func isChineseCharacter(_ char: Character) -> Bool {
+    internal static func isChineseCharacter(_ char: Character) -> Bool {
         guard let code = char.unicodeScalars.first?.value else { return false }
         return (code >= 0x4E00 && code <= 0x9FFF) ||
                (code >= 0x3400 && code <= 0x4DBF) ||

@@ -387,7 +387,7 @@ public final class TranslateUtils {
         }
         
         let translatedToken: String
-        if token.count == 1, isChineseCharacter(token.first!) {
+        if token.count == 1, VietPhraseTokenizer.isChineseCharacter(token.first!) {
             translatedToken = phienAm[token] ?? token
         } else if containsChinese(token) {
             var phienAmList: [String] = []
