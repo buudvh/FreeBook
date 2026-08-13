@@ -14,7 +14,7 @@ extension ReaderChapterListStore {
     func publishCachedPageIfAvailable(_ page: Int) -> Bool {
         guard let cached = pageCache[page] else { return false }
         for (idx, item) in cached {
-            loadedRowStates[idx] = ReaderChapterRowState(index: idx, title: item.title, isPlaceholder: false, isDownloaded: item.isCached)
+            loadedRowStates[idx] = ReaderChapterRowState(id: idx, index: idx, title: item.title, url: item.url, isCached: item.isCached, isPlaceholder: false)
         }
         loadedPages.insert(page)
         return true

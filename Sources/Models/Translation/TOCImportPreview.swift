@@ -11,9 +11,9 @@ public struct TOCImportPreview: Sendable {
     public let restoredDefaultCount: Int
 
     public init(
-        rules: [TOCRule],
-        sourceCount: Int,
-        hasOverlap: Bool,
+        rules: [TOCRule] = [],
+        sourceCount: Int = 0,
+        hasOverlap: Bool = false,
         importedCount: Int = 0,
         newCount: Int = 0,
         updateCount: Int = 0,
@@ -21,8 +21,8 @@ public struct TOCImportPreview: Sendable {
         restoredDefaultCount: Int = 0
     ) {
         self.rules = rules
-        self.sourceCount = sourceCount
-        self.hasOverlap = hasOverlap
+        self.sourceCount = sourceCount > 0 ? sourceCount : importedCount
+        self.hasOverlap = hasOverlap || updateCount > 0
         self.importedCount = importedCount
         self.newCount = newCount
         self.updateCount = updateCount
@@ -35,6 +35,7 @@ public struct TOCImportPreview: Sendable {
         newCount: Int,
         updateCount: Int,
         preservedCount: Int,
+        restoredDefaultCount: Int = 0,
         rules: [TOCRule] = []
     ) {
         self.rules = rules
@@ -44,7 +45,7 @@ public struct TOCImportPreview: Sendable {
         self.newCount = newCount
         self.updateCount = updateCount
         self.preservedCount = preservedCount
-        self.restoredDefaultCount = 0
+        self.restoredDefaultCount = restoredDefaultCount
     }
 
     public init(

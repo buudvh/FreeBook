@@ -5,7 +5,7 @@ public struct TOCRule: Codable, Identifiable, Sendable, Equatable {
     public let name: String
     public let rule: String
     public let example: String?
-    public let enabled: Bool
+    public var enabled: Bool
     public let replace: String
     public let isRegex: Bool
 

@@ -7,7 +7,7 @@ import Observation
 @MainActor
 @Observable
 public final class ReaderChapterListStore {
-    public private(set) var loadedRowStates: [Int: ReaderChapterRowState] = [:]
+    public internal(set) var loadedRowStates: [Int: ReaderChapterRowState] = [:]
 
     public private(set) var searchResults: [ChapterRowItem] = []
     public private(set) var searchResultStates: [Int: ReaderChapterRowState] = [:]

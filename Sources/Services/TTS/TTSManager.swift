@@ -23,12 +23,45 @@ internal struct TTSPreparedChapter: Sendable {
 }
 
 public struct TTSPrefetchPerfSummary: Sendable {
+    public var sessionID: UUID
+    public var chapterIndex: Int
+    public var engine: String
+    public var immediateHit: Int
+    public var waitedHit: Int
+    public var miss: Int
+    public var failure: Int
+    public var retrySuccess: Int
+    public var retryFailure: Int
+    public var totalWaitMs: Double
+    public var maxWaitMs: Double
     public var startTime: Date
-    public var prefetchCount: Int
 
-    public init(startTime: Date = Date(), prefetchCount: Int = 0) {
+    public init(
+        sessionID: UUID,
+        chapterIndex: Int,
+        engine: String,
+        immediateHit: Int = 0,
+        waitedHit: Int = 0,
+        miss: Int = 0,
+        failure: Int = 0,
+        retrySuccess: Int = 0,
+        retryFailure: Int = 0,
+        totalWaitMs: Double = 0,
+        maxWaitMs: Double = 0,
+        startTime: Date = Date()
+    ) {
+        self.sessionID = sessionID
+        self.chapterIndex = chapterIndex
+        self.engine = engine
+        self.immediateHit = immediateHit
+        self.waitedHit = waitedHit
+        self.miss = miss
+        self.failure = failure
+        self.retrySuccess = retrySuccess
+        self.retryFailure = retryFailure
+        self.totalWaitMs = totalWaitMs
+        self.maxWaitMs = maxWaitMs
         self.startTime = startTime
-        self.prefetchCount = prefetchCount
     }
 }
 
@@ -560,10 +593,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal var ttsProcessingGeneration = 0
     internal var preparationGeneration = 0
     internal var preparedChapterKey: TTSPreparedChapterKey? = nil
+    internal var preparedChapter: TTSPreparedChapter? = nil
     internal var sessionTranslationEnabled: Bool = false
     internal var activePrefetchPerfSummary: TTSPrefetchPerfSummary? = nil
-    internal var prefetchTaskGenerations: [Int: Int] = [:]
-    internal var nextPrefetchTaskGeneration: Int = 0
+    internal var prefetchTaskGenerations: [Int: UInt64] = [:]
+    internal var nextPrefetchTaskGeneration: UInt64 = 0
 
     public func clearPreparedChapterCache() {
         prepareSpeakingTask?.cancel()

@@ -13,6 +13,7 @@ public enum TOCRuleImportError: LocalizedError, Equatable {
     case nameTooLong(index: Int)
     case duplicateID(id: String)
     case invalidRegex(ruleName: String, reason: String)
+    case custom(String)
 
     public var errorDescription: String? {
         switch self {
@@ -40,6 +41,8 @@ public enum TOCRuleImportError: LocalizedError, Equatable {
             return "Trùng lặp ID quy tắc: \(id)."
         case .invalidRegex(let ruleName, let reason):
             return "Biểu thức chính quy không hợp lệ cho '\(ruleName)': \(reason)."
+        case .custom(let msg):
+            return msg
         }
     }
 }
