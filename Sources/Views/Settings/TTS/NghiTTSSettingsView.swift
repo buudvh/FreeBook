@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NghiTTSSettingsView: View {
     @Environment(\.dismiss) var dismiss
+    @ObservedObject private var ttsManager = TTSManager.shared
     
     // Preprocessor Settings
     @AppStorage(PreprocessorSettingKey.numericNormalizationEnabled) private var preprocessorNumericNormalizationEnabled = true
@@ -38,6 +39,27 @@ struct NghiTTSSettingsView: View {
                     paragraphPause = 0.5
                 }
                 .foregroundStyle(.red)
+            }
+            Section("Tải trước & Bộ đệm âm thanh (NghiTTS)") {
+                Stepper(
+                    value: Binding(
+                        get: { ttsManager.nghittsSafeCachedTimeThreshold },
+                        set: { ttsManager.setNghiTTSSafeCachedTimeThreshold($0) }
+                    ),
+                    in: 4...20,
+                    step: 1
+                ) {
+                    HStack {
+                        Text("Ngưỡng nạp bộ đệm:")
+                        Spacer()
+                        Text("\(Int(ttsManager.nghittsSafeCachedTimeThreshold))s")
+                            .font(.system(.body, design: .monospaced))
+                            .foregroundColor(.accentColor)
+                    }
+                }
+                Text("Tự động tổng hợp thêm âm thanh khi thời lượng đệm âm thanh liên tục còn lại giảm xuống dưới \(Int(ttsManager.nghittsSafeCachedTimeThreshold)) giây.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
         .navigationTitle("Cấu hình NghiTTS")

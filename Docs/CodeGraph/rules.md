@@ -15,13 +15,16 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## NghiTTS deadline synthesis and thermal survival invariants (1.3.115)
+## NghiTTS safeCachedTimeSeconds prefetch and contiguous scheduler invariants (1.3.116)
 
-* Current-chapter N+1 is deadline work, not speculative reserve. It must enter the single Piper coordinator slot without a policy cooldown; cooldown applies only to N+2 and later.
-* If an N+1 refill becomes the current playback demand while its ONNX request is active, `TTSManager` must await and reuse that owned refill result. It must not cancel and enqueue the same paragraph again.
-* `.serious` retains exactly one current-chapter N+1 survival request while rejecting N+2 and next-chapter audio. `.critical` permits only missing-current on-demand synthesis and may therefore have an audible wait under sustained throttling.
-* Nghi playback-demand work must be retained in one generation-guarded task. Pause, stop, engine/session replacement, or newer playback demand cancels the obsolete owner; cancellation must not be reported as a synthesis failure.
-* Nghi energy diagnostics aggregate coordinator queue wait, synthesis time, PCM duration/RTF, underruns, and in-flight reuse in memory. Routine summaries are emitted at most once per 60 seconds, plus lifecycle flushes; underruns and discarded active synthesis may emit immediate diagnostic events.
+* `nghittsSafeCachedTimeSeconds` is a user-configurable, persistent NghiTTS duration setting (`UserDefaults` key `"nghittsSafeCachedTimeSeconds"`, default 8.0s, allowed 4.0...20.0s, UI step 1.0s). Old installations without the key fallback to 8.0s without error.
+* `cachedTime` counts only the contiguous playable audio chain at the current playback rate: current player remaining time + prepared $N+1$ + sequential preloaded $N+2...$, stopping at the first missing gap. Chapter $K+1/0$ is counted only when every remaining chunk in chapter $K$ is ready and $K+1/0$ audio is ready.
+* Immediate successor $N+1$ and chapter $K+1/0$ are mandatory slots. When `cachedTime < nghittsSafeCachedTimeSeconds`, optional reserve chunks ($N+2, N+3$) are synthesized sequentially up to at most 2 optional reserve items. Max 5 logical audio payloads total (current + $N+1$ + 2 optional + $K+1/0$).
+* When `cachedTime >= nghittsSafeCachedTimeSeconds`, refill stops and one cancellable deadline sleep task (`nghiWakeTask`) is scheduled to wake when `cachedTime` is predicted to cross the threshold. No polling loops.
+* `PiperSynthesisCoordinator` uses a 4-level priority queue (`demand = 4` > `immediateSuccessor = 3` > `nextChapterMandatory = 2` > `optionalReserve = 1`). Exact synthesis keys coalesce duplicate requests, promote pending priority, and claim in-flight ONNX inference on demand.
+* Pause cancels queued speculative requests (`cancelPendingRequests()`) while allowing an active ONNX inference to complete and cache. While paused, audio does not autoplay or chain further speculative refill.
+* Thermal state (`ProcessInfo.ThermalState`) is diagnostic/logging-only for NghiTTS and does not cancel or suppress audio refill or next-chapter prefetch.
+* Changing `nghittsSafeCachedTimeSeconds` during active playback reschedules `nghiWakeTask` and re-evaluates refill immediately without clearing valid preloaded audio or interrupting playback. Opening/closing Settings when ONLY `nghittsSafeCachedTimeSeconds` changed does not stop/restart playback, rebuild paragraphs, or clear preloaded audio.
 
 ## Chapter repository memory and cancellation invariants (1.3.114)
 

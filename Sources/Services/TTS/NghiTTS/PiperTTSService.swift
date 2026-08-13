@@ -42,8 +42,9 @@ final class PiperTTSService: @unchecked Sendable {
         voice: String,
         speed: Double,
         boundaryKind: TTSBoundaryKind = .paragraphEnd,
-        priority: SynthesisPriority = .high,
-        requestID: UUID = UUID()
+        priority: SynthesisPriority = .demand,
+        requestID: UUID = UUID(),
+        synthesisKey: String? = nil
     ) async throws -> Data {
         let result = try await synthesizeWithDuration(
             text: text,
@@ -51,7 +52,8 @@ final class PiperTTSService: @unchecked Sendable {
             speed: speed,
             boundaryKind: boundaryKind,
             priority: priority,
-            requestID: requestID
+            requestID: requestID,
+            synthesisKey: synthesisKey
         )
         return result.data
     }
@@ -61,12 +63,14 @@ final class PiperTTSService: @unchecked Sendable {
         voice: String,
         speed: Double,
         boundaryKind: TTSBoundaryKind = .paragraphEnd,
-        priority: SynthesisPriority = .high,
-        requestID: UUID = UUID()
+        priority: SynthesisPriority = .demand,
+        requestID: UUID = UUID(),
+        synthesisKey: String? = nil
     ) async throws -> (data: Data, pcmDuration: Double, queueWaitMs: Double, synthesisMs: Double) {
         let payload = try await PiperSynthesisCoordinator.shared.enqueuePayload(
             priority: priority,
-            requestID: requestID
+            requestID: requestID,
+            synthesisKey: synthesisKey
         ) { [weak self] in
             guard let self = self else { throw CancellationError() }
             return try await self.executeInternalSynthesisWithDuration(text: text, voice: voice, speed: speed, boundaryKind: boundaryKind)
@@ -83,7 +87,7 @@ final class PiperTTSService: @unchecked Sendable {
         text: String,
         voice: String,
         speed: Double,
-        priority: SynthesisPriority = .high,
+        priority: SynthesisPriority = .demand,
         requestID: UUID = UUID(),
         onChunkPayload: @escaping @Sendable (TTSPCMChunkPayload) async throws -> Void
     ) async throws -> Data {

@@ -36,6 +36,8 @@ internal final class TTSChapterPrefetcher {
     private let textWorker = TTSChapterTextWorker()
     private let audioWorker: TTSAudioSynthesisWorker
 
+    var onDTOReady: ((TTSPreparedNextChapterKey) -> Void)?
+
     internal init(audioWorker: TTSAudioSynthesisWorker) {
         self.audioWorker = audioWorker
     }
@@ -77,7 +79,8 @@ internal final class TTSChapterPrefetcher {
         currentState = .loadingContent(key: key, generation: currentGen)
 
         prefetchTask = Task(priority: .utility) { [weak self] in
-            await self?.textWorker.startPrefetch(
+            await self?.textWorker.replacePrefetch(
+                ownerGeneration: currentGen,
                 key: key,
                 sessionID: sessionID,
                 generation: generation,
@@ -86,7 +89,7 @@ internal final class TTSChapterPrefetcher {
             )
 
             guard !Task.isCancelled,
-                  let textResult = await self?.textWorker.getReadyResult(for: key) else {
+                  let textResult = await self?.textWorker.getReadyResult(for: key, ownerGeneration: currentGen) else {
                 self?.updateStateIfGenerationMatches(
                     .failed(key: key, generation: currentGen, stage: "load", reason: "load_failed"),
                     expectedGen: currentGen
@@ -98,6 +101,7 @@ internal final class TTSChapterPrefetcher {
                 .processedReady(key: key, generation: currentGen, processed: textResult.dto, loadMs: textResult.loadMs, processMs: textResult.processMs),
                 expectedGen: currentGen
             )
+            self?.onDTOReady?(key)
         }
     }
 
@@ -107,11 +111,13 @@ internal final class TTSChapterPrefetcher {
         googleService: GoogleTTSService,
         extService: ExtTTSService
     ) {
-        guard remainingParentCount <= 2 else { return }
-
         guard case .processedReady(let key, let gen, let processed, let loadMs, let processMs) = currentState,
               gen == activeGeneration,
               key.tool != "system" else { return }
+
+        if key.tool != "nghitts" && remainingParentCount > 2 {
+            return
+        }
 
         startAudioSynthesis(key: key, gen: gen, processed: processed, loadMs: loadMs, processMs: processMs, nghiService: nghiService, googleService: googleService, extService: extService)
     }
@@ -147,23 +153,16 @@ internal final class TTSChapterPrefetcher {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !textToSpeak.isEmpty else { return }
 
-        if key.tool == "nghitts" {
-            let thermalState = ProcessInfo.processInfo.thermalState
-            if !NghiSynthesisPolicy.allowsNextChapterAudio(at: thermalState) {
-                AppLogger.shared.log("ℹ️ [TTSChapterPrefetcher] Bỏ qua prefetch audio chương kế tiếp do thiết bị đang nóng (thermalState=\(thermalState.rawValue))")
-                return
-            }
-            if nghiService == nil {
-                handleSynthesisFailure(
-                    key: key,
-                    gen: gen,
-                    processed: processed,
-                    loadMs: loadMs,
-                    processMs: processMs,
-                    reason: "service_unavailable"
-                )
-                return
-            }
+        if key.tool == "nghitts" && nghiService == nil {
+            handleSynthesisFailure(
+                key: key,
+                gen: gen,
+                processed: processed,
+                loadMs: loadMs,
+                processMs: processMs,
+                reason: "service_unavailable"
+            )
+            return
         }
 
         let synthesisKey = TTSSynthesisIdentity.computeKey(
@@ -187,8 +186,9 @@ internal final class TTSChapterPrefetcher {
                     voice: key.selectedVoice,
                     speed: 1.0,
                     boundaryKind: firstParagraph.boundaryKind,
-                    priority: .low,
-                    requestID: reqID
+                    priority: .nextChapterMandatory,
+                    requestID: reqID,
+                    synthesisKey: synthesisKey
                 )
             } else if key.tool == "google" {
                 let pitchToUse = key.googlePitch ?? 1.0
@@ -342,7 +342,47 @@ internal final class TTSChapterPrefetcher {
         return .idle
     }
 
+    internal func awaitTextWorkerResult(matching key: TTSPreparedNextChapterKey) async -> ProcessedChapterDTO? {
+        switch currentState {
+        case .processedReady(let k, _, let processed, _, _),
+             .synthesizingAudio(let k, _, let processed, _, _, _, _),
+             .audioReady(let k, _, let processed, _, _, _, _):
+            if k == key { return processed }
+        case .loadingContent(let k, let gen):
+            if k == key {
+                if let textResult = await textWorker.getReadyResult(for: key, ownerGeneration: gen) {
+                    if activeGeneration == gen {
+                        currentState = .processedReady(
+                            key: key,
+                            generation: gen,
+                            processed: textResult.dto,
+                            loadMs: textResult.loadMs,
+                            processMs: textResult.processMs
+                        )
+                    }
+                    return textResult.dto
+                }
+            }
+        default:
+            break
+        }
+        return nil
+    }
+
     internal func cancel() {
+        let oldKey: TTSPreparedNextChapterKey?
+        let oldGen: UInt64
+        switch currentState {
+        case .loadingContent(let k, let g),
+             .processedReady(let k, let g, _, _, _),
+             .synthesizingAudio(let k, let g, _, _, _, _, _),
+             .audioReady(let k, let g, _, _, _, _, _):
+            oldKey = k
+            oldGen = g
+        default:
+            oldKey = nil
+            oldGen = activeGeneration
+        }
         if case .synthesizingAudio(_, _, _, let task, _, _, _) = currentState {
             task.cancel()
         }
@@ -351,9 +391,10 @@ internal final class TTSChapterPrefetcher {
         prefetchTask = nil
         audioTask?.cancel()
         audioTask = nil
-        Task { [textWorker] in
-            await textWorker.cancel()
-        }
         currentState = .idle
+        let workerRef = textWorker
+        Task {
+            await workerRef.cancel(ownerGeneration: oldGen, key: oldKey)
+        }
     }
 }

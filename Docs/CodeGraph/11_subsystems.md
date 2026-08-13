@@ -15,9 +15,9 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## NghiTTS deadline synthesis subsystem (1.3.115)
+## NghiTTS safeCachedTimeThreshold prefetch subsystem (1.3.141)
 
-The TTS subsystem now treats N+1 as deadline work. `TTSManager` owns one refill target at a time and one generation-guarded playback-demand task; playback can await a matching refill instead of duplicating it. `NghiSynthesisPolicy` separates essential and speculative eligibility, preserving only N+1 at `.serious` and demand-only behavior at `.critical`. Piper remains single-inference and returns queue/inference timing for aggregated RTF and underrun diagnostics.
+The TTS subsystem uses a user-configurable, persisted `nghittsSafeCachedTimeThreshold` duration setting (`UserDefaults` key `"nghittsSafeCachedTimeThreshold"`, default 8s, allowed 4-20s). `calculateNghiCachedTime()` measures continuous playable duration stopping at the first missing gap. `PiperSynthesisCoordinator` provides 4-level priority scheduling (`demand` > `immediateSuccessor` > `nextChapterMandatory` > `optionalReserve`) with exact `synthesisKey` waiter coalescing, priority promotion, and waiter detaching. Thermal state functions as diagnostic telemetry only.
 
 ## Chapter content memory and cancellation subsystem (1.3.114)
 

@@ -15,12 +15,12 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## NghiTTS hot-device lag risks mitigated in 1.3.115
+## NghiTTS safeCachedTimeThreshold prefetch risks mitigated in 1.3.141
 
-* **Mitigated - cancel/re-synthesize feedback loop:** playback now awaits an active matching N+1 refill instead of canceling it and queueing the same text again after noncancelable `ORTSession.run` has started.
-* **Mitigated - fair-state deadline loss:** essential N+1 bypasses cooldown; idle delay remains only on N+2+ speculative work.
-* **Mitigated - serious-state forced underrun:** `.serious` keeps exactly N+1 survival audio while blocking distant and next-chapter work.
-* **Residual - critical or RTF >= 1:** if throttled inference is no faster than generated audio, gapless playback cannot be guaranteed without a lighter model or another engine. `[NghiEnergy]` summaries expose this condition.
+* **Mitigated - cancel/re-synthesize feedback loop:** `PiperSynthesisCoordinator` deduplicates exact `synthesisKey` requests and appends waiters. Detaching one waiter or pausing does not cancel an active ONNX inference.
+* **Mitigated - non-contiguous cache undercount:** `calculateNghiCachedTime()` measures contiguous playable duration stopping at the first missing gap, preventing excess synthesis while correctly accounting for prepared $N+1$ items.
+* **Mitigated - Settings resume work loss:** opening/closing Settings with snapshot equality (`onlyThresholdChanged = true`) resumes playback without stopping or clearing valid preloaded audio.
+* **Mitigated - thermal prefetch cancellation:** thermal state remains diagnostic/logging telemetry only and does not cancel audio refills.
 
 ## Chapter memory and obsolete-work risks mitigated in 1.3.114
 

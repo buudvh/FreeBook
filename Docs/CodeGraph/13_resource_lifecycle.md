@@ -15,11 +15,11 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## NghiTTS deadline task lifecycle (1.3.115)
+## NghiTTS safeCachedTimeThreshold task lifecycle (1.3.141)
 
-* Each refill task allocates one paragraph request and releases itself before optionally scheduling the next target. N+1 starts without cooldown; N+2+ may retain only a cancelable sleep before entering Piper.
-* If playback catches active N+1, its generation-guarded task awaits the refill value. Pause, stop, engine/session replacement, or newer demand cancels the playback owner; the refill/coordinator request follows its own cancellation lifecycle.
-* `.serious` releases distant refill and next-chapter audio but retains N+1. `.critical` releases all refill. Coordinator timing metadata is folded into a small accumulator reset every 60 seconds or at pause/stop.
+* Refill tasks allocate single paragraph requests when `cachedTime < threshold` and optional reserve items < 2 (max 5 logical payloads total). When `cachedTime >= threshold`, `nghiWakeTask` holds a cancellable deadline sleep task ($\Delta t = \text{cachedTime} - \text{threshold}$).
+* Pause releases `nghiWakeTask` and queued optional requests in `PiperSynthesisCoordinator.cancelPendingRequests()`. Active ONNX inference completes and caches into `preloadedData[index]`.
+* Settings lifecycle: `prepareForSettings` captures `TTSSettingsSnapshot`. If only `nghittsSafeCachedTimeThreshold` changes, `resumeAfterSettings` restores `wasPlaying` state without clearing audio buffers or restarting audio.
 
 ## Chapter repository resource lifecycle (1.3.114)
 

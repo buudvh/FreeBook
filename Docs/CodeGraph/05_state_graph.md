@@ -15,11 +15,12 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## NghiTTS deadline/refill states (1.3.115)
+## NghiTTS safeCachedTimeThreshold prefetch states (1.3.141)
 
-* One target transitions `missing -> refill pending/active -> cached`. If playback reaches that index while active, it transitions to `playback awaiting same task -> played`; it no longer transitions through cancel/discard/re-synthesize.
-* Thermal mapping is `nominal/fair -> N+1 plus bounded speculative reserve`, `serious -> N+1 only`, and `critical -> current missing audio on demand only`.
-* Playback-demand task state is generation guarded: pause/stop/session replacement/new demand transitions the old owner to canceled without entering the ordinary synthesis-error state.
+* Refill state machine: `cachedTime < threshold` transitions to `refill active -> cached`. When `cachedTime >= threshold`, scheduling transitions to `deadline sleep (nghiWakeTask)`.
+* Pause state machine: `playing -> paused` cancels `nghiWakeTask` and queued optional requests in `PiperSynthesisCoordinator`, but an active identity-valid ONNX request transitions to `completed & cached` without autoplaying.
+* Settings state machine: opening/closing Settings with snapshot equality transitions through lightweight resume (`onlyThresholdChanged = true`), maintaining player position, current paragraph, and valid preloaded audio.
+* Underrun state machine: missing current audio sets `nghiAudioPlayerQueue.state = .waitingForSynthesis(currentParentIndex: index)` and enqueues `.demand` priority synthesis.
 
 ## Shared chapter load and auto-advance states (1.3.114)
 

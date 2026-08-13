@@ -15,9 +15,9 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## NghiTTS hot-device playback update (1.3.115)
+## NghiTTS safeCachedTimeSeconds prefetch update (1.3.116)
 
-NghiTTS now treats N+1 as no-cooldown deadline work, reuses matching in-flight synthesis on underrun, retains only N+1 at thermal `.serious`, and reports aggregated queue-wait/RTF diagnostics. See state, call, ownership, lifecycle, and risk documents for the revised pipeline.
+NghiTTS now uses a user-configurable, persistent `nghittsSafeCachedTimeSeconds` duration setting (`UserDefaults` key `"nghittsSafeCachedTimeSeconds"`, default 8s, range 4-20s). The scheduler calculates `cachedTime` across a contiguous playable chain (stopping at the first missing gap), schedules a single deadline wake task (`nghiWakeTask`), caps audio reserve at max 5 logical payloads, and coordinates inference via a 4-level priority queue (`PiperSynthesisCoordinator`). Thermal state is diagnostic-only. See state, call, ownership, lifecycle, and risk documents for the revised pipeline.
 
 ## Sơ đồ cấu trúc tài liệu CodeGraph
 

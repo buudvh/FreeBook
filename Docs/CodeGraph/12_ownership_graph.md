@@ -15,9 +15,9 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## NghiTTS synthesis ownership update (1.3.115)
+## NghiTTS synthesis ownership update (1.3.141)
 
-`TTSManager.shared` owns one `nghiRefillTask` for exactly one paragraph plus one generation-guarded `nghiPlaybackTask`. A playback miss may borrow the refill result by awaiting the task but does not own or cancel that inference. `PiperSynthesisCoordinator.shared` continues to own the sole active inference and now owns its enqueue/start timing metadata until completion.
+`TTSManager.shared` owns `nghittsSafeCachedTimeThreshold`, `nghiWakeTask`, `nghiRefillTask`, and `savedSettingsSnapshot`. `PiperSynthesisCoordinator.shared` owns `pendingQueue` (requests and waiter continuations) and `activeRequest` (active ONNX inference and waiter continuations). Each caller owns an independent `Waiter` continuation identified by UUID; canceling one waiter detaches it without destroying shared ONNX inference.
 
 ## Chapter content ownership update (1.3.114)
 

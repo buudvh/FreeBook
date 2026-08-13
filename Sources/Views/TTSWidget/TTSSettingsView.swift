@@ -297,7 +297,11 @@ struct TTSSettingsView: View {
                         ttsManager.googlePrefetchCount = 2
                         ttsManager.chunkLength = 100
                         ttsManager.prefetchDelayMs = 350
-                    } else if ttsManager.tool == "nghitts" || ttsManager.tool == "system" {
+                    } else if ttsManager.tool == "nghitts" {
+                        ttsManager.chunkLength = 100
+                        ttsManager.prefetchDelayMs = 350
+                        ttsManager.setNghiTTSSafeCachedTimeThreshold(8.0)
+                    } else if ttsManager.tool == "system" {
                         ttsManager.chunkLength = 100
                         ttsManager.prefetchDelayMs = 350
                     } else {
@@ -340,14 +344,23 @@ struct TTSSettingsView: View {
                     }
                 } else if ttsManager.tool == "nghitts" {
                     VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text("Bộ đệm âm thanh (NghiTTS):")
-                            Spacer()
-                            Text("\(String(format: "%.1f", ttsManager.nghiBufferedDuration))s / \(String(format: "%.0f", ttsManager.nghiWatermarks.high))s")
-                                .font(.system(.body, design: .monospaced))
-                                .foregroundColor(.accentColor)
+                        Stepper(
+                            value: Binding(
+                                get: { ttsManager.nghittsSafeCachedTimeThreshold },
+                                set: { ttsManager.setNghiTTSSafeCachedTimeThreshold($0) }
+                            ),
+                            in: 4...20,
+                            step: 1
+                        ) {
+                            HStack {
+                                Text("Ngưỡng nạp bộ đệm (NghiTTS):")
+                                Spacer()
+                                Text("\(Int(ttsManager.nghittsSafeCachedTimeThreshold))s")
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.accentColor)
+                            }
                         }
-                        Text("Tự động ngắt nạp khi đệm đủ thời lượng để tiết kiệm pin & hạ nhiệt máy.")
+                        Text("Tự động tổng hợp thêm âm thanh khi thời lượng đệm âm thanh liên tục còn lại giảm xuống dưới \(Int(ttsManager.nghittsSafeCachedTimeThreshold)) giây.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }

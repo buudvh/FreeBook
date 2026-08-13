@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.141] - 2026-08-13
+
+### Triển khai NghiTTS SafeCachedTime Prefetch Scheduler & Cấu hình Người dùng Persisted
+
+* Chuẩn hóa thuộc tính cấu hình người dùng `nghittsSafeCachedTimeThreshold` (mặc định 8.0s, dải 4.0...20.0s, step 1.0s) tự động lưu và normalize trong `UserDefaults` key `"nghittsSafeCachedTimeThreshold"`.
+* Triển khai bộ tính toán `calculateNghiCachedTime()` chuỗi âm thanh liên tục: bắt đầu từ thời lượng còn lại của player hiện tại + $N+1$ trong `NghiAudioPlayerQueue` (sử dụng `preparedNextDuration` và `effectivePlaybackRate`), cộng dồn preloaded $N+2...$ và dừng ngay ở missing chunk đầu tiên; chỉ cộng $K+1/0$ khi toàn bộ chương $K$ đã ready không lỗ hổng.
+* Chuyển sang cơ chế 1 wake task duy nhất (`nghiWakeTask`) ngủ theo khoảng thời gian dự tính $\Delta t = \text{cachedTime} - \text{threshold}$ khi đệm đủ; reschedule tự động khi tốc độ `speed` thay đổi trong `updatePlaybackParams`.
+* Đảm bảo ô bắt buộc $N+1$ và $K+1/0$ luôn được ưu tiên tổng hợp. Khi `cachedTime < threshold`, nạp thêm tối đa 2 ô dự phòng tùy chọn ($N+2, N+3$), giữ tổng dung lượng ở mức tối đa 5 payload logic.
+* Nâng cấp `PiperSynthesisCoordinator` lên 4 cấp ưu tiên (`demand` > `immediateSuccessor` > `nextChapterMandatory` > `optionalReserve`), hỗ trợ nâng cấp ưu tiên (`promote`), gộp trùng request theo exact `synthesisKey`, và hỗ trợ `cancelPendingOptionalReserveRequests()` chỉ hủy tác vụ phụ trợ khi pause.
+* Phân tách cờ hợp lệ session/identity (`isIdentityValid()`) khỏi cờ phát âm thanh (`isPlaying`): các tác vụ ONNX đang chạy hợp lệ (refill/demand) khi pause vẫn được hoàn tất và lưu bộ đệm `preloadedData` để phát ngay khi Resume.
+* Đảm bảo `TTSChapterTextWorker` quản lý `ownerGeneration` nguyên tử; hủy tác vụ theo generation ngăn chặn hoàn toàn rủi ro hủy nhầm tác vụ thay thế cùng key.
+* Loại bỏ tác động của nhiệt độ thiết bị (`thermalState`) khỏi các quyết định nạp âm thanh NghiTTS (giữ lại cho mục đích chẩn đoán/logging). Giữ nguyên cơ chế scheduler của Google TTS & Extension TTS.
+* Tích hợp Stepper cấu hình ngưỡng nạp NghiTTS vào `TTSSettingsView.swift` và `NghiTTSSettingsView.swift`, ẩn Stepper count NghiTTS cũ để tránh nhầm lẫn nhưng vẫn bảo toàn tương thích ngược.
+
 ## [1.3.140] - 2026-08-13
 
 ### Cải tiến luồng nạp trước TTS Remote, chuyển giao tác vụ âm thanh và quản lý bộ đệm theo vòng đời

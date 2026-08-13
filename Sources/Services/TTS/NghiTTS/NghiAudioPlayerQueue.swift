@@ -48,8 +48,31 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         currentPlayer?.isPlaying == true
     }
 
+    var isPaused: Bool {
+        if case .paused = state { return true }
+        return false
+    }
+
+    var isWaitingForSynthesis: Bool {
+        if case .waitingForSynthesis = state { return true }
+        return false
+    }
+
     var hasPreparedNext: Bool {
         nextPlayer != nil
+    }
+
+    var effectivePlaybackRate: Double {
+        Double(currentPlayer?.rate ?? playbackRate)
+    }
+
+    var preparedNextDuration: Double? {
+        guard let nextPlayer else { return nil }
+        return nextPlayer.duration / max(0.01, Double(nextPlayer.rate))
+    }
+
+    func markWaitingForSynthesis(currentParentIndex: Int) {
+        state = .waitingForSynthesis(currentParentIndex: currentParentIndex)
     }
 
     func start(
@@ -277,4 +300,3 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         }
     }
 }
-

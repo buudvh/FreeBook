@@ -15,11 +15,12 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## NghiTTS deadline synthesis calls (1.3.115)
+## NghiTTS safeCachedTimeThreshold calls (1.3.141)
 
-* `updateNghiPrefetchWindow -> scheduleNghiRefill` selects one target. N+1 enters `PiperTTSService.synthesizeWithDuration` immediately; only N+2+ passes through `NghiSynthesisPolicy.refillCooldownMilliseconds`.
-* On a playback miss, `playNghiTTS` checks `nghiRefillInFlightIndex`. A matching task is awaited and its cached result is played; only a true miss creates a high-priority on-demand request.
-* Coordinator completion returns `queueWaitMs`, `synthesisMs`, and `pcmDuration`; `TTSManager.recordNghiSynthesis` folds them into periodic `[NghiEnergy]` summaries.
+* `updateNghiPrefetchWindow -> scheduleNghiRefill` evaluates `calculateNghiCachedTime()` across the contiguous playable chain. When `cachedTime < nghittsSafeCachedTimeThreshold`, it enqueues mandatory $N+1$ or sequential optional reserve chunks up to 2 optional items (max 5 logical payloads).
+* When `cachedTime >= threshold`, scheduling halts and `nghiWakeTask` is set to a single deadline sleep task ($\Delta t = \text{cachedTime} - \text{threshold}$). Reaching threshold does not cancel an active in-flight ONNX inference.
+* `PiperSynthesisCoordinator.enqueuePayload` matches exact `synthesisKey` to deduplicate in-flight ONNX requests and promote pending priority. Detaching a waiter cancels only that waiter's continuation without killing active ONNX inference.
+* Opening/closing Settings calls `prepareForSettings` and `resumeAfterSettings`. If only `nghittsSafeCachedTimeThreshold` changed, playback continues at the same media position without stopping or clearing preloaded audio.
 
 ## Bounded chapter cache and subscriber cancellation calls (1.3.114)
 
