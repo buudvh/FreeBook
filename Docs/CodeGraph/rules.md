@@ -332,7 +332,8 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
 * `prefetchDepth` là số chunk muốn giữ trong cache, không phải số request được chạy đồng thời.
 * Mọi tổng hợp Google/Ext, kể cả đọc đoạn được chọn và audio chương kế tiếp, phải đi qua `RemoteTTSSynthesisCoordinator` với tối đa một operation đang hoạt động.
 * Thứ tự ưu tiên bắt buộc là `current > prefetch > nextChapter`; request cùng key phải được gộp để không tổng hợp trùng.
-* `.critical` phải dừng toàn bộ remote prefetch. `.serious` chỉ được giữ đúng N+1 thiết yếu cho playback, đồng thời phải hủy N+2/N+3 và next-chapter audio; `.fair` tăng khoảng nghỉ nhưng vẫn cho phép phát chunk hiện tại.
+* Remote TTS prefetch tuần tự 1 worker và không bị điều tiết hay hủy bởi `thermalState`. Cài đặt `extPrefetchCount` (2-10 đoạn) và `extPrefetchDelay_\(tool)` (tối thiểu 300ms) được lưu riêng cho từng loại Extension.
+* Mô hình 2 Worker chuyên trách độc lập cho Trình nghe TTS: Worker 1 (`TTSChapterTextWorker`) kích hoạt nạp trước DTO chữ chương $K+1$ khi $N \ge \text{count}/2$ hoặc $\text{remainingParents} \le 3$; Worker 2 (`TTSAudioSynthesisWorker`) tổng hợp âm thanh MP3/PCM vào bộ đệm RAM.
 * Retry chỉ được sở hữu bởi service, tối đa hai attempt tổng cộng cho mỗi synthesis; `TTSManager` không được bọc thêm vòng retry.
 
 ### 5.7.2. NghiTTS Energy Rules

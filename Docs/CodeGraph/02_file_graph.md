@@ -15,6 +15,10 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 2-Worker TTS Pipeline file updates (1.3.135)
+
+* `Sources/Services/TTS/TTSChapterTextWorker.swift` and `Sources/Services/TTS/TTSAudioSynthesisWorker.swift` created to isolate Worker 1 (text prefetch) and Worker 2 (audio synthesis) for the TTS player pipeline.
+
 ## NghiTTS deadline/thermal file updates (1.3.115)
 
 * `TTSManager.swift` now owns a generation-guarded Nghi playback task, one-paragraph refill tasks, in-flight N+1 reuse, and 60-second energy/RTF aggregation.

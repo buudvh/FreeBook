@@ -173,7 +173,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public var googlePrefetchCount: Int {
         didSet {
             guard !isInitializing else { return }
-            UserDefaults.standard.set(googlePrefetchCount, forKey: "googlePrefetchCount")
+            let clampedCount = max(2, min(10, googlePrefetchCount))
+            UserDefaults.standard.set(clampedCount, forKey: "googlePrefetchCount")
             if tool == "google" { clearPrefetchCache() }
         }
     }
@@ -190,7 +191,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         didSet {
             guard !isInitializing else { return }
             if tool != "system" && tool != "nghitts" && tool != "google" {
-                UserDefaults.standard.set(extPrefetchCount, forKey: "extPrefetchUser_\(tool)")
+                let clampedCount = max(2, min(10, extPrefetchCount))
+                UserDefaults.standard.set(clampedCount, forKey: "extPrefetchUser_\(tool)")
                 clearPrefetchCache()
             }
         }
@@ -199,7 +201,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public var prefetchDelayMs: Int {
         didSet {
             guard !isInitializing else { return }
-            let clampedValue = (tool == "google" || (tool != "system" && tool != "nghitts")) ? max(500, prefetchDelayMs) : prefetchDelayMs
+            let clampedValue = (tool == "google" || (tool != "system" && tool != "nghitts")) ? max(300, prefetchDelayMs) : prefetchDelayMs
             UserDefaults.standard.set(clampedValue, forKey: "ttsPrefetchDelayMs")
             if tool == "nghitts" {
                 UserDefaults.standard.set(clampedValue, forKey: "nghittsPrefetchDelay")
@@ -678,6 +680,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private var chapterAdvanceTaskGeneration: UInt64 = 0
     private var nghiWarmUpTask: Task<Void, Never>? = nil
     private let nextChapterPrefetcher = TTSChapterPrefetcher()
+    private let chapterTextWorker = TTSChapterTextWorker()
+    private let audioSynthesisWorker = TTSAudioSynthesisWorker()
     private var sessionID = UUID()
     private var ttsProcessingGeneration = 0
     private var preparationGeneration = 0
@@ -1009,19 +1013,24 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             let savedVoice = UserDefaults.standard.string(forKey: "googleVoice") ?? "via"
             let validGoogleVoiceIds = Set(GoogleVoice.allVoices.map { $0.id })
             self.selectedVoice = validGoogleVoiceIds.contains(savedVoice) ? savedVoice : "via"
-            self.googlePrefetchCount = UserDefaults.standard.object(forKey: "googlePrefetchCount") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchCount") : 3
+            let savedCount = UserDefaults.standard.object(forKey: "googlePrefetchCount") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchCount") : 3
+            self.googlePrefetchCount = max(2, min(10, savedCount))
             self.chunkLength = UserDefaults.standard.object(forKey: "googleChunk") != nil ? UserDefaults.standard.integer(forKey: "googleChunk") : 200
-            self.prefetchDelayMs = UserDefaults.standard.object(forKey: "googlePrefetchDelay") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchDelay") : 500
+            let savedDelay = UserDefaults.standard.object(forKey: "googlePrefetchDelay") != nil ? UserDefaults.standard.integer(forKey: "googlePrefetchDelay") : 500
+            self.prefetchDelayMs = max(300, savedDelay)
         } else {
             self.speed = UserDefaults.standard.double(forKey: "extRate_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extRate_\(tool)") : defaultRate
             self.pitch = UserDefaults.standard.double(forKey: "extPitch_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extPitch_\(tool)") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "extVoice_\(tool)") ?? ""
             
+            let userExtCount = UserDefaults.standard.object(forKey: "extPrefetchUser_\(tool)") as? Int
             let parsed = parseExtensionConfigParams(jsonString: extensionConfigJson)
-            self.extPrefetchCount = parsed.preloadSize ?? 3
+            let defaultCount = parsed.preloadSize ?? 3
+            let countToUse = userExtCount ?? defaultCount
+            self.extPrefetchCount = max(2, min(10, countToUse))
             self.chunkLength = parsed.maxLength ?? 200
             let saved = UserDefaults.standard.object(forKey: "extPrefetchDelay_\(tool)") != nil ? UserDefaults.standard.integer(forKey: "extPrefetchDelay_\(tool)") : 500
-            self.prefetchDelayMs = max(500, saved)
+            self.prefetchDelayMs = max(300, saved)
         }
     }
 
@@ -2116,10 +2125,40 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         guard let nextIdx = nextChapterIndex(after: playingChapterIndex),
               let nextChapter = chaptersQueue.first(where: { $0.index == nextIdx }) else {
             nextChapterPrefetcher.cancel()
+            Task { await chapterTextWorker.cancel() }
             return
         }
 
         let key = makeNextChapterKey(for: nextChapter)
+
+        var remainingParents = Set<Int>()
+        if currentParagraphIndex >= 0 && currentParagraphIndex < paragraphs.count {
+            for index in currentParagraphIndex..<paragraphs.count {
+                remainingParents.insert(paragraphs[index].paragraphIndex)
+            }
+        }
+        let remainingCount = remainingParents.isEmpty ? 99 : remainingParents.count
+
+        Task { [weak self] in
+            guard let self = self else { return }
+            let shouldPrefetch = await self.chapterTextWorker.shouldTriggerPrefetch(
+                isPlaying: self.isPlaying,
+                currentParagraphIndex: self.currentParagraphIndex,
+                totalParagraphs: self.paragraphs.count,
+                remainingParentCount: remainingCount,
+                nextKey: key
+            )
+            if shouldPrefetch {
+                await self.chapterTextWorker.startPrefetch(
+                    key: key,
+                    sessionID: self.sessionID,
+                    generation: self.ttsProcessingGeneration,
+                    extensionInfo: self.extensionInfo,
+                    processor: TTSBackgroundProcessor()
+                )
+            }
+        }
+
         nextChapterPrefetcher.startPrefetch(
             key: key,
             sessionID: sessionID,
@@ -2142,8 +2181,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             guard NghiSynthesisPolicy.allowsNextChapterAudio(at: currentThermalState) else {
                 return
             }
-        } else if currentThermalState == .serious || currentThermalState == .critical {
-            return
         }
 
         var remainingParents = Set<Int>()
@@ -2248,7 +2285,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     public func clearAllTTSCaches() {
         clearCurrentParagraphPrefetchCache()
         nextChapterPrefetcher.cancel()
-        Task { await extService.resetRuntime() }
+        Task {
+            await chapterTextWorker.cancel()
+            await audioSynthesisWorker.cancelAll()
+            await extService.resetRuntime()
+        }
     }
 
     public func clearPrefetchCache() {
@@ -2273,18 +2314,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             return
         }
 
-        if currentThermalState == .critical {
-            cancelRemotePrefetchTasks()
-            nextChapterPrefetcher.cancel()
-            return
-        }
-
         let N = currentParagraphIndex
-        if currentThermalState == .serious {
-            nextChapterPrefetcher.cancel()
-        }
-        let configuredCount = max(1, min(10, currentPrefetchCount))
-        let count = currentThermalState == .serious ? 1 : configuredCount
+        let count = max(1, min(10, currentPrefetchCount))
         let targetIndices = (1...count).compactMap { offset -> Int? in
             let idx = N + offset
             return idx < paragraphs.count ? idx : nil
@@ -2727,8 +2758,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
             let offset = max(0, index - self.currentParagraphIndex)
             if offset >= 1 {
-                let thermalDelay = self.currentThermalState == .fair ? 500 : 0
-                let delayStepMs = max(500, self.prefetchDelayMs + thermalDelay)
+                let delayStepMs = max(300, self.prefetchDelayMs)
                 do {
                     try await Task.sleep(nanoseconds: UInt64(offset * delayStepMs) * 1_000_000)
                 } catch {
@@ -2750,11 +2780,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 if self.playingChapterUrl != expectedChapterURL { return false }
                 if self.selectedVoice != voice { return false }
                 if self.tool != toolBeforeStart { return false }
-                if self.currentThermalState == .critical { return false }
-                if self.currentThermalState == .serious {
-                    let currentIndex = self.currentParagraphIndex
-                    if index != currentIndex && index != currentIndex + 1 { return false }
-                }
                 return true
             }
 
@@ -3958,9 +3983,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                             self.nextChapterPrefetcher.cancel()
                         }
                     }
-                    if self.tool != "system" && self.tool != "nghitts" &&
-                        self.currentThermalState != .serious &&
-                        self.currentThermalState != .critical {
+                    if self.tool != "system" && self.tool != "nghitts" {
                         self.triggerNextChapterPrefetch()
                     }
                     self.updatePrefetchWindow()

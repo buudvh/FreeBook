@@ -38,7 +38,7 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 ## Reader viewport and serious N+1 data flow (1.3.111)
 
 * **Viewport gate**: paragraph global frame -> `ParagraphTracker` -> target midpoint versus 15%/60–120 point safe inset -> skip counter or `.ttsAuto` `ScrollTarget` -> `ScrollViewProxy.scrollTo` -> executed counter.
-* **Serious buffer**: current remote chunk N -> thermal-constrained target list `[N+1]` -> single coordinator slot -> `preloadedData[N+1]`; N+2/N+3 and next-chapter data do not enter the serious-state window.
+* **Remote prefetch buffer**: current remote chunk N -> configured target list `[N+1...N+count]` -> single coordinator slot -> `preloadedData`; remote prefetch is not constrained by thermalState.
 
 ## Remote TTS energy diagnostic data flow (1.3.107)
 

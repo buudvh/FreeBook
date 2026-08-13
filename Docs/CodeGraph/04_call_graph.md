@@ -39,7 +39,7 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 
 * TTS parent changes call `ReaderView.requestTTSScrollIfNeeded`; it queries `ParagraphTracker.isParagraphInsideSafeViewport` and creates a `.ttsAuto` `ScrollTarget` only when the target midpoint is outside the viewport's 15% safe inset.
 * `ParagraphTracker.updateFrame` ignores sub-8-point movement before rewriting its frame dictionary. Reader diagnostics separately count accepted/skipped frame updates and requested/skipped/executed TTS scrolls.
-* `TTSManager.updatePrefetchWindow` maps remote thermal state to `nominal/fair -> configured depth`, `serious -> N+1 only`, and `critical -> no prefetch`. `startPrefetchTask` accepts a serious-state task only while its index is the current or immediately next chunk.
+* `TTSManager.updatePrefetchWindow` loads the full configured prefetch depth for remote TTS without thermalState throttling, since remote requests are serialized through `RemoteTTSSynthesisCoordinator`.
 
 ## Reader energy diagnostic calls (1.3.110)
 

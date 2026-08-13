@@ -361,7 +361,7 @@ struct TTSSettingsView: View {
 
                 Section("Tải trước dữ liệu (Preloading)") {
                     if ttsManager.tool == "google" {
-                        Stepper(value: $ttsManager.googlePrefetchCount, in: 1...10) {
+                        Stepper(value: $ttsManager.googlePrefetchCount, in: 2...10) {
                             HStack {
                                 Text("Số đoạn tải trước (Google TTS):")
                                 Spacer()
@@ -387,10 +387,20 @@ struct TTSSettingsView: View {
                         Text("Siri hệ thống tự động quản lý luồng đọc")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
+                    } else {
+                        Stepper(value: $ttsManager.extPrefetchCount, in: 2...10) {
+                            HStack {
+                                Text("Số đoạn tải trước (Extension TTS):")
+                                Spacer()
+                                Text("\(ttsManager.extPrefetchCount) đoạn")
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                     }
 
                     if ttsManager.tool != "system" {
-                        Stepper(value: $ttsManager.prefetchDelayMs, in: 500...5000, step: 100) {
+                        Stepper(value: $ttsManager.prefetchDelayMs, in: 300...5000, step: 100) {
                             HStack {
                                 Text("Thời gian dãn tiến trình nạp trước:")
                                 Spacer()
@@ -399,7 +409,9 @@ struct TTSSettingsView: View {
                                     .foregroundColor(.secondary)
                             }
                         }
-                    } else {
+                    }
+
+                    if ttsManager.tool != "system" && ttsManager.tool != "google" && ttsManager.tool != "nghitts" {
                         if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
                             Button(action: {
                                 self.selectedExtForConfig = ext
@@ -415,10 +427,6 @@ struct TTSSettingsView: View {
                                         .foregroundColor(.secondary)
                                 }
                             }
-                        } else {
-                            Text("Extension chưa nạp thông số")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
                         }
                     }
                 }

@@ -147,7 +147,7 @@ graph TD
 
 - `RemoteTTSSynthesisCoordinator.shared` owns the sole active remote job plus priority-ordered queued jobs. Job continuations are released on completion/cancellation; active work retains the slot until it returns.
 - `ExtensionManager.shared` owns one `ExtTTSRuntime`; the actor owns one optional TTS `JSExecutor`. This is the only persistent JS context. Search/detail/toc/chap executors remain function-local.
-- `TTSManager` owns paragraph prefetch/playback tasks and cancels them on pause/stop/thermal pressure; `TTSChapterPrefetcher` owns next-chapter content state and only requests its low-priority audio near chapter end.
+- `TTSManager` owns paragraph prefetch/playback tasks and cancels them on pause/stop (NghiTTS also cancels on thermal pressure); `TTSChapterPrefetcher` owns next-chapter content state and only requests its low-priority audio near chapter end.
 - `NghiSynthesisPolicy` owns no mutable state. `TTSManager` applies its essential/speculative refill and cooldown decisions, `TTSChapterPrefetcher` applies next-chapter eligibility, `PiperSynthesisCoordinator` owns the sole queued/active inference, and `ONNXPiperEngine` owns the one-worker XNNPACK/CPU session.
 
 <!-- GENERATED END -->

@@ -2,7 +2,36 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.135] - 2026-08-13
+
+### Tái cấu trúc Trình nghe TTS theo Mô hình 2 Worker Chuyên Trách Độc Lập
+
+* Tạo mới `TTSChapterTextWorker.swift` (Worker 1): Độc lập chịu trách nhiệm nạp trước & chuẩn hóa văn bản DTO chương $K+1$. Kích hoạt khi $N \ge \text{count}/2$ hoặc $\text{remainingParents} \le 3$.
+* Tạo mới `TTSAudioSynthesisWorker.swift` (Worker 2): Độc lập chịu trách nhiệm quản lý hàng chờ tổng hợp âm thanh MP3/PCM đệm RAM.
+* Kết nối Worker 1 & Worker 2 vào `TTSManager.swift`, tinh gọn logic quản lý prefetch và hủy tác vụ ngầm.
+* Cập nhật quy chuẩn `rules.md` và tài liệu CodeGraph liên quan.
+
+## [1.3.134] - 2026-08-13
+
+
+### Khôi phục cấu hình Preload 2-10 đoạn và lưu riêng theo từng Extension TTS với delay tối thiểu 300ms
+
+* Cập nhật `TTSManager.swift`: Đảm bảo `prefetchDelayMs` luôn $\ge 300\text{ ms}$ cho Google TTS và Ext TTS. Lưu giữ thông số `extPrefetchCount` (2-10 đoạn) và `extPrefetchDelay_\(tool)` riêng biệt cho từng Extension theo packageId (`tool`).
+* Cập nhật `TTSSettingsView.swift`: Thêm Stepper `extPrefetchCount` (dải 2...10 đoạn) cho Extension TTS, chỉnh dải Stepper `prefetchDelayMs` thành `300...5000` ms, và hiển thị đúng nút "Cấu hình Extension" khi sử dụng Extension TTS.
+* Cập nhật quy chuẩn `rules.md` và các tài liệu CodeGraph liên quan.
+
+## [1.3.133] - 2026-08-13
+
+
+### Loại bỏ chính sách giới hạn nhiệt độ (thermalState) đối với Remote TTS
+
+* Cập nhật `TTSManager.swift`: Loại bỏ việc kiểm tra và điều tiết/hủy prefetch `currentThermalState` đối với Remote TTS (Google TTS và JS Extension TTS) trong `updatePrefetchWindow()`, `triggerNextChapterPrefetch()`, `prefetchAudioForParagraph()`, và listener `thermalStateDidChangeNotification`.
+* Remote TTS tiếp tục nạp đệm đầy đủ theo cửa sổ `currentPrefetchCount` đã cấu hình vì tác vụ mạng/JS API được tuần tự hóa 1 worker qua `RemoteTTSSynthesisCoordinator`.
+* Giữ nguyên chính sách quản lý nhiệt độ đối với Offline TTS (NghiTTS / Piper ONNX).
+* Cập nhật quy chuẩn `rules.md` và các tài liệu CodeGraph liên quan.
+
 ## [1.3.132] - 2026-08-12
+
 
 ### Khắc phục thiếu biến showingDiscardAlert trong ExtensionScriptEditorView
 
