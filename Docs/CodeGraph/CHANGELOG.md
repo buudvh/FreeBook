@@ -2,6 +2,12 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.144] - 2026-08-13
+
+### Sửa lỗi CI Build IPA sau refactor TTS
+
+* **Khôi phục `TTSNowPlayingController`**: Restore `Sources/Services/TTS/TTSNowPlayingController.swift` vì `TTSManager` vẫn sở hữu controller này để gắn callback remote command center (`play`, `pause`, `next`, `previous`). Việc xóa file trong refactor trước tạo lỗi thiếu symbol khi archive iOS trên GitHub Actions.
+
 ## [1.3.143] - 2026-08-13
 
 ### Điều chỉnh GitHub Actions Build IPA
