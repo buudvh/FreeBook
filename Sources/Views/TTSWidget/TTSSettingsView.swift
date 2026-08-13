@@ -24,6 +24,8 @@ struct TTSSettingsView: View {
     @State private var showingReplacementManagerSheet = false
     @AppStorage("google_cloud_tts_custom_api_key") private var customGoogleApiKey: String = ""
     @State private var showApiKey: Bool = false
+    @State private var hasResumed = false
+    
     private var currentExtParams: (preloadSize: Int?, maxLength: Int?) {
         ttsManager.parseExtensionConfigParams(jsonString: ttsManager.extensionConfigJson)
     }
