@@ -370,6 +370,15 @@ struct TTSSettingsView: View {
                                     .foregroundColor(.secondary)
                             }
                         }
+                        Stepper(value: $ttsManager.chunkLength, in: 50...500, step: 25) {
+                            HStack {
+                                Text("Độ dài đoạn văn (Google TTS):")
+                                Spacer()
+                                Text("\(ttsManager.chunkLength) ký tự")
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                     } else if ttsManager.tool == "nghitts" {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
@@ -452,7 +461,7 @@ struct TTSSettingsView: View {
                     ttsManager.selectedVoice = systemVoices.first?.identifier ?? ""
                 }
                 
-                if ttsManager.tool != "system" && ttsManager.tool != "nghitts" {
+                if ttsManager.tool != "system" && ttsManager.tool != "nghitts" && ttsManager.tool != "google" {
                     if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
                         ttsManager.extensionLocalPath = ext.localPath
                         ttsManager.extensionConfigJson = ext.configJson
@@ -467,9 +476,10 @@ struct TTSSettingsView: View {
             .onDisappear {
                 // Chỉ lưu và khôi phục khi View thực sự bị đóng/pop hoàn toàn khỏi stack
                 if !presentationMode.wrappedValue.isPresented {
-                    // 1. Tự động lưu cấu hình extension
-                    if ttsManager.tool != "system" && ttsManager.tool != "nghitts" {
-                        if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }) {
+                    // 1. Tự động lưu cấu hình extension (nếu có thay đổi)
+                    if ttsManager.tool != "system" && ttsManager.tool != "nghitts" && ttsManager.tool != "google" {
+                        if let ext = allExtensions.first(where: { $0.packageId == ttsManager.tool }),
+                           ttsManager.extensionConfigJson != ext.configJson {
                             ttsManager.extensionConfigJson = ext.configJson
                         }
                     }

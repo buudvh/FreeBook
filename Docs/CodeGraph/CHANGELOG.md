@@ -2,7 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.136] - 2026-08-13
+
+### Sửa triệt để 2 lỗi im lặng âm thanh TTS và tự động hóa cấu hình Extension / Google TTS
+
+* Cập nhật `ReaderView.swift`: Kiểm tra cờ `isPlaying` trong `schedulePrepareTTS()` và sau bước `await` trong `prepareTTSForCurrentState()` để ngắt việc nạp lại rác làm mất tiếng khi bấm Nghe ngay lúc vừa mở Reader.
+* Cập nhật `TTSSettingsView.swift` & `TTSManager.swift`: Sửa lỗi im lặng âm thanh khi đóng Cài đặt TTS bằng cách kiểm tra trùng chuỗi `extensionConfigJson` và bổ sung `wasPlaying = wasPlayingBeforeSettings || isPlaying` trong `resumeAfterSettings()`.
+* Cập nhật UI Cấu hình: Extension TTS tự động dùng `preload_size` và `max_length` từ JSON config (ẩn Stepper trên UI); Google TTS khôi phục Stepper `chunkLength` (50-500 ký tự) và Stepper `googlePrefetchCount` (2-10 đoạn).
+
 ## [1.3.135] - 2026-08-13
+
 
 ### Tái cấu trúc Trình nghe TTS theo Mô hình 2 Worker Chuyên Trách Độc Lập
 

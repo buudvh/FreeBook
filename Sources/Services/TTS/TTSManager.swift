@@ -1024,10 +1024,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.pitch = UserDefaults.standard.double(forKey: "extPitch_\(tool)") > 0 ? UserDefaults.standard.double(forKey: "extPitch_\(tool)") : defaultPitch
             self.selectedVoice = UserDefaults.standard.string(forKey: "extVoice_\(tool)") ?? ""
             
-            let userExtCount = UserDefaults.standard.object(forKey: "extPrefetchUser_\(tool)") as? Int
             let parsed = parseExtensionConfigParams(jsonString: extensionConfigJson)
-            let defaultCount = parsed.preloadSize ?? 3
-            let countToUse = userExtCount ?? defaultCount
+            let countToUse = parsed.preloadSize ?? 3
             self.extPrefetchCount = max(2, min(10, countToUse))
             self.chunkLength = parsed.maxLength ?? 200
             let saved = UserDefaults.standard.object(forKey: "extPrefetchDelay_\(tool)") != nil ? UserDefaults.standard.integer(forKey: "extPrefetchDelay_\(tool)") : 500
@@ -1588,7 +1586,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         // Lưu paragraph identity (số thứ tự dòng gốc) đã ghi nhận khi mở settings
         let savedParagraphIdentity = savedParagraphIdentityBeforeSettings
         savedParagraphIdentityBeforeSettings = -1
-        let wasPlaying = wasPlayingBeforeSettings
+        let wasPlaying = wasPlayingBeforeSettings || isPlaying
         wasPlayingBeforeSettings = false
 
         // Dừng engine cũ để áp dụng cài đặt mới (nhưng giữ widget nổi)

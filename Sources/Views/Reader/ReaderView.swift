@@ -1887,7 +1887,7 @@ struct ReaderView: View {
     }
 
     private func prepareTTSForCurrentState() {
-        guard !ttsState.snapshot.isPlaying else { return }
+        guard !ttsState.snapshot.isPlaying, !ttsManager.isPlaying else { return }
 
         let index = chapterIndex
         guard index >= 0 && index < totalChaptersCount else { return }
@@ -1897,6 +1897,7 @@ struct ReaderView: View {
 
         Task {
             guard let currentChapter = await ttsChapterInfo(at: index) else { return }
+            guard !self.ttsState.snapshot.isPlaying, !self.ttsManager.isPlaying else { return }
 
             let savedPIdx = getSavedParagraphIndex(for: index)
 
@@ -1916,10 +1917,11 @@ struct ReaderView: View {
     }
 
     private func schedulePrepareTTS() {
-        guard !ttsState.snapshot.isPlaying else { return }
+        guard !ttsState.snapshot.isPlaying, !ttsManager.isPlaying else { return }
         prepareTTSTask?.cancel()
 
-        let workItem = DispatchWorkItem {
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self, !self.ttsState.snapshot.isPlaying, !self.ttsManager.isPlaying else { return }
             self.prepareTTSForCurrentState()
         }
         self.prepareTTSTask = workItem
