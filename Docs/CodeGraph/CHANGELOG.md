@@ -2,7 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.139] - 2026-08-13
+
+### Tái cấu trúc Giao diện Cài đặt TTS thành 5 Section Chuẩn mực & Tinh chỉnh Stepper Nạp trước
+
+* Tái cấu trúc toàn bộ `TTSSettingsView.swift` thành 5 Section mạch lạc: `Trình đọc`, `Giọng đọc`, `Quản lý riêng của trình đọc` (tập trung API Key, Model, Tiền xử lý, Từ điển & Cấu hình Extension), `Cấu hình giọng nói`, `Tải trước dữ liệu`. Gỡ bỏ Section Hẹn giờ tắt (đã có trên Widget).
+* Chuyển Độ dài phân đoạn của NghiTTS & Siri sang Stepper chuẩn với `step: 10`, dải 50-500 ký tự.
+* Cập nhật Stepper Thời gian dãn tiến trình `prefetchDelayMs` với `step: 50`, dải 300-5000ms.
+* Bổ sung nút "Đặt lại" cho Section Tải trước dữ liệu với tham số chuẩn: Prefetch Count = 2 đoạn, Chunk Length = 100 ký tự, Delay = 350ms.
+* Tái sử dụng `ExtensionManager.shared.getCombinedConfigs(...)` để tự động đọc `plugin.json` từ `localPath` của Extension TTS.
+
 ## [1.3.136] - 2026-08-13
+
 
 ### Sửa triệt để 2 lỗi im lặng âm thanh TTS và tự động hóa cấu hình Extension / Google TTS
 
