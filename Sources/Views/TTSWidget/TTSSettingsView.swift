@@ -24,7 +24,9 @@ struct TTSSettingsView: View {
     @State private var showingReplacementManagerSheet = false
     @AppStorage("google_cloud_tts_custom_api_key") private var customGoogleApiKey: String = ""
     @State private var showApiKey: Bool = false
-    @State private var hasResumed = false
+    private var currentExtParams: (preloadSize: Int?, maxLength: Int?) {
+        ttsManager.parseExtensionConfigParams(jsonString: ttsManager.extensionConfigJson)
+    }
 
     private var hasNoDictionary: Bool {
         let path = (try? ModelStore())?.rootURL.appendingPathComponent("non-vietnamese-words.plist").path ?? ""
@@ -398,8 +400,7 @@ struct TTSSettingsView: View {
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     } else {
-                        let extParams = parseExtensionConfigParams(jsonString: ttsManager.extensionConfigJson)
-                        if extParams.preloadSize == nil {
+                        if currentExtParams.preloadSize == nil {
                             Stepper(value: $ttsManager.extPrefetchCount, in: 2...10) {
                                 HStack {
                                     Text("Số đoạn tải trước (Extension TTS):")
@@ -410,7 +411,7 @@ struct TTSSettingsView: View {
                                 }
                             }
                         }
-                        if extParams.maxLength == nil {
+                        if currentExtParams.maxLength == nil {
                             Stepper(value: $ttsManager.chunkLength, in: 50...500, step: 25) {
                                 HStack {
                                     Text("Độ dài đoạn văn (Extension TTS):")
