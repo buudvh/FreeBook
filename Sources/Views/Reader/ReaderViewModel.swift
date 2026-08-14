@@ -461,10 +461,14 @@ class ReaderViewModel: ObservableObject {
         navigationDebounceTask?.cancel()
         navigationDebounceTask = nil
 
-        if cache.get(index)?.state == .loaded, !forceRefresh {
-            queuedNavigation = nil
-            commitNavigation(request, origin: .memory)
-            return
+        if let cached = cache.get(index), cached.state == .loaded, !forceRefresh {
+            let currentToken = TranslateUtils.translationGenerationToken(for: bookId)
+            if cached.translationToken == currentToken && cached.isTranslationEnabled == isTranslationEnabled {
+                queuedNavigation = nil
+                commitNavigation(request, origin: .memory)
+                return
+            }
+            // Token lỗi thời → tiếp tục để worker dịch lại
         }
 
         if source.isImmediate {

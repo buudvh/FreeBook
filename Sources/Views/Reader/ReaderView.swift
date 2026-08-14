@@ -573,16 +573,7 @@ struct ReaderView: View {
                 checkAndReleaseDeferredTranslationRefresh()
             }
         }
-        .onChange(of: showingDefinitionSheet) { _, newValue in
-            if !newValue {
-                checkAndReleaseDeferredTranslationRefresh()
-            }
-        }
-        .onChange(of: showingManageDefinitionsSheet) { _, newValue in
-            if !newValue {
-                checkAndReleaseDeferredTranslationRefresh()
-            }
-        }
+
         .onChange(of: showingJunkDeleteSheet) { _, newValue in
             if !newValue {
                 checkAndReleaseDeferredTranslationRefresh()
@@ -1265,6 +1256,11 @@ struct ReaderView: View {
             do {
                 try await TranslationManager.shared.saveCustomEntry(word: word, meaning: meaning, isName: saveAsNameType, bookId: bid)
                 await MainActor.run {
+                    // Invalidate token ngay lập tức (0ms) trước mọi thao tác chuyển chương
+                    viewModel?.updateCachedTranslatedContent(
+                        bookId: bookId,
+                        scope: .term(word: word, isName: saveAsNameType, bookId: bid)
+                    )
                     showingDefinitionSheet = false
                     applyTranslation()
                     checkAndReleaseDeferredTranslationRefresh()

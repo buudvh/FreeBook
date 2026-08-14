@@ -4,11 +4,14 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.158] - 2026-08-14
 
-### Khắc phục triệt để lỗi không cập nhật bản dịch mới cho các chương khác khi sửa từ điển VietPhrase/Name
+### Sửa lỗi từ dịch cũ hiển thị khi chuyển chương ngay sau khi lưu từ điển
 
-* **Giải phóng tác vụ hoãn làm mới bản dịch khi đóng panel tra từ (`ReaderView.swift`)**:
-  - `ReaderView.swift`: Thêm `.onChange(of: showingDefinitionSheet)` và `.onChange(of: showingManageDefinitionsSheet)` để tự động giải phóng tác vụ `checkAndReleaseDeferredTranslationRefresh()` khi đóng bảng tra từ.
-  - `ReaderView.swift`: Cập nhật `saveDefinition()` gọi `checkAndReleaseDeferredTranslationRefresh()` và `scheduleCoalescedTranslationRefresh(...)`, gán `translationToken = 0` cho các chương ngầm trong RAM cache để khi người dùng mở Chương 2, hệ thống tự động dịch lại và hiển thị từ mới.
+* **Kiểm tra token trước shortcut memory cache (`ReaderViewModel.swift`)**:
+  - `ReaderViewModel.swift`: Trong `requestChapter()`, thêm kiểm tra `translationToken` và `isTranslationEnabled` trước khi sử dụng đường ngắn mạch từ RAM cache. Nếu token lỗi thời, hệ thống chuyển sang `runNavigationWorker` để dịch lại chương trước khi hiển thị.
+* **Invalidate token ngay lập tức khi lưu từ (`ReaderView.swift`)**:
+  - `ReaderView.swift`: Trong `saveDefinition()`, gọi `viewModel?.updateCachedTranslatedContent(bookId:scope:)` **trực tiếp (0ms)** trước khi đóng sheet, đảm bảo `translationToken` của tất cả chương trong cache bị vô hiệu trước bất kỳ thao tác chuyển chương nào.
+* **Dọn dẹp handler thừa (`ReaderView.swift`)**:
+  - `ReaderView.swift`: Xóa handler `.onChange(of: showingDefinitionSheet)` bị trùng lặp và handler `.onChange(of: showingManageDefinitionsSheet)` vô dụng.
 
 ## [1.3.155] - 2026-08-14
 
