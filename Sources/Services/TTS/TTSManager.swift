@@ -2046,7 +2046,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                       self.playingBookId == expectedBookId,
                       self.isPlaying else { return }
                 AppLogger.shared.log("❌ [TTSManager] Không tải được chương \(nextChapter.index): \(error.localizedDescription)")
-                TTSPresentationEventCenter.shared.send(.showToast(message: "⚠️ Lỗi tải chương \(nextChapter.index), đang chuyển sang chương tiếp theo...", type: .warning))
+                TTSPresentationEventCenter.shared.send(.showToast(message: "⚠️ Lỗi tải chương \(nextChapter.index), đang chuyển sang chương tiếp theo...", type: .info))
                 if let followingIdx = self.nextChapterIndex(after: nextChapter.index) {
                     self.advanceToNextChapter(nextIdx: followingIdx)
                 } else {
@@ -2146,7 +2146,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                       self.playingBookId == expectedBookId,
                       self.isPlaying else { return }
                 AppLogger.shared.log("❌ [TTSManager] Lỗi xử lý chương \(nextChapter.index): \(error.localizedDescription)")
-                TTSPresentationEventCenter.shared.send(.showToast(message: "⚠️ Lỗi xử lý chương \(nextChapter.index), đang chuyển sang chương tiếp theo...", type: .warning))
+                TTSPresentationEventCenter.shared.send(.showToast(message: "⚠️ Lỗi xử lý chương \(nextChapter.index), đang chuyển sang chương tiếp theo...", type: .info))
                 if let followingIdx = self.nextChapterIndex(after: nextChapter.index) {
                     self.advanceToNextChapter(nextIdx: followingIdx)
                 } else {
@@ -2213,7 +2213,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let playbackParas = playbackParagraphs(from: paragraphs)
         guard !playbackParas.isEmpty else {
             AppLogger.shared.log("⚠️ [TTSManager] Chương \(index) không có nội dung đọc, tự động chuyển sang chương tiếp theo.")
-            TTSPresentationEventCenter.shared.send(.showToast(message: "⚠️ Chương \(index) không có nội dung, đang chuyển tiếp...", type: .warning))
+            TTSPresentationEventCenter.shared.send(.showToast(message: "⚠️ Chương \(index) không có nội dung, đang chuyển tiếp...", type: .info))
             if let nextIdx = nextChapterIndex(after: index) {
                 advanceToNextChapter(nextIdx: nextIdx)
             } else {
