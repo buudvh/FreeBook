@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.149] - 2026-08-14
+
+### Thêm tùy chọn Gộp (Merge) khi nhập từ điển Custom/Riêng
+
+* **Thêm UI chọn chế độ nhập từ điển (`DictionaryListView.swift`)**:
+  - Sau khi chọn file import, hiện `.confirmationDialog` với 2 option: "Thay thế hoàn toàn" và "Gộp (trùng key thì thay mới)".
+  - `importFile(from:isMerge:)` nhận thêm tham số `isMerge` để quyết định chế độ.
+* **Logic Merge cho từ điển Riêng (Book) (`DictionaryListView.swift`)**:
+  - Gộp: giữ dữ liệu cũ không trùng key, key trùng lấy giá trị mới từ import, import được chèn lên đầu.
+  - Thay thế: xóa hết dữ liệu cũ, chỉ giữ file import.
+* **Logic Merge cho từ điển Custom Chung (Global) (`DictionaryCache.swift`)**:
+  - `importEntries(from:type:isMerge:)` thêm tham số `isMerge` (mặc định `false`).
+  - Merge: giữ custom cũ không trùng key, import thắng key trùng, bảo toàn deleted không bị restore bởi import có value, thêm deleted mới từ import.
+  - Thay thế: xóa sạch dữ liệu cũ (custom + deleted), chỉ giữ file import.
+
 ## [1.3.148] - 2026-08-14
 
 ### Sửa lỗi biên dịch Swift và dọn dẹp cảnh báo CI

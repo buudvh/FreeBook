@@ -32,6 +32,8 @@ struct DictionaryListView: View {
     @State private var showingDeleteAllAlert = false
     @State private var exportDocumentToShare: ExportDocument? = nil
     @State private var selectedTab: DictViewTab = .custom
+    @State private var pendingImportURL: URL? = nil
+    @State private var showingImportModeDialog = false
 
     private var isGlobal: Bool { bookId == nil }
 
@@ -195,11 +197,31 @@ struct DictionaryListView: View {
                     guard let url = urls.first else { return }
                     let accessing = url.startAccessingSecurityScopedResource()
                     defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-                    importFile(from: url)
+                    pendingImportURL = url
+                    showingImportModeDialog = true
                 },
                 onCancel: nil
             )
         )
+        .confirmationDialog("Chọn chế độ nhập từ điển", isPresented: $showingImportModeDialog) {
+            Button("Thay thế hoàn toàn") {
+                if let url = pendingImportURL {
+                    importFile(from: url, isMerge: false)
+                }
+                pendingImportURL = nil
+            }
+            Button("Gộp (trùng key thì thay mới)") {
+                if let url = pendingImportURL {
+                    importFile(from: url, isMerge: true)
+                }
+                pendingImportURL = nil
+            }
+            Button("Hủy", role: .cancel) {
+                pendingImportURL = nil
+            }
+        } message: {
+            Text("Thay thế: xóa hết dữ liệu cũ, chỉ giữ file import.\nGộp: giữ dữ liệu cũ, key trùng lấy giá trị mới.")
+        }
     }
 
     // MARK: - Subviews
@@ -481,11 +503,11 @@ struct DictionaryListView: View {
         }
     }
 
-    private func importFile(from url: URL) {
+    private func importFile(from url: URL, isMerge: Bool) {
         Task {
             do {
                 if isGlobal {
-                    try await cache.importEntries(from: url, type: type)
+                    try await cache.importEntries(from: url, type: type, isMerge: isMerge)
                 } else {
                     guard let bid = bookId else { return }
                     let bookDir = TranslationManager.shared.translateDirectory
@@ -493,8 +515,21 @@ struct DictionaryListView: View {
                     try FileManager.default.createDirectory(at: bookDir, withIntermediateDirectories: true)
                     let txtUrl = bookDir.appendingPathComponent("\(type.fileName).txt")
                     let importedRecords = try DictionaryTextFileStore.parseRecords(from: url)
+                    let importedKeys = Set(importedRecords.map { $0.key })
+
+                    var records: [DictionaryTextRecord]
+                    if isMerge {
+                        // MERGE: giữ dữ liệu cũ không trùng key, import thắng key trùng.
+                        let existing = (try? DictionaryTextFileStore.parseRecords(from: txtUrl)) ?? []
+                        records = existing.filter { !importedKeys.contains($0.key) }
+                        records.insert(contentsOf: importedRecords, at: 0)
+                    } else {
+                        // REPLACE: xóa hết dữ liệu cũ, chỉ giữ file import.
+                        records = importedRecords
+                    }
+
                     try await Task.detached(priority: .userInitiated) {
-                        try DictionaryTextFileStore.persist(records: importedRecords, to: txtUrl)
+                        try DictionaryTextFileStore.persist(records: records, to: txtUrl)
                     }.value
 
                     TranslateUtils.clearCache()

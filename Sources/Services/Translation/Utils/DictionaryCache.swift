@@ -92,13 +92,31 @@ public final class DictionaryCache: ObservableObject {
         try await persistAndUpdate(records: records, type: type)
     }
 
-    public func importEntries(from url: URL, type: DictType) async throws {
+    public func importEntries(from url: URL, type: DictType, isMerge: Bool = false) async throws {
         let importedRecords = try DictionaryTextFileStore.parseRecords(from: url)
         let importedKeys = Set(importedRecords.map { $0.key })
-        let preservedDeletedRecords = currentRecords(for: type)
-            .filter { $0.isDeleted && !importedKeys.contains($0.key) }
+        let importedWithValue = Set(importedRecords.filter { !$0.isDeleted }.map { $0.key })
 
-        try await persistAndUpdate(records: importedRecords + preservedDeletedRecords, type: type)
+        let existingRecords = currentRecords(for: type)
+        let existingCustom = existingRecords.filter { !$0.isDeleted }
+        let existingDeleted = existingRecords.filter { $0.isDeleted }
+        let existingDeletedKeys = Set(existingDeleted.map { $0.key })
+
+        let records: [DictionaryTextRecord]
+        if isMerge {
+            // MERGE: giữ custom cũ không trùng key, import thắng key trùng,
+            // bảo toàn deleted không bị restore, thêm deleted mới từ import.
+            let mergedCustom = existingCustom.filter { !importedKeys.contains($0.key) }
+            let importedCustom = importedRecords.filter { !$0.isDeleted }
+            let preservedDeleted = existingDeleted.filter { !importedWithValue.contains($0.key) }
+            let newDeletedFromImport = importedRecords.filter { $0.isDeleted && !existingDeletedKeys.contains($0.key) }
+            records = mergedCustom + importedCustom + preservedDeleted + newDeletedFromImport
+        } else {
+            // REPLACE: xóa sạch dữ liệu cũ (custom + deleted), chỉ giữ file import.
+            records = importedRecords
+        }
+
+        try await persistAndUpdate(records: records, type: type)
         invalidate(type: type)
         await loadIfNeeded(type: type)
     }
