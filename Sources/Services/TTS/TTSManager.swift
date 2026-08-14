@@ -2419,12 +2419,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             startIdx = N + 2
         }
 
-        for idx in startIdx..<paragraphs.count {
-            if let data = preloadedData[idx] {
-                let dur = preloadedDurations[idx] ?? WAVEncoder.duration(of: data)
-                total += dur / effectiveRate
-            } else {
-                return total
+        if startIdx < paragraphs.count {
+            for idx in startIdx..<paragraphs.count {
+                if let data = preloadedData[idx] {
+                    let dur = preloadedDurations[idx] ?? WAVEncoder.duration(of: data)
+                    total += dur / effectiveRate
+                } else {
+                    return total
+                }
             }
         }
 
@@ -2490,6 +2492,21 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
+    nonisolated internal static func selectNghiOptionalRefillCandidate(
+        currentParagraphIndex N: Int,
+        paragraphsCount: Int,
+        preloadedIndices: Set<Int>
+    ) -> Int? {
+        let optionalStart = N + 2
+        guard optionalStart < paragraphsCount else { return nil }
+        for idx in optionalStart..<paragraphsCount {
+            if !preloadedIndices.contains(idx) {
+                return idx
+            }
+        }
+        return nil
+    }
+
     private func isValidNghiRefillContext(
         sessionID expectedSessionID: UUID,
         bookID expectedBookID: String,
@@ -2524,14 +2541,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         if nextIndex < paragraphs.count && preloadedData[nextIndex] == nil && nghiAudioPlayerQueue.nextItem?.paragraphIndex != nextIndex {
             targetIndex = nextIndex
         } else if calculateNghiCachedTime() < nghittsSafeCachedTimeThreshold && optionalCount < NghiSynthesisPolicy.maxOptionalReserveItems {
-            var candidate: Int? = nil
-            for idx in (N + 2)..<paragraphs.count {
-                if preloadedData[idx] == nil {
-                    candidate = idx
-                    break
-                }
-            }
-            targetIndex = candidate
+            targetIndex = Self.selectNghiOptionalRefillCandidate(
+                currentParagraphIndex: N,
+                paragraphsCount: paragraphs.count,
+                preloadedIndices: Set(preloadedData.keys)
+            )
         } else {
             targetIndex = nil
         }

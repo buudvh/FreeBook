@@ -73,4 +73,54 @@ final class NghiTTSPerformanceTests: XCTestCase {
         XCTAssertEqual(nominal, 750)
         XCTAssertEqual(fair, 1_500)
     }
+
+    func testSelectNghiOptionalRefillCandidatePreventsRangeTrapAtEndOfChapter() {
+        // Incident 1: N = 263, count = 264 -> optionalStart = 265 > 264
+        let target263 = TTSManager.selectNghiOptionalRefillCandidate(
+            currentParagraphIndex: 263,
+            paragraphsCount: 264,
+            preloadedIndices: [263]
+        )
+        XCTAssertNil(target263, "Must return nil and not trap when N=263, count=264")
+
+        // Incident 2: N = 83, count = 84 -> optionalStart = 85 > 84
+        let target83 = TTSManager.selectNghiOptionalRefillCandidate(
+            currentParagraphIndex: 83,
+            paragraphsCount: 84,
+            preloadedIndices: [83]
+        )
+        XCTAssertNil(target83, "Must return nil and not trap when N=83, count=84")
+
+        // Boundary case: N = count - 1 (e.g. N=9, count=10)
+        let targetCountMinus1 = TTSManager.selectNghiOptionalRefillCandidate(
+            currentParagraphIndex: 9,
+            paragraphsCount: 10,
+            preloadedIndices: [9]
+        )
+        XCTAssertNil(targetCountMinus1, "Must return nil when N = count - 1")
+
+        // Boundary case: N = count - 2 (e.g. N=8, count=10)
+        let targetCountMinus2 = TTSManager.selectNghiOptionalRefillCandidate(
+            currentParagraphIndex: 8,
+            paragraphsCount: 10,
+            preloadedIndices: [8, 9]
+        )
+        XCTAssertNil(targetCountMinus2, "Must return nil when N = count - 2")
+
+        // Valid ordinary optional range selection
+        let validTarget = TTSManager.selectNghiOptionalRefillCandidate(
+            currentParagraphIndex: 10,
+            paragraphsCount: 50,
+            preloadedIndices: [10, 11]
+        )
+        XCTAssertEqual(validTarget, 12, "Should select optional reserve index 12 when 11 is in preloadedIndices")
+
+        // Skipping already preloaded optional candidates
+        let skipTarget = TTSManager.selectNghiOptionalRefillCandidate(
+            currentParagraphIndex: 10,
+            paragraphsCount: 50,
+            preloadedIndices: [10, 11, 12, 13]
+        )
+        XCTAssertEqual(skipTarget, 14, "Should skip preloaded indices 12 and 13 to select 14")
+    }
 }

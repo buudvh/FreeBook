@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.146] - 2026-08-14
+
+### Khắc phục lỗi sập ứng dụng do Range Trap trong NghiTTS và bổ sung Unit Tests
+
+* **Khắc phục lỗi sập ứng dụng do Range Trap trong NghiTTS (`TTSManager.swift`)**:
+  - `TTSManager.swift`: Tách hàm tĩnh `selectNghiOptionalRefillCandidate(currentParagraphIndex:paragraphsCount:preloadedIndices:)` (`nonisolated internal static`) bổ sung kiểm tra an toàn biên `guard optionalStart < paragraphsCount else { return nil }` trước khi quét các đoạn đệm dự phòng $N+2...$, xử lý triệt để bẫy dải chỉ số (`start > end`) khi $N$ ở gần cuối chương truyện (như $N = \text{count} - 1$ hoặc $N = \text{count} - 2$).
+  - `TTSManager.swift`: Bổ sung kiểm tra `startIdx < paragraphs.count` trong `calculateNghiCachedTime()` để tránh tạo Range không hợp lệ khi tính tổng thời lượng âm thanh đã lưu đệm.
+* **Bổ sung Unit Tests kiểm tra ranh giới (`NghiTTSPerformanceTests.swift`)**:
+  - `NghiTTSPerformanceTests.swift`: Tạo mới test case `testSelectNghiOptionalRefillCandidatePreventsRangeTrapAtEndOfChapter()` kiểm tra các trường hợp biên $N = \text{count} - 1$, $N = \text{count} - 2$, $N = 263/\text{count} = 264$, $N = 83/\text{count} = 84$, đảm bảo hàm luôn trả về `nil` an toàn mà không gây sập ứng dụng.
+
 ## [1.3.145] - 2026-08-13
 
 ### Sửa toàn bộ các lỗi biên dịch Swift (Swift Compilation Fixes)
