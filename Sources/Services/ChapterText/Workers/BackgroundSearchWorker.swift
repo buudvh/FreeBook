@@ -43,7 +43,7 @@ public actor BackgroundSearchWorker {
             }
         } else {
             let context = ModelContext(container)
-            var descriptor = FetchDescriptor<Chapter>(
+            let descriptor = FetchDescriptor<Chapter>(
                 predicate: #Predicate<Chapter> { $0.book?.bookId == bookId },
                 sortBy: [SortDescriptor(\.index, order: isAscending ? .forward : .reverse)]
             )

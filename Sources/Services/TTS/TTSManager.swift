@@ -1795,7 +1795,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let consumedState = nextChapterPrefetcher.consumeCache(matching: requestedKey)
 
         switch consumedState {
-        case .audioReady(_, _, let processed, let audioData, let loadMs, let processMs, let synthMs):
+        case .audioReady(_, _, let processed, let audioData, let loadMs, let processMs, _):
             updateTTSAutoAdvanceLoadPerf(
                 sessionID: expectedSessionID,
                 generation: expectedGeneration,
@@ -2787,11 +2787,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     taskOutcome = .cancelled
 
                 case .blocked(let reason, let action):
-                    taskOutcome = .blocked
+                    taskOutcome = outcome
                     Self.logPrefetchFailure(chapter: expectedChapterIndex, index: index, attempt: newState.attempts, reason: reason, action: action)
 
                 case .retryScheduled(let reason, let attempt):
-                    taskOutcome = .retryScheduled
+                    taskOutcome = outcome
                     Self.logPrefetchFailure(chapter: expectedChapterIndex, index: index, attempt: attempt, reason: reason, action: "retry_scheduled")
 
                     self.cancelNghiRefillRetry()
@@ -3221,7 +3221,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let expectedChapterURL = playingChapterUrl
         let expectedGeneration = ttsProcessingGeneration
         let expectedVoice = selectedVoice
-        let startupBufferTarget = 1.2
         let playbackTaskGeneration = nghiPlaybackTaskGeneration
 
         if let cachedData = preloadedData[index] {

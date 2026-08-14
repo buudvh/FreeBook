@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.148] - 2026-08-14
+
+### Sửa lỗi biên dịch Swift và dọn dẹp cảnh báo CI
+
+* **Sửa lỗi biên dịch Swift (`TTSManager.swift`)**:
+  - `TTSManager.swift`: Gán `taskOutcome = outcome` tại hai case `.blocked` và `.retryScheduled` trong `scheduleNghiRefill()`, khắc phục lỗi biên dịch `member 'blocked(reason:action:)' is a function that produces expected type 'TTSManager.RefillTaskOutcome'`.
+* **Dọn dẹp các cảnh báo biến/hằng chưa sử dụng**:
+  - `TTSManager.swift`: Loại bỏ biến `let synthMs` không dùng trong pattern matching `case .audioReady` và gỡ bỏ `let startupBufferTarget = 1.2`.
+  - `BackgroundSearchWorker.swift`: Thay `var descriptor` thành `let descriptor`.
+  - `ShelfView.swift`: Thay `let targetBook =` thành `_ =`.
+
 ## [1.3.147] - 2026-08-14
 
 ### Khắc phục NghiTTS lỗi khi chuyển từ tên chương sang nội dung

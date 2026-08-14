@@ -651,7 +651,7 @@ struct ShelfView: View {
                     predicate: #Predicate<Book> { $0.bookId == bookId }
                 )
                 bookDescriptor.fetchLimit = 1
-                let targetBook = (try? self.modelContext.fetch(bookDescriptor))?.first
+                _ = (try? self.modelContext.fetch(bookDescriptor))?.first
 
                 if let newCurrentTitle = translatedCurrentTitle {
                     let res = BookTransactionCoordinator.shared.updateCurrentChapterTitle(bookId: bookId, title: newCurrentTitle, in: self.modelContext)
