@@ -2,6 +2,29 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.162] - 2026-08-14
+
+### Xây dựng BookDownloadWorker tải tuần tự và hỗ trợ đa worker song song nhiều sách
+
+* **Xây dựng `BookDownloadWorker` tái sử dụng `JSExecutor` (`BookDownloadWorker.swift`, `DownloadManager.swift`)**:
+  - `BookDownloadWorker.swift`: Tạo actor quản lý tác vụ tải/xuất cho một cuốn sách. Khởi tạo và nạp script `chap.js` đúng một lần duy nhất (`prepareScript`, `injectGlobals`), tái sử dụng thực thể `JSExecutor` xuyên suốt toàn bộ các chương của cuốn sách đó, triệt tiêu việc tạo và hủy `JSContext` liên tục.
+  - `DownloadManager.swift`: Nâng cấp sang kiến trúc đa worker song song (`activeWorkers: [UUID: BookDownloadWorker]`, `activeTasks: [UUID: Task<Void, Never>]`, `maxConcurrentTasks = 2`). Khi tải nhiều sách (ví dụ 2 sách), mỗi sách sở hữu 1 worker riêng biệt chạy song song với nhau trong luồng nền.
+* **Cơ chế ngắt hủy tác vụ tức thì & độc lập (`DownloadManager.swift`, `JSExecutor.swift`)**:
+  - `DownloadManager.swift`: Khi người dùng bấm hủy tác vụ (`cancelTask` / `cancelTasksForBook`), lập tức ngắt đúng `Task` và `BookDownloadWorker` của cuốn sách đó, bắt `CancellationError` và dừng ngay lập tức; các cuốn sách khác đang tải song song không bị ảnh hưởng.
+  - `JSExecutor.swift`: Cập nhật `cancelCurrentExecution()` hủy toàn bộ `URLSessionDataTask` in-flight và đóng/dọn dẹp các WebView loader trên Main Thread.
+
+## [1.3.161] - 2026-08-14
+
+### Tự động bỏ qua chương lỗi khi phát hết chương trong TTS
+
+* **Tự động bỏ qua chương lỗi/rỗng khi chuyển chương (`TTSManager.swift`)**:
+  - `advanceToNextChapter(nextIdx:)`: Nếu không tìm thấy chương trong `chaptersQueue`, tìm chương kế tiếp `nextChapterIndex(after: nextIdx)` thay vì dừng phát.
+  - `fallbackAdvanceToNextChapter(...)`: Khi nạp chương (`loadChapterForAutoAdvance`) hoặc xử lý nội dung (`processChapter`) ném ngoại lệ, log cảnh báo và gửi Toast, sau đó tự động chuyển tiếp sang chương kế tiếp `nextChapterIndex(after: nextChapter.index)`. Nếu đã hết toàn bộ sách, dừng phát an toàn.
+  - `applyNextChapter(...)`: Nếu chương không có nội dung đọc (`playbackParas.isEmpty`), gửi Toast cảnh báo và tự động chuyển sang chương tiếp theo.
+  - `playNghiTTS(_:)`: Khi `nghiTTSService == nil`, chuyển sang gọi `pause()` kèm Toast thông báo lỗi thay vì `stop()`, giữ nguyên widget nổi và phiên đọc.
+* **Đồng bộ giao diện Reader khi nhảy qua chương lỗi (`ReaderView.swift`)**:
+  - `ReaderView.swift`: Gỡ bỏ điều kiện giới hạn `if chapterIndex == nextIdx - 1` trong handler `ttsDidAdvanceToNextChapter`, cho phép `ReaderView` tự động đồng bộ sang chương mới ngay cả khi TTS nhảy cách quãng do bỏ qua các chương lỗi.
+
 ## [1.3.160] - 2026-08-14
 
 ### Sửa lỗi đoạn cuối chương không được phát trong NghiTTS

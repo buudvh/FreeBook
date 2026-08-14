@@ -151,7 +151,7 @@ public final class DownloadManager: ObservableObject {
                 model.progressCount = 0
                 model.errorMessage = nil
             }
-            runNextTaskIfNeeded(container: container)
+            runNextTasksIfNeeded(container: container)
         }
     }
 
@@ -222,8 +222,12 @@ public final class DownloadManager: ObservableObject {
         try? context.save()
 
         self.tasks.append(newTask)
-        self.runNextTaskIfNeeded(container: container)
+        self.runNextTasksIfNeeded(container: container)
     }
+
+    private var activeWorkers: [UUID: BookDownloadWorker] = [:]
+    private var activeTasks: [UUID: Task<Void, Never>] = [:]
+    public var maxConcurrentTasks: Int = 2
 
     public func cancelTask(taskId: UUID) {
         cancelledTaskIds.insert(taskId)
@@ -235,6 +239,19 @@ public final class DownloadManager: ObservableObject {
                 model.statusRaw = TaskStatus.cancelled.rawValue
                 model.isCancelled = true
             }
+        }
+
+        if let handle = activeTasks.removeValue(forKey: taskId) {
+            handle.cancel()
+        }
+        if let worker = activeWorkers.removeValue(forKey: taskId) {
+            Task {
+                await worker.cancel()
+            }
+        }
+
+        if let container = self.container {
+            runNextTasksIfNeeded(container: container)
         }
     }
 
@@ -341,28 +358,62 @@ public final class DownloadManager: ObservableObject {
         }
     }
 
-    private func runNextTaskIfNeeded(container: ModelContainer) {
-        // Find the first pending task
-        guard let nextTaskIndex = tasks.firstIndex(where: { $0.status == .pending }) else {
-            return
-        }
+    private func runNextTasksIfNeeded(container: ModelContainer) {
+        let runningCount = tasks.filter { $0.status == .running }.count
+        let availableSlots = max(0, maxConcurrentTasks - runningCount)
+        guard availableSlots > 0 else { return }
 
-        // If there's already a task running, wait
-        guard !tasks.contains(where: { $0.status == .running }) else {
-            return
-        }
+        let pendingIndices = tasks.enumerated()
+            .filter { $0.element.status == .pending }
+            .prefix(availableSlots)
+            .map { $0.offset }
 
-        tasks[nextTaskIndex].status = .running
-        let taskToRun = tasks[nextTaskIndex]
+        for index in pendingIndices {
+            tasks[index].status = .running
+            let taskToRun = tasks[index]
+            let taskId = taskToRun.id
 
-        Task.detached(priority: .background) {
-            await self.executeTask(taskToRun, container: container)
+            let taskHandle = Task.detached(priority: .background) {
+                await self.executeTask(taskToRun, container: container)
+            }
+            self.activeTasks[taskId] = taskHandle
         }
     }
 
     private func executeTask(_ task: DownloadTask, container: ModelContainer) async {
         let bgContext = ModelContext(container)
         let taskId = task.id
+
+        // 2. Fetch Extension by filtering in memory
+        let allExts = (try? bgContext.fetch(FetchDescriptor<Extension>())) ?? []
+        let bgExt = allExts.first(where: { $0.packageId == task.extensionPackageId })
+
+        let worker: BookDownloadWorker?
+        if let bgExt = bgExt {
+            worker = BookDownloadWorker(
+                localPath: bgExt.localPath,
+                downloadUrl: bgExt.downloadUrl,
+                configJson: bgExt.configJson
+            )
+        } else {
+            worker = nil
+        }
+        await MainActor.run {
+            if let worker = worker {
+                self.activeWorkers[taskId] = worker
+            }
+        }
+
+        defer {
+            Task {
+                await worker?.cleanup()
+                await MainActor.run {
+                    self.activeWorkers.removeValue(forKey: taskId)
+                    self.activeTasks.removeValue(forKey: taskId)
+                    self.runNextTasksIfNeeded(container: container)
+                }
+            }
+        }
 
         do {
             // 1. Fetch Book by filtering in memory to avoid SwiftData #Predicate compiler bugs
@@ -376,10 +427,6 @@ public final class DownloadManager: ObservableObject {
                 bgBook.isOnShelf = true
                 try? bgContext.save()
             }
-
-            // 2. Fetch Extension by filtering in memory
-            let allExts = (try? bgContext.fetch(FetchDescriptor<Extension>())) ?? []
-            let bgExt = allExts.first(where: { $0.packageId == task.extensionPackageId })
 
             // 3. Prepare chapters to process via ChapterStore or SwiftData
             let sortedChapters: [StoredChapterSnapshot]
@@ -432,12 +479,11 @@ public final class DownloadManager: ObservableObject {
 
                 // Check if cancelled
                 let isCancelled = await MainActor.run {
-                    self.isTaskCancelled(taskId: taskId)
+                    Task.isCancelled || self.isTaskCancelled(taskId: taskId)
                 }
                 if isCancelled {
                     await MainActor.run {
                         self.markCancelled(taskId: taskId)
-                        self.runNextTaskIfNeeded(container: container)
                     }
                     return
                 }
@@ -464,7 +510,7 @@ public final class DownloadManager: ObservableObject {
                 } else {
                     uncachedAttemptCount += 1
                     do {
-                        guard let bgExt = bgExt else {
+                        guard let worker = worker else {
                             failedCount += 1
                             processedCount += 1
                             let currentProgress = processedCount
@@ -474,13 +520,10 @@ public final class DownloadManager: ObservableObject {
                             continue
                         }
 
-                        // Download from extension
-                        let content = try await ExtensionManager.shared.chap(
-                            localPath: bgExt.localPath,
-                            downloadUrl: bgExt.downloadUrl,
+                        // Download from extension via single sequential worker
+                        let content = try await worker.fetchChapterContent(
                             url: targetChapterUrl,
-                            host: chapter.host,
-                            configJson: bgExt.configJson
+                            host: chapter.host
                         )
                         let cleaned = content.cleanHTML()
 
@@ -505,6 +548,11 @@ public final class DownloadManager: ObservableObject {
                         } else {
                             failedCount += 1
                         }
+                    } catch is CancellationError {
+                        await MainActor.run {
+                            self.markCancelled(taskId: taskId)
+                        }
+                        return
                     } catch {
                         failedCount += 1
                     }
@@ -560,25 +608,25 @@ public final class DownloadManager: ObservableObject {
                     await MainActor.run {
                         self.markCompleted(taskId: taskId, exportFilePath: savedPath)
                         self.presentShareSheet(for: fileURL)
-                        self.runNextTaskIfNeeded(container: container)
                     }
                 } else {
                     await MainActor.run {
                         self.markCompleted(taskId: taskId)
-                        self.runNextTaskIfNeeded(container: container)
                     }
                 }
             case .failed(let message):
                 await MainActor.run {
                     self.markFailed(taskId: taskId, error: message)
-                    self.runNextTaskIfNeeded(container: container)
                 }
             }
 
+        } catch is CancellationError {
+            await MainActor.run {
+                self.markCancelled(taskId: taskId)
+            }
         } catch {
             await MainActor.run {
                 self.markFailed(taskId: taskId, error: error.localizedDescription)
-                self.runNextTaskIfNeeded(container: container)
             }
         }
     }

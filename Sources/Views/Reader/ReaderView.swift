@@ -877,14 +877,12 @@ struct ReaderView: View {
                   let nextIdx = userInfo["chapterIndex"] as? Int else { return }
 
             if bid == bookId && nextIdx != chapterIndex {
-                if chapterIndex == nextIdx - 1 {
-                    requestChapter(
-                        at: nextIdx,
-                        paragraphIndex: 0,
-                        source: .ttsSync,
-                        persistProgress: false
-                    )
-                }
+                requestChapter(
+                    at: nextIdx,
+                    paragraphIndex: 0,
+                    source: .ttsSync,
+                    persistProgress: false
+                )
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in

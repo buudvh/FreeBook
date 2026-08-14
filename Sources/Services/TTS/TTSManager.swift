@@ -1798,7 +1798,17 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     private func advanceToNextChapter(nextIdx: Int) {
-        guard let nextChapter = chaptersQueue.first(where: { $0.index == nextIdx }) else { return }
+        guard let nextChapter = chaptersQueue.first(where: { $0.index == nextIdx }) else {
+            if let followingIdx = nextChapterIndex(after: nextIdx) {
+                advanceToNextChapter(nextIdx: followingIdx)
+            } else {
+                stopCurrentPlayback()
+                pause()
+                TTSPresentationEventCenter.shared.send(.showToast(message: "📖 Đã phát hết nội dung bộ truyện.", type: .info))
+                onChapterFinished?()
+            }
+            return
+        }
         cancelChapterAdvanceTask()
         let expectedSessionID = sessionID
         self.ttsProcessingGeneration += 1
@@ -2033,10 +2043,18 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     )
                 }
                 guard self.sessionID == expectedSessionID,
-                      self.playingBookId == expectedBookId else { return }
+                      self.playingBookId == expectedBookId,
+                      self.isPlaying else { return }
                 AppLogger.shared.log("❌ [TTSManager] Không tải được chương \(nextChapter.index): \(error.localizedDescription)")
-                self.stop()
-                self.onChapterFinished?()
+                TTSPresentationEventCenter.shared.send(.showToast(message: "⚠️ Lỗi tải chương \(nextChapter.index), đang chuyển sang chương tiếp theo...", type: .warning))
+                if let followingIdx = self.nextChapterIndex(after: nextChapter.index) {
+                    self.advanceToNextChapter(nextIdx: followingIdx)
+                } else {
+                    self.stopCurrentPlayback()
+                    self.pause()
+                    TTSPresentationEventCenter.shared.send(.showToast(message: "📖 Đã phát hết nội dung bộ truyện.", type: .info))
+                    self.onChapterFinished?()
+                }
                 return
             }
 
@@ -2124,8 +2142,19 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                         chapterIndex: nextChapter.index
                     )
                 }
-                self.stop()
-                self.onChapterFinished?()
+                guard self.sessionID == expectedSessionID,
+                      self.playingBookId == expectedBookId,
+                      self.isPlaying else { return }
+                AppLogger.shared.log("❌ [TTSManager] Lỗi xử lý chương \(nextChapter.index): \(error.localizedDescription)")
+                TTSPresentationEventCenter.shared.send(.showToast(message: "⚠️ Lỗi xử lý chương \(nextChapter.index), đang chuyển sang chương tiếp theo...", type: .warning))
+                if let followingIdx = self.nextChapterIndex(after: nextChapter.index) {
+                    self.advanceToNextChapter(nextIdx: followingIdx)
+                } else {
+                    self.stopCurrentPlayback()
+                    self.pause()
+                    TTSPresentationEventCenter.shared.send(.showToast(message: "📖 Đã phát hết nội dung bộ truyện.", type: .info))
+                    self.onChapterFinished?()
+                }
                 return
             }
 
@@ -2181,13 +2210,28 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         chapter: TTSChapterInfo,
         firstAudioData: Data? = nil
     ) {
+        let playbackParas = playbackParagraphs(from: paragraphs)
+        guard !playbackParas.isEmpty else {
+            AppLogger.shared.log("⚠️ [TTSManager] Chương \(index) không có nội dung đọc, tự động chuyển sang chương tiếp theo.")
+            TTSPresentationEventCenter.shared.send(.showToast(message: "⚠️ Chương \(index) không có nội dung, đang chuyển tiếp...", type: .warning))
+            if let nextIdx = nextChapterIndex(after: index) {
+                advanceToNextChapter(nextIdx: nextIdx)
+            } else {
+                stopCurrentPlayback()
+                pause()
+                TTSPresentationEventCenter.shared.send(.showToast(message: "📖 Đã phát hết nội dung bộ truyện.", type: .info))
+                onChapterFinished?()
+            }
+            return
+        }
+
         checkpointProgress()
         self.playingChapterIndex = index
         self.playingChapterUrl = chapter.url
         self.chapterTitle = title
         self.normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent(content)
         self.chapterContent = content
-        self.paragraphs = playbackParagraphs(from: paragraphs)
+        self.paragraphs = playbackParas
         self.clearCurrentParagraphPrefetchCache()
 
         if let audioData = firstAudioData {
@@ -3411,7 +3455,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 )
             }
             AppLogger.shared.log("NghiTTS engine not initialized.")
-            stop()
+            pause()
+            TTSPresentationEventCenter.shared.send(.showToast(message: "⚠️ NghiTTS engine chưa được khởi tạo. Tạm dừng đọc.", type: .error))
             return
         }
 

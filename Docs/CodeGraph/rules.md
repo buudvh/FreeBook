@@ -205,7 +205,7 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
     *   `Translation/`: Dịch thuật tự động.
         *   `Manager/`: `TranslationManager.swift`.
         *   `Utils/`: `TranslateUtils.swift`, `DictionaryCache.swift`.
-    *   `Download/`: `DownloadManager.swift`.
+    *   `Download/`: `DownloadManager.swift`, `BookDownloadWorker.swift`, `DownloadTaskOutcomeCalculator.swift`.
     *   `Logging/`: `AppLogger.swift`.
 
 ### 4.2. JavaScript Core Runtime & VBook Extensions Integration
@@ -346,12 +346,13 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
     ```
 
 ### 5.7. Extension Rules
-*   **Tên**: Phân tách vòng đời JSExecutor bóc tách và Ext TTS
+*   **Tên**: Phân tách vòng đời JSExecutor bóc tách, Ext TTS và Tải truyện (Download)
 *   **Loại quy tắc**: **Normative Rule**
 *   **Mô tả**:
-    * Các tác vụ bóc tách nội dung (`search`, `detail`, `toc`, `chap`, `home`, `genre`) tiếp tục tạo `JSExecutor` ngắn hạn và giải phóng sau mỗi lần chạy.
-    * Ext TTS được phép dùng một `ExtTTSRuntime` actor giữ `JSExecutor` lâu dài cho extension/config đang hoạt động vì TTS gọi cùng script theo từng chunk. Runtime phải chạy tuần tự, nạp script đúng một lần, reset khi script/config đổi, khi thực thi lỗi hoặc khi session TTS dọn toàn bộ cache.
-*   **Lý do**: Bóc tách cần cô lập trạng thái giữa request; Ext TTS cần tránh tạo và bootstrap lại `JSContext` hàng chục đến hàng trăm lần trong một chương.
+    * Các tác vụ bóc tách nội dung ngắn hạn (`search`, `detail`, `toc`, `home`, `genre`) tiếp tục tạo `JSExecutor` ngắn hạn và giải phóng sau mỗi lần chạy.
+    * Ext TTS được phép dùng một `ExtTTSRuntime` actor giữ `JSExecutor` lâu dài cho extension/config đang hoạt động vì TTS gọi cùng script theo từng chunk.
+    * Tác vụ tải/xuất truyện của `DownloadManager` sử dụng duy nhất một `BookDownloadWorker` actor cho mỗi sách để giữ `JSExecutor` chạy tuần tự cho toàn bộ các chương của tác vụ đó, hỗ trợ ngắt hủy request tức thì và giải phóng khi hoàn tất.
+*   **Lý do**: Bóc tách đơn lẻ cần cô lập trạng thái; Ext TTS và Download cần tránh tạo và bootstrap lại `JSContext` hàng trăm lần liên tục cho cùng một sách.
 *   **Ví dụ đúng**:
     ```swift
     public func chap(url: String) async throws -> String {
@@ -360,7 +361,11 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
     }
 
     actor ExtTTSRuntime {
-        private var executor: JSExecutor? // Chỉ dùng tuần tự cho TTS hiện tại
+        private var executor: JSExecutor? // Dùng tuần tự cho TTS hiện tại
+    }
+
+    actor BookDownloadWorker {
+        private var executor: JSExecutor? // Dùng tuần tự cho tác vụ tải/xuất sách hiện tại
     }
     ```
 *   **Ví dụ sai**:

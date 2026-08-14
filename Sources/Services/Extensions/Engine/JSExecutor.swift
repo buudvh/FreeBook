@@ -1046,6 +1046,19 @@ public final class JSExecutor: @unchecked Sendable {
         for task in tasks {
             task.cancel()
         }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            for loader in self.activeBrowsers.values {
+                loader.cancelPendingWaitReady(reason: "cancelled", cancelled: true)
+                loader.webView.stopLoading()
+            }
+            self.activeBrowsers.removeAll()
+            for loader in self.activeVisibleBrowsers.values {
+                loader.cleanUp()
+            }
+            self.activeVisibleBrowsers.removeAll()
+        }
     }
 
     /// Evaluates an extension script once. Persistent TTS runtimes call this
