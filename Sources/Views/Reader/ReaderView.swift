@@ -573,6 +573,16 @@ struct ReaderView: View {
                 checkAndReleaseDeferredTranslationRefresh()
             }
         }
+        .onChange(of: showingDefinitionSheet) { _, newValue in
+            if !newValue {
+                checkAndReleaseDeferredTranslationRefresh()
+            }
+        }
+        .onChange(of: showingManageDefinitionsSheet) { _, newValue in
+            if !newValue {
+                checkAndReleaseDeferredTranslationRefresh()
+            }
+        }
         .onChange(of: showingJunkDeleteSheet) { _, newValue in
             if !newValue {
                 checkAndReleaseDeferredTranslationRefresh()
@@ -1257,6 +1267,8 @@ struct ReaderView: View {
                 await MainActor.run {
                     showingDefinitionSheet = false
                     applyTranslation()
+                    checkAndReleaseDeferredTranslationRefresh()
+                    scheduleCoalescedTranslationRefresh(scope: .term(word: word, isName: saveAsNameType, bookId: bid))
                 }
             } catch {
                 // AppLogger.shared.log("❌ Lỗi lưu định nghĩa từ: \(error.localizedDescription)")

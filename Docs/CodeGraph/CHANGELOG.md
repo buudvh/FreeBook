@@ -2,6 +2,14 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.158] - 2026-08-14
+
+### Khắc phục triệt để lỗi không cập nhật bản dịch mới cho các chương khác khi sửa từ điển VietPhrase/Name
+
+* **Giải phóng tác vụ hoãn làm mới bản dịch khi đóng panel tra từ (`ReaderView.swift`)**:
+  - `ReaderView.swift`: Thêm `.onChange(of: showingDefinitionSheet)` và `.onChange(of: showingManageDefinitionsSheet)` để tự động giải phóng tác vụ `checkAndReleaseDeferredTranslationRefresh()` khi đóng bảng tra từ.
+  - `ReaderView.swift`: Cập nhật `saveDefinition()` gọi `checkAndReleaseDeferredTranslationRefresh()` và `scheduleCoalescedTranslationRefresh(...)`, gán `translationToken = 0` cho các chương ngầm trong RAM cache để khi người dùng mở Chương 2, hệ thống tự động dịch lại và hiển thị từ mới.
+
 ## [1.3.155] - 2026-08-14
 
 ### Loại bỏ tự động gọi startTTS khi bấm nút Next/Prev trên Reader
