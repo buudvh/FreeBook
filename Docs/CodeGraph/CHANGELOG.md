@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.160] - 2026-08-14
+
+### Sửa lỗi đoạn cuối chương không được phát trong NghiTTS
+
+* **Fix `prepareNextNghiAudioIfPossible()` trong `TTSManager.swift`**:
+  - Xóa điều kiện sai `|| nghiAudioPlayerQueue.nextItem?.paragraphIndex == currentParagraphIndex` trong guard early-return. Điều kiện này được thêm vào commit `7e55c61` nhưng gây ra race condition: sau khi đoạn N-1 transition sang N, `nextItem` vẫn còn giữ index của đoạn N trong một window ngắn trước khi discard → điều kiện match → hàm return sớm → đoạn N+1 (đoạn cuối chương) không bao giờ được prepare → Underrun → AutoAdvance sớm sang chương kế tiếp mà không phát đoạn cuối.
+  - Sửa nhánh `clearPreparedNext()` khi `nextIndex >= paragraphs.count`: chỉ clear nếu `nextItem.paragraphIndex != currentParagraphIndex`, tránh hủy nhầm audio đoạn hiện tại đang là `currentItem` trong queue.
+
+## [1.3.159] - 2026-08-14
+
+### Sửa lag khi bấm Next/Prev chuyển đến/từ chương đang nghe TTS
+
+* **Ngăn TTS scroll cạnh tranh với Navigation scroll (`ReaderView.swift`, `ReaderView+LoadingView.swift`)**:
+  - `ReaderView.swift`: Thêm `guard !isRestoringReaderPosition else { return }` trong `.onChange(of: ttsState.snapshot.currentParentParagraphIndex)` để ngăn TTS auto-scroll ghi đè `scrollTarget` trong khi navigation đang restore vị trí chương mới.
+  - `ReaderView+LoadingView.swift`: Thêm `guard !isRestoringReaderPosition else { return }` đầu hàm `requestTTSScrollIfNeeded` để chặn toàn bộ TTS scroll trigger trong cửa sổ ~150ms sau `commitNavigation`. Sau khi `completeReaderPositionRestore` giải phóng cờ, TTS auto-scroll tiếp tục bình thường.
+
 ## [1.3.158] - 2026-08-14
 
 ### Sửa lỗi từ dịch cũ hiển thị khi chuyển chương ngay sau khi lưu từ điển

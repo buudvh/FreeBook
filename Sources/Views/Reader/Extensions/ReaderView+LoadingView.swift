@@ -15,6 +15,7 @@ extension ReaderView {
     }
 
     internal func requestTTSScrollIfNeeded(chapterIndex: Int, paragraphIndex: Int) {
+        guard !isRestoringReaderPosition else { return }
         let isInsideSafeViewport = paragraphTracker.isParagraphInsideSafeViewport(
             bookId: bookId,
             chapterIndex: chapterIndex,

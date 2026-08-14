@@ -917,7 +917,7 @@ struct ReaderView: View {
 
             let playingChapterIndex = ttsState.snapshot.playingChapterIndex
             guard !isAutoScrollDisabled else { return }
-
+            guard !isRestoringReaderPosition else { return }
             guard chapterIndex == playingChapterIndex else { return }
             requestTTSScrollIfNeeded(chapterIndex: playingChapterIndex, paragraphIndex: newValue)
         }

@@ -3100,12 +3100,19 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         let nextIndex = currentParagraphIndex + 1
         guard nextIndex >= 0, nextIndex < paragraphs.count else {
-            nghiAudioPlayerQueue.clearPreparedNext()
+            // Chỉ clear nextItem nếu nó không phải item của đoạn hiện tại đang phát.
+            // Tránh hủy nhầm audio đoạn cuối chương khi nó đang là currentItem trong queue.
+            if let nextItem = nghiAudioPlayerQueue.nextItem,
+               nextItem.paragraphIndex != currentParagraphIndex {
+                nghiAudioPlayerQueue.clearPreparedNext()
+            }
             return
         }
 
-        if nghiAudioPlayerQueue.nextItem?.paragraphIndex == nextIndex ||
-           nghiAudioPlayerQueue.nextItem?.paragraphIndex == currentParagraphIndex {
+        // Chỉ skip nếu nextItem đúng là đoạn tiếp theo cần prepare.
+        // Không dùng || currentParagraphIndex vì nextItem có thể vẫn giữ index của
+        // đoạn vừa được transition (chưa discard), khiến đoạn cuối chương không bao giờ được prepare.
+        if nghiAudioPlayerQueue.nextItem?.paragraphIndex == nextIndex {
             return
         }
 
