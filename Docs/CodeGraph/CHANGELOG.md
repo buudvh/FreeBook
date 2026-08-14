@@ -1,6 +1,16 @@
 # CHANGELOG - Nhật ký Thay đổi CodeGraph FreeBook
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
+
+## [1.3.151] - 2026-08-14
+
+### Sửa lỗi biên dịch optional unwrapping trong ReaderView và dọn dẹp cảnh báo TTS
+
+* **Sửa lỗi biên dịch Swift (`ReaderView.swift`)**:
+  - `ReaderView.swift`: Thêm optional chaining `?` vào `self.chapterListStore?.updateChapters(totalCount: result.totalCount, onlineChapters: [])` trong `onLocalTOCRefreshed`, khắc phục lỗi biên dịch `value of optional type 'ReaderChapterListStore?' must be unwrapped`.
+* **Dọn dẹp cảnh báo biến chưa sử dụng (`TTSManager+Playback.swift`)**:
+  - `TTSManager+Playback.swift`: Loại bỏ hằng số `let expectedBookID = playingBookId` không sử dụng ở cả hai phương thức `playGoogleTTS` và `playExtTTS`.
+
 ## [1.3.150] - 2026-08-14
 
 ### Khắc phục chuẩn hóa Thỏa thuận TTS, Phạm vi Dịch thuật, Remap TOC & Hiệu năng Reader

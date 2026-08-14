@@ -1172,7 +1172,7 @@ struct ReaderView: View {
                     onLocalTOCRefreshed: { result in
                         Task { @MainActor in
                             self.localChaptersCount = result.totalCount
-                            self.chapterListStore.updateChapters(totalCount: result.totalCount, onlineChapters: [])
+                            self.chapterListStore?.updateChapters(totalCount: result.totalCount, onlineChapters: [])
                             self.viewModel?.applyLocalTOCReconciliation(result)
                             self.ttsManager.applyTOCReconciliation(result)
                             if ttsState.snapshot.playingBookId == bookId {

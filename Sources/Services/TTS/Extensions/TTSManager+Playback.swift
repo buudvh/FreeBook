@@ -9,7 +9,6 @@ extension TTSManager {
         self.currentPlaybackId = playbackId
         let expectedSessionID = sessionID
         let expectedChapterIndex = playingChapterIndex
-        let expectedBookID = playingBookId
         let expectedChapterURL = playingChapterUrl
         let service = googleService
         let synthesisKey = TTSSynthesisIdentity.computeKey(
@@ -108,7 +107,6 @@ extension TTSManager {
         self.currentPlaybackId = playbackId
         let expectedSessionID = sessionID
         let expectedChapterIndex = playingChapterIndex
-        let expectedBookID = playingBookId
         let expectedChapterURL = playingChapterUrl
         let engineName = tool
         let service = extService
