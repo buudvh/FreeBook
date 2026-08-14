@@ -165,9 +165,6 @@ extension ReaderViewModel {
         for (idx, cached) in cache.cache {
             if idx != currentIndex {
                 cached.translationToken = 0
-                cached.title = ""
-                cached.content = ""
-                cached.paragraphItems = []
             }
         }
 

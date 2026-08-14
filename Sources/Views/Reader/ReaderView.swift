@@ -109,6 +109,7 @@ struct ReaderView: View {
     let bookSourceName: String?
     var initialParagraphIndex: Int? = nil
 
+    @State private var cachedDisplayedBookTitle: String = ""
     @State internal var showChapterTitle = true // Ẩn/Hiện tiêu đề chương trên đầu màn hình đọc
 
 
@@ -255,15 +256,15 @@ struct ReaderView: View {
     internal func getChapterTitle(at index: Int) -> String {
         guard index >= 0 && index < totalChaptersCount else { return "Chương \(index + 1)" }
 
+        if let cached = viewModel?.cache.cache[index], !cached.title.isEmpty {
+            return cached.title
+        }
+
         let title: String
         if index == (viewModel?.displayedChapterIndex ?? chapterIndex) {
             title = currentChapterTitle
         } else if localBook != nil {
-            if let cached = viewModel?.cache.cache[index], !cached.title.isEmpty {
-                title = cached.title
-            } else {
-                title = "Chương \(index + 1)"
-            }
+            title = "Chương \(index + 1)"
         } else {
             if index < currentOnlineChapters.count {
                 title = currentOnlineChapters[index].name
@@ -278,11 +279,27 @@ struct ReaderView: View {
     }
 
     internal var displayedBookTitle: String {
+        if !cachedDisplayedBookTitle.isEmpty {
+            return cachedDisplayedBookTitle
+        }
         let rawTitle = bookTitle ?? localBook?.title ?? localBookSnapshot?.title ?? ""
         guard !rawTitle.isEmpty else { return "" }
         return isTranslationEnabled && TranslateUtils.containsChinese(rawTitle)
             ? TranslateUtils.translateChapterTitle(rawTitle, bookId: bookId)
             : rawTitle
+    }
+
+    private func updateDisplayedBookTitleCache() {
+        let rawTitle = bookTitle ?? localBook?.title ?? localBookSnapshot?.title ?? ""
+        guard !rawTitle.isEmpty else {
+            cachedDisplayedBookTitle = ""
+            return
+        }
+        if isTranslationEnabled && TranslateUtils.containsChinese(rawTitle) {
+            cachedDisplayedBookTitle = TranslateUtils.translateChapterTitle(rawTitle, bookId: bookId)
+        } else {
+            cachedDisplayedBookTitle = rawTitle
+        }
     }
 
 
@@ -815,6 +832,10 @@ struct ReaderView: View {
         .onAppear {
             ttsState.scope(to: bookId)
             ReaderEnergyDiagnostics.shared.beginReaderSession()
+            updateDisplayedBookTitleCache()
+        }
+        .onChange(of: isTranslationEnabled) { _, _ in
+            updateDisplayedBookTitleCache()
         }
         .onDisappear {
             ReaderEnergyDiagnostics.shared.flush(reason: "reader_disappear")
@@ -1554,17 +1575,17 @@ struct ReaderView: View {
         let size = fontSize
         let spacing = lineSpacing
         let theme = selectedTheme
+        let isNavigatingNewChapter = (viewModel?.pendingNavigationIndex != nil)
 
         ForEach(chapter.paragraphItems) { item in
             let relativeHighlightRange: NSRange? = {
-                guard ttsState.snapshot.isPlaying,
+                guard !isNavigatingNewChapter,
+                      ttsState.snapshot.isPlaying,
                       ttsState.snapshot.playingBookId == bookId,
                       ttsState.snapshot.playingChapterIndex == chapter.index,
                       item.id == ttsState.snapshot.currentParentParagraphIndex,
                       let chunkRange = ttsState.snapshot.highlightRange else { return nil }
 
-                // AppLogger.shared.logTTSVerbose("🔊 [ReaderView] Applied relativeHighlightRange for ItemID=\(item.id): chunkRange=\(chunkRange)")
-                // Giữ nguyên hệ tọa độ text gốc; ParagraphCardView ánh xạ sang text đang hiển thị.
                 return chunkRange
             }()
 
@@ -1987,9 +2008,16 @@ struct ReaderView: View {
     }
 
     private func updateReaderViewport(_ frame: CGRect) {
-        readerViewportHeight = max(frame.height, 360)
-        readerViewportMinY = frame.minY
-        readerViewportMaxY = frame.maxY
+        let newHeight = max(frame.height, 360)
+        let newMinY = frame.minY
+        let newMaxY = frame.maxY
+        if abs(newHeight - readerViewportHeight) > 2.0 ||
+           abs(newMinY - readerViewportMinY) > 5.0 ||
+           abs(newMaxY - readerViewportMaxY) > 5.0 {
+            readerViewportHeight = newHeight
+            readerViewportMinY = newMinY
+            readerViewportMaxY = newMaxY
+        }
     }
 
     private func singleChapterScrollView(

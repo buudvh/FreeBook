@@ -2,6 +2,30 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.155] - 2026-08-14
+
+### Loại bỏ tự động gọi startTTS khi bấm nút Next/Prev trên Reader
+
+* **Hoàn trả logic nút Next/Prev (`ReaderView.swift`)**:
+  - `ReaderView.swift`: Loại bỏ việc tự động gọi `startTTS(at: targetIndex, paragraphIndex: 0)` trong `nextChapter()` và `prevChapter()`, giữ nguyên luồng chuyển chương gốc theo yêu cầu của người dùng.
+
+## [1.3.154] - 2026-08-14
+
+### Khắc phục lỗi trang trắng hiển thị rỗng khi cập nhật VietPhrase và chuyển chương
+
+* **Khắc phục lỗi trang rỗng khi mở chương cũ sau khi đổi từ điển (`ReaderViewModel+Translation.swift`)**:
+  - `ReaderViewModel+Translation.swift`: Trong `updateCachedTranslatedContent()`, chỉ gán `cached.translationToken = 0` để đánh dấu bản dịch lỗi thời. Không xóa đệm `cached.title`, `cached.content`, `cached.paragraphItems` để đảm bảo giao diện không bị hiện trang trắng rỗng (`[]`) trong khi `processAndSaveChapter()` đang biên dịch lại bản dịch mới theo từ điển VietPhrase vừa cập nhật.
+
+## [1.3.153] - 2026-08-14
+
+### Tối ưu triệt để hiệu năng hiển thị màn hình Reader khi nghe TTS và chuyển chương
+
+* **Tối ưu hiển thị mượt 60/120 FPS trong `ReaderView` (`ReaderView.swift`)**:
+  - `ReaderView.swift`: Đọc tiêu đề chương đã dịch từ `cached.title` trong RAM và đệm `cachedDisplayedBookTitle` trong `@State`, triệt tiêu toàn bộ việc tra từ điển tiêu đề đồng bộ trên UI Thread.
+  - `ReaderView.swift`: Tạm ngưng áp dụng highlight TTS khi `pendingNavigationIndex != nil` (đang chuyển sang chương mới), giúp 100-300 View đoạn văn mới dựng ngầm và hiển thị tức thì mà không bị tín hiệu TTS chèn ngang gây đơ màn hình.
+  - `ReaderView.swift`: Bổ sung kiểm tra ngưỡng hysteresis $5\text{pt}$ cho `updateReaderViewport(_ frame: CGRect)`, triệt tiêu vòng lặp re-render liên tục trên từng pixel khi cuộn nạp chương mới.
+  - `ReaderView.swift`: Đồng bộ `startTTS(at: targetIndex, paragraphIndex: 0)` khi bấm nút `nextChapter()` / `prevChapter()` trên Reader trong lúc đang nghe TTS, giải phóng tiến trình đọc chương cũ và phát ngay chương mới.
+
 ## [1.3.152] - 2026-08-14
 
 ### Khắc phục lỗi NghiTTS tua đoạn và dọn dẹp cache bản dịch VietPhrase cũ
