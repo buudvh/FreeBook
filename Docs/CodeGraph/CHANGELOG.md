@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.152] - 2026-08-14
+
+### Khắc phục lỗi NghiTTS tua đoạn và dọn dẹp cache bản dịch VietPhrase cũ
+
+* **Khắc phục lỗi NghiTTS ngắt âm tua phân đoạn (`NghiAudioPlayerQueue.swift`, `TTSManager.swift`)**:
+  - `NghiAudioPlayerQueue.swift`: Bổ sung kiểm tra `nextIsScheduled` và `nextPlayer.isPlaying` trong `prepareNext()` và `discardNext(force:)`, ngăn chặn việc `discardNext()` ngắt tiếng và dừng `nextPlayer` khi âm thanh của phân đoạn $N+1$ vừa mới bắt đầu phát.
+  - `TTSManager.swift`: Cập nhật `prepareNextNghiAudioIfPossible()` dừng nạp đè `nextItem` mới khi `nghiAudioPlayerQueue.nextItem` trùng với `currentParagraphIndex` (vừa được commit handoff ở $t - 5\text{ms}$) hoặc `currentParagraphIndex + 1`.
+* **Cập nhật logic dọn dẹp cache bản dịch khi đổi từ điển (`ReaderViewModel+Translation.swift`)**:
+  - `ReaderViewModel+Translation.swift`: Trong `updateCachedTranslatedContent()`, đặt `cached.translationToken = 0` và reset dữ liệu bản dịch đối với tất cả các chương ngoài chương đang hiển thị (`idx != displayedChapterIndex`), buộc ứng dụng tự động dịch lại theo từ điển VietPhrase mới khi người dùng mở hoặc cuộn tới các chương đó.
+
 ## [1.3.151] - 2026-08-14
 
 ### Sửa lỗi biên dịch optional unwrapping trong ReaderView và dọn dẹp cảnh báo TTS

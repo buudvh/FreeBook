@@ -138,6 +138,10 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
             return
         }
 
+        if nextIsScheduled || nextPlayer?.isPlaying == true {
+            return
+        }
+
         discardNext()
 
         let player = try makePlayer(data: data)
@@ -201,11 +205,11 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         currentPlayer = nil
         currentItem = nil
         state = .idle
-        discardNext()
+        discardNext(force: true)
     }
 
     func clearPreparedNext() {
-        discardNext()
+        discardNext(force: true)
     }
 
     private func makePlayer(data: Data) throws -> AVAudioPlayer {
@@ -257,7 +261,10 @@ final class NghiAudioPlayerQueue: NSObject, AVAudioPlayerDelegate {
         }
     }
 
-    private func discardNext() {
+    private func discardNext(force: Bool = false) {
+        if !force && (nextIsScheduled || nextPlayer?.isPlaying == true) {
+            return
+        }
         nextPlayer?.stop()
         nextPlayer?.delegate = nil
         nextPlayer = nil

@@ -3104,7 +3104,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             return
         }
 
-        if nghiAudioPlayerQueue.nextItem?.paragraphIndex == nextIndex {
+        if nghiAudioPlayerQueue.nextItem?.paragraphIndex == nextIndex ||
+           nghiAudioPlayerQueue.nextItem?.paragraphIndex == currentParagraphIndex {
             return
         }
 

@@ -160,6 +160,17 @@ extension ReaderViewModel {
 
     func updateCachedTranslatedContent(bookId: String, scope: DictionaryInvalidationScope = .globalReload) {
         guard bookId == self.bookId else { return }
+
+        let currentIndex = displayedChapterIndex
+        for (idx, cached) in cache.cache {
+            if idx != currentIndex {
+                cached.translationToken = 0
+                cached.title = ""
+                cached.content = ""
+                cached.paragraphItems = []
+            }
+        }
+
         refreshParagraphItems()
     }
 
