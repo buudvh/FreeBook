@@ -123,15 +123,26 @@ extension ReaderViewModel {
                    self.isTranslationEnabled == isTranslationEnabled,
                    TranslateUtils.translationGenerationToken(for: bookId) == currentToken {
                     let cached = cache.cache[index] ?? cache.setPlaceholder(index)
-                    cached.originalTitle = originalTitle
-                    cached.originalContent = normContent
-                    cached.title = result.translatedTitle
-                    cached.content = result.translatedContent
-                    cached.paragraphItems = result.paragraphItems
+
+                    let isDisplayEqual = cached.originalTitle == originalTitle &&
+                        cached.originalContent == normContent &&
+                        cached.title == result.translatedTitle &&
+                        cached.content == result.translatedContent &&
+                        cached.paragraphItems == result.paragraphItems &&
+                        cached.isTranslationEnabled == isTranslationEnabled &&
+                        cached.state == .loaded
+
+                    if !isDisplayEqual {
+                        cached.originalTitle = originalTitle
+                        cached.originalContent = normContent
+                        cached.title = result.translatedTitle
+                        cached.content = result.translatedContent
+                        cached.paragraphItems = result.paragraphItems
+                        cached.isTranslationEnabled = isTranslationEnabled
+                        cached.state = .loaded
+                    }
                     cached.revision = targetRevision
-                    cached.isTranslationEnabled = isTranslationEnabled
                     cached.translationToken = currentToken
-                    cached.state = .loaded
                     return
                 } else {
                     targetRevision = self.currentRevision
@@ -147,7 +158,7 @@ extension ReaderViewModel {
         self.isTranslationEnabled = enabled
     }
 
-    func updateCachedTranslatedContent(bookId: String) {
+    func updateCachedTranslatedContent(bookId: String, scope: DictionaryInvalidationScope = .globalReload) {
         guard bookId == self.bookId else { return }
         refreshParagraphItems()
     }
@@ -158,78 +169,29 @@ extension ReaderViewModel {
         let taskRevision = currentRevision
 
         let currentIndex = displayedChapterIndex
-        let allSnapshots = cache.cache.values
-            .filter { $0.state == .loaded || !$0.originalContent.isEmpty }
-            .map { ($0.index, $0.originalTitle, $0.originalContent) }
+        guard let cached = cache.cache[currentIndex], !cached.originalContent.isEmpty else { return }
 
-        guard !allSnapshots.isEmpty else { return }
-
-        let currentSnapshot = allSnapshots.first(where: { $0.0 == currentIndex })
-        let neighborSnapshots = allSnapshots
-            .filter { $0.0 != currentIndex }
-            .sorted { abs($0.0 - currentIndex) < abs($1.0 - currentIndex) }
+        let originalTitle = cached.originalTitle
+        let originalContent = cached.originalContent
 
         let isPerfLogging = AppLogger.shared.isLoggingEnabled
         let startUptime = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
-        let cachedCount = allSnapshots.count
-        let neighborCount = neighborSnapshots.count
 
         translationRefreshTask = Task { [weak self] in
             guard let self else { return }
 
-            let currentStart = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
-            if let current = currentSnapshot {
-                await self.processAndSaveChapter(
-                    index: current.0,
-                    originalTitle: current.1,
-                    originalContent: current.2,
-                    revision: taskRevision
-                )
-            }
-            let currentEnd = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
-
-            if Task.isCancelled || self.currentRevision != taskRevision {
-                if isPerfLogging {
-                    let endUptime = ProcessInfo.processInfo.systemUptime
-                    let currentMs = (currentEnd - currentStart) * 1000
-                    let totalMs = (endUptime - startUptime) * 1000
-                    let outcome = Task.isCancelled ? "cancelled" : "superseded"
-                    let logLine = String(format: "[ReaderPerf] TranslationRefresh cachedCount=%d neighborCount=%d currentMs=%.2f neighborsMs=0.00 totalMs=%.2f outcome=%@", cachedCount, neighborCount, currentMs, totalMs, outcome)
-                    AppLogger.shared.log(logLine)
-                }
-                return
-            }
-
-            let neighborStart = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
-            for neighbor in neighborSnapshots {
-                if Task.isCancelled || self.currentRevision != taskRevision {
-                    break
-                }
-                await self.processAndSaveChapter(
-                    index: neighbor.0,
-                    originalTitle: neighbor.1,
-                    originalContent: neighbor.2,
-                    revision: taskRevision
-                )
-                await Task.yield()
-            }
-            let neighborEnd = isPerfLogging ? ProcessInfo.processInfo.systemUptime : 0
+            await self.processAndSaveChapter(
+                index: currentIndex,
+                originalTitle: originalTitle,
+                originalContent: originalContent,
+                revision: taskRevision
+            )
 
             if isPerfLogging {
                 let endUptime = ProcessInfo.processInfo.systemUptime
-                let currentMs = (currentEnd - currentStart) * 1000
-                let neighborsMs = (neighborEnd - neighborStart) * 1000
                 let totalMs = (endUptime - startUptime) * 1000
-                let outcome: String
-                if Task.isCancelled {
-                    outcome = "cancelled"
-                } else if self.currentRevision != taskRevision {
-                    outcome = "superseded"
-                } else {
-                    outcome = "completed"
-                }
-                let logLine = String(format: "[ReaderPerf] TranslationRefresh cachedCount=%d neighborCount=%d currentMs=%.2f neighborsMs=%.2f totalMs=%.2f outcome=%@", cachedCount, neighborCount, currentMs, neighborsMs, totalMs, outcome)
-                AppLogger.shared.log(logLine)
+                let outcome = Task.isCancelled ? "cancelled" : (self.currentRevision != taskRevision ? "superseded" : "completed")
+                AppLogger.shared.log(String(format: "[ReaderPerf] TranslationRefresh index=%d totalMs=%.2f outcome=%@", currentIndex, totalMs, outcome))
             }
         }
     }

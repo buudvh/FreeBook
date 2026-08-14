@@ -1,6 +1,27 @@
 # CHANGELOG - Nhật ký Thay đổi CodeGraph FreeBook
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
+## [1.3.150] - 2026-08-14
+
+### Khắc phục chuẩn hóa Thỏa thuận TTS, Phạm vi Dịch thuật, Remap TOC & Hiệu năng Reader
+
+* **Khắc phục Thỏa thuận `TTSPlaybackContext` & Vô hiệu hóa Context Cũ (`TTSModels.swift`, `TTSManager.swift`, `TTSManager+Playback.swift`, `SiriTTSService.swift`)**:
+  - Chuẩn hóa chữ ký `commitAudibleParagraphState(index:playbackId:context:)` nhất quán trên toàn bộ codebase.
+  - Siri TTS và hardware player khởi tạo `TTSPlaybackContext` đầy đủ và xác thực context trước khi commit highlight.
+  - Hủy/vô hiệu hóa context từ xa khi thực hiện stop, skip, previous, hoặc restart qua `invalidateAudibleHandoffGeneration()` trong `stopCurrentPlayback()`.
+* **Kiểm tra Trình phát Thực tế cho Lập lịch NghiTTS (`NghiAudioPlayerQueue.swift`, `TTSManager.swift`)**:
+  - `ScheduledStatus` phân biệt rõ `isCurrentItem` và `isNextItem`.
+  - Đối với item $N+1$ được lập lịch, timer đếm lùi kiểm tra `status.isNextPlaying` (thực tế `nextPlayer.isPlaying == true`) mới phát hành commit highlight; ngủ ngắn 5ms bounded recheck nếu chạm mốc thời gian clock nhưng player chưa phát, tránh publish highlight sớm trước khi phát âm thanh.
+* **Đơn vị Lắng nghe Scope Từ điển & Tái cấu trúc Dịch Chương Hiện tại (`ReaderView.swift`, `ReaderViewModel.swift`, `ReaderViewModel+Translation.swift`)**:
+  - Giữ duy nhất một handler `.onReceive` cho `.translationDictionariesDidUpdate` trong `ReaderView.swift`, giải mã `DictionaryInvalidationScope` và gộp vào `pendingTranslationScope` trong cửa sổ debounce 150ms.
+  - Khi thay đổi từ điển/cấu hình, chỉ làm mới và tái cấu trúc chương hiện đang hiển thị (`displayedChapterIndex`), không lặp hay dịch các chương lân cận/preload, giảm tải CPU/nhiệt độ thiết bị.
+  - Kiểm tra tính bằng nhau trước khi ghi (`isDisplayEqual`): tránh gán lại các trường hiển thị `@Published` khi nội dung dịch không thay đổi.
+  - `ReaderViewModel.runNavigationWorker` thực hiện đọc lại cache trước khi `commitNavigation`, đảm bảo cache có `state == .loaded`, `translationToken` mới nhất và `isTranslationEnabled` khớp cấu hình hiện tại trước khi hiển thị.
+* **Bảo vệ & Remap TOC cho phiên TTS Đang phát và Tạm dừng (`ChapterPersistenceStore.swift`, `ReaderChapterListView+Refresh.swift`, `ReaderViewModel.swift`, `ReaderChapterListPageFetcher.swift`)**:
+  - Cơ chế bảo vệ và remap TOC (`ttsIsActive`) duy trì bảo vệ và ánh xạ lại chỉ số chương cho cả phiên TTS đang phát (`isPlaying == true`) lẫn phiên TTS đang tạm dừng được giữ lại (`playingBookId == book.bookId && playingChapterIndex >= 0 && (isPlaying || showFloatingWidget || !playingChapterUrl.isEmpty)`).
+  - Khi TOC thay đổi (`!isTOCUnchanged`), gọi `cache.clearAll()` và tự động nạp lại chương qua `requestChapter`.
+  - Khắc phục phân trang danh sách chương Reader giảm dần trong `ReaderChapterListPageFetcher.swift`: ánh xạ vị trí hiển thị sang chỉ số logic chính xác, bao gồm cả trang cuối không đầy đủ.
+  - *Ghi chú kiểm thử môi trường*: Đã chạy các bước xác minh tĩnh (ripgrep check), kiểm tra cú pháp định dạng (`git diff --check`) và CodeGraph link/hash validator đạt 100% trên hệ điều hành Windows. Dự án không thực hiện chạy Xcode build/unit test trên iOS Simulator do giới hạn môi trường Windows (yêu cầu macOS).
 
 ## [1.3.149] - 2026-08-14
 

@@ -520,16 +520,20 @@ class ReaderViewModel: ObservableObject {
         }
     }
 
+    private var activeWorkerIdentity: UInt64 = 0
+
     private func startNavigationWorkerIfNeeded() {
         guard navigationWorkerTask == nil else { return }
+        activeWorkerIdentity &+= 1
+        let myWorkerIdentity = activeWorkerIdentity
         navigationWorkerTask = Task { [weak self] in
             guard let self else { return }
             await Task.yield()
-            await self.runNavigationWorker()
+            await self.runNavigationWorker(workerIdentity: myWorkerIdentity)
         }
     }
 
-    private func runNavigationWorker() async {
+    private func runNavigationWorker(workerIdentity: UInt64) async {
         while let request = queuedNavigation {
             queuedNavigation = nil
             do {
@@ -538,7 +542,7 @@ class ReaderViewModel: ObservableObject {
                     request.chapterIndex,
                     forceRefresh: request.forceRefresh
                 )
-                guard request.generation == navigationGeneration else { continue }
+                guard !Task.isCancelled, workerIdentity == activeWorkerIdentity, request.generation == navigationGeneration else { return }
                 let cached = cache.cache[request.chapterIndex] ?? cache.setPlaceholder(request.chapterIndex)
                 if cached.state != .loaded && !cached.originalContent.isEmpty {
                     cached.state = .loaded
@@ -548,20 +552,41 @@ class ReaderViewModel: ObservableObject {
                     failNavigation(request, message: message)
                     continue
                 }
+
+                let currentToken = TranslateUtils.translationGenerationToken(for: bookId)
+                if cached.translationToken != currentToken || cached.isTranslationEnabled != isTranslationEnabled {
+                    await processAndSaveChapter(
+                        index: request.chapterIndex,
+                        originalTitle: cached.originalTitle,
+                        originalContent: cached.originalContent,
+                        revision: currentRevision
+                    )
+                    guard !Task.isCancelled, workerIdentity == activeWorkerIdentity, request.generation == navigationGeneration else { return }
+                }
+
+                guard let updatedCached = cache.cache[request.chapterIndex],
+                      updatedCached.state == .loaded,
+                      updatedCached.translationToken == TranslateUtils.translationGenerationToken(for: bookId),
+                      updatedCached.isTranslationEnabled == isTranslationEnabled else {
+                    guard !Task.isCancelled, workerIdentity == activeWorkerIdentity, request.generation == navigationGeneration else { return }
+                    failNavigation(request, message: "Không thể làm mới bản dịch cho chương")
+                    continue
+                }
+
                 commitNavigation(request, origin: origin)
             } catch is CancellationError {
-                // Task bị hủy từ bên ngoài (requestChapter mới cancel worker cũ)
-                // Không fail navigation — worker thoát sạch, worker mới sẽ xử lý
-                continue
+                return
             } catch {
-                guard request.generation == navigationGeneration else { continue }
+                guard !Task.isCancelled, workerIdentity == activeWorkerIdentity, request.generation == navigationGeneration else { return }
                 failNavigation(request, message: error.localizedDescription)
             }
         }
 
-        navigationWorkerTask = nil
-        if queuedNavigation != nil {
-            startNavigationWorkerIfNeeded()
+        if activeWorkerIdentity == workerIdentity {
+            navigationWorkerTask = nil
+            if queuedNavigation != nil {
+                startNavigationWorkerIfNeeded()
+            }
         }
     }
 
@@ -822,6 +847,24 @@ class ReaderViewModel: ObservableObject {
     }
 
 
+
+    public func applyLocalTOCReconciliation(_ result: LocalTOCRefreshResult) {
+        self.totalChaptersCount = result.totalCount
+        guard !result.isTOCUnchanged else { return }
+        self.cache.clearAll()
+
+        if result.totalCount == 0 {
+            self.loadState = .failed(chapterIndex: -1, message: "Bộ truyện không có chương nào")
+            return
+        }
+
+        self.requestChapter(
+            index: result.readerNewIndex,
+            paragraphIndex: 0,
+            source: .chapterList,
+            persistProgress: true
+        )
+    }
 
     deinit {
         memoryWarningSubscription?.cancel()

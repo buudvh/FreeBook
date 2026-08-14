@@ -47,17 +47,8 @@ extension ReaderChapterListView {
                 }
 
                 if let book = localBook {
-                    let existingURLs: Set<String>
-                    if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
-                        let storeChaps = (try? await ChapterStore.shared.fetchOrderedTOC(bookId: book.bookId)) ?? []
-                        existingURLs = Set(storeChaps.map(\.url))
-                    } else {
-                        existingURLs = Set(book.chapters.map(\.url))
-                    }
-
-                    let additionSnapshots = allChapters.enumerated().compactMap { index, item -> ChapterMetadataSnapshot? in
-                        guard !existingURLs.contains(item.url) else { return nil }
-                        return ChapterMetadataSnapshot(
+                    let fullTOCSnapshots = allChapters.enumerated().map { index, item in
+                        ChapterMetadataSnapshot(
                             title: item.name,
                             url: item.url,
                             index: index,
@@ -65,29 +56,86 @@ extension ReaderChapterListView {
                         )
                     }
 
-                    if additionSnapshots.isEmpty {
-                        let totalCount = (try? await ChapterStore.shared.fetchCountAndChecksum(bookId: book.bookId))?.count ?? existingURLs.count
-                        store.updateChapters(totalCount: totalCount, onlineChapters: [])
-                        ToastManager.shared.show(message: "Mục lục đã mới nhất", type: .success)
-                        onLocalTOCRefreshed?(totalCount)
-                    } else {
-                        let saveResult = try await ChapterContentRepository.shared.saveChapterList(
-                            bookId: book.bookId,
-                            createSnapshot: nil,
-                            chapters: additionSnapshots,
-                            mode: .upsertPage
-                        )
-                        let totalCount = saveResult.totalChapters
-                        store.updateChapters(totalCount: totalCount, onlineChapters: [])
-                        ToastManager.shared.show(message: "Đã thêm \(additionSnapshots.count) chương mới", type: .success)
-                        onLocalTOCRefreshed?(totalCount)
+                    let currentCountAndChecksum = try? await ChapterStore.shared.fetchCountAndChecksum(bookId: book.bookId)
+                    let newCount = fullTOCSnapshots.count
+                    let currentCount = currentCountAndChecksum?.count ?? 0
+
+                    let readerOldIndex = currentChapterIndex
+                    let currentStoreChaps = try? await ChapterStore.shared.fetchOrderedTOC(bookId: book.bookId)
+                    let readerOldUrl = (currentStoreChaps != nil && readerOldIndex >= 0 && readerOldIndex < currentStoreChaps!.count)
+                        ? currentStoreChaps![readerOldIndex].url
+                        : ""
+
+                    let ttsIsActive = TTSManager.shared.playingBookId == book.bookId && TTSManager.shared.playingChapterIndex >= 0 && (TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget || !TTSManager.shared.playingChapterUrl.isEmpty)
+                    let ttsOldIndex = ttsIsActive ? TTSManager.shared.playingChapterIndex : nil
+                    let ttsOldUrl = ttsIsActive ? TTSManager.shared.playingChapterUrl : ""
+
+                    if newCount == currentCount, let currentStoreChaps {
+                        let currentIdentities = currentStoreChaps.map { "\($0.url.trimmingCharacters(in: .whitespacesAndNewlines))|\($0.title.trimmingCharacters(in: .whitespacesAndNewlines))|\(($0.host ?? "").trimmingCharacters(in: .whitespacesAndNewlines))" }
+                        let newIdentities = fullTOCSnapshots.map { "\($0.url.trimmingCharacters(in: .whitespacesAndNewlines))|\($0.title.trimmingCharacters(in: .whitespacesAndNewlines))|\(($0.host ?? "").trimmingCharacters(in: .whitespacesAndNewlines))" }
+                        if currentIdentities == newIdentities {
+                            store.updateChapters(totalCount: currentCount, onlineChapters: [])
+                            ToastManager.shared.show(message: "Mục lục đã mới nhất", type: .success)
+                            let result = LocalTOCRefreshResult(
+                                totalCount: currentCount,
+                                readerOldIndex: readerOldIndex,
+                                readerNewIndex: readerOldIndex,
+                                ttsOldIndex: ttsOldIndex,
+                                ttsNewIndex: ttsOldIndex,
+                                isTOCUnchanged: true
+                            )
+                            onLocalTOCRefreshed?(result)
+                            isUpdating = false
+                            return
+                        }
                     }
+
+                    let protectedTTS: ProtectedTTSChapter? = ttsIsActive ? ProtectedTTSChapter(bookId: book.bookId, index: ttsOldIndex!, url: ttsOldUrl) : nil
+
+                    let saveResult = try await ChapterContentRepository.shared.saveChapterList(
+                        bookId: book.bookId,
+                        createSnapshot: nil,
+                        chapters: fullTOCSnapshots,
+                        mode: .replaceFullTOC,
+                        protectedTTSChapter: protectedTTS
+                    )
+                    let totalCount = saveResult.totalChapters
+                    store.updateChapters(totalCount: totalCount, onlineChapters: [])
+
+                    let normReaderOldUrl = readerOldUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let readerNewIndex = fullTOCSnapshots.firstIndex(where: { $0.url.trimmingCharacters(in: .whitespacesAndNewlines) == normReaderOldUrl }) ?? min(readerOldIndex, max(0, totalCount - 1))
+                    let isReaderRemoved = !normReaderOldUrl.isEmpty && !fullTOCSnapshots.contains(where: { $0.url.trimmingCharacters(in: .whitespacesAndNewlines) == normReaderOldUrl })
+
+                    let normTTSOldUrl = ttsOldUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let ttsNewIndex = !normTTSOldUrl.isEmpty ? fullTOCSnapshots.firstIndex(where: { $0.url.trimmingCharacters(in: .whitespacesAndNewlines) == normTTSOldUrl }) : nil
+                    let isTTSRemoved = !normTTSOldUrl.isEmpty && ttsNewIndex == nil
+
+                    let result = LocalTOCRefreshResult(
+                        totalCount: totalCount,
+                        readerOldIndex: readerOldIndex,
+                        readerNewIndex: readerNewIndex,
+                        ttsOldIndex: ttsOldIndex,
+                        ttsNewIndex: ttsNewIndex,
+                        isTOCUnchanged: false,
+                        isReaderChapterRemoved: isReaderRemoved,
+                        isTTSChapterRemoved: isTTSRemoved
+                    )
+
+                    ToastManager.shared.show(message: "Đã cập nhật mục lục (\(totalCount) chương)", type: .success)
+                    onLocalTOCRefreshed?(result)
                 } else {
                     let oldCount = onlineChapters.count
                     onlineChapters = allChapters
                     store.updateChapters(totalCount: allChapters.count, onlineChapters: allChapters)
                     let added = max(0, allChapters.count - oldCount)
+                    let result = LocalTOCRefreshResult(
+                        totalCount: allChapters.count,
+                        readerOldIndex: currentChapterIndex,
+                        readerNewIndex: currentChapterIndex,
+                        isTOCUnchanged: added == 0
+                    )
                     ToastManager.shared.show(message: added == 0 ? "Mục lục đã mới nhất" : "Đã thêm \(added) chương mới", type: .success)
+                    onLocalTOCRefreshed?(result)
                 }
                 isUpdating = false
             } catch {

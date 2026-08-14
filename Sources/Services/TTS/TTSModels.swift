@@ -149,3 +149,59 @@ public struct TTSPretranslatedSnapshot: Sendable {
         self.entries = entries
     }
 }
+
+public struct TTSPlaybackSnapshot: Equatable, Sendable {
+    public let isPlaying: Bool
+    public let playingBookId: String
+    public let playingChapterIndex: Int
+    public let currentParentParagraphIndex: Int
+    public let highlightRange: NSRange?
+    public let sessionID: UUID
+    public let handoffGeneration: UInt64
+
+    public init(
+        isPlaying: Bool = false,
+        playingBookId: String = "",
+        playingChapterIndex: Int = -1,
+        currentParentParagraphIndex: Int = -1,
+        highlightRange: NSRange? = nil,
+        sessionID: UUID = UUID(),
+        handoffGeneration: UInt64 = 0
+    ) {
+        self.isPlaying = isPlaying
+        self.playingBookId = playingBookId
+        self.playingChapterIndex = playingChapterIndex
+        self.currentParentParagraphIndex = currentParentParagraphIndex
+        self.highlightRange = highlightRange
+        self.sessionID = sessionID
+        self.handoffGeneration = handoffGeneration
+    }
+}
+
+public struct TTSPlaybackContext: Equatable, Sendable {
+    public let sessionID: UUID
+    public let handoffGeneration: UInt64
+    public let bookId: String
+    public let chapterIndex: Int
+    public let paragraphIndex: Int
+    public let playbackId: String
+    public let engine: String
+
+    public init(
+        sessionID: UUID,
+        handoffGeneration: UInt64,
+        bookId: String,
+        chapterIndex: Int,
+        paragraphIndex: Int,
+        playbackId: String,
+        engine: String
+    ) {
+        self.sessionID = sessionID
+        self.handoffGeneration = handoffGeneration
+        self.bookId = bookId
+        self.chapterIndex = chapterIndex
+        self.paragraphIndex = paragraphIndex
+        self.playbackId = playbackId
+        self.engine = engine
+    }
+}

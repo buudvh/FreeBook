@@ -312,8 +312,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public var currentParagraphIndex: Int = -1
     @Published public var currentParentParagraphIndex: Int = -1
     @Published public var highlightRange: NSRange? = nil
+    @Published public private(set) var playbackSnapshot: TTSPlaybackSnapshot = TTSPlaybackSnapshot()
+    internal var audibleHandoffGeneration: UInt64 = 0
     @Published public var showFloatingWidget: Bool = false
     @Published public var showingSettingsSheet: Bool = false
+
 
     internal struct TTSAutoAdvancePerfContext {
         let sessionID: UUID
@@ -1356,6 +1359,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         checkpointProgressAndRelease()
         self.isPlaying = false
         self.lastPausedTime = Date()
+        invalidateAudibleHandoffGeneration()
+        publishLifecycleState(isPlaying: false)
         setSystemNowPlayingPlaybackState(.paused)
 
         if tool == "system" {
@@ -1386,10 +1391,18 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         #endif
         if isPlaying {
             if tool == "system" {
-                siriService.resume()
+                if siriService.isPaused {
+                    if siriService.resume() {
+                        publishLifecycleState(isPlaying: true)
+                    } else {
+                        speakCurrent()
+                    }
+                } else {
+                    speakCurrent()
+                }
             } else if tool == "nghitts" {
                 if nghiAudioPlayerQueue.resume() {
-                    isPlaying = true
+                    publishLifecycleState(isPlaying: true)
                     updatePrefetchWindow()
                     prepareNextNghiAudioIfPossible()
                 } else {
@@ -1399,7 +1412,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 if let player = audioPlayer, !player.isPlaying {
                     let ok = player.play()
                     if ok {
-                        isPlaying = true
+                        publishLifecycleState(isPlaying: true)
                     } else {
                         speakCurrent()
                     }
@@ -1420,12 +1433,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         self.configureAudioSession()
         self.setRemoteCommandsEnabled(true)
         self.isPlaying = true
-        Task { await ReadingProgressStore.shared.claim(bookId: playingBookId, owner: .tts) }
-        setSystemNowPlayingPlaybackState(.playing)
 
         if tool == "system" {
             if siriService.isPaused {
-                if !siriService.resume() {
+                if siriService.resume() {
+                    publishLifecycleState(isPlaying: true)
+                } else {
                     speakCurrent()
                 }
             } else {
@@ -1433,6 +1446,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
         } else if tool == "nghitts" {
             if nghiAudioPlayerQueue.resume() {
+                publishLifecycleState(isPlaying: true)
                 updatePrefetchWindow()
                 prepareNextNghiAudioIfPossible()
             } else if nghiPlaybackTask != nil {
@@ -1450,13 +1464,18 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             } else {
                 if let player = audioPlayer {
                     if !player.isPlaying {
-                        player.play()
+                        if player.play() {
+                            publishLifecycleState(isPlaying: true)
+                        } else {
+                            speakCurrent()
+                        }
                     }
                 } else {
                     speakCurrent()
                 }
             }
         }
+        setSystemNowPlayingPlaybackState(.playing)
         syncRemoteCommandState()
         updateNowPlayingInfo()
     }
@@ -1471,6 +1490,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         self.wasPlayingBeforeSettings = false
         self.wasPlayingBeforeInterruption = false
         self.ttsProcessingGeneration += 1
+        invalidateAudibleHandoffGeneration()
         startSpeakingTask?.cancel()
         startSpeakingTask = nil
         chapterQueueRefreshTask?.cancel()
@@ -1492,6 +1512,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.showFloatingWidget = false
         }
 
+        publishLifecycleState(isPlaying: false, isStopped: !keepWidget)
         clearPrefetchCache()
 
         siriService.stop()
@@ -1696,6 +1717,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     internal func stopCurrentPlayback() {
+        invalidateAudibleHandoffGeneration()
         self.currentPlaybackId = nil
         if tool == "system" {
             siriService.stop()
@@ -2238,25 +2260,15 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     // speakCurrent: Bắt đầu phát âm thanh của đoạn văn bản hiện tại (index = currentParagraphIndex)
     internal func speakCurrent() {
-        // let pid = currentPlaybackId ?? "NONE"
-        // AppLogger.shared.log("🔊 [TTSManager] [ID=\(pid)] speakCurrent() được gọi. index=\(currentParagraphIndex)")
-
-        // Đảm bảo trạng thái đang phát hợp lệ và index nằm trong phạm vi của mảng paragraphs
         guard isPlaying, currentParagraphIndex >= 0 && currentParagraphIndex < paragraphs.count else { return }
 
         restartSleepTimerIfNeeded()
 
         let paragraph = paragraphs[currentParagraphIndex]
-        self.highlightRange = paragraph.range // Cập nhật vùng bôi đen chữ đang đọc trên giao diện đọc truyện
-        self.currentParentParagraphIndex = paragraph.paragraphIndex
-
-        recordProgressInMemory()
 
         // Áp dụng các quy tắc thay thế ký tự trước khi đọc
         let textToSpeak = TTSReplacementManager.shared.applyReplacements(to: paragraph.text)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // AppLogger.shared.logTTSVerbose("🔊 [TTSManager] Chunk [\(currentParagraphIndex + 1)/\(paragraphs.count)] (ParentID=\(paragraph.paragraphIndex)): Raw='\(paragraph.text.prefix(20))...' | Processed='\(textToSpeak.prefix(20))...' | highlightRange=\(paragraph.range)")
 
         guard !textToSpeak.isEmpty else {
             if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
@@ -2288,10 +2300,24 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     private func playSystemTTS(_ text: String) {
-        siriService.speak(text: text, voiceName: selectedVoice, speed: speed, pitch: pitch) { [weak self] in
-            guard let self = self, self.isPlaying else { return }
-            self.nextParagraph()
-        }
+        let index = currentParagraphIndex
+        let playbackId = currentPlaybackId ?? String(UUID().uuidString.prefix(4))
+        let context = makePlaybackContext(paragraphIndex: index, playbackId: playbackId, engine: "system")
+
+        siriService.speak(
+            text: text,
+            voiceName: selectedVoice,
+            speed: speed,
+            pitch: pitch,
+            onStart: { [weak self] in
+                guard let self else { return }
+                self.commitAudibleParagraphState(index: index, playbackId: playbackId, context: context)
+            },
+            onFinish: { [weak self] in
+                guard let self = self, self.isContextValid(context) else { return }
+                self.nextParagraph()
+            }
+        )
         if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
             finishTTSAutoAdvancePerf(
                 outcome: "played",
@@ -2939,6 +2965,132 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         nghiAudioPlayerQueue.onFinished = { [weak self] item, success in
             self?.handleNghiAudioFinished(item, successfully: success)
         }
+        nghiAudioPlayerQueue.onScheduleHandoff = { [weak self] item, startTime in
+            self?.handleNghiScheduledHandoff(item: item, startTime: startTime)
+        }
+    }
+
+    private var nghiScheduledHandoffTask: Task<Void, Never>?
+
+    internal func makePlaybackContext(paragraphIndex: Int, playbackId: String, engine: String) -> TTSPlaybackContext {
+        TTSPlaybackContext(
+            sessionID: sessionID,
+            handoffGeneration: audibleHandoffGeneration,
+            bookId: playingBookId,
+            chapterIndex: playingChapterIndex,
+            paragraphIndex: paragraphIndex,
+            playbackId: playbackId,
+            engine: engine
+        )
+    }
+
+    internal func isContextValid(_ context: TTSPlaybackContext) -> Bool {
+        guard isPlaying,
+              sessionID == context.sessionID,
+              audibleHandoffGeneration == context.handoffGeneration,
+              playingBookId == context.bookId,
+              playingChapterIndex == context.chapterIndex,
+              tool == context.engine else {
+            return false
+        }
+
+        if context.engine == "nghitts" {
+            let isCurrentOrNext = (context.paragraphIndex == currentParagraphIndex || context.paragraphIndex == currentParagraphIndex + 1)
+            guard isCurrentOrNext else { return false }
+            let inQueue = nghiAudioPlayerQueue.currentItem?.paragraphIndex == context.paragraphIndex ||
+                          nghiAudioPlayerQueue.nextItem?.paragraphIndex == context.paragraphIndex
+            return inQueue
+        } else {
+            guard context.paragraphIndex == currentParagraphIndex else { return false }
+            if let currentPlaybackId, !currentPlaybackId.isEmpty {
+                return currentPlaybackId == context.playbackId
+            }
+            return true
+        }
+    }
+
+    internal func publishLifecycleState(isPlaying: Bool, isStopped: Bool = false) {
+        let newParentIndex = isStopped ? -1 : currentParentParagraphIndex
+        let newRange = isStopped ? nil : highlightRange
+        let newBookId = isStopped ? "" : playingBookId
+        let newChapterIndex = isStopped ? -1 : playingChapterIndex
+
+        let newSnapshot = TTSPlaybackSnapshot(
+            isPlaying: isPlaying,
+            playingBookId: newBookId,
+            playingChapterIndex: newChapterIndex,
+            currentParentParagraphIndex: newParentIndex,
+            highlightRange: newRange,
+            sessionID: sessionID,
+            handoffGeneration: audibleHandoffGeneration
+        )
+        if self.playbackSnapshot != newSnapshot {
+            self.playbackSnapshot = newSnapshot
+        }
+        if self.highlightRange != newRange {
+            self.highlightRange = newRange
+        }
+        if self.currentParentParagraphIndex != newParentIndex {
+            self.currentParentParagraphIndex = newParentIndex
+        }
+    }
+
+    private func handleNghiScheduledHandoff(item: NghiAudioPlayerQueue.Item, startTime: TimeInterval) {
+        guard isPlaying, tool == "nghitts" else { return }
+        let context = makePlaybackContext(paragraphIndex: item.paragraphIndex, playbackId: item.playbackId, engine: "nghitts")
+        nghiScheduledHandoffTask?.cancel()
+
+        let initialClockLag = max(0.001, startTime - (nghiAudioPlayerQueue.currentPlayer?.deviceCurrentTime ?? startTime))
+
+        nghiScheduledHandoffTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: UInt64(initialClockLag * 1_000_000_000))
+            } catch {
+                return
+            }
+            guard let self, self.isContextValid(context) else { return }
+
+            var recheckCount = 0
+            while !Task.isCancelled {
+                guard let status = self.nghiAudioPlayerQueue.getScheduledStatus(for: item) else { return }
+                let currentTime = status.currentDeviceTime
+                let targetStart = status.scheduledStartTime ?? startTime
+
+                if currentTime < targetStart - 0.005 {
+                    let remaining = max(0.001, targetStart - currentTime)
+                    do {
+                        try await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+                    } catch {
+                        return
+                    }
+                    guard self.isContextValid(context) else { return }
+                } else {
+                    if status.isCurrentItem {
+                        if status.isCurrentPlaying {
+                            self.commitAudibleParagraphState(index: item.paragraphIndex, playbackId: item.playbackId, context: context)
+                        }
+                        return
+                    } else if status.isNextItem {
+                        if status.isNextPlaying {
+                            self.commitAudibleParagraphState(index: item.paragraphIndex, playbackId: item.playbackId, context: context)
+                            return
+                        } else if recheckCount < 5 {
+                            recheckCount += 1
+                            do {
+                                try await Task.sleep(nanoseconds: 5_000_000)
+                            } catch {
+                                return
+                            }
+                            guard self.isContextValid(context) else { return }
+                        } else {
+                            return
+                        }
+                    } else {
+                        return
+                    }
+                }
+            }
+        }
     }
 
     private func prepareNextNghiAudioIfPossible() {
@@ -2975,24 +3127,57 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-    private func commitParagraphState(index: Int, playbackId: String) {
+    internal func invalidateAudibleHandoffGeneration() {
+        audibleHandoffGeneration &+= 1
+        nghiScheduledHandoffTask?.cancel()
+        nghiScheduledHandoffTask = nil
+    }
+
+    internal func commitAudibleParagraphState(index: Int, playbackId: String, context: TTSPlaybackContext? = nil) {
+        if let context, !isContextValid(context) { return }
         guard index >= 0 && index < paragraphs.count else { return }
         currentParagraphIndex = index
         currentPlaybackId = playbackId
 
         let paragraph = paragraphs[index]
-        highlightRange = paragraph.range
-        currentParentParagraphIndex = paragraph.paragraphIndex
+        let newParentIndex = paragraph.paragraphIndex
+        let newRange = paragraph.range
+
+        let newSnapshot = TTSPlaybackSnapshot(
+            isPlaying: isPlaying,
+            playingBookId: playingBookId,
+            playingChapterIndex: playingChapterIndex,
+            currentParentParagraphIndex: newParentIndex,
+            highlightRange: newRange,
+            sessionID: sessionID,
+            handoffGeneration: audibleHandoffGeneration
+        )
+
+        guard self.playbackSnapshot != newSnapshot else { return }
+
+        self.playbackSnapshot = newSnapshot
+        if self.highlightRange != newRange {
+            self.highlightRange = newRange
+        }
+        if self.currentParentParagraphIndex != newParentIndex {
+            self.currentParentParagraphIndex = newParentIndex
+        }
         recordProgressInMemory()
 
         updatePrefetchWindow()
         updateNowPlayingInfo()
     }
 
+    private func commitParagraphState(index: Int, playbackId: String) {
+        commitAudibleParagraphState(index: index, playbackId: playbackId)
+    }
+
     private func handleNghiAudioTransition(_ item: NghiAudioPlayerQueue.Item) {
+        nghiScheduledHandoffTask?.cancel()
+        nghiScheduledHandoffTask = nil
         guard isPlaying,
               tool == "nghitts",
-              item.paragraphIndex == currentParagraphIndex + 1,
+              (item.paragraphIndex == currentParagraphIndex || item.paragraphIndex == currentParagraphIndex + 1),
               item.paragraphIndex < paragraphs.count else {
             nghiAudioPlayerQueue.stop()
             return
@@ -3000,7 +3185,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         preloadedData.removeValue(forKey: item.paragraphIndex)
         preloadedDurations.removeValue(forKey: item.paragraphIndex)
-        commitParagraphState(index: item.paragraphIndex, playbackId: item.playbackId)
+        if item.paragraphIndex != currentParagraphIndex {
+            let context = makePlaybackContext(paragraphIndex: item.paragraphIndex, playbackId: item.playbackId, engine: "nghitts")
+            commitAudibleParagraphState(index: item.paragraphIndex, playbackId: item.playbackId, context: context)
+        }
 
         if AppLogger.shared.isLoggingEnabled {
             AppLogger.shared.log("🔊 [TTSPerf] NghiScheduledHandoff index=\(item.paragraphIndex)")
@@ -3049,6 +3237,8 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             try nghiAudioPlayerQueue.start(data: audioData, item: item, rate: speed)
             currentPlaybackId = playbackId
             isPlaying = true
+            invalidateAudibleHandoffGeneration()
+            commitAudibleParagraphState(index: currentParagraphIndex, playbackId: playbackId)
             preloadedData.removeValue(forKey: currentParagraphIndex)
             preloadedDurations.removeValue(forKey: currentParagraphIndex)
 
@@ -3096,9 +3286,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         updateNowPlayingInfo()
     }
 
-    internal func playAudioData(_ audioData: Data, withId customId: String? = nil) {
-        let playbackId = customId ?? String(UUID().uuidString.prefix(4))
+    internal func playAudioData(_ audioData: Data, withId customId: String? = nil, context: TTSPlaybackContext? = nil) {
+        let playbackId = customId ?? context?.playbackId ?? String(UUID().uuidString.prefix(4))
         self.currentPlaybackId = playbackId
+
+        if let context, !isContextValid(context) { return }
 
         if tool == "nghitts" {
             playNghiAudioData(audioData, playbackId: playbackId)
@@ -3121,7 +3313,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             let ok = player.play()
             let setupEnd = ProcessInfo.processInfo.systemUptime
             if ok {
+                if let context {
+                    guard isContextValid(context) else { return }
+                }
                 self.isPlaying = true
+                commitAudibleParagraphState(index: context?.paragraphIndex ?? currentParagraphIndex, playbackId: playbackId, context: context)
                 if currentParagraphIndex == 0 && activeTTSAutoAdvancePerf?.chapterIndex == playingChapterIndex {
                     let playerSetupMs = (setupEnd - setupStart) * 1000
                     let synMs = currentParagraph0SynthesisMs(untilUptime: setupStart)
@@ -3681,6 +3877,14 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
 
+    public func applyTOCReconciliation(_ result: LocalTOCRefreshResult, newChapters: [TTSChapterInfo]? = nil) {
+        if let newChapters {
+            self.chaptersQueue = newChapters
+        }
+        if let newIndex = result.ttsNewIndex {
+            self.playingChapterIndex = newIndex
+        }
+    }
 }
 
 extension TTSManager {

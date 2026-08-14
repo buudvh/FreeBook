@@ -12,10 +12,32 @@ extension ReaderChapterListStore {
     }
 
     func publishCachedPageIfAvailable(_ page: Int) -> Bool {
+        guard page >= 0 && page <= (totalCount - 1) / pageSize else { return false }
+        let startIdx = page * pageSize
+        let endIdx = min(totalCount, startIdx + pageSize)
+        guard startIdx < endIdx else { return false }
         guard let cached = pageCache[page] else { return false }
-        for (idx, item) in cached {
-            loadedRowStates[idx] = ReaderChapterRowState(id: idx, index: idx, title: item.title, url: item.url, isCached: item.isCached, isPlaceholder: false)
+
+        let expectedCount = endIdx - startIdx
+        guard cached.count == expectedCount else { return false }
+
+        var nextStates = loadedRowStates
+        for displayPos in startIdx..<endIdx {
+            let logicIdx = isAscending ? displayPos : (totalCount - 1 - displayPos)
+            guard let item = cached[logicIdx], !item.url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return false
+            }
+            nextStates[displayPos] = ReaderChapterRowState(
+                id: displayPos,
+                index: logicIdx,
+                title: item.title,
+                url: item.url,
+                isCached: item.isCached,
+                isPlaceholder: false
+            )
         }
+
+        loadedRowStates = nextStates
         loadedPages.insert(page)
         return true
     }

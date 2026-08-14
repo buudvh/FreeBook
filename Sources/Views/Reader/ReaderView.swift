@@ -139,6 +139,7 @@ struct ReaderView: View {
     @State private var selectedDisplayedText = ""
     @State private var clearSelectionTrigger: UUID? = nil
     @State private var wordSynthesizer: AVSpeechSynthesizer? = nil
+    @State private var pendingTranslationScope: DictionaryInvalidationScope? = nil
 
     // Cấu hình giao diện đọc (lưu trữ lâu dài qua UserDefaults nhờ @AppStorage)
     @AppStorage("readerFontSize") internal var fontSize: Double = 20.0 // Cỡ chữ của văn bản đọc
@@ -566,14 +567,19 @@ struct ReaderView: View {
             scheduleCoalescedTranslationRefresh()
         }
         .onChange(of: isTranslationPronounsEnabled) { _, _ in
-            TranslationManager.shared.notifyDictionariesDidUpdate(bookId: nil)
+            TranslationManager.shared.notifyDictionariesDidUpdate(bookId: nil, scope: .config(bookId: bookId))
             applyTranslation()
-            scheduleCoalescedTranslationRefresh()
         }
         .onChange(of: isTranslationLuatNhanEnabled) { _, _ in
-            TranslationManager.shared.notifyDictionariesDidUpdate(bookId: nil)
+            TranslationManager.shared.notifyDictionariesDidUpdate(bookId: nil, scope: .config(bookId: bookId))
             applyTranslation()
-            scheduleCoalescedTranslationRefresh()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .translationDictionariesDidUpdate)) { notification in
+            let targetBookId = notification.userInfo?["bookId"] as? String
+            if targetBookId == nil || targetBookId == bookId {
+                let incomingScope = notification.userInfo?["scope"] as? DictionaryInvalidationScope ?? .globalReload
+                scheduleCoalescedTranslationRefresh(scope: incomingScope)
+            }
         }
         .sheet(isPresented: $showingAddNghiTTSPhonemeSheet) {
             AddWordSheet(initialKey: selectedDisplayedText) { key, val in
@@ -858,11 +864,6 @@ struct ReaderView: View {
                     )
                 }
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .translationDictionariesDidUpdate)) { notification in
-            let notificationBookId = notification.userInfo?["bookId"] as? String
-            guard notificationBookId == nil || notificationBookId == bookId else { return }
-            scheduleCoalescedTranslationRefresh()
         }
         .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in
             ReaderEnergyDiagnostics.shared.flush(reason: "thermal_change")
@@ -1168,10 +1169,12 @@ struct ReaderView: View {
                     onClose: {
                         closeChapterList()
                     },
-                    onLocalTOCRefreshed: { newTotal in
+                    onLocalTOCRefreshed: { result in
                         Task { @MainActor in
-                            self.localChaptersCount = newTotal
-                            self.viewModel?.updateChapterSnapshot(totalCount: newTotal, onlineChapters: [])
+                            self.localChaptersCount = result.totalCount
+                            self.chapterListStore.updateChapters(totalCount: result.totalCount, onlineChapters: [])
+                            self.viewModel?.applyLocalTOCReconciliation(result)
+                            self.ttsManager.applyTOCReconciliation(result)
                             if ttsState.snapshot.playingBookId == bookId {
                                 ttsManager.refreshChaptersQueueInBackground(bookId: bookId, onlineChapters: nil)
                             }
@@ -1762,6 +1765,11 @@ struct ReaderView: View {
 
     private func getPretranslatedSnapshot(for index: Int) -> TTSPretranslatedSnapshot? {
         guard let cached = viewModel?.cache.get(index), cached.state == .loaded else { return nil }
+        let currentToken = TranslateUtils.translationGenerationToken(for: bookId)
+        let isTransEnabled = TranslateUtils.isTranslationEnabled
+        guard cached.translationToken == currentToken && cached.isTranslationEnabled == isTransEnabled else {
+            return nil
+        }
         let contentItems = cached.paragraphItems.filter { !$0.isTitle }
         guard !contentItems.isEmpty else { return nil }
         let entries = contentItems.map { item in
@@ -1803,7 +1811,16 @@ struct ReaderView: View {
         }
     }
 
-    private func scheduleCoalescedTranslationRefresh() {
+    private func scheduleCoalescedTranslationRefresh(scope: DictionaryInvalidationScope = .globalReload) {
+        let mergedScope: DictionaryInvalidationScope = {
+            guard let current = pendingTranslationScope else { return scope }
+            if current == .globalReload || scope == .globalReload { return .globalReload }
+            if case .config = current { return current }
+            if case .config = scope { return scope }
+            return current
+        }()
+        pendingTranslationScope = mergedScope
+
         if isAnySelectionOrOverlayActive {
             isTranslationRefreshDeferred = true
             return
@@ -1813,7 +1830,9 @@ struct ReaderView: View {
         translationRefreshDebounceTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 150_000_000)
             guard !Task.isCancelled else { return }
-            viewModel?.updateCachedTranslatedContent(bookId: bookId)
+            let finalScope = pendingTranslationScope ?? .globalReload
+            pendingTranslationScope = nil
+            viewModel?.updateCachedTranslatedContent(bookId: bookId, scope: finalScope)
         }
     }
 

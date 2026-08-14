@@ -4,14 +4,16 @@ import AVFoundation
 public final class SiriTTSService: NSObject, AVSpeechSynthesizerDelegate {
     private var systemSynthesizer: AVSpeechSynthesizer?
     private var currentUtterance: AVSpeechUtterance?
+    private var onStartCallback: (() -> Void)?
     private var onFinishCallback: (() -> Void)?
     
     public override init() {
         super.init()
     }
     
-    public func speak(text: String, voiceName: String, speed: Double, pitch: Double, onFinish: @escaping () -> Void) {
+    public func speak(text: String, voiceName: String, speed: Double, pitch: Double, onStart: (() -> Void)? = nil, onFinish: @escaping () -> Void) {
         stop()
+        self.onStartCallback = onStart
         self.onFinishCallback = onFinish
         
         let utterance = AVSpeechUtterance(string: text)
@@ -57,6 +59,7 @@ public final class SiriTTSService: NSObject, AVSpeechSynthesizerDelegate {
         systemSynthesizer?.stopSpeaking(at: .immediate)
         systemSynthesizer = nil
         currentUtterance = nil
+        onStartCallback = nil
         onFinishCallback = nil
     }
     
@@ -70,6 +73,14 @@ public final class SiriTTSService: NSObject, AVSpeechSynthesizerDelegate {
     
     // MARK: - AVSpeechSynthesizerDelegate
     
+    public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        if utterance == currentUtterance {
+            let callback = onStartCallback
+            onStartCallback = nil
+            callback?()
+        }
+    }
+
     public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         if utterance == currentUtterance {
             let callback = onFinishCallback

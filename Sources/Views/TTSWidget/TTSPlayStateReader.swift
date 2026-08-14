@@ -123,26 +123,19 @@ final class ReaderTTSStateReader: ObservableObject {
     init(manager: TTSManager? = nil) {
         let manager = manager ?? TTSManager.shared
         self.manager = manager
+        let ps = manager.playbackSnapshot
         snapshot = ReaderTTSStateSnapshot(
-            isPlaying: manager.isPlaying,
+            isPlaying: ps.isPlaying,
             showFloatingWidget: manager.showFloatingWidget,
-            playingBookId: manager.playingBookId,
-            playingChapterIndex: manager.playingChapterIndex,
+            playingBookId: ps.playingBookId,
+            playingChapterIndex: ps.playingChapterIndex,
             currentParentParagraphIndex: -1,
             highlightRange: nil
         )
 
-        manager.$isPlaying.map { _ in () }.receive(on: RunLoop.main).sink { [weak self] in self?.refresh() }
+        manager.$playbackSnapshot.receive(on: RunLoop.main).sink { [weak self] _ in self?.refresh() }
             .store(in: &cancellables)
-        manager.$showFloatingWidget.map { _ in () }.receive(on: RunLoop.main).sink { [weak self] in self?.refresh() }
-            .store(in: &cancellables)
-        manager.$playingBookId.map { _ in () }.receive(on: RunLoop.main).sink { [weak self] in self?.refresh() }
-            .store(in: &cancellables)
-        manager.$playingChapterIndex.map { _ in () }.receive(on: RunLoop.main).sink { [weak self] in self?.refresh() }
-            .store(in: &cancellables)
-        manager.$currentParentParagraphIndex.map { _ in () }.receive(on: RunLoop.main).sink { [weak self] in self?.refresh() }
-            .store(in: &cancellables)
-        manager.$highlightRange.map { _ in () }.receive(on: RunLoop.main).sink { [weak self] in self?.refresh() }
+        manager.$showFloatingWidget.receive(on: RunLoop.main).sink { [weak self] _ in self?.refresh() }
             .store(in: &cancellables)
     }
 
@@ -153,14 +146,15 @@ final class ReaderTTSStateReader: ObservableObject {
     }
 
     private func refresh() {
-        let ownsBook = scopedBookId == manager.playingBookId
+        let ps = manager.playbackSnapshot
+        let ownsBook = scopedBookId == ps.playingBookId
         let newSnapshot = ReaderTTSStateSnapshot(
-            isPlaying: manager.isPlaying,
+            isPlaying: ps.isPlaying,
             showFloatingWidget: manager.showFloatingWidget,
-            playingBookId: manager.playingBookId,
-            playingChapterIndex: manager.playingChapterIndex,
-            currentParentParagraphIndex: ownsBook ? manager.currentParentParagraphIndex : -1,
-            highlightRange: ownsBook ? manager.highlightRange : nil
+            playingBookId: ps.playingBookId,
+            playingChapterIndex: ps.playingChapterIndex,
+            currentParentParagraphIndex: ownsBook ? ps.currentParentParagraphIndex : -1,
+            highlightRange: ownsBook ? ps.highlightRange : nil
         )
         guard newSnapshot != snapshot else { return }
         snapshot = newSnapshot

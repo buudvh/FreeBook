@@ -4,6 +4,12 @@ extension Notification.Name {
     public static let translationDictionariesDidUpdate = Notification.Name("translationDictionariesDidUpdate")
 }
 
+public enum DictionaryInvalidationScope: Equatable, Sendable {
+    case term(word: String, isName: Bool, bookId: String?)
+    case config(bookId: String?)
+    case globalReload
+}
+
 public final class TranslationManager: ObservableObject {
     public static let shared = TranslationManager()
     
@@ -108,7 +114,7 @@ public final class TranslationManager: ObservableObject {
             }
         }
         try await loadAllDictionaries()
-        notifyDictionariesDidUpdate(bookId: bookId)
+        notifyDictionariesDidUpdate(bookId: bookId, scope: .term(word: cleanWord, isName: isName, bookId: bookId))
     }
     
     public func deleteCustomEntry(word: String, isName: Bool, bookId: String?) async throws {
@@ -140,7 +146,7 @@ public final class TranslationManager: ObservableObject {
             }
         }
         try await loadAllDictionaries()
-        notifyDictionariesDidUpdate(bookId: bookId)
+        notifyDictionariesDidUpdate(bookId: bookId, scope: .term(word: cleanWord, isName: isName, bookId: bookId))
     }
     
     public func addDeletedWords(_ words: [String], isName: Bool) {
@@ -391,15 +397,16 @@ public final class TranslationManager: ObservableObject {
         updateDeletedState(from: customNameRecords, isName: true)
     }
 
-    public func notifyDictionariesDidUpdate(bookId: String? = nil) {
+    public func notifyDictionariesDidUpdate(bookId: String? = nil, scope: DictionaryInvalidationScope = .globalReload) {
         TranslateUtils.invalidateCache(bookId: bookId)
         Task { @MainActor in
             var userInfo: [AnyHashable: Any] = [:]
             if let bookId { userInfo["bookId"] = bookId }
+            userInfo["scope"] = scope
             NotificationCenter.default.post(
                 name: .translationDictionariesDidUpdate,
                 object: nil,
-                userInfo: userInfo.isEmpty ? nil : userInfo
+                userInfo: userInfo
             )
         }
     }

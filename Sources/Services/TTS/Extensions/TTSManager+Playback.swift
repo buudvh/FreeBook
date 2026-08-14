@@ -23,9 +23,10 @@ extension TTSManager {
             extensionFingerprint: nil
         )
 
+        let context = makePlaybackContext(paragraphIndex: index, playbackId: playbackId, engine: "google")
         if let cachedData = preloadedData[index] {
             recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: "google", index: index, outcome: "hit")
-            self.playAudioData(cachedData, withId: playbackId)
+            self.playAudioData(cachedData, context: context)
             updatePrefetchWindow()
             return
         }
@@ -59,13 +60,8 @@ extension TTSManager {
                 }
 
                 guard !Task.isCancelled,
-                      self.isPlaying,
+                      self.isContextValid(context),
                       self.currentPlaybackId == playbackId,
-                      self.sessionID == expectedSessionID,
-                      self.playingBookId == expectedBookID,
-                      self.playingChapterIndex == expectedChapterIndex,
-                      self.playingChapterUrl == expectedChapterURL,
-                      self.tool == "google",
                       self.selectedVoice == voice else { return }
 
                 let waitMs = (ProcessInfo.processInfo.systemUptime - startWait) * 1000
@@ -77,7 +73,7 @@ extension TTSManager {
                     outcome: wasPrefetching ? "hit_wait" : "miss",
                     waitMs: wasPrefetching ? waitMs : 0
                 )
-                self.playAudioData(mp3Data, withId: playbackId)
+                self.playAudioData(mp3Data, context: context)
                 self.updatePrefetchWindow()
             } catch is CancellationError {
                 return
@@ -128,9 +124,10 @@ extension TTSManager {
             extensionFingerprint: extFingerprint
         )
 
+        let context = makePlaybackContext(paragraphIndex: index, playbackId: playbackId, engine: engineName)
         if let cachedData = preloadedData[index] {
             recordPrefetchResult(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, engine: engineName, index: index, outcome: "hit")
-            self.playAudioData(cachedData, withId: playbackId)
+            self.playAudioData(cachedData, context: context)
             updatePrefetchWindow()
             return
         }
@@ -169,13 +166,8 @@ extension TTSManager {
                 }
 
                 guard !Task.isCancelled,
-                      self.isPlaying,
+                      self.isContextValid(context),
                       self.currentPlaybackId == playbackId,
-                      self.sessionID == expectedSessionID,
-                      self.playingBookId == expectedBookID,
-                      self.playingChapterIndex == expectedChapterIndex,
-                      self.playingChapterUrl == expectedChapterURL,
-                      self.tool == engineName,
                       self.selectedVoice == voice else { return }
 
                 let waitMs = (ProcessInfo.processInfo.systemUptime - startWait) * 1000
@@ -187,7 +179,7 @@ extension TTSManager {
                     outcome: wasPrefetching ? "hit_wait" : "miss",
                     waitMs: wasPrefetching ? waitMs : 0
                 )
-                self.playAudioData(audioData, withId: playbackId)
+                self.playAudioData(audioData, context: context)
                 self.updatePrefetchWindow()
             } catch is CancellationError {
                 return

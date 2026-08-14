@@ -18,7 +18,7 @@ public struct ReaderChapterListView: View {
     public let isLocalTXTBook: Bool
     public let onSelectChapter: (Int) -> Void
     public let onClose: () -> Void
-    public let onLocalTOCRefreshed: ((Int) -> Void)?
+    public let onLocalTOCRefreshed: ((LocalTOCRefreshResult) -> Void)?
 
     public init(
         bookId: String,
@@ -37,7 +37,7 @@ public struct ReaderChapterListView: View {
         isLocalTXTBook: Bool = false,
         onSelectChapter: @escaping (Int) -> Void,
         onClose: @escaping () -> Void,
-        onLocalTOCRefreshed: ((Int) -> Void)? = nil
+        onLocalTOCRefreshed: ((LocalTOCRefreshResult) -> Void)? = nil
     ) {
         self.bookId = bookId
         self.bookTitle = bookTitle
