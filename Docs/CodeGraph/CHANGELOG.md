@@ -2,6 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.147] - 2026-08-14
+
+### Khắc phục NghiTTS lỗi khi chuyển từ tên chương sang nội dung
+
+* **Xử lý văn bản rỗng sau tiền xử lý (`PiperTTSService.swift`)**:
+  - Kiểm tra lại kết quả từ `TextPreprocessor`; nếu không còn ký tự có thể đọc, NghiTTS tạo WAV khoảng lặng hợp lệ thay vì chuyển chuỗi rỗng vào ONNX/eSpeak.
+  - Luồng streaming dùng chung bộ tạo khoảng lặng và phát đúng một payload kết thúc (`chunkIndex = 0`, `totalChunks = 1`, `isLast = true`).
+* **Chặn vòng lặp prefetch lỗi (`TTSManager.swift`)**:
+  - Theo dõi lỗi theo `sessionID + chapterIndex + paragraphIndex`, thử tối đa hai attempt đối với lỗi tạm thời và chờ 1 giây trước lần thử lại.
+  - Lỗi không thể retry bị block ngay; các chỉ số đã block được bỏ qua khi chọn đoạn prefetch tiếp theo, trong khi luồng tổng hợp foreground vẫn giữ nguyên.
+  - Task retry được hủy và trạng thái lỗi được xóa khi dừng, đổi session hoặc chuyển chương; cancellation không ghi ngược trạng thái cũ sau reset.
+  - Scheduler không cho callback khác bỏ qua khoảng cooldown và chỉ mở lại ngay trước lần retry hợp lệ.
+* **Kiểm thử hồi quy (`NghiTTSPerformanceTests.swift`)**:
+  - Bổ sung kiểm tra khoảng lặng, payload streaming terminal, phân loại lỗi, chính sách hai attempt, bỏ qua index bị block và cổng scheduler trong thời gian retry.
+
 ## [1.3.146] - 2026-08-14
 
 ### Khắc phục lỗi sập ứng dụng do Range Trap trong NghiTTS và bổ sung Unit Tests

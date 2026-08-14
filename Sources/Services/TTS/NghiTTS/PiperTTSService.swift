@@ -127,26 +127,26 @@ final class PiperTTSService: @unchecked Sendable {
 
         syncQueue.sync { _currentModel = voice }
         
-        if text.rangeOfCharacter(from: .alphanumerics) == nil {
-            let sampleRate = 22050
-            let phrasePause = UserDefaults.standard.double(forKey: "phrasePauseDuration")
-            let sentencePause = UserDefaults.standard.double(forKey: "sentencePauseDuration")
-            let hasSentencePunct = text.contains(".") || text.contains("!") || text.contains("?")
-            let pauseDuration = hasSentencePunct ? (sentencePause > 0 ? sentencePause : 0.3) : (phrasePause > 0 ? phrasePause : 0.15)
-            
-            let scaledDuration = pauseDuration / speed
-            let silenceSamplesCount = Int(Double(sampleRate) * scaledDuration)
-            let silenceSamples = [Float](repeating: 0.0, count: max(0, silenceSamplesCount))
+        if Self.isUnspeakable(text) {
+            let spec = Self.makeSilenceSpec(text: text, speed: speed)
             let silenceData = WAVEncoder.encodePCM16(
-                samples: silenceSamples,
-                sampleRate: sampleRate,
+                samples: spec.samples,
+                sampleRate: spec.sampleRate,
                 channels: 1
             )
-            let pcmDur = Double(silenceSamplesCount) / Double(sampleRate)
-            return PiperSynthesisPayload(data: silenceData, pcmDuration: pcmDur)
+            return PiperSynthesisPayload(data: silenceData, pcmDuration: spec.pcmDuration)
         }
 
         let preprocessedText = await TextPreprocessor.shared.preprocess(text)
+        if Self.isUnspeakable(preprocessedText) {
+            let spec = Self.makeSilenceSpec(text: text, speed: speed)
+            let silenceData = WAVEncoder.encodePCM16(
+                samples: spec.samples,
+                sampleRate: spec.sampleRate,
+                channels: 1
+            )
+            return PiperSynthesisPayload(data: silenceData, pcmDuration: spec.pcmDuration)
+        }
         
         if let onnxEngine = engine as? ONNXPiperEngine {
             let res = try await onnxEngine.synthesizeWithDuration(
@@ -170,6 +170,66 @@ final class PiperTTSService: @unchecked Sendable {
         }
     }
 
+    struct SilenceSpec: Sendable {
+        let samples: [Float]
+        let sampleRate: Int
+        let pcmDuration: Double
+    }
+
+    struct SilenceStreamingPayload: Sendable {
+        let chunkPayload: TTSPCMChunkPayload
+        let wavData: Data
+    }
+
+    static func makeSilenceSpec(
+        text: String,
+        speed: Double,
+        sampleRate: Int = 22050,
+        phrasePause: Double? = nil,
+        sentencePause: Double? = nil
+    ) -> SilenceSpec {
+        let defaults = UserDefaults.standard
+        let pPause = phrasePause ?? defaults.double(forKey: "phrasePauseDuration")
+        let sPause = sentencePause ?? defaults.double(forKey: "sentencePauseDuration")
+        let hasSentencePunct = text.contains(".") || text.contains("!") || text.contains("?")
+        let pauseDuration = hasSentencePunct ? (sPause > 0 ? sPause : 0.3) : (pPause > 0 ? pPause : 0.15)
+
+        let effectiveSpeed = max(0.1, speed)
+        let scaledDuration = pauseDuration / effectiveSpeed
+        let silenceSamplesCount = Int(Double(sampleRate) * scaledDuration)
+        let silenceSamples = [Float](repeating: 0.0, count: max(0, silenceSamplesCount))
+        let pcmDur = Double(silenceSamplesCount) / Double(sampleRate)
+        return SilenceSpec(samples: silenceSamples, sampleRate: sampleRate, pcmDuration: pcmDur)
+    }
+
+    static func buildSilenceStreamingPayload(
+        text: String,
+        speed: Double,
+        sampleRate: Int = 22050,
+        phrasePause: Double? = nil,
+        sentencePause: Double? = nil
+    ) -> SilenceStreamingPayload {
+        let spec = makeSilenceSpec(text: text, speed: speed, sampleRate: sampleRate, phrasePause: phrasePause, sentencePause: sentencePause)
+        let payload = TTSPCMChunkPayload(
+            samples: spec.samples,
+            sampleRate: spec.sampleRate,
+            chunkIndex: 0,
+            totalChunks: 1,
+            isLast: true
+        )
+        let wavData = WAVEncoder.encodePCM16(
+            samples: spec.samples,
+            sampleRate: spec.sampleRate,
+            channels: 1
+        )
+        return SilenceStreamingPayload(chunkPayload: payload, wavData: wavData)
+    }
+
+    static func isUnspeakable(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty || trimmed.rangeOfCharacter(from: .alphanumerics) == nil
+    }
+
     private func executeInternalSynthesisStream(
         text: String,
         voice: String,
@@ -191,34 +251,18 @@ final class PiperTTSService: @unchecked Sendable {
 
         syncQueue.sync { _currentModel = voice }
 
-        if text.rangeOfCharacter(from: .alphanumerics) == nil {
-            let sampleRate = 22050
-            let phrasePause = UserDefaults.standard.double(forKey: "phrasePauseDuration")
-            let sentencePause = UserDefaults.standard.double(forKey: "sentencePauseDuration")
-            let hasSentencePunct = text.contains(".") || text.contains("!") || text.contains("?")
-            let pauseDuration = hasSentencePunct ? (sentencePause > 0 ? sentencePause : 0.3) : (phrasePause > 0 ? phrasePause : 0.15)
-
-            let scaledDuration = pauseDuration / speed
-            let silenceSamplesCount = Int(Double(sampleRate) * scaledDuration)
-            let silenceSamples = [Float](repeating: 0.0, count: max(0, silenceSamplesCount))
-
-            let payload = TTSPCMChunkPayload(
-                samples: silenceSamples,
-                sampleRate: sampleRate,
-                chunkIndex: 0,
-                totalChunks: 1,
-                isLast: true
-            )
-            try await onChunkPayload(payload)
-
-            return WAVEncoder.encodePCM16(
-                samples: silenceSamples,
-                sampleRate: sampleRate,
-                channels: 1
-            )
+        if Self.isUnspeakable(text) {
+            let streamingSilence = Self.buildSilenceStreamingPayload(text: text, speed: speed)
+            try await onChunkPayload(streamingSilence.chunkPayload)
+            return streamingSilence.wavData
         }
 
         let preprocessedText = await TextPreprocessor.shared.preprocess(text)
+        if Self.isUnspeakable(preprocessedText) {
+            let streamingSilence = Self.buildSilenceStreamingPayload(text: text, speed: speed)
+            try await onChunkPayload(streamingSilence.chunkPayload)
+            return streamingSilence.wavData
+        }
 
         return try await onnxEngine.synthesizeStream(
             text: preprocessedText,

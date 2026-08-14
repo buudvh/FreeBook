@@ -15,6 +15,13 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## NghiTTS empty-output and refill retry events (1.3.147)
+
+* Kết quả tiền xử lý rỗng/chỉ dấu câu phát sinh sự kiện tổng hợp khoảng lặng hợp lệ, không phát lỗi ONNX/eSpeak và không tạm dừng playback khi chuyển từ tên chương sang nội dung.
+* Prefetch failure tạm thời phát đúng một `[TTSPerf] PrefetchFailure` với `action=retry_scheduled`, sau cooldown 1 giây mới phát sinh lần thử tiếp theo; callback khác không thể bypass cooldown.
+* Lỗi không retry hoặc attempt thứ hai phát `action=blocked_non_retryable`/`blocked_max_retries`; cancellation không log failure và không thay đổi failure state.
+* Stop, đổi session và chuyển chương hủy retry task, tăng generation và xóa failure state trước khi sự kiện của phiên mới được xử lý.
+
 ## NghiTTS deadline and energy events (1.3.115)
 
 * An audio-finish event with no prepared handoff records `[NghiEnergy] Underrun`. If its index matches active refill, playback awaits that task and records `reusedInFlight=true` instead of submitting duplicate ONNX work.

@@ -26,4 +26,10 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 
 3. **Luồng Tải Trang & Tìm Kiếm Chương Nền**:
    `ReaderViewModel` -> `BackgroundPagingWorker` / `BackgroundSearchWorker` -> `ChapterStore` -> `ChapterRowItem` / `SearchChapterDTO` -> `@Published` UI State
+
+4. **Luồng dữ liệu NghiTTS an toàn khi chuyển chương (1.3.147)**:
+   `paragraph.text` -> replacements -> `TextPreprocessor` -> kiểm tra speakable
+   - Speakable -> Piper ONNX -> PCM/WAV -> `preloadedData[index]`.
+   - Unspeakable -> silence samples -> WAV hoặc một terminal streaming payload -> cache/playback như audio bình thường.
+   - Failure metadata chỉ lưu khóa định danh session/chapter/paragraph, số attempt và cờ block; không lưu nội dung văn bản người dùng trong log.
 <!-- GENERATED END -->

@@ -15,6 +15,13 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## NghiTTS chapter-transition crash risks mitigated in 1.3.147
+
+* **Mitigated - empty preprocessor output:** Piper kiểm tra cả input và output tiền xử lý; output không thể đọc được chuyển thành WAV khoảng lặng hợp lệ thay vì làm eSpeak/ONNX ném lỗi.
+* **Mitigated - refill failure feedback loop:** failure state được khóa theo session/chapter/paragraph, tối đa hai attempt và cooldown 1 giây; scheduler không thể thử lại sớm qua callback khác.
+* **Mitigated - stale cancellation state:** cancellation tách khỏi generic failure path, context/generation được kiểm tra trước mutation và reset hủy retry task nên task cũ không thể hồi sinh state đã xóa.
+* **Residual risk:** Windows chỉ xác nhận parser/static checks; iOS build và XCTest đầy đủ vẫn cần macOS/Xcode hoặc CI trước khi phát hành.
+
 ## NghiTTS safeCachedTimeThreshold prefetch risks mitigated in 1.3.141
 
 * **Mitigated - cancel/re-synthesize feedback loop:** `PiperSynthesisCoordinator` deduplicates exact `synthesisKey` requests and appends waiters. Detaching one waiter or pausing does not cancel an active ONNX inference.

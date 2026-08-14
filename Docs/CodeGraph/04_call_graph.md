@@ -31,4 +31,11 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
    `ReaderView` -> `ReaderViewModel`
      ├── `ReaderChapterListPageFetcher` -> `BackgroundPagingWorker.fetchPage(bookId:minLogicalIndex:maxLogicalIndex:isTranslationEnabled:)`
      └── `BackgroundSearchWorker.searchChapters(bookId:query:isAscending:searchTrans:)` -> `ChapterStore.shared.searchChapters`
+
+4. **Luồng NghiTTS khi đoạn sau tiền xử lý không thể đọc**:
+   `TTSManager.scheduleNghiRefill()` -> `PiperTTSService.synthesizeWithDuration(...)` -> `TextPreprocessor.preprocess(...)`
+     ├── Có nội dung đọc được -> `ONNXPiperEngine.synthesizeWithDuration(...)`
+     └── Rỗng/chỉ dấu câu -> `PiperTTSService.makeSilenceSpec(...)` -> `WAVEncoder.encodePCM16(...)`
+   - Lỗi prefetch tạm thời -> `evaluateRefillError(...)` -> task cooldown 1 giây -> `updateNghiPrefetchWindow()`.
+   - Lỗi không retry hoặc đủ hai attempt -> đánh dấu index bị block -> chọn ứng viên prefetch khác.
 <!-- GENERATED END -->

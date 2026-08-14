@@ -158,8 +158,11 @@ After approval, send AGY the exact approved plan and current constraints with `-
 
 - change only approved files and preserve unrelated user work;
 - follow repository instructions;
+- after production code changes, complete every repository-mandated post-change step defined by the repository instructions (for example AGENTS.md), including affected documentation updates, metadata/manifest updates, changelog updates, and validation commands; these steps are part of the implementation and must not be skipped;
+- do not report `IMPLEMENTATION_STATUS: COMPLETE` until all mandatory post-change steps required by the repository instructions have completed successfully;
+- if any mandatory post-change step cannot be completed, return `IMPLEMENTATION_STATUS: BLOCKED` and identify the exact unfinished step and reason;
 - run relevant tests, lint, type checks, builds, and focused security checks;
-- avoid docs, commits, pushes, releases, migrations against live data, or destructive actions unless explicitly approved;
+- avoid documentation changes outside the repository-defined post-change workflow, commits, pushes, releases, migrations against live data, or destructive actions unless explicitly approved;
 - report exact commands, outcomes, changed files, and known limitations.
 
 Require:
@@ -167,6 +170,7 @@ Require:
 ```text
 IMPLEMENTATION_STATUS: COMPLETE | BLOCKED
 TEST_STATUS: <commands and pass/fail summary>
+POST_CHANGE_STATUS: <mandatory repository post-change steps and pass/fail summary>
 FILES_CHANGED: <paths>
 REVIEW_NOTES: <known limitations, risks, or none>
 ```
@@ -181,6 +185,7 @@ For non-interactive print mode, completion requires:
 2. AGY emitted `IMPLEMENTATION_STATUS: COMPLETE` rather than `BLOCKED`;
 3. all reported builds and tests returned;
 4. the diff and test evidence are available.
+5. all repository-mandated post-change steps have completed successfully, with evidence in `POST_CHANGE_STATUS`.
 
 For a TUI session, also inspect `/agents` and `/tasks`. An idle prompt or silence is not completion. Close a completed TUI with `/exit` or `Ctrl+D`; use repeated `Ctrl+C` only to cancel stuck streaming or a runaway task.
 
@@ -216,5 +221,8 @@ Only report completion after review passes. Summarize implementation, passed che
 - Reuse the same workspace conversation and structured artifacts.
 - Read only focused plans, diffs, touched files, and test logs.
 - Never bypass the approval gate or broaden scope.
-- Never commit, push, release, update docs, or delete data unless explicitly authorized.
+- Never commit, push, release, update documentation outside the repository-defined post-change workflow, or delete data unless explicitly authorized.
+- Never create, edit, delete, rename, move, regenerate, or auto-fix test files, test fixtures, snapshots, golden files, or baselines. Tests are read-only for AGY. AGY may run existing tests, but if a test appears stale, incorrect, or incompatible with an approved production-code change, report it instead of modifying it.
+
+Repository-defined post-change workflow is mandatory. After production code changes, AGY must complete all required documentation, metadata, changelog, and validation steps defined by repository instructions before reporting `IMPLEMENTATION_STATUS: COMPLETE`. If any required step is unfinished or fails, report `BLOCKED` instead.
 - Treat `BLOCKED`, timeout, process crash, and missing completion markers as incomplete work.

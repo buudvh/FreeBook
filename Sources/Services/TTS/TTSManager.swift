@@ -2387,6 +2387,33 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         nghiRefillTask?.cancel()
         nghiRefillTask = nil
         nghiRefillInFlightIndex = nil
+        clearNghiRefillFailureStates()
+    }
+
+    internal struct RefillFailureKey: Hashable {
+        let sessionID: UUID
+        let chapterIndex: Int
+        let paragraphIndex: Int
+    }
+
+    internal struct RefillFailureState {
+        var attempts: Int = 0
+        var isBlocked: Bool = false
+    }
+
+    private var nghiRefillFailureStates: [RefillFailureKey: RefillFailureState] = [:]
+    private var nghiRefillRetryTask: Task<Void, Never>?
+    private var nghiRefillRetryGeneration: UInt64 = 0
+
+    internal func cancelNghiRefillRetry() {
+        nghiRefillRetryGeneration &+= 1
+        nghiRefillRetryTask?.cancel()
+        nghiRefillRetryTask = nil
+    }
+
+    internal func clearNghiRefillFailureStates() {
+        nghiRefillFailureStates.removeAll()
+        cancelNghiRefillRetry()
     }
 
     public var nghiWatermarks: (low: Double, high: Double) {
@@ -2458,9 +2485,20 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         prepareNextNghiAudioIfPossible()
         triggerNextChapterPrefetch()
 
+        let currentSessionID = sessionID
+        let currentChapter = playingChapterIndex
+        let blockedIndices = Set(
+            nghiRefillFailureStates.compactMap { (key, state) -> Int? in
+                guard key.sessionID == currentSessionID, key.chapterIndex == currentChapter, state.isBlocked else { return nil }
+                return key.paragraphIndex
+            }
+        )
+
         let N = currentParagraphIndex
         let nextIndex = N + 1
-        if nextIndex < paragraphs.count && preloadedData[nextIndex] == nil && nghiAudioPlayerQueue.nextItem?.paragraphIndex != nextIndex {
+        let isNextBlocked = blockedIndices.contains(nextIndex)
+        let isNextPrepared = nghiAudioPlayerQueue.nextItem?.paragraphIndex == nextIndex
+        if nextIndex < paragraphs.count && preloadedData[nextIndex] == nil && !isNextPrepared && !isNextBlocked {
             scheduleNghiRefill()
             return
         }
@@ -2495,12 +2533,13 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     nonisolated internal static func selectNghiOptionalRefillCandidate(
         currentParagraphIndex N: Int,
         paragraphsCount: Int,
-        preloadedIndices: Set<Int>
+        preloadedIndices: Set<Int>,
+        blockedIndices: Set<Int> = []
     ) -> Int? {
         let optionalStart = N + 2
         guard optionalStart < paragraphsCount else { return nil }
         for idx in optionalStart..<paragraphsCount {
-            if !preloadedIndices.contains(idx) {
+            if !preloadedIndices.contains(idx) && !blockedIndices.contains(idx) {
                 return idx
             }
         }
@@ -2527,24 +2566,96 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         nghiRefillGeneration == expectedRefillGeneration
     }
 
+    internal enum RefillTaskOutcome: Equatable {
+        case success
+        case blocked(reason: String, action: String)
+        case retryScheduled(reason: String, attempt: Int)
+        case cancelled
+    }
+
+    nonisolated internal static func classifyTTSError(_ error: Error) -> (reason: String, isNonRetryable: Bool) {
+        if let ttsError = error as? TTSError {
+            switch ttsError {
+            case .badRequest:
+                return ("badRequest", true)
+            case .notFound:
+                return ("notFound", true)
+            case .modelNotCached:
+                return ("modelNotCached", true)
+            case .engineUnavailable:
+                return ("engineUnavailable", true)
+            case .internalError:
+                return ("internalError", false)
+            }
+        }
+        return ("unknownError", false)
+    }
+
+    nonisolated internal static func evaluateRefillError(
+        _ error: Error,
+        currentAttempts: Int,
+        maxAttempts: Int = 2
+    ) -> (newState: RefillFailureState, outcome: RefillTaskOutcome) {
+        if error is CancellationError {
+            return (RefillFailureState(attempts: currentAttempts, isBlocked: false), .cancelled)
+        }
+
+        let (reasonCode, isNonRetryable) = classifyTTSError(error)
+        if isNonRetryable {
+            return (RefillFailureState(attempts: currentAttempts, isBlocked: true), .blocked(reason: reasonCode, action: "blocked_non_retryable"))
+        }
+
+        let nextAttempt = currentAttempts + 1
+        if nextAttempt >= maxAttempts {
+            return (RefillFailureState(attempts: nextAttempt, isBlocked: true), .blocked(reason: reasonCode, action: "blocked_max_retries"))
+        } else {
+            return (RefillFailureState(attempts: nextAttempt, isBlocked: false), .retryScheduled(reason: reasonCode, attempt: nextAttempt))
+        }
+    }
+
+    nonisolated internal static func canScheduleNghiRefill(
+        hasRefillTask: Bool,
+        hasRetryTask: Bool
+    ) -> Bool {
+        !hasRefillTask && !hasRetryTask
+    }
+
+    private static func logPrefetchFailure(chapter: Int, index: Int, attempt: Int, reason: String, action: String) {
+        if AppLogger.shared.isLoggingEnabled {
+            AppLogger.shared.log("[TTSPerf] PrefetchFailure chapter=\(chapter) index=\(index) engine=nghitts attempt=\(attempt) reason=\(reason) action=\(action)")
+        }
+    }
+
     private func scheduleNghiRefill() {
         guard isPlaying,
               tool == "nghitts",
-              nghiRefillTask == nil,
+              Self.canScheduleNghiRefill(hasRefillTask: nghiRefillTask != nil, hasRetryTask: nghiRefillRetryTask != nil),
               let service = nghiTTSService else { return }
+
+        let currentSessionID = sessionID
+        let currentChapter = playingChapterIndex
+        let blockedIndices = Set(
+            nghiRefillFailureStates.compactMap { (key, state) -> Int? in
+                guard key.sessionID == currentSessionID, key.chapterIndex == currentChapter, state.isBlocked else { return nil }
+                return key.paragraphIndex
+            }
+        )
 
         let N = currentParagraphIndex
         let nextIndex = N + 1
         let optionalCount = preloadedData.keys.filter { $0 >= N + 2 }.count
         let targetIndex: Int?
 
-        if nextIndex < paragraphs.count && preloadedData[nextIndex] == nil && nghiAudioPlayerQueue.nextItem?.paragraphIndex != nextIndex {
+        let isNextBlocked = blockedIndices.contains(nextIndex)
+        let isNextPrepared = nghiAudioPlayerQueue.nextItem?.paragraphIndex == nextIndex
+        if nextIndex < paragraphs.count && preloadedData[nextIndex] == nil && !isNextPrepared && !isNextBlocked {
             targetIndex = nextIndex
         } else if calculateNghiCachedTime() < nghittsSafeCachedTimeThreshold && optionalCount < NghiSynthesisPolicy.maxOptionalReserveItems {
             targetIndex = Self.selectNghiOptionalRefillCandidate(
                 currentParagraphIndex: N,
                 paragraphsCount: paragraphs.count,
-                preloadedIndices: Set(preloadedData.keys)
+                preloadedIndices: Set(preloadedData.keys),
+                blockedIndices: blockedIndices
             )
         } else {
             targetIndex = nil
@@ -2581,13 +2692,29 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         nghiRefillTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            var taskOutcome: RefillTaskOutcome = .cancelled
+
             defer {
                 if self.nghiRefillGeneration == refillGeneration {
                     self.nghiRefillInFlightIndex = nil
                     self.nghiRefillTask = nil
                     self.updateNghiBufferedDuration()
-                    if self.isPlaying && self.tool == "nghitts" {
-                        self.updateNghiPrefetchWindow()
+
+                    switch taskOutcome {
+                    case .success:
+                        let key = RefillFailureKey(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, paragraphIndex: index)
+                        self.nghiRefillFailureStates.removeValue(forKey: key)
+                        if self.isPlaying && self.tool == "nghitts" {
+                            self.updateNghiPrefetchWindow()
+                        }
+
+                    case .blocked:
+                        if self.isPlaying && self.tool == "nghitts" {
+                            self.updateNghiPrefetchWindow()
+                        }
+
+                    case .retryScheduled, .cancelled:
+                        break
                     }
                 }
             }
@@ -2634,11 +2761,61 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                 self.updateNghiBufferedDuration()
                 self.prepareNextNghiAudioIfPossible()
                 self.checkAndPromoteNextChapterAudioIfNeeded()
+                taskOutcome = .success
             } catch is CancellationError {
+                taskOutcome = .cancelled
                 return
             } catch {
-                if AppLogger.shared.isLoggingEnabled {
-                    AppLogger.shared.log("[TTSPerf] PrefetchFailure chapter=\(expectedChapterIndex) index=\(index) engine=nghitts")
+                guard self.isValidNghiRefillContext(
+                    sessionID: expectedSessionID,
+                    bookID: expectedBookID,
+                    chapterIndex: expectedChapterIndex,
+                    chapterURL: expectedChapterURL,
+                    voice: expectedVoice,
+                    generation: expectedGeneration,
+                    refillGeneration: refillGeneration
+                ) else { return }
+
+                let key = RefillFailureKey(sessionID: expectedSessionID, chapterIndex: expectedChapterIndex, paragraphIndex: index)
+                let currentState = self.nghiRefillFailureStates[key] ?? RefillFailureState()
+                let (newState, outcome) = Self.evaluateRefillError(error, currentAttempts: currentState.attempts)
+
+                self.nghiRefillFailureStates[key] = newState
+
+                switch outcome {
+                case .cancelled:
+                    taskOutcome = .cancelled
+
+                case .blocked(let reason, let action):
+                    taskOutcome = .blocked
+                    Self.logPrefetchFailure(chapter: expectedChapterIndex, index: index, attempt: newState.attempts, reason: reason, action: action)
+
+                case .retryScheduled(let reason, let attempt):
+                    taskOutcome = .retryScheduled
+                    Self.logPrefetchFailure(chapter: expectedChapterIndex, index: index, attempt: attempt, reason: reason, action: "retry_scheduled")
+
+                    self.cancelNghiRefillRetry()
+                    let retryGen = self.nghiRefillRetryGeneration
+                    let retrySessionID = expectedSessionID
+                    let retryChapterIndex = expectedChapterIndex
+                    self.nghiRefillRetryTask = Task { @MainActor [weak self] in
+                        defer {
+                            if let self, self.nghiRefillRetryGeneration == retryGen {
+                                self.nghiRefillRetryTask = nil
+                            }
+                        }
+                        try? await Task.sleep(nanoseconds: 1_000_000_000)
+                        guard let self, !Task.isCancelled, self.nghiRefillRetryGeneration == retryGen else { return }
+                        guard self.isPlaying,
+                              self.tool == "nghitts",
+                              self.sessionID == retrySessionID,
+                              self.playingChapterIndex == retryChapterIndex else { return }
+                        self.nghiRefillRetryTask = nil
+                        self.updateNghiPrefetchWindow()
+                    }
+
+                case .success:
+                    break
                 }
             }
         }

@@ -376,7 +376,7 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
 * Thứ tự ưu tiên bắt buộc là `current > prefetch > nextChapter`; request cùng key phải được gộp để không tổng hợp trùng.
 * Remote TTS prefetch tuần tự 1 worker và không bị điều tiết hay hủy bởi `thermalState`. Extension TTS tự động áp dụng `preload_size` và `max_length` từ JSON config (ẩn trên UI); Google TTS hiển thị `googlePrefetchCount` (2-10 đoạn), Stepper `chunkLength` (50-500 ký tự) và `prefetchDelayMs` (tối thiểu 300ms).
 * Mô hình 2 Worker chuyên trách độc lập cho Trình nghe TTS: Worker 1 (`TTSChapterTextWorker`) kích hoạt nạp trước DTO chữ chương $K+1$ khi $N \ge \text{count}/2$ hoặc $\text{remainingParents} \le 3$; Worker 2 (`TTSAudioSynthesisWorker`) tổng hợp âm thanh MP3/PCM vào bộ đệm RAM.
-* Retry chỉ được sở hữu bởi service, tối đa hai attempt tổng cộng cho mỗi synthesis; `TTSManager` không được bọc thêm vòng retry.
+* Đối với Google/Ext, retry chỉ được sở hữu bởi service, tối đa hai attempt tổng cộng cho mỗi synthesis; `TTSManager` không được bọc thêm vòng retry cho Remote TTS.
 
 ### 5.7.2. NghiTTS Energy Rules
 * NghiTTS synthesis phải tiếp tục đi qua `PiperSynthesisCoordinator` với tối đa một inference đang chạy.
@@ -385,6 +385,10 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
 * `.serious`/`.critical` phải dừng speculative refill và next-chapter audio. N+1 thiết yếu không có cooldown và vẫn được phép ở `.serious`; `.critical` chỉ cho phép chunk hiện tại bị thiếu tổng hợp on-demand.
 * Refill N+1 đang chạy phải được playback demand tái sử dụng; không được hủy rồi tổng hợp trùng cùng đoạn. Mọi refill xa hơn N+1 mới được áp dụng cooldown theo thermal policy.
 * Audio chương kế của NghiTTS chỉ được tạo ở `.nominal`; `.fair` ưu tiên CPU idle cho chương đang phát.
+* Kết quả sau `TextPreprocessor` không còn ký tự có thể đọc phải được `PiperTTSService` chuyển thành WAV/PCM khoảng lặng hợp lệ. Luồng streaming phải phát đúng một terminal chunk và không chuyển chuỗi rỗng vào ONNX/eSpeak.
+* NghiTTS refill được phép retry tại `TTSManager` vì đây là chính sách cửa sổ prefetch, không phải retry nội bộ engine: tối đa hai attempt tổng cộng cho mỗi session/chapter/paragraph, cooldown 1 giây, lỗi model/engine/request không retry bị block ngay.
+* Trong thời gian cooldown, scheduler không được tạo refill thay thế. Retry task phải xác thực session/chapter/generation, xóa reference của chính nó trước khi gọi lại prefetch, và bị hủy/reset khi stop, đổi session hoặc chuyển chương.
+* `CancellationError` không được ghi failure state, log như synthesis failure hoặc lên lịch retry. Index đã block chỉ bị bỏ qua ở prefetch; foreground/on-demand synthesis vẫn giữ quyền thử lại.
 
 ### 5.8. Memory Rules
 *   **Tên**: Tránh giữ strong reference `self` trong callback âm thanh ngầm
