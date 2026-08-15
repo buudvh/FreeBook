@@ -406,7 +406,7 @@ public final class ExtensionManager: ObservableObject {
             let stringified = stringify(cleanVal)
             // AppLogger.shared.log("📝 [ExtensionManager] detail raw JS result: \(stringified)")
             
-            guard let dict = cleanVal.toDictionary() as? [String: Any] else {
+            guard let dict = parseJSObject(cleanVal) else {
                 // AppLogger.shared.log("❌ [ExtensionManager] detail returned non-dictionary result or null")
                 let errorDesc = "Failed to parse novel detail: result is not dictionary"
                 updateDiagnostics(action: "detail", input: url, status: "Error", details: errorDesc)
@@ -629,11 +629,11 @@ public final class ExtensionManager: ObservableObject {
                         results.append(CategoryResult(title: title, input: input, script: script))
                     }
                 }
-            } else if let dict = cleanVal.toDictionary() as? [String: String] {
+            } else if let dict = parseJSObject(cleanVal) as? [String: String] {
                 for (key, val) in dict {
                     results.append(CategoryResult(title: key, input: val, script: "search.js"))
                 }
-            } else if let dict = cleanVal.toDictionary() as? [String: Any] {
+            } else if let dict = parseJSObject(cleanVal) {
                 for (key, val) in dict {
                     if let valStr = val as? String {
                         results.append(CategoryResult(title: key, input: valStr, script: "search.js"))
@@ -995,6 +995,19 @@ public final class ExtensionManager: ObservableObject {
             return result.toString() ?? ""
         }
         return jsValue.toString() ?? ""
+    }
+
+    /// Parses a JS object into a Foundation dictionary via `JSON.stringify` + `JSONSerialization`.
+    /// This normalizes every value to standard Foundation types (NSString/NSNumber/NSArray/NSDictionary),
+    /// avoiding the unreliable value bridging of `JSValue.toDictionary()` for certain string values.
+    internal func parseJSObject(_ jsValue: JSValue) -> [String: Any]? {
+        let json = stringify(jsValue)
+        guard !json.isEmpty, json != "undefined",
+              let data = json.data(using: .utf8),
+              let any = try? JSONSerialization.jsonObject(with: data),
+              let dict = any as? [String: Any]
+        else { return nil }
+        return dict
     }
     
     internal func updateDiagnostics(action: String, input: String, status: String, details: String) {

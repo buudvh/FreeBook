@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.173] - 2026-08-15
+
+### Chuẩn hoá parse object JS qua JSON round-trip (sửa lỗi tên sách detail shuhaige)
+
+* **Nguyên nhân gốc**: `ExtensionManager.detail(...)` parse dictionary JS qua `cleanVal.toDictionary()` rồi đọc `dict["name"] as? String`. `JSValue.toDictionary()` bridge giá trị `name` (chuỗi Hán dài đi qua `formatTocName()`) sang kiểu không phải `String` nên `as? String` trả `nil` → `""`, trong khi `author` (cũng chuỗi Hán) bridge bình thường — `Response.success` raw vẫn có đủ `name`. Đây là lý do tên sách shuhaige không hiển thị ở màn hình detail (log chẩn đoán xác nhận `detail parsed info: name= | author=???`).
+* **Sửa**: thêm `ExtensionManager.parseJSObject(_ jsValue:) -> [String: Any]?` — đưa object JS qua `JSON.stringify` (tái dùng `stringify`) + `JSONSerialization`, chuẩn hoá mọi giá trị về kiểu Foundation tiêu chuẩn (NSString/NSNumber/NSArray/NSDictionary) để `as? String` hoạt động đáng tin cậy. Có guard chống chuỗi rỗng/`"undefined"` (khi JSON.stringify fail).
+* **`detail`** (`ExtensionManager.swift:409`): dùng `parseJSObject(cleanVal)` thay `cleanVal.toDictionary()` — vá luôn `name/author/cover/description/detail/host/link` **và** các read `item["title"]/["input"]/["script"] as? String` của genres/suggests/comments trong một chỗ (cùng chảy qua `dict`).
+* **`executeCustomScript`** fallback dict (`:632`, `:636`): chuyển sang `parseJSObject(cleanVal)` cho đồng nhất.
+* **Giữ nguyên vì hiệu năng**: luồng chính `executeCustomScript` (`:727`), `toc`/`search`/`genre`/`home` (đều đọc qua `?.toString()` trên JSValue) — nhẹ và đã đúng; JSON round-trip chỉ áp cho object nhỏ để tránh chi phí bộ nhớ/CPU 3-4x trên payload lớn (base64 TTS, nội dung chương, mảng books).
+
 ## [1.3.172] - 2026-08-15
 
 ### Bật log chẩn đoán tên sách detail (điều tra shuhaige)
