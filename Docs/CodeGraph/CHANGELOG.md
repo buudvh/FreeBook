@@ -4,6 +4,15 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.173] - 2026-08-15
 
+### Thêm "Xoá khỏi kệ sách" (chỉ gỡ khỏi kệ) + đổi tên destructive thành "Xoá"
+
+* **`BookTransactionCoordinator.swift`**: thêm `removeFromShelf(bookId:in:)` set `isOnShelf = false` + `isHistory = true` + `lastReadDate = Date()` rồi save. Khác với `setOnShelf(false)` (vốn ép `isHistory = false` làm sách biến mất khỏi cả 2 tab), method này giữ sách hiển thị ở tab **Lịch sử** (`historyBooks = isHistory && !isOnShelf`).
+* **`ShelfView.swift`** (context menu Kệ sách): thêm nút mới **"Xoá khỏi kệ sách"** (`bookmark.slash`) gọi `removeFromShelfOnly(_:)` (chỉ gỡ khỏi kệ, giữ lịch sử); đồng thời **đổi tên** nút destructive hiện có từ "Xóa khỏi kệ sách" → **"Xoá"** (icon `trash.fill`), giữ nguyên hành vi xoá hẳn qua `removeFromShelf(_:)` (`BookStorageManager.deleteBookAsync`).
+
+### Tăng chiều rộng cell menu bôi đen Reader
+
+* **`FloatingSelectionMenu.swift`**: `buttonWidth` 46→52 (các cell 2-4), `ngheWidth` 56→62 (cột Nghe), và `menuWidth` 199→223 đồng bộ theo công thức `menuWidth = ngheWidth + 1 + 3*buttonWidth + 4`. Layout dùng `HStack(spacing:0)` + `.frame(width:)` nên cell tự dãn; giữ `menuWidth` đúng để clamp trục x không bị cắt ở mép màn hình.
+
 ### Chuẩn hoá parse object JS qua JSON round-trip (sửa lỗi tên sách detail shuhaige)
 
 * **Nguyên nhân gốc**: `ExtensionManager.detail(...)` parse dictionary JS qua `cleanVal.toDictionary()` rồi đọc `dict["name"] as? String`. `JSValue.toDictionary()` bridge giá trị `name` (chuỗi Hán dài đi qua `formatTocName()`) sang kiểu không phải `String` nên `as? String` trả `nil` → `""`, trong khi `author` (cũng chuỗi Hán) bridge bình thường — `Response.success` raw vẫn có đủ `name`. Đây là lý do tên sách shuhaige không hiển thị ở màn hình detail (log chẩn đoán xác nhận `detail parsed info: name= | author=???`).

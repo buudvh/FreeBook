@@ -105,6 +105,24 @@ public final class BookTransactionCoordinator {
     }
 
     @discardableResult
+    public func removeFromShelf(bookId: String, in context: ModelContext) -> Result<Void, Error> {
+        var descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.bookId == bookId })
+        descriptor.fetchLimit = 1
+        guard let book = try? context.fetch(descriptor).first else {
+            return .failure(BookTransactionError.bookNotFound(bookId))
+        }
+        book.isOnShelf = false
+        book.isHistory = true
+        book.lastReadDate = Date()
+        do {
+            try context.save()
+            return .success(())
+        } catch {
+            return .failure(BookTransactionError.saveFailed(error.localizedDescription))
+        }
+    }
+
+    @discardableResult
     public func setCurrentChapterIndex(bookId: String, index: Int, in context: ModelContext) -> Result<Void, Error> {
         var descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.bookId == bookId })
         descriptor.fetchLimit = 1

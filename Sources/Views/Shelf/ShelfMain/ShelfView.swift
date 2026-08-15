@@ -406,10 +406,16 @@ struct ShelfView: View {
                                 Label("Dịch lại tên chương", systemImage: "arrow.clockwise.circle")
                             }
 
+                            Button {
+                                removeFromShelfOnly(book)
+                            } label: {
+                                Label("Xoá khỏi kệ sách", systemImage: "bookmark.slash")
+                            }
+
                             Button(role: .destructive) {
                                 removeFromShelf(book)
                             } label: {
-                                Label("Xóa khỏi kệ sách", systemImage: "bookmark.slash")
+                                Label("Xoá", systemImage: "trash.fill")
                             }
                         }
                     }
@@ -636,6 +642,17 @@ struct ShelfView: View {
                 AppLogger.shared.log("❌ Lỗi khi xóa khỏi kệ sách tại ShelfView: \(error.localizedDescription)")
             }
             self.isProcessingDeletion = false
+        }
+    }
+
+    private func removeFromShelfOnly(_ book: Book) {
+        let res = BookTransactionCoordinator.shared.removeFromShelf(bookId: book.bookId, in: modelContext)
+        switch res {
+        case .success:
+            ToastManager.shared.show(message: "Đã xoá '\(book.title)' khỏi kệ sách", type: .success)
+        case .failure(let err):
+            AppLogger.shared.log("❌ [ShelfView] Lỗi xoá khỏi kệ sách: \(err.localizedDescription)")
+            ToastManager.shared.show(message: "Không thể xoá khỏi kệ sách: \(err.localizedDescription)", type: .error)
         }
     }
 

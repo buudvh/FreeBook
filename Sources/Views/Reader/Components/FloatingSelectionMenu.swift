@@ -14,10 +14,10 @@ public struct FloatingSelectionMenu: View {
     public let onDeleteJunk: () -> Void
     public let onAddToTTSReplacement: () -> Void
 
-    private let menuWidth: CGFloat = 199
+    private let menuWidth: CGFloat = 223
     private let gap: CGFloat = 24
-    private let ngheWidth: CGFloat = 56
-    private let buttonWidth: CGFloat = 46
+    private let ngheWidth: CGFloat = 62
+    private let buttonWidth: CGFloat = 52
     private let row1Height: CGFloat = 46
     private let row2Height: CGFloat = 46
     private let menuHeight: CGFloat = 46 + 1 + 46
