@@ -21,16 +21,8 @@ struct BookShareTargetSheet: View {
                     pendingTarget = book
                     showingModeDialog = true
                 } label: {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(book.title)
-                            .font(.body)
-                            .foregroundStyle(.primary)
-                        Text(book.bookId)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
+                    BookListItemView(book: book, showChapter: false)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
