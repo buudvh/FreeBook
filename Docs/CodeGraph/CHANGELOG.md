@@ -2,6 +2,27 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.168] - 2026-08-15
+
+### Tăng tốc độ đọc từ bôi đen ("Đọc") lên 1.5
+
+* **`ReaderView.swift`**:
+  - Google TTS: `readSelectedText()` truyền `speed: 1.5` (trước là `1.0`), giữ `pitch: 1.0`.
+  - Fallback Siri `fallbackSiriReadSelectedText()`: set `utterance.rate = AVSpeechUtteranceMaximumSpeechRate` (nhanh nhất có thể, vì AVSpeechSynthesizer không hỗ trợ vượt 1.0).
+
+## [1.3.167] - 2026-08-15
+
+### Restructure FloatingSelectionMenu: Nghe merge 2 hàng, sửa vị trí clamp màn hình, UI gọn gàng
+
+* **Restructure layout `FloatingSelectionMenu.swift`**:
+  - Cột 1 là Button **Nghe** (`headphones`) cao full menu (`80 + 1 + 42 = 123pt`), merge 2 hàng thật sự — bỏ `Color.clear` spacer cũ.
+  - Cột 2-4 là `VStack` 2 hàng: **Hàng 1** Phiên âm, Copy, Đọc (cao 80pt); **Divider ngang chỉ nằm trong cột 2-4** (không chạy xuyên cột Nghe); **Hàng 2** đổi thứ tự thành **Dịch, Thay thế, Xoá** (cao 42pt).
+  - Thu gọn UI: `buttonWidth` 52 → 46pt, `gap` 36 → 24pt, icon 16 → 15pt; menu cao 145 → 123pt, `menuWidth` 215 → 191pt.
+* **Sửa vị trí menu không che chữ + không mất góc**:
+  - Thêm param `screenHeight` (truyền từ `ReaderView` → `ReaderFloatingMenuOverlayView` → `FloatingSelectionMenu`).
+  - Clamp y: ưu tiên đặt phía trên (`aboveY = localMinY - gap - menuHeight/2`) nếu đủ chỗ, ngược lại đặt phía dưới (`belowY = localMaxY + gap + menuHeight/2`), cuối cùng kẹp vào `[margin + menuHeight/2, screenHeight - margin - menuHeight/2]` (`margin = 16`) — menu luôn nằm trọn trong màn hình, giữ góc bo tròn khi gần mép.
+  - Giữ clamp x cũ (căn giữa theo `screenWidth`, kẹp trong khoảng margin 16pt).
+
 ## [1.3.166] - 2026-08-15
 
 ### Thêm suggest chip vào màn hình thêm phiên âm từ Reader, bỏ auto-fill value

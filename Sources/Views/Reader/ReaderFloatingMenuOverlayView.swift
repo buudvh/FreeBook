@@ -7,6 +7,7 @@ struct ReaderFloatingMenuOverlayView: View {
     let selectionMaxY: CGFloat
     let geometryOriginY: CGFloat
     let screenWidth: CGFloat
+    let screenHeight: CGFloat
 
     let onTranslate: () -> Void
     let onSpeak: () -> Void
@@ -36,6 +37,7 @@ struct ReaderFloatingMenuOverlayView: View {
                     selectionMaxY: selectionMaxY,
                     geometryOriginY: geometryOriginY,
                     screenWidth: screenWidth,
+                    screenHeight: screenHeight,
                     onTranslate: {
                         clearSelectionTrigger = UUID()
                         isShowing = false

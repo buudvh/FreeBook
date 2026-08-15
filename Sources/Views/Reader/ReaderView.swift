@@ -403,6 +403,7 @@ struct ReaderView: View {
                     selectionMaxY: selectionMaxY ?? 240,
                     geometryOriginY: geometry.frame(in: .global).minY,
                     screenWidth: geometry.size.width,
+                    screenHeight: geometry.size.height,
                     onTranslate: {
                         updateEditorFromSelection()
                         showingDefinitionSheet = true
@@ -750,7 +751,7 @@ struct ReaderView: View {
                         textLength: text.count,
                         priority: .current
                     ) {
-                        try await googleService.synthesize(text: text, voice: voice, speed: 1.0, pitch: 1.0)
+                        try await googleService.synthesize(text: text, voice: voice, speed: 1.5, pitch: 1.0)
                     }
                     await MainActor.run {
                         do {
@@ -778,6 +779,7 @@ struct ReaderView: View {
         if let voice = AVSpeechSynthesisVoice(language: "vi-VN") {
             utterance.voice = voice
         }
+        utterance.rate = AVSpeechUtteranceMaximumSpeechRate
         synthesizer.speak(utterance)
         self.wordSynthesizer = synthesizer
     }
