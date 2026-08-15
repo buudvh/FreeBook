@@ -15,6 +15,14 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader header titles use shared MarqueeText (1.3.170)
+
+`MarqueeText` was extracted from `FloatingSelectionMenu.swift` into its own file `Sources/Views/Reader/Components/MarqueeText.swift` and made internal (shared). `ReaderHeaderFooterOverlayView` now renders the book title (`readerBookDisplayTitle`, 16 bold) and chapter title (`readerChapterDisplayTitle`, 13 medium) through `MarqueeText` instead of plain `Text` with `lineLimit(1)/truncationMode(.tail)`. Both titles show on a single line and scroll left-to-right when the text overflows its container. Colors, layout, and the `onOpenChapterList` button action are unchanged. `FloatingSelectionMenu` uses the shared component with identical behavior.
+
+## Reader FloatingSelectionMenu square cells + marquee labels (1.3.169)
+
+`FloatingSelectionMenu` now uses square 46×46 cells for the six options (Phiên âm, Copy, Đọc, Dịch, Thay thế, Xoá); the Nghe column is wider (56pt) and still merges both rows (menu height `46 + 1 + 46 = 93`). Vertical dividers between cells were removed, keeping one faint `white.opacity(0.15)` divider between Nghe and the rest plus the faint horizontal divider between the two rows (columns 2-4 only). Label font dropped from 11 to 9 (icon stays 15). A new private `MarqueeText` renders every label on a single line: it measures text width via `NSString.size(withAttributes:)`; when the text fits (`<= container width`) it shows static `lineLimit(1)` text, otherwise it duplicates the text into a two-copy `HStack` and animates `.offset(x:)` from 0 to `-contentWidth` with `.linear(duration: contentWidth/30).repeatForever(autoreverses: false)` under `.clipped()`, resetting on disappear.
+
 ## Reader selection "Đọc" speed 1.5 (1.3.168)
 
 `ReaderView.readSelectedText()` now synthesizes Google TTS with `speed: 1.5` (was 1.0). The Siri fallback `fallbackSiriReadSelectedText()` sets `utterance.rate = AVSpeechUtteranceMaximumSpeechRate` (the fastest AVSpeechSynthesizer allows, max 1.0).

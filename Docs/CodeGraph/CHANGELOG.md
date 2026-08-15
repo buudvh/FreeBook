@@ -2,6 +2,29 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.170] - 2026-08-15
+
+### Tách MarqueeText thành component dùng chung + áp dụng cho header Reader (tên truyện/tên chương chạy chữ)
+
+* **Tạo file mới `Sources/Views/Reader/Components/MarqueeText.swift`**: chuyển struct `MarqueeText` từ `FloatingSelectionMenu.swift` sang file riêng, bỏ `private` → internal để dùng chung. Logic giữ nguyên: đo rộng bằng `NSString.size(withAttributes:)`, đủ chỗ hiển thị tĩnh 1 dòng (`.lineLimit(1)`), tràn thì duplicate 2 bản text + `.offset` animate `0 → -contentWidth` (`.linear(duration: contentWidth/30).repeatForever(autoreverses: false)`) + `.clipped()`, reset khi `.onDisappear`.
+* **Xoá struct `MarqueeText` private trong `FloatingSelectionMenu.swift`** (dùng bản dùng chung, không đổi hành vi).
+* **`ReaderHeaderFooterOverlayView.swift`**: thay `Text` của tên truyện (`readerBookDisplayTitle`, font 16 bold) và tên chương (`readerChapterDisplayTitle`, font 13 medium) bằng `MarqueeText`; giữ nguyên màu (`selectedTheme.textColor` / `.opacity(0.72)`), layout và action button `onOpenChapterList`. Tên truyện/tên chương hiển thị 1 dòng, tràn thì chạy trái→phải.
+
+## [1.3.169] - 2026-08-15
+
+### FloatingSelectionMenu: ô vuông, label 1 dòng + marquee, giảm font, bỏ kẻ dọc giữa ô
+
+* **Restructure layout `FloatingSelectionMenu.swift`**:
+  - 6 ô (Phiên âm, Copy, Đọc, Dịch, Thay thế, Xoá) là **hình vuông 46×46** (`row1Height`/`row2Height` 80/42 → 46); cột Nghe rộng hơn `56pt`, merge 2 hàng full menu (`menuHeight = 46 + 1 + 46 = 93`).
+  - `menuWidth` cập nhật 191 → 199 (`56 + 1 kẻ dọc + 3×46 + 4 padding`).
+  - **Bỏ kẻ dọc giữa các ô** trong hàng 1 và hàng 2; **giữ** 1 kẻ dọc mờ (`white.opacity(0.15)`) giữa cột Nghe & phần còn lại (full height) và `Divider` ngang mờ giữa 2 hàng (chỉ cột 2-4).
+  - **Giảm font label** `11 → 9` trong `menuItemContent` (icon giữ `15pt`).
+* **Thêm `MarqueeText` (private struct cùng file)**:
+  - Đo độ rộng text bằng `NSString.size(withAttributes:)` với font tương ứng (`uiFontWeight` map `Font.Weight` → `UIFont.Weight`).
+  - Không tràn (`contentWidth <= containerWidth`) → hiển thị tĩnh 1 dòng (`.lineLimit(1)`).
+  - Tràn → duplicate text 2 bản trong `HStack`, `.offset(x:)` animate `0 → -contentWidth` bằng `.linear(duration: contentWidth/30).repeatForever(autoreverses: false)`, `.clipped()`, reset `animate` khi `.onDisappear`.
+  - Áp dụng cho **cả 7 label** (Nghe, Phiên âm, Copy, Đọc, Dịch, Thay thế, Xoá) — mỗi label hiển thị 1 hàng, tràn thì chạy trái→phải.
+
 ## [1.3.168] - 2026-08-15
 
 ### Tăng tốc độ đọc từ bôi đen ("Đọc") lên 1.5

@@ -14,12 +14,13 @@ public struct FloatingSelectionMenu: View {
     public let onDeleteJunk: () -> Void
     public let onAddToTTSReplacement: () -> Void
 
-    private let menuWidth: CGFloat = 191
+    private let menuWidth: CGFloat = 199
     private let gap: CGFloat = 24
+    private let ngheWidth: CGFloat = 56
     private let buttonWidth: CGFloat = 46
-    private let row1Height: CGFloat = 80
-    private let row2Height: CGFloat = 42
-    private let menuHeight: CGFloat = 80 + 1 + 42
+    private let row1Height: CGFloat = 46
+    private let row2Height: CGFloat = 46
+    private let menuHeight: CGFloat = 46 + 1 + 46
     private let margin: CGFloat = 16
 
     public init(
@@ -56,7 +57,7 @@ public struct FloatingSelectionMenu: View {
             Button(action: onSpeak) {
                 menuItemContent(icon: "headphones", label: "Nghe")
             }
-            .frame(width: buttonWidth, height: menuHeight)
+            .frame(width: ngheWidth, height: menuHeight)
 
             verticalDivider(height: menuHeight)
 
@@ -69,14 +70,10 @@ public struct FloatingSelectionMenu: View {
                     }
                     .frame(width: buttonWidth, height: row1Height)
 
-                    verticalDivider(height: row1Height)
-
                     Button(action: onCopy) {
                         menuItemContent(icon: "doc.on.doc.fill", label: "Copy")
                     }
                     .frame(width: buttonWidth, height: row1Height)
-
-                    verticalDivider(height: row1Height)
 
                     Button(action: onReadSelected) {
                         menuItemContent(icon: "speaker.wave.2.fill", label: "Đọc")
@@ -96,14 +93,10 @@ public struct FloatingSelectionMenu: View {
                     }
                     .frame(width: buttonWidth, height: row2Height)
 
-                    verticalDivider(height: row2Height)
-
                     Button(action: onAddToTTSReplacement) {
                         menuItemContent(icon: "textformat.alt", label: "Thay thế")
                     }
                     .frame(width: buttonWidth, height: row2Height)
-
-                    verticalDivider(height: row2Height)
 
                     Button(action: onDeleteJunk) {
                         menuItemContent(icon: "trash.fill", label: "Xoá")
@@ -151,8 +144,8 @@ public struct FloatingSelectionMenu: View {
         VStack(spacing: 3) {
             Image(systemName: icon)
                 .font(.system(size: 15, weight: .semibold))
-            Text(label)
-                .font(.system(size: 11, weight: .bold))
+            MarqueeText(text: label, fontSize: 9, weight: .bold)
+                .frame(height: 13)
         }
         .foregroundColor(.white)
     }

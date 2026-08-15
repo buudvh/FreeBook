@@ -123,18 +123,12 @@ struct ReaderHeaderFooterOverlayView: View {
 
                     Button(action: onOpenChapterList) {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(readerBookDisplayTitle)
-                                .font(.system(size: 16, weight: .bold))
+                            MarqueeText(text: readerBookDisplayTitle, fontSize: 16, weight: .bold)
                                 .foregroundColor(selectedTheme.textColor)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
 
                             HStack(spacing: 6) {
-                                Text(readerChapterDisplayTitle)
-                                    .font(.system(size: 13, weight: .medium))
+                                MarqueeText(text: readerChapterDisplayTitle, fontSize: 13, weight: .medium)
                                     .foregroundColor(selectedTheme.textColor.opacity(0.72))
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
                                     .frame(maxWidth: .infinity, alignment: .leading)
 
                                 Image(systemName: "chevron.down")
