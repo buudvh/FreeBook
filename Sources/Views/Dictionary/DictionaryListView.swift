@@ -34,6 +34,7 @@ struct DictionaryListView: View {
     @State private var selectedTab: DictViewTab = .custom
     @State private var pendingImportURL: URL? = nil
     @State private var showingImportModeDialog = false
+    @State private var showingShareBookSheet = false
 
     private var isGlobal: Bool { bookId == nil }
 
@@ -132,6 +133,14 @@ struct DictionaryListView: View {
                         Label("Nhập từ điển (\(type.displayName))", systemImage: "square.and.arrow.down")
                     }
                     
+                    if !isGlobal {
+                        Button {
+                            showingShareBookSheet = true
+                        } label: {
+                            Label("Chia sẻ sang truyện khác", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                    
                     if !allEntries.isEmpty || (isGlobal && !deletedWordsList.isEmpty) {
                         Button {
                             exportDictionary()
@@ -183,6 +192,11 @@ struct DictionaryListView: View {
                 } else if let error = error {
                     ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
                 }
+            }
+        }
+        .sheet(isPresented: $showingShareBookSheet) {
+            BookShareTargetSheet(excludedBookId: bookId) { targetBook, isMerge in
+                shareToBook(targetBook: targetBook, isMerge: isMerge)
             }
         }
         .task {
@@ -544,6 +558,51 @@ struct DictionaryListView: View {
         }
     }
 
+    private func shareToBook(targetBook: Book, isMerge: Bool) {
+        guard let sourceBid = bookId, targetBook.bookId != sourceBid else { return }
+
+        Task {
+            do {
+                let translateDir = TranslationManager.shared.translateDirectory
+                let sourceURL = translateDir
+                    .appendingPathComponent("books").appendingPathComponent(sourceBid)
+                    .appendingPathComponent("\(type.fileName).txt")
+                let targetURL = translateDir
+                    .appendingPathComponent("books").appendingPathComponent(targetBook.bookId)
+                    .appendingPathComponent("\(type.fileName).txt")
+
+                let sourceRecords = (try? DictionaryTextFileStore.parseRecords(from: sourceURL)) ?? []
+                guard !sourceRecords.isEmpty else {
+                    ToastManager.shared.show(message: "Từ điển này chưa có dữ liệu để chia sẻ.", type: .info)
+                    return
+                }
+
+                var records: [DictionaryTextRecord]
+                if isMerge {
+                    // MERGE: giữ dữ liệu cũ của truyện đích không trùng key, key trùng lấy giá trị của truyện nguồn.
+                    let sourceKeys = Set(sourceRecords.map { $0.key })
+                    let existing = (try? DictionaryTextFileStore.parseRecords(from: targetURL)) ?? []
+                    records = existing.filter { !sourceKeys.contains($0.key) }
+                    records.insert(contentsOf: sourceRecords, at: 0)
+                } else {
+                    // REPLACE: xóa hết từ điển của truyện đích, chỉ giữ dữ liệu của truyện nguồn.
+                    records = sourceRecords
+                }
+
+                try await Task.detached(priority: .userInitiated) {
+                    try DictionaryTextFileStore.persist(records: records, to: targetURL)
+                }.value
+
+                TranslateUtils.clearCache()
+                TranslationManager.shared.clearBookDictCache(for: targetBook.bookId)
+
+                ToastManager.shared.show(message: "Đã chia sẻ \(type.displayName) sang truyện \(targetBook.title)", type: .success)
+            } catch {
+                ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
+            }
+        }
+    }
+
     private func exportText() -> String {
         if let records = currentTextRecords(), !records.isEmpty {
             return records.map { "\($0.key)=\($0.value)" }.joined(separator: "\n") + "\n"
@@ -719,6 +778,85 @@ struct DictEntrySheet: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Chia sẻ từ điển sang truyện khác
+
+struct BookShareTargetSheet: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    let excludedBookId: String?
+    let onConfirm: (Book, Bool) -> Void
+
+    @State private var books: [Book] = []
+    @State private var pendingTarget: Book? = nil
+    @State private var showingModeDialog = false
+
+    var body: some View {
+        NavigationStack {
+            List(books) { book in
+                Button {
+                    pendingTarget = book
+                    showingModeDialog = true
+                } label: {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(book.title)
+                            .font(.body)
+                            .foregroundStyle(.primary)
+                        Text(book.bookId)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .navigationTitle("Chọn truyện đích")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Hủy") { dismiss() }
+                }
+            }
+            .overlay {
+                if books.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "book.closed")
+                            .font(.largeTitle)
+                            .foregroundColor(.secondary)
+                        Text("Không có truyện khác để chia sẻ")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .confirmationDialog("Chọn chế độ chia sẻ", isPresented: $showingModeDialog, presenting: pendingTarget) { book in
+                Button("Thay thế hoàn toàn") {
+                    onConfirm(book, false)
+                    dismiss()
+                }
+                Button("Gộp (trùng key thì thay mới)") {
+                    onConfirm(book, true)
+                    dismiss()
+                }
+                Button("Hủy", role: .cancel) {}
+            } message: { _ in
+                Text("Thay thế: xóa hết dữ liệu cũ của truyện đích, chỉ giữ từ truyện này.\nGộp: giữ dữ liệu cũ của truyện đích, key trùng lấy giá trị mới.")
+            }
+            .task {
+                loadBooks()
+            }
+        }
+    }
+
+    private func loadBooks() {
+        let descriptor = FetchDescriptor<Book>(sortBy: [SortDescriptor(\Book.lastReadDate, order: .reverse)])
+        books = ((try? modelContext.fetch(descriptor)) ?? [])
+            .filter { $0.bookId != excludedBookId }
     }
 }
 

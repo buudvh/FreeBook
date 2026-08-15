@@ -285,6 +285,18 @@ struct ReaderDefinitionOverlayView: View {
                     .clipShape(Circle())
             }
 
+            Button(action: pasteFromClipboard) {
+                Image(systemName: "doc.on.clipboard")
+                    .font(.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(.blue)
+                    .padding(8)
+                    .background(Color.blue.opacity(0.1))
+                    .clipShape(Circle())
+            }
+            .accessibilityLabel("Dán từ clipboard")
+            .accessibilityHint("Dán nội dung clipboard vào ô nhập nghĩa")
+
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(suggestionChips) { chip in
@@ -464,5 +476,14 @@ struct ReaderDefinitionOverlayView: View {
 
     private func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    private func pasteFromClipboard() {
+        guard let pasted = UIPasteboard.general.string,
+              !pasted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            ToastManager.shared.show(message: "Không có nội dung trong clipboard", type: .info)
+            return
+        }
+        customMeaning = pasted
     }
 }
