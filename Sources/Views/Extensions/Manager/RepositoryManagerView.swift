@@ -733,7 +733,7 @@ struct RepositoryManagerView: View {
             }
             
             let repoRemoteVersion = item.version ?? 1
-            let finalAuthor = resolvedAuthor ?? item.author ?? "Không rõ"
+            let finalAuthor = resolvedAuthor ?? item.author ?? ""
             let finalLocale = resolvedLanguage ?? item.locale ?? "vi_VN"
             let finalType = resolvedType ?? item.type ?? "novel"
             let finalVersion = resolvedVersion ?? item.version ?? 1

@@ -184,7 +184,7 @@ public final class ExtensionManager: ObservableObject {
 
         let meta = json["metadata"] as? [String: Any] ?? json
         let name = (meta["name"] as? String) ?? (json["name"] as? String) ?? "Tiện ích Import"
-        let author = (meta["author"] as? String) ?? "Không rõ"
+        let author = (meta["author"] as? String) ?? ""
         let locale = (meta["locale"] as? String) ?? (meta["language"] as? String) ?? "vi_VN"
         let type = (meta["type"] as? String) ?? "novel"
         let sourceUrl = (meta["source"] as? String) ?? ""
@@ -368,7 +368,7 @@ public final class ExtensionManager: ObservableObject {
             var results: [ExtensionItemResult] = []
             for dict in jsArray {
                 let name = dict["name"]?.toString() ?? ""
-                let author = dict["author"]?.toString() ?? "Không rõ"
+                let author = dict["author"]?.toString() ?? ""
                 let description = dict["description"]?.toString() ?? dict["desc"]?.toString() ?? ""
                 let cover = dict["cover"]?.toString() ?? ""
                 let link = dict["link"]?.toString() ?? dict["url"]?.toString() ?? ""
@@ -414,7 +414,7 @@ public final class ExtensionManager: ObservableObject {
             }
             
             let name = dict["name"] as? String ?? ""
-            let author = dict["author"] as? String ?? "Không rõ"
+            let author = dict["author"] as? String ?? ""
             let cover = dict["cover"] as? String ?? ""
             let description = dict["description"] as? String ?? ""
             let detail = dict["detail"] as? String ?? ""
@@ -467,7 +467,7 @@ public final class ExtensionManager: ObservableObject {
             }
             
             let result = NovelDetailResult(name: name, author: author, cover: cover, description: description, detail: detail, host: host, link: link, genres: genres, suggests: suggests, comments: comments)
-            // AppLogger.shared.log("✅ [ExtensionManager] detail parsed info: \(result.name) by \(result.author)")
+            AppLogger.shared.log("✅ [ExtensionManager] detail parsed info: name=\(result.name) | author=\(result.author)")
             updateDiagnostics(action: "detail", input: url, status: "Success", details: "Name: \(result.name), Author: \(result.author)\n\(stringified)")
             return result
         } catch {

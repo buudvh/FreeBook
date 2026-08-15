@@ -831,11 +831,11 @@ class ReaderViewModel: ObservableObject {
         return BookMetadataSnapshot(
             bookId: bookId,
             title: title,
-            author: bookAuthor ?? "Không rõ",
+            author: bookAuthor ?? "",
             coverUrl: bookCoverUrl ?? "",
             desc: bookDesc ?? "",
             detailUrl: bookDetailUrl ?? "",
-            sourceName: bookSourceName ?? "Không rõ",
+            sourceName: bookSourceName ?? "",
             sourceUrl: bookDetailUrl ?? "",
             extensionPackageId: extensionPackageId,
             host: onlineChapters.first?.host,

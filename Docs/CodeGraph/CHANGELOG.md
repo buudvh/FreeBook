@@ -2,6 +2,12 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.172] - 2026-08-15
+
+### Bật log chẩn đoán tên sách detail (điều tra shuhaige)
+
+* **`ExtensionManager.swift`** (`detail`, dòng 470): bỏ comment log `AppLogger.shared.log("✅ [ExtensionManager] detail parsed info: name=\(result.name) | author=\(result.author)")` để ghi chính xác giá trị `NovelDetailResult.name` app đã parse từ JS dictionary. Mục đích: trong khi điều tra vì sao tên sách không hiển thị ở màn hình detail của ext shuhaige (dù `Response.success` đã log tên), log này giúp phân biệt lỗi parse (`result.name` rỗng) vs lỗi render (`result.name` có giá trị). Dùng 1 lần trên máy Mac/CI để chốt nguyên nhân, sau đó revert log nếu không cần.
+
 ## [1.3.173] - 2026-08-15
 
 ### Đổi tên `SearchNovelResult` thành `ExtensionItemResult` & Lọc dữ liệu Extension 100% theo thuộc tính dữ liệu
