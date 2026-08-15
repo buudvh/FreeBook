@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.171] - 2026-08-15
+
+### Revert chạy chữ (MarqueeText) + giảm label menu bôi đen xuống 7pt (icon 15pt, label center)
+
+* **Xoá file `Sources/Views/Reader/Components/MarqueeText.swift`**: bỏ component dùng chung vừa tách ở 1.3.170; loại bỏ toàn bộ xử lý marquee (chạy chữ trái→phải khi tràn).
+* **`FloatingSelectionMenu.swift`**: bỏ `MarqueeText` trong `menuItemContent`, thay bằng `Text(label)` thường.
+  - **Label giảm xuống `7pt`** bold, `lineLimit(1)`, hiển thị **center** cả ngang (`.frame(maxWidth: .infinity)`) và dọc (`.frame(height: 15, alignment: .center)`).
+  - **Icon giữ `15pt`**, mỗi dòng (icon/chữ) cùng `frame` cao `15pt` để cao độ bằng nhau.
+  - Giữ nguyên layout: ô vuông 46×46, Nghe 56×93 merge 2 hàng, kẻ dọc mờ giữa Nghe & phần còn lại, kẻ ngang mờ giữa 2 hàng.
+* **`ReaderHeaderFooterOverlayView.swift`**: khôi phục `Text` thường cho tên truyện (`readerBookDisplayTitle`, 16 bold) và tên chương (`readerChapterDisplayTitle`, 13 medium) với `.lineLimit(1).truncationMode(.tail)` như trước 1.3.170; giữ màu, layout và action `onOpenChapterList`.
+
 ## [1.3.170] - 2026-08-15
 
 ### Tách MarqueeText thành component dùng chung + áp dụng cho header Reader (tên truyện/tên chương chạy chữ)

@@ -141,11 +141,16 @@ public struct FloatingSelectionMenu: View {
     }
 
     private func menuItemContent(icon: String, label: String) -> some View {
-        VStack(spacing: 3) {
+        VStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.system(size: 15, weight: .semibold))
-            MarqueeText(text: label, fontSize: 9, weight: .bold)
-                .frame(height: 13)
+                .frame(height: 15)
+
+            Text(label)
+                .font(.system(size: 7, weight: .bold))
+                .lineLimit(1)
+                .frame(height: 15, alignment: .center)
+                .frame(maxWidth: .infinity)
         }
         .foregroundColor(.white)
     }
