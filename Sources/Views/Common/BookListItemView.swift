@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Dữ liệu hiển thị tối thiểu của một cuốn sách, dùng chung cho
-/// `Book` (SwiftData) và `SearchNovelResult` (DTO discovery/genre).
+/// `Book` (SwiftData) và `ExtensionItemResult` (DTO discovery/genre).
 protocol BookDisplayable {
     var bookId: String { get }
     var title: String { get }
@@ -100,7 +100,7 @@ extension Book: BookDisplayable {
     var description: String { desc }
 }
 
-extension SearchNovelResult: BookDisplayable {
+extension ExtensionItemResult: BookDisplayable {
     var bookId: String { link }
     var title: String { name }
     var coverUrl: String { cover }

@@ -7,7 +7,7 @@ struct AllCommentsView: View {
     let configJson: String
     let isTranslationEnabled: Bool
     
-    @State private var comments: [SearchNovelResult] = []
+    @State private var comments: [ExtensionItemResult] = []
     @State private var isLoading = true
     @State private var isLoadingMore = false
     @State private var errorMessage = ""

@@ -1,9 +1,9 @@
 import SwiftUI
 import SwiftData
 
-struct SearchNovelResultWithExt: Identifiable {
+struct ExtensionItemResultWithExt: Identifiable {
     let id = UUID()
-    let result: SearchNovelResult
+    let result: ExtensionItemResult
     let ext: Extension
 }
 
@@ -17,7 +17,7 @@ struct SearchView: View {
     
     @Environment(\.modelContext) private var modelContext
     
-    @State private var changeSourceTargetResult: SearchNovelResult? = nil
+    @State private var changeSourceTargetResult: ExtensionItemResult? = nil
     @State private var changeSourceTargetExtension: Extension? = nil
     @State private var showingChangeSourceAlert = false
     @State private var isChangingSource = false
@@ -25,7 +25,7 @@ struct SearchView: View {
     @State private var searchQuery = ""
     @State private var isSearching = false
     @State private var searchAllSources = false
-    @State private var searchResults: [SearchNovelResultWithExt] = []
+    @State private var searchResults: [ExtensionItemResultWithExt] = []
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @State private var searchStatusMessage = ""
     @AppStorage("search_history") private var searchHistoryJSON = "[]"
@@ -59,7 +59,7 @@ struct SearchView: View {
     
     enum SourceSearchState {
         case searching
-        case found(results: [SearchNovelResult])
+        case found(results: [ExtensionItemResult])
         case noResults
     }
     
@@ -575,7 +575,7 @@ struct SearchView: View {
         }
     }
     
-    private func isSameBookSource(result: SearchNovelResult, ext: Extension) -> Bool {
+    private func isSameBookSource(result: ExtensionItemResult, ext: Extension) -> Bool {
         guard let target = changeSourceTargetBook else { return false }
         
         let resultBookId = BookIdUtils.make(extensionPackageId: ext.packageId, detailUrl: result.link)
@@ -606,7 +606,7 @@ struct SearchView: View {
         return str
     }
 
-    private func executeSourceChange(to result: SearchNovelResult, ext: Extension) async {
+    private func executeSourceChange(to result: ExtensionItemResult, ext: Extension) async {
         guard let oldBook = changeSourceTargetBook else { return }
         
         let oldBookId = oldBook.bookId
@@ -759,7 +759,7 @@ struct SearchView: View {
             sourceStates = initialStates
             
             Task {
-                await withTaskGroup(of: (String, [SearchNovelResult]?).self) { group in
+                await withTaskGroup(of: (String, [ExtensionItemResult]?).self) { group in
                     for ext in extensionsToSearch {
                         let path = ext.localPath
                         let packageId = ext.packageId
@@ -829,7 +829,7 @@ struct SearchView: View {
                     )
                     await MainActor.run {
                         let cleanResults = filterAndDeduplicate(results)
-                        self.searchResults = cleanResults.map { SearchNovelResultWithExt(result: $0, ext: ext) }
+                        self.searchResults = cleanResults.map { ExtensionItemResultWithExt(result: $0, ext: ext) }
                         self.isSearching = false
                         self.searchStatusMessage = "Tìm thấy \(cleanResults.count) truyện trên nguồn \(ext.name)."
                     }

@@ -39,7 +39,7 @@ public struct ExtensionRegistryItem: Codable {
 }
 
 // MARK: - Helper Structs for JavaScript results
-public struct SearchNovelResult: Identifiable {
+public struct ExtensionItemResult: Identifiable {
     public let id = UUID()
     public let name: String
     public let author: String
@@ -48,6 +48,7 @@ public struct SearchNovelResult: Identifiable {
     public let link: String
     public let host: String
 }
+public typealias SearchNovelResult = ExtensionItemResult
 
 public struct NovelDetailResult {
     public let name: String
@@ -339,8 +340,8 @@ public final class ExtensionManager: ObservableObject {
     // MARK: - Chạy Script JS bóc tách dữ liệu
     
     // search: Gọi script JS tìm kiếm sách từ nguồn truyện.
-    // Trả về một mảng chứa thông tin sách tìm kiếm được [SearchNovelResult]
-    public func search(localPath: String, downloadUrl: String = "", query: String, page: Int, configJson: String = "{}") async throws -> [SearchNovelResult] {
+    // Trả về một mảng chứa thông tin sách tìm kiếm được [ExtensionItemResult]
+    public func search(localPath: String, downloadUrl: String = "", query: String, page: Int, configJson: String = "{}") async throws -> [ExtensionItemResult] {
         // Lấy đường dẫn file script JS tìm kiếm ("search")
         let scriptUrl = try getScriptPath(extensionPath: localPath, scriptKey: "search")
         let scriptName = scriptUrl.lastPathComponent
@@ -363,8 +364,8 @@ public final class ExtensionManager: ObservableObject {
             // Ép kiểu kết quả trả về của JS thành mảng bằng toDictionaryArray
             let jsArray = toDictionaryArray(cleanVal)
             
-            // Duyệt qua mảng kết quả JS để ánh xạ sang cấu trúc dữ liệu SearchNovelResult của Swift
-            var results: [SearchNovelResult] = []
+            // Duyệt qua mảng kết quả JS để ánh xạ sang cấu trúc dữ liệu ExtensionItemResult của Swift
+            var results: [ExtensionItemResult] = []
             for dict in jsArray {
                 let name = dict["name"]?.toString() ?? ""
                 let author = dict["author"]?.toString() ?? "Không rõ"
@@ -375,7 +376,7 @@ public final class ExtensionManager: ObservableObject {
                 
                 guard !link.isEmpty else { continue }
                 
-                results.append(SearchNovelResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
+                results.append(ExtensionItemResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
             }
             // AppLogger.shared.log("✅ [ExtensionManager] search parsed \(results.count) results")
             updateDiagnostics(action: "search", input: "query: \(query), page: \(page)", status: "Success", details: "Parsed \(results.count) results:\n\(stringified)")
@@ -694,7 +695,7 @@ public final class ExtensionManager: ObservableObject {
     }
     
     // Thực thi một script tùy chọn (ví dụ: gen.js, tag.js...) với input và page
-    public func executeCustomScript(localPath: String, downloadUrl: String = "", scriptFileName: String, input: String, page: Int, pageUrl: String?, configJson: String = "{}") async throws -> (results: [SearchNovelResult], nextPage: String?) {
+    public func executeCustomScript(localPath: String, downloadUrl: String = "", scriptFileName: String, input: String, page: Int, pageUrl: String?, configJson: String = "{}") async throws -> (results: [ExtensionItemResult], nextPage: String?) {
         let formattedInput = input.replacingOccurrences(of: "{0}", with: String(page))
         let pageArg = (page == 1) ? "" : (pageUrl ?? "")
         AppLogger.shared.log("🔍 [ExtensionManager][\(scriptFileName)]: arguments=[\(formattedInput), \(pageArg)], input=\(input), page=\(page), pageUrl=\(pageUrl ?? "nil"), configJson=\(configJson)")
@@ -717,9 +718,6 @@ public final class ExtensionManager: ObservableObject {
         let executor = JSExecutor(localPath: localPath, downloadUrl: downloadUrl)
         let configs = getCombinedConfigs(localPath: localPath, configJson: configJson)
         executor.injectGlobals(configs)
-        
-        // AppLogger.shared.log("📝 [ExtensionManager] formattedInput: \(formattedInput)")
-        
         do {
             let jsValue = try await executor.runAsync(scriptContent: scriptContent, functionName: "execute", arguments: [formattedInput, pageArg])
             let cleanVal = try verifyJSResponse(jsValue, extName: URL(fileURLWithPath: localPath).lastPathComponent, scriptName: scriptFileName)
@@ -728,21 +726,19 @@ public final class ExtensionManager: ObservableObject {
             // Ép kiểu kết quả trả về của JS thành mảng bằng toDictionaryArray
             let jsArray = toDictionaryArray(cleanVal)
             
-            var results: [SearchNovelResult] = []
+            var results: [ExtensionItemResult] = []
             for dict in jsArray {
                 let name = dict["name"]?.toString() ?? dict["username"]?.toString() ?? dict["author"]?.toString() ?? ""
-                let author = dict["author"]?.toString() ?? "Không rõ"
+                let author = dict["author"]?.toString() ?? ""
                 let description = dict["description"]?.toString() ?? dict["desc"]?.toString() ?? dict["content"]?.toString() ?? ""
                 let cover = dict["cover"]?.toString() ?? ""
                 let link = dict["link"]?.toString() ?? dict["url"]?.toString() ?? ""
                 let host = dict["host"]?.toString() ?? ""
                 
-                let isCommentScript = scriptFileName.localizedCaseInsensitiveContains("comment")
-                if !isCommentScript {
-                    guard !link.isEmpty else { continue }
-                }
-
-                results.append(SearchNovelResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
+                let hasLink = !link.isEmpty
+                let hasContent = !(dict["content"]?.toString() ?? "").isEmpty
+                guard hasLink || hasContent else { continue }
+                results.append(ExtensionItemResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
             }
             
             var nextPageVal: String? = nil

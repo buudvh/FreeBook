@@ -9,7 +9,7 @@ struct SuggestRowView: View {
     let sourceName: String
     let isTranslationEnabled: Bool
     
-    @State private var novels: [SearchNovelResult] = []
+    @State private var novels: [ExtensionItemResult] = []
     @State private var isLoading = true
     @State private var errorMessage = ""
     

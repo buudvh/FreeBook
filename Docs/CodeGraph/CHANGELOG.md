@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.173] - 2026-08-15
+
+### Đổi tên `SearchNovelResult` thành `ExtensionItemResult` & Lọc dữ liệu Extension 100% theo thuộc tính dữ liệu
+
+* **`ExtensionManager.swift`**:
+  - Đổi tên struct DTO `SearchNovelResult` thành **`ExtensionItemResult`** phản ánh đúng bản chất DTO chung của các item trả về từ JS Extension. Giữ `public typealias SearchNovelResult = ExtensionItemResult` để đảm bảo tương thích ngược 100%.
+  - Cập nhật kiểu trả về của `search(...)` và `executeCustomScript(...)` sang `[ExtensionItemResult]`.
+  - **Loại bỏ hoàn toàn việc check `scriptFileName`**: Thay thế `let isCommentScript = scriptFileName.localizedCaseInsensitiveContains("comment")` bằng cơ chế kiểm tra **100% dựa vào thuộc tính dữ liệu đặc trưng** (`guard hasLink || hasContent else { continue }` với `hasLink = !link.isEmpty` cho truyện và `hasContent = !(dict["content"]?.toString() ?? "").isEmpty` cho bình luận/đánh giá).
+  - Sửa fallback `author` khi parse custom script thành `""` thay vì `"Không rõ"`.
+* **Đồng bộ hóa các thành phần tiêu thụ**:
+  - **`PaginatedNovelLoader.swift`**: `@Published private(set) var novels: [ExtensionItemResult] = []`.
+  - **`NovelListUtils.swift`**: `filterAndDeduplicate(_ results: [ExtensionItemResult]) -> [ExtensionItemResult]`.
+  - **`BookListItemView.swift`**: `extension ExtensionItemResult: BookDisplayable`.
+  - **`CommentSectionView.swift`** & **`AllCommentsView.swift`**: `@State private var comments: [ExtensionItemResult] = []`.
+  - **`SuggestRowView.swift`**: `@State private var novels: [ExtensionItemResult] = []`.
+  - **`SearchView.swift`**: `ExtensionItemResultWithExt`, `@State private var searchResults: [ExtensionItemResultWithExt] = []` và các hàm tìm kiếm/đổi nguồn liên quan.
+
 ## [1.3.172] - 2026-08-15
 
 ### Nút "Dán" ở suggest chip màn hình Dịch + Chia sẻ từ điển giữa các truyện (tái sử dụng logic import + row bookshelf)

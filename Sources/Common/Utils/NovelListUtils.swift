@@ -22,9 +22,9 @@ func normalizeLink(_ link: String) -> String {
 
 /// Lọc bỏ kết quả thiếu name/link và loại bỏ trùng theo `normalizeLink`.
 /// Dùng chung cho danh sách genres, discovery, search và suggest.
-func filterAndDeduplicate(_ results: [SearchNovelResult]) -> [SearchNovelResult] {
+func filterAndDeduplicate(_ results: [ExtensionItemResult]) -> [ExtensionItemResult] {
     let filtered = results.filter { !$0.name.isEmpty && !$0.link.isEmpty }
-    return filtered.reduce(into: [SearchNovelResult]()) { acc, item in
+    return filtered.reduce(into: [ExtensionItemResult]()) { acc, item in
         if !acc.contains(where: { normalizeLink($0.link) == normalizeLink(item.link) }) {
             acc.append(item)
         }

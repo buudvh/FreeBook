@@ -6,7 +6,7 @@ import Combine
 /// Gói gọn việc gọi `executeCustomScript`, lọc/dedupe, state và auto-retry load-more.
 @MainActor
 final class PaginatedNovelLoader: ObservableObject {
-    @Published private(set) var novels: [SearchNovelResult] = []
+    @Published private(set) var novels: [ExtensionItemResult] = []
     @Published private(set) var isLoading = false
     @Published private(set) var isLoadingMore = false
     @Published private(set) var errorMessage = ""

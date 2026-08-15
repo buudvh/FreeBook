@@ -9,7 +9,7 @@ struct CommentSectionView: View {
     let sourceName: String
     let isTranslationEnabled: Bool
     
-    @State private var comments: [SearchNovelResult] = []
+    @State private var comments: [ExtensionItemResult] = []
     @State private var isLoading = true
     @State private var errorMessage = ""
     @State private var nextPageUrl: String? = nil
