@@ -4,13 +4,17 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.172] - 2026-08-15
 
-### Nút "Dán" ở suggest chip màn hình Dịch + Chia sẻ từ điển giữa các truyện
+### Nút "Dán" ở suggest chip màn hình Dịch + Chia sẻ từ điển giữa các truyện (tái sử dụng logic import)
 
 * **`ReaderDefinitionOverlayView.swift`**: thêm nút dán (`doc.on.clipboard`) vào `suggestionChipsView` giữa nút gear và `ScrollView` chip, cùng style icon tròn nền xanh. `pasteFromClipboard()` đọc `UIPasteboard.general.string`; clipboard rỗng → toast "Không có nội dung trong clipboard", ngược lại gán `customMeaning` (thay thế, giống hành vi tap chip).
-* **`DictionaryListView.swift`**: toolbar Menu thêm item "Chia sẻ sang truyện khác" (`square.and.arrow.up`), chỉ hiện khi `bookId != nil` (từ điển riêng của truyện).
-  - **`BookShareTargetSheet`** (struct mới trong file): sheet chọn truyện đích — `FetchDescriptor<Book>` sort theo `lastReadDate` desc, loại truyện hiện tại, mỗi dòng hiện `title` + `bookId`.
-  - `confirmationDialog` chọn chế độ: **"Thay thế hoàn toàn"** / **"Gộp (trùng key thì thay mới)"** — giống import hiện có.
-  - **`shareToBook(targetBook:isMerge:)`**: đọc records nguồn từ `books/{source}/{type}.txt` qua `DictionaryTextFileStore.parseRecords`; nguồn rỗng → toast & dừng; gộp/thay thế rồi `persist` vào `books/{target}/{type}.txt`; sau đó `TranslateUtils.clearCache()` + `TranslationManager.clearBookDictCache(for: targetBookId)`; toast thành công.
+* **`TextDictionary.swift`**: thêm `DictionaryTextFileStore.mergedRecords(imported:existing:isMerge:)` — chỗ duy nhất xử lý merge/replace (thay thế → trả về `imported`; gộp → giữ `existing` không trùng key, prepend `imported`).
+* **File mới `DictionaryImportModeDialog.swift`**: `ViewModifier` `dictionaryModeDialog(isPresented:title:message:onSelect:)` — dialog dùng chung **"Thay thế hoàn toàn"** / **"Gộp (trùng key thì thay mới)"** / Hủy, `onSelect(Bool)` (false=thay, true=gộp); `extension View` để gắn modifier.
+* **File mới `BookShareTargetSheet.swift`**: tách struct `BookShareTargetSheet` khỏi `DictionaryListView.swift` — sheet chọn truyện đích (`FetchDescriptor<Book>` sort `lastReadDate` desc, loại truyện hiện tại, hiện `title` + `bookId`), dùng lại `dictionaryModeDialog`.
+* **`DictionaryListView.swift`**:
+  - `importFile` nhánh per-book: bỏ khối merge/replace thủ công, gọi `mergedRecords`.
+  - `shareToBook(targetBook:isMerge:)`: đọc records nguồn từ `books/{source}/{type}.txt`; nguồn rỗng → toast & dừng; gọi `mergedRecords` rồi `persist` vào `books/{target}/{type}.txt`; `TranslateUtils.clearCache()` + `TranslationManager.clearBookDictCache(for: targetBookId)`; toast thành công.
+  - Dialog import: thay `confirmationDialog` thủ công bằng `.dictionaryModeDialog(...)` (dùng chung với share).
+  - Xoá struct `BookShareTargetSheet` cũ khỏi file; giữ nút toolbar "Chia sẻ sang truyện khác" + `.sheet`.
 
 ## [1.3.171] - 2026-08-15
 

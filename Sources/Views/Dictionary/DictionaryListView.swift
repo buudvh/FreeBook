@@ -217,24 +217,15 @@ struct DictionaryListView: View {
                 onCancel: nil
             )
         )
-        .confirmationDialog("Chọn chế độ nhập từ điển", isPresented: $showingImportModeDialog) {
-            Button("Thay thế hoàn toàn") {
-                if let url = pendingImportURL {
-                    importFile(from: url, isMerge: false)
-                }
-                pendingImportURL = nil
+        .dictionaryModeDialog(
+            isPresented: $showingImportModeDialog,
+            title: "Chọn chế độ nhập từ điển",
+            message: "Thay thế: xóa hết dữ liệu cũ, chỉ giữ file import.\nGộp: giữ dữ liệu cũ, key trùng lấy giá trị mới."
+        ) { isMerge in
+            if let url = pendingImportURL {
+                importFile(from: url, isMerge: isMerge)
             }
-            Button("Gộp (trùng key thì thay mới)") {
-                if let url = pendingImportURL {
-                    importFile(from: url, isMerge: true)
-                }
-                pendingImportURL = nil
-            }
-            Button("Hủy", role: .cancel) {
-                pendingImportURL = nil
-            }
-        } message: {
-            Text("Thay thế: xóa hết dữ liệu cũ, chỉ giữ file import.\nGộp: giữ dữ liệu cũ, key trùng lấy giá trị mới.")
+            pendingImportURL = nil
         }
     }
 
@@ -529,18 +520,15 @@ struct DictionaryListView: View {
                     try FileManager.default.createDirectory(at: bookDir, withIntermediateDirectories: true)
                     let txtUrl = bookDir.appendingPathComponent("\(type.fileName).txt")
                     let importedRecords = try DictionaryTextFileStore.parseRecords(from: url)
-                    let importedKeys = Set(importedRecords.map { $0.key })
 
-                    var records: [DictionaryTextRecord]
-                    if isMerge {
-                        // MERGE: giữ dữ liệu cũ không trùng key, import thắng key trùng.
-                        let existing = (try? DictionaryTextFileStore.parseRecords(from: txtUrl)) ?? []
-                        records = existing.filter { !importedKeys.contains($0.key) }
-                        records.insert(contentsOf: importedRecords, at: 0)
-                    } else {
-                        // REPLACE: xóa hết dữ liệu cũ, chỉ giữ file import.
-                        records = importedRecords
-                    }
+                    let existing = isMerge
+                        ? ((try? DictionaryTextFileStore.parseRecords(from: txtUrl)) ?? [])
+                        : []
+                    let records = DictionaryTextFileStore.mergedRecords(
+                        imported: importedRecords,
+                        existing: existing,
+                        isMerge: isMerge
+                    )
 
                     try await Task.detached(priority: .userInitiated) {
                         try DictionaryTextFileStore.persist(records: records, to: txtUrl)
@@ -577,17 +565,14 @@ struct DictionaryListView: View {
                     return
                 }
 
-                var records: [DictionaryTextRecord]
-                if isMerge {
-                    // MERGE: giữ dữ liệu cũ của truyện đích không trùng key, key trùng lấy giá trị của truyện nguồn.
-                    let sourceKeys = Set(sourceRecords.map { $0.key })
-                    let existing = (try? DictionaryTextFileStore.parseRecords(from: targetURL)) ?? []
-                    records = existing.filter { !sourceKeys.contains($0.key) }
-                    records.insert(contentsOf: sourceRecords, at: 0)
-                } else {
-                    // REPLACE: xóa hết từ điển của truyện đích, chỉ giữ dữ liệu của truyện nguồn.
-                    records = sourceRecords
-                }
+                let existing = isMerge
+                    ? ((try? DictionaryTextFileStore.parseRecords(from: targetURL)) ?? [])
+                    : []
+                let records = DictionaryTextFileStore.mergedRecords(
+                    imported: sourceRecords,
+                    existing: existing,
+                    isMerge: isMerge
+                )
 
                 try await Task.detached(priority: .userInitiated) {
                     try DictionaryTextFileStore.persist(records: records, to: targetURL)
@@ -780,84 +765,3 @@ struct DictEntrySheet: View {
         }
     }
 }
-
-// MARK: - Chia sẻ từ điển sang truyện khác
-
-struct BookShareTargetSheet: View {
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
-
-    let excludedBookId: String?
-    let onConfirm: (Book, Bool) -> Void
-
-    @State private var books: [Book] = []
-    @State private var pendingTarget: Book? = nil
-    @State private var showingModeDialog = false
-
-    var body: some View {
-        NavigationStack {
-            List(books) { book in
-                Button {
-                    pendingTarget = book
-                    showingModeDialog = true
-                } label: {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(book.title)
-                            .font(.body)
-                            .foregroundStyle(.primary)
-                        Text(book.bookId)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-            .navigationTitle("Chọn truyện đích")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Hủy") { dismiss() }
-                }
-            }
-            .overlay {
-                if books.isEmpty {
-                    VStack(spacing: 8) {
-                        Image(systemName: "book.closed")
-                            .font(.largeTitle)
-                            .foregroundColor(.secondary)
-                        Text("Không có truyện khác để chia sẻ")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
-            .confirmationDialog("Chọn chế độ chia sẻ", isPresented: $showingModeDialog, presenting: pendingTarget) { book in
-                Button("Thay thế hoàn toàn") {
-                    onConfirm(book, false)
-                    dismiss()
-                }
-                Button("Gộp (trùng key thì thay mới)") {
-                    onConfirm(book, true)
-                    dismiss()
-                }
-                Button("Hủy", role: .cancel) {}
-            } message: { _ in
-                Text("Thay thế: xóa hết dữ liệu cũ của truyện đích, chỉ giữ từ truyện này.\nGộp: giữ dữ liệu cũ của truyện đích, key trùng lấy giá trị mới.")
-            }
-            .task {
-                loadBooks()
-            }
-        }
-    }
-
-    private func loadBooks() {
-        let descriptor = FetchDescriptor<Book>(sortBy: [SortDescriptor(\Book.lastReadDate, order: .reverse)])
-        books = ((try? modelContext.fetch(descriptor)) ?? [])
-            .filter { $0.bookId != excludedBookId }
-    }
-}
-
-

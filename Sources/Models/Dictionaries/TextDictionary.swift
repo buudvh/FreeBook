@@ -119,6 +119,18 @@ enum DictionaryTextFileStore {
         return loadEntries(from: textURL).count
     }
 
+    static func mergedRecords(
+        imported: [DictionaryTextRecord],
+        existing: [DictionaryTextRecord],
+        isMerge: Bool
+    ) -> [DictionaryTextRecord] {
+        guard isMerge else { return imported }
+        let importedKeys = Set(imported.map { $0.key })
+        var records = existing.filter { !importedKeys.contains($0.key) }
+        records.insert(contentsOf: imported, at: 0)
+        return records
+    }
+
     static func persist(records: [DictionaryTextRecord], to textURL: URL) throws {
         var orderedRecords: [DictionaryTextRecord] = []
         var seenKeys = Set<String>()
