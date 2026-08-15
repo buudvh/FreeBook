@@ -7,31 +7,48 @@ struct CategoryNovelsListView: View {
     let downloadUrl: String
     let configJson: String
     let sourceName: String
-    
-    @State private var novels: [SearchNovelResult] = []
-    @State private var isLoading = true
-    @State private var isLoadingMore = false
-    @State private var errorMessage = ""
-    @State private var currentPage = 1
-    @State private var nextPageUrl: String? = nil
-    @State private var retryCount = 0
+
+    @StateObject private var loader: PaginatedNovelLoader
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
-    
+
+    init(
+        category: CategoryResult,
+        extensionPackageId: String,
+        localPath: String,
+        downloadUrl: String,
+        configJson: String,
+        sourceName: String
+    ) {
+        self.category = category
+        self.extensionPackageId = extensionPackageId
+        self.localPath = localPath
+        self.downloadUrl = downloadUrl
+        self.configJson = configJson
+        self.sourceName = sourceName
+        _loader = StateObject(wrappedValue: PaginatedNovelLoader(
+            localPath: localPath,
+            downloadUrl: downloadUrl,
+            scriptFileName: category.script,
+            input: category.input,
+            configJson: configJson
+        ))
+    }
+
     var body: some View {
         VStack {
-            if isLoading && novels.isEmpty {
+            if loader.isLoading && loader.novels.isEmpty {
                 ProgressView("Đang tải danh sách truyện...")
                     .frame(maxHeight: .infinity)
-            } else if !errorMessage.isEmpty && novels.isEmpty {
+            } else if !loader.errorMessage.isEmpty && loader.novels.isEmpty {
                 VStack(spacing: 12) {
-                    Text(errorMessage)
+                    Text(loader.errorMessage)
                         .foregroundColor(.red)
                         .font(.subheadline)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                     Button("Thử lại") {
                         Task {
-                            await loadNovels(page: 1)
+                            await loader.loadInitial()
                         }
                     }
                     .buttonStyle(.bordered)
@@ -39,7 +56,7 @@ struct CategoryNovelsListView: View {
                 .frame(maxHeight: .infinity)
             } else {
                 List {
-                    ForEach(novels) { novel in
+                    ForEach(loader.novels) { novel in
                         NavigationLink(destination: BookDetailView(
                             bookId: novel.link,
                             extensionPackageId: extensionPackageId,
@@ -47,37 +64,12 @@ struct CategoryNovelsListView: View {
                             sourceName: sourceName,
                             initialHost: novel.host
                         )) {
-                            HStack(alignment: .top, spacing: 12) {
-                                BookCoverView(bookId: novel.link, coverUrl: novel.cover, width: 60, height: 80)
-                                    .cornerRadius(6)
-                                    .shadow(radius: 1)
-                                
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text(DisplayTextFormatter.titleCase(translateIfNeeded(novel.name)))
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.primary)
-                                        .lineLimit(2)
-                                    
-                                    // Text(DisplayTextFormatter.titleCase(TranslateUtils.translateAuthorHanViet(novel.author)))
-                                    //     .font(.caption)
-                                    //     .foregroundColor(.secondary)
-                                    //     .lineLimit(1)
-                                    
-                                    if !novel.description.isEmpty {
-                                        Text(translateIfNeeded(novel.description.cleanHTML()))
-                                            .font(.caption2)
-                                            .foregroundColor(.secondary)
-                                            .lineLimit(2)
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 4)
+                            BookListItemView(item: novel, showChapter: false, showDescription: true, coverWidth: 60, coverHeight: 80)
+                                .padding(.vertical, 4)
                         }
                     }
-                    
-                    // Phân trang tự động (Cuộn vô hạn)
-                    if nextPageUrl != nil || currentPage == 1 {
+
+                    if loader.canLoadMore {
                         HStack {
                             Spacer()
                             ProgressView()
@@ -86,21 +78,21 @@ struct CategoryNovelsListView: View {
                         .padding(.vertical, 8)
                         .onAppear {
                             Task {
-                                await loadMoreNovels()
+                                await loader.loadMore()
                             }
                         }
                     }
                 }
                 .listStyle(.plain)
                 .refreshable {
-                    await loadNovels(page: 1)
+                    await loader.reload()
                 }
             }
         }
         .navigationTitle(translateIfNeeded(category.title))
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            await loadNovels(page: 1)
+            await loader.loadInitial()
         }
     }
 
@@ -110,96 +102,4 @@ struct CategoryNovelsListView: View {
         }
         return TranslateUtils.translateMeta(text)
     }
-    
-    private func loadNovels(page: Int) async {
-        if page == 1 {
-            await MainActor.run {
-                isLoading = true
-                errorMessage = ""
-                retryCount = 0
-            }
-        } else {
-            await MainActor.run {
-                isLoadingMore = true
-            }
-        }
-        
-        do {
-            let (results, nextPage) = try await ExtensionManager.shared.executeCustomScript(
-                localPath: localPath,
-                downloadUrl: downloadUrl,
-                scriptFileName: category.script,
-                input: category.input,
-                page: page,
-                pageUrl: page == 1 ? nil : nextPageUrl,
-                configJson: configJson
-            )
-            
-            let filtered = results.filter { !$0.name.isEmpty && !$0.link.isEmpty }
-            let unique = filtered.reduce(into: [SearchNovelResult]()) { acc, item in
-                if !acc.contains(where: { normalizeLink($0.link) == normalizeLink(item.link) }) {
-                    acc.append(item)
-                }
-            }
-            
-            await MainActor.run {
-                if page == 1 {
-                    self.novels = unique
-                } else {
-                    let newUnique = unique.filter { item in
-                        !self.novels.contains(where: { normalizeLink($0.link) == normalizeLink(item.link) })
-                    }
-                    self.novels.append(contentsOf: newUnique)
-                }
-                self.nextPageUrl = nextPage
-                self.currentPage = page
-                self.isLoading = false
-                self.isLoadingMore = false
-                self.retryCount = 0 // Reset khi thành công
-            }
-        } catch {
-            AppLogger.shared.log("❌ [CategoryNovelsListView] loadNovels error page \(page): \(error.localizedDescription)")
-            await MainActor.run {
-                if page == 1 {
-                    self.errorMessage = error.localizedDescription
-                    self.isLoading = false
-                } else {
-                    self.isLoadingMore = false
-                    if self.retryCount < 3 {
-                        self.retryCount += 1
-                        AppLogger.shared.log("🔄 Tự động tải lại trang \(page) (Lần thử \(self.retryCount))...")
-                        Task {
-                            try? await Task.sleep(nanoseconds: 2_000_000_000) // Đợi 2 giây
-                            await self.loadNovels(page: page)
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    @MainActor
-    private func loadMoreNovels() async {
-        guard !isLoadingMore else { return }
-        isLoadingMore = true
-        await loadNovels(page: currentPage + 1)
-    }
-}
-
-fileprivate func normalizeLink(_ link: String) -> String {
-    var clean = link.trimmingCharacters(in: .whitespacesAndNewlines)
-    if clean.hasPrefix("http://") || clean.hasPrefix("https://") {
-        if let range = clean.range(of: "://") {
-            let afterScheme = clean[range.upperBound...]
-            if let slashIndex = afterScheme.firstIndex(of: "/") {
-                clean = String(afterScheme[slashIndex...])
-            } else {
-                clean = "/"
-            }
-        }
-    }
-    if !clean.hasPrefix("/") {
-        clean = "/" + clean
-    }
-    return clean
 }

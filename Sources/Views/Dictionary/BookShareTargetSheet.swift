@@ -21,7 +21,7 @@ struct BookShareTargetSheet: View {
                     pendingTarget = book
                     showingModeDialog = true
                 } label: {
-                    BookListItemView(book: book, showChapter: false)
+                    BookListItemView(item: book, showChapter: false)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)

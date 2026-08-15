@@ -1610,7 +1610,6 @@ struct ReaderView: View {
         ForEach(chapter.paragraphItems) { item in
             let relativeHighlightRange: NSRange? = {
                 guard !isNavigatingNewChapter,
-                      ttsState.snapshot.isPlaying,
                       ttsState.snapshot.playingBookId == bookId,
                       ttsState.snapshot.playingChapterIndex == chapter.index,
                       item.id == ttsState.snapshot.currentParentParagraphIndex,

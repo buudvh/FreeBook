@@ -547,7 +547,7 @@ struct ShelfView: View {
 
     @ViewBuilder
     private func bookItemView(_ book: Book) -> some View {
-        BookListItemView(book: book)
+        BookListItemView(item: book)
     }
 
     private func retranslateChapterTitles(for book: Book) {

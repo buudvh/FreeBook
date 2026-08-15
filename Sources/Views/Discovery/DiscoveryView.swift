@@ -532,38 +532,60 @@ struct DiscoveryCategoryTabView: View {
     let sourceName: String
     let isTranslationEnabled: Bool
     @Binding var selectedCategoryId: String
-    
-    @State private var novels: [SearchNovelResult] = []
-    @State private var isLoadingNovels = false
-    @State private var novelsError = ""
-    @State private var currentPage = 1
-    @State private var canLoadMore = false
-    @State private var isLoadingMore = false
-    @State private var nextNovelPageUrl: String? = nil
-    @State private var retryCount = 0
+
+    @StateObject private var loader: PaginatedNovelLoader
     @State private var initialLoadTask: Task<Void, Never>? = nil
-    
+
+    init(
+        category: CategoryResult,
+        extensionPackageId: String,
+        localPath: String,
+        downloadUrl: String,
+        configJson: String,
+        sourceName: String,
+        isTranslationEnabled: Bool,
+        selectedCategoryId: Binding<String>
+    ) {
+        self.category = category
+        self.extensionPackageId = extensionPackageId
+        self.localPath = localPath
+        self.downloadUrl = downloadUrl
+        self.configJson = configJson
+        self.sourceName = sourceName
+        self.isTranslationEnabled = isTranslationEnabled
+        self._selectedCategoryId = selectedCategoryId
+        _loader = StateObject(wrappedValue: PaginatedNovelLoader(
+            localPath: localPath,
+            downloadUrl: downloadUrl,
+            scriptFileName: category.script,
+            input: category.input,
+            configJson: configJson
+        ))
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            if isLoadingNovels && novels.isEmpty {
+            if loader.isLoading && loader.novels.isEmpty {
                 DiscoverySkeletonListView()
                     .frame(maxHeight: .infinity)
-            } else if !novelsError.isEmpty && novels.isEmpty {
+            } else if !loader.errorMessage.isEmpty && loader.novels.isEmpty {
                 VStack(spacing: 12) {
                     Spacer()
-                    Text(novelsError)
+                    Text(loader.errorMessage)
                         .foregroundColor(.red)
                         .font(.subheadline)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                     Button("Thử lại") {
-                        loadNovels(page: 1)
+                        Task {
+                            await loader.loadInitial()
+                        }
                     }
                     .buttonStyle(.bordered)
                     Spacer()
                 }
                 .frame(maxHeight: .infinity)
-            } else if novels.isEmpty {
+            } else if loader.novels.isEmpty {
                 VStack(spacing: 12) {
                     Spacer()
                     Image(systemName: "book.closed")
@@ -577,7 +599,7 @@ struct DiscoveryCategoryTabView: View {
                 .frame(maxHeight: .infinity)
             } else {
                 List {
-                    ForEach(novels) { novel in
+                    ForEach(loader.novels) { novel in
                         NavigationLink(destination: BookDetailView(
                             bookId: "\(sourceName.lowercased())_\(novel.link)",
                             extensionPackageId: extensionPackageId,
@@ -585,42 +607,17 @@ struct DiscoveryCategoryTabView: View {
                             sourceName: sourceName,
                             initialHost: novel.host
                         )) {
-                            HStack(spacing: 12) {
-                                AsyncImage(url: URL(string: novel.cover)) { image in
-                                    image.resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                } placeholder: {
-                                    Color.gray.opacity(0.3)
-                                        .overlay(Image(systemName: "book"))
-                                }
-                                .frame(width: 50, height: 70)
-                                .cornerRadius(6)
-                                .clipped()
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(DisplayTextFormatter.titleCase(translateIfNeeded(novel.name)))
-                                        .font(.subheadline)
-                                        .fontWeight(.bold)
-                                        .lineLimit(2)
-                                    
-                                    let descText = !novel.description.isEmpty ? novel.description : novel.author
-                                    Text(translateIfNeeded(descText))
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(2)
-                                }
-                            }
+                            BookListItemView(item: novel, showChapter: false, showDescription: true)
                         }
                     }
-                    
-                    if canLoadMore {
+
+                    if loader.canLoadMore {
                         HStack {
                             Spacer()
                             ProgressView()
                                 .onAppear {
-                                    if !isLoadingMore && !isLoadingNovels {
-                                        currentPage += 1
-                                        loadNovels(page: currentPage)
+                                    Task {
+                                        await loader.loadMore()
                                     }
                                 }
                             Spacer()
@@ -630,7 +627,7 @@ struct DiscoveryCategoryTabView: View {
                 }
                 .listStyle(.plain)
                 .refreshable {
-                    await reloadCurrentCategory()
+                    await loader.reload()
                 }
             }
         }
@@ -645,11 +642,11 @@ struct DiscoveryCategoryTabView: View {
             checkAndLoadData()
         }
     }
-    
+
     private func checkAndLoadData() {
         // Chỉ nạp dữ liệu khi tab này thực sự là tab được chọn VÀ chưa có dữ liệu
         guard selectedCategoryId == category.id else { return }
-        guard novels.isEmpty && !isLoadingNovels && novelsError.isEmpty else { return }
+        guard loader.novels.isEmpty && !loader.isLoading && loader.errorMessage.isEmpty else { return }
         scheduleInitialLoad()
     }
 
@@ -660,109 +657,12 @@ struct DiscoveryCategoryTabView: View {
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 guard selectedCategoryId == category.id,
-                      novels.isEmpty,
-                      !isLoadingNovels,
-                      novelsError.isEmpty else { return }
-                loadNovels(page: 1)
-            }
-        }
-    }
-    
-    private func translateIfNeeded(_ text: String) -> String {
-        guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
-            return text
-        }
-        return TranslateUtils.translateMeta(text)
-    }
-    
-    private func loadNovels(page: Int) {
-        if page == 1 {
-            isLoadingNovels = true
-            novelsError = ""
-            retryCount = 0
-        } else {
-            isLoadingMore = true
-        }
-        
-        Task {
-            do {
-                let (results, nextPage) = try await ExtensionManager.shared.executeCustomScript(
-                    localPath: localPath,
-                    downloadUrl: downloadUrl,
-                    scriptFileName: category.script,
-                    input: category.input,
-                    page: page,
-                    pageUrl: page == 1 ? nil : self.nextNovelPageUrl,
-                    configJson: configJson
-                )
-                
-                await MainActor.run {
-                    self.nextNovelPageUrl = nextPage
-                    
-                    // Lọc novel rỗng (name hoặc link trống) và trùng link (chuẩn hóa link)
-                    let filtered = results.filter { !$0.name.isEmpty && !$0.link.isEmpty }
-                    let unique = filtered.reduce(into: [SearchNovelResult]()) { acc, item in
-                        if !acc.contains(where: { normalizeLink($0.link) == normalizeLink(item.link) }) {
-                            acc.append(item)
-                        }
-                    }
-                    
-                    if page == 1 {
-                        self.novels = unique
-                        self.isLoadingNovels = false
-                    } else {
-                        // Load more: chỉ append cái chưa có trong danh sách hiện tại
-                        let newUnique = unique.filter { item in
-                            !self.novels.contains(where: { normalizeLink($0.link) == normalizeLink(item.link) })
-                        }
-                        self.novels.append(contentsOf: newUnique)
-                        self.isLoadingMore = false
-                    }
-                    self.canLoadMore = results.count >= 10 && (nextPage != nil || category.input.contains("{0}"))
-                    self.retryCount = 0
+                      loader.novels.isEmpty,
+                      !loader.isLoading,
+                      loader.errorMessage.isEmpty else { return }
+                Task {
+                    await loader.loadInitial()
                 }
-            } catch {
-                AppLogger.shared.log("❌ [DiscoveryCategoryTabView] loadNovels error page \(page): \(error.localizedDescription)")
-                await MainActor.run {
-                    if page == 1 {
-                        self.novelsError = error.localizedDescription
-                        self.isLoadingNovels = false
-                        self.canLoadMore = false
-                    } else {
-                        self.isLoadingMore = false
-                        if self.retryCount < 3 {
-                            self.retryCount += 1
-                            AppLogger.shared.log("🔄 Tự động tải lại trang \(page) (Lần thử \(self.retryCount))...")
-                            Task {
-                                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                                self.loadNovels(page: page)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    private func reloadCurrentCategory() async {
-        do {
-            let (results, nextPage) = try await ExtensionManager.shared.executeCustomScript(
-                localPath: localPath,
-                downloadUrl: downloadUrl,
-                scriptFileName: category.script,
-                input: category.input,
-                page: 1,
-                pageUrl: nil,
-                configJson: configJson
-            )
-            await MainActor.run {
-                self.nextNovelPageUrl = nextPage
-                self.novels = results
-                self.canLoadMore = results.count >= 10 && (nextPage != nil || category.input.contains("{0}"))
-            }
-        } catch {
-            await MainActor.run {
-                self.novelsError = error.localizedDescription
             }
         }
     }
@@ -988,11 +888,3 @@ struct DiscoveryMainSkeletonView: View {
     }
 }
 
-fileprivate func normalizeLink(_ link: String) -> String {
-    var clean = link.trimmingCharacters(in: .whitespacesAndNewlines)
-    if let range = clean.range(of: "://") {
-        let afterScheme = clean[range.upperBound...]
-        clean = afterScheme.firstIndex(of: "/").map { String(afterScheme[$0...]) } ?? "/"
-    }
-    return clean.hasPrefix("/") ? clean : "/" + clean
-}
