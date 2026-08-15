@@ -2,6 +2,41 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.166] - 2026-08-15
+
+### Thêm suggest chip vào màn hình thêm phiên âm từ Reader, bỏ auto-fill value
+
+* **Sửa `AddWordSheet.swift`** (`TTSDictionaryEditView.swift`):
+  - Bỏ auto-fill `value` bằng `EnglishTransliterator.transliterateWord` trong `init` và `.onChange(of: key)`; `value` khởi tạo rỗng.
+  - Thêm tham số `showSuggestions: Bool = false` vào init; khi `true` hiển thị section `"Gợi ý phiên âm"` gồm hàng `ScrollView(.horizontal)` các chip dạng `Capsule` có thể tap để gán `value`.
+  - Chip thư viện (màu xanh) hiện khi `TextPreprocessor.lookupWord` tìm thấy từ trong `wordMap`; chip luật `JapaneseTransliterator.transliterateRomaji` và `EnglishTransliterator.transliterateWord` luôn hiển thị (màu xám nhạt), dedupe và bỏ chip rỗng.
+  - Nạp `librarySuggestion` qua `TextPreprocessor.shared.lookupWord(trimmedKey.lowercased())` (actor, async) với debounce 300ms: `suggestionLoadTask` hủy task cũ mỗi lần `key` đổi (`.onChange(of: key)`), ngủ 300ms rồi mới lookup; hủy task trong `.onDisappear`.
+* **Đấu nối trong `ReaderView.swift`**: sheet `AddWordSheet` (mở từ action "Phiên âm" trong menu bôi đen) truyền `showSuggestions: true`; `TTSDictionaryEditView` giữ nguyên (không chips).
+
+## [1.3.165] - 2026-08-15
+
+### Chuyển FloatingSelectionMenu sang layout 2 hàng, nút "Nghe" merge 2 ô
+
+* **Restructure `FloatingSelectionMenu.swift` sang 2 hàng (VStack 2 HStack)**:
+  - **Hàng 1 (cao 96pt)**: Nút **Nghe** (`headphones`) đặt cột 1 chiếm trọn chiều cao 96pt (merge 2 hàng) theo sau bởi Phiên âm, Copy, Đọc — mỗi nút cao 96pt để căn giữa nội dung.
+  - **Divider ngang** giữa 2 hàng (1pt, `white.opacity(0.15)`).
+  - **Hàng 2 (cao 48pt)**: Cột 1 là `Color.clear` spacer tương ứng vùng Nghe, theo sau bởi Thay thế, Xoá (đỏ), Dịch.
+  - Thêm helper `menuItemContent(icon:label:)` và `verticalDivider(height:)`; `menuWidth` giảm 378 → 215pt (4 cột × 52 + dividers + padding) nên menu gọn hơn và căn giữa tốt hơn trên màn hình hẹp.
+
+## [1.3.164] - 2026-08-15
+
+### Thêm option "Thay thế" thêm chuỗi bôi đen vào bộ thay thế ký tự TTS
+
+* **Thêm nút "Thay thế" vào menu bôi đen (`FloatingSelectionMenu.swift`, `ReaderFloatingMenuOverlayView.swift`)**:
+  - `FloatingSelectionMenu.swift`: Thêm prop `onAddToTTSReplacement` và nút mới (icon `textformat.alt`, label "Thay thế") đặt giữa nút "Đọc" và "Xoá". Thu gọn chiều rộng từng nút xuống 52pt và `menuWidth` lên 378pt để menu 7 nút không tràn trên màn hình hẹp.
+  - `ReaderFloatingMenuOverlayView.swift`: Truyền callback `onAddToTTSReplacement` xuống menu.
+* **Tạo `AddTTSReplacementSheet.swift` (file mới)**:
+  - Sheet Form 2 trường: **Chuỗi gốc (pattern)** mặc định là text đã bôi đen (cho phép sửa), **Chuỗi thay thế (replacement)** tự điền sẵn replacement của rule đã tồn tại trong `TTSReplacementManager.shared.rules` nếu pattern trùng, ngược lại để trống. Validation chỉ yêu cầu pattern không rỗng (cho phép khoảng trắng/dấu câu vì là pattern thay thế ký tự).
+* **Đấu nối trong `ReaderView.swift`**:
+  - Thêm `@State showingAddTTSReplacementSheet`, `pendingTTSReplacementPattern`; callback menu lưu `selectedDisplayedText` vào pattern rồi mở sheet.
+  - `.sheet` hiển thị `AddTTSReplacementSheet` truyền `TTSReplacementManager.shared.rules`, khi lưu gọi `TTSReplacementManager.shared.addRule(rule)` và Toast thông báo "Đã thêm thay thế TTS".
+  - Thêm `showingAddTTSReplacementSheet` vào `isAnySelectionOrOverlayActive` (hoãn refresh dịch khi đang mở sheet) và handler `.onChange` giải phóng deferred translation refresh khi đóng sheet.
+
 ## [1.3.163] - 2026-08-15
 
 ### Thêm nút bật/tắt "Tự động cuộn theo Highlight TTS" trong header Reader

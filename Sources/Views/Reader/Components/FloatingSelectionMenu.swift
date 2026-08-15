@@ -11,9 +11,11 @@ public struct FloatingSelectionMenu: View {
     public let onCopy: () -> Void
     public let onReadSelected: () -> Void
     public let onDeleteJunk: () -> Void
+    public let onAddToTTSReplacement: () -> Void
 
-    private let menuWidth: CGFloat = 370
+    private let menuWidth: CGFloat = 215
     private let gap: CGFloat = 36
+    private let buttonWidth: CGFloat = 52
 
     public init(
         selectionMinY: CGFloat,
@@ -25,7 +27,8 @@ public struct FloatingSelectionMenu: View {
         onPhoneme: @escaping () -> Void,
         onCopy: @escaping () -> Void,
         onReadSelected: @escaping () -> Void,
-        onDeleteJunk: @escaping () -> Void
+        onDeleteJunk: @escaping () -> Void,
+        onAddToTTSReplacement: @escaping () -> Void
     ) {
         self.selectionMinY = selectionMinY
         self.selectionMaxY = selectionMaxY
@@ -37,97 +40,75 @@ public struct FloatingSelectionMenu: View {
         self.onCopy = onCopy
         self.onReadSelected = onReadSelected
         self.onDeleteJunk = onDeleteJunk
+        self.onAddToTTSReplacement = onAddToTTSReplacement
     }
 
     public var body: some View {
-        HStack(spacing: 0) {
-            Button(action: onTranslate) {
-                VStack(spacing: 3) {
-                    Image(systemName: "character.book.closed.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Dịch")
-                        .font(.system(size: 11, weight: .bold))
+        VStack(spacing: 0) {
+            // Hàng 1: Nghe merge 2 hàng (96pt) + Phiên âm, Copy, Đọc
+            HStack(spacing: 0) {
+                Button(action: onSpeak) {
+                    menuItemContent(icon: "headphones", label: "Nghe")
                 }
-                .foregroundColor(.white)
-                .frame(width: 60, height: 48)
-            }
+                .frame(width: buttonWidth, height: 96)
 
+                verticalDivider(height: 96)
+
+                Button(action: onPhoneme) {
+                    menuItemContent(icon: "music.note", label: "Phiên âm")
+                }
+                .frame(width: buttonWidth, height: 96)
+
+                verticalDivider(height: 96)
+
+                Button(action: onCopy) {
+                    menuItemContent(icon: "doc.on.doc.fill", label: "Copy")
+                }
+                .frame(width: buttonWidth, height: 96)
+
+                verticalDivider(height: 96)
+
+                Button(action: onReadSelected) {
+                    menuItemContent(icon: "speaker.wave.2.fill", label: "Đọc")
+                }
+                .frame(width: buttonWidth, height: 96)
+            }
+            .frame(height: 96)
+
+            // Divider ngang giữa 2 hàng
             Divider()
-                .frame(height: 24)
                 .background(Color.white.opacity(0.15))
 
-            Button(action: onSpeak) {
-                VStack(spacing: 3) {
-                    Image(systemName: "headphones")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Nghe")
-                        .font(.system(size: 11, weight: .bold))
+            // Hàng 2: spacer cho cột Nghe + Thay thế, Xoá, Dịch
+            HStack(spacing: 0) {
+                Color.clear
+                    .frame(width: buttonWidth, height: 48)
+
+                verticalDivider(height: 48)
+
+                Button(action: onAddToTTSReplacement) {
+                    menuItemContent(icon: "textformat.alt", label: "Thay thế")
                 }
-                .foregroundColor(.white)
-                .frame(width: 60, height: 48)
-            }
+                .frame(width: buttonWidth, height: 48)
 
-            Divider()
-                .frame(height: 24)
-                .background(Color.white.opacity(0.15))
+                verticalDivider(height: 48)
 
-            Button(action: onPhoneme) {
-                VStack(spacing: 3) {
-                    Image(systemName: "music.note")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Phiên âm")
-                        .font(.system(size: 11, weight: .bold))
+                Button(action: onDeleteJunk) {
+                    menuItemContent(icon: "trash.fill", label: "Xoá")
+                        .foregroundColor(.red)
                 }
-                .foregroundColor(.white)
-                .frame(width: 60, height: 48)
-            }
+                .frame(width: buttonWidth, height: 48)
 
-            Divider()
-                .frame(height: 24)
-                .background(Color.white.opacity(0.15))
+                verticalDivider(height: 48)
 
-            Button(action: onCopy) {
-                VStack(spacing: 3) {
-                    Image(systemName: "doc.on.doc.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Copy")
-                        .font(.system(size: 11, weight: .bold))
+                Button(action: onTranslate) {
+                    menuItemContent(icon: "character.book.closed.fill", label: "Dịch")
                 }
-                .foregroundColor(.white)
-                .frame(width: 60, height: 48)
+                .frame(width: buttonWidth, height: 48)
             }
-
-            Divider()
-                .frame(height: 24)
-                .background(Color.white.opacity(0.15))
-
-            Button(action: onReadSelected) {
-                VStack(spacing: 3) {
-                    Image(systemName: "speaker.wave.2.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Đọc")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                .foregroundColor(.white)
-                .frame(width: 60, height: 48)
-            }
-
-            Divider()
-                .frame(height: 24)
-                .background(Color.white.opacity(0.15))
-
-            Button(action: onDeleteJunk) {
-                VStack(spacing: 3) {
-                    Image(systemName: "trash.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Xoá")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                .foregroundColor(.red)
-                .frame(width: 60, height: 48)
-            }
+            .frame(height: 48)
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 2)
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color(red: 0.1, green: 0.1, blue: 0.12).opacity(0.92))
@@ -146,5 +127,21 @@ public struct FloatingSelectionMenu: View {
                 return localMinY > 80 ? localMinY - gap : localMaxY + gap
             }()
         )
+    }
+
+    private func menuItemContent(icon: String, label: String) -> some View {
+        VStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+            Text(label)
+                .font(.system(size: 11, weight: .bold))
+        }
+        .foregroundColor(.white)
+    }
+
+    private func verticalDivider(height: CGFloat) -> some View {
+        Divider()
+            .frame(height: height)
+            .background(Color.white.opacity(0.15))
     }
 }

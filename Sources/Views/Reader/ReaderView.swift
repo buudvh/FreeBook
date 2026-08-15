@@ -137,6 +137,8 @@ struct ReaderView: View {
     @State private var selectionMinY: CGFloat? = nil
     @State private var selectionMaxY: CGFloat? = nil
     @State private var showingAddNghiTTSPhonemeSheet = false
+    @State private var showingAddTTSReplacementSheet = false
+    @State private var pendingTTSReplacementPattern = ""
     @State private var selectedDisplayedText = ""
     @State private var clearSelectionTrigger: UUID? = nil
     @State private var wordSynthesizer: AVSpeechSynthesizer? = nil
@@ -432,6 +434,10 @@ struct ReaderView: View {
                         updateEditorFromSelection()
                         junkPatternInput = selectedTextForDefinition.isEmpty ? selectedDisplayedText : selectedTextForDefinition
                         showingJunkDeleteSheet = true
+                    },
+                    onAddToTTSReplacement: {
+                        pendingTTSReplacementPattern = selectedDisplayedText
+                        showingAddTTSReplacementSheet = true
                     }
                 )
 
@@ -573,6 +579,11 @@ struct ReaderView: View {
                 checkAndReleaseDeferredTranslationRefresh()
             }
         }
+        .onChange(of: showingAddTTSReplacementSheet) { _, newValue in
+            if !newValue {
+                checkAndReleaseDeferredTranslationRefresh()
+            }
+        }
 
         .onChange(of: showingJunkDeleteSheet) { _, newValue in
             if !newValue {
@@ -600,12 +611,22 @@ struct ReaderView: View {
             }
         }
         .sheet(isPresented: $showingAddNghiTTSPhonemeSheet) {
-            AddWordSheet(initialKey: selectedDisplayedText) { key, val in
+            AddWordSheet(initialKey: selectedDisplayedText, showSuggestions: true) { key, val in
                 _ = Task {
                     try? await TextPreprocessor.shared.updateWord(key: key, value: val)
                     await TextPreprocessor.shared.loadResources()
                     ToastManager.shared.show(message: "Đã thêm phiên âm: \(key)")
                 }
+            }
+        }
+        .sheet(isPresented: $showingAddTTSReplacementSheet) {
+            AddTTSReplacementSheet(
+                initialPattern: pendingTTSReplacementPattern,
+                existingRules: TTSReplacementManager.shared.rules
+            ) { pattern, replacement in
+                let rule = TTSReplacementRule(pattern: pattern, replacement: replacement, isEnabled: true)
+                TTSReplacementManager.shared.addRule(rule)
+                ToastManager.shared.show(message: "Đã thêm thay thế TTS: '\(pattern)' → '\(replacement)'", type: .success)
             }
         }
         .fullScreenCover(isPresented: $showingBypassBrowser) {
@@ -1829,7 +1850,7 @@ struct ReaderView: View {
     }
 
     private var isAnySelectionOrOverlayActive: Bool {
-        showingFloatingMenu || showingDefinitionSheet || showingAddNghiTTSPhonemeSheet || showingJunkDeleteSheet
+        showingFloatingMenu || showingDefinitionSheet || showingAddNghiTTSPhonemeSheet || showingJunkDeleteSheet || showingAddTTSReplacementSheet
     }
 
     private func checkAndReleaseDeferredTranslationRefresh() {

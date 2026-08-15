@@ -521,20 +521,45 @@ public struct AddWordSheet: View {
     @State private var key = ""
     @State private var value = ""
     @State private var validationError: String? = nil
+    @State private var librarySuggestion: String? = nil
+    @State private var suggestionLoadTask: Task<Void, Never>? = nil
 
     let onAdd: (String, String) -> Void
+    let showSuggestions: Bool
 
-    public init(initialKey: String = "", onAdd: @escaping (String, String) -> Void) {
+    public init(initialKey: String = "", showSuggestions: Bool = false, onAdd: @escaping (String, String) -> Void) {
         self.onAdd = onAdd
+        self.showSuggestions = showSuggestions
         _key = State(initialValue: initialKey)
-        
-        let trimmedKey = initialKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedKey.isEmpty {
-            let suggested = EnglishTransliterator.transliterateWord(trimmedKey)
-            _value = State(initialValue: suggested)
-        } else {
-            _value = State(initialValue: "")
+        _value = State(initialValue: "")
+    }
+
+    private var trimmedKey: String {
+        key.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var suggestions: [String] {
+        let trimmed = trimmedKey
+        guard !trimmed.isEmpty else { return [] }
+
+        var result: [String] = []
+        var seen = Set<String>()
+
+        if let library = librarySuggestion, !library.isEmpty, seen.insert(library).inserted {
+            result.append(library)
         }
+
+        let japanese = JapaneseTransliterator.transliterateRomaji(trimmed)
+        if !japanese.isEmpty, seen.insert(japanese).inserted {
+            result.append(japanese)
+        }
+
+        let english = EnglishTransliterator.transliterateWord(trimmed)
+        if !english.isEmpty, seen.insert(english).inserted {
+            result.append(english)
+        }
+
+        return result
     }
 
     public var body: some View {
@@ -546,16 +571,38 @@ public struct AddWordSheet: View {
                         .textInputAutocapitalization(.never)
                         .onChange(of: key) { oldValue, newValue in
                             validateKey(newValue)
-                            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                            if !trimmed.isEmpty {
-                                value = EnglishTransliterator.transliterateWord(trimmed)
-                            } else {
-                                value = ""
-                            }
+                            scheduleSuggestionLoad()
                         }
 
                     TextField("Phiên âm tiếng Việt (e.g. ép pô)", text: $value)
                         .autocorrectionDisabled()
+                }
+
+                if showSuggestions && !suggestions.isEmpty {
+                    Section("Gợi ý phiên âm") {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(suggestions, id: \.self) { suggestion in
+                                    Button(action: {
+                                        value = suggestion
+                                    }) {
+                                        Text(suggestion)
+                                            .font(.subheadline)
+                                            .foregroundColor(librarySuggestion == suggestion ? .blue : .gray)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 6)
+                                            .background(Color.secondary.opacity(0.1))
+                                            .clipShape(Capsule())
+                                            .overlay(
+                                                Capsule()
+                                                    .stroke(librarySuggestion == suggestion ? Color.blue.opacity(0.45) : Color.gray.opacity(0.3), lineWidth: 1)
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                    }
                 }
 
                 if let validationError = validationError {
@@ -568,6 +615,13 @@ public struct AddWordSheet: View {
             }
             .navigationTitle("Thêm từ mới")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                scheduleSuggestionLoad()
+            }
+            .onDisappear {
+                suggestionLoadTask?.cancel()
+                suggestionLoadTask = nil
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Hủy") {
@@ -593,6 +647,17 @@ public struct AddWordSheet: View {
             validationError = "Từ gốc không được chứa dấu câu"
         } else {
             validationError = nil
+        }
+    }
+
+    private func scheduleSuggestionLoad() {
+        guard showSuggestions else { return }
+        suggestionLoadTask?.cancel()
+        suggestionLoadTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
+            let trimmed = trimmedKey.lowercased()
+            librarySuggestion = trimmed.isEmpty ? nil : await TextPreprocessor.shared.lookupWord(trimmed)
         }
     }
 }

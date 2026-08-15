@@ -3,16 +3,16 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-15T02:33:11.787674Z",
-  "gitCommit": "95e5e950935f53da374e7f0a46bd21d82b461d16",
-  "sourceFileCount": 203,
+  "generatedAt": "2026-08-15T06:17:35.118221Z",
+  "gitCommit": "4df0b7e5d693f48f3aeb5bfedcf0da55a7a9ad01",
+  "sourceFileCount": 204,
   "documentCount": 16,
   "documents": [
     {
       "filename": "00_index.md",
-      "sourceHash": "442557362256a4a11de4312b958cbc1b21b8c4da370348fc5908e65a8d4831c2",
-      "generatedHash": "e843c0c245c221340a691447cdf8f2b366c6c3e287e674b77798517a86a39fff",
-      "generatedAt": "2026-08-15T02:33:11.787674Z",
+      "sourceHash": "6fd663f54d88da2bdac7db2192fc51c465da8eb1c07c0ef09ff0a3ede0d78f3d",
+      "generatedHash": "97ff730a501e742de3c408308aff4b5b4a2677077ede32cb4b0f377789c81fbd",
+      "generatedAt": "2026-08-15T06:17:35.118221Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -213,15 +213,16 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Views/Reader/AddTTSReplacementSheet.swift"
       ],
       "documentVersion": 3
     },
     {
       "filename": "01_project.md",
-      "sourceHash": "442557362256a4a11de4312b958cbc1b21b8c4da370348fc5908e65a8d4831c2",
+      "sourceHash": "6fd663f54d88da2bdac7db2192fc51c465da8eb1c07c0ef09ff0a3ede0d78f3d",
       "generatedHash": "df5e879240263fae5fd7ec1c3d6789cf71768857dde990e91118365ce15094c8",
-      "generatedAt": "2026-08-15T02:33:11.787674Z",
+      "generatedAt": "2026-08-15T06:17:35.118221Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -422,15 +423,16 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Views/Reader/AddTTSReplacementSheet.swift"
       ],
       "documentVersion": 1
     },
     {
       "filename": "02_file_graph.md",
-      "sourceHash": "442557362256a4a11de4312b958cbc1b21b8c4da370348fc5908e65a8d4831c2",
+      "sourceHash": "6fd663f54d88da2bdac7db2192fc51c465da8eb1c07c0ef09ff0a3ede0d78f3d",
       "generatedHash": "455da0cd7b1949b7dd7f70809da214f5bfc4ef0c612dbc0cbbb93cfc93b681e2",
-      "generatedAt": "2026-08-15T02:33:11.787674Z",
+      "generatedAt": "2026-08-15T06:17:35.118221Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -631,15 +633,16 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Views/Reader/AddTTSReplacementSheet.swift"
       ],
       "documentVersion": 2
     },
     {
       "filename": "03_type_graph.md",
-      "sourceHash": "442557362256a4a11de4312b958cbc1b21b8c4da370348fc5908e65a8d4831c2",
+      "sourceHash": "6fd663f54d88da2bdac7db2192fc51c465da8eb1c07c0ef09ff0a3ede0d78f3d",
       "generatedHash": "512be965ffa4ea4ed19831b2849bf40a7004c6a2bb6235efeedde5c0f2e76061",
-      "generatedAt": "2026-08-15T02:33:11.787674Z",
+      "generatedAt": "2026-08-15T06:17:35.118221Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -840,15 +843,16 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Views/Reader/AddTTSReplacementSheet.swift"
       ],
       "documentVersion": 4
     },
     {
       "filename": "04_call_graph.md",
-      "sourceHash": "442557362256a4a11de4312b958cbc1b21b8c4da370348fc5908e65a8d4831c2",
+      "sourceHash": "6fd663f54d88da2bdac7db2192fc51c465da8eb1c07c0ef09ff0a3ede0d78f3d",
       "generatedHash": "5abe7cd07c8264776b3c7122772bda297928f100afe5d11754fbb8b9b2d93af0",
-      "generatedAt": "2026-08-15T02:33:11.787674Z",
+      "generatedAt": "2026-08-15T06:17:35.118221Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -1049,15 +1053,16 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Views/Reader/AddTTSReplacementSheet.swift"
       ],
       "documentVersion": 5
     },
     {
       "filename": "05_state_graph.md",
-      "sourceHash": "442557362256a4a11de4312b958cbc1b21b8c4da370348fc5908e65a8d4831c2",
+      "sourceHash": "6fd663f54d88da2bdac7db2192fc51c465da8eb1c07c0ef09ff0a3ede0d78f3d",
       "generatedHash": "5f17d12049f32533e5981e96b773c4c8c4118774675b5d729eaeebcaf3ca69a4",
-      "generatedAt": "2026-08-15T02:33:11.787674Z",
+      "generatedAt": "2026-08-15T06:17:35.118221Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -1258,15 +1263,16 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Views/Reader/AddTTSReplacementSheet.swift"
       ],
       "documentVersion": 4
     },
     {
       "filename": "06_event_graph.md",
-      "sourceHash": "442557362256a4a11de4312b958cbc1b21b8c4da370348fc5908e65a8d4831c2",
+      "sourceHash": "6fd663f54d88da2bdac7db2192fc51c465da8eb1c07c0ef09ff0a3ede0d78f3d",
       "generatedHash": "09a89ee5929a5b622d6da9d2748b640d9adfe1c3752392ed79d13555d4e1f796",
-      "generatedAt": "2026-08-15T02:33:11.787674Z",
+      "generatedAt": "2026-08-15T06:17:35.118221Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -1467,15 +1473,16 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Views/Reader/AddTTSReplacementSheet.swift"
       ],
       "documentVersion": 6
     },
     {
       "filename": "07_dataflow.md",
-      "sourceHash": "442557362256a4a11de4312b958cbc1b21b8c4da370348fc5908e65a8d4831c2",
+      "sourceHash": "6fd663f54d88da2bdac7db2192fc51c465da8eb1c07c0ef09ff0a3ede0d78f3d",
       "generatedHash": "6d1e049920352ca747e57a8981b1dabdb2442481f4b0aad3c7341528b2c6c964",
-      "generatedAt": "2026-08-15T02:33:11.787674Z",
+      "generatedAt": "2026-08-15T06:17:35.118221Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -1676,15 +1683,16 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Views/Reader/AddTTSReplacementSheet.swift"
       ],
       "documentVersion": 5
     },
     {
       "filename": "08_lifecycle.md",
-      "sourceHash": "442557362256a4a11de4312b958cbc1b21b8c4da370348fc5908e65a8d4831c2",
+      "sourceHash": "6fd663f54d88da2bdac7db2192fc51c465da8eb1c07c0ef09ff0a3ede0d78f3d",
       "generatedHash": "b30a7fda80802ed013a42675327d4c4dbb3e1fc48bf3c5bae25522b33af9ea88",
-      "generatedAt": "2026-08-15T02:33:11.787674Z",
+      "generatedAt": "2026-08-15T06:17:35.118221Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -1885,15 +1893,16 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Views/Reader/AddTTSReplacementSheet.swift"
       ],
       "documentVersion": 3
     },
     {
       "filename": "09_dependency_rules.md",
-      "sourceHash": "442557362256a4a11de4312b958cbc1b21b8c4da370348fc5908e65a8d4831c2",
+      "sourceHash": "6fd663f54d88da2bdac7db2192fc51c465da8eb1c07c0ef09ff0a3ede0d78f3d",
       "generatedHash": "132238a9f12479b054e7e16059da3ff4b2eb0d39d5425c9f2374ef5300c72436",
-      "generatedAt": "2026-08-15T02:33:11.787674Z",
+      "generatedAt": "2026-08-15T06:17:35.118221Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -2094,15 +2103,16 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Views/Reader/AddTTSReplacementSheet.swift"
       ],
       "documentVersion": 1
     },
     {
       "filename": "10_risk_report.md",
-      "sourceHash": "442557362256a4a11de4312b958cbc1b21b8c4da370348fc5908e65a8d4831c2",
+      "sourceHash": "6fd663f54d88da2bdac7db2192fc51c465da8eb1c07c0ef09ff0a3ede0d78f3d",
       "generatedHash": "ca8f4257984b723215ef0aed2cdad76742048d41a75a30b8a4120c68606dbee6",
-      "generatedAt": "2026-08-15T02:33:11.787674Z",
+      "generatedAt": "2026-08-15T06:17:35.118221Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -2303,15 +2313,16 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Views/Reader/AddTTSReplacementSheet.swift"
       ],
       "documentVersion": 2
     },
     {
       "filename": "11_subsystems.md",
-      "sourceHash": "442557362256a4a11de4312b958cbc1b21b8c4da370348fc5908e65a8d4831c2",
+      "sourceHash": "6fd663f54d88da2bdac7db2192fc51c465da8eb1c07c0ef09ff0a3ede0d78f3d",
       "generatedHash": "b5fab5d09680658a97da78ac7b6181f1e470c9ee7d6b840d668ade6edfe9d956",
-      "generatedAt": "2026-08-15T02:33:11.787674Z",
+      "generatedAt": "2026-08-15T06:17:35.118221Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -2512,15 +2523,16 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Views/Reader/AddTTSReplacementSheet.swift"
       ],
       "documentVersion": 4
     },
     {
       "filename": "12_ownership_graph.md",
-      "sourceHash": "442557362256a4a11de4312b958cbc1b21b8c4da370348fc5908e65a8d4831c2",
+      "sourceHash": "6fd663f54d88da2bdac7db2192fc51c465da8eb1c07c0ef09ff0a3ede0d78f3d",
       "generatedHash": "93f1cfc26ee7e0d341e1912a79d75b8092dc48a577ab5949e5325fe1cd1c0c9c",
-      "generatedAt": "2026-08-15T02:33:11.787674Z",
+      "generatedAt": "2026-08-15T06:17:35.118221Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -2721,15 +2733,16 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Views/Reader/AddTTSReplacementSheet.swift"
       ],
       "documentVersion": 3
     },
     {
       "filename": "13_resource_lifecycle.md",
-      "sourceHash": "442557362256a4a11de4312b958cbc1b21b8c4da370348fc5908e65a8d4831c2",
+      "sourceHash": "6fd663f54d88da2bdac7db2192fc51c465da8eb1c07c0ef09ff0a3ede0d78f3d",
       "generatedHash": "cd2e16f51635ea99e8d5e3eceaa45f993657f69a05ba5373913dae4917690d34",
-      "generatedAt": "2026-08-15T02:33:11.787674Z",
+      "generatedAt": "2026-08-15T06:17:35.118221Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -2930,15 +2943,16 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Views/Reader/AddTTSReplacementSheet.swift"
       ],
       "documentVersion": 4
     },
     {
       "filename": "14_complexity_report.md",
-      "sourceHash": "442557362256a4a11de4312b958cbc1b21b8c4da370348fc5908e65a8d4831c2",
+      "sourceHash": "6fd663f54d88da2bdac7db2192fc51c465da8eb1c07c0ef09ff0a3ede0d78f3d",
       "generatedHash": "6038d5ac35437244d4eed35c41be0b04b84fb29a4f11bd1734d955665917b89a",
-      "generatedAt": "2026-08-15T02:33:11.787674Z",
+      "generatedAt": "2026-08-15T06:17:35.118221Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -3139,15 +3153,16 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Views/Reader/AddTTSReplacementSheet.swift"
       ],
       "documentVersion": 2
     },
     {
       "filename": "rules.md",
-      "sourceHash": "442557362256a4a11de4312b958cbc1b21b8c4da370348fc5908e65a8d4831c2",
+      "sourceHash": "6fd663f54d88da2bdac7db2192fc51c465da8eb1c07c0ef09ff0a3ede0d78f3d",
       "generatedHash": "ec648a67c57995e601a769cf7e0cadacbc58b007b5909a137f49e26e5d4a7edc",
-      "generatedAt": "2026-08-15T02:33:11.787674Z",
+      "generatedAt": "2026-08-15T06:17:35.118221Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -3348,7 +3363,8 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift",
+        "Sources/Views/Reader/AddTTSReplacementSheet.swift"
       ],
       "documentVersion": 6
     }
