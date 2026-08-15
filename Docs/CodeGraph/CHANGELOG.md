@@ -2,6 +2,14 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.163] - 2026-08-15
+
+### Thêm nút bật/tắt "Tự động cuộn theo Highlight TTS" trong header Reader
+
+* **Thêm nút toggle auto-scroll trong header (`ReaderHeaderFooterOverlayView.swift`, `ReaderView.swift`)**:
+  - `ReaderHeaderFooterOverlayView.swift`: Thêm `@Binding var isAutoScrollDisabled: Bool` và nút toggle mới đặt **bên trái** nút Reload (luôn hiển thị, kể cả sách local TXT), icon `scroll.fill`/`scroll` với màu theo trạng thái giống nút bật/tắt dịch (`.blue` khi bật scroll, `textColor.opacity(0.85)` khi tắt, nền `textColor.opacity(0.07)`).
+  - `ReaderView.swift`: Truyền `$isAutoScrollDisabled` (state đã có sẵn) vào `ReaderHeaderFooterOverlayView`. Bấm nút flip `isAutoScrollDisabled` ngay lập tức, hiệu lực tức thì qua `guard` trong `.onChange(of: ttsState.snapshot.currentParentParagraphIndex)` và `scrollToTTSHighlightIfNeeded()`/`requestTTSScrollIfNeeded()` mà không cần khởi động lại. Giá trị persist per-book qua UserDefaults key `disableAutoScroll_\(bookId)` (đã có sẵn, mặc định bật scroll).
+
 ## [1.3.162] - 2026-08-14
 
 ### Xây dựng BookDownloadWorker tải tuần tự và hỗ trợ đa worker song song nhiều sách

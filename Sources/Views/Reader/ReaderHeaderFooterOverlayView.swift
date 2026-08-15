@@ -3,6 +3,7 @@ import SwiftUI
 struct ReaderHeaderFooterOverlayView: View {
     let selectedTheme: ReaderTheme
     @Binding var isTranslationEnabled: Bool
+    @Binding var isAutoScrollDisabled: Bool
     @Binding var showChapterTitle: Bool
     @Binding var showingBookDictionary: Bool
     @Binding var showingBypassBrowser: Bool
@@ -47,6 +48,16 @@ struct ReaderHeaderFooterOverlayView: View {
                     .accessibilityLabel("Quay lại")
 
                     Spacer()
+
+                    // Nút toggle tự động cuộn theo Highlight TTS - luôn hiển thị
+                    Button(action: { isAutoScrollDisabled.toggle() }) {
+                        Image(systemName: isAutoScrollDisabled ? "scroll" : "scroll.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(isAutoScrollDisabled ? selectedTheme.textColor.opacity(0.85) : .blue)
+                            .frame(width: 44, height: 44)
+                            .background(selectedTheme.textColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
+                    }
+                    .accessibilityLabel(isAutoScrollDisabled ? "Bật cuộn theo Highlight TTS" : "Tắt cuộn theo Highlight TTS")
 
                     if !isLocalTXTBook {
                         Button(action: onReloadChapter) {

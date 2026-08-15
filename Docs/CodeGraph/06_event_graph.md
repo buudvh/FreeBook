@@ -56,6 +56,7 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 
 * A TTS chunk highlight event mutates only text-storage color attributes in the matching `ReaderTextView`; it does not clear cached measurements or trigger intrinsic-size invalidation.
 * A TTS parent-paragraph transition continues to update `ReaderView.scrollTarget`. `ReaderView` consumes that target through `ScrollViewReader`, making it the single owner of TTS auto-scroll; the embedded UIKit text view no longer emits a second animated content-offset event.
+* Tapping the header auto-scroll toggle flips `isAutoScrollDisabled`; when disabled, `requestTTSScrollIfNeeded` and the `.ttsAuto` scroll-target trigger are suppressed immediately even while TTS playback continues.
 
 ## Remote TTS energy diagnostic events (1.3.107)
 

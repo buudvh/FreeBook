@@ -945,6 +945,7 @@ struct ReaderView: View {
             ReaderHeaderFooterOverlayView(
                 selectedTheme: selectedTheme,
                 isTranslationEnabled: $isTranslationEnabled,
+                isAutoScrollDisabled: $isAutoScrollDisabled,
                 showChapterTitle: $showChapterTitle,
                 showingBookDictionary: $showingBookDictionary,
                 showingBypassBrowser: $showingBypassBrowser,
