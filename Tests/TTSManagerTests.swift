@@ -270,6 +270,7 @@ final class TTSManagerTests: XCTestCase {
             chunkLength: 1000,
             shouldTranslateRawContent: false,
             includeChapterTitle: true,
+            removeDuplicatedTitle: false,
             sessionID: UUID(),
             generation: 1
         )
@@ -289,6 +290,7 @@ final class TTSManagerTests: XCTestCase {
             chunkLength: 1000,
             shouldTranslateRawContent: false,
             includeChapterTitle: false,
+            removeDuplicatedTitle: false,
             sessionID: UUID(),
             generation: 1
         )
@@ -306,12 +308,51 @@ final class TTSManagerTests: XCTestCase {
             chunkLength: 1000,
             shouldTranslateRawContent: false,
             includeChapterTitle: true,
+            removeDuplicatedTitle: false,
             sessionID: UUID(),
             generation: 1
         )
         XCTAssertEqual(dto.paragraphs.count, 3)
         XCTAssertEqual(dto.paragraphs[0].text, "Tiêu đề chương")
         XCTAssertEqual(dto.paragraphs[1].text, "Dòng 1.")
+    }
+
+    func testBackgroundProcessorRemovesFirstLineWhenItMatchesTOCRule() async {
+        let processor = TTSBackgroundProcessor()
+        let dto = try! await processor.processChapter(
+            bookId: "test-bg-remove-title",
+            chapterIndex: 0,
+            chapterTitle: "第一章 蓝电潜龙",
+            rawContent: "第一章 蓝电潜龙\nNội dung dòng 2.\nNội dung dòng 3.",
+            chunkLength: 1000,
+            shouldTranslateRawContent: false,
+            includeChapterTitle: false,
+            removeDuplicatedTitle: true,
+            sessionID: UUID(),
+            generation: 1
+        )
+
+        XCTAssertEqual(dto.paragraphs.map(\.paragraphIndex), [1, 2])
+        XCTAssertEqual(dto.paragraphs.map(\.text), ["Nội dung dòng 2.", "Nội dung dòng 3."])
+    }
+
+    func testBackgroundProcessorKeepsFirstLineWhenRemoveDuplicatedTitleOff() async {
+        let processor = TTSBackgroundProcessor()
+        let dto = try! await processor.processChapter(
+            bookId: "test-bg-keep-title",
+            chapterIndex: 0,
+            chapterTitle: "第一章 蓝电潜龙",
+            rawContent: "第一章 蓝电潜龙\nNội dung dòng 2.",
+            chunkLength: 1000,
+            shouldTranslateRawContent: false,
+            includeChapterTitle: false,
+            removeDuplicatedTitle: false,
+            sessionID: UUID(),
+            generation: 1
+        )
+
+        XCTAssertEqual(dto.paragraphs.map(\.paragraphIndex), [0, 1])
+        XCTAssertEqual(dto.paragraphs.map(\.text), ["第一章 蓝电潜龙", "Nội dung dòng 2."])
     }
 
     func testPrepareSpeakingAsynchronouslyConstructsParagraphs() async {

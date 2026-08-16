@@ -11,6 +11,7 @@ final class ReaderTranslationTests: XCTestCase {
             normalizedText: normalizedText,
             isTranslationEnabled: false,
             showTitle: true,
+            removeDuplicatedTitle: false,
             bookId: "paragraph-builder-test"
         )
 
@@ -26,11 +27,63 @@ final class ReaderTranslationTests: XCTestCase {
             normalizedText: ChapterTextNormalizer.normalize("Một\nHai"),
             isTranslationEnabled: false,
             showTitle: false,
+            removeDuplicatedTitle: false,
             bookId: "paragraph-builder-no-title-test"
         )
 
         XCTAssertEqual(result.paragraphItems.map(\.id), [0, 1])
         XCTAssertFalse(result.paragraphItems.contains(where: { $0.isTitle }))
+    }
+
+    func testParagraphBuilderRemovesFirstLineWhenItMatchesTOCRule() {
+        let content = "第一章 蓝电潜龙\nDòng thứ hai\nDòng thứ ba"
+        let normalizedText = ChapterTextNormalizer.normalize(content)
+
+        let result = ReaderParagraphBuilder.build(
+            originalTitle: "第一章 蓝电潜龙",
+            normalizedText: normalizedText,
+            isTranslationEnabled: false,
+            showTitle: true,
+            removeDuplicatedTitle: true,
+            bookId: "paragraph-builder-remove-title-test"
+        )
+
+        XCTAssertEqual(result.paragraphItems.map(\.id), [-1, 1, 2])
+        XCTAssertEqual(result.paragraphItems.dropFirst().map(\.original), ["Dòng thứ hai", "Dòng thứ ba"])
+        XCTAssertEqual(result.translatedContent, "Dòng thứ hai\nDòng thứ ba")
+    }
+
+    func testParagraphBuilderKeepsFirstLineWhenRemoveDuplicatedTitleOff() {
+        let content = "第一章 蓝电潜龙\nDòng thứ hai"
+        let normalizedText = ChapterTextNormalizer.normalize(content)
+
+        let result = ReaderParagraphBuilder.build(
+            originalTitle: "第一章 蓝电潜龙",
+            normalizedText: normalizedText,
+            isTranslationEnabled: false,
+            showTitle: true,
+            removeDuplicatedTitle: false,
+            bookId: "paragraph-builder-keep-title-test"
+        )
+
+        XCTAssertEqual(result.paragraphItems.map(\.id), [-1, 0, 1])
+        XCTAssertEqual(result.paragraphItems.dropFirst().map(\.original), ["第一章 蓝电潜龙", "Dòng thứ hai"])
+    }
+
+    func testParagraphBuilderDoesNotDropFirstLineWhenItIsNotATOCHeading() {
+        let content = "Bắt đầu câu chuyện\nDòng thứ hai"
+        let normalizedText = ChapterTextNormalizer.normalize(content)
+
+        let result = ReaderParagraphBuilder.build(
+            originalTitle: "Bắt đầu câu chuyện",
+            normalizedText: normalizedText,
+            isTranslationEnabled: false,
+            showTitle: true,
+            removeDuplicatedTitle: true,
+            bookId: "paragraph-builder-notoc-test"
+        )
+
+        XCTAssertEqual(result.paragraphItems.map(\.id), [-1, 0, 1])
     }
 
     func testParagraphItemDecodesLegacyPayloadWithoutTranslationSpans() throws {

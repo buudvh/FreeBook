@@ -78,6 +78,7 @@ internal actor TTSChapterTextWorker {
                 chunkLength: key.chunkLength,
                 shouldTranslateRawContent: key.isTranslationEnabled,
                 includeChapterTitle: key.includeChapterTitle,
+                removeDuplicatedTitle: key.removeDuplicatedTitle,
                 sessionID: sessionID,
                 generation: generation
             ), !Task.isCancelled else {

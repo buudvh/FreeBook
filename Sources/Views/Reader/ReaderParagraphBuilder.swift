@@ -12,8 +12,17 @@ enum ReaderParagraphBuilder {
         normalizedText: NormalizedChapterText,
         isTranslationEnabled: Bool,
         showTitle: Bool,
+        removeDuplicatedTitle: Bool,
         bookId: String
     ) -> ReaderParagraphBuildResult {
+        var buildLines = normalizedText.lines
+        if removeDuplicatedTitle, let first = buildLines.first {
+            let compiledTOCRegexes = TranslateUtils.getCompiledActiveTOCRegexes()
+            if TranslateUtils.isChapterHeaderLine(first.text, compiledTOCRegexes: compiledTOCRegexes) {
+                buildLines.removeFirst()
+            }
+        }
+
         let titleResult: TranslatedTextResult
         if isTranslationEnabled && TranslateUtils.containsChinese(originalTitle) {
             titleResult = TranslateUtils.translateChapterTitleWithMapping(originalTitle, bookId: bookId)
@@ -21,7 +30,7 @@ enum ReaderParagraphBuilder {
             titleResult = TranslateUtils.untranslatedTextResult(originalTitle)
         }
 
-        let translatedLines = normalizedText.lines.map { line -> TranslatedTextResult in
+        let translatedLines = buildLines.map { line -> TranslatedTextResult in
             guard isTranslationEnabled && TranslateUtils.containsChinese(line.text) else {
                 return TranslateUtils.untranslatedTextResult(line.text)
             }
@@ -39,8 +48,8 @@ enum ReaderParagraphBuilder {
             ))
         }
 
-        items.append(contentsOf: normalizedText.lines.indices.map { index in
-            let originalLine = normalizedText.lines[index]
+        items.append(contentsOf: buildLines.indices.map { index in
+            let originalLine = buildLines[index]
             let translatedLine = translatedLines[index]
             return ParagraphItem(
                 id: originalLine.id,

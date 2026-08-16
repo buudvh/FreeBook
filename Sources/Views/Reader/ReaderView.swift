@@ -111,6 +111,7 @@ struct ReaderView: View {
 
     @State private var cachedDisplayedBookTitle: String = ""
     @State internal var showChapterTitle = true // Ẩn/Hiện tiêu đề chương trên đầu màn hình đọc
+    @State internal var removeDuplicatedTitle = true // Loại bỏ tiêu đề chương trùng ở đầu nội dung (dùng TOC rule)
 
 
     // Các biến trạng thái hỗ trợ bôi đen từ/câu để tra cứu từ điển
@@ -973,6 +974,7 @@ struct ReaderView: View {
                 isTranslationEnabled: $isTranslationEnabled,
                 isAutoScrollDisabled: $isAutoScrollDisabled,
                 showChapterTitle: $showChapterTitle,
+                removeDuplicatedTitle: $removeDuplicatedTitle,
                 showingBookDictionary: $showingBookDictionary,
                 showingBypassBrowser: $showingBypassBrowser,
                 showingSettings: $showingSettings,
@@ -995,6 +997,7 @@ struct ReaderView: View {
                     navigateToChangeSource = true
                 },
                 onToggleChapterTitle: toggleChapterTitleVisibility,
+                onToggleRemoveDuplicatedTitle: toggleRemoveDuplicatedTitle,
                 onOpenChapterList: {
                     _ = getOrInitChapterListStore()
                     showingChapterList = true
@@ -1060,6 +1063,13 @@ struct ReaderView: View {
             showChapterTitle = UserDefaults.standard.bool(forKey: key)
         } else {
             showChapterTitle = true
+        }
+
+        let removeTitleKey = "removeDuplicatedTitle_\(bookId)"
+        if UserDefaults.standard.object(forKey: removeTitleKey) != nil {
+            removeDuplicatedTitle = UserDefaults.standard.bool(forKey: removeTitleKey)
+        } else {
+            removeDuplicatedTitle = true
         }
 
         isAutoScrollDisabled = UserDefaults.standard.bool(forKey: "disableAutoScroll_\(bookId)")

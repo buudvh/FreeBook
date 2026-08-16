@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.189] - 2026-08-16
+
+### Loại bỏ tiêu đề chương trùng trong nội dung (dùng TOC rule, config chung TTS + Reader)
+
+* **Ý tưởng**: nhiều chương bắt đầu bằng đúng tiêu đề chương → Reader hiển thị lặp lại và TTS đọc hai lần. Feature mới: kiểm tra dòng/paragraph đầu tiên của chương có phải tiêu đề chương không (nhận diện bằng TOC rules, đúng pattern TXT import), nếu phải thì loại bỏ khỏi cả hiển thị lẫn TTS. Kèm option bật/tắt trong dropdown Reader.
+* **Detection** (mirror `ShelfView.swift:712-718` TXT import): compile một lần `TranslateUtils.getCompiledActiveTOCRegexes()` rồi gọi `TranslateUtils.isChapterHeaderLine(_:compiledTOCRegexes:)` trên `lines.first`; TOC rules vẫn global (`toc_rules.json`).
+* **Config chung**: **một key duy nhất** `removeDuplicatedTitle_\(bookId)` (UserDefaults, **default ON**, lưu riêng mỗi truyện) — TTS + Reader cùng đọc, không thêm setting riêng; mirror pattern `showChapterTitle_\(bookId)`.
+* **TTS side**: `TTSPreparedChapterKey` + `TTSPreparedNextChapterKey` thêm field `removeDuplicatedTitle`; `TTSBackgroundProcessor.processChapter` thêm param và bỏ `lines.removeFirst()` sau normalize khi khớp TOC rule (trước khi build entries/chunks — ID dòng cha giữ nguyên); `TTSManager.prepareSpeaking`/`startSpeaking`/`makeNextChapterKey`/auto-advance đọc key + truyền xuống; `TTSChapterTextWorker` truyền `key.removeDuplicatedTitle`; `resumeAfterSettings` rebuild phân đoạn bỏ dòng đầu tương ứng (qua `TTSParagraphBuilder.buildFromEntries`).
+* **Reader side**: `ReaderParagraphBuilder.build` + `ReaderViewModel.buildCancellable` + `performChapterTranslationOffMainActor` + `processAndSaveChapter` thêm param `removeDuplicatedTitle` (đọc key default true), bỏ dòng đầu khỏi `lines` trước khi dựng `paragraphItems`/`translatedContent` — ID cố định nên ánh xạ highlight/TTS vẫn khớp; `cached.originalContent` giữ nguyên văn bản normalize đầy đủ, mỗi lần build lại áp dụng bỏ dòng.
+* **UI**: `ReaderHeaderFooterOverlayView` thêm binding `removeDuplicatedTitle` + nút Menu "Loại bỏ tiêu đề chương trùng trong nội dung" (checkmark cạnh toggle "Hiển thị tên chương"); `ReaderView` `@State removeDuplicatedTitle = true` + load key ở `initializeReaderIfNeeded`; `ReaderView+Controls.toggleRemoveDuplicatedTitle()` persist + `refreshParagraphItems()`.
+* **Tests**: `ReaderTranslationTests` (bỏ dòng đầu khớp TOC / giữ khi tắt / không bỏ khi không phải heading), `TTSManagerTests` (processChapter bỏ/giữ dòng đầu); cập nhật call `ReaderParagraphBuilder.build` + `processChapter` cũ sang param mới.
+* **Rủi ro còn lại** (ghi `10_risk_report.md`): nếu TOC rule không khớp hoặc bị tắt, tiêu đề trùng vẫn giữ nguyên — đây là tiện ích hiển thị, không phải dedupe tuyệt đối.
+* Không thêm file Swift mới → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac.
+
 ## [1.3.184] - 2026-08-16
 
 ### Widget TTS thu nhỏ: chỉ hiển thị nửa vòng tròn ở mép

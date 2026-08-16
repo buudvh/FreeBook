@@ -15,6 +15,11 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader duplicated-title removal toggle events (1.3.189)
+
+* Toggling "Loại bỏ tiêu đề chương trùng trong nội dung" in the Reader menu writes `removeDuplicatedTitle_<bookId>` (default ON, shared per book) and triggers `ReaderViewModel.refreshParagraphItems()`; the next chapter build drops the first content line when it matches an active TOC rule.
+* The same key is read at TTS prepare/start, next-chapter key construction, auto-advance, worker processing, and settings resume, so TTS and Reader agree on which line IDs exist after the drop.
+
 ## NghiTTS empty-output and refill retry events (1.3.147)
 
 * Kết quả tiền xử lý rỗng/chỉ dấu câu phát sinh sự kiện tổng hợp khoảng lặng hợp lệ, không phát lỗi ONNX/eSpeak và không tạm dừng playback khi chuyển từ tên chương sang nội dung.

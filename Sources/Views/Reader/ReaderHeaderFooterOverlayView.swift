@@ -5,6 +5,7 @@ struct ReaderHeaderFooterOverlayView: View {
     @Binding var isTranslationEnabled: Bool
     @Binding var isAutoScrollDisabled: Bool
     @Binding var showChapterTitle: Bool
+    @Binding var removeDuplicatedTitle: Bool
     @Binding var showingBookDictionary: Bool
     @Binding var showingBypassBrowser: Bool
     @Binding var showingSettings: Bool
@@ -26,6 +27,7 @@ struct ReaderHeaderFooterOverlayView: View {
     let onReloadChapter: () -> Void
     let onChangeSource: () -> Void
     let onToggleChapterTitle: () -> Void
+    let onToggleRemoveDuplicatedTitle: () -> Void
     let onOpenChapterList: () -> Void
     let onPrevChapter: () -> Void
     let onNextChapter: () -> Void
@@ -72,6 +74,10 @@ struct ReaderHeaderFooterOverlayView: View {
                     Menu {
                         Button(action: onToggleChapterTitle) {
                             Label("Hiển thị tên chương trong nội dung", systemImage: showChapterTitle ? "checkmark.square" : "square")
+                        }
+
+                        Button(action: onToggleRemoveDuplicatedTitle) {
+                            Label("Loại bỏ tiêu đề chương trùng trong nội dung", systemImage: removeDuplicatedTitle ? "checkmark.square" : "square")
                         }
 
                         if hasLocalBook {

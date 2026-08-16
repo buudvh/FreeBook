@@ -26,6 +26,7 @@ final class ChapterTextNormalizerTests: XCTestCase {
             normalizedText: normalized,
             isTranslationEnabled: false,
             showTitle: false,
+            removeDuplicatedTitle: false,
             bookId: "normalizer-test"
         )
         let tts = TTSParagraphBuilder.build(from: normalized, chunkLength: 200)

@@ -13,6 +13,7 @@ internal struct TTSPreparedChapterKey: Equatable, Sendable {
     let content: String
     let chunkLength: Int
     let includeChapterTitle: Bool
+    let removeDuplicatedTitle: Bool
     let isTranslationEnabled: Bool
     let translationToken: Int
 }
@@ -1074,6 +1075,11 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         self.eqNode = audioEngineController.eqNode
     }
 
+    private func readRemoveDuplicatedTitle(for bookId: String) -> Bool {
+        let key = "removeDuplicatedTitle_\(bookId)"
+        return UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+    }
+
     internal func configureAudioSession() {
         if isAudioSessionConfigured { return }
         audioSessionController.activate()
@@ -1116,6 +1122,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         guard let currentChapter = chapters.first(where: { $0.index == currentIndex }) else { return }
         let key = "showChapterTitle_\(bookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+        let removeDuplicatedTitle = readRemoveDuplicatedTitle(for: bookId)
         let isTransEnabled = TranslateUtils.isTranslationEnabled
 
         let preparedKey = TTSPreparedChapterKey(
@@ -1125,6 +1132,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             content: chapterContent,
             chunkLength: chunkLength,
             includeChapterTitle: showTitle,
+            removeDuplicatedTitle: removeDuplicatedTitle,
             isTranslationEnabled: isTransEnabled,
             translationToken: TranslateUtils.translationGenerationToken(for: bookId)
         )
@@ -1145,6 +1153,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     chunkLength: preparedKey.chunkLength,
                     shouldTranslateRawContent: isTransEnabled,
                     includeChapterTitle: showTitle,
+                    removeDuplicatedTitle: removeDuplicatedTitle,
                     sessionID: UUID(),
                     generation: expectedPreparationGeneration
                 )
@@ -1248,6 +1257,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         let key = "showChapterTitle_\(bookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+        let removeDuplicatedTitle = readRemoveDuplicatedTitle(for: bookId)
         let expectedTitle = currentChapter.title
 
         let requestedKey = TTSPreparedChapterKey(
@@ -1257,6 +1267,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             content: chapterContent,
             chunkLength: chunkLen,
             includeChapterTitle: showTitle,
+            removeDuplicatedTitle: removeDuplicatedTitle,
             isTranslationEnabled: isTransEnabled,
             translationToken: TranslateUtils.translationGenerationToken(for: bookId)
         )
@@ -1284,6 +1295,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     chunkLength: chunkLen,
                     shouldTranslateRawContent: isTransEnabled,
                     includeChapterTitle: showTitle,
+                    removeDuplicatedTitle: removeDuplicatedTitle,
                     sessionID: newSessionID,
                     generation: currentGen,
                     snapshot: snapshot
@@ -1614,7 +1626,17 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
 
         // Nạp lại phân đoạn
-        self.paragraphs = playbackParagraphs(from: TTSParagraphBuilder.build(from: normalizedChapterText, chunkLength: chunkLength))
+        var buildLines = normalizedChapterText.lines
+        if readRemoveDuplicatedTitle(for: playingBookId), let first = buildLines.first {
+            let compiledTOCRegexes = TranslateUtils.getCompiledActiveTOCRegexes()
+            if TranslateUtils.isChapterHeaderLine(first.text, compiledTOCRegexes: compiledTOCRegexes) {
+                buildLines.removeFirst()
+            }
+        }
+        let rebuiltEntries = buildLines.map {
+            TTSLineEntry(lineId: $0.id, originalText: $0.text, translatedText: $0.text, spans: [])
+        }
+        self.paragraphs = playbackParagraphs(from: TTSParagraphBuilder.buildFromEntries(rebuiltEntries, chunkLength: chunkLength))
 
         // Memory leak fix: Clear prefetch cache AFTER paragraph rebuild to remove stale audio from old VietPhrase settings
         if tool != "system" {
@@ -1799,6 +1821,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private func makeNextChapterKey(for chapter: TTSChapterInfo) -> TTSPreparedNextChapterKey {
         let key = "showChapterTitle_\(playingBookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+        let removeDuplicatedTitle = readRemoveDuplicatedTitle(for: playingBookId)
         let extFingerprint: String?
         if tool == "system" || tool == "nghitts" || tool == "google" {
             extFingerprint = nil
@@ -1819,6 +1842,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             googlePitch: tool == "google" ? pitch : nil,
             chunkLength: chunkLength,
             includeChapterTitle: showTitle,
+            removeDuplicatedTitle: removeDuplicatedTitle,
             isTranslationEnabled: self.sessionTranslationEnabled,
             translationToken: TranslateUtils.translationGenerationToken(for: playingBookId),
             extensionLocalPath: extensionLocalPath,
@@ -2025,6 +2049,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let isTransEnabled = self.sessionTranslationEnabled
         let key = "showChapterTitle_\(expectedBookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
+        let removeDuplicatedTitle = readRemoveDuplicatedTitle(for: expectedBookId)
         let rawTitle = nextChapter.title
         let processor = TTSBackgroundProcessor()
 
@@ -2140,6 +2165,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     chunkLength: chunkLen,
                     shouldTranslateRawContent: isTransEnabled,
                     includeChapterTitle: showTitle,
+                    removeDuplicatedTitle: removeDuplicatedTitle,
                     sessionID: expectedSessionID,
                     generation: expectedGeneration
                 )

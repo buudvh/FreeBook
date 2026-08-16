@@ -98,6 +98,12 @@ extension ReaderView {
         viewModel?.refreshParagraphItems()
     }
 
+    internal func toggleRemoveDuplicatedTitle() {
+        removeDuplicatedTitle.toggle()
+        UserDefaults.standard.set(removeDuplicatedTitle, forKey: "removeDuplicatedTitle_\(bookId)")
+        viewModel?.refreshParagraphItems()
+    }
+
     internal func reloadCurrentChapterFromMenu() {
         paragraphTracker.removeAll()
         isRestoringReaderPosition = true

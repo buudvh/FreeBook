@@ -7,6 +7,7 @@ extension ReaderViewModel {
         originalContent: String,
         isTranslationEnabled: Bool,
         showTitle: Bool,
+        removeDuplicatedTitle: Bool,
         bookId: String
     ) async throws -> (normalizedContent: String, buildResult: ReaderParagraphBuildResult) {
         try Task.checkCancellation()
@@ -17,6 +18,7 @@ extension ReaderViewModel {
             normalizedText: normalizedText,
             isTranslationEnabled: isTranslationEnabled,
             showTitle: showTitle,
+            removeDuplicatedTitle: removeDuplicatedTitle,
             bookId: bookId
         )
         try Task.checkCancellation()
@@ -28,9 +30,18 @@ extension ReaderViewModel {
         normalizedText: NormalizedChapterText,
         isTranslationEnabled: Bool,
         showTitle: Bool,
+        removeDuplicatedTitle: Bool,
         bookId: String
     ) async throws -> ReaderParagraphBuildResult {
         try Task.checkCancellation()
+
+        var buildLines = normalizedText.lines
+        if removeDuplicatedTitle, let first = buildLines.first {
+            let compiledTOCRegexes = TranslateUtils.getCompiledActiveTOCRegexes()
+            if TranslateUtils.isChapterHeaderLine(first.text, compiledTOCRegexes: compiledTOCRegexes) {
+                buildLines.removeFirst()
+            }
+        }
 
         let titleResult: TranslatedTextResult
         if isTranslationEnabled && TranslateUtils.containsChinese(originalTitle) {
@@ -40,9 +51,9 @@ extension ReaderViewModel {
         }
 
         var translatedLines: [TranslatedTextResult] = []
-        translatedLines.reserveCapacity(normalizedText.lines.count)
+        translatedLines.reserveCapacity(buildLines.count)
 
-        for (index, line) in normalizedText.lines.enumerated() {
+        for (index, line) in buildLines.enumerated() {
             if index % 5 == 0 {
                 try Task.checkCancellation()
             }
@@ -68,8 +79,8 @@ extension ReaderViewModel {
             ))
         }
 
-        items.append(contentsOf: normalizedText.lines.indices.map { index in
-            let originalLine = normalizedText.lines[index]
+        items.append(contentsOf: buildLines.indices.map { index in
+            let originalLine = buildLines[index]
             let translatedLine = translatedLines[index]
             return ParagraphItem(
                 id: originalLine.id,
@@ -107,6 +118,10 @@ extension ReaderViewModel {
             let showTitle = UserDefaults.standard.object(forKey: showTitleKey) != nil
                 ? UserDefaults.standard.bool(forKey: showTitleKey)
                 : true
+            let removeTitleKey = "removeDuplicatedTitle_\(bookId)"
+            let removeDuplicatedTitle = UserDefaults.standard.object(forKey: removeTitleKey) != nil
+                ? UserDefaults.standard.bool(forKey: removeTitleKey)
+                : true
 
             do {
                 let (normContent, result) = try await performChapterTranslationOffMainActor(
@@ -114,6 +129,7 @@ extension ReaderViewModel {
                     originalContent: originalContent,
                     isTranslationEnabled: isTranslationEnabled,
                     showTitle: showTitle,
+                    removeDuplicatedTitle: removeDuplicatedTitle,
                     bookId: bookId
                 )
 

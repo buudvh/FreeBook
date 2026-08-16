@@ -11,6 +11,7 @@ internal struct TTSPreparedNextChapterKey: Equatable, Sendable {
     internal let googlePitch: Double?
     internal let chunkLength: Int
     internal let includeChapterTitle: Bool
+    internal let removeDuplicatedTitle: Bool
     internal let isTranslationEnabled: Bool
     internal let translationToken: Int
     internal let extensionLocalPath: String
