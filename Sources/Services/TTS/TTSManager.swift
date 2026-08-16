@@ -1075,10 +1075,19 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     internal func configureAudioSession() {
-        if isAudioSessionConfigured { return }
-        if audioSessionController.configureAudioSession() {
+        if isAudioSessionConfigured {
+            #if DEBUG
+            logRemoteTrace("configureAudioSession") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
+            #endif
+            AppLogger.shared.log("🔍 [NP] configureAudioSession SKIPPED (already configured)") // REMOVE_AFTER_NOWPLAYING_DIAGNOSIS
+            return
+        }
+        let ok = audioSessionController.configureAudioSession()
+        if ok {
             isAudioSessionConfigured = true
         }
+        let session = AVAudioSession.sharedInstance()
+        AppLogger.shared.log("🔍 [NP] configureAudioSession result=\(ok) cat=\(session.category.rawValue) mode=\(session.mode.rawValue) opts=\(session.categoryOptions.rawValue) configured=\(isAudioSessionConfigured)") // REMOVE_AFTER_NOWPLAYING_DIAGNOSIS
         #if DEBUG
         logRemoteTrace("configureAudioSession") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
         #endif
@@ -3740,6 +3749,22 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             isTranslationEnabled: TranslateUtils.isTranslationEnabled,
             translationToken: TranslateUtils.translationGenerationToken(for: playingBookId)
         )
+
+        AppLogger.shared.log("🔍 [NP] updateNowPlayingInfo key=\(key.bookId)/\(key.chapterIndex) cacheHit=\(nowPlayingStaticMetadata?.key == key) taskInFlight=\(nowPlayingMetadataTaskKey == key) nowPlayingNil=\(MPNowPlayingInfoCenter.default().nowPlayingInfo == nil)") // REMOVE_AFTER_NOWPLAYING_DIAGNOSIS
+
+        // Synchronous fallback: publish a minimal card immediately from in-memory
+        // state so the Now Playing card appears on the lock screen / Control Center
+        // even if the async metadata task (translated titles + cover) never completes.
+        // The async path below still upgrades the card with translated titles and artwork.
+        if MPNowPlayingInfoCenter.default().nowPlayingInfo == nil, nowPlayingStaticMetadata == nil {
+            let fallbackTitle = key.chapterTitle.isEmpty ? "Chương hiện tại" : key.chapterTitle
+            publishNowPlayingInfo(using: NowPlayingStaticMetadata(
+                key: key,
+                displayBookTitle: key.bookTitle,
+                displayChapterTitle: fallbackTitle,
+                artwork: nil
+            ))
+        }
 
         if let metadata = nowPlayingStaticMetadata, metadata.key == key {
             publishNowPlayingInfo(using: metadata)

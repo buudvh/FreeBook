@@ -92,6 +92,8 @@ extension TTSManager {
 
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
         MPNowPlayingInfoCenter.default().playbackState = liveIsPlaying ? .playing : .paused
+
+        AppLogger.shared.log("🔍 [NP] publishNowPlayingInfo title=\(metadata.displayBookTitle) artist=\(metadata.displayChapterTitle) rate=\(currentRate) para=\(paragraphIndex)/\(paragraphCount) hasArtwork=\(metadata.artwork != nil)") // REMOVE_AFTER_NOWPLAYING_DIAGNOSIS
     }
 
     internal func downloadNowPlayingCoverIfNeeded(for key: NowPlayingStaticMetadataKey) {

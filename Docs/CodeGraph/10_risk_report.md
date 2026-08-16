@@ -21,6 +21,11 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 * **Fix (1.3.185):** `setCategory(.playback, mode: .default, options: [.duckOthers])` then `setActive(true)`; removed the redundant `audioSessionController.activate()` (setActive before setCategory) in `TTSManager.configureAudioSession()`. `.allowBluetoothA2DP` was dropped since A2DP routing is the default for `.playback`.
 * **Residual:** if controls still do not appear after the `-50` is gone, check background audio / Now Playing entitlement in the LiveContainer environment.
 
+## Async Now Playing metadata publish mitigated in 1.3.186
+
+* **Mitigated - card never published:** `updateNowPlayingInfo()` relied on an async metadata task (translated titles + local cover decode) to populate `nowPlayingStaticMetadata` before any card publish. If that task never completed (translation/cover work hanging or canceled), the cache branch never ran and `nowPlayingInfo` stayed `nil` — no lock screen / Control Center card even though audio played (confirmed as a code regression: the same device + same LiveContainer showed the card on an older build). `updateNowPlayingInfo()` now publishes a synchronous minimal card (title/artist/rate/duration from in-memory state) immediately when nothing has been published yet; the async path still upgrades translated titles and artwork.
+* **Residual:** diagnostic `[NP]` AppLogger traces (marked `REMOVE_AFTER_NOWPLAYING_DIAGNOSIS`) remain until device logs confirm the card path; they must be removed after verification. Windows cannot build/test locally — verify via CI Release and device logs.
+
 ## NghiTTS chapter-transition crash risks mitigated in 1.3.147
 
 * **Mitigated - empty preprocessor output:** Piper kiểm tra cả input và output tiền xử lý; output không thể đọc được chuyển thành WAV khoảng lặng hợp lệ thay vì làm eSpeak/ONNX ném lỗi.

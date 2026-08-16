@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.186] - 2026-08-16
+
+### Khôi phục card Now Playing: publish đồng bộ (fallback) + log chẩn đoán [NP]
+
+* **Vấn đề**: sau fix 1.3.185 hết `-50` nhưng card + điều khiển TTS ở lock screen / Trung tâm điều khiển vẫn không hiện (kể cả khi app foreground), audio phát nền bình thường, mọi engine đều không có card. Xác nhận đây là **regression trong code** (cùng máy + cùng LiveContainer, bản cũ từng hiện card) — nghi vấn chính là đường publish Now Playing **bất đồng bộ** (metadata task dịch tiêu đề + load ảnh bìa) chưa bao giờ hoàn thành: `nowPlayingStaticMetadata` không được cache, nhánh cache trong `updateNowPlayingInfo()` không bao giờ chạy, `nowPlayingInfo` mãi bằng `nil`.
+* **Fix**:
+  * `TTSManager.updateNowPlayingInfo()`: thêm **synchronous fallback publish** — nếu `MPNowPlayingInfoCenter.default().nowPlayingInfo == nil` và chưa có static metadata thì publish ngay card tối thiểu (title/artist/rate/duration lấy từ state trong bộ nhớ, không chờ async). Async path vẫn chạy để upgrade tên dịch + ảnh bìa khi hoàn thành.
+  * Thêm log chẩn đoán unconditional `🔍 [NP] ...` (đánh dấu `// REMOVE_AFTER_NOWPLAYING_DIAGNOSIS`, hoạt động cả ở Release vì CI build Release nên `logRemoteTrace` `#if DEBUG` không xuất hiện trong `app_logs.txt`) tại: `configureAudioSession()` (kết quả + `category`/`mode`/`options`), `updateNowPlayingInfo()` (cache-hit hay đi async), `publishNowPlayingInfo()` (title/artist/rate/paragraph/hasArtwork).
+* **Kiểm chứng bắt buộc trên máy thật**: phát TTS → card hiện tức thì ở lock screen / Control Center; gửi `app_logs.txt` về để đối chiếu log `[NP]`. Log tạm sẽ được gỡ sau khi xác nhận.
+* **Môi trường**: không thêm/đổi tên file Swift → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac.
+
 ## [1.3.185] - 2026-08-16
 
 ### Sửa triệt để lỗi AVAudioSession OSStatus -50: khôi phục điều khiển TTS trên lock screen / Control Center
