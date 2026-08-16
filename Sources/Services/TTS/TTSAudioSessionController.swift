@@ -4,15 +4,10 @@ import AVFoundation
 public final class TTSAudioSessionController: @unchecked Sendable {
     public init() {}
 
-    public func activate() {
-        let session = AVAudioSession.sharedInstance()
-        try? session.setActive(true)
-    }
-
     public func configureAudioSession() -> Bool {
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .allowBluetoothA2DP])
+            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
             try session.setActive(true)
             return true
         } catch {

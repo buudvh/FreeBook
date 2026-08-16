@@ -1076,7 +1076,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
     internal func configureAudioSession() {
         if isAudioSessionConfigured { return }
-        audioSessionController.activate()
         if audioSessionController.configureAudioSession() {
             isAudioSessionConfigured = true
         }

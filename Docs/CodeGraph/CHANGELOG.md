@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.185] - 2026-08-16
+
+### Sửa triệt để lỗi AVAudioSession OSStatus -50: khôi phục điều khiển TTS trên lock screen / Control Center
+
+* **Chẩn đoán lại**: fix 1.3.180 (bỏ `.allowBluetooth`) không đủ — log trên máy thật (bản HEAD) vẫn còn `❌ [TTSAudioSessionController] Lỗi cấu hình AVAudioSession (OSStatus=-50)`. Nguyên nhân thật nằm ở **mode `.spokenAudio`**: mode này mang ngữ nghĩa "pause (không duck) khi app khác phát lời thoại" nên kết hợp với option `.duckOthers` là tổ hợp mâu thuẫn → `setCategory(.playback, mode: .spokenAudio, options: ...)` ném `OSStatus -50` (`AVAudioSessionErrorCodeBadParam`).
+* **Hệ quả**: `setCategory` throw mỗi lần → `isAudioSessionConfigured` không bao giờ = `true` → session **không bao giờ thực sự được cấu hình `.playback`** → iOS không coi FreeBook là nguồn Now Playing → **mất card + điều khiển nghe truyện ở màn hình khoá và Trung tâm điều khiển** (audio vẫn phát nhờ `AVAudioPlayer.play()`/engine tự kích hoạt session ngầm). Khớp triệu chứng: có tiếng, không thẻ, không nút, mọi engine TTS.
+* **Fix**:
+  * `TTSAudioSessionController.configureAudioSession()`: `setCategory(.playback, mode: .default, options: [.duckOthers])` rồi `setActive(true)`. Combo `.playback + .default` đã được chứng minh hoạt động trong app (path đọc đoạn chọn ở `ReaderView`); `.duckOthers` hợp lệ với `.playback` theo tài liệu Apple. Bỏ luôn `.allowBluetoothA2DP` — với category `.playback`, định tuyến A2DP đã được hỗ trợ mặc định.
+  * `TTSManager.configureAudioSession()`: xoá `audioSessionController.activate()` dư (gọi `setActive(true)` **trước** khi set category) — để controller tự set category rồi mới activate theo đúng thứ tự.
+* **Kiểm chứng bắt buộc trên máy thật**: ① log không còn `-50`; ② phát TTS → khoá màn hình → card + nút play/pause/next hiện ở lock screen & Control Center. Nếu hết `-50` mà card vẫn không hiện → bước tiếp theo kiểm background audio / quyền Now Playing trong môi trường LiveContainer.
+* **Môi trường**: không thêm/đổi tên file Swift → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac.
+
 ## [1.3.184] - 2026-08-16
 
 ### Widget TTS thu nhỏ: chỉ hiển thị nửa vòng tròn ở mép

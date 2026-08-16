@@ -15,11 +15,11 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## AVAudioSession -50 (BadParam) resolved in 1.3.180
+## AVAudioSession -50 (BadParam) resolved in 1.3.185
 
-* **Resolved - invalid category/option combination:** `TTSAudioSessionController.configureAudioSession()` called `setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .allowBluetooth, .allowBluetoothA2DP])`. `.allowBluetooth` (HFP) is documented valid only with `.record`/`.playAndRecord`/`.multiRoute`, so `setCategory` threw `OSStatus -50` (`AVAudioSessionErrorCodeBadParam`). The subsequent `setActive(true)` in the same `do` block never ran, `isAudioSessionConfigured` stayed `false`, and the error was re-logged on every paragraph/chapter play (observed during Google TTS auto-advance to chapter 2).
-* **Fix:** removed `.allowBluetooth`, keeping `.duckOthers` + `.allowBluetoothA2DP` (both valid with `.playback`). The log now also records the underlying OSStatus code for future diagnosis.
-* **Residual:** playback still worked while the bug existed because `AVAudioPlayer.play()` implicitly activates the session, but the intended `.playback`/`.spokenAudio` configuration (background playback, ducking, Bluetooth A2DP routing) was not applied.
+* **Resolved - mode/option incompatibility:** `TTSAudioSessionController.configureAudioSession()` used `setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, ...])`. `.spokenAudio` means "pause (not duck) spoken audio", which conflicts with `.duckOthers`, so `setCategory` threw `OSStatus -50` (`AVAudioSessionErrorCodeBadParam`). The 1.3.180 fix only removed `.allowBluetooth`, but device logs confirmed `-50` still occurred at every play/paragraph; `isAudioSessionConfigured` never became `true`, the session was never actually configured as `.playback`, and iOS never treated the app as the Now Playing source — lock screen / Control Center controls never appeared (audio still played via implicit activation).
+* **Fix (1.3.185):** `setCategory(.playback, mode: .default, options: [.duckOthers])` then `setActive(true)`; removed the redundant `audioSessionController.activate()` (setActive before setCategory) in `TTSManager.configureAudioSession()`. `.allowBluetoothA2DP` was dropped since A2DP routing is the default for `.playback`.
+* **Residual:** if controls still do not appear after the `-50` is gone, check background audio / Now Playing entitlement in the LiveContainer environment.
 
 ## NghiTTS chapter-transition crash risks mitigated in 1.3.147
 
