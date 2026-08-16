@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.188] - 2026-08-16
+
+### A/B test kết luận: `.allowBluetooth` không phải nguyên nhân — revert về combo hợp lệ, giữ fallback publish
+
+* **Kết quả test 1.3.187 trên máy thật**: `setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .allowBluetooth, .allowBluetoothA2DP])` **vẫn ném `OSStatus -50`** (log: `❌ [TTSAudioSessionController] setCategory FAIL`). → Giả thuyết "bỏ `.allowBluetooth` gây ra lỗi" **bị bác**: `-50` tồn tại cả khi có `.allowBluetooth`; đúng như tài liệu Apple (`.allowBluetooth` chỉ hợp lệ với category có input `playAndRecord`/`record`).
+* **Phát hiện then chốt**: dù `setCategory` lỗi `-50` ở bản này, **card lock screen / Control Center ĐÃ HIỆN**. → `-50` (và session config) **không phải blocker** của card. Sự khác biệt với các bản trước không có card: (1) có `.allowBluetooth`, (2) có **synchronous fallback publish** từ 1.3.186. Card hiện rất có thể do fallback publish (async metadata path là blocker thật), còn `.allowBluetooth` là trùng hợp.
+* **Thay đổi**: `TTSAudioSessionController.configureAudioSession()` revert về combo **hợp lệ** `.playback + mode: .default + [.duckOthers]` (hết `-50`, không còn gọi API bất hợp lệ mỗi lần phát). Giữ nguyên split `do/catch` + log `✅/❌` theo từng lệnh, giữ log `[NP]` + synchronous fallback publish.
+* **Kiểm chứng bắt buộc trên máy thật**: ① log KHÔNG còn `-50` (cả `setCategory` lẫn `setActive` đều ✅); ② card lock screen / Control Center **vẫn hiện** (nếu có → fix thật là fallback publish, session config không liên quan → gỡ log tạm và hoàn tất; nếu mất → `.allowBluetooth`/`.spokenAudio` có vai trò thật sự dù ném `-50` → điều tra tiếp); ③ gửi `app_logs.txt`.
+* **Môi trường**: không thêm/đổi tên file Swift → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac.
+
 ## [1.3.187] - 2026-08-16
 
 ### A/B test tạm: khôi phục combo gốc `.allowBluetooth` + log tách riêng lệnh thất bại
