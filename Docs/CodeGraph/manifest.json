@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-16T05:11:51.957518Z",
-  "gitCommit": "9befe9b97064f191149b515121950f956983a95c",
+  "generatedAt": "2026-08-16T05:25:10.310320Z",
+  "gitCommit": "2740bbd7ca91ca3d8791921dc08fc259f95a25fb",
   "sourceFileCount": 210,
   "documentCount": 16,
   "documents": [
@@ -2112,8 +2112,8 @@
     {
       "filename": "10_risk_report.md",
       "sourceHash": "882588db0ae9a2905af46fc59e21c1e9d708ee3ba5e4e7661aeb4d415b5920ef",
-      "generatedHash": "22a3c74b5ee75d58f8283be39ac4d196074f56c0ed223ee84b729a884f1fa5a4",
-      "generatedAt": "2026-08-16T05:11:51.957518Z",
+      "generatedHash": "571bf1b94c474dba214ccd88b873d181e486133d07e7285f73d419369fac2ce4",
+      "generatedAt": "2026-08-16T05:25:10.310320Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",

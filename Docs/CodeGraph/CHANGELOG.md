@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.187] - 2026-08-16
+
+### A/B test tạm: khôi phục combo gốc `.allowBluetooth` + log tách riêng lệnh thất bại
+
+* **Bối cảnh**: sau `1.3.185` hết `-50` nhưng card Now Playing vẫn mất. User đề xuất hướng ngược lại: lỗi bắt nguồn từ việc `efbe555` bỏ `.allowBluetooth` khỏi `setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .allowBluetooth, .allowBluetoothA2DP])`. Tài liệu Apple lại cho rằng `.allowBluetooth` (Bluetooth hands-free/input) chỉ hợp lệ với category có input (`playAndRecord`/`record`) nên dùng với `.playback` có thể chính là nguồn `-50` — và bằng chứng hiện có: `-50` vẫn xuất hiện ở HEAD (bản đã bỏ `.allowBluetooth`), nhưng chưa có log máy thật nào từ combo gốc.
+* **Thay đổi (tạm, đánh dấu `// REMOVE_AFTER_NOWPLAYING_DIAGNOSIS`)**:
+  * `TTSAudioSessionController.configureAudioSession()`: **khôi phục nguyên vẹn combo gốc** `setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .allowBluetooth, .allowBluetoothA2DP])` rồi `setActive(true)`.
+  * **Tách `do/catch` thành 2 lệnh riêng** và log kết quả từng bước (✅/❌ kèm OSStatus + `localizedDescription`) — lấp lỗ hổng dữ liệu: trước đây `catch` chỉ ghi chung `OSStatus=-50` nên không biết `setCategory` hay `setActive` ném lỗi.
+* **Kiểm chứng bắt buộc trên máy thật**: ① log còn `-50` hay không (và lệnh nào lỗi); ② card + điều khiển có hiện ở lock screen / Control Center không; ③ gửi `app_logs.txt` (dòng `[NP]`, `✅/❌ [TTSAudioSessionController]`).
+* **Kết quả dự kiến**: hết `-50` + card hiện → giữ combo gốc, gỡ log tạm, hoàn tất; `-50` quay lại + không card → bác giả thuyết `.allowBluetooth`, revert về combo `1.3.185` (`playback/default/[duckOthers]`) và tiếp tục điều tra qua log `[NP]`.
+* **Môi trường**: không thêm/đổi tên file Swift → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac.
+
 ## [1.3.186] - 2026-08-16
 
 ### Khôi phục card Now Playing: publish đồng bộ (fallback) + log chẩn đoán [NP]
