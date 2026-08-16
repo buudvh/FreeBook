@@ -12,11 +12,12 @@ public final class TTSAudioSessionController: @unchecked Sendable {
     public func configureAudioSession() -> Bool {
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .allowBluetooth, .allowBluetoothA2DP])
+            try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .allowBluetoothA2DP])
             try session.setActive(true)
             return true
         } catch {
-            AppLogger.shared.log("❌ [TTSAudioSessionController] Lỗi cấu hình AVAudioSession: \(error.localizedDescription)")
+            let nsError = error as NSError
+            AppLogger.shared.log("❌ [TTSAudioSessionController] Lỗi cấu hình AVAudioSession (OSStatus=\(nsError.code)): \(error.localizedDescription)")
             return false
         }
     }

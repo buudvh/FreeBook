@@ -196,7 +196,7 @@ struct DownloadTrackerView: View {
                 onlyExportCached: true,
                 container: modelContext.container
             )
-            ToastManager.shared.show(message: "Đã thêm tác vụ xuất '\(book.title)' từ các chương đã tải.")
+            ToastManager.shared.show(message: "Đã thêm tác vụ xuất '\(TranslateUtils.translateBookTitleIfNeeded(book.title, bookId: book.bookId))' từ các chương đã tải.")
         }
     }
 }

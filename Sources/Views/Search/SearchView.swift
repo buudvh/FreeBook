@@ -700,6 +700,13 @@ struct SearchView: View {
                     ToastManager.shared.show(message: "Đã thêm nguồn mới '\(ext.name)' vào kệ sách!", type: .success)
                 }
 
+                let targetShelfTab = createSnapshot.isOnShelf ? 1 : 2
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("sourceChangedNavigateToShelf"),
+                    object: nil,
+                    userInfo: ["shelfTab": targetShelfTab]
+                )
+
                 onSourceChanged?()
             }
 

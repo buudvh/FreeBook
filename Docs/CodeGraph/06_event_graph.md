@@ -145,6 +145,10 @@ graph TD
 *   **`ttsDidAdvanceToNextChapter`**:
     *   *Mục đích*: Nhận biết khi `TTSManager` tự chuyển sang chương tiếp theo độc lập.
     *   *Xử lý (`ReaderView.swift`)*: Nhận thông báo chứa `bookId` và `chapterIndex` để thực hiện đồng bộ giao diện hiển thị (chuyển tab, cuộn) mà không trigger lệnh phát TTS lặp lại, hỗ trợ đồng bộ ngay cả khi TTS bỏ qua các chương bị lỗi hoặc rỗng.
+*   **`sourceChangedNavigateToShelf`**:
+    *   *Mục đích*: Sau khi đổi nguồn truyện thành công (`SearchView.executeSourceChange`), điều hướng app về Kệ sách và chọn đúng sub-tab theo vị trí của truyện mới.
+    *   *Nguồn phát*: `SearchView.swift` post ngay trước `onSourceChanged?()` với `userInfo: ["shelfTab": createSnapshot.isOnShelf ? 1 : 2]` (truyện mới thừa kế `isOnShelf`/`isHistory` từ truyện cũ).
+    *   *Xử lý*: `MainTabView` đặt `selectedTab = 0`; `ShelfView` đặt `selectedTab` theo `shelfTab` (1 = Kệ Sách, 2 = Lịch Sử); `ReaderView.onSourceChanged` thêm `dismiss()` sau 0.3s để pop Reader về root kệ sách; `BookDetailView` giữ `dismiss()` sẵn có.
 *   **Điều hướng Reader độc lập với TTS**:
     *   Next/Previous/Chapter List chỉ tạo request và commit trong `ReaderViewModel`; không phát sự kiện chuyển chương sang `TTSManager`.
     *   `prepareSpeaking(...)` chỉ prewarm cache chương Reader và không thay đổi chương TTS đang phát hoặc đang pause.
@@ -179,6 +183,7 @@ graph TD
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - Tapping the widget cover emits `openCurrentlyPlayingReader`; Shelf routes to the TTS chapter or sends `navigateReaderToPlayingChapter` to an already visible Reader. Play/pause, next paragraph, close, drag, and auto-hide remain local UI events around `TTSManager`.
+- A successful source change emits `sourceChangedNavigateToShelf` (`userInfo.shelfTab` = 1 Kệ Sách / 2 Lịch Sử); MainTabView switches to the shelf main tab and ShelfView selects the matching sub-tab, while ReaderView pops back to the shelf root.
 - A chapter request first emits bounded-memory/SwiftData lookup work; extension completion publishes the document to shared memory before a non-cancellable background upsert. Reader dismissal cancels only its waiter (and the underlying load only when it was the final subscriber), while dismissal/background still flushes pending writes.
 - Repository-row trash taps open a confirmation alert; confirmation uninstalls owned local extensions and deletes the repository, while horizontal swipes remain owned by the parent paged tab.
 - Book deletion taps on `ShelfView` and `BookDetailView` trigger database deletion, stops active TTS playback (`TTSManager.stop`), and cancels active downloads (`DownloadManager.cancelTasksForBook`) before dispatching background file cleanup.

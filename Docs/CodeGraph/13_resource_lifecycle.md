@@ -82,7 +82,7 @@ stateDiagram-v2
 
 ### Chi tiết các bước vòng đời:
 1.  **Khởi tạo (Initialization)**: `audioEngine`, `playerNode` và `timePitchNode` được khởi tạo và kết nối một lần duy nhất qua `setupAudioEngine()`. Định dạng kết nối ban đầu là `nil`.
-2.  **Kích hoạt Session (Activation)**: `configureAudioSession()` cấu hình category `.playback`, mode `.spokenAudio` và gọi `setActive(true)`. Lúc này, hệ thống iOS cấp quyền chiếm dụng kênh phát âm thanh cho FreeBook.
+2.  **Kích hoạt Session (Activation)**: `configureAudioSession()` cấu hình category `.playback`, mode `.spokenAudio` với options `.duckOthers` + `.allowBluetoothA2DP` và gọi `setActive(true)`. Lúc này, hệ thống iOS cấp quyền chiếm dụng kênh phát âm thanh cho FreeBook. Ghi chú (1.3.180): option `.allowBluetooth` (HFP) đã được bỏ vì không hợp lệ với category `.playback` — kết hợp này khiến `setCategory` ném `OSStatus -50` (`AVAudioSessionErrorCodeBadParam`), làm `setActive(true)` không bao giờ chạy.
 3.  **Lập lịch phát (Scheduling & Playback)**: 
     *   Buffer âm thanh PCM được nạp vào RAM cache `preloadedWavs`.
     *   Gọi `player.scheduleBuffer(buffer, completionHandler:)`.

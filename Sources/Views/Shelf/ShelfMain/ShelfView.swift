@@ -223,6 +223,11 @@ struct ShelfView: View {
                     self.triggerNavigation = true
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("sourceChangedNavigateToShelf"))) { notification in
+                if let tab = notification.userInfo?["shelfTab"] as? Int {
+                    self.selectedTab = tab
+                }
+            }
             .sheet(item: $selectedBookForTask) { book in
                 TaskOptionsSheet(book: book, taskType: selectedTaskType)
             }
@@ -610,7 +615,7 @@ struct ShelfView: View {
                         ToastManager.shared.show(message: "Lỗi cập nhật tên chương: \(err.localizedDescription)", type: .error)
                     }
                 }
-                ToastManager.shared.show(message: "Đã dịch lại xong tên chương cho: \(bookTitle)")
+                ToastManager.shared.show(message: "Đã dịch lại xong tên chương cho: \(TranslateUtils.translateBookTitleIfNeeded(bookTitle, bookId: bookId))")
             }
         }
     }
@@ -624,7 +629,7 @@ struct ShelfView: View {
         let res = BookTransactionCoordinator.shared.setOnShelf(bookId: book.bookId, isOnShelf: true, in: modelContext)
         switch res {
         case .success:
-            ToastManager.shared.show(message: "Đã thêm '\(book.title)' vào kệ sách", type: .success)
+            ToastManager.shared.show(message: "Đã thêm '\(TranslateUtils.translateBookTitleIfNeeded(book.title, bookId: book.bookId))' vào kệ sách", type: .success)
         case .failure(let err):
             AppLogger.shared.log("❌ [ShelfView] Lỗi thêm vào kệ: \(err.localizedDescription)")
             ToastManager.shared.show(message: "Không thể thêm vào kệ sách: \(err.localizedDescription)", type: .error)
@@ -649,7 +654,7 @@ struct ShelfView: View {
         let res = BookTransactionCoordinator.shared.removeFromShelf(bookId: book.bookId, in: modelContext)
         switch res {
         case .success:
-            ToastManager.shared.show(message: "Đã xoá '\(book.title)' khỏi kệ sách", type: .success)
+            ToastManager.shared.show(message: "Đã xoá '\(TranslateUtils.translateBookTitleIfNeeded(book.title, bookId: book.bookId))' khỏi kệ sách", type: .success)
         case .failure(let err):
             AppLogger.shared.log("❌ [ShelfView] Lỗi xoá khỏi kệ sách: \(err.localizedDescription)")
             ToastManager.shared.show(message: "Không thể xoá khỏi kệ sách: \(err.localizedDescription)", type: .error)
@@ -882,7 +887,7 @@ struct ShelfView: View {
                              self.importStatusText = "Đang ghi dữ liệu xuống bộ nhớ..."
 
                             AppLogger.shared.log("✅ Đã nhập thành công truyện: \(parsed.title) (\(totalChapters) chương)")
-                            ToastManager.shared.show(message: "Đã nhập thành công: \(parsed.title)")
+                            ToastManager.shared.show(message: "Đã nhập thành công: \(TranslateUtils.translateBookTitleIfNeeded(parsed.title, bookId: newBookId))")
 
                             self.isImporting = false
                             self.selectedTab = 1 // Chuyển sang Tab Kệ Sách để thấy truyện vừa nhập

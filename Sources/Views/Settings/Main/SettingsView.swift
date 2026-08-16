@@ -8,7 +8,6 @@ struct SettingsView: View {
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     @AppStorage("isTranslationPronounsEnabled") private var isTranslationPronounsEnabled = false
     @AppStorage("isTranslationLuatNhanEnabled") private var isTranslationLuatNhanEnabled = false
-    @AppStorage("isTTSCoverSpinEnabled") private var isCoverSpinEnabled = true
     @ObservedObject private var translationManager = TranslationManager.shared
     
     @State private var logFileExists = false
@@ -216,16 +215,6 @@ struct SettingsView: View {
                     }
                     NavigationLink(destination: NghiTTSSettingsView()) {
                         Label("Cấu hình tiền xử lý & ngắt nghỉ", systemImage: "slider.horizontal.3")
-                    }
-                    Toggle(isOn: $isCoverSpinEnabled) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Xoay cover khi đang nghe")
-                                .font(.body)
-                                .fontWeight(.medium)
-                            Text("Xoay tròn cover trên widget TTS trong lúc đang phát; tự dừng khi tạm dừng, chạy nền hoặc tắt màn hình.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
                     }
                 }
                 

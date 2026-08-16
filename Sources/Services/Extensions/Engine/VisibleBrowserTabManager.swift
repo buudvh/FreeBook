@@ -69,6 +69,10 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
         if isHidden, let container = containerViewController {
             container.reloadTabs()
             reopenContainer()
+        } else if isDismissing {
+            // Browser đang bị tắt (Đóng tất cả / đóng tab cuối): không nhét tab vào
+            // container đang teardown. dismissContainer's completion sẽ present lại
+            // container mới nếu vẫn còn tab.
         } else if !isPresented || navController == nil {
             presentContainerView(initialActiveId: id)
         } else {
@@ -218,6 +222,12 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
             self.containerViewController = nil
             self.isHidden = false
             self.notifyStateChanged()
+            // Nếu có tab mới được thêm trong lúc dismiss (VD download vẫn đang dùng
+            // browser để bypass Cloudflare), present lại container mới để webview
+            // không bị bỏ rơi trong container đang bị hủy.
+            if !self.tabs.isEmpty, let activeId = self.activeTabId {
+                self.presentContainerView(initialActiveId: activeId)
+            }
         }
     }
 

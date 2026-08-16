@@ -15,6 +15,12 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## AVAudioSession -50 (BadParam) resolved in 1.3.180
+
+* **Resolved - invalid category/option combination:** `TTSAudioSessionController.configureAudioSession()` called `setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .allowBluetooth, .allowBluetoothA2DP])`. `.allowBluetooth` (HFP) is documented valid only with `.record`/`.playAndRecord`/`.multiRoute`, so `setCategory` threw `OSStatus -50` (`AVAudioSessionErrorCodeBadParam`). The subsequent `setActive(true)` in the same `do` block never ran, `isAudioSessionConfigured` stayed `false`, and the error was re-logged on every paragraph/chapter play (observed during Google TTS auto-advance to chapter 2).
+* **Fix:** removed `.allowBluetooth`, keeping `.duckOthers` + `.allowBluetoothA2DP` (both valid with `.playback`). The log now also records the underlying OSStatus code for future diagnosis.
+* **Residual:** playback still worked while the bug existed because `AVAudioPlayer.play()` implicitly activates the session, but the intended `.playback`/`.spokenAudio` configuration (background playback, ducking, Bluetooth A2DP routing) was not applied.
+
 ## NghiTTS chapter-transition crash risks mitigated in 1.3.147
 
 * **Mitigated - empty preprocessor output:** Piper kiểm tra cả input và output tiền xử lý; output không thể đọc được chuyển thành WAV khoảng lặng hợp lệ thay vì làm eSpeak/ONNX ném lỗi.

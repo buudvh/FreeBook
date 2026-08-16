@@ -2,18 +2,47 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-## [1.3.179] - 2026-08-16
+## [1.3.182] - 2026-08-16
 
-### Cover widget TTS xoay tròn khi đang nghe
+### Quay về tab Kệ sách sau khi đổi nguồn truyện thành công
 
-* **`TTSFloatingWidgetView.swift`**:
-  - Thêm `CoverSpinController` (`@MainActor`, ObservableObject): `@Published angle`/`isSpinning`, `start()` tạo `Timer(timeInterval: 1/60)` đăng ký vào `RunLoop.main` mode `.common` (tránh giật khi kéo widget), mỗi tick `angle += 2.5` (~2.4s/vòng, wrap ở 360); `stop()` invalidate timer và **giữ nguyên góc** để resume tiếp tục từ đó. Không vòng giữ mạnh (block capture `[weak self]`).
-  - `TTSFloatingWidgetView`: thêm `@State spinner = CoverSpinController()` (owner giữ `@State`, không quan sát → mỗi tick chỉ re-render riêng subview cover, không render lại cả widget), `@Environment(\.scenePhase)`, `@State appIsActive = true`, `@AppStorage("isTTSCoverSpinEnabled")`; `.onChange(of: scenePhase)` đặt `appIsActive = (phase == .active)`. `shouldSpin = isCoverSpinEnabled && snapshot.isPlaying && appIsActive && snapshot.showFloatingWidget`, truyền `spinner` + `spin` vào **cả 2** `TTSCoverView` (expanded + peek — dùng chung controller nên góc không nhảy khi thu/mở widget).
-  - `TTSCoverView`: thêm `@ObservedObject spinner` + `let spin`; `.onAppear`/`.onChange(of: spin)`/`.onDisappear` → `start()`/`stop()`; áp `.rotationEffect(.degrees(spinner.angle))`.
-  - Ma trận hành vi: đang nghe (foreground) → xoay; pause/hết chương/dừng/toggle OFF → đứng nguyên góc + timer tắt; background/khoá màn hình (`scenePhase != .active`) → timer tắt (0 CPU); mở app lại + vẫn đang nghe → xoay tiếp từ góc đã lưu.
-  - Hiệu năng: timer 60Hz publish 1 Double → chỉ cover 40pt re-render qua `rotationEffect`, < 1% CPU so với bản thân TTS (decode/ONNX); pause/background timer invalidate nên chắc chắn 0 chi phí.
-* **`SettingsView.swift`**: thêm `@AppStorage("isTTSCoverSpinEnabled")` + `Toggle("Xoay cover khi đang nghe")` (caption giải thích tự dừng khi pause/nền/tắt màn hình) trong Section "Nghe Truyện (TTS)" sau "Cấu hình tiền xử lý & ngắt nghỉ". Cùng key `@AppStorage` với widget → bật/tắt phản ứng tức thì.
-* **Ghi chú môi trường**: Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` (macOS). Không thêm file Swift mới nên không cần `xcodegen generate`.
+* **`SearchView.swift`** (`executeSourceChange`): trước `onSourceChanged?()` post notification mới `sourceChangedNavigateToShelf` với `userInfo: ["shelfTab": createSnapshot.isOnShelf ? 1 : 2]`. Truyện mới thừa kế `isOnShelf`/`isHistory` từ truyện cũ nên giá trị sub-tab khớp filter `historyBooks = isHistory && !isOnShelf` của `ShelfView`.
+* **`MainTabView.swift`**: thêm observer `sourceChangedNavigateToShelf` (cạnh observer `openCurrentlyPlayingReader` sẵn có) → `selectedTab = 0` (tab Kệ Sách chính).
+* **`ShelfView.swift`**: thêm observer `sourceChangedNavigateToShelf` → đặt `selectedTab` theo `userInfo["shelfTab"]` (1 = Kệ Sách, 2 = Lịch Sử) để sau khi đổi nguồn thành công, kệ sách hiển thị đúng sub-tab chứa truyện mới.
+* **`ReaderView.swift`**: `onSourceChanged` của màn Đổi nguồn giờ thêm `dismiss()` sau 0.3s (`DispatchQueue.main.asyncAfter`, khớp pattern sẵn có) để pop Reader về root kệ sách — cần thiết vì truyện cũ bị xóa ở nhánh không phát TTS.
+* **`BookDetailView.swift`**: giữ nguyên `dismiss()`; việc chuyển main tab do observer `MainTabView` xử lý.
+* Không thêm file Swift mới → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac.
+
+## [1.3.180] - 2026-08-16
+
+### Sửa lỗi AVAudioSession OSStatus -50 (BadParam) khi cấu hình TTS
+
+* **Nguyên nhân gốc**: `TTSAudioSessionController.configureAudioSession()` (`Sources/Services/TTS/TTSAudioSessionController.swift`) gọi `setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .allowBluetooth, .allowBluetoothA2DP])`. Theo tài liệu Apple, `.allowBluetooth` (HFP) chỉ hợp lệ với `.record`/`.playAndRecord`/`.multiRoute`; kết hợp với `.playback` khiến `setCategory` ném `OSStatus -50` (`AVAudioSessionErrorCodeBadParam`). Hậu quả: `setActive(true)` trong cùng khối `do` không bao giờ chạy, `isAudioSessionConfigured` không bao giờ thành `true`, lỗi được log lặp lại mỗi lần phát đoạn/chương (quan sát thấy khi Google TTS auto-advance sang chương 2). Playback vẫn nghe được vì `AVAudioPlayer.play()` tự kích hoạt session ngầm, nhưng cấu hình `.playback`/`.spokenAudio` (phát nền, ducking, định tuyến Bluetooth A2DP) không được áp dụng.
+* **Fix**: bỏ `.allowBluetooth`, giữ `.duckOthers` + `.allowBluetoothA2DP` (đều hợp lệ với `.playback`); log thêm `OSStatus=\(nsError.code)` để dễ chẩn đoán về sau.
+* **Môi trường**: Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac; không thêm/đổi tên file Swift nên không cần `xcodegen generate`.
+
+## [1.3.181] - 2026-08-16
+
+### Fix: "Đóng tất cả" browser khi đang tải truyện không còn chờ ~16s cho chương kế tiếp
+
+* **Nguyên nhân**: khi nhấn "Đóng tất cả", `removeAllTabs()` → `cleanUpQuietly()` chỉ **set nil** `navigationCompletion`/`waitUrlCompletion` mà không gọi chúng → `JSExecutor` đang chờ `chap.js` bằng `DispatchSemaphore` trong `_nativeBrowserLaunchVisible` (chờ tối đa `timeoutMs+1` ≈ 16s) và `_nativeBrowserWaitUrlVisible` (≈ 16s) **không được báo** → chương hiện tại block trọn timeout (waitForReady không bị vì `cancelPendingWaitReady` đã gọi completion). Sau đó `chap.js` tạo browser mới (webview lạnh, load lại + Cloudflare) → chương kế tiếp phải đợi rất lâu.
+* **`VisibleWebViewLoader.swift`**: thêm `firePendingCompletions()` — capture rồi **gọi** `navigationCompletion?(nil)` và `waitUrlCompletion?(false)` trước khi set nil; gọi từ **cả `cleanUp()` lẫn `cleanUpQuietly()`**. Kết quả: JS bridge release ngay, chương hiện tại fail tức thì, download chuyển sang chương kế tiếp ngay.
+* **`VisibleBrowserTabManager.swift`**:
+  - `addTab`: thêm nhánh `isDismissing` — không còn `reloadTabs()` trên container đang teardown khi browser đang bị tắt.
+  - `dismissContainer`: trong completion, nếu vẫn còn tab (download tiếp tục dùng browser để bypass Cloudflare, tab mới được thêm lúc dismiss) → `presentContainerView(initialActiveId:)` để browser hiện lại nhanh với container mới thay vì webview bị bỏ rơi trong container chết.
+* Không thêm file Swift mới → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI.
+
+## [1.3.180] - 2026-08-16
+
+### Dịch tên sách trong toast khi bật dịch
+
+* **`TranslateUtils.swift`**: thêm `translateBookTitleIfNeeded(_:bookId:)` — `guard isTranslationEnabled && containsChinese(title)` rồi `translateMeta(title, bookId:)`, ngược lại trả nguyên văn. Đóng gói đúng pattern đang dùng rộng rãi (VD `BookListItemView`), vì `translateMeta`/`translateText` không tự check `isTranslationEnabled`.
+* **6 toast hiển thị tên sách** giờ hiện tên đã dịch khi bật dịch (dùng `bookId` sẵn trong scope):
+  - `ShelfView.swift`: "Đã dịch lại xong tên chương cho: \(bookTitle)" (`bookId` dòng 563); "Đã thêm '\(book.title)' vào kệ sách"; "Đã xoá '\(book.title)' khỏi kệ sách" (`book.bookId`); "Đã nhập thành công: \(parsed.title)" (`newBookId` tạo lúc import TXT).
+  - `DownloadTrackerView.swift`: "Đã thêm tác vụ xuất '\(book.title)' từ các chương đã tải." (`book.bookId`).
+  - `DictionaryListView.swift`: "Đã chia sẻ ... sang truyện \(targetBook.title)" (`targetBook.bookId`).
+* **Không dịch** `SearchView.swift` toast "Đã thêm nguồn mới '\(ext.name)'..." — `ext.name` là tên extension/nguồn, không phải tên sách.
+* Không thêm file Swift mới → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI.
 
 ## [1.3.178] - 2026-08-16
 

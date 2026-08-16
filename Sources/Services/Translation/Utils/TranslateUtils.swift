@@ -157,6 +157,11 @@ public final class TranslateUtils {
     public static func translateMeta(_ text: String?, bookId: String? = nil) -> String {
         return translateText(text, isMeta: true, bookId: bookId)
     }
+
+    public static func translateBookTitleIfNeeded(_ title: String, bookId: String? = nil) -> String {
+        guard isTranslationEnabled, containsChinese(title) else { return title }
+        return translateMeta(title, bookId: bookId)
+    }
     
     public static func translateContent(_ text: String?, bookId: String? = nil) -> String {
         return translateText(text, isMeta: false, bookId: bookId)

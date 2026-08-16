@@ -153,8 +153,7 @@ public final class VisibleWebViewLoader: NSObject, UIAdaptivePresentationControl
 
             self.viewController.webView.navigationDelegate = nil
             self.viewController.webView.stopLoading()
-            self.viewController.navigationCompletion = nil
-            self.viewController.waitUrlCompletion = nil
+            self.firePendingCompletions()
             self.cancelPendingWaitReady(reason: "Browser closed/cleaned up", cancelled: true)
 
             VisibleBrowserTabManager.shared.removeTab(id: id)
@@ -175,13 +174,25 @@ public final class VisibleWebViewLoader: NSObject, UIAdaptivePresentationControl
 
         self.viewController.webView.navigationDelegate = nil
         self.viewController.webView.stopLoading()
-        self.viewController.navigationCompletion = nil
-        self.viewController.waitUrlCompletion = nil
+        self.firePendingCompletions()
         self.cancelPendingWaitReady(reason: "Browser closed/cleaned up", cancelled: true)
 
         let callback = onClose
         onClose = nil
         callback?()
+    }
+
+    /// Unblock JS bridge semaphores waiting on this loader by firing any pending
+    /// callbacks. Without this, `_nativeBrowserLaunchVisible` / `_nativeBrowserWaitUrlVisible`
+    /// would stall until their full timeout (up to ~16s) after the browser is closed.
+    private func firePendingCompletions() {
+        let navComp = viewController.navigationCompletion
+        viewController.navigationCompletion = nil
+        navComp?(nil)
+
+        let waitComp = viewController.waitUrlCompletion
+        viewController.waitUrlCompletion = nil
+        waitComp?(false)
     }
 
     @MainActor

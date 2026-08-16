@@ -581,7 +581,7 @@ struct DictionaryListView: View {
                 TranslateUtils.clearCache()
                 TranslationManager.shared.clearBookDictCache(for: targetBook.bookId)
 
-                ToastManager.shared.show(message: "Đã chia sẻ \(type.displayName) sang truyện \(targetBook.title)", type: .success)
+                ToastManager.shared.show(message: "Đã chia sẻ \(type.displayName) sang truyện \(TranslateUtils.translateBookTitleIfNeeded(targetBook.title, bookId: targetBook.bookId))", type: .success)
             } catch {
                 ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
             }

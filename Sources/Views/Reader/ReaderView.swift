@@ -710,6 +710,9 @@ struct ReaderView: View {
                 changeSourceTargetBook: book,
                 onSourceChanged: {
                     navigateToChangeSource = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        dismiss()
+                    }
                 }
             )
         }

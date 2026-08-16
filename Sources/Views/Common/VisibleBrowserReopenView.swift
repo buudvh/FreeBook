@@ -140,7 +140,7 @@ struct VisibleBrowserReopenButton: View {
         HStack(spacing: 6) {
             Image(systemName: "globe")
                 .font(.system(size: 13, weight: .semibold))
-            Text("Trình duyệt • \(tabCount) tab")
+            Text("\(tabCount) tab")
                 .font(.system(size: 13, weight: .semibold))
                 .lineLimit(1)
         }
