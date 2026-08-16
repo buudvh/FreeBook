@@ -289,7 +289,10 @@ struct BookDetailView: View {
                     initialSearchQuery: title,
                     changeSourceTargetBook: localBook,
                     onSourceChanged: {
-                        dismiss()
+                        navigateToChangeSource = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            dismiss()
+                        }
                     }
                 ),
                 isActive: $navigateToChangeSource

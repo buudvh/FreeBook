@@ -2,6 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.184] - 2026-08-16
+
+### Widget TTS thu nhỏ: chỉ hiển thị nửa vòng tròn ở mép
+
+* **`TTSFloatingWidgetView.swift`** (`restingPosition`, nhánh `.peeking`): trước đây `inset = Layout.peekSize * 0.38` (=19.76, bán kính 26) → chỉ ~6.24pt bị mép che, widget hiện gần như cả vòng tròn bị cắt lẹm trông như lỗi canh vị trí. Đổi `inset = 0` → tâm vòng tròn đặt **ngay tại mép màn hình**: đúng một nửa vòng nhô ra, nửa còn lại bị mép che (mép trái `x=0`, mép phải `x=screenWidth`). Nửa hiển thị nằm trọn trong window nên hit-target tap-to-reveal (vùng chạm 26pt) vẫn hợp lệ.
+* Không đổi `Layout.peekSize`, `collapsedWidget`, cơ chế kéo/thu/mở, `FloatingWidgetViewModel`.
+* Không thêm file Swift mới → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI; hành vi tap-to-reveal nên kiểm chứng thêm trên máy thật.
+
+## [1.3.183] - 2026-08-16
+
+### Dịch tên sách trong toast của DownloadManager (bổ sung)
+
+* **`DownloadManager.swift`**: 3 toast gửi qua `DownloadPresentationEventCenter` còn dùng tên sách thô (`tasks[index].bookTitle`) — "Đã xong: \(type) '\(title)' thành công!", "Lỗi \(type) '\(title)': ...", "Đã hủy tác vụ: \(type) '\(title)'" — đổi `let title = ...` sang `TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)` (các hàm `markCompleted`/`markFailed`/`markCancelled` đều `@MainActor`; `TranslateUtils` tầng Services, không vi phạm phân tầng).
+* Đã rà soát đầy đủ: 103 toast `ToastManager.shared.show` + toàn bộ `.send(.showToast)` của TTS/Download event centers — không còn toast nào hiển thị tên sách chưa dịch (ngoại trừ toast tên extension ở `SearchView` nằm ngoài phạm vi).
+* Không thêm file Swift mới → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI.
+
 ## [1.3.182] - 2026-08-16
 
 ### Quay về tab Kệ sách sau khi đổi nguồn truyện thành công
@@ -10,7 +26,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 * **`MainTabView.swift`**: thêm observer `sourceChangedNavigateToShelf` (cạnh observer `openCurrentlyPlayingReader` sẵn có) → `selectedTab = 0` (tab Kệ Sách chính).
 * **`ShelfView.swift`**: thêm observer `sourceChangedNavigateToShelf` → đặt `selectedTab` theo `userInfo["shelfTab"]` (1 = Kệ Sách, 2 = Lịch Sử) để sau khi đổi nguồn thành công, kệ sách hiển thị đúng sub-tab chứa truyện mới.
 * **`ReaderView.swift`**: `onSourceChanged` của màn Đổi nguồn giờ thêm `dismiss()` sau 0.3s (`DispatchQueue.main.asyncAfter`, khớp pattern sẵn có) để pop Reader về root kệ sách — cần thiết vì truyện cũ bị xóa ở nhánh không phát TTS.
-* **`BookDetailView.swift`**: giữ nguyên `dismiss()`; việc chuyển main tab do observer `MainTabView` xử lý.
+* **`BookDetailView.swift`**: `onSourceChanged` mirror `ReaderView` — đặt `navigateToChangeSource = false` (SearchView được push qua `NavigationLink(isActive:)`, chỉ gọi `dismiss()` không pop được vì binding còn active → màn hình Search bị kẹt) rồi `dismiss()` sau 0.3s; việc chuyển main tab do observer `MainTabView` xử lý.
 * Không thêm file Swift mới → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac.
 
 ## [1.3.180] - 2026-08-16

@@ -265,10 +265,10 @@ struct TTSFloatingWidgetView: View {
         guard screenWidth > 0, screenHeight > 0 else { return .zero }
 
         if viewModel.mode == .peeking {
-            // Keep the peeking control close to the edge, but leave its hit
-            // target inside the window. A center at 0/screenWidth put half of
-            // the button outside the interactive coordinate space.
-            let inset = Layout.peekSize * 0.38
+            // Đặt tâm vòng tròn ngay tại mép màn hình: đúng một nửa vòng
+            // tròn nhô ra, nửa còn lại bị mép che. Nửa hiển thị vẫn nằm
+            // trọn trong window nên hit-target tap-to-reveal còn hợp lệ.
+            let inset: CGFloat = 0
             let x = viewModel.edgeDirection == .left ? inset : screenWidth - inset
             let y = clampedY(
                 viewModel.verticalRatio * screenHeight,

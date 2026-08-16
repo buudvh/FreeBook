@@ -320,7 +320,7 @@ public final class DownloadManager: ObservableObject {
                 }
             }
 
-            let title = tasks[index].bookTitle
+            let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)
             let type = tasks[index].taskType.rawValue
             DownloadPresentationEventCenter.shared.send(.showToast(message: "Đã xong: \(type) '\(title)' thành công!", type: .success))
         }
@@ -337,7 +337,7 @@ public final class DownloadManager: ObservableObject {
                 model.errorMessage = error
             }
 
-            let title = tasks[index].bookTitle
+            let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)
             let type = tasks[index].taskType.rawValue
             DownloadPresentationEventCenter.shared.send(.showToast(message: "Lỗi \(type) '\(title)': \(error)", type: .error))
         }
@@ -352,7 +352,7 @@ public final class DownloadManager: ObservableObject {
                 model.statusRaw = TaskStatus.cancelled.rawValue
             }
 
-            let title = tasks[index].bookTitle
+            let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)
             let type = tasks[index].taskType.rawValue
             DownloadPresentationEventCenter.shared.send(.showToast(message: "Đã hủy tác vụ: \(type) '\(title)'", type: .info))
         }
