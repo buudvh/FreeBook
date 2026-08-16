@@ -36,7 +36,7 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 
 ## TTS presentation energy events (1.3.112)
 
-* Paragraph/playback events update the dynamic Lock Screen timeline immediately after static metadata is cached; they do not emit new translation, local-cover decode, or artwork-construction work. Since 1.3.186, if nothing has been published yet, a synchronous minimal card is published from in-memory state before the async static metadata task completes, so the card appears even if that task never finishes.
+* Paragraph/playback events update the dynamic Lock Screen timeline immediately after static metadata is cached; they do not emit new translation, local-cover decode, or artwork-construction work.
 * A book/chapter/cover/translation-key event cancels the previous metadata task and starts at most one replacement. Dictionary updates invalidate the matching cache and republish if the widget session remains active.
 * Widget/root/Reader Combine events cross the main RunLoop before snapshots are reread, because `@Published` emits before assignment; equality checks suppress unchanged view invalidations.
 * Selecting Nghi schedules delayed warm-up. Selecting any other engine emits cancellation of the pending warm-up task.

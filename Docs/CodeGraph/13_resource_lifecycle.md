@@ -82,7 +82,7 @@ stateDiagram-v2
 
 ### Chi tiết các bước vòng đời:
 1.  **Khởi tạo (Initialization)**: `audioEngine`, `playerNode` và `timePitchNode` được khởi tạo và kết nối một lần duy nhất qua `setupAudioEngine()`. Định dạng kết nối ban đầu là `nil`.
-2.  **Kích hoạt Session (Activation)**: `configureAudioSession()` cấu hình category `.playback`, mode `.default` với options `.duckOthers` và gọi `setActive(true)`. Lúc này, hệ thống iOS cấp quyền chiếm dụng kênh phát âm thanh cho FreeBook. Ghi chú (1.3.185): mode `.spokenAudio` bị thay bằng `.default` — log trên máy thật cho thấy `-50` vẫn xảy ra sau fix 1.3.180 (bỏ `.allowBluetooth`); nguyên nhân thật là `.spokenAudio` kết hợp `.duckOthers` (ngữ nghĩa "pause thay vì duck lời thoại") khiến `setCategory` ném `OSStatus -50`, session không bao giờ thành `.playback`, iOS không coi app là nguồn Now Playing (mất điều khiển lock screen/Control Center). `.allowBluetoothA2DP` cũng được bỏ vì với `.playback` định tuyến A2DP đã hỗ trợ mặc định.
+2.  **Kích hoạt Session (Activation)**: `configureAudioSession()` cấu hình category `.playback`, mode `.spokenAudio` với options `.duckOthers` + `.allowBluetoothA2DP` và gọi `setActive(true)`. Lúc này, hệ thống iOS cấp quyền chiếm dụng kênh phát âm thanh cho FreeBook. Ghi chú (1.3.180): option `.allowBluetooth` (HFP) đã được bỏ vì không hợp lệ với category `.playback` — kết hợp này khiến `setCategory` ném `OSStatus -50` (`AVAudioSessionErrorCodeBadParam`), làm `setActive(true)` không bao giờ chạy.
 3.  **Lập lịch phát (Scheduling & Playback)**: 
     *   Buffer âm thanh PCM được nạp vào RAM cache `preloadedWavs`.
     *   Gọi `player.scheduleBuffer(buffer, completionHandler:)`.

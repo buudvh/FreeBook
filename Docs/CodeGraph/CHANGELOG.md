@@ -2,51 +2,6 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-## [1.3.188] - 2026-08-16
-
-### A/B test kết luận: `.allowBluetooth` không phải nguyên nhân — revert về combo hợp lệ, giữ fallback publish
-
-* **Kết quả test 1.3.187 trên máy thật**: `setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .allowBluetooth, .allowBluetoothA2DP])` **vẫn ném `OSStatus -50`** (log: `❌ [TTSAudioSessionController] setCategory FAIL`). → Giả thuyết "bỏ `.allowBluetooth` gây ra lỗi" **bị bác**: `-50` tồn tại cả khi có `.allowBluetooth`; đúng như tài liệu Apple (`.allowBluetooth` chỉ hợp lệ với category có input `playAndRecord`/`record`).
-* **Phát hiện then chốt**: dù `setCategory` lỗi `-50` ở bản này, **card lock screen / Control Center ĐÃ HIỆN**. → `-50` (và session config) **không phải blocker** của card. Sự khác biệt với các bản trước không có card: (1) có `.allowBluetooth`, (2) có **synchronous fallback publish** từ 1.3.186. Card hiện rất có thể do fallback publish (async metadata path là blocker thật), còn `.allowBluetooth` là trùng hợp.
-* **Thay đổi**: `TTSAudioSessionController.configureAudioSession()` revert về combo **hợp lệ** `.playback + mode: .default + [.duckOthers]` (hết `-50`, không còn gọi API bất hợp lệ mỗi lần phát). Giữ nguyên split `do/catch` + log `✅/❌` theo từng lệnh, giữ log `[NP]` + synchronous fallback publish.
-* **Kiểm chứng bắt buộc trên máy thật**: ① log KHÔNG còn `-50` (cả `setCategory` lẫn `setActive` đều ✅); ② card lock screen / Control Center **vẫn hiện** (nếu có → fix thật là fallback publish, session config không liên quan → gỡ log tạm và hoàn tất; nếu mất → `.allowBluetooth`/`.spokenAudio` có vai trò thật sự dù ném `-50` → điều tra tiếp); ③ gửi `app_logs.txt`.
-* **Môi trường**: không thêm/đổi tên file Swift → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac.
-
-## [1.3.187] - 2026-08-16
-
-### A/B test tạm: khôi phục combo gốc `.allowBluetooth` + log tách riêng lệnh thất bại
-
-* **Bối cảnh**: sau `1.3.185` hết `-50` nhưng card Now Playing vẫn mất. User đề xuất hướng ngược lại: lỗi bắt nguồn từ việc `efbe555` bỏ `.allowBluetooth` khỏi `setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .allowBluetooth, .allowBluetoothA2DP])`. Tài liệu Apple lại cho rằng `.allowBluetooth` (Bluetooth hands-free/input) chỉ hợp lệ với category có input (`playAndRecord`/`record`) nên dùng với `.playback` có thể chính là nguồn `-50` — và bằng chứng hiện có: `-50` vẫn xuất hiện ở HEAD (bản đã bỏ `.allowBluetooth`), nhưng chưa có log máy thật nào từ combo gốc.
-* **Thay đổi (tạm, đánh dấu `// REMOVE_AFTER_NOWPLAYING_DIAGNOSIS`)**:
-  * `TTSAudioSessionController.configureAudioSession()`: **khôi phục nguyên vẹn combo gốc** `setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .allowBluetooth, .allowBluetoothA2DP])` rồi `setActive(true)`.
-  * **Tách `do/catch` thành 2 lệnh riêng** và log kết quả từng bước (✅/❌ kèm OSStatus + `localizedDescription`) — lấp lỗ hổng dữ liệu: trước đây `catch` chỉ ghi chung `OSStatus=-50` nên không biết `setCategory` hay `setActive` ném lỗi.
-* **Kiểm chứng bắt buộc trên máy thật**: ① log còn `-50` hay không (và lệnh nào lỗi); ② card + điều khiển có hiện ở lock screen / Control Center không; ③ gửi `app_logs.txt` (dòng `[NP]`, `✅/❌ [TTSAudioSessionController]`).
-* **Kết quả dự kiến**: hết `-50` + card hiện → giữ combo gốc, gỡ log tạm, hoàn tất; `-50` quay lại + không card → bác giả thuyết `.allowBluetooth`, revert về combo `1.3.185` (`playback/default/[duckOthers]`) và tiếp tục điều tra qua log `[NP]`.
-* **Môi trường**: không thêm/đổi tên file Swift → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac.
-
-## [1.3.186] - 2026-08-16
-
-### Khôi phục card Now Playing: publish đồng bộ (fallback) + log chẩn đoán [NP]
-
-* **Vấn đề**: sau fix 1.3.185 hết `-50` nhưng card + điều khiển TTS ở lock screen / Trung tâm điều khiển vẫn không hiện (kể cả khi app foreground), audio phát nền bình thường, mọi engine đều không có card. Xác nhận đây là **regression trong code** (cùng máy + cùng LiveContainer, bản cũ từng hiện card) — nghi vấn chính là đường publish Now Playing **bất đồng bộ** (metadata task dịch tiêu đề + load ảnh bìa) chưa bao giờ hoàn thành: `nowPlayingStaticMetadata` không được cache, nhánh cache trong `updateNowPlayingInfo()` không bao giờ chạy, `nowPlayingInfo` mãi bằng `nil`.
-* **Fix**:
-  * `TTSManager.updateNowPlayingInfo()`: thêm **synchronous fallback publish** — nếu `MPNowPlayingInfoCenter.default().nowPlayingInfo == nil` và chưa có static metadata thì publish ngay card tối thiểu (title/artist/rate/duration lấy từ state trong bộ nhớ, không chờ async). Async path vẫn chạy để upgrade tên dịch + ảnh bìa khi hoàn thành.
-  * Thêm log chẩn đoán unconditional `🔍 [NP] ...` (đánh dấu `// REMOVE_AFTER_NOWPLAYING_DIAGNOSIS`, hoạt động cả ở Release vì CI build Release nên `logRemoteTrace` `#if DEBUG` không xuất hiện trong `app_logs.txt`) tại: `configureAudioSession()` (kết quả + `category`/`mode`/`options`), `updateNowPlayingInfo()` (cache-hit hay đi async), `publishNowPlayingInfo()` (title/artist/rate/paragraph/hasArtwork).
-* **Kiểm chứng bắt buộc trên máy thật**: phát TTS → card hiện tức thì ở lock screen / Control Center; gửi `app_logs.txt` về để đối chiếu log `[NP]`. Log tạm sẽ được gỡ sau khi xác nhận.
-* **Môi trường**: không thêm/đổi tên file Swift → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac.
-
-## [1.3.185] - 2026-08-16
-
-### Sửa triệt để lỗi AVAudioSession OSStatus -50: khôi phục điều khiển TTS trên lock screen / Control Center
-
-* **Chẩn đoán lại**: fix 1.3.180 (bỏ `.allowBluetooth`) không đủ — log trên máy thật (bản HEAD) vẫn còn `❌ [TTSAudioSessionController] Lỗi cấu hình AVAudioSession (OSStatus=-50)`. Nguyên nhân thật nằm ở **mode `.spokenAudio`**: mode này mang ngữ nghĩa "pause (không duck) khi app khác phát lời thoại" nên kết hợp với option `.duckOthers` là tổ hợp mâu thuẫn → `setCategory(.playback, mode: .spokenAudio, options: ...)` ném `OSStatus -50` (`AVAudioSessionErrorCodeBadParam`).
-* **Hệ quả**: `setCategory` throw mỗi lần → `isAudioSessionConfigured` không bao giờ = `true` → session **không bao giờ thực sự được cấu hình `.playback`** → iOS không coi FreeBook là nguồn Now Playing → **mất card + điều khiển nghe truyện ở màn hình khoá và Trung tâm điều khiển** (audio vẫn phát nhờ `AVAudioPlayer.play()`/engine tự kích hoạt session ngầm). Khớp triệu chứng: có tiếng, không thẻ, không nút, mọi engine TTS.
-* **Fix**:
-  * `TTSAudioSessionController.configureAudioSession()`: `setCategory(.playback, mode: .default, options: [.duckOthers])` rồi `setActive(true)`. Combo `.playback + .default` đã được chứng minh hoạt động trong app (path đọc đoạn chọn ở `ReaderView`); `.duckOthers` hợp lệ với `.playback` theo tài liệu Apple. Bỏ luôn `.allowBluetoothA2DP` — với category `.playback`, định tuyến A2DP đã được hỗ trợ mặc định.
-  * `TTSManager.configureAudioSession()`: xoá `audioSessionController.activate()` dư (gọi `setActive(true)` **trước** khi set category) — để controller tự set category rồi mới activate theo đúng thứ tự.
-* **Kiểm chứng bắt buộc trên máy thật**: ① log không còn `-50`; ② phát TTS → khoá màn hình → card + nút play/pause/next hiện ở lock screen & Control Center. Nếu hết `-50` mà card vẫn không hiện → bước tiếp theo kiểm background audio / quyền Now Playing trong môi trường LiveContainer.
-* **Môi trường**: không thêm/đổi tên file Swift → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac.
-
 ## [1.3.184] - 2026-08-16
 
 ### Widget TTS thu nhỏ: chỉ hiển thị nửa vòng tròn ở mép
@@ -75,12 +30,6 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 * Không thêm file Swift mới → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac.
 
 ## [1.3.180] - 2026-08-16
-
-### Sửa lỗi AVAudioSession OSStatus -50 (BadParam) khi cấu hình TTS
-
-* **Nguyên nhân gốc**: `TTSAudioSessionController.configureAudioSession()` (`Sources/Services/TTS/TTSAudioSessionController.swift`) gọi `setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .allowBluetooth, .allowBluetoothA2DP])`. Theo tài liệu Apple, `.allowBluetooth` (HFP) chỉ hợp lệ với `.record`/`.playAndRecord`/`.multiRoute`; kết hợp với `.playback` khiến `setCategory` ném `OSStatus -50` (`AVAudioSessionErrorCodeBadParam`). Hậu quả: `setActive(true)` trong cùng khối `do` không bao giờ chạy, `isAudioSessionConfigured` không bao giờ thành `true`, lỗi được log lặp lại mỗi lần phát đoạn/chương (quan sát thấy khi Google TTS auto-advance sang chương 2). Playback vẫn nghe được vì `AVAudioPlayer.play()` tự kích hoạt session ngầm, nhưng cấu hình `.playback`/`.spokenAudio` (phát nền, ducking, định tuyến Bluetooth A2DP) không được áp dụng.
-* **Fix**: bỏ `.allowBluetooth`, giữ `.duckOthers` + `.allowBluetoothA2DP` (đều hợp lệ với `.playback`); log thêm `OSStatus=\(nsError.code)` để dễ chẩn đoán về sau.
-* **Môi trường**: Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac; không thêm/đổi tên file Swift nên không cần `xcodegen generate`.
 
 ## [1.3.181] - 2026-08-16
 
