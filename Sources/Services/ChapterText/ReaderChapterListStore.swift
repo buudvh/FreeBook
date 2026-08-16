@@ -27,6 +27,7 @@ public final class ReaderChapterListStore {
     public let pageSize = 100
     var loadedPages: Set<Int> = []
     var currentTargetPage: Int? = nil
+    private var lastViewportPage: Int? = nil
     var currentGeneration: Int = 0
 
     var pageLoaderSeam: (@Sendable (Int) async throws -> [Int: (title: String, url: String, isCached: Bool)]?)? = nil
@@ -99,6 +100,15 @@ public final class ReaderChapterListStore {
         self.onlineChapters = onlineChapters
         self.totalCount = totalCount
         setupPlaceholderRows()
+        reloadViewportAfterReset()
+    }
+
+    private func reloadViewportAfterReset() {
+        guard let page = lastViewportPage,
+              page >= 0,
+              page <= (totalCount - 1) / pageSize else { return }
+        currentTargetPage = page
+        loadPagesAround(page: page, includeNeighbors: true)
     }
 
     public func item(at displayPosition: Int) -> ChapterRowItem? {
@@ -111,6 +121,7 @@ public final class ReaderChapterListStore {
         guard displayPosition >= 0 && displayPosition < totalCount else { return }
         let page = displayPosition / pageSize
         self.currentTargetPage = page
+        self.lastViewportPage = page
 
         let minPage = max(0, page - 1)
         let maxPage = min((totalCount - 1) / pageSize, page + 1)
@@ -124,6 +135,7 @@ public final class ReaderChapterListStore {
         guard displayPosition >= 0 && displayPosition < totalCount else { return }
         let page = displayPosition / pageSize
         self.currentTargetPage = page
+        self.lastViewportPage = page
 
         if loadedPages.contains(page), hasLoadedRows(for: page) {
             return
@@ -299,6 +311,7 @@ public final class ReaderChapterListStore {
         let displayPosition = isAscending ? index : (totalCount - 1 - index)
         let page = displayPosition / pageSize
         self.currentTargetPage = page
+        self.lastViewportPage = page
 
         if loadedPages.contains(page) {
             return displayPosition

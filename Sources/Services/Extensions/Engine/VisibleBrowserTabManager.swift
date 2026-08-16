@@ -25,14 +25,21 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
 
     private(set) var tabs: [VisibleBrowserTabItem] = []
     private(set) var activeTabId: String?
+    private(set) var isHidden = false
 
     internal var containerViewController: TabbedVisibleBrowserViewController?
     internal var navController: UINavigationController?
     internal var isPresented = false
     internal var isDismissing = false
 
+    static let stateDidChangeNotification = Notification.Name("VisibleBrowserStateDidChange")
+
     private override init() {
         super.init()
+    }
+
+    private func notifyStateChanged() {
+        NotificationCenter.default.post(name: Self.stateDidChangeNotification, object: nil)
     }
 
     public func addTab(id: String, loader: VisibleWebViewLoader) {
@@ -57,8 +64,12 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
 
         tabs.append(tabItem)
         activeTabId = id
+        notifyStateChanged()
 
-        if !isPresented || navController == nil {
+        if isHidden, let container = containerViewController {
+            container.reloadTabs()
+            reopenContainer()
+        } else if !isPresented || navController == nil {
             presentContainerView(initialActiveId: id)
         } else {
             containerViewController?.reloadTabs()
@@ -69,6 +80,10 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
         guard tabs.contains(where: { $0.id == id }) else { return }
         activeTabId = id
         containerViewController?.reloadTabs()
+        if isHidden {
+            reopenContainer()
+        }
+        notifyStateChanged()
     }
 
     public func removeTab(id: String) {
@@ -88,6 +103,7 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
             }
             containerViewController?.reloadTabs()
         }
+        notifyStateChanged()
     }
 
     public func removeAllTabs() {
@@ -100,6 +116,7 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
         }
 
         dismissContainer()
+        notifyStateChanged()
     }
 
     internal func presentContainerView(initialActiveId: String) {
@@ -113,17 +130,7 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
         nav.presentationController?.delegate = self
         self.navController = nav
 
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        guard let windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first,
-              let window = windowScene.windows.first(where: { $0.isKeyWindow }) ?? windowScene.windows.first,
-              let rootVC = window.rootViewController else {
-            return
-        }
-
-        var topVC = rootVC
-        while let presented = topVC.presentedViewController {
-            topVC = presented
-        }
+        guard let topVC = findTopViewController() else { return }
 
         if topVC.isBeingPresented || topVC.isBeingDismissed {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
@@ -133,10 +140,12 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
         }
 
         self.isPresented = true
+        self.isHidden = false
         topVC.present(nav, animated: true, completion: nil)
+        notifyStateChanged()
     }
 
-    internal func dismissContainer() {
+    public func hideContainer() {
         guard isPresented, !isDismissing else { return }
         isDismissing = true
 
@@ -145,23 +154,88 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
             self.isPresented = false
             self.isDismissing = false
             self.navController = nil
+            self.isHidden = true
+            self.notifyStateChanged()
+        }
+    }
+
+    public func reopenContainer() {
+        guard isHidden, !tabs.isEmpty, let container = containerViewController else { return }
+
+        let nav = UINavigationController(rootViewController: container)
+        nav.modalPresentationStyle = .pageSheet
+        nav.presentationController?.delegate = self
+        self.navController = nav
+
+        guard let topVC = findTopViewController() else { return }
+
+        if topVC.isBeingPresented || topVC.isBeingDismissed {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                self?.reopenContainer()
+            }
+            return
+        }
+
+        self.isPresented = true
+        self.isHidden = false
+        topVC.present(nav, animated: true, completion: nil)
+        notifyStateChanged()
+    }
+
+    private func findTopViewController() -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard let windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first,
+              let window = windowScene.windows.first(where: { $0.isKeyWindow }) ?? windowScene.windows.first,
+              let rootVC = window.rootViewController else {
+            return nil
+        }
+
+        var topVC = rootVC
+        while let presented = topVC.presentedViewController {
+            topVC = presented
+        }
+        return topVC
+    }
+
+    internal func dismissContainer() {
+        if !isPresented {
+            navController = nil
+            containerViewController = nil
+            isDismissing = false
+            isHidden = false
+            notifyStateChanged()
+            return
+        }
+
+        guard !isDismissing else { return }
+        isDismissing = true
+
+        navController?.dismiss(animated: true) { [weak self] in
+            guard let self = self else { return }
+            self.isPresented = false
+            self.isDismissing = false
+            self.navController = nil
             self.containerViewController = nil
+            self.isHidden = false
+            self.notifyStateChanged()
         }
     }
 
     public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        // Vuốt xuống = ẩn trình duyệt: giữ tabs + webview sống để có thể mở lại
+        if !tabs.isEmpty {
+            isPresented = false
+            isDismissing = false
+            navController = nil
+            isHidden = true
+            notifyStateChanged()
+            return
+        }
         isPresented = false
         isDismissing = false
         navController = nil
         containerViewController = nil
-
-        let currentTabs = tabs
-        tabs.removeAll()
-        activeTabId = nil
-
-        for item in currentTabs {
-            item.loader.cleanUpQuietly()
-        }
+        notifyStateChanged()
     }
 }
 
@@ -184,12 +258,28 @@ public final class TabbedVisibleBrowserViewController: UIViewController {
 
     internal func setupNavigationBar() {
         title = "Trình duyệt"
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            title: "Đóng tất cả",
-            style: .done,
+
+        let hideButton = UIBarButtonItem(
+            image: UIImage(systemName: "chevron.down"),
+            style: .plain,
+            target: self,
+            action: #selector(handleHide)
+        )
+        hideButton.accessibilityLabel = "Ẩn trình duyệt"
+
+        let closeAllButton = UIBarButtonItem(
+            image: UIImage(systemName: "trash"),
+            style: .plain,
             target: self,
             action: #selector(handleCloseAll)
         )
+        closeAllButton.accessibilityLabel = "Đóng tất cả"
+
+        navigationItem.rightBarButtonItems = [closeAllButton, hideButton]
+    }
+
+    @objc internal func handleHide() {
+        VisibleBrowserTabManager.shared.hideContainer()
     }
 
     @objc internal func handleCloseAll() {

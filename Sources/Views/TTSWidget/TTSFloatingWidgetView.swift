@@ -9,8 +9,12 @@ struct TTSFloatingWidgetView: View {
 
     @State private var visualPosition: CGPoint?
     @State private var dragOrigin: CGPoint?
+    @State private var appIsActive = true
+    @State private var spinner = CoverSpinController()
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @AppStorage("isTTSCoverSpinEnabled") private var isCoverSpinEnabled = true
 
     @State private var showingTimerMenu = false
     @State private var showingCustomTimerAlert = false
@@ -98,6 +102,9 @@ struct TTSFloatingWidgetView: View {
         .onChange(of: ttsState.snapshot.playingCoverUrl) { _, _ in
             refreshCover()
         }
+        .onChange(of: scenePhase) { _, newPhase in
+            appIsActive = newPhase == .active
+        }
         .onDisappear {
             viewModel.cancelTasks()
         }
@@ -134,7 +141,9 @@ struct TTSFloatingWidgetView: View {
             Button(action: openCurrentChapter) {
                 TTSCoverView(
                     image: coverLoader.image,
-                    size: Layout.coverSize
+                    size: Layout.coverSize,
+                    spinner: spinner,
+                    spin: shouldSpin
                 )
             }
             .buttonStyle(.plain)
@@ -243,7 +252,9 @@ struct TTSFloatingWidgetView: View {
     private var collapsedWidget: some View {
         TTSCoverView(
             image: coverLoader.image,
-            size: Layout.peekSize - 12
+            size: Layout.peekSize - 12,
+            spinner: spinner,
+            spin: shouldSpin
         )
         .padding(6)
         .background(Circle().fill(.ultraThinMaterial))
@@ -259,6 +270,13 @@ struct TTSFloatingWidgetView: View {
         .accessibilityAction {
             revealWidget()
         }
+    }
+
+    private var shouldSpin: Bool {
+        isCoverSpinEnabled
+            && ttsState.snapshot.isPlaying
+            && appIsActive
+            && ttsState.snapshot.showFloatingWidget
     }
 
     private func restingPosition(screenWidth: CGFloat, screenHeight: CGFloat) -> CGPoint {
@@ -387,12 +405,30 @@ struct TTSFloatingWidgetView: View {
 private struct TTSCoverView: View {
     let image: UIImage?
     let size: CGFloat
+    @ObservedObject var spinner: CoverSpinController
+    let spin: Bool
 
     var body: some View {
         coverImage
             .frame(width: size, height: size)
             .clipShape(Circle())
             .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
+            .rotationEffect(.degrees(spinner.angle))
+            .onAppear {
+                if spin {
+                    spinner.start()
+                }
+            }
+            .onChange(of: spin) { _, newValue in
+                if newValue {
+                    spinner.start()
+                } else {
+                    spinner.stop()
+                }
+            }
+            .onDisappear {
+                spinner.stop()
+            }
     }
 
     @ViewBuilder
@@ -456,5 +492,41 @@ private final class TTSCoverImageLoader: ObservableObject {
                 self.image = image
             }
         }
+    }
+}
+
+// MARK: - Cover Spin Controller
+
+/// Drives the continuous cover rotation on the floating widget. The timer is
+/// invalidated on pause, backgrounding or disabling, so it consumes no CPU
+/// while idle and freezes exactly at the current angle (resume continues from
+/// that angle).
+@MainActor
+private final class CoverSpinController: ObservableObject {
+    @Published private(set) var angle: Double = 0
+    @Published private(set) var isSpinning = false
+
+    private var timer: Timer?
+    private let stepDegrees: Double = 2.5
+    private let interval: TimeInterval = 1.0 / 60.0
+
+    func start() {
+        guard !isSpinning else { return }
+        isSpinning = true
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            self.angle += self.stepDegrees
+            if self.angle >= 360 {
+                self.angle -= 360
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+        isSpinning = false
     }
 }

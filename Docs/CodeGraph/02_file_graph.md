@@ -39,4 +39,5 @@ Sơ đồ liên kết file của toàn bộ dự án FreeBook sau refactor:
   - `Views/Shelf/`: `ShelfMain/ShelfView.swift`.
   - `Views/Search/`: `SearchView.swift`.
   - `Views/Discovery/`: `DiscoveryView.swift`.
+  - `Views/Common/`: `VisibleBrowserReopenView.swift`.
 <!-- GENERATED END -->

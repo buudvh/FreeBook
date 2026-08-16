@@ -512,6 +512,35 @@ extension ReaderViewModelTests {
     }
 
     @MainActor
+    func testUpdateChaptersReloadsLastViewport() async {
+        let store = ReaderChapterListStore(
+            bookId: "test-refresh-reload",
+            modelContext: nil,
+            onlineChapters: [],
+            totalCount: 500,
+            isAscending: true
+        )
+        store.pageLoaderSeam = { page in
+            var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
+            let start = page * 100
+            for i in start..<(start + 100) {
+                data[i] = ("Chương \(i + 1)", "url-\(i)", false)
+            }
+            return data
+        }
+
+        _ = await store.jumpToChapter(index: 150)
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+        XCTAssertFalse(store.rowState(at: 150).isPlaceholder, "Viewport should be loaded after jumpToChapter")
+
+        store.updateChapters(totalCount: 520, onlineChapters: [])
+        XCTAssertTrue(store.rowState(at: 150).isPlaceholder, "Reset should clear loaded rows")
+
+        try? await Task.sleep(nanoseconds: 100 * 1_000_000)
+        XCTAssertFalse(store.rowState(at: 150).isPlaceholder, "Viewport should reload after updateChapters")
+    }
+
+    @MainActor
     func testMoveCenterPageRetainsOldUntilAtomicSwap() async {
         let store = ReaderChapterListStore(
             bookId: "test-atomic",

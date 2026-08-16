@@ -422,8 +422,8 @@ public final class DownloadManager: ObservableObject {
                 throw NSError(domain: "DownloadManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Không tìm thấy truyện trong cơ sở dữ liệu."])
             }
 
-            // Đảm bảo truyện được lưu vào kệ sách khi tải xuống hoặc xuất
-            if !bgBook.isOnShelf {
+            // Chỉ đẩy truyện lên kệ khi nó chưa nằm ở đâu (không kệ, không lịch sử) — tôn trọng lựa chọn hiển thị của người dùng
+            if !bgBook.isOnShelf && !bgBook.isHistory {
                 bgBook.isOnShelf = true
                 try? bgContext.save()
             }

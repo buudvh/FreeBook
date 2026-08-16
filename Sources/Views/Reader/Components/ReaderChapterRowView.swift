@@ -22,6 +22,14 @@ public struct ReaderChapterRowView: View {
     }
 
     public var body: some View {
+        if chapter.isPlaceholder {
+            placeholderRow
+        } else {
+            contentButton
+        }
+    }
+
+    private var contentButton: some View {
         Button(action: onSelect) {
             HStack {
                 Text(displayTitle)
@@ -30,7 +38,7 @@ public struct ReaderChapterRowView: View {
                     .fontWeight(isCurrent ? .semibold : .regular)
                     .lineLimit(2)
                 Spacer()
-                if !chapter.isPlaceholder && chapter.isCached {
+                if chapter.isCached {
                     Image(systemName: "arrow.down.circle.fill")
                         .font(.caption)
                         .foregroundColor(.green)
@@ -38,7 +46,22 @@ public struct ReaderChapterRowView: View {
             }
             .padding(.vertical, 4)
         }
-        .disabled(chapter.isPlaceholder)
         .listRowBackground(isCurrent ? Color.blue.opacity(0.08) : theme.backgroundColor)
+    }
+
+    private var placeholderRow: some View {
+        HStack(spacing: 8) {
+            SkeletonView(width: placeholderWidth, height: 14, color: theme.textColor.opacity(0.18))
+            Spacer()
+            SkeletonView(width: 14, height: 14, color: theme.textColor.opacity(0.18))
+        }
+        .padding(.vertical, 4)
+        .listRowBackground(theme.backgroundColor)
+        .accessibilityLabel("Đang tải chương...")
+    }
+
+    private var placeholderWidth: CGFloat {
+        let widths: [CGFloat] = [150, 130, 160, 120, 140, 110]
+        return widths[chapter.index % widths.count]
     }
 }

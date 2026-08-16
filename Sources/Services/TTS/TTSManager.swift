@@ -472,7 +472,12 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         case endOfChapter
     }
 
-    @Published public var timerMode: SleepTimerMode = .off
+    @Published public var timerMode: SleepTimerMode = .off {
+        didSet {
+            guard !isInitializing else { return }
+            persistSleepTimerMode()
+        }
+    }
     @Published public var sleepTimerRemainingSeconds: Int = 0
     @Published public var isTimerRunning: Bool = false
     private var sleepTimerObj: Timer? = nil
@@ -517,6 +522,20 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         timerMode = .off
     }
 
+    private func persistSleepTimerMode() {
+        switch timerMode {
+        case .off:
+            UserDefaults.standard.set("off", forKey: "ttsSleepTimerMode")
+            UserDefaults.standard.removeObject(forKey: "ttsSleepTimerMinutes")
+        case .minutes(let mins):
+            UserDefaults.standard.set("minutes", forKey: "ttsSleepTimerMode")
+            UserDefaults.standard.set(mins, forKey: "ttsSleepTimerMinutes")
+        case .endOfChapter:
+            UserDefaults.standard.set("endOfChapter", forKey: "ttsSleepTimerMode")
+            UserDefaults.standard.removeObject(forKey: "ttsSleepTimerMinutes")
+        }
+    }
+
     public func startTimerCountdown(minutes: Int) {
         stopTimerCountdown(keepMode: true)
         self.sleepTimerRemainingSeconds = minutes * 60
@@ -529,7 +548,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     self.sleepTimerRemainingSeconds -= 1
                 } else {
                     self.sleepTimerRemainingSeconds = 0
-                    self.stopTimerCountdown(keepMode: false)
+                    self.stopTimerCountdown(keepMode: true)
                     self.onSleepTimerExpired()
                 }
             }
@@ -929,6 +948,16 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         self.prefetchDelayMs = UserDefaults.standard.object(forKey: "ttsPrefetchDelayMs") != nil ? UserDefaults.standard.integer(forKey: "ttsPrefetchDelayMs") : 350
         self.extensionLocalPath = UserDefaults.standard.string(forKey: "ttsExtensionLocalPath") ?? ""
         self.extensionConfigJson = UserDefaults.standard.string(forKey: "ttsExtensionConfigJson") ?? "{}"
+
+        switch UserDefaults.standard.string(forKey: "ttsSleepTimerMode") {
+        case "minutes":
+            let savedMins = UserDefaults.standard.integer(forKey: "ttsSleepTimerMinutes")
+            self.timerMode = savedMins > 0 ? .minutes(savedMins) : .off
+        case "endOfChapter":
+            self.timerMode = .endOfChapter
+        default:
+            self.timerMode = .off
+        }
 
         super.init()
 
@@ -1389,6 +1418,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         #if DEBUG
         logRemoteTrace("resume()", details: "isPlayingBefore:\(isPlaying)") // REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS
         #endif
+        restartSleepTimerIfNeeded()
         if isPlaying {
             if tool == "system" {
                 if siriService.isPaused {

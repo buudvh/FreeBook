@@ -437,6 +437,43 @@ final class TTSManagerTests: XCTestCase {
         manager.stop()
     }
 
+    func testSleepTimerModePersistsAndClearsOnCancel() {
+        let manager = TTSManager.shared
+        let modeKey = "ttsSleepTimerMode"
+        let minutesKey = "ttsSleepTimerMinutes"
+        defer {
+            manager.cancelSleepTimer()
+            UserDefaults.standard.removeObject(forKey: modeKey)
+            UserDefaults.standard.removeObject(forKey: minutesKey)
+        }
+
+        manager.cancelSleepTimer()
+        manager.startSleepTimer(minutes: 15)
+        XCTAssertEqual(UserDefaults.standard.string(forKey: modeKey), "minutes")
+        XCTAssertEqual(UserDefaults.standard.integer(forKey: minutesKey), 15)
+
+        manager.setStopAtEndOfChapter()
+        XCTAssertEqual(UserDefaults.standard.string(forKey: modeKey), "endOfChapter")
+
+        manager.cancelSleepTimer()
+        XCTAssertEqual(UserDefaults.standard.string(forKey: modeKey), "off")
+    }
+
+    func testRestartSleepTimerAfterExpiryStateReArmsCountdown() {
+        let manager = TTSManager.shared
+        defer { manager.cancelSleepTimer() }
+
+        manager.startSleepTimer(minutes: 1)
+        XCTAssertFalse(manager.isTimerRunning, "Armed timer should not count while not playing")
+
+        manager.isTimerRunning = false
+        manager.sleepTimerRemainingSeconds = 0
+
+        manager.restartSleepTimerIfNeeded()
+        XCTAssertTrue(manager.isTimerRunning, "Expired timer should re-arm on next play")
+        XCTAssertEqual(manager.sleepTimerRemainingSeconds, 60)
+    }
+
     private func nowPlayingPlaybackRate() -> Double? {
         let value = MPNowPlayingInfoCenter.default()
             .nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] as? NSNumber

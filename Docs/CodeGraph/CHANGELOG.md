@@ -2,6 +2,79 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.179] - 2026-08-16
+
+### Cover widget TTS xoay tròn khi đang nghe
+
+* **`TTSFloatingWidgetView.swift`**:
+  - Thêm `CoverSpinController` (`@MainActor`, ObservableObject): `@Published angle`/`isSpinning`, `start()` tạo `Timer(timeInterval: 1/60)` đăng ký vào `RunLoop.main` mode `.common` (tránh giật khi kéo widget), mỗi tick `angle += 2.5` (~2.4s/vòng, wrap ở 360); `stop()` invalidate timer và **giữ nguyên góc** để resume tiếp tục từ đó. Không vòng giữ mạnh (block capture `[weak self]`).
+  - `TTSFloatingWidgetView`: thêm `@State spinner = CoverSpinController()` (owner giữ `@State`, không quan sát → mỗi tick chỉ re-render riêng subview cover, không render lại cả widget), `@Environment(\.scenePhase)`, `@State appIsActive = true`, `@AppStorage("isTTSCoverSpinEnabled")`; `.onChange(of: scenePhase)` đặt `appIsActive = (phase == .active)`. `shouldSpin = isCoverSpinEnabled && snapshot.isPlaying && appIsActive && snapshot.showFloatingWidget`, truyền `spinner` + `spin` vào **cả 2** `TTSCoverView` (expanded + peek — dùng chung controller nên góc không nhảy khi thu/mở widget).
+  - `TTSCoverView`: thêm `@ObservedObject spinner` + `let spin`; `.onAppear`/`.onChange(of: spin)`/`.onDisappear` → `start()`/`stop()`; áp `.rotationEffect(.degrees(spinner.angle))`.
+  - Ma trận hành vi: đang nghe (foreground) → xoay; pause/hết chương/dừng/toggle OFF → đứng nguyên góc + timer tắt; background/khoá màn hình (`scenePhase != .active`) → timer tắt (0 CPU); mở app lại + vẫn đang nghe → xoay tiếp từ góc đã lưu.
+  - Hiệu năng: timer 60Hz publish 1 Double → chỉ cover 40pt re-render qua `rotationEffect`, < 1% CPU so với bản thân TTS (decode/ONNX); pause/background timer invalidate nên chắc chắn 0 chi phí.
+* **`SettingsView.swift`**: thêm `@AppStorage("isTTSCoverSpinEnabled")` + `Toggle("Xoay cover khi đang nghe")` (caption giải thích tự dừng khi pause/nền/tắt màn hình) trong Section "Nghe Truyện (TTS)" sau "Cấu hình tiền xử lý & ngắt nghỉ". Cùng key `@AppStorage` với widget → bật/tắt phản ứng tức thì.
+* **Ghi chú môi trường**: Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` (macOS). Không thêm file Swift mới nên không cần `xcodegen generate`.
+
+## [1.3.178] - 2026-08-16
+
+### Vuốt xuống / nút ẩn Visible Browser = ẩn (giữ tabs) + pill kéo được để mở lại
+
+* **`VisibleBrowserTabManager.swift`**:
+  - `presentationControllerDidDismiss` (vuốt xuống pageSheet) đổi từ **xoá toàn bộ tabs + cleanup loader** → **ẩn**: giữ `tabs` + `containerViewController` (+ webview sống), `isPresented=false, isHidden=true, navController=nil`, post `stateDidChangeNotification` để UI refresh.
+  - Thêm `hideContainer()` (nút ẩn): dismiss sheet giữ tabs/webview, đặt `isHidden=true` — tương đương vuốt xuống.
+  - Thêm `reopenContainer()`: nếu đang ẩn & còn tabs & còn `containerViewController` → tạo `UINavigationController` mới bọc lại container cũ (webview không bị mất), present lại, `isPresented=true, isHidden=false`.
+  - Tách `findTopViewController()` (tái dùng giữa `presentContainerView` và `reopenContainer`, kèm retry khi topVC đang chuyển cảnh).
+  - `addTab`: nhánh đang ẩn → `reloadTabs()` + `reopenContainer()` (không tạo container mới làm mất webview). `selectTab`: đang ẩn thì mở lại.
+  - `removeTab`/`removeAllTabs`/`dismissContainer`: xử lý cleanup khi `!isPresented` (đang ẩn) — nil tham chiếu + reset `isHidden`; đóng tab cuối / "Đóng tất cả" vẫn là đóng thật.
+- **`TabbedVisibleBrowserViewController.setupNavigationBar`**: thay text button "Đóng tất cả" bằng `rightBarButtonItems = [closeAllButton, hideButton]` — `closeAllButton` icon `trash` (accessibilityLabel "Đóng tất cả", giữ `removeAllTabs`), `hideButton` icon `chevron.down` (accessibilityLabel "Ẩn trình duyệt", gọi `hideContainer()`).
+- **File mới `Sources/Views/Common/VisibleBrowserReopenView.swift`** (3 thành phần trong 1 file):
+  - `VisibleBrowserPresentationReader`: ObservableObject subscribe `stateDidChangeNotification`, snapshot `{isHidden, tabCount, showReopenButton = isHidden && tabCount > 0}`.
+  - `VisibleBrowserReopenViewModel`: `verticalRatio` + `edgeDirection` + `isDragging`, persist qua `UserDefaults` (`visibleBrowserReopenVerticalRatio`, `visibleBrowserReopenEdge`) — tham chiếu `FloatingWidgetViewModel`.
+  - `VisibleBrowserReopenButton`: capsule `ultraThinMaterial` (icon `globe` + "Trình duyệt • N tab"), **kéo được như TTS widget** — snap sát mép trái/phải theo hướng kéo, kéo dọc **giới hạn trong dải dưới 92pt** (`center cách đáy ∈ [26, 68]`) vì cạnh đáy TTS widget luôn ≥ 92pt so với đáy màn hình (`FloatingWidgetViewModel.handleDragEnd` clamp) → **không bao giờ đè widget nghe kể cả khi đang kéo** (y được clamp trong lúc drag). Tap → `reopenContainer()`.
+- **`FreeBookApp.swift`**: `AppLaunchRootView` thêm `@StateObject browserPresentation = VisibleBrowserPresentationReader()`; overlay `if translationManager.isInitialized && browserPresentation.snapshot.showReopenButton { VisibleBrowserReopenButton(tabCount:).zIndex(9998) }` (cạnh `TTSFloatingWidgetView` zIndex 9999).
+- **Ghi chú môi trường**: Windows không build/test tại chỗ — CI `.github/workflows/build-ipa.yml` tự chạy `xcodegen generate` (dòng 41) nên file Swift mới được build; máy Mac local phải chạy `xcodegen generate` trước khi build.
+
+## [1.3.177] - 2026-08-16
+
+### Thay placeholder "Đang tải..." của danh sách chương Reader thành skeleton
+
+* **`SkeletonView.swift`**: thêm `var color: Color = Color(.systemGray5)` (mặc định giữ màu cũ, memberwise init không đổi → mọi call site hiện có `SkeletonView(width:height:)` không cần sửa); `.fill(Color(.systemGray5))` → `.fill(color)` để cho phép khớp màu theo `ReaderTheme` (paper/sepia/dark) thay vì màu hệ thống — tránh contrast kém trên nền reader tuỳ biến.
+* **`ReaderChapterRowView.swift`**: tách `body` theo `chapter.isPlaceholder` — placeholder giờ render **skeleton row** (`HStack` gồm 2 `SkeletonView`: thanh tiêu đề cao 14px, width biến thiên deterministic theo `[150, 130, 160, 120, 140, 110][chapter.index % 6]`, cộng chấm tròn 14x14 mô phỏng slot icon đã cache; màu `theme.textColor.opacity(0.18)`) kèm `.padding(.vertical, 4)` + `.listRowBackground(theme.backgroundColor)` + `.accessibilityLabel("Đang tải chương...")`, không phải Button nên không thể chọn. Ngược lại giữ nguyên button hiện tại và bỏ `.disabled(chapter.isPlaceholder)` (không còn áp dụng). Chiều cao thanh giữ gần bằng line-height text body → không nhảy layout giữa skeleton và dòng đã nạp.
+* **`ReaderChapterListView.swift`**: không đổi logic; `displayTitle(for:)` vẫn trả "Đang tải..." cho placeholder nhưng không còn được render (skeleton thay thế). Search results luôn `isPlaceholder == false` nên skeleton chỉ xuất hiện ở danh sách chính.
+* **Không thêm file mới** (tránh phải chạy `xcodegen` — không chạy được trên Windows); không đổi state/`isPlaceholder` trong `ReaderChapterListStore` nên các test hiện có (`ReaderViewModelTests`) không bị ảnh hưởng.
+* **Môi trường**: Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac.
+
+## [1.3.176] - 2026-08-16
+
+### Cần gạt "Hiển thị trong Kệ sách / Lịch sử" trên màn hình tải truyện
+
+* **`TaskOptionsSheet.swift`**: thêm `@State displayInShelf = true` + `Toggle("Hiển thị trong Kệ sách")` trong section "Tùy chọn tác vụ", hiển thị cho **cả** `taskType == .download` ("Tải truyện") và `.exportTxt` ("Xuất ebook TXT"). Footer bổ sung ghi chú "Tắt 'Hiển thị trong Kệ sách' để truyện nằm trong Lịch sử đọc."
+* **`TaskOptionsSheet.startTask()`**: trước `enqueueTask` áp dụng lựa chọn qua `BookTransactionCoordinator` — `displayInShelf == true` → `setOnShelf(bookId:isOnShelf: true, in:)` (`isOnShelf = true`, `isHistory = false`); ngược lại → `removeFromShelf(bookId:in:)` (`isOnShelf = false`, `isHistory = true`). Không dùng `setOnShelf(false)` vì nó ép `isHistory = false` làm sách biến mất khỏi cả 2 tab (xem 1.3.173). Placement được save vào DB ngay trước khi enqueue nên background worker đọc được giá trị đúng.
+* **`DownloadManager.executeTask`**: đổi guard ép kệ từ `if !bgBook.isOnShelf` → `if !bgBook.isOnShelf && !bgBook.isHistory` — chỉ đẩy truyện lên kệ khi nó chưa nằm ở đâu; lựa chọn "Lịch sử" của người dùng không bị worker tải nền ghi đè về kệ nữa. Hành vi mặc định (Kệ sách) và luồng tải từ sách đang nằm trong Lịch sử không đổi.
+* **Môi trường**: Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac.
+
+## [1.3.175] - 2026-08-16
+
+### Danh sách chương hiển thị toàn "Đang tải..." sau khi bấm nút cập nhật mục lục
+
+* **Nguyên nhân gốc**: `ReaderChapterListStore.updateChapters(...)` gọi `setupPlaceholderRows()` xoá toàn bộ `loadedRowStates`/`loadedPages` → mọi dòng thành placeholder "Đang tải...", nhưng sau reset **không có gì nạp lại vùng đang xem** trong khi danh sách vẫn mở. `List` key hàng bằng `.id(item.index)` (`ReaderChapterListView.swift:276,298`); khi TOC mới chỉ thêm chương ở cuối, index các chương cũ không đổi → SwiftUI không tạo lại row → `.onAppear` không cháy lại → `loadVisiblePageIfNeeded` không được gọi. `scrollToCurrentChapter` chỉ chạy qua `.onAppear`/`.onChange(of: isPresented)`/`.onChange(of: currentChapterIndex)` — không cái nào kích hoạt sau refresh. Đóng rồi mở lại mới hết lỗi (vì `isPresented` đổi → `jumpToChapter` nạp lại page).
+* **Sửa `ReaderChapterListStore.swift`**:
+  - Thêm `private var lastViewportPage: Int? = nil` — ghi nhận page đang xem, **không** bị `setupPlaceholderRows()` xoá nên chịu được nhiều reset liên tiếp.
+  - Gán `lastViewportPage = page` tại 3 nơi đang gán `currentTargetPage = page` (`loadPageIfNeeded`, `loadVisiblePageIfNeeded`, `jumpToChapter`).
+  - `updateChapters(...)` sau `setupPlaceholderRows()` gọi `reloadViewportAfterReset()`: nếu `lastViewportPage` còn hợp lệ với `totalCount` mới thì set lại `currentTargetPage` và `loadPagesAround(page:includeNeighbors: true)`. Bao trùm mọi nguồn gọi `updateChapters` khi list đang mở (nút refresh, `.onChange(of: currentOnlineChapters.count)`, handler `onLocalTOCRefreshed`, trường hợp TOC không đổi). Không đổi hành vi `init`/`updateTranslation`/`updateSortOrder`; race/double-fetch được chặn bởi generation guard + `inFlightPages`/`loadedPages`.
+* **Test**: thêm `testUpdateChaptersReloadsLastViewport` trong `Tests/ReaderViewModelTests.swift` (pattern `pageLoaderSeam` có sẵn): `jumpToChapter(index: 150)` nạp page 1 → `updateChapters(totalCount: 520, onlineChapters: [])` reset → chờ load → assert `rowState(at: 150).isPlaceholder == false`.
+
+## [1.3.174] - 2026-08-16
+
+### Hẹn giờ tạm dừng TTS: giữ chế độ sau khi hết giờ + persist qua UserDefaults
+
+* **Nguyên nhân gốc**: khi countdown chạm 0, tick của `TTSManager.startTimerCountdown(...)` gọi `stopTimerCountdown(keepMode: false)` → ghi đè `timerMode = .off` ngay thời điểm hết giờ, đồng thời `restartSleepTimerIfNeeded()` chỉ được gọi trong `speakCurrent()` nên nhiều nhánh `resume()` (system qua `siriService.resume()`, nghitts qua `nghiAudioPlayerQueue.resume()`, google/ext qua `audioPlayer.play()`) không re-arm lại bộ đếm → sau khi hẹn 1p hết giờ rồi bấm Play lại, app "không còn nhớ thời gian hẹn giờ".
+* **Sửa `TTSManager.swift`**:
+  - Tick hết giờ đổi `stopTimerCountdown(keepMode: false)` → `keepMode: true`: giữ `timerMode = .minutes(n)` sau khi hết giờ (badge `sleepTimerBadgeText` vẫn rỗng vì `isTimerRunning = false`, không hiện "0:00").
+  - Thêm `restartSleepTimerIfNeeded()` đầu `resume()` (trước nhánh `if isPlaying`) để bộ đếm được re-arm trên mọi engine/nhánh resume; `.off`/`.endOfChapter` là no-op, đang đếm thì không restart.
+  - **Persist chế độ hẹn giờ**: thêm `didSet` vào `@Published timerMode` gọi `persistSleepTimerMode()` ghi `"ttsSleepTimerMode"` (`off`/`minutes`/`endOfChapter`) + `"ttsSleepTimerMinutes"` (Int) qua `UserDefaults`; nạp lại trong `init()` trước `super.init()` (guard `isInitializing` tránh ghi lại khi load). Chỉ `cancelSleepTimer()` (nút "Tắt hẹn giờ") ghi `off` — đúng yêu cầu "chỉ xoá hẹn giờ khi người dùng tắt"; số giây còn lại không persist, Play lại đếm từ đầu.
+* **Test**: thêm `testSleepTimerModePersistsAndClearsOnCancel` + `testRestartSleepTimerAfterExpiryStateReArmsCountdown` trong `Tests/TTSManagerTests.swift`.
+
 ## [1.3.173] - 2026-08-15
 
 ### Thêm "Xoá khỏi kệ sách" (chỉ gỡ khỏi kệ) + đổi tên destructive thành "Xoá"

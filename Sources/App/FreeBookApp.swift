@@ -42,6 +42,7 @@ struct AppLaunchRootView: View {
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var translationManager = TranslationManager.shared
     @StateObject private var ttsPresentation = TTSRootPresentationReader()
+    @StateObject private var browserPresentation = VisibleBrowserPresentationReader()
 
     var body: some View {
         ZStack {
@@ -59,6 +60,11 @@ struct AppLaunchRootView: View {
             if translationManager.isInitialized && ttsPresentation.snapshot.showFloatingWidget {
                 TTSFloatingWidgetView()
                     .zIndex(9999)
+            }
+
+            if translationManager.isInitialized && browserPresentation.snapshot.showReopenButton {
+                VisibleBrowserReopenButton(tabCount: browserPresentation.snapshot.tabCount)
+                    .zIndex(9998)
             }
         }
         .globalToast()

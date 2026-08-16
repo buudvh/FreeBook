@@ -12,6 +12,7 @@ struct TaskOptionsSheet: View {
     @State private var limitOption: ChapterLimitOption = .all
     @State private var translateContent = false
     @State private var onlyExportCached = false
+    @State private var displayInShelf = true
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
     
     init(book: Book, taskType: TaskType, defaultOnlyExportCached: Bool = false) {
@@ -76,15 +77,18 @@ struct TaskOptionsSheet: View {
                         Toggle("Dịch nội dung", isOn: $translateContent)
                             .toggleStyle(SwitchToggleStyle(tint: .accentColor))
                     }
+                    
+                    Toggle("Hiển thị trong Kệ sách", isOn: $displayInShelf)
+                        .toggleStyle(SwitchToggleStyle(tint: .accentColor))
                 } header: {
                     Text("Tùy chọn tác vụ")
                 } footer: {
                     if taskType == .exportTxt {
-                        Text("Nếu bật 'Dịch nội dung', các chương sẽ được dịch tự động bằng Quick Translator trước khi ghi vào file TXT.\nNếu bật 'Chỉ xuất chương đã tải', quá trình xuất sẽ chạy offline và chỉ lấy các chương đã có cache.")
+                        Text("Nếu bật 'Dịch nội dung', các chương sẽ được dịch tự động bằng Quick Translator trước khi ghi vào file TXT.\nNếu bật 'Chỉ xuất chương đã tải', quá trình xuất sẽ chạy offline và chỉ lấy các chương đã có cache.\nTắt 'Hiển thị trong Kệ sách' để truyện nằm trong Lịch sử đọc.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     } else {
-                        Text("Tải truyện offline sẽ chỉ tải nội dung gốc chưa dịch để lưu trữ và tối ưu tốc độ đọc.")
+                        Text("Tải truyện offline sẽ chỉ tải nội dung gốc chưa dịch để lưu trữ và tối ưu tốc độ đọc.\nTắt 'Hiển thị trong Kệ sách' để truyện nằm trong Lịch sử đọc.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -122,6 +126,13 @@ struct TaskOptionsSheet: View {
     }
 
     private func startTask() {
+        let placementResult = displayInShelf
+            ? BookTransactionCoordinator.shared.setOnShelf(bookId: book.bookId, isOnShelf: true, in: modelContext)
+            : BookTransactionCoordinator.shared.removeFromShelf(bookId: book.bookId, in: modelContext)
+        if case .failure(let err) = placementResult {
+            AppLogger.shared.log("❌ [TaskOptionsSheet] Lỗi cập nhật vị trí hiển thị truyện: \(err.localizedDescription)")
+        }
+
         DownloadManager.shared.enqueueTask(
             book: book,
             taskType: taskType,
