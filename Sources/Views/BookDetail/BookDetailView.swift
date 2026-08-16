@@ -232,6 +232,13 @@ struct BookDetailView: View {
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
         }
+        .task(id: actualBookId) {
+            guard let book = localBook else { return }
+            BookTitleTranslationMigrator.refreshTranslations(for: book)
+            if modelContext.hasChanges {
+                try? modelContext.save()
+            }
+        }
         .onChange(of: ChapterStoreConfiguration.enableSwiftDataTOCWrite ? localBook?.chapters.count : chapterSnapshots.count) { _, _ in
             syncChaptersList()
         }

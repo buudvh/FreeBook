@@ -1086,6 +1086,14 @@ struct ReaderView: View {
             localBookSnapshot = (try? modelContext.fetch(descriptor))?.first(where: { $0.bookId == bookId })
         }
 
+        // Cập nhật lại tên dịch/phương âm khi mở truyện (không chờ migration lần mở app sau)
+        if let book = localBook {
+            BookTitleTranslationMigrator.refreshTranslations(for: book)
+            if modelContext.hasChanges {
+                try? modelContext.save()
+            }
+        }
+
         if currentOnlineChapters.isEmpty, !onlineChapters.isEmpty {
             currentOnlineChapters = onlineChapters
         }

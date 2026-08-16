@@ -10,6 +10,8 @@ public final class Book {
     @Attribute(.unique) public var bookId: String
     public var title: String // Tiêu đề sách
     public var author: String // Tác giả
+    public var titleTrans: String = "" // Tên sách đã dịch (dùng cho tìm kiếm, không phụ thuộc toggle dịch)
+    public var authorTrans: String = "" // Tác giả đã phiên âm (dùng cho tìm kiếm, không phụ thuộc toggle dịch)
     public var coverUrl: String // Đường dẫn ảnh bìa (online hoặc local)
     public var desc: String // Mô tả/Giới thiệu sách
     public var detailUrl: String // Đường dẫn chi tiết của sách từ nguồn truyện

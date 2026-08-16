@@ -2,6 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.190] - 2026-08-16
+
+### Tìm kiếm sách trong Kệ sách & Lịch sử + backfill/refresh tên đã dịch
+
+* **Ý tưởng**: nút tìm kiếm trên tab Kệ Sách giúp tìm nhanh truyện trong Kệ sách + Lịch sử, bấm kết quả mở thẳng ReaderView; dùng chung lịch sử tìm kiếm với màn hình Tìm Kiếm. Để tìm được cả tên đã dịch, thêm 2 cột `titleTrans`/`authorTrans` vào `Book` và lấp chúng bằng migration lúc mở app + refresh mỗi khi mở truyện.
+* **Model**: `Book.swift` thêm `titleTrans: String = ""` + `authorTrans: String = ""` (non-optional có default → SwiftData lightweight migration tự thêm cột, không cần VersionedSchema).
+* **Migration**: `BookTitleTranslationMigrator.swift` (mới) — `runIfNeeded(container:)` chạy sau khi từ điển nạp xong (trigger bởi `.task(id: translationManager.isInitialized)` trong `AppLaunchRootView`), dùng `ModelContext(container)` riêng theo luật SwiftData, fetch toàn bộ + lọc trong RAM (`titleTrans.isEmpty || authorTrans.isEmpty` — tránh string predicate iOS 17), batch save mỗi 50; `titleTrans = translateMeta(title, bookId:)`, `authorTrans = translateAuthorHanViet(author)` — không gating theo toggle dịch (search bất kể bật/tắt).
+* **Refresh khi mở truyện**: `refreshTranslations(for:)` (cùng file) chỉ ghi khi giá trị đổi, guard `isVietPhraseLoaded`; gọi từ `ReaderView.initializeReaderIfNeeded` (sau khi resolve `localBookSnapshot`, bao phủ cả sách online lẫn local) và `BookDetailView` qua `.task(id: actualBookId)` — sách thêm trong phiên hoặc dict/custom dict thay đổi được cập nhật ngay, không chờ lần mở app sau.
+* **Lịch sử dùng chung**: `SearchHistoryStore.swift` (mới, key `search_history`, max 15, trim + dedup + chèn đầu) — `SearchView` refactor sang store (hành vi giữ nguyên), `ShelfSearchView` đọc/ghi cùng key.
+* **UI**: `ShelfSearchView.swift` (mới) — search bar, khi query rỗng hiện lịch sử dùng chung (xóa từng item / xóa tất cả), khi có query filter `isOnShelf || isHistory` qua `ShelfBookSearchMatcher` (khớp 1 trong 4 trường `title`/`titleTrans`/`author`/`authorTrans`, `localizedCaseInsensitiveContains`), kết quả = `BookListItemView` + `NavigationLink` → ReaderView; `ShelfView` thêm `@State showingShelfSearch` + ToolbarItem `magnifyingglass` (chỉ hiện khi `selectedTab != 0`) + `.navigationDestination(isPresented:)`.
+* **Tests**: user yêu cầu **không** viết unit test cho feature này.
+* 3 file Swift mới (`SearchHistoryStore.swift`, `BookTitleTranslationMigrator.swift`, `ShelfSearchView.swift`) → cần `xcodegen generate` (CI `.github/workflows/build-ipa.yml` tự chạy khi push `sigle_reader`); Windows không build/test tại chỗ — kiểm chứng qua CI hoặc máy Mac.
+
 ## [1.3.189] - 2026-08-16
 
 ### Loại bỏ tiêu đề chương trùng trong nội dung (dùng TOC rule, config chung TTS + Reader)

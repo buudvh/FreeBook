@@ -35,6 +35,7 @@ struct ShelfView: View {
     // @State: Biến trạng thái nội bộ của View. Khi giá trị thay đổi, UI sẽ tự động vẽ lại.
     @State private var selectedTab = 1 // Tab đang chọn: 0 là Tải trước, 1 là Kệ Sách, 2 là Lịch Sử
     @State private var showingClearHistoryAlert = false // Hiện alert xác nhận xóa lịch sử đọc
+    @State private var showingShelfSearch = false // Hiện màn hình tìm kiếm sách trong Kệ sách & Lịch sử
 
     // @AppStorage: Đọc/Ghi dữ liệu trực tiếp vào UserDefaults của iOS để lưu cấu hình hệ thống lâu dài.
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false // Trạng thái bật/tắt tự động dịch Trung-Việt
@@ -121,6 +122,16 @@ struct ShelfView: View {
             .navigationTitle(selectedTab == 0 ? "Downloads" : (selectedTab == 1 ? "Kệ Sách" : "Lịch Sử Đọc"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if selectedTab != 0 {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            showingShelfSearch = true
+                        }) {
+                            Image(systemName: "magnifyingglass")
+                        }
+                        .accessibilityLabel("Tìm truyện trong kệ sách và lịch sử")
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Button(action: {
@@ -192,6 +203,9 @@ struct ShelfView: View {
                     )
                     .id(route.id)
                 }
+            }
+            .navigationDestination(isPresented: $showingShelfSearch) {
+                ShelfSearchView()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openCurrentlyPlayingReader"))) { _ in
                 guard !ttsManager.playingBookId.isEmpty else {

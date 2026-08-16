@@ -15,6 +15,12 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Shelf search & title-translation backfill/refresh risks (1.3.190)
+
+* **Mitigated - stale/empty translated names:** `Book.titleTrans`/`authorTrans` are backfilled at app launch once dictionaries are loaded and refreshed every time a book is opened (`ReaderView` bootstrap and `BookDetailView` `.task`); per-session additions and dictionary/custom-dict changes reach the DB without waiting for the next launch, and refresh only writes when the value changes (no redundant save churn).
+* **Residual - dictionaries not ready at launch:** `runIfNeeded` guards on `TranslationManager.shared.isVietPhraseLoaded` and skips silently when dictionaries are not yet loaded; the refresh-on-open path covers those books when first opened, and the backfill retries on the next launch.
+* **Residual - Windows cannot build/test at the moment; iOS build and XCTest verification happens via CI or a Mac.**
+
 ## removeDuplicatedTitle config risks mitigated in 1.3.189
 
 * **Mitigated - Reader/TTS drift on duplicated chapter title:** per-book toggle `removeDuplicatedTitle_<bookId>` (default ON, shared by Reader + TTS) drops the first content line only when it matches an active TOC rule via the same `TranslateUtils.isChapterHeaderLine` used by TXT import; both sides keep the same stable line IDs after the drop so highlight/TTS sync stays aligned.

@@ -15,6 +15,14 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Shelf search and title-translation refresh events (1.3.190)
+
+* Tapping the shelf search toolbar button (`ShelfView`, shown only when `selectedTab != 0`) sets `showingShelfSearch`, and `.navigationDestination(isPresented:)` pushes `ShelfSearchView`.
+* Typing in `ShelfSearchView` re-filters `allBooks` (`isOnShelf || isHistory`) through `ShelfBookSearchMatcher.matches(...)` over `title`/`titleTrans`/`author`/`authorTrans` (`localizedCaseInsensitiveContains`, empty/trimmed query matches nothing). An empty query shows the shared `search_history` (decode via `SearchHistoryStore`); the keyboard return (`onCommit`) and the history clear/delete buttons write it back through `SearchHistoryStore.addQuery` (trim, dedup, head-insert, cap 15).
+* Tapping a result opens `ReaderView` directly (NavigationLink).
+* App launch: `AppLaunchRootView` `.task(id: translationManager.isInitialized)` runs `BookTitleTranslationMigrator.runIfNeeded(container:)` once dictionaries are loaded; it fetches books in a dedicated `ModelContext`, fills empty `titleTrans`/`authorTrans` in batches of 50, and saves.
+* Opening a book emits a refresh event: `ReaderView.initializeReaderIfNeeded` (after resolving `localBookSnapshot`) and `BookDetailView` `.task(id: actualBookId)` call `BookTitleTranslationMigrator.refreshTranslations(for:)`; only changed fields are written and `modelContext.save()` runs when needed, so per-session additions or dictionary/custom-dict updates reach the DB immediately.
+
 ## Reader duplicated-title removal toggle events (1.3.189)
 
 * Toggling "Loại bỏ tiêu đề chương trùng trong nội dung" in the Reader menu writes `removeDuplicatedTitle_<bookId>` (default ON, shared per book) and triggers `ReaderViewModel.refreshParagraphItems()`; the next chapter build drops the first content line when it matches an active TOC rule.

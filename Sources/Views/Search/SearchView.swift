@@ -32,17 +32,10 @@ struct SearchView: View {
     
     private var searchHistory: [String] {
         get {
-            guard let data = searchHistoryJSON.data(using: .utf8),
-                  let history = try? JSONDecoder().decode([String].self, from: data) else {
-                return []
-            }
-            return history
+            return SearchHistoryStore.decode(searchHistoryJSON)
         }
         nonmutating set {
-            if let data = try? JSONEncoder().encode(newValue),
-               let jsonString = String(data: data, encoding: .utf8) {
-                searchHistoryJSON = jsonString
-            }
+            searchHistoryJSON = SearchHistoryStore.encode(newValue)
         }
     }
     
@@ -726,16 +719,7 @@ struct SearchView: View {
     }
 
     private func saveQueryToHistory(_ query: String) {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        
-        var currentHistory = searchHistory
-        currentHistory.removeAll { $0 == trimmed }
-        currentHistory.insert(trimmed, at: 0)
-        if currentHistory.count > 15 {
-            currentHistory = Array(currentHistory.prefix(15))
-        }
-        searchHistory = currentHistory
+        searchHistory = SearchHistoryStore.addQuery(query, to: searchHistory)
     }
 
     private func performSearch() {

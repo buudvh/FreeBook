@@ -78,6 +78,12 @@ struct AppLaunchRootView: View {
             BookStorageManager.shared.drainRetryQueue()
             BookStorageManager.shared.retryFailedChapterStoreDeletions()
         }
+        .task(id: translationManager.isInitialized) {
+            guard translationManager.isInitialized else { return }
+            // Backfill tên dịch/phương âm cho các sách chưa có (titleTrans/authorTrans),
+            // chạy sau khi từ điển đã nạp — mirror pattern nạp dict ban đầu.
+            await BookTitleTranslationMigrator.runIfNeeded(container: modelContext.container)
+        }
         .task {
             for await event in TTSPresentationEventCenter.shared.stream {
                 switch event {
