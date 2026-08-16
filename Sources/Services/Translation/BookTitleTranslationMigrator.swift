@@ -8,7 +8,7 @@ import SwiftData
 /// các lần sau no-op. Hai cột này phục vụ tìm kiếm và không phụ thuộc trạng thái
 /// toggle dịch (luôn lưu tên đã dịch/phương âm để search bất kể bật/tắt).
 public enum BookTitleTranslationMigrator {
-    private static let batchSize = 50
+    fileprivate static let batchSize = 50
 
     public static func runIfNeeded(container: ModelContainer) async {
         // Chỉ dịch được khi từ điển VietPhrase đã sẵn sàng; nếu chưa thì bỏ qua,
@@ -68,7 +68,7 @@ private actor BookTitleTranslationBackfill {
             if book.authorTrans.isEmpty {
                 book.authorTrans = TranslateUtils.translateAuthorHanViet(book.author)
             }
-            if (index + 1) % Self.batchSize == 0 {
+            if (index + 1) % BookTitleTranslationMigrator.batchSize == 0 {
                 try? context.save()
             }
         }
