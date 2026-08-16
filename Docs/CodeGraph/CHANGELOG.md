@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.191] - 2026-08-16
+
+### Gợi ý lịch sử tìm kiếm theo từ đang nhập (ShelfSearch + SearchView)
+
+* **Ý tưởng**: khi đang gõ từ khóa, danh sách lịch sử tìm kiếm (dùng chung `search_history`) được lọc live theo nội dung đã nhập thành gợi ý — bấm vào là dùng ngay, không cần chờ gõ xong. Chỉ re-render lại phần lịch sử có sẵn, không thêm UI/section mới.
+* **`ShelfSearchView.swift`**: thêm computed `matchingHistory` (lọc `searchHistory` bằng `localizedCaseInsensitiveContains` khi có query, ngược lại trả toàn bộ); `historyView` đổi `searchHistory` → `matchingHistory` và placeholder chỉ hiện khi query rỗng; body khi query có nội dung hiện `historyView` đã lọc **bên trên** `resultsView` (giới hạn `.frame(maxHeight: 220)` để không nuốt hết chiều cao List kết quả). Bấm gợi ý → `searchQuery = item` (lịch sử lọc tiếp + kết quả sách cập nhật).
+* **`SearchView.swift`**: thêm `matchingHistory` cùng filter; `searchHistoryView` dùng `matchingHistory` thay cho `searchHistory` — nhánh idle khi có query hiện các mục lịch sử khớp, bấm → `searchQuery = item` + `performSearch()`; kết quả web không đổi.
+* Không thêm file Swift mới → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac.
+
 ## [1.3.190] - 2026-08-16
 
 ### Tìm kiếm sách trong Kệ sách & Lịch sử + backfill/refresh tên đã dịch

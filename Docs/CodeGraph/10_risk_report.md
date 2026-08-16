@@ -15,6 +15,11 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Search-history live-suggestion risks (1.3.191)
+
+* **Residual - UI only, no logic change:** the live-filtered history suggestions reuse the existing history row UI in `ShelfSearchView`/`SearchView`; no shared-store or search logic changed, so risk is limited to layout. In `ShelfSearchView` the suggestion block is capped at 220pt to avoid starving the results list height.
+* **Residual - Windows cannot build/test at the moment; iOS build and XCTest verification happens via CI or a Mac.**
+
 ## Shelf search & title-translation backfill/refresh risks (1.3.190)
 
 * **Mitigated - stale/empty translated names:** `Book.titleTrans`/`authorTrans` are backfilled at app launch once dictionaries are loaded and refreshed every time a book is opened (`ReaderView` bootstrap and `BookDetailView` `.task`); per-session additions and dictionary/custom-dict changes reach the DB without waiting for the next launch, and refresh only writes when the value changes (no redundant save churn).

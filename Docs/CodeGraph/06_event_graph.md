@@ -15,6 +15,11 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Search-history live-suggestion events (1.3.191)
+
+* Typing in `ShelfSearchView` re-renders only the existing history block: `matchingHistory = searchHistory.filter { $0.localizedCaseInsensitiveContains(trimmedQuery) }` (full history when the query is empty), shown above `resultsView` (capped at `maxHeight: 220`). Tapping a suggestion sets `searchQuery = item`, which re-filters both the suggestions and the book results live.
+* In `SearchView`, the idle branch re-uses `searchHistoryView`, which now iterates `matchingHistory`; a typed query narrows the shared history to matching entries, and tapping one sets the query and calls `performSearch()`. Web-result branches are unchanged.
+
 ## Shelf search and title-translation refresh events (1.3.190)
 
 * Tapping the shelf search toolbar button (`ShelfView`, shown only when `selectedTab != 0`) sets `showingShelfSearch`, and `.navigationDestination(isPresented:)` pushes `ShelfSearchView`.

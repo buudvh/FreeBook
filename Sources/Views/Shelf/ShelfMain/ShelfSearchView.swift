@@ -36,6 +36,12 @@ struct ShelfSearchView: View {
         nonmutating set { searchHistoryJSON = SearchHistoryStore.encode(newValue) }
     }
 
+    // Lịch sử hiển thị: lọc theo từ đang nhập khi có query, ngược lại hiện toàn bộ.
+    private var matchingHistory: [String] {
+        guard !trimmedQuery.isEmpty else { return searchHistory }
+        return searchHistory.filter { $0.localizedCaseInsensitiveContains(trimmedQuery) }
+    }
+
     private var trimmedQuery: String {
         searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -64,6 +70,8 @@ struct ShelfSearchView: View {
             if trimmedQuery.isEmpty {
                 historyView
             } else {
+                historyView
+                    .frame(maxHeight: 220)
                 resultsView
             }
         }
@@ -104,7 +112,7 @@ struct ShelfSearchView: View {
 
     @ViewBuilder
     private var historyView: some View {
-        if !searchHistory.isEmpty {
+        if !matchingHistory.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Lịch sử tìm kiếm")
@@ -123,7 +131,7 @@ struct ShelfSearchView: View {
 
                 ScrollView {
                     VStack(spacing: 0) {
-                        ForEach(searchHistory, id: \.self) { item in
+                        ForEach(matchingHistory, id: \.self) { item in
                             HStack(spacing: 12) {
                                 Button(action: {
                                     searchQuery = item
@@ -158,7 +166,7 @@ struct ShelfSearchView: View {
                 }
             }
             .padding(.top)
-        } else {
+        } else if trimmedQuery.isEmpty {
             VStack(spacing: 12) {
                 Spacer()
                 Image(systemName: "magnifyingglass")

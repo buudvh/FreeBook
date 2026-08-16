@@ -38,6 +38,13 @@ struct SearchView: View {
             searchHistoryJSON = SearchHistoryStore.encode(newValue)
         }
     }
+
+    // Lịch sử hiển thị: lọc theo từ đang nhập khi có query, ngược lại hiện toàn bộ.
+    private var matchingHistory: [String] {
+        let trimmed = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return searchHistory }
+        return searchHistory.filter { $0.localizedCaseInsensitiveContains(trimmed) }
+    }
     
     init(activeExtensions: [Extension], selectedExtension: Extension?, initialSearchQuery: String = "", changeSourceTargetBook: Book? = nil, onSourceChanged: (() -> Void)? = nil) {
         self.activeExtensions = activeExtensions
@@ -494,7 +501,7 @@ struct SearchView: View {
     
     @ViewBuilder
     private var searchHistoryView: some View {
-        if !searchHistory.isEmpty {
+        if !matchingHistory.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Lịch sử tìm kiếm")
@@ -513,7 +520,7 @@ struct SearchView: View {
                 
                 ScrollView {
                     VStack(spacing: 0) {
-                        ForEach(searchHistory, id: \.self) { item in
+                        ForEach(matchingHistory, id: \.self) { item in
                             HStack(spacing: 12) {
                                 Button(action: {
                                     searchQuery = item
