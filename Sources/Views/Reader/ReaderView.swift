@@ -946,7 +946,6 @@ struct ReaderView: View {
             guard chapterIndex == playingChapterIndex else { return }
             requestTTSScrollIfNeeded(chapterIndex: playingChapterIndex, paragraphIndex: newValue)
         }
-        .toolbar(.hidden, for: .tabBar)
     }
 
     @ViewBuilder

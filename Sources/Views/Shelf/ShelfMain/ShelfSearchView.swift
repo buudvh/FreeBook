@@ -30,6 +30,7 @@ struct ShelfSearchView: View {
     @AppStorage(SearchHistoryStore.storageKey) private var searchHistoryJSON = "[]"
 
     @State private var searchQuery = ""
+    @State private var readerRoute: ShelfReaderRoute? = nil
 
     private var searchHistory: [String] {
         get { SearchHistoryStore.decode(searchHistoryJSON) }
@@ -77,6 +78,22 @@ struct ShelfSearchView: View {
         }
         .navigationTitle("Tìm trong Kệ sách & Lịch sử")
         .navigationBarTitleDisplayMode(.inline)
+        .fullScreenCover(item: $readerRoute) { route in
+            NavigationStack {
+                ReaderView(
+                    bookId: route.bookId,
+                    extensionPackageId: route.extensionPackageId,
+                    chapterIndex: route.chapterIndex,
+                    onlineChapters: [],
+                    bookTitle: nil,
+                    bookAuthor: nil,
+                    bookCoverUrl: nil,
+                    bookDesc: nil,
+                    bookDetailUrl: route.detailUrl,
+                    bookSourceName: route.sourceName
+                )
+            }
+        }
     }
 
     @ViewBuilder
@@ -200,20 +217,19 @@ struct ShelfSearchView: View {
         } else {
             List {
                 ForEach(filteredBooks) { book in
-                    NavigationLink(destination: ReaderView(
-                        bookId: book.bookId,
-                        extensionPackageId: book.extensionPackageId,
-                        chapterIndex: book.currentChapterIndex,
-                        onlineChapters: [],
-                        bookTitle: nil,
-                        bookAuthor: nil,
-                        bookCoverUrl: nil,
-                        bookDesc: nil,
-                        bookDetailUrl: book.detailUrl,
-                        bookSourceName: book.sourceName
-                    )) {
+                    Button {
+                        readerRoute = ShelfReaderRoute(
+                            bookId: book.bookId,
+                            extensionPackageId: book.extensionPackageId,
+                            chapterIndex: book.currentChapterIndex,
+                            paragraphIndex: nil,
+                            detailUrl: book.detailUrl,
+                            sourceName: book.sourceName
+                        )
+                    } label: {
                         BookListItemView(item: book)
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .listStyle(.plain)

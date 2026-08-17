@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.192] - 2026-08-17
+
+### Reader trình bày dạng fullScreenCover — bỏ ẩn/hiện tab bar, sửa tab bar hiện trễ khi quay lại
+
+* **Vấn đề**: Reader đang được **push** lên `NavigationStack` của từng tab và ẩn tab bar bằng `.toolbar(.hidden, for: .tabBar)` (`ReaderView.swift`). Trên iOS 16/17, khi pop về, hệ thống khôi phục tab bar **trễ hơn** nội dung → tab bar hiển thị ra sau khá khó chịu khi đóng màn hình toàn màn hình.
+* **Giải pháp**: đổi toàn bộ điểm mở Reader sang **`fullScreenCover(item:)`** — cover phủ toàn màn hình (kể cả tab bar) nên TabView phía dưới không bao giờ bị ẩn/hiện lại, không rẽ layout, không reload nội dung. Đóng cover là tab bar + nội dung hiện ra ngay cùng lúc.
+* **`ReaderView.swift`**: xoá `.toolbar(.hidden, for: .tabBar)` (trong cover không có tab bar — modifier giờ là dead code). `@Environment(\.dismiss)` đóng cover; 2 `NavigationLink` ẩn bên trong (mở BookDetail / Đổi nguồn) push lên `NavigationStack` riêng của cover.
+* **`ShelfView.swift`**: thêm `@State readerPresentationRoute: ShelfReaderRoute?`; 2 dòng `NavigationLink(destination: ReaderView)` ở Kệ Sách & Lịch Sử đổi thành `Button { readerPresentationRoute = ... }` + `.buttonStyle(.plain)` (giữ `bookItemView(book)` làm label + nguyên contextMenu); route từ widget TTS (`navigationDestination(isPresented: $triggerNavigation)`) đổi thành `.fullScreenCover(item: $readerPresentationRoute)` trình bày `NavigationStack { ReaderView(...).id(route.id) }`; handler `openCurrentlyPlayingReader` gán route thay vì bật push.
+* **`ShelfSearchView.swift`**: thêm `@State readerRoute: ShelfReaderRoute?`; `NavigationLink` kết quả đổi thành `Button` + `.fullScreenCover(item:)`.
+* **`BookDetailView.swift`**: `.navigationDestination(item: $readerRoute)` đổi thành `.fullScreenCover(item: $readerRoute) { NavigationStack { LazyView { ReaderView(...) } } }` (`ReaderRoute.id = chapterIndex`, cover tự reset item về nil khi đóng).
+* Không thêm file Swift mới → không cần `xcodegen generate`; Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac, cần test tay luồng widget TTS `openCurrentlyPlayingReader` (MainTabView chuyển tab trước rồi ShelfView present cover).
+
 ## [1.3.191] - 2026-08-16
 
 ### Gợi ý lịch sử tìm kiếm theo từ đang nhập (ShelfSearch + SearchView)

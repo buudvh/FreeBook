@@ -15,6 +15,12 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader full-screen presentation events (1.3.192)
+
+* All Reader entry points now present via `.fullScreenCover(item:)` instead of a `NavigationLink`/`navigationDestination` push: `ShelfView` (shelf & history rows + the `openCurrentlyPlayingReader` widget route → `readerPresentationRoute`), `ShelfSearchView` (`readerRoute`), and `BookDetailView` (`readerRoute`). Each cover wraps `ReaderView` in its own `NavigationStack`; `ReaderView` no longer calls `.toolbar(.hidden, for: .tabBar)`, so the tab bar is never hidden/shown and cannot reappear late on reader dismissal. `@Environment(\.dismiss)` (reader close button, `onSourceChanged`, `ReaderView+LoadingView`) dismisses the cover.
+* `openCurrentlyPlayingReader` (widget) still flows: `MainTabView` switches to `selectedTab = 0`, then `ShelfView` sets `readerPresentationRoute` → cover presents. A reader already open for the book instead receives `navigateReaderToPlayingChapter` as before.
+* `sourceChangedNavigateToShelf` is unchanged: `MainTabView` selects the shelf main tab, `ShelfView` selects the sub-tab, and `ReaderView`/`BookDetailView` dismiss (pop the reader cover / detail) after 0.3s.
+
 ## Search-history live-suggestion events (1.3.191)
 
 * Typing in `ShelfSearchView` re-renders only the existing history block: `matchingHistory = searchHistory.filter { $0.localizedCaseInsensitiveContains(trimmedQuery) }` (full history when the query is empty), shown above `resultsView` (capped at `maxHeight: 220`). Tapping a suggestion sets `searchQuery = item`, which re-filters both the suggestions and the book results live.
@@ -24,7 +30,7 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 
 * Tapping the shelf search toolbar button (`ShelfView`, shown only when `selectedTab != 0`) sets `showingShelfSearch`, and `.navigationDestination(isPresented:)` pushes `ShelfSearchView`.
 * Typing in `ShelfSearchView` re-filters `allBooks` (`isOnShelf || isHistory`) through `ShelfBookSearchMatcher.matches(...)` over `title`/`titleTrans`/`author`/`authorTrans` (`localizedCaseInsensitiveContains`, empty/trimmed query matches nothing). An empty query shows the shared `search_history` (decode via `SearchHistoryStore`); the keyboard return (`onCommit`) and the history clear/delete buttons write it back through `SearchHistoryStore.addQuery` (trim, dedup, head-insert, cap 15).
-* Tapping a result opens `ReaderView` directly (NavigationLink).
+* Tapping a result opens `ReaderView` via a `.fullScreenCover(item: $readerRoute)` Button (was a `NavigationLink` push).
 * App launch: `AppLaunchRootView` `.task(id: translationManager.isInitialized)` runs `BookTitleTranslationMigrator.runIfNeeded(container:)` once dictionaries are loaded; it fetches books in a dedicated `ModelContext`, fills empty `titleTrans`/`authorTrans` in batches of 50, and saves.
 * Opening a book emits a refresh event: `ReaderView.initializeReaderIfNeeded` (after resolving `localBookSnapshot`) and `BookDetailView` `.task(id: actualBookId)` call `BookTitleTranslationMigrator.refreshTranslations(for:)`; only changed fields are written and `modelContext.save()` runs when needed, so per-session additions or dictionary/custom-dict updates reach the DB immediately.
 
@@ -166,7 +172,7 @@ graph TD
 *   **`sourceChangedNavigateToShelf`**:
     *   *Mục đích*: Sau khi đổi nguồn truyện thành công (`SearchView.executeSourceChange`), điều hướng app về Kệ sách và chọn đúng sub-tab theo vị trí của truyện mới.
     *   *Nguồn phát*: `SearchView.swift` post ngay trước `onSourceChanged?()` với `userInfo: ["shelfTab": createSnapshot.isOnShelf ? 1 : 2]` (truyện mới thừa kế `isOnShelf`/`isHistory` từ truyện cũ).
-    *   *Xử lý*: `MainTabView` đặt `selectedTab = 0`; `ShelfView` đặt `selectedTab` theo `shelfTab` (1 = Kệ Sách, 2 = Lịch Sử); `ReaderView.onSourceChanged` thêm `dismiss()` sau 0.3s để pop Reader về root kệ sách; `BookDetailView.onSourceChanged` đặt `navigateToChangeSource = false` (SearchView được push qua `NavigationLink(isActive:)` — chỉ gọi `dismiss()` sẽ kẹt push) rồi `dismiss()` sau 0.3s.
+    *   *Xử lý*: `MainTabView` đặt `selectedTab = 0`; `ShelfView` đặt `selectedTab` theo `shelfTab` (1 = Kệ Sách, 2 = Lịch Sử); `ReaderView.onSourceChanged` thêm `dismiss()` sau 0.3s để đóng Reader (fullScreenCover — cover tự trượt xuống lộ ra kệ sách); `BookDetailView.onSourceChanged` đặt `navigateToChangeSource = false` (SearchView được push qua `NavigationLink(isActive:)` — chỉ gọi `dismiss()` sẽ kẹt push) rồi `dismiss()` sau 0.3s.
 *   **Điều hướng Reader độc lập với TTS**:
     *   Next/Previous/Chapter List chỉ tạo request và commit trong `ReaderViewModel`; không phát sự kiện chuyển chương sang `TTSManager`.
     *   `prepareSpeaking(...)` chỉ prewarm cache chương Reader và không thay đổi chương TTS đang phát hoặc đang pause.
