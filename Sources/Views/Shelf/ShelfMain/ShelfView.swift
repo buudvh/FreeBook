@@ -509,7 +509,7 @@ struct ShelfView: View {
                                 Button {
                                     addToShelf(book)
                                 } label: {
-                                    Label("Thêm vào kệ sách", systemImage: "bookmark.badge.plus")
+                                    Label("Thêm vào kệ sách", systemImage: "plus.circle.fill")
                                 }
                             }
 
