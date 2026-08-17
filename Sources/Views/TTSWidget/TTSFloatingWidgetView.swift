@@ -356,21 +356,19 @@ final class TTSCoverImageLoader: ObservableObject {
             return
         }
 
-        if let cached = BookStorageManager.shared.loadCachedCover(bookId: bookId) {
+        if let cached = ImageCacheManager.shared.loadLocalCover(for: bookId) {
             image = cached
             return
         }
 
-        guard !coverURL.isEmpty, let url = URL(string: coverURL) else {
+        guard !coverURL.isEmpty else {
             image = nil
             return
         }
 
-        Task {
-            if let downloaded = await BookStorageManager.shared.fetchAndCacheCover(bookId: bookId, from: url) {
-                await MainActor.run {
-                    self.image = downloaded
-                }
+        ImageCacheManager.shared.downloadAndSaveCover(urlStr: coverURL, bookId: bookId) { [weak self] downloaded in
+            Task { @MainActor in
+                self?.image = downloaded
             }
         }
     }
