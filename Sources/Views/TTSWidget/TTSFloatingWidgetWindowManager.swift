@@ -7,9 +7,10 @@ import SwiftData
 /// Cửa sổ này luôn là non-key window (không bao giờ gọi makeKeyAndVisible), nền trong suốt,
 /// và passthrough touch chuẩn xác để không chặn thao tác ở màn hình bên dưới.
 @MainActor
-public final class TTSFloatingWidgetWindowManager {
+public final class TTSFloatingWidgetWindowManager: ObservableObject {
     public static let shared = TTSFloatingWidgetWindowManager()
 
+    @Published public private(set) var isWidgetActuallyVisible: Bool = false
     public var modelContainer: ModelContainer?
     private var window: FloatingWidgetUIWindow?
     private var containerViewController: FloatingWidgetContainerViewController?
@@ -50,9 +51,7 @@ public final class TTSFloatingWidgetWindowManager {
             if existingWindow.windowScene !== windowScene {
                 existingWindow.windowScene = windowScene
             }
-            if existingWindow.isHidden {
-                existingWindow.isHidden = false
-            }
+            updateWindowVisibility(hidden: false)
             isPresented = true
             containerViewController?.updateLayoutForCurrentMode(animated: false)
             return
@@ -69,14 +68,21 @@ public final class TTSFloatingWidgetWindowManager {
         self.window = win
         self.isPresented = true
 
-        // Chỉ bật hiển thị cửa sổ, TUYỆT ĐỐI không gọi makeKeyAndVisible() để không cướp keyWindow
-        win.isHidden = false
+        // Chỉ bật hiển thị cửa sổ qua hàm tập trung, TUYỆT ĐỐI không gọi makeKeyAndVisible()
+        updateWindowVisibility(hidden: false)
     }
 
     public func hideWidget() {
-        guard let window else { return }
-        window.isHidden = true
+        updateWindowVisibility(hidden: true)
         isPresented = false
+    }
+
+    private func updateWindowVisibility(hidden: Bool) {
+        window?.isHidden = hidden
+        let actuallyVisible = !(window?.isHidden ?? true)
+        if isWidgetActuallyVisible != actuallyVisible {
+            isWidgetActuallyVisible = actuallyVisible
+        }
     }
 
     @objc private func handleSceneDidActivate(_ notification: Notification) {
@@ -85,6 +91,7 @@ public final class TTSFloatingWidgetWindowManager {
             window?.windowScene = scene
             containerViewController?.view.setNeedsLayout()
         }
+        updateWindowVisibility(hidden: false)
     }
 
     @objc private func handleDidBecomeActive() {
@@ -93,6 +100,7 @@ public final class TTSFloatingWidgetWindowManager {
             window?.windowScene = scene
             containerViewController?.view.setNeedsLayout()
         }
+        updateWindowVisibility(hidden: false)
     }
 
     private var activeWindowScene: UIWindowScene? {
@@ -134,6 +142,8 @@ final class FloatingWidgetUIWindow: UIWindow {
 @MainActor
 final class FloatingWidgetContainerViewController: UIViewController, UIGestureRecognizerDelegate {
     private let viewModel = FloatingWidgetViewModel()
+    private let rotationState = CoverRotationState()
+    private var lastDistinctBookId: String = ""
     let widgetContainerView = UIView()
     private var hostingController: UIHostingController<AnyView>?
     private var panStartCenter: CGPoint = .zero
@@ -161,7 +171,7 @@ final class FloatingWidgetContainerViewController: UIViewController, UIGestureRe
         widgetContainerView.layer.masksToBounds = false
         view.addSubview(widgetContainerView)
 
-        let contentView = TTSWidgetContentView(viewModel: viewModel)
+        let contentView = TTSWidgetContentView(viewModel: viewModel, rotationState: rotationState)
         let hostingView: AnyView
         if let container = TTSFloatingWidgetWindowManager.shared.modelContainer {
             hostingView = AnyView(contentView.modelContainer(container))
@@ -213,6 +223,29 @@ final class FloatingWidgetContainerViewController: UIViewController, UIGestureRe
             .sink { [weak self] _ in
                 guard let self, !self.viewModel.isDragging else { return }
                 self.updateLayoutForCurrentMode(animated: true)
+            }
+            .store(in: &cancellables)
+
+        TTSManager.shared.$isPlaying
+            .receive(on: RunLoop.main)
+            .sink { [weak self] isPlaying in
+                self?.rotationState.syncPlaybackState(isPlaying: isPlaying, at: Date())
+            }
+            .store(in: &cancellables)
+
+        TTSManager.shared.$playingBookId
+            .receive(on: RunLoop.main)
+            .sink { [weak self] newBookId in
+                guard let self else { return }
+                guard !newBookId.isEmpty else { return }
+                if !self.lastDistinctBookId.isEmpty {
+                    if self.lastDistinctBookId != newBookId {
+                        self.lastDistinctBookId = newBookId
+                        self.rotationState.resetAngle(isPlaying: TTSManager.shared.isPlaying, at: Date())
+                    }
+                } else {
+                    self.lastDistinctBookId = newBookId
+                }
             }
             .store(in: &cancellables)
     }

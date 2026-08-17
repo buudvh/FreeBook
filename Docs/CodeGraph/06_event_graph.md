@@ -21,6 +21,7 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 * Cử chỉ kéo (drag) được bắt trực tiếp bởi `UIPanGestureRecognizer` gắn trên `widgetContainerView` với `cancelsTouchesInView = true` (không cướp tap khi bấm nhanh nút, nhưng cancel touch khi kéo tay).
 * `UITapGestureRecognizer` chỉ được kích hoạt khi ở chế độ `.peeking` để xử lý tap-to-reveal, và bị vô hiệu hóa (`isEnabled = false`) khi ở `.revealed` mode để không xung đột với các nút bấm SwiftUI.
 * Menu hẹn giờ, alert nhập số phút và `TTSSettingsSheet` được hiển thị trực tiếp trong `TTSWidgetContentView` bên trong `FloatingWidgetUIWindow`, đảm bảo không làm gián đoạn hay đóng `ReaderView` (`fullScreenCover`) trên cửa sổ chính.
+* `FloatingWidgetContainerViewController` listens to `TTSManager.shared.$isPlaying` and `$playingBookId` via Combine to sync `CoverRotationState`. `TimelineView` rotates cover smoothly at 12°/s, pausing ticks when widget is suppressed (`isWidgetActuallyVisible == false`) or playback is paused.
 * Toasts are rendered via `ToastUIWindow` at `windowLevel = .alert` with `hitTest = nil`, presenting non-intrusive status HUDs above all full-screen views without intercepting any user interactions.
 
 ## Reader full-screen presentation events (1.3.192)

@@ -2,23 +2,78 @@ import SwiftUI
 import UIKit
 import SwiftData
 
+/// Đối tượng quản lý trạng thái góc quay của ảnh bìa trên widget TTS.
+/// Có vòng đời dài hạn do FloatingWidgetContainerViewController sở hữu, không bị mất góc khi view root tái tạo.
+@MainActor
+public final class CoverRotationState: ObservableObject {
+    private struct RotationData: Sendable, Equatable {
+        let accumulatedAngle: Double
+        let playStartDate: Date?
+
+        init(accumulatedAngle: Double = 0.0, playStartDate: Date? = nil) {
+            self.accumulatedAngle = accumulatedAngle
+            self.playStartDate = playStartDate
+        }
+    }
+
+    @Published private var data: RotationData = RotationData()
+
+    public func syncPlaybackState(isPlaying: Bool, at date: Date = Date()) {
+        if isPlaying {
+            if data.playStartDate == nil {
+                data = RotationData(accumulatedAngle: data.accumulatedAngle, playStartDate: date)
+            }
+        } else {
+            if let start = data.playStartDate {
+                let elapsed = max(0, date.timeIntervalSince(start))
+                let newAccumulated = (data.accumulatedAngle + elapsed * 12.0).truncatingRemainder(dividingBy: 360.0)
+                data = RotationData(accumulatedAngle: newAccumulated, playStartDate: nil)
+            }
+        }
+    }
+
+    public func currentAngle(at date: Date, isPlaying: Bool) -> Double {
+        guard isPlaying, let start = data.playStartDate else {
+            return data.accumulatedAngle
+        }
+        let elapsed = max(0, date.timeIntervalSince(start))
+        return (data.accumulatedAngle + elapsed * 12.0).truncatingRemainder(dividingBy: 360.0)
+    }
+
+    public func resetAngle(isPlaying: Bool, at date: Date = Date()) {
+        data = RotationData(accumulatedAngle: 0.0, playStartDate: isPlaying ? date : nil)
+    }
+}
+
 /// View nội dung hiển thị bên trong bounded container của widget TTS.
 struct TTSWidgetContentView: View {
     @ObservedObject var viewModel: FloatingWidgetViewModel
+    @ObservedObject var rotationState: CoverRotationState
     @ObservedObject private var ttsManager = TTSManager.shared
+    @ObservedObject private var windowManager = TTSFloatingWidgetWindowManager.shared
     @StateObject private var ttsState = TTSWidgetStateReader()
     @StateObject private var coverLoader = TTSCoverImageLoader()
 
     var body: some View {
-        Group {
-            if viewModel.mode == .peeking {
-                TTSWidgetPeekCircleView(coverImage: coverLoader.image)
-            } else {
-                TTSWidgetCapsuleView(
-                    coverImage: coverLoader.image,
-                    viewModel: viewModel,
-                    ttsState: ttsState
-                )
+        let shouldAnimateCover = ttsManager.isPlaying && windowManager.isWidgetActuallyVisible
+
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !shouldAnimateCover)) { context in
+            let displayAngle = rotationState.currentAngle(at: context.date, isPlaying: ttsManager.isPlaying)
+
+            Group {
+                if viewModel.mode == .peeking {
+                    TTSWidgetPeekCircleView(
+                        coverImage: coverLoader.image,
+                        rotationAngle: displayAngle
+                    )
+                } else {
+                    TTSWidgetCapsuleView(
+                        coverImage: coverLoader.image,
+                        rotationAngle: displayAngle,
+                        viewModel: viewModel,
+                        ttsState: ttsState
+                    )
+                }
             }
         }
         .sheet(isPresented: $ttsManager.showingSettingsSheet) {
@@ -30,6 +85,7 @@ struct TTSWidgetContentView: View {
             }
         }
         .onAppear {
+            rotationState.syncPlaybackState(isPlaying: ttsManager.isPlaying, at: Date())
             refreshCover()
         }
         .onChange(of: ttsState.snapshot.playingBookId) { _, _ in
@@ -51,6 +107,7 @@ struct TTSWidgetContentView: View {
 /// Giao diện dạng capsule mở rộng (revealed mode).
 struct TTSWidgetCapsuleView: View {
     let coverImage: UIImage?
+    let rotationAngle: Double
     @ObservedObject var viewModel: FloatingWidgetViewModel
     @ObservedObject var ttsState: TTSWidgetStateReader
     private let ttsManager = TTSManager.shared
@@ -80,7 +137,8 @@ struct TTSWidgetCapsuleView: View {
                 Button(action: openCurrentChapter) {
                     TTSCoverView(
                         image: coverImage,
-                        size: 40
+                        size: 40,
+                        rotationAngle: rotationAngle
                     )
                 }
                 .buttonStyle(.plain)
@@ -98,94 +156,88 @@ struct TTSWidgetCapsuleView: View {
                         .background(Circle().fill(ttsState.snapshot.timerMode != .off ? Color.orange.opacity(0.18) : Color.primary.opacity(0.09)))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Cài đặt và Hẹn giờ TTS")
-                .confirmationDialog("⏱️ Hẹn giờ & Cài đặt TTS", isPresented: $showingTimerMenu, titleVisibility: .visible) {
-                    Button("⏱️ 15 phút") {
-                        ttsManager.startSleepTimer(minutes: 15)
-                        viewModel.disableAutoHide = false
-                        viewModel.startAutoHideTimer()
-                    }
-                    Button("⏱️ 30 phút") {
-                        ttsManager.startSleepTimer(minutes: 30)
-                        viewModel.disableAutoHide = false
-                        viewModel.startAutoHideTimer()
-                    }
-                    Button("⏱️ 45 phút") {
-                        ttsManager.startSleepTimer(minutes: 45)
-                        viewModel.disableAutoHide = false
-                        viewModel.startAutoHideTimer()
-                    }
-                    Button("⏱️ 60 phút") {
-                        ttsManager.startSleepTimer(minutes: 60)
-                        viewModel.disableAutoHide = false
-                        viewModel.startAutoHideTimer()
-                    }
-                    Button("📖 Hết chương hiện tại") {
-                        ttsManager.setStopAtEndOfChapter()
-                        viewModel.disableAutoHide = false
-                        viewModel.startAutoHideTimer()
-                    }
-                    Button("✏️ Tùy chỉnh số phút...") {
-                        customMinutesInput = "90"
-                        showingCustomTimerAlert = true
-                    }
-                    if ttsState.snapshot.timerMode != .off {
-                        Button("❌ Tắt hẹn giờ", role: .destructive) {
-                            ttsManager.cancelSleepTimer()
-                            viewModel.disableAutoHide = false
-                            viewModel.startAutoHideTimer()
-                        }
-                    }
-                    Button("⚙️ Bảng cài đặt giọng đọc") {
-                        ttsManager.showingSettingsSheet = true
-                        viewModel.disableAutoHide = false
-                    }
-                    Button("Hủy", role: .cancel) {
-                        viewModel.disableAutoHide = false
-                        viewModel.startAutoHideTimer()
-                    }
-                }
+                .accessibilityLabel("Hẹn giờ và cài đặt")
 
                 Button(action: togglePlayback) {
                     Image(systemName: ttsState.snapshot.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 34, height: 34)
-                        .background(Circle().fill(Color.accentColor))
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(Color.primary)
+                        .frame(width: 38, height: 38)
+                        .background(Circle().fill(Color.primary.opacity(0.12)))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(ttsState.snapshot.isPlaying ? "Tạm dừng đọc" : "Tiếp tục đọc")
+                .accessibilityLabel(ttsState.snapshot.isPlaying ? "Tạm dừng" : "Phát tiếp")
 
                 Button(action: skipForward) {
-                    Image(systemName: "forward.fill")
+                    Image(systemName: "goforward.30")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(Color.primary)
                         .frame(width: 30, height: 30)
                         .background(Circle().fill(Color.primary.opacity(0.09)))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Đọc đoạn tiếp theo")
+                .accessibilityLabel("Tua tới 30 giây")
 
                 Button(action: stopTTS) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 30, height: 30)
-                        .background(Circle().fill(Color.primary.opacity(0.09)))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.secondary)
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(Color.primary.opacity(0.06)))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Đóng TTS")
+                .accessibilityLabel("Dừng đọc")
             }
             .padding(.horizontal, 8)
-            .frame(width: 212, height: 56)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(Capsule(style: .continuous).stroke(Color.white.opacity(0.14), lineWidth: 1))
-            )
-            .shadow(color: .black.opacity(0.24), radius: 14, x: 0, y: 6)
+            .padding(.vertical, 8)
+            .background(Capsule().fill(.ultraThinMaterial))
+            .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
+            .shadow(color: .black.opacity(0.28), radius: 11, x: 0, y: 5)
         }
-        .alert("✏️ Nhập số phút hẹn giờ", isPresented: $showingCustomTimerAlert) {
+        .confirmationDialog(
+            "Hẹn giờ tắt và Cài đặt",
+            isPresented: $showingTimerMenu,
+            titleVisibility: .visible
+        ) {
+            Button("Tắt hẹn giờ", role: ttsState.snapshot.timerMode != .off ? .destructive : .none) {
+                ttsManager.cancelSleepTimer()
+                viewModel.disableAutoHide = false
+                viewModel.startAutoHideTimer()
+            }
+            Button("Sau 15 phút") {
+                ttsManager.startSleepTimer(minutes: 15)
+                viewModel.disableAutoHide = false
+                viewModel.startAutoHideTimer()
+            }
+            Button("Sau 30 phút") {
+                ttsManager.startSleepTimer(minutes: 30)
+                viewModel.disableAutoHide = false
+                viewModel.startAutoHideTimer()
+            }
+            Button("Sau 45 phút") {
+                ttsManager.startSleepTimer(minutes: 45)
+                viewModel.disableAutoHide = false
+                viewModel.startAutoHideTimer()
+            }
+            Button("Sau 60 phút") {
+                ttsManager.startSleepTimer(minutes: 60)
+                viewModel.disableAutoHide = false
+                viewModel.startAutoHideTimer()
+            }
+            Button("Tuỳ chỉnh số phút...") {
+                showingCustomTimerAlert = true
+            }
+            Button("Bảng cài đặt giọng đọc") {
+                ttsManager.showingSettingsSheet = true
+                viewModel.disableAutoHide = false
+                viewModel.startAutoHideTimer()
+            }
+            Button("Hủy", role: .cancel) {
+                viewModel.disableAutoHide = false
+                viewModel.startAutoHideTimer()
+            }
+        }
+        .alert("Hẹn giờ tuỳ chỉnh", isPresented: $showingCustomTimerAlert) {
             TextField("Số phút (ví dụ: 90)", text: $customMinutesInput)
                 .keyboardType(.numberPad)
             Button("Đồng ý") {
@@ -234,11 +286,13 @@ struct TTSWidgetCapsuleView: View {
 /// Giao diện dạng đĩa tròn thu nhỏ (peeking mode).
 struct TTSWidgetPeekCircleView: View {
     let coverImage: UIImage?
+    let rotationAngle: Double
 
     var body: some View {
         TTSCoverView(
             image: coverImage,
-            size: 40
+            size: 40,
+            rotationAngle: rotationAngle
         )
         .padding(6)
         .frame(width: 52, height: 52)
@@ -252,14 +306,16 @@ struct TTSWidgetPeekCircleView: View {
     }
 }
 
-/// View hiển thị ảnh bìa dạng tròn.
+/// View hiển thị ảnh bìa dạng tròn có hiệu ứng xoay đĩa than mượt mà.
 struct TTSCoverView: View {
     let image: UIImage?
     let size: CGFloat
+    var rotationAngle: Double = 0.0
 
     var body: some View {
         coverImage
             .frame(width: size, height: size)
+            .rotationEffect(.degrees(rotationAngle))
             .clipShape(Circle())
             .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
     }
@@ -294,46 +350,28 @@ struct TTSCoverView: View {
 final class TTSCoverImageLoader: ObservableObject {
     @Published private(set) var image: UIImage?
 
-    private struct Key: Equatable {
-        let bookId: String
-        let coverURL: String
-    }
-
-    private var key: Key?
-    private var generation: UInt = 0
-
     func load(bookId: String, coverURL: String) {
-        let newKey = Key(bookId: bookId, coverURL: coverURL)
-        guard newKey != key else { return }
-
-        key = newKey
-        generation &+= 1
-        let expectedGeneration = generation
-
-        if !bookId.isEmpty, let localImage = ImageCacheManager.shared.loadLocalCover(for: bookId) {
-            image = localImage
+        guard !bookId.isEmpty else {
+            image = nil
             return
         }
 
-        image = nil
-        guard !bookId.isEmpty, !coverURL.isEmpty else { return }
+        if let cached = BookStorageManager.shared.loadCachedCover(bookId: bookId) {
+            image = cached
+            return
+        }
 
-        ImageCacheManager.shared.downloadAndSaveCover(urlStr: coverURL, bookId: bookId) { [weak self] image in
-            Task { @MainActor [weak self] in
-                guard let self,
-                      self.generation == expectedGeneration,
-                      self.key == newKey else { return }
-                self.image = image
+        guard !coverURL.isEmpty, let url = URL(string: coverURL) else {
+            image = nil
+            return
+        }
+
+        Task {
+            if let downloaded = await BookStorageManager.shared.fetchAndCacheCover(bookId: bookId, from: url) {
+                await MainActor.run {
+                    self.image = downloaded
+                }
             }
         }
-    }
-}
-
-/// Facade tương thích ngược nếu view được nhúng trực tiếp ở nơi khác.
-struct TTSFloatingWidgetView: View {
-    @StateObject private var viewModel = FloatingWidgetViewModel()
-
-    var body: some View {
-        TTSWidgetContentView(viewModel: viewModel)
     }
 }
