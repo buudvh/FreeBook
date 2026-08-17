@@ -15,15 +15,38 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Extension execution and JS runtime environment events (1.3.196)
+## Script editor syntax checking and searchable file selection events (1.3.200)
+
+* `ExtensionScriptEditorView`:
+  - `validateScriptSyntax` initializes a fully populated `JSExecutor` instance with the extension's `localPath` and injected configs, executing `validateSyntax` without false-positive `ReferenceError` on custom runtime functions like `load()`.
+  - Tapping `scriptSelectorHeader` presents `scriptPickerSheetView` with real-time keyword filtering across `displayName` and `fileName`.
+  - Switching scripts dynamically reloads content and updates Gutter insets in `CodeEditorTextView`.
+* `VisibleWebViewLoader` and `JSExecutor`:
+  - `launchAsync`, `waitUrl` (multi-target), `block`, and `urls` events propagate between JS execution thread and `VisibleWebViewController` on the main UI thread.
+
+## TTS sleep timer sheet interaction events (1.3.199)
+
+* `TTSWidgetCapsuleView` opens `TTSQuickTimerSheet` modal sheet (`$showingQuickTimerSheet`).
+* Selection of preset chips or custom minutes directly fires `TTSManager.shared.startSleepTimer(minutes:)` or `setStopAtEndOfChapter()`, propagating real-time countdown updates through `TTSWidgetStateReader` and `TTSPlayStateReader`.
+* Cancellation triggers immediate state reset and invalidation of background timer objects.
+
+## Extension item parsing and comment UI events (1.3.198)
+
+* `ExtensionManager` parses `description` and `content` into distinct `ExtensionItemResult` properties.
+* Comment event flows (`CommentSectionView`, `AllCommentsView`) bind `comment.description` to the header row and `comment.content` to the expandable comment body.
+
+## Extension execution and JS runtime environment events (1.3.197)
 
 * Extension script execution via `JSExecutor` handles all Rhino and VBook Android global functions and objects:
-  - `print(...)` forwards directly to `console.log` logging without thrown ReferenceError.
+  - `print(...)` and `Log.log(...)` forward directly to `console.log` logging without thrown ReferenceError.
   - `sleep(ms)` pauses the JS execution thread synchronously without blocking WebKit engine loaders.
   - `toast(msg)` and `Toast.show/makeText` route to `AppLogger` and `ToastManager.shared`.
-  - `UserAgent` provides desktop and mobile User-Agent strings (`chrome`, `mobile`, `safari`, `firefox`, `macos`, `windows`, `random`, `get`).
-  - `Qt` global object routes hashing and conversion to `CryptoKit` (`md5`, `sha256`, `sha1`, `sha512`, `atob`, `btoa`) and file inclusion (`Qt.include` → `load`).
-  - `Http` builder exposes `.json()` and `.table()` to directly parse JSON payloads from synchronous `fetch` responses.
+  - `UserAgent` provides desktop and mobile User-Agent strings (`system`, `chrome`, `mobile`, `safari`, `firefox`, `macos`, `windows`, `random`, `get`).
+  - `Qt.translate` routes Chinese translation requests to `TranslateUtils` and `TranslationManager` (`"vi"`, `"vp"`, `"hv"`), mapping spans to `{ translateText, segments }`.
+  - `Storage`: `localStorage` persists data per-extension in `UserDefaults`, `cacheStorage` caches in-memory, `localConfig` accesses extension configs, `localCookie` manages source cookies.
+  - `fetch` provides comprehensive response metadata (`statusText`, `url`, `headers` dictionary & `.get()`, `header()`, `blob()`, `request`) and configurable `options.timeout`.
+  - `JSDom` provides `element.attributes()`, `elements.isEmpty()`, and `elements.map(callback)`.
+  - `Engine.newBrowser` provides headless browser automation (`launch`, `launchAsync`, `waitUrl`, `html(timeout)`, `callJs`, `block`, `urls`, `getVariable`, `close`).
 
 ## TTS widget passthrough and drag event routing (1.3.195)
 

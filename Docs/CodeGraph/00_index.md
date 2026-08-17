@@ -15,14 +15,38 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Rhino and VBook Android compatibility runtime enhancements (1.3.196)
+## newVisibleBrowser API parity, full runtime syntax checking and integrated line number gutter in Script Editor (1.3.200)
 
-* `JSExecutor` and `JSCrypto` upgraded with comprehensive Rhino / VBook Android JavaScript compatibility APIs:
-  - `UserAgent`: Added `chrome()`, `mobile()`, `safari()`, `firefox()`, `mac()`, `macos()`, `windows()`, `random()`, `default()`, and `get()`.
-  - `Qt`: Global object injected with `atob`, `btoa`, `md5`, `sha256`, `sha1`, `sha512`, `formatDate`, `formatDateTime`, `formatTime`, `include` (calls `load()`), `resolvedUrl`, `openUrlExternally`, `platform` (`{ os: "ios" }`), `point`, `size`, `rect`, `rgba`, `hsla`, `quit`, and `exit`.
-  - `JSCrypto`: Expanded with `sha1`, `sha512`, `base64Encode`, `base64Decode`, `hmacSha256`, `hmacSha1`, and `hmacMd5` using Apple `CryptoKit`.
-  - Global functions: Injected `print(...)` (alias for `console.log`), `sleep(ms)` (synchronous delay), `toast(msg)` and `Toast.show / makeText` (integrated with `ToastManager`).
-  - `Http`: Expanded builder with `.json()`, `.table()`, `.text()`, `.status()`, `.headers()`, `.base64()`, `Http.request()`, `Http.head()`, `Http.put()`, `Http.delete()`, `Http.patch()`, and `.contentType()`.
+* `VisibleWebViewLoader` and `JSExecutor` upgraded to achieve full feature parity with headless `newBrowser`:
+  - Added `launchAsync(url)`, `html(timeout)`, `waitUrl(urls, timeout)` supporting array of target URLs, `block(patterns)`, `urls()` (intercepted URLs up to 200), and `getVariable(name)`.
+  - Added native bridge blocks: `_nativeBrowserLaunchAsyncVisible`, `_nativeBrowserBlockVisible`, `_nativeBrowserGetUrlsVisible`, and multi-target `_nativeBrowserWaitUrlVisible`.
+* Added `JSExecutor.validateSyntax(_ scriptContent: String)` for evaluating script syntax with full VBook runtime globals (`load`, `Qt`, `UserAgent`, `Crypto`, `Engine`, `Response`, `localStorage`, `localConfig`, etc.).
+* `ExtensionScriptEditorView` and `HighlightingCodeEditor` enhancements:
+  - `CodeEditorTextView`: Line number gutter drawn directly in `draw(_ rect:)` via `layoutManager.lineFragmentRect(forGlyphAt:)`, guaranteeing 100% pixel-perfect vertical alignment even when long lines wrap into multiple visual lines.
+  - Searchable Script Picker: Replaced horizontal pill scroll with searchable select dropdown sheet (`SearchableScriptPickerSheet`) displaying file icons, file names (`displayName`), relative paths, and modified indicators with real-time keyword filtering.
+
+## Modern TTS sleep timer bottom sheet replacing confirmation dialog and alert (1.3.199)
+
+* Introduced `TTSQuickTimerSheet` (`Sources/Views/TTSWidget/TTSQuickTimerSheet.swift`) presented as a modern SwiftUI bottom sheet (`presentationDetents([.fraction(0.68), .large])`).
+* Replaced plain system `.confirmationDialog` and text field `.alert` in `TTSFloatingWidgetView`.
+* Features real-time countdown status banner with quick cancellation, 6 preset duration tiles (`15m`, `30m`, `45m`, `60m`, `90m`, and `Hết chương`), custom stepper/slider (5–180m), and quick settings shortcut.
+
+## Separate description and content fields in ExtensionItemResult and enhanced comment presentation (1.3.198)
+
+* `ExtensionItemResult` expanded with dedicated `content: String` property alongside `description: String`.
+* `ExtensionManager.search` and `ExtensionManager.executeCustomScript` parse `description` (`desc`/`description`) and `content` (`content`) as separate fields, preventing comment text and metadata from conflating.
+* `CommentSectionView` and `AllCommentsView` render `comment.name` with `comment.description` (timestamp, rating, chapter metadata) in the header, and `comment.content` (fallback to `description`) in the comment body.
+* `SearchView` falls back gracefully across `description` -> `content` -> `author`.
+
+## Rhino and VBook Android compatibility runtime enhancements (1.3.197)
+
+* `JSExecutor`, `JSDom`, `WebViewLoader` and `JSCrypto` upgraded with comprehensive Rhino / VBook Android JavaScript compatibility APIs:
+  - `Qt.translate`: Connects to `TranslateUtils` and `TranslationManager` native translation engine supporting `"vi"`, `"vp"`, `"hv"` modes, `chapter_name`, `first_line_chapter_name`, `first_capitalize`, `person_name`, and returns `{ translateText, segments }`.
+  - `Storage`: Added `localStorage` (persistent per-extension), `cacheStorage` (in-memory RAM cache), `localConfig` (reads injected user and plugin config via `getItem`/`get`), and `localCookie` (`setCookie`, `getCookie`).
+  - `fetch`: Extended `response` with `statusText`, `url`, `headers` (dictionary access + `.get()`), `header(key)`, `blob()`, `request` (`{ url, headers }`), and `options.timeout` (ms).
+  - `JSDom`: Added `element.attributes()` (`[String: String]`), `elements.isEmpty()`, and `elements.map(callback)` directly on `JSElements`.
+  - `Engine.newBrowser`: Added `launchAsync(url)`, `waitUrl(urls, timeout)` supporting array of URLs, `html(timeout)`, `block(patterns)`, `urls()`, and `getVariable(name)`.
+  - `Utilities`: Added `Log.log(...)`, `UserAgent.system()`, and smart `Script.execute(scriptOrName, functionName, ...args)` supporting extension script file loading.
 
 ## TTS floating widget and Global Toast presented via dedicated passthrough UIWindows (1.3.195)
 

@@ -430,7 +430,7 @@ struct SearchView: View {
                                 .lineLimit(2)
                                 .multilineTextAlignment(.leading)
                             
-                            let descText = !item.result.description.isEmpty ? item.result.description : item.result.author
+                            let descText = !item.result.description.isEmpty ? item.result.description : (!item.result.content.isEmpty ? item.result.content : item.result.author)
                             Text(translateIfNeeded(descText))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -476,7 +476,7 @@ struct SearchView: View {
                                 .fontWeight(.bold)
                                 .lineLimit(2)
                             
-                            let descText = !item.result.description.isEmpty ? item.result.description : item.result.author
+                            let descText = !item.result.description.isEmpty ? item.result.description : (!item.result.content.isEmpty ? item.result.content : item.result.author)
                             Text(translateIfNeeded(descText))
                                 .font(.caption)
                                 .foregroundColor(.secondary)

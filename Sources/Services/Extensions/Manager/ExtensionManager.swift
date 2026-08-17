@@ -44,9 +44,28 @@ public struct ExtensionItemResult: Identifiable {
     public let name: String
     public let author: String
     public let description: String
+    public let content: String
     public let cover: String
     public let link: String
     public let host: String
+
+    public init(
+        name: String,
+        author: String = "",
+        description: String = "",
+        content: String = "",
+        cover: String = "",
+        link: String = "",
+        host: String = ""
+    ) {
+        self.name = name
+        self.author = author
+        self.description = description
+        self.content = content
+        self.cover = cover
+        self.link = link
+        self.host = host
+    }
 }
 public typealias SearchNovelResult = ExtensionItemResult
 
@@ -370,13 +389,14 @@ public final class ExtensionManager: ObservableObject {
                 let name = dict["name"]?.toString() ?? ""
                 let author = dict["author"]?.toString() ?? ""
                 let description = dict["description"]?.toString() ?? dict["desc"]?.toString() ?? ""
+                let content = dict["content"]?.toString() ?? ""
                 let cover = dict["cover"]?.toString() ?? ""
                 let link = dict["link"]?.toString() ?? dict["url"]?.toString() ?? ""
                 let host = dict["host"]?.toString() ?? ""
                 
                 guard !link.isEmpty else { continue }
                 
-                results.append(ExtensionItemResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
+                results.append(ExtensionItemResult(name: name, author: author, description: description, content: content, cover: cover, link: link, host: host))
             }
             // AppLogger.shared.log("✅ [ExtensionManager] search parsed \(results.count) results")
             updateDiagnostics(action: "search", input: "query: \(query), page: \(page)", status: "Success", details: "Parsed \(results.count) results:\n\(stringified)")
@@ -730,15 +750,17 @@ public final class ExtensionManager: ObservableObject {
             for dict in jsArray {
                 let name = dict["name"]?.toString() ?? dict["username"]?.toString() ?? dict["author"]?.toString() ?? ""
                 let author = dict["author"]?.toString() ?? ""
-                let description = dict["description"]?.toString() ?? dict["desc"]?.toString() ?? dict["content"]?.toString() ?? ""
+                let description = dict["description"]?.toString() ?? dict["desc"]?.toString() ?? ""
+                let content = dict["content"]?.toString() ?? ""
                 let cover = dict["cover"]?.toString() ?? ""
                 let link = dict["link"]?.toString() ?? dict["url"]?.toString() ?? ""
                 let host = dict["host"]?.toString() ?? ""
                 
                 let hasLink = !link.isEmpty
-                let hasContent = !(dict["content"]?.toString() ?? "").isEmpty
-                guard hasLink || hasContent else { continue }
-                results.append(ExtensionItemResult(name: name, author: author, description: description, cover: cover, link: link, host: host))
+                let hasContent = !content.isEmpty
+                let hasDescription = !description.isEmpty
+                guard hasLink || hasContent || hasDescription else { continue }
+                results.append(ExtensionItemResult(name: name, author: author, description: description, content: content, cover: cover, link: link, host: host))
             }
             
             var nextPageVal: String? = nil

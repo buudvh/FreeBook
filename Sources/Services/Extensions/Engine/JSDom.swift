@@ -41,6 +41,7 @@ import SwiftSoup
     func text() -> String
     func html() -> String
     func attr(_ name: String) -> String
+    func attributes() -> [String: String]
     func ownText() -> String
     func data() -> String
     func tagName() -> String
@@ -96,7 +97,9 @@ import SwiftSoup
     func eachAttr(_ name: String) -> [String]
     func array() -> [JSElement]
     var length: Int { get }
+    func isEmpty() -> Bool
     func forEach(_ callback: JSValue)
+    func map(_ callback: JSValue) -> [JSValue]
 }
 
 // MARK: - Concrete Implementations
@@ -293,6 +296,15 @@ import SwiftSoup
         } catch {
             return ""
         }
+    }
+
+    public func attributes() -> [String: String] {
+        guard let element = element, let attrs = element.getAttributes() else { return [:] }
+        var dict: [String: String] = [:]
+        for attr in attrs {
+            dict[attr.getKey()] = attr.getValue()
+        }
+        return dict
     }
     
     public func ownText() -> String {
@@ -551,5 +563,21 @@ import SwiftSoup
             let item = JSElement(elements.get(i))
             callback.call(withArguments: [item, i, self])
         }
+    }
+
+    public func isEmpty() -> Bool {
+        return elements.isEmpty()
+    }
+
+    public func map(_ callback: JSValue) -> [JSValue] {
+        var result: [JSValue] = []
+        let size = elements.size()
+        for i in 0..<size {
+            let item = JSElement(elements.get(i))
+            if let res = callback.call(withArguments: [item, i, self]) {
+                result.append(res)
+            }
+        }
+        return result
     }
 }

@@ -52,7 +52,9 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
     let webView: WKWebView
     internal var completion: ((String?) -> Void)?
     internal var waitUrlCompletion: ((Bool) -> Void)?
-    internal var targetUrlToWait: String?
+    internal var targetUrlsToWait: [String] = []
+    internal var interceptedUrls: [String] = []
+    internal var dynamicBlockedPatterns: [String] = []
 
     internal var waitForReadyCompletion: ((String) -> Void)?
     internal var isWaitingForReady = false
@@ -117,12 +119,35 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         if let url = navigationAction.request.url {
             let urlString = url.absoluteString
-            if isEngineDomainBlocked(urlString) {
+            if !interceptedUrls.contains(urlString) {
+                if interceptedUrls.count < 200 {
+                    interceptedUrls.append(urlString)
+                }
+            }
+            if isEngineDomainBlocked(urlString) || isDynamicDomainBlocked(urlString) {
                 decisionHandler(.cancel)
                 return
             }
         }
         decisionHandler(.allow)
+    }
+
+    internal func isDynamicDomainBlocked(_ urlString: String) -> Bool {
+        for pattern in dynamicBlockedPatterns {
+            if !pattern.isEmpty && urlString.contains(pattern) {
+                return true
+            }
+        }
+        return false
+    }
+
+    func block(patterns: [String]) {
+        for pattern in patterns {
+            let trimmed = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty && !dynamicBlockedPatterns.contains(trimmed) {
+                dynamicBlockedPatterns.append(trimmed)
+            }
+        }
     }
 
     func load(url: URL, timeout: TimeInterval, completion: @escaping (String?) -> Void) {
@@ -165,14 +190,21 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
         }
     }
 
-    func waitUrl(targetUrl: String, timeout: TimeInterval, completion: @escaping (Bool) -> Void) {
-        self.targetUrlToWait = targetUrl
+    func loadAsync(url: URL) {
+        let request = URLRequest(url: url)
+        DispatchQueue.main.async {
+            self.webView.load(request)
+        }
+    }
+
+    func waitUrl(targetUrls: [String], timeout: TimeInterval, completion: @escaping (Bool) -> Void) {
+        self.targetUrlsToWait = targetUrls.filter { !$0.isEmpty }
         self.waitUrlCompletion = completion
 
         DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { [weak self] in
             guard let self = self, let comp = self.waitUrlCompletion else { return }
             self.waitUrlCompletion = nil
-            self.targetUrlToWait = nil
+            self.targetUrlsToWait.removeAll()
             comp(false)
         }
     }
@@ -294,11 +326,17 @@ class WebViewLoader: NSObject, WKNavigationDelegate {
     }
 
     internal func checkWaitUrl(_ currentUrl: String?) {
-        guard let current = currentUrl, let target = targetUrlToWait, let comp = waitUrlCompletion else { return }
-        if current.contains(target) {
-            self.waitUrlCompletion = nil
-            self.targetUrlToWait = nil
-            comp(true)
+        guard let current = currentUrl, let comp = waitUrlCompletion else { return }
+        if !interceptedUrls.contains(current) && interceptedUrls.count < 200 {
+            interceptedUrls.append(current)
+        }
+        for target in targetUrlsToWait {
+            if current.contains(target) {
+                self.waitUrlCompletion = nil
+                self.targetUrlsToWait.removeAll()
+                comp(true)
+                return
+            }
         }
     }
 

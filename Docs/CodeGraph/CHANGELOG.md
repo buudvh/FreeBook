@@ -2,6 +2,74 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.200] - 2026-08-17
+
+### Đồng bộ toàn diện API `newVisibleBrowser`, Sửa lỗi kiểm tra cú pháp JS và Nâng cấp Gutter số dòng & Bộ chọn Script Editor
+
+* **Đồng bộ `newVisibleBrowser` (`VisibleWebViewLoader.swift` & `JSExecutor.swift`)**:
+  - Bổ sung `launchAsync(url)`, `html(timeout)`, `waitUrl(urls, timeout)` (hỗ trợ cả mảng URL), `block(patterns)`, `urls()` (danh sách 200 URL gần nhất), và `getVariable(name)`.
+  - Cung cấp các native bridge blocks: `_nativeBrowserLaunchAsyncVisible`, `_nativeBrowserBlockVisible`, `_nativeBrowserGetUrlsVisible`, `_nativeBrowserWaitUrlVisible`.
+* **Sửa lỗi kiểm tra cú pháp JS (`JSExecutor.swift` & `ExtensionScriptEditorView.swift`)**:
+  - Thêm `JSExecutor.validateSyntax(_ scriptContent: String)` hỗ trợ nạp script trong môi trường runtime đầy đủ.
+  - Cập nhật `validateScriptSyntax()` trong `ExtensionScriptEditorView` khởi tạo `JSExecutor(localPath: folderPath)` kèm nạp cấu hình `getCombinedConfigs` và `injectGlobals(configs)`, giải quyết dứt điểm lỗi báo sai `ReferenceError` khi dùng `load()`, `Qt`, `UserAgent`, `Crypto`, `Engine`, `Response`...
+* **Sửa lỗi lệch số dòng do xuống hàng (`HighlightingCodeEditor.swift`)**:
+  - Xây dựng `CodeEditorTextView: UITextView` tích hợp Line Number Gutter vẽ trực tiếp trong `draw(_ rect:)` dựa trên `layoutManager.lineFragmentRect(forGlyphAt:)`.
+  - Khi một dòng code dài tự động xuống hàng (word wrap), số dòng vẫn nằm chính xác ở đầu dòng logic đó, các dòng xuống hàng không bị sinh số mới, đảm bảo số dòng và mã nguồn luôn khớp 100% không bao giờ bị lệch.
+* **Bộ chọn Script dạng Select có Tìm kiếm (`ExtensionScriptEditorView.swift`)**:
+  - Thay thế thanh cuộn ngang cũ bằng nút chọn Select hiển thị tên file (`search.js`), đường dẫn thư mục phụ (`src/search.js`) và chấm cam báo chỉnh sửa.
+  - Bấm vào mở Bottom Sheet `SearchableScriptPickerSheet` với thanh tìm kiếm `TextField` lọc tức thì danh sách file theo từ khóa.
+
+## [1.3.199] - 2026-08-17
+
+### Thiết kế lại giao diện Hẹn giờ tắt & Cài đặt nhanh TTS Widget (TTSQuickTimerSheet)
+
+* **Vấn đề**: Giao diện hẹn giờ tắt của TTS Floating Widget trước đây sử dụng `.confirmationDialog` dạng danh sách nút văn bản đơn giản và `.alert` thô sơ để nhập số phút, gây cảm giác đơn điệu, thiếu trực quan và không hiển thị đồng hồ đếm ngược thời gian thực.
+* **Giải pháp**:
+  - `TTSQuickTimerSheet.swift` (Mới): Xây dựng Bottom Sheet hiện đại theo chuẩn Apple Audio Apps (`presentationDetents([.fraction(0.68), .large])`):
+    + Banner trạng thái đếm ngược thời gian thực (phút:giây) nổi bật với viền cam và nút "Hủy" nhanh.
+    + Lưới 6 mốc hẹn giờ phổ biến (`15m`, `30m`, `45m`, `60m`, `90m`, và `Hết chương` - `endOfChapter`) kèm hiệu ứng highlight mốc đang chọn.
+    + Thanh trượt và nút `+/-` tuỳ chỉnh thời gian từ 5 đến 180 phút (bước nhảy 5 phút).
+    + Phím tắt mở nhanh Bảng cài đặt giọng đọc đầy đủ (`TTSSettingsSheet`).
+  - `TTSFloatingWidgetView.swift`:
+    + Thay thế hoàn toàn `.confirmationDialog` và `.alert` cũ bằng `@State private var showingQuickTimerSheet = false` và `.sheet(isPresented: $showingQuickTimerSheet) { TTSQuickTimerSheet() }`.
+
+## [1.3.198] - 2026-08-17
+
+### Tách riêng biệt thuộc tính `description` và `content` cho ExtensionItemResult và nâng cấp giao diện hiển thị bình luận
+
+* **Vấn đề**: Trước đây, hàm bóc tách dữ liệu JS (`search` và `executeCustomScript`) gộp chung `content` vào `description` (`dict["description"] ?? dict["desc"] ?? dict["content"]`). Điều này làm lẫn lộn giữa phần mô tả tóm tắt / metadata bình luận (thời gian đăng, số sao, số chương) và phần nội dung bình luận chi tiết (`content`).
+* **Giải pháp**:
+  - `ExtensionManager.swift`:
+    + Thêm thuộc tính `public let content: String` vào `ExtensionItemResult` và cập nhật `init`.
+    + Tách riêng trích xuất `description` (`desc`/`description`) và `content` (`content`) trong cả hai hàm `search` và `executeCustomScript`.
+  - `CommentSectionView.swift` & `AllCommentsView.swift`:
+    + Cập nhật header hàng bình luận hiển thị tên người bình luận và `comment.description` (thời gian, đánh giá).
+    + Cập nhật phần thân bình luận hiển thị `comment.content` (fallback về `comment.description` nếu extension cũ chỉ trả 1 trường).
+  - `SearchView.swift`:
+    + Cập nhật dòng hiển thị mô tả tóm tắt sách với cơ chế fallback linh hoạt (`description` -> `content` -> `author`).
+
+## [1.3.197] - 2026-08-17
+
+### Bổ sung toàn diện các phương thức Quick Translator (Qt.translate), Storage, Fetch mở rộng, DOM parsing mở rộng và Browser cho VBook Extensions
+
+* **Vấn đề**: Các extension VBook nâng cao cần các hàm dịch thuật offline Quick Translator (`Qt.translate`), lưu trữ cục bộ (`localStorage`, `cacheStorage`, `localConfig`, `localCookie`), xử lý DOM nâng cao (`attributes()`, `isEmpty()`, `map()`), HTTP Fetch đầy đủ (`statusText`, `url`, `headers`, `header()`, `blob()`, `request`, `timeout`), và điều khiển trình duyệt WebKit nâng cao (`launchAsync`, `waitUrl` mảng, `block`, `urls`, `getVariable`).
+* **Giải pháp**:
+  - `JSDom.swift`:
+    + Thêm `element.attributes() -> [String: String]` vào `JSElementExport` và `JSElement`.
+    + Thêm `elements.isEmpty() -> Bool` và `elements.map(_ callback: JSValue) -> [JSValue]` vào `JSElementsExport` và `JSElements`.
+  - `WebViewLoader.swift`:
+    + Thu thập danh sách mạng `interceptedUrls: [String]` (tối đa 200 URLs).
+    + Thêm `block(patterns: [String])` và `isDynamicDomainBlocked(_:)` chặn domain động theo phiên.
+    + Nâng cấp `waitUrl(targetUrls:timeout:completion:)` nhận mảng URL strings.
+    + Thêm `loadAsync(url: URL)` tải trang ngầm không chặn luồng JS.
+  - `JSExecutor.swift`:
+    + Kết nối Quick Translator `Qt.translate(text, to, extras)` với `TranslateUtils` và `TranslationManager` native, trích xuất spans mapping thành `segments`.
+    + Đăng ký hệ thống Storage toàn cục: `localStorage` (lưu bền vững theo extension vào `UserDefaults`), `cacheStorage` (RAM cache), `localConfig` (đọc cấu hình plugin/người dùng qua `getItem`/`get`), `localCookie` (`setCookie`, `getCookie`).
+    + Mở rộng `_nativeSyncFetch` và `fetchBootstrap`: hỗ trợ `options.timeout`, bổ sung `response.statusText`, `response.url`, `response.headers` (dictionary + `.get()`), `response.header(name)`, `response.blob()`, `response.request` (`{ url, headers }`).
+    + Mở rộng `Engine.newBrowser`: hỗ trợ `launchAsync()`, `html(timeout)`, `waitUrl(urls, timeout)`, `block(patterns)`, `urls()`, `getVariable(name)`.
+    + Đăng ký `Log.log(...)` và `UserAgent.system()`, nâng cấp `Script.execute(scriptOrName, functionName, ...args)` tự động nạp file script extension nếu tham số đầu là tên file.
+    + Cập nhật `injectGlobals` tiêm đồng thời cả biến toàn cục và `_injectedConfigs` cho `localConfig`.
+
 ## [1.3.196] - 2026-08-17
 
 ### Bổ sung toàn diện các phương thức và đối tượng Rhino / VBook Android cho JSExecutor

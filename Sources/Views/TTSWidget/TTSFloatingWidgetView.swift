@@ -16,7 +16,7 @@ public final class CoverRotationState: ObservableObject {
         }
     }
 
-    private static let rotationSpeed: Double = 18.0 // 18 độ/giây = 20 giây / 1 vòng quay 360°
+    private static let rotationSpeed: Double = 24.0 // 24 độ/giây = 15 giây / 1 vòng quay 360°
     @Published private var data: RotationData = RotationData()
 
     public func syncPlaybackState(isPlaying: Bool, at date: Date = Date()) {
@@ -113,9 +113,7 @@ struct TTSWidgetCapsuleView: View {
     @ObservedObject var ttsState: TTSWidgetStateReader
     private let ttsManager = TTSManager.shared
 
-    @State private var showingTimerMenu = false
-    @State private var showingCustomTimerAlert = false
-    @State private var customMinutesInput = "90"
+    @State private var showingQuickTimerSheet = false
 
     var body: some View {
         VStack(spacing: 4) {
@@ -148,7 +146,7 @@ struct TTSWidgetCapsuleView: View {
                 Button(action: {
                     viewModel.cancelTasks()
                     viewModel.disableAutoHide = true
-                    showingTimerMenu = true
+                    showingQuickTimerSheet = true
                 }) {
                     Image(systemName: ttsState.snapshot.timerMode != .off ? "timer" : "gearshape.fill")
                         .font(.system(size: 14, weight: .semibold))
@@ -195,65 +193,11 @@ struct TTSWidgetCapsuleView: View {
             .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
             .shadow(color: .black.opacity(0.28), radius: 11, x: 0, y: 5)
         }
-        .confirmationDialog(
-            "Hẹn giờ tắt và Cài đặt",
-            isPresented: $showingTimerMenu,
-            titleVisibility: .visible
-        ) {
-            Button("Tắt hẹn giờ", role: ttsState.snapshot.timerMode != .off ? .destructive : .none) {
-                ttsManager.cancelSleepTimer()
-                viewModel.disableAutoHide = false
-                viewModel.startAutoHideTimer()
-            }
-            Button("Sau 15 phút") {
-                ttsManager.startSleepTimer(minutes: 15)
-                viewModel.disableAutoHide = false
-                viewModel.startAutoHideTimer()
-            }
-            Button("Sau 30 phút") {
-                ttsManager.startSleepTimer(minutes: 30)
-                viewModel.disableAutoHide = false
-                viewModel.startAutoHideTimer()
-            }
-            Button("Sau 45 phút") {
-                ttsManager.startSleepTimer(minutes: 45)
-                viewModel.disableAutoHide = false
-                viewModel.startAutoHideTimer()
-            }
-            Button("Sau 60 phút") {
-                ttsManager.startSleepTimer(minutes: 60)
-                viewModel.disableAutoHide = false
-                viewModel.startAutoHideTimer()
-            }
-            Button("Tuỳ chỉnh số phút...") {
-                showingCustomTimerAlert = true
-            }
-            Button("Bảng cài đặt giọng đọc") {
-                ttsManager.showingSettingsSheet = true
-                viewModel.disableAutoHide = false
-                viewModel.startAutoHideTimer()
-            }
-            Button("Hủy", role: .cancel) {
-                viewModel.disableAutoHide = false
-                viewModel.startAutoHideTimer()
-            }
-        }
-        .alert("Hẹn giờ tuỳ chỉnh", isPresented: $showingCustomTimerAlert) {
-            TextField("Số phút (ví dụ: 90)", text: $customMinutesInput)
-                .keyboardType(.numberPad)
-            Button("Đồng ý") {
-                if let mins = Int(customMinutesInput), mins > 0 {
-                    ttsManager.startSleepTimer(minutes: mins)
-                }
-                viewModel.disableAutoHide = false
-                viewModel.startAutoHideTimer()
-            }
-            Button("Hủy", role: .cancel) {
-                viewModel.disableAutoHide = false
-                viewModel.startAutoHideTimer()
-            }
-        } message: {
-            Text("Nhập số phút tự động tạm dừng nghe truyện (ví dụ: 90).")
+        .sheet(isPresented: $showingQuickTimerSheet, onDismiss: {
+            viewModel.disableAutoHide = false
+            viewModel.startAutoHideTimer()
+        }) {
+            TTSQuickTimerSheet()
         }
     }
 

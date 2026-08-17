@@ -52,17 +52,28 @@ struct AllCommentsView: View {
                                     .foregroundColor(.primary)
                                 
                                 Spacer()
+                                
+                                if !comment.description.isEmpty {
+                                    let cleanedDesc = comment.description.cleanHTML()
+                                    let descText = (isTranslationEnabled && TranslateUtils.containsChinese(cleanedDesc)) ? TranslateUtils.translateMeta(cleanedDesc) : cleanedDesc
+                                    Text(descText)
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary.opacity(0.8))
+                                }
                             }
                             
-                            let cleanedDesc = comment.description.cleanHTML()
-                            let commentText = (isTranslationEnabled && TranslateUtils.containsChinese(cleanedDesc)) ? TranslateUtils.translateMeta(cleanedDesc) : cleanedDesc
-                            ExpandableTextView(
-                                text: commentText,
-                                lineLimit: 3,
-                                font: .footnote,
-                                foregroundColor: .secondary
-                            )
-                            .padding(.leading, 36)
+                            let rawCommentContent = !comment.content.isEmpty ? comment.content : comment.description
+                            if !rawCommentContent.isEmpty {
+                                let cleanedContent = rawCommentContent.cleanHTML()
+                                let commentText = (isTranslationEnabled && TranslateUtils.containsChinese(cleanedContent)) ? TranslateUtils.translateMeta(cleanedContent) : cleanedContent
+                                ExpandableTextView(
+                                    text: commentText,
+                                    lineLimit: 3,
+                                    font: .footnote,
+                                    foregroundColor: .secondary
+                                )
+                                .padding(.leading, 36)
+                            }
                         }
                         .padding(.vertical, 4)
                         .onAppear {

@@ -67,6 +67,10 @@ public final class JSExecutor: @unchecked Sendable {
         context.setObject(console, forKeyedSubscript: "Console" as NSCopying & NSObjectProtocol)
         context.setObject(logBlock, forKeyedSubscript: "print" as NSCopying & NSObjectProtocol)
 
+        let logObj = JSValue(newObjectIn: context)
+        logObj?.setObject(logBlock, forKeyedSubscript: "log" as NSCopying & NSObjectProtocol)
+        context.setObject(logObj, forKeyedSubscript: "Log" as NSCopying & NSObjectProtocol)
+
         // Đăng ký sleep đồng bộ chuẩn Rhino / VBook
         let sleepBlock: @convention(block) (Int) -> Void = { ms in
             guard ms > 0 else { return }
@@ -97,6 +101,91 @@ public final class JSExecutor: @unchecked Sendable {
             return data.base64EncodedString()
         }
         context.setObject(btoaBlock, forKeyedSubscript: "btoa" as NSCopying & NSObjectProtocol)
+
+        // Đăng ký native bridges cho Storage (localStorage)
+        let extStoragePrefix = "vbook_ext_storage_" + (self.localPath?.md5() ?? "global") + "_"
+        let storageGetBlock: @convention(block) (String) -> String = { key in
+            UserDefaults.standard.string(forKey: extStoragePrefix + key) ?? ""
+        }
+        context.setObject(storageGetBlock, forKeyedSubscript: "_nativeStorageGet" as NSCopying & NSObjectProtocol)
+
+        let storageSetBlock: @convention(block) (String, String) -> Void = { key, val in
+            UserDefaults.standard.set(val, forKey: extStoragePrefix + key)
+        }
+        context.setObject(storageSetBlock, forKeyedSubscript: "_nativeStorageSet" as NSCopying & NSObjectProtocol)
+
+        let storageRemoveBlock: @convention(block) (String) -> Void = { key in
+            UserDefaults.standard.removeObject(forKey: extStoragePrefix + key)
+        }
+        context.setObject(storageRemoveBlock, forKeyedSubscript: "_nativeStorageRemove" as NSCopying & NSObjectProtocol)
+
+        let storageClearBlock: @convention(block) () -> Void = {
+            let defaults = UserDefaults.standard
+            for (k, _) in defaults.dictionaryRepresentation() {
+                if k.hasPrefix(extStoragePrefix) {
+                    defaults.removeObject(forKey: k)
+                }
+            }
+        }
+        context.setObject(storageClearBlock, forKeyedSubscript: "_nativeStorageClear" as NSCopying & NSObjectProtocol)
+
+        // Đăng ký native bridge cho Quick Translator (Qt.translate)
+        let qtTranslateBlock: @convention(block) (String, String, JSValue?) -> [String: Any] = { text, toLang, extrasVal in
+            guard !text.isEmpty else {
+                return ["translateText": "", "segments": []]
+            }
+            let target = toLang.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            var isChapterName = false
+            var isFirstLineChapterName = false
+            var isFirstCapitalize = false
+            var isPersonName = false
+
+            if let extras = extrasVal, extras.isObject {
+                if let chapVal = extras.objectForKeyedSubscript("chapter_name"), chapVal.isBoolean {
+                    isChapterName = chapVal.toBool()
+                }
+                if let firstChapVal = extras.objectForKeyedSubscript("first_line_chapter_name"), firstChapVal.isBoolean {
+                    isFirstLineChapterName = firstChapVal.toBool()
+                }
+                if let firstCapVal = extras.objectForKeyedSubscript("first_capitalize"), firstCapVal.isBoolean {
+                    isFirstCapitalize = firstCapVal.toBool()
+                }
+                if let personVal = extras.objectForKeyedSubscript("person_name"), personVal.isBoolean {
+                    isPersonName = personVal.toBool()
+                }
+            }
+
+            var translated = ""
+            if isChapterName || isFirstLineChapterName {
+                translated = TranslateUtils.translateChapterTitle(text)
+            } else if target == "hv" {
+                translated = TranslateUtils.translateAuthorHanViet(text)
+            } else if isPersonName {
+                translated = TranslateUtils.translateAuthorHanViet(text)
+            } else {
+                translated = TranslateUtils.translateMeta(text)
+            }
+
+            if isFirstCapitalize && !translated.isEmpty {
+                let firstChar = translated.prefix(1).uppercased()
+                let remaining = translated.dropFirst()
+                translated = firstChar + remaining
+            }
+
+            let spans = TranslateUtils.buildTranslationSpans(original: text, translated: translated)
+            let segments: [[String: Any]] = spans.map { s in
+                [
+                    "srcStart": s.originalLocation,
+                    "srcLen": s.originalLength,
+                    "transStart": s.translatedLocation,
+                    "transLen": s.translatedLength,
+                    "type": 2
+                ]
+            }
+
+            return ["translateText": translated, "segments": segments]
+        }
+        context.setObject(qtTranslateBlock, forKeyedSubscript: "_nativeQtTranslate" as NSCopying & NSObjectProtocol)
 
         // 5. Định nghĩa hàm load(filename) để nạp các file thư viện JS khác (libs.js, ...) tương tự Rhino
         let loadBlock: @convention(block) (String) -> Void = { [weak self] filename in
@@ -173,9 +262,71 @@ public final class JSExecutor: @unchecked Sendable {
         """
         context.evaluateScript(responseBootstrap)
 
+        // 6.4. Đăng ký đối tượng Storage toàn cục (localStorage, cacheStorage, localConfig, localCookie)
+        let storageBootstrap = """
+        var localStorage = {
+            getItem: function(key) {
+                var val = _nativeStorageGet(String(key));
+                return val !== "" ? val : null;
+            },
+            setItem: function(key, val) {
+                _nativeStorageSet(String(key), String(val !== null && val !== undefined ? val : ""));
+            },
+            removeItem: function(key) {
+                _nativeStorageRemove(String(key));
+            },
+            clear: function() {
+                _nativeStorageClear();
+            }
+        };
+
+        var __cacheStorageData = {};
+        var cacheStorage = {
+            getItem: function(key) {
+                return __cacheStorageData.hasOwnProperty(key) ? __cacheStorageData[key] : null;
+            },
+            setItem: function(key, val) {
+                __cacheStorageData[key] = String(val !== null && val !== undefined ? val : "");
+            },
+            removeItem: function(key) {
+                delete __cacheStorageData[key];
+            },
+            clear: function() {
+                __cacheStorageData = {};
+            }
+        };
+
+        var localConfig = {
+            getItem: function(key) {
+                if (typeof _injectedConfigs !== 'undefined' && _injectedConfigs && _injectedConfigs.hasOwnProperty(key)) {
+                    return _injectedConfigs[key];
+                }
+                if (typeof this[key] !== 'undefined') {
+                    return this[key];
+                }
+                return null;
+            },
+            get: function(key) {
+                return this.getItem(key);
+            }
+        };
+
+        var __cookieData = "";
+        var localCookie = {
+            setCookie: function(cookieStr) {
+                __cookieData = String(cookieStr || "");
+            },
+            getCookie: function(url) {
+                return __cookieData;
+            }
+        };
+        """
+        context.evaluateScript(storageBootstrap)
+
         // 6.5. Đăng ký đối tượng UserAgent toàn cục với đầy đủ phương thức VBook
         let userAgentBootstrap = """
         var UserAgent = {
+            system: function() { return "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"; },
             android: function() { return "Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"; },
             ios: function() { return "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"; },
             pc: function() { return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"; },
@@ -194,9 +345,12 @@ public final class JSExecutor: @unchecked Sendable {
         """
         context.evaluateScript(userAgentBootstrap)
 
-        // 6.6. Đăng ký đối tượng toàn cục Qt tương thích QML / VBook
+        // 6.6. Đăng ký đối tượng toàn cục Qt (Quick Translator & Utilities)
         let qtBootstrap = """
         var Qt = {
+            translate: function(text, to, extras) {
+                return _nativeQtTranslate(text || "", to || "vi", extras || null);
+            },
             atob: function(s) { return atob(s); },
             btoa: function(s) { return btoa(s); },
             md5: function(s) { return typeof Crypto !== 'undefined' && Crypto.md5 ? Crypto.md5(s) : s; },
@@ -224,10 +378,22 @@ public final class JSExecutor: @unchecked Sendable {
         // 6.7. Đăng ký đối tượng Script toàn cục (hỗ trợ thực thi script động tương thích VBook) và đối tượng Http
         let scriptBootstrap = """
         var Script = {
-            execute: function(scriptContent, functionName) {
+            execute: function(scriptOrName, functionName) {
                 var args = Array.prototype.slice.call(arguments, 2);
                 try {
-                    eval(scriptContent);
+                    var isFile = false;
+                    if (typeof scriptOrName === 'string') {
+                        var trimmed = scriptOrName.trim();
+                        if (trimmed.endsWith(".js") || (!trimmed.includes(";") && !trimmed.includes("\\n") && !trimmed.includes("{") && !trimmed.includes(" "))) {
+                            if (typeof load === 'function') {
+                                load(trimmed.endsWith(".js") ? trimmed : (trimmed + ".js"));
+                                isFile = true;
+                            }
+                        }
+                    }
+                    if (!isFile) {
+                        eval(scriptOrName);
+                    }
                     var fn = eval(functionName);
                     if (typeof fn === 'function') {
                         return fn.apply(null, args);
@@ -409,13 +575,24 @@ public final class JSExecutor: @unchecked Sendable {
             var resultHtml = ""
             var resultRawBase64 = ""
             var statusCode = 200
+            var statusText = "OK"
+            var finalUrl = resolvedUrlString
             var responseHeaders: [String: String] = [:]
+            var timeoutSeconds: TimeInterval = 15.0
             let semaphore = DispatchSemaphore(value: 0)
 
             var request = URLRequest(url: url)
             request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1", forHTTPHeaderField: "User-Agent")
 
             if let options = optionsVal, options.isObject {
+                // Timeout
+                if let timeoutVal = options.objectForKeyedSubscript("timeout"), timeoutVal.isNumber {
+                    let ms = timeoutVal.toDouble()
+                    if ms > 0 {
+                        timeoutSeconds = max(1.0, min(120.0, ms / 1000.0))
+                    }
+                }
+
                 // Method
                 if let methodVal = options.objectForKeyedSubscript("method"), methodVal.isString {
                     request.httpMethod = methodVal.toString().uppercased()
@@ -441,6 +618,7 @@ public final class JSExecutor: @unchecked Sendable {
             } else {
                 request.httpMethod = "GET"
             }
+            request.timeoutInterval = timeoutSeconds
 
             let taskID = self.reserveNetworkTaskID()
             let task = URLSession.shared.dataTask(with: request) { data, response, error in
@@ -451,10 +629,15 @@ public final class JSExecutor: @unchecked Sendable {
                 if error != nil {
                     // AppLogger.shared.log("❌ [JSExecutor] Fetch error: \(error.localizedDescription)")
                     statusCode = 500
+                    statusText = error?.localizedDescription ?? "Network Error"
                 }
                 var isBinaryResponse = false
                 if let httpResponse = response as? HTTPURLResponse {
                     statusCode = httpResponse.statusCode
+                    statusText = HTTPURLResponse.localizedString(forStatusCode: statusCode)
+                    if let u = httpResponse.url?.absoluteString, !u.isEmpty {
+                        finalUrl = u
+                    }
                     let mimeType = httpResponse.mimeType?.lowercased() ?? ""
                     isBinaryResponse = mimeType.hasPrefix("audio/") ||
                         mimeType.hasPrefix("video/") ||
@@ -478,12 +661,13 @@ public final class JSExecutor: @unchecked Sendable {
 
             guard self.registerNetworkTask(task, id: taskID) else {
                 task.cancel()
-                return ["html": "", "status": 499, "raw": "", "headers": [String: String]()]
+                return ["html": "", "status": 499, "statusText": "Cancelled", "raw": "", "headers": [String: String](), "url": resolvedUrlString]
             }
             task.resume()
-            let waitResult = semaphore.wait(timeout: .now() + 10.0)
+            let waitResult = semaphore.wait(timeout: .now() + timeoutSeconds)
             if waitResult == .timedOut {
                 statusCode = 408
+                statusText = "Request Timeout"
                 self.unregisterNetworkTask(id: taskID)
                 task.cancel()
                 // URLSession cancellation normally completes immediately. The
@@ -492,7 +676,7 @@ public final class JSExecutor: @unchecked Sendable {
                 _ = semaphore.wait(timeout: .now() + 1.0)
             }
 
-            return ["html": resultHtml, "status": statusCode, "raw": resultRawBase64, "headers": responseHeaders]
+            return ["html": resultHtml, "status": statusCode, "statusText": statusText, "raw": resultRawBase64, "headers": responseHeaders, "url": finalUrl]
         }
         context.setObject(syncFetchBlock, forKeyedSubscript: "_nativeSyncFetch" as NSCopying & NSObjectProtocol)
 
@@ -524,6 +708,9 @@ public final class JSExecutor: @unchecked Sendable {
         // 8. Đăng ký fetch đồng bộ ghi đè fetch Promise mặc định
         let fetchBootstrap = """
         var fetch = function(url, options) {
+            var originalUrl = url;
+            var originalHeaders = (options && options.headers) ? options.headers : {};
+
             if (options && options.queries && typeof options.queries === 'object') {
                 var qParams = [];
                 for (var qKey in options.queries) {
@@ -572,20 +759,19 @@ public final class JSExecutor: @unchecked Sendable {
 
             var res = _nativeSyncFetch(url, options || null);
             var headersMap = res.headers || {};
-            return {
+            var responseObj = {
                 ok: res.status >= 200 && res.status < 300,
                 status: res.status,
-                headers: {
-                    get: function(name) {
-                        if (!name) return null;
-                        var lowerName = name.toLowerCase();
-                        for (var key in headersMap) {
-                            if (key.toLowerCase() === lowerName) {
-                                return headersMap[key];
-                            }
-                        }
-                        return null;
+                statusText: res.statusText || (res.status === 200 ? "OK" : "Status " + res.status),
+                url: res.url || originalUrl,
+                headers: headersMap,
+                header: function(name) {
+                    if (!name) return null;
+                    var lower = name.toLowerCase();
+                    for (var k in headersMap) {
+                        if (k.toLowerCase() === lower) return headersMap[k];
                     }
+                    return null;
                 },
                 html: function(encoding) {
                     var htmlText = "";
@@ -594,7 +780,7 @@ public final class JSExecutor: @unchecked Sendable {
                     } else {
                         htmlText = res.html || "";
                     }
-                    return Html.parseWithBase(htmlText, url);
+                    return Html.parseWithBase(htmlText, res.url || originalUrl);
                 },
                 text: function(encoding) {
                     if (encoding && res.raw) {
@@ -607,8 +793,27 @@ public final class JSExecutor: @unchecked Sendable {
                 },
                 base64: function() {
                     return res.raw || "";
+                },
+                blob: function() {
+                    var contentType = this.header("content-type") || "application/octet-stream";
+                    var rawBase64 = res.raw || "";
+                    return {
+                        size: Math.round(rawBase64.length * 3 / 4),
+                        type: contentType,
+                        base64: function() { return rawBase64; }
+                    };
+                },
+                request: {
+                    url: originalUrl,
+                    headers: originalHeaders
                 }
             };
+
+            responseObj.headers.get = function(name) {
+                return responseObj.header(name);
+            };
+
+            return responseObj;
         };
         """
         context.evaluateScript(fetchBootstrap)
@@ -680,14 +885,54 @@ public final class JSExecutor: @unchecked Sendable {
         }
         context.setObject(browserCallJsBlock, forKeyedSubscript: "_nativeBrowserCallJs" as NSCopying & NSObjectProtocol)
 
-        let browserWaitUrlBlock: @convention(block) (String, String, Double) -> Bool = { [weak self] browserId, targetUrl, timeoutMs in
+        let browserLaunchAsyncBlock: @convention(block) (String, String) -> Void = { [weak self] browserId, urlString in
+            guard let self = self, let url = URL(string: urlString) else { return }
+            DispatchQueue.main.async {
+                guard let loader = self.activeBrowsers[browserId] else { return }
+                loader.loadAsync(url: url)
+            }
+        }
+        context.setObject(browserLaunchAsyncBlock, forKeyedSubscript: "_nativeBrowserLaunchAsync" as NSCopying & NSObjectProtocol)
+
+        let browserBlockPatternsBlock: @convention(block) (String, [String]) -> Void = { [weak self] browserId, patterns in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
+                guard let loader = self.activeBrowsers[browserId] else { return }
+                loader.block(patterns: patterns)
+            }
+        }
+        context.setObject(browserBlockPatternsBlock, forKeyedSubscript: "_nativeBrowserBlock" as NSCopying & NSObjectProtocol)
+
+        let browserGetUrlsBlock: @convention(block) (String) -> [String] = { [weak self] browserId in
+            guard let self = self else { return [] }
+            var urls: [String] = []
+            if Thread.isMainThread {
+                urls = self.activeBrowsers[browserId]?.interceptedUrls ?? []
+            } else {
+                DispatchQueue.main.sync {
+                    urls = self.activeBrowsers[browserId]?.interceptedUrls ?? []
+                }
+            }
+            return urls
+        }
+        context.setObject(browserGetUrlsBlock, forKeyedSubscript: "_nativeBrowserGetUrls" as NSCopying & NSObjectProtocol)
+
+        let browserWaitUrlBlock: @convention(block) (String, JSValue, Double) -> Bool = { [weak self] browserId, targetUrlsVal, timeoutMs in
             guard let self = self else { return false }
             var waitSuccess = false
+            var targets: [String] = []
+            if targetUrlsVal.isArray {
+                if let arr = targetUrlsVal.toArray() as? [String] {
+                    targets = arr
+                }
+            } else if targetUrlsVal.isString {
+                targets = [targetUrlsVal.toString()]
+            }
 
             let semaphore = DispatchSemaphore(value: 0)
             DispatchQueue.main.async {
                 guard let loader = self.activeBrowsers[browserId] else { semaphore.signal(); return }
-                loader.waitUrl(targetUrl: targetUrl, timeout: timeoutMs / 1000.0) { success in
+                loader.waitUrl(targetUrls: targets, timeout: timeoutMs / 1000.0) { success in
                     waitSuccess = success
                     semaphore.signal()
                 }
@@ -852,14 +1097,54 @@ public final class JSExecutor: @unchecked Sendable {
         }
         context.setObject(browserCallJsVisibleBlock, forKeyedSubscript: "_nativeBrowserCallJsVisible" as NSCopying & NSObjectProtocol)
 
-        let browserWaitUrlVisibleBlock: @convention(block) (String, String, Double) -> Bool = { [weak self] browserId, targetUrl, timeoutMs in
+        let browserLaunchAsyncVisibleBlock: @convention(block) (String, String) -> Void = { [weak self] browserId, urlString in
+            guard let self = self, let url = URL(string: urlString) else { return }
+            DispatchQueue.main.async {
+                guard let loader = self.activeVisibleBrowsers[browserId] else { return }
+                loader.loadAsync(url: url)
+            }
+        }
+        context.setObject(browserLaunchAsyncVisibleBlock, forKeyedSubscript: "_nativeBrowserLaunchAsyncVisible" as NSCopying & NSObjectProtocol)
+
+        let browserBlockVisibleBlock: @convention(block) (String, [String]) -> Void = { [weak self] browserId, patterns in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
+                guard let loader = self.activeVisibleBrowsers[browserId] else { return }
+                loader.block(patterns: patterns)
+            }
+        }
+        context.setObject(browserBlockVisibleBlock, forKeyedSubscript: "_nativeBrowserBlockVisible" as NSCopying & NSObjectProtocol)
+
+        let browserGetUrlsVisibleBlock: @convention(block) (String) -> [String] = { [weak self] browserId in
+            guard let self = self else { return [] }
+            var urls: [String] = []
+            if Thread.isMainThread {
+                urls = self.activeVisibleBrowsers[browserId]?.interceptedUrls ?? []
+            } else {
+                DispatchQueue.main.sync {
+                    urls = self.activeVisibleBrowsers[browserId]?.interceptedUrls ?? []
+                }
+            }
+            return urls
+        }
+        context.setObject(browserGetUrlsVisibleBlock, forKeyedSubscript: "_nativeBrowserGetUrlsVisible" as NSCopying & NSObjectProtocol)
+
+        let browserWaitUrlVisibleBlock: @convention(block) (String, JSValue, Double) -> Bool = { [weak self] browserId, targetUrlsVal, timeoutMs in
             guard let self = self else { return false }
             var waitSuccess = false
+            var targets: [String] = []
+            if targetUrlsVal.isArray {
+                if let arr = targetUrlsVal.toArray() as? [String] {
+                    targets = arr
+                }
+            } else if targetUrlsVal.isString {
+                targets = [targetUrlsVal.toString()]
+            }
 
             let semaphore = DispatchSemaphore(value: 0)
             DispatchQueue.main.async {
                 guard let loader = self.activeVisibleBrowsers[browserId] else { semaphore.signal(); return }
-                loader.waitUrl(targetUrl: targetUrl, timeout: timeoutMs / 1000.0) { success in
+                loader.waitUrl(targetUrls: targets, timeout: timeoutMs / 1000.0) { success in
                     waitSuccess = success
                     semaphore.signal()
                 }
@@ -965,7 +1250,14 @@ public final class JSExecutor: @unchecked Sendable {
                         var html = _nativeBrowserLaunch(this._id, url, timeout || 5000);
                         return Html.parseWithBase(html, url);
                     },
-                    html: function() {
+                    launchAsync: function(url) {
+                        console.log("🤖 [Engine.Browser] launchAsync(" + url + ")");
+                        _nativeBrowserLaunchAsync(this._id, url);
+                    },
+                    html: function(timeout) {
+                        if (timeout && timeout > 0) {
+                            sleep(timeout);
+                        }
                         var html = _nativeBrowserGetHtml(this._id);
                         return Html.parse(html || "");
                     },
@@ -981,9 +1273,20 @@ public final class JSExecutor: @unchecked Sendable {
                         var result = _nativeBrowserCallJs(this._id, script, waitTime || 0);
                         return result;
                     },
-                    waitUrl: function(url, timeout) {
-                        console.log("🤖 [Engine.Browser] waitUrl(" + url + ")");
-                        return _nativeBrowserWaitUrl(this._id, url, timeout || 5000);
+                    waitUrl: function(urls, timeout) {
+                        console.log("🤖 [Engine.Browser] waitUrl()");
+                        return _nativeBrowserWaitUrl(this._id, urls, timeout || 5000);
+                    },
+                    block: function(patterns) {
+                        console.log("🤖 [Engine.Browser] block()");
+                        var arr = Array.isArray(patterns) ? patterns : [patterns];
+                        _nativeBrowserBlock(this._id, arr);
+                    },
+                    urls: function() {
+                        return _nativeBrowserGetUrls(this._id);
+                    },
+                    getVariable: function(varName) {
+                        return this.callJs(varName, 0);
                     },
                     waitForReady: function(probeScript, timeout, interval, stablePasses) {
                         console.log("🤖 [Engine.Browser] waitForReady()");
@@ -1012,7 +1315,14 @@ public final class JSExecutor: @unchecked Sendable {
                         var html = _nativeBrowserLaunchVisible(this._id, url, timeout || 15000);
                         return Html.parseWithBase(html, url);
                     },
-                    html: function() {
+                    launchAsync: function(url) {
+                        console.log("👁️ [Engine.VisibleBrowser] launchAsync(" + url + ")");
+                        _nativeBrowserLaunchAsyncVisible(this._id, url);
+                    },
+                    html: function(timeout) {
+                        if (timeout && timeout > 0) {
+                            sleep(timeout);
+                        }
                         var html = _nativeBrowserGetHtmlVisible(this._id);
                         return Html.parse(html || "");
                     },
@@ -1028,9 +1338,20 @@ public final class JSExecutor: @unchecked Sendable {
                         var result = _nativeBrowserCallJsVisible(this._id, script, waitTime || 0);
                         return result;
                     },
-                    waitUrl: function(url, timeout) {
-                        console.log("👁️ [Engine.VisibleBrowser] waitUrl(" + url + ")");
-                        return _nativeBrowserWaitUrlVisible(this._id, url, timeout || 15000);
+                    waitUrl: function(urls, timeout) {
+                        console.log("👁️ [Engine.VisibleBrowser] waitUrl()");
+                        return _nativeBrowserWaitUrlVisible(this._id, urls, timeout || 15000);
+                    },
+                    block: function(patterns) {
+                        console.log("👁️ [Engine.VisibleBrowser] block()");
+                        var arr = Array.isArray(patterns) ? patterns : [patterns];
+                        _nativeBrowserBlockVisible(this._id, arr);
+                    },
+                    urls: function() {
+                        return _nativeBrowserGetUrlsVisible(this._id);
+                    },
+                    getVariable: function(varName) {
+                        return this.callJs(varName, 0);
                     },
                     waitForReady: function(probeScript, timeout, interval, stablePasses) {
                         console.log("👁️ [Engine.VisibleBrowser] waitForReady()");
@@ -1128,6 +1449,23 @@ public final class JSExecutor: @unchecked Sendable {
         for (key, value) in globals {
             context.setObject(value, forKeyedSubscript: key as NSCopying & NSObjectProtocol)
         }
+        context.setObject(globals, forKeyedSubscript: "_injectedConfigs" as NSCopying & NSObjectProtocol)
+    }
+
+    /// Kiểm tra tính hợp lệ cú pháp của script JS trong môi trường runtime đầy đủ của extension
+    public func validateSyntax(_ scriptContent: String) -> (isValid: Bool, errorMessage: String?) {
+        var syntaxError: String? = nil
+        context.exceptionHandler = { _, exception in
+            if let exc = exception {
+                syntaxError = exc.toString()
+            }
+        }
+
+        _ = context.evaluateScript(scriptContent)
+        if let err = syntaxError {
+            return (false, err)
+        }
+        return (true, nil)
     }
 
     internal var isCurrentExecutionCancelled: Bool {

@@ -8,9 +8,11 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
     let titleString: String
     var onDismiss: (() -> Void)?
     
+    public private(set) var interceptedUrls: [String] = []
+    internal var dynamicBlockedPatterns: [String] = []
     internal var navigationCompletion: ((String?) -> Void)?
     internal var waitUrlCompletion: ((Bool) -> Void)?
-    internal var targetUrlToWait: String?
+    internal var targetUrlsToWait: [String]?
 
     init(title: String) {
         self.titleString = title
@@ -52,10 +54,25 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
         onDismiss?()
     }
 
+    public func isDynamicDomainBlocked(_ urlString: String) -> Bool {
+        let lower = urlString.lowercased()
+        for pattern in dynamicBlockedPatterns {
+            if lower.contains(pattern.lowercased()) {
+                return true
+            }
+        }
+        return false
+    }
+
     public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         if let url = navigationAction.request.url {
             let urlString = url.absoluteString
-            if isEngineDomainBlocked(urlString) {
+            if interceptedUrls.count >= 200 {
+                interceptedUrls.removeFirst()
+            }
+            interceptedUrls.append(urlString)
+
+            if isEngineDomainBlocked(urlString) || isDynamicDomainBlocked(urlString) {
                 decisionHandler(.cancel)
                 return
             }
@@ -64,11 +81,14 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
     }
 
     internal func checkWaitUrl(_ currentUrl: String?) {
-        guard let current = currentUrl, let target = targetUrlToWait, let comp = waitUrlCompletion else { return }
-        if current.contains(target) {
-            self.waitUrlCompletion = nil
-            self.targetUrlToWait = nil
-            comp(true)
+        guard let current = currentUrl, let targets = targetUrlsToWait, let comp = waitUrlCompletion else { return }
+        for target in targets {
+            if current.contains(target) {
+                self.waitUrlCompletion = nil
+                self.targetUrlsToWait = nil
+                comp(true)
+                break
+            }
         }
     }
 
@@ -104,6 +124,7 @@ public final class VisibleWebViewController: UIViewController, WKNavigationDeleg
 public final class VisibleWebViewLoader: NSObject, UIAdaptivePresentationControllerDelegate {
     public let id: String
     public var titleString: String { viewController.titleString }
+    public var interceptedUrls: [String] { viewController.interceptedUrls }
     let viewController: VisibleWebViewController
     internal var isCleaningUp = false
     var onClose: (() -> Void)?
@@ -241,14 +262,26 @@ public final class VisibleWebViewLoader: NSObject, UIAdaptivePresentationControl
         }
     }
 
-    func waitUrl(targetUrl: String, timeout: TimeInterval, completion: @escaping (Bool) -> Void) {
-        self.viewController.targetUrlToWait = targetUrl
+    func loadAsync(url: URL) {
+        let request = URLRequest(url: url)
+        DispatchQueue.main.async {
+            self.presentUIIfNeeded()
+            self.viewController.webView.load(request)
+        }
+    }
+
+    func block(patterns: [String]) {
+        self.viewController.dynamicBlockedPatterns.append(contentsOf: patterns)
+    }
+
+    func waitUrl(targetUrls: [String], timeout: TimeInterval, completion: @escaping (Bool) -> Void) {
+        self.viewController.targetUrlsToWait = targetUrls
         self.viewController.waitUrlCompletion = completion
 
         DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { [weak self] in
             guard let self = self, let comp = self.viewController.waitUrlCompletion else { return }
             self.viewController.waitUrlCompletion = nil
-            self.viewController.targetUrlToWait = nil
+            self.viewController.targetUrlsToWait = nil
             comp(false)
         }
     }

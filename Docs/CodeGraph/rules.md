@@ -212,11 +212,14 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
 *   **Script Entrypoint**: Tên hàm bắt đầu thực thi bên trong toàn bộ các tệp JavaScript (`search.js`, `detail.js`, `toc.js`, `chap.js`, `genre.js`, `home.js`) phải là `execute(...)`, được gọi bất đồng bộ qua `runAsync` trong `ExtensionManager.swift`.
 *   **Script File Path Resolution**: Các tệp JS script có thể đặt ở thư mục gốc của extension hoặc trong thư mục `src/`. `ExtensionManager` sẽ quét cả hai vị trí này.
 *   **Injected Global JS Objects**: Các đối tượng global được inject vào `JSContext`:
-    *   `Html`: Parser cầu nối DOM (`Html.parse(...)`).
-    *   `console`: Chuyển hướng `console.log` ra console in logs.
-    *   `fetch`: API tải mạng bất đồng bộ.
+    *   `Html`: Parser cầu nối DOM (`Html.parse(...)`, `element.attributes()`, `elements.isEmpty()`, `elements.map()`).
+    *   `console`, `Console`, `print`, `Log`: Chuyển hướng `log` ra console in logs (`AppLogger`).
+    *   `fetch`: API tải mạng đồng bộ/bất đồng bộ kèm `response.statusText`, `url`, `headers`, `header()`, `blob()`, `request`.
     *   `Response`: `Response.success(data)` và `Response.error(message)`.
-    *   `Engine`: Headless browser giả lập đồng bộ (`Engine.newBrowser()`).
+    *   `Engine`: Headless browser giả lập (`Engine.newBrowser()`, `newVisibleBrowser()`).
+    *   `Qt`: Quick Translator bridge (`Qt.translate(text, to, extras)`) và các tiện ích mã hóa.
+    *   `localStorage`, `cacheStorage`, `localConfig`, `localCookie`: Hệ thống lưu trữ và cấu hình tiện ích mở rộng.
+    *   `UserAgent`, `Crypto`, `Script`, `Http`: Các bộ công cụ giả lập môi trường VBook Android & WebKit.
 
 ---
 
