@@ -4,15 +4,16 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.195] - 2026-08-17
 
-### Trình bày TTS Floating Widget qua Passthrough UIWindow với Bounded Container native
+### Trình bày TTS Floating Widget & Global Toast qua Passthrough UIWindow chuyên dụng
 
-* **Vấn đề**: Khi mở Reader (`ReaderView` qua `fullScreenCover`), trình duyệt bypass (`BypassWebView` qua `fullScreenCover`) hoặc trình duyệt `Engine.newVisibleBrowser` (`TabbedVisibleBrowserViewController` qua `present(pageSheet)`), widget TTS trong `AppLaunchRootView` bị che khuất. Các giải pháp trước (fullScreenCover ở gốc hoặc UIWindow dựa vào cached `widgetFrame` bất đồng bộ) làm chặn touch của app hoặc làm rơi gesture drag.
+* **Vấn đề**: Khi mở Reader (`ReaderView` qua `fullScreenCover`), trình duyệt bypass (`BypassWebView` qua `fullScreenCover`) hoặc trình duyệt `Engine.newVisibleBrowser` (`TabbedVisibleBrowserViewController` qua `present(pageSheet)`), widget TTS và các thông báo Toast toàn cục trong `AppLaunchRootView` bị che khuất.
 * **Giải pháp**:
   - `TTSFloatingWidgetWindowManager`: Tạo `FloatingWidgetUIWindow` (`windowLevel = .alert - 1`, non-key, `isHidden = false/true`) gắn với `UIWindowScene` active. Tuyệt đối không gọi `makeKeyAndVisible()`.
-  - `FloatingWidgetUIWindow.hitTest`: Ranh giới hit-testing native duy nhất: khi container có `presentedViewController` (e.g. `confirmationDialog` hoặc `.alert`), trả về `super.hitTest` để toàn bộ dialog nhận touch; khi ở chế độ widget thông thường, chỉ trả về `widgetContainerView` khi chạm trong bounds, còn mọi điểm ngoài trả `nil` để rơi xuống màn hình bên dưới (Reader/WebView/Shelf).
+  - `FloatingWidgetUIWindow.hitTest`: Ranh giới hit-testing native duy nhất: khi container có `presentedViewController` (e.g. `confirmationDialog`, `.alert`, hoặc `TTSSettingsSheet`), trả về `super.hitTest` để toàn bộ dialog/sheet nhận touch; khi ở chế độ widget thông thường, chỉ trả về `widgetContainerView` khi chạm trong bounds, còn mọi điểm ngoài trả `nil` để rơi xuống màn hình bên dưới (Reader/WebView/Shelf).
   - `FloatingWidgetContainerViewController`: Quản lý bounded container (212x56/80 hoặc 52x52), gắn `UIPanGestureRecognizer` kéo 1:1 theo tần số quét của thiết bị, `UITapGestureRecognizer` (chỉ bật khi `.peeking`), và spring animation snap mép/resize chuẩn anchor.
-  - `TTSFloatingWidgetView.swift`: Tách thành `TTSWidgetContentView`, `TTSWidgetCapsuleView`, `TTSWidgetPeekCircleView`. Sử dụng trực tiếp `.confirmationDialog` và `.alert` native trong SwiftUI. Khi mở bảng cài đặt giọng đọc, `TTSManager.shared.showingSettingsSheet` tự động ẩn floating window để hiển thị sheet toàn màn hình của app.
-  - `FreeBookApp.swift`: Gỡ bỏ widget khỏi `ZStack` của `AppLaunchRootView`, gắn hook `TTSFloatingWidgetWindowManager.shared.refreshState()`.
+  - `TTSFloatingWidgetView.swift`: Tách thành `TTSWidgetContentView`, `TTSWidgetCapsuleView`, `TTSWidgetPeekCircleView`. Sử dụng trực tiếp `.confirmationDialog` và `.alert` native trong SwiftUI. `TTSSettingsSheet` được chuyển vào `TTSWidgetContentView` (bên trong `FloatingWidgetUIWindow`), loại bỏ xung đột modal presentation trên root view controller làm đóng `ReaderView`.
+  - `ToastManager.swift`: Nâng cấp hiển thị qua `ToastUIWindow` chuyên dụng (`windowLevel = .alert`, non-key, `hitTest = nil`), giúp toàn bộ thông báo toast trong ứng dụng (sao chép, lưu từ điển, cập nhật mục lục, tải chương...) hiển thị nổi rõ ràng trên `ReaderView`, `BypassWebView` và trình duyệt mà không chặn touch.
+  - `FreeBookApp.swift`: Gỡ bỏ widget và `TTSSettingsSheet` khỏi `AppLaunchRootView`, gắn hook `TTSFloatingWidgetWindowManager.shared.refreshState()`.
   - Giữ nguyên 100% API của `FloatingWidgetViewModel` và các unit test hiện có trong `FloatingWidgetViewModelTests.swift`.
 * **XcodeGen**: Có thêm file mới `Sources/Views/TTSWidget/TTSFloatingWidgetWindowManager.swift` → cần chạy `xcodegen generate` trên máy macOS khi tạo lại `.xcodeproj`.
 

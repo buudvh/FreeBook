@@ -31,7 +31,6 @@ public final class TTSFloatingWidgetWindowManager {
     public func refreshState() {
         let shouldShow = TranslationManager.shared.isInitialized
             && TTSManager.shared.showFloatingWidget
-            && !TTSManager.shared.showingSettingsSheet
 
         if shouldShow {
             showWidget()

@@ -63,12 +63,6 @@ struct AppLaunchRootView: View {
             }
         }
         .globalToast()
-        .sheet(isPresented: Binding(
-            get: { ttsPresentation.snapshot.showingSettingsSheet },
-            set: { TTSManager.shared.showingSettingsSheet = $0 }
-        )) {
-            TTSSettingsSheet()
-        }
         .onAppear {
             BookStorageManager.shared.drainRetryQueue()
             BookStorageManager.shared.retryFailedChapterStoreDeletions()
@@ -78,9 +72,6 @@ struct AppLaunchRootView: View {
             TTSFloatingWidgetWindowManager.shared.refreshState()
         }
         .onChange(of: ttsPresentation.snapshot.showFloatingWidget) { _, _ in
-            TTSFloatingWidgetWindowManager.shared.refreshState()
-        }
-        .onChange(of: ttsPresentation.snapshot.showingSettingsSheet) { _, _ in
             TTSFloatingWidgetWindowManager.shared.refreshState()
         }
         .task(id: translationManager.isInitialized) {

@@ -15,10 +15,10 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## TTS floating widget window and bounded presentation lifecycle (1.3.195)
+## TTS floating widget and Toast window lifecycle (1.3.195)
 
 * `TTSFloatingWidgetWindowManager` binds `FloatingWidgetUIWindow` to the active `UIWindowScene` on scene activation or app foreground. The window is non-key at all times, with visibility controlled strictly via `isHidden = false/true`.
-* When `showingSettingsSheet` becomes true or `showFloatingWidget` becomes false, `refreshState()` sets `isHidden = true`, cleanly releasing touch handling and leaving no invisible touch-blocking views.
+* `ToastManager` dynamically attaches `ToastUIWindow` (`windowLevel = .alert`) on demand when a toast is shown, and sets `isHidden = true` when the auto-hide animation completes after 3 seconds.
 * `FloatingWidgetViewModel` remains the single source of truth for the 3-second auto-hide task and state persistence (`UserDefaults`), ensuring no duplicate or competing timers.
 
 ## Reader presentation lifecycle (1.3.192)

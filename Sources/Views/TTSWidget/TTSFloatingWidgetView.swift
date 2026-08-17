@@ -4,6 +4,7 @@ import UIKit
 /// View nội dung hiển thị bên trong bounded container của widget TTS.
 struct TTSWidgetContentView: View {
     @ObservedObject var viewModel: FloatingWidgetViewModel
+    @ObservedObject private var ttsManager = TTSManager.shared
     @StateObject private var ttsState = TTSWidgetStateReader()
     @StateObject private var coverLoader = TTSCoverImageLoader()
 
@@ -18,6 +19,9 @@ struct TTSWidgetContentView: View {
                     ttsState: ttsState
                 )
             }
+        }
+        .sheet(isPresented: $ttsManager.showingSettingsSheet) {
+            TTSSettingsSheet()
         }
         .onAppear {
             refreshCover()
