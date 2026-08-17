@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import Combine
+import SwiftData
 
 /// Điều phối UIWindow riêng cho widget TTS nổi trên toàn bộ màn hình (Reader, Bypass WebView, Visible Browser, Sheets...).
 /// Cửa sổ này luôn là non-key window (không bao giờ gọi makeKeyAndVisible), nền trong suốt,
@@ -9,6 +10,7 @@ import Combine
 public final class TTSFloatingWidgetWindowManager {
     public static let shared = TTSFloatingWidgetWindowManager()
 
+    public var modelContainer: ModelContainer?
     private var window: FloatingWidgetUIWindow?
     private var containerViewController: FloatingWidgetContainerViewController?
     private var isPresented = false
@@ -107,7 +109,7 @@ final class FloatingWidgetUIWindow: UIWindow {
     weak var containerViewController: FloatingWidgetContainerViewController?
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        // Khi container đang hiển thị confirmationDialog hoặc alert, cho phép touch đầy đủ để tương tác dialog
+        // Khi container đang hiển thị confirmationDialog, alert hoặc sheet, cho phép touch đầy đủ để tương tác dialog
         if containerViewController?.presentedViewController != nil {
             return super.hitTest(point, with: event)
         }
@@ -133,7 +135,7 @@ final class FloatingWidgetUIWindow: UIWindow {
 final class FloatingWidgetContainerViewController: UIViewController, UIGestureRecognizerDelegate {
     private let viewModel = FloatingWidgetViewModel()
     let widgetContainerView = UIView()
-    private var hostingController: UIHostingController<TTSWidgetContentView>?
+    private var hostingController: UIHostingController<AnyView>?
     private var panStartCenter: CGPoint = .zero
     private var cancellables = Set<AnyCancellable>()
 
@@ -160,7 +162,13 @@ final class FloatingWidgetContainerViewController: UIViewController, UIGestureRe
         view.addSubview(widgetContainerView)
 
         let contentView = TTSWidgetContentView(viewModel: viewModel)
-        let hosting = UIHostingController(rootView: contentView)
+        let hostingView: AnyView
+        if let container = TTSFloatingWidgetWindowManager.shared.modelContainer {
+            hostingView = AnyView(contentView.modelContainer(container))
+        } else {
+            hostingView = AnyView(contentView)
+        }
+        let hosting = UIHostingController(rootView: hostingView)
         hosting.view.backgroundColor = .clear
         hosting.view.clipsToBounds = false
         hosting.view.layer.masksToBounds = false

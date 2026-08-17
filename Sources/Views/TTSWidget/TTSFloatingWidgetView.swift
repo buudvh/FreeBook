@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import SwiftData
 
 /// View nội dung hiển thị bên trong bounded container của widget TTS.
 struct TTSWidgetContentView: View {
@@ -21,7 +22,12 @@ struct TTSWidgetContentView: View {
             }
         }
         .sheet(isPresented: $ttsManager.showingSettingsSheet) {
-            TTSSettingsSheet()
+            if let container = TTSFloatingWidgetWindowManager.shared.modelContainer {
+                TTSSettingsSheet()
+                    .modelContainer(container)
+            } else {
+                TTSSettingsSheet()
+            }
         }
         .onAppear {
             refreshCover()

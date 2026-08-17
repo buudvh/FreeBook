@@ -66,15 +66,19 @@ struct AppLaunchRootView: View {
         .onAppear {
             BookStorageManager.shared.drainRetryQueue()
             BookStorageManager.shared.retryFailedChapterStoreDeletions()
+            TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
             TTSFloatingWidgetWindowManager.shared.refreshState()
         }
         .onChange(of: translationManager.isInitialized) { _, _ in
+            TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
             TTSFloatingWidgetWindowManager.shared.refreshState()
         }
         .onChange(of: ttsPresentation.snapshot.showFloatingWidget) { _, _ in
+            TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
             TTSFloatingWidgetWindowManager.shared.refreshState()
         }
         .task(id: translationManager.isInitialized) {
+            TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container
             guard translationManager.isInitialized else { return }
             // Backfill tên dịch/phương âm cho các sách chưa có (titleTrans/authorTrans),
             // chạy sau khi từ điển đã nạp — mirror pattern nạp dict ban đầu.
