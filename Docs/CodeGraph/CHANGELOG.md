@@ -15,9 +15,9 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 * **Sửa lỗi lệch số dòng do xuống hàng (`HighlightingCodeEditor.swift`)**:
   - Xây dựng `CodeEditorTextView: UITextView` tích hợp Line Number Gutter vẽ trực tiếp trong `draw(_ rect:)` dựa trên `layoutManager.lineFragmentRect(forGlyphAt:)`.
   - Khi một dòng code dài tự động xuống hàng (word wrap), số dòng vẫn nằm chính xác ở đầu dòng logic đó, các dòng xuống hàng không bị sinh số mới, đảm bảo số dòng và mã nguồn luôn khớp 100% không bao giờ bị lệch.
-* **Bộ chọn Script dạng Select có Tìm kiếm (`ExtensionScriptEditorView.swift`)**:
-  - Thay thế thanh cuộn ngang cũ bằng nút chọn Select hiển thị tên file (`search.js`), đường dẫn thư mục phụ (`src/search.js`) và chấm cam báo chỉnh sửa.
-  - Bấm vào mở Bottom Sheet `SearchableScriptPickerSheet` với thanh tìm kiếm `TextField` lọc tức thì danh sách file theo từ khóa.
+* **Sửa lỗi biên dịch Swift trên Xcode / CI**:
+  - `HighlightingCodeEditor.swift`: Thay thế `guard let` bằng `let` cho `layoutManager` và `textStorage` (non-optional trong `UITextView`); chuẩn hóa nhãn `actualGlyphRange: nil`.
+  - `TranslateUtils.swift`: Đổi access level `buildTranslationSpans` thành `public static func` với `bookId: String? = nil` để tương thích với `JSExecutor.swift`.
 
 ## [1.3.199] - 2026-08-17
 

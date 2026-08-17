@@ -57,8 +57,8 @@ public final class CodeEditorTextView: UITextView {
         context.strokePath()
 
         // 3. Quét và vẽ số dòng tương ứng với từng đoạn code
-        guard let layoutManager = self.layoutManager,
-              let textStorage = self.textStorage else { return }
+        let layoutManager = self.layoutManager
+        let textStorage = self.textStorage
 
         let textString = textStorage.string as NSString
         guard textString.length > 0 else {
@@ -77,7 +77,7 @@ public final class CodeEditorTextView: UITextView {
         }
 
         let visibleGlyphRange = layoutManager.glyphRange(forBoundingRect: bounds, in: textContainer)
-        let visibleCharRange = layoutManager.characterRange(forGlyphRange: visibleGlyphRange, actualCustomGlyphRange: nil)
+        let visibleCharRange = layoutManager.characterRange(forGlyphRange: visibleGlyphRange, actualGlyphRange: nil)
 
         var lineNumber = 1
         textString.enumerateSubstrings(in: NSRange(location: 0, length: min(visibleCharRange.location, textString.length)), options: [.byLines, .substringNotRequired]) { _, _, _, _ in

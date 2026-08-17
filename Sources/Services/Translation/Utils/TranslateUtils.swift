@@ -849,10 +849,10 @@ public final class TranslateUtils {
         invalidateTOCRulesCache()
     }
 
-    private static func buildTranslationSpans(
+    public static func buildTranslationSpans(
         original: String,
         translated: String,
-        bookId: String?
+        bookId: String? = nil
     ) -> [TranslationSpan] {
         guard !original.isEmpty, !translated.isEmpty else { return [] }
         if original == translated {
