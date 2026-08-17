@@ -16,6 +16,7 @@ public final class CoverRotationState: ObservableObject {
         }
     }
 
+    private static let rotationSpeed: Double = 18.0 // 18 độ/giây = 20 giây / 1 vòng quay 360°
     @Published private var data: RotationData = RotationData()
 
     public func syncPlaybackState(isPlaying: Bool, at date: Date = Date()) {
@@ -26,7 +27,7 @@ public final class CoverRotationState: ObservableObject {
         } else {
             if let start = data.playStartDate {
                 let elapsed = max(0, date.timeIntervalSince(start))
-                let newAccumulated = (data.accumulatedAngle + elapsed * 12.0).truncatingRemainder(dividingBy: 360.0)
+                let newAccumulated = (data.accumulatedAngle + elapsed * Self.rotationSpeed).truncatingRemainder(dividingBy: 360.0)
                 data = RotationData(accumulatedAngle: newAccumulated, playStartDate: nil)
             }
         }
@@ -37,7 +38,7 @@ public final class CoverRotationState: ObservableObject {
             return data.accumulatedAngle
         }
         let elapsed = max(0, date.timeIntervalSince(start))
-        return (data.accumulatedAngle + elapsed * 12.0).truncatingRemainder(dividingBy: 360.0)
+        return (data.accumulatedAngle + elapsed * Self.rotationSpeed).truncatingRemainder(dividingBy: 360.0)
     }
 
     public func resetAngle(isPlaying: Bool, at date: Date = Date()) {
