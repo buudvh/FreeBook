@@ -45,6 +45,10 @@ struct TTSWidgetCapsuleView: View {
     @ObservedObject var ttsState: TTSWidgetStateReader
     private let ttsManager = TTSManager.shared
 
+    @State private var showingTimerMenu = false
+    @State private var showingCustomTimerAlert = false
+    @State private var customMinutesInput = "90"
+
     var body: some View {
         VStack(spacing: 4) {
             if ttsState.snapshot.timerMode != .off {
@@ -72,7 +76,11 @@ struct TTSWidgetCapsuleView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Mở chương đang đọc")
 
-                Button(action: openTimerMenu) {
+                Button(action: {
+                    viewModel.cancelTasks()
+                    viewModel.disableAutoHide = true
+                    showingTimerMenu = true
+                }) {
                     Image(systemName: ttsState.snapshot.timerMode != .off ? "timer" : "gearshape.fill")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(ttsState.snapshot.timerMode != .off ? Color.orange : Color.primary)
@@ -81,6 +89,52 @@ struct TTSWidgetCapsuleView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Cài đặt và Hẹn giờ TTS")
+                .confirmationDialog("⏱️ Hẹn giờ & Cài đặt TTS", isPresented: $showingTimerMenu, titleVisibility: .visible) {
+                    Button("⏱️ 15 phút") {
+                        ttsManager.startSleepTimer(minutes: 15)
+                        viewModel.disableAutoHide = false
+                        viewModel.startAutoHideTimer()
+                    }
+                    Button("⏱️ 30 phút") {
+                        ttsManager.startSleepTimer(minutes: 30)
+                        viewModel.disableAutoHide = false
+                        viewModel.startAutoHideTimer()
+                    }
+                    Button("⏱️ 45 phút") {
+                        ttsManager.startSleepTimer(minutes: 45)
+                        viewModel.disableAutoHide = false
+                        viewModel.startAutoHideTimer()
+                    }
+                    Button("⏱️ 60 phút") {
+                        ttsManager.startSleepTimer(minutes: 60)
+                        viewModel.disableAutoHide = false
+                        viewModel.startAutoHideTimer()
+                    }
+                    Button("📖 Hết chương hiện tại") {
+                        ttsManager.setStopAtEndOfChapter()
+                        viewModel.disableAutoHide = false
+                        viewModel.startAutoHideTimer()
+                    }
+                    Button("✏️ Tùy chỉnh số phút...") {
+                        customMinutesInput = "90"
+                        showingCustomTimerAlert = true
+                    }
+                    if ttsState.snapshot.timerMode != .off {
+                        Button("❌ Tắt hẹn giờ", role: .destructive) {
+                            ttsManager.cancelSleepTimer()
+                            viewModel.disableAutoHide = false
+                            viewModel.startAutoHideTimer()
+                        }
+                    }
+                    Button("⚙️ Bảng cài đặt giọng đọc") {
+                        ttsManager.showingSettingsSheet = true
+                        viewModel.disableAutoHide = false
+                    }
+                    Button("Hủy", role: .cancel) {
+                        viewModel.disableAutoHide = false
+                        viewModel.startAutoHideTimer()
+                    }
+                }
 
                 Button(action: togglePlayback) {
                     Image(systemName: ttsState.snapshot.isPlaying ? "pause.fill" : "play.fill")
@@ -103,11 +157,7 @@ struct TTSWidgetCapsuleView: View {
                 .accessibilityLabel("Đọc đoạn tiếp theo")
 
                 Button(action: stopTTS) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 30, height: 30)
-                        .background(Circle().fill(Color.primary.opacity(0.09)))
+                    ttsManager.stop()
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Đóng TTS")
@@ -121,6 +171,23 @@ struct TTSWidgetCapsuleView: View {
             )
             .shadow(color: .black.opacity(0.24), radius: 14, x: 0, y: 6)
         }
+        .alert("✏️ Nhập số phút hẹn giờ", isPresented: $showingCustomTimerAlert) {
+            TextField("Số phút (ví dụ: 90)", text: $customMinutesInput)
+                .keyboardType(.numberPad)
+            Button("Đồng ý") {
+                if let mins = Int(customMinutesInput), mins > 0 {
+                    ttsManager.startSleepTimer(minutes: mins)
+                }
+                viewModel.disableAutoHide = false
+                viewModel.startAutoHideTimer()
+            }
+            Button("Hủy", role: .cancel) {
+                viewModel.disableAutoHide = false
+                viewModel.startAutoHideTimer()
+            }
+        } message: {
+            Text("Nhập số phút tự động tạm dừng nghe truyện (ví dụ: 90).")
+        }
     }
 
     private func openCurrentChapter() {
@@ -129,36 +196,6 @@ struct TTSWidgetCapsuleView: View {
             object: nil
         )
         viewModel.hide()
-    }
-
-    private func openTimerMenu() {
-        viewModel.cancelTasks()
-        viewModel.disableAutoHide = true
-
-        TTSFloatingWidgetActionPresenter.presentTimerMenu(
-            viewModel: viewModel,
-            currentTimerMode: ttsState.snapshot.timerMode,
-            onSelectTimer: { minutes in
-                ttsManager.startSleepTimer(minutes: minutes)
-            },
-            onStopAtEndOfChapter: {
-                ttsManager.setStopAtEndOfChapter()
-            },
-            onCustomMinutes: {
-                TTSFloatingWidgetActionPresenter.presentCustomMinutesAlert(
-                    viewModel: viewModel,
-                    onConfirm: { minutes in
-                        ttsManager.startSleepTimer(minutes: minutes)
-                    }
-                )
-            },
-            onCancelTimer: {
-                ttsManager.cancelSleepTimer()
-            },
-            onOpenSettings: {
-                ttsManager.showingSettingsSheet = true
-            }
-        )
     }
 
     private func togglePlayback() {
@@ -274,141 +311,6 @@ final class TTSCoverImageLoader: ObservableObject {
                       self.key == newKey else { return }
                 self.image = image
             }
-        }
-    }
-}
-
-/// Điều phối hiển thị menu hẹn giờ và hộp thoại alert nhập số phút trên key window của ứng dụng.
-@MainActor
-enum TTSFloatingWidgetActionPresenter {
-    static func findTopViewController() -> UIViewController? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        guard let windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first,
-              let keyWindow = windowScene.windows.first(where: { $0.isKeyWindow }) ?? windowScene.windows.first(where: { !($0 is FloatingWidgetUIWindow) }),
-              let rootVC = keyWindow.rootViewController else {
-            return nil
-        }
-        var topVC = rootVC
-        while let presented = topVC.presentedViewController {
-            topVC = presented
-        }
-        return topVC
-    }
-
-    static func presentTimerMenu(
-        viewModel: FloatingWidgetViewModel,
-        currentTimerMode: TTSManager.SleepTimerMode,
-        onSelectTimer: @escaping (Int) -> Void,
-        onStopAtEndOfChapter: @escaping () -> Void,
-        onCustomMinutes: @escaping () -> Void,
-        onCancelTimer: @escaping () -> Void,
-        onOpenSettings: @escaping () -> Void
-    ) {
-        guard let topVC = findTopViewController() else {
-            finalizeDismissal(viewModel: viewModel)
-            return
-        }
-
-        // Tạm ẩn floating window để Action Sheet trên main key window không bị che bên dưới
-        TTSFloatingWidgetWindowManager.shared.temporarilySuppressWindow()
-
-        let alert = UIAlertController(
-            title: "⏱️ Hẹn giờ & Cài đặt TTS",
-            message: nil,
-            preferredStyle: .actionSheet
-        )
-
-        alert.addAction(UIAlertAction(title: "⏱️ 15 phút", style: .default) { _ in
-            onSelectTimer(15)
-            finalizeDismissal(viewModel: viewModel)
-        })
-        alert.addAction(UIAlertAction(title: "⏱️ 30 phút", style: .default) { _ in
-            onSelectTimer(30)
-            finalizeDismissal(viewModel: viewModel)
-        })
-        alert.addAction(UIAlertAction(title: "⏱️ 45 phút", style: .default) { _ in
-            onSelectTimer(45)
-            finalizeDismissal(viewModel: viewModel)
-        })
-        alert.addAction(UIAlertAction(title: "⏱️ 60 phút", style: .default) { _ in
-            onSelectTimer(60)
-            finalizeDismissal(viewModel: viewModel)
-        })
-        alert.addAction(UIAlertAction(title: "📖 Hết chương hiện tại", style: .default) { _ in
-            onStopAtEndOfChapter()
-            finalizeDismissal(viewModel: viewModel)
-        })
-        alert.addAction(UIAlertAction(title: "✏️ Tùy chỉnh số phút...", style: .default) { _ in
-            onCustomMinutes()
-        })
-
-        if currentTimerMode != .off {
-            alert.addAction(UIAlertAction(title: "❌ Tắt hẹn giờ", style: .destructive) { _ in
-                onCancelTimer()
-                finalizeDismissal(viewModel: viewModel)
-            })
-        }
-
-        alert.addAction(UIAlertAction(title: "⚙️ Bảng cài đặt giọng đọc", style: .default) { _ in
-            onOpenSettings()
-            finalizeDismissal(viewModel: viewModel)
-        })
-        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel) { _ in
-            finalizeDismissal(viewModel: viewModel)
-        })
-
-        if let popover = alert.popoverPresentationController {
-            popover.sourceView = topVC.view
-            popover.sourceRect = CGRect(x: topVC.view.bounds.midX, y: topVC.view.bounds.midY, width: 0, height: 0)
-            popover.permittedArrowDirections = []
-        }
-
-        topVC.present(alert, animated: true)
-    }
-
-    static func presentCustomMinutesAlert(
-        viewModel: FloatingWidgetViewModel,
-        onConfirm: @escaping (Int) -> Void
-    ) {
-        guard let topVC = findTopViewController() else {
-            finalizeDismissal(viewModel: viewModel)
-            return
-        }
-
-        // Tạm ẩn floating window để Alert + Keyboard trên main key window không bị che bên dưới
-        TTSFloatingWidgetWindowManager.shared.temporarilySuppressWindow()
-
-        let alert = UIAlertController(
-            title: "✏️ Nhập số phút hẹn giờ",
-            message: "Nhập số phút tự động tạm dừng nghe truyện (ví dụ: 90).",
-            preferredStyle: .alert
-        )
-
-        alert.addTextField { textField in
-            textField.keyboardType = .numberPad
-            textField.placeholder = "Số phút (ví dụ: 90)"
-            textField.text = "90"
-        }
-
-        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel) { _ in
-            finalizeDismissal(viewModel: viewModel)
-        })
-        alert.addAction(UIAlertAction(title: "Đồng ý", style: .default) { [weak alert] _ in
-            if let text = alert?.textFields?.first?.text, let mins = Int(text), mins > 0 {
-                onConfirm(mins)
-            }
-            finalizeDismissal(viewModel: viewModel)
-        })
-
-        topVC.present(alert, animated: true)
-    }
-
-    private static func finalizeDismissal(viewModel: FloatingWidgetViewModel) {
-        viewModel.disableAutoHide = false
-        TTSFloatingWidgetWindowManager.shared.restoreWindowIfNeeded()
-        // Chỉ khởi động lại auto-hide timer nếu widget vẫn đang đủ điều kiện hiển thị và ở trạng thái .revealed
-        if TTSManager.shared.showFloatingWidget && viewModel.mode == .revealed {
-            viewModel.startAutoHideTimer()
         }
     }
 }

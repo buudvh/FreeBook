@@ -12,7 +12,6 @@ public final class TTSFloatingWidgetWindowManager {
     private var window: FloatingWidgetUIWindow?
     private var containerViewController: FloatingWidgetContainerViewController?
     private var isPresented = false
-    private var isWindowSuppressed = false
 
     private init() {
         NotificationCenter.default.addObserver(
@@ -30,8 +29,6 @@ public final class TTSFloatingWidgetWindowManager {
     }
 
     public func refreshState() {
-        guard !isWindowSuppressed else { return }
-
         let shouldShow = TranslationManager.shared.isInitialized
             && TTSManager.shared.showFloatingWidget
             && !TTSManager.shared.showingSettingsSheet
@@ -41,19 +38,6 @@ public final class TTSFloatingWidgetWindowManager {
         } else {
             hideWidget()
         }
-    }
-
-    /// Tạm ẩn cửa sổ floating widget (ví dụ khi hiển thị UIAlertController trên main key window).
-    public func temporarilySuppressWindow() {
-        guard let window, !window.isHidden else { return }
-        window.isHidden = true
-        isWindowSuppressed = true
-    }
-
-    /// Khôi phục trạng thái hiển thị của cửa sổ sau khi đóng UIAlertController / ActionSheet.
-    public func restoreWindowIfNeeded() {
-        isWindowSuppressed = false
-        refreshState()
     }
 
     public func showWidget() {
@@ -124,6 +108,11 @@ final class FloatingWidgetUIWindow: UIWindow {
     weak var containerViewController: FloatingWidgetContainerViewController?
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        // Khi container đang hiển thị confirmationDialog hoặc alert, cho phép touch đầy đủ để tương tác dialog
+        if containerViewController?.presentedViewController != nil {
+            return super.hitTest(point, with: event)
+        }
+
         guard let widgetView = containerViewController?.widgetContainerView,
               !widgetView.isHidden,
               widgetView.alpha > 0.01,

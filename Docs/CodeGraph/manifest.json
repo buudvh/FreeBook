@@ -3,16 +3,16 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-17T05:22:58.380844Z",
-  "gitCommit": "421d173458b2497349b2f931f41b9398ddb89c10",
+  "generatedAt": "2026-08-17T06:06:10.316844Z",
+  "gitCommit": "af5d17e5c14fa5207acb8831e1c8b1eb09793954",
   "sourceFileCount": 214,
   "documentCount": 16,
   "documents": [
     {
       "filename": "00_index.md",
-      "sourceHash": "14fdc5b2831a807a36cd7185f5533182757f1bde7978efd00c2c3aa836c11fa3",
-      "generatedHash": "9982fdf7b00df40e2dd19153f8ed941cb24f199dd1ed93f851428bb1ba811d8a",
-      "generatedAt": "2026-08-17T05:22:58.380844Z",
+      "sourceHash": "5818cf77fe1592903bbe3bdcb51526b0547c393144a02fbdd526d1a51aaf6f36",
+      "generatedHash": "6b1cdb71b4c445c17875107218c3ff64dce419a0e7dd42e2db51409a873d160c",
+      "generatedAt": "2026-08-17T06:06:10.316844Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -223,9 +223,9 @@
     },
     {
       "filename": "01_project.md",
-      "sourceHash": "14fdc5b2831a807a36cd7185f5533182757f1bde7978efd00c2c3aa836c11fa3",
+      "sourceHash": "5818cf77fe1592903bbe3bdcb51526b0547c393144a02fbdd526d1a51aaf6f36",
       "generatedHash": "df5e879240263fae5fd7ec1c3d6789cf71768857dde990e91118365ce15094c8",
-      "generatedAt": "2026-08-17T05:22:58.380844Z",
+      "generatedAt": "2026-08-17T06:06:10.316844Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -436,9 +436,9 @@
     },
     {
       "filename": "02_file_graph.md",
-      "sourceHash": "95840fb52501a508f7403ab666d285e87b6104a5505fb1bc64dc50422af0138f",
+      "sourceHash": "bcaf971771bc455f6fae9afc0b5244b2b6495a11a8781479ee36a50658a22ff5",
       "generatedHash": "80177da6704aa0a6bd15d74d080544cc116cae7adab7d831c8347912057726db",
-      "generatedAt": "2026-08-17T05:22:58.380844Z",
+      "generatedAt": "2026-08-17T06:06:10.316844Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -650,9 +650,9 @@
     },
     {
       "filename": "03_type_graph.md",
-      "sourceHash": "14fdc5b2831a807a36cd7185f5533182757f1bde7978efd00c2c3aa836c11fa3",
+      "sourceHash": "5818cf77fe1592903bbe3bdcb51526b0547c393144a02fbdd526d1a51aaf6f36",
       "generatedHash": "512be965ffa4ea4ed19831b2849bf40a7004c6a2bb6235efeedde5c0f2e76061",
-      "generatedAt": "2026-08-17T05:22:58.380844Z",
+      "generatedAt": "2026-08-17T06:06:10.316844Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -863,9 +863,9 @@
     },
     {
       "filename": "04_call_graph.md",
-      "sourceHash": "14fdc5b2831a807a36cd7185f5533182757f1bde7978efd00c2c3aa836c11fa3",
+      "sourceHash": "5818cf77fe1592903bbe3bdcb51526b0547c393144a02fbdd526d1a51aaf6f36",
       "generatedHash": "5abe7cd07c8264776b3c7122772bda297928f100afe5d11754fbb8b9b2d93af0",
-      "generatedAt": "2026-08-17T05:22:58.380844Z",
+      "generatedAt": "2026-08-17T06:06:10.316844Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -1076,9 +1076,9 @@
     },
     {
       "filename": "05_state_graph.md",
-      "sourceHash": "14fdc5b2831a807a36cd7185f5533182757f1bde7978efd00c2c3aa836c11fa3",
+      "sourceHash": "5818cf77fe1592903bbe3bdcb51526b0547c393144a02fbdd526d1a51aaf6f36",
       "generatedHash": "5f17d12049f32533e5981e96b773c4c8c4118774675b5d729eaeebcaf3ca69a4",
-      "generatedAt": "2026-08-17T05:22:58.380844Z",
+      "generatedAt": "2026-08-17T06:06:10.316844Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -1289,9 +1289,9 @@
     },
     {
       "filename": "06_event_graph.md",
-      "sourceHash": "14fdc5b2831a807a36cd7185f5533182757f1bde7978efd00c2c3aa836c11fa3",
-      "generatedHash": "9790c2b30b3e4f6b7e51f292fef78b91431824c1f5952440002fa38d810a672b",
-      "generatedAt": "2026-08-17T05:22:58.380844Z",
+      "sourceHash": "5818cf77fe1592903bbe3bdcb51526b0547c393144a02fbdd526d1a51aaf6f36",
+      "generatedHash": "de2f9386cd0366c6d1d2826d31181026bec719eea4bf2f0d61653b991e55e2cf",
+      "generatedAt": "2026-08-17T06:06:10.316844Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -1502,9 +1502,9 @@
     },
     {
       "filename": "07_dataflow.md",
-      "sourceHash": "14fdc5b2831a807a36cd7185f5533182757f1bde7978efd00c2c3aa836c11fa3",
+      "sourceHash": "5818cf77fe1592903bbe3bdcb51526b0547c393144a02fbdd526d1a51aaf6f36",
       "generatedHash": "6d1e049920352ca747e57a8981b1dabdb2442481f4b0aad3c7341528b2c6c964",
-      "generatedAt": "2026-08-17T05:22:58.380844Z",
+      "generatedAt": "2026-08-17T06:06:10.316844Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -1715,9 +1715,9 @@
     },
     {
       "filename": "08_lifecycle.md",
-      "sourceHash": "14fdc5b2831a807a36cd7185f5533182757f1bde7978efd00c2c3aa836c11fa3",
+      "sourceHash": "5818cf77fe1592903bbe3bdcb51526b0547c393144a02fbdd526d1a51aaf6f36",
       "generatedHash": "45874750126ba3dbcf11319c742e3fa0ed91439e21d5d7cc40c51db2376dc10a",
-      "generatedAt": "2026-08-17T05:22:58.380844Z",
+      "generatedAt": "2026-08-17T06:06:10.316844Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -1928,9 +1928,9 @@
     },
     {
       "filename": "09_dependency_rules.md",
-      "sourceHash": "14fdc5b2831a807a36cd7185f5533182757f1bde7978efd00c2c3aa836c11fa3",
+      "sourceHash": "5818cf77fe1592903bbe3bdcb51526b0547c393144a02fbdd526d1a51aaf6f36",
       "generatedHash": "132238a9f12479b054e7e16059da3ff4b2eb0d39d5425c9f2374ef5300c72436",
-      "generatedAt": "2026-08-17T05:22:58.380844Z",
+      "generatedAt": "2026-08-17T06:06:10.316844Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -2141,9 +2141,9 @@
     },
     {
       "filename": "10_risk_report.md",
-      "sourceHash": "14fdc5b2831a807a36cd7185f5533182757f1bde7978efd00c2c3aa836c11fa3",
+      "sourceHash": "5818cf77fe1592903bbe3bdcb51526b0547c393144a02fbdd526d1a51aaf6f36",
       "generatedHash": "097d1b595aabb389959e1dc4b02f902f6022c412af0049feab2a3ccc5200ceea",
-      "generatedAt": "2026-08-17T05:22:58.380844Z",
+      "generatedAt": "2026-08-17T06:06:10.316844Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -2354,9 +2354,9 @@
     },
     {
       "filename": "11_subsystems.md",
-      "sourceHash": "14fdc5b2831a807a36cd7185f5533182757f1bde7978efd00c2c3aa836c11fa3",
+      "sourceHash": "5818cf77fe1592903bbe3bdcb51526b0547c393144a02fbdd526d1a51aaf6f36",
       "generatedHash": "b5fab5d09680658a97da78ac7b6181f1e470c9ee7d6b840d668ade6edfe9d956",
-      "generatedAt": "2026-08-17T05:22:58.380844Z",
+      "generatedAt": "2026-08-17T06:06:10.316844Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -2567,9 +2567,9 @@
     },
     {
       "filename": "12_ownership_graph.md",
-      "sourceHash": "14fdc5b2831a807a36cd7185f5533182757f1bde7978efd00c2c3aa836c11fa3",
+      "sourceHash": "5818cf77fe1592903bbe3bdcb51526b0547c393144a02fbdd526d1a51aaf6f36",
       "generatedHash": "93f1cfc26ee7e0d341e1912a79d75b8092dc48a577ab5949e5325fe1cd1c0c9c",
-      "generatedAt": "2026-08-17T05:22:58.380844Z",
+      "generatedAt": "2026-08-17T06:06:10.316844Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -2780,9 +2780,9 @@
     },
     {
       "filename": "13_resource_lifecycle.md",
-      "sourceHash": "14fdc5b2831a807a36cd7185f5533182757f1bde7978efd00c2c3aa836c11fa3",
+      "sourceHash": "5818cf77fe1592903bbe3bdcb51526b0547c393144a02fbdd526d1a51aaf6f36",
       "generatedHash": "dfdf7e3a531c202590aa0028c26d7126d970651b9fc4d974c1dc9e3de3e2baae",
-      "generatedAt": "2026-08-17T05:22:58.380844Z",
+      "generatedAt": "2026-08-17T06:06:10.316844Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -2993,9 +2993,9 @@
     },
     {
       "filename": "14_complexity_report.md",
-      "sourceHash": "14fdc5b2831a807a36cd7185f5533182757f1bde7978efd00c2c3aa836c11fa3",
+      "sourceHash": "5818cf77fe1592903bbe3bdcb51526b0547c393144a02fbdd526d1a51aaf6f36",
       "generatedHash": "6038d5ac35437244d4eed35c41be0b04b84fb29a4f11bd1734d955665917b89a",
-      "generatedAt": "2026-08-17T05:22:58.380844Z",
+      "generatedAt": "2026-08-17T06:06:10.316844Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -3206,9 +3206,9 @@
     },
     {
       "filename": "rules.md",
-      "sourceHash": "14fdc5b2831a807a36cd7185f5533182757f1bde7978efd00c2c3aa836c11fa3",
+      "sourceHash": "5818cf77fe1592903bbe3bdcb51526b0547c393144a02fbdd526d1a51aaf6f36",
       "generatedHash": "ec648a67c57995e601a769cf7e0cadacbc58b007b5909a137f49e26e5d4a7edc",
-      "generatedAt": "2026-08-17T05:22:58.380844Z",
+      "generatedAt": "2026-08-17T06:06:10.316844Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
