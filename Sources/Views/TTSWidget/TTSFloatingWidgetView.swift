@@ -157,7 +157,11 @@ struct TTSWidgetCapsuleView: View {
                 .accessibilityLabel("Đọc đoạn tiếp theo")
 
                 Button(action: stopTTS) {
-                    ttsManager.stop()
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 30, height: 30)
+                        .background(Circle().fill(Color.primary.opacity(0.09)))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Đóng TTS")
