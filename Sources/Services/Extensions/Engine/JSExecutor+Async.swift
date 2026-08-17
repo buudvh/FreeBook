@@ -6,20 +6,16 @@ extension JSExecutor {
         try Task.checkCancellation()
         beginExecution()
 
-        guard let function = context.objectForKeyedSubscript(functionName) else {
-            throw NSError(domain: "JSExecutor", code: -404, userInfo: [NSLocalizedDescriptionKey: "JS Function '\(functionName)' not found"])
-        }
-
+        let runner = context.objectForKeyedSubscript("__safe_run_extension")
         let result: JSValue = try await withTaskCancellationHandler {
-            guard let result = function.call(withArguments: arguments) else {
-                if let exception = context.exception {
-                    let desc = exception.toString() ?? "JS Execution Exception"
-                    context.exception = nil
-                    throw NSError(domain: "JSExecutor", code: -502, userInfo: [NSLocalizedDescriptionKey: "JS Call error: \(desc)"])
+            if let runner = runner, !runner.isUndefined {
+                return runner.call(withArguments: [functionName, arguments]) ?? JSValue(nullIn: self.context)
+            } else {
+                guard let function = self.context.objectForKeyedSubscript(functionName), !function.isUndefined else {
+                    throw NSError(domain: "JSExecutor", code: -404, userInfo: [NSLocalizedDescriptionKey: "JS Function '\(functionName)' not found"])
                 }
-                throw NSError(domain: "JSExecutor", code: -500, userInfo: [NSLocalizedDescriptionKey: "JS execution returned null"])
+                return function.call(withArguments: arguments) ?? JSValue(nullIn: self.context)
             }
-            return result
         } onCancel: {
             self.cancelCurrentExecution()
         }

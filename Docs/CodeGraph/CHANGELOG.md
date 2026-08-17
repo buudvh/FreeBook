@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.196] - 2026-08-17
+
+### Bổ sung toàn diện các phương thức và đối tượng Rhino / VBook Android cho JSExecutor
+
+* **Vấn đề**: Các extension VBook được viết cho môi trường Rhino hoặc port từ QML/Qt runtime (như Fanqie Novel) gặp lỗi runtime khi gọi các hàm chưa được định nghĩa trong `JSExecutor`: `TypeError: UserAgent.chrome is not a function`, `ReferenceError: Can't find variable: Qt`.
+* **Giải pháp**:
+  - `JSCrypto.swift`: Mở rộng giao thức `JSCryptoExport` và lớp `JSCrypto` với các thuật toán băm và mã hoá native từ `CryptoKit`: `sha1`, `sha512`, `base64Encode`, `base64Decode`, `hmacSha256`, `hmacSha1`, `hmacMd5`.
+  - `JSExecutor.swift`:
+    + Đăng ký các hàm toàn cục chuẩn Rhino: `print(...)` (alias của `console.log`), `sleep(ms)` (delay đồng bộ không block WebKit), `toast(msg)` / `Toast` (kết nối `ToastManager`).
+    + Mở rộng `UserAgent`: Bổ sung `chrome()`, `mobile()`, `safari()`, `firefox()`, `mac()`, `macos()`, `windows()`, `random()`, `default()`, `get()`.
+    + Đăng ký đối tượng toàn cục `Qt`: `Qt.md5`, `Qt.sha256`, `Qt.sha1`, `Qt.sha512`, `Qt.atob`, `Qt.btoa`, `Qt.formatDate`, `Qt.include` (kết nối hàm `load`), `Qt.platform` (`{ os: "ios" }`), `Qt.point`, `Qt.size`, `Qt.rect`, `Qt.rgba`, `Qt.hsla`, `Qt.quit`, `Qt.exit`.
+    + Mở rộng `Http` builder: Thêm `.json()` và `.table()` để parse trực tiếp JSON object từ response mà không cần gọi `JSON.parse()`, bổ sung `Http.request()`, `Http.head()`, `Http.put()`, `Http.delete()`, `Http.patch()`, `.contentType()`.
+  - Giúp toàn bộ các extension VBook cũ và mới thực thi hoàn hảo, không còn tình trạng văng ngoại lệ do thiếu hàm môi trường.
+
 ## [1.3.195] - 2026-08-17
 
 ### Trình bày TTS Floating Widget & Global Toast qua Passthrough UIWindow chuyên dụng

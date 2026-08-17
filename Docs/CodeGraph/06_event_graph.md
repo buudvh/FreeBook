@@ -15,6 +15,16 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Extension execution and JS runtime environment events (1.3.196)
+
+* Extension script execution via `JSExecutor` handles all Rhino and VBook Android global functions and objects:
+  - `print(...)` forwards directly to `console.log` logging without thrown ReferenceError.
+  - `sleep(ms)` pauses the JS execution thread synchronously without blocking WebKit engine loaders.
+  - `toast(msg)` and `Toast.show/makeText` route to `AppLogger` and `ToastManager.shared`.
+  - `UserAgent` provides desktop and mobile User-Agent strings (`chrome`, `mobile`, `safari`, `firefox`, `macos`, `windows`, `random`, `get`).
+  - `Qt` global object routes hashing and conversion to `CryptoKit` (`md5`, `sha256`, `sha1`, `sha512`, `atob`, `btoa`) and file inclusion (`Qt.include` → `load`).
+  - `Http` builder exposes `.json()` and `.table()` to directly parse JSON payloads from synchronous `fetch` responses.
+
 ## TTS widget passthrough and drag event routing (1.3.195)
 
 * Touch routing for the TTS floating widget is handled authoritatively by `FloatingWidgetUIWindow.hitTest`: when a dialog/alert or `TTSSettingsSheet` is presented (`containerViewController?.presentedViewController != nil`), touches dispatch to `super.hitTest` for full modal interaction; otherwise, touches inside `widgetContainerView.bounds` hit the widget/controls, while background touches return `nil` to pass through to underlying Reader/WebView/Shelf views without interference.

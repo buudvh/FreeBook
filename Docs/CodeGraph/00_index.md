@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rhino and VBook Android compatibility runtime enhancements (1.3.196)
+
+* `JSExecutor` and `JSCrypto` upgraded with comprehensive Rhino / VBook Android JavaScript compatibility APIs:
+  - `UserAgent`: Added `chrome()`, `mobile()`, `safari()`, `firefox()`, `mac()`, `macos()`, `windows()`, `random()`, `default()`, and `get()`.
+  - `Qt`: Global object injected with `atob`, `btoa`, `md5`, `sha256`, `sha1`, `sha512`, `formatDate`, `formatDateTime`, `formatTime`, `include` (calls `load()`), `resolvedUrl`, `openUrlExternally`, `platform` (`{ os: "ios" }`), `point`, `size`, `rect`, `rgba`, `hsla`, `quit`, and `exit`.
+  - `JSCrypto`: Expanded with `sha1`, `sha512`, `base64Encode`, `base64Decode`, `hmacSha256`, `hmacSha1`, and `hmacMd5` using Apple `CryptoKit`.
+  - Global functions: Injected `print(...)` (alias for `console.log`), `sleep(ms)` (synchronous delay), `toast(msg)` and `Toast.show / makeText` (integrated with `ToastManager`).
+  - `Http`: Expanded builder with `.json()`, `.table()`, `.text()`, `.status()`, `.headers()`, `.base64()`, `Http.request()`, `Http.head()`, `Http.put()`, `Http.delete()`, `Http.patch()`, and `.contentType()`.
+
 ## TTS floating widget and Global Toast presented via dedicated passthrough UIWindows (1.3.195)
 
 * `TTSFloatingWidgetWindowManager` presents `FloatingWidgetUIWindow` (`windowLevel = .alert - 1`, non-key, `isHidden = false/true`) on the active `UIWindowScene`, ensuring the TTS floating widget stays visible above `ReaderView` (`fullScreenCover`), `BypassWebView` (`fullScreenCover`), and `TabbedVisibleBrowserViewController` (`pageSheet`).

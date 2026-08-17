@@ -65,6 +65,25 @@ public final class JSExecutor: @unchecked Sendable {
         console?.setObject(logBlock, forKeyedSubscript: "log" as NSCopying & NSObjectProtocol)
         context.setObject(console, forKeyedSubscript: "console" as NSCopying & NSObjectProtocol)
         context.setObject(console, forKeyedSubscript: "Console" as NSCopying & NSObjectProtocol)
+        context.setObject(logBlock, forKeyedSubscript: "print" as NSCopying & NSObjectProtocol)
+
+        // Đăng ký sleep đồng bộ chuẩn Rhino / VBook
+        let sleepBlock: @convention(block) (Int) -> Void = { ms in
+            guard ms > 0 else { return }
+            Thread.sleep(forTimeInterval: Double(ms) / 1000.0)
+        }
+        context.setObject(sleepBlock, forKeyedSubscript: "sleep" as NSCopying & NSObjectProtocol)
+
+        // Đăng ký toast / Toast chuẩn VBook
+        let toastBlock: @convention(block) (String) -> Void = { msg in
+            AppLogger.shared.log("🍞 JS Toast: \(msg)")
+        }
+        context.setObject(toastBlock, forKeyedSubscript: "toast" as NSCopying & NSObjectProtocol)
+
+        let toastObj = JSValue(newObjectIn: context)
+        toastObj?.setObject(toastBlock, forKeyedSubscript: "show" as NSCopying & NSObjectProtocol)
+        toastObj?.setObject(toastBlock, forKeyedSubscript: "makeText" as NSCopying & NSObjectProtocol)
+        context.setObject(toastObj, forKeyedSubscript: "Toast" as NSCopying & NSObjectProtocol)
 
         // Đăng ký atob và btoa chuẩn Web
         let atobBlock: @convention(block) (String) -> String = { base64Str in
@@ -114,7 +133,7 @@ public final class JSExecutor: @unchecked Sendable {
         }
         context.setObject(loadBlock, forKeyedSubscript: "load" as NSCopying & NSObjectProtocol)
 
-        // 6. Đăng ký đối tượng Response toàn cục
+        // 6. Đăng ký đối tượng Response toàn cục và runner an toàn __safe_run_extension
         let responseBootstrap = """
         var Response = {
             nextPage: null,
@@ -133,21 +152,76 @@ public final class JSExecutor: @unchecked Sendable {
                 };
             }
         };
+
+        function __safe_run_extension(functionName, args) {
+            try {
+                var fn = this[functionName] || eval(functionName);
+                if (typeof fn !== 'function') {
+                    return Response.error("Hàm '" + functionName + "' không tồn tại trong extension");
+                }
+                var res = fn.apply(null, args);
+                if (res === null || res === undefined) {
+                    return Response.error("Extension không trả về dữ liệu (kết quả là " + (res === null ? "null" : "undefined") + ")");
+                }
+                return res;
+            } catch (e) {
+                var msg = e && (e.message || e.toString()) ? (e.message || e.toString()) : "Lỗi thực thi Javascript";
+                var line = e && e.line ? " (dòng " + e.line + ")" : "";
+                return Response.error(msg + line);
+            }
+        }
         """
         context.evaluateScript(responseBootstrap)
 
-        // 6.5. Đăng ký đối tượng UserAgent toàn cục
+        // 6.5. Đăng ký đối tượng UserAgent toàn cục với đầy đủ phương thức VBook
         let userAgentBootstrap = """
         var UserAgent = {
-            android: function() { return "Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36"; },
-            ios: function() { return "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1"; },
-            pc: function() { return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"; },
-            computer: function() { return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"; }
+            android: function() { return "Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"; },
+            ios: function() { return "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"; },
+            pc: function() { return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"; },
+            computer: function() { return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"; },
+            chrome: function() { return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"; },
+            mobile: function() { return "Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"; },
+            safari: function() { return "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"; },
+            firefox: function() { return "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0"; },
+            mac: function() { return "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"; },
+            macos: function() { return "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"; },
+            windows: function() { return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"; },
+            random: function() { return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"; },
+            default: function() { return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"; },
+            get: function() { return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"; }
         };
         """
         context.evaluateScript(userAgentBootstrap)
 
-        // 6.6. Đăng ký đối tượng Script toàn cục (hỗ trợ thực thi script động tương thích VBook) và đối tượng Http
+        // 6.6. Đăng ký đối tượng toàn cục Qt tương thích QML / VBook
+        let qtBootstrap = """
+        var Qt = {
+            atob: function(s) { return atob(s); },
+            btoa: function(s) { return btoa(s); },
+            md5: function(s) { return typeof Crypto !== 'undefined' && Crypto.md5 ? Crypto.md5(s) : s; },
+            sha256: function(s) { return typeof Crypto !== 'undefined' && Crypto.sha256 ? Crypto.sha256(s) : s; },
+            sha1: function(s) { return typeof Crypto !== 'undefined' && Crypto.sha1 ? Crypto.sha1(s) : s; },
+            sha512: function(s) { return typeof Crypto !== 'undefined' && Crypto.sha512 ? Crypto.sha512(s) : s; },
+            formatDate: function(date, format) { return date ? (typeof date === 'object' && date.toISOString ? date.toISOString().split('T')[0] : date.toString()) : ""; },
+            formatDateTime: function(date, format) { return date ? (typeof date === 'object' && date.toISOString ? date.toISOString() : date.toString()) : ""; },
+            formatTime: function(date, format) { return date ? (typeof date === 'object' && date.toTimeString ? date.toTimeString() : date.toString()) : ""; },
+            include: function(file) { if (typeof load === 'function') load(file); },
+            resolvedUrl: function(url) { return url; },
+            openUrlExternally: function(url) { return true; },
+            platform: { os: "ios" },
+            point: function(x, y) { return { x: x || 0, y: y || 0 }; },
+            size: function(w, h) { return { width: w || 0, height: h || 0 }; },
+            rect: function(x, y, w, h) { return { x: x || 0, y: y || 0, width: w || 0, height: h || 0 }; },
+            rgba: function(r, g, b, a) { return "rgba(" + Math.round(r*255) + "," + Math.round(g*255) + "," + Math.round(b*255) + "," + (a !== undefined ? a : 1) + ")"; },
+            hsla: function(h, s, l, a) { return "hsla(" + Math.round(h*360) + "," + Math.round(s*100) + "%," + Math.round(l*100) + "%," + (a !== undefined ? a : 1) + ")"; },
+            quit: function() {},
+            exit: function() {}
+        };
+        """
+        context.evaluateScript(qtBootstrap)
+
+        // 6.7. Đăng ký đối tượng Script toàn cục (hỗ trợ thực thi script động tương thích VBook) và đối tượng Http
         let scriptBootstrap = """
         var Script = {
             execute: function(scriptContent, functionName) {
@@ -171,7 +245,7 @@ public final class JSExecutor: @unchecked Sendable {
             _request: function(method, url) {
                 var req = {
                     _url: url,
-                    _method: method,
+                    _method: method || "GET",
                     _headers: {},
                     _params: {},
                     _body: null,
@@ -206,6 +280,11 @@ public final class JSExecutor: @unchecked Sendable {
 
                     body: function(content) {
                         this._body = content;
+                        return this;
+                    },
+
+                    contentType: function(type) {
+                        this._headers["Content-Type"] = type;
                         return this;
                     },
 
@@ -245,8 +324,32 @@ public final class JSExecutor: @unchecked Sendable {
                         return this._execute().text(encoding);
                     },
 
+                    text: function(encoding) {
+                        return this._execute().text(encoding);
+                    },
+
+                    json: function() {
+                        return this._execute().json();
+                    },
+
+                    table: function() {
+                        return this._execute().json();
+                    },
+
                     code: function() {
                         return this._execute().status;
+                    },
+
+                    status: function() {
+                        return this._execute().status;
+                    },
+
+                    base64: function() {
+                        return this._execute().base64();
+                    },
+
+                    headers: function() {
+                        return this._execute().headers;
                     }
                 };
                 return req;
@@ -258,6 +361,30 @@ public final class JSExecutor: @unchecked Sendable {
 
             post: function(url) {
                 return this._request("POST", url);
+            },
+
+            request: function(methodOrUrl, url) {
+                if (url !== undefined) {
+                    return this._request(methodOrUrl, url);
+                } else {
+                    return this._request("GET", methodOrUrl);
+                }
+            },
+
+            head: function(url) {
+                return this._request("HEAD", url);
+            },
+
+            put: function(url) {
+                return this._request("PUT", url);
+            },
+
+            delete: function(url) {
+                return this._request("DELETE", url);
+            },
+
+            patch: function(url) {
+                return this._request("PATCH", url);
             }
         };
         """

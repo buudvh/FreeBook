@@ -911,9 +911,18 @@ public final class ExtensionManager: ObservableObject {
         await ttsRuntime.reset()
     }
     internal func verifyJSResponse(_ jsValue: JSValue, extName: String = "", scriptName: String = "") throws -> JSValue {
-        guard jsValue.isObject else { return jsValue }
-        
         let logPrefix = extName.isEmpty ? "ExtensionManager" : "\(extName)\(scriptName.isEmpty ? "" : " - ")\(scriptName)"
+
+        // 1. Chặn tuyệt đối null / undefined
+        if jsValue.isNull || jsValue.isUndefined {
+            let msg = "Nguồn truyện không trả về dữ liệu (kết quả là null/undefined)"
+            AppLogger.shared.log("❌ [\(logPrefix)] Response.error: \(msg)")
+            throw ExtensionManagerError.sourceResponse(message: msg)
+        }
+
+        guard jsValue.isObject else { return jsValue }
+
+        // 2. Bắt cấu trúc chuẩn của Response.success / Response.error
         if let successVal = jsValue.objectForKeyedSubscript("success"),
            !successVal.isUndefined,
            !successVal.isNull {
@@ -925,24 +934,28 @@ public final class ExtensionManager: ObservableObject {
                 throw ExtensionManagerError.sourceResponse(message: msg)
             }
             if let dataVal = jsValue.objectForKeyedSubscript("data"),
-               !dataVal.isUndefined {
+               !dataVal.isUndefined && !dataVal.isNull {
                 guard AppLogger.shared.isLoggingEnabled else {
                     return dataVal
                 }
                 let dataStr = formatSuccessDataLog(dataVal)
                 AppLogger.shared.log("✅ [\(logPrefix)] Response.success: \(dataStr)")
                 return dataVal
+            } else {
+                let msg = "Dữ liệu trả về từ nguồn truyện bị rỗng (data is null/undefined)"
+                AppLogger.shared.log("❌ [\(logPrefix)] Response.error: \(msg)")
+                throw ExtensionManagerError.sourceResponse(message: msg)
             }
         }
-        // Kiểm tra thêm pattern { error: "message" } — một số extension không dùng success field
-        // Nếu bỏ qua, jsValue sẽ được convert thành string rỗng/"[object Object]"
-        // dẫn đến emptyContent error thay vì message thực từ server
+
+        // 3. Bắt trường hợp lỗi kiểu { error: "..." }
         if let errorVal = jsValue.objectForKeyedSubscript("error"),
            !errorVal.isUndefined, !errorVal.isNull,
            let errorMsg = errorVal.toString(), !errorMsg.isEmpty {
             AppLogger.shared.log("❌ [\(logPrefix)] Response.error (field): \(errorMsg)")
             throw ExtensionManagerError.sourceResponse(message: errorMsg)
         }
+
         return jsValue
     }
 
