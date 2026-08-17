@@ -15,6 +15,13 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS widget passthrough and drag event routing (1.3.195)
+
+* Touch routing for the TTS floating widget is handled authoritatively by `PassthroughContainerView.hitTest`: touches inside `widgetContainerView.bounds` hit the widget/controls, while background touches return `nil` to pass through to underlying Reader/WebView/Shelf views without interference.
+* Cử chỉ kéo (drag) được bắt trực tiếp bởi `UIPanGestureRecognizer` gắn trên `widgetContainerView` với `cancelsTouchesInView = true` (không cướp tap khi bấm nhanh nút, nhưng cancel touch khi kéo tay).
+* `UITapGestureRecognizer` chỉ được kích hoạt khi ở chế độ `.peeking` để xử lý tap-to-reveal, và bị vô hiệu hóa (`isEnabled = false`) khi ở `.revealed` mode để không xung đột với các nút bấm SwiftUI.
+* Menu hẹn giờ và alert nhập số phút được điều phối qua `TTSFloatingWidgetActionPresenter` hiển thị trên key window của ứng dụng, đảm bảo focus bàn phím và không cần can thiệp `makeKey()` trên overlay window.
+
 ## Reader full-screen presentation events (1.3.192)
 
 * All Reader entry points now present via `.fullScreenCover(item:)` instead of a `NavigationLink`/`navigationDestination` push: `ShelfView` (shelf & history rows + the `openCurrentlyPlayingReader` widget route → `readerPresentationRoute`), `ShelfSearchView` (`readerRoute`), and `BookDetailView` (`readerRoute`). Each cover wraps `ReaderView` in its own `NavigationStack`; `ReaderView` no longer calls `.toolbar(.hidden, for: .tabBar)`, so the tab bar is never hidden/shown and cannot reappear late on reader dismissal. `@Environment(\.dismiss)` (reader close button, `onSourceChanged`, `ReaderView+LoadingView`) dismisses the cover.

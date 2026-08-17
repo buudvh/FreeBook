@@ -57,11 +57,6 @@ struct AppLaunchRootView: View {
             }
             .animation(.easeInOut(duration: 0.5), value: translationManager.isInitialized)
 
-            if translationManager.isInitialized && ttsPresentation.snapshot.showFloatingWidget {
-                TTSFloatingWidgetView()
-                    .zIndex(9999)
-            }
-
             if translationManager.isInitialized && browserPresentation.snapshot.showReopenButton {
                 VisibleBrowserReopenButton(tabCount: browserPresentation.snapshot.tabCount)
                     .zIndex(9998)
@@ -77,6 +72,16 @@ struct AppLaunchRootView: View {
         .onAppear {
             BookStorageManager.shared.drainRetryQueue()
             BookStorageManager.shared.retryFailedChapterStoreDeletions()
+            TTSFloatingWidgetWindowManager.shared.refreshState()
+        }
+        .onChange(of: translationManager.isInitialized) { _, _ in
+            TTSFloatingWidgetWindowManager.shared.refreshState()
+        }
+        .onChange(of: ttsPresentation.snapshot.showFloatingWidget) { _, _ in
+            TTSFloatingWidgetWindowManager.shared.refreshState()
+        }
+        .onChange(of: ttsPresentation.snapshot.showingSettingsSheet) { _, _ in
+            TTSFloatingWidgetWindowManager.shared.refreshState()
         }
         .task(id: translationManager.isInitialized) {
             guard translationManager.isInitialized else { return }

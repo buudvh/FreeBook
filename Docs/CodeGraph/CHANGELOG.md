@@ -2,6 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.195] - 2026-08-17
+
+### Trình bày TTS Floating Widget qua Passthrough UIWindow với Bounded Container native
+
+* **Vấn đề**: Khi mở Reader (`ReaderView` qua `fullScreenCover`), trình duyệt bypass (`BypassWebView` qua `fullScreenCover`) hoặc trình duyệt `Engine.newVisibleBrowser` (`TabbedVisibleBrowserViewController` qua `present(pageSheet)`), widget TTS trong `AppLaunchRootView` bị che khuất. Các giải pháp trước (fullScreenCover ở gốc hoặc UIWindow dựa vào cached `widgetFrame` bất đồng bộ) làm chặn touch của app hoặc làm rơi gesture drag.
+* **Giải pháp**:
+  - `TTSFloatingWidgetWindowManager`: Tạo `FloatingWidgetUIWindow` (`windowLevel = .alert - 1`, non-key, `isHidden = false/true`) gắn với `UIWindowScene` active. Tuyệt đối không gọi `makeKeyAndVisible()`.
+  - `PassthroughContainerView`: Đường dẫn native `hitTest` duy nhất: chỉ trả về `widgetContainerView` khi chạm trong bounds, còn mọi điểm ngoài trả `nil` để rơi xuống màn hình bên dưới (Reader/WebView/Shelf).
+  - `FloatingWidgetContainerViewController`: Quản lý bounded container (212x56/80 hoặc 52x52), gắn `UIPanGestureRecognizer` kéo 1:1 theo tần số quét của thiết bị, `UITapGestureRecognizer` (chỉ bật khi `.peeking`), và spring animation snap mép/resize chuẩn anchor.
+  - `TTSFloatingWidgetActionPresenter`: Điều phối menu hẹn giờ và alert tùy chỉnh số phút (kèm bàn phím) qua main key window / top-most controller.
+  - `FreeBookApp.swift`: Gỡ bỏ widget khỏi `ZStack` của `AppLaunchRootView`, gắn hook `TTSFloatingWidgetWindowManager.shared.refreshState()`.
+  - Giữ nguyên 100% API của `FloatingWidgetViewModel` và các unit test hiện có trong `FloatingWidgetViewModelTests.swift`.
+* **XcodeGen**: Có thêm file mới `Sources/Views/TTSWidget/TTSFloatingWidgetWindowManager.swift` → cần chạy `xcodegen generate` trên máy macOS khi tạo lại `.xcodeproj`.
+
 ## [1.3.192] - 2026-08-17
 
 ### Reader trình bày dạng fullScreenCover — bỏ ẩn/hiện tab bar, sửa tab bar hiện trễ khi quay lại
