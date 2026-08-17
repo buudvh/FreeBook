@@ -44,6 +44,12 @@ struct AppLaunchRootView: View {
     @StateObject private var ttsPresentation = TTSRootPresentationReader()
     @StateObject private var browserPresentation = VisibleBrowserPresentationReader()
 
+    private var shouldShowWidget: Bool {
+        translationManager.isInitialized
+            && ttsPresentation.snapshot.showFloatingWidget
+            && !ttsPresentation.snapshot.showingSettingsSheet
+    }
+
     var body: some View {
         ZStack {
             Group {
@@ -57,11 +63,6 @@ struct AppLaunchRootView: View {
             }
             .animation(.easeInOut(duration: 0.5), value: translationManager.isInitialized)
 
-            if translationManager.isInitialized && ttsPresentation.snapshot.showFloatingWidget {
-                TTSFloatingWidgetView()
-                    .zIndex(9999)
-            }
-
             if translationManager.isInitialized && browserPresentation.snapshot.showReopenButton {
                 VisibleBrowserReopenButton(tabCount: browserPresentation.snapshot.tabCount)
                     .zIndex(9998)
@@ -73,6 +74,14 @@ struct AppLaunchRootView: View {
             set: { TTSManager.shared.showingSettingsSheet = $0 }
         )) {
             TTSSettingsSheet()
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { shouldShowWidget },
+            set: { _ in }
+        )) {
+            TTSFloatingWidgetView()
+                .background(Color.clear)
+                .presentationBackground(.clear)
         }
         .onAppear {
             BookStorageManager.shared.drainRetryQueue()
