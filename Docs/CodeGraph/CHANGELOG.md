@@ -2,17 +2,6 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-## [1.3.194] - 2026-08-17
-
-### Revert UIWindow riêng và trình bày TTS Floating Widget qua root fullScreenCover
-
-* **Vấn đề**: Cách tiếp cận `UIWindow` riêng (`5af9c0c`) gây lag giật và hỏng các cử chỉ kéo thả/thu nhỏ của floating widget do cơ chế cập nhật frame bất đồng bộ và kiểm tra hit-test.
-* **Giải pháp**:
-  - Revert hoàn toàn thay đổi `5af9c0c`: Xóa `TTSFloatingWidgetWindowManager.swift`, loại bỏ logic báo cáo `widgetFrame` trong `TTSFloatingWidgetView.swift`.
-  - Trình bày widget bằng `fullScreenCover` gắn trực tiếp lên `AppLaunchRootView` với `shouldShowWidget = translationManager.isInitialized && ttsPresentation.snapshot.showFloatingWidget && !ttsPresentation.snapshot.showingSettingsSheet`.
-  - Thiết lập `.background(Color.clear)` và `.presentationBackground(.clear)` giúp widget nổi lên trên Reader, Bypass Browser và các màn hình khác mà không làm ảnh hưởng đến các cử chỉ kéo/thu/phóng thuần SwiftUI.
-* Không thêm file Swift mới → không cần `xcodegen generate`.
-
 ## [1.3.192] - 2026-08-17
 
 ### Reader trình bày dạng fullScreenCover — bỏ ẩn/hiện tab bar, sửa tab bar hiện trễ khi quay lại

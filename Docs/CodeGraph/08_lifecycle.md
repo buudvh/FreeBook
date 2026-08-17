@@ -15,11 +15,6 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## TTS widget presentation lifecycle (1.3.194)
-
-* The TTS floating widget is presented as a root `.fullScreenCover` attached to `AppLaunchRootView`, active while `translationManager.isInitialized && ttsPresentation.snapshot.showFloatingWidget && !ttsPresentation.snapshot.showingSettingsSheet`.
-* When `showingSettingsSheet` becomes true, the cover automatically dismisses and re-presents upon sheet dismissal, avoiding presentation lifecycle deadlocks.
-
 ## Reader presentation lifecycle (1.3.192)
 
 * Reader is presented with `.fullScreenCover(item:)` (own `NavigationStack`) from `ShelfView`, `ShelfSearchView`, and `BookDetailView` instead of a navigation push. The main `TabView` is never re-laid-out and the tab bar is never hidden (`.toolbar(.hidden, for: .tabBar)` removed from `ReaderView`), so dismissing the reader reveals the tabs instantly without the delayed tab-bar restore.

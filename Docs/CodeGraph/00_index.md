@@ -15,11 +15,6 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## TTS floating widget presented via root fullScreenCover (1.3.194)
-
-* TTS floating widget is presented via `.fullScreenCover` attached to `AppLaunchRootView` (`shouldShowWidget = translationManager.isInitialized && ttsPresentation.snapshot.showFloatingWidget && !ttsPresentation.snapshot.showingSettingsSheet`) with `.background(Color.clear)` and `.presentationBackground(.clear)`.
-* Fully reverted the separate `UIWindow` approach from `5af9c0c` (`TTSFloatingWidgetWindowManager.swift` removed, frame reporting in `TTSFloatingWidgetView.swift` removed), eliminating gesture drop and rendering lag during drag and auto-hide animations.
-
 ## Reader presented as fullScreenCover instead of navigation push (1.3.192)
 
 * Reader is no longer pushed onto a tab's `NavigationStack` with `.toolbar(.hidden, for: .tabBar)`. All 4 entry points (`ShelfView` shelf/history rows + TTS-widget route, `ShelfSearchView`, `BookDetailView`) now present `ReaderView` via `.fullScreenCover(item:)` wrapped in its own `NavigationStack`. The main `TabView` hierarchy is never re-laid-out and the tab bar is never hidden/shown, so the tab bar no longer appears late (janky restoration) after closing the full-screen reader.
