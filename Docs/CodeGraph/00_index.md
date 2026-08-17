@@ -15,6 +15,12 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS floating widget presented in its own UIWindow, above every presentation (1.3.193)
+
+* The TTS floating widget moved out of `AppLaunchRootView`'s ZStack into a dedicated `UIWindow` at `windowLevel = .alert` (`Sources/Views/TTSWidget/TTSFloatingWidgetWindowManager.swift`). It now stays visible above every modal presentation — Reader `fullScreenCover`, bypass-browser `pageSheet`/cover, and any sheet — because a modal lives inside the app window (level 0) while the widget window sits at level 2000. The window is non-key (`isHidden = false` without `makeKeyAndVisible`) so the main window keeps keyboard focus.
+* `FloatingWidgetUIWindow` (private `UIWindow` subclass) overrides `hitTest` to return `nil` outside the widget's current frame, so touches outside the widget fall through to the reader/browser below. The frame is reported by `TTSFloatingWidgetView` via `.onAppear`/`.onChange(of: widgetFrame)` (covers drag/peek/reveal).
+* Visibility is driven by `AppLaunchRootView.refreshTTSWidgetWindow()` (onAppear + onChange of `isInitialized`, `showFloatingWidget`, `showingSettingsSheet`): the window shows only when `isInitialized && showFloatingWidget && !showingSettingsSheet` — i.e. it is hidden only by the `TTSSettingsSheet`. The browser-reopen pill (`VisibleBrowserReopenButton`) stays in the ZStack and is unchanged.
+
 ## Reader presented as fullScreenCover instead of navigation push (1.3.192)
 
 * Reader is no longer pushed onto a tab's `NavigationStack` with `.toolbar(.hidden, for: .tabBar)`. All 4 entry points (`ShelfView` shelf/history rows + TTS-widget route, `ShelfSearchView`, `BookDetailView`) now present `ReaderView` via `.fullScreenCover(item:)` wrapped in its own `NavigationStack`. The main `TabView` hierarchy is never re-laid-out and the tab bar is never hidden/shown, so the tab bar no longer appears late (janky restoration) after closing the full-screen reader.

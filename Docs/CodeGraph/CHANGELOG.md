@@ -2,6 +2,28 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.194] - 2026-08-17
+
+### TTSAudioSessionController: gói logic audio session vào class (activate + configure)
+
+* **Trước**: `Sources/Services/TTS/TTSAudioSessionController.swift` chỉ có global free function `configureAudioSession()` — gọi thẳng từ `TTSManager`, gộp luôn bước set category + set active, không có bước "kích hoạt trước".
+* **Sau**: gói thành `public final class TTSAudioSessionController: @unchecked Sendable` (cùng pattern các controller TTS khác):
+  - `public func activate()`: `try? session.setActive(true)` — kích hoạt session (silent, không crash nếu thất bại) **trước** khi set category, giúp tránh lỗi `AVAudioSession OSStatus -50` khi session chưa active (liên quan lỗi mất điều khiển TTS ở màn hình khoá / Control Center).
+  - `public func configureAudioSession() -> Bool`: giữ nguyên logic cũ — `setCategory(.playback, mode: .spokenAudio, options: [])` + `setActive(true)`, log `✅/❌` thành công/thất bại.
+* **`TTSManager.swift`**: thêm `public let audioSessionController = TTSAudioSessionController()` (cạnh `audioEngineController`/`nowPlayingController`); `configureAudioSession()` gọi `audioSessionController.activate()` trước, rồi `if audioSessionController.configureAudioSession() { isAudioSessionConfigured = true }`. Các nơi gọi `setActive(false, options: .notifyOthersOnDeactivation)` + reset `isAudioSessionConfigured` khi dừng TTS hoàn toàn / interrupt không đổi.
+
+## [1.3.193] - 2026-08-17
+
+### TTS widget nổi trên tất cả presentation bằng UIWindow riêng (trừ TTS settings)
+
+* **Vấn đề**: từ [1.3.192], Reader trình bày bằng `fullScreenCover` — cover là modal UIKit trình bày **phía trên** ZStack của `AppLaunchRootView` nên che mất TTS floating widget (trước đây widget nằm trên Reader push nhờ `zIndex(9999)`). Browser bypass (pageSheet) cũng che widget.
+* **Giải pháp**: chuyển widget ra **UIWindow nổi riêng** ở `windowLevel = .alert` (2000) — nằm trên toàn bộ stack modal của window app (fullScreenCover, sheet, pageSheet). Window chỉ nhận chạm trong frame hiện tại của widget (SwiftUI view báo lên qua `onAppear`/`onChange`), ngoài frame chạm xuyên qua xuống reader/browser bên dưới.
+* **File mới `Sources/Views/TTSWidget/TTSFloatingWidgetWindowManager.swift`**: singleton `TTSFloatingWidgetWindowManager.shared` với `presentWidget()`/`dismissWidget()`/`updateWidgetFrame(_:)`; tìm scene foreground qua `UIApplication.shared.connectedScenes`; root là `UIHostingController(rootView: TTSFloatingWidgetView())` nền trong suốt; `isHidden = false` **không** `makeKeyAndVisible` (main window giữ key/keyboard); re-attach khi `didBecomeActiveNotification` nếu scene đổi. `FloatingWidgetUIWindow` (private, subclass `UIWindow`) override `hitTest` → trả `nil` ngoài frame widget.
+* **`TTSFloatingWidgetView.swift`**: tính `widgetFrame` (center `renderPosition`, size theo mode) trong `GeometryReader` và báo cho manager qua `.onAppear` + `.onChange(of: widgetFrame)` — phủ luôn kéo/peek/reveal; `.alert`/`.confirmationDialog` của widget trình bày trên window nổi.
+* **`FreeBookApp.swift` (`AppLaunchRootView`)**: bỏ nhánh `TTSFloatingWidgetView().zIndex(9999)` khỏi ZStack; thêm `refreshTTSWidgetWindow()` gọi từ `.onAppear` + `.onChange` của `translationManager.isInitialized`, `showFloatingWidget`, `showingSettingsSheet` — hiện widget khi `isInitialized && showFloatingWidget && !showingSettingsSheet` (ẩn khi mở `TTSSettingsSheet`, đóng sheet hiện lại).
+* Widget giờ nổi trên reader, browser bypass, toast và mọi sheet — **trừ** `TTSSettingsSheet`. Nút tai nghe TTS của Reader giữ nguyên (hiển thị cùng lúc với widget). Pill "N tab" (`VisibleBrowserReopenButton`) không đổi.
+* **File Swift mới → cần `xcodegen generate`** (`.xcodeproj` sinh ra từ `project.yml`, không commit). Windows không build/test tại chỗ — kiểm chứng qua CI `.github/workflows/build-ipa.yml` hoặc máy Mac; test tay: widget nổi trên reader/browser, kéo + 5 nút + gear mở settings (widget tự ẩn), alert hẹn giờ tùy chỉnh, chạm ngoài widget xuyên qua.
+
 ## [1.3.192] - 2026-08-17
 
 ### Reader trình bày dạng fullScreenCover — bỏ ẩn/hiện tab bar, sửa tab bar hiện trễ khi quay lại
