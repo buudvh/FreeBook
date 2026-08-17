@@ -43,23 +43,11 @@ struct TTSFloatingWidgetView: View {
             let renderPosition = visualPosition ?? restingPosition
             let widgetWidth = viewModel.mode == .peeking ? Layout.peekSize : Layout.width
             let widgetHeight = viewModel.mode == .peeking ? Layout.peekSize : (ttsState.snapshot.timerMode != .off ? Layout.height + 24 : Layout.height)
-            let widgetFrame = CGRect(
-                x: renderPosition.x - widgetWidth / 2,
-                y: renderPosition.y - widgetHeight / 2,
-                width: widgetWidth,
-                height: widgetHeight
-            )
 
             widgetBody
                 .frame(width: widgetWidth, height: widgetHeight)
                 .contentShape(Rectangle())
                 .position(renderPosition)
-                .onAppear {
-                    TTSFloatingWidgetWindowManager.shared.updateWidgetFrame(widgetFrame)
-                }
-                .onChange(of: widgetFrame) { _, newValue in
-                    TTSFloatingWidgetWindowManager.shared.updateWidgetFrame(newValue)
-                }
                 .highPriorityGesture(
                     dragGesture(
                         restingPosition: restingPosition,

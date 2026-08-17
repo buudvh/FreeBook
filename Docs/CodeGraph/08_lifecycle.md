@@ -15,12 +15,6 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## TTS floating widget window lifecycle (1.3.193)
-
-* `TTSFloatingWidgetWindowManager.shared` owns one `FloatingWidgetUIWindow` (`windowLevel = .alert`) hosting `UIHostingController(rootView: TTSFloatingWidgetView())` with a clear background. `presentWidget()` creates it on the foreground active `UIWindowScene` (via `connectedScenes`); `dismissWidget()` hides it and releases the window + hosting controller, tearing the widget view down (`onDisappear` cancels the auto-hide task). The window is shown with `isHidden = false` — never `makeKeyAndVisible` — so the app's main window stays key and keyboard focus is unaffected.
-* `refreshTTSWidgetWindow()` in `AppLaunchRootView` (onAppear + onChange of `isInitialized`, `showFloatingWidget`, `showingSettingsSheet`) shows the widget only when `isInitialized && showFloatingWidget && !showingSettingsSheet`. Opening `TTSSettingsSheet` (gear button sets `TTSManager.shared.showingSettingsSheet`) hides the widget window; dismissing the sheet re-presents it with a fresh view instance (`mode = .peeking`, `reveal()` on appear).
-* The window re-attaches on `UIApplication.didBecomeActiveNotification` if the active `UIWindowScene` changed. Touch routing is passthrough: `FloatingWidgetUIWindow.hitTest` returns `nil` outside the widget frame (reported via `.onAppear`/`.onChange(of: widgetFrame)`), so reader/browser interactions below keep working.
-
 ## Reader presentation lifecycle (1.3.192)
 
 * Reader is presented with `.fullScreenCover(item:)` (own `NavigationStack`) from `ShelfView`, `ShelfSearchView`, and `BookDetailView` instead of a navigation push. The main `TabView` is never re-laid-out and the tab bar is never hidden (`.toolbar(.hidden, for: .tabBar)` removed from `ReaderView`), so dismissing the reader reveals the tabs instantly without the delayed tab-bar restore.

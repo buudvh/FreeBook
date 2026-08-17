@@ -15,13 +15,6 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## TTS floating widget window events (1.3.193)
-
-* The floating widget no longer lives in `AppLaunchRootView`'s ZStack; it is hosted by `TTSFloatingWidgetWindowManager.shared` in a dedicated `UIWindow` (`windowLevel = .alert`), so it stays above every modal presentation (Reader `fullScreenCover`, bypass-browser `pageSheet`/cover, sheets). The window is non-key and its `hitTest` returns `nil` outside the widget's current frame — `TTSFloatingWidgetView` reports the frame through `.onAppear`/`.onChange(of: widgetFrame)`, which updates on drag/peek/reveal.
-* Show/hide is driven by `AppLaunchRootView.refreshTTSWidgetWindow()` (onAppear + `.onChange` of `translationManager.isInitialized`, `ttsPresentation.snapshot.showFloatingWidget`, and `ttsPresentation.snapshot.showingSettingsSheet`): it calls `presentWidget()` only when `isInitialized && showFloatingWidget && !showingSettingsSheet`, else `dismissWidget()`. `TTSManager.shared.showingSettingsSheet` is the single gate — the widget hides while `TTSSettingsSheet` is open and reappears on dismissal.
-* Widget actions are unchanged: cover button posts `openCurrentlyPlayingReader` (MainTabView switches to `selectedTab = 0`, ShelfView sets `readerPresentationRoute` → cover presents); gear sets `showingSettingsSheet = true`; `stop()` clears `showFloatingWidget` → `refreshTTSWidgetWindow()` dismisses the window.
-* `TTSFloatingWidgetWindowManager` re-attaches on `UIApplication.didBecomeActiveNotification` when the active `UIWindowScene` changed (recreates the window on the current scene).
-
 ## Reader full-screen presentation events (1.3.192)
 
 * All Reader entry points now present via `.fullScreenCover(item:)` instead of a `NavigationLink`/`navigationDestination` push: `ShelfView` (shelf & history rows + the `openCurrentlyPlayingReader` widget route → `readerPresentationRoute`), `ShelfSearchView` (`readerRoute`), and `BookDetailView` (`readerRoute`). Each cover wraps `ReaderView` in its own `NavigationStack`; `ReaderView` no longer calls `.toolbar(.hidden, for: .tabBar)`, so the tab bar is never hidden/shown and cannot reappear late on reader dismissal. `@Environment(\.dismiss)` (reader close button, `onSourceChanged`, `ReaderView+LoadingView`) dismisses the cover.
