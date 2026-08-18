@@ -78,8 +78,13 @@ struct ShelfView: View {
     }
 
     private var historyBooks: [Book] {
-        allBooks.filter { $0.isHistory }
-            .sorted { ($0.lastReadDate ?? $0.updatedAt ?? Date.distantPast) > ($1.lastReadDate ?? $1.updatedAt ?? Date.distantPast) }
+        allBooks
+            .filter { $0.isHistory }
+            .sorted(by: { (b1: Book, b2: Book) -> Bool in
+                let d1 = b1.lastReadDate ?? b1.updatedAt ?? Date.distantPast
+                let d2 = b2.lastReadDate ?? b2.updatedAt ?? Date.distantPast
+                return d1 > d2
+            })
     }
 
     private var displayedShelfBooks: [Book] {

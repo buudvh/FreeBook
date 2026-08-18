@@ -1625,7 +1625,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let savedParagraphIdentity = savedParagraphIdentityBeforeSettings
         let savedChunkRange = savedChunkRangeBeforeSettings
         let savedChunkLocation = savedChunkLocationBeforeSettings
-        let savedChunkIndex = savedChunkIndexBeforeSettings
         savedParagraphIdentityBeforeSettings = -1
         savedChunkIndexBeforeSettings = -1
         savedChunkLocationBeforeSettings = 0
