@@ -8,19 +8,42 @@ private struct WidthPreferenceKey: PreferenceKey {
     }
 }
 
+private struct TextMeasurement: Equatable {
+    var token: Int = 0
+    var height: CGFloat = 0
+}
+
 private struct FullHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    static var defaultValue = TextMeasurement()
+    static func reduce(value: inout TextMeasurement, nextValue: () -> TextMeasurement) {
         let next = nextValue()
-        if next > 0 { value = next }
+        if next.token > value.token {
+            value = next
+        } else if next.token == value.token, next.height > value.height {
+            value = next
+        }
     }
 }
 
 private struct CollapsedHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    static var defaultValue = TextMeasurement()
+    static func reduce(value: inout TextMeasurement, nextValue: () -> TextMeasurement) {
         let next = nextValue()
-        if next > 0 { value = next }
+        if next.token > value.token {
+            value = next
+        } else if next.token == value.token, next.height > value.height {
+            value = next
+        }
+    }
+}
+
+final class WrappingLabel: UILabel {
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        if bounds.width > 0, preferredMaxLayoutWidth != bounds.width {
+            preferredMaxLayoutWidth = bounds.width
+            invalidateIntrinsicContentSize()
+        }
     }
 }
 
@@ -42,8 +65,8 @@ public struct JustifiedTextLabel: UIViewRepresentable {
         self.textColor = textColor
     }
 
-    public func makeUIView(context: Context) -> UILabel {
-        let label = UILabel()
+    func makeUIView(context: Context) -> WrappingLabel {
+        let label = WrappingLabel()
         label.numberOfLines = lineLimit ?? 0
         label.textAlignment = .justified
         label.lineBreakMode = .byTruncatingTail
@@ -54,13 +77,54 @@ public struct JustifiedTextLabel: UIViewRepresentable {
         return label
     }
 
-    public func updateUIView(_ uiView: UILabel, context: Context) {
+    func updateUIView(_ uiView: WrappingLabel, context: Context) {
         uiView.text = text
         uiView.numberOfLines = lineLimit ?? 0
         uiView.textAlignment = .justified
         uiView.font = font
         uiView.textColor = textColor
+        if uiView.bounds.width > 0 {
+            uiView.preferredMaxLayoutWidth = uiView.bounds.width
+        }
         uiView.invalidateIntrinsicContentSize()
+    }
+}
+
+private extension Font.TextStyle {
+    var uiTextStyle: UIFont.TextStyle {
+        switch self {
+        case .largeTitle: return .largeTitle
+        case .title: return .title1
+        case .title2: return .title2
+        case .title3: return .title3
+        case .headline: return .headline
+        case .subheadline: return .subheadline
+        case .body: return .body
+        case .callout: return .callout
+        case .footnote: return .footnote
+        case .caption: return .caption1
+        case .caption2: return .caption2
+        @unknown default: return .body
+        }
+    }
+}
+
+private extension Font {
+    func toUIFont() -> UIFont {
+        var queue: [Any] = [self]
+        for _ in 0..<4 {
+            var next: [Any] = []
+            for value in queue {
+                if let style = value as? Font.TextStyle {
+                    return UIFont.preferredFont(forTextStyle: style.uiTextStyle)
+                }
+                for child in Mirror(reflecting: value).children {
+                    next.append(child.value)
+                }
+            }
+            queue = next
+        }
+        return UIFont.preferredFont(forTextStyle: .body)
     }
 }
 
@@ -74,8 +138,9 @@ public struct ExpandableTextView: View {
     @State private var isExpanded = false
     @State private var isTruncated = false
     @State private var availableWidth: CGFloat = 0
-    @State private var fullHeight: CGFloat = 0
-    @State private var collapsedHeight: CGFloat = 0
+    @State private var measurementToken = 0
+    @State private var fullMeasurement = TextMeasurement()
+    @State private var collapsedMeasurement = TextMeasurement()
 
     public init(
         text: String,
@@ -124,27 +189,26 @@ public struct ExpandableTextView: View {
             }
         }
         .onPreferenceChange(WidthPreferenceKey.self) { newWidth in
-            if newWidth > 0 && abs(self.availableWidth - newWidth) > 0.5 {
-                self.availableWidth = newWidth
+            if newWidth > 0 && abs(availableWidth - newWidth) > 0.5 {
+                availableWidth = newWidth
             }
         }
-        .onPreferenceChange(FullHeightPreferenceKey.self) { newFullHeight in
-            if newFullHeight > 0 {
-                self.fullHeight = newFullHeight
+        .onPreferenceChange(FullHeightPreferenceKey.self) { measurement in
+            if measurement.height > 0 {
+                fullMeasurement = measurement
                 checkTruncation()
             }
         }
-        .onPreferenceChange(CollapsedHeightPreferenceKey.self) { newCollapsedHeight in
-            if newCollapsedHeight > 0 {
-                self.collapsedHeight = newCollapsedHeight
+        .onPreferenceChange(CollapsedHeightPreferenceKey.self) { measurement in
+            if measurement.height > 0 {
+                collapsedMeasurement = measurement
                 checkTruncation()
             }
         }
         .onChange(of: text) { _, _ in
-            self.isExpanded = false
-            self.fullHeight = 0
-            self.collapsedHeight = 0
-            self.isTruncated = false
+            isExpanded = false
+            isTruncated = false
+            measurementToken += 1
         }
     }
 
@@ -154,7 +218,7 @@ public struct ExpandableTextView: View {
             JustifiedTextLabel(
                 text: text,
                 lineLimit: isExpanded ? 0 : lineLimit,
-                font: .preferredFont(forTextStyle: .subheadline),
+                font: font.toUIFont(),
                 textColor: UIColor(foregroundColor)
             )
             .fixedSize(horizontal: false, vertical: true)
@@ -174,28 +238,34 @@ public struct ExpandableTextView: View {
                 JustifiedTextLabel(
                     text: text,
                     lineLimit: lineLimit,
-                    font: .preferredFont(forTextStyle: .subheadline),
+                    font: font.toUIFont(),
                     textColor: .clear
                 )
                 .frame(width: width, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
                 .background(
                     GeometryReader { geo in
-                        Color.clear.preference(key: CollapsedHeightPreferenceKey.self, value: geo.size.height)
+                        Color.clear.preference(
+                            key: CollapsedHeightPreferenceKey.self,
+                            value: TextMeasurement(token: measurementToken, height: geo.size.height)
+                        )
                     }
                 )
 
                 JustifiedTextLabel(
                     text: text,
                     lineLimit: 0,
-                    font: .preferredFont(forTextStyle: .subheadline),
+                    font: font.toUIFont(),
                     textColor: .clear
                 )
                 .frame(width: width, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
                 .background(
                     GeometryReader { fullGeo in
-                        Color.clear.preference(key: FullHeightPreferenceKey.self, value: fullGeo.size.height)
+                        Color.clear.preference(
+                            key: FullHeightPreferenceKey.self,
+                            value: TextMeasurement(token: measurementToken, height: fullGeo.size.height)
+                        )
                     }
                 )
             }
@@ -212,7 +282,10 @@ public struct ExpandableTextView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .background(
                         GeometryReader { geo in
-                            Color.clear.preference(key: CollapsedHeightPreferenceKey.self, value: geo.size.height)
+                            Color.clear.preference(
+                                key: CollapsedHeightPreferenceKey.self,
+                                value: TextMeasurement(token: measurementToken, height: geo.size.height)
+                            )
                         }
                     )
 
@@ -224,7 +297,10 @@ public struct ExpandableTextView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .background(
                         GeometryReader { fullGeo in
-                            Color.clear.preference(key: FullHeightPreferenceKey.self, value: fullGeo.size.height)
+                            Color.clear.preference(
+                                key: FullHeightPreferenceKey.self,
+                                value: TextMeasurement(token: measurementToken, height: fullGeo.size.height)
+                            )
                         }
                     )
             }
@@ -235,11 +311,13 @@ public struct ExpandableTextView: View {
     }
 
     private func checkTruncation() {
-        if fullHeight > 0 && collapsedHeight > 0 {
-            let truncated = fullHeight > collapsedHeight + 0.5
-            if isTruncated != truncated {
-                isTruncated = truncated
-            }
+        guard fullMeasurement.token == measurementToken,
+              collapsedMeasurement.token == measurementToken,
+              fullMeasurement.height > 0,
+              collapsedMeasurement.height > 0 else { return }
+        let truncated = fullMeasurement.height > collapsedMeasurement.height + 0.5
+        if isTruncated != truncated {
+            isTruncated = truncated
         }
     }
 }

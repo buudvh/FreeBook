@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.202] - 2026-08-18
+
+### Sửa lỗi ExpandableTextView: mở rộng bị cắt chữ & nút "Xem thêm" không hiển thị
+
+* **Gốc rễ** (`ExpandableTextView.swift`): `JustifiedTextLabel` bọc `UILabel` không bao giờ set `preferredMaxLayoutWidth`, nên label có `numberOfLines == 0` báo `intrinsicContentSize` bằng đúng 1 dòng (chưa có bề rộng để wrap text). Hệ quả: (1) khi mở rộng (`lineLimit: 0`) chiều cao label bị chốt ở 1 dòng nên text bị cắt cụt; (2) ở `measurementSubtree`, label full đo ra 1 dòng trong khi label collapsed (ví dụ `lineLimit: 4`) đo ra 4 dòng → `fullHeight < collapsedHeight` → `checkTruncation()` trả `false` → nút "Xem thêm / Thu gọn" không bao giờ xuất hiện dù text dài.
+* **Fix 1 – `WrappingLabel: UILabel` subclass**: ghi đè `layoutSubviews()` đồng bộ `preferredMaxLayoutWidth = bounds.width` (và `invalidateIntrinsicContentSize()` khi đổi), cập nhật lại trong `updateUIView`. `JustifiedTextLabel` dùng `WrappingLabel` thay vì `UILabel`; label `numberOfLines == 0` giờ wrap đúng bề rộng thực → mở rộng hiển thị đầy đủ và `fullHeight` đo chính xác → điều kiện hiển thị nút đúng.
+* **Fix 2 – remeasure đáng tin khi `text` đổi**: PreferenceKey chỉ fire khi giá trị Equatable đổi, nên việc reset `fullHeight`/`collapsedHeight = 0` trong `onChange(of: text)` có thể kẹt nút ẩn nếu text mới đo ra chiều cao trùng giá trị cũ. Thay bằng `TextMeasurement { token, height }`: `measurementToken` tăng mỗi lần `text` đổi, preference luôn fire lại, `checkTruncation()` bỏ qua số đo cũ có token không khớp.
+* **Fix 3 – tôn trọng tham số `font` khi `isJustified`**: trước đây hardcode `.subheadline`, giờ dùng `Font.toUIFont()` (khôi phục `Font.TextStyle` qua reflection, fallback `.body`) cho cả hiển thị lẫn đo lường, đảm bảo nhất quán với caller (vd `BookDetailHeaderView` truyền `.body`).
+
 ## [1.3.201] - 2026-08-18
 
 ### Sửa lỗi Tokenizer dịch thuật & Tác giả, Tối ưu BookListItemView, Sửa lỗi Comment ExpandableTextView, Khôi phục Sheet ReaderChapterList & Tối ưu Hẹn giờ TTS
