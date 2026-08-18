@@ -288,21 +288,20 @@ struct BookDetailView: View {
         }
         .fullScreenCover(item: $readerRoute) { route in
             NavigationStack {
-                LazyView {
-                    ReaderView(
-                        bookId: actualBookId,
-                        extensionPackageId: extensionPackageId,
-                        chapterIndex: route.chapterIndex,
-                        onlineChapters: onlineChapters,
-                        bookTitle: title,
-                        bookAuthor: author,
-                        bookCoverUrl: coverUrl,
-                        bookDesc: desc.isEmpty ? nil : desc,
-                        bookDetailUrl: initialDetailUrl,
-                        bookSourceName: sourceName,
-                        initialParagraphIndex: -1
-                    )
-                }
+                ReaderView(
+                    bookId: actualBookId,
+                    extensionPackageId: extensionPackageId,
+                    chapterIndex: route.chapterIndex,
+                    onlineChapters: onlineChapters,
+                    bookTitle: title,
+                    bookAuthor: author,
+                    bookCoverUrl: coverUrl,
+                    bookDesc: desc.isEmpty ? nil : desc,
+                    bookDetailUrl: initialDetailUrl,
+                    bookSourceName: sourceName,
+                    initialParagraphIndex: -1
+                )
+                .id(route.id)
             }
         }
         .fullScreenCover(isPresented: $navigateToImportedBook) {

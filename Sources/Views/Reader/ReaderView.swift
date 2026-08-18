@@ -193,6 +193,7 @@ struct ReaderView: View {
     @State internal var currentChapterTitle: String = ""
     @State internal var currentChapterUrl: String = ""
     @State private var didResolveLocalChapterCount = false
+    @State private var bootstrappedReaderKey: String? = nil
 
     @State internal var paragraphTracker = ParagraphTracker()
     @State private var translationRefreshToken = UUID()
@@ -1095,6 +1096,12 @@ struct ReaderView: View {
 
     @MainActor
     private func initializeReaderIfNeeded() async {
+        let bootstrapKey = readerBootstrapKey
+        if viewModel != nil && bootstrappedReaderKey == bootstrapKey {
+            return
+        }
+        bootstrappedReaderKey = bootstrapKey
+
         let key = "showChapterTitle_\(bookId)"
         if UserDefaults.standard.object(forKey: key) != nil {
             showChapterTitle = UserDefaults.standard.bool(forKey: key)

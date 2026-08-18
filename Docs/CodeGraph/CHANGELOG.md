@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.205] - 2026-08-18
+
+### Chống vòng lặp tạo lại ReaderView (disappear/re-appear ~1.6-2s khi đang đọc)
+
+* **Triệu chứng** (log `app_logs`): `[ReaderEnergy] Summary reason=reader_disappear` chạy liên tục mỗi ~2.3s kèm 3-4 `[ReaderBootstrap]` trong ~0.7s sau mỗi lần biến mất. Mỗi lần `onDisappear` kích hoạt `vm.shutdown(saveProgress: true)` + reset `ReaderView.activeBookId`, rồi lần xuất hiện sau lại tạo `ReaderViewModel` mới → loop nạp lại reader + danh sách chương liên tục. Bằng chứng `ReaderEnergy` chỉ log `flush` tại `onDisappear` (mỗi cycle 1 lần) trong khi `initializeReaderIfNeeded` chạy lại nhiều lần → `.task(id: readerBootstrapKey)` re-fire do `ReaderView` bị thay identity trong `fullScreenCover(item:)`.
+* **Fix 1 – bỏ `LazyView` + ghim identity (`BookDetailView.swift`)**: toàn bộ `.fullScreenCover(item: $readerRoute)` của reader (dòng 289-307) bọc `LazyView { ReaderView(...) }` — nguồn duy nhất trong repo dùng `LazyView` quanh reader mà không có `.id()` ổn định (`ShelfView.swift` dùng `.id(route.id)`, `ShelfSearchView.swift` trình bày trực tiếp). `LazyView.body` re-evaluate mỗi khi cover content closure chạy lại khi `BookDetailView` re-render (vd `@Query allBooks`/SwiftData đổi do lưu TOC/progress), làm `ReaderView` bị dựng lại identity → mất `@State` (viewModel, chapterListStore). Thay bằng trình bày trực tiếp `ReaderView(...)` + `.id(route.id)` (khớp pattern đã chứng minh ở `ShelfView`), giữ identity ổn định theo `route.id` (= chapterIndex) khi content closure re-evaluate. `LazyView` vẫn giữ ở `ReaderView.changeSourceDestinationView` (NavigationLink, không liên quan reader).
+* **Fix 2 – bootstrap idempotent (`ReaderView.swift`)**: thêm `@State bootstrappedReaderKey`; đầu `initializeReaderIfNeeded()` guard `viewModel != nil && bootstrappedReaderKey == readerBootstrapKey` → `return`, set key trước khi chạy. Chặn re-bootstrap thừa khi `.task(id: readerBootstrapKey)` re-fire (key `"\(bookId)|\(onlineChapters.count)"` thay đổi thoáng qua) trên cùng identity, không tạo lại `ReaderViewModel`/store khi không cần.
+* **Lưu ý hạ tầng**: không thêm/xoá file nguồn; `LazyView.swift` không bị gỡ (còn dùng ở `ReaderView.changeSourceDestinationView`). `manifest.json` không đổi `sourceFileCount`/`documentCount` (214/16); chỉ cần `validate_links.py --update-hashes` do hash source thay đổi. Build/test chỉ kiểm chứng được trên macOS/CI — repo đang mở trên Windows.
+
 ## [1.3.204] - 2026-08-18
 
 ### Đơn giản hoá luồng Danh Sách Chương: 1 nguồn sự thật, bỏ cache cửa sổ trượt & prefetch xa
