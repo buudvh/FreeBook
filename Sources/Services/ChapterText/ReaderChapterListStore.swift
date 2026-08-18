@@ -41,6 +41,7 @@ public final class ReaderChapterListStore {
     var inFlightPages: [Int: Task<[Int: (title: String, url: String, isCached: Bool)]?, Never>] = [:]
     var loadTask: Task<Void, Never>? = nil
     var deferredPrefetchTask: Task<Void, Never>? = nil
+    var pageRetryTask: Task<Void, Never>? = nil
 
     public var isLoadingPage = false
 
@@ -67,6 +68,8 @@ public final class ReaderChapterListStore {
         loadTask = nil
         deferredPrefetchTask?.cancel()
         deferredPrefetchTask = nil
+        pageRetryTask?.cancel()
+        pageRetryTask = nil
         searchCoordinator.cancel()
 
         for (_, t) in inFlightPages {
@@ -184,20 +187,18 @@ public final class ReaderChapterListStore {
             }
 
             var results: [Int: [Int: (title: String, url: String, isCached: Bool)]] = [:]
-            var allSucceeded = true
+            var failedPages: [Int] = []
             for (p, task) in pageTasks {
                 if let fetched = await task.value {
                     results[p] = fetched
                 } else {
-                    allSucceeded = false
+                    failedPages.append(p)
                 }
             }
 
             if Task.isCancelled || gen != self.currentGeneration || requestID != self.latestWindowRequestID {
                 return
             }
-
-            guard allSucceeded else { return }
 
             var nextStates: [Int: ReaderChapterRowState] = loadedRowStates
             for p in pagesToLoad {
@@ -249,6 +250,23 @@ public final class ReaderChapterListStore {
             }
 
             self.loadedRowStates = nextStates
+
+            if !failedPages.isEmpty, !Task.isCancelled, gen == self.currentGeneration {
+                let retryGen = self.currentGeneration
+                let retryPages = failedPages
+                self.pageRetryTask?.cancel()
+                self.pageRetryTask = Task {
+                    do {
+                        try await Task.sleep(nanoseconds: 300_000_000)
+                    } catch {
+                        return
+                    }
+                    guard !Task.isCancelled, retryGen == self.currentGeneration else { return }
+                    for p in retryPages {
+                        self.loadPagesAround(page: p, includeNeighbors: false)
+                    }
+                }
+            }
         }
     }
 

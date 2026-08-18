@@ -12,6 +12,15 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 * **Fix 3 – tôn trọng tham số `font` khi `isJustified`**: trước đây hardcode `.subheadline`, giờ dùng `Font.toUIFont()` (khôi phục `Font.TextStyle` qua reflection, fallback `.body`) cho cả hiển thị lẫn đo lường, đảm bảo nhất quán với caller (vd `BookDetailHeaderView` truyền `.body`).
 * **Fix 4 – CI build (`public override`)**: `WrappingLabel.layoutSubviews()` khai báo `public override` vì enclosing type `WrappingLabel` là `public` — Swift yêu cầu override phải có access level tối thiểu bằng type bao quanh (`error: overriding instance method must be as accessible as its enclosing type`), khiến `xcodebuild archive` ở CI (run 573) fail với exit 65. Không thay đổi hành vi runtime.
 
+## [1.3.203] - 2026-08-18
+
+### Sửa lỗi kẹt skeleton vĩnh viễn khi mở Danh Sách Chương lần đầu
+
+* **Gốc rễ** (`ReaderChapterListStore.swift`): trong `loadPagesAround`, `guard allSucceeded else { return }` vứt bỏ **toàn bộ** kết quả khi chỉ cần **một** trang trong cửa sổ tải thất bại (`BackgroundPagingWorker` throw `incompletePage` nhất thời khi `ChapterStore` chưa sẵn dữ liệu), mà không có bất kỳ cơ chế retry nào — `loadedRowStates` kẹt placeholder "Đang tải..." vĩnh viễn cho tới khi user đóng/mở lại list (→ `jumpToChapter` chạy lại `loadPagesAround`). Khớp đúng triệu chứng "chỉ khi tắt danh sách chương mở lại mới hết".
+* **Fix A – publish từng trang + retry trang thất bại** (`ReaderChapterListStore.swift`): bỏ `guard allSucceeded`; trang fetch thành công được publish ngay (không còn bị "bắn nhầm" bởi trang lân cận thất bại); trang thất bại được gom vào `failedPages` và schedule **một** retry sau 300ms qua `loadPagesAround(page:includeNeighbors:false)` — publish vào `loadedRowStates` (observable) nên List tự re-render, hết skeleton mà không cần thao tác. Thêm `pageRetryTask` được cancel trong `setupPlaceholderRows()` để reset không để retry cũ chạy lạc.
+* **Fix B – re-trigger sau khi định vị xong** (`ReaderChapterListView.swift`): trong `scrollToCurrentChapter`, sau `isPositioningInitialChapter = false` gọi lại `scheduleVisiblePageWork(displayPosition:)` — lưới an toàn thứ hai, idempotent (nếu trang đã tải xong thì no-op).
+* **Fix C – xoá fallback `onlineChapters`** (`ReaderChapterListPageFetcher.swift`): fallback cũ chỉ hiệu quả khi `onlineChapters` đầy đủ (sách mở từ chi tiết), còn sách mở từ kệ nhận `onlineChapters: []` (`ShelfView.swift`) nên không cứu được skeleton; đồng thời cache dữ liệu fallback với `isCached: false` vĩnh viễn vào `pageCache` gây stale data. Xoá hẳn fallback (về `fetchedData = nil`) — Fix A thay thế vai trò của nó; nhánh `modelContext == nil` (sách online mở từ chi tiết) giữ nguyên. Thêm `AppLogger.log("[ChapterList] ... fetch error")` vào cả nhánh worker lẫn seam để chẩn đoán lần sau.
+
 ## [1.3.201] - 2026-08-18
 
 ### Sửa lỗi Tokenizer dịch thuật & Tác giả, Tối ưu BookListItemView, Sửa lỗi Comment ExpandableTextView, Khôi phục Sheet ReaderChapterList & Tối ưu Hẹn giờ TTS

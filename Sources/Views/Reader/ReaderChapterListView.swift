@@ -354,6 +354,7 @@ public struct ReaderChapterListView: View {
             }
             warmNearbyTitles(aroundDisplayPosition: displayPosition, windowSize: 8)
             isPositioningInitialChapter = false
+            scheduleVisiblePageWork(displayPosition: displayPosition)
         }
     }
 
