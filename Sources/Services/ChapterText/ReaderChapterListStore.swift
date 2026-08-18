@@ -104,7 +104,8 @@ public final class ReaderChapterListStore {
     }
 
     private func reloadViewportAfterReset() {
-        guard let page = lastViewportPage,
+        let page = lastViewportPage ?? currentTargetPage ?? 0
+        guard totalCount > 0,
               page >= 0,
               page <= (totalCount - 1) / pageSize else { return }
         currentTargetPage = page

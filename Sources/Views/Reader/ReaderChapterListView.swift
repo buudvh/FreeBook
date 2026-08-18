@@ -321,6 +321,11 @@ public struct ReaderChapterListView: View {
                 displayTitleCache.removeAll()
                 store.updateTranslation(isTranslationEnabled: newValue)
             }
+            .onChange(of: store.totalCount) { _, newCount in
+                if newCount > 0 && isPresented {
+                    scrollToCurrentChapter(proxy: proxy)
+                }
+            }
         }
     }
 

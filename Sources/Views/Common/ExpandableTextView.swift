@@ -37,7 +37,7 @@ private struct CollapsedHeightPreferenceKey: PreferenceKey {
     }
 }
 
-final class WrappingLabel: UILabel {
+public final class WrappingLabel: UILabel {
     override func layoutSubviews() {
         super.layoutSubviews()
         if bounds.width > 0, preferredMaxLayoutWidth != bounds.width {
@@ -65,7 +65,7 @@ public struct JustifiedTextLabel: UIViewRepresentable {
         self.textColor = textColor
     }
 
-    func makeUIView(context: Context) -> WrappingLabel {
+    public func makeUIView(context: Context) -> WrappingLabel {
         let label = WrappingLabel()
         label.numberOfLines = lineLimit ?? 0
         label.textAlignment = .justified
@@ -77,7 +77,7 @@ public struct JustifiedTextLabel: UIViewRepresentable {
         return label
     }
 
-    func updateUIView(_ uiView: WrappingLabel, context: Context) {
+    public func updateUIView(_ uiView: WrappingLabel, context: Context) {
         uiView.text = text
         uiView.numberOfLines = lineLimit ?? 0
         uiView.textAlignment = .justified

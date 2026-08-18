@@ -24,7 +24,9 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
   - Tự động reset `isExpanded = false` và measurement state khi nội dung text thay đổi, áp dụng subpixel tolerance `fullHeight > collapsedHeight + 0.5`.
 * **Khắc phục Skeleton Danh Sách Chương & Prefetch ngầm (`ReaderView.swift` & `ReaderChapterListView.swift`)**:
   - Tự động pre-fetch trang mục lục của chương hiện tại ngay khi Reader khởi tạo xong, đảm bảo dữ liệu sẵn sàng trong RAM khi mở sheet.
-  - Quan sát trực tiếp `store.loadedRowStates` trên từng hàng và duy trì debounce 90ms để chống load storm trong quá trình layout.
+  - Sửa `ReaderChapterListStore.reloadViewportAfterReset()` fallback về trang 0 (`lastViewportPage ?? currentTargetPage ?? 0`) khi `lastViewportPage` là `nil`, ngăn chặn dứt điểm trạng thái kẹt skeleton khi mục lục cập nhật.
+  - Thêm fallback sang `onlineChapters` trong `ReaderChapterListPageFetcher` khi `BackgroundPagingWorker` chưa có dữ liệu trong DB.
+  - Quan sát trực tiếp `store.loadedRowStates`, thêm `.onChange(of: store.totalCount)` để tự động cuộn khi mục lục tải xong và duy trì debounce 90ms.
 * **Tối ưu hiển thị chiều ngang `BookListItemView` (`BookListItemView.swift`)**:
   - Gán `.frame(maxWidth: .infinity, alignment: .leading)` cho khối thông tin sách, xóa `Spacer()` dư thừa và thêm `.lineLimit(1)` cho nhãn nguồn truyện, giải quyết triệt để khoảng trống thừa bên phải.
 * **Tăng khoảng cách padding top cho Danh sách chương (`ReaderChapterListView.swift`)**:

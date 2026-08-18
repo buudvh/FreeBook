@@ -101,7 +101,27 @@ extension ReaderChapterListStore {
             do {
                 fetchedData = try await worker.fetchPage(bookId: localBookId, minLogicalIndex: minLogicalIndex, maxLogicalIndex: maxLogicalIndex, isTranslationEnabled: isTranslationEnabled)
             } catch {
-                fetchedData = nil
+                if !onlineChapters.isEmpty {
+                    var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
+                    for idx in logicalIndices {
+                        if idx < onlineChapters.count {
+                            let chap = onlineChapters[idx]
+                            let trimmedUrl = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !trimmedUrl.isEmpty {
+                                let displayTitle: String
+                                if isTranslationEnabled && TranslateUtils.containsChinese(chap.name) {
+                                    displayTitle = TranslateUtils.translateChapterTitle(chap.name, bookId: bookId)
+                                } else {
+                                    displayTitle = chap.name
+                                }
+                                data[idx] = (displayTitle, trimmedUrl, false)
+                            }
+                        }
+                    }
+                    fetchedData = data
+                } else {
+                    fetchedData = nil
+                }
             }
         } else {
             var data: [Int: (title: String, url: String, isCached: Bool)] = [:]
