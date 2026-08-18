@@ -9,9 +9,10 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 * **Sửa lỗi Tokenizer Dịch thuật tiếng Việt & Ký tự khoa học (`VietPhraseTokenizer.swift`)**:
   - Gom chuẩn xác toàn bộ từ ngữ chữ cái Unicode (tiếng Việt có dấu: `ngày`, `tháng`, `năm`; ký tự Hy Lạp: `θ`, `α`, `β`), số nguyên và số thập phân (`14.8`, `2026`).
   - Giải quyết dứt điểm lỗi tách rời từ ngữ thành `"Ng ày"`, `"th áng"`, `"n ăm"`, `"1 4. 8"`.
-* **Khôi phục Overlay Danh Sách Chương & Loại bỏ Màn Hình Đen (`ReaderView.swift` & `ReaderChapterListView.swift`)**:
-  - Khôi phục `readerChapterListOverlay(in: geometry)` trong `ZStack` của `ReaderView`, loại bỏ `.sheet` danh sách chương để giải quyết triệt để lỗi xung đột phân cấp modal khiến màn hình đen khi mở truyện.
-  - Khôi phục thanh kéo `Capsule()` ở đầu header danh sách chương.
+* **Hành động kéo vuốt cho Danh sách chương & Loại bỏ Màn hình đen (`ReaderView.swift` & `ReaderChapterListView.swift`)**:
+  - Chuyển `ReaderChapterListView` trong `ReaderView` sang dạng `.sheet(isPresented: $showingChapterList)` với `.presentationDetents([.fraction(0.75), .large])` và `.presentationDragIndicator(.visible)` thông qua `getOrInitChapterListStore()`.
+  - Hỗ trợ thao tác kéo vuốt 2 nấc độ cao (75% / Toàn màn hình) và vuốt xuống để đóng mượt mà chuẩn iOS tương tự màn hình Hẹn giờ tắt TTS, loại bỏ triệt để xung đột presentation.
+  - Thêm badge tên nguồn truyện (`ext?.name ?? localBook?.sourceName`) với nền capsule tinh tế ở phần header danh sách chương.
 * **Hiển thị Toàn Bộ Lịch Sử Đọc & Xóa Lịch Sử Thông Minh (`ShelfView.swift`)**:
   - `historyBooks` lọc toàn bộ sách có `isHistory == true`, không loại trừ `isOnShelf`, sắp xếp theo `lastReadDate` mới nhất lên đầu.
   - Xóa lịch sử thông minh: nếu sách trên kệ chỉ đặt `isHistory = false`, nếu ngoài kệ thì xóa toàn bộ sách khỏi máy.

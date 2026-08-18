@@ -119,11 +119,6 @@ public struct ReaderChapterListView: View {
 
     private var header: some View {
         VStack(spacing: 8) {
-            Capsule()
-                .fill(theme.textColor.opacity(0.3))
-                .frame(width: 36, height: 5)
-                .accessibilityHidden(true)
-
             HStack(alignment: .top, spacing: 12) {
                 Button(action: { showingBookDetail = true }) {
                     BookCoverView(
@@ -216,20 +211,6 @@ public struct ReaderChapterListView: View {
         .padding(.top, 8)
         .padding(.bottom, 10)
         .background(theme.backgroundColor)
-        .contentShape(Rectangle())
-        .simultaneousGesture(dismissGesture)
-    }
-
-    private var dismissGesture: some Gesture {
-        DragGesture(minimumDistance: 16)
-            .onEnded { value in
-                let horizontalDistance = abs(value.translation.width)
-                let verticalDistance = value.translation.height
-                if verticalDistance >= 72,
-                   verticalDistance >= horizontalDistance * 1.25 {
-                    onClose()
-                }
-            }
     }
 
     private func firstNonempty(_ primary: String?, _ fallback: String?) -> String? {

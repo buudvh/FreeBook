@@ -74,12 +74,14 @@ struct ShelfView: View {
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
 
     private var shelfBooks: [Book] {
-        allBooks.filter { $0.isOnShelf }
+        allBooks
+            .filter { $0.isOnShelf }
+            .sorted(by: { $0.lastReadDate > $1.lastReadDate })
     }
 
     private var historyBooks: [Book] {
         allBooks
-            .filter { $0.isHistory }
+            .filter { $0.isHistory && !$0.isOnShelf }
             .sorted(by: { $0.lastReadDate > $1.lastReadDate })
     }
 

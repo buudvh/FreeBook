@@ -27,7 +27,7 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 * `VietPhraseTokenizer`:
   - Fixed Unicode word tokenization: accurately groups non-ASCII Latin characters (Vietnamese diacritics: `ngày`, `tháng`, `năm`), decimal numbers (`14.8`), and symbols (`θ`), resolving split-token spacing bugs (`Ng ày`, `th áng`, `1 4. 8`).
 * `ReaderView` & `ReaderChapterListView`:
-  - Restored `readerChapterListOverlay(in: geometry)` within reader `ZStack` (with top grab `Capsule()` and smooth slide animation), completely eliminating black screen / blank modal presentation conflicts in `fullScreenCover`.
+  - Integrated native Bottom Sheet presentation via `.sheet(isPresented: $showingChapterList)` with `.presentationDetents([.fraction(0.75), .large])` and `.presentationDragIndicator(.visible)` powered by `getOrInitChapterListStore()`, providing seamless two-stage height expansion and drag-down-to-dismiss without modal conflicts.
   - Header displays source name badge (`ext?.name ?? localBook?.sourceName`).
 * `ShelfView` history filter:
   - `historyBooks` filters all books with `isHistory == true` without excluding `isOnShelf`, sorted by `lastReadDate` descending so all recently read books appear.
