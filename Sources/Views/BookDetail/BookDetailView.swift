@@ -315,6 +315,15 @@ struct BookDetailView: View {
                 )
             }
         }
+        .onChange(of: readerRoute) { oldV, newV in
+            AppLogger.shared.log("[BookDetailLifecycle] readerRoute onChange old=\(String(describing: oldV?.id)) new=\(String(describing: newV?.id))")
+        }
+        .onAppear {
+            AppLogger.shared.log("[BookDetailLifecycle] onAppear bookId=\(actualBookId)")
+        }
+        .onDisappear {
+            AppLogger.shared.log("[BookDetailLifecycle] onDisappear bookId=\(actualBookId) readerRoute=\(String(describing: readerRoute?.id))")
+        }
     }
 
     @ViewBuilder

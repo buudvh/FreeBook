@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.206] - 2026-08-18
+
+### Chẩn đoán vòng lặp tạo lại ReaderView (log-only, không đổi hành vi)
+
+* Fix `[1.3.205]` (bỏ `LazyView` + `.id(route.id)` + guard idempotent bootstrap) **chưa hết** loop: log mới `app_logs (149).txt` vẫn thấy `reader_disappear` mỗi ~1.2-3.1s kèm 2-3 `[ReaderBootstrap]`, và `chap.js` tải lại (viewModel bị destroy mỗi chu kỳ). Kết luận: identity `ReaderView` vẫn bị reset mỗi chu kỳ → `fullScreenCover(item: $readerRoute)` bị dismiss + re-present dù `readerRoute` không đổi.
+* **Bổ sung log chẩn đoán (build tạm, sẽ gỡ sau khi tìm ra root cause)**:
+  - `ReaderView.swift`: `[ReaderLifecycle] task key=... hasVM=... skip=...` (trong `.task(id:)`), `onAppear key=... hasVM=...`, `onDisappear key=... hasVM=...` — phát hiện `.task(id:)` re-fire có `skip` hay không, key có đổi không.
+  - `BookDetailView.swift`: `[BookDetailLifecycle] readerRoute onChange old=... new=...` (item có bị đổi id không), `onAppear bookId=...`, `onDisappear bookId=... readerRoute=...` (màn chi tiết có bị dismiss → reader cover theo đó dismiss không).
+* **Lưu ý hạ tầng**: không thêm/xoá file nguồn; chỉ thêm log. `manifest.json` không đổi `sourceFileCount`/`documentCount`. Build/test chỉ kiểm chứng được trên macOS/CI — repo đang mở trên Windows.
+
 ## [1.3.205] - 2026-08-18
 
 ### Chống vòng lặp tạo lại ReaderView (disappear/re-appear ~1.6-2s khi đang đọc)

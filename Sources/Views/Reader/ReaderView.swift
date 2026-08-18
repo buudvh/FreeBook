@@ -889,17 +889,20 @@ struct ReaderView: View {
     private var readerLifecycleView: some View {
         readerDataObservationView
         .task(id: readerBootstrapKey) {
+            AppLogger.shared.log("[ReaderLifecycle] task key=\(readerBootstrapKey) hasVM=\(viewModel != nil) skip=\(viewModel != nil && bootstrappedReaderKey == readerBootstrapKey)")
             await initializeReaderIfNeeded()
         }
         .onAppear {
             ttsState.scope(to: bookId)
             ReaderEnergyDiagnostics.shared.beginReaderSession()
             updateDisplayedBookTitleCache()
+            AppLogger.shared.log("[ReaderLifecycle] onAppear key=\(readerBootstrapKey) hasVM=\(viewModel != nil)")
         }
         .onChange(of: isTranslationEnabled) { _, _ in
             updateDisplayedBookTitleCache()
         }
         .onDisappear {
+            AppLogger.shared.log("[ReaderLifecycle] onDisappear key=\(readerBootstrapKey) hasVM=\(viewModel != nil)")
             ReaderEnergyDiagnostics.shared.flush(reason: "reader_disappear")
             metadataTask?.cancel()
             if ReaderView.activeBookId == bookId {
