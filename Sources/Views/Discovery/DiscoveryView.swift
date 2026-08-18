@@ -431,14 +431,16 @@ struct DiscoveryView: View {
                     }
                 )
             }
-            .navigationDestination(isPresented: $navigateToImportedBook) {
-                BookDetailView(
-                    bookId: importedBookId,
-                    extensionPackageId: importedExtensionPackageId,
-                    initialDetailUrl: importedDetailUrl,
-                    sourceName: importedSourceName,
-                    initialHost: importedHost
-                )
+            .fullScreenCover(isPresented: $navigateToImportedBook) {
+                NavigationStack {
+                    BookDetailView(
+                        bookId: importedBookId,
+                        extensionPackageId: importedExtensionPackageId,
+                        initialDetailUrl: importedDetailUrl,
+                        sourceName: importedSourceName,
+                        initialHost: importedHost
+                    )
+                }
             }
             .navigationDestination(isPresented: $navigateToGenre) {
                 if let genre = selectedGenre {
@@ -535,6 +537,7 @@ struct DiscoveryCategoryTabView: View {
 
     @StateObject private var loader: PaginatedNovelLoader
     @State private var initialLoadTask: Task<Void, Never>? = nil
+    @State private var selectedDetailRoute: BookDetailRoute? = nil
 
     init(
         category: CategoryResult,
@@ -571,9 +574,12 @@ struct DiscoveryCategoryTabView: View {
             } else if !loader.errorMessage.isEmpty && loader.novels.isEmpty {
                 VStack(spacing: 12) {
                     Spacer()
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundColor(.orange)
                     Text(loader.errorMessage)
-                        .foregroundColor(.red)
                         .font(.subheadline)
+                        .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                     Button("Thử lại") {
@@ -600,15 +606,18 @@ struct DiscoveryCategoryTabView: View {
             } else {
                 List {
                     ForEach(loader.novels) { novel in
-                        NavigationLink(destination: BookDetailView(
-                            bookId: "\(sourceName.lowercased())_\(novel.link)",
-                            extensionPackageId: extensionPackageId,
-                            initialDetailUrl: novel.link,
-                            sourceName: sourceName,
-                            initialHost: novel.host
-                        )) {
+                        Button {
+                            selectedDetailRoute = BookDetailRoute(
+                                bookId: "\(sourceName.lowercased())_\(novel.link)",
+                                extensionPackageId: extensionPackageId,
+                                detailUrl: novel.link,
+                                sourceName: sourceName,
+                                host: novel.host
+                            )
+                        } label: {
                             BookListItemView(item: novel, showChapter: false, showDescription: true)
                         }
+                        .buttonStyle(.plain)
                     }
 
                     if loader.canLoadMore {
@@ -629,6 +638,17 @@ struct DiscoveryCategoryTabView: View {
                 .refreshable {
                     await loader.reload()
                 }
+            }
+        }
+        .fullScreenCover(item: $selectedDetailRoute) { route in
+            NavigationStack {
+                BookDetailView(
+                    bookId: route.bookId,
+                    extensionPackageId: route.extensionPackageId,
+                    initialDetailUrl: route.detailUrl,
+                    sourceName: route.sourceName,
+                    initialHost: route.host
+                )
             }
         }
         .onAppear {

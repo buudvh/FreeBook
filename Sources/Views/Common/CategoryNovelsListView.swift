@@ -10,6 +10,7 @@ struct CategoryNovelsListView: View {
 
     @StateObject private var loader: PaginatedNovelLoader
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    @State private var selectedDetailRoute: BookDetailRoute? = nil
 
     init(
         category: CategoryResult,
@@ -57,16 +58,19 @@ struct CategoryNovelsListView: View {
             } else {
                 List {
                     ForEach(loader.novels) { novel in
-                        NavigationLink(destination: BookDetailView(
-                            bookId: novel.link,
-                            extensionPackageId: extensionPackageId,
-                            initialDetailUrl: novel.link,
-                            sourceName: sourceName,
-                            initialHost: novel.host
-                        )) {
+                        Button {
+                            selectedDetailRoute = BookDetailRoute(
+                                bookId: novel.link,
+                                extensionPackageId: extensionPackageId,
+                                detailUrl: novel.link,
+                                sourceName: sourceName,
+                                host: novel.host
+                            )
+                        } label: {
                             BookListItemView(item: novel, showChapter: false, showDescription: true, coverWidth: 60, coverHeight: 80)
                                 .padding(.vertical, 4)
                         }
+                        .buttonStyle(.plain)
                     }
 
                     if loader.canLoadMore {
@@ -87,6 +91,17 @@ struct CategoryNovelsListView: View {
                 .refreshable {
                     await loader.reload()
                 }
+            }
+        }
+        .fullScreenCover(item: $selectedDetailRoute) { route in
+            NavigationStack {
+                BookDetailView(
+                    bookId: route.bookId,
+                    extensionPackageId: route.extensionPackageId,
+                    initialDetailUrl: route.detailUrl,
+                    sourceName: route.sourceName,
+                    initialHost: route.host
+                )
             }
         }
         .navigationTitle(translateIfNeeded(category.title))

@@ -119,11 +119,6 @@ public struct ReaderChapterListView: View {
 
     private var header: some View {
         VStack(spacing: 8) {
-            Capsule()
-                .fill(theme.textColor.opacity(0.3))
-                .frame(width: 36, height: 5)
-                .accessibilityHidden(true)
-
             HStack(alignment: .top, spacing: 12) {
                 Button(action: { showingBookDetail = true }) {
                     BookCoverView(
@@ -136,7 +131,7 @@ public struct ReaderChapterListView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(bookDetailUrl == nil || ext == nil)
-                .sheet(isPresented: $showingBookDetail) {
+                .fullScreenCover(isPresented: $showingBookDetail) {
                     if let detailUrl = bookDetailUrl, let ext {
                         NavigationStack {
                             BookDetailView(
@@ -160,6 +155,16 @@ public struct ReaderChapterListView: View {
                             .font(.subheadline)
                             .foregroundColor(theme.textColor.opacity(0.72))
                             .lineLimit(1)
+                    }
+
+                    if let sourceName = ext?.name ?? localBook?.sourceName, !sourceName.isEmpty {
+                        Text(sourceName)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.accentColor)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.accentColor.opacity(0.12))
+                            .cornerRadius(4)
                     }
 
                     HStack(spacing: 0) {

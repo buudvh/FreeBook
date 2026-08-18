@@ -16,6 +16,45 @@ private struct CollapsedHeightPreferenceKey: PreferenceKey {
     }
 }
 
+public struct JustifiedTextLabel: UIViewRepresentable {
+    public let text: String
+    public let lineLimit: Int?
+    public let font: UIFont
+    public let textColor: UIColor
+
+    public init(
+        text: String,
+        lineLimit: Int? = nil,
+        font: UIFont = .preferredFont(forTextStyle: .subheadline),
+        textColor: UIColor = .secondaryLabel
+    ) {
+        self.text = text
+        self.lineLimit = lineLimit
+        self.font = font
+        self.textColor = textColor
+    }
+
+    public func makeUIView(context: Context) -> UILabel {
+        let label = UILabel()
+        label.numberOfLines = lineLimit ?? 0
+        label.textAlignment = .justified
+        label.lineBreakMode = .byTruncatingTail
+        label.font = font
+        label.textColor = textColor
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        label.setContentHuggingPriority(.defaultHigh, for: .vertical)
+        return label
+    }
+
+    public func updateUIView(_ uiView: UILabel, context: Context) {
+        uiView.text = text
+        uiView.numberOfLines = lineLimit ?? 0
+        uiView.textAlignment = .justified
+        uiView.font = font
+        uiView.textColor = textColor
+    }
+}
+
 public struct ExpandableTextView: View {
     let text: String
     let lineLimit: Int
@@ -41,11 +80,13 @@ public struct ExpandableTextView: View {
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(text)
-                .font(font)
-                .foregroundColor(foregroundColor)
-                .lineLimit(isExpanded ? nil : lineLimit)
-                .multilineTextAlignment(.leading)
+            JustifiedTextLabel(
+                text: text,
+                lineLimit: isExpanded ? 0 : lineLimit,
+                font: .preferredFont(forTextStyle: .subheadline),
+                textColor: UIColor(foregroundColor)
+            )
+            .fixedSize(horizontal: false, vertical: true)
                 .background(
                     // Measurer 1: Measure collapsed height (always constrained to lineLimit)
                     Text(text)

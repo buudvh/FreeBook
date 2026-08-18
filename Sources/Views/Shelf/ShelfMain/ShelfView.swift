@@ -57,6 +57,7 @@ struct ShelfView: View {
     // Trình bày Reader dạng fullScreenCover để tab bar phía dưới không bị ẩn/hiện
     // (tránh hiện tượng tab bar hiển thị trễ khi quay lại từ màn hình toàn màn hình).
     @State private var readerPresentationRoute: ShelfReaderRoute? = nil
+    @State private var selectedDetailRoute: BookDetailRoute? = nil
 
     // Tùy chọn tác vụ
     @State private var selectedTaskType: TaskType = .download
@@ -265,14 +266,27 @@ struct ShelfView: View {
                     }
                 )
             }
-            .navigationDestination(isPresented: $navigateToImportedBook) {
-                BookDetailView(
-                    bookId: importedBookId,
-                    extensionPackageId: importedExtensionPackageId,
-                    initialDetailUrl: importedDetailUrl,
-                    sourceName: importedSourceName,
-                    initialHost: importedHost
-                )
+            .fullScreenCover(isPresented: $navigateToImportedBook) {
+                NavigationStack {
+                    BookDetailView(
+                        bookId: importedBookId,
+                        extensionPackageId: importedExtensionPackageId,
+                        initialDetailUrl: importedDetailUrl,
+                        sourceName: importedSourceName,
+                        initialHost: importedHost
+                    )
+                }
+            }
+            .fullScreenCover(item: $selectedDetailRoute) { route in
+                NavigationStack {
+                    BookDetailView(
+                        bookId: route.bookId,
+                        extensionPackageId: route.extensionPackageId,
+                        initialDetailUrl: route.detailUrl,
+                        sourceName: route.sourceName,
+                        initialHost: route.host
+                    )
+                }
             }
             .sheet(isPresented: $showingFilePicker) {
                 DocumentPicker(
@@ -387,13 +401,15 @@ struct ShelfView: View {
                         .buttonStyle(.plain)
                         .contextMenu {
                             if !book.isLocalBook {
-                                NavigationLink(destination: BookDetailView(
-                                    bookId: book.bookId,
-                                    extensionPackageId: book.extensionPackageId,
-                                    initialDetailUrl: book.detailUrl,
-                                    sourceName: book.sourceName,
-                                    initialHost: book.host
-                                )) {
+                                Button {
+                                    selectedDetailRoute = BookDetailRoute(
+                                        bookId: book.bookId,
+                                        extensionPackageId: book.extensionPackageId,
+                                        detailUrl: book.detailUrl,
+                                        sourceName: book.sourceName,
+                                        host: book.host
+                                    )
+                                } label: {
                                     Label("Xem chi tiết", systemImage: "info.circle")
                                 }
 
@@ -495,13 +511,15 @@ struct ShelfView: View {
                         }
                         .buttonStyle(.plain)
                         .contextMenu {
-                            NavigationLink(destination: BookDetailView(
-                                bookId: book.bookId,
-                                extensionPackageId: book.extensionPackageId,
-                                initialDetailUrl: book.detailUrl,
-                                sourceName: book.sourceName,
-                                initialHost: book.host
-                            )) {
+                            Button {
+                                selectedDetailRoute = BookDetailRoute(
+                                    bookId: book.bookId,
+                                    extensionPackageId: book.extensionPackageId,
+                                    detailUrl: book.detailUrl,
+                                    sourceName: book.sourceName,
+                                    host: book.host
+                                )
+                            } label: {
                                 Label("Xem chi tiết", systemImage: "info.circle")
                             }
 

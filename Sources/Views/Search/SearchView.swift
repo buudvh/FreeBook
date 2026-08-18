@@ -21,6 +21,7 @@ struct SearchView: View {
     @State private var changeSourceTargetExtension: Extension? = nil
     @State private var showingChangeSourceAlert = false
     @State private var isChangingSource = false
+    @State private var selectedDetailRoute: BookDetailRoute? = nil
     
     @State private var searchQuery = ""
     @State private var isSearching = false
@@ -156,6 +157,17 @@ struct SearchView: View {
                 Text("Bạn đang nghe phát âm thanh cho truyện này. Nguồn mới '\(extName)' sẽ được thêm vào kệ sách mà không xóa nguồn cũ để quá trình nghe không bị gián đoạn.")
             } else {
                 Text("Bạn có chắc chắn muốn thay đổi nguồn cho truyện sang '\(extName)' không?\nSách cũ trên kệ sẽ bị xóa và các cài đặt dịch riêng, từ điển riêng cũng như tiến độ đọc chương sẽ được chuyển qua sách mới.")
+            }
+        }
+        .fullScreenCover(item: $selectedDetailRoute) { route in
+            NavigationStack {
+                BookDetailView(
+                    bookId: route.bookId,
+                    extensionPackageId: route.extensionPackageId,
+                    initialDetailUrl: route.detailUrl,
+                    sourceName: route.sourceName,
+                    initialHost: route.host
+                )
             }
         }
     }
@@ -334,24 +346,19 @@ struct SearchView: View {
                                                                         .lineLimit(2)
                                                                         .multilineTextAlignment(.leading)
                                                                         .frame(width: 90, alignment: .leading)
-                                                                    
-                                                                    // let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
-                                                                    // Text(translateIfNeeded(authorText))
-                                                                    //     .font(.system(size: 10))
-                                                                    //     .foregroundColor(.secondary)
-                                                                    //     .lineLimit(1)
-                                                                    //     .frame(width: 90, alignment: .leading)
                                                                 }
                                                             }
                                                             .buttonStyle(.plain)
                                                         } else {
-                                                            NavigationLink(destination: BookDetailView(
-                                                                bookId: "\(ext.name.lowercased())_\(result.link)",
-                                                                extensionPackageId: ext.packageId,
-                                                                initialDetailUrl: result.link,
-                                                                sourceName: ext.name,
-                                                                initialHost: result.host
-                                                            )) {
+                                                            Button {
+                                                                selectedDetailRoute = BookDetailRoute(
+                                                                    bookId: "\(ext.name.lowercased())_\(result.link)",
+                                                                    extensionPackageId: ext.packageId,
+                                                                    detailUrl: result.link,
+                                                                    sourceName: ext.name,
+                                                                    host: result.host
+                                                                )
+                                                            } label: {
                                                                 VStack(alignment: .leading, spacing: 6) {
                                                                     AsyncImage(url: URL(string: result.cover)) { image in
                                                                         image.resizable()
@@ -371,15 +378,9 @@ struct SearchView: View {
                                                                         .lineLimit(2)
                                                                         .multilineTextAlignment(.leading)
                                                                         .frame(width: 90, alignment: .leading)
-                                                                    
-                                                                    // let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
-                                                                    // Text(translateIfNeeded(authorText))
-                                                                    //     .font(.system(size: 10))
-                                                                    //     .foregroundColor(.secondary)
-                                                                    //     .lineLimit(1)
-                                                                    //     .frame(width: 90, alignment: .leading)
                                                                 }
                                                             }
+                                                            .buttonStyle(.plain)
                                                         }
                                                     }
                                                 }
@@ -451,13 +452,15 @@ struct SearchView: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                NavigationLink(destination: BookDetailView(
-                    bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
-                    extensionPackageId: item.ext.packageId,
-                    initialDetailUrl: item.result.link,
-                    sourceName: item.ext.name,
-                    initialHost: item.result.host
-                )) {
+                Button {
+                    selectedDetailRoute = BookDetailRoute(
+                        bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
+                        extensionPackageId: item.ext.packageId,
+                        detailUrl: item.result.link,
+                        sourceName: item.ext.name,
+                        host: item.result.host
+                    )
+                } label: {
                     HStack(spacing: 12) {
                         AsyncImage(url: URL(string: item.result.cover)) { image in
                             image.resizable()
@@ -494,6 +497,7 @@ struct SearchView: View {
                     }
                     .padding(.vertical, 4)
                 }
+                .buttonStyle(.plain)
             }
         }
         .listStyle(.plain)

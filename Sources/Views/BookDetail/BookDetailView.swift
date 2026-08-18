@@ -6,6 +6,23 @@ struct ReaderRoute: Identifiable, Hashable {
     var id: Int { chapterIndex }
 }
 
+public struct BookDetailRoute: Identifiable, Hashable {
+    public var id: String { "\(extensionPackageId)_\(detailUrl)" }
+    public let bookId: String
+    public let extensionPackageId: String
+    public let detailUrl: String
+    public let sourceName: String
+    public let host: String?
+
+    public init(bookId: String, extensionPackageId: String, detailUrl: String, sourceName: String, host: String? = nil) {
+        self.bookId = bookId
+        self.extensionPackageId = extensionPackageId
+        self.detailUrl = detailUrl
+        self.sourceName = sourceName
+        self.host = host
+    }
+}
+
 struct BookDetailView: View {
     @Environment(\.modelContext) internal var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -221,6 +238,15 @@ struct BookDetailView: View {
         .navigationTitle("Chi Tiết Truyện")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: { dismiss() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .semibold))
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Quay lại")
+            }
+
             ToolbarItem(placement: .navigationBarTrailing) {
                 ellipsisMenu
             }
@@ -279,6 +305,17 @@ struct BookDetailView: View {
                 }
             }
         }
+        .fullScreenCover(isPresented: $navigateToImportedBook) {
+            NavigationStack {
+                BookDetailView(
+                    bookId: importedBookId,
+                    extensionPackageId: importedExtensionPackageId,
+                    initialDetailUrl: importedDetailUrl,
+                    sourceName: importedSourceName,
+                    initialHost: importedHost
+                )
+            }
+        }
     }
 
     @ViewBuilder
@@ -305,21 +342,6 @@ struct BookDetailView: View {
                     }
                 ),
                 isActive: $navigateToChangeSource
-            ) {
-                EmptyView()
-            }
-
-            NavigationLink(
-                destination: LazyView {
-                    BookDetailView(
-                        bookId: importedBookId,
-                        extensionPackageId: importedExtensionPackageId,
-                        initialDetailUrl: importedDetailUrl,
-                        sourceName: importedSourceName,
-                        initialHost: importedHost
-                    )
-                },
-                isActive: $navigateToImportedBook
             ) {
                 EmptyView()
             }

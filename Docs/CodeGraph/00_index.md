@@ -15,6 +15,24 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Full-screen book detail presentation, justified description, drag-to-dismiss chapter list sheet and precise TTS chunk resume (1.3.201)
+
+* `BookDetailView` navigation unified:
+  - All 8 entry points (`ShelfView` shelf/history context menus & browser import, `SearchView` multi/single-source cards, `DiscoveryView` explore list & browser import, `CategoryNovelsListView`, `SuggestRowView`, `ReaderChapterListView` cover tap, and `ReaderView` browser import) present `BookDetailView` via `.fullScreenCover(item:)` / `.fullScreenCover(isPresented:)`.
+  - Back button matches `ReaderView` style with `Image(systemName: "chevron.left")`, 18pt semibold font, and 44x44 tap target.
+  - Floating TTS widget stays interactive and visible across all book detail screens.
+* `ExpandableTextView` & `JustifiedTextLabel`:
+  - Introduced `JustifiedTextLabel: UIViewRepresentable` wrapping `UILabel` with `textAlignment = .justified` and `lineBreakMode = .byTruncatingTail`.
+  - Book description text in `BookDetailView` is cleanly justified to left and right margins while preserving dynamic collapse/expansion.
+* `ReaderChapterListView` drag interaction & Source Badge:
+  - Replaced custom geometry overlay in `ReaderView` with native `.sheet(isPresented: $showingChapterList)` using `.presentationDetents([.fraction(0.75), .large])` and `.presentationDragIndicator(.visible)`.
+  - Header displays source name badge (`ext?.name ?? localBook?.sourceName`) with styled background capsule.
+* `TTSManager` chunk-level resume after settings:
+  - `prepareForSettings` captures `savedChunkRangeBeforeSettings`, `savedChunkLocationBeforeSettings`, and `savedChunkIndexBeforeSettings`.
+  - `resumeAfterSettings` matches exact chunk when `chunkLength` is unchanged; if `chunkLength` changed, recalculates the new chunk enclosing `savedChunkLocationBeforeSettings`, preventing playback from jumping back to paragraph beginnings.
+* `ReaderChapterListView+Refresh`:
+  - Accurate refresh toast messages: displays `"Đã thêm X chương mới"` upon new chapters, `"Đã cập nhật mục lục"` on metadata changes, and `"Mục lục đã mới nhất"` when unchanged.
+
 ## newVisibleBrowser API parity, full runtime syntax checking and integrated line number gutter in Script Editor (1.3.200)
 
 * `VisibleWebViewLoader` and `JSExecutor` upgraded to achieve full feature parity with headless `newBrowser`:

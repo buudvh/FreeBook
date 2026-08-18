@@ -599,6 +599,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal var currentPlaybackId: String? = nil
     internal var wasPlayingBeforeSettings = false
     internal var savedParagraphIdentityBeforeSettings: Int = -1
+    internal var savedChunkRangeBeforeSettings: NSRange = NSRange(location: 0, length: 0)
+    internal var savedChunkLocationBeforeSettings: Int = 0
+    internal var savedChunkIndexBeforeSettings: Int = -1
     internal var wasPlayingBeforeInterruption = false
     internal var lastPausedTime: Date? = nil
     internal var cancellables = Set<AnyCancellable>()
@@ -1550,6 +1553,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.currentParagraphIndex = -1
             self.currentParentParagraphIndex = -1
             self.savedParagraphIdentityBeforeSettings = -1
+            self.savedChunkRangeBeforeSettings = NSRange(location: 0, length: 0)
+            self.savedChunkLocationBeforeSettings = 0
+            self.savedChunkIndexBeforeSettings = -1
             self.highlightRange = nil
             self.showFloatingWidget = false
         }
@@ -1578,12 +1584,22 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     public func prepareForSettings() {
         if !wasPlayingBeforeSettings {
             wasPlayingBeforeSettings = isPlaying
-            if currentParentParagraphIndex != -1 {
+            if currentParagraphIndex >= 0 && currentParagraphIndex < paragraphs.count {
+                let p = paragraphs[currentParagraphIndex]
+                savedParagraphIdentityBeforeSettings = p.paragraphIndex
+                savedChunkRangeBeforeSettings = p.range
+                savedChunkLocationBeforeSettings = p.range.location
+                savedChunkIndexBeforeSettings = currentParagraphIndex
+            } else if currentParentParagraphIndex != -1 {
                 savedParagraphIdentityBeforeSettings = currentParentParagraphIndex
-            } else if currentParagraphIndex >= 0 && currentParagraphIndex < paragraphs.count {
-                savedParagraphIdentityBeforeSettings = paragraphs[currentParagraphIndex].paragraphIndex
+                savedChunkRangeBeforeSettings = NSRange(location: 0, length: 0)
+                savedChunkLocationBeforeSettings = 0
+                savedChunkIndexBeforeSettings = 0
             } else {
                 savedParagraphIdentityBeforeSettings = -1
+                savedChunkRangeBeforeSettings = NSRange(location: 0, length: 0)
+                savedChunkLocationBeforeSettings = 0
+                savedChunkIndexBeforeSettings = -1
             }
         }
         savedSettingsSnapshot = captureTTSSettingsSnapshot()
@@ -1607,7 +1623,13 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         savedSettingsSnapshot = nil
 
         let savedParagraphIdentity = savedParagraphIdentityBeforeSettings
+        let savedChunkRange = savedChunkRangeBeforeSettings
+        let savedChunkLocation = savedChunkLocationBeforeSettings
+        let savedChunkIndex = savedChunkIndexBeforeSettings
         savedParagraphIdentityBeforeSettings = -1
+        savedChunkIndexBeforeSettings = -1
+        savedChunkLocationBeforeSettings = 0
+        savedChunkRangeBeforeSettings = NSRange(location: 0, length: 0)
         let wasPlaying = wasPlayingBeforeSettings || isPlaying
         wasPlayingBeforeSettings = false
 
@@ -1658,8 +1680,21 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let targetIdx: Int
         if savedParagraphIdentity == -1 {
             targetIdx = 0
-        } else if let idx = paragraphs.firstIndex(where: { $0.paragraphIndex == savedParagraphIdentity }) {
-            targetIdx = idx
+        } else if let exactMatch = paragraphs.indices.first(where: {
+            paragraphs[$0].paragraphIndex == savedParagraphIdentity && paragraphs[$0].range == savedChunkRange
+        }) {
+            // Khớp chính xác chunk cũ khi chunkLength không đổi
+            targetIdx = exactMatch
+        } else if let rangeMatch = paragraphs.indices.first(where: {
+            paragraphs[$0].paragraphIndex == savedParagraphIdentity &&
+            paragraphs[$0].range.location <= savedChunkLocation &&
+            (savedChunkLocation < paragraphs[$0].range.location + paragraphs[$0].range.length || paragraphs[$0].range.length == 0)
+        }) {
+            // Khớp chunk mới bao hàm vị trí từ đầu tiên của chunk cũ khi chunkLength thay đổi
+            targetIdx = rangeMatch
+        } else if let parentFirstIdx = paragraphs.indices.first(where: { $0.paragraphIndex == savedParagraphIdentity }) {
+            // Fallback: chunk đầu tiên của paragraph đó
+            targetIdx = parentFirstIdx
         } else {
             targetIdx = (showTitle && !chapterTitle.isEmpty && paragraphs.count > 1) ? 1 : 0
         }

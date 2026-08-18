@@ -15,6 +15,18 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Full-screen modal routing, chapter sheet drag events and TTS chunk restoration (1.3.201)
+
+* `BookDetailRoute` & `fullScreenCover` presentation events:
+  - All book detail triggers (`ShelfView`, `SearchView`, `DiscoveryView`, `CategoryNovelsListView`, `SuggestRowView`, `ReaderChapterListView`, `ReaderView`) dispatch route items to `.fullScreenCover(item:)` / `.fullScreenCover(isPresented:)`.
+  - Leading toolbar back button dispatches direct `dismiss()` matching Reader navigation ergonomics.
+* `ReaderView` & `ReaderChapterListView`:
+  - `showingChapterList` toggles a native SwiftUI sheet (`.sheet(isPresented:)`) configured with `.presentationDetents([.fraction(0.75), .large])` and `.presentationDragIndicator(.visible)`.
+  - Gesture pan interactions between 75% height, full height, and pull-down dismissal operate via native UIKit sheet controllers.
+* `TTSManager` chunk state capture and recalculation events:
+  - `prepareForSettings()` records precise `currentParagraphIndex`, `range`, and `range.location`.
+  - `resumeAfterSettings()` resolves exact `range` matches or queries the new chunk enclosing `savedChunkLocationBeforeSettings` when `chunkLength` alters segment boundaries.
+
 ## Script editor syntax checking and searchable file selection events (1.3.200)
 
 * `ExtensionScriptEditorView`:

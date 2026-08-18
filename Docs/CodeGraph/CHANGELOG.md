@@ -2,6 +2,26 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.201] - 2026-08-18
+
+### Chuyển đổi fullScreenCover toàn bộ cho Chi tiết truyện, Căn lề 2 bên Description, Sheet kéo danh sách chương kèm Badge nguồn & Khôi phục chính xác Chunk TTS
+
+* **Đồng bộ mở Chi tiết truyện dạng `fullScreenCover` (`BookDetailView.swift`, `ShelfView.swift`, `SearchView.swift`, `DiscoveryView.swift`, `CategoryNovelsListView.swift`, `SuggestRowView.swift`, `ReaderChapterListView.swift`, `ReaderView.swift`)**:
+  - Chuyển tất cả 8 luồng mở màn hình Chi tiết truyện sang `.fullScreenCover(item:)` / `.fullScreenCover(isPresented:)` thông qua route `BookDetailRoute`.
+  - Nút quay lại (`chevron.left` 18pt semibold frame 44x44) đồng bộ với giao diện của `ReaderView`.
+  - Giữ widget TTS nổi (`TTSFloatingWidgetView`) luôn hiển thị và tương tác được xuyên suốt phía trên màn hình Chi tiết truyện.
+* **Căn lề 2 bên cho phần Giới thiệu truyện (`ExpandableTextView.swift`)**:
+  - Xây dựng component `JustifiedTextLabel: UIViewRepresentable` bọc `UILabel` với `textAlignment = .justified` và `lineBreakMode = .byTruncatingTail`.
+  - Đoạn văn bản giới thiệu truyện được căn lề đều 2 bên mép trái - phải, giữ nút bấm "Xem thêm / Thu gọn" mượt mà.
+* **Hành động kéo vuốt cho Danh sách chương & Badge nguồn (`ReaderView.swift` & `ReaderChapterListView.swift`)**:
+  - Chuyển danh sách chương trong Reader sang dạng `.sheet` với `.presentationDetents([.fraction(0.75), .large])` và `.presentationDragIndicator(.visible)`, hỗ trợ thao tác kéo vuốt mượt mà tương tự màn hình Hẹn giờ tắt của Widget TTS.
+  - Thêm badge tên nguồn truyện (`ext?.name ?? localBook?.sourceName`) với nền capsule tinh tế ở phần header danh sách chương.
+* **Khôi phục chính xác Chunk TTS và Tính toán lại khi đổi `chunkLength` (`TTSManager.swift`)**:
+  - Bổ sung `savedChunkRangeBeforeSettings`, `savedChunkLocationBeforeSettings`, `savedChunkIndexBeforeSettings` ghi nhận chính xác vị trí chunk đang đọc trước khi mở cài đặt.
+  - Khi đóng cài đặt: phát tiếp đúng chunk đang phát nếu `chunkLength` không đổi; nếu `chunkLength` thay đổi, tự động tính toán lại và chọn chunk mới bao hàm vị trí từ đầu tiên của chunk cũ, loại bỏ hiện tượng nhảy ngược về đầu đoạn văn bản.
+* **Chuẩn hóa thông báo Cập nhật Mục lục (`ReaderChapterListView+Refresh.swift`)**:
+  - Phân biệt chính xác giữa việc thêm chương mới (`"Đã thêm X chương mới"`) và cập nhật metadata mục lục (`"Đã cập nhật mục lục"`), đồng thời giữ nguyên `"Mục lục đã mới nhất"` khi danh sách chương hoàn toàn trùng khớp 100%.
+
 ## [1.3.200] - 2026-08-17
 
 ### Đồng bộ toàn diện API `newVisibleBrowser`, Sửa lỗi kiểm tra cú pháp JS và Nâng cấp Gutter số dòng & Bộ chọn Script Editor

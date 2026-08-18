@@ -121,7 +121,9 @@ extension ReaderChapterListView {
                         isTTSChapterRemoved: isTTSRemoved
                     )
 
-                    ToastManager.shared.show(message: "Đã cập nhật mục lục (\(totalCount) chương)", type: .success)
+                    let addedChapters = saveResult.inserted > 0 ? saveResult.inserted : max(0, newCount - currentCount)
+                    let toastMessage = addedChapters > 0 ? "Đã thêm \(addedChapters) chương mới" : "Đã cập nhật mục lục"
+                    ToastManager.shared.show(message: toastMessage, type: .success)
                     onLocalTOCRefreshed?(result)
                 } else {
                     let oldCount = onlineChapters.count
