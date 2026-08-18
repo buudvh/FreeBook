@@ -497,49 +497,11 @@ struct ReaderView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(6)
                 }
+
+                readerChapterListOverlay(in: geometry)
             }
         }
         .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
-        .sheet(isPresented: $showingChapterList) {
-            if let chapterListStore {
-                ReaderChapterListView(
-                    bookId: bookId,
-                    bookTitle: bookTitle,
-                    bookAuthor: bookAuthor,
-                    bookCoverUrl: bookCoverUrl,
-                    bookDetailUrl: bookDetailUrl,
-                    localBook: localBook,
-                    ext: ext,
-                    currentChapterIndex: viewModel?.displayedChapterIndex ?? chapterIndex,
-                    isPresented: showingChapterList,
-                    isTranslationEnabled: isTranslationEnabled,
-                    theme: selectedTheme,
-                    store: chapterListStore,
-                    onlineChapters: $currentOnlineChapters,
-                    isLocalTXTBook: isLocalTXTBook,
-                    onSelectChapter: { selectedIdx in
-                        selectChapter(at: selectedIdx)
-                    },
-                    onClose: {
-                        showingChapterList = false
-                    },
-                    onLocalTOCRefreshed: { result in
-                        Task { @MainActor in
-                            self.localChaptersCount = result.totalCount
-                            self.chapterListStore?.updateChapters(totalCount: result.totalCount, onlineChapters: [])
-                            self.viewModel?.applyLocalTOCReconciliation(result)
-                            self.ttsManager.applyTOCReconciliation(result)
-                            if ttsState.snapshot.playingBookId == bookId {
-                                ttsManager.refreshChaptersQueueInBackground(bookId: bookId, onlineChapters: nil)
-                            }
-                        }
-                    }
-                )
-                .presentationDetents([.fraction(0.75), .large])
-                .presentationDragIndicator(.visible)
-                .presentationBackground(selectedTheme.backgroundColor)
-            }
-        }
         .sheet(isPresented: $showingSettings) {
             ReaderSettingsView(
                 fontSize: $fontSize,
@@ -1232,6 +1194,72 @@ struct ReaderView: View {
         )
         self.chapterListStore = store
         return store
+    }
+
+    @ViewBuilder
+    private func readerChapterListOverlay(in geometry: GeometryProxy) -> some View {
+        if let chapterListStore {
+            ZStack {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        closeChapterList()
+                    }
+                    .opacity(showingChapterList ? 1 : 0)
+                    .allowsHitTesting(showingChapterList)
+
+                ReaderChapterListView(
+                    bookId: bookId,
+                    bookTitle: bookTitle,
+                    bookAuthor: bookAuthor,
+                    bookCoverUrl: bookCoverUrl,
+                    bookDetailUrl: bookDetailUrl,
+                    localBook: localBook,
+                    ext: ext,
+                    currentChapterIndex: viewModel?.displayedChapterIndex ?? chapterIndex,
+                    isPresented: showingChapterList,
+                    isTranslationEnabled: isTranslationEnabled,
+                    theme: selectedTheme,
+                    store: chapterListStore,
+                    onlineChapters: $currentOnlineChapters,
+                    isLocalTXTBook: isLocalTXTBook,
+                    onSelectChapter: { selectedIdx in
+                        selectChapter(at: selectedIdx)
+                    },
+                    onClose: {
+                        closeChapterList()
+                    },
+                    onLocalTOCRefreshed: { result in
+                        Task { @MainActor in
+                            self.localChaptersCount = result.totalCount
+                            self.chapterListStore?.updateChapters(totalCount: result.totalCount, onlineChapters: [])
+                            self.viewModel?.applyLocalTOCReconciliation(result)
+                            self.ttsManager.applyTOCReconciliation(result)
+                            if ttsState.snapshot.playingBookId == bookId {
+                                ttsManager.refreshChaptersQueueInBackground(bookId: bookId, onlineChapters: nil)
+                            }
+                        }
+                    }
+                )
+                .frame(width: geometry.size.width, height: geometry.size.height - 60)
+                .offset(
+                    y: reduceMotion
+                        ? 60
+                        : (showingChapterList ? 60 : geometry.size.height + geometry.safeAreaInsets.bottom)
+                )
+                .opacity(showingChapterList ? 1 : 0)
+                .animation(.easeInOut(duration: reduceMotion ? 0.15 : 0.25), value: showingChapterList)
+                .allowsHitTesting(showingChapterList)
+                .accessibilityHidden(!showingChapterList)
+            }
+            .zIndex(10)
+        }
+    }
+
+    private func closeChapterList() {
+        withAnimation(.easeInOut(duration: reduceMotion ? 0.15 : 0.25)) {
+            showingChapterList = false
+        }
     }
 
     internal func translateMetaIfNeeded(_ text: String) -> String {

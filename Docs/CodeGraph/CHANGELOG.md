@@ -4,8 +4,20 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.201] - 2026-08-18
 
-### Chuyển đổi fullScreenCover toàn bộ cho Chi tiết truyện, Căn lề 2 bên Description, Sheet kéo danh sách chương kèm Badge nguồn & Khôi phục chính xác Chunk TTS
+### Sửa lỗi Tokenizer tiếng Việt có dấu & Số thập phân, Khôi phục Overlay ReaderChapterList, Cải tiến Lịch Sử Đọc & Tối ưu Sheet Hẹn Giờ TTS
 
+* **Sửa lỗi Tokenizer Dịch thuật tiếng Việt & Ký tự khoa học (`VietPhraseTokenizer.swift`)**:
+  - Gom chuẩn xác toàn bộ từ ngữ chữ cái Unicode (tiếng Việt có dấu: `ngày`, `tháng`, `năm`; ký tự Hy Lạp: `θ`, `α`, `β`), số nguyên và số thập phân (`14.8`, `2026`).
+  - Giải quyết dứt điểm lỗi tách rời từ ngữ thành `"Ng ày"`, `"th áng"`, `"n ăm"`, `"1 4. 8"`.
+* **Khôi phục Overlay Danh Sách Chương & Loại bỏ Màn Hình Đen (`ReaderView.swift` & `ReaderChapterListView.swift`)**:
+  - Khôi phục `readerChapterListOverlay(in: geometry)` trong `ZStack` của `ReaderView`, loại bỏ `.sheet` danh sách chương để giải quyết triệt để lỗi xung đột phân cấp modal khiến màn hình đen khi mở truyện.
+  - Khôi phục thanh kéo `Capsule()` ở đầu header danh sách chương.
+* **Hiển thị Toàn Bộ Lịch Sử Đọc & Xóa Lịch Sử Thông Minh (`ShelfView.swift`)**:
+  - `historyBooks` lọc toàn bộ sách có `isHistory == true`, không loại trừ `isOnShelf`, sắp xếp theo `lastReadDate` mới nhất lên đầu.
+  - Xóa lịch sử thông minh: nếu sách trên kệ chỉ đặt `isHistory = false`, nếu ngoài kệ thì xóa toàn bộ sách khỏi máy.
+* **Tối ưu Sheet Hẹn Giờ Tắt TTS (`TTSQuickTimerSheet.swift`)**:
+  - Giữ nguyên 100% thứ tự 4 section gốc (Trạng thái -> Chọn nhanh -> Tuỳ chỉnh phút -> Cài đặt giọng đọc).
+  - Nâng detent lên `.fraction(0.85)` và thu gọn khoảng cách để hiển thị trọn vẹn nút Cài đặt giọng đọc ở dưới ngay từ đầu, bổ sung phím tắt toolbar `gearshape.fill`.
 * **Đồng bộ mở Chi tiết truyện dạng `fullScreenCover` (`BookDetailView.swift`, `ShelfView.swift`, `SearchView.swift`, `DiscoveryView.swift`, `CategoryNovelsListView.swift`, `SuggestRowView.swift`, `ReaderChapterListView.swift`, `ReaderView.swift`)**:
   - Chuyển tất cả 8 luồng mở màn hình Chi tiết truyện sang `.fullScreenCover(item:)` / `.fullScreenCover(isPresented:)` thông qua route `BookDetailRoute`.
   - Nút quay lại (`chevron.left` 18pt semibold frame 44x44) đồng bộ với giao diện của `ReaderView`.
@@ -13,9 +25,6 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 * **Căn lề 2 bên cho phần Giới thiệu truyện (`ExpandableTextView.swift`)**:
   - Xây dựng component `JustifiedTextLabel: UIViewRepresentable` bọc `UILabel` với `textAlignment = .justified` và `lineBreakMode = .byTruncatingTail`.
   - Đoạn văn bản giới thiệu truyện được căn lề đều 2 bên mép trái - phải, giữ nút bấm "Xem thêm / Thu gọn" mượt mà.
-* **Hành động kéo vuốt cho Danh sách chương & Badge nguồn (`ReaderView.swift` & `ReaderChapterListView.swift`)**:
-  - Chuyển danh sách chương trong Reader sang dạng `.sheet` với `.presentationDetents([.fraction(0.75), .large])` và `.presentationDragIndicator(.visible)`, hỗ trợ thao tác kéo vuốt mượt mà tương tự màn hình Hẹn giờ tắt của Widget TTS.
-  - Thêm badge tên nguồn truyện (`ext?.name ?? localBook?.sourceName`) với nền capsule tinh tế ở phần header danh sách chương.
 * **Khôi phục chính xác Chunk TTS và Tính toán lại khi đổi `chunkLength` (`TTSManager.swift`)**:
   - Bổ sung `savedChunkRangeBeforeSettings`, `savedChunkLocationBeforeSettings`, `savedChunkIndexBeforeSettings` ghi nhận chính xác vị trí chunk đang đọc trước khi mở cài đặt.
   - Khi đóng cài đặt: phát tiếp đúng chunk đang phát nếu `chunkLength` không đổi; nếu `chunkLength` thay đổi, tự động tính toán lại và chọn chunk mới bao hàm vị trí từ đầu tiên của chunk cũ, loại bỏ hiện tượng nhảy ngược về đầu đoạn văn bản.

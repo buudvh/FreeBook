@@ -78,7 +78,8 @@ struct ShelfView: View {
     }
 
     private var historyBooks: [Book] {
-        allBooks.filter { $0.isHistory && !$0.isOnShelf }
+        allBooks.filter { $0.isHistory }
+            .sorted { ($0.lastReadDate ?? $0.updatedAt ?? Date.distantPast) > ($1.lastReadDate ?? $1.updatedAt ?? Date.distantPast) }
     }
 
     private var displayedShelfBooks: [Book] {
@@ -691,16 +692,22 @@ struct ShelfView: View {
     }
 
     private func removeFromHistory(_ book: Book) {
-        let bookId = book.bookId
-        let container = modelContext.container
-        isProcessingDeletion = true
-        Task { @MainActor in
-            do {
-                try await BookStorageManager.shared.deleteBookAsync(bookId: bookId, container: container)
-            } catch {
-                AppLogger.shared.log("❌ Lỗi khi xóa lịch sử tại ShelfView: \(error.localizedDescription)")
+        if book.isOnShelf {
+            book.isHistory = false
+            try? modelContext.save()
+            ToastManager.shared.show(message: "Đã xóa khỏi lịch sử đọc", type: .success)
+        } else {
+            let bookId = book.bookId
+            let container = modelContext.container
+            isProcessingDeletion = true
+            Task { @MainActor in
+                do {
+                    try await BookStorageManager.shared.deleteBookAsync(bookId: bookId, container: container)
+                } catch {
+                    AppLogger.shared.log("❌ Lỗi khi xóa lịch sử tại ShelfView: \(error.localizedDescription)")
+                }
+                self.isProcessingDeletion = false
             }
-            self.isProcessingDeletion = false
         }
     }
 

@@ -198,57 +198,68 @@ public enum VietPhraseTokenizer {
                 continue
             }
 
-            if isASCIIAlphanumeric(chars[currentIndex]) {
-                let nextBoundary = min(
-                    selectedNames.first(where: { $0.range.lowerBound > currentIndex })?.range.lowerBound ?? length,
-                    selectedVPs.first(where: { $0.range.lowerBound > currentIndex })?.range.lowerBound ?? length
-                )
+            let char = chars[currentIndex]
+            if isChineseCharacter(char) {
+                output.append(String(char))
+                currentIndex += 1
+                continue
+            }
+
+            let nextBoundary = min(
+                selectedNames.first(where: { $0.range.lowerBound > currentIndex })?.range.lowerBound ?? length,
+                selectedVPs.first(where: { $0.range.lowerBound > currentIndex })?.range.lowerBound ?? length
+            )
+
+            // 1. Số & Số thập phân (e.g. 14.8, 2026, 3,14)
+            if char.isNumber {
                 var end = currentIndex + 1
-                while end < nextBoundary && isASCIIAlphanumeric(chars[end]) {
+                while end < nextBoundary {
+                    let nextChar = chars[end]
+                    if nextChar.isNumber {
+                        end += 1
+                    } else if (nextChar == "." || nextChar == ",") && (end + 1 < nextBoundary) && chars[end + 1].isNumber {
+                        end += 2
+                    } else {
+                        break
+                    }
+                }
+                output.append(String(chars[currentIndex..<end]))
+                currentIndex = end
+                continue
+            }
+
+            // 2. Chữ cái Unicode (tiếng Việt có dấu: ngày, tháng, năm; tiếng Anh; ký tự Hy Lạp: θ, α, β...)
+            if char.isLetter {
+                var end = currentIndex + 1
+                while end < nextBoundary && chars[end].isLetter {
                     end += 1
                 }
                 output.append(String(chars[currentIndex..<end]))
                 currentIndex = end
                 continue
             }
-            
-            let char = chars[currentIndex]
-            if isChineseCharacter(char) {
-                output.append(String(char))
-                currentIndex += 1
-            } else {
-                let nextBoundary = min(
-                    selectedNames.first(where: { $0.range.lowerBound > currentIndex })?.range.lowerBound ?? length,
-                    selectedVPs.first(where: { $0.range.lowerBound > currentIndex })?.range.lowerBound ?? length
-                )
-                if isAlphanumeric(char) {
-                    var end = currentIndex + 1
-                    while end < nextBoundary && isAlphanumeric(chars[end]) {
-                        end += 1
-                    }
-                    output.append(String(chars[currentIndex..<end]))
-                    currentIndex = end
-                } else {
-                    var end = currentIndex + 1
-                    while end < nextBoundary && chars[end] == char {
-                        end += 1
-                    }
-                    output.append(String(chars[currentIndex..<end]))
-                    currentIndex = end
+
+            // 3. Khoảng trắng
+            if char.isWhitespace {
+                var end = currentIndex + 1
+                while end < nextBoundary && chars[end].isWhitespace {
+                    end += 1
                 }
+                output.append(String(chars[currentIndex..<end]))
+                currentIndex = end
+                continue
             }
+
+            // 4. Ký tự hoặc dấu câu lặp lại (e.g. ……, ..., ---) hoặc đơn lẻ
+            var end = currentIndex + 1
+            while end < nextBoundary && chars[end] == char {
+                end += 1
+            }
+            output.append(String(chars[currentIndex..<end]))
+            currentIndex = end
         }
         
         return output
-    }
-
-    private static func isAlphanumeric(_ char: Character) -> Bool {
-        return char.isLetter || char.isNumber
-    }
-
-    private static func isASCIIAlphanumeric(_ char: Character) -> Bool {
-        guard let code = char.asciiValue else { return false }
-        return (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122)
     }
 
     internal static func isChineseCharacter(_ char: Character) -> Bool {

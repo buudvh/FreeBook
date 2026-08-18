@@ -24,9 +24,16 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 * `ExpandableTextView` & `JustifiedTextLabel`:
   - Introduced `JustifiedTextLabel: UIViewRepresentable` wrapping `UILabel` with `textAlignment = .justified` and `lineBreakMode = .byTruncatingTail`.
   - Book description text in `BookDetailView` is cleanly justified to left and right margins while preserving dynamic collapse/expansion.
-* `ReaderChapterListView` drag interaction & Source Badge:
-  - Replaced custom geometry overlay in `ReaderView` with native `.sheet(isPresented: $showingChapterList)` using `.presentationDetents([.fraction(0.75), .large])` and `.presentationDragIndicator(.visible)`.
-  - Header displays source name badge (`ext?.name ?? localBook?.sourceName`) with styled background capsule.
+* `VietPhraseTokenizer`:
+  - Fixed Unicode word tokenization: accurately groups non-ASCII Latin characters (Vietnamese diacritics: `ngày`, `tháng`, `năm`), decimal numbers (`14.8`), and symbols (`θ`), resolving split-token spacing bugs (`Ng ày`, `th áng`, `1 4. 8`).
+* `ReaderView` & `ReaderChapterListView`:
+  - Restored `readerChapterListOverlay(in: geometry)` within reader `ZStack` (with top grab `Capsule()` and smooth slide animation), completely eliminating black screen / blank modal presentation conflicts in `fullScreenCover`.
+  - Header displays source name badge (`ext?.name ?? localBook?.sourceName`).
+* `ShelfView` history filter:
+  - `historyBooks` filters all books with `isHistory == true` without excluding `isOnShelf`, sorted by `lastReadDate` descending so all recently read books appear.
+  - Smart history removal: sets `isHistory = false` for on-shelf books, hard-deletes off-shelf books.
+* `TTSQuickTimerSheet`:
+  - Preserved original 4-section ordering while increasing detent to `.fraction(0.85)` with compact layout, ensuring bottom voice & speed settings shortcut is immediately visible without scrolling. Added leading toolbar settings button.
 * `TTSManager` chunk-level resume after settings:
   - `prepareForSettings` captures `savedChunkRangeBeforeSettings`, `savedChunkLocationBeforeSettings`, and `savedChunkIndexBeforeSettings`.
   - `resumeAfterSettings` matches exact chunk when `chunkLength` is unchanged; if `chunkLength` changed, recalculates the new chunk enclosing `savedChunkLocationBeforeSettings`, preventing playback from jumping back to paragraph beginnings.

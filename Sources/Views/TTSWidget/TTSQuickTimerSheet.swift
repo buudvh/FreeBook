@@ -12,7 +12,7 @@ struct TTSQuickTimerSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 18) {
+                VStack(spacing: 12) {
                     // 1. Banner trạng thái Hẹn giờ hiện tại
                     activeTimerStatusCard
 
@@ -25,13 +25,27 @@ struct TTSQuickTimerSheet: View {
                     // 4. Phím tắt mở cài đặt giọng đọc
                     settingsShortcutSection
                 }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 16)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Hẹn giờ tắt")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            ttsManager.showingSettingsSheet = true
+                        }
+                    }) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(.blue)
+                    }
+                    .accessibilityLabel("Cài đặt giọng đọc & Tốc độ")
+                }
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { dismiss() }) {
                         Image(systemName: "xmark.circle.fill")
@@ -41,7 +55,7 @@ struct TTSQuickTimerSheet: View {
                 }
             }
         }
-        .presentationDetents([.fraction(0.68), .large])
+        .presentationDetents([.fraction(0.85), .large])
         .presentationDragIndicator(.visible)
         .onAppear {
             if case .minutes(let mins) = ttsManager.timerMode {

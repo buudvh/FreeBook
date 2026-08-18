@@ -119,6 +119,11 @@ public struct ReaderChapterListView: View {
 
     private var header: some View {
         VStack(spacing: 8) {
+            Capsule()
+                .fill(theme.textColor.opacity(0.3))
+                .frame(width: 36, height: 5)
+                .accessibilityHidden(true)
+
             HStack(alignment: .top, spacing: 12) {
                 Button(action: { showingBookDetail = true }) {
                     BookCoverView(
