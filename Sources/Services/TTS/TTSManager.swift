@@ -1680,19 +1680,19 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let targetIdx: Int
         if savedParagraphIdentity == -1 {
             targetIdx = 0
-        } else if let exactMatch = paragraphs.indices.first(where: {
-            paragraphs[$0].paragraphIndex == savedParagraphIdentity && paragraphs[$0].range == savedChunkRange
+        } else if let exactMatch = paragraphs.firstIndex(where: {
+            $0.paragraphIndex == savedParagraphIdentity && $0.range == savedChunkRange
         }) {
             // Khớp chính xác chunk cũ khi chunkLength không đổi
             targetIdx = exactMatch
-        } else if let rangeMatch = paragraphs.indices.first(where: {
-            paragraphs[$0].paragraphIndex == savedParagraphIdentity &&
-            paragraphs[$0].range.location <= savedChunkLocation &&
-            (savedChunkLocation < paragraphs[$0].range.location + paragraphs[$0].range.length || paragraphs[$0].range.length == 0)
+        } else if let rangeMatch = paragraphs.firstIndex(where: {
+            $0.paragraphIndex == savedParagraphIdentity &&
+            $0.range.location <= savedChunkLocation &&
+            (savedChunkLocation < $0.range.location + $0.range.length || $0.range.length == 0)
         }) {
             // Khớp chunk mới bao hàm vị trí từ đầu tiên của chunk cũ khi chunkLength thay đổi
             targetIdx = rangeMatch
-        } else if let parentFirstIdx = paragraphs.indices.first(where: { $0.paragraphIndex == savedParagraphIdentity }) {
+        } else if let parentFirstIdx = paragraphs.firstIndex(where: { $0.paragraphIndex == savedParagraphIdentity }) {
             // Fallback: chunk đầu tiên của paragraph đó
             targetIdx = parentFirstIdx
         } else {
