@@ -38,7 +38,7 @@ private struct CollapsedHeightPreferenceKey: PreferenceKey {
 }
 
 public final class WrappingLabel: UILabel {
-    override func layoutSubviews() {
+    public override func layoutSubviews() {
         super.layoutSubviews()
         if bounds.width > 0, preferredMaxLayoutWidth != bounds.width {
             preferredMaxLayoutWidth = bounds.width
