@@ -29,7 +29,7 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 
 3. **Luồng Phân Trang & Tìm Kiếm Chương Đọc**:
    `ReaderView` -> `ReaderViewModel`
-     ├── `ReaderChapterListPageFetcher` -> `BackgroundPagingWorker.fetchPage(bookId:minLogicalIndex:maxLogicalIndex:isTranslationEnabled:)`
+     ├── `ReaderChapterListStore.fetchPageData` -> `BackgroundPagingWorker.fetchPage(bookId:minLogicalIndex:maxLogicalIndex:isTranslationEnabled:)`
      └── `BackgroundSearchWorker.searchChapters(bookId:query:isAscending:searchTrans:)` -> `ChapterStore.shared.searchChapters`
 
 4. **Luồng NghiTTS khi đoạn sau tiền xử lý không thể đọc**:

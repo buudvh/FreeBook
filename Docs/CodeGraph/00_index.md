@@ -33,9 +33,9 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 * `ReaderView` & `ReaderChapterListView`:
   - Integrated native Bottom Sheet presentation via `.sheet(isPresented: $showingChapterList)` with `.presentationDetents([.fraction(0.75), .large])` and `.presentationDragIndicator(.visible)` powered by `getOrInitChapterListStore()`.
   - Added background prefetching of the current chapter's page upon Reader initialization to eliminate/minimize first-open skeleton.
-  - In `ReaderChapterListStore.reloadViewportAfterReset()`: fallback to page 0 (`lastViewportPage ?? currentTargetPage ?? 0`) when `lastViewportPage` is uninitialized, preventing infinite skeleton state upon TOC updates.
-  - In `ReaderChapterListPageFetcher`: added fallback to `onlineChapters` if `BackgroundPagingWorker` throws or returns empty from DB.
-  - Observed `store.loadedRowStates` directly in row cells, added `.onChange(of: store.totalCount)` to auto-scroll when TOC arrives, and maintained 90ms debounce to prevent load storms during initial layout.
+  - `ReaderChapterListStore` simplified to a single source of truth `rows: [Int: ReaderChapterRowState]` with one load path (`loadPagesAround`) that publishes each page independently and retries failed pages once after 300ms. `updateChapters`/`updateSortOrder`/`updateTranslation` are idempotent guards that early-return when nothing changed, and reset + reload the viewport otherwise (`reloadViewport()` reloads only the last requested page).
+  - Removed `ReaderChapterListPageFetcher` and the sliding-window page cache; page fetching folded into `ReaderChapterListStore.fetchPageData`, which skips rows with empty URLs. `prefetchAround` only warms the immediately neighboring pages (no far prefetch).
+  - Observed `store.rows` directly in row cells, added `.onChange(of: store.totalCount)` to auto-scroll when TOC arrives, and maintained 90ms debounce to prevent load storms during initial layout.
   - Header top padding increased to `18pt`, displaying source name badge (`ext?.name ?? localBook?.sourceName`).
 * `ShelfView` history filter:
   - `historyBooks` filters all books with `isHistory == true` without excluding `isOnShelf`, sorted by `lastReadDate` descending so all recently read books appear.

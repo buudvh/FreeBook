@@ -22,7 +22,7 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
    - `ExtensionTransactionCoordinator`: Sở hữu mọi thao tác thêm repo, upsert extension, lưu config, touch lastUpdated.
 
 2. **Phân Hệ Trình Đọc & Tải Nền (Reader Subsystem)**:
-   - `ReaderView`, `ReaderViewModel`, `ReaderScrollCoordinator`, `ReaderSelectionCoordinator`, `ReaderProgressScheduler`, `BackgroundPagingWorker`, `BackgroundSearchWorker`, `ReaderChapterListPageFetcher`.
+   - `ReaderView`, `ReaderViewModel`, `ReaderScrollCoordinator`, `ReaderSelectionCoordinator`, `ReaderProgressScheduler`, `BackgroundPagingWorker`, `BackgroundSearchWorker`, `ReaderChapterListStore`.
 
 3. **Phân Hệ TTS & Audio Engine (TTS Subsystem)**:
    - `TTSManager`, `TTSAudioEngineController`, `TTSPresentationEventCenter`, `DisplayTextFormatter`, `ONNXPiperEngine`.

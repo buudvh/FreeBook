@@ -253,7 +253,7 @@ public struct ReaderChapterListView: View {
                     if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         ForEach(0..<store.totalCount, id: \.self) { displayPosition in
                             if let item = store.item(at: displayPosition) {
-                                let chapter = store.loadedRowStates[displayPosition] ?? store.rowState(at: displayPosition)
+                                let chapter = store.rows[displayPosition] ?? store.rowState(at: displayPosition)
                                 ReaderChapterRowView(
                                     chapter: chapter,
                                     isCurrent: item.index == currentChapterIndex,
@@ -380,7 +380,7 @@ public struct ReaderChapterListView: View {
 
         var toWarm: [(index: Int, rawTitle: String)] = []
         for pos in minPos...maxPos {
-            if let rowState = store.loadedRowStates[pos], !rowState.isPlaceholder, !rowState.title.isEmpty {
+            if let rowState = store.rows[pos], !rowState.isPlaceholder, !rowState.title.isEmpty {
                 let logicalIndex = rowState.index
                 guard displayTitleCache[logicalIndex] == nil else { continue }
                 if TranslateUtils.containsChinese(rowState.title) {
