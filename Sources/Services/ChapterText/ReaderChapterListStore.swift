@@ -72,7 +72,7 @@ public final class ReaderChapterListStore {
         rows = [:]
         searchCoordinator.cancel()
         searchResults = []
-        searchResultStates = []
+        searchResultStates = [:]
     }
 
     // MARK: - Updates
@@ -200,7 +200,7 @@ public final class ReaderChapterListStore {
             if let existing = inFlightPages[p] {
                 tasks.append((p, existing))
             } else {
-                let task = Task { [weak self] in
+                let task = Task<[Int: ChapterRowData]?, Never> { [weak self] in
                     guard let self else { return nil }
                     defer {
                         if gen == self.currentGeneration {
