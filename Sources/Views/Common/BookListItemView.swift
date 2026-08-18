@@ -52,6 +52,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
                         if !item.sourceName.isEmpty {
                             Text(item.sourceName)
                                 .font(.caption2)
+                                .lineLimit(1)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .background(Color.blue.opacity(0.1))
@@ -77,7 +78,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
                     }
                 }
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

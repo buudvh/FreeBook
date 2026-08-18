@@ -21,13 +21,16 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
   - All 8 entry points (`ShelfView` shelf/history context menus & browser import, `SearchView` multi/single-source cards, `DiscoveryView` explore list & browser import, `CategoryNovelsListView`, `SuggestRowView`, `ReaderChapterListView` cover tap, and `ReaderView` browser import) present `BookDetailView` via `.fullScreenCover(item:)` / `.fullScreenCover(isPresented:)`.
   - Back button matches `ReaderView` style with `Image(systemName: "chevron.left")`, 18pt semibold font, and 44x44 tap target.
   - Floating TTS widget stays interactive and visible across all book detail screens.
-* `ExpandableTextView` & `JustifiedTextLabel`:
-  - Introduced `JustifiedTextLabel: UIViewRepresentable` wrapping `UILabel` with `textAlignment = .justified` and `lineBreakMode = .byTruncatingTail`.
-  - Book description text in `BookDetailView` is cleanly justified to left and right margins while preserving dynamic collapse/expansion.
+* `BookListItemView`:
+  - Full-width text content with `.frame(maxWidth: .infinity, alignment: .leading)`, removed trailing `Spacer()`, and constrained `sourceName` badge to `.lineLimit(1)` to eliminate right margin gaps across book shelf and search lists.
+* `ExpandableTextView` & `BookDetailHeaderView`:
+  - Fixed comment truncation and expansion: eliminated faulty character-count estimation (`charThreshold`), switched comments to native SwiftUI `Text` (`isJustified: false`) for 100% full content expansion upon tapping "Xem thêm", and added `uiView.invalidateIntrinsicContentSize()` for justified book synopsis (`isJustified: true`).
+* `TranslateUtils.translateAuthorHanViet`:
+  - Added Unicode letter and number grouping tokenization (`char.isLetter`, `char.isNumber`) to preserve multi-character Latin/Vietnamese words and numeric suffixes in author names (e.g. `123`, `John`), preventing spaced-out character bugs.
 * `VietPhraseTokenizer`:
   - Fixed Unicode word tokenization: accurately groups non-ASCII Latin characters (Vietnamese diacritics: `ngày`, `tháng`, `năm`), decimal numbers (`14.8`), and symbols (`θ`), resolving split-token spacing bugs (`Ng ày`, `th áng`, `1 4. 8`).
 * `ReaderView` & `ReaderChapterListView`:
-  - Integrated native Bottom Sheet presentation via `.sheet(isPresented: $showingChapterList)` with `.presentationDetents([.fraction(0.75), .large])` and `.presentationDragIndicator(.visible)` powered by `getOrInitChapterListStore()`, providing seamless two-stage height expansion and drag-down-to-dismiss without modal conflicts.
+  - Integrated native Bottom Sheet presentation via `.sheet(isPresented: $showingChapterList)` with `.presentationDetents([.fraction(0.75), .large])` and `.presentationDragIndicator(.visible)` powered by `getOrInitChapterListStore()`, providing seamless two-stage height expansion and drag-down-to-dismiss without modal conflicts. Header top padding increased to `18pt`.
   - Header displays source name badge (`ext?.name ?? localBook?.sourceName`).
 * `ShelfView` history filter:
   - `historyBooks` filters all books with `isHistory == true` without excluding `isOnShelf`, sorted by `lastReadDate` descending so all recently read books appear.

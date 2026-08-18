@@ -142,16 +142,68 @@ public final class TranslateUtils {
         guard !author.isEmpty else { return author }
         guard containsChinese(author) else { return author }
         let phienAm = TranslationManager.shared.phienAmMap
-        var list: [String] = []
-        for char in author {
-            let charStr = String(char)
-            if let mapped = phienAm[charStr] {
-                list.append(mapped)
-            } else {
-                list.append(charStr)
+        let chars = Array(author)
+        let length = chars.count
+        var words: [String] = []
+        var i = 0
+
+        while i < length {
+            let char = chars[i]
+
+            // 1. Ký tự chữ Hán: dịch phiên âm
+            if VietPhraseTokenizer.isChineseCharacter(char) {
+                let charStr = String(char)
+                words.append(phienAm[charStr] ?? charStr)
+                i += 1
+                continue
             }
+
+            // 2. Số & Số thập phân (e.g. 14.8, 123)
+            if char.isNumber {
+                var end = i + 1
+                while end < length {
+                    let nextChar = chars[end]
+                    if nextChar.isNumber {
+                        end += 1
+                    } else if (nextChar == "." || nextChar == ",") && (end + 1 < length) && chars[end + 1].isNumber {
+                        end += 2
+                    } else {
+                        break
+                    }
+                }
+                words.append(String(chars[i..<end]))
+                i = end
+                continue
+            }
+
+            // 3. Chữ cái Unicode (tiếng Việt có dấu, tiếng Anh, Hy Lạp...)
+            if char.isLetter {
+                var end = i + 1
+                while end < length && chars[end].isLetter {
+                    end += 1
+                }
+                words.append(String(chars[i..<end]))
+                i = end
+                continue
+            }
+
+            // 4. Khoảng trắng
+            if char.isWhitespace {
+                i += 1
+                continue
+            }
+
+            // 5. Dấu câu / ký tự khác
+            var end = i + 1
+            while end < length && chars[end] == char && !VietPhraseTokenizer.isChineseCharacter(chars[end]) && !chars[end].isLetter && !chars[end].isNumber && !chars[end].isWhitespace {
+                end += 1
+            }
+            words.append(String(chars[i..<end]))
+            i = end
         }
-        return list.joined(separator: " ").capitalized
+
+        let combined = words.joined(separator: " ")
+        return DisplayTextFormatter.titleCase(combined)
     }
     
     public static func translateMeta(_ text: String?, bookId: String? = nil) -> String {

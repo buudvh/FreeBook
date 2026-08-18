@@ -76,13 +76,11 @@ struct ShelfView: View {
     private var shelfBooks: [Book] {
         allBooks
             .filter { $0.isOnShelf }
-            .sorted(by: { $0.lastReadDate > $1.lastReadDate })
     }
 
     private var historyBooks: [Book] {
         allBooks
             .filter { $0.isHistory && !$0.isOnShelf }
-            .sorted(by: { $0.lastReadDate > $1.lastReadDate })
     }
 
     private var displayedShelfBooks: [Book] {

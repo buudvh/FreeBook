@@ -181,7 +181,8 @@ struct BookDetailHeaderView: View {
                 text: onTranslateMetaIfNeeded(desc),
                 lineLimit: 4,
                 font: .body,
-                foregroundColor: .secondary
+                foregroundColor: .secondary,
+                isJustified: true
             )
         }
         .padding(.horizontal)

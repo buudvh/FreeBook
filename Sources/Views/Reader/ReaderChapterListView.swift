@@ -208,7 +208,7 @@ public struct ReaderChapterListView: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.top, 8)
+        .padding(.top, 18)
         .padding(.bottom, 10)
         .background(theme.backgroundColor)
     }

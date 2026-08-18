@@ -52,6 +52,7 @@ public struct JustifiedTextLabel: UIViewRepresentable {
         uiView.textAlignment = .justified
         uiView.font = font
         uiView.textColor = textColor
+        uiView.invalidateIntrinsicContentSize()
     }
 }
 
@@ -60,6 +61,7 @@ public struct ExpandableTextView: View {
     let lineLimit: Int
     let font: Font
     let foregroundColor: Color
+    let isJustified: Bool
     
     @State private var isExpanded = false
     @State private var isTruncated = false
@@ -70,23 +72,19 @@ public struct ExpandableTextView: View {
         text: String,
         lineLimit: Int,
         font: Font = .body,
-        foregroundColor: Color = .secondary
+        foregroundColor: Color = .secondary,
+        isJustified: Bool = false
     ) {
         self.text = text
         self.lineLimit = lineLimit
         self.font = font
         self.foregroundColor = foregroundColor
+        self.isJustified = isJustified
     }
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            JustifiedTextLabel(
-                text: text,
-                lineLimit: isExpanded ? 0 : lineLimit,
-                font: .preferredFont(forTextStyle: .subheadline),
-                textColor: UIColor(foregroundColor)
-            )
-            .fixedSize(horizontal: false, vertical: true)
+            textContent
                 .background(
                     // Measurer 1: Measure collapsed height (always constrained to lineLimit)
                     Text(text)
@@ -153,19 +151,34 @@ public struct ExpandableTextView: View {
         }
     }
     
-    private func initialCheck() {
-        let lineCount = text.components(separatedBy: .newlines).count
-        let charThreshold = lineLimit * 30
-        let estimated = lineCount > lineLimit || text.count > charThreshold
-        if isTruncated != estimated && fullHeight == 0 {
-            isTruncated = estimated
+    @ViewBuilder
+    private var textContent: some View {
+        if isJustified {
+            JustifiedTextLabel(
+                text: text,
+                lineLimit: isExpanded ? 0 : lineLimit,
+                font: .preferredFont(forTextStyle: .subheadline),
+                textColor: UIColor(foregroundColor)
+            )
+            .fixedSize(horizontal: false, vertical: true)
+        } else {
+            Text(text)
+                .font(font)
+                .foregroundColor(foregroundColor)
+                .lineLimit(isExpanded ? nil : lineLimit)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        checkTruncation()
+    }
+    
+    private func initialCheck() {
+        fullHeight = 0
+        collapsedHeight = 0
+        isTruncated = false
     }
     
     private func checkTruncation() {
         if fullHeight > 0 && collapsedHeight > 0 {
-            let truncated = fullHeight > collapsedHeight + 1.5
+            let truncated = fullHeight > collapsedHeight + 2.0
             if isTruncated != truncated {
                 isTruncated = truncated
             }

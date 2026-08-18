@@ -4,8 +4,18 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ## [1.3.201] - 2026-08-18
 
-### Sửa lỗi Tokenizer tiếng Việt có dấu & Số thập phân, Khôi phục Overlay ReaderChapterList, Cải tiến Lịch Sử Đọc & Tối ưu Sheet Hẹn Giờ TTS
+### Sửa lỗi Tokenizer dịch thuật & Tác giả, Tối ưu BookListItemView, Sửa lỗi Comment ExpandableTextView, Khôi phục Sheet ReaderChapterList & Tối ưu Hẹn giờ TTS
 
+* **Cập nhật gom token chữ cái & số cho Dịch tên tác giả Hán Việt (`TranslateUtils.swift`)**:
+  - Bổ sung thuật toán phân loại token (`isChineseCharacter`, `char.isLetter`, `char.isNumber`) trong `translateAuthorHanViet` để giữ nguyên các từ tiếng Anh, tiếng Việt và số (ví dụ: `123`, `John`), không bị tách rời thành `1 2 3` hay `J o h n`.
+* **Tối ưu hiển thị chiều ngang `BookListItemView` (`BookListItemView.swift`)**:
+  - Gán `.frame(maxWidth: .infinity, alignment: .leading)` cho khối thông tin sách, xóa `Spacer()` dư thừa và thêm `.lineLimit(1)` cho nhãn nguồn truyện, giải quyết triệt để khoảng trống thừa bên phải.
+* **Sửa lỗi hiển thị và mở rộng bình luận (`ExpandableTextView.swift` & `BookDetailHeaderView.swift`)**:
+  - Loại bỏ công thức phỏng đoán `charThreshold = lineLimit * 30` (nguyên nhân bình luận 1 dòng vẫn hiện "Xem thêm").
+  - Chuyển bình luận sang dùng SwiftUI `Text` nguyên bản (`isJustified: false`) để khi bấm "Xem thêm" lập tức mở rộng 100% toàn bộ nội dung mà không bị kẹt chiều cao.
+  - Thêm `uiView.invalidateIntrinsicContentSize()` cho phần Giới thiệu truyện (`isJustified: true` trong `BookDetailHeaderView`).
+* **Tăng khoảng cách padding top cho Danh sách chương (`ReaderChapterListView.swift`)**:
+  - Tăng padding đầu phần header lên `18pt` giúp ảnh bìa và tiêu đề thông thoáng, không bị cấn sát mép trên/thanh kéo sheet.
 * **Sửa lỗi Tokenizer Dịch thuật tiếng Việt & Ký tự khoa học (`VietPhraseTokenizer.swift`)**:
   - Gom chuẩn xác toàn bộ từ ngữ chữ cái Unicode (tiếng Việt có dấu: `ngày`, `tháng`, `năm`; ký tự Hy Lạp: `θ`, `α`, `β`), số nguyên và số thập phân (`14.8`, `2026`).
   - Giải quyết dứt điểm lỗi tách rời từ ngữ thành `"Ng ày"`, `"th áng"`, `"n ăm"`, `"1 4. 8"`.
