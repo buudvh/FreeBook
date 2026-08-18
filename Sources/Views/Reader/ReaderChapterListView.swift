@@ -253,7 +253,7 @@ public struct ReaderChapterListView: View {
                     if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         ForEach(0..<store.totalCount, id: \.self) { displayPosition in
                             if let item = store.item(at: displayPosition) {
-                                let chapter = store.rowState(at: displayPosition)
+                                let chapter = store.loadedRowStates[displayPosition] ?? store.rowState(at: displayPosition)
                                 ReaderChapterRowView(
                                     chapter: chapter,
                                     isCurrent: item.index == currentChapterIndex,
@@ -275,7 +275,7 @@ public struct ReaderChapterListView: View {
                         }
                     } else {
                         ForEach(store.searchResults) { item in
-                            let chapter = store.rowState(at: item.id)
+                            let chapter = store.searchResultStates[item.id] ?? store.rowState(at: item.id)
                             ReaderChapterRowView(
                                 chapter: chapter,
                                 isCurrent: item.index == currentChapterIndex,

@@ -158,44 +158,38 @@ public final class TranslateUtils {
                 continue
             }
 
-            // 2. Số & Số thập phân (e.g. 14.8, 123)
-            if char.isNumber {
+            // 2. Chữ cái Latin & Chữ số ASCII (e.g. q92tT5, John, AK47, 14.8, 123)
+            if VietPhraseTokenizer.isLatinLetterOrNumber(char) {
                 var end = i + 1
-                while end < length {
-                    let nextChar = chars[end]
-                    if nextChar.isNumber {
-                        end += 1
-                    } else if (nextChar == "." || nextChar == ",") && (end + 1 < length) && chars[end + 1].isNumber {
-                        end += 2
-                    } else {
-                        break
-                    }
-                }
-                words.append(String(chars[i..<end]))
-                i = end
-                continue
-            }
-
-            // 3. Chữ cái Unicode (tiếng Việt có dấu, tiếng Anh, Hy Lạp...)
-            if char.isLetter {
-                var end = i + 1
-                while end < length && chars[end].isLetter {
+                while end < length && VietPhraseTokenizer.isLatinLetterOrNumber(chars[end]) {
                     end += 1
                 }
+                if end < length, (chars[end] == "." || chars[end] == ","),
+                   VietPhraseTokenizer.isASCIIDigit(chars[end - 1]),
+                   (end + 1 < length), VietPhraseTokenizer.isASCIIDigit(chars[end + 1]),
+                   chars[i..<end].allSatisfy({ VietPhraseTokenizer.isASCIIDigit($0) }) {
+                    var decEnd = end + 1
+                    while decEnd < length && VietPhraseTokenizer.isASCIIDigit(chars[decEnd]) {
+                        decEnd += 1
+                    }
+                    words.append(String(chars[i..<decEnd]))
+                    i = decEnd
+                    continue
+                }
                 words.append(String(chars[i..<end]))
                 i = end
                 continue
             }
 
-            // 4. Khoảng trắng
+            // 3. Khoảng trắng: bỏ qua vì sẽ join bằng space
             if char.isWhitespace {
                 i += 1
                 continue
             }
 
-            // 5. Dấu câu / ký tự khác
+            // 4. Dấu câu / ký tự khác
             var end = i + 1
-            while end < length && chars[end] == char && !VietPhraseTokenizer.isChineseCharacter(chars[end]) && !chars[end].isLetter && !chars[end].isNumber && !chars[end].isWhitespace {
+            while end < length && chars[end] == char && !VietPhraseTokenizer.isChineseCharacter(chars[end]) && !VietPhraseTokenizer.isLatinLetterOrNumber(chars[end]) && !chars[end].isWhitespace {
                 end += 1
             }
             words.append(String(chars[i..<end]))

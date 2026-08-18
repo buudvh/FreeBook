@@ -24,14 +24,16 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 * `BookListItemView`:
   - Full-width text content with `.frame(maxWidth: .infinity, alignment: .leading)`, removed trailing `Spacer()`, and constrained `sourceName` badge to `.lineLimit(1)` to eliminate right margin gaps across book shelf and search lists.
 * `ExpandableTextView` & `BookDetailHeaderView`:
-  - Fixed comment truncation and expansion: eliminated faulty character-count estimation (`charThreshold`), switched comments to native SwiftUI `Text` (`isJustified: false`) for 100% full content expansion upon tapping "Xem thêm", and added `uiView.invalidateIntrinsicContentSize()` for justified book synopsis (`isJustified: true`).
-* `TranslateUtils.translateAuthorHanViet`:
-  - Added Unicode letter and number grouping tokenization (`char.isLetter`, `char.isNumber`) to preserve multi-character Latin/Vietnamese words and numeric suffixes in author names (e.g. `123`, `John`), preventing spaced-out character bugs.
-* `VietPhraseTokenizer`:
-  - Fixed Unicode word tokenization: accurately groups non-ASCII Latin characters (Vietnamese diacritics: `ngày`, `tháng`, `năm`), decimal numbers (`14.8`), and symbols (`θ`), resolving split-token spacing bugs (`Ng ày`, `th áng`, `1 4. 8`).
+  - Accurate layout-safe measurement: measures `availableWidth` via `WidthPreferenceKey`, evaluates collapsed/full height via `measurementSubtree` in `.overlay` with `.frame(width: availableWidth, height: 0)` without stretching parent layout.
+  - Matches rendering semantics: measures via `JustifiedTextLabel` when `isJustified: true` (with identical font, width, and `textAlignment = .justified`) and via SwiftUI `Text` when `isJustified: false`.
+  - Resets `isExpanded = false` and measurement state on `text` change, and applies subpixel tolerance `fullHeight > collapsedHeight + 0.5`.
+* `VietPhraseTokenizer` & `TranslateUtils`:
+  - Added `isLatinLetterOrNumber` and `isASCIIDigit` helper tokenization: groups continuous Latin letters (Basic Latin, Latin-1 Supplement with `char.isLetter` excluding `×`/`÷`, Latin Extended-A/B, Vietnamese diacritics `Ạ..ỹ`) and ASCII digits (`0-9`) into unified tokens (e.g. `作家q92tT5` -> `["作家", "q92tT5"]`, `q92tT5修仙`, `修仙iPhone15`, `天下第一AK47`, `14.8`), while preserving 100% of existing Han dictionary matching and Han-Viet `phienAmMap` conversion.
 * `ReaderView` & `ReaderChapterListView`:
-  - Integrated native Bottom Sheet presentation via `.sheet(isPresented: $showingChapterList)` with `.presentationDetents([.fraction(0.75), .large])` and `.presentationDragIndicator(.visible)` powered by `getOrInitChapterListStore()`, providing seamless two-stage height expansion and drag-down-to-dismiss without modal conflicts. Header top padding increased to `18pt`.
-  - Header displays source name badge (`ext?.name ?? localBook?.sourceName`).
+  - Integrated native Bottom Sheet presentation via `.sheet(isPresented: $showingChapterList)` with `.presentationDetents([.fraction(0.75), .large])` and `.presentationDragIndicator(.visible)` powered by `getOrInitChapterListStore()`.
+  - Added background prefetching of the current chapter's page upon Reader initialization to eliminate/minimize first-open skeleton.
+  - Observed `store.loadedRowStates` directly in row cells and maintained 90ms debounce to prevent load storms during initial layout.
+  - Header top padding increased to `18pt`, displaying source name badge (`ext?.name ?? localBook?.sourceName`).
 * `ShelfView` history filter:
   - `historyBooks` filters all books with `isHistory == true` without excluding `isOnShelf`, sorted by `lastReadDate` descending so all recently read books appear.
   - Smart history removal: sets `isHistory = false` for on-shelf books, hard-deletes off-shelf books.

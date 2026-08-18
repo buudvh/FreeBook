@@ -210,36 +210,30 @@ public enum VietPhraseTokenizer {
                 selectedVPs.first(where: { $0.range.lowerBound > currentIndex })?.range.lowerBound ?? length
             )
 
-            // 1. Số & Số thập phân (e.g. 14.8, 2026, 3,14)
-            if char.isNumber {
+            // 1. Chữ cái Latin & Chữ số ASCII (e.g. q92tT5, iPhone15, AK47, 14.8, ngày, tháng, năm...)
+            if isLatinLetterOrNumber(char) {
                 var end = currentIndex + 1
-                while end < nextBoundary {
-                    let nextChar = chars[end]
-                    if nextChar.isNumber {
-                        end += 1
-                    } else if (nextChar == "." || nextChar == ",") && (end + 1 < nextBoundary) && chars[end + 1].isNumber {
-                        end += 2
-                    } else {
-                        break
-                    }
-                }
-                output.append(String(chars[currentIndex..<end]))
-                currentIndex = end
-                continue
-            }
-
-            // 2. Chữ cái Unicode (tiếng Việt có dấu: ngày, tháng, năm; tiếng Anh; ký tự Hy Lạp: θ, α, β...)
-            if char.isLetter {
-                var end = currentIndex + 1
-                while end < nextBoundary && chars[end].isLetter {
+                while end < nextBoundary && isLatinLetterOrNumber(chars[end]) {
                     end += 1
                 }
+                if end < nextBoundary, (chars[end] == "." || chars[end] == ","),
+                   isASCIIDigit(chars[end - 1]),
+                   (end + 1 < nextBoundary), isASCIIDigit(chars[end + 1]),
+                   chars[currentIndex..<end].allSatisfy({ isASCIIDigit($0) }) {
+                    var decEnd = end + 1
+                    while decEnd < nextBoundary && isASCIIDigit(chars[decEnd]) {
+                        decEnd += 1
+                    }
+                    output.append(String(chars[currentIndex..<decEnd]))
+                    currentIndex = decEnd
+                    continue
+                }
                 output.append(String(chars[currentIndex..<end]))
                 currentIndex = end
                 continue
             }
 
-            // 3. Khoảng trắng
+            // 2. Khoảng trắng
             if char.isWhitespace {
                 var end = currentIndex + 1
                 while end < nextBoundary && chars[end].isWhitespace {
@@ -250,7 +244,7 @@ public enum VietPhraseTokenizer {
                 continue
             }
 
-            // 4. Ký tự hoặc dấu câu lặp lại (e.g. ……, ..., ---) hoặc đơn lẻ
+            // 3. Ký tự hoặc dấu câu lặp lại (e.g. ……, ..., ---) hoặc đơn lẻ
             var end = currentIndex + 1
             while end < nextBoundary && chars[end] == char {
                 end += 1
@@ -260,6 +254,25 @@ public enum VietPhraseTokenizer {
         }
         
         return output
+    }
+
+    internal static func isASCIIDigit(_ char: Character) -> Bool {
+        guard let scalar = char.unicodeScalars.first, char.unicodeScalars.count == 1 else { return false }
+        return scalar.value >= 0x30 && scalar.value <= 0x39
+    }
+
+    internal static func isLatinLetterOrNumber(_ char: Character) -> Bool {
+        guard let scalar = char.unicodeScalars.first, char.unicodeScalars.count == 1 else { return false }
+        let val = scalar.value
+        // 1. Chữ số ASCII 0-9
+        if val >= 0x30 && val <= 0x39 { return true }
+        // 2. Chữ cái Latin (bắt buộc char.isLetter để loại trừ các symbol như × U+00D7, ÷ U+00F7)
+        guard char.isLetter else { return false }
+        if (val >= 0x41 && val <= 0x5A) || (val >= 0x61 && val <= 0x7A) { return true }
+        if (val >= 0xC0 && val <= 0xFF) { return true }
+        if (val >= 0x100 && val <= 0x24F) { return true }
+        if (val >= 0x1EA0 && val <= 0x1EF9) { return true }
+        return false
     }
 
     internal static func isChineseCharacter(_ char: Character) -> Bool {

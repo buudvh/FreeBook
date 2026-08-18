@@ -1084,7 +1084,12 @@ struct ReaderView: View {
             }
         }
         if totalCount > 0 {
-            chapterListStore?.updateChapters(totalCount: totalCount, onlineChapters: currentOnlineChapters)
+            if let store = getOrInitChapterListStore() {
+                store.updateChapters(totalCount: totalCount, onlineChapters: currentOnlineChapters)
+                let targetPos = viewModel?.displayedChapterIndex ?? chapterIndex
+                store.loadVisiblePageIfNeeded(displayPosition: targetPos)
+                store.prefetchAround(displayPosition: targetPos)
+            }
         }
         updateCurrentChapterMetadata()
     }

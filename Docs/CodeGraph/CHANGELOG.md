@@ -6,14 +6,18 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ### Sửa lỗi Tokenizer dịch thuật & Tác giả, Tối ưu BookListItemView, Sửa lỗi Comment ExpandableTextView, Khôi phục Sheet ReaderChapterList & Tối ưu Hẹn giờ TTS
 
-* **Cập nhật gom token chữ cái & số cho Dịch tên tác giả Hán Việt (`TranslateUtils.swift`)**:
-  - Bổ sung thuật toán phân loại token (`isChineseCharacter`, `char.isLetter`, `char.isNumber`) trong `translateAuthorHanViet` để giữ nguyên các từ tiếng Anh, tiếng Việt và số (ví dụ: `123`, `John`), không bị tách rời thành `1 2 3` hay `J o h n`.
+* **Chuẩn hóa Tokenizer gom cụm chữ cái Latin & số ASCII (`VietPhraseTokenizer.swift` & `TranslateUtils.swift`)**:
+  - Bổ sung `isLatinLetterOrNumber` và `isASCIIDigit`: gom chính xác các cụm chữ cái Latin (Basic Latin, Latin-1 kèm `char.isLetter` loại trừ `×`/`÷`, Latin Extended-A/B, tiếng Việt có dấu `Ạ..ỹ`) và số ASCII (`0-9`) thành một token duy nhất (ví dụ: `作家q92tT5` -> `["作家", "q92tT5"]`, `q92tT5修仙`, `修仙iPhone15`, `天下第一AK47`, `14.8`).
+  - Giữ nguyên 100% logic so khớp từ điển tiếng Trung (`selectedNames`, `selectedVPs`, `pronounsDict`, `luatNhanDict`) và tra cứu phiên âm Hán Việt `phienAmMap`.
+* **Đồng bộ Semantics & Đo chiều cao Layout-Safe cho `ExpandableTextView` (`ExpandableTextView.swift`)**:
+  - Đo `availableWidth` qua `WidthPreferenceKey`, tính toán chiều cao trong `.overlay` với `.frame(width: availableWidth, height: 0)` để không làm phình parent layout khi collapsed.
+  - Đồng bộ semantics: đo bằng `JustifiedTextLabel` khi `isJustified == true` (cùng font, width, `textAlignment = .justified`) và đo bằng SwiftUI `Text` khi `isJustified == false`.
+  - Tự động reset `isExpanded = false` và measurement state khi nội dung text thay đổi, áp dụng subpixel tolerance `fullHeight > collapsedHeight + 0.5`.
+* **Khắc phục Skeleton Danh Sách Chương & Prefetch ngầm (`ReaderView.swift` & `ReaderChapterListView.swift`)**:
+  - Tự động pre-fetch trang mục lục của chương hiện tại ngay khi Reader khởi tạo xong, đảm bảo dữ liệu sẵn sàng trong RAM khi mở sheet.
+  - Quan sát trực tiếp `store.loadedRowStates` trên từng hàng và duy trì debounce 90ms để chống load storm trong quá trình layout.
 * **Tối ưu hiển thị chiều ngang `BookListItemView` (`BookListItemView.swift`)**:
   - Gán `.frame(maxWidth: .infinity, alignment: .leading)` cho khối thông tin sách, xóa `Spacer()` dư thừa và thêm `.lineLimit(1)` cho nhãn nguồn truyện, giải quyết triệt để khoảng trống thừa bên phải.
-* **Sửa lỗi hiển thị và mở rộng bình luận (`ExpandableTextView.swift` & `BookDetailHeaderView.swift`)**:
-  - Loại bỏ công thức phỏng đoán `charThreshold = lineLimit * 30` (nguyên nhân bình luận 1 dòng vẫn hiện "Xem thêm").
-  - Chuyển bình luận sang dùng SwiftUI `Text` nguyên bản (`isJustified: false`) để khi bấm "Xem thêm" lập tức mở rộng 100% toàn bộ nội dung mà không bị kẹt chiều cao.
-  - Thêm `uiView.invalidateIntrinsicContentSize()` cho phần Giới thiệu truyện (`isJustified: true` trong `BookDetailHeaderView`).
 * **Tăng khoảng cách padding top cho Danh sách chương (`ReaderChapterListView.swift`)**:
   - Tăng padding đầu phần header lên `18pt` giúp ảnh bìa và tiêu đề thông thoáng, không bị cấn sát mép trên/thanh kéo sheet.
 * **Sửa lỗi Tokenizer Dịch thuật tiếng Việt & Ký tự khoa học (`VietPhraseTokenizer.swift`)**:
