@@ -15,6 +15,11 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader/Detail covers inject router environment objects inside the cover content (1.3.212)
+
+* Fix crash when opening Reader from Detail on build 1.3.211: `ReaderView` gained `@EnvironmentObject detailRouter` in 1.3.211, and the root reader `.fullScreenCover(item: $readerRouter.route)` content did not receive `detailRouter` from the presenter-level `.environmentObject` chain, so `ReaderView` hit `EnvironmentObject.error()` on open (confirmed against the device crash report + `FreeBook (12).ipa` binary UUID `d0a7e65c...`). The detail cover inherited both objects (BookDetailView reads both routers without crashing), but the stacked reader cover did not.
+* Fix: `AppLaunchRootView` (`FreeBookApp.swift`) now also injects `.environmentObject(readerRouter)` and `.environmentObject(detailRouter)` directly on the `NavigationStack` **inside both** `.fullScreenCover` content closures (reader + detail), guaranteeing both routers are present regardless of presentation/environment propagation. The outer `.environmentObject` modifiers (lines 68-69) are kept as defense. Covers all reader entry points (detail, shelf, TTS).
+
 ## Root presentation hub for both Reader and Detail — back from Reader returns to Detail (1.3.211)
 
 * `DetailRouter` added in `Sources/Views/BookDetail/BookDetailView.swift` (`final class DetailRouter: ObservableObject { @Published var route: BookDetailRoute? }`), sibling of `ReaderRouter`. `AppLaunchRootView` (`FreeBookApp.swift`) owns `@StateObject detailRouter`, injects `.environmentObject(detailRouter)` and presents `BookDetailView` via a second root-level `.fullScreenCover(item: $detailRouter.route)` wrapped in `NavigationStack`.

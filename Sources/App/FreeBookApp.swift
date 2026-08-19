@@ -84,6 +84,8 @@ struct AppLaunchRootView: View {
                 )
                 .id(route.id)
             }
+            .environmentObject(readerRouter)
+            .environmentObject(detailRouter)
         }
         .fullScreenCover(item: $detailRouter.route) { route in
             NavigationStack {
@@ -95,6 +97,8 @@ struct AppLaunchRootView: View {
                     initialHost: route.host
                 )
             }
+            .environmentObject(readerRouter)
+            .environmentObject(detailRouter)
         }
         .onAppear {
             BookStorageManager.shared.drainRetryQueue()

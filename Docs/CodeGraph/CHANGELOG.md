@@ -2,6 +2,14 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.212] - 2026-08-19
+
+### Sửa crash mở Reader từ Chi Tiết: inject router environment object vào trong cover content
+
+* **Triệu chứng**: build [1.3.211] crash ngay khi mở Reader từ Chi Tiết. Crash report thiết bị `LiveContainer-2026-08-19-110613.ips` (main thread): `_assertionFailure` -> `EnvironmentObject.error()` (SwiftUICore) -> 5 frame FreeBook -> `completeTaskWithClosure`. `completeTaskWithClosure` khớp đúng luồng: `openReader(at:)` được gọi từ `Task { @MainActor }` trong `BookDetailView+TOCPreparation.swift` (dòng 21/34/119) nên việc present cover + eval body diễn ra ngay lúc async task hoàn tất.
+* **Gốc rễ**: binary của `FreeBook (12).ipa` có UUID `d0a7e65c-04ff-3040-9520-2b4d44e7928a` — khớp chính xác crash build [1.3.211]. Toàn repo chỉ có 2 env object (`ReaderRouter`, `DetailRouter`) và 2 điểm inject (`FreeBookApp.swift:68-69`). [1.3.211] thêm `@EnvironmentObject detailRouter` cho `ReaderView` (`ReaderView.swift:163`) — view duy nhất trong flow này đọc router mới phát sinh; reader cover content (`.fullScreenCover(item: $readerRouter.route)` ở root) **không nhận được `detailRouter`** từ chain `.environmentObject` ngoài (detail cover thì nhận đủ vì BookDetailView đọc cả 2 router mà không crash) -> `EnvironmentObject.error()` khi ReaderView body eval.
+* **Fix**: `AppLaunchRootView` (`FreeBookApp.swift`) inject thêm `.environmentObject(readerRouter)` + `.environmentObject(detailRouter)` vào `NavigationStack` **bên trong cả 2** `.fullScreenCover` content closure (reader + detail). Giữ nguyên 2 `.environmentObject` ngoài (dự phòng; cùng instance `@StateObject` nên an toàn). Fix phủ mọi đường mở Reader (detail, shelf, TTS). Không thêm file nguồn mới; `sourceFileCount` giữ 215.
+
 ## [1.3.211] - 2026-08-19
 
 ### Root presentation hub cho cả Reader và Detail — back từ Reader quay về Detail thay vì thoát Detail
