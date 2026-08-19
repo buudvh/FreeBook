@@ -15,11 +15,6 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Interactive overlay sheet container resource lifecycle (1.3.215)
-
-* `InteractiveOverlaySheetViewController` manages `containerView`, `backdropView`, `UIPanGestureRecognizer`, and `UITapGestureRecognizer`.
-* Dismantling (`dismantleUIViewController`) cancels running layer animations, removes gesture recognizers, and detaches `UIHostingController` (`willMove(toParent: nil)`, `removeFromSuperview()`, `removeFromParent()`), releasing view hierarchy resources without retain cycles.
-
 ## NghiTTS refill failure lifecycle (1.3.147)
 
 * Mỗi lỗi refill được sở hữu bởi khóa `sessionID + chapterIndex + paragraphIndex`; success xóa state, lỗi không retry hoặc attempt thứ hai chuyển state sang blocked.

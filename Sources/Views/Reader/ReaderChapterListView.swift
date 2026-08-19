@@ -10,7 +10,7 @@ public struct ReaderChapterListView: View {
     public let localBook: Book?
     public let ext: Extension?
     public let currentChapterIndex: Int
-    @Binding public var isPresented: Bool
+    public let isPresented: Bool
     public let isTranslationEnabled: Bool
     public let theme: ReaderTheme
     public let store: ReaderChapterListStore
@@ -29,7 +29,7 @@ public struct ReaderChapterListView: View {
         localBook: Book?,
         ext: Extension?,
         currentChapterIndex: Int,
-        isPresented: Binding<Bool> = .constant(true),
+        isPresented: Bool = true,
         isTranslationEnabled: Bool,
         theme: ReaderTheme,
         store: ReaderChapterListStore,
@@ -47,7 +47,7 @@ public struct ReaderChapterListView: View {
         self.localBook = localBook
         self.ext = ext
         self.currentChapterIndex = currentChapterIndex
-        self._isPresented = isPresented
+        self.isPresented = isPresented
         self.isTranslationEnabled = isTranslationEnabled
         self.theme = theme
         self.store = store
@@ -227,6 +227,19 @@ public struct ReaderChapterListView: View {
         .padding(.bottom, 10)
         .background(theme.backgroundColor)
         .contentShape(Rectangle())
+        .simultaneousGesture(dismissGesture)
+    }
+
+    private var dismissGesture: some Gesture {
+        DragGesture(minimumDistance: 16)
+            .onEnded { value in
+                let horizontalDistance = abs(value.translation.width)
+                let verticalDistance = value.translation.height
+                if verticalDistance >= 72,
+                   verticalDistance >= horizontalDistance * 1.25 {
+                    onClose()
+                }
+            }
     }
 
     private func firstNonempty(_ primary: String?, _ fallback: String?) -> String? {

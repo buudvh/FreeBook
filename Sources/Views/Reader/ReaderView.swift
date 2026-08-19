@@ -1203,72 +1203,66 @@ struct ReaderView: View {
     @ViewBuilder
     private func readerChapterListOverlay(in geometry: GeometryProxy) -> some View {
         if let chapterListStore {
-            let configKey = InteractiveOverlaySheetConfigKey(
-                bookId: bookId,
-                bookTitle: bookTitle,
-                bookAuthor: bookAuthor,
-                bookCoverUrl: bookCoverUrl,
-                bookDetailUrl: bookDetailUrl,
-                currentChapterIndex: viewModel?.displayedChapterIndex ?? chapterIndex,
-                isTranslationEnabled: isTranslationEnabled,
-                theme: selectedTheme,
-                onlineChaptersCount: currentOnlineChapters.count,
-                isLocalTXTBook: isLocalTXTBook,
-                localBookId: localBook?.id,
-                extPackageId: ext?.packageId,
-                storeIdentity: ObjectIdentifier(chapterListStore)
-            )
+            ZStack {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        closeChapterList()
+                    }
+                    .opacity(showingChapterList ? 1 : 0)
+                    .allowsHitTesting(showingChapterList)
 
-            InteractiveOverlaySheetContainer(
-                isPresented: showingChapterList,
-                topMargin: 60,
-                configKey: configKey,
-                onDismissed: {
-                    showingChapterList = false
-                },
-                content: { requestDismiss in
-                    ReaderChapterListView(
-                        bookId: bookId,
-                        bookTitle: bookTitle,
-                        bookAuthor: bookAuthor,
-                        bookCoverUrl: bookCoverUrl,
-                        bookDetailUrl: bookDetailUrl,
-                        localBook: localBook,
-                        ext: ext,
-                        currentChapterIndex: viewModel?.displayedChapterIndex ?? chapterIndex,
-                        isPresented: $showingChapterList,
-                        isTranslationEnabled: isTranslationEnabled,
-                        theme: selectedTheme,
-                        store: chapterListStore,
-                        onlineChapters: $currentOnlineChapters,
-                        isLocalTXTBook: isLocalTXTBook,
-                        onSelectChapter: { selectedIdx in
-                            requestDismiss {
-                                selectChapter(at: selectedIdx)
-                            }
-                        },
-                        onClose: {
-                            requestDismiss {}
-                        },
-                        onLocalTOCRefreshed: { result in
-                            Task { @MainActor in
-                                self.localChaptersCount = result.totalCount
-                                self.chapterListStore?.updateChapters(totalCount: result.totalCount, onlineChapters: [])
-                                self.viewModel?.applyLocalTOCReconciliation(result)
-                                self.ttsManager.applyTOCReconciliation(result)
-                                if ttsState.snapshot.playingBookId == bookId {
-                                    ttsManager.refreshChaptersQueueInBackground(bookId: bookId, onlineChapters: nil)
-                                }
+                ReaderChapterListView(
+                    bookId: bookId,
+                    bookTitle: bookTitle,
+                    bookAuthor: bookAuthor,
+                    bookCoverUrl: bookCoverUrl,
+                    bookDetailUrl: bookDetailUrl,
+                    localBook: localBook,
+                    ext: ext,
+                    currentChapterIndex: viewModel?.displayedChapterIndex ?? chapterIndex,
+                    isPresented: showingChapterList,
+                    isTranslationEnabled: isTranslationEnabled,
+                    theme: selectedTheme,
+                    store: chapterListStore,
+                    onlineChapters: $currentOnlineChapters,
+                    isLocalTXTBook: isLocalTXTBook,
+                    onSelectChapter: { selectedIdx in
+                        selectChapter(at: selectedIdx)
+                    },
+                    onClose: {
+                        closeChapterList()
+                    },
+                    onLocalTOCRefreshed: { result in
+                        Task { @MainActor in
+                            self.localChaptersCount = result.totalCount
+                            self.chapterListStore?.updateChapters(totalCount: result.totalCount, onlineChapters: [])
+                            self.viewModel?.applyLocalTOCReconciliation(result)
+                            self.ttsManager.applyTOCReconciliation(result)
+                            if ttsState.snapshot.playingBookId == bookId {
+                                ttsManager.refreshChaptersQueueInBackground(bookId: bookId, onlineChapters: nil)
                             }
                         }
-                    )
-                    .modelContainer(modelContext.container)
-                }
-            )
-            .frame(width: geometry.size.width, height: geometry.size.height)
-            .allowsHitTesting(showingChapterList)
-            .accessibilityHidden(!showingChapterList)
+                    }
+                )
+                .frame(width: geometry.size.width, height: geometry.size.height - 60)
+                .offset(
+                    y: reduceMotion
+                        ? 60
+                        : (showingChapterList ? 60 : geometry.size.height + geometry.safeAreaInsets.bottom)
+                )
+                .opacity(showingChapterList ? 1 : 0)
+                .animation(.easeInOut(duration: reduceMotion ? 0.15 : 0.25), value: showingChapterList)
+                .allowsHitTesting(showingChapterList)
+                .accessibilityHidden(!showingChapterList)
+            }
             .zIndex(10)
+        }
+    }
+
+    private func closeChapterList() {
+        withAnimation(.easeInOut(duration: reduceMotion ? 0.15 : 0.25)) {
+            showingChapterList = false
         }
     }
 

@@ -15,12 +15,6 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Interactive overlay sheet container lifecycle (1.3.215)
-
-* `InteractiveOverlaySheetContainer` mounts `InteractiveOverlaySheetViewController` while `chapterListStore != nil`. `UIHostingController` containment follows standard VC lifecycle (`addChild`, `containerView.addSubview`, `didMove(toParent:)`).
-* State transitions (`.hidden`, `.presenting`, `.presented`, `.dragging`, `.dismissing`) manage visibility (`view.isHidden = true/false`, `view.isUserInteractionEnabled = true/false`).
-* `dismantleUIViewController` cleans up gesture recognizers, cancels active layer animations, and detaches `UIHostingController` (`willMove(toParent: nil)`, `removeFromSuperview`, `removeFromParent`).
-
 ## TTS floating widget and Toast window lifecycle (1.3.195)
 
 * `TTSFloatingWidgetWindowManager` binds `FloatingWidgetUIWindow` to the active `UIWindowScene` on scene activation or app foreground. The window is non-key at all times, with visibility controlled strictly via `isHidden = false/true`. The app's `ModelContainer` is injected into the window's hosting controller and sheets, enabling SwiftData queries.

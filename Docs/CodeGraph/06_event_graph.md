@@ -15,12 +15,6 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Interactive overlay sheet container gesture and dismiss routing events (1.3.215)
-
-* `InteractiveOverlaySheetViewController`:
-  - `UIPanGestureRecognizer` attached to `containerView` filters touches by `location.y <= dragRegionHeight` (132pt, header only) and checks downward vertical intent (`velocity.y > 0 && abs(velocity.y) > abs(velocity.x)`). Realtime dragging updates `containerView.transform` and `backdropView.alpha` directly on Core Animation layers without mutating `ReaderView` `@State`.
-  - All close triggers (header pan threshold, backdrop tap, Accessibility Escape, and chapter row selection) execute `requestDismiss(completion:)`. UIKit runs a 0.25s slide-down animation first, followed by state reset to `.hidden`, calling `onDismissed()` (`showingChapterList = false`), and executing any pending row selection action on the next main runloop turn.
-
 ## Script editor syntax checking and searchable file selection events (1.3.200)
 
 * `ExtensionScriptEditorView`:
