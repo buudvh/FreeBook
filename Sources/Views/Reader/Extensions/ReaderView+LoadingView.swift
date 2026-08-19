@@ -65,7 +65,7 @@ extension ReaderView {
                 .font(.subheadline)
                 .foregroundColor(selectedTheme.textColor)
                 .multilineTextAlignment(.center)
-            Button("Quay lại") { dismiss() }
+            Button("Quay lại") { closeReader() }
                 .buttonStyle(.bordered)
         }
         .padding(32)

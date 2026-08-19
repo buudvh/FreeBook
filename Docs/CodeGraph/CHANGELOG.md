@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.207] - 2026-08-19
+
+### Sửa triệt để vòng lặp tạo lại ReaderView + màn Chi Tiết bị trong suốt (thay fullScreenCover reader bằng ZStack overlay)
+
+* **Root cause đã xác nhận qua log chẩn đoán [1.3.206]** (`app_logs (150).txt`): `[BookDetailLifecycle] readerRoute onChange` chỉ xuất hiện 2 lần (nil→Optional(0) lúc mở, Optional(0)→nil lúc thoát) → `readerRoute` **không đổi** giữa các chu kỳ disappear/reappear, reader bị dismiss + re-present **không do item change**. Mỗi lần re-appear `hasVM=false` (fresh `@State`) → `vm.shutdown(saveProgress: true)` ghi SwiftData → `@Query allBooks` khiến `BookDetailView` re-render → **nested `fullScreenCover(item:)`** (BookDetailView nằm trong cover của ShelfView lại present cover reader riêng) bị iOS re-present → reset `@State` dù có `.id(route.id)` → loop tự duy trì.
+* **Fix – ZStack overlay (`BookDetailView.swift`)**: bỏ `.fullScreenCover(item: $readerRoute)` (dòng 289-306); reader giờ render trong `ZStack` của `BookDetailView` khi `readerRoute != nil`, bọc `NavigationStack` (giữ nguyên ngữ nghĩa `navigationDestination`/NavigationLink bên trong), `.id(route.id)` + `.ignoresSafeArea()` + `.transition(.move(edge: .trailing))` + `.zIndex(20)`. Khi parent re-render, overlay giữ **identity ổn định** → `@State` của reader (viewModel, chapterListStore) không bị reset → **không còn vòng lặp**. Dismiss reader chỉ xoá overlay → `BookDetailView` **không bao giờ rời hierarchy** → sửa luôn bug "màn Chi Tiết trong suốt" (race background do nested cover+sheet khi thoát reader sau khi mở danh sách chương).
+* **Fix phụ – closure đóng reader (`ReaderView.swift`)**: thêm `var onCloseReader: (() -> Void)? = nil` + `internal func closeReader()` (dùng `onCloseReader` nếu có, fallback `dismiss()`). Ba điểm đóng reader cấp reader dùng `closeReader()` thay `dismiss()`: `onDismiss` của `ReaderHeaderFooterOverlayView`, `onSourceChanged` của màn đổi nguồn (sau 0.3s), nút "Quay lại" trong `ReaderView+LoadingView.chapterBootstrapErrorView`. **Không** override `\.dismiss` bằng environment vì giá trị đó lan vào các sheet con (`AddTTSReplacementSheet` dùng `dismiss()` để tự đóng) — đổi sang closure riêng tránh làm vỡ sheet. `BookDetailView` truyền `onCloseReader: { readerRoute = nil }`; `ShelfView`/`ShelfSearchView` (vẫn fullScreenCover) không truyền → fallback `dismiss()` giữ nguyên.
+* **Gỡ log chẩn đoán [1.3.206]**: xoá `[ReaderLifecycle] task/onAppear/onDisappear` (ReaderView) và `[BookDetailLifecycle] readerRoute onChange/onAppear/onDisappear` (BookDetailView). Sheet danh sách chương đã có `.presentationBackground(selectedTheme.backgroundColor)` (dòng 540) nên không cần sửa thêm.
+* **Lưu ý hạ tầng**: không thêm/xoá file nguồn; `manifest.json` không đổi `sourceFileCount` (214)/`documentCount` (16); cần `validate_links.py --update-hashes` do hash source thay đổi. Build/test chỉ kiểm chứng được trên macOS/CI — repo đang mở trên Windows.
+
 ## [1.3.206] - 2026-08-18
 
 ### Chẩn đoán vòng lặp tạo lại ReaderView (log-only, không đổi hành vi)

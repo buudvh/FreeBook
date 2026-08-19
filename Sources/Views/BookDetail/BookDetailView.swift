@@ -177,6 +177,29 @@ struct BookDetailView: View {
             }
 
             floatingActionButton
+
+            if let route = readerRoute {
+                NavigationStack {
+                    ReaderView(
+                        bookId: actualBookId,
+                        extensionPackageId: extensionPackageId,
+                        chapterIndex: route.chapterIndex,
+                        onlineChapters: onlineChapters,
+                        bookTitle: title,
+                        bookAuthor: author,
+                        bookCoverUrl: coverUrl,
+                        bookDesc: desc.isEmpty ? nil : desc,
+                        bookDetailUrl: initialDetailUrl,
+                        bookSourceName: sourceName,
+                        initialParagraphIndex: -1,
+                        onCloseReader: { readerRoute = nil }
+                    )
+                }
+                .id(route.id)
+                .ignoresSafeArea()
+                .transition(.move(edge: .trailing))
+                .zIndex(20)
+            }
         }
         .bookDetailActionSheets(
             selectedBookForTask: $selectedBookForTask,
@@ -286,24 +309,6 @@ struct BookDetailView: View {
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
         }
-        .fullScreenCover(item: $readerRoute) { route in
-            NavigationStack {
-                ReaderView(
-                    bookId: actualBookId,
-                    extensionPackageId: extensionPackageId,
-                    chapterIndex: route.chapterIndex,
-                    onlineChapters: onlineChapters,
-                    bookTitle: title,
-                    bookAuthor: author,
-                    bookCoverUrl: coverUrl,
-                    bookDesc: desc.isEmpty ? nil : desc,
-                    bookDetailUrl: initialDetailUrl,
-                    bookSourceName: sourceName,
-                    initialParagraphIndex: -1
-                )
-                .id(route.id)
-            }
-        }
         .fullScreenCover(isPresented: $navigateToImportedBook) {
             NavigationStack {
                 BookDetailView(
@@ -314,15 +319,6 @@ struct BookDetailView: View {
                     initialHost: importedHost
                 )
             }
-        }
-        .onChange(of: readerRoute) { oldV, newV in
-            AppLogger.shared.log("[BookDetailLifecycle] readerRoute onChange old=\(String(describing: oldV?.id)) new=\(String(describing: newV?.id))")
-        }
-        .onAppear {
-            AppLogger.shared.log("[BookDetailLifecycle] onAppear bookId=\(actualBookId)")
-        }
-        .onDisappear {
-            AppLogger.shared.log("[BookDetailLifecycle] onDisappear bookId=\(actualBookId) readerRoute=\(String(describing: readerRoute?.id))")
         }
     }
 

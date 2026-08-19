@@ -108,6 +108,7 @@ struct ReaderView: View {
     let bookDetailUrl: String?
     let bookSourceName: String?
     var initialParagraphIndex: Int? = nil
+    var onCloseReader: (() -> Void)? = nil
 
     @State private var cachedDisplayedBookTitle: String = ""
     @State internal var showChapterTitle = true // Ẩn/Hiện tiêu đề chương trên đầu màn hình đọc
@@ -746,10 +747,18 @@ struct ReaderView: View {
                 onSourceChanged: {
                     navigateToChangeSource = false
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        dismiss()
+                        closeReader()
                     }
                 }
             )
+        }
+    }
+
+    internal func closeReader() {
+        if let onCloseReader {
+            onCloseReader()
+        } else {
+            dismiss()
         }
     }
 
@@ -889,20 +898,17 @@ struct ReaderView: View {
     private var readerLifecycleView: some View {
         readerDataObservationView
         .task(id: readerBootstrapKey) {
-            AppLogger.shared.log("[ReaderLifecycle] task key=\(readerBootstrapKey) hasVM=\(viewModel != nil) skip=\(viewModel != nil && bootstrappedReaderKey == readerBootstrapKey)")
             await initializeReaderIfNeeded()
         }
         .onAppear {
             ttsState.scope(to: bookId)
             ReaderEnergyDiagnostics.shared.beginReaderSession()
             updateDisplayedBookTitleCache()
-            AppLogger.shared.log("[ReaderLifecycle] onAppear key=\(readerBootstrapKey) hasVM=\(viewModel != nil)")
         }
         .onChange(of: isTranslationEnabled) { _, _ in
             updateDisplayedBookTitleCache()
         }
         .onDisappear {
-            AppLogger.shared.log("[ReaderLifecycle] onDisappear key=\(readerBootstrapKey) hasVM=\(viewModel != nil)")
             ReaderEnergyDiagnostics.shared.flush(reason: "reader_disappear")
             metadataTask?.cancel()
             if ReaderView.activeBookId == bookId {
@@ -1027,7 +1033,7 @@ struct ReaderView: View {
                 totalChaptersCount: totalChaptersCount,
                 readerPresentedChapterIndex: readerPresentedChapterIndex,
                 readerProgressPercent: readerProgressPercent,
-                onDismiss: { dismiss() },
+                onDismiss: { closeReader() },
                 onReloadChapter: reloadCurrentChapterFromMenu,
                 onChangeSource: {
                     navigateToChangeSource = true
