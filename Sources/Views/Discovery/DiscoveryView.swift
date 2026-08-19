@@ -535,6 +535,7 @@ struct DiscoveryCategoryTabView: View {
     let sourceName: String
     let isTranslationEnabled: Bool
     @Binding var selectedCategoryId: String
+    @EnvironmentObject private var detailRouter: DetailRouter
 
     @StateObject private var loader: PaginatedNovelLoader
     @State private var initialLoadTask: Task<Void, Never>? = nil
