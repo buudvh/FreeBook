@@ -11,6 +11,11 @@ protocol BookDisplayable {
     var description: String { get }
     var currentChapterTitle: String { get }
     var currentChapterIndex: Int { get }
+    var isLocalBook: Bool { get }
+}
+
+extension BookDisplayable {
+    var isLocalBook: Bool { false }
 }
 
 /// Row hiển thị một cuốn sách (cover + title dịch + author/source hoặc description),
@@ -49,7 +54,16 @@ struct BookListItemView<Item: BookDisplayable>: View {
                                 .lineLimit(1)
                         }
 
-                        if !item.sourceName.isEmpty {
+                        if item.isLocalBook {
+                            Text("Local")
+                                .font(.caption2)
+                                .lineLimit(1)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.blue.opacity(0.1))
+                                .foregroundColor(.blue)
+                                .cornerRadius(4)
+                        } else if !item.sourceName.isEmpty {
                             Text(item.sourceName)
                                 .font(.caption2)
                                 .lineLimit(1)

@@ -162,12 +162,32 @@ public struct ReaderChapterListView: View {
                             .lineLimit(1)
                     }
 
-                    HStack(spacing: 0) {
+                    HStack(spacing: 6) {
                         Text("\(store.totalCount) chương")
                             .font(.caption.weight(.medium))
                             .foregroundColor(theme.textColor.opacity(0.72))
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
+
+                        if isLocalTXTBook {
+                            Text("Local")
+                                .font(.caption2)
+                                .lineLimit(1)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.blue.opacity(0.1))
+                                .foregroundColor(.blue)
+                                .cornerRadius(4)
+                        } else if let ext, !ext.name.isEmpty {
+                            Text(ext.name)
+                                .font(.caption2)
+                                .lineLimit(1)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.blue.opacity(0.1))
+                                .foregroundColor(.blue)
+                                .cornerRadius(4)
+                        }
 
                         Spacer(minLength: 4)
 

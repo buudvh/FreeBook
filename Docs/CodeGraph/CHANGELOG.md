@@ -2,6 +2,14 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.214] - 2026-08-19
+
+### Badge tên nguồn (extension / Local) trong Reader danh sách chương và BookListItemView
+
+* **Phạm vi**: 2 view hiển thị pill nguồn sách được bổ sung nhánh badge "Local" và chuẩn hoá hiển thị tên extension.
+* **`Sources/Views/Reader/ReaderChapterListView.swift`**: Trong `header`, bọc text `"\(store.totalCount) chương"` vào `HStack(spacing: 6)` và thêm badge pill bên cạnh — nếu `isLocalTXTBook == true` hiển thị `"Local"`, ngược lại nếu `ext != nil` (và `ext.name` không rỗng) hiển thị `ext.name`. Style pill xanh: `.caption2`, `.lineLimit(1)`, `.padding(.horizontal, 6)` / `.padding(.vertical, 2)`, `.background(Color.blue.opacity(0.1))`, `.foregroundColor(.blue)`, `.cornerRadius(4)`. Giữ nguyên `Spacer(minLength: 4)` và nút refresh/sort; không đổi API của view.
+* **`Sources/Views/Common/BookListItemView.swift`**: Thêm `isLocalBook: Bool` vào protocol `BookDisplayable` (default `false` qua `extension BookDisplayable`); `Book` thoả mãn sẵn qua computed property `Book.isLocalBook` (dựa trên `extensionPackageId`/`detailUrl`/`sourceUrl`/`sourceName` local), `ExtensionItemResult` dùng default. Khối pill nguồn thay bằng nhánh: `item.isLocalBook == true` → pill `"Local"`, ngược lại `!item.sourceName.isEmpty` → pill `sourceName` (giữ nguyên hành vi cũ cho sách online).
+
 ## [1.3.213] - 2026-08-19
 
 ### Revert toàn bộ về c78d042, giữ lại các tính năng logic (trừ hiển thị Detail và danh sách chương từ Reader)
