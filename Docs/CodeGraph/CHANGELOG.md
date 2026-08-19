@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.215] - 2026-08-19
+
+### Refactor ReaderChapterListView overlay với InteractiveOverlaySheetContainer
+
+* **Phạm vi**: Thay thế cơ chế overlay frame offset cũ trong `ReaderView.swift` bằng `InteractiveOverlaySheetContainer` (`UIViewControllerRepresentable`).
+* **`Sources/Views/Reader/Components/InteractiveOverlaySheetContainer.swift`**: Thêm mới container `UIViewControllerRepresentable` bọc `InteractiveOverlaySheetViewController` để điều khiển cử chỉ kéo vuốt drag-to-dismiss bám ngón tay realtime ở 60/120 FPS bằng Core Animation `CGAffineTransform` mà không mutate `ReaderView` `@State` ở từng frame.
+* **`Sources/Views/Reader/ReaderView.swift`**: Cập nhật `readerChapterListOverlay` sử dụng `InteractiveOverlaySheetContainer` với unified `requestDismiss` handler; thực thi animation trượt đóng 0.25s của UIKit trước khi chuyển chương ở main turn tiếp theo để loại bỏ 100% hiện tượng khựng lag khung hình.
+* **`Sources/Views/Reader/ReaderChapterListView.swift`**: Gỡ bỏ `dismissGesture` trùng lặp cũ trên header để nhường quyền cho cử chỉ UIKit pan gesture.
+
 ## [1.3.214] - 2026-08-19
 
 ### Badge tên nguồn (extension / Local) trong Reader danh sách chương và BookListItemView

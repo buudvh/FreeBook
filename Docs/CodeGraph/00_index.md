@@ -15,6 +15,12 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Interactive UIViewController-backed pan overlay container for Reader chapter list (1.3.215)
+
+* `InteractiveOverlaySheetContainer` (`Sources/Views/Reader/Components/InteractiveOverlaySheetContainer.swift`): High-performance `UIViewControllerRepresentable` hosting private nested `ViewController` for `ReaderChapterListView` drag-to-dismiss without invalidating `ReaderView` `@State` across pan frames. Single primary type per file.
+* `InteractiveOverlaySheetContainer.ConfigKey` gates `hostingController.rootView` updates behind low-frequency chapter list metadata (book info, chapter index, translation, theme, online count, store identity), preventing redundant child view diffing during high-frequency Reader rendering. `ReaderChapterListView` consumes `@Binding var isPresented: Bool` to receive live presentation visibility and trigger auto-scroll jumps without `rootView` re-assignment.
+* `ReaderView.swift` replaces static frame offsets with `InteractiveOverlaySheetContainer`, using a unified `requestDismiss` handler for backdrop taps, header drags, escape keys, and chapter row selections.
+
 ## Badge tên nguồn (extension / Local) trong danh sách chương Reader và BookListItemView (1.3.214)
 
 * `ReaderChapterListView.header` hiển thị thêm badge pill xanh bên cạnh dòng `"N chương"`: sách local (`isLocalTXTBook`) hiện `"Local"`, sách online hiện `ext.name` (khi `ext != nil` và name không rỗng). Giữ nguyên `Spacer(minLength: 4)` và nút refresh/sort.

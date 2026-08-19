@@ -15,6 +15,13 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Interactive overlay sheet container risks (1.3.215)
+
+* **Mitigated - Main-actor animation jank during chapter row selection:** Tapping a chapter row executes the 0.25s slide-down dismiss animation first while Main Thread is idle; `selectChapter(at: index)` is executed only after animation completion on the next main runloop turn, eliminating competing text-normalization/layout work during animation.
+* **Residual - 0.25s chapter load initiation delay:** Chapter selection navigation is delayed by 0.25s (the duration of the overlay slide-down animation) before content load begins.
+* **Residual - `rootView` update `@State` reset risk:** `ReaderChapterListStore` is an `@Observable` class retained in RAM, but local `@State` on `ReaderChapterListView` (`displayTitleCache`, `searchQuery`) may reset if SwiftUI view identity is invalidated upon `rootView` update.
+* **Residual - Windows cannot build/test iOS runtime:** Full build, XcodeGen generation, and runtime verification require macOS/Xcode/CI or an iOS physical device/simulator.
+
 ## Search-history live-suggestion risks (1.3.191)
 
 * **Residual - UI only, no logic change:** the live-filtered history suggestions reuse the existing history row UI in `ShelfSearchView`/`SearchView`; no shared-store or search logic changed, so risk is limited to layout. In `ShelfSearchView` the suggestion block is capped at 220pt to avoid starving the results list height.

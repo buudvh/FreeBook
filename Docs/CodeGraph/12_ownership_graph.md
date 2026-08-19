@@ -28,4 +28,9 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 3. **Quyền Sở Hữu Công Việc Nền & Task Cancellation**:
    - `ReaderViewModel` sở hữu `ReaderProgressScheduler` và `Task` dịch thuật.
    - `BookDetailView` sở hữu `bookOpenTask` và task tải còn lại background.
+
+4. **Quyền Sở Hữu Overlay Sheet Container (1.3.215)**:
+   - `ReaderView` sở hữu `InteractiveOverlaySheetContainer` và `chapterListStore`.
+   - `InteractiveOverlaySheetContainer` sở hữu `InteractiveOverlaySheetViewController` (`UIViewController`).
+   - `InteractiveOverlaySheetViewController` sở hữu `containerView`, `backdropView`, và `UIHostingController<AnyView>` (child view controller).
 <!-- GENERATED END -->
