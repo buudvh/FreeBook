@@ -15,6 +15,12 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader chapter list native bottom sheet modal presentation risks (1.3.215)
+
+* **High Risk - Historical Modal Conflict:** Historical commits (`24c1e72`/`978f200`/`ebd08a5`) recorded blank screen / modal conflict when presenting native sheets on a `ReaderView` (`fullScreenCover`), resolved previously by reverting to custom overlay (`c78d042`).
+* **Mitigation Strategy:** Requiring a 6-point manual regression matrix (repeated sheet toggle, `fullScreenCover` reader context, nested `BookDetailView` sheet from cover button, Settings/TOC/Junk sheets after closing chapter sheet, app background/foreground transitions, and `FloatingWidgetUIWindow` in expanded/peeking modes).
+* **Residual - Windows cannot build/test at the moment; iOS build and XCTest verification happens via CI or a Mac.**
+
 ## Search-history live-suggestion risks (1.3.191)
 
 * **Residual - UI only, no logic change:** the live-filtered history suggestions reuse the existing history row UI in `ShelfSearchView`/`SearchView`; no shared-store or search logic changed, so risk is limited to layout. In `ShelfSearchView` the suggestion block is capped at 220pt to avoid starving the results list height.

@@ -15,6 +15,11 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader chapter list sheet resource lifecycle (1.3.215)
+
+* Native `.sheet` teardown deinitializes `ReaderChapterListView`. Unstructured tasks are not automatically canceled by Swift Concurrency struct deallocation; `ReaderChapterListView.onDisappear` explicitly cancels both `chapterPositioningTask` and `deferredVisiblePageTask` (`chapterPositioningTask?.cancel()`; `deferredVisiblePageTask?.cancel()`; handles set to `nil`) to prevent leaked background work and stale UI/proxy mutations.
+* `ReaderChapterListStore` remains owned by `ReaderView`, retaining the 300-row sliding window cache and background search worker across sheet presentation cycles.
+
 ## NghiTTS refill failure lifecycle (1.3.147)
 
 * Mỗi lỗi refill được sở hữu bởi khóa `sessionID + chapterIndex + paragraphIndex`; success xóa state, lỗi không retry hoặc attempt thứ hai chuyển state sang blocked.
