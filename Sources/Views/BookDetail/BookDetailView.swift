@@ -1,32 +1,14 @@
 import SwiftUI
 import SwiftData
 
-public struct BookDetailRoute: Identifiable, Hashable {
-    public var id: String { "\(extensionPackageId)_\(detailUrl)" }
-    public let bookId: String
-    public let extensionPackageId: String
-    public let detailUrl: String
-    public let sourceName: String
-    public let host: String?
-
-    public init(bookId: String, extensionPackageId: String, detailUrl: String, sourceName: String, host: String? = nil) {
-        self.bookId = bookId
-        self.extensionPackageId = extensionPackageId
-        self.detailUrl = detailUrl
-        self.sourceName = sourceName
-        self.host = host
-    }
-}
-
-final class DetailRouter: ObservableObject {
-    @Published var route: BookDetailRoute?
+struct ReaderRoute: Identifiable, Hashable {
+    let chapterIndex: Int
+    var id: Int { chapterIndex }
 }
 
 struct BookDetailView: View {
     @Environment(\.modelContext) internal var modelContext
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var readerRouter: ReaderRouter
-    @EnvironmentObject private var detailRouter: DetailRouter
     @Query private var allBooks: [Book]
     @Query private var allExtensions: [Extension]
 
@@ -86,6 +68,7 @@ struct BookDetailView: View {
     @State internal var tocPages: [String] = []
     @State internal var remainingPagesLoaded = false
     @State internal var isLoadingRemainingPages = false
+    @State internal var readerRoute: ReaderRoute?
     @State private var navigateToDictionary = false
     @State private var navigateToChangeSource = false
 
@@ -96,6 +79,7 @@ struct BookDetailView: View {
     @State private var importedDetailUrl = ""
     @State private var importedSourceName = ""
     @State private var importedHost = ""
+    @State private var navigateToImportedBook = false
     @State internal var chapterSearchQuery = ""
 
     // Quản lý tác vụ tải/xuất
@@ -201,33 +185,11 @@ struct BookDetailView: View {
                         importedHost = ""
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        detailRouter.route = BookDetailRoute(
-                            bookId: importedBookId,
-                            extensionPackageId: importedExtensionPackageId,
-                            detailUrl: importedDetailUrl,
-                            sourceName: importedSourceName,
-                            host: importedHost
-                        )
+                        navigateToImportedBook = true
                     }
                 }
                 ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
             }
-        )
-    }
-
-    internal func openReader(at chapterIndex: Int) {
-        readerRouter.route = ReaderRouterRoute(
-            bookId: actualBookId,
-            extensionPackageId: extensionPackageId,
-            chapterIndex: chapterIndex,
-            onlineChapters: onlineChapters,
-            bookTitle: title,
-            bookAuthor: author,
-            bookCoverUrl: coverUrl,
-            bookDesc: desc.isEmpty ? nil : desc,
-            bookDetailUrl: initialDetailUrl,
-            bookSourceName: sourceName,
-            initialParagraphIndex: -1
         )
     }
 
@@ -259,15 +221,6 @@ struct BookDetailView: View {
         .navigationTitle("Chi Tiết Truyện")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: { dismiss() }) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                }
-                .accessibilityLabel("Quay lại")
-            }
-
             ToolbarItem(placement: .navigationBarTrailing) {
                 ellipsisMenu
             }
@@ -307,6 +260,25 @@ struct BookDetailView: View {
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
         }
+        .fullScreenCover(item: $readerRoute) { route in
+            NavigationStack {
+                LazyView {
+                    ReaderView(
+                        bookId: actualBookId,
+                        extensionPackageId: extensionPackageId,
+                        chapterIndex: route.chapterIndex,
+                        onlineChapters: onlineChapters,
+                        bookTitle: title,
+                        bookAuthor: author,
+                        bookCoverUrl: coverUrl,
+                        bookDesc: desc.isEmpty ? nil : desc,
+                        bookDetailUrl: initialDetailUrl,
+                        bookSourceName: sourceName,
+                        initialParagraphIndex: -1
+                    )
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -333,6 +305,21 @@ struct BookDetailView: View {
                     }
                 ),
                 isActive: $navigateToChangeSource
+            ) {
+                EmptyView()
+            }
+
+            NavigationLink(
+                destination: LazyView {
+                    BookDetailView(
+                        bookId: importedBookId,
+                        extensionPackageId: importedExtensionPackageId,
+                        initialDetailUrl: importedDetailUrl,
+                        sourceName: importedSourceName,
+                        initialHost: importedHost
+                    )
+                },
+                isActive: $navigateToImportedBook
             ) {
                 EmptyView()
             }

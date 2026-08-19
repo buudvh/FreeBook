@@ -12,7 +12,6 @@ struct SuggestRowView: View {
     @State private var novels: [ExtensionItemResult] = []
     @State private var isLoading = true
     @State private var errorMessage = ""
-    @EnvironmentObject private var detailRouter: DetailRouter
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -56,15 +55,13 @@ struct SuggestRowView: View {
                 ]
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(novels) { novel in
-Button {
-                            detailRouter.route = BookDetailRoute(
-                                bookId: "\(sourceName.lowercased())_\(novel.link)",
-                                extensionPackageId: extensionPackageId,
-                                detailUrl: novel.link,
-                                sourceName: sourceName,
-                                host: novel.host
-                            )
-                        } label: {
+                        NavigationLink(destination: BookDetailView(
+                            bookId: novel.link,
+                            extensionPackageId: extensionPackageId,
+                            initialDetailUrl: novel.link,
+                            sourceName: sourceName,
+                            initialHost: novel.host
+                        )) {
                             HStack(alignment: .top, spacing: 10) {
                                 BookCoverView(bookId: novel.link, coverUrl: novel.cover, width: 48, height: 68)
                                     .cornerRadius(6)

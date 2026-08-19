@@ -28,9 +28,9 @@ enum ShelfBookSearchMatcher {
 struct ShelfSearchView: View {
     @Query(sort: \Book.lastReadDate, order: .reverse) private var allBooks: [Book]
     @AppStorage(SearchHistoryStore.storageKey) private var searchHistoryJSON = "[]"
-    @EnvironmentObject private var readerRouter: ReaderRouter
 
     @State private var searchQuery = ""
+    @State private var readerRoute: ShelfReaderRoute? = nil
 
     private var searchHistory: [String] {
         get { SearchHistoryStore.decode(searchHistoryJSON) }
@@ -78,6 +78,22 @@ struct ShelfSearchView: View {
         }
         .navigationTitle("Tìm trong Kệ sách & Lịch sử")
         .navigationBarTitleDisplayMode(.inline)
+        .fullScreenCover(item: $readerRoute) { route in
+            NavigationStack {
+                ReaderView(
+                    bookId: route.bookId,
+                    extensionPackageId: route.extensionPackageId,
+                    chapterIndex: route.chapterIndex,
+                    onlineChapters: [],
+                    bookTitle: nil,
+                    bookAuthor: nil,
+                    bookCoverUrl: nil,
+                    bookDesc: nil,
+                    bookDetailUrl: route.detailUrl,
+                    bookSourceName: route.sourceName
+                )
+            }
+        }
     }
 
     @ViewBuilder
@@ -202,18 +218,13 @@ struct ShelfSearchView: View {
             List {
                 ForEach(filteredBooks) { book in
                     Button {
-                        readerRouter.route = ReaderRouterRoute(
+                        readerRoute = ShelfReaderRoute(
                             bookId: book.bookId,
                             extensionPackageId: book.extensionPackageId,
                             chapterIndex: book.currentChapterIndex,
-                            onlineChapters: [],
-                            bookTitle: nil,
-                            bookAuthor: nil,
-                            bookCoverUrl: nil,
-                            bookDesc: nil,
-                            bookDetailUrl: book.detailUrl,
-                            bookSourceName: book.sourceName,
-                            initialParagraphIndex: nil
+                            paragraphIndex: nil,
+                            detailUrl: book.detailUrl,
+                            sourceName: book.sourceName
                         )
                     } label: {
                         BookListItemView(item: book)

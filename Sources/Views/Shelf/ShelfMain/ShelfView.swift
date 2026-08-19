@@ -2,12 +2,23 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 
+struct ShelfReaderRoute: Identifiable, Hashable {
+    let bookId: String
+    let extensionPackageId: String
+    let chapterIndex: Int
+    let paragraphIndex: Int?
+    let detailUrl: String
+    let sourceName: String
+
+    var id: String {
+        "\(bookId)_\(chapterIndex)_\(paragraphIndex ?? -1)"
+    }
+}
+
 struct ShelfView: View {
     // @Environment: Truy cập context cơ sở dữ liệu của SwiftData.
     // Dùng để thêm mới, chỉnh sửa hoặc xóa dữ liệu Book trong app.
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var detailRouter: DetailRouter
-    @EnvironmentObject private var readerRouter: ReaderRouter
 
     // @Query: Tự động tải danh sách Book từ database lên, sắp xếp theo ngày đọc gần nhất giảm dần.
     // SwiftUI sẽ tự động vẽ lại giao diện bất cứ khi nào danh sách sách trong database thay đổi.
@@ -43,8 +54,9 @@ struct ShelfView: View {
     // Chỉ đọc snapshot TTS khi nhận sự kiện mở Reader; không redraw toàn bộ Shelf theo từng đoạn.
     private let ttsManager = TTSManager.shared
 
-    // Trình bày Reader/Detail qua root presentation hub (DetailRouter/ReaderRouter)
-    // để mọi cover cùng presenter ở AppLaunchRootView — xếp chồng đúng, back về màn trước.
+    // Trình bày Reader dạng fullScreenCover để tab bar phía dưới không bị ẩn/hiện
+    // (tránh hiện tượng tab bar hiển thị trễ khi quay lại từ màn hình toàn màn hình).
+    @State private var readerPresentationRoute: ShelfReaderRoute? = nil
 
     // Tùy chọn tác vụ
     @State private var selectedTaskType: TaskType = .download
@@ -56,17 +68,18 @@ struct ShelfView: View {
     @State private var importedDetailUrl: String = ""
     @State private var importedSourceName: String = ""
     @State private var importedHost: String = ""
+    @State private var navigateToImportedBook = false
     @State private var openingBook: Book? = nil
     @AppStorage("readerSelectedTheme") private var selectedTheme: ReaderTheme = .dark
 
     private var shelfBooks: [Book] {
-        allBooks
-            .filter { $0.isOnShelf }
+        allBooks.filter { $0.isOnShelf }
     }
 
     private var historyBooks: [Book] {
         allBooks
-            .filter { $0.isHistory && !$0.isOnShelf }
+            .filter { $0.isHistory }
+            .sorted(by: { $0.lastReadDate > $1.lastReadDate })
     }
 
     private var displayedShelfBooks: [Book] {
@@ -175,6 +188,24 @@ struct ShelfView: View {
             } message: {
                 Text("Bạn có chắc chắn muốn xóa toàn bộ lịch sử đọc không? Các truyện lịch sử không ở trên kệ sách sẽ bị xóa hoàn toàn khỏi thiết bị. Truyện đang ở trên kệ sách và truyện đang nghe phát âm thanh sẽ được giữ nguyên.")
             }
+            .fullScreenCover(item: $readerPresentationRoute) { route in
+                NavigationStack {
+                    ReaderView(
+                        bookId: route.bookId,
+                        extensionPackageId: route.extensionPackageId,
+                        chapterIndex: route.chapterIndex,
+                        onlineChapters: [],
+                        bookTitle: nil,
+                        bookAuthor: nil,
+                        bookCoverUrl: nil,
+                        bookDesc: nil,
+                        bookDetailUrl: route.detailUrl,
+                        bookSourceName: route.sourceName,
+                        initialParagraphIndex: route.paragraphIndex
+                    )
+                    .id(route.id)
+                }
+            }
             .navigationDestination(isPresented: $showingShelfSearch) {
                 ShelfSearchView()
             }
@@ -195,21 +226,16 @@ struct ShelfView: View {
                     )
                 } else {
                     let currentPIdx = ttsManager.currentParentParagraphIndex
-                    let route = ReaderRouterRoute(
+                    let route = ShelfReaderRoute(
                         bookId: bookId,
                         extensionPackageId: ttsManager.extensionInfo?.packageId ?? "",
                         chapterIndex: ttsManager.playingChapterIndex,
-                        onlineChapters: [],
-                        bookTitle: nil,
-                        bookAuthor: nil,
-                        bookCoverUrl: nil,
-                        bookDesc: nil,
-                        bookDetailUrl: ttsManager.playingBookDetailUrl,
-                        bookSourceName: ttsManager.playingBookSourceName,
-                        initialParagraphIndex: currentPIdx >= 0 ? currentPIdx : nil
+                        paragraphIndex: currentPIdx >= 0 ? currentPIdx : nil,
+                        detailUrl: ttsManager.playingBookDetailUrl,
+                        sourceName: ttsManager.playingBookSourceName
                     )
                     self.selectedTab = 1 // Switch to Shelf tab
-                    self.readerRouter.route = route
+                    self.readerPresentationRoute = route
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("sourceChangedNavigateToShelf"))) { notification in
@@ -236,15 +262,18 @@ struct ShelfView: View {
                         showingBypassBrowser = false
                         ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            detailRouter.route = BookDetailRoute(
-                                bookId: importedBookId,
-                                extensionPackageId: importedExtensionPackageId,
-                                detailUrl: importedDetailUrl,
-                                sourceName: importedSourceName,
-                                host: importedHost
-                            )
+                            navigateToImportedBook = true
                         }
                     }
+                )
+            }
+            .navigationDestination(isPresented: $navigateToImportedBook) {
+                BookDetailView(
+                    bookId: importedBookId,
+                    extensionPackageId: importedExtensionPackageId,
+                    initialDetailUrl: importedDetailUrl,
+                    sourceName: importedSourceName,
+                    initialHost: importedHost
                 )
             }
             .sheet(isPresented: $showingFilePicker) {
@@ -346,18 +375,13 @@ struct ShelfView: View {
                 List {
                     ForEach(displayedShelfBooks) { book in
                         Button {
-                            readerRouter.route = ReaderRouterRoute(
+                            readerPresentationRoute = ShelfReaderRoute(
                                 bookId: book.bookId,
                                 extensionPackageId: book.extensionPackageId,
                                 chapterIndex: book.currentChapterIndex,
-                                onlineChapters: [],
-                                bookTitle: nil,
-                                bookAuthor: nil,
-                                bookCoverUrl: nil,
-                                bookDesc: nil,
-                                bookDetailUrl: book.detailUrl,
-                                bookSourceName: book.sourceName,
-                                initialParagraphIndex: nil
+                                paragraphIndex: nil,
+                                detailUrl: book.detailUrl,
+                                sourceName: book.sourceName
                             )
                         } label: {
                             bookItemView(book)
@@ -365,15 +389,13 @@ struct ShelfView: View {
                         .buttonStyle(.plain)
                         .contextMenu {
                             if !book.isLocalBook {
-                                Button {
-                                    detailRouter.route = BookDetailRoute(
-                                        bookId: book.bookId,
-                                        extensionPackageId: book.extensionPackageId,
-                                        detailUrl: book.detailUrl,
-                                        sourceName: book.sourceName,
-                                        host: book.host
-                                    )
-                                } label: {
+                                NavigationLink(destination: BookDetailView(
+                                    bookId: book.bookId,
+                                    extensionPackageId: book.extensionPackageId,
+                                    initialDetailUrl: book.detailUrl,
+                                    sourceName: book.sourceName,
+                                    initialHost: book.host
+                                )) {
                                     Label("Xem chi tiết", systemImage: "info.circle")
                                 }
 
@@ -462,33 +484,26 @@ struct ShelfView: View {
                 List {
                     ForEach(displayedHistoryBooks) { book in
                         Button {
-                            readerRouter.route = ReaderRouterRoute(
+                            readerPresentationRoute = ShelfReaderRoute(
                                 bookId: book.bookId,
                                 extensionPackageId: book.extensionPackageId,
                                 chapterIndex: book.currentChapterIndex,
-                                onlineChapters: [],
-                                bookTitle: nil,
-                                bookAuthor: nil,
-                                bookCoverUrl: nil,
-                                bookDesc: nil,
-                                bookDetailUrl: book.detailUrl,
-                                bookSourceName: book.sourceName,
-                                initialParagraphIndex: nil
+                                paragraphIndex: nil,
+                                detailUrl: book.detailUrl,
+                                sourceName: book.sourceName
                             )
                         } label: {
                             bookItemView(book)
                         }
                         .buttonStyle(.plain)
                         .contextMenu {
-                            Button {
-                                detailRouter.route = BookDetailRoute(
-                                    bookId: book.bookId,
-                                    extensionPackageId: book.extensionPackageId,
-                                    detailUrl: book.detailUrl,
-                                    sourceName: book.sourceName,
-                                    host: book.host
-                                )
-                            } label: {
+                            NavigationLink(destination: BookDetailView(
+                                bookId: book.bookId,
+                                extensionPackageId: book.extensionPackageId,
+                                initialDetailUrl: book.detailUrl,
+                                sourceName: book.sourceName,
+                                initialHost: book.host
+                            )) {
                                 Label("Xem chi tiết", systemImage: "info.circle")
                             }
 

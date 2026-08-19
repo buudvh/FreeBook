@@ -59,7 +59,7 @@ public struct ReaderChapterListView: View {
     }
 
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var detailRouter: DetailRouter
+    @State private var showingBookDetail = false
     @State private var searchQuery = ""
     @State private var isAscending = true
     @State internal var isUpdating = false
@@ -119,24 +119,13 @@ public struct ReaderChapterListView: View {
 
     private var header: some View {
         VStack(spacing: 8) {
+            Capsule()
+                .fill(theme.textColor.opacity(0.3))
+                .frame(width: 36, height: 5)
+                .accessibilityHidden(true)
+
             HStack(alignment: .top, spacing: 12) {
-                Button(action: {
-                    if let detailUrl = bookDetailUrl, let ext {
-                        let host: String
-                        if let url = URL(string: detailUrl), let scheme = url.scheme, let urlHost = url.host {
-                            host = "\(scheme)://\(urlHost)"
-                        } else {
-                            host = ""
-                        }
-                        detailRouter.route = BookDetailRoute(
-                            bookId: bookId,
-                            extensionPackageId: ext.packageId,
-                            detailUrl: detailUrl,
-                            sourceName: ext.name,
-                            host: host
-                        )
-                    }
-                }) {
+                Button(action: { showingBookDetail = true }) {
                     BookCoverView(
                         bookId: bookId,
                         coverUrl: metadataCoverUrl,
@@ -147,6 +136,18 @@ public struct ReaderChapterListView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(bookDetailUrl == nil || ext == nil)
+                .sheet(isPresented: $showingBookDetail) {
+                    if let detailUrl = bookDetailUrl, let ext {
+                        NavigationStack {
+                            BookDetailView(
+                                bookId: bookId,
+                                extensionPackageId: ext.packageId,
+                                initialDetailUrl: detailUrl,
+                                sourceName: ext.name
+                            )
+                        }
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(metadataTitle)
@@ -159,16 +160,6 @@ public struct ReaderChapterListView: View {
                             .font(.subheadline)
                             .foregroundColor(theme.textColor.opacity(0.72))
                             .lineLimit(1)
-                    }
-
-                    if let sourceName = ext?.name ?? localBook?.sourceName, !sourceName.isEmpty {
-                        Text(sourceName)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.accentColor)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.accentColor.opacity(0.12))
-                            .cornerRadius(4)
                     }
 
                     HStack(spacing: 0) {
@@ -212,9 +203,23 @@ public struct ReaderChapterListView: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.top, 18)
+        .padding(.top, 8)
         .padding(.bottom, 10)
         .background(theme.backgroundColor)
+        .contentShape(Rectangle())
+        .simultaneousGesture(dismissGesture)
+    }
+
+    private var dismissGesture: some Gesture {
+        DragGesture(minimumDistance: 16)
+            .onEnded { value in
+                let horizontalDistance = abs(value.translation.width)
+                let verticalDistance = value.translation.height
+                if verticalDistance >= 72,
+                   verticalDistance >= horizontalDistance * 1.25 {
+                    onClose()
+                }
+            }
     }
 
     private func firstNonempty(_ primary: String?, _ fallback: String?) -> String? {
@@ -257,7 +262,7 @@ public struct ReaderChapterListView: View {
                     if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         ForEach(0..<store.totalCount, id: \.self) { displayPosition in
                             if let item = store.item(at: displayPosition) {
-                                let chapter = store.rows[displayPosition] ?? store.rowState(at: displayPosition)
+                                let chapter = store.rowState(at: displayPosition)
                                 ReaderChapterRowView(
                                     chapter: chapter,
                                     isCurrent: item.index == currentChapterIndex,
@@ -279,7 +284,7 @@ public struct ReaderChapterListView: View {
                         }
                     } else {
                         ForEach(store.searchResults) { item in
-                            let chapter = store.searchResultStates[item.id] ?? store.rowState(at: item.id)
+                            let chapter = store.rowState(at: item.id)
                             ReaderChapterRowView(
                                 chapter: chapter,
                                 isCurrent: item.index == currentChapterIndex,
@@ -325,11 +330,6 @@ public struct ReaderChapterListView: View {
                 displayTitleCache.removeAll()
                 store.updateTranslation(isTranslationEnabled: newValue)
             }
-            .onChange(of: store.totalCount) { _, newCount in
-                if newCount > 0 && isPresented {
-                    scrollToCurrentChapter(proxy: proxy)
-                }
-            }
         }
     }
 
@@ -358,7 +358,6 @@ public struct ReaderChapterListView: View {
             }
             warmNearbyTitles(aroundDisplayPosition: displayPosition, windowSize: 8)
             isPositioningInitialChapter = false
-            scheduleVisiblePageWork(displayPosition: displayPosition)
         }
     }
 
@@ -384,7 +383,7 @@ public struct ReaderChapterListView: View {
 
         var toWarm: [(index: Int, rawTitle: String)] = []
         for pos in minPos...maxPos {
-            if let rowState = store.rows[pos], !rowState.isPlaceholder, !rowState.title.isEmpty {
+            if let rowState = store.loadedRowStates[pos], !rowState.isPlaceholder, !rowState.title.isEmpty {
                 let logicalIndex = rowState.index
                 guard displayTitleCache[logicalIndex] == nil else { continue }
                 if TranslateUtils.containsChinese(rowState.title) {

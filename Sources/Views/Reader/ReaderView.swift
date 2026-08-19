@@ -108,7 +108,6 @@ struct ReaderView: View {
     let bookDetailUrl: String?
     let bookSourceName: String?
     var initialParagraphIndex: Int? = nil
-    var onCloseReader: (() -> Void)? = nil
 
     @State private var cachedDisplayedBookTitle: String = ""
     @State internal var showChapterTitle = true // Ẩn/Hiện tiêu đề chương trên đầu màn hình đọc
@@ -160,7 +159,6 @@ struct ReaderView: View {
     @State internal var showingJunkDeleteSheet = false
     @State internal var junkPatternInput = ""
     @State internal var showingJunkFilterManagerSheet = false
-    @EnvironmentObject private var detailRouter: DetailRouter
 
     // Trạng thái bypass Cloudflare và import sách
     @State internal var showingBypassBrowser = false
@@ -170,6 +168,7 @@ struct ReaderView: View {
     @State private var importedDetailUrl = ""
     @State private var importedSourceName = ""
     @State private var importedHost = ""
+    @State private var navigateToBookDetail = false
     @State private var navigateToChangeSource = false
 
     // Reader chỉ quan sát projection TTS cần để render; manager singleton vẫn xử lý action.
@@ -194,7 +193,6 @@ struct ReaderView: View {
     @State internal var currentChapterTitle: String = ""
     @State internal var currentChapterUrl: String = ""
     @State private var didResolveLocalChapterCount = false
-    @State private var bootstrappedReaderKey: String? = nil
 
     @State internal var paragraphTracker = ParagraphTracker()
     @State private var translationRefreshToken = UUID()
@@ -499,48 +497,11 @@ struct ReaderView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(6)
                 }
+
+                readerChapterListOverlay(in: geometry)
             }
         }
         .toolbar(.hidden, for: .navigationBar) // Ẩn navigation bar gốc
-        .sheet(isPresented: $showingChapterList) {
-            if let store = getOrInitChapterListStore() {
-                ReaderChapterListView(
-                    bookId: bookId,
-                    bookTitle: bookTitle,
-                    bookAuthor: bookAuthor,
-                    bookCoverUrl: bookCoverUrl,
-                    bookDetailUrl: bookDetailUrl,
-                    localBook: localBook,
-                    ext: ext,
-                    currentChapterIndex: viewModel?.displayedChapterIndex ?? chapterIndex,
-                    isPresented: showingChapterList,
-                    isTranslationEnabled: isTranslationEnabled,
-                    theme: selectedTheme,
-                    store: store,
-                    onlineChapters: $currentOnlineChapters,
-                    isLocalTXTBook: isLocalTXTBook,
-                    onSelectChapter: { selectedIdx in
-                        selectChapter(at: selectedIdx)
-                    },
-                    onClose: {
-                        showingChapterList = false
-                    },
-                    onLocalTOCRefreshed: { result in
-                        Task { @MainActor in
-                            self.localChaptersCount = result.totalCount
-                            self.viewModel?.applyLocalTOCReconciliation(result)
-                            self.ttsManager.applyTOCReconciliation(result)
-                            if ttsState.snapshot.playingBookId == bookId {
-                                ttsManager.refreshChaptersQueueInBackground(bookId: bookId, onlineChapters: nil)
-                            }
-                        }
-                    }
-                )
-                .presentationDetents([.fraction(0.75), .large])
-                .presentationDragIndicator(.visible)
-                .presentationBackground(selectedTheme.backgroundColor)
-            }
-        }
         .sheet(isPresented: $showingSettings) {
             ReaderSettingsView(
                 fontSize: $fontSize,
@@ -701,13 +662,7 @@ struct ReaderView: View {
                     showingBypassBrowser = false
                     ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        detailRouter.route = BookDetailRoute(
-                            bookId: importedBookId,
-                            extensionPackageId: importedExtensionPackageId,
-                            detailUrl: importedDetailUrl,
-                            sourceName: importedSourceName,
-                            host: importedHost
-                        )
+                        navigateToBookDetail = true
                     }
                 }
             )
@@ -719,6 +674,21 @@ struct ReaderView: View {
         }
         .background(
             Group {
+                NavigationLink(
+                    destination: LazyView {
+                        BookDetailView(
+                            bookId: importedBookId,
+                            extensionPackageId: importedExtensionPackageId,
+                            initialDetailUrl: importedDetailUrl,
+                            sourceName: importedSourceName,
+                            initialHost: importedHost
+                        )
+                    },
+                    isActive: $navigateToBookDetail
+                ) {
+                    EmptyView()
+                }
+
                 NavigationLink(
                     destination: LazyView {
                         changeSourceDestinationView
@@ -742,18 +712,10 @@ struct ReaderView: View {
                 onSourceChanged: {
                     navigateToChangeSource = false
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        closeReader()
+                        dismiss()
                     }
                 }
             )
-        }
-    }
-
-    internal func closeReader() {
-        if let onCloseReader {
-            onCloseReader()
-        } else {
-            dismiss()
         }
     }
 
@@ -1028,7 +990,7 @@ struct ReaderView: View {
                 totalChaptersCount: totalChaptersCount,
                 readerPresentedChapterIndex: readerPresentedChapterIndex,
                 readerProgressPercent: readerProgressPercent,
-                onDismiss: { closeReader() },
+                onDismiss: { dismiss() },
                 onReloadChapter: reloadCurrentChapterFromMenu,
                 onChangeSource: {
                     navigateToChangeSource = true
@@ -1088,24 +1050,13 @@ struct ReaderView: View {
             }
         }
         if totalCount > 0 {
-            if let store = getOrInitChapterListStore() {
-                store.updateChapters(totalCount: totalCount, onlineChapters: currentOnlineChapters)
-                let targetPos = viewModel?.displayedChapterIndex ?? chapterIndex
-                store.loadVisiblePageIfNeeded(displayPosition: targetPos)
-                store.prefetchAround(displayPosition: targetPos)
-            }
+            chapterListStore?.updateChapters(totalCount: totalCount, onlineChapters: currentOnlineChapters)
         }
         updateCurrentChapterMetadata()
     }
 
     @MainActor
     private func initializeReaderIfNeeded() async {
-        let bootstrapKey = readerBootstrapKey
-        if viewModel != nil && bootstrappedReaderKey == bootstrapKey {
-            return
-        }
-        bootstrappedReaderKey = bootstrapKey
-
         let key = "showChapterTitle_\(bookId)"
         if UserDefaults.standard.object(forKey: key) != nil {
             showChapterTitle = UserDefaults.standard.bool(forKey: key)
@@ -1248,6 +1199,74 @@ struct ReaderView: View {
         self.chapterListStore = store
         return store
     }
+
+    @ViewBuilder
+    private func readerChapterListOverlay(in geometry: GeometryProxy) -> some View {
+        if let chapterListStore {
+            ZStack {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        closeChapterList()
+                    }
+                    .opacity(showingChapterList ? 1 : 0)
+                    .allowsHitTesting(showingChapterList)
+
+                ReaderChapterListView(
+                    bookId: bookId,
+                    bookTitle: bookTitle,
+                    bookAuthor: bookAuthor,
+                    bookCoverUrl: bookCoverUrl,
+                    bookDetailUrl: bookDetailUrl,
+                    localBook: localBook,
+                    ext: ext,
+                    currentChapterIndex: viewModel?.displayedChapterIndex ?? chapterIndex,
+                    isPresented: showingChapterList,
+                    isTranslationEnabled: isTranslationEnabled,
+                    theme: selectedTheme,
+                    store: chapterListStore,
+                    onlineChapters: $currentOnlineChapters,
+                    isLocalTXTBook: isLocalTXTBook,
+                    onSelectChapter: { selectedIdx in
+                        selectChapter(at: selectedIdx)
+                    },
+                    onClose: {
+                        closeChapterList()
+                    },
+                    onLocalTOCRefreshed: { result in
+                        Task { @MainActor in
+                            self.localChaptersCount = result.totalCount
+                            self.chapterListStore?.updateChapters(totalCount: result.totalCount, onlineChapters: [])
+                            self.viewModel?.applyLocalTOCReconciliation(result)
+                            self.ttsManager.applyTOCReconciliation(result)
+                            if ttsState.snapshot.playingBookId == bookId {
+                                ttsManager.refreshChaptersQueueInBackground(bookId: bookId, onlineChapters: nil)
+                            }
+                        }
+                    }
+                )
+                .frame(width: geometry.size.width, height: geometry.size.height - 60)
+                .offset(
+                    y: reduceMotion
+                        ? 60
+                        : (showingChapterList ? 60 : geometry.size.height + geometry.safeAreaInsets.bottom)
+                )
+                .opacity(showingChapterList ? 1 : 0)
+                .animation(.easeInOut(duration: reduceMotion ? 0.15 : 0.25), value: showingChapterList)
+                .allowsHitTesting(showingChapterList)
+                .accessibilityHidden(!showingChapterList)
+            }
+            .zIndex(10)
+        }
+    }
+
+    private func closeChapterList() {
+        withAnimation(.easeInOut(duration: reduceMotion ? 0.15 : 0.25)) {
+            showingChapterList = false
+        }
+    }
+
+
 
     internal func translateMetaIfNeeded(_ text: String) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {

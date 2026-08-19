@@ -3,16 +3,16 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-19T04:43:00.492821Z",
-  "gitCommit": "7360927381fda826cca50e97d21fed57801f166a",
+  "generatedAt": "2026-08-19T06:12:28.417316Z",
+  "gitCommit": "8c6b93381238ab574676f47ea42ef12e53473275",
   "sourceFileCount": 215,
   "documentCount": 16,
   "documents": [
     {
       "filename": "00_index.md",
-      "sourceHash": "78592b689598cd1d37fe6704bbbe2fe59aee5c4915a066bef2bfc13f71dd09be",
-      "generatedHash": "c75ad6f4c0eafe9dcad7a962e8af45fb5fc74cfb7f784737a35c35418cb4464e",
-      "generatedAt": "2026-08-19T04:43:00.492821Z",
+      "sourceHash": "02b3b175cc8d08238a6bbd0147568caa0b74e374f1c4cf785118a8a404a2e903",
+      "generatedHash": "b60030cd0b28d4882cf938846c1ec00c384699be0850e1ef291bf382c77f9473",
+      "generatedAt": "2026-08-19T06:12:28.417316Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -70,6 +70,7 @@
         "Sources/Services/ChapterText/ReaderChapterListStore.swift",
         "Sources/Services/ChapterText/Workers/BackgroundPagingWorker.swift",
         "Sources/Services/ChapterText/Workers/BackgroundSearchWorker.swift",
+        "Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift",
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
@@ -216,16 +217,15 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift",
-        "Sources/Views/Reader/ReaderRouter.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "documentVersion": 3
     },
     {
       "filename": "01_project.md",
-      "sourceHash": "78592b689598cd1d37fe6704bbbe2fe59aee5c4915a066bef2bfc13f71dd09be",
+      "sourceHash": "02b3b175cc8d08238a6bbd0147568caa0b74e374f1c4cf785118a8a404a2e903",
       "generatedHash": "df5e879240263fae5fd7ec1c3d6789cf71768857dde990e91118365ce15094c8",
-      "generatedAt": "2026-08-19T04:43:00.492821Z",
+      "generatedAt": "2026-08-19T06:12:28.417316Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -283,6 +283,7 @@
         "Sources/Services/ChapterText/ReaderChapterListStore.swift",
         "Sources/Services/ChapterText/Workers/BackgroundPagingWorker.swift",
         "Sources/Services/ChapterText/Workers/BackgroundSearchWorker.swift",
+        "Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift",
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
@@ -429,16 +430,15 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift",
-        "Sources/Views/Reader/ReaderRouter.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "documentVersion": 1
     },
     {
       "filename": "02_file_graph.md",
-      "sourceHash": "afe14b0cec596b88b53de6ded7dac1ffecce704ca5448d607a2a6d71c1d6f6bc",
-      "generatedHash": "e2787807017208f2a017921b3b637cb81785d2c314ccaa0869e38ce1b0c9f6c3",
-      "generatedAt": "2026-08-19T04:43:00.492821Z",
+      "sourceHash": "d5840bcc46ad54c42cd8b805c516c56f8986bf0a23904ba8cf59367b83144994",
+      "generatedHash": "80177da6704aa0a6bd15d74d080544cc116cae7adab7d831c8347912057726db",
+      "generatedAt": "2026-08-19T06:12:28.417316Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -496,6 +496,7 @@
         "Sources/Services/ChapterText/ReaderChapterListStore.swift",
         "Sources/Services/ChapterText/Workers/BackgroundPagingWorker.swift",
         "Sources/Services/ChapterText/Workers/BackgroundSearchWorker.swift",
+        "Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift",
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
@@ -643,16 +644,15 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift",
-        "Sources/Views/Reader/ReaderRouter.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "documentVersion": 2
     },
     {
       "filename": "03_type_graph.md",
-      "sourceHash": "78592b689598cd1d37fe6704bbbe2fe59aee5c4915a066bef2bfc13f71dd09be",
-      "generatedHash": "efd45d49adafbfb58bfabdd4d25d67ea3dc455c422d5f6b51794dbc29a5fc247",
-      "generatedAt": "2026-08-19T04:43:00.492821Z",
+      "sourceHash": "02b3b175cc8d08238a6bbd0147568caa0b74e374f1c4cf785118a8a404a2e903",
+      "generatedHash": "512be965ffa4ea4ed19831b2849bf40a7004c6a2bb6235efeedde5c0f2e76061",
+      "generatedAt": "2026-08-19T06:12:28.417316Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -710,6 +710,7 @@
         "Sources/Services/ChapterText/ReaderChapterListStore.swift",
         "Sources/Services/ChapterText/Workers/BackgroundPagingWorker.swift",
         "Sources/Services/ChapterText/Workers/BackgroundSearchWorker.swift",
+        "Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift",
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
@@ -856,16 +857,15 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift",
-        "Sources/Views/Reader/ReaderRouter.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "documentVersion": 4
     },
     {
       "filename": "04_call_graph.md",
-      "sourceHash": "78592b689598cd1d37fe6704bbbe2fe59aee5c4915a066bef2bfc13f71dd09be",
-      "generatedHash": "6b65b6efae25efaaa78e3befa5c024a1ae5db22094b0e0a2688d523963d752d5",
-      "generatedAt": "2026-08-19T04:43:00.492821Z",
+      "sourceHash": "02b3b175cc8d08238a6bbd0147568caa0b74e374f1c4cf785118a8a404a2e903",
+      "generatedHash": "5abe7cd07c8264776b3c7122772bda297928f100afe5d11754fbb8b9b2d93af0",
+      "generatedAt": "2026-08-19T06:12:28.417316Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -923,6 +923,7 @@
         "Sources/Services/ChapterText/ReaderChapterListStore.swift",
         "Sources/Services/ChapterText/Workers/BackgroundPagingWorker.swift",
         "Sources/Services/ChapterText/Workers/BackgroundSearchWorker.swift",
+        "Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift",
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
@@ -1069,16 +1070,15 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift",
-        "Sources/Views/Reader/ReaderRouter.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "documentVersion": 5
     },
     {
       "filename": "05_state_graph.md",
-      "sourceHash": "78592b689598cd1d37fe6704bbbe2fe59aee5c4915a066bef2bfc13f71dd09be",
+      "sourceHash": "02b3b175cc8d08238a6bbd0147568caa0b74e374f1c4cf785118a8a404a2e903",
       "generatedHash": "5f17d12049f32533e5981e96b773c4c8c4118774675b5d729eaeebcaf3ca69a4",
-      "generatedAt": "2026-08-19T04:43:00.492821Z",
+      "generatedAt": "2026-08-19T06:12:28.417316Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -1136,6 +1136,7 @@
         "Sources/Services/ChapterText/ReaderChapterListStore.swift",
         "Sources/Services/ChapterText/Workers/BackgroundPagingWorker.swift",
         "Sources/Services/ChapterText/Workers/BackgroundSearchWorker.swift",
+        "Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift",
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
@@ -1282,16 +1283,15 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift",
-        "Sources/Views/Reader/ReaderRouter.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "documentVersion": 4
     },
     {
       "filename": "06_event_graph.md",
-      "sourceHash": "78592b689598cd1d37fe6704bbbe2fe59aee5c4915a066bef2bfc13f71dd09be",
-      "generatedHash": "e5bf74b67cbe244a3b2d789a6f031d306d11a3d6c7119b65335d6581d365dff6",
-      "generatedAt": "2026-08-19T04:43:00.492821Z",
+      "sourceHash": "02b3b175cc8d08238a6bbd0147568caa0b74e374f1c4cf785118a8a404a2e903",
+      "generatedHash": "7ce758ed67454e355b05198766bc6d1291da4af7261b7f7f94ae430ee3f2d472",
+      "generatedAt": "2026-08-19T06:12:28.417316Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -1349,6 +1349,7 @@
         "Sources/Services/ChapterText/ReaderChapterListStore.swift",
         "Sources/Services/ChapterText/Workers/BackgroundPagingWorker.swift",
         "Sources/Services/ChapterText/Workers/BackgroundSearchWorker.swift",
+        "Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift",
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
@@ -1495,16 +1496,15 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift",
-        "Sources/Views/Reader/ReaderRouter.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "documentVersion": 6
     },
     {
       "filename": "07_dataflow.md",
-      "sourceHash": "78592b689598cd1d37fe6704bbbe2fe59aee5c4915a066bef2bfc13f71dd09be",
+      "sourceHash": "02b3b175cc8d08238a6bbd0147568caa0b74e374f1c4cf785118a8a404a2e903",
       "generatedHash": "6d1e049920352ca747e57a8981b1dabdb2442481f4b0aad3c7341528b2c6c964",
-      "generatedAt": "2026-08-19T04:43:00.492821Z",
+      "generatedAt": "2026-08-19T06:12:28.417316Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -1562,6 +1562,7 @@
         "Sources/Services/ChapterText/ReaderChapterListStore.swift",
         "Sources/Services/ChapterText/Workers/BackgroundPagingWorker.swift",
         "Sources/Services/ChapterText/Workers/BackgroundSearchWorker.swift",
+        "Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift",
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
@@ -1708,16 +1709,15 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift",
-        "Sources/Views/Reader/ReaderRouter.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "documentVersion": 5
     },
     {
       "filename": "08_lifecycle.md",
-      "sourceHash": "78592b689598cd1d37fe6704bbbe2fe59aee5c4915a066bef2bfc13f71dd09be",
-      "generatedHash": "c208f484767a39cf8d693c81a929c6943ab67f294d9172b155c28a92410cf9e4",
-      "generatedAt": "2026-08-19T04:43:00.492821Z",
+      "sourceHash": "02b3b175cc8d08238a6bbd0147568caa0b74e374f1c4cf785118a8a404a2e903",
+      "generatedHash": "767306f1ae23bed68cd94dc04ca96ea9c2db90b8aef507e108cc96be2355e347",
+      "generatedAt": "2026-08-19T06:12:28.417316Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -1775,6 +1775,7 @@
         "Sources/Services/ChapterText/ReaderChapterListStore.swift",
         "Sources/Services/ChapterText/Workers/BackgroundPagingWorker.swift",
         "Sources/Services/ChapterText/Workers/BackgroundSearchWorker.swift",
+        "Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift",
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
@@ -1921,16 +1922,15 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift",
-        "Sources/Views/Reader/ReaderRouter.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "documentVersion": 3
     },
     {
       "filename": "09_dependency_rules.md",
-      "sourceHash": "78592b689598cd1d37fe6704bbbe2fe59aee5c4915a066bef2bfc13f71dd09be",
+      "sourceHash": "02b3b175cc8d08238a6bbd0147568caa0b74e374f1c4cf785118a8a404a2e903",
       "generatedHash": "132238a9f12479b054e7e16059da3ff4b2eb0d39d5425c9f2374ef5300c72436",
-      "generatedAt": "2026-08-19T04:43:00.492821Z",
+      "generatedAt": "2026-08-19T06:12:28.417316Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -1988,6 +1988,7 @@
         "Sources/Services/ChapterText/ReaderChapterListStore.swift",
         "Sources/Services/ChapterText/Workers/BackgroundPagingWorker.swift",
         "Sources/Services/ChapterText/Workers/BackgroundSearchWorker.swift",
+        "Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift",
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
@@ -2134,16 +2135,15 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift",
-        "Sources/Views/Reader/ReaderRouter.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "documentVersion": 1
     },
     {
       "filename": "10_risk_report.md",
-      "sourceHash": "78592b689598cd1d37fe6704bbbe2fe59aee5c4915a066bef2bfc13f71dd09be",
-      "generatedHash": "e6ab4b36f285e4c645d66baf0f38b3b627a68b7f702c173295f8f21bb9a65c3f",
-      "generatedAt": "2026-08-19T04:43:00.492821Z",
+      "sourceHash": "02b3b175cc8d08238a6bbd0147568caa0b74e374f1c4cf785118a8a404a2e903",
+      "generatedHash": "097d1b595aabb389959e1dc4b02f902f6022c412af0049feab2a3ccc5200ceea",
+      "generatedAt": "2026-08-19T06:12:28.417316Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -2201,6 +2201,7 @@
         "Sources/Services/ChapterText/ReaderChapterListStore.swift",
         "Sources/Services/ChapterText/Workers/BackgroundPagingWorker.swift",
         "Sources/Services/ChapterText/Workers/BackgroundSearchWorker.swift",
+        "Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift",
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
@@ -2347,16 +2348,15 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift",
-        "Sources/Views/Reader/ReaderRouter.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "documentVersion": 2
     },
     {
       "filename": "11_subsystems.md",
-      "sourceHash": "78592b689598cd1d37fe6704bbbe2fe59aee5c4915a066bef2bfc13f71dd09be",
-      "generatedHash": "f5e59b5420ae97e30123646e6b19d572bad44f3f67f13611b99417a4f629e7ba",
-      "generatedAt": "2026-08-19T04:43:00.492821Z",
+      "sourceHash": "02b3b175cc8d08238a6bbd0147568caa0b74e374f1c4cf785118a8a404a2e903",
+      "generatedHash": "b5fab5d09680658a97da78ac7b6181f1e470c9ee7d6b840d668ade6edfe9d956",
+      "generatedAt": "2026-08-19T06:12:28.417316Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -2414,6 +2414,7 @@
         "Sources/Services/ChapterText/ReaderChapterListStore.swift",
         "Sources/Services/ChapterText/Workers/BackgroundPagingWorker.swift",
         "Sources/Services/ChapterText/Workers/BackgroundSearchWorker.swift",
+        "Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift",
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
@@ -2560,16 +2561,15 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift",
-        "Sources/Views/Reader/ReaderRouter.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "documentVersion": 4
     },
     {
       "filename": "12_ownership_graph.md",
-      "sourceHash": "78592b689598cd1d37fe6704bbbe2fe59aee5c4915a066bef2bfc13f71dd09be",
+      "sourceHash": "02b3b175cc8d08238a6bbd0147568caa0b74e374f1c4cf785118a8a404a2e903",
       "generatedHash": "93f1cfc26ee7e0d341e1912a79d75b8092dc48a577ab5949e5325fe1cd1c0c9c",
-      "generatedAt": "2026-08-19T04:43:00.492821Z",
+      "generatedAt": "2026-08-19T06:12:28.417316Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -2627,6 +2627,7 @@
         "Sources/Services/ChapterText/ReaderChapterListStore.swift",
         "Sources/Services/ChapterText/Workers/BackgroundPagingWorker.swift",
         "Sources/Services/ChapterText/Workers/BackgroundSearchWorker.swift",
+        "Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift",
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
@@ -2773,16 +2774,15 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift",
-        "Sources/Views/Reader/ReaderRouter.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "documentVersion": 3
     },
     {
       "filename": "13_resource_lifecycle.md",
-      "sourceHash": "78592b689598cd1d37fe6704bbbe2fe59aee5c4915a066bef2bfc13f71dd09be",
-      "generatedHash": "c8400df7219f58312caf34e1e78cea2fb5ce3238301f6dd85dfef421f29d6730",
-      "generatedAt": "2026-08-19T04:43:00.492821Z",
+      "sourceHash": "02b3b175cc8d08238a6bbd0147568caa0b74e374f1c4cf785118a8a404a2e903",
+      "generatedHash": "dfdf7e3a531c202590aa0028c26d7126d970651b9fc4d974c1dc9e3de3e2baae",
+      "generatedAt": "2026-08-19T06:12:28.417316Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -2840,6 +2840,7 @@
         "Sources/Services/ChapterText/ReaderChapterListStore.swift",
         "Sources/Services/ChapterText/Workers/BackgroundPagingWorker.swift",
         "Sources/Services/ChapterText/Workers/BackgroundSearchWorker.swift",
+        "Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift",
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
@@ -2986,16 +2987,15 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift",
-        "Sources/Views/Reader/ReaderRouter.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "documentVersion": 4
     },
     {
       "filename": "14_complexity_report.md",
-      "sourceHash": "78592b689598cd1d37fe6704bbbe2fe59aee5c4915a066bef2bfc13f71dd09be",
-      "generatedHash": "8f333f9e9a80cd2cb2ee570aa2ae6c1a9cbdedfd72f90d9d729fe8053ca00110",
-      "generatedAt": "2026-08-19T04:43:00.492821Z",
+      "sourceHash": "02b3b175cc8d08238a6bbd0147568caa0b74e374f1c4cf785118a8a404a2e903",
+      "generatedHash": "6038d5ac35437244d4eed35c41be0b04b84fb29a4f11bd1734d955665917b89a",
+      "generatedAt": "2026-08-19T06:12:28.417316Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -3053,6 +3053,7 @@
         "Sources/Services/ChapterText/ReaderChapterListStore.swift",
         "Sources/Services/ChapterText/Workers/BackgroundPagingWorker.swift",
         "Sources/Services/ChapterText/Workers/BackgroundSearchWorker.swift",
+        "Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift",
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
@@ -3199,16 +3200,15 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift",
-        "Sources/Views/Reader/ReaderRouter.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "documentVersion": 2
     },
     {
       "filename": "rules.md",
-      "sourceHash": "78592b689598cd1d37fe6704bbbe2fe59aee5c4915a066bef2bfc13f71dd09be",
-      "generatedHash": "55ac376db3a146c337d9258434a1fa1bc1947998d0352f0a84266341b63f6e14",
-      "generatedAt": "2026-08-19T04:43:00.492821Z",
+      "sourceHash": "02b3b175cc8d08238a6bbd0147568caa0b74e374f1c4cf785118a8a404a2e903",
+      "generatedHash": "1b792e5591b95d6f9286ba9aa7a9a65c66baab904605243187194c54ff23d489",
+      "generatedAt": "2026-08-19T06:12:28.417316Z",
       "sourceFiles": [
         "Sources/App/FreeBookApp.swift",
         "Sources/Common/Extensions/DisplayTextFormatter.swift",
@@ -3266,6 +3266,7 @@
         "Sources/Services/ChapterText/ReaderChapterListStore.swift",
         "Sources/Services/ChapterText/Workers/BackgroundPagingWorker.swift",
         "Sources/Services/ChapterText/Workers/BackgroundSearchWorker.swift",
+        "Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift",
         "Sources/Services/Download/BookStorageManager.swift",
         "Sources/Services/Download/DownloadManager.swift",
         "Sources/Services/Download/DownloadTaskOutcomeCalculator.swift",
@@ -3412,8 +3413,7 @@
         "Sources/Views/TTSWidget/TTSPlayStateReader.swift",
         "Sources/Views/TTSWidget/TTSSettingsSheet.swift",
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
-        "Sources/Views/TTSWidget/WidgetState.swift",
-        "Sources/Views/Reader/ReaderRouter.swift"
+        "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "documentVersion": 6
     }

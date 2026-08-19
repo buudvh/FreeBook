@@ -16,7 +16,6 @@ struct SearchView: View {
     let onSourceChanged: (() -> Void)?
     
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var detailRouter: DetailRouter
     
     @State private var changeSourceTargetResult: ExtensionItemResult? = nil
     @State private var changeSourceTargetExtension: Extension? = nil
@@ -335,19 +334,24 @@ struct SearchView: View {
                                                                         .lineLimit(2)
                                                                         .multilineTextAlignment(.leading)
                                                                         .frame(width: 90, alignment: .leading)
+                                                                    
+                                                                    // let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
+                                                                    // Text(translateIfNeeded(authorText))
+                                                                    //     .font(.system(size: 10))
+                                                                    //     .foregroundColor(.secondary)
+                                                                    //     .lineLimit(1)
+                                                                    //     .frame(width: 90, alignment: .leading)
                                                                 }
                                                             }
                                                             .buttonStyle(.plain)
                                                         } else {
-                                                            Button {
-                                                                detailRouter.route = BookDetailRoute(
-                                                                    bookId: "\(ext.name.lowercased())_\(result.link)",
-                                                                    extensionPackageId: ext.packageId,
-                                                                    detailUrl: result.link,
-                                                                    sourceName: ext.name,
-                                                                    host: result.host
-                                                                )
-                                                            } label: {
+                                                            NavigationLink(destination: BookDetailView(
+                                                                bookId: "\(ext.name.lowercased())_\(result.link)",
+                                                                extensionPackageId: ext.packageId,
+                                                                initialDetailUrl: result.link,
+                                                                sourceName: ext.name,
+                                                                initialHost: result.host
+                                                            )) {
                                                                 VStack(alignment: .leading, spacing: 6) {
                                                                     AsyncImage(url: URL(string: result.cover)) { image in
                                                                         image.resizable()
@@ -367,9 +371,15 @@ struct SearchView: View {
                                                                         .lineLimit(2)
                                                                         .multilineTextAlignment(.leading)
                                                                         .frame(width: 90, alignment: .leading)
+                                                                    
+                                                                    // let authorText = !result.author.isEmpty ? result.author : "Không rõ tác giả"
+                                                                    // Text(translateIfNeeded(authorText))
+                                                                    //     .font(.system(size: 10))
+                                                                    //     .foregroundColor(.secondary)
+                                                                    //     .lineLimit(1)
+                                                                    //     .frame(width: 90, alignment: .leading)
                                                                 }
                                                             }
-                                                            .buttonStyle(.plain)
                                                         }
                                                     }
                                                 }
@@ -441,15 +451,13 @@ struct SearchView: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                Button {
-                    detailRouter.route = BookDetailRoute(
-                        bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
-                        extensionPackageId: item.ext.packageId,
-                        detailUrl: item.result.link,
-                        sourceName: item.ext.name,
-                        host: item.result.host
-                    )
-                } label: {
+                NavigationLink(destination: BookDetailView(
+                    bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
+                    extensionPackageId: item.ext.packageId,
+                    initialDetailUrl: item.result.link,
+                    sourceName: item.ext.name,
+                    initialHost: item.result.host
+                )) {
                     HStack(spacing: 12) {
                         AsyncImage(url: URL(string: item.result.cover)) { image in
                             image.resizable()
@@ -486,7 +494,6 @@ struct SearchView: View {
                     }
                     .padding(.vertical, 4)
                 }
-                .buttonStyle(.plain)
             }
         }
         .listStyle(.plain)

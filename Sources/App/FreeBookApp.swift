@@ -43,8 +43,6 @@ struct AppLaunchRootView: View {
     @ObservedObject private var translationManager = TranslationManager.shared
     @StateObject private var ttsPresentation = TTSRootPresentationReader()
     @StateObject private var browserPresentation = VisibleBrowserPresentationReader()
-    @StateObject private var readerRouter = ReaderRouter()
-    @StateObject private var detailRouter = DetailRouter()
 
     var body: some View {
         ZStack {
@@ -65,41 +63,6 @@ struct AppLaunchRootView: View {
             }
         }
         .globalToast()
-        .environmentObject(readerRouter)
-        .environmentObject(detailRouter)
-        .fullScreenCover(item: $readerRouter.route) { route in
-            NavigationStack {
-                ReaderView(
-                    bookId: route.bookId,
-                    extensionPackageId: route.extensionPackageId,
-                    chapterIndex: route.chapterIndex,
-                    onlineChapters: route.onlineChapters,
-                    bookTitle: route.bookTitle,
-                    bookAuthor: route.bookAuthor,
-                    bookCoverUrl: route.bookCoverUrl,
-                    bookDesc: route.bookDesc,
-                    bookDetailUrl: route.bookDetailUrl,
-                    bookSourceName: route.bookSourceName,
-                    initialParagraphIndex: route.initialParagraphIndex
-                )
-                .id(route.id)
-            }
-            .environmentObject(readerRouter)
-            .environmentObject(detailRouter)
-        }
-        .fullScreenCover(item: $detailRouter.route) { route in
-            NavigationStack {
-                BookDetailView(
-                    bookId: route.bookId,
-                    extensionPackageId: route.extensionPackageId,
-                    initialDetailUrl: route.detailUrl,
-                    sourceName: route.sourceName,
-                    initialHost: route.host
-                )
-            }
-            .environmentObject(readerRouter)
-            .environmentObject(detailRouter)
-        }
         .onAppear {
             BookStorageManager.shared.drainRetryQueue()
             BookStorageManager.shared.retryFailedChapterStoreDeletions()

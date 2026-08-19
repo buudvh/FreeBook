@@ -10,7 +10,6 @@ struct CategoryNovelsListView: View {
 
     @StateObject private var loader: PaginatedNovelLoader
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
-    @EnvironmentObject private var detailRouter: DetailRouter
 
     init(
         category: CategoryResult,
@@ -58,19 +57,16 @@ struct CategoryNovelsListView: View {
             } else {
                 List {
                     ForEach(loader.novels) { novel in
-Button {
-                        detailRouter.route = BookDetailRoute(
-                            bookId: "\(sourceName.lowercased())_\(novel.link)",
+                        NavigationLink(destination: BookDetailView(
+                            bookId: novel.link,
                             extensionPackageId: extensionPackageId,
-                            detailUrl: novel.link,
+                            initialDetailUrl: novel.link,
                             sourceName: sourceName,
-                            host: novel.host
-                        )
-                    } label: {
+                            initialHost: novel.host
+                        )) {
                             BookListItemView(item: novel, showChapter: false, showDescription: true, coverWidth: 60, coverHeight: 80)
                                 .padding(.vertical, 4)
                         }
-                        .buttonStyle(.plain)
                     }
 
                     if loader.canLoadMore {

@@ -15,57 +15,10 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Reader/Detail covers inject router environment objects inside the cover content (1.3.212)
+## Revert về c78d042: bỏ fullScreenCover Detail + Bottom Sheet danh sách chương, giữ lại các tính năng logic (1.3.213)
 
-* Fix crash when opening Reader from Detail on build 1.3.211: `ReaderView` gained `@EnvironmentObject detailRouter` in 1.3.211, and the root reader `.fullScreenCover(item: $readerRouter.route)` content did not receive `detailRouter` from the presenter-level `.environmentObject` chain, so `ReaderView` hit `EnvironmentObject.error()` on open (confirmed against the device crash report + `FreeBook (12).ipa` binary UUID `d0a7e65c...`). The detail cover inherited both objects (BookDetailView reads both routers without crashing), but the stacked reader cover did not.
-* Fix: `AppLaunchRootView` (`FreeBookApp.swift`) now also injects `.environmentObject(readerRouter)` and `.environmentObject(detailRouter)` directly on the `NavigationStack` **inside both** `.fullScreenCover` content closures (reader + detail), guaranteeing both routers are present regardless of presentation/environment propagation. The outer `.environmentObject` modifiers (lines 68-69) are kept as defense. Covers all reader entry points (detail, shelf, TTS).
-
-## Root presentation hub for both Reader and Detail — back from Reader returns to Detail (1.3.211)
-
-* `DetailRouter` added in `Sources/Views/BookDetail/BookDetailView.swift` (`final class DetailRouter: ObservableObject { @Published var route: BookDetailRoute? }`), sibling of `ReaderRouter`. `AppLaunchRootView` (`FreeBookApp.swift`) owns `@StateObject detailRouter`, injects `.environmentObject(detailRouter)` and presents `BookDetailView` via a second root-level `.fullScreenCover(item: $detailRouter.route)` wrapped in `NavigationStack`.
-* All 8 detail entry points now set `detailRouter.route` instead of presenting their own covers: `ShelfView` (shelf/history context menus + browser import), `SearchView`, `DiscoveryView` (genre list + browser import), `CategoryNovelsListView`, `SuggestRowView`, `ReaderChapterListView` (cover tap), `ReaderView` (browser import), and `BookDetailView` itself (detail→detail import replaces the old `navigateToImportedBook` cover).
-* All reader entry points now set `readerRouter.route` (the `ShelfReaderRoute` type and its per-view `fullScreenCover`s are removed): `ShelfView` (rows + `openCurrentlyPlayingReader`), `ShelfSearchView`. `ReaderView` keeps `.id(route.id)` on the root cover so switching books re-initializes.
-* Reader and Detail now present from the SAME presenter (`AppLaunchRootView`), so covers stack correctly — closing the Reader returns to the still-presented Detail instead of tearing the whole Detail down (the regression introduced in 1.3.210 where root reader cover sat above a child-view detail cover).
-* `Tests/ReaderRouteTests.swift` rewritten against `ReaderRouterRoute` (the old `ReaderRoute`/`ShelfReaderRoute` types are gone).
-
-## Reader presented at app root via App-level ReaderRouter — fixes transparent detail screen (1.3.210)
-
-* `ReaderRouter` added: new `Sources/Views/Reader/ReaderRouter.swift` with `ReaderRouterRoute` + `final class ReaderRouter: ObservableObject { @Published var route }`.
-* `AppLaunchRootView` (`FreeBookApp.swift`) owns `@StateObject readerRouter`, injects `.environmentObject` and presents `ReaderView` via root-level `.fullScreenCover(item: $readerRouter.route)` wrapped in `NavigationStack`.
-* `BookDetailView` no longer renders the reader inline: removed `ReaderRoute`, `@State readerRoute`, the ZStack overlay and the `.toolbar(...hidden...)` toggle; `startReading`/TOC preparation now call `openReader(at:)` which sets `readerRouter.route`. Root-level presentation keeps the chapter-list sheet attached to the reader's own presentation context, eliminating the transparent-detail bug caused by sheets on the detail cover's presentation layer. `ReaderView` unchanged (`closeReader()` falls back to `dismiss()`).
-
-## Full-screen book detail presentation, justified description, drag-to-dismiss chapter list sheet and precise TTS chunk resume (1.3.201)
-
-* `BookDetailView` navigation unified:
-  - All 8 entry points (`ShelfView` shelf/history context menus & browser import, `SearchView` multi/single-source cards, `DiscoveryView` explore list & browser import, `CategoryNovelsListView`, `SuggestRowView`, `ReaderChapterListView` cover tap, and `ReaderView` browser import) present `BookDetailView` via `.fullScreenCover(item:)` / `.fullScreenCover(isPresented:)`.
-  - Back button matches `ReaderView` style with `Image(systemName: "chevron.left")`, 18pt semibold font, and 44x44 tap target.
-  - Floating TTS widget stays interactive and visible across all book detail screens.
-* `BookListItemView`:
-  - Full-width text content with `.frame(maxWidth: .infinity, alignment: .leading)`, removed trailing `Spacer()`, and constrained `sourceName` badge to `.lineLimit(1)` to eliminate right margin gaps across book shelf and search lists.
-* `ExpandableTextView` & `BookDetailHeaderView`:
-  - Accurate layout-safe measurement: measures `availableWidth` via `WidthPreferenceKey`, evaluates collapsed/full height via `measurementSubtree` in `.overlay` with `.frame(width: availableWidth, height: 0)` without stretching parent layout.
-  - Matches rendering semantics: measures via `JustifiedTextLabel` when `isJustified: true` (with identical font, width, and `textAlignment = .justified`) and via SwiftUI `Text` when `isJustified: false`.
-  - `JustifiedTextLabel` now uses `WrappingLabel: UILabel` subclass that syncs `preferredMaxLayoutWidth` with its actual `bounds.width` in `layoutSubviews` (and `updateUIView`); previously a `numberOfLines == 0` label reported a single-line intrinsic height, which truncated the expanded text and made the full-height measurement smaller than the collapsed height so the "Xem thêm" button never appeared. `isJustified` rendering now also honors the caller's `font` via `Font.toUIFont()` (recovering the system `TextStyle` with a `.body` fallback).
-  - Height preferences are versioned by a `measurementToken` (`TextMeasurement { token, height }`) so a `text` change always re-triggers `onPreferenceChange` (PreferenceKey fires only on Equatable change) — `checkTruncation()` ignores stale measurements whose token does not match, and applies subpixel tolerance `fullHeight > collapsedHeight + 0.5`.
-* `VietPhraseTokenizer` & `TranslateUtils`:
-  - Added `isLatinLetterOrNumber` and `isASCIIDigit` helper tokenization: groups continuous Latin letters (Basic Latin, Latin-1 Supplement with `char.isLetter` excluding `×`/`÷`, Latin Extended-A/B, Vietnamese diacritics `Ạ..ỹ`) and ASCII digits (`0-9`) into unified tokens (e.g. `作家q92tT5` -> `["作家", "q92tT5"]`, `q92tT5修仙`, `修仙iPhone15`, `天下第一AK47`, `14.8`), while preserving 100% of existing Han dictionary matching and Han-Viet `phienAmMap` conversion.
-* `ReaderView` & `ReaderChapterListView`:
-  - Integrated native Bottom Sheet presentation via `.sheet(isPresented: $showingChapterList)` with `.presentationDetents([.fraction(0.75), .large])` and `.presentationDragIndicator(.visible)` powered by `getOrInitChapterListStore()`.
-  - Added background prefetching of the current chapter's page upon Reader initialization to eliminate/minimize first-open skeleton.
-  - `ReaderChapterListStore` simplified to a single source of truth `rows: [Int: ReaderChapterRowState]` with one load path (`loadPagesAround`) that publishes each page independently and retries failed pages once after 300ms. `updateChapters`/`updateSortOrder`/`updateTranslation` are idempotent guards that early-return when nothing changed, and reset + reload the viewport otherwise (`reloadViewport()` reloads only the last requested page).
-  - Removed `ReaderChapterListPageFetcher` and the sliding-window page cache; page fetching folded into `ReaderChapterListStore.fetchPageData`, which skips rows with empty URLs. `prefetchAround` only warms the immediately neighboring pages (no far prefetch).
-  - Observed `store.rows` directly in row cells, added `.onChange(of: store.totalCount)` to auto-scroll when TOC arrives, and maintained 90ms debounce to prevent load storms during initial layout.
-  - Header top padding increased to `18pt`, displaying source name badge (`ext?.name ?? localBook?.sourceName`).
-* `ShelfView` history filter:
-  - `historyBooks` filters all books with `isHistory == true` without excluding `isOnShelf`, sorted by `lastReadDate` descending so all recently read books appear.
-  - Smart history removal: sets `isHistory = false` for on-shelf books, hard-deletes off-shelf books.
-* `TTSQuickTimerSheet`:
-  - Preserved original 4-section ordering while increasing detent to `.fraction(0.85)` with compact layout, ensuring bottom voice & speed settings shortcut is immediately visible without scrolling. Added leading toolbar settings button.
-* `TTSManager` chunk-level resume after settings:
-  - `prepareForSettings` captures `savedChunkRangeBeforeSettings`, `savedChunkLocationBeforeSettings`, and `savedChunkIndexBeforeSettings`.
-  - `resumeAfterSettings` matches exact chunk when `chunkLength` is unchanged; if `chunkLength` changed, recalculates the new chunk enclosing `savedChunkLocationBeforeSettings`, preventing playback from jumping back to paragraph beginnings.
-* `ReaderChapterListView+Refresh`:
-  - Accurate refresh toast messages: displays `"Đã thêm X chương mới"` upon new chapters, `"Đã cập nhật mục lục"` on metadata changes, and `"Mục lục đã mới nhất"` when unchanged.
+* Hoàn tác chuỗi trình bày sau `c78d042` — Detail trở lại mở bằng `NavigationLink` push trong NavigationStack của tab (tab bar hiện), Reader mở bằng `.fullScreenCover(item: $readerRoute)` cục bộ trong `BookDetailView`, danh sách chương quay lại overlay custom (`readerChapterListOverlay` + Capsule + `dismissGesture`). Bỏ `DetailRouter`/`ReaderRouter`/root presentation hub, `BookDetailRoute`/`ReaderRouterRoute`, `ReaderRouter.swift`, và các fix trình bày reader (re-creation loop, transparent detail, top-chrome, ignoresSafeArea).
+* Giữ nguyên (thêm lại) các tính năng logic phát triển sau `c78d042`: chuẩn hóa `VietPhraseTokenizer` (tiếng Việt có dấu, số thập phân, gom cụm Latin/ASCII), `TranslateUtils` gom token tên tác giả, cải tiến `ExpandableTextView` (căn lề 2 bên Description, layout-safe, sửa nút "Xem thêm", fix comment, `WrappingLabel` public cho CI) kèm `Tests/ExpandableTextViewTests.swift`, khôi phục chính xác chunk TTS trong `TTSManager`, tối ưu `TTSQuickTimerSheet` (spacing, nút cài đặt, detents 0.85), tối ưu `BookListItemView`/`BookDetailHeaderView`, cải tiến Lịch Sử Đọc trong `ShelfView` (sort theo `lastReadDate`, `removeFromHistory` thông minh khi sách còn trên kệ), và toast thông minh cập nhật mục lục trong `ReaderChapterListView+Refresh`.
 
 ## newVisibleBrowser API parity, full runtime syntax checking and integrated line number gutter in Script Editor (1.3.200)
 
@@ -238,7 +191,7 @@ graph TD
 #### Reader/TTS unified pipeline (2026-07)
 
 - `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, compact paragraph IDs, and UTF-16 ranges. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
-- Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRouterRoute.chapterIndex` preserves the selected TOC index through navigation.
+- Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - `TTSFloatingWidgetView` now renders a horizontal capsule with circular cover/play/next/close controls. `FloatingWidgetViewModel` persists edge/vertical placement, expands while dragged away from the edge, and peeks as a cover half-disc after idle or edge snapping.

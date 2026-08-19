@@ -9,7 +9,6 @@ struct ExtensionBrowserTarget: Identifiable {
 
 struct DiscoveryView: View {
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var detailRouter: DetailRouter
     @Query private var allExtensions: [Extension]
     
     // Nhớ Extension và Home tab cuối cùng đã xem
@@ -58,6 +57,7 @@ struct DiscoveryView: View {
     @State private var importedDetailUrl: String = ""
     @State private var importedSourceName: String = ""
     @State private var importedHost: String = ""
+    @State private var navigateToImportedBook = false
     
     // Trình duyệt trang chủ extension (item-based để khởi tạo đúng lúc, tránh URL rỗng)
     @State private var headerBrowserTarget: ExtensionBrowserTarget? = nil
@@ -406,13 +406,7 @@ struct DiscoveryView: View {
                         } else {
                             importedHost = ""
                         }
-                        detailRouter.route = BookDetailRoute(
-                            bookId: importedBookId,
-                            extensionPackageId: importedExtensionPackageId,
-                            detailUrl: importedDetailUrl,
-                            sourceName: importedSourceName,
-                            host: importedHost
-                        )
+                        navigateToImportedBook = true
                     }
                 )
             }
@@ -432,15 +426,18 @@ struct DiscoveryView: View {
                         headerBrowserTarget = nil
                         ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            detailRouter.route = BookDetailRoute(
-                                bookId: importedBookId,
-                                extensionPackageId: importedExtensionPackageId,
-                                detailUrl: importedDetailUrl,
-                                sourceName: importedSourceName,
-                                host: importedHost
-                            )
+                            navigateToImportedBook = true
                         }
                     }
+                )
+            }
+            .navigationDestination(isPresented: $navigateToImportedBook) {
+                BookDetailView(
+                    bookId: importedBookId,
+                    extensionPackageId: importedExtensionPackageId,
+                    initialDetailUrl: importedDetailUrl,
+                    sourceName: importedSourceName,
+                    initialHost: importedHost
                 )
             }
             .navigationDestination(isPresented: $navigateToGenre) {
@@ -535,7 +532,6 @@ struct DiscoveryCategoryTabView: View {
     let sourceName: String
     let isTranslationEnabled: Bool
     @Binding var selectedCategoryId: String
-    @EnvironmentObject private var detailRouter: DetailRouter
 
     @StateObject private var loader: PaginatedNovelLoader
     @State private var initialLoadTask: Task<Void, Never>? = nil
@@ -575,12 +571,9 @@ struct DiscoveryCategoryTabView: View {
             } else if !loader.errorMessage.isEmpty && loader.novels.isEmpty {
                 VStack(spacing: 12) {
                     Spacer()
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.largeTitle)
-                        .foregroundColor(.orange)
                     Text(loader.errorMessage)
+                        .foregroundColor(.red)
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                     Button("Thử lại") {
@@ -607,18 +600,15 @@ struct DiscoveryCategoryTabView: View {
             } else {
                 List {
                     ForEach(loader.novels) { novel in
-                        Button {
-                            detailRouter.route = BookDetailRoute(
-                                bookId: "\(sourceName.lowercased())_\(novel.link)",
-                                extensionPackageId: extensionPackageId,
-                                detailUrl: novel.link,
-                                sourceName: sourceName,
-                                host: novel.host
-                            )
-                        } label: {
+                        NavigationLink(destination: BookDetailView(
+                            bookId: "\(sourceName.lowercased())_\(novel.link)",
+                            extensionPackageId: extensionPackageId,
+                            initialDetailUrl: novel.link,
+                            sourceName: sourceName,
+                            initialHost: novel.host
+                        )) {
                             BookListItemView(item: novel, showChapter: false, showDescription: true)
                         }
-                        .buttonStyle(.plain)
                     }
 
                     if loader.canLoadMore {

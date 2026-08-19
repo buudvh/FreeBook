@@ -10,7 +10,7 @@ extension BookDetailView {
                 return
             }
             scheduleBackgroundTitleTranslationIfNeeded(for: book)
-            openReader(at: chapterIndex)
+            self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
             return
         }
 
@@ -31,7 +31,7 @@ extension BookDetailView {
                             return
                         }
                         scheduleBackgroundTitleTranslationIfNeeded(for: book)
-                        openReader(at: chapterIndex)
+                        self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
                         isPreparingBookProgress = false
                         bookOpenTask = nil
                         return
@@ -116,7 +116,7 @@ extension BookDetailView {
 
                 bookOpenTask = nil
                 isPreparingBookProgress = false
-                openReader(at: chapterIndex)
+                self.readerRoute = ReaderRoute(chapterIndex: chapterIndex)
                 scheduleBackgroundTitleTranslationIfNeeded(for: savedBook ?? localBook)
             } catch {
                 if modelContext.hasChanges {
@@ -124,6 +124,7 @@ extension BookDetailView {
                 }
                 bookOpenTask = nil
                 isPreparingBookProgress = false
+                readerRoute = nil
                 if !Task.isCancelled {
                     self.tocErrorMessage = "Lỗi chuẩn bị sách: \(error.localizedDescription)"
                 }

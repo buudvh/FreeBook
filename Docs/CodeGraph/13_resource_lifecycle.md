@@ -15,17 +15,6 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Root presentation hub lifecycle for Reader and Detail (1.3.211)
-
-* Reader and Detail both present from the same presenter: `AppLaunchRootView` owns `@StateObject readerRouter` + `@StateObject detailRouter`, each driving its own root-level `.fullScreenCover(item:)` wrapped in `NavigationStack`.
-* Opening Reader from Detail sets `readerRouter.route` while the Detail cover stays presented (same presenter → covers stack correctly). Closing the Reader returns to the Detail instead of tearing it down (the 1.3.210 regression where the root reader cover sat above a child-view detail cover, dismissing the detail on back).
-* `ReaderRouterRoute`/`BookDetailRoute` are destroyed when their covers are dismissed — SwiftUI resets `route = nil` automatically, and `ReaderView`'s `@State` (viewModel, chapterListStore) / `BookDetailView`'s `@State` are torn down with the covers, matching the shelf-flow lifecycle.
-
-## Reader root presentation lifecycle (1.3.210)
-
-* Reader opened from book detail is now a root-level `fullScreenCover(item: $readerRouter.route)` owned by `AppLaunchRootView` (`@StateObject readerRouter`). The `ReaderRouterRoute` is destroyed when the cover is dismissed — SwiftUI resets `readerRouter.route = nil` automatically, and `ReaderView`'s `@State` (viewModel, chapterListStore) is torn down with the cover, matching the shelf-flow lifecycle.
-* The chapter-list sheet (`ReaderView.showingChapterList`) attaches to the reader cover's own presentation layer, never the detail cover's — eliminating the transparent-detail corruption that occurred when sheets on the detail cover's presentation layer were torn down.
-
 ## NghiTTS refill failure lifecycle (1.3.147)
 
 * Mỗi lỗi refill được sở hữu bởi khóa `sessionID + chapterIndex + paragraphIndex`; success xóa state, lỗi không retry hoặc attempt thứ hai chuyển state sang blocked.
@@ -61,7 +50,7 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 
 * **Background Deletion Tasks**: Deleting a book commits model context changes first. Upon successful database saving, physical file cleanup (covers/bin) is spawned inside a detached background `Task`. If deletion fails, resources enter the `UserDefaults` queue, surviving application restarts.
 * **Retry Queue Persistence**: At launch in `FreeBookApp` startup, `drainRetryQueue()` is executed to process the failed deletion queue. It retries physical deletion of each path up to 3 times before discarding to prevent resource leaks.
-* **Paged Rows Memory Lifecycle**: The table-of-contents store keeps one lightweight `ReaderChapterRowState` per loaded row in `rows`; pages are fetched lazily by display position (100 rows/page) and loaded rows are never evicted, so memory scales with the pages actually visited, not the total chapter count. Placeholder metadata (`ChapterRowItem`) remains lightweight and placeholder rows are materialized on demand.
+* **Paged Rows Memory Lifecycle**: Memory for the table of contents is bounded: only 3 pages (300 rows) are kept loaded at any time in `loadedRowStates`. When a new page is loaded, the page outside the sliding window is evicted, freeing its memory, while placeholder metadata (`ChapterRowItem`) remains lightweight.
 
 ## Reader resource lifecycle update (1.3.11, supersedes 1.3.10)
 
@@ -165,14 +154,14 @@ WKWebView được sử dụng để tải các trang web chứa mã bảo vệ 
 #### Reader/TTS unified pipeline (2026-07)
 
 - `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, compact paragraph IDs, and UTF-16 ranges. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
-- Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRouterRoute.chapterIndex` preserves the selected TOC index through navigation.
+- Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - Shared chapter fetch tasks are repository-owned and subscriber-aware. Reader cancellation removes only its waiter, so a TTS waiter preserves the load; when the final waiter leaves, the underlying task is canceled. Force refresh cancels the superseded load and resumes all of its prior waiters with cancellation.
 - `ReaderViewModel.translationRefreshTask` owns dictionary-driven chapter rebuilds. A newer dictionary update cancels the previous refresh, loaded chapter snapshots are processed sequentially with the displayed chapter first, and deinit cancels the remaining work. Live TTS audio-prefetch tasks are not canceled by this Reader event.
 - Pending SwiftData writes retry up to three times, survive Reader dismissal, and are flushed by Reader/app lifecycle checkpoints. Cached chapter models survive TOC reconciliation when their URL remains present.
 - Book deletion database context changes commit first, spawning a background task (`Task.detached`) for physical file cleanup. Physical file cleanup failures enter a persistent retry queue in `UserDefaults` and undergo retry cycles at app launch up to 3 times before discard.
-- TOC pagination keeps loaded row states in `rows` without eviction; pages are loaded lazily per display position (100 rows/page) and only pages actually visited consume memory, with in-flight tasks deduplicated via `inFlightPages` and a single 300ms retry for failed pages.
+- TOC pagination bounds the memory lifecycle: only 3 pages (300 rows) are kept loaded at any time in `loadedRowStates`. When a new page is loaded, pages outside the active window are evicted and their state objects are destroyed, freeing memory.
 
 - Remote TTS jobs enter a single priority queue. A job owns its service operation until completion; duplicate callers own only continuations. At `.serious`, only the current/N+1 lifecycle may survive and distant/next-chapter work is released; `.critical`, pause, or stop cancels the applicable remaining continuations/tasks.
 - `ExtTTSRuntime` keeps its `JSExecutor` across chunks of the same extension/config. It cancels registered network tasks and releases the context when identity changes, an execution fails, or full TTS cache cleanup requests reset.
