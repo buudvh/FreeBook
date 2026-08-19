@@ -1203,7 +1203,7 @@ struct ReaderView: View {
     @ViewBuilder
     private func readerChapterListOverlay(in geometry: GeometryProxy) -> some View {
         if let chapterListStore {
-            let configKey = InteractiveOverlaySheetContainer.ConfigKey(
+            let configKey = InteractiveOverlaySheetConfigKey(
                 bookId: bookId,
                 bookTitle: bookTitle,
                 bookAuthor: bookAuthor,

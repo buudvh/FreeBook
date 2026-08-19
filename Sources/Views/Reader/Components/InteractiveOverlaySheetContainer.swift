@@ -1,51 +1,45 @@
 import SwiftUI
 import UIKit
 
+/// Equatable configuration key dùng để gate việc cập nhật rootView của UIHostingController,
+/// tránh re-assign rootView không cần thiết khi ReaderView re-render ở tần suất cao.
+struct InteractiveOverlaySheetConfigKey: Equatable {
+    let bookId: String
+    let bookTitle: String?, bookAuthor: String?, bookCoverUrl: String?, bookDetailUrl: String?
+    let currentChapterIndex: Int
+    let isTranslationEnabled: Bool
+    let theme: ReaderTheme
+    let onlineChaptersCount: Int
+    let isLocalTXTBook: Bool
+    let localBookId: String?, extPackageId: String?
+    let storeIdentity: ObjectIdentifier
+}
+
 /// Container UIViewControllerRepresentable bọc InteractiveOverlaySheetViewController
 /// để điều khiển overlay sheet kéo vuốt cho ReaderChapterListView mà không mutate SwiftUI @State ở mỗi pan frame
 /// và không re-assign rootView khi không có thay đổi nội dung mục lục.
 /// File này tuân thủ quy tắc 1 primary type per file (InteractiveOverlaySheetContainer là primary type duy nhất).
 struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresentable {
-    /// Equatable configuration key dùng để gate việc cập nhật rootView của UIHostingController,
-    /// tránh re-assign rootView không cần thiết khi ReaderView re-render ở tần suất cao.
-    struct ConfigKey: Equatable {
-        let bookId: String
-        let bookTitle: String?
-        let bookAuthor: String?
-        let bookCoverUrl: String?
-        let bookDetailUrl: String?
-        let currentChapterIndex: Int
-        let isTranslationEnabled: Bool
-        let theme: ReaderTheme
-        let onlineChaptersCount: Int
-        let isLocalTXTBook: Bool
-        let localBookId: String?
-        let extPackageId: String?
-        let storeIdentity: ObjectIdentifier
-    }
+    typealias ConfigKey = InteractiveOverlaySheetConfigKey
 
     let isPresented: Bool
     let topMargin: CGFloat
-    let configKey: ConfigKey
+    let configKey: InteractiveOverlaySheetConfigKey
     let onDismissed: () -> Void
     let content: (_ requestDismiss: @escaping (@escaping () -> Void) -> Void) -> Content
 
     final class Coordinator {
-        var currentConfigKey: ConfigKey?
+        var currentConfigKey: InteractiveOverlaySheetConfigKey?
         var dismissHandler: ((@escaping () -> Void) -> Void)?
         var onDismissed: (() -> Void)?
     }
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
+    func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeUIViewController(context: Context) -> ViewController {
         let vc = ViewController()
         vc.topMargin = topMargin
-        vc.onDismissed = { [weak coordinator = context.coordinator] in
-            coordinator?.onDismissed?()
-        }
+        vc.onDismissed = { [weak coordinator = context.coordinator] in coordinator?.onDismissed?() }
 
         let dismissAction: (@escaping () -> Void) -> Void = { [weak vc] completion in
             vc?.makeDismissHandler()(completion)
@@ -60,9 +54,7 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
 
     func updateUIViewController(_ uiViewController: ViewController, context: Context) {
         uiViewController.topMargin = topMargin
-        uiViewController.onDismissed = { [weak coordinator = context.coordinator] in
-            coordinator?.onDismissed?()
-        }
+        uiViewController.onDismissed = { [weak coordinator = context.coordinator] in coordinator?.onDismissed?() }
         context.coordinator.onDismissed = onDismissed
 
         // Gated update: Chỉ cập nhật rootView khi configKey thực sự thay đổi
@@ -72,7 +64,6 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
                 uiViewController.updateContent(rootView: content(dismissAction))
             }
         }
-
         uiViewController.updatePresentation(isPresented: isPresented)
     }
 
@@ -93,11 +84,7 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
         private var hostingController: UIHostingController<AnyView>?
 
         private enum PresentationState {
-            case hidden
-            case presenting
-            case presented
-            case dragging
-            case dismissing
+            case hidden, presenting, presented, dragging, dismissing
         }
 
         private var state: PresentationState = .hidden
@@ -121,7 +108,7 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
             containerView.backgroundColor = .clear
             containerView.clipsToBounds = true
             containerView.layer.cornerRadius = 16
-            containerView.layer.maskedCorners = [.layerMinXMinCorner, .layerMaxXMinCorner]
+            containerView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
             view.addSubview(containerView)
 
             NSLayoutConstraint.activate([
@@ -131,11 +118,6 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
                 backdropView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
             ])
 
-            setupGestures()
-            isSettingUp = false
-        }
-
-        private func setupGestures() {
             panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
             panGesture.delegate = self
             panGesture.cancelsTouchesInView = true
@@ -143,13 +125,13 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
 
             backdropTapGesture = UITapGestureRecognizer(target: self, action: #selector(handleBackdropTap(_:)))
             backdropView.addGestureRecognizer(backdropTapGesture)
+            isSettingUp = false
         }
 
         func setupContent<V: View>(rootView: V) {
             let hosting = UIHostingController(rootView: AnyView(rootView))
             hosting.view.backgroundColor = .clear
             hosting.view.clipsToBounds = true
-
             addChild(hosting)
             containerView.addSubview(hosting.view)
             hosting.view.frame = containerView.bounds
@@ -164,16 +146,13 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
 
         func makeDismissHandler() -> (@escaping () -> Void) -> Void {
             return { [weak self] completion in
-                DispatchQueue.main.async {
-                    self?.requestDismiss(completion: completion)
-                }
+                DispatchQueue.main.async { self?.requestDismiss(completion: completion) }
             }
         }
 
         override func viewDidLayoutSubviews() {
             super.viewDidLayoutSubviews()
-            let totalHeight = view.bounds.height
-            let totalWidth = view.bounds.width
+            let totalHeight = view.bounds.height, totalWidth = view.bounds.width
             guard totalHeight > 0, totalWidth > 0 else { return }
 
             let panelHeight = max(0, totalHeight - topMargin)
@@ -182,7 +161,6 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
             if state == .hidden {
                 containerView.transform = CGAffineTransform(translationX: 0, y: panelHeight)
                 backdropView.alpha = 0
-
                 if hasPendingPresentation {
                     hasPendingPresentation = false
                     presentOverlay()
@@ -195,11 +173,9 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
 
         func updatePresentation(isPresented: Bool) {
             guard !isSettingUp else { return }
-
             if isPresented {
                 if state == .hidden {
-                    let totalHeight = view.bounds.height
-                    let totalWidth = view.bounds.width
+                    let totalHeight = view.bounds.height, totalWidth = view.bounds.width
                     if totalHeight > 0 && totalWidth > 0 {
                         hasPendingPresentation = false
                         presentOverlay()
@@ -241,9 +217,7 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
                         self.backdropView.alpha = 0.4
                     },
                     completion: { finished in
-                        if finished && self.state == .presenting {
-                            self.state = .presented
-                        }
+                        if finished && self.state == .presenting { self.state = .presented }
                     }
                 )
             }
@@ -251,28 +225,21 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
 
         func requestDismiss(completion: @escaping () -> Void) {
             if state == .dismissing {
-                if self.pendingCompletion == nil {
-                    self.pendingCompletion = completion
-                }
+                if self.pendingCompletion == nil { self.pendingCompletion = completion }
                 return
             }
-            guard state == .presented || state == .dragging || state == .presenting else {
-                return
-            }
+            guard state == .presented || state == .dragging || state == .presenting else { return }
             dismissOverlay(completion: completion)
         }
 
         private func dismissOverlay(completion: (() -> Void)?) {
             guard state != .dismissing else { return }
-            if let completion = completion {
-                self.pendingCompletion = completion
-            }
+            if let completion = completion { self.pendingCompletion = completion }
             containerView.layer.removeAllAnimations()
             backdropView.layer.removeAllAnimations()
             state = .dismissing
 
             let panelHeight = containerView.bounds.height > 0 ? containerView.bounds.height : (view.bounds.height - topMargin)
-
             let finishDismiss = { [weak self] in
                 guard let self = self, self.state == .dismissing else { return }
                 self.state = .hidden
@@ -283,14 +250,8 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
 
                 let comp = self.pendingCompletion
                 self.pendingCompletion = nil
-                let onDismissedCallback = self.onDismissed
-                onDismissedCallback?()
-
-                if let comp = comp {
-                    DispatchQueue.main.async {
-                        comp()
-                    }
-                }
+                self.onDismissed?()
+                if let comp = comp { DispatchQueue.main.async { comp() } }
             }
 
             if UIAccessibility.isReduceMotionEnabled {
@@ -305,9 +266,7 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
                         self.backdropView.alpha = 0
                     },
                     completion: { finished in
-                        if finished {
-                            finishDismiss()
-                        }
+                        if finished { finishDismiss() }
                     }
                 )
             }
@@ -319,7 +278,6 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
 
         @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
             guard state == .presented || state == .dragging else { return }
-
             let translation = gesture.translation(in: containerView)
             let velocity = gesture.velocity(in: containerView)
             let panelHeight = containerView.bounds.height
@@ -329,12 +287,7 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
                 state = .dragging
             case .changed:
                 let rawY = translation.y
-                let clampedY: CGFloat
-                if rawY < 0 {
-                    clampedY = rawY * 0.2
-                } else {
-                    clampedY = rawY
-                }
+                let clampedY: CGFloat = rawY < 0 ? rawY * 0.2 : rawY
                 containerView.transform = CGAffineTransform(translationX: 0, y: clampedY)
                 if panelHeight > 0 {
                     let progress = max(0, min(1, 1 - (clampedY / panelHeight)))
@@ -349,9 +302,7 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
                     snapBack()
                 }
             case .cancelled, .failed:
-                if state == .dragging {
-                    snapBack()
-                }
+                if state == .dragging { snapBack() }
             default:
                 break
             }
@@ -378,9 +329,7 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
                         self.backdropView.alpha = 0.4
                     },
                     completion: { finished in
-                        if finished && self.state == .dragging {
-                            self.state = .presented
-                        }
+                        if finished && self.state == .dragging { self.state = .presented }
                     }
                 )
             }
@@ -395,7 +344,7 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
             return true
         }
 
-        override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
             if gestureRecognizer === panGesture {
                 let velocity = panGesture.velocity(in: containerView)
                 return velocity.y > 0 && abs(velocity.y) > abs(velocity.x)
@@ -407,20 +356,13 @@ struct InteractiveOverlaySheetContainer<Content: View>: UIViewControllerRepresen
             state = .hidden
             pendingCompletion = nil
             onDismissed = nil
-
             containerView.layer.removeAllAnimations()
             backdropView.layer.removeAllAnimations()
-
             view.isHidden = true
             view.isUserInteractionEnabled = false
 
-            if let pan = panGesture {
-                containerView.removeGestureRecognizer(pan)
-            }
-            if let tap = backdropTapGesture {
-                backdropView.removeGestureRecognizer(tap)
-            }
-
+            if let pan = panGesture { containerView.removeGestureRecognizer(pan) }
+            if let tap = backdropTapGesture { backdropView.removeGestureRecognizer(tap) }
             if let hosting = hostingController {
                 hosting.willMove(toParent: nil)
                 hosting.view.removeFromSuperview()
