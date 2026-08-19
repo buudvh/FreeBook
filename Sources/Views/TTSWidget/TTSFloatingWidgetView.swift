@@ -168,14 +168,14 @@ struct TTSWidgetCapsuleView: View {
                 .accessibilityLabel(ttsState.snapshot.isPlaying ? "Tạm dừng" : "Phát tiếp")
 
                 Button(action: skipForward) {
-                    Image(systemName: "goforward.30")
+                    Image(systemName: "forward.fill")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Color.primary)
                         .frame(width: 30, height: 30)
                         .background(Circle().fill(Color.primary.opacity(0.09)))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Tua tới 30 giây")
+                .accessibilityLabel("Tua tới đoạn tiếp theo")
 
                 Button(action: stopTTS) {
                     Image(systemName: "xmark")
