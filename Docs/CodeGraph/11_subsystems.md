@@ -23,6 +23,7 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 
 2. **Phân Hệ Trình Đọc & Tải Nền (Reader Subsystem)**:
    - `ReaderView`, `ReaderViewModel`, `ReaderScrollCoordinator`, `ReaderSelectionCoordinator`, `ReaderProgressScheduler`, `BackgroundPagingWorker`, `BackgroundSearchWorker`, `ReaderChapterListStore`.
+   - `ReaderRouter` (`@Published route`) + `AppLaunchRootView.fullScreenCover`: trình bày `ReaderView` ở tầng root khi mở từ màn Chi Tiết — sheet danh sách chương gắn vào presentation của chính reader, không đụng cover detail.
 
 3. **Phân Hệ TTS & Audio Engine (TTS Subsystem)**:
    - `TTSManager`, `TTSAudioEngineController`, `TTSPresentationEventCenter`, `DisplayTextFormatter`, `ONNXPiperEngine`.

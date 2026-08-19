@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.210] - 2026-08-19
+
+### Reader chuyển sang trình bày ở tầng root (App-level ReaderRouter) — sửa triệt để màn Chi Tiết bị trong suốt
+
+* **Triệu chứng**: vẫn tái hiện sau [1.3.207]-[1.3.209] (loop đã hết, layout đã đúng): từ chi tiết mở reader → mở danh sách chương → đóng → mở lại → thoát reader → **màn Chi Tiết trong suốt**. Xảy ra cả khi reader là nested `fullScreenCover` (cũ) lẫn ZStack overlay (mới). Luồng mở từ kệ không bao giờ dính.
+* **Gốc rễ** (điều tra lại): sheet danh sách chương `.sheet(isPresented: $showingChapterList)` gắn vào **lớp presentation của cover Chi Tiết** (cover detail được present từ `ShelfView.selectedDetailRoute`). Present/dismiss sheet trong cây của cover detail rồi tháo dỡ view sở hữu sheet (đóng reader → `readerRoute = nil` → xoá overlay) làm **corrupt cover detail** (bug iOS `fullScreenCover` + `sheet`). Kệ không dính vì reader-cover được present từ `ShelfView` (view gốc, không nằm trong cover nào) → sheet chương gắn vào presentation của chính reader, không đụng cây nào khác.
+* **Fix – App-level ReaderRouter**: thêm file mới `Sources/Views/Reader/ReaderRouter.swift` (`ReaderRouterRoute` + `final class ReaderRouter: ObservableObject { @Published var route }`). `AppLaunchRootView` (`FreeBookApp.swift`) giữ `@StateObject readerRouter`, inject `.environmentObject` và present `.fullScreenCover(item: $readerRouter.route)` → `NavigationStack { ReaderView }` ở **tầng root** — đè lên cover detail, sheet chương gắn vào presentation của chính reader → hết corrupt, hết trong suốt; chrome/safe-area đúng như mở từ kệ. `BookDetailView` thêm `@EnvironmentObject readerRouter`, `openReader(at:)` set `router.route`; **xoá** struct `ReaderRoute`, `@State readerRoute`, ZStack overlay, `.toolbar(...hidden...)` (nav bar detail trở lại bình thường vĩnh viễn). `BookDetailView+TOCPreparation` 3 điểm set route đổi sang `openReader(at:)`. `ReaderView` **không đổi** — `closeReader()` fallback `dismiss()` dismiss đúng cover root; `fullScreenCover(item:)` tự set `router.route = nil` khi cover bị dismiss. `ShelfView`/`ShelfSearchView` giữ cover riêng (không xung đột vì `router.route` chỉ phục vụ luồng chi tiết).
+* **Ghi nhận ngoài scope**: luồng trong-reader mở detail khác (`ReaderView.navigateToBookDetail` cover) vẫn là nested cover — theo dõi riêng nếu phát sinh bug tương tự.
+* **Lưu ý hạ tầng**: **thêm file nguồn** `Sources/Views/Reader/ReaderRouter.swift` → thêm vào `sourceFiles` của cả 16 documents trong `manifest.json`; `sourceFileCount` 214 → **215** (tự cập nhật qua `--update-hashes`), `documentCount` (16) giữ nguyên. Build/test chỉ kiểm chứng được trên macOS/CI — repo đang mở trên Windows.
+
 ## [1.3.209] - 2026-08-19
 
 ### Sửa layout reader bị tràn màn hình sau ZStack overlay: gỡ `.ignoresSafeArea()` khỏi wrapper overlay

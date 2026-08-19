@@ -15,6 +15,12 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader presented at app root via App-level ReaderRouter — fixes transparent detail screen (1.3.210)
+
+* `ReaderRouter` added: new `Sources/Views/Reader/ReaderRouter.swift` with `ReaderRouterRoute` + `final class ReaderRouter: ObservableObject { @Published var route }`.
+* `AppLaunchRootView` (`FreeBookApp.swift`) owns `@StateObject readerRouter`, injects `.environmentObject` and presents `ReaderView` via root-level `.fullScreenCover(item: $readerRouter.route)` wrapped in `NavigationStack`.
+* `BookDetailView` no longer renders the reader inline: removed `ReaderRoute`, `@State readerRoute`, the ZStack overlay and the `.toolbar(...hidden...)` toggle; `startReading`/TOC preparation now call `openReader(at:)` which sets `readerRouter.route`. Root-level presentation keeps the chapter-list sheet attached to the reader's own presentation context, eliminating the transparent-detail bug caused by sheets on the detail cover's presentation layer. `ReaderView` unchanged (`closeReader()` falls back to `dismiss()`).
+
 ## Full-screen book detail presentation, justified description, drag-to-dismiss chapter list sheet and precise TTS chunk resume (1.3.201)
 
 * `BookDetailView` navigation unified:

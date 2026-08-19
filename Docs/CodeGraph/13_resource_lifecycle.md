@@ -15,6 +15,11 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader root presentation lifecycle (1.3.210)
+
+* Reader opened from book detail is now a root-level `fullScreenCover(item: $readerRouter.route)` owned by `AppLaunchRootView` (`@StateObject readerRouter`). The `ReaderRouterRoute` is destroyed when the cover is dismissed — SwiftUI resets `readerRouter.route = nil` automatically, and `ReaderView`'s `@State` (viewModel, chapterListStore) is torn down with the cover, matching the shelf-flow lifecycle.
+* The chapter-list sheet (`ReaderView.showingChapterList`) attaches to the reader cover's own presentation layer, never the detail cover's — eliminating the transparent-detail corruption that occurred when sheets on the detail cover's presentation layer were torn down.
+
 ## NghiTTS refill failure lifecycle (1.3.147)
 
 * Mỗi lỗi refill được sở hữu bởi khóa `sessionID + chapterIndex + paragraphIndex`; success xóa state, lỗi không retry hoặc attempt thứ hai chuyển state sang blocked.

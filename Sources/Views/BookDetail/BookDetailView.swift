@@ -1,11 +1,6 @@
 import SwiftUI
 import SwiftData
 
-struct ReaderRoute: Identifiable, Hashable {
-    let chapterIndex: Int
-    var id: Int { chapterIndex }
-}
-
 public struct BookDetailRoute: Identifiable, Hashable {
     public var id: String { "\(extensionPackageId)_\(detailUrl)" }
     public let bookId: String
@@ -26,6 +21,7 @@ public struct BookDetailRoute: Identifiable, Hashable {
 struct BookDetailView: View {
     @Environment(\.modelContext) internal var modelContext
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var readerRouter: ReaderRouter
     @Query private var allBooks: [Book]
     @Query private var allExtensions: [Extension]
 
@@ -85,7 +81,6 @@ struct BookDetailView: View {
     @State internal var tocPages: [String] = []
     @State internal var remainingPagesLoaded = false
     @State internal var isLoadingRemainingPages = false
-    @State internal var readerRoute: ReaderRoute?
     @State private var navigateToDictionary = false
     @State private var navigateToChangeSource = false
 
@@ -177,28 +172,6 @@ struct BookDetailView: View {
             }
 
             floatingActionButton
-
-            if let route = readerRoute {
-                NavigationStack {
-                    ReaderView(
-                        bookId: actualBookId,
-                        extensionPackageId: extensionPackageId,
-                        chapterIndex: route.chapterIndex,
-                        onlineChapters: onlineChapters,
-                        bookTitle: title,
-                        bookAuthor: author,
-                        bookCoverUrl: coverUrl,
-                        bookDesc: desc.isEmpty ? nil : desc,
-                        bookDetailUrl: initialDetailUrl,
-                        bookSourceName: sourceName,
-                        initialParagraphIndex: -1,
-                        onCloseReader: { readerRoute = nil }
-                    )
-                }
-                .id(route.id)
-                .transition(.move(edge: .trailing))
-                .zIndex(20)
-            }
         }
         .bookDetailActionSheets(
             selectedBookForTask: $selectedBookForTask,
@@ -230,7 +203,22 @@ struct BookDetailView: View {
                 ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
             }
         )
-        .toolbar(readerRoute == nil ? .visible : .hidden, for: .navigationBar)
+    }
+
+    internal func openReader(at chapterIndex: Int) {
+        readerRouter.route = ReaderRouterRoute(
+            bookId: actualBookId,
+            extensionPackageId: extensionPackageId,
+            chapterIndex: chapterIndex,
+            onlineChapters: onlineChapters,
+            bookTitle: title,
+            bookAuthor: author,
+            bookCoverUrl: coverUrl,
+            bookDesc: desc.isEmpty ? nil : desc,
+            bookDetailUrl: initialDetailUrl,
+            bookSourceName: sourceName,
+            initialParagraphIndex: -1
+        )
     }
 
     @ViewBuilder

@@ -38,4 +38,10 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
      └── Rỗng/chỉ dấu câu -> `PiperTTSService.makeSilenceSpec(...)` -> `WAVEncoder.encodePCM16(...)`
    - Lỗi prefetch tạm thời -> `evaluateRefillError(...)` -> task cooldown 1 giây -> `updateNghiPrefetchWindow()`.
    - Lỗi không retry hoặc đủ hai attempt -> đánh dấu index bị block -> chọn ứng viên prefetch khác.
+
+5. **Luồng mở Reader từ màn Chi Tiết (App-level ReaderRouter)**:
+   `BookDetailView.startReading` / `BookDetailView+TOCPreparation` -> `openReader(at:)` -> set `readerRouter.route` (`@EnvironmentObject`)
+   └── `AppLaunchRootView.fullScreenCover(item: $readerRouter.route)` -> `NavigationStack { ReaderView }` (root-level cover)
+   - Đóng reader: `ReaderView.closeReader()` -> fallback `dismiss()` -> `fullScreenCover(item:)` tự set `readerRouter.route = nil`.
+   - `ShelfView` / `ShelfSearchView` vẫn present `ReaderView` bằng `fullScreenCover` riêng của chúng (không qua `ReaderRouter`).
 <!-- GENERATED END -->
