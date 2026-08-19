@@ -12,7 +12,7 @@ struct SuggestRowView: View {
     @State private var novels: [ExtensionItemResult] = []
     @State private var isLoading = true
     @State private var errorMessage = ""
-    @State private var selectedDetailRoute: BookDetailRoute? = nil
+    @EnvironmentObject private var detailRouter: DetailRouter
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -56,9 +56,9 @@ struct SuggestRowView: View {
                 ]
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(novels) { novel in
-                        Button {
-                            selectedDetailRoute = BookDetailRoute(
-                                bookId: novel.link,
+Button {
+                            detailRouter.route = BookDetailRoute(
+                                bookId: "\(sourceName.lowercased())_\(novel.link)",
                                 extensionPackageId: extensionPackageId,
                                 detailUrl: novel.link,
                                 sourceName: sourceName,
@@ -86,17 +86,6 @@ struct SuggestRowView: View {
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 4)
-            }
-        }
-        .fullScreenCover(item: $selectedDetailRoute) { route in
-            NavigationStack {
-                BookDetailView(
-                    bookId: route.bookId,
-                    extensionPackageId: route.extensionPackageId,
-                    initialDetailUrl: route.detailUrl,
-                    sourceName: route.sourceName,
-                    initialHost: route.host
-                )
             }
         }
         .task {

@@ -72,8 +72,12 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 ## Reader full-screen presentation events (1.3.192)
 
 * All Reader entry points now present via `.fullScreenCover(item:)` instead of a `NavigationLink`/`navigationDestination` push: `ShelfView` (shelf & history rows + the `openCurrentlyPlayingReader` widget route → `readerPresentationRoute`), `ShelfSearchView` (`readerRoute`), and `BookDetailView` (`readerRoute`). Each cover wraps `ReaderView` in its own `NavigationStack`; `ReaderView` no longer calls `.toolbar(.hidden, for: .tabBar)`, so the tab bar is never hidden/shown and cannot reappear late on reader dismissal. `@Environment(\.dismiss)` (reader close button, `onSourceChanged`, `ReaderView+LoadingView`) dismisses the cover.
-* `openCurrentlyPlayingReader` (widget) still flows: `MainTabView` switches to `selectedTab = 0`, then `ShelfView` sets `readerPresentationRoute` → cover presents. A reader already open for the book instead receives `navigateReaderToPlayingChapter` as before.
+* `openCurrentlyPlayingReader` (widget) still flows: `MainTabView` switches to `selectedTab = 0`, then `ShelfView` sets `readerRouter.route` (root-level `ReaderRouter`) → cover presents. A reader already open for the book instead receives `navigateReaderToPlayingChapter` as before.
 * `sourceChangedNavigateToShelf` is unchanged: `MainTabView` selects the shelf main tab, `ShelfView` selects the sub-tab, and `ReaderView`/`BookDetailView` dismiss (pop the reader cover / detail) after 0.3s.
+
+## Root presentation hub reader/detail events (1.3.211)
+
+* All Reader entry points (`ShelfView` rows + `openCurrentlyPlayingReader`, `ShelfSearchView`, `BookDetailView.openReader(at:)`) set `readerRouter.route`; all Detail entry points (`ShelfView`, `SearchView`, `DiscoveryView`, `CategoryNovelsListView`, `SuggestRowView`, `ReaderChapterListView`, `ReaderView`, `BookDetailView` import) set `detailRouter.route`. `AppLaunchRootView` owns both routers and presents each via its own root-level `.fullScreenCover(item:)` — same presenter, so Reader/Detail covers stack correctly and back from Reader returns to Detail.
 
 ## Search-history live-suggestion events (1.3.191)
 

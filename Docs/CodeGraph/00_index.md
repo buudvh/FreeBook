@@ -15,6 +15,14 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Root presentation hub for both Reader and Detail — back from Reader returns to Detail (1.3.211)
+
+* `DetailRouter` added in `Sources/Views/BookDetail/BookDetailView.swift` (`final class DetailRouter: ObservableObject { @Published var route: BookDetailRoute? }`), sibling of `ReaderRouter`. `AppLaunchRootView` (`FreeBookApp.swift`) owns `@StateObject detailRouter`, injects `.environmentObject(detailRouter)` and presents `BookDetailView` via a second root-level `.fullScreenCover(item: $detailRouter.route)` wrapped in `NavigationStack`.
+* All 8 detail entry points now set `detailRouter.route` instead of presenting their own covers: `ShelfView` (shelf/history context menus + browser import), `SearchView`, `DiscoveryView` (genre list + browser import), `CategoryNovelsListView`, `SuggestRowView`, `ReaderChapterListView` (cover tap), `ReaderView` (browser import), and `BookDetailView` itself (detail→detail import replaces the old `navigateToImportedBook` cover).
+* All reader entry points now set `readerRouter.route` (the `ShelfReaderRoute` type and its per-view `fullScreenCover`s are removed): `ShelfView` (rows + `openCurrentlyPlayingReader`), `ShelfSearchView`. `ReaderView` keeps `.id(route.id)` on the root cover so switching books re-initializes.
+* Reader and Detail now present from the SAME presenter (`AppLaunchRootView`), so covers stack correctly — closing the Reader returns to the still-presented Detail instead of tearing the whole Detail down (the regression introduced in 1.3.210 where root reader cover sat above a child-view detail cover).
+* `Tests/ReaderRouteTests.swift` rewritten against `ReaderRouterRoute` (the old `ReaderRoute`/`ShelfReaderRoute` types are gone).
+
 ## Reader presented at app root via App-level ReaderRouter — fixes transparent detail screen (1.3.210)
 
 * `ReaderRouter` added: new `Sources/Views/Reader/ReaderRouter.swift` with `ReaderRouterRoute` + `final class ReaderRouter: ObservableObject { @Published var route }`.
@@ -225,7 +233,7 @@ graph TD
 #### Reader/TTS unified pipeline (2026-07)
 
 - `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, compact paragraph IDs, and UTF-16 ranges. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
-- Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
+- Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRouterRoute.chapterIndex` preserves the selected TOC index through navigation.
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - `TTSFloatingWidgetView` now renders a horizontal capsule with circular cover/play/next/close controls. `FloatingWidgetViewModel` persists edge/vertical placement, expands while dragged away from the edge, and peeks as a cover half-disc after idle or edge snapping.

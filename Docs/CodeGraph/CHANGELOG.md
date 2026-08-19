@@ -2,6 +2,17 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.211] - 2026-08-19
+
+### Root presentation hub cho cả Reader và Detail — back từ Reader quay về Detail thay vì thoát Detail
+
+* **Triệu chứng**: hồi quy do [1.3.210] — mở reader từ Chi Tiết rồi bấm back thì **thoát luôn màn Chi Tiết** (thay vì quay về Detail). Khác presenter: reader-cover present từ `AppLaunchRootView` (root) trong khi detail-cover present từ `ShelfView` (view con) → cover ở hai presenter khác nhau không xếp chồng đúng; dismiss reader kéo theo tháo dỡ cover detail.
+* **Pattern đúng (giữ nguyên)**: `ShelfView.openCurrentlyPlayingReader` — reader và detail cùng present từ một presenter thì xếp chồng đúng, back về màn trước. Nested cover từ `BookDetailView` không khả thi (loop đã xác nhận [1.3.205]/[1.3.206]).
+* **Fix – Root presentation hub (Option B)**: `Sources/Views/BookDetail/BookDetailView.swift` thêm `final class DetailRouter: ObservableObject { @Published var route: BookDetailRoute? }` cạnh `BookDetailRoute`. `AppLaunchRootView` (`FreeBookApp.swift`) giữ thêm `@StateObject detailRouter`, inject `.environmentObject(detailRouter)` và present `.fullScreenCover(item: $detailRouter.route)` → `NavigationStack { BookDetailView }` ở tầng root — **cùng presenter** với `ReaderRouter` → Reader/Detail xếp chồng đúng, back từ Reader về Detail.
+* **Detail 8 điểm entry chuyển sang `detailRouter.route`** (xoá toàn bộ `fullScreenCover` local): `ShelfView` (context menu Kệ/Lịch sử + import trình duyệt), `SearchView` (2 điểm), `DiscoveryView` (danh sách + import trình duyệt), `CategoryNovelsListView`, `SuggestRowView`, `ReaderChapterListView` (tap cover, dựng `host` từ `detailUrl`), `ReaderView` (import trong reader), `BookDetailView` (import detail→detail thay cho `navigateToImportedBook`).
+* **Reader 2 điểm entry còn lại chuyển sang `readerRouter.route`**: `ShelfView` (2 hàng + `openCurrentlyPlayingReader`), `ShelfSearchView`. **Xoá** type `ShelfReaderRoute` (bản cũ `id = bookId_chapterIndex_paragraphIndex`), mọi cover reader local. Cover reader root giữ `.id(route.id)` để `openCurrentlyPlayingReader` re-init đúng khi đổi sách.
+* **Không thêm file nguồn mới** → `sourceFileCount` giữ **215** (type `ShelfReaderRoute` được thay bằng `ReaderRouterRoute`; `DetailRouter` đặt chung file `BookDetailView.swift`). `Tests/ReaderRouteTests.swift` viết lại theo `ReaderRouterRoute` (xoá test cũ dùng `ReaderRoute`/`ShelfReaderRoute`). Build/test chỉ kiểm chứng được trên macOS/CI — repo đang mở trên Windows.
+
 ## [1.3.210] - 2026-08-19
 
 ### Reader chuyển sang trình bày ở tầng root (App-level ReaderRouter) — sửa triệt để màn Chi Tiết bị trong suốt

@@ -28,6 +28,7 @@ Các kiểu dữ liệu chính và mối quan hệ sau refactor:
    - `ReaderScrollCoordinator`, `ReaderSelectionCoordinator`: Điều khiển cuộn và menu chọn cho `ReaderView`.
    - `ReaderProgressScheduler`: Lập lịch lưu tiến độ đọc định kỳ cho `ReaderViewModel`.
    - `ReaderRouterRoute` (Identifiable struct, id = `bookId_chapterIndex`) + `ReaderRouter` (`ObservableObject`, `@Published route`): trình bày `ReaderView` ở tầng root của app.
+   - `BookDetailRoute` (Identifiable, Hashable struct, id = `extensionPackageId_detailUrl`) + `DetailRouter` (`ObservableObject`, `@Published route`): trình bày `BookDetailView` ở tầng root của app. Cùng presenter với `ReaderRouter` nên cover xếp chồng đúng.
    - `RepositoryFilterPolicy`: Lọc và sắp xếp danh sách tiện ích trong `RepositoryManagerView`.
    - `BookDetailLoader`: Tải chi tiết và danh sách chương online cho `BookDetailView`.
    - `ExtensionExecutionSnapshot`: Thread-safe copy dữ liệu tiện ích phục vụ thực thi JS cách ly.

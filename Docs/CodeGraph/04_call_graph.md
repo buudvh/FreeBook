@@ -39,9 +39,10 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
    - Lỗi prefetch tạm thời -> `evaluateRefillError(...)` -> task cooldown 1 giây -> `updateNghiPrefetchWindow()`.
    - Lỗi không retry hoặc đủ hai attempt -> đánh dấu index bị block -> chọn ứng viên prefetch khác.
 
-5. **Luồng mở Reader từ màn Chi Tiết (App-level ReaderRouter)**:
-   `BookDetailView.startReading` / `BookDetailView+TOCPreparation` -> `openReader(at:)` -> set `readerRouter.route` (`@EnvironmentObject`)
-   └── `AppLaunchRootView.fullScreenCover(item: $readerRouter.route)` -> `NavigationStack { ReaderView }` (root-level cover)
+5. **Luồng mở Reader/Detail từ root presentation hub (DetailRouter/ReaderRouter)**:
+   `ShelfView` / `ShelfSearchView` / `BookDetailView+TOCPreparation` -> set `readerRouter.route` (`@EnvironmentObject`)
+   └── `AppLaunchRootView.fullScreenCover(item: $readerRouter.route)` -> `NavigationStack { ReaderView.id(route.id) }` (root-level cover)
    - Đóng reader: `ReaderView.closeReader()` -> fallback `dismiss()` -> `fullScreenCover(item:)` tự set `readerRouter.route = nil`.
-   - `ShelfView` / `ShelfSearchView` vẫn present `ReaderView` bằng `fullScreenCover` riêng của chúng (không qua `ReaderRouter`).
+   - Mở Detail: `ShelfView` / `SearchView` / `DiscoveryView` / `CategoryNovelsListView` / `SuggestRowView` / `ReaderView` / `ReaderChapterListView` / `BookDetailView` -> set `detailRouter.route` -> `AppLaunchRootView.fullScreenCover(item: $detailRouter.route)` -> `NavigationStack { BookDetailView }`.
+   - Reader và Detail present từ CÙNG presenter (AppLaunchRootView) nên cover xếp chồng đúng — back từ Reader quay về Detail, không thoát hẳn.
 <!-- GENERATED END -->

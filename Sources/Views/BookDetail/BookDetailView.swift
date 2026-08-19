@@ -18,10 +18,15 @@ public struct BookDetailRoute: Identifiable, Hashable {
     }
 }
 
+final class DetailRouter: ObservableObject {
+    @Published var route: BookDetailRoute?
+}
+
 struct BookDetailView: View {
     @Environment(\.modelContext) internal var modelContext
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var readerRouter: ReaderRouter
+    @EnvironmentObject private var detailRouter: DetailRouter
     @Query private var allBooks: [Book]
     @Query private var allExtensions: [Extension]
 
@@ -91,7 +96,6 @@ struct BookDetailView: View {
     @State private var importedDetailUrl = ""
     @State private var importedSourceName = ""
     @State private var importedHost = ""
-    @State private var navigateToImportedBook = false
     @State internal var chapterSearchQuery = ""
 
     // Quản lý tác vụ tải/xuất
@@ -197,7 +201,13 @@ struct BookDetailView: View {
                         importedHost = ""
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        navigateToImportedBook = true
+                        detailRouter.route = BookDetailRoute(
+                            bookId: importedBookId,
+                            extensionPackageId: importedExtensionPackageId,
+                            detailUrl: importedDetailUrl,
+                            sourceName: importedSourceName,
+                            host: importedHost
+                        )
                     }
                 }
                 ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
@@ -296,17 +306,6 @@ struct BookDetailView: View {
         .onChange(of: isTranslationEnabled) { _, _ in
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
-        }
-        .fullScreenCover(isPresented: $navigateToImportedBook) {
-            NavigationStack {
-                BookDetailView(
-                    bookId: importedBookId,
-                    extensionPackageId: importedExtensionPackageId,
-                    initialDetailUrl: importedDetailUrl,
-                    sourceName: importedSourceName,
-                    initialHost: importedHost
-                )
-            }
         }
     }
 

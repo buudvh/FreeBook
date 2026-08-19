@@ -160,6 +160,7 @@ struct ReaderView: View {
     @State internal var showingJunkDeleteSheet = false
     @State internal var junkPatternInput = ""
     @State internal var showingJunkFilterManagerSheet = false
+    @EnvironmentObject private var detailRouter: DetailRouter
 
     // Trạng thái bypass Cloudflare và import sách
     @State internal var showingBypassBrowser = false
@@ -169,7 +170,6 @@ struct ReaderView: View {
     @State private var importedDetailUrl = ""
     @State private var importedSourceName = ""
     @State private var importedHost = ""
-    @State private var navigateToBookDetail = false
     @State private var navigateToChangeSource = false
 
     // Reader chỉ quan sát projection TTS cần để render; manager singleton vẫn xử lý action.
@@ -701,7 +701,13 @@ struct ReaderView: View {
                     showingBypassBrowser = false
                     ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        navigateToBookDetail = true
+                        detailRouter.route = BookDetailRoute(
+                            bookId: importedBookId,
+                            extensionPackageId: importedExtensionPackageId,
+                            detailUrl: importedDetailUrl,
+                            sourceName: importedSourceName,
+                            host: importedHost
+                        )
                     }
                 }
             )
@@ -710,17 +716,6 @@ struct ReaderView: View {
             BypassWebView(
                 urlString: route.urlString
             )
-        }
-        .fullScreenCover(isPresented: $navigateToBookDetail) {
-            NavigationStack {
-                BookDetailView(
-                    bookId: importedBookId,
-                    extensionPackageId: importedExtensionPackageId,
-                    initialDetailUrl: importedDetailUrl,
-                    sourceName: importedSourceName,
-                    initialHost: importedHost
-                )
-            }
         }
         .background(
             Group {

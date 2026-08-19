@@ -94,7 +94,7 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 * `ChapterDocument` is created once by `ChapterContentRepository`; Reader and TTS builders must consume its normalized lines without re-splitting or re-numbering.
 * TTS chunks may split a line but must retain the parent `ChapterTextLine.id`; replacement output must be non-empty before extension synthesis.
 * TTS owns progress while playing. Reader snapshots are ignored during TTS ownership and all checkpoints flush through `ReadingProgressStore` off the MainActor.
-* TOC navigation carries an immutable `ReaderRoute.chapterIndex`; filtering and sorting must never convert an original chapter index into a filtered-row offset.
+* TOC navigation carries an immutable `ReaderRouterRoute.chapterIndex`; filtering and sorting must never convert an original chapter index into a filtered-row offset.
 * `ChapterContentRepository` is the only chapter-content loader: memory -> SwiftData -> extension. Non-empty normalized content read via `BookBinManager` based on `Chapter.offset`, `Chapter.length`, and `Chapter.isCached` is authoritative. The production `Chapter` model does not store the text content directly in the database.
 * **Sandbox File Security**: All operations on physical files (like cover images or chapter `.bin` files) must perform security validation (`validatePathSafety(for:)`) to ensure files are located inside the application support directory, preventing path traversal attacks.
 * **Atomic Database-First Deletion**: When deleting a book, the database model modifications must be committed (via `ModelContext.save()`) successfully before starting the background cleaning task of physical files on a detached background thread.

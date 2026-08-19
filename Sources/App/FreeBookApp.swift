@@ -44,6 +44,7 @@ struct AppLaunchRootView: View {
     @StateObject private var ttsPresentation = TTSRootPresentationReader()
     @StateObject private var browserPresentation = VisibleBrowserPresentationReader()
     @StateObject private var readerRouter = ReaderRouter()
+    @StateObject private var detailRouter = DetailRouter()
 
     var body: some View {
         ZStack {
@@ -65,6 +66,7 @@ struct AppLaunchRootView: View {
         }
         .globalToast()
         .environmentObject(readerRouter)
+        .environmentObject(detailRouter)
         .fullScreenCover(item: $readerRouter.route) { route in
             NavigationStack {
                 ReaderView(
@@ -79,6 +81,18 @@ struct AppLaunchRootView: View {
                     bookDetailUrl: route.bookDetailUrl,
                     bookSourceName: route.bookSourceName,
                     initialParagraphIndex: route.initialParagraphIndex
+                )
+                .id(route.id)
+            }
+        }
+        .fullScreenCover(item: $detailRouter.route) { route in
+            NavigationStack {
+                BookDetailView(
+                    bookId: route.bookId,
+                    extensionPackageId: route.extensionPackageId,
+                    initialDetailUrl: route.detailUrl,
+                    sourceName: route.sourceName,
+                    initialHost: route.host
                 )
             }
         }

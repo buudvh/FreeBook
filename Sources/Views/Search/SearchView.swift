@@ -16,12 +16,12 @@ struct SearchView: View {
     let onSourceChanged: (() -> Void)?
     
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var detailRouter: DetailRouter
     
     @State private var changeSourceTargetResult: ExtensionItemResult? = nil
     @State private var changeSourceTargetExtension: Extension? = nil
     @State private var showingChangeSourceAlert = false
     @State private var isChangingSource = false
-    @State private var selectedDetailRoute: BookDetailRoute? = nil
     
     @State private var searchQuery = ""
     @State private var isSearching = false
@@ -158,16 +158,6 @@ struct SearchView: View {
             } else {
                 Text("Bạn có chắc chắn muốn thay đổi nguồn cho truyện sang '\(extName)' không?\nSách cũ trên kệ sẽ bị xóa và các cài đặt dịch riêng, từ điển riêng cũng như tiến độ đọc chương sẽ được chuyển qua sách mới.")
             }
-        }
-        .fullScreenCover(item: $selectedDetailRoute) { route in
-            NavigationStack {
-                BookDetailView(
-                    bookId: route.bookId,
-                    extensionPackageId: route.extensionPackageId,
-                    initialDetailUrl: route.detailUrl,
-                    sourceName: route.sourceName,
-                    initialHost: route.host
-                )
             }
         }
     }
@@ -351,7 +341,7 @@ struct SearchView: View {
                                                             .buttonStyle(.plain)
                                                         } else {
                                                             Button {
-                                                                selectedDetailRoute = BookDetailRoute(
+                                                                detailRouter.route = BookDetailRoute(
                                                                     bookId: "\(ext.name.lowercased())_\(result.link)",
                                                                     extensionPackageId: ext.packageId,
                                                                     detailUrl: result.link,
@@ -453,7 +443,7 @@ struct SearchView: View {
                 .buttonStyle(.plain)
             } else {
                 Button {
-                    selectedDetailRoute = BookDetailRoute(
+                    detailRouter.route = BookDetailRoute(
                         bookId: "\(item.ext.name.lowercased())_\(item.result.link)",
                         extensionPackageId: item.ext.packageId,
                         detailUrl: item.result.link,

@@ -59,7 +59,7 @@ public struct ReaderChapterListView: View {
     }
 
     @Environment(\.modelContext) private var modelContext
-    @State private var showingBookDetail = false
+    @EnvironmentObject private var detailRouter: DetailRouter
     @State private var searchQuery = ""
     @State private var isAscending = true
     @State internal var isUpdating = false
@@ -120,7 +120,23 @@ public struct ReaderChapterListView: View {
     private var header: some View {
         VStack(spacing: 8) {
             HStack(alignment: .top, spacing: 12) {
-                Button(action: { showingBookDetail = true }) {
+                Button(action: {
+                    if let detailUrl = bookDetailUrl, let ext {
+                        let host: String
+                        if let url = URL(string: detailUrl), let scheme = url.scheme, let urlHost = url.host {
+                            host = "\(scheme)://\(urlHost)"
+                        } else {
+                            host = ""
+                        }
+                        detailRouter.route = BookDetailRoute(
+                            bookId: bookId,
+                            extensionPackageId: ext.packageId,
+                            detailUrl: detailUrl,
+                            sourceName: ext.name,
+                            host: host
+                        )
+                    }
+                }) {
                     BookCoverView(
                         bookId: bookId,
                         coverUrl: metadataCoverUrl,
@@ -131,18 +147,6 @@ public struct ReaderChapterListView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(bookDetailUrl == nil || ext == nil)
-                .fullScreenCover(isPresented: $showingBookDetail) {
-                    if let detailUrl = bookDetailUrl, let ext {
-                        NavigationStack {
-                            BookDetailView(
-                                bookId: bookId,
-                                extensionPackageId: ext.packageId,
-                                initialDetailUrl: detailUrl,
-                                sourceName: ext.name
-                            )
-                        }
-                    }
-                }
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(metadataTitle)

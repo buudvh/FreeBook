@@ -9,6 +9,7 @@ struct ExtensionBrowserTarget: Identifiable {
 
 struct DiscoveryView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var detailRouter: DetailRouter
     @Query private var allExtensions: [Extension]
     
     // Nhớ Extension và Home tab cuối cùng đã xem
@@ -57,7 +58,6 @@ struct DiscoveryView: View {
     @State private var importedDetailUrl: String = ""
     @State private var importedSourceName: String = ""
     @State private var importedHost: String = ""
-    @State private var navigateToImportedBook = false
     
     // Trình duyệt trang chủ extension (item-based để khởi tạo đúng lúc, tránh URL rỗng)
     @State private var headerBrowserTarget: ExtensionBrowserTarget? = nil
@@ -406,7 +406,13 @@ struct DiscoveryView: View {
                         } else {
                             importedHost = ""
                         }
-                        navigateToImportedBook = true
+                        detailRouter.route = BookDetailRoute(
+                            bookId: importedBookId,
+                            extensionPackageId: importedExtensionPackageId,
+                            detailUrl: importedDetailUrl,
+                            sourceName: importedSourceName,
+                            host: importedHost
+                        )
                     }
                 )
             }
@@ -426,21 +432,16 @@ struct DiscoveryView: View {
                         headerBrowserTarget = nil
                         ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            navigateToImportedBook = true
+                            detailRouter.route = BookDetailRoute(
+                                bookId: importedBookId,
+                                extensionPackageId: importedExtensionPackageId,
+                                detailUrl: importedDetailUrl,
+                                sourceName: importedSourceName,
+                                host: importedHost
+                            )
                         }
                     }
                 )
-            }
-            .fullScreenCover(isPresented: $navigateToImportedBook) {
-                NavigationStack {
-                    BookDetailView(
-                        bookId: importedBookId,
-                        extensionPackageId: importedExtensionPackageId,
-                        initialDetailUrl: importedDetailUrl,
-                        sourceName: importedSourceName,
-                        initialHost: importedHost
-                    )
-                }
             }
             .navigationDestination(isPresented: $navigateToGenre) {
                 if let genre = selectedGenre {
@@ -537,7 +538,6 @@ struct DiscoveryCategoryTabView: View {
 
     @StateObject private var loader: PaginatedNovelLoader
     @State private var initialLoadTask: Task<Void, Never>? = nil
-    @State private var selectedDetailRoute: BookDetailRoute? = nil
 
     init(
         category: CategoryResult,
@@ -607,7 +607,7 @@ struct DiscoveryCategoryTabView: View {
                 List {
                     ForEach(loader.novels) { novel in
                         Button {
-                            selectedDetailRoute = BookDetailRoute(
+                            detailRouter.route = BookDetailRoute(
                                 bookId: "\(sourceName.lowercased())_\(novel.link)",
                                 extensionPackageId: extensionPackageId,
                                 detailUrl: novel.link,
@@ -638,17 +638,6 @@ struct DiscoveryCategoryTabView: View {
                 .refreshable {
                     await loader.reload()
                 }
-            }
-        }
-        .fullScreenCover(item: $selectedDetailRoute) { route in
-            NavigationStack {
-                BookDetailView(
-                    bookId: route.bookId,
-                    extensionPackageId: route.extensionPackageId,
-                    initialDetailUrl: route.detailUrl,
-                    sourceName: route.sourceName,
-                    initialHost: route.host
-                )
             }
         }
         .onAppear {
