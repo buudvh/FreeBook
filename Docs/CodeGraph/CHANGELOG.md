@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.209] - 2026-08-19
+
+### Sửa layout reader bị tràn màn hình sau ZStack overlay: gỡ `.ignoresSafeArea()` khỏi wrapper overlay
+
+* **Triệu chứng** (`app_logs (152).txt`): loop vẫn hết, nhưng từ chi tiết vào reader thì top-chrome (back/reload/toggle scroll/dropdown) mất hút sau tai thỏ, nội dung trông "phóng to" tràn đầy màn hình, phần bottom chạm sát mép dưới. Fix [1.3.208] (ẩn nav bar detail) không giải quyết.
+* **Gốc rễ** (điều tra lại): `.ignoresSafeArea()` áp lên **wrapper overlay** `NavigationStack { ReaderView }` trong `BookDetailView` (thêm từ [1.3.207], dòng 199) khiến **toàn bộ reader bỏ qua safe area** → `GeometryReader` (`ReaderView.swift:316`) trả `safeAreaInsets = 0` → header VStack (`ReaderHeaderFooterOverlayView:40`) đặt nút ở y=0 (sau tai thỏ), content chạy xuống mép dưới (sát home indicator), text trải đầy màn hình. Trước đây reader là `fullScreenCover` nên SwiftUI vẫn báo safe-area đúng → chrome nằm đúng chỗ. Nav bar detail chỉ là tác nhân phụ, không phải thủ phạm chính.
+* **Fix**: **gỡ `.ignoresSafeArea()` khỏi wrapper overlay** (`BookDetailView.swift`). Giữ nguyên `.toolbar(readerRoute == nil ? .visible : .hidden, for: .navigationBar)` ([1.3.208]) để không hiện nav bar detail trên reader. Khi đó reader nằm trong vùng content full screen (nav bar đã ẩn), `GeometryReader` trả safe-area đúng (tai thỏ + home indicator) → top-chrome hiện dưới status bar, bottom cách mép đúng chuẩn, text không tràn — khớp layout fullScreenCover cũ. Nền reader vẫn trải full nhờ `.ignoresSafeArea()` sẵn có ở `ReaderView.swift:318` (chỉ áp cho nền, không đụng layout).
+* **Lưu ý hạ tầng**: không thêm/xoá file nguồn; `manifest.json` không đổi `sourceFileCount` (214)/`documentCount` (16); cần `validate_links.py --update-hashes` do hash source thay đổi. Build/test chỉ kiểm chứng được trên macOS/CI — repo đang mở trên Windows.
+
 ## [1.3.208] - 2026-08-19
 
 ### Sửa top-chrome reader bị nav bar màn Chi Tiết che khi mở reader từ chi tiết (hệ quả của overlay ZStack [1.3.207])

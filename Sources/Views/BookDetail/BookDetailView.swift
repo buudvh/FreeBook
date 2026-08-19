@@ -196,7 +196,6 @@ struct BookDetailView: View {
                     )
                 }
                 .id(route.id)
-                .ignoresSafeArea()
                 .transition(.move(edge: .trailing))
                 .zIndex(20)
             }
