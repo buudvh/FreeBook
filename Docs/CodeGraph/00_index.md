@@ -15,12 +15,6 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Modern Reader chapter list bottom sheet presentation (1.3.215)
-
-* `ReaderView` presents `ReaderChapterListView` via native SwiftUI `.sheet(isPresented: $showingChapterList)` with `.presentationDetents([.fraction(0.85), .large])`, `.presentationDragIndicator(.visible)`, and `.presentationBackground(selectedTheme.backgroundColor)`.
-* Replaced custom ZStack overlay `readerChapterListOverlay` and custom drag handle `Capsule()` with native sheet gestures while preserving lazy/paged loading, search filtering, sorting, refresh, and accessibility escape.
-* `ReaderChapterListStore` exposes `activeSearchQuery` (internal) to restore search state seamlessly across sheet mount/unmount cycles; `ReaderChapterListView` explicitly cancels `deferredVisiblePageTask` in `onDisappear`.
-
 ## Badge tên nguồn (extension / Local) trong danh sách chương Reader và BookListItemView (1.3.214)
 
 * `ReaderChapterListView.header` hiển thị thêm badge pill xanh bên cạnh dòng `"N chương"`: sách local (`isLocalTXTBook`) hiện `"Local"`, sách online hiện `ext.name` (khi `ext != nil` và name không rỗng). Giữ nguyên `Spacer(minLength: 4)` và nút refresh/sort.

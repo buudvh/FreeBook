@@ -15,11 +15,6 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Reader chapter list bottom sheet presentation events (1.3.215)
-
-* `ReaderView`: `onOpenChapterList` verifies `getOrInitChapterListStore() != nil` before toggling `showingChapterList = true`, presenting `ReaderChapterListView` via native `.sheet(isPresented:)`.
-* `ReaderChapterListView`: `init` reads `store.isAscending` and `store.activeSearchQuery` to restore view state without search race conditions. Sheet dismissal automatically triggers `.onDisappear` which cancels `deferredVisiblePageTask`.
-
 ## Script editor syntax checking and searchable file selection events (1.3.200)
 
 * `ExtensionScriptEditorView`:

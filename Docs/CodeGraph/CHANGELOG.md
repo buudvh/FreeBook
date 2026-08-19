@@ -2,15 +2,6 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-## [1.3.215] - 2026-08-19
-
-### Modern Reader chapter list bottom sheet presentation
-
-* **Phạm vi**: Chuyển đổi container trình bày danh sách chương trong `ReaderView` từ custom ZStack overlay sang modern SwiftUI bottom sheet (`.sheet(isPresented:)`).
-* **`Sources/Services/ChapterText/ReaderChapterListStore.swift`**: Thêm read-only internal property `var activeSearchQuery: String { currentSearchQuery }` giúp khôi phục từ khóa tìm kiếm mà không làm mở rộng Public API.
-* **`Sources/Views/Reader/ReaderView.swift`**: Thay `readerChapterListOverlay(in:)` bằng `.sheet(isPresented: $showingChapterList)` cấu hình `.presentationDetents([.fraction(0.85), .large])`, `.presentationDragIndicator(.visible)` và `.presentationBackground(selectedTheme.backgroundColor)`. Handler `onOpenChapterList` bổ sung guard `if getOrInitChapterListStore() != nil` trước khi mở sheet.
-* **`Sources/Views/Reader/ReaderChapterListView.swift`**: Khởi tạo `@State private var isAscending` và `@State private var searchQuery` từ `store` khi mount. Quản lý `chapterPositioningTask` và `deferredVisiblePageTask` dưới dạng `@State Task` handles, kiểm tra `!Task.isCancelled` trước khi scroll/mutate state, và cancel + nil cả 2 task trong `.onDisappear`. Xóa `Capsule()` 5pt và `dismissGesture` ở header, giữ nguyên `.accessibilityAction(.escape)`.
-
 ## [1.3.214] - 2026-08-19
 
 ### Badge tên nguồn (extension / Local) trong Reader danh sách chương và BookListItemView

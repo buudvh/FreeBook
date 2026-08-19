@@ -16,8 +16,6 @@ public final class ReaderChapterListStore {
     private let searchCoordinator = ChapterListSearchCoordinator()
     private var currentSearchQuery = ""
 
-    var activeSearchQuery: String { currentSearchQuery }
-
     public let bookId: String
     internal let modelContext: ModelContext?
     internal var onlineChapters: [ChapterResult] = []

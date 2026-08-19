@@ -15,12 +15,6 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Reader chapter list bottom sheet presentation lifecycle (1.3.215)
-
-* `ReaderView` presents `ReaderChapterListView` using native `.sheet(isPresented: $showingChapterList)`. `onOpenChapterList` validates `getOrInitChapterListStore() != nil` before setting `showingChapterList = true`, ensuring no empty sheet is presented.
-* When the sheet is dismissed, `ReaderChapterListView` deinitializes, and its `.onDisappear` explicitly cancels both `chapterPositioningTask` and `deferredVisiblePageTask` (with `!Task.isCancelled` guarded before UI scrolling and state mutations).
-* `ReaderChapterListStore` remains owned by `ReaderView` across sheet appearances, retaining `loadedRowStates`, `isAscending`, and `activeSearchQuery`. Re-opening the sheet restores search query and sort order, and triggers `scrollToCurrentChapter` for an intentional chapter jump to the currently reading chapter.
-
 ## TTS floating widget and Toast window lifecycle (1.3.195)
 
 * `TTSFloatingWidgetWindowManager` binds `FloatingWidgetUIWindow` to the active `UIWindowScene` on scene activation or app foreground. The window is non-key at all times, with visibility controlled strictly via `isHidden = false/true`. The app's `ModelContainer` is injected into the window's hosting controller and sheets, enabling SwiftData queries.

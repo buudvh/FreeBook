@@ -56,8 +56,6 @@ public struct ReaderChapterListView: View {
         self.onSelectChapter = onSelectChapter
         self.onClose = onClose
         self.onLocalTOCRefreshed = onLocalTOCRefreshed
-        self._isAscending = State(initialValue: store.isAscending)
-        self._searchQuery = State(initialValue: store.activeSearchQuery)
     }
 
     @Environment(\.modelContext) private var modelContext
@@ -69,7 +67,6 @@ public struct ReaderChapterListView: View {
     @State private var isPositioningInitialChapter = true
     @State private var displayTitleCache: [Int: String] = [:]
     @State private var deferredVisiblePageTask: Task<Void, Never>? = nil
-    @State private var chapterPositioningTask: Task<Void, Never>? = nil
 
     private var metadataTitle: String {
         let original = firstNonempty(localBook?.title, bookTitle) ?? "FreeBook"
@@ -122,6 +119,11 @@ public struct ReaderChapterListView: View {
 
     private var header: some View {
         VStack(spacing: 8) {
+            Capsule()
+                .fill(theme.textColor.opacity(0.3))
+                .frame(width: 36, height: 5)
+                .accessibilityHidden(true)
+
             HStack(alignment: .top, spacing: 12) {
                 Button(action: { showingBookDetail = true }) {
                     BookCoverView(
@@ -224,6 +226,20 @@ public struct ReaderChapterListView: View {
         .padding(.top, 8)
         .padding(.bottom, 10)
         .background(theme.backgroundColor)
+        .contentShape(Rectangle())
+        .simultaneousGesture(dismissGesture)
+    }
+
+    private var dismissGesture: some Gesture {
+        DragGesture(minimumDistance: 16)
+            .onEnded { value in
+                let horizontalDistance = abs(value.translation.width)
+                let verticalDistance = value.translation.height
+                if verticalDistance >= 72,
+                   verticalDistance >= horizontalDistance * 1.25 {
+                    onClose()
+                }
+            }
     }
 
     private func firstNonempty(_ primary: String?, _ fallback: String?) -> String? {
@@ -318,16 +334,7 @@ public struct ReaderChapterListView: View {
                 store.performSearch(query: newValue)
             }
             .onAppear {
-                if !searchQuery.isEmpty && store.searchResults.isEmpty {
-                    store.performSearch(query: searchQuery)
-                }
                 scrollToCurrentChapter(proxy: proxy)
-            }
-            .onDisappear {
-                chapterPositioningTask?.cancel()
-                chapterPositioningTask = nil
-                deferredVisiblePageTask?.cancel()
-                deferredVisiblePageTask = nil
             }
             .onChange(of: isPresented) { _, presented in
                 if presented {
@@ -364,10 +371,8 @@ public struct ReaderChapterListView: View {
 
     private func scrollToCurrentChapter(proxy: ScrollViewProxy) {
         guard isPresented else { return }
-        chapterPositioningTask?.cancel()
-        chapterPositioningTask = Task {
+        Task {
             let displayPosition = await store.jumpToChapter(index: currentChapterIndex)
-            guard !Task.isCancelled else { return }
             if let item = store.item(at: displayPosition) {
                 proxy.scrollTo(item.index, anchor: .center)
             }
