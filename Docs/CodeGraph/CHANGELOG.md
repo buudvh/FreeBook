@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.208] - 2026-08-19
+
+### Sửa top-chrome reader bị nav bar màn Chi Tiết che khi mở reader từ chi tiết (hệ quả của overlay ZStack [1.3.207])
+
+* **Triệu chứng**: từ chi tiết vào reader, các nút top-chrome của reader (back, reload, toggle scroll theo highlight, dropdown option) chỉ lộ một góc nhỏ ở vùng tai thỏ, không bấm được. Loop reader đã hết (xác nhận qua `app_logs (151).txt`: chỉ 1 `[ReaderBootstrap]`, không còn `reader_disappear` spam).
+* **Gốc rễ**: sau khi chuyển reader sang ZStack overlay ([1.3.207]), `BookDetailView` vẫn nằm trong `NavigationStack` của `ShelfView` với nav bar "Chi Tiết Truyện" (`.navigationBarTitleDisplayMode(.inline)` + `.navigationTitle`). Overlay reader có `.ignoresSafeArea()` trải full screen nên top-chrome (`ReaderHeaderFooterOverlayView` dòng 42-72: back/scroll/reload) nằm ngay safe-area top (~59pt) — **sau nav bar detail**, nav bar là layer riêng vẽ lên trên → che phần lớn nút, chỉ lộ góc ở 2 bên Dynamic Island và chặn hit-test.
+* **Fix**: ẩn nav bar của `BookDetailView` trong khi reader mở, hiện lại khi đóng: thêm `.toolbar(readerRoute == nil ? .visible : .hidden, for: .navigationBar)` vào chuỗi modifier body root (`BookDetailView.swift`). Reader full screen, top-chrome hiển thị nguyên vẹn và bấm được — giống hệt khi mở reader từ shelf (fullScreenCover). Nút back của detail tạm ẩn cùng nav bar nhưng không ảnh hưởng vì reader đã có nút back riêng (`onCloseReader` → `readerRoute = nil`).
+* **Lưu ý hạ tầng**: không thêm/xoá file nguồn; `manifest.json` không đổi `sourceFileCount` (214)/`documentCount` (16); cần `validate_links.py --update-hashes` do hash source thay đổi. Build/test chỉ kiểm chứng được trên macOS/CI — repo đang mở trên Windows.
+
 ## [1.3.207] - 2026-08-19
 
 ### Sửa triệt để vòng lặp tạo lại ReaderView + màn Chi Tiết bị trong suốt (thay fullScreenCover reader bằng ZStack overlay)

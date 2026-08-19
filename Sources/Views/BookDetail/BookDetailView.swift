@@ -231,6 +231,7 @@ struct BookDetailView: View {
                 ToastManager.shared.show(message: "Đã hoàn tất tải các chương!", type: .success)
             }
         )
+        .toolbar(readerRoute == nil ? .visible : .hidden, for: .navigationBar)
     }
 
     @ViewBuilder
