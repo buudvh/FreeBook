@@ -11,6 +11,7 @@ enum ReaderParagraphBuilder {
         originalTitle: String,
         normalizedText: NormalizedChapterText,
         isTranslationEnabled: Bool,
+        shouldConvertTraditionalToSimplified: Bool = false,
         showTitle: Bool,
         removeDuplicatedTitle: Bool,
         bookId: String
@@ -25,7 +26,11 @@ enum ReaderParagraphBuilder {
 
         let titleResult: TranslatedTextResult
         if isTranslationEnabled && TranslateUtils.containsChinese(originalTitle) {
-            titleResult = TranslateUtils.translateChapterTitleWithMapping(originalTitle, bookId: bookId)
+            titleResult = TranslateUtils.translateChapterTitleWithMapping(
+                originalTitle,
+                bookId: bookId,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+            )
         } else {
             titleResult = TranslateUtils.untranslatedTextResult(originalTitle)
         }
@@ -34,7 +39,11 @@ enum ReaderParagraphBuilder {
             guard isTranslationEnabled && TranslateUtils.containsChinese(line.text) else {
                 return TranslateUtils.untranslatedTextResult(line.text)
             }
-            return TranslateUtils.translateContentWithMapping(line.text, bookId: bookId)
+            return TranslateUtils.translateContentWithMapping(
+                line.text,
+                bookId: bookId,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+            )
         }
 
         var items: [ParagraphItem] = []

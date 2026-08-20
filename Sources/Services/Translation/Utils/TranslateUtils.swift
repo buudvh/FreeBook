@@ -3,6 +3,7 @@ import Foundation
 public final class TranslateUtils {
     
     private static let translationCache = NSCache<NSString, NSString>()
+    private static let traditionalToSimplifiedTransform = StringTransform("Traditional-Simplified")
     private static let cacheLock = NSLock()
     private static let tocRulesLock = NSLock()
     private static var globalGeneration: Int = 0
@@ -200,8 +201,18 @@ public final class TranslateUtils {
         return DisplayTextFormatter.titleCase(combined)
     }
     
-    public static func translateMeta(_ text: String?, bookId: String? = nil) -> String {
-        return translateText(text, isMeta: true, bookId: bookId)
+    public static func translateMeta(
+        _ text: String?,
+        bookId: String? = nil,
+        shouldConvertTraditionalToSimplified: Bool = false
+    ) -> String {
+        let translationInput = text.map {
+            textForTranslation(
+                $0,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+            )
+        }
+        return translateText(translationInput, isMeta: true, bookId: bookId)
     }
 
     public static func translateBookTitleIfNeeded(_ title: String, bookId: String? = nil) -> String {
@@ -209,25 +220,63 @@ public final class TranslateUtils {
         return translateMeta(title, bookId: bookId)
     }
     
-    public static func translateContent(_ text: String?, bookId: String? = nil) -> String {
-        return translateText(text, isMeta: false, bookId: bookId)
+    public static func translateContent(
+        _ text: String?,
+        bookId: String? = nil,
+        shouldConvertTraditionalToSimplified: Bool = false
+    ) -> String {
+        let translationInput = text.map {
+            textForTranslation(
+                $0,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+            )
+        }
+        return translateText(translationInput, isMeta: false, bookId: bookId)
     }
 
-    public static func translateContentWithMapping(_ text: String?, bookId: String? = nil) -> TranslatedTextResult {
+    public static func translateContentWithMapping(
+        _ text: String?,
+        bookId: String? = nil,
+        shouldConvertTraditionalToSimplified: Bool = false
+    ) -> TranslatedTextResult {
         let original = text ?? ""
-        let translated = translateContent(original, bookId: bookId)
+        let translationInput = textForTranslation(
+            original,
+            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+        )
+        let translated = translateContent(translationInput, bookId: bookId)
         return TranslatedTextResult(
             text: translated,
-            spans: buildTranslationSpans(original: original, translated: translated, bookId: bookId)
+            spans: translationInput.utf16.count == original.utf16.count
+                ? buildTranslationSpans(original: translationInput, translated: translated, bookId: bookId)
+                : []
         )
     }
 
-    public static func translateChapterTitleWithMapping(_ text: String, bookId: String? = nil) -> TranslatedTextResult {
-        let translated = translateChapterTitle(text, bookId: bookId)
+    public static func translateChapterTitleWithMapping(
+        _ text: String,
+        bookId: String? = nil,
+        shouldConvertTraditionalToSimplified: Bool = false
+    ) -> TranslatedTextResult {
+        let translationInput = textForTranslation(
+            text,
+            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+        )
+        let translated = translateChapterTitle(translationInput, bookId: bookId)
         return TranslatedTextResult(
             text: translated,
-            spans: buildTranslationSpans(original: text, translated: translated, bookId: bookId)
+            spans: translationInput.utf16.count == text.utf16.count
+                ? buildTranslationSpans(original: translationInput, translated: translated, bookId: bookId)
+                : []
         )
+    }
+
+    private static func textForTranslation(
+        _ text: String,
+        shouldConvertTraditionalToSimplified: Bool
+    ) -> String {
+        guard shouldConvertTraditionalToSimplified else { return text }
+        return text.applyingTransform(traditionalToSimplifiedTransform, reverse: false) ?? text
     }
 
     public static func untranslatedTextResult(_ text: String) -> TranslatedTextResult {
@@ -238,8 +287,16 @@ public final class TranslateUtils {
         return TranslatedTextResult(text: text, spans: spans)
     }
     
-    public static func translateChapterTitle(_ text: String, bookId: String? = nil) -> String {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    public static func translateChapterTitle(
+        _ text: String,
+        bookId: String? = nil,
+        shouldConvertTraditionalToSimplified: Bool = false
+    ) -> String {
+        let trimmed = textForTranslation(
+            text,
+            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+        )
+        .trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return "" }
         
         let bid = bookId ?? "global"

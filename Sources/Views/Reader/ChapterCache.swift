@@ -62,6 +62,7 @@ public class CachedChapter: Identifiable {
     public var isPositionRestored: Bool = false
     public var revision: Int = 0
     public var isTranslationEnabled: Bool = false
+    public var shouldConvertTraditionalToSimplified: Bool = false
     public var translationToken: Int = 0
 
     public init(index: Int) {

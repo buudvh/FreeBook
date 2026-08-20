@@ -22,6 +22,7 @@ public actor TTSBackgroundProcessor {
         rawContent: String,
         chunkLength: Int,
         shouldTranslateRawContent: Bool,
+        shouldConvertTraditionalToSimplified: Bool = false,
         includeChapterTitle: Bool,
         removeDuplicatedTitle: Bool,
         sessionID: UUID,
@@ -52,6 +53,7 @@ public actor TTSBackgroundProcessor {
         let currentToken = TranslateUtils.translationGenerationToken(for: bookId)
         if let snapshot = snapshot,
            snapshot.isTranslationEnabled == shouldTranslateRawContent,
+           snapshot.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified,
            snapshot.translationToken == currentToken,
            snapshot.entries.count == lines.count,
            zip(snapshot.entries, lines).allSatisfy({ $0.0.lineId == $0.1.id && $0.0.originalText == $0.1.text }) {
@@ -60,7 +62,11 @@ public actor TTSBackgroundProcessor {
         } else if shouldTranslateRawContent {
             let mapped = lines.map { line -> (TTSLineEntry, (id: Int, text: String)) in
                 if TranslateUtils.containsChinese(line.text) {
-                    let result = TranslateUtils.translateContentWithMapping(line.text, bookId: bookId)
+                    let result = TranslateUtils.translateContentWithMapping(
+                        line.text,
+                        bookId: bookId,
+                        shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+                    )
                     let entry = TTSLineEntry(lineId: line.id, originalText: line.text, translatedText: result.text, spans: result.spans)
                     return (entry, (id: line.id, text: result.text))
                 } else {
@@ -77,7 +83,11 @@ public actor TTSBackgroundProcessor {
 
         let processedTitle: String
         if !chapterTitle.isEmpty && shouldTranslateRawContent && TranslateUtils.containsChinese(chapterTitle) {
-            processedTitle = TranslateUtils.translateChapterTitle(chapterTitle, bookId: bookId)
+            processedTitle = TranslateUtils.translateChapterTitle(
+                chapterTitle,
+                bookId: bookId,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+            )
         } else {
             processedTitle = chapterTitle
         }

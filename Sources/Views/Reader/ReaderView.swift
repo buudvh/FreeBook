@@ -151,6 +151,7 @@ struct ReaderView: View {
     @AppStorage("isTranslationEnabled") internal var isTranslationEnabled = false // Trạng thái bật/tắt tự động dịch thuật
     @AppStorage("isTranslationPronounsEnabled") internal var isTranslationPronounsEnabled = false // Bật dịch đại từ
     @AppStorage("isTranslationLuatNhanEnabled") internal var isTranslationLuatNhanEnabled = false // Bật dịch luật nhân
+    @State private var shouldConvertTraditionalToSimplified = false
     @AppStorage("readerSelectedTheme") internal var selectedTheme: ReaderTheme = .dark // Theme giao diện đọc (Sáng, Trầm ấm, Tối)
     @AppStorage("readerFontFamily") internal var fontFamily: ReaderFontFamily = .georgia // Phông chữ đọc sách
     @AppStorage("hasOpenedReader") internal var hasOpenedReader = false
@@ -277,7 +278,11 @@ struct ReaderView: View {
         }
 
         return isTranslationEnabled && TranslateUtils.containsChinese(title)
-            ? TranslateUtils.translateChapterTitle(title, bookId: bookId)
+            ? TranslateUtils.translateChapterTitle(
+                title,
+                bookId: bookId,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+            )
             : title
     }
 
@@ -288,7 +293,11 @@ struct ReaderView: View {
         let rawTitle = bookTitle ?? localBook?.title ?? localBookSnapshot?.title ?? ""
         guard !rawTitle.isEmpty else { return "" }
         return isTranslationEnabled && TranslateUtils.containsChinese(rawTitle)
-            ? TranslateUtils.translateChapterTitle(rawTitle, bookId: bookId)
+            ? TranslateUtils.translateChapterTitle(
+                rawTitle,
+                bookId: bookId,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+            )
             : rawTitle
     }
 
@@ -299,7 +308,11 @@ struct ReaderView: View {
             return
         }
         if isTranslationEnabled && TranslateUtils.containsChinese(rawTitle) {
-            cachedDisplayedBookTitle = TranslateUtils.translateChapterTitle(rawTitle, bookId: bookId)
+            cachedDisplayedBookTitle = TranslateUtils.translateChapterTitle(
+                rawTitle,
+                bookId: bookId,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+            )
         } else {
             cachedDisplayedBookTitle = rawTitle
         }
@@ -511,12 +524,13 @@ struct ReaderView: View {
                 isTranslationEnabled: $isTranslationEnabled,
                 isPronounsEnabled: $isTranslationPronounsEnabled,
                 isLuatNhanEnabled: $isTranslationLuatNhanEnabled,
+                shouldConvertTraditionalToSimplified: $shouldConvertTraditionalToSimplified,
                 onOpenJunkFilter: {
                     showingSettings = false
                     showingJunkFilterManagerSheet = true
                 }
             )
-            .presentationDetents([.height(450)])
+            .presentationDetents([.height(500)])
         }
         .sheet(isPresented: $showingJunkFilterManagerSheet) {
             NavigationStack {
@@ -594,7 +608,20 @@ struct ReaderView: View {
         }
         .onChange(of: isTranslationEnabled) { _, newValue in
             applyTranslation()
-            chapterListStore?.updateTranslation(isTranslationEnabled: newValue)
+            chapterListStore?.updateTranslation(
+                isTranslationEnabled: newValue,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+            )
+            scheduleCoalescedTranslationRefresh()
+        }
+        .onChange(of: shouldConvertTraditionalToSimplified) { _, newValue in
+            UserDefaults.standard.set(newValue, forKey: "convertTraditionalToSimplified_\(bookId)")
+            ttsManager.updateTraditionalToSimplifiedSetting(for: bookId, enabled: newValue)
+            viewModel?.setTraditionalToSimplifiedConversion(enabled: newValue)
+            chapterListStore?.updateTranslation(
+                isTranslationEnabled: isTranslationEnabled,
+                shouldConvertTraditionalToSimplified: newValue
+            )
             scheduleCoalescedTranslationRefresh()
         }
         .onChange(of: isTranslationPronounsEnabled) { _, _ in
@@ -627,8 +654,9 @@ struct ReaderView: View {
                 existingRules: TTSReplacementManager.shared.rules
             ) { pattern, replacement in
                 let rule = TTSReplacementRule(pattern: pattern, replacement: replacement, isEnabled: true)
-                TTSReplacementManager.shared.addRule(rule)
-                ToastManager.shared.show(message: "Đã thêm thay thế TTS: '\(pattern)' → '\(replacement)'", type: .success)
+                let result = TTSReplacementManager.shared.addRule(rule)
+                let action = result == .replaced ? "Đã cập nhật" : "Đã thêm"
+                ToastManager.shared.show(message: "\(action) thay thế TTS: '\(pattern)' → '\(replacement)'", type: .success)
             }
         }
         .fullScreenCover(isPresented: $showingBypassBrowser) {
@@ -1030,6 +1058,7 @@ struct ReaderView: View {
                 modelContext: modelContext,
                 onlineChapters: currentOnlineChapters,
                 isTranslationEnabled: isTranslationEnabled,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
                 bookTitle: bookTitle,
                 bookAuthor: bookAuthor,
                 bookCoverUrl: bookCoverUrl,
@@ -1070,6 +1099,11 @@ struct ReaderView: View {
         } else {
             removeDuplicatedTitle = true
         }
+
+        let conversionKey = "convertTraditionalToSimplified_\(bookId)"
+        shouldConvertTraditionalToSimplified = UserDefaults.standard.object(forKey: conversionKey) != nil
+            ? UserDefaults.standard.bool(forKey: conversionKey)
+            : false
 
         isAutoScrollDisabled = UserDefaults.standard.bool(forKey: "disableAutoScroll_\(bookId)")
         searchEngines = SearchEngine.loadEngines()
@@ -1184,7 +1218,10 @@ struct ReaderView: View {
 
     private func getOrInitChapterListStore() -> ReaderChapterListStore? {
         if let store = chapterListStore {
-            store.updateTranslation(isTranslationEnabled: isTranslationEnabled)
+            store.updateTranslation(
+                isTranslationEnabled: isTranslationEnabled,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+            )
             return store
         }
         guard let vm = viewModel else { return nil }
@@ -1194,7 +1231,8 @@ struct ReaderView: View {
             onlineChapters: currentOnlineChapters.isEmpty ? onlineChapters : currentOnlineChapters,
             totalCount: vm.totalChaptersCount,
             isAscending: true,
-            isTranslationEnabled: isTranslationEnabled
+            isTranslationEnabled: isTranslationEnabled,
+            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
         )
         self.chapterListStore = store
         return store
@@ -1223,6 +1261,7 @@ struct ReaderView: View {
                     currentChapterIndex: viewModel?.displayedChapterIndex ?? chapterIndex,
                     isPresented: showingChapterList,
                     isTranslationEnabled: isTranslationEnabled,
+                    shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
                     theme: selectedTheme,
                     store: chapterListStore,
                     onlineChapters: $currentOnlineChapters,
@@ -1272,14 +1311,22 @@ struct ReaderView: View {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }
-        return TranslateUtils.translateMeta(text, bookId: bookId)
+        return TranslateUtils.translateMeta(
+            text,
+            bookId: bookId,
+            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+        )
     }
 
     internal func translateChapterTitleIfNeeded(_ text: String) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
         }
-        return TranslateUtils.translateChapterTitle(text, bookId: bookId)
+        return TranslateUtils.translateChapterTitle(
+            text,
+            bookId: bookId,
+            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+        )
     }
 
     private func applyTranslation() {
@@ -1426,8 +1473,16 @@ struct ReaderView: View {
     }
 
     private var translatedSentenceSegments: (prefix: String, selected: String, suffix: String) {
-        let translatedSentence = TranslateUtils.translateContent(originalSentence, bookId: bookId)
-        let translatedWord = TranslateUtils.translateMeta(selectedTextForDefinition, bookId: bookId)
+        let translatedSentence = TranslateUtils.translateContent(
+            originalSentence,
+            bookId: bookId,
+            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+        )
+        let translatedWord = TranslateUtils.translateMeta(
+            selectedTextForDefinition,
+            bookId: bookId,
+            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+        )
 
         guard !translatedWord.isEmpty,
               let range = translatedSentence.range(of: translatedWord) else {
@@ -1488,7 +1543,11 @@ struct ReaderView: View {
         self.junkPatternInput = word
 
         if translationMode == "VP" {
-            self.customMeaning = TranslateUtils.translateMeta(word, bookId: bookId)
+            self.customMeaning = TranslateUtils.translateMeta(
+                word,
+                bookId: bookId,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+            )
         } else {
             self.customMeaning = getHanViet(for: word)
         }
@@ -1605,7 +1664,11 @@ struct ReaderView: View {
                 await MainActor.run {
                     self.dictionaryMatches = getDictionaryMatches(for: word)
                     if self.translationMode == "VP" {
-                        self.customMeaning = TranslateUtils.translateMeta(word, bookId: bookId)
+                        self.customMeaning = TranslateUtils.translateMeta(
+                            word,
+                            bookId: bookId,
+                            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+                        )
                     } else {
                         self.customMeaning = getHanViet(for: word)
                     }
@@ -1837,7 +1900,9 @@ struct ReaderView: View {
         guard let cached = viewModel?.cache.get(index), cached.state == .loaded else { return nil }
         let currentToken = TranslateUtils.translationGenerationToken(for: bookId)
         let isTransEnabled = TranslateUtils.isTranslationEnabled
-        guard cached.translationToken == currentToken && cached.isTranslationEnabled == isTransEnabled else {
+        guard cached.translationToken == currentToken,
+              cached.isTranslationEnabled == isTransEnabled,
+              cached.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified else {
             return nil
         }
         let contentItems = cached.paragraphItems.filter { !$0.isTitle }
@@ -1852,6 +1917,7 @@ struct ReaderView: View {
         }
         return TTSPretranslatedSnapshot(
             isTranslationEnabled: cached.isTranslationEnabled,
+            shouldConvertTraditionalToSimplified: cached.shouldConvertTraditionalToSimplified,
             translationToken: cached.translationToken,
             entries: entries
         )

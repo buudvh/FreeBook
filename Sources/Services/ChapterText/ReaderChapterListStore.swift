@@ -23,6 +23,7 @@ public final class ReaderChapterListStore {
     public private(set) var totalCount: Int = 0
     public private(set) var isAscending: Bool = true
     public private(set) var isTranslationEnabled: Bool = false
+    public private(set) var shouldConvertTraditionalToSimplified: Bool = false
 
     public let pageSize = 100
     var loadedPages: Set<Int> = []
@@ -44,20 +45,26 @@ public final class ReaderChapterListStore {
 
     public var isLoadingPage = false
 
-    public init(bookId: String, modelContext: ModelContext?, onlineChapters: [ChapterResult], totalCount: Int, isAscending: Bool = true, isTranslationEnabled: Bool = false) {
+    public init(bookId: String, modelContext: ModelContext?, onlineChapters: [ChapterResult], totalCount: Int, isAscending: Bool = true, isTranslationEnabled: Bool = false, shouldConvertTraditionalToSimplified: Bool = false) {
         self.bookId = bookId
         self.modelContext = modelContext
         self.onlineChapters = onlineChapters
         self.totalCount = totalCount
         self.isAscending = isAscending
         self.isTranslationEnabled = isTranslationEnabled
+        self.shouldConvertTraditionalToSimplified = shouldConvertTraditionalToSimplified
 
         setupPlaceholderRows()
     }
 
-    public func updateTranslation(isTranslationEnabled: Bool) {
-        guard self.isTranslationEnabled != isTranslationEnabled else { return }
+    public func updateTranslation(
+        isTranslationEnabled: Bool,
+        shouldConvertTraditionalToSimplified: Bool = false
+    ) {
+        guard self.isTranslationEnabled != isTranslationEnabled ||
+            self.shouldConvertTraditionalToSimplified != shouldConvertTraditionalToSimplified else { return }
         self.isTranslationEnabled = isTranslationEnabled
+        self.shouldConvertTraditionalToSimplified = shouldConvertTraditionalToSimplified
         setupPlaceholderRows()
     }
 
@@ -333,6 +340,7 @@ public final class ReaderChapterListStore {
             totalCount: totalCount,
             isAscending: isAscending,
             isTranslationEnabled: isTranslationEnabled,
+            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
             onlineChapters: onlineChapters,
             modelContainerProvider: { [weak self] in self?.modelContext?.container },
             onSearchStateChanged: { [weak self] isSearching in

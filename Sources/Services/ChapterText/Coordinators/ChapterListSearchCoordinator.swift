@@ -25,6 +25,7 @@ public final class ChapterListSearchCoordinator {
         totalCount: Int,
         isAscending: Bool,
         isTranslationEnabled: Bool,
+        shouldConvertTraditionalToSimplified: Bool = false,
         onlineChapters: [ChapterResult],
         modelContainerProvider: (() -> Any?)?,
         onSearchStateChanged: @escaping (Bool) -> Void,
@@ -64,7 +65,13 @@ public final class ChapterListSearchCoordinator {
             #if canImport(SwiftData)
             if #available(iOS 17.0, *), let container = modelContainerProvider?() as? SwiftData.ModelContainer {
                 let worker = BackgroundSearchWorker(container: container)
-                let dtos = await worker.searchChapters(bookId: bookId, query: trimmed, isAscending: isAscending, isTranslationEnabled: isTranslationEnabled)
+                let dtos = await worker.searchChapters(
+                    bookId: bookId,
+                    query: trimmed,
+                    isAscending: isAscending,
+                    isTranslationEnabled: isTranslationEnabled,
+                    shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+                )
 
                 if Task.isCancelled { return }
 

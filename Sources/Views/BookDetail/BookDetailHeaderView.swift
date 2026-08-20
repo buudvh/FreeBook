@@ -95,6 +95,7 @@ struct BookDetailHeaderView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(DisplayTextFormatter.titleCase(onTranslateMetaIfNeeded(title)))
                     .font(.headline)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if !formattedAuthor.isEmpty {
                     HStack(spacing: 5) {

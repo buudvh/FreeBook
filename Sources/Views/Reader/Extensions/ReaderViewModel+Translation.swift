@@ -6,6 +6,7 @@ extension ReaderViewModel {
         originalTitle: String,
         originalContent: String,
         isTranslationEnabled: Bool,
+        shouldConvertTraditionalToSimplified: Bool,
         showTitle: Bool,
         removeDuplicatedTitle: Bool,
         bookId: String
@@ -17,6 +18,7 @@ extension ReaderViewModel {
             originalTitle: originalTitle,
             normalizedText: normalizedText,
             isTranslationEnabled: isTranslationEnabled,
+            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
             showTitle: showTitle,
             removeDuplicatedTitle: removeDuplicatedTitle,
             bookId: bookId
@@ -29,6 +31,7 @@ extension ReaderViewModel {
         originalTitle: String,
         normalizedText: NormalizedChapterText,
         isTranslationEnabled: Bool,
+        shouldConvertTraditionalToSimplified: Bool,
         showTitle: Bool,
         removeDuplicatedTitle: Bool,
         bookId: String
@@ -45,7 +48,11 @@ extension ReaderViewModel {
 
         let titleResult: TranslatedTextResult
         if isTranslationEnabled && TranslateUtils.containsChinese(originalTitle) {
-            titleResult = TranslateUtils.translateChapterTitleWithMapping(originalTitle, bookId: bookId)
+            titleResult = TranslateUtils.translateChapterTitleWithMapping(
+                originalTitle,
+                bookId: bookId,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+            )
         } else {
             titleResult = TranslateUtils.untranslatedTextResult(originalTitle)
         }
@@ -59,7 +66,11 @@ extension ReaderViewModel {
             }
             let lineResult: TranslatedTextResult
             if isTranslationEnabled && TranslateUtils.containsChinese(line.text) {
-                lineResult = TranslateUtils.translateContentWithMapping(line.text, bookId: bookId)
+                lineResult = TranslateUtils.translateContentWithMapping(
+                    line.text,
+                    bookId: bookId,
+                    shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+                )
             } else {
                 lineResult = TranslateUtils.untranslatedTextResult(line.text)
             }
@@ -112,6 +123,7 @@ extension ReaderViewModel {
             }
 
             let isTranslationEnabled = self.isTranslationEnabled
+            let shouldConvertTraditionalToSimplified = self.shouldConvertTraditionalToSimplified
             let bookId = self.bookId
             let currentToken = TranslateUtils.translationGenerationToken(for: bookId)
             let showTitleKey = "showChapterTitle_\(bookId)"
@@ -128,6 +140,7 @@ extension ReaderViewModel {
                     originalTitle: originalTitle,
                     originalContent: originalContent,
                     isTranslationEnabled: isTranslationEnabled,
+                    shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
                     showTitle: showTitle,
                     removeDuplicatedTitle: removeDuplicatedTitle,
                     bookId: bookId
@@ -137,6 +150,7 @@ extension ReaderViewModel {
 
                 if self.currentRevision == targetRevision,
                    self.isTranslationEnabled == isTranslationEnabled,
+                   self.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified,
                    TranslateUtils.translationGenerationToken(for: bookId) == currentToken {
                     let cached = cache.cache[index] ?? cache.setPlaceholder(index)
 
@@ -146,6 +160,7 @@ extension ReaderViewModel {
                         cached.content == result.translatedContent &&
                         cached.paragraphItems == result.paragraphItems &&
                         cached.isTranslationEnabled == isTranslationEnabled &&
+                        cached.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified &&
                         cached.state == .loaded
 
                     if !isDisplayEqual {
@@ -155,6 +170,7 @@ extension ReaderViewModel {
                         cached.content = result.translatedContent
                         cached.paragraphItems = result.paragraphItems
                         cached.isTranslationEnabled = isTranslationEnabled
+                        cached.shouldConvertTraditionalToSimplified = shouldConvertTraditionalToSimplified
                         cached.state = .loaded
                     }
                     cached.revision = targetRevision
@@ -172,6 +188,10 @@ extension ReaderViewModel {
 
     func toggleTranslation(enabled: Bool) {
         self.isTranslationEnabled = enabled
+    }
+
+    func setTraditionalToSimplifiedConversion(enabled: Bool) {
+        shouldConvertTraditionalToSimplified = enabled
     }
 
     func updateCachedTranslatedContent(bookId: String, scope: DictionaryInvalidationScope = .globalReload) {

@@ -144,6 +144,7 @@ class ReaderViewModel: ObservableObject {
     // Lấy danh sách chương online nếu đang đọc trực tuyến
     var onlineChapters: [ChapterResult] = []
     var isTranslationEnabled: Bool = false
+    var shouldConvertTraditionalToSimplified: Bool = false
 
     // Các thông tin bổ sung để tạo sách online khi cần
     var bookTitle: String?
@@ -182,6 +183,7 @@ class ReaderViewModel: ObservableObject {
         modelContext: ModelContext,
         onlineChapters: [ChapterResult] = [],
         isTranslationEnabled: Bool = false,
+        shouldConvertTraditionalToSimplified: Bool = false,
         bookTitle: String? = nil,
         bookAuthor: String? = nil,
         bookCoverUrl: String? = nil,
@@ -223,6 +225,7 @@ class ReaderViewModel: ObservableObject {
         self.totalChaptersCount = resolvedLocalChapterCount
         self.onlineChapters = onlineChapters
         self.isTranslationEnabled = isTranslationEnabled
+        self.shouldConvertTraditionalToSimplified = shouldConvertTraditionalToSimplified
         self.bookTitle = bookTitle
         self.bookAuthor = bookAuthor
         self.bookCoverUrl = bookCoverUrl
@@ -463,7 +466,9 @@ class ReaderViewModel: ObservableObject {
 
         if let cached = cache.get(index), cached.state == .loaded, !forceRefresh {
             let currentToken = TranslateUtils.translationGenerationToken(for: bookId)
-            if cached.translationToken == currentToken && cached.isTranslationEnabled == isTranslationEnabled {
+            if cached.translationToken == currentToken &&
+                cached.isTranslationEnabled == isTranslationEnabled &&
+                cached.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified {
                 queuedNavigation = nil
                 commitNavigation(request, origin: .memory)
                 return
@@ -558,7 +563,9 @@ class ReaderViewModel: ObservableObject {
                 }
 
                 let currentToken = TranslateUtils.translationGenerationToken(for: bookId)
-                if cached.translationToken != currentToken || cached.isTranslationEnabled != isTranslationEnabled {
+                if cached.translationToken != currentToken ||
+                    cached.isTranslationEnabled != isTranslationEnabled ||
+                    cached.shouldConvertTraditionalToSimplified != shouldConvertTraditionalToSimplified {
                     await processAndSaveChapter(
                         index: request.chapterIndex,
                         originalTitle: cached.originalTitle,
@@ -571,7 +578,8 @@ class ReaderViewModel: ObservableObject {
                 guard let updatedCached = cache.cache[request.chapterIndex],
                       updatedCached.state == .loaded,
                       updatedCached.translationToken == TranslateUtils.translationGenerationToken(for: bookId),
-                      updatedCached.isTranslationEnabled == isTranslationEnabled else {
+                      updatedCached.isTranslationEnabled == isTranslationEnabled,
+                      updatedCached.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified else {
                     guard !Task.isCancelled, workerIdentity == activeWorkerIdentity, request.generation == navigationGeneration else { return }
                     failNavigation(request, message: "Không thể làm mới bản dịch cho chương")
                     continue

@@ -2,6 +2,25 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.221] - 2026-08-20
+
+### Upsert rule thay thế TTS khi thêm trùng pattern
+
+* **`Sources/Services/TTS/Preprocessing/TTSReplacementManager.swift`**: `addRule(_:)` xóa toàn bộ rule cũ có cùng pattern chính xác rồi append rule mới xuống cuối và chỉ `saveRules()` một lần; trả `AddRuleResult.added/replaced` với `@discardableResult` để giữ tương thích caller hiện có.
+* **`Sources/Views/Reader/ReaderView.swift`**: dùng kết quả từ manager để Toast phân biệt `"Đã thêm"` và `"Đã cập nhật"` thay thế TTS.
+* Không đổi `updateRule(_:)`, import JSON hay quy chuẩn kiến trúc trong `rules.md`; cập nhật CodeGraph liên quan ở `00_index.md`, `04_call_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
+
+## [1.3.220] - 2026-08-20
+
+### Đồng bộ Download/Detail và chuyển Phồn thể → Giản thể theo truyện
+
+* **`Sources/Views/Download/DownloadTrackerView.swift`**: task row dùng cover 50x70 và title 14.5pt semibold, tối đa 2 dòng — cùng style cover/title với Shelf và History.
+* **`Sources/Views/BookDetail/BookDetailHeaderView.swift`**: title được cố định theo chiều dọc để không cắt tên truyện dài trong cột bên cạnh cover.
+* **`Sources/Views/Reader/ReaderSettingsView.swift` / `ReaderView.swift`**: thêm Picker `"Văn bản trước khi dịch"`, lưu `convertTraditionalToSimplified_<bookId>` và làm mới bản dịch khi đổi lựa chọn.
+* **`Sources/Services/Translation/Utils/TranslateUtils.swift`** và pipeline Reader: khi bật, dùng ICU transform `StringTransform("Traditional-Simplified")` để chuẩn hoá phồn thể sang giản thể trước tra từ điển; text lưu trữ không đổi và translation spans chỉ dùng khi bảo toàn UTF-16. Cờ cấu hình trở thành một phần identity của `CachedChapter`; TOC paging/search và popup dịch từ/câu cũng dùng cùng cấu hình.
+* **Pipeline TTS (`TTSManager`, `TTSBackgroundProcessor`, prepared models/prefetch workers)**: áp dụng cùng option cho title/nội dung TTS của chương hiện tại, auto-advance, text/audio prefetch chương kế và metadata Now Playing. Key/snapshot mang cờ chuyển đổi để loại cache khác cấu hình; đổi option giữa phiên hủy prefetch cũ nhưng không ngắt audio chương đã dựng.
+* Không đổi quy chuẩn kiến trúc trong `rules.md`; các cập nhật CodeGraph liên quan nằm trong `00_index.md`, `06_event_graph.md`, và `08_lifecycle.md`.
+
 ## [1.3.219] - 2026-08-20
 
 ### Revert dùng BookListItemView trong DownloadTrackerView, chuẩn hoá BookListItemView 2 style và bỏ chevron NavigationLink

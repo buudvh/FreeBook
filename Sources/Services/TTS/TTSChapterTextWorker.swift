@@ -77,6 +77,7 @@ internal actor TTSChapterTextWorker {
                 rawContent: result.document.text.content,
                 chunkLength: key.chunkLength,
                 shouldTranslateRawContent: key.isTranslationEnabled,
+                shouldConvertTraditionalToSimplified: key.shouldConvertTraditionalToSimplified,
                 includeChapterTitle: key.includeChapterTitle,
                 removeDuplicatedTitle: key.removeDuplicatedTitle,
                 sessionID: sessionID,

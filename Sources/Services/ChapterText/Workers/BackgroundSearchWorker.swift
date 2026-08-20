@@ -9,7 +9,13 @@ public actor BackgroundSearchWorker {
         self.container = container
     }
 
-    public func searchChapters(bookId: String, query: String, isAscending: Bool, isTranslationEnabled: Bool) async -> [SearchChapterDTO] {
+    public func searchChapters(
+        bookId: String,
+        query: String,
+        isAscending: Bool,
+        isTranslationEnabled: Bool,
+        shouldConvertTraditionalToSimplified: Bool = false
+    ) async -> [SearchChapterDTO] {
         if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
             do {
                 let storeResults = try await ChapterStore.shared.searchChapters(bookId: bookId, query: query, searchTrans: isTranslationEnabled)
@@ -19,10 +25,14 @@ public actor BackgroundSearchWorker {
                     guard !trimmedUrl.isEmpty else { return nil }
                     let displayTitle: String
                     if isTranslationEnabled {
-                        if let trans = chap.titleTrans, !trans.isEmpty {
+                        if !shouldConvertTraditionalToSimplified, let trans = chap.titleTrans, !trans.isEmpty {
                             displayTitle = trans
                         } else if TranslateUtils.containsChinese(chap.title) {
-                            displayTitle = TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
+                            displayTitle = TranslateUtils.translateChapterTitle(
+                                chap.title,
+                                bookId: bookId,
+                                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+                            )
                         } else {
                             displayTitle = chap.title
                         }
@@ -56,10 +66,14 @@ public actor BackgroundSearchWorker {
                 guard !trimmedUrl.isEmpty else { return nil }
                 let displayTitle: String
                 if isTranslationEnabled {
-                    if let trans = chap.titleTrans, !trans.isEmpty {
+                    if !shouldConvertTraditionalToSimplified, let trans = chap.titleTrans, !trans.isEmpty {
                         displayTitle = trans
                     } else if TranslateUtils.containsChinese(chap.title) {
-                        displayTitle = TranslateUtils.translateChapterTitle(chap.title, bookId: bookId)
+                        displayTitle = TranslateUtils.translateChapterTitle(
+                            chap.title,
+                            bookId: bookId,
+                            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+                        )
                     } else {
                         displayTitle = chap.title
                     }

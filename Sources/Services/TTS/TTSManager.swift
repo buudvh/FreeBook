@@ -15,6 +15,7 @@ internal struct TTSPreparedChapterKey: Equatable, Sendable {
     let includeChapterTitle: Bool
     let removeDuplicatedTitle: Bool
     let isTranslationEnabled: Bool
+    let shouldConvertTraditionalToSimplified: Bool
     let translationToken: Int
 }
 
@@ -621,6 +622,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     internal var preparedChapterKey: TTSPreparedChapterKey? = nil
     internal var preparedChapter: TTSPreparedChapter? = nil
     internal var sessionTranslationEnabled: Bool = false
+    internal var sessionShouldConvertTraditionalToSimplified: Bool = false
     internal var activePrefetchPerfSummary: TTSPrefetchPerfSummary? = nil
     internal var prefetchTaskGenerations: [Int: UInt64] = [:]
     internal var nextPrefetchTaskGeneration: UInt64 = 0
@@ -658,6 +660,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let chapterTitle: String
         let coverUrl: String
         let isTranslationEnabled: Bool
+        let shouldConvertTraditionalToSimplified: Bool
         let translationToken: Int
     }
 
@@ -828,6 +831,21 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     public func updateChaptersQueue(_ chapters: [TTSChapterInfo], for bookId: String) {
         guard playingBookId == bookId, !chapters.isEmpty else { return }
         chaptersQueue = chapters
+        triggerNextChapterPrefetch()
+    }
+
+    public func updateTraditionalToSimplifiedSetting(for bookId: String, enabled: Bool) {
+        guard playingBookId == bookId,
+              sessionShouldConvertTraditionalToSimplified != enabled else { return }
+
+        sessionShouldConvertTraditionalToSimplified = enabled
+        nextChapterPrefetcher.cancel()
+        nowPlayingUpdateGeneration &+= 1
+        nowPlayingMetadataTask?.cancel()
+        nowPlayingMetadataTask = nil
+        nowPlayingMetadataTaskKey = nil
+        nowPlayingStaticMetadata = nil
+        updateNowPlayingInfo()
         triggerNextChapterPrefetch()
     }
 
@@ -1127,6 +1145,9 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
         let removeDuplicatedTitle = readRemoveDuplicatedTitle(for: bookId)
         let isTransEnabled = TranslateUtils.isTranslationEnabled
+        let shouldConvertTraditionalToSimplified = UserDefaults.standard.bool(
+            forKey: "convertTraditionalToSimplified_\(bookId)"
+        )
 
         let preparedKey = TTSPreparedChapterKey(
             bookId: bookId,
@@ -1137,6 +1158,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             includeChapterTitle: showTitle,
             removeDuplicatedTitle: removeDuplicatedTitle,
             isTranslationEnabled: isTransEnabled,
+            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
             translationToken: TranslateUtils.translationGenerationToken(for: bookId)
         )
         guard preparedChapterKey != preparedKey else { return }
@@ -1155,6 +1177,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     rawContent: chapterContent,
                     chunkLength: preparedKey.chunkLength,
                     shouldTranslateRawContent: isTransEnabled,
+                    shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
                     includeChapterTitle: showTitle,
                     removeDuplicatedTitle: removeDuplicatedTitle,
                     sessionID: UUID(),
@@ -1239,6 +1262,10 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         self.setRemoteCommandsEnabled(true)
         let isTransEnabled = TranslateUtils.isTranslationEnabled
         self.sessionTranslationEnabled = isTransEnabled
+        let shouldConvertTraditionalToSimplified = UserDefaults.standard.bool(
+            forKey: "convertTraditionalToSimplified_\(bookId)"
+        )
+        self.sessionShouldConvertTraditionalToSimplified = shouldConvertTraditionalToSimplified
         self.playingBookId = bookId
         self.playingCoverUrl = coverUrl
         self.chaptersQueue = chapters
@@ -1272,12 +1299,17 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             includeChapterTitle: showTitle,
             removeDuplicatedTitle: removeDuplicatedTitle,
             isTranslationEnabled: isTransEnabled,
+            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
             translationToken: TranslateUtils.translationGenerationToken(for: bookId)
         )
 
         if preparedChapterKey == requestedKey, let preparedChapter {
             self.chapterTitle = isTransEnabled && TranslateUtils.containsChinese(expectedTitle)
-                ? TranslateUtils.translateChapterTitle(expectedTitle, bookId: bookId)
+                ? TranslateUtils.translateChapterTitle(
+                    expectedTitle,
+                    bookId: bookId,
+                    shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+                )
                 : expectedTitle
             self.normalizedChapterText = ChapterTextNormalizer.normalizeProcessedContent(preparedChapter.normalizedContent)
             self.chapterContent = preparedChapter.normalizedContent
@@ -1297,6 +1329,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     rawContent: chapterContent,
                     chunkLength: chunkLen,
                     shouldTranslateRawContent: isTransEnabled,
+                    shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified,
                     includeChapterTitle: showTitle,
                     removeDuplicatedTitle: removeDuplicatedTitle,
                     sessionID: newSessionID,
@@ -1878,6 +1911,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             includeChapterTitle: showTitle,
             removeDuplicatedTitle: removeDuplicatedTitle,
             isTranslationEnabled: self.sessionTranslationEnabled,
+            shouldConvertTraditionalToSimplified: self.sessionShouldConvertTraditionalToSimplified,
             translationToken: TranslateUtils.translationGenerationToken(for: playingBookId),
             extensionLocalPath: extensionLocalPath,
             extensionConfigJson: extensionConfigJson,
@@ -2198,6 +2232,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
                     rawContent: rawContent,
                     chunkLength: chunkLen,
                     shouldTranslateRawContent: isTransEnabled,
+                    shouldConvertTraditionalToSimplified: self.sessionShouldConvertTraditionalToSimplified,
                     includeChapterTitle: showTitle,
                     removeDuplicatedTitle: removeDuplicatedTitle,
                     sessionID: expectedSessionID,
@@ -3799,6 +3834,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             chapterTitle: chapterTitle,
             coverUrl: playingCoverUrl,
             isTranslationEnabled: TranslateUtils.isTranslationEnabled,
+            shouldConvertTraditionalToSimplified: sessionShouldConvertTraditionalToSimplified,
             translationToken: TranslateUtils.translationGenerationToken(for: playingBookId)
         )
 
@@ -3824,10 +3860,18 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
                 if key.isTranslationEnabled {
                     displayBookTitle = TranslateUtils.containsChinese(key.bookTitle)
-                        ? TranslateUtils.translateMeta(key.bookTitle, bookId: key.bookId)
+                        ? TranslateUtils.translateMeta(
+                            key.bookTitle,
+                            bookId: key.bookId,
+                            shouldConvertTraditionalToSimplified: key.shouldConvertTraditionalToSimplified
+                        )
                         : key.bookTitle
                     displayChapterTitle = TranslateUtils.containsChinese(rawChapterTitle)
-                        ? TranslateUtils.translateChapterTitle(rawChapterTitle, bookId: key.bookId)
+                        ? TranslateUtils.translateChapterTitle(
+                            rawChapterTitle,
+                            bookId: key.bookId,
+                            shouldConvertTraditionalToSimplified: key.shouldConvertTraditionalToSimplified
+                        )
                         : rawChapterTitle
                 } else {
                     displayBookTitle = key.bookTitle

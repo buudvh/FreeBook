@@ -48,7 +48,9 @@ struct DownloadTrackerView: View {
     @ViewBuilder
     private func taskRow(_ task: DownloadTask) -> some View {
         HStack(spacing: 12) {
-            BookCoverView(bookId: task.bookId, coverUrl: task.bookCoverUrl, width: 44, height: 60)
+            // Match the shelf/history book-row proportions so a task still looks
+            // like the same book wherever it is shown.
+            BookCoverView(bookId: task.bookId, coverUrl: task.bookCoverUrl, width: 50, height: 70)
                 .cornerRadius(4)
                 .shadow(color: Color.black.opacity(0.08), radius: 2, x: 0, y: 1)
             
@@ -57,8 +59,8 @@ struct DownloadTrackerView: View {
                      ? TranslateUtils.translateMeta(task.bookTitle, bookId: task.bookId)
                      : task.bookTitle
                 Text(DisplayTextFormatter.titleCase(rawTitle))
-                    .font(.headline)
-                    .lineLimit(1)
+                    .font(.system(size: 14.5, weight: .semibold))
+                    .lineLimit(2)
                 
                 HStack(spacing: 8) {
                     Text(task.taskType.rawValue)

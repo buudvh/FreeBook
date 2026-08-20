@@ -12,6 +12,7 @@ public struct ReaderChapterListView: View {
     public let currentChapterIndex: Int
     public let isPresented: Bool
     public let isTranslationEnabled: Bool
+    public let shouldConvertTraditionalToSimplified: Bool
     public let theme: ReaderTheme
     public let store: ReaderChapterListStore
     @Binding public var onlineChapters: [ChapterResult]
@@ -31,6 +32,7 @@ public struct ReaderChapterListView: View {
         currentChapterIndex: Int,
         isPresented: Bool = true,
         isTranslationEnabled: Bool,
+        shouldConvertTraditionalToSimplified: Bool = false,
         theme: ReaderTheme,
         store: ReaderChapterListStore,
         onlineChapters: Binding<[ChapterResult]>,
@@ -49,6 +51,7 @@ public struct ReaderChapterListView: View {
         self.currentChapterIndex = currentChapterIndex
         self.isPresented = isPresented
         self.isTranslationEnabled = isTranslationEnabled
+        self.shouldConvertTraditionalToSimplified = shouldConvertTraditionalToSimplified
         self.theme = theme
         self.store = store
         self._onlineChapters = onlineChapters
@@ -71,7 +74,11 @@ public struct ReaderChapterListView: View {
     private var metadataTitle: String {
         let original = firstNonempty(localBook?.title, bookTitle) ?? "FreeBook"
         let translated = isTranslationEnabled && TranslateUtils.containsChinese(original)
-            ? TranslateUtils.translateMeta(original, bookId: bookId)
+            ? TranslateUtils.translateMeta(
+                original,
+                bookId: bookId,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+            )
             : original
         return DisplayTextFormatter.titleCase(translated)
     }
@@ -357,7 +364,17 @@ public struct ReaderChapterListView: View {
             }
             .onChange(of: isTranslationEnabled) { _, newValue in
                 displayTitleCache.removeAll()
-                store.updateTranslation(isTranslationEnabled: newValue)
+                store.updateTranslation(
+                    isTranslationEnabled: newValue,
+                    shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+                )
+            }
+            .onChange(of: shouldConvertTraditionalToSimplified) { _, newValue in
+                displayTitleCache.removeAll()
+                store.updateTranslation(
+                    isTranslationEnabled: isTranslationEnabled,
+                    shouldConvertTraditionalToSimplified: newValue
+                )
             }
         }
     }
@@ -371,7 +388,11 @@ public struct ReaderChapterListView: View {
             return cached
         }
         if TranslateUtils.containsChinese(chapter.title) {
-            let translated = TranslateUtils.translateChapterTitle(chapter.title, bookId: bookId)
+            let translated = TranslateUtils.translateChapterTitle(
+                chapter.title,
+                bookId: bookId,
+                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+            )
             displayTitleCache[chapter.index] = translated
             return translated
         }
@@ -423,14 +444,21 @@ public struct ReaderChapterListView: View {
 
         guard !toWarm.isEmpty else { return }
         let currentBookId = bookId
-        Task.detached(priority: .utility) { [toWarm, currentBookId] in
+        let shouldConvertTraditionalToSimplified = shouldConvertTraditionalToSimplified
+        Task.detached(priority: .utility) { [toWarm, currentBookId, shouldConvertTraditionalToSimplified] in
             var results: [Int: String] = [:]
             for item in toWarm {
-                let translated = TranslateUtils.translateChapterTitle(item.rawTitle, bookId: currentBookId)
+                let translated = TranslateUtils.translateChapterTitle(
+                    item.rawTitle,
+                    bookId: currentBookId,
+                    shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+                )
                 results[item.index] = translated
             }
             let finalResults = results
             await MainActor.run {
+                guard self.isTranslationEnabled,
+                      self.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified else { return }
                 self.displayTitleCache.merge(finalResults) { current, _ in current }
             }
         }

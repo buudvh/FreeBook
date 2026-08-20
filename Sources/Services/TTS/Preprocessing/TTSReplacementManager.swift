@@ -16,6 +16,11 @@ public struct TTSReplacementRule: Codable, Identifiable, Equatable {
 
 public final class TTSReplacementManager: ObservableObject {
     public static let shared = TTSReplacementManager()
+
+    public enum AddRuleResult: Equatable {
+        case added
+        case replaced
+    }
     
     @Published public var rules: [TTSReplacementRule] = []
     
@@ -190,9 +195,16 @@ public final class TTSReplacementManager: ObservableObject {
         }
     }
     
-    public func addRule(_ rule: TTSReplacementRule) {
-        rules.append(rule)
+    @discardableResult
+    public func addRule(_ rule: TTSReplacementRule) -> AddRuleResult {
+        var updatedRules = rules
+        let previousCount = updatedRules.count
+        updatedRules.removeAll { $0.pattern == rule.pattern }
+        let replacedExistingRule = updatedRules.count != previousCount
+        updatedRules.append(rule)
+        rules = updatedRules
         saveRules()
+        return replacedExistingRule ? .replaced : .added
     }
     
     public func updateRule(_ rule: TTSReplacementRule) {

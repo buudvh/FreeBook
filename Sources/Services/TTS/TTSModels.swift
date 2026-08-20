@@ -140,11 +140,18 @@ public struct TTSExtensionInfo: Codable, Equatable, Sendable {
 
 public struct TTSPretranslatedSnapshot: Sendable {
     public let isTranslationEnabled: Bool
+    public let shouldConvertTraditionalToSimplified: Bool
     public let translationToken: Int
     public let entries: [TTSLineEntry]
 
-    public init(isTranslationEnabled: Bool, translationToken: Int, entries: [TTSLineEntry]) {
+    public init(
+        isTranslationEnabled: Bool,
+        shouldConvertTraditionalToSimplified: Bool = false,
+        translationToken: Int,
+        entries: [TTSLineEntry]
+    ) {
         self.isTranslationEnabled = isTranslationEnabled
+        self.shouldConvertTraditionalToSimplified = shouldConvertTraditionalToSimplified
         self.translationToken = translationToken
         self.entries = entries
     }

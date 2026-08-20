@@ -15,6 +15,18 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS replacement rule add events (1.3.221)
+
+* Khi người dùng lưu một rule mới từ Reader hoặc màn quản lý TTS, manager so pattern chính xác với danh sách hiện tại. Nếu trùng, mọi bản cũ bị loại trước khi rule mới được append xuống cuối; `@Published rules` phát thay đổi và file JSON được ghi một lần sau trạng thái cuối.
+* Reader nhận `AddRuleResult` để phát Toast phân biệt thêm mới/cập nhật. Luồng sửa rule theo ID và import cấu hình không đi qua sự kiện upsert này.
+
+## Reader traditional-to-simplified translation option events (1.3.220)
+
+* Trong `ReaderSettingsView`, chọn `"Phồn thể → giản thể"` ghi `convertTraditionalToSimplified_<bookId>` trong `UserDefaults`; đây là cấu hình độc lập theo từng truyện, không thay đổi tuỳ chọn dịch toàn cục.
+* `ReaderView` chuyển giá trị mới cho `ReaderViewModel` và `ReaderChapterListStore`, sau đó debounce `updateCachedTranslatedContent`. Identity cache gồm translation generation, trạng thái dịch và cờ chuyển đổi, nên chương hiện tại được build lại từ text gốc; cache chương/TOC/search cấu hình cũ không được dùng lại.
+* Khi cờ bật, `TranslateUtils` dùng ICU transform `Traditional-Simplified` để chuyển đầu vào sang giản thể trước khi tra từ điển. Text chương lưu trữ vẫn giữ nguyên; translation span chỉ dùng khi toạ độ UTF-16 bảo toàn, còn lại `ReaderSelectionMapper` đi qua fallback đã có.
+* `TTSManager.prepareSpeaking`/`startSpeaking` đọc cùng key theo truyện và truyền cờ qua `TTSBackgroundProcessor`, prepared snapshot/key, auto-advance và `TTSChapterPrefetcher`. Đổi option khi một phiên TTS đang hoạt động cập nhật cờ session, hủy prefetch và metadata Now Playing cũ; audio/paragraph của chương đã dựng không bị ngắt, chương dựng tiếp theo dùng cấu hình mới.
+
 ## Script editor syntax checking and searchable file selection events (1.3.200)
 
 * `ExtensionScriptEditorView`:

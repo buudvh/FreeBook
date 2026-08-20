@@ -99,7 +99,13 @@ extension ReaderChapterListStore {
             let localBookId = bookId
             let worker = BackgroundPagingWorker(container: context.container)
             do {
-                fetchedData = try await worker.fetchPage(bookId: localBookId, minLogicalIndex: minLogicalIndex, maxLogicalIndex: maxLogicalIndex, isTranslationEnabled: isTranslationEnabled)
+                fetchedData = try await worker.fetchPage(
+                    bookId: localBookId,
+                    minLogicalIndex: minLogicalIndex,
+                    maxLogicalIndex: maxLogicalIndex,
+                    isTranslationEnabled: isTranslationEnabled,
+                    shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+                )
             } catch {
                 fetchedData = nil
             }
@@ -112,7 +118,11 @@ extension ReaderChapterListStore {
                     if !trimmedUrl.isEmpty {
                         let displayTitle: String
                         if isTranslationEnabled && TranslateUtils.containsChinese(chap.name) {
-                            displayTitle = TranslateUtils.translateChapterTitle(chap.name, bookId: bookId)
+                            displayTitle = TranslateUtils.translateChapterTitle(
+                                chap.name,
+                                bookId: bookId,
+                                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
+                            )
                         } else {
                             displayTitle = chap.name
                         }

@@ -15,6 +15,21 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Thêm rule thay thế TTS theo cơ chế xóa cũ rồi thêm mới (1.3.221)
+
+* `TTSReplacementManager.addRule(_:)` trở thành upsert theo `pattern` chính xác, có phân biệt hoa/thường: xóa toàn bộ rule cũ trùng pattern, append rule mới xuống cuối danh sách rồi ghi `character_replacements.json` đúng một lần. Nhờ đó dữ liệu trùng lịch sử cũng được gom còn một rule và thứ tự áp dụng tuần tự phản ánh lần thêm mới nhất.
+* Public API trả `AddRuleResult.added`/`.replaced` và được đánh dấu `@discardableResult`, nên màn quản lý hiện có vẫn tương thích trong khi Reader có thể hiển thị Toast `"Đã thêm"` hoặc `"Đã cập nhật"` chính xác.
+* Phạm vi không đổi `updateRule(_:)` theo ID và không đổi chính sách import JSON.
+
+## Đồng bộ thẻ Download với Kệ/Lịch sử, title Detail đầy đủ và tuỳ chọn Phồn thể → Giản thể theo truyện (1.3.220)
+
+* `DownloadTrackerView.taskRow` đồng bộ cover và title với `BookListItemView` style `.shelfOrHistory`: `BookCoverView` 50x70, title `.system(size: 14.5, weight: .semibold)` tối đa 2 dòng. Badge loại/trạng thái, tiến độ, action và context menu không đổi.
+* `BookDetailHeaderView` thêm `.fixedSize(horizontal: false, vertical: true)` cho title; title được phép chiếm đủ chiều cao cần thiết trong cột cạnh cover thay vì bị cắt khi bản gốc/bản dịch dài.
+* Reader có lựa chọn menu `"Văn bản trước khi dịch"` (Giữ nguyên / Phồn thể → giản thể), chỉ hiện khi bật Quick Translate. Trạng thái lưu riêng theo `convertTraditionalToSimplified_<bookId>`, được đọc lúc bootstrap và đổi lựa chọn sẽ làm mới bản dịch chương đang đọc, metadata Reader, TOC/paging/search và popup dịch từ/câu.
+* `TranslateUtils` chuyển chuỗi qua ICU transform `StringTransform("Traditional-Simplified")` trước khi tra từ điển khi caller chọn tuỳ chọn; `translateMeta`, `translateContent`, `translateChapterTitle`, và hai API trả `TranslatedTextResult` nhận thêm cờ mặc định `false`. Span dùng input đã chuyển đổi chỉ khi độ dài UTF-16 không đổi; nếu không, trả mảng rỗng để `ReaderSelectionMapper` dùng fallback an toàn.
+* `ReaderViewModel`/`CachedChapter` mang cờ chuyển đổi trong identity cache, nên cache cũ không thể được tái dùng sau khi đổi cấu hình; `ReaderParagraphBuilder` và các worker danh sách chương giữ API tương thích ngược nhờ default `false`.
+* TTS đọc cùng cấu hình theo truyện khi prepare/start: title và nội dung chương hiện tại được chuyển phồn → giản trước VietPhrase, đồng thời key của prepared chapter, snapshot, auto-advance và text/audio prefetch chương kế đều mang cờ để không tái dùng kết quả sai cấu hình. Metadata Now Playing cũng dùng cùng cờ session; thay đổi trong lúc phát hủy prefetch/metadata cũ, còn đoạn hiện tại đã dựng tiếp tục cho đến lần dựng chương kế tiếp.
+
 ## Revert dùng BookListItemView trong DownloadTrackerView, chuẩn hoá BookListItemView 2 style và bỏ chevron NavigationLink (1.3.219)
 
 * `DownloadTrackerView.taskRow` revert về HStack cover+title custom gốc (cover `BookCoverView` 44x60, title `.headline` lineLimit(1), badge taskType xanh/cam, `statusBadge`, ProgressView + "Tiến độ x/y chương", nút cancel/share/retry theo status, contextMenu share/retry/exportFromCached/delete). Bỏ `extension DownloadTask: BookDisplayable` và tham số `isTranslationEnabled` trong `taskRow` (vẫn giữ `@AppStorage("isTranslationEnabled")` ở view để dịch title nội bộ qua `TranslateUtils.translateMeta` và dùng trong Toast `exportFromCached`). Giữ `.contentShape(Rectangle())`.

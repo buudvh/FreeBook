@@ -15,6 +15,11 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS replacement manager public API (1.3.221)
+
+* `TTSReplacementManager` sở hữu danh sách có thứ tự `[TTSReplacementRule]` và persistence `character_replacements.json`. `addRule(_:) -> AddRuleResult` bảo đảm thao tác thêm không để lại pattern trùng: xóa mọi match chính xác rồi append rule mới để giữ đúng ưu tiên áp dụng tuần tự.
+* `AddRuleResult` gồm `.added` và `.replaced`; `@discardableResult` giữ tương thích với caller không cần phản hồi. `updateRule(_:)`, `deleteRule(id:)`, reorder và import/export giữ hợp đồng hiện có.
+
 ## Thành Phần & Phân Hệ Kiến Trúc (Subsystems v4.1/v5.0)
 
 1. **Phân Hệ Quản Lý Giao Dịch Dữ Liệu (Transaction System)**:

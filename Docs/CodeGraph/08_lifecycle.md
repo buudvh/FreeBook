@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader per-book traditional-to-simplified translation lifecycle (1.3.220)
+
+* Reader bootstrap khôi phục `convertTraditionalToSimplified_<bookId>` trước khi tạo `ReaderViewModel`/`ReaderChapterListStore`. Cờ này đi cùng lifecycle của Reader session nhưng được lưu lâu dài theo sách.
+* Đổi cờ hủy refresh bản dịch trước đó qua revision hiện có, build lại chương hiện tại từ `originalTitle`/`originalContent`, và gắn cờ vào `CachedChapter`. Cache của chương khác cùng cache TOC/search được invalidation, nên không có bản dịch từ cấu hình cũ được commit khi điều hướng.
+* TTS capture cờ này vào session khi bắt đầu phát và đưa nó vào identity của prepared/current/next chapter. Nếu đổi option trong lúc phát, manager giữ audio chương hiện tại để không giật/ngắt tiếng, nhưng hủy prefetch và metadata cũ; lần dựng chương tiếp theo dùng cờ mới.
+
 ## TTS floating widget and Toast window lifecycle (1.3.195)
 
 * `TTSFloatingWidgetWindowManager` binds `FloatingWidgetUIWindow` to the active `UIWindowScene` on scene activation or app foreground. The window is non-key at all times, with visibility controlled strictly via `isHidden = false/true`. The app's `ModelContainer` is injected into the window's hosting controller and sheets, enabling SwiftData queries.
