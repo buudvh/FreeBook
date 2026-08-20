@@ -329,6 +329,9 @@ struct ShelfView: View {
                         performImport(parsed: parsed, fileName: pending.fileName, tempFileUrl: pending.tempFileUrl)
                     }
                 )
+                .onAppear {
+                    isParsingTXT = false
+                }
             }
             // Overlay chờ phân tích file TXT (từ lúc chọn file đến khi sheet xác nhận hiện)
             if isParsingTXT {
@@ -674,7 +677,6 @@ struct ShelfView: View {
 
         let bookId = book.bookId
         let bookTitle = book.title
-        let currentChapterTitle = book.currentChapterTitle
 
         Task {
             guard let storeChaps = try? await ChapterStore.shared.fetchOrderedTOC(bookId: bookId), !storeChaps.isEmpty else { return }
@@ -698,30 +700,11 @@ struct ShelfView: View {
                 return list
             }.value
 
-            let translatedCurrentTitle: String?
-            if !currentChapterTitle.isEmpty && TranslateUtils.containsChinese(currentChapterTitle) {
-                translatedCurrentTitle = TranslateUtils.translateChapterTitle(currentChapterTitle, bookId: bookId)
-            } else {
-                translatedCurrentTitle = nil
-            }
-
             if !updates.isEmpty {
                 try? await ChapterStore.shared.updateTitleTranslations(bookId: bookId, updates: updates)
             }
 
             await MainActor.run {
-                var bookDescriptor = FetchDescriptor<Book>(
-                    predicate: #Predicate<Book> { $0.bookId == bookId }
-                )
-                bookDescriptor.fetchLimit = 1
-                _ = (try? self.modelContext.fetch(bookDescriptor))?.first
-
-                if let newCurrentTitle = translatedCurrentTitle {
-                    let res = BookTransactionCoordinator.shared.updateCurrentChapterTitle(bookId: bookId, title: newCurrentTitle, in: self.modelContext)
-                    if case .failure(let err) = res {
-                        ToastManager.shared.show(message: "Lỗi cập nhật tên chương: \(err.localizedDescription)", type: .error)
-                    }
-                }
                 ToastManager.shared.show(message: "Đã dịch lại xong tên chương cho: \(TranslateUtils.translateBookTitleIfNeeded(bookTitle, bookId: bookId))")
             }
         }
@@ -915,10 +898,9 @@ struct ShelfView: View {
                 // Các quy tắc TOC khớp với nội dung file (để đánh dấu active trong picker)
                 let matchedRuleIDs = TranslateUtils.matchingRuleIDs(in: decodedContent, rules: TranslateUtils.getAllTOCRules())
 
-                // Quay lại Main Thread để hiện sheet xác nhận; file tạm được giữ tới khi
-                // người dùng bấm "Nhập" hoặc "Hủy".
+                // Quay lại Main Thread để yêu cầu hiện sheet xác nhận. Giữ wait layer
+                // cho đến khi sheet thực sự onAppear để không lộ khoảng trống chuyển tiếp.
                 await MainActor.run {
-                    self.isParsingTXT = false
                     self.pendingImport = PendingImport(
                         tempFileUrl: tempFileUrl,
                         fileName: fileName,

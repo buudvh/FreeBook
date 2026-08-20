@@ -15,6 +15,18 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Handoff liền mạch từ wait layer sang sheet xác nhận nhập TXT (1.3.223)
+
+* Khi parse TXT thành công, `ShelfView` gán `pendingImport` nhưng tiếp tục giữ `isParsingTXT = true`; wait layer chỉ tắt trong `TXTImportConfirmationSheet.onAppear`. Nhánh lỗi copy/decode/parse vẫn tắt wait layer và hiện Toast như trước, nên không còn khoảng trống chỉ hiện Shelf giữa hai trạng thái.
+* Danh sách chương trong `TXTImportConfirmationSheet` đổi từ eager `VStack + Array(enumerated())` sang `LazyVStack + parsed.chapters.indices`, giảm thời gian dựng sheet và bộ nhớ tạm với truyện có nhiều chương. DocumentPicker, thuật toán parse/reanalyze và quy trình import database không đổi.
+
+## Đồng bộ toggle dịch Shelf/History và chiều cao lịch sử ShelfSearch (1.3.222)
+
+* `BookListItemView` chỉ gọi `translateAuthorHanViet` khi `isTranslationEnabled` bật; khi tắt, Shelf/History/ShelfSearch hiển thị `item.author` gốc.
+* Reader tách `originalChapterTitle(at:)` khỏi `chapterTitle(at:)`: progress snapshot lấy `CachedChapter.originalTitle` hoặc tên TOC online gốc, không lấy `CachedChapter.title` đã dịch. `ReadingProgressStore` bỏ title snapshot rỗng và tiếp tục fallback sang `ChapterStore.title`/`Chapter.title` gốc trước khi giữ giá trị hiện tại.
+* Action `ShelfView.retranslateChapterTitles` chỉ cập nhật `titleTrans` trong ChapterStore; không còn dịch và ghi ngược vào `Book.currentChapterTitle`. Theo phạm vi được duyệt, không có migration/repair tự động cho dữ liệu `currentChapterTitle` cũ đã bị nhiễm; lần lưu progress mới có title gốc sẽ thay thế theo luồng bình thường.
+* `ShelfSearchView.historyView` dùng chiều cao `header + spacing + min(matchingHistory.count, 4) × rowHeight`; không render vùng history khi query không có match, co đúng số dòng từ 1–4 và chỉ cho cuộn khi có trên 4 kết quả. Query rỗng giữ layout lịch sử toàn màn hình.
+
 ## Thêm rule thay thế TTS theo cơ chế xóa cũ rồi thêm mới (1.3.221)
 
 * `TTSReplacementManager.addRule(_:)` trở thành upsert theo `pattern` chính xác, có phân biệt hoa/thường: xóa toàn bộ rule cũ trùng pattern, append rule mới xuống cuối danh sách rồi ghi `character_replacements.json` đúng một lần. Nhờ đó dữ liệu trùng lịch sử cũng được gom còn một rule và thứ tự áp dụng tuần tự phản ánh lần thêm mới nhất.

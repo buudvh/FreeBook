@@ -145,12 +145,13 @@ struct TXTImportConfirmationSheet: View {
 
                         Divider()
 
-                        VStack(alignment: .leading, spacing: 8) {
+                        LazyVStack(alignment: .leading, spacing: 8) {
                             Text("Danh sách chương")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
 
-                            ForEach(Array(parsed.chapters.enumerated()), id: \.offset) { index, chapter in
+                            ForEach(parsed.chapters.indices, id: \.self) { index in
+                                let chapter = parsed.chapters[index]
                                 HStack(alignment: .top, spacing: 8) {
                                     Text("\(index + 1).")
                                         .font(.caption)

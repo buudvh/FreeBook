@@ -137,6 +137,17 @@ class ReaderViewModel: ObservableObject {
         return "Chương \(index + 1)"
     }
 
+    func originalChapterTitle(at index: Int) -> String? {
+        if let cached = cache.cache[index], !cached.originalTitle.isEmpty {
+            return cached.originalTitle
+        }
+        if onlineChapters.indices.contains(index) {
+            let title = onlineChapters[index].name
+            return title.isEmpty ? nil : title
+        }
+        return nil
+    }
+
     public func fetchChapterSnapshot(at index: Int) async -> StoredChapterSnapshot? {
         return try? await ChapterStore.shared.fetchChapter(bookId: bookId, index: index, url: "")
     }
@@ -825,7 +836,7 @@ class ReaderViewModel: ObservableObject {
             bookId: bookId,
             chapterIndex: progress.chapterIndex,
             paragraphIndex: progress.paragraphIndex,
-            chapterTitle: chapterTitle(at: progress.chapterIndex),
+            chapterTitle: originalChapterTitle(at: progress.chapterIndex),
             owner: owner,
             recordedAt: Date()
         )

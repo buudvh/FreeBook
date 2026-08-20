@@ -2,6 +2,24 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.223] - 2026-08-20
+
+### Không còn khoảng trống giữa wait layer parse TXT và sheet xác nhận
+
+* **`Sources/Views/Shelf/ShelfMain/ShelfView.swift`**: nhánh parse thành công giữ `isParsingTXT` bật sau khi gán `pendingImport`; chỉ tắt khi `TXTImportConfirmationSheet.onAppear`. Nhánh lỗi và cleanup Hủy/Nhập giữ nguyên.
+* **`Sources/Views/Shelf/ShelfMain/TXTImportConfirmationSheet.swift`**: danh sách chương dùng `LazyVStack` và duyệt trực tiếp `parsed.chapters.indices`, tránh dựng/copy toàn bộ row trước khi sheet xuất hiện.
+* Không đổi DocumentPicker, parser, reanalyze hay database import; cập nhật CodeGraph tại `00_index.md`, `04_call_graph.md`, `06_event_graph.md`, và `08_lifecycle.md`.
+
+## [1.3.222] - 2026-08-20
+
+### Toggle dịch đúng cho tác giả/tên chương và history ShelfSearch tự co chiều cao
+
+* **`Sources/Views/Common/BookListItemView.swift`**: tác giả chỉ phiên âm Hán-Việt khi `isTranslationEnabled` bật; khi tắt hiển thị author gốc trên mọi row dùng chung của Shelf/History/ShelfSearch.
+* **`Sources/Views/Reader/ReaderViewModel.swift` / `Sources/Services/ReadingProgress/ReadingProgressStore.swift`**: thêm đường lấy original chapter title riêng cho progress, không persist `CachedChapter.title` đã dịch; snapshot title rỗng được bỏ qua để fallback sang TOC gốc.
+* **`Sources/Views/Shelf/ShelfMain/ShelfView.swift`**: `"Dịch lại tên chương"` chỉ cập nhật `titleTrans`, bỏ ghi bản dịch vào `Book.currentChapterTitle`. Không triển khai migration phục hồi dữ liệu cũ theo yêu cầu người dùng.
+* **`Sources/Views/Shelf/ShelfMain/ShelfSearchView.swift`**: history khớp query co theo tối đa bốn row, không giữ khoảng trống khi không match và chỉ scroll khi vượt bốn kết quả.
+* Không đổi quy chuẩn trong `rules.md`; cập nhật CodeGraph tại `00_index.md`, `04_call_graph.md`, `06_event_graph.md`, và `08_lifecycle.md`.
+
 ## [1.3.221] - 2026-08-20
 
 ### Upsert rule thay thế TTS khi thêm trùng pattern

@@ -26,6 +26,11 @@ enum ShelfBookSearchMatcher {
 /// `ShelfView`. Dùng chung lịch sử tìm kiếm (`search_history`) với màn hình Tìm Kiếm.
 /// Bấm vào kết quả sẽ mở ReaderView.
 struct ShelfSearchView: View {
+    private let historyHeaderHeight: CGFloat = 40
+    private let historyRowHeight: CGFloat = 45
+    private let historySectionSpacing: CGFloat = 12
+    private let maxVisibleHistoryRows = 4
+
     @Query(sort: \Book.lastReadDate, order: .reverse) private var allBooks: [Book]
     @Query private var allExtensions: [Extension]
     @AppStorage(SearchHistoryStore.storageKey) private var searchHistoryJSON = "[]"
@@ -46,6 +51,14 @@ struct ShelfSearchView: View {
 
     private var trimmedQuery: String {
         searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var matchingHistoryHeight: CGFloat {
+        guard !matchingHistory.isEmpty else { return 0 }
+        let visibleRowCount = min(matchingHistory.count, maxVisibleHistoryRows)
+        return historyHeaderHeight
+            + historySectionSpacing
+            + CGFloat(visibleRowCount) * historyRowHeight
     }
 
     private var searchableBooks: [Book] {
@@ -72,8 +85,10 @@ struct ShelfSearchView: View {
             if trimmedQuery.isEmpty {
                 historyView
             } else {
-                historyView
-                    .frame(maxHeight: 220)
+                if !matchingHistory.isEmpty {
+                    historyView
+                        .frame(height: matchingHistoryHeight)
+                }
                 resultsView
             }
         }
@@ -131,7 +146,7 @@ struct ShelfSearchView: View {
     @ViewBuilder
     private var historyView: some View {
         if !matchingHistory.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: historySectionSpacing) {
                 HStack {
                     Text("Lịch sử tìm kiếm")
                         .font(.headline)
@@ -146,6 +161,7 @@ struct ShelfSearchView: View {
                     }
                 }
                 .padding(.horizontal)
+                .frame(height: historyHeaderHeight)
 
                 ScrollView {
                     VStack(spacing: 0) {
@@ -175,15 +191,16 @@ struct ShelfSearchView: View {
                                 .buttonStyle(.plain)
                             }
                             .padding(.horizontal)
-                            .padding(.vertical, 6)
+                            .frame(height: historyRowHeight - 1)
 
                             Divider()
                                 .padding(.leading, 44)
                         }
                     }
                 }
+                .scrollDisabled(matchingHistory.count <= maxVisibleHistoryRows)
             }
-            .padding(.top)
+            .padding(.top, trimmedQuery.isEmpty ? 16 : 0)
         } else if trimmedQuery.isEmpty {
             VStack(spacing: 12) {
                 Spacer()

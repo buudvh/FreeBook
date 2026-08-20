@@ -106,9 +106,13 @@ public actor ReadingProgressStore {
             fallbackTitleFromStore = nil
         }
 
+        let snapshotOriginalTitle = snapshot.chapterTitle.flatMap { title in
+            title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : title
+        }
+
         book.currentChapterIndex = snapshot.chapterIndex
         book.currentChapterPage = snapshot.paragraphIndex
-        book.currentChapterTitle = snapshot.chapterTitle
+        book.currentChapterTitle = snapshotOriginalTitle
             ?? fallbackTitleFromStore
             ?? book.chapters.first(where: { $0.index == snapshot.chapterIndex })?.title
             ?? book.currentChapterTitle

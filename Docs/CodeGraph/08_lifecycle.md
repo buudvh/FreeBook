@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TXT parsing overlay and confirmation-sheet lifecycle (1.3.223)
+
+* `isParsingTXT` bắt đầu trước tác vụ parse nền. Thành công giữ overlay sống qua thời điểm tạo `pendingImport` và chỉ giải phóng khi confirmation sheet `onAppear`; lỗi giải phóng ngay sau cleanup file tạm.
+* Hủy sheet vẫn xóa file tạm và clear `pendingImport`; xác nhận vẫn clear pending rồi chuyển sang lifecycle `isImporting`. Không thay đổi ownership của file tạm.
+
+## Original chapter-title progress lifecycle (1.3.222)
+
+* Trong Reader session, cache giữ đồng thời `originalTitle` và display `title`; mọi checkpoint định kỳ, flush khi background và checkpoint khi đóng Reader lấy `originalTitle` qua `originalChapterTitle(at:)`.
+* `ReadingProgressStore.persist` ghi title gốc không rỗng vào `Book.currentChapterTitle`, fallback sang TOC gốc khi snapshot không có title. Không có startup migration cho record cũ theo phạm vi 1.3.222; record cũ chỉ đổi khi một progress mới hợp lệ được persist.
+
 ## Reader per-book traditional-to-simplified translation lifecycle (1.3.220)
 
 * Reader bootstrap khôi phục `convertTraditionalToSimplified_<bookId>` trước khi tạo `ReaderViewModel`/`ReaderChapterListStore`. Cờ này đi cùng lifecycle của Reader session nhưng được lưu lâu dài theo sách.

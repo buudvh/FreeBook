@@ -91,7 +91,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
                     if hasAuthor || hasSource {
                         HStack(spacing: 8) {
                             if hasAuthor {
-                                Text(DisplayTextFormatter.titleCase(TranslateUtils.translateAuthorHanViet(item.author)))
+                                Text(DisplayTextFormatter.titleCase(displayedAuthor))
                                     .font(.system(size: 13))
                                     .foregroundColor(.secondary)
                                     .lineLimit(1)
@@ -132,6 +132,11 @@ struct BookListItemView<Item: BookDisplayable>: View {
             return text
         }
         return TranslateUtils.translateMeta(text, bookId: bookId)
+    }
+
+    private var displayedAuthor: String {
+        guard isTranslationEnabled else { return item.author }
+        return TranslateUtils.translateAuthorHanViet(item.author)
     }
 
     private func translateChapterTitleIfNeeded(_ text: String, bookId: String) -> String {

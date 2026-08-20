@@ -15,6 +15,17 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TXT import wait-layer handoff events (1.3.223)
+
+* Sự kiện parse hoàn tất chỉ phát thay đổi `pendingImport`; overlay phân tích vẫn che Shelf trong lúc SwiftUI dựng/present sheet. `TXTImportConfirmationSheet.onAppear` là sự kiện duy nhất kết thúc wait layer ở nhánh thành công.
+* Danh sách chương xác nhận dùng lazy rendering theo index, nên chỉ các row cần hiển thị được dựng; reanalyze thay `parsed` và lazy list cập nhật theo indices mới.
+
+## Shelf/History translation toggle and filtered-history layout events (1.3.222)
+
+* Đổi `isTranslationEnabled` làm `BookListItemView` render lại title, author và current chapter: author chỉ phiên âm ở trạng thái bật; trạng thái tắt dùng dữ liệu gốc mà không gọi translator.
+* Reader checkpoint/background flush phát snapshot với original chapter title; persist mới không đưa display title đã dịch vào `Book.currentChapterTitle`. Action `"Dịch lại tên chương"` chỉ phát cập nhật `titleTrans` cho ChapterStore.
+* Trong `ShelfSearchView`, thay đổi query làm `matchingHistory` và `matchingHistoryHeight` tính lại. Không match thì history không chiếm chỗ; 1–4 match co theo row; trên 4 match giữ cửa sổ bốn dòng và bật scroll.
+
 ## TTS replacement rule add events (1.3.221)
 
 * Khi người dùng lưu một rule mới từ Reader hoặc màn quản lý TTS, manager so pattern chính xác với danh sách hiện tại. Nếu trùng, mọi bản cũ bị loại trước khi rule mới được append xuống cuối; `@Published rules` phát thay đổi và file JSON được ghi một lần sau trạng thái cuối.
