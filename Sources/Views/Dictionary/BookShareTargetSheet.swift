@@ -10,6 +10,7 @@ struct BookShareTargetSheet: View {
     let excludedBookId: String?
     let onConfirm: (Book, Bool) -> Void
 
+    @Query private var allExtensions: [Extension]
     @State private var books: [Book] = []
     @State private var pendingTarget: Book? = nil
     @State private var showingModeDialog = false
@@ -21,8 +22,14 @@ struct BookShareTargetSheet: View {
                     pendingTarget = book
                     showingModeDialog = true
                 } label: {
-                    BookListItemView(item: book, showChapter: false)
-                        .contentShape(Rectangle())
+                    let ext = allExtensions.first(where: { $0.packageId == book.extensionPackageId })
+                    BookListItemView(
+                        item: book,
+                        showChapter: false,
+                        extensionLocalPath: ext?.localPath ?? "",
+                        extensionIconUrl: ext?.iconUrl
+                    )
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }

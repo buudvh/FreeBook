@@ -2,6 +2,29 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.216] - 2026-08-20
+
+### Đồng bộ badge nguồn sách thành capsule xám giữa detail, BookListItemView và ReaderChapterListView
+
+* **Phạm vi**: 3 badge hiển thị tên nguồn/extension (và "Local") đồng nhất style capsule xám trung tính, thay thế pill xanh.
+* **Style mới**: icon extension + chữ `.caption2` medium `.secondary`, nền `Color.secondary.opacity(0.12)` bo `Capsule()`, padding `(6, 2)`. Font size không đổi.
+* **`Sources/Views/BookDetail/BookDetailHeaderView.swift`**: badge nguồn bỏ trạng thái chỉ icon+chữ → bọc thêm nền capsule; fallback `puzzlepiece.extension` giảm 16→14pt.
+* **`Sources/Views/Common/BookListItemView.swift`**: protocol `BookDisplayable` thêm `extensionLocalPath: String` (default `""`) và `extensionIconUrl: String?` (default `nil`) qua `extension BookDisplayable`; `BookListItemView` thêm 2 init param `extensionLocalPath`/`extensionIconUrl`; badge thay 2 nhánh pill xanh (`Local`/`sourceName`) bằng helper `sourceBadge(text:)` (icon + chữ trong capsule). `Book` conformance giữ default.
+* **`Sources/Views/Shelf/ShelfMain/ShelfView.swift`**: `bookItemView` resolve `allExtensions.first(where: { $0.packageId == book.extensionPackageId })` và truyền `localPath`/`iconUrl` vào `BookListItemView`.
+* **`Sources/Views/Shelf/ShelfMain/ShelfSearchView.swift`**: thêm `@Query private var allExtensions: [Extension]`; resolve extension và truyền icon.
+* **`Sources/Views/Dictionary/BookShareTargetSheet.swift`**: thêm `@Query private var allExtensions: [Extension]`; resolve extension và truyền icon.
+* **`Sources/Views/Reader/ReaderChapterListView.swift`**: badge `Local`/`ext.name` đổi từ pill xanh sang capsule xám; dùng sẵn đối tượng `ext` để lấy `localPath`/`iconUrl`; không đổi API view.
+* Không đổi public API Service/Manager, không đổi font size; không cần cập nhật `rules.md`.
+
+## [1.3.215] - 2026-08-20
+
+### Giảm cỡ chữ toàn bộ BookListItemView và BookDetailHeaderView
+
+* **Phạm vi**: Thu nhỏ font theo tỉ lệ ~×0.85 (floor 11pt) cho mọi thành phần text của 2 view hiển thị title sách, giữ title luôn là phần lớn nhất; bỏ giới hạn số dòng title ở detail.
+* **`Sources/Views/Common/BookListItemView.swift`**: title `.headline` (17pt semibold) → `.system(size: 14.5, weight: .semibold)`; author `.subheadline` (15pt) → `.system(size: 13)`; dòng "Đang đọc" `.caption` (12pt) → `.caption2` (11pt). Badge nguồn/Local và description giữ `.caption2`.
+* **`Sources/Views/BookDetail/BookDetailHeaderView.swift`**: title `.title3.bold` (20pt bold) + `lineLimit(3)` → `.headline` (17pt semibold) không còn `lineLimit`; section "Thể loại"/"Giới thiệu" `.headline` (17pt) → `.system(size: 14.5, weight: .semibold)`; author `.subheadline` (15pt) → `.system(size: 13)`; tên nguồn `.caption.medium` (12pt) → `.caption2.medium` (11pt); giới thiệu (ExpandableTextView) `.body` (17pt) → `.system(size: 14.5)`. Metadata `caption2` và genre tags giữ nguyên.
+* Không đổi public API, protocol `BookDisplayable` hay dependency; không cần cập nhật `rules.md`.
+
 ## [1.3.214] - 2026-08-19
 
 ### Badge tên nguồn (extension / Local) trong Reader danh sách chương và BookListItemView

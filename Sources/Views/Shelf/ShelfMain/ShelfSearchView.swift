@@ -27,6 +27,7 @@ enum ShelfBookSearchMatcher {
 /// Bấm vào kết quả sẽ mở ReaderView.
 struct ShelfSearchView: View {
     @Query(sort: \Book.lastReadDate, order: .reverse) private var allBooks: [Book]
+    @Query private var allExtensions: [Extension]
     @AppStorage(SearchHistoryStore.storageKey) private var searchHistoryJSON = "[]"
 
     @State private var searchQuery = ""
@@ -227,7 +228,12 @@ struct ShelfSearchView: View {
                             sourceName: book.sourceName
                         )
                     } label: {
-                        BookListItemView(item: book)
+                        let ext = allExtensions.first(where: { $0.packageId == book.extensionPackageId })
+                        BookListItemView(
+                            item: book,
+                            extensionLocalPath: ext?.localPath ?? "",
+                            extensionIconUrl: ext?.iconUrl
+                        )
                     }
                     .buttonStyle(.plain)
                 }

@@ -15,6 +15,20 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đồng bộ badge nguồn sách thành capsule xám giữa detail, BookListItemView và ReaderChapterListView (1.3.216)
+
+* Badge hiển thị tên nguồn/extension (và "Local") ở `BookDetailHeaderView`, `BookListItemView` và `ReaderChapterListView` đồng nhất thành capsule xám trung tính: icon extension (ExtensionIconView 14-16pt, fallback `puzzlepiece.extension` 12-14pt) + chữ `.caption2` medium màu `.secondary`, nền `Color.secondary.opacity(0.12)` bo `Capsule()`, padding `(6, 2)`. Bỏ pill xanh `Color.blue.opacity(0.1)` + `.blue`.
+* `BookDisplayable` (trong `BookListItemView.swift`) thêm 2 property có default qua `extension BookDisplayable`: `extensionLocalPath: String` (default `""`) và `extensionIconUrl: String?` (default `nil`). `BookListItemView` thêm 2 init param tương ứng; `Book` conformance không cần override (dữ liệu do caller truyền vào).
+* Caller truyền icon extension cho item `Book`: `ShelfView.bookItemView`, `ShelfSearchView` (thêm `@Query allExtensions`) và `BookShareTargetSheet` (thêm `@Query allExtensions`) resolve `allExtensions.first(where: { $0.packageId == book.extensionPackageId })` rồi truyền `localPath`/`iconUrl`. `ExtensionItemResult` (Discovery/genre) dùng default → sourceName rỗng nên không hiện badge.
+* `ReaderChapterListView` dùng sẵn đối tượng `ext` để lấy `localPath`/`iconUrl`, không cần đổi API view.
+* Thay đổi thuần UI + mở rộng protocol display (`BookDisplayable`) có default — không đổi public API Service/Manager, không đổi font size.
+
+## Giảm cỡ chữ toàn bộ BookListItemView và BookDetailHeaderView (1.3.215)
+
+* `Sources/Views/Common/BookListItemView.swift`: title từ `.headline` (17pt semibold) → `.system(size: 14.5, weight: .semibold)`; author từ `.subheadline` (15pt) → `.system(size: 13)`; dòng "Đang đọc" từ `.caption` (12pt) → `.caption2` (11pt). Badge nguồn/Local và description giữ `.caption2`.
+* `Sources/Views/BookDetail/BookDetailHeaderView.swift`: title từ `.title3.bold` (20pt bold, `lineLimit(3)`) → `.headline` (17pt semibold) và **bỏ `lineLimit`** (không giới hạn số dòng); section "Thể loại"/"Giới thiệu" từ `.headline` (17pt) → `.system(size: 14.5, weight: .semibold)`; author từ `.subheadline` (15pt) → `.system(size: 13)`; tên nguồn từ `.caption.medium` (12pt) → `.caption2.medium` (11pt); phần giới thiệu (ExpandableTextView) từ `.body` (17pt) → `.system(size: 14.5)`. Metadata `caption2` và genre tags giữ nguyên.
+* Thay đổi thuần UI (font size + bỏ giới hạn dòng title detail), không đổi public API, protocol hay dependency.
+
 ## Badge tên nguồn (extension / Local) trong danh sách chương Reader và BookListItemView (1.3.214)
 
 * `ReaderChapterListView.header` hiển thị thêm badge pill xanh bên cạnh dòng `"N chương"`: sách local (`isLocalTXTBook`) hiện `"Local"`, sách online hiện `ext.name` (khi `ext != nil` và name không rỗng). Giữ nguyên `Spacer(minLength: 4)` và nút refresh/sort.

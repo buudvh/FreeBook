@@ -12,10 +12,14 @@ protocol BookDisplayable {
     var currentChapterTitle: String { get }
     var currentChapterIndex: Int { get }
     var isLocalBook: Bool { get }
+    var extensionLocalPath: String { get }
+    var extensionIconUrl: String? { get }
 }
 
 extension BookDisplayable {
     var isLocalBook: Bool { false }
+    var extensionLocalPath: String { "" }
+    var extensionIconUrl: String? { nil }
 }
 
 /// Row hiển thị một cuốn sách (cover + title dịch + author/source hoặc description),
@@ -27,6 +31,8 @@ struct BookListItemView<Item: BookDisplayable>: View {
     var showDescription: Bool = false
     var coverWidth: CGFloat = 50
     var coverHeight: CGFloat = 70
+    var extensionLocalPath: String = ""
+    var extensionIconUrl: String? = nil
 
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
 
@@ -37,7 +43,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(DisplayTextFormatter.titleCase(translateIfNeeded(item.title, bookId: item.bookId)))
-                    .font(.headline)
+                    .font(.system(size: 14.5, weight: .semibold))
                     .lineLimit(2)
 
                 if showDescription, !item.description.isEmpty {
@@ -49,29 +55,15 @@ struct BookListItemView<Item: BookDisplayable>: View {
                     HStack(spacing: 8) {
                         if !item.author.isEmpty {
                             Text(DisplayTextFormatter.titleCase(TranslateUtils.translateAuthorHanViet(item.author)))
-                                .font(.subheadline)
+                                .font(.system(size: 13))
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
                         }
 
                         if item.isLocalBook {
-                            Text("Local")
-                                .font(.caption2)
-                                .lineLimit(1)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.blue.opacity(0.1))
-                                .foregroundColor(.blue)
-                                .cornerRadius(4)
+                            sourceBadge(text: "Local")
                         } else if !item.sourceName.isEmpty {
-                            Text(item.sourceName)
-                                .font(.caption2)
-                                .lineLimit(1)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.blue.opacity(0.1))
-                                .foregroundColor(.blue)
-                                .cornerRadius(4)
+                            sourceBadge(text: item.sourceName)
                         }
                     }
                 }
@@ -86,7 +78,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
 
                     if !chapterTitle.isEmpty {
                         Text("Đang đọc: \(chapterTitle)")
-                            .font(.caption)
+                            .font(.caption2)
                             .foregroundColor(.blue)
                             .lineLimit(1)
                     }
@@ -108,6 +100,27 @@ struct BookListItemView<Item: BookDisplayable>: View {
             return text
         }
         return TranslateUtils.translateChapterTitle(text, bookId: bookId)
+    }
+
+    private func sourceBadge(text: String) -> some View {
+        HStack(spacing: 4) {
+            if !extensionLocalPath.isEmpty {
+                ExtensionIconView(localPath: extensionLocalPath, iconUrl: extensionIconUrl ?? "", size: 14)
+            } else {
+                Image(systemName: "puzzlepiece.extension")
+                    .resizable()
+                    .frame(width: 12, height: 12)
+                    .foregroundColor(.secondary)
+            }
+            Text(text)
+                .font(.caption2)
+                .fontWeight(.medium)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(Color.secondary.opacity(0.12), in: Capsule())
     }
 }
 

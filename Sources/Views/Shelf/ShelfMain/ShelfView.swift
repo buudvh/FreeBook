@@ -570,7 +570,12 @@ struct ShelfView: View {
 
     @ViewBuilder
     private func bookItemView(_ book: Book) -> some View {
-        BookListItemView(item: book)
+        let ext = allExtensions.first(where: { $0.packageId == book.extensionPackageId })
+        BookListItemView(
+            item: book,
+            extensionLocalPath: ext?.localPath ?? "",
+            extensionIconUrl: ext?.iconUrl
+        )
     }
 
     private func retranslateChapterTitles(for book: Book) {

@@ -170,23 +170,32 @@ public struct ReaderChapterListView: View {
                             .minimumScaleFactor(0.8)
 
                         if isLocalTXTBook {
-                            Text("Local")
-                                .font(.caption2)
-                                .lineLimit(1)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.blue.opacity(0.1))
-                                .foregroundColor(.blue)
-                                .cornerRadius(4)
+                            HStack(spacing: 4) {
+                                Image(systemName: "puzzlepiece.extension")
+                                    .resizable()
+                                    .frame(width: 12, height: 12)
+                                    .foregroundColor(.secondary)
+                                Text("Local")
+                                    .font(.caption2)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.secondary.opacity(0.12), in: Capsule())
                         } else if let ext, !ext.name.isEmpty {
-                            Text(ext.name)
-                                .font(.caption2)
-                                .lineLimit(1)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.blue.opacity(0.1))
-                                .foregroundColor(.blue)
-                                .cornerRadius(4)
+                            HStack(spacing: 4) {
+                                ExtensionIconView(localPath: ext.localPath, iconUrl: ext.iconUrl ?? "", size: 14)
+                                Text(ext.name)
+                                    .font(.caption2)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.secondary.opacity(0.12), in: Capsule())
                         }
 
                         Spacer(minLength: 4)

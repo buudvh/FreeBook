@@ -94,9 +94,7 @@ struct BookDetailHeaderView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(DisplayTextFormatter.titleCase(onTranslateMetaIfNeeded(title)))
-                    .font(.title3)
-                    .fontWeight(.bold)
-                    .lineLimit(3)
+                    .font(.headline)
 
                 if !formattedAuthor.isEmpty {
                     HStack(spacing: 5) {
@@ -105,24 +103,28 @@ struct BookDetailHeaderView: View {
                         Text(formattedAuthor)
                             .lineLimit(1)
                     }
-                    .font(.subheadline)
+                    .font(.system(size: 13))
                     .foregroundColor(.secondary)
                 }
 
-                HStack(spacing: 6) {
+                HStack(spacing: 4) {
                     if !localPath.isEmpty {
                         ExtensionIconView(localPath: localPath, iconUrl: iconUrl ?? "", size: 16)
                     } else {
                         Image(systemName: "puzzlepiece.extension")
                             .resizable()
-                            .frame(width: 16, height: 16)
+                            .frame(width: 14, height: 14)
                             .foregroundColor(.secondary)
                     }
                     Text(sourceName)
-                        .font(.caption)
+                        .font(.caption2)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
+                        .lineLimit(1)
                 }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.secondary.opacity(0.12), in: Capsule())
 
                 if !detail.isEmpty {
                     Text(onTranslateMetaIfNeeded(cleanedDetailText))
@@ -147,7 +149,7 @@ struct BookDetailHeaderView: View {
     private var genresSectionView: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Thể loại")
-                .font(.headline)
+                .font(.system(size: 14.5, weight: .semibold))
 
             FlowLayout(spacing: 8) {
                 ForEach(genres) { genre in
@@ -176,11 +178,11 @@ struct BookDetailHeaderView: View {
     private var descriptionView: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Giới thiệu")
-                .font(.headline)
+                .font(.system(size: 14.5, weight: .semibold))
             ExpandableTextView(
                 text: onTranslateMetaIfNeeded(desc),
                 lineLimit: 4,
-                font: .body,
+                font: .system(size: 14.5),
                 foregroundColor: .secondary,
                 isJustified: true
             )
