@@ -15,7 +15,7 @@ struct TTSSettingsView: View {
     @Query private var allExtensions: [Extension]
     
     private var ttsExtensions: [Extension] {
-        allExtensions.filter { $0.type == "tts" && !$0.localPath.isEmpty && $0.isEnabled }
+        allExtensions.filter { $0.type == ExtensionType.tts && !$0.localPath.isEmpty && $0.isEnabled }
     }
     
     @State private var extensionVoices: [[String: String]] = []

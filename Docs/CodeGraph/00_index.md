@@ -15,6 +15,21 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Mở rộng vùng bấm lịch sử tìm kiếm (1.3.227)
+
+* `ShelfSearchView.historyView` và `SearchView.searchHistoryView` cho label nút chọn lịch sử chiếm toàn bộ chiều rộng còn lại và dùng `Rectangle` làm hit-test shape; khoảng trống từ nội dung đến trước nút xóa nay kích hoạt đúng action chọn lịch sử.
+* Nút `x` vẫn là button độc lập, nên xóa mục không đồng thời chọn mục hoặc chạy tìm kiếm. Chiều cao, padding, divider, scroll và logic lọc giữ nguyên.
+
+## Chuẩn hóa hằng số Extension.type (1.3.226)
+
+* Namespace public `ExtensionType` tập trung bốn giá trị chuẩn `novel`, `chineseNovel`, `comic`, và `tts`; `Extension.type` vẫn là `String`, nên schema SwiftData, dữ liệu persisted và type mở rộng không biết trước không thay đổi.
+* Model command, metadata import, repository policy, Discovery, search-all, TTS Settings và UI quản lý extension dùng chung các hằng số này cho phép so sánh/default. Sentinel UI `"all"` cùng script key/action runtime `"tts"` vẫn giữ nguyên vì không biểu diễn `Extension.type`.
+
+## Loại extension TTS khỏi tìm kiếm tất cả nguồn truyện (1.3.225)
+
+* `SearchView.searchableExtensions` lọc chính xác `type != "tts"` tại ranh giới màn tìm kiếm. Chế độ tất cả nguồn dùng cùng danh sách cho task group, `sourceStates`, render nhóm kết quả và màn `Xem thêm`, nên mọi entry point Discovery/Shelf/Reader/BookDetail không còn gọi script search của extension giọng đọc.
+* Luồng tìm một nguồn cụ thể và API `SearchView` không đổi; không mở rộng bộ lọc sang type khác hoặc tự sửa chính sách enabled/installed của caller.
+
 ## Local TXT titleTrans, bounded confirmation preview, and toggle-independent chapter search (1.3.224)
 
 * TXT import models are `Sendable`; after confirmation, `ShelfView` translates chapter titles and builds the full `[ChapterMetadataSnapshot]` inside a detached user-initiated task. Every new local chapter is persisted with original `title` plus `titleTrans`, while the MainActor only coordinates UI state and the existing SwiftData book transaction.

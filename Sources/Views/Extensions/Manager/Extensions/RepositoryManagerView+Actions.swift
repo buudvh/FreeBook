@@ -123,9 +123,9 @@ extension RepositoryManagerView {
 
     internal func translateType(_ type: String) -> String {
         switch type {
-        case "novel": return "Truyện chữ"
-        case "chinese_novel": return "Truyện Trung"
-        case "tts": return "Giọng đọc (TTS)"
+        case ExtensionType.novel: return "Truyện chữ"
+        case ExtensionType.chineseNovel: return "Truyện Trung"
+        case ExtensionType.tts: return "Giọng đọc (TTS)"
         default: return type.capitalized
         }
     }

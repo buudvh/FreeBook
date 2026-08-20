@@ -34,7 +34,7 @@ public struct ExtensionRegistryItem: Codable {
     public let source: String? // URL trang web nguồn (ví dụ: https://truyenfull.vn)
     public let icon: String?
     public let description: String?
-    public let type: String? // "novel", "comic", "chinese_novel"
+    public let type: String? // "novel", "chinese_novel", "comic", "tts"
     public let locale: String? // "vi_VN", "zh_CN", ...
 }
 
@@ -205,7 +205,7 @@ public final class ExtensionManager: ObservableObject {
         let name = (meta["name"] as? String) ?? (json["name"] as? String) ?? "Tiện ích Import"
         let author = (meta["author"] as? String) ?? ""
         let locale = (meta["locale"] as? String) ?? (meta["language"] as? String) ?? "vi_VN"
-        let type = (meta["type"] as? String) ?? "novel"
+        let type = (meta["type"] as? String) ?? ExtensionType.novel
         let sourceUrl = (meta["source"] as? String) ?? ""
         let iconUrl = meta["icon"] as? String
         let desc = meta["description"] as? String

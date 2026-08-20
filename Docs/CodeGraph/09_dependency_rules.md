@@ -15,6 +15,11 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Shared extension-type vocabulary (1.3.226)
+
+* `ExtensionType` nằm trong tầng `Models/Extensions`; Models command, Services và Views được phép phụ thuộc vào namespace này để dùng chung vocabulary persisted.
+* Namespace không chứa policy hiển thị/lọc và không import SwiftUI; các policy vẫn thuộc `RepositoryFilterPolicy` hoặc view tương ứng. `Extension.type` vẫn là `String` để giữ schema và hỗ trợ type mở rộng.
+
 ## Quy Tắc Phụ Thuộc Tầng (Dependency Rules v4.1/v5.0)
 
 1. **Ma Trận Phụ Thuộc Phân Tầng**:

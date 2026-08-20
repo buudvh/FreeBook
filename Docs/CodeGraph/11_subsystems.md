@@ -15,6 +15,11 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Extension type vocabulary (1.3.226)
+
+* Extension subsystem dùng `ExtensionType` làm nguồn duy nhất cho bốn giá trị type chuẩn khi parse metadata, upsert, lọc repository và chọn UI theo type.
+* Discovery/Search chỉ nhận diện nguồn đọc qua `novel`/`chineseNovel` và loại `tts` khỏi search-all; TTS Settings nhận diện extension giọng đọc qua `tts`; comic tiếp tục bị repository policy ẩn. Unknown type vẫn đi qua nhánh mặc định.
+
 ## TTS replacement manager public API (1.3.221)
 
 * `TTSReplacementManager` sở hữu danh sách có thứ tự `[TTSReplacementRule]` và persistence `character_replacements.json`. `addRule(_:) -> AddRuleResult` bảo đảm thao tác thêm không để lại pattern trùng: xóa mọi match chính xác rồi append rule mới để giữ đúng ưu tiên áp dụng tuần tự.

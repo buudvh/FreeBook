@@ -10,7 +10,7 @@ public final class Extension {
     public var sourceUrl: String
     public var iconUrl: String?
     public var desc: String?
-    public var type: String // "novel" hoặc "comic" hoặc "chinese_novel"
+    public var type: String // "novel", "chinese_novel", "comic" hoặc "tts"
     public var locale: String // "vi_VN", "zh_CN", ...
     public var localPath: String // Thư mục lưu các file JS giải nén
     public var isEnabled: Bool = true

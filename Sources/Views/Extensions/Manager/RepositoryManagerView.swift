@@ -59,7 +59,7 @@ struct RepositoryManagerView: View {
     
     // Lọc danh sách loại tiện ích động từ database (loại trừ comic)
     internal var allTypes: [String] {
-        let types = allExtensions.map { $0.type }.filter { $0 != "comic" }
+        let types = allExtensions.map { $0.type }.filter { $0 != ExtensionType.comic }
         return Array(Set(types)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
     
@@ -370,7 +370,7 @@ struct RepositoryManagerView: View {
                 .frame(width: 44, height: 44)
                 .cornerRadius(8)
             } else {
-                Image(systemName: ext.type == "tts" ? "waveform" : "book.closed")
+                Image(systemName: ext.type == ExtensionType.tts ? "waveform" : "book.closed")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 32, height: 32)
@@ -412,8 +412,8 @@ struct RepositoryManagerView: View {
                         .font(.system(size: 9, weight: .semibold))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(ext.type == "tts" ? Color.orange.opacity(0.12) : Color.purple.opacity(0.12))
-                        .foregroundColor(ext.type == "tts" ? .orange : .purple)
+                        .background(ext.type == ExtensionType.tts ? Color.orange.opacity(0.12) : Color.purple.opacity(0.12))
+                        .foregroundColor(ext.type == ExtensionType.tts ? .orange : .purple)
                         .cornerRadius(4)
                     
                     Text(ext.author)
@@ -735,7 +735,7 @@ struct RepositoryManagerView: View {
             let repoRemoteVersion = item.version ?? 1
             let finalAuthor = resolvedAuthor ?? item.author ?? ""
             let finalLocale = resolvedLanguage ?? item.locale ?? "vi_VN"
-            let finalType = resolvedType ?? item.type ?? "novel"
+            let finalType = resolvedType ?? item.type ?? ExtensionType.novel
             let finalVersion = resolvedVersion ?? item.version ?? 1
             let finalSource = resolvedSource ?? item.source ?? ""
             

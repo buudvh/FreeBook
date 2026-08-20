@@ -25,7 +25,7 @@ public struct UpsertExtensionCommand: Sendable {
         sourceUrl: String = "",
         iconUrl: String? = nil,
         desc: String? = nil,
-        type: String = "novel",
+        type: String = ExtensionType.novel,
         locale: String = "vi_VN",
         localPath: String? = nil,
         downloadUrl: String = "",

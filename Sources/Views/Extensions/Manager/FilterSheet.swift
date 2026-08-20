@@ -79,9 +79,9 @@ public struct FilterSheet: View {
 
     internal func translateType(_ type: String) -> String {
         switch type {
-        case "novel": return "Truyện chữ (Novel)"
-        case "chinese_novel": return "Truyện Trung Quốc (Chinese)"
-        case "tts": return "Giọng đọc (TTS)"
+        case ExtensionType.novel: return "Truyện chữ (Novel)"
+        case ExtensionType.chineseNovel: return "Truyện Trung Quốc (Chinese)"
+        case ExtensionType.tts: return "Giọng đọc (TTS)"
         default: return type.capitalized
         }
     }

@@ -15,13 +15,18 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Extension type constants (1.3.226)
+
+* File mới `Sources/Models/Extensions/ExtensionType.swift` khai báo namespace public dùng chung cho các giá trị type chuẩn mà không thay `Extension.type: String` thành enum.
+* `UpsertExtensionCommand` và `ExtensionManager` phụ thuộc `ExtensionType.novel` cho default/fallback; `RepositoryFilterPolicy`, `SearchView`, `DiscoveryView`, `TTSSettingsView`, `RepositoryManagerView`, `FilterSheet` và `RepositoryManagerView+Actions` phụ thuộc cùng namespace cho policy và presentation.
+
 ## Cấu Trúc Sơ Đồ File Hợp Nhất (Refactor v4.1/v5.0)
 
 Sơ đồ liên kết file của toàn bộ dự án FreeBook sau refactor:
 - **App**: `FreeBookApp.swift` -> Đăng ký `TTSPresentationEventCenter`, `DownloadPresentationEventCenter`.
 - **Models**:
   - `Models/Books/`: `AddBookToShelfCommand.swift`, `BookTransactionError.swift`.
-  - `Models/Extensions/`: `ExtensionConfigCommand.swift`, `ExtensionExecutionSnapshot.swift`, `ExtensionTransactionError.swift`, `UpdateExtensionFolderCommand.swift`, `UpsertExtensionCommand.swift`.
+  - `Models/Extensions/`: `ExtensionConfigCommand.swift`, `ExtensionExecutionSnapshot.swift`, `ExtensionTransactionError.swift`, `ExtensionType.swift`, `UpdateExtensionFolderCommand.swift`, `UpsertExtensionCommand.swift`.
   - `Models/Reader/`: `ChapterRowItem.swift`, `ParagraphFrame.swift`, `ReaderChapterRowState.swift`, `ReaderScrollReason.swift`, `ReaderScrollTarget.swift`, `SearchChapterDTO.swift`.
   - `Models/Translation/`: `SentenceRange.swift`, `TOCImportPreview.swift`, `TOCRule.swift`, `TOCRuleImportError.swift`, `TranslatedTextResult.swift`, `TranslationSpan.swift`, `TranslationWordToken.swift`.
 - **Services**:

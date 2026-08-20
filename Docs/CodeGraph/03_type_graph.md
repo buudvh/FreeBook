@@ -15,6 +15,11 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## ExtensionType namespace (1.3.226)
+
+* `public enum ExtensionType` là namespace không có case, cung cấp bốn `public static let String`: `novel`, `chineseNovel`, `comic`, và `tts`.
+* `Extension.type`, `ExtensionItem.type` và `UpsertExtensionCommand.type` tiếp tục là `String`; namespace chỉ chuẩn hóa vocabulary, không đóng tập type hợp lệ và không yêu cầu migration.
+
 ## Local import and chapter-search type changes (1.3.224)
 
 * `ParserChapter` and `ParsedBook` conform to `Sendable`, allowing immutable parsed TXT data to cross into detached metadata/translation work.
@@ -25,7 +30,7 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 
 Các kiểu dữ liệu chính và mối quan hệ sau refactor:
 1. **Command DTOs & Transaction Errors**:
-   - `AddBookToShelfCommand`, `UpsertExtensionCommand`, `ExtensionConfigCommand`, `UpdateExtensionFolderCommand` (Immutable value structs).
+   - `AddBookToShelfCommand`, `UpsertExtensionCommand`, `ExtensionConfigCommand`, `UpdateExtensionFolderCommand` (Immutable value structs); `ExtensionType` (namespace hằng số String).
    - `BookTransactionError`, `ExtensionTransactionError`, `TOCRuleImportError`, `BackgroundPagingError` (Error enums).
 2. **Domain Transaction Coordinators**:
    - `BookTransactionCoordinator` (`@MainActor` singleton): Nhận `AddBookToShelfCommand`, `updateBookMetadata`, `setOnShelf`, `setCurrentChapterIndex`, `insertChapterDTO`, `updateChapterTitleTranslations`.

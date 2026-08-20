@@ -15,6 +15,16 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Search-history row hit testing (1.3.227)
+
+* Tapping the clock, query text, or transparent space before the delete control now reaches the history-selection button in both `ShelfSearchView` and `SearchView` because its label fills the available width and declares a rectangular content shape.
+* The trailing delete button remains a separate event target: ShelfSearch selection only updates `searchQuery`, Search selection also calls `performSearch()`, and delete only removes the selected history item.
+
+## All-source search filtering events (1.3.225)
+
+* Submitting a query with `Tìm trên tất cả nguồn đã cài` enabled derives the eligible collection before publishing searching states. TTS extensions emit no searching/no-result state and launch no search task.
+* Result rendering iterates the same eligible collection; toggling to single-source mode retains the existing selected-source behavior.
+
 ## Local TXT import and chapter-search events (1.3.224)
 
 * Tapping `Nhập` clears the confirmation item, shows the import wait layer, creates the local Book, then changes status to `Đang dịch tên chương...` while detached work builds translated metadata. Completion continues through the existing TOC/content writes and progress updates.

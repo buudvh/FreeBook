@@ -45,6 +45,10 @@ struct SearchView: View {
         guard !trimmed.isEmpty else { return searchHistory }
         return searchHistory.filter { $0.localizedCaseInsensitiveContains(trimmed) }
     }
+
+    private var searchableExtensions: [Extension] {
+        activeExtensions.filter { $0.type != ExtensionType.tts }
+    }
     
     init(activeExtensions: [Extension], selectedExtension: Extension?, initialSearchQuery: String = "", changeSourceTargetBook: Book? = nil, onSourceChanged: (() -> Void)? = nil) {
         self.activeExtensions = activeExtensions
@@ -240,7 +244,7 @@ struct SearchView: View {
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    ForEach(activeExtensions.sorted(by: { $0.name < $1.name }), id: \.packageId) { ext in
+                    ForEach(searchableExtensions.sorted(by: { $0.name < $1.name }), id: \.packageId) { ext in
                         if let state = sourceStates[ext.packageId] {
                             Group {
                                 switch state {
@@ -291,7 +295,7 @@ struct SearchView: View {
                                                 Spacer()
                                                 
                                                 NavigationLink(destination: SearchView(
-                                                    activeExtensions: activeExtensions,
+                                                    activeExtensions: searchableExtensions,
                                                     selectedExtension: ext,
                                                     initialSearchQuery: searchQuery
                                                 )) {
@@ -536,6 +540,8 @@ struct SearchView: View {
                                         
                                         Spacer()
                                     }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
                                 
@@ -740,7 +746,7 @@ struct SearchView: View {
         sourceStates.removeAll()
         
         if searchAllSources {
-            let extensionsToSearch = activeExtensions
+            let extensionsToSearch = searchableExtensions
             guard !extensionsToSearch.isEmpty else {
                 isSearching = false
                 searchStatusMessage = "Không có nguồn nào hoạt động."

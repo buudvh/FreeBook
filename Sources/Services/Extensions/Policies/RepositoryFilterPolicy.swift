@@ -12,7 +12,7 @@ public struct RepositoryFilterPolicy: Sendable {
         type: String = "all",
         locale: String = "all"
     ) -> [Extension] {
-        var result = extensions.filter { $0.type != "comic" }
+        var result = extensions.filter { $0.type != ExtensionType.comic }
         if author != "all" {
             result = result.filter { $0.author == author }
         }
