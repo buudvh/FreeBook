@@ -170,7 +170,8 @@ struct TXTImportConfirmationSheet: View {
                                     Text("\(index + 1).")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
-                                        .frame(width: 32, alignment: .trailing)
+                                        .fixedSize(horizontal: true, vertical: false)
+                                        .frame(minWidth: 56, alignment: .trailing)
 
                                     Text(chapter.title)
                                         .font(.caption)
