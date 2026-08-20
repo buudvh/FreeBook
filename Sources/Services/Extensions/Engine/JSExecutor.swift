@@ -1376,39 +1376,7 @@ public final class JSExecutor: @unchecked Sendable {
     }
 
     internal func decodeData(_ data: Data) -> String {
-        if let utf8Str = String(data: data, encoding: .utf8) {
-            return utf8Str
-        }
-
-        let gbkRawValue = CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.GB_18030_2000.rawValue))
-        let gbkEncoding = String.Encoding(rawValue: gbkRawValue)
-        if let gbkStr = String(data: data, encoding: gbkEncoding) {
-            return gbkStr
-        }
-
-        let big5RawValue = CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.big5.rawValue))
-        let big5Encoding = String.Encoding(rawValue: big5RawValue)
-        if let big5Str = String(data: data, encoding: big5Encoding) {
-            return big5Str
-        }
-
-        if let utf16Str = String(data: data, encoding: .utf16) {
-            return utf16Str
-        }
-
-        if let isoStr = String(data: data, encoding: .isoLatin1) {
-            return isoStr
-        }
-
-        if let winStr = String(data: data, encoding: .windowsCP1252) {
-            return winStr
-        }
-
-        if let asciiStr = String(data: data, encoding: .ascii) {
-            return asciiStr
-        }
-
-        return ""
+        return TextEncodingDecoder.decode(data)
     }
 
     public static func cleanAndResolveUrl(_ urlString: String, host: String? = nil) -> String {

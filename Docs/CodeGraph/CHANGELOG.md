@@ -2,6 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.217] - 2026-08-20
+
+### Import TXT: bảng mã giải mã đa dạng, xác nhận trước khi nhập, overlay Material
+
+* File mới `Sources/Common/Utils/TextEncodingDecoder.swift`: helper giải mã `Data → String` thử tuần tự 20 bảng mã (UTF-8/BOM, UTF-16LE/BE, UTF-32LE/BOM/BE, GB18030, GBK, Big5-HKSCS, Big5, EUC-JP, windowsVietnamese/CP1258, VSCII/TCVN3, ISO-8859-1, windows-1250/1251/1252/1253/1254, ASCII). Mã đơn byte đặt cuối để tránh nuốt nhầm file tiếng Trung.
+* `JSExecutor.decodeData` dùng chung `TextEncodingDecoder.decode(data)` thay cho logic tự viết.
+* `ShelfView` tách import TXT thành 3 giai đoạn: `importTxtBook(from:)` (copy + decode + parse → hiện sheet xác nhận, giữ file tạm), `performImport()` (tạo Book + ghi chương + progress, xóa temp), `cancelImport()` (xóa temp). Thêm `PendingImport` struct + state `pendingImport`/`showImportConfirmation`/`importIsIndeterminate`.
+* Sheet mới `Sources/Views/Shelf/ShelfMain/TXTImportConfirmationSheet.swift`: hiện tên truyện, số chương, tên file và danh sách toàn bộ chương trước khi nhập; nút Hủy/Nhập.
+* Overlay import + overlay xóa sách bọc trong ZStack riêng (fix lệch giữa), card `.ultraThinMaterial`, spinner khi indeterminate, thanh linear + % khi ghi chương.
+
 ## [1.3.216] - 2026-08-20
 
 ### Đồng bộ badge nguồn sách thành capsule xám giữa detail, BookListItemView và ReaderChapterListView

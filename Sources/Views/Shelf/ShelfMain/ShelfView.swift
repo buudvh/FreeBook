@@ -44,8 +44,13 @@ struct ShelfView: View {
 
     // Trạng thái hiển thị tiến độ import file TXT
     @State private var isImporting = false
+    @State private var importIsIndeterminate = true
     @State private var importProgress: Double = 0.0
     @State private var importStatusText = ""
+
+    // Xác nhận thông tin trước khi thực sự import TXT vào CSDL
+    @State private var pendingImport: PendingImport? = nil
+    @State private var showImportConfirmation = false
 
     @State private var shelfLimit = 50 // Giới hạn số lượng sách hiển thị trên kệ để tối ưu hiệu năng cuộn
     @State private var historyLimit = 50 // Giới hạn số lượng sách hiển thị trong lịch sử đọc
@@ -289,45 +294,86 @@ struct ShelfView: View {
                     }
                 )
             }
+            .sheet(isPresented: $showImportConfirmation) {
+                if let pending = pendingImport {
+                    TXTImportConfirmationSheet(
+                        title: pending.parsed.title,
+                        fileName: pending.fileName,
+                        totalChapters: pending.parsed.chapters.count,
+                        chapterTitles: pending.parsed.chapters.map(\.title),
+                        onCancel: {
+                            cancelImport()
+                        },
+                        onConfirm: {
+                            performImport()
+                        }
+                    )
+                }
+            }
         }
 
+        // Overlay nhập TXT: bọc trong ZStack riêng để card được căn giữa thực sự
+        // (nếu để Color + card là 2 biểu thức trong cùng if của ZStack ngoài, SwiftUI
+        // gộp thành TupleView đặt tại origin → card bị lệch xuống dưới).
         if isImporting {
-            Color.black.opacity(0.4)
-                .edgesIgnoringSafeArea(.all)
-                .transition(.opacity)
+            ZStack {
+                Color.black.opacity(0.4)
+                    .edgesIgnoringSafeArea(.all)
 
-            VStack(spacing: 20) {
-                ProgressView(value: importProgress)
-                    .progressViewStyle(.linear)
-                    .frame(width: 220)
-                    .tint(.blue)
+                VStack(spacing: 20) {
+                    Image(systemName: "square.and.arrow.down.fill")
+                        .font(.title2)
+                        .foregroundColor(.primary)
 
-                Text(importStatusText)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
+                    Text("Đang nhập truyện")
+                        .font(.headline)
+
+                    if importIsIndeterminate {
+                        ProgressView()
+                            .controlSize(.regular)
+                    } else {
+                        ProgressView(value: importProgress)
+                            .progressViewStyle(.linear)
+                            .frame(width: 220)
+                            .tint(.blue)
+                    }
+
+                    Text(importStatusText)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(30)
+                .background(
+                    RoundedRectangle(cornerRadius: 15)
+                        .fill(.ultraThinMaterial)
+                )
+                .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
             }
-            .padding(30)
-            .background(
-                RoundedRectangle(cornerRadius: 15)
-                    .fill(Color(red: 0.15, green: 0.15, blue: 0.15).opacity(0.95))
-            )
-            .transition(.scale)
+            .transition(.opacity)
         }
 
+        // Overlay xóa sách: cùng kiểu Material + căn giữa như overlay import
         if isProcessingDeletion {
-            Color.black.opacity(0.3)
-                .edgesIgnoringSafeArea(.all)
-            VStack(spacing: 12) {
-                ProgressView()
-                    .tint(.white)
-                Text("Đang dọn dẹp sách...")
-                    .font(.subheadline)
-                    .foregroundColor(.white)
+            ZStack {
+                Color.black.opacity(0.3)
+                    .edgesIgnoringSafeArea(.all)
+
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .controlSize(.regular)
+                    Text("Đang dọn dẹp sách...")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(20)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(.ultraThinMaterial)
+                )
+                .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
             }
-            .padding(20)
-            .background(Color.black.opacity(0.8).cornerRadius(12))
+            .transition(.opacity)
         }
     }
 }
@@ -726,6 +772,12 @@ struct ShelfView: View {
         let chapters: [ParserChapter]
     }
 
+    private struct PendingImport {
+        let tempFileUrl: URL
+        let fileName: String
+        let parsed: ParsedBook
+    }
+
     nonisolated private func parseTxtBook(content: String, fileName: String) -> ParsedBook {
         let lines = content.components(separatedBy: "\n")
         var chapters: [ParserChapter] = []
@@ -769,15 +821,11 @@ struct ShelfView: View {
         return ParsedBook(title: bookTitle, chapters: chapters)
     }
 
-    // importTxtBook: Thực hiện đọc tệp văn bản TXT từ bộ nhớ và nhập vào cơ sở dữ liệu của app dưới dạng một cuốn sách
+    // importTxtBook: Đọc + giải mã + parse file TXT, sau đó hiện sheet xác nhận
+    // trước khi thực sự nhập vào CSDL (tránh import nhầm/sai cấu trúc).
     private func importTxtBook(from url: URL) {
         // startAccessingSecurityScopedResource: iOS yêu cầu cấp quyền tạm thời để truy cập các tệp tin ngoài sandbox của ứng dụng (ví dụ từ app Files)
         let accessing = url.startAccessingSecurityScopedResource()
-
-        // Hiện overlay tiến trình và Toast ban đầu trên Main Thread
-        self.isImporting = true
-        self.importProgress = 0.0
-        self.importStatusText = "Đang chuẩn bị file..."
 
         // Tạo một đường dẫn tệp tạm thời trong thư mục temp của ứng dụng
         let tempFileUrl = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".txt")
@@ -795,7 +843,6 @@ struct ShelfView: View {
             if accessing {
                 url.stopAccessingSecurityScopedResource()
             }
-            self.isImporting = false
             AppLogger.shared.log("❌ Lỗi sao chép file tạm: \(error.localizedDescription)")
             ToastManager.shared.show(message: "Lỗi sao chép file: \(error.localizedDescription)")
             return
@@ -803,34 +850,17 @@ struct ShelfView: View {
 
         // Chạy tiến trình nền để đọc và parse file TXT
         Task.detached(priority: .userInitiated) {
-            defer {
-                // Tự động xóa file tạm sau khi đã xử lý xong (dù thành công hay gặp lỗi)
-                try? FileManager.default.removeItem(at: tempFileUrl)
-            }
             do {
-                await MainActor.run {
-                    self.importStatusText = "Đang đọc nội dung file..."
-                }
+                let data = try Data(contentsOf: tempFileUrl)
 
-                // Hỗ trợ giải mã với nhiều bảng mã khác nhau (Encoding Fallback)
-                var content: String? = nil
-                let encodings: [String.Encoding] = [.utf8, .utf16, .ascii, .isoLatin1]
-                for encoding in encodings {
-                    if let decoded = try? String(contentsOf: tempFileUrl, encoding: encoding) {
-                        content = decoded
-                        break
-                    }
-                }
-
-                guard let decodedContent = content else {
+                // Hỗ trợ giải mã với nhiều bảng mã (TextEncodingDecoder thử tuần tự UTF-8/BOM,
+                // các mã đa byte CJK, mã đơn byte; tránh nuốt nhầm file tiếng Trung)
+                let decodedContent = TextEncodingDecoder.decode(data)
+                guard !decodedContent.isEmpty else {
                     throw NSError(domain: "ImportError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Định dạng file không hỗ trợ hoặc lỗi mã hóa ký tự."])
                 }
 
                 let fileName = url.lastPathComponent
-
-                await MainActor.run {
-                    self.importStatusText = "Đang phân tích cấu trúc chương..."
-                }
 
                 // Thực hiện phân tích nội dung thành các chương (Parser)
                 let parsed = self.parseTxtBook(content: decodedContent, fileName: fileName)
@@ -838,97 +868,137 @@ struct ShelfView: View {
                     throw NSError(domain: "ImportError", code: 2, userInfo: [NSLocalizedDescriptionKey: "File văn bản không chứa nội dung hoặc cấu trúc chương hợp lệ."])
                 }
 
-                let newBookId = UUID().uuidString
-                let totalChapters = parsed.chapters.count
-
-                // Quay lại Main Thread để chèn dữ liệu trực tiếp bằng modelContext chính, giúp UI đồng bộ lập tức và cập nhật progress bar mượt mà
+                // Quay lại Main Thread để hiện sheet xác nhận; file tạm được giữ tới khi
+                // người dùng bấm "Nhập" hoặc "Hủy".
                 await MainActor.run {
-                    self.importStatusText = "Đang tạo cuốn sách mới..."
-
-                    let cmd = AddBookToShelfCommand(
-                        bookId: newBookId,
-                        title: parsed.title,
-                        author: "Local",
-                        coverUrl: "",
-                        desc: "Truyện nhập cục bộ từ file \(fileName).",
-                        detailUrl: "local://\(newBookId)",
-                        sourceName: "Local",
-                        sourceUrl: "local://\(newBookId)",
-                        extensionPackageId: "local",
-                        currentChapterIndex: 0,
-                        currentChapterPage: 0,
-                        currentChapterTitle: "",
-                        isOnShelf: true,
-                        isHistory: false,
-                        host: "local://"
+                    self.pendingImport = PendingImport(
+                        tempFileUrl: tempFileUrl,
+                        fileName: fileName,
+                        parsed: parsed
                     )
-                    let createRes = BookTransactionCoordinator.shared.addBookToShelf(command: cmd, in: self.modelContext)
-                    guard case .success(let newBook) = createRes else {
-                        self.isImporting = false
-                        ToastManager.shared.show(message: "Lỗi tạo sách local trong CSDL", type: .error)
-                        return
-                    }
-
-                    // Thực hiện chèn từng chương vào database / ChapterStore
-                    Task {
-                        do {
-                            let snapshots = parsed.chapters.enumerated().map { idx, chapData in
-                                let url = "local://\(newBookId)/chapter/\(idx)"
-                                return ChapterMetadataSnapshot(title: chapData.title, url: url, index: idx)
-                            }
-                            _ = try await ChapterStore.shared.replaceFullTOC(bookId: newBookId, chapters: snapshots, protectedTTS: nil)
-
-                            for (idx, chapData) in parsed.chapters.enumerated() {
-                                let url = "local://\(newBookId)/chapter/\(idx)"
-                                let (offset, length) = try await BookBinManager.shared.writeChapterContent(bookId: newBookId, content: chapData.content)
-
-                                let meta = ChapterMetadataSnapshot(title: chapData.title, url: url, index: idx)
-                                try await ChapterStore.shared.upsertCachedChapter(
-                                    bookId: newBookId,
-                                    metadata: meta,
-                                    isCached: true,
-                                    offset: offset,
-                                    length: length
-                                )
-
-                                if ChapterStoreConfiguration.enableSwiftDataTOCWrite {
-                                    let res = BookTransactionCoordinator.shared.insertChapterDTO(bookId: newBook.bookId, title: chapData.title, url: url, index: idx, isCached: true, offset: offset, length: length, in: self.modelContext)
-                                    if case .failure(let err) = res {
-                                        AppLogger.shared.log("⚠️ [ShelfImport] Failed to insert chapter \(idx): \(err.localizedDescription)")
-                                    }
-                                }
-
-                                 // Cập nhật tiến độ sau mỗi 50 chương và nhường thread (sleep 1ms) để tránh treo/khựng UI
-                                 if idx % 50 == 0 || idx == totalChapters - 1 {
-                                     let progress = Double(idx + 1) / Double(totalChapters)
-                                     self.importProgress = progress
-                                     self.importStatusText = "Đang nhập chương \(idx + 1)/\(totalChapters) (\(Int(progress * 100))%)"
-                                     try? await Task.sleep(nanoseconds: 1_000_000) // Sleep 1ms
-                                 }
-                             }
-
-                             self.importStatusText = "Đang ghi dữ liệu xuống bộ nhớ..."
-
-                            AppLogger.shared.log("✅ Đã nhập thành công truyện: \(parsed.title) (\(totalChapters) chương)")
-                            ToastManager.shared.show(message: "Đã nhập thành công: \(TranslateUtils.translateBookTitleIfNeeded(parsed.title, bookId: newBookId))")
-
-                            self.isImporting = false
-                            self.selectedTab = 1 // Chuyển sang Tab Kệ Sách để thấy truyện vừa nhập
-                        } catch {
-                            self.isImporting = false
-                            AppLogger.shared.log("❌ Lỗi khi lưu dữ liệu nhập TXT")
-                            ToastManager.shared.show(message: "Lỗi khi lưu dữ liệu TXT")
-                        }
-                    }
+                    self.showImportConfirmation = true
                 }
             } catch {
+                try? FileManager.default.removeItem(at: tempFileUrl)
                 await MainActor.run {
-                    self.isImporting = false
                     AppLogger.shared.log("❌ Lỗi xử lý file TXT: \(error.localizedDescription)")
                     ToastManager.shared.show(message: "Lỗi import: \(error.localizedDescription)")
                 }
             }
         }
+    }
+
+    // performImport: Thực hiện nhập dữ liệu đã xác nhận vào CSDL dưới dạng một cuốn sách.
+    private func performImport() {
+        guard let pending = pendingImport else { return }
+        let parsed = pending.parsed
+        let fileName = pending.fileName
+        let tempFileUrl = pending.tempFileUrl
+
+        self.pendingImport = nil
+        self.showImportConfirmation = false
+
+        // Hiện overlay tiến trình và Toast ban đầu trên Main Thread
+        self.isImporting = true
+        self.importIsIndeterminate = true
+        self.importProgress = 0.0
+        self.importStatusText = "Đang chuẩn bị file..."
+
+        let newBookId = UUID().uuidString
+        let totalChapters = parsed.chapters.count
+
+        // Quay lại Main Thread để chèn dữ liệu trực tiếp bằng modelContext chính, giúp UI đồng bộ lập tức và cập nhật progress bar mượt mà
+        self.importStatusText = "Đang tạo cuốn sách mới..."
+
+        let cmd = AddBookToShelfCommand(
+            bookId: newBookId,
+            title: parsed.title,
+            author: "Local",
+            coverUrl: "",
+            desc: "Truyện nhập cục bộ từ file \(fileName).",
+            detailUrl: "local://\(newBookId)",
+            sourceName: "Local",
+            sourceUrl: "local://\(newBookId)",
+            extensionPackageId: "local",
+            currentChapterIndex: 0,
+            currentChapterPage: 0,
+            currentChapterTitle: "",
+            isOnShelf: true,
+            isHistory: false,
+            host: "local://"
+        )
+        let createRes = BookTransactionCoordinator.shared.addBookToShelf(command: cmd, in: self.modelContext)
+        guard case .success(let newBook) = createRes else {
+            self.isImporting = false
+            try? FileManager.default.removeItem(at: tempFileUrl)
+            ToastManager.shared.show(message: "Lỗi tạo sách local trong CSDL", type: .error)
+            return
+        }
+
+        // Thực hiện chèn từng chương vào database / ChapterStore
+        Task {
+            do {
+                let snapshots = parsed.chapters.enumerated().map { idx, chapData in
+                    let url = "local://\(newBookId)/chapter/\(idx)"
+                    return ChapterMetadataSnapshot(title: chapData.title, url: url, index: idx)
+                }
+                _ = try await ChapterStore.shared.replaceFullTOC(bookId: newBookId, chapters: snapshots, protectedTTS: nil)
+
+                self.importIsIndeterminate = false
+                for (idx, chapData) in parsed.chapters.enumerated() {
+                    let url = "local://\(newBookId)/chapter/\(idx)"
+                    let (offset, length) = try await BookBinManager.shared.writeChapterContent(bookId: newBookId, content: chapData.content)
+
+                    let meta = ChapterMetadataSnapshot(title: chapData.title, url: url, index: idx)
+                    try await ChapterStore.shared.upsertCachedChapter(
+                        bookId: newBookId,
+                        metadata: meta,
+                        isCached: true,
+                        offset: offset,
+                        length: length
+                    )
+
+                    if ChapterStoreConfiguration.enableSwiftDataTOCWrite {
+                        let res = BookTransactionCoordinator.shared.insertChapterDTO(bookId: newBook.bookId, title: chapData.title, url: url, index: idx, isCached: true, offset: offset, length: length, in: self.modelContext)
+                        if case .failure(let err) = res {
+                            AppLogger.shared.log("⚠️ [ShelfImport] Failed to insert chapter \(idx): \(err.localizedDescription)")
+                        }
+                    }
+
+                    // Cập nhật tiến độ sau mỗi 50 chương và nhường thread (sleep 1ms) để tránh treo/khựng UI
+                    if idx % 50 == 0 || idx == totalChapters - 1 {
+                        let progress = Double(idx + 1) / Double(totalChapters)
+                        self.importProgress = progress
+                        self.importStatusText = "Đang nhập chương \(idx + 1)/\(totalChapters) (\(Int(progress * 100))%)"
+                        try? await Task.sleep(nanoseconds: 1_000_000) // Sleep 1ms
+                    }
+                }
+
+                self.importStatusText = "Đang ghi dữ liệu xuống bộ nhớ..."
+                self.importIsIndeterminate = true
+
+                AppLogger.shared.log("✅ Đã nhập thành công truyện: \(parsed.title) (\(totalChapters) chương)")
+                ToastManager.shared.show(message: "Đã nhập thành công: \(TranslateUtils.translateBookTitleIfNeeded(parsed.title, bookId: newBookId))")
+
+                try? FileManager.default.removeItem(at: tempFileUrl)
+                self.isImporting = false
+                self.selectedTab = 1 // Chuyển sang Tab Kệ Sách để thấy truyện vừa nhập
+            } catch {
+                try? FileManager.default.removeItem(at: tempFileUrl)
+                self.isImporting = false
+                AppLogger.shared.log("❌ Lỗi khi lưu dữ liệu nhập TXT")
+                ToastManager.shared.show(message: "Lỗi khi lưu dữ liệu TXT")
+            }
+        }
+    }
+
+    // cancelImport: Hủy bỏ việc nhập, xóa file tạm và đóng sheet xác nhận.
+    private func cancelImport() {
+        if let pending = pendingImport {
+            try? FileManager.default.removeItem(at: pending.tempFileUrl)
+        }
+        self.pendingImport = nil
+        self.showImportConfirmation = false
     }
 }
 

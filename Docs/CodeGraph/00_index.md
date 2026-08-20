@@ -15,6 +15,14 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Import TXT: bảng mã giải mã đa dạng, xác nhận trước khi nhập, overlay Material (1.3.217)
+
+* File mới `Sources/Common/Utils/TextEncodingDecoder.swift`: `enum TextEncodingDecoder` với `static func decode(_ data: Data) -> String` thử tuần tự 20 bảng mã theo thứ tự an toàn: UTF-8 (tự xử lý BOM), UTF-16LE/BE (strip BOM thủ công), UTF-32LE/UTF-32(BOM)/UTF-32BE, GB18030 (`CFStringEncodings.GB_18030_2000`), GBK (`GBK_95`), Big5-HKSCS (`big5_HKSCS_1999`), Big5 (`big5`), EUC-JP (`.japaneseEUC`), windowsVietnamese/CP1258 (VNI), VSCII/TCVN3 (`VISCII`), ISO-8859-1, windows-1250/1251/1252/1253/1254, ASCII. Mã đơn byte đặt cuối vì hầu như không bao giờ fail — tránh nuốt nhầm file tiếng Trung thành Latin-1/CP125x. Trả `""` nếu không decode được.
+* `JSExecutor.decodeData` (`Sources/Services/Extensions/Engine/JSExecutor.swift`) đổi từ logic tự viết (UTF-8→GB18030→Big5→UTF-16→isoLatin1→CP1252→ASCII) sang gọi `TextEncodingDecoder.decode(data)` — dùng chung helper.
+* Import TXT trong `ShelfView` tách 3 giai đoạn: `importTxtBook(from:)` copy file → đọc `Data` → `TextEncodingDecoder.decode` → `parseTxtBook`, set `pendingImport` + `showImportConfirmation = true` (file tạm giữ nguyên); `performImport()` chạy khi bấm "Nhập" (tạo Book + ghi TOC + từng chương + progress, xóa temp khi xong/error); `cancelImport()` xóa temp + đóng sheet. Thêm struct `PendingImport { tempFileUrl, fileName, parsed }`.
+* Sheet mới `Sources/Views/Shelf/ShelfMain/TXTImportConfirmationSheet.swift` hiện tên truyện, số chương, tên file và danh sách toàn bộ chương (`.caption`) để kiểm tra parse trước khi nhập; nút "Hủy" (red, `cancelImport`) và "Nhập" (`.borderedProminent`, `performImport`).
+* Overlay import và overlay xóa sách được bọc trong ZStack riêng (fix lỗi TupleView khi để Color + card là 2 biểu thức trong cùng `if` → card bị lệch xuống dưới), dùng card `.ultraThinMaterial` + shadow; import thêm icon `square.and.arrow.down.fill`, title "Đang nhập truyện", spinner vòng xoay khi `importIsIndeterminate` (chuẩn bị/đọc/parse/tạo sách/ghi xuống bộ nhớ) và thanh linear + % khi ghi chương.
+
 ## Đồng bộ badge nguồn sách thành capsule xám giữa detail, BookListItemView và ReaderChapterListView (1.3.216)
 
 * Badge hiển thị tên nguồn/extension (và "Local") ở `BookDetailHeaderView`, `BookListItemView` và `ReaderChapterListView` đồng nhất thành capsule xám trung tính: icon extension (ExtensionIconView 14-16pt, fallback `puzzlepiece.extension` 12-14pt) + chữ `.caption2` medium màu `.secondary`, nền `Color.secondary.opacity(0.12)` bo `Capsule()`, padding `(6, 2)`. Bỏ pill xanh `Color.blue.opacity(0.1)` + `.blue`.
