@@ -2,6 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.219] - 2026-08-20
+
+### Revert dùng BookListItemView trong DownloadTrackerView, chuẩn hoá BookListItemView 2 style và bỏ chevron NavigationLink
+
+* **`Sources/Views/Download/DownloadTrackerView.swift`**: revert `taskRow` về HStack cover+title custom gốc (cover 44x60, title `.headline` lineLimit(1), badge taskType, `statusBadge`, ProgressView, nút cancel/share/retry, contextMenu). Bỏ `extension DownloadTask: BookDisplayable`; `taskRow` dịch title nội bộ qua `@AppStorage("isTranslationEnabled")` + `TranslateUtils.translateMeta`. Giữ `.contentShape(Rectangle())` và Toast `exportFromCached`.
+* **`Sources/Views/Common/BookListItemView.swift`**: thêm `enum BookListItemStyle { case shelfOrHistory, discovery }`. `.shelfOrHistory` default `showChapter=true`/`showDescription=false`; `.discovery` default `showChapter=false`/`showDescription=true`. Init nhận `showChapter`/`showDescription` dạng `Bool?` (nil → theo style). Cover 50x70 + title `.system(size:14.5, weight:.semibold)` lineLimit(2) đồng bộ mọi style; HStack author/source chỉ render khi `hasAuthor || hasSource`.
+* **`Sources/Views/Common/CategoryNovelsListView.swift`**: `BookListItemView(item: novel, style: .discovery)` (bỏ override cover 60x80); đổi `NavigationLink` → `Button` + `@State selectedNovel` + `.navigationDestination(item:)` để bỏ chevron.
+* **`Sources/Views/Discovery/DiscoveryView.swift`**: `DiscoveryCategoryTabView` dùng `BookListItemView(item: novel, style: .discovery)`; đổi `NavigationLink` → `Button` + `selectedNovel` + `.navigationDestination(item:)`.
+* **`Sources/Views/Shelf/ShelfMain/ShelfView.swift`**: dời 3 overlay chờ (`isParsingTXT`/`isImporting`/`isProcessingDeletion`) ra khỏi closure `.sheet(item: $pendingImport)` thành sibling của `VStack` trong `ZStack` — fix không hiển thị khi `pendingImport == nil`. Sheet content chỉ còn `TXTImportConfirmationSheet`.
+* **`Sources/Services/Extensions/Manager/ExtensionManager.swift`**: `ExtensionItemResult` thêm conformance `Hashable` (dùng làm item của `.navigationDestination(item:)`).
+* `ShelfView`, `ShelfSearchView`, `BookShareTargetSheet` dùng default `.shelfOrHistory` (BookShareTargetSheet override `showChapter: false`) — không đổi API. Không cần cập nhật `rules.md`.
+
 ## [1.3.218] - 2026-08-20
 
 ### Tái sử dụng BookListItemView trong DownloadTrackerView và bỏ chevron NavigationLink

@@ -22,19 +22,53 @@ extension BookDisplayable {
     var extensionIconUrl: String? { nil }
 }
 
+/// Phong cách hiển thị của một row truyện. Cover và title đồng bộ ở mọi style;
+/// chỉ khác phần thông tin phụ bên dưới title.
+enum BookListItemStyle {
+    /// Kệ sách / Lịch sử đọc / sheet chọn truyện: author (Hán-Việt) + pill nguồn + dòng "Đang đọc".
+    case shelfOrHistory
+    /// Discovery / genre: hiển thị description thay cho author/source.
+    case discovery
+}
+
 /// Row hiển thị một cuốn sách (cover + title dịch + author/source hoặc description),
 /// dùng chung cho Kệ sách (ShelfView), sheet chọn truyện (BookShareTargetSheet),
 /// danh sách genre (CategoryNovelsListView) và màn hình discovery (DiscoveryCategoryTabView).
 struct BookListItemView<Item: BookDisplayable>: View {
     let item: Item
-    var showChapter: Bool = true
-    var showDescription: Bool = false
-    var coverWidth: CGFloat = 50
-    var coverHeight: CGFloat = 70
-    var extensionLocalPath: String = ""
-    var extensionIconUrl: String? = nil
+    var showChapter: Bool
+    var showDescription: Bool
+    var coverWidth: CGFloat
+    var coverHeight: CGFloat
+    var extensionLocalPath: String
+    var extensionIconUrl: String?
 
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+
+    init(
+        item: Item,
+        style: BookListItemStyle = .shelfOrHistory,
+        showChapter: Bool? = nil,
+        showDescription: Bool? = nil,
+        coverWidth: CGFloat = 50,
+        coverHeight: CGFloat = 70,
+        extensionLocalPath: String = "",
+        extensionIconUrl: String? = nil
+    ) {
+        self.item = item
+        switch style {
+        case .shelfOrHistory:
+            self.showChapter = showChapter ?? true
+            self.showDescription = showDescription ?? false
+        case .discovery:
+            self.showChapter = showChapter ?? false
+            self.showDescription = showDescription ?? true
+        }
+        self.coverWidth = coverWidth
+        self.coverHeight = coverHeight
+        self.extensionLocalPath = extensionLocalPath
+        self.extensionIconUrl = extensionIconUrl
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -52,18 +86,22 @@ struct BookListItemView<Item: BookDisplayable>: View {
                         .foregroundColor(.secondary)
                         .lineLimit(2)
                 } else {
-                    HStack(spacing: 8) {
-                        if !item.author.isEmpty {
-                            Text(DisplayTextFormatter.titleCase(TranslateUtils.translateAuthorHanViet(item.author)))
-                                .font(.system(size: 13))
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                        }
+                    let hasAuthor = !item.author.isEmpty
+                    let hasSource = item.isLocalBook || !item.sourceName.isEmpty
+                    if hasAuthor || hasSource {
+                        HStack(spacing: 8) {
+                            if hasAuthor {
+                                Text(DisplayTextFormatter.titleCase(TranslateUtils.translateAuthorHanViet(item.author)))
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                            }
 
-                        if item.isLocalBook {
-                            sourceBadge(text: "Local")
-                        } else if !item.sourceName.isEmpty {
-                            sourceBadge(text: item.sourceName)
+                            if item.isLocalBook {
+                                sourceBadge(text: "Local")
+                            } else if !item.sourceName.isEmpty {
+                                sourceBadge(text: item.sourceName)
+                            }
                         }
                     }
                 }

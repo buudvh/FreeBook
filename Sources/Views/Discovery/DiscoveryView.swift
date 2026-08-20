@@ -535,6 +535,7 @@ struct DiscoveryCategoryTabView: View {
 
     @StateObject private var loader: PaginatedNovelLoader
     @State private var initialLoadTask: Task<Void, Never>? = nil
+    @State private var selectedNovel: ExtensionItemResult? = nil
 
     init(
         category: CategoryResult,
@@ -600,14 +601,10 @@ struct DiscoveryCategoryTabView: View {
             } else {
                 List {
                     ForEach(loader.novels) { novel in
-                        NavigationLink(destination: BookDetailView(
-                            bookId: "\(sourceName.lowercased())_\(novel.link)",
-                            extensionPackageId: extensionPackageId,
-                            initialDetailUrl: novel.link,
-                            sourceName: sourceName,
-                            initialHost: novel.host
-                        )) {
-                            BookListItemView(item: novel, showChapter: false, showDescription: true)
+                        Button {
+                            selectedNovel = novel
+                        } label: {
+                            BookListItemView(item: novel, style: .discovery)
                         }
                         .buttonStyle(.plain)
                     }
@@ -629,6 +626,15 @@ struct DiscoveryCategoryTabView: View {
                 .listStyle(.plain)
                 .refreshable {
                     await loader.reload()
+                }
+                .navigationDestination(item: $selectedNovel) { novel in
+                    BookDetailView(
+                        bookId: "\(sourceName.lowercased())_\(novel.link)",
+                        extensionPackageId: extensionPackageId,
+                        initialDetailUrl: novel.link,
+                        sourceName: sourceName,
+                        initialHost: novel.host
+                    )
                 }
             }
         }

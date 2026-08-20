@@ -1,16 +1,6 @@
 import SwiftUI
 import SwiftData
 
-extension DownloadTask: BookDisplayable {
-    var title: String { bookTitle }
-    var author: String { "" }
-    var coverUrl: String { bookCoverUrl }
-    var sourceName: String { "" }
-    var description: String { "" }
-    var currentChapterTitle: String { "" }
-    var currentChapterIndex: Int { 0 }
-}
-
 struct DownloadTrackerView: View {
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var downloadManager = DownloadManager.shared
@@ -57,76 +47,87 @@ struct DownloadTrackerView: View {
     
     @ViewBuilder
     private func taskRow(_ task: DownloadTask) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            BookListItemView(item: task, showChapter: false)
-
-            HStack(spacing: 8) {
-                Text(task.taskType.rawValue)
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(task.taskType == .download ? Color.green : Color.orange)
-                    .cornerRadius(4)
-
-                statusBadge(task.status)
-
-                Spacer()
-
+        HStack(spacing: 12) {
+            BookCoverView(bookId: task.bookId, coverUrl: task.bookCoverUrl, width: 44, height: 60)
+                .cornerRadius(4)
+                .shadow(color: Color.black.opacity(0.08), radius: 2, x: 0, y: 1)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                let rawTitle = isTranslationEnabled && TranslateUtils.containsChinese(task.bookTitle)
+                     ? TranslateUtils.translateMeta(task.bookTitle, bookId: task.bookId)
+                     : task.bookTitle
+                Text(DisplayTextFormatter.titleCase(rawTitle))
+                    .font(.headline)
+                    .lineLimit(1)
+                
+                HStack(spacing: 8) {
+                    Text(task.taskType.rawValue)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(task.taskType == .download ? Color.green : Color.orange)
+                        .cornerRadius(4)
+                    
+                    statusBadge(task.status)
+                }
+                
                 if task.status == .running || task.status == .pending {
-                    Button(action: {
-                        downloadManager.cancelTask(taskId: task.id)
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .resizable()
-                            .frame(width: 22, height: 22)
-                            .foregroundColor(.red.opacity(0.8))
+                    VStack(alignment: .leading, spacing: 2) {
+                        ProgressView(value: Double(task.progressCount), total: Double(max(1, task.totalCount)))
+                            .tint(.blue)
+                            .scaleEffect(x: 1, y: 0.8, anchor: .center)
+                        
+                        Text("Tiến độ: \(task.progressCount)/\(task.totalCount) chương")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
                     }
-                    .buttonStyle(.plain)
-                } else if task.status == .completed, let path = task.exportFilePath, FileManager.default.fileExists(atPath: path) {
-                    Button(action: {
-                        downloadManager.shareExportedFile(taskId: task.id)
-                    }) {
-                        Image(systemName: "square.and.arrow.up.fill")
-                            .resizable()
-                            .frame(width: 22, height: 22)
-                            .foregroundColor(.orange)
-                    }
-                    .buttonStyle(.plain)
-                } else if task.status == .failed || task.status == .cancelled {
-                    Button(action: {
-                        downloadManager.retryTask(taskId: task.id)
-                    }) {
-                        Image(systemName: "arrow.clockwise.circle.fill")
-                            .resizable()
-                            .frame(width: 22, height: 22)
-                            .foregroundColor(.blue.opacity(0.8))
-                    }
-                    .buttonStyle(.plain)
+                    .padding(.top, 2)
+                } else if task.status == .completed {
+                    Text("Đã xử lý \(task.progressCount) chương thành công")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else if task.status == .failed, let error = task.errorMessage {
+                    Text("Lỗi: \(error)")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .lineLimit(2)
                 }
             }
-
+            
+            Spacer()
+            
             if task.status == .running || task.status == .pending {
-                VStack(alignment: .leading, spacing: 2) {
-                    ProgressView(value: Double(task.progressCount), total: Double(max(1, task.totalCount)))
-                        .tint(.blue)
-                        .scaleEffect(x: 1, y: 0.8, anchor: .center)
-
-                    Text("Tiến độ: \(task.progressCount)/\(task.totalCount) chương")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                Button(action: {
+                    downloadManager.cancelTask(taskId: task.id)
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .resizable()
+                        .frame(width: 22, height: 22)
+                        .foregroundColor(.red.opacity(0.8))
                 }
-                .padding(.top, 2)
-            } else if task.status == .completed {
-                Text("Đã xử lý \(task.progressCount) chương thành công")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            } else if task.status == .failed, let error = task.errorMessage {
-                Text("Lỗi: \(error)")
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .lineLimit(2)
+                .buttonStyle(.plain)
+            } else if task.status == .completed, let path = task.exportFilePath, FileManager.default.fileExists(atPath: path) {
+                Button(action: {
+                    downloadManager.shareExportedFile(taskId: task.id)
+                }) {
+                    Image(systemName: "square.and.arrow.up.fill")
+                        .resizable()
+                        .frame(width: 22, height: 22)
+                        .foregroundColor(.orange)
+                }
+                .buttonStyle(.plain)
+            } else if task.status == .failed || task.status == .cancelled {
+                Button(action: {
+                    downloadManager.retryTask(taskId: task.id)
+                }) {
+                    Image(systemName: "arrow.clockwise.circle.fill")
+                        .resizable()
+                        .frame(width: 22, height: 22)
+                        .foregroundColor(.blue.opacity(0.8))
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.vertical, 4)

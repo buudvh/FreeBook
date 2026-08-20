@@ -329,94 +329,94 @@ struct ShelfView: View {
                         performImport(parsed: parsed, fileName: pending.fileName, tempFileUrl: pending.tempFileUrl)
                     }
                 )
-                // Overlay chờ phân tích file TXT (từ lúc chọn file đến khi sheet xác nhận hiện)
-                if isParsingTXT {
-                    ZStack {
-                        Color.black.opacity(0.4)
-                            .edgesIgnoringSafeArea(.all)
+            }
+            // Overlay chờ phân tích file TXT (từ lúc chọn file đến khi sheet xác nhận hiện)
+            if isParsingTXT {
+                ZStack {
+                    Color.black.opacity(0.4)
+                        .edgesIgnoringSafeArea(.all)
 
-                        VStack(spacing: 20) {
-                            Image(systemName: "doc.text.magnifyingglass")
-                                .font(.title2)
-                                .foregroundColor(.primary)
+                    VStack(spacing: 20) {
+                        Image(systemName: "doc.text.magnifyingglass")
+                            .font(.title2)
+                            .foregroundColor(.primary)
 
-                            Text("Đang phân tích file...")
-                                .font(.headline)
+                        Text("Đang phân tích file...")
+                            .font(.headline)
 
+                        ProgressView()
+                            .controlSize(.regular)
+                    }
+                    .padding(30)
+                    .background(
+                        RoundedRectangle(cornerRadius: 15)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
+                }
+                .transition(.opacity)
+            }
+
+            // Overlay nhập TXT: bọc trong ZStack riêng để card được căn giữa thực sự
+            if isImporting {
+                ZStack {
+                    Color.black.opacity(0.4)
+                        .edgesIgnoringSafeArea(.all)
+
+                    VStack(spacing: 20) {
+                        Image(systemName: "square.and.arrow.down.fill")
+                            .font(.title2)
+                            .foregroundColor(.primary)
+
+                        Text("Đang nhập truyện")
+                            .font(.headline)
+
+                        if importIsIndeterminate {
                             ProgressView()
                                 .controlSize(.regular)
+                        } else {
+                            ProgressView(value: importProgress)
+                                .progressViewStyle(.linear)
+                                .frame(width: 220)
+                                .tint(.blue)
                         }
-                        .padding(30)
-                        .background(
-                            RoundedRectangle(cornerRadius: 15)
-                                .fill(.ultraThinMaterial)
-                        )
-                        .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
+
+                        Text(importStatusText)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
                     }
-                    .transition(.opacity)
+                    .padding(30)
+                    .background(
+                        RoundedRectangle(cornerRadius: 15)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
                 }
+                .transition(.opacity)
+            }
 
-                // Overlay nhập TXT: bọc trong ZStack riêng để card được căn giữa thực sự
-                if isImporting {
-                    ZStack {
-                        Color.black.opacity(0.4)
-                            .edgesIgnoringSafeArea(.all)
+            // Overlay xóa sách: cùng kiểu Material + căn giữa như overlay import
+            if isProcessingDeletion {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .edgesIgnoringSafeArea(.all)
 
-                        VStack(spacing: 20) {
-                            Image(systemName: "square.and.arrow.down.fill")
-                                .font(.title2)
-                                .foregroundColor(.primary)
-
-                            Text("Đang nhập truyện")
-                                .font(.headline)
-
-                            if importIsIndeterminate {
-                                ProgressView()
-                                    .controlSize(.regular)
-                            } else {
-                                ProgressView(value: importProgress)
-                                    .progressViewStyle(.linear)
-                                    .frame(width: 220)
-                                    .tint(.blue)
-                            }
-
-                            Text(importStatusText)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding(30)
-                        .background(
-                            RoundedRectangle(cornerRadius: 15)
-                                .fill(.ultraThinMaterial)
-                        )
-                        .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .controlSize(.regular)
+                        Text("Đang dọn dẹp sách...")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
                     }
-                    .transition(.opacity)
+                    .padding(20)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
                 }
-
-                // Overlay xóa sách: cùng kiểu Material + căn giữa như overlay import
-                if isProcessingDeletion {
-                    ZStack {
-                        Color.black.opacity(0.3)
-                            .edgesIgnoringSafeArea(.all)
-
-                        VStack(spacing: 12) {
-                            ProgressView()
-                                .controlSize(.regular)
-                            Text("Đang dọn dẹp sách...")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(20)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(.ultraThinMaterial)
-                        )
-                        .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
-                    }
-                    .transition(.opacity)
-                }
+                .transition(.opacity)
             }
         }
     }

@@ -10,6 +10,7 @@ struct CategoryNovelsListView: View {
 
     @StateObject private var loader: PaginatedNovelLoader
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false
+    @State private var selectedNovel: ExtensionItemResult? = nil
 
     init(
         category: CategoryResult,
@@ -57,14 +58,10 @@ struct CategoryNovelsListView: View {
             } else {
                 List {
                     ForEach(loader.novels) { novel in
-                        NavigationLink(destination: BookDetailView(
-                            bookId: novel.link,
-                            extensionPackageId: extensionPackageId,
-                            initialDetailUrl: novel.link,
-                            sourceName: sourceName,
-                            initialHost: novel.host
-                        )) {
-                            BookListItemView(item: novel, showChapter: false, showDescription: true, coverWidth: 60, coverHeight: 80)
+                        Button {
+                            selectedNovel = novel
+                        } label: {
+                            BookListItemView(item: novel, style: .discovery)
                                 .padding(.vertical, 4)
                         }
                         .buttonStyle(.plain)
@@ -87,6 +84,15 @@ struct CategoryNovelsListView: View {
                 .listStyle(.plain)
                 .refreshable {
                     await loader.reload()
+                }
+                .navigationDestination(item: $selectedNovel) { novel in
+                    BookDetailView(
+                        bookId: novel.link,
+                        extensionPackageId: extensionPackageId,
+                        initialDetailUrl: novel.link,
+                        sourceName: sourceName,
+                        initialHost: novel.host
+                    )
                 }
             }
         }

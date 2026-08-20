@@ -39,7 +39,7 @@ public struct ExtensionRegistryItem: Codable {
 }
 
 // MARK: - Helper Structs for JavaScript results
-public struct ExtensionItemResult: Identifiable {
+public struct ExtensionItemResult: Identifiable, Hashable {
     public let id = UUID()
     public let name: String
     public let author: String
