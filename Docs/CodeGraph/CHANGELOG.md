@@ -2,6 +2,15 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.218] - 2026-08-20
+
+### Tái sử dụng BookListItemView trong DownloadTrackerView và bỏ chevron NavigationLink
+
+* **`Sources/Views/Download/DownloadTrackerView.swift`**: thêm `extension DownloadTask: BookDisplayable` (title→`bookTitle`, coverUrl→`bookCoverUrl`, còn lại rỗng/0; `bookId` có sẵn). `taskRow` bỏ HStack cover+title custom → `BookListItemView(item: task, showChapter: false)`; badge taskType, statusBadge, ProgressView, nút cancel/share/retry + contextMenu chuyển xuống dưới row truyện trong `VStack`. Bỏ dịch title thủ công trong taskRow (BookListItemView tự dịch nội bộ qua `@AppStorage`); giữ `@AppStorage("isTranslationEnabled")` để dùng trong Toast `exportFromCached` (bọc `TranslateUtils.translateBookTitleIfNeeded`).
+* **`Sources/Views/Common/CategoryNovelsListView.swift`**: thêm `.buttonStyle(.plain)` lên NavigationLink → bỏ chevron `>` mặc định, giữ tap đi chi tiết.
+* **`Sources/Views/Discovery/DiscoveryView.swift`**: thêm `.buttonStyle(.plain)` lên NavigationLink → bỏ chevron `>` mặc định ở `DiscoveryCategoryTabView` (home tabs).
+* Không đổi public API Service/Manager, không đổi dependency tầng logic; không cần cập nhật `rules.md`.
+
 ## [1.3.217] - 2026-08-20
 
 ### Import TXT: bảng mã giải mã đa dạng, xác nhận trước khi nhập, overlay Material

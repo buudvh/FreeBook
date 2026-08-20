@@ -15,6 +15,24 @@ struct ShelfReaderRoute: Identifiable, Hashable {
     }
 }
 
+// Dữ liệu phân tích file TXT cục bộ, dùng chung cho ShelfView và sheet xác nhận.
+struct ParserChapter {
+    let title: String
+    var content: String
+}
+
+struct ParsedBook {
+    let title: String
+    let chapters: [ParserChapter]
+}
+
+// Kết quả phân tích lại sau khi người dùng chọn bảng mã / quy tắc TOC khác.
+struct TXTReanalysisResult {
+    let parsed: ParsedBook
+    let autoDecodeID: String?
+    let matchedRuleIDs: Set<String>
+}
+
 struct ShelfView: View {
     // @Environment: Truy cập context cơ sở dữ liệu của SwiftData.
     // Dùng để thêm mới, chỉnh sửa hoặc xóa dữ liệu Book trong app.
@@ -50,7 +68,8 @@ struct ShelfView: View {
 
     // Xác nhận thông tin trước khi thực sự import TXT vào CSDL
     @State private var pendingImport: PendingImport? = nil
-    @State private var showImportConfirmation = false
+    // Màn hình chờ từ lúc chọn file đến khi phân tích xong và hiện sheet xác nhận
+    @State private var isParsingTXT = false
 
     @State private var shelfLimit = 50 // Giới hạn số lượng sách hiển thị trên kệ để tối ưu hiệu năng cuộn
     @State private var historyLimit = 50 // Giới hạn số lượng sách hiển thị trong lịch sử đọc
@@ -294,86 +313,111 @@ struct ShelfView: View {
                     }
                 )
             }
-            .sheet(isPresented: $showImportConfirmation) {
-                if let pending = pendingImport {
-                    TXTImportConfirmationSheet(
-                        title: pending.parsed.title,
-                        fileName: pending.fileName,
-                        totalChapters: pending.parsed.chapters.count,
-                        chapterTitles: pending.parsed.chapters.map(\.title),
-                        onCancel: {
-                            cancelImport()
-                        },
-                        onConfirm: {
-                            performImport()
-                        }
-                    )
-                }
-            }
-        }
-
-        // Overlay nhập TXT: bọc trong ZStack riêng để card được căn giữa thực sự
-        // (nếu để Color + card là 2 biểu thức trong cùng if của ZStack ngoài, SwiftUI
-        // gộp thành TupleView đặt tại origin → card bị lệch xuống dưới).
-        if isImporting {
-            ZStack {
-                Color.black.opacity(0.4)
-                    .edgesIgnoringSafeArea(.all)
-
-                VStack(spacing: 20) {
-                    Image(systemName: "square.and.arrow.down.fill")
-                        .font(.title2)
-                        .foregroundColor(.primary)
-
-                    Text("Đang nhập truyện")
-                        .font(.headline)
-
-                    if importIsIndeterminate {
-                        ProgressView()
-                            .controlSize(.regular)
-                    } else {
-                        ProgressView(value: importProgress)
-                            .progressViewStyle(.linear)
-                            .frame(width: 220)
-                            .tint(.blue)
+            .sheet(item: $pendingImport) { pending in
+                TXTImportConfirmationSheet(
+                    fileName: pending.fileName,
+                    initialParsed: pending.parsed,
+                    autoDecodeID: pending.autoDecodeID,
+                    matchedRuleIDs: pending.matchedRuleIDs,
+                    onReanalyze: { decodeID, ruleIDs in
+                        await self.reanalyzeTxt(decodeID: decodeID, ruleIDs: ruleIDs, tempFileUrl: pending.tempFileUrl, fileName: pending.fileName)
+                    },
+                    onCancel: {
+                        cancelImport()
+                    },
+                    onConfirm: { parsed in
+                        performImport(parsed: parsed, fileName: pending.fileName, tempFileUrl: pending.tempFileUrl)
                     }
-
-                    Text(importStatusText)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(30)
-                .background(
-                    RoundedRectangle(cornerRadius: 15)
-                        .fill(.ultraThinMaterial)
                 )
-                .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
-            }
-            .transition(.opacity)
-        }
+                // Overlay chờ phân tích file TXT (từ lúc chọn file đến khi sheet xác nhận hiện)
+                if isParsingTXT {
+                    ZStack {
+                        Color.black.opacity(0.4)
+                            .edgesIgnoringSafeArea(.all)
 
-        // Overlay xóa sách: cùng kiểu Material + căn giữa như overlay import
-        if isProcessingDeletion {
-            ZStack {
-                Color.black.opacity(0.3)
-                    .edgesIgnoringSafeArea(.all)
+                        VStack(spacing: 20) {
+                            Image(systemName: "doc.text.magnifyingglass")
+                                .font(.title2)
+                                .foregroundColor(.primary)
 
-                VStack(spacing: 12) {
-                    ProgressView()
-                        .controlSize(.regular)
-                    Text("Đang dọn dẹp sách...")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                            Text("Đang phân tích file...")
+                                .font(.headline)
+
+                            ProgressView()
+                                .controlSize(.regular)
+                        }
+                        .padding(30)
+                        .background(
+                            RoundedRectangle(cornerRadius: 15)
+                                .fill(.ultraThinMaterial)
+                        )
+                        .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
+                    }
+                    .transition(.opacity)
                 }
-                .padding(20)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(.ultraThinMaterial)
-                )
-                .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
+
+                // Overlay nhập TXT: bọc trong ZStack riêng để card được căn giữa thực sự
+                if isImporting {
+                    ZStack {
+                        Color.black.opacity(0.4)
+                            .edgesIgnoringSafeArea(.all)
+
+                        VStack(spacing: 20) {
+                            Image(systemName: "square.and.arrow.down.fill")
+                                .font(.title2)
+                                .foregroundColor(.primary)
+
+                            Text("Đang nhập truyện")
+                                .font(.headline)
+
+                            if importIsIndeterminate {
+                                ProgressView()
+                                    .controlSize(.regular)
+                            } else {
+                                ProgressView(value: importProgress)
+                                    .progressViewStyle(.linear)
+                                    .frame(width: 220)
+                                    .tint(.blue)
+                            }
+
+                            Text(importStatusText)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(30)
+                        .background(
+                            RoundedRectangle(cornerRadius: 15)
+                                .fill(.ultraThinMaterial)
+                        )
+                        .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
+                    }
+                    .transition(.opacity)
+                }
+
+                // Overlay xóa sách: cùng kiểu Material + căn giữa như overlay import
+                if isProcessingDeletion {
+                    ZStack {
+                        Color.black.opacity(0.3)
+                            .edgesIgnoringSafeArea(.all)
+
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .controlSize(.regular)
+                            Text("Đang dọn dẹp sách...")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(20)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(.ultraThinMaterial)
+                        )
+                        .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
+                    }
+                    .transition(.opacity)
+                }
             }
-            .transition(.opacity)
         }
     }
 }
@@ -762,29 +806,23 @@ struct ShelfView: View {
         }
     }
 
-    private struct ParserChapter {
-        let title: String
-        var content: String
-    }
-
-    private struct ParsedBook {
-        let title: String
-        let chapters: [ParserChapter]
-    }
-
-    private struct PendingImport {
+    struct PendingImport: Identifiable {
+        let id = UUID()
         let tempFileUrl: URL
         let fileName: String
-        let parsed: ParsedBook
+        var parsed: ParsedBook
+        let autoDecodeID: String?
+        let matchedRuleIDs: Set<String>
     }
 
-    nonisolated private func parseTxtBook(content: String, fileName: String) -> ParsedBook {
+    nonisolated private func parseTxtBook(content: String, fileName: String, rules: [TOCRule]? = nil) -> ParsedBook {
         let lines = content.components(separatedBy: "\n")
         var chapters: [ParserChapter] = []
         var currentChapterTitle = "Mở đầu"
         var currentChapterLines: [String] = []
 
-        let compiledTOCRegexes = TranslateUtils.getCompiledActiveTOCRegexes()
+        let activeRules = rules ?? TranslateUtils.getActiveTOCRules()
+        let compiledTOCRegexes = activeRules.compactMap { try? NSRegularExpression(pattern: $0.rule, options: [.caseInsensitive]) }
 
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -848,6 +886,9 @@ struct ShelfView: View {
             return
         }
 
+        // Hiện màn hình chờ từ lúc chọn file đến khi phân tích xong
+        isParsingTXT = true
+
         // Chạy tiến trình nền để đọc và parse file TXT
         Task.detached(priority: .userInitiated) {
             do {
@@ -862,25 +903,34 @@ struct ShelfView: View {
 
                 let fileName = url.lastPathComponent
 
+                // Xác định bảng mã tự động được chọn (để đánh dấu active trong picker)
+                let autoDecodeID = TextEncodingDecoder.detect(data)?.rawValue
+
                 // Thực hiện phân tích nội dung thành các chương (Parser)
                 let parsed = self.parseTxtBook(content: decodedContent, fileName: fileName)
                 guard !parsed.chapters.isEmpty else {
                     throw NSError(domain: "ImportError", code: 2, userInfo: [NSLocalizedDescriptionKey: "File văn bản không chứa nội dung hoặc cấu trúc chương hợp lệ."])
                 }
 
+                // Các quy tắc TOC khớp với nội dung file (để đánh dấu active trong picker)
+                let matchedRuleIDs = TranslateUtils.matchingRuleIDs(in: decodedContent, rules: TranslateUtils.getAllTOCRules())
+
                 // Quay lại Main Thread để hiện sheet xác nhận; file tạm được giữ tới khi
                 // người dùng bấm "Nhập" hoặc "Hủy".
                 await MainActor.run {
+                    self.isParsingTXT = false
                     self.pendingImport = PendingImport(
                         tempFileUrl: tempFileUrl,
                         fileName: fileName,
-                        parsed: parsed
+                        parsed: parsed,
+                        autoDecodeID: autoDecodeID,
+                        matchedRuleIDs: matchedRuleIDs
                     )
-                    self.showImportConfirmation = true
                 }
             } catch {
                 try? FileManager.default.removeItem(at: tempFileUrl)
                 await MainActor.run {
+                    self.isParsingTXT = false
                     AppLogger.shared.log("❌ Lỗi xử lý file TXT: \(error.localizedDescription)")
                     ToastManager.shared.show(message: "Lỗi import: \(error.localizedDescription)")
                 }
@@ -888,15 +938,45 @@ struct ShelfView: View {
         }
     }
 
-    // performImport: Thực hiện nhập dữ liệu đã xác nhận vào CSDL dưới dạng một cuốn sách.
-    private func performImport() {
-        guard let pending = pendingImport else { return }
-        let parsed = pending.parsed
-        let fileName = pending.fileName
-        let tempFileUrl = pending.tempFileUrl
+    // reanalyzeTxt: Đọc lại file tạm, giải mã theo bảng mã đã chọn và phân tích
+    // chương theo các quy tắc TOC đã chọn. Trả về kết quả mới để sheet cập nhật.
+    nonisolated private func reanalyzeTxt(decodeID: String?, ruleIDs: Set<String>, tempFileUrl: URL, fileName: String) async -> TXTReanalysisResult? {
+        guard let data = try? Data(contentsOf: tempFileUrl) else { return nil }
 
+        // Giải mã: mã cụ thể nếu người dùng chọn, ngược lại tự động (thứ tự ưu tiên có sẵn)
+        let decodedContent: String
+        if let decodeID, let option = TextEncodingOption(rawValue: decodeID) {
+            guard let text = TextEncodingDecoder.decode(data, using: option), !text.isEmpty else { return nil }
+            decodedContent = text
+        } else {
+            decodedContent = TextEncodingDecoder.decode(data)
+        }
+        guard !decodedContent.isEmpty else { return nil }
+
+        // Quy tắc TOC: tập hợp cụ thể nếu người dùng chọn, ngược lại dùng quy tắc đang bật
+        let activeRules: [TOCRule]
+        if ruleIDs.isEmpty {
+            activeRules = TranslateUtils.getActiveTOCRules()
+        } else {
+            activeRules = TranslateUtils.getAllTOCRules().filter { ruleIDs.contains($0.id) }
+        }
+
+        let parsed = parseTxtBook(content: decodedContent, fileName: fileName, rules: activeRules)
+        guard !parsed.chapters.isEmpty else { return nil }
+
+        let autoDecodeID = TextEncodingDecoder.detect(data)?.rawValue
+        let matchedRuleIDs = TranslateUtils.matchingRuleIDs(in: decodedContent, rules: TranslateUtils.getAllTOCRules())
+
+        return TXTReanalysisResult(
+            parsed: parsed,
+            autoDecodeID: autoDecodeID,
+            matchedRuleIDs: matchedRuleIDs
+        )
+    }
+
+    // performImport: Thực hiện nhập dữ liệu đã xác nhận vào CSDL dưới dạng một cuốn sách.
+    private func performImport(parsed: ParsedBook, fileName: String, tempFileUrl: URL) {
         self.pendingImport = nil
-        self.showImportConfirmation = false
 
         // Hiện overlay tiến trình và Toast ban đầu trên Main Thread
         self.isImporting = true
@@ -998,7 +1078,6 @@ struct ShelfView: View {
             try? FileManager.default.removeItem(at: pending.tempFileUrl)
         }
         self.pendingImport = nil
-        self.showImportConfirmation = false
     }
 }
 

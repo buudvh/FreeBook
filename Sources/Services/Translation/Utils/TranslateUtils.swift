@@ -843,6 +843,27 @@ public final class TranslateUtils {
         return isMatchingTOCRule(line, compiledRegexes: compiled)
     }
 
+    /// Trả về tập `id` của các quy tắc khớp ít nhất một dòng trong nội dung.
+    /// Dùng để đánh dấu quy tắc TOC "active" với file TXT đang import.
+    public static func matchingRuleIDs(in content: String, rules: [TOCRule]) -> Set<String> {
+        let enabledRules = rules.filter { $0.enabled }
+        var matched = Set<String>()
+        for rule in enabledRules {
+            guard let regex = try? NSRegularExpression(pattern: rule.rule, options: [.caseInsensitive]) else { continue }
+            let lines = content.components(separatedBy: "\n")
+            for line in lines {
+                let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty, trimmed.count < 200 else { continue }
+                let range = NSRange(line.startIndex..<line.endIndex, in: line)
+                if regex.firstMatch(in: line, options: [], range: range) != nil {
+                    matched.insert(rule.id)
+                    break
+                }
+            }
+        }
+        return matched
+    }
+
     public static func isChapterHeaderLine(_ line: String, compiledTOCRegexes: [NSRegularExpression]? = nil) -> Bool {
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed.count < 200 else { return false }

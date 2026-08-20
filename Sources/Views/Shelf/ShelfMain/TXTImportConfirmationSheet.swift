@@ -1,18 +1,67 @@
 import SwiftUI
 
 /// Sheet xác nhận thông tin trước khi nhập truyện TXT vào CSDL.
-/// Hiển thị tên truyện, số chương, tên file và danh sách toàn bộ chương
-/// để người dùng kiểm tra kết quả parse trước khi bấm "Nhập".
+/// Hiển thị tên truyện, số chương, tên file và danh sách toàn bộ chương để người
+/// dùng kiểm tra kết quả parse. Cho phép chọn bảng mã giải mã và quy tắc TOC
+/// (mặc định Tự động) rồi "Phân tích lại" để làm mới danh sách chương.
 struct TXTImportConfirmationSheet: View {
     @Environment(\.dismiss) private var dismiss
 
-    let title: String
-    let fileName: String
-    let totalChapters: Int
-    let chapterTitles: [String]
+    private enum PickerType: String, Identifiable {
+        case decode
+        case rules
+        var id: String { rawValue }
+    }
 
+    let fileName: String
+
+    // Dữ liệu ban đầu (từ lần parse tự động đầu tiên)
+    @State private var parsed: ParsedBook
+    @State private var autoDecodeID: String?
+    @State private var matchedRuleIDs: Set<String>
+
+    // Lựa chọn hiện tại: nil / rỗng = Tự động
+    @State private var decodeID: String? = nil
+    @State private var selectedRuleIDs: Set<String> = []
+
+    @State private var isReanalyzing = false
+    @State private var activePicker: PickerType? = nil
+
+    let onReanalyze: (String?, Set<String>) async -> TXTReanalysisResult?
     let onCancel: () -> Void
-    let onConfirm: () -> Void
+    let onConfirm: (ParsedBook) -> Void
+
+    init(
+        fileName: String,
+        initialParsed: ParsedBook,
+        autoDecodeID: String?,
+        matchedRuleIDs: Set<String>,
+        onReanalyze: @escaping (String?, Set<String>) async -> TXTReanalysisResult?,
+        onCancel: @escaping () -> Void,
+        onConfirm: @escaping (ParsedBook) -> Void
+    ) {
+        self.fileName = fileName
+        _parsed = State(initialValue: initialParsed)
+        _autoDecodeID = State(initialValue: autoDecodeID)
+        _matchedRuleIDs = State(initialValue: matchedRuleIDs)
+        self.onReanalyze = onReanalyze
+        self.onCancel = onCancel
+        self.onConfirm = onConfirm
+    }
+
+    private var decodeLabel: String {
+        if let decodeID, let option = TextEncodingOption(rawValue: decodeID) {
+            return option.displayName
+        }
+        return "Tự động"
+    }
+
+    private var ruleLabel: String {
+        if selectedRuleIDs.isEmpty {
+            return "Tự động"
+        }
+        return "\(selectedRuleIDs.count) quy tắc"
+    }
 
     var body: some View {
         NavigationStack {
@@ -25,11 +74,11 @@ struct TXTImportConfirmationSheet: View {
                                 .foregroundColor(.blue)
 
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(title)
+                                Text(parsed.title)
                                     .font(.headline)
                                     .lineLimit(3)
 
-                                Text("\(totalChapters) chương")
+                                Text("\(parsed.chapters.count) chương")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                             }
@@ -42,19 +91,73 @@ struct TXTImportConfirmationSheet: View {
 
                         Divider()
 
+                        // Hàng chọn bảng mã + quy tắc TOC + nút phân tích lại
+                        VStack(spacing: 10) {
+                            Button {
+                                activePicker = .decode
+                            } label: {
+                                HStack {
+                                    Label("Bảng mã", systemImage: "textformat")
+                                    Spacer()
+                                    Text(decodeLabel)
+                                        .foregroundColor(.secondary)
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                activePicker = .rules
+                            } label: {
+                                HStack {
+                                    Label("Quy tắc TOC", systemImage: "list.number")
+                                    Spacer()
+                                    Text(ruleLabel)
+                                        .foregroundColor(.secondary)
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                Task {
+                                    await reanalyze()
+                                }
+                            } label: {
+                                HStack(spacing: 8) {
+                                    if isReanalyzing {
+                                        ProgressView()
+                                            .controlSize(.small)
+                                    } else {
+                                        Image(systemName: "arrow.clockwise.circle.fill")
+                                    }
+                                    Text(isReanalyzing ? "Đang phân tích lại..." : "Phân tích lại")
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isReanalyzing)
+                        }
+
+                        Divider()
+
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Danh sách chương")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
 
-                            ForEach(Array(chapterTitles.enumerated()), id: \.offset) { index, chapterTitle in
+                            ForEach(Array(parsed.chapters.enumerated()), id: \.offset) { index, chapter in
                                 HStack(alignment: .top, spacing: 8) {
                                     Text("\(index + 1).")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                         .frame(width: 32, alignment: .trailing)
 
-                                    Text(chapterTitle)
+                                    Text(chapter.title)
                                         .font(.caption)
                                         .foregroundColor(.primary)
                                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -78,9 +181,10 @@ struct TXTImportConfirmationSheet: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(.red)
+                    .disabled(isReanalyzing)
 
                     Button(action: {
-                        onConfirm()
+                        onConfirm(parsed)
                         dismiss()
                     }) {
                         Text("Nhập")
@@ -88,11 +192,167 @@ struct TXTImportConfirmationSheet: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.blue)
+                    .disabled(isReanalyzing)
                 }
                 .padding(16)
             }
             .navigationTitle("Xác nhận nhập truyện")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(item: $activePicker) { picker in
+                switch picker {
+                case .decode:
+                    decodePickerView
+                case .rules:
+                    rulePickerView
+                }
+            }
         }
+    }
+
+    private func reanalyze() async {
+        guard !isReanalyzing else { return }
+        isReanalyzing = true
+        defer { isReanalyzing = false }
+
+        if let result = await onReanalyze(decodeID, selectedRuleIDs) {
+            parsed = result.parsed
+            autoDecodeID = result.autoDecodeID
+            matchedRuleIDs = result.matchedRuleIDs
+        }
+    }
+
+    // MARK: - Decode picker
+
+    private var decodePickerView: some View {
+        NavigationStack {
+            List {
+                Section("Tự động") {
+                    Button {
+                        decodeID = nil
+                        activePicker = nil
+                    } label: {
+                        HStack {
+                            Label("Tự động (phát hiện tự động)", systemImage: "wand.and.stars")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if decodeID == nil {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                }
+
+                Section("Bảng mã") {
+                    ForEach(TextEncodingOption.allCases) { option in
+                        Button {
+                            decodeID = option.rawValue
+                            activePicker = nil
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(option.displayName)
+                                        .foregroundColor(.primary)
+                                    if autoDecodeID == option.rawValue {
+                                        Text("Bảng mã đang hoạt động với file")
+                                            .font(.caption2)
+                                            .foregroundColor(.orange)
+                                    }
+                                }
+                                Spacer()
+                                if autoDecodeID == option.rawValue {
+                                    Image(systemName: "star.fill")
+                                        .font(.caption)
+                                        .foregroundColor(.orange)
+                                }
+                                if decodeID == option.rawValue {
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(.blue)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Chọn bảng mã")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    // MARK: - TOC rule picker
+
+    private var rulePickerView: some View {
+        NavigationStack {
+            List {
+                Section("Tự động") {
+                    Button {
+                        selectedRuleIDs = []
+                        activePicker = nil
+                    } label: {
+                        HStack {
+                            Label("Tự động (dùng quy tắc đang bật)", systemImage: "wand.and.stars")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if selectedRuleIDs.isEmpty {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                }
+
+                let allRules = TranslateUtils.getAllTOCRules()
+                Section("Quy tắc (tích chọn nhiều)") {
+                    ForEach(allRules) { rule in
+                        let isSelected = selectedRuleIDs.contains(rule.id)
+                        Button {
+                            if isSelected {
+                                selectedRuleIDs.remove(rule.id)
+                            } else {
+                                selectedRuleIDs.insert(rule.id)
+                            }
+                        } label: {
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                                    .foregroundColor(isSelected ? .blue : .secondary)
+                                    .padding(.top, 2)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(rule.name)
+                                        .font(.subheadline)
+                                        .foregroundColor(.primary)
+                                        .multilineTextAlignment(.leading)
+                                    if let example = rule.example {
+                                        Text("Ví dụ: \(example)")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+
+                                Spacer()
+
+                                if matchedRuleIDs.contains(rule.id) {
+                                    Image(systemName: "star.fill")
+                                        .font(.caption)
+                                        .foregroundColor(.orange)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Section {
+                    Button("Áp dụng") {
+                        activePicker = nil
+                    }
+                    .frame(maxWidth: .infinity)
+                    .disabled(isReanalyzing)
+                }
+            }
+            .navigationTitle("Chọn quy tắc TOC")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium, .large])
     }
 }

@@ -67,6 +67,7 @@ struct CategoryNovelsListView: View {
                             BookListItemView(item: novel, showChapter: false, showDescription: true, coverWidth: 60, coverHeight: 80)
                                 .padding(.vertical, 4)
                         }
+                        .buttonStyle(.plain)
                     }
 
                     if loader.canLoadMore {

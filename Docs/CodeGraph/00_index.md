@@ -15,6 +15,12 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tái sử dụng BookListItemView trong DownloadTrackerView và bỏ chevron NavigationLink (1.3.218)
+
+* `DownloadTrackerView.taskRow` bỏ HStack cover+title custom → dùng `BookListItemView(item: task, showChapter: false)`; `DownloadTask` conform `BookDisplayable` (title→`bookTitle`, coverUrl→`bookCoverUrl`, còn lại author/sourceName/description/currentChapter*/sourceName = rỗng; `bookId` có sẵn). Badge taskType, statusBadge, ProgressView, nút cancel/share/retry và contextMenu giữ nguyên nhưng đặt dưới row truyện. Bỏ `@AppStorage("isTranslationEnabled")` khỏi `taskRow` (BookListItemView tự dịch title nội bộ) — giữ lại property để dùng trong Toast `exportFromCached` (bọc `translateBookTitleIfNeeded`).
+* Xóa chevron `>` mặc định của NavigationLink đi chi tiết truyện bằng `.buttonStyle(.plain)` trên NavigationLink ở `CategoryNovelsListView` (genre) và `DiscoveryView` (`DiscoveryCategoryTabView`, home tabs) — row vẫn bấm được, không còn mũi tên lệch trong hàng dùng `BookListItemView`.
+* Thay đổi thuần UI + thêm conformance display (`DownloadTask: BookDisplayable`) — không đổi public API Service/Manager, không đổi dependency tầng logic.
+
 ## Import TXT: bảng mã giải mã đa dạng, xác nhận trước khi nhập, overlay Material (1.3.217)
 
 * File mới `Sources/Common/Utils/TextEncodingDecoder.swift`: `enum TextEncodingDecoder` với `static func decode(_ data: Data) -> String` thử tuần tự 20 bảng mã theo thứ tự an toàn: UTF-8 (tự xử lý BOM), UTF-16LE/BE (strip BOM thủ công), UTF-32LE/UTF-32(BOM)/UTF-32BE, GB18030 (`CFStringEncodings.GB_18030_2000`), GBK (`GBK_95`), Big5-HKSCS (`big5_HKSCS_1999`), Big5 (`big5`), EUC-JP (`.japaneseEUC`), windowsVietnamese/CP1258 (VNI), VSCII/TCVN3 (`VISCII`), ISO-8859-1, windows-1250/1251/1252/1253/1254, ASCII. Mã đơn byte đặt cuối vì hầu như không bao giờ fail — tránh nuốt nhầm file tiếng Trung thành Latin-1/CP125x. Trả `""` nếu không decode được.

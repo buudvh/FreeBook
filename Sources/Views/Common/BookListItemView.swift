@@ -86,6 +86,7 @@ struct BookListItemView<Item: BookDisplayable>: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .contentShape(Rectangle())
     }
 
     private func translateIfNeeded(_ text: String, bookId: String? = nil) -> String {

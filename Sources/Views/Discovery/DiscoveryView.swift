@@ -609,6 +609,7 @@ struct DiscoveryCategoryTabView: View {
                         )) {
                             BookListItemView(item: novel, showChapter: false, showDescription: true)
                         }
+                        .buttonStyle(.plain)
                     }
 
                     if loader.canLoadMore {
