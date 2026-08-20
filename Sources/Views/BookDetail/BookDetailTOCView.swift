@@ -54,11 +54,8 @@ struct BookDetailTOCView: View {
         let query = chapterSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return sorted }
         return sorted.filter { chap in
-            if isTranslationEnabled {
-                return chap.title.localizedStandardContains(query) || (chap.titleTrans != nil && chap.titleTrans!.localizedStandardContains(query))
-            } else {
-                return chap.title.localizedStandardContains(query)
-            }
+            chap.title.localizedStandardContains(query)
+                || chap.titleTrans?.localizedStandardContains(query) == true
         }
     }
 

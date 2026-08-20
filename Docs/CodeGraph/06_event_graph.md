@@ -15,6 +15,12 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Local TXT import and chapter-search events (1.3.224)
+
+* Tapping `Nhập` clears the confirmation item, shows the import wait layer, creates the local Book, then changes status to `Đang dịch tên chương...` while detached work builds translated metadata. Completion continues through the existing TOC/content writes and progress updates.
+* Confirmation and reanalysis events compute a bounded preview: up to six real rows, otherwise three leading rows + omitted count + three trailing rows.
+* Translation-toggle changes no longer alter the set of local chapter search matches; they only cause result rows to redraw using original or translated presentation.
+
 ## TXT import wait-layer handoff events (1.3.223)
 
 * Sự kiện parse hoàn tất chỉ phát thay đổi `pendingImport`; overlay phân tích vẫn che Shelf trong lúc SwiftUI dựng/present sheet. `TXTImportConfirmationSheet.onAppear` là sự kiện duy nhất kết thúc wait layer ở nhánh thành công.

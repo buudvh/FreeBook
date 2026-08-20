@@ -19,8 +19,7 @@ internal final class ChapterStoreDatabase {
     private var stmtFetchChapterByIndex: OpaquePointer?
     private var stmtFetchOrderedTOC: OpaquePointer?
     private var stmtFetchRange: OpaquePointer?
-    private var stmtSearchChaptersTrans: OpaquePointer?
-    private var stmtSearchChaptersTitleOnly: OpaquePointer?
+    private var stmtSearchChapters: OpaquePointer?
     private var stmtUpdateCacheByUrl: OpaquePointer?
     private var stmtUpdateCacheByIndex: OpaquePointer?
     private var stmtUpdateTransByUrl: OpaquePointer?
@@ -247,21 +246,13 @@ internal final class ChapterStoreDatabase {
         """
         try prepareOne(fetchRangeSQL, &stmtFetchRange)
 
-        let searchTransSQL = """
+        let searchChaptersSQL = """
         SELECT id, book_id, chapter_index, title, url, host, title_trans, is_cached, offset, length, updated_at
         FROM chapter_metadata
         WHERE book_id = ? AND (title LIKE ? OR (title_trans IS NOT NULL AND title_trans LIKE ?))
         ORDER BY chapter_index ASC;
         """
-        try prepareOne(searchTransSQL, &stmtSearchChaptersTrans)
-
-        let searchTitleOnlySQL = """
-        SELECT id, book_id, chapter_index, title, url, host, title_trans, is_cached, offset, length, updated_at
-        FROM chapter_metadata
-        WHERE book_id = ? AND title LIKE ?
-        ORDER BY chapter_index ASC;
-        """
-        try prepareOne(searchTitleOnlySQL, &stmtSearchChaptersTitleOnly)
+        try prepareOne(searchChaptersSQL, &stmtSearchChapters)
 
         let updateCacheByUrlSQL = """
         UPDATE chapter_metadata
@@ -329,7 +320,7 @@ internal final class ChapterStoreDatabase {
     private func finalizeStatements() {
         let stmts = [
             stmtReplace, stmtUpsert, stmtFetchChapterByUrl, stmtFetchChapterByIndex,
-            stmtFetchOrderedTOC, stmtFetchRange, stmtSearchChaptersTrans, stmtSearchChaptersTitleOnly,
+            stmtFetchOrderedTOC, stmtFetchRange, stmtSearchChapters,
             stmtUpdateCacheByUrl, stmtUpdateCacheByIndex, stmtUpdateTransByUrl, stmtUpdateTransByIndex,
             stmtGetMigrationStatus, stmtUpdateMigrationStatus,
             stmtDeleteChapters, stmtDeleteMigrationStatus, stmtDeleteStaleChapter
@@ -677,32 +668,19 @@ internal final class ChapterStoreDatabase {
         return list
     }
 
-    func searchChapters(bookId: String, query: String, searchTrans: Bool) throws -> [StoredChapterSnapshot] {
+    func searchChapters(bookId: String, query: String) throws -> [StoredChapterSnapshot] {
         let pattern = "%\(query)%"
-        if searchTrans {
-            guard let stmt = stmtSearchChaptersTrans else { return [] }
-            sqlite3_reset(stmt)
-            sqlite3_clear_bindings(stmt)
-            try bindText(stmt, 1, bookId)
-            try bindText(stmt, 2, pattern)
-            try bindText(stmt, 3, pattern)
-            var list: [StoredChapterSnapshot] = []
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                list.append(parseRow(stmt))
-            }
-            return list
-        } else {
-            guard let stmt = stmtSearchChaptersTitleOnly else { return [] }
-            sqlite3_reset(stmt)
-            sqlite3_clear_bindings(stmt)
-            try bindText(stmt, 1, bookId)
-            try bindText(stmt, 2, pattern)
-            var list: [StoredChapterSnapshot] = []
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                list.append(parseRow(stmt))
-            }
-            return list
+        guard let stmt = stmtSearchChapters else { return [] }
+        sqlite3_reset(stmt)
+        sqlite3_clear_bindings(stmt)
+        try bindText(stmt, 1, bookId)
+        try bindText(stmt, 2, pattern)
+        try bindText(stmt, 3, pattern)
+        var list: [StoredChapterSnapshot] = []
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            list.append(parseRow(stmt))
         }
+        return list
     }
 
     func updateCacheMetadata(bookId: String, index: Int, url: String, isCached: Bool, offset: Int64, length: Int64) throws {

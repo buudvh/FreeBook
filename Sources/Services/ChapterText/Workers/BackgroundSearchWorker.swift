@@ -18,7 +18,7 @@ public actor BackgroundSearchWorker {
     ) async -> [SearchChapterDTO] {
         if !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
             do {
-                let storeResults = try await ChapterStore.shared.searchChapters(bookId: bookId, query: query, searchTrans: isTranslationEnabled)
+                let storeResults = try await ChapterStore.shared.searchChapters(bookId: bookId, query: query)
                 let sorted = isAscending ? storeResults.sorted(by: { $0.index < $1.index }) : storeResults.sorted(by: { $0.index > $1.index })
                 return sorted.compactMap { chap in
                     let trimmedUrl = chap.url.trimmingCharacters(in: .whitespacesAndNewlines)

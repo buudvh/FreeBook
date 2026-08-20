@@ -15,6 +15,12 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Local TXT titleTrans, bounded confirmation preview, and toggle-independent chapter search (1.3.224)
+
+* TXT import models are `Sendable`; after confirmation, `ShelfView` translates chapter titles and builds the full `[ChapterMetadataSnapshot]` inside a detached user-initiated task. Every new local chapter is persisted with original `title` plus `titleTrans`, while the MainActor only coordinates UI state and the existing SwiftData book transaction.
+* `TXTImportConfirmationSheet` renders all chapters when the count is at most six; larger imports render indices 1-3, one omitted-count row, and the final three indices. Reanalysis automatically recomputes the same bounded preview.
+* ChapterStore search no longer accepts `searchTrans`: SQLite always matches `title LIKE ? OR title_trans LIKE ?`. Reader results still use the translation toggle only for presentation, and BookDetail local snapshot/SwiftData filters also search both stored fields regardless of that toggle. Existing local books are not migrated automatically.
+
 ## Handoff liền mạch từ wait layer sang sheet xác nhận nhập TXT (1.3.223)
 
 * Khi parse TXT thành công, `ShelfView` gán `pendingImport` nhưng tiếp tục giữ `isParsingTXT = true`; wait layer chỉ tắt trong `TXTImportConfirmationSheet.onAppear`. Nhánh lỗi copy/decode/parse vẫn tắt wait layer và hiện Toast như trước, nên không còn khoảng trống chỉ hiện Shelf giữa hai trạng thái.

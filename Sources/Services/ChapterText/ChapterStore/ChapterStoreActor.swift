@@ -80,9 +80,9 @@ internal actor ChapterStore: ChapterStoreProtocol {
         return try database.fetchRange(bookId: bookId, startIndex: startIndex, count: count)
     }
 
-    internal func searchChapters(bookId: String, query: String, searchTrans: Bool) async throws -> [StoredChapterSnapshot] {
+    internal func searchChapters(bookId: String, query: String) async throws -> [StoredChapterSnapshot] {
         guard let database else { throw ChapterStoreError.unavailable }
-        return try database.searchChapters(bookId: bookId, query: query, searchTrans: searchTrans)
+        return try database.searchChapters(bookId: bookId, query: query)
     }
 
     internal func updateCacheMetadata(bookId: String, index: Int, url: String, isCached: Bool, offset: Int64, length: Int64) async throws {

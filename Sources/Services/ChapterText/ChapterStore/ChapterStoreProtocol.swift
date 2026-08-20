@@ -22,7 +22,7 @@ internal protocol ChapterStoreProtocol: Sendable {
     func fetchChapter(bookId: String, index: Int, url: String) async throws -> StoredChapterSnapshot?
     func fetchOrderedTOC(bookId: String) async throws -> [StoredChapterSnapshot]
     func fetchRange(bookId: String, startIndex: Int, count: Int) async throws -> [StoredChapterSnapshot]
-    func searchChapters(bookId: String, query: String, searchTrans: Bool) async throws -> [StoredChapterSnapshot]
+    func searchChapters(bookId: String, query: String) async throws -> [StoredChapterSnapshot]
     func updateCacheMetadata(bookId: String, index: Int, url: String, isCached: Bool, offset: Int64, length: Int64) async throws
     func upsertCachedChapter(bookId: String, metadata: ChapterMetadataSnapshot, isCached: Bool, offset: Int64, length: Int64) async throws
     func updateTitleTranslations(bookId: String, updates: [(index: Int, url: String, titleTrans: String)]) async throws

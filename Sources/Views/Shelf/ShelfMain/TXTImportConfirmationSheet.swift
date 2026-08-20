@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Sheet xác nhận thông tin trước khi nhập truyện TXT vào CSDL.
-/// Hiển thị tên truyện, số chương, tên file và danh sách toàn bộ chương để người
+/// Hiển thị tên truyện, số chương, tên file và danh sách chương rút gọn để người
 /// dùng kiểm tra kết quả parse. Cho phép chọn bảng mã giải mã và quy tắc TOC
 /// (mặc định Tự động) rồi "Phân tích lại" để làm mới danh sách chương.
 struct TXTImportConfirmationSheet: View {
@@ -61,6 +61,12 @@ struct TXTImportConfirmationSheet: View {
             return "Tự động"
         }
         return "\(selectedRuleIDs.count) quy tắc"
+    }
+
+    private var previewChapterIndices: [Int] {
+        let count = parsed.chapters.count
+        guard count > 6 else { return Array(parsed.chapters.indices) }
+        return Array(0..<3) + Array((count - 3)..<count)
     }
 
     var body: some View {
@@ -145,12 +151,20 @@ struct TXTImportConfirmationSheet: View {
 
                         Divider()
 
-                        LazyVStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 8) {
                             Text("Danh sách chương")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
 
-                            ForEach(parsed.chapters.indices, id: \.self) { index in
+                            ForEach(previewChapterIndices, id: \.self) { index in
+                                if parsed.chapters.count > 6 && index == parsed.chapters.count - 3 {
+                                    Text("… \(parsed.chapters.count - 6) chương ở giữa …")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .frame(maxWidth: .infinity, alignment: .center)
+                                        .padding(.vertical, 2)
+                                }
+
                                 let chapter = parsed.chapters[index]
                                 HStack(alignment: .top, spacing: 8) {
                                     Text("\(index + 1).")

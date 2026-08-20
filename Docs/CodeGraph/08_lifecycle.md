@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Local TXT confirmation/import lifecycle (1.3.224)
+
+* Confirmation preview owns only a derived six-index list (plus an omitted-count row) and recomputes it whenever reanalysis replaces `parsed`; it never mounts the full chapter list.
+* On confirmation, `isImporting` remains active while detached title translation/metadata creation runs. The existing success lifecycle removes the temp file and selects Shelf; the existing error lifecycle removes the temp file, closes the wait layer, and reports failure.
+* Only newly imported local books receive `titleTrans` automatically. Previously imported books retain their stored state until the existing manual `Dịch lại tên chương` action is used.
+
 ## TXT parsing overlay and confirmation-sheet lifecycle (1.3.223)
 
 * `isParsingTXT` bắt đầu trước tác vụ parse nền. Thành công giữ overlay sống qua thời điểm tạo `pendingImport` và chỉ giải phóng khi confirmation sheet `onAppear`; lỗi giải phóng ngay sau cleanup file tạm.

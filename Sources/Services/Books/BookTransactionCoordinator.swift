@@ -180,6 +180,7 @@ public final class BookTransactionCoordinator {
         isCached: Bool = false,
         offset: Int64 = 0,
         length: Int64 = 0,
+        titleTrans: String? = nil,
         in context: ModelContext
     ) -> Result<Void, Error> {
         var descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.bookId == bookId })
@@ -196,7 +197,8 @@ public final class BookTransactionCoordinator {
             index: index,
             isCached: isCached,
             offset: offset,
-            length: length
+            length: length,
+            titleTrans: titleTrans
         )
         chapter.book = book
         context.insert(chapter)

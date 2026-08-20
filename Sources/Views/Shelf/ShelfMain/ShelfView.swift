@@ -16,12 +16,12 @@ struct ShelfReaderRoute: Identifiable, Hashable {
 }
 
 // Dữ liệu phân tích file TXT cục bộ, dùng chung cho ShelfView và sheet xác nhận.
-struct ParserChapter {
+struct ParserChapter: Sendable {
     let title: String
     var content: String
 }
 
-struct ParsedBook {
+struct ParsedBook: Sendable {
     let title: String
     let chapters: [ParserChapter]
 }
@@ -968,6 +968,7 @@ struct ShelfView: View {
 
         let newBookId = UUID().uuidString
         let totalChapters = parsed.chapters.count
+        let importChapters = parsed.chapters
 
         // Quay lại Main Thread để chèn dữ liệu trực tiếp bằng modelContext chính, giúp UI đồng bộ lập tức và cập nhật progress bar mượt mà
         self.importStatusText = "Đang tạo cuốn sách mới..."
@@ -1000,18 +1001,27 @@ struct ShelfView: View {
         // Thực hiện chèn từng chương vào database / ChapterStore
         Task {
             do {
-                let snapshots = parsed.chapters.enumerated().map { idx, chapData in
-                    let url = "local://\(newBookId)/chapter/\(idx)"
-                    return ChapterMetadataSnapshot(title: chapData.title, url: url, index: idx)
-                }
+                self.importStatusText = "Đang dịch tên chương..."
+                let snapshots = await Task.detached(priority: .userInitiated) {
+                    importChapters.enumerated().map { index, chapter in
+                        ChapterMetadataSnapshot(
+                            title: chapter.title,
+                            url: "local://\(newBookId)/chapter/\(index)",
+                            index: index,
+                            titleTrans: TranslateUtils.translateChapterTitle(
+                                chapter.title,
+                                bookId: newBookId
+                            )
+                        )
+                    }
+                }.value
                 _ = try await ChapterStore.shared.replaceFullTOC(bookId: newBookId, chapters: snapshots, protectedTTS: nil)
 
                 self.importIsIndeterminate = false
-                for (idx, chapData) in parsed.chapters.enumerated() {
-                    let url = "local://\(newBookId)/chapter/\(idx)"
+                for (idx, chapData) in importChapters.enumerated() {
+                    let meta = snapshots[idx]
                     let (offset, length) = try await BookBinManager.shared.writeChapterContent(bookId: newBookId, content: chapData.content)
 
-                    let meta = ChapterMetadataSnapshot(title: chapData.title, url: url, index: idx)
                     try await ChapterStore.shared.upsertCachedChapter(
                         bookId: newBookId,
                         metadata: meta,
@@ -1021,7 +1031,7 @@ struct ShelfView: View {
                     )
 
                     if ChapterStoreConfiguration.enableSwiftDataTOCWrite {
-                        let res = BookTransactionCoordinator.shared.insertChapterDTO(bookId: newBook.bookId, title: chapData.title, url: url, index: idx, isCached: true, offset: offset, length: length, in: self.modelContext)
+                        let res = BookTransactionCoordinator.shared.insertChapterDTO(bookId: newBook.bookId, title: chapData.title, url: meta.url, index: idx, isCached: true, offset: offset, length: length, titleTrans: meta.titleTrans, in: self.modelContext)
                         if case .failure(let err) = res {
                             AppLogger.shared.log("⚠️ [ShelfImport] Failed to insert chapter \(idx): \(err.localizedDescription)")
                         }

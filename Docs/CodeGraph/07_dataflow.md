@@ -15,6 +15,11 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Local TXT title translation and search data flow (1.3.224)
+
+* `ParsedBook.chapters` → detached `TranslateUtils.translateChapterTitle` + metadata map → `ChapterMetadataSnapshot.title/titleTrans` → `ChapterStore.replaceFullTOC` → SQLite `chapter_metadata.title/title_trans`. Cache offset/length updates reuse the same snapshot and do not discard `titleTrans`.
+* Local chapter query → one `%query%` pattern bound to both stored title columns → `StoredChapterSnapshot` results → presentation chooses the row title according to `isTranslationEnabled`. No import-time or startup backfill is performed for older local books.
+
 ## Sơ Đồ Luồng Dữ Liệu (Data Flow v4.1/v5.0)
 
 1. **Luồng Dữ Liệu Giao Dịch Lưu Trữ**:

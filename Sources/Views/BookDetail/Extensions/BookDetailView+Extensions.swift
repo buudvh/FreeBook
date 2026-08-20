@@ -167,7 +167,7 @@ extension BookDetailView {
         filteredLocalChapters = sorted.filter { chap in
             chapterSearchQuery.isEmpty ||
             chap.title.localizedCaseInsensitiveContains(chapterSearchQuery) ||
-            translateChapterTitleIfNeeded(chap).localizedCaseInsensitiveContains(chapterSearchQuery)
+            chap.titleTrans?.localizedCaseInsensitiveContains(chapterSearchQuery) == true
         }
     }
 
