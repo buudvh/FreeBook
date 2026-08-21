@@ -7,6 +7,16 @@ struct ExtensionBrowserTarget: Identifiable {
     let urlString: String
 }
 
+/// Route snapshot bất biến cho màn chi tiết truyện từ Discovery
+private struct DiscoveryDetailRoute: Identifiable {
+    var id: String { bookId }
+    let bookId: String
+    let extensionPackageId: String
+    let initialDetailUrl: String
+    let sourceName: String
+    let initialHost: String
+}
+
 struct DiscoveryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var allExtensions: [Extension]
@@ -47,6 +57,9 @@ struct DiscoveryView: View {
     @State private var selectedGenre: CategoryResult? = nil
     @State private var navigateToGenre = false
     
+    // Route điều hướng chi tiết truyện từ Discovery
+    @State private var selectedDetailRoute: DiscoveryDetailRoute? = nil
+
     // Hiển thị danh mục thể loại dạng sheet trượt
     @State private var showingGenresSheet = false
     
@@ -290,16 +303,25 @@ struct DiscoveryView: View {
                                 TabView(selection: $selectedCategoryId) {
                                     ForEach(homeItems) { item in
                                         if let ext = selectedExtension {
+                                            let extPackageId = ext.packageId
+                                            let extSourceName = ext.name
                                             if shouldRenderCategoryTab(id: item.id) {
                                                 DiscoveryCategoryTabView(
                                                     category: item,
-                                                    extensionPackageId: ext.packageId,
                                                     localPath: ext.localPath,
                                                     downloadUrl: ext.downloadUrl,
                                                     configJson: ext.configJson,
-                                                    sourceName: ext.name,
                                                     isTranslationEnabled: isTranslationEnabled,
-                                                    selectedCategoryId: $selectedCategoryId
+                                                    selectedCategoryId: $selectedCategoryId,
+                                                    onSelectNovel: { novel in
+                                                        selectedDetailRoute = DiscoveryDetailRoute(
+                                                            bookId: "\(extSourceName.lowercased())_\(novel.link)",
+                                                            extensionPackageId: extPackageId,
+                                                            initialDetailUrl: novel.link,
+                                                            sourceName: extSourceName,
+                                                            initialHost: novel.host
+                                                        )
+                                                    }
                                                 )
                                                 .tag(item.id)
                                             } else {
@@ -456,6 +478,15 @@ struct DiscoveryView: View {
                     )
                 }
             }
+            .navigationDestination(item: $selectedDetailRoute) { route in
+                BookDetailView(
+                    bookId: route.bookId,
+                    extensionPackageId: route.extensionPackageId,
+                    initialDetailUrl: route.initialDetailUrl,
+                    sourceName: route.sourceName,
+                    initialHost: route.initialHost
+                )
+            }
         }
     }
     
@@ -529,36 +560,32 @@ struct DiscoveryView: View {
 
 struct DiscoveryCategoryTabView: View {
     let category: CategoryResult
-    let extensionPackageId: String
     let localPath: String
     let downloadUrl: String
     let configJson: String
-    let sourceName: String
     let isTranslationEnabled: Bool
     @Binding var selectedCategoryId: String
+    let onSelectNovel: (ExtensionItemResult) -> Void
 
     @StateObject private var loader: PaginatedNovelLoader
     @State private var initialLoadTask: Task<Void, Never>? = nil
-    @State private var selectedNovel: ExtensionItemResult? = nil
 
     init(
         category: CategoryResult,
-        extensionPackageId: String,
         localPath: String,
         downloadUrl: String,
         configJson: String,
-        sourceName: String,
         isTranslationEnabled: Bool,
-        selectedCategoryId: Binding<String>
+        selectedCategoryId: Binding<String>,
+        onSelectNovel: @escaping (ExtensionItemResult) -> Void
     ) {
         self.category = category
-        self.extensionPackageId = extensionPackageId
         self.localPath = localPath
         self.downloadUrl = downloadUrl
         self.configJson = configJson
-        self.sourceName = sourceName
         self.isTranslationEnabled = isTranslationEnabled
         self._selectedCategoryId = selectedCategoryId
+        self.onSelectNovel = onSelectNovel
         _loader = StateObject(wrappedValue: PaginatedNovelLoader(
             localPath: localPath,
             downloadUrl: downloadUrl,
@@ -606,7 +633,7 @@ struct DiscoveryCategoryTabView: View {
                 List {
                     ForEach(loader.novels) { novel in
                         Button {
-                            selectedNovel = novel
+                            onSelectNovel(novel)
                         } label: {
                             BookListItemView(item: novel, style: .discovery)
                         }
@@ -630,15 +657,6 @@ struct DiscoveryCategoryTabView: View {
                 .listStyle(.plain)
                 .refreshable {
                     await loader.reload()
-                }
-                .navigationDestination(item: $selectedNovel) { novel in
-                    BookDetailView(
-                        bookId: "\(sourceName.lowercased())_\(novel.link)",
-                        extensionPackageId: extensionPackageId,
-                        initialDetailUrl: novel.link,
-                        sourceName: sourceName,
-                        initialHost: novel.host
-                    )
                 }
             }
         }

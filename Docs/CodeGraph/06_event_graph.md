@@ -15,6 +15,12 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Luồng sự kiện điều hướng Chi tiết truyện trong Khám phá (1.3.228)
+
+* Sự kiện chọn hàng truyện (`Button`) trong `DiscoveryCategoryTabView` kích hoạt callback `onSelectNovel(novel)`.
+* `DiscoveryView` xử lý callback, chụp snapshot các thuộc tính chuỗi bất biến (`bookId`, `extensionPackageId`, `initialDetailUrl`, `sourceName`, `initialHost`) vào struct `DiscoveryDetailRoute` và gán cho `@State private var selectedDetailRoute`.
+* `NavigationStack` tại root `DiscoveryView` bắt sự kiện thay đổi của `$selectedDetailRoute` thông qua `.navigationDestination(item:)` duy nhất ở cấp view cha và tiến hành push `BookDetailView`.
+
 ## Search-history row hit testing (1.3.227)
 
 * Tapping the clock, query text, or transparent space before the delete control now reaches the history-selection button in both `ShelfSearchView` and `SearchView` because its label fills the available width and declares a rectangular content shape.

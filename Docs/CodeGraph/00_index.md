@@ -15,6 +15,12 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Khắc phục lỗi pop Chi tiết truyện khi vuốt tab Home Khám phá (1.3.228)
+
+* Khai báo `DiscoveryDetailRoute` (bất biến, `Identifiable`, `Hashable`) giữ metadata điều hướng `bookId`, `extensionPackageId`, `initialDetailUrl`, `sourceName`, `initialHost`.
+* Nâng `@State private var selectedDetailRoute: DiscoveryDetailRoute?` và `.navigationDestination(item: $selectedDetailRoute)` lên root `NavigationStack` trong `DiscoveryView`.
+* `DiscoveryCategoryTabView` loại bỏ `@State selectedNovel` và `.navigationDestination` cục bộ, chuyển sang truyền callback `onSelectNovel: (ExtensionItemResult) -> Void` lên view cha, bảo toàn route state không bị ảnh hưởng bởi lifecycle hay re-evaluation của `TabView`.
+
 ## Mở rộng vùng bấm lịch sử tìm kiếm (1.3.227)
 
 * `ShelfSearchView.historyView` và `SearchView.searchHistoryView` cho label nút chọn lịch sử chiếm toàn bộ chiều rộng còn lại và dùng `Rectangle` làm hit-test shape; khoảng trống từ nội dung đến trước nút xóa nay kích hoạt đúng action chọn lịch sử.

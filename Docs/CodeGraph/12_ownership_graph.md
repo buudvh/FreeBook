@@ -28,4 +28,8 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 3. **Quyền Sở Hữu Công Việc Nền & Task Cancellation**:
    - `ReaderViewModel` sở hữu `ReaderProgressScheduler` và `Task` dịch thuật.
    - `BookDetailView` sở hữu `bookOpenTask` và task tải còn lại background.
+
+4. **Quyền Sở Hữu Route Điều Hướng Khám Phá (Discovery Detail Route Ownership 1.3.228)**:
+   - `DiscoveryView` sở hữu duy nhất `@State private var selectedDetailRoute: DiscoveryDetailRoute?` và đăng ký modifier `.navigationDestination(item: $selectedDetailRoute)` tại cấp root `NavigationStack`.
+   - `DiscoveryCategoryTabView` không sở hữu state route hay modifier navigation destination; child view chỉ gọi callback truyền dữ liệu snapshot dạng value type lên view cha.
 <!-- GENERATED END -->
