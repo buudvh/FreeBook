@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude Code CLI"
+  short_description: "Delegate software work to Claude CLI"
+  default_prompt: "Use $claude-cli to lead and review this software task while Claude Code CLI performs the repository work."
