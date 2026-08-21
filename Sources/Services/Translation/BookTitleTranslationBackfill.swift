@@ -2,6 +2,9 @@ import Foundation
 import SwiftData
 
 internal actor BookTitleTranslationBackfill {
+    /// Số sách xử lý mỗi lần `save()` để tránh giữ transaction quá lớn.
+    private static let batchSize = 50
+
     private let container: ModelContainer
 
     init(container: ModelContainer) {
@@ -29,7 +32,7 @@ internal actor BookTitleTranslationBackfill {
             if book.authorTrans.isEmpty {
                 book.authorTrans = TranslateUtils.translateAuthorHanViet(book.author)
             }
-            if (index + 1) % BookTitleTranslationMigrator.batchSize == 0 {
+            if (index + 1) % Self.batchSize == 0 {
                 try? context.save()
             }
         }

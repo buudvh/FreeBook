@@ -8,8 +8,6 @@ import SwiftData
 /// các lần sau no-op. Hai cột này phục vụ tìm kiếm và không phụ thuộc trạng thái
 /// toggle dịch (luôn lưu tên đã dịch/phương âm để search bất kể bật/tắt).
 public enum BookTitleTranslationMigrator {
-    fileprivate static let batchSize = 50
-
     public static func runIfNeeded(container: ModelContainer) async {
         // Chỉ dịch được khi từ điển VietPhrase đã sẵn sàng; nếu chưa thì bỏ qua,
         // lần mở app kế tiếp sẽ chạy lại.
