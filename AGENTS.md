@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
 > File này và `AGENTS.md` ở thư mục gốc là **cùng một nội dung**, chỉ khác 3 dòng đầu (một bản cho Claude Code, một bản cho Codex). Sửa file này thì mirror sang `AGENTS.md`.
 

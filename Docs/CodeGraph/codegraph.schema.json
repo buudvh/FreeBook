@@ -46,9 +46,24 @@
             "type": "string",
             "description": "Tên file tài liệu (ví dụ: 00_index.md)"
           },
+          "staleOn": {
+            "type": "string",
+            "description": "Điều kiện làm tài liệu bị stale: \"structure\" (chỉ khi tập file khớp sourcePatterns thay đổi) hoặc \"content\" (thêm cả khi nội dung file thay đổi)"
+          },
+          "sourcePatterns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Danh sách glob (tương đối gốc repo) xác định phạm vi mã nguồn tài liệu này chịu trách nhiệm mô tả; mọi file Swift phải khớp ít nhất một doc"
+          },
+          "structureHash": {
+            "type": "string",
+            "description": "Mã băm SHA-256 chỉ của *tập đường dẫn* khớp sourcePatterns — đổi khi thêm/xoá/đổi tên file"
+          },
           "sourceHash": {
             "type": "string",
-            "description": "Mã băm SHA-256 của các file nguồn Swift liên quan trực tiếp đến tài liệu này"
+            "description": "Mã băm SHA-256 của đường dẫn + nội dung (chuẩn hoá LF) các file khớp sourcePatterns"
           },
           "generatedHash": {
             "type": "string",
@@ -59,19 +74,45 @@
             "format": "date-time",
             "description": "Thời điểm tạo/cập nhật tài liệu này"
           },
+          "reviewedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Thời điểm gần nhất tài liệu được xem xét đối chiếu với mã nguồn"
+          },
+          "reviewedCommit": {
+            "type": "string",
+            "description": "Commit Git tại lần xem xét gần nhất; dùng làm mốc liệt kê file đã đổi khi báo stale"
+          },
+          "reviewMode": {
+            "type": "string",
+            "description": "Cách ghi nhận lần xem xét gần nhất: \"accept\" (đã sửa vùng GENERATED), \"no-change-needed\" (đã xem, kết luận không cần đổi), hoặc \"bootstrap\""
+          },
           "sourceFiles": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "Danh sách đường dẫn tương đối của các file nguồn liên quan trực tiếp"
+            "description": "Danh sách đường dẫn đã giải từ sourcePatterns tại lần xem xét gần nhất (script tự ghi, không sửa tay)"
           },
           "documentVersion": {
             "type": "integer",
             "description": "Phiên bản hiện tại của tài liệu này"
           }
         },
-        "required": ["filename", "sourceHash", "generatedHash", "generatedAt", "sourceFiles", "documentVersion"]
+        "required": [
+          "filename",
+          "staleOn",
+          "sourcePatterns",
+          "structureHash",
+          "sourceHash",
+          "generatedHash",
+          "generatedAt",
+          "reviewedAt",
+          "reviewedCommit",
+          "reviewMode",
+          "sourceFiles",
+          "documentVersion"
+        ]
       }
     }
   },

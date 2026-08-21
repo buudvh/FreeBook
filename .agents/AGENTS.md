@@ -24,8 +24,8 @@ graph TD
     2 --> 3[3. Xác định tài liệu bị ảnh hưởng]
     3 --> 4[4. Sửa đổi Source Code]
     4 --> 5[5. Cập nhật các tài liệu bị ảnh hưởng]
-    5 --> 6[6. Cập nhật manifest.json & CHANGELOG.md]
-    6 --> 7[7. Chạy kịch bản validation]
+    5 --> 6[6. Ghi nhận doc bị stale & CHANGELOG.md]
+    6 --> 7[7. Chạy validation read-only]
     7 --> 8[8. Hoàn thành nhiệm vụ]
 ```
 
@@ -34,8 +34,8 @@ graph TD
 3.  **Xác định phạm vi cập nhật**: Tìm xem file tài liệu nào trong `Docs/CodeGraph/` cần cập nhật.
 4.  **Thay đổi Source Code**: Thực hiện viết mã nguồn và tự kiểm tra chức năng.
 5.  **Cập nhật CodeGraph tăng dần**: Chỉ cập nhật các tài liệu bị ảnh hưởng trực tiếp (cập nhật trong vùng comment `GENERATED`).
-6.  **Cập nhật Metadata**: Cập nhật `manifest.json` (tính toán lại `sourceHash` và `generatedHash`) và ghi nhận vào `Docs/CodeGraph/CHANGELOG.md`.
-7.  **Xác thực**: Chạy kịch bản `validate_links.py` để đảm bảo không lỗi link, không mồ côi.
+6.  **Ghi nhận doc bị stale**: Chạy `validate_links.py --explain` (thêm `--since REF` để so với một commit) để biết doc nào bị stale và vì sao, rồi ghi nhận **từng** doc bằng `--accept DOC…` (đã sửa vùng `GENERATED`) hoặc `--no-change-needed DOC…` (đã đọc, kết luận vẫn đúng với code mới). Validator tự ghi `structureHash`/`sourceHash`/`generatedHash` + `reviewMode`/`reviewedAt`/`reviewedCommit` vào `manifest.json` — **không sửa hash bằng tay**. Ghi entry vào `Docs/CodeGraph/CHANGELOG.md` (khi file vượt ~30 entry thì đẩy phần cũ nhất sang `CHANGELOG.archive.md`). Cơ chế routing per-doc (`sourcePatterns`/`staleOn`) và ba hash được định nghĩa ở `rules.md` §6.2 — đọc ở đó, đừng nhân bản luật vào đây.
+7.  **Xác thực**: Chạy `validate_links.py` (read-only) — phải **PASS 100%**: không lỗi link, không file mồ côi, và không doc nào còn stale (mọi doc bị ảnh hưởng đã được `--accept` hoặc `--no-change-needed`).
 8.  **Kết thúc**: Phản hồi với cụm từ kết quả tiêu chuẩn.
 
 ### 2.1. Quy tắc ủy quyền Unit Test
@@ -103,14 +103,16 @@ CodeGraph bắt buộc phải được cập nhật khi có bất kỳ thay đ�
 *   Thay đổi Máy trạng thái (State Machine) hoặc luồng sự kiện.
 *   Thay đổi quan hệ sở hữu đối tượng (Ownership Graph) hoặc Audio/TTS Pipeline.
 
+> Validator tự phát hiện các trigger này qua `sourcePatterns`/`staleOn` trong `manifest.json`: doc `staleOn: "content"` bị stale khi *nội dung* file trong phạm vi đổi; doc `staleOn: "structure"` chỉ stale khi *tập* file đổi (thêm/xoá/đổi tên). Chi tiết ở `rules.md` §6.2.
+
 ---
 
 ## 6. Tiêu chí Hoàn thành (Completion Criteria / Definition of Synchronized)
 Một nhiệm vụ phát triển chỉ được coi là hoàn thành khi:
 1.  Source Code đã được cập nhật thành công và chạy ổn định.
 2.  Mọi tài liệu CodeGraph bị ảnh hưởng đã được cập nhật chính xác (ở cả YAML Front Matter và vùng `GENERATED`).
-3.  Tệp `manifest.json` đã được cập nhật chính xác `sourceHash` và `generatedHash`.
-4.  Tệp `CHANGELOG.md` đã được ghi nhận lịch sử thay đổi.
+3.  Mọi doc bị stale đã được ghi nhận bằng `--accept` (đã sửa vùng `GENERATED`) hoặc `--no-change-needed` (đã xem, vẫn đúng); `manifest.json` giữ `structureHash`/`sourceHash`/`generatedHash` + `reviewMode` do validator ghi, không sửa tay.
+4.  Tệp `CHANGELOG.md` đã được ghi nhận lịch sử thay đổi (đẩy phần cũ sang `CHANGELOG.archive.md` khi vượt ~30 entry).
 5.  Kịch bản Validation (`validate_links.py`) chạy **PASS 100%**, không còn liên kết chết hay cảnh báo nghiêm trọng.
 
 **Response cuối cùng của AI bắt buộc phải chứa một trong hai cụm từ:**

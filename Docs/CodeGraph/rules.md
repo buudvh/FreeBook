@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-08-21T10:30:00+07:00
+generated_at: 2026-08-21T14:10:00+07:00
 git_commit: UNKNOWN
 source_files: 218
-document_version: 8
+document_version: 9
 ---
 
 # Hướng dẫn Quy định Lập trình (Coding & Architecture Rules)
@@ -494,7 +494,17 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
 
 ### 6.2. Quy trình Validation & CodeGraph Refresh Policy
 - **Validation Failure Policy**: Chạy `python Docs/CodeGraph/validate_links.py`. Nếu kịch bản phát hiện bất kỳ lỗi nào (như tệp manifest không khớp, liên kết chết, sai định dạng front matter hoặc GENERATED comment), AI bắt buộc phải sửa lỗi và chạy lại; không được báo cáo hoàn thành khi validation chưa PASS 100%.
-- **Manifest Hash Policy**: Sau thay đổi source hoặc vùng GENERATED, chạy validator với `--update-hashes`, sau đó chạy lại ở chế độ chỉ đọc. `sourceHash` là SHA-256 của chuỗi đường dẫn tương đối và nội dung source đã chuẩn hóa LF; `generatedHash` là SHA-256 của nội dung giữa cặp marker GENERATED đã chuẩn hóa LF.
+- **Doc Routing Policy (manifest `schemaVersion: 2`)**: Mỗi doc khai `sourcePatterns` (glob tương đối gốc repo) là phạm vi mã nguồn nó chịu trách nhiệm mô tả, cộng `staleOn`:
+  * `staleOn: "structure"` — doc chỉ bị stale khi *tập* file khớp pattern thay đổi (thêm/xoá/đổi tên). Dùng cho doc mô tả bản đồ file và số liệu tổng: `00_index.md`, `02_file_graph.md`, `09_dependency_rules.md`, `14_complexity_report.md`.
+  * `staleOn: "content"` — doc bị stale khi tập file thay đổi *hoặc* nội dung file trong phạm vi thay đổi. Dùng cho doc mô tả hành vi: `01_project.md`, `03`–`08`, `10`–`13`, `rules.md`.
+  * **Coverage Rule (hai điều kiện, validator FAIL kèm tên file nếu vi phạm)**: (1) mọi file `Sources/**/*.swift` phải khớp `sourcePatterns` của ít nhất một doc; (2) mọi file phải được ít nhất một doc `staleOn: "content"` phủ — nếu một file chỉ nằm trong doc `structure` thì sửa nội dung nó sẽ không làm doc nào stale, đúng lỗ hổng khiến "đổi logic mà tài liệu không đổi". `11_subsystems.md` phủ toàn bộ `Sources/Services/**` + `Sources/Views/**` để giữ điều kiện (2); thêm thư mục mã nguồn mới thì phải mở rộng pattern của doc phụ trách.
+  * Sửa `sourcePatterns` là thay đổi hợp đồng routing: chạy `--bootstrap` để tính lại toàn bộ hash, và chỉ dùng cờ này cho đúng mục đích đó.
+- **Manifest Hash Policy**: `structureHash` là SHA-256 của *tập đường dẫn* khớp `sourcePatterns` (đổi khi thêm/xoá/đổi tên file); `sourceHash` là SHA-256 của đường dẫn + nội dung đã chuẩn hoá LF (đổi khi sửa logic); `generatedHash` là SHA-256 của nội dung giữa cặp marker GENERATED đã chuẩn hoá LF. Ba hash này chỉ được ghi lại qua validator, không sửa tay.
+- **Doc Review Policy**: Sau thay đổi source, chạy `--explain` (thêm `--since REF` để so với một commit) để biết doc nào bị stale và vì sao, rồi ghi nhận từng doc:
+  * `--accept DOC…` — doc đã được sửa. Validator **từ chối** nếu vùng GENERATED của doc đó không đổi, nên không thể "bless" hàng loạt mà không thực sự viết lại tài liệu.
+  * `--no-change-needed DOC…` — đã đọc doc, kết luận nội dung vẫn đúng với code mới. Lựa chọn này được ghi vào `reviewMode`/`reviewedAt`/`reviewedCommit` để có audit trail; đây là cách hợp lệ duy nhất để bỏ qua một doc bị stale.
+  * `--update-hashes` — accept mọi doc có vùng GENERATED đã đổi, sau đó **FAIL** nếu còn doc stale (liệt kê doc còn lại). Nó không còn là lệnh xoá sạch tín hiệu stale như trước.
+  * `DOC` nhận `08`, `08_lifecycle.md` hoặc đường dẫn đầy đủ.
 - **Full CodeGraph Refresh Policy**: Khi phát sinh các thay đổi mang tính cấu trúc lớn, tái cấu trúc thư mục dự án hoặc chỉnh sửa đồng loạt trên khoảng 20 file mã nguồn Swift trở lên, AI phải đề xuất hoặc thực hiện làm mới toàn bộ hệ thống CodeGraph (Full CodeGraph Refresh) để đảm bảo tính đồng bộ hoàn toàn.
 
 ### 6.3. Thiết kế Kiến trúc & Tối ưu hóa Hiệu năng (Performance & Memory Rules)
@@ -517,5 +527,5 @@ Trước khi kết thúc lượt và thông báo hoàn thành, AI bắt buộc p
 - [ ] **Architecture**: Tái sử dụng components cũ tối đa, tránh tạo logic trùng lặp, giữ vững Clean Architecture?
 - [ ] **Extension**: Giữ nguyên tính tương thích ngược, không đổi API của tiện ích mở rộng nếu không được yêu cầu?
 - [ ] **TTS & Audio**: Dọn dẹp `preloadedData`/`preloadedDurations` đúng cửa sổ trượt của từng engine (Google/Ext `[N, N + count]`, NghiTTS `N` + `N+1` + tối đa 2 optional reserve), tránh retain cycle?
-- [ ] **Validation**: Chạy kịch bản `validate_links.py` và PASS 100%, cập nhật manifest.json và CHANGELOG.md thành công?
+- [ ] **Validation**: Chạy `validate_links.py --explain`, xử lý mọi doc bị stale bằng `--accept` (đã sửa) hoặc `--no-change-needed` (đã xem, vẫn đúng), rồi chạy read-only PASS 100%; cập nhật `manifest.json` và `CHANGELOG.md` thành công?
 <!-- GENERATED END -->
