@@ -6,7 +6,7 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 ### Khắc phục lỗi pop Chi tiết truyện khi vuốt tab Home Khám phá
 
-* **`Sources/Views/Discovery/DiscoveryView.swift`**: Khai báo `DiscoveryDetailRoute` giữ các thuộc tính bất biến (`bookId`, `extensionPackageId`, `initialDetailUrl`, `sourceName`, `initialHost`); di chuyển `@State selectedDetailRoute` và `.navigationDestination(item: $selectedDetailRoute)` từ `DiscoveryCategoryTabView` lên root `NavigationStack` trong `DiscoveryView`.
+* **`Sources/Views/Discovery/DiscoveryView.swift`**: Khai báo `DiscoveryDetailRoute` tuân thủ `Identifiable, Hashable` giữ các thuộc tính bất biến (`bookId`, `extensionPackageId`, `initialDetailUrl`, `sourceName`, `initialHost`); di chuyển `@State selectedDetailRoute` và `.navigationDestination(item: $selectedDetailRoute)` từ `DiscoveryCategoryTabView` lên root `NavigationStack` trong `DiscoveryView`.
 * **`DiscoveryCategoryTabView`**: Bỏ `@State selectedNovel` và `.navigationDestination` cục bộ, nhận callback `onSelectNovel: (ExtensionItemResult) -> Void` từ view cha khi bấm vào một hàng truyện.
 * Bảo toàn route state không bị reset hay tháo gỡ khi swiping tab Home trong `TabView`; cập nhật CodeGraph tại `00_index.md`, `06_event_graph.md`, và `12_ownership_graph.md`.
 

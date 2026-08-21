@@ -8,7 +8,7 @@ struct ExtensionBrowserTarget: Identifiable {
 }
 
 /// Route snapshot bất biến cho màn chi tiết truyện từ Discovery
-private struct DiscoveryDetailRoute: Identifiable {
+private struct DiscoveryDetailRoute: Identifiable, Hashable {
     var id: String { bookId }
     let bookId: String
     let extensionPackageId: String
