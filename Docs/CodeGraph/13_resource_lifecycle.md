@@ -15,6 +15,16 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời KVO `contentOffset` và cửa sổ đo năng lượng của Reader (1.3.239)
+
+* Tài nguyên được quản lý: một `NSKeyValueObservation` (`Coordinator.offsetObservation`) trên `contentOffset` của `UIScrollView` bao ngoài Reader, và một `Window` (class) của `ReaderEnergyDiagnostics` giữ bộ đếm + `Set<ObjectIdentifier>`.
+* **Cấp phát observer nay theo selection, không theo vòng đời view**: `setupScrollObservation(for:)` chỉ được gọi từ `textViewDidChangeSelection` khi `selectedRange.length > 0` và tự guard `offsetObservation == nil` nên không bao giờ cài trùng. Trước đây `updateUIView` gọi vô điều kiện ⇒ số observer bằng số paragraph đang realized; giờ trần là **1 observer cho toàn Reader** (chỉ text view đang có selection giữ observer).
+* Ba đường thu hồi, không đường nào rò: `teardownScrollObservation()` khi selection về rỗng (gồm cả nhánh deselect/tap ra ngoài), `dismantleUIView` khi SwiftUI tháo view, và `Coordinator.deinit`. Cả ba đều `invalidate()` rồi set `nil`. Closure KVO bắt `[weak self]` nên không tạo chu trình giữ Coordinator.
+* `lastPublishedSelection` là cache giá trị thuần (`NSRange` + hai `CGFloat?`), không giữ tham chiếu đối tượng; nó bị ghi đè ở mỗi publish và biến mất cùng Coordinator.
+* Vòng đời `Window`: tạo ở `beginReaderSession()` **chỉ khi log bật**, thay mới sau mỗi lần `emitSummary(resetWindow: true)` (mốc 60 giây), giải phóng (`window = nil`) ở `flush(reason:)` và ở `beginReaderSession()` khi log tắt. Vì `Window` là `final class`, mọi `record*` mutate in-place — hết chuỗi copy-on-write toàn bộ `Set<ObjectIdentifier>` mà bản struct cũ gây ra ở mỗi event.
+* Chi phí syscall: `ProcessInfo.systemUptime` chỉ được đọc ở `beginReaderSession`, ở `emitSummary`, và mỗi 64 event (`clockSampleStride`) trong `updateWindow`. `AppLogger.shared.isLoggingEnabled` (getter chạm `UserDefaults`) chỉ đọc **một lần mỗi session Reader**.
+* `ParagraphTracker.frames`/`visibleParagraphs` giữ nguyên vòng đời cũ trừ một điểm: `completeReaderPositionRestore` không còn `removeAll()`, nên frame map của các đoạn đang hiển thị (những đoạn không `onAppear` lại) được giữ qua bước restore vị trí. Các điểm thu hồi còn lại vẫn là `onDisappear`, `onChange(of: chapterIndex)`, đường navigate, `applyNavigationCommit`, `reloadCurrentChapterFromMenu`.
+
 ## Next-chapter prefix audio resource lifecycle (1.3.234)
 
 * Tài nguyên được quản lý: các `Data` audio (WAV cho Nghi, MP3/nhị phân cho remote) của chunk đầu chương kế, thời lượng tương ứng (`durations`), cộng một `Task<Void, Never>` cho mỗi chunk đang tổng hợp.

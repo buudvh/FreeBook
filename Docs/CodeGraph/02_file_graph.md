@@ -15,6 +15,17 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Tách `ReaderEnergyDiagnostics` khỏi `ReaderTextView` (1.3.239)
+
+| File mới | Tách khỏi | Dòng |
+|---|---|---|
+| `Views/Reader/Components/ReaderEnergyDiagnostics.swift` | `ReaderTextView.swift` | 258 |
+
+* Tổng file Swift: **230 → 231**. `ReaderTextView.swift` 647 → **450** (−197): phần đo đếm năng lượng chuyển hẳn sang file mới, phần còn lại là bridge UIKit thuần.
+* `ReaderEnergyDiagnostics.swift` — *Uses*: `AppLogger` (`isLoggingEnabled` + `log`), `ProcessInfo`, `UIApplication`. *Used by*: `ReaderView.swift` (`beginReaderSession` + 3 `flush`), `ReaderTextView.swift` (6 điểm `record*`), `ReaderView+LoadingView.swift` (2), `ReaderScrollCoordinator.swift` (2), `ParagraphTracker.swift` (2). Quan hệ *uses/used by* không đổi so với khi type còn nằm trong `ReaderTextView.swift` — chỉ dịch chuyển khai báo, `import UIKit` thay cho `import SwiftUI` của file gốc.
+* File sửa nội dung, không đổi quan hệ import: `ReaderView.swift` 2250 → 2248 (xoá `@State translationRefreshToken` + call site), `ParagraphCardView.swift` 102 → 101 (xoá tham số cùng tên khỏi struct và khỏi `==`), `ParagraphTracker.swift` 90 → 94 (chỉ thêm comment), `ReaderView+Controls.swift` 161 (đổi thân `completeReaderPositionRestore`).
+* `project.yml` không cần sửa: target khai `sources: - path: Sources` theo thư mục nên `xcodegen generate` tự nhặt file mới.
+
 ## 14 file mới sinh ra từ phép tách một-primary-type (1.3.236)
 
 | File mới | Tách khỏi | Dòng |

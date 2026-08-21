@@ -47,7 +47,9 @@ extension ReaderView {
     internal func completeReaderPositionRestore(after delay: TimeInterval = 0) {
         guard isRestoringReaderPosition else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            paragraphTracker.removeAll()
+            // Không xoá frame map ở đây: các đoạn đang hiển thị không onAppear lại nên
+            // map rỗng làm tick TTS đầu tiên luôn thấy "ngoài viewport" ⇒ một cú scroll thừa.
+            // isRestoringReaderPosition đã chặn mọi consumer trong lúc restore.
             isRestoringReaderPosition = false
         }
     }

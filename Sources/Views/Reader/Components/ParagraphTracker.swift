@@ -4,6 +4,8 @@ import SwiftUI
 
 @MainActor
 public class ParagraphTracker {
+    /// Ngưỡng lọc rung khi cuộn. **Không nới**: giá trị này quyết định frame nào được ghi,
+    /// nên đổi nó là đổi phán quyết của `isParagraphInsideSafeViewport`.
     private static let minimumFrameDelta: CGFloat = 8
     private var visibleParagraphs: Set<ReadingContext> = []
     private var frames: [ReadingContext: ParagraphFrame] = [:]
@@ -16,6 +18,8 @@ public class ParagraphTracker {
 
     public func updateFrame(bookId: String, chapterIndex: Int, paragraphIndex: Int, minY: CGFloat, maxY: CGFloat) {
         let ctx = ReadingContext(bookId: bookId, chapterIndex: chapterIndex, paragraphIndex: paragraphIndex)
+        // Nhánh bị lọc là hot path (mỗi paragraph, mỗi frame cuộn): chỉ 1 tra dictionary
+        // + 2 phép so, không cấp phát. Diagnostics nằm sau cổng isEnabled của nó.
         if let previous = frames[ctx],
            abs(previous.minY - minY) < Self.minimumFrameDelta,
            abs(previous.maxY - maxY) < Self.minimumFrameDelta {

@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ Reader: đo đếm năng lượng tách khỏi bridge UIKit (1.3.239)
+
+* Phân hệ **Reader** nay có ranh giới rõ giữa *bridge UIKit* và *instrumentation*: `ReaderTextView.swift` (450 dòng) chỉ còn `UIViewRepresentable` + `ReaderUITextView`/`AutoSizingTextView`, còn `Components/ReaderEnergyDiagnostics.swift` (258 dòng) là owner duy nhất của cửa sổ đo 60 giây và dòng log `[ReaderEnergy] Summary`.
+* Instrumentation của Reader nay **tắt hoàn toàn theo mặc định**: `AppLogger.init` set `isLoggingEnabled = false` mỗi lần khởi chạy, `beginReaderSession()` chốt cờ đó một lần, và mọi `record*` thoát ngay bằng `guard isEnabled`. Nghĩa là số liệu `[ReaderEnergy]` chỉ tồn tại khi người dùng bật log trong Settings **trước** khi mở Reader — đúng chủ ý, không phải mất log.
+* Đường selection của Reader (bôi đen → `FloatingSelectionMenu`) nay là consumer duy nhất của KVO `contentOffset`. Trước đây mỗi `ParagraphCardView` đang realized đều cài một observer trên cùng `UIScrollView` để phục vụ một selection thường không tồn tại; giờ observer chỉ tồn tại trên đúng text view đang có selection. Cảm giác của menu bám theo chữ khi cuộn giữ nguyên, chỉ thêm dedup 0.5 pt để không ghi lại `@State` khi vị trí chưa đổi.
+* `ParagraphTracker` giữ nguyên vai trò và ngưỡng `minimumFrameDelta = 8` — đây là ngưỡng quyết định phán quyết `isParagraphInsideSafeViewport`, nên nới nó là đổi hành vi auto-scroll, không phải tối ưu.
+* Đường highlight TTS **không đổi**: `ttsState.snapshot.highlightRange` vẫn truyền thẳng xuống `ParagraphCardView` → `ReaderTextView`, vẫn guard theo `playingBookId`/`playingChapterIndex`/`currentParentParagraphIndex`, `updateUIView` vẫn chỉ sửa attribute background trên `textStorage` khi chỉ đổi highlight.
+
 ## Phân hệ sau phép tách file (1.3.236)
 
 * Phân hệ **TTS Widget** nay có ba file thay vì một: `TTSFloatingWidgetWindowManager.swift` (chỉ còn điều phối UIWindow, 112 dòng), `FloatingWidgetUIWindow.swift` (ranh giới hit-testing), `FloatingWidgetContainerViewController.swift` (layout/gesture/animation). Ba trách nhiệm vốn đã tách trong code nay tách cả ở mức file.

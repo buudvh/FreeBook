@@ -15,6 +15,14 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tối ưu năng lượng Reader khi TTS (1.3.239)
+
+* KVO `UIScrollView.contentOffset` trong `ReaderTextView.Coordinator` chuyển từ *cài vô điều kiện mỗi `updateUIView`* sang *cài lazy khi có selection thật*: `setupScrollObservation` chỉ gọi từ `textViewDidChangeSelection` khi `selectedRange.length > 0`, và `teardownScrollObservation()` chạy ngay khi selection về rỗng. Trạng thái thường ngày của Reader: **0 observer** thay vì một observer cho mỗi paragraph đang realized.
+* `handleSelectionOrScrollUpdate` thoát sớm theo `selectedRange.length` **trước** khi đo độ dài text, và dùng `textView.textStorage.length` (O(1), đã là UTF-16) thay cho `((textView.text ?? "") as NSString).length`. Thêm dedup `lastPublishedSelection`: bỏ qua `onSelectionChange` khi range không đổi và minY/maxY lệch < 0.5 pt, nên `ReaderView` không còn ghi lại ~8 `@State` mỗi frame cuộn khi đang có selection.
+* `ReaderEnergyDiagnostics` tách sang file riêng và **miễn phí khi log tắt**: cờ `isEnabled` chốt một lần trong `beginReaderSession()`, mọi `record*`/`flush` mở đầu bằng `guard isEnabled`, `Window` thành `final class` (hết COW của `Set<ObjectIdentifier>`), `systemUptime` chỉ đọc mỗi 64 event. Đánh đổi: bật/tắt log giữa lúc Reader đang mở chỉ có hiệu lực từ lần mở Reader kế tiếp.
+* Dọn `translationRefreshToken` (không có điểm ghi nào) khỏi `ReaderView` và `ParagraphCardView` + `==` của nó. `completeReaderPositionRestore` không còn `paragraphTracker.removeAll()` — map frame rỗng làm tick TTS đầu tiên sau restore luôn thấy "ngoài viewport" và sinh một cú `scrollTo` thừa.
+* Hiệu ứng highlight/auto-scroll **không đổi**: giữ `minimumFrameDelta = 8`, giữ anchor `.center`, giữ việc bám theo `currentParentParagraphIndex`, giữ hành vi cuộn tay. `check_architecture.py` giữ **18 violation** (không đổi tập vi phạm).
+
 ## Tách file theo luật một-primary-type (1.3.236)
 
 * Tám file vi phạm `MULTI_PRIMARY_TYPES` được tách thành **14 file mới**, mỗi file đúng một type top-level. Không đổi logic, chỉ đổi nơi khai báo.

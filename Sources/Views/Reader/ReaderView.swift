@@ -198,7 +198,6 @@ struct ReaderView: View {
     @State private var didResolveLocalChapterCount = false
 
     @State internal var paragraphTracker = ParagraphTracker()
-    @State private var translationRefreshToken = UUID()
 
     @State internal var showingChapterList = false
     @State internal var showingBookDictionary = false
@@ -1724,7 +1723,6 @@ struct ReaderView: View {
                 item: item,
                 isTranslationEnabled: isTrans,
                 bookId: bookId,
-                translationRefreshToken: translationRefreshToken,
                 fontSize: size,
                 lineSpacing: spacing,
                 fontFamily: fontFamily,

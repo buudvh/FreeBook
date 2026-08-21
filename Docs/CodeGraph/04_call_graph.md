@@ -15,6 +15,15 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader selection/scroll & energy-diagnostics call graph (1.3.239)
+
+* Đường selection (mới): `ReaderUITextView` báo `textViewDidChangeSelection` → nếu `selectedRange.length > 0` thì `Coordinator.setupScrollObservation(for:)` **cài KVO** trên `textView.parentScrollView.contentOffset` rồi `publishSelection(range, minY, maxY, force: true)`; nếu `length == 0` thì `teardownScrollObservation()` + `publishSelection(NSRange(location: NSNotFound, length: 0), nil, nil, force: true)`. `updateUIView` **không còn** gọi `setupScrollObservation` — cạnh `updateUIView → setupScrollObservation` (chạy mỗi paragraph, mỗi lượt cập nhật) đã bị xoá.
+* Đường cuộn khi đang có selection: KVO → `handleSelectionOrScrollUpdate()` → `guard selectedRange.length > 0` → `NSMaxRange <= textView.textStorage.length` → `selectionGlobalMinMaxY(textView:textRange:)` → `publishSelection(...)` → (nếu qua dedup 0.5 pt) `parent.onSelectionChange` → `ReaderView.onSelectionChangeInParagraph`. Trước đây mỗi frame cuộn đều tới được `onSelectionChange`; giờ dedup chặn tại `publishSelection` nên `@State` của `ReaderView` chỉ ghi khi vị trí selection thực sự đổi.
+* `triggerCustomDefine` cũng đi qua `publishSelection(..., force: true)` để giữ đúng hành vi publish một lần bất kể dedup.
+* Huỷ observer: `dismantleUIView` và `Coordinator.deinit` vẫn `offsetObservation?.invalidate()`; thêm đường huỷ chủ động qua `teardownScrollObservation()` từ delegate selection.
+* `ReaderEnergyDiagnostics` (file mới `Views/Reader/Components/ReaderEnergyDiagnostics.swift`): `ReaderView.onAppear` → `beginReaderSession()` → đọc `AppLogger.shared.isLoggingEnabled` **một lần** (getter này chạm `UserDefaults`, không được gọi trên hot path). Mọi `record*` (`recordUIViewUpdate`, `recordHighlightMutation`, `recordGeometryRebuild`, `recordThemeRebuild`, `recordExplicitSizeInvalidation`, `recordContentSizeInvalidation`, `recordTTSScrollTarget`, `recordTTSScrollSkippedVisible`, `recordTTSScrollExecuted`, `recordParagraphFrameUpdate`) và `flush(reason:)` mở đầu bằng `guard isEnabled`, nên khi log tắt các cạnh gọi từ `ParagraphTracker.updateFrame`, `ReaderScrollCoordinator`, `ReaderView+LoadingView`, `ReaderTextView.updateUIView` dừng ngay ở một phép so bool. `updateWindow` chỉ đọc `ProcessInfo.systemUptime` mỗi 64 event để kiểm mốc 60 s; `emitSummary` mới đọc trực tiếp và dựng `String(format:)` 24 tham số.
+* `completeReaderPositionRestore` không còn cạnh `→ ParagraphTracker.removeAll()`; các call site còn lại của `removeAll()` là `onDisappear`, `onChange(of: chapterIndex)`, đường navigate, `applyNavigationCommit`, `reloadCurrentChapterFromMenu`.
+
 ## Next-chapter prefix audio call graph (1.3.234)
 
 * `TTSManager.updatePrefetchWindow()` → `requestRemoteNextChapterPrefixIfNeeded(windowCount:inChapterTargetCount:)` → `requestNextChapterPrefix(capacity:)` → `TTSNextChapterPrefixCache.request(...)` (chỉ nhánh Google/Ext; guard `tool != "system"`, `tool != "nghitts"`).

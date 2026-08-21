@@ -4,7 +4,6 @@ struct ParagraphCardView: View {
     let item: ParagraphItem
     let isTranslationEnabled: Bool
     let bookId: String
-    let translationRefreshToken: UUID
     let fontSize: Double
     let lineSpacing: Double
     let fontFamily: ReaderFontFamily
@@ -51,7 +50,6 @@ extension ParagraphCardView: Equatable {
         return lhs.item == rhs.item &&
                lhs.isTranslationEnabled == rhs.isTranslationEnabled &&
                lhs.bookId == rhs.bookId &&
-               lhs.translationRefreshToken == rhs.translationRefreshToken &&
                lhs.fontSize == rhs.fontSize &&
                lhs.lineSpacing == rhs.lineSpacing &&
                lhs.fontFamily == rhs.fontFamily &&

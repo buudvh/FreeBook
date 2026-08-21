@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vị trí tầng của `ReaderEnergyDiagnostics` sau khi tách file (1.3.239)
+
+* File mới `Sources/Views/Reader/Components/ReaderEnergyDiagnostics.swift` nằm trong tầng **Views**, đúng nơi nó vốn ở (trước đây là type thứ hai trong `ReaderTextView.swift`). Nó chỉ `import UIKit`, phụ thuộc ra ngoài duy nhất là `AppLogger` — không chạm SwiftData, không `ToastManager.shared`, nên không đụng `VIEW_SWIFTDATA_MUTATION` lẫn `SERVICE_TOAST_COUPLING`.
+* Chiều phụ thuộc không đổi, chỉ dịch chuyển khai báo: `ReaderView`, `ReaderTextView`, `ReaderView+LoadingView`, `ReaderScrollCoordinator`, `ParagraphTracker` → `ReaderEnergyDiagnostics` → `AppLogger`. Không có cạnh ngược từ diagnostics về bất kỳ view nào (`recordUIViewUpdate` nhận `AnyObject` và chỉ lấy `ObjectIdentifier`, không giữ tham chiếu mạnh).
+* File mới dài **258 dòng** (dưới trần 400 dòng cho file mới) và đúng một type top-level, nên không cần entry miễn trừ nào trong `architecture_allowlist.json`; `ReaderTextView.swift` 647 → 450, tức càng xa baseline allowlist 651 của nó — baseline không bị nới. File này vẫn còn **3** type top-level (`ReaderTextView`, `ReaderUITextView`, `AutoSizingTextView`, giảm từ 4) nên entry miễn trừ `MULTI_PRIMARY_TYPES` của nó vẫn cần thiết. Tổng file Swift 230 → 231. `check_architecture.py` giữ đúng **18 violation** cũ.
+* `AppLogger.shared.isLoggingEnabled` là getter chạm `UserDefaults`; luật mới cho tầng Views: **không đọc nó trên hot path** — chốt vào cờ cục bộ ở điểm bắt đầu session (`beginReaderSession`) rồi `guard` theo cờ đó. Đánh đổi có chủ ý: đổi cài đặt log khi Reader đang mở chỉ có hiệu lực ở lần mở kế tiếp.
+
 ## Luật một-primary-type đã được thoả mà không cần miễn trừ (1.3.236)
 
 * Sau phép tách, **không file nào** trong `Sources/` còn vi phạm `MULTI_PRIMARY_TYPES`; 8 file trước đây vi phạm nay mỗi file đúng một type top-level. Miễn trừ `MULTI_PRIMARY_TYPES` trong `architecture_allowlist.json` không bị thêm entry nào.

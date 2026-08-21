@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-21T12:02:57Z",
-  "gitCommit": "60937fd698c326badc804e91cf8fd6e08e7c028b",
-  "sourceFileCount": 230,
+  "generatedAt": "2026-08-21T16:28:29Z",
+  "gitCommit": "45e8c5da9b685b9d903c259d79410cf0aaea9215",
+  "sourceFileCount": 231,
   "documentCount": 16,
   "documents": [
     {
@@ -205,6 +205,7 @@
         "Sources/Views/Reader/Components/FloatingSelectionMenu.swift",
         "Sources/Views/Reader/Components/ParagraphTracker.swift",
         "Sources/Views/Reader/Components/ReaderChapterRowView.swift",
+        "Sources/Views/Reader/Components/ReaderEnergyDiagnostics.swift",
         "Sources/Views/Reader/Coordinators/ReaderScrollCoordinator.swift",
         "Sources/Views/Reader/Coordinators/ReaderSelectionCoordinator.swift",
         "Sources/Views/Reader/Extensions/ReaderChapterListView+Refresh.swift",
@@ -247,12 +248,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "16f9dd7752de2aa30da60455a7cd75d432bff499df08a8a8bb92f9b0c6d40edf",
-      "sourceHash": "641587dcee16336c9ef29e2414f31a8fa4804a3ba9f555161bda6db982a937a6",
-      "generatedHash": "45bf46434e8445391c84ce845b5a2bb0ad5e3dda7f7e0199161e0894a8e44782",
-      "generatedAt": "2026-08-21T11:26:29Z",
-      "reviewedAt": "2026-08-21T11:26:29Z",
-      "reviewedCommit": "511e1b5e4dcd1836f21eb0d18b0a6ae7b0721b4c",
+      "structureHash": "b599b759d02f61c1d76be27144bffef4bf04135199af8f14f937c1b56e7fda6d",
+      "sourceHash": "5d8eba08e34a979e7c25b0f23b66ba618d9c26a215747c214bea42382ecc8e61",
+      "generatedHash": "bc73d4574ad83d45b5a006aae8ceec46eab4e1017b24675d6d4e861295e8203e",
+      "generatedAt": "2026-08-21T16:28:29Z",
+      "reviewedAt": "2026-08-21T16:28:29Z",
+      "reviewedCommit": "45e8c5da9b685b9d903c259d79410cf0aaea9215",
       "reviewMode": "accept"
     },
     {
@@ -479,6 +480,7 @@
         "Sources/Views/Reader/Components/FloatingSelectionMenu.swift",
         "Sources/Views/Reader/Components/ParagraphTracker.swift",
         "Sources/Views/Reader/Components/ReaderChapterRowView.swift",
+        "Sources/Views/Reader/Components/ReaderEnergyDiagnostics.swift",
         "Sources/Views/Reader/Coordinators/ReaderScrollCoordinator.swift",
         "Sources/Views/Reader/Coordinators/ReaderSelectionCoordinator.swift",
         "Sources/Views/Reader/Extensions/ReaderChapterListView+Refresh.swift",
@@ -521,12 +523,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "16f9dd7752de2aa30da60455a7cd75d432bff499df08a8a8bb92f9b0c6d40edf",
-      "sourceHash": "641587dcee16336c9ef29e2414f31a8fa4804a3ba9f555161bda6db982a937a6",
-      "generatedHash": "00cc8af13a56f13551e19a8749db97d71354eb2a1df63cb49ad8b3b85bfe2324",
-      "generatedAt": "2026-08-21T11:26:29Z",
-      "reviewedAt": "2026-08-21T11:26:29Z",
-      "reviewedCommit": "511e1b5e4dcd1836f21eb0d18b0a6ae7b0721b4c",
+      "structureHash": "b599b759d02f61c1d76be27144bffef4bf04135199af8f14f937c1b56e7fda6d",
+      "sourceHash": "5d8eba08e34a979e7c25b0f23b66ba618d9c26a215747c214bea42382ecc8e61",
+      "generatedHash": "3fc16123666604d4b8fe9bcc364aa57ce912a7701a4ab97720ee884ab001afa2",
+      "generatedAt": "2026-08-21T16:28:29Z",
+      "reviewedAt": "2026-08-21T16:28:29Z",
+      "reviewedCommit": "45e8c5da9b685b9d903c259d79410cf0aaea9215",
       "reviewMode": "accept"
     },
     {
@@ -695,6 +697,7 @@
         "Sources/Views/Reader/Components/FloatingSelectionMenu.swift",
         "Sources/Views/Reader/Components/ParagraphTracker.swift",
         "Sources/Views/Reader/Components/ReaderChapterRowView.swift",
+        "Sources/Views/Reader/Components/ReaderEnergyDiagnostics.swift",
         "Sources/Views/Reader/Coordinators/ReaderScrollCoordinator.swift",
         "Sources/Views/Reader/Coordinators/ReaderSelectionCoordinator.swift",
         "Sources/Views/Reader/Extensions/ReaderChapterListView+Refresh.swift",
@@ -714,13 +717,13 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "b6c54fde33cf0f09178e93bf2957440cdaf62e1b335ad695527c7f96e6bbea5d",
-      "sourceHash": "ff448ddc34d5700d8195eeca6150d15280cc3edb1a1c2f2580c039471d6aad2e",
-      "generatedHash": "b622781a7e5c313b52ccaf31d32b863869fcacae2bd2a8f0385328922220f6c1",
-      "generatedAt": "2026-08-21T11:26:29Z",
-      "reviewedAt": "2026-08-21T11:26:29Z",
-      "reviewedCommit": "511e1b5e4dcd1836f21eb0d18b0a6ae7b0721b4c",
-      "reviewMode": "no-change-needed"
+      "structureHash": "61df045dab884ba333b8ba589ddbb6d6ee23f6a2a53012ff75a6ab0654239afc",
+      "sourceHash": "a950b97a9f991c525c876fa37b24f6f5fa1ebbc6fe047d635369d5c6649fae57",
+      "generatedHash": "c9f0f3d4e406d174232a88d8114656fde6c3acdf852cf814724aef7fca956940",
+      "generatedAt": "2026-08-21T16:28:29Z",
+      "reviewedAt": "2026-08-21T16:28:29Z",
+      "reviewedCommit": "45e8c5da9b685b9d903c259d79410cf0aaea9215",
+      "reviewMode": "accept"
     },
     {
       "filename": "05_state_graph.md",
@@ -1125,6 +1128,7 @@
         "Sources/Views/Reader/Components/FloatingSelectionMenu.swift",
         "Sources/Views/Reader/Components/ParagraphTracker.swift",
         "Sources/Views/Reader/Components/ReaderChapterRowView.swift",
+        "Sources/Views/Reader/Components/ReaderEnergyDiagnostics.swift",
         "Sources/Views/Reader/Coordinators/ReaderScrollCoordinator.swift",
         "Sources/Views/Reader/Coordinators/ReaderSelectionCoordinator.swift",
         "Sources/Views/Reader/Extensions/ReaderChapterListView+Refresh.swift",
@@ -1167,12 +1171,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "220b5577ec1615cb5750a32a8b7e65b1142c2d0b9c96a0d0e3709d1d03c269b2",
-      "sourceHash": "3ee46cb47b943b67371a0dd2707cc794aa1c111587c67cf8615ae4d60ef47ffd",
-      "generatedHash": "17fd7aa8d14ab7e77e7bb730661a8a6b79dd74cf95aeb492f40299845e479993",
-      "generatedAt": "2026-08-21T11:26:29Z",
-      "reviewedAt": "2026-08-21T11:26:29Z",
-      "reviewedCommit": "511e1b5e4dcd1836f21eb0d18b0a6ae7b0721b4c",
+      "structureHash": "c16c9b790ed91e7c131ec05ff1db2909060d866edc10f6012a83994da540957d",
+      "sourceHash": "a520fd7e65dd7c9478ea6ea065ecf9c69e383b1382837f845e905b1bf99e2f69",
+      "generatedHash": "92dca61d07ae2ddf03a4d0a32376f9e989a97e4693da4c740697dd30569d93d4",
+      "generatedAt": "2026-08-21T16:28:29Z",
+      "reviewedAt": "2026-08-21T16:28:29Z",
+      "reviewedCommit": "45e8c5da9b685b9d903c259d79410cf0aaea9215",
       "reviewMode": "accept"
     },
     {
@@ -1436,6 +1440,7 @@
         "Sources/Views/Reader/Components/FloatingSelectionMenu.swift",
         "Sources/Views/Reader/Components/ParagraphTracker.swift",
         "Sources/Views/Reader/Components/ReaderChapterRowView.swift",
+        "Sources/Views/Reader/Components/ReaderEnergyDiagnostics.swift",
         "Sources/Views/Reader/Coordinators/ReaderScrollCoordinator.swift",
         "Sources/Views/Reader/Coordinators/ReaderSelectionCoordinator.swift",
         "Sources/Views/Reader/Extensions/ReaderChapterListView+Refresh.swift",
@@ -1478,13 +1483,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "8692908e50dd5f6a440d18d29c28d76ad3a3ac76a8005997c5388620495ddb44",
-      "sourceHash": "b206f28f366f0752181644ec1f4e1102dff91ecfc5caa8eeef9f03cc9c3b1d52",
-      "generatedHash": "17cfa3848843bed3d7b1ab5a719b56ce81bec0d92411c610cac7043fd039e19d",
-      "generatedAt": "2026-08-21T11:45:02Z",
-      "reviewedAt": "2026-08-21T11:45:02Z",
-      "reviewedCommit": "63576740dc3b2b4c756c6c4c700f07adee13f9c2",
-      "reviewMode": "no-change-needed"
+      "structureHash": "9833c526f17aa746fbcb171ae6d9f7c2001a4c30793b12d1b021af9a44facfde",
+      "sourceHash": "50ef28c1fba49d31db3864e92f26880ec7516825d080958b8f4b96f960de93d2",
+      "generatedHash": "afbe169cf65b75a7fa1c756702851889edd2303300d40c531ec4a57e392bb515",
+      "generatedAt": "2026-08-21T16:28:29Z",
+      "reviewedAt": "2026-08-21T16:28:29Z",
+      "reviewedCommit": "45e8c5da9b685b9d903c259d79410cf0aaea9215",
+      "reviewMode": "accept"
     },
     {
       "filename": "12_ownership_graph.md",
@@ -1627,6 +1632,7 @@
         "Sources/Views/Reader/Components/FloatingSelectionMenu.swift",
         "Sources/Views/Reader/Components/ParagraphTracker.swift",
         "Sources/Views/Reader/Components/ReaderChapterRowView.swift",
+        "Sources/Views/Reader/Components/ReaderEnergyDiagnostics.swift",
         "Sources/Views/Reader/Coordinators/ReaderScrollCoordinator.swift",
         "Sources/Views/Reader/Coordinators/ReaderSelectionCoordinator.swift",
         "Sources/Views/Reader/Extensions/ReaderChapterListView+Refresh.swift",
@@ -1646,13 +1652,13 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "53255709cd657d4d3710625b59458ff067bba15d8208f30dcf0c83a613643233",
-      "sourceHash": "83b6fe831d9b525fc702db0a5deb3d52fc1c5651c8770e29ffdd018ba932b796",
-      "generatedHash": "4a525cec427e29a2abf54287304d1c6109670f4466fb1890cb2fd5fc279d9a1c",
-      "generatedAt": "2026-08-21T11:26:29Z",
-      "reviewedAt": "2026-08-21T11:26:29Z",
-      "reviewedCommit": "511e1b5e4dcd1836f21eb0d18b0a6ae7b0721b4c",
-      "reviewMode": "no-change-needed"
+      "structureHash": "895c0bf68b0b47afd881ce15c7664e1684e201330a6e932af3803c8acbe5a2d1",
+      "sourceHash": "a544b0267731b97cf9281edbe5e857f83e7483ae012cdc9f7f2cf8989c14f960",
+      "generatedHash": "9b76c2ccfa753420fa08eea102dd122cda6ac8ff95cabf9d86d21668d86aedcf",
+      "generatedAt": "2026-08-21T16:28:29Z",
+      "reviewedAt": "2026-08-21T16:28:29Z",
+      "reviewedCommit": "45e8c5da9b685b9d903c259d79410cf0aaea9215",
+      "reviewMode": "accept"
     },
     {
       "filename": "14_complexity_report.md",
@@ -1851,6 +1857,7 @@
         "Sources/Views/Reader/Components/FloatingSelectionMenu.swift",
         "Sources/Views/Reader/Components/ParagraphTracker.swift",
         "Sources/Views/Reader/Components/ReaderChapterRowView.swift",
+        "Sources/Views/Reader/Components/ReaderEnergyDiagnostics.swift",
         "Sources/Views/Reader/Coordinators/ReaderScrollCoordinator.swift",
         "Sources/Views/Reader/Coordinators/ReaderSelectionCoordinator.swift",
         "Sources/Views/Reader/Extensions/ReaderChapterListView+Refresh.swift",
@@ -1893,12 +1900,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "16f9dd7752de2aa30da60455a7cd75d432bff499df08a8a8bb92f9b0c6d40edf",
-      "sourceHash": "641587dcee16336c9ef29e2414f31a8fa4804a3ba9f555161bda6db982a937a6",
-      "generatedHash": "0c6a5b953a2c25183d05b6d79a901e1c467545cc5b079f56c2ca4b893cd63c5d",
-      "generatedAt": "2026-08-21T11:26:29Z",
-      "reviewedAt": "2026-08-21T11:26:29Z",
-      "reviewedCommit": "511e1b5e4dcd1836f21eb0d18b0a6ae7b0721b4c",
+      "structureHash": "b599b759d02f61c1d76be27144bffef4bf04135199af8f14f937c1b56e7fda6d",
+      "sourceHash": "5d8eba08e34a979e7c25b0f23b66ba618d9c26a215747c214bea42382ecc8e61",
+      "generatedHash": "ad1e0543e01019a464fbe273ee981ecfdf4e68568cea256fcc30b60910a1d027",
+      "generatedAt": "2026-08-21T16:28:29Z",
+      "reviewedAt": "2026-08-21T16:28:29Z",
+      "reviewedCommit": "45e8c5da9b685b9d903c259d79410cf0aaea9215",
       "reviewMode": "accept"
     },
     {

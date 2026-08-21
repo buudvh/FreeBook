@@ -225,8 +225,6 @@ struct ReaderTextView: UIViewRepresentable {
                 }
             }
         }
-        
-        context.coordinator.setupScrollObservation(for: uiView)
     }
 
     static func dismantleUIView(_ uiView: UITextView, coordinator: Coordinator) {
@@ -257,7 +255,9 @@ struct ReaderTextView: UIViewRepresentable {
         
         var lastSelectionRange: NSRange? = nil
         var offsetObservation: NSKeyValueObservation? = nil
-        
+        /// Lần publish gần nhất — dùng để chặn onSelectionChange trùng lặp khi cuộn.
+        private var lastPublishedSelection: (range: NSRange, minY: CGFloat?, maxY: CGFloat?)? = nil
+
         init(_ parent: ReaderTextView) {
             self.parent = parent
         }
@@ -270,6 +270,9 @@ struct ReaderTextView: UIViewRepresentable {
             return true
         }
         
+        /// Chỉ quan sát contentOffset khi text view này đang có selection thật.
+        /// Trạng thái thường ngày (không bôi đen) là 0 observer, thay vì một observer
+        /// cho mỗi paragraph đang realized — mỗi frame cuộn trước đây gọi lại toàn bộ.
         func setupScrollObservation(for textView: UITextView) {
             guard offsetObservation == nil else { return }
             if let scrollView = textView.parentScrollView {
@@ -278,16 +281,40 @@ struct ReaderTextView: UIViewRepresentable {
                 }
             }
         }
-        
+
+        func teardownScrollObservation() {
+            offsetObservation?.invalidate()
+            offsetObservation = nil
+        }
+
         func handleSelectionOrScrollUpdate() {
             guard let textView = parentTextView else { return }
             let nsRange = textView.selectedRange
-            let textLength = ((textView.text ?? "") as NSString).length
-            
-            if nsRange.length > 0 && NSMaxRange(nsRange) <= textLength,
-               let textRange = textView.selectedTextRange {
-                let (minY, maxY) = selectionGlobalMinMaxY(textView: textView, textRange: textRange)
-                parent.onSelectionChange(nsRange, minY, maxY)
+            guard nsRange.length > 0 else { return }
+            guard NSMaxRange(nsRange) <= textView.textStorage.length,
+                  let textRange = textView.selectedTextRange else { return }
+            let (minY, maxY) = selectionGlobalMinMaxY(textView: textView, textRange: textRange)
+            publishSelection(nsRange, minY, maxY)
+        }
+
+        /// Bỏ qua publish khi range không đổi và vị trí lệch dưới 0.5 pt — chặn
+        /// onSelectionChangeInParagraph ghi @State của ReaderView mỗi frame cuộn.
+        private func publishSelection(_ range: NSRange, _ minY: CGFloat?, _ maxY: CGFloat?, force: Bool = false) {
+            if !force, let last = lastPublishedSelection,
+               last.range == range,
+               Self.isSamePosition(last.minY, minY),
+               Self.isSamePosition(last.maxY, maxY) {
+                return
+            }
+            lastPublishedSelection = (range, minY, maxY)
+            parent.onSelectionChange(range, minY, maxY)
+        }
+
+        private static func isSamePosition(_ lhs: CGFloat?, _ rhs: CGFloat?) -> Bool {
+            switch (lhs, rhs) {
+            case (nil, nil): return true
+            case let (left?, right?): return abs(left - right) < 0.5
+            default: return false
             }
         }
         
@@ -320,20 +347,23 @@ struct ReaderTextView: UIViewRepresentable {
             // để sự kiện deselect luôn được gửi lên và tắt Floating Menu.
             if nsRange.length == 0 {
                 lastSelectionRange = nsRange
-                parent.onSelectionChange(NSRange(location: NSNotFound, length: 0), nil, nil)
+                teardownScrollObservation()
+                publishSelection(NSRange(location: NSNotFound, length: 0), nil, nil, force: true)
                 return
             }
-            
+
             guard nsRange != lastSelectionRange else { return }
             lastSelectionRange = nsRange
-            
-            let textLength = ((textView.text ?? "") as NSString).length
-            if nsRange.length > 0 && NSMaxRange(nsRange) <= textLength,
+
+            if NSMaxRange(nsRange) <= textView.textStorage.length,
                let textRange = textView.selectedTextRange {
+                // Có selection thật ⇒ giờ mới cần theo dõi contentOffset để menu bám theo chữ.
+                setupScrollObservation(for: textView)
                 let (minY, maxY) = selectionGlobalMinMaxY(textView: textView, textRange: textRange)
-                parent.onSelectionChange(nsRange, minY, maxY)
+                publishSelection(nsRange, minY, maxY, force: true)
             } else {
-                parent.onSelectionChange(NSRange(location: NSNotFound, length: 0), nil, nil)
+                teardownScrollObservation()
+                publishSelection(NSRange(location: NSNotFound, length: 0), nil, nil, force: true)
             }
         }
         
@@ -345,13 +375,12 @@ struct ReaderTextView: UIViewRepresentable {
         func triggerCustomDefine() {
             guard let textView = parentTextView else { return }
             let nsRange = textView.selectedRange
-            let textLength = ((textView.text ?? "") as NSString).length
             guard nsRange.location != NSNotFound,
                   nsRange.length > 0,
-                  NSMaxRange(nsRange) <= textLength,
+                  NSMaxRange(nsRange) <= textView.textStorage.length,
                   let textRange = textView.selectedTextRange else { return }
             let (minY, maxY) = selectionGlobalMinMaxY(textView: textView, textRange: textRange)
-            parent.onSelectionChange(nsRange, minY, maxY)
+            publishSelection(nsRange, minY, maxY, force: true)
         }
     }
 }
@@ -402,231 +431,6 @@ class AutoSizingTextView: ReaderUITextView {
             width: UIView.noIntrinsicMetric,
             height: contentSize.height
         )
-    }
-}
-
-@MainActor
-final class ReaderEnergyDiagnostics {
-    static let shared = ReaderEnergyDiagnostics()
-
-    private struct Window {
-        let startedAt: TimeInterval
-        var updateUIViewCount = 0
-        var uniqueViews: Set<ObjectIdentifier> = []
-        var highlightMutations = 0
-        var geometryRebuilds = 0
-        var themeRebuilds = 0
-        var explicitSizeInvalidations = 0
-        var contentSizeInvalidations = 0
-        var ttsScrollTargets = 0
-        var ttsScrollSkippedVisible = 0
-        var ttsScrollExecuted = 0
-        var frameUpdates = 0
-        var frameUpdatesSkipped = 0
-    }
-
-    private static let summaryInterval: TimeInterval = 60
-    private var window: Window?
-
-    private init() {}
-
-    func beginReaderSession() {
-        window = Window(startedAt: ProcessInfo.processInfo.systemUptime)
-    }
-
-    func recordUIViewUpdate(for coordinator: AnyObject) {
-        updateWindow { snapshot in
-            snapshot.updateUIViewCount += 1
-            snapshot.uniqueViews.insert(ObjectIdentifier(coordinator))
-        }
-    }
-
-    func recordHighlightMutation() {
-        updateWindow { $0.highlightMutations += 1 }
-    }
-
-    func recordGeometryRebuild() {
-        updateWindow { $0.geometryRebuilds += 1 }
-    }
-
-    func recordThemeRebuild() {
-        updateWindow { $0.themeRebuilds += 1 }
-    }
-
-    func recordExplicitSizeInvalidation() {
-        updateWindow { $0.explicitSizeInvalidations += 1 }
-    }
-
-    func recordContentSizeInvalidation() {
-        updateWindow { $0.contentSizeInvalidations += 1 }
-    }
-
-    func recordTTSScrollTarget() {
-        updateWindow { $0.ttsScrollTargets += 1 }
-    }
-
-    func recordTTSScrollSkippedVisible() {
-        updateWindow { $0.ttsScrollSkippedVisible += 1 }
-    }
-
-    func recordTTSScrollExecuted() {
-        updateWindow { $0.ttsScrollExecuted += 1 }
-    }
-
-    func recordParagraphFrameUpdate(accepted: Bool) {
-        updateWindow { snapshot in
-            if accepted {
-                snapshot.frameUpdates += 1
-            } else {
-                snapshot.frameUpdatesSkipped += 1
-            }
-        }
-    }
-
-    func flush(reason: String) {
-        emitSummary(reason: reason, resetWindow: false)
-        window = nil
-    }
-
-    private func updateWindow(_ mutation: (inout Window) -> Void) {
-        let now = ProcessInfo.processInfo.systemUptime
-        var snapshot = window ?? Window(startedAt: now)
-        mutation(&snapshot)
-        window = snapshot
-
-        if now - snapshot.startedAt >= Self.summaryInterval {
-            emitSummary(reason: "interval", resetWindow: true)
-        }
-    }
-
-    private func emitSummary(reason: String, resetWindow: Bool) {
-        guard let snapshot = window else { return }
-
-        let now = ProcessInfo.processInfo.systemUptime
-        let elapsedSeconds = max(0.1, now - snapshot.startedAt)
-        let totalEvents = snapshot.updateUIViewCount + snapshot.ttsScrollTargets + snapshot.frameUpdates
-        guard totalEvents > 0 else {
-            if resetWindow {
-                window = Window(startedAt: now)
-            }
-            return
-        }
-
-        let updateRPM = Double(snapshot.updateUIViewCount) * 60 / elapsedSeconds
-        let repeatedUpdates = max(0, snapshot.updateUIViewCount - snapshot.uniqueViews.count)
-        let repeatedUpdateRPM = Double(repeatedUpdates) * 60 / elapsedSeconds
-        let highlightRPM = Double(snapshot.highlightMutations) * 60 / elapsedSeconds
-        let sizeInvalidations = snapshot.explicitSizeInvalidations + snapshot.contentSizeInvalidations
-        let sizeInvalidationRPM = Double(sizeInvalidations) * 60 / elapsedSeconds
-        let scrollRPM = Double(snapshot.ttsScrollTargets) * 60 / elapsedSeconds
-        let executedScrollRPM = Double(snapshot.ttsScrollExecuted) * 60 / elapsedSeconds
-        let frameUpdateRPM = Double(snapshot.frameUpdates) * 60 / elapsedSeconds
-        let repeatedGeometryRebuilds = max(0, snapshot.geometryRebuilds - snapshot.uniqueViews.count)
-        let thermal = ProcessInfo.processInfo.thermalState
-        let prediction = Self.prediction(
-            elapsedSeconds: elapsedSeconds,
-            thermalState: thermal,
-            repeatedUpdateRPM: repeatedUpdateRPM,
-            highlightRPM: highlightRPM,
-            repeatedGeometryRebuilds: repeatedGeometryRebuilds,
-            executedScrollRPM: executedScrollRPM,
-            frameUpdateRPM: frameUpdateRPM
-        )
-
-        let message = String(
-            format: "[ReaderEnergy] Summary reason=%@ state=%@ elapsedSec=%.1f updateUIView=%d updateRPM=%.1f repeatUpdateRPM=%.1f uniqueViews=%d highlight=%d highlightRPM=%.1f geometry=%d repeatGeometry=%d theme=%d explicitSizeInvalidation=%d contentSizeInvalidation=%d sizeInvalidationRPM=%.1f ttsScrollTarget=%d scrollRPM=%.1f scrollSkippedVisible=%d scrollExecuted=%d executedScrollRPM=%.1f frameUpdate=%d frameUpdateRPM=%.1f frameUpdateSkipped=%d thermal=%@ prediction=%@",
-            reason,
-            Self.applicationStateName(),
-            elapsedSeconds,
-            snapshot.updateUIViewCount,
-            updateRPM,
-            repeatedUpdateRPM,
-            snapshot.uniqueViews.count,
-            snapshot.highlightMutations,
-            highlightRPM,
-            snapshot.geometryRebuilds,
-            repeatedGeometryRebuilds,
-            snapshot.themeRebuilds,
-            snapshot.explicitSizeInvalidations,
-            snapshot.contentSizeInvalidations,
-            sizeInvalidationRPM,
-            snapshot.ttsScrollTargets,
-            scrollRPM,
-            snapshot.ttsScrollSkippedVisible,
-            snapshot.ttsScrollExecuted,
-            executedScrollRPM,
-            snapshot.frameUpdates,
-            frameUpdateRPM,
-            snapshot.frameUpdatesSkipped,
-            Self.thermalStateName(thermal),
-            prediction
-        )
-        AppLogger.shared.log(message)
-
-        if resetWindow {
-            window = Window(startedAt: now)
-        }
-    }
-
-    private static func prediction(
-        elapsedSeconds: TimeInterval,
-        thermalState: ProcessInfo.ThermalState,
-        repeatedUpdateRPM: Double,
-        highlightRPM: Double,
-        repeatedGeometryRebuilds: Int,
-        executedScrollRPM: Double,
-        frameUpdateRPM: Double
-    ) -> String {
-        if elapsedSeconds < 20 {
-            return "insufficient_sample"
-        }
-
-        let hasThermalPressure = thermalState == .serious || thermalState == .critical
-        let hasRepeatedGeometryChurn = repeatedGeometryRebuilds >= 5
-        let hasElevatedScrollActivity = executedScrollRPM >= 10 || frameUpdateRPM >= 120
-        let hasElevatedHighlightActivity = highlightRPM >= 30
-
-        if hasThermalPressure && hasRepeatedGeometryChurn {
-            return "reader_layout_thermal_pressure_likely"
-        }
-        if hasThermalPressure && hasElevatedScrollActivity {
-            return "reader_scroll_thermal_pressure_likely"
-        }
-        if hasThermalPressure && hasElevatedHighlightActivity {
-            return "reader_updates_with_thermal_pressure"
-        }
-        if hasThermalPressure {
-            return "thermal_pressure_not_explained_by_reader_updates"
-        }
-        if hasRepeatedGeometryChurn {
-            return "reader_layout_churn_likely"
-        }
-        if hasElevatedScrollActivity {
-            return "reader_scroll_activity_elevated"
-        }
-        if hasElevatedHighlightActivity || repeatedUpdateRPM >= 60 {
-            return "reader_update_rate_elevated"
-        }
-        return "reader_render_load_low"
-    }
-
-    private static func applicationStateName() -> String {
-        switch UIApplication.shared.applicationState {
-        case .active: return "foreground"
-        case .background: return "background"
-        case .inactive: return "inactive"
-        @unknown default: return "unknown"
-        }
-    }
-
-    private static func thermalStateName(_ state: ProcessInfo.ThermalState) -> String {
-        switch state {
-        case .nominal: return "nominal"
-        case .fair: return "fair"
-        case .serious: return "serious"
-        case .critical: return "critical"
-        @unknown default: return "unknown"
-        }
     }
 }
 

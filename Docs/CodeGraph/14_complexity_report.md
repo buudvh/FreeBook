@@ -15,6 +15,16 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số liệu sau tối ưu năng lượng Reader (1.3.239)
+
+* Tổng file Swift: **230 → 231** (thêm `Views/Reader/Components/ReaderEnergyDiagnostics.swift`, 258 dòng, 1 primary type — dưới trần 400 dòng cho file mới).
+* `ReaderTextView.swift`: 647 → **450 dòng** (−197). Baseline allowlist của file là 651 nên nó vẫn không nằm trong `LINE_LIMIT_EXCEEDED`; khoảng dư tăng từ 4 lên 201 dòng. File vẫn còn 3 type top-level nên miễn trừ `MULTI_PRIMARY_TYPES` chưa bỏ được.
+* `ReaderView.swift`: 2250 → **2248 dòng**; khoảng cách tới baseline 2053 còn −195 (trước là −197). Vẫn là `LINE_LIMIT_EXCEEDED` cũ, không phải violation mới.
+* Các file còn lại: `ParagraphCardView.swift` 102 → 101, `ParagraphTracker.swift` 90 → 94 (chỉ thêm comment cảnh báo về `minimumFrameDelta`), `ReaderView+Controls.swift` 161 (không đổi số dòng).
+* Độ phức tạp rẽ nhánh: `ReaderTextView.swift` giảm nhẹ (chuyển `prediction`/`thermalStateName`/`applicationStateName` — tổng ~20 nhánh `switch`/`if` — sang file mới), bù lại `publishSelection`/`isSamePosition` thêm ~6 nhánh. File mới có CC ước lượng ~45, không chạm top-10. Không file nào vào/ra khỏi top-10 độ phức tạp hay top-10 độ sâu lồng khối.
+* `check_architecture.py`: **18 → 18 violation**, tập vi phạm giống hệt trước thay đổi. Không nới baseline, không thêm entry allowlist.
+* Không build được để xác minh biên dịch: host là Windows, `xcodebuild` chỉ chạy trên macOS.
+
 ## Số liệu sau phép tách một-primary-type (1.3.236)
 
 * Tổng file Swift: **216 → 230** (+14 file tách ra, không xoá file nào).
