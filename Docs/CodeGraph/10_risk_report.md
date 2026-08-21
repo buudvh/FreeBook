@@ -15,6 +15,19 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Next-chapter prefix audio risks (1.3.234)
+
+| Rủi ro | Severity | Likelihood | Ghi chú |
+|---|---|---|---|
+| Lệch index giữa chunk prefix và `paragraphs` ⇒ audio và highlight desync | High | **Very Low** | Chặn hai lớp: `consume(matching:)` yêu cầu key trùng tuyệt đối, **và** `mergeNextChapterPrefixAudio` so `PreparedChunk.finalText` với `applyReplacements(paragraphs[index].text)`. Không khớp ⇒ **bỏ** chunk (log `textMismatch=M`) chứ không bao giờ phát sai đoạn. Lớp thứ hai phủ cả trường hợp DTO bị dựng lại với key không đổi (fallback load / force-refresh nội dung chương kế). |
+| Tổng hợp đầu cơ tốn request/pin khi người dùng dừng ngay sau đó | Medium | Medium | Prefix luôn ở mức ưu tiên thấp nhất, tuần tự 1 operation; `pause()` hủy phần đang bay, `stop` giải phóng toàn bộ. Với `googlePrefetchCount` lớn (tối đa 10), capacity ở chunk cuối chương có thể lên tới `count - 1` request. |
+| Chunk prefix cũ lưu lại sau khi đổi `pitch` của Google (đường `pitch.didSet` không gọi `clearPrefetchCache`) | Low | Medium | Chỉ là RAM tạm (tối đa `count - 1` payload); dữ liệu bị loại ở `request` kế tiếp hoặc `consume` do key khác. Không có nguy cơ phát sai pitch. |
+| NghiTTS đếm payload thiên về bảo thủ (`preloadedData.count + hasPreparedNext + reservesNghiAudioSlot`) nên có thể đếm trùng một payload và cấp capacity nhỏ hơn thực tế | Low | Medium | Cố ý: sai theo chiều **không vượt** `maxTotalAudioPayloads = 5`. Hệ quả xấu nhất là prefix ít hơn 1 chunk ở một vài nhịp; watermark tự đánh giá lại ở sự kiện kế tiếp. |
+| Watermark 8s có thể vẫn không đạt nếu trần 5 payload hết chỗ (chunk quá ngắn) | Low | Low | Đây là giới hạn thiết kế đã chọn (không nới trần RAM). Muốn đảm bảo đủ 8s trong mọi trường hợp thì phải nâng `NghiSynthesisPolicy.maxTotalAudioPayloads` — là thay đổi quy chuẩn, cần quyết định riêng. |
+| Prefix của NghiTTS xếp hàng nhiều task cùng lúc (tối đa `capacity`), khác `canScheduleNghiRefill` "một refill in-flight" của cửa sổ đoạn văn | Low | Medium | **Sai lệch có chủ ý**: `PiperSynthesisCoordinator` vẫn chỉ chạy 1 inference tại một thời điểm và prefix ở mức `.optionalReserve` (thấp nhất), nên đây là độ sâu hàng đợi chứ không phải song song hoá. Đổi sang 1-in-flight sẽ khiến buffer chỉ lấp được 1 chunk mỗi nhịp chuyển đoạn — quá chậm ở 1-2 chunk cuối chương. |
+| `sessionID`/`ttsProcessingGeneration` không nằm trong identity của prefix (chỉ có `TTSPreparedNextChapterKey`) | Low | Low | **Tính chất dùng chung với `TTSChapterPrefetcher`** (chunk 0 cũng vậy) nên không phải sai lệch riêng của thay đổi này. Cùng book/chapter/url/cấu hình ⇒ audio giống nhau, và `stopPlayback`/đổi engine/đổi giọng đều đi qua `clearAllTTSCaches`. Muốn siết thì phải siết cả hai owner cùng lúc — chưa làm. |
+| Chưa kiểm chứng bằng biên dịch | Medium | — | Thay đổi được viết trên Windows; `xcodebuild` chỉ chạy trên macOS. Cần build + kịch bản nghe qua biên chương trên máy thật trước khi coi là đã xác minh. |
+
 ## Search-history live-suggestion risks (1.3.191)
 
 * **Residual - UI only, no logic change:** the live-filtered history suggestions reuse the existing history row UI in `ShelfSearchView`/`SearchView`; no shared-store or search logic changed, so risk is limited to layout. In `ShelfSearchView` the suggestion block is capped at 220pt to avoid starving the results list height.

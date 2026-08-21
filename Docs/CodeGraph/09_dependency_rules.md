@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Next-chapter prefix dependency direction (1.3.234)
+
+* `TTSNextChapterPrefixCache` nằm ở `Sources/Services/TTS/`, chỉ `import Foundation`, **không** import SwiftUI và **không** gọi `ToastManager.shared` — thoả `SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING`.
+* Chiều phụ thuộc: `TTSManager` (+ extension `TTSManager+NextChapterPrefix`) → `TTSNextChapterPrefixCache` → {`PiperTTSService`, `TTSAudioSynthesisWorker` → `RemoteTTSSynthesisCoordinator`, `GoogleTTSService`, `ExtTTSService`}. Bộ đệm **không** tham chiếu ngược `TTSManager`: mọi service được truyền vào theo tham số của `request(...)`, đúng mẫu `promoteAudioIfNeeded` của `TTSChapterPrefetcher`.
+* Bộ đệm không phụ thuộc `TTSChapterPrefetcher` và ngược lại; việc điều phối thứ tự (chunk 0 trước prefix) do `TTSManager+NextChapterPrefix` quyết định, giữ hai owner tách biệt.
+* `Sources/Views/**` không có tham chiếu nào tới bộ đệm này; Reader/widget tiếp tục chỉ đọc projection reader.
+
 ## Shared extension-type vocabulary (1.3.226)
 
 * `ExtensionType` nằm trong tầng `Models/Extensions`; Models command, Services và Views được phép phụ thuộc vào namespace này để dùng chung vocabulary persisted.

@@ -20,6 +20,7 @@ extension TTSManager {
     public func clearAllTTSCaches() {
         clearCurrentParagraphPrefetchCache()
         nextChapterPrefetcher.cancel()
+        resetNextChapterPrefixCache()
         Task {
             await audioSynthesisWorker.cancelPrefetchTasks()
             await extService.resetRuntime()

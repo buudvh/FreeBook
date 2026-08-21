@@ -15,6 +15,16 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Next-chapter prefix audio files (1.3.234)
+
+* `Sources/Services/TTS/TTSNextChapterPrefixCache.swift` (380 dòng, 1 primary type `TTSNextChapterPrefixCache`)
+  - *Uses*: `TTSPreparedNextChapterKey`, `TTSParagraph`, `TTSBoundaryKind`, `TTSReplacementManager`, `TTSSynthesisIdentity`, `TTSAudioSynthesisWorker`, `RemoteTTSSynthesisCoordinator.Priority`, `PiperTTSService`, `SynthesisPriority`, `GoogleTTSService`, `ExtTTSService`, `WAVEncoder`, `AppLogger`, `TTSManager.RefillFailureState` + `TTSManager.evaluateRefillError` (tái sử dụng phân loại lỗi).
+  - *Used by*: `TTSManager+NextChapterPrefix.swift` (chỉ một consumer duy nhất).
+* `Sources/Services/TTS/Extensions/TTSManager+NextChapterPrefix.swift` (130 dòng, extension — không khai primary type)
+  - *Uses*: `TTSManager` (nội bộ: `nextChapterPrefetcher`, `preloadedData`, `preloadedDurations`, `paragraphs`, `nghiTTSService`, `googleService`, `extService`, `audioSynthesisWorker`, `makeNextChapterKey`, `selectNghiOptionalRefillCandidate`), `TTSNextChapterPrefixCache`, `NghiUtteranceSegmenter`, `NghiSynthesisPolicy`, `ProcessedChapterDTO`, `WAVEncoder`, `AppLogger`.
+  - *Used by*: `TTSManager.swift` (4 call site: `pause`, `applyNextChapter`, `updatePrefetchWindow`, `updateNghiPrefetchWindow`), `TTSManager+PrefetchCache.swift` (`clearAllTTSCaches`).
+* `TTSManager.swift` mở rộng khả năng truy cập cho hai thành viên đã có (`nghiTTSService`, `makeNextChapterKey`) từ `private` sang `internal` để extension ở file khác dùng được; không thêm type mới. `NghiSynthesisPolicy.swift` thêm hằng `maxTotalAudioPayloads` (vẫn là single source cho mọi hằng số năng lượng của Nghi).
+
 ## Extension type constants (1.3.226)
 
 * File mới `Sources/Models/Extensions/ExtensionType.swift` khai báo namespace public dùng chung cho các giá trị type chuẩn mà không thay `Extension.type: String` thành enum.

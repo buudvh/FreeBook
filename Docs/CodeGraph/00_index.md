@@ -15,6 +15,12 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Lấp buffer ở biên chương bằng prefix audio chương kế (1.3.234)
+
+* File mới `Sources/Services/TTS/TTSNextChapterPrefixCache.swift` (`@MainActor`, singleton `.shared`) nạp trước các chunk **index >= 1** của chương kế tiếp cho cả NghiTTS, Google và Extension TTS; chunk 0 vẫn do `TTSChapterPrefetcher` sở hữu.
+* File mới `Sources/Services/TTS/Extensions/TTSManager+NextChapterPrefix.swift` chứa toàn bộ điểm nối: `requestRemoteNextChapterPrefixIfNeeded`, `requestNghiNextChapterPrefixIfNeeded`, `mergeNextChapterPrefixAudio(for:)`, `cancelNextChapterPrefixWork`, `resetNextChapterPrefixCache`.
+* Số chunk prefix dùng đúng đơn vị đo của từng engine: Google/Ext giữ độ sâu phía trước bằng `preload_size`/`googlePrefetchCount` kể cả khi vượt biên chương; NghiTTS kéo dài chính watermark `nghittsSafeCachedTimeThreshold` (8s) qua biên chương và nạp cho đủ ngưỡng trong phần trần `maxTotalAudioPayloads` còn trống. Trần payload audio không đổi — chi tiết bất biến ở [rules.md](rules.md).
+
 ## Khắc phục lỗi pop Chi tiết truyện khi vuốt tab Home Khám phá (1.3.228)
 
 * Khai báo `DiscoveryDetailRoute` (bất biến, `Identifiable`, `Hashable`) giữ metadata điều hướng `bookId`, `extensionPackageId`, `initialDetailUrl`, `sourceName`, `initialHost`.

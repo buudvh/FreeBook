@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ TTS: prefix audio chương kế (1.3.234)
+
+* Phân hệ TTS nay có **ba** owner audio thay vì hai: (1) cửa sổ đoạn văn của chương đang phát (`preloadedData`/`preloadedDurations` + `prefetchTasks`/`nghiRefillTask`), (2) `TTSChapterPrefetcher` cho DTO văn bản + chunk 0 chương kế, (3) `TTSNextChapterPrefixCache` cho các chunk `>= 1` đầu chương kế.
+* Owner thứ ba dùng chung cho cả ba engine tổng hợp (`nghitts`, `google`, extension); `system` (Siri) bị loại tường minh vì không có payload audio để đệm.
+* Điểm nối duy nhất với phần còn lại của phân hệ là `TTSManager+NextChapterPrefix.swift`; nó quyết định capacity theo engine và là nơi duy nhất chuyển chunk prefix vào cửa sổ đoạn văn.
+* Mục tiêu phân hệ: xoá vùng nghèo buffer ở biên chương (trước đây cuối chương chỉ còn 1 chunk sẵn sàng, và ngay sau khi chuyển chương phải tổng hợp lại từ chunk 1) mà **không** nâng trần bộ nhớ audio. Mỗi engine giữ đúng đơn vị đo cấu hình của nó: Google/Ext theo số chunk (`preload_size`/`googlePrefetchCount`), NghiTTS theo thời lượng (`nghittsSafeCachedTimeThreshold`) — watermark của Nghi nay đo chuỗi phát liên tục vượt qua biên chương.
+
 ## Extension type vocabulary (1.3.226)
 
 * Extension subsystem dùng `ExtensionType` làm nguồn duy nhất cho bốn giá trị type chuẩn khi parse metadata, upsert, lọc repository và chọn UI theo type.

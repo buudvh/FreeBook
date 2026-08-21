@@ -780,7 +780,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private let siriService = SiriTTSService()
     internal let extService = ExtTTSService()
     internal let googleService = GoogleTTSService()
-    private var nghiTTSService: PiperTTSService?
+    internal var nghiTTSService: PiperTTSService?
     public private(set) var nghiTTSClient: NghiTTSClient?
     private var modelStore: ModelStore?
     private var modelContainer: ModelContainer?
@@ -1439,6 +1439,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         invalidateAudibleHandoffGeneration()
         publishLifecycleState(isPlaying: false)
         setSystemNowPlayingPlaybackState(.paused)
+        cancelNextChapterPrefixWork()
 
         if tool == "system" {
             siriService.pause()
@@ -1885,7 +1886,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             .min()
     }
 
-    private func makeNextChapterKey(for chapter: TTSChapterInfo) -> TTSPreparedNextChapterKey {
+    internal func makeNextChapterKey(for chapter: TTSChapterInfo) -> TTSPreparedNextChapterKey {
         let key = "showChapterTitle_\(playingBookId)"
         let showTitle = UserDefaults.standard.object(forKey: key) != nil ? UserDefaults.standard.bool(forKey: key) : true
         let removeDuplicatedTitle = readRemoveDuplicatedTitle(for: playingBookId)
@@ -2363,6 +2364,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.preloadedData[0] = audioData
             self.preloadedDurations[0] = WAVEncoder.duration(of: audioData)
         }
+        self.mergeNextChapterPrefixAudio(for: chapter)
 
         self.continueStartSpeaking(startParagraphIndex: -1)
 
@@ -2550,6 +2552,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
         }
         checkAndPromoteNextChapterAudioIfNeeded()
+        requestRemoteNextChapterPrefixIfNeeded(windowCount: count, inChapterTargetCount: targetIndices.count)
     }
 
 
@@ -2657,7 +2660,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
            key.tool == "nghitts",
            key.chapterIndex == nextIdx {
             let duration = WAVEncoder.duration(of: audioData)
-            total += duration / effectiveRate
+            total += (duration + nextChapterPrefixContiguousDuration(matching: key)) / effectiveRate
         }
 
         return total
@@ -2704,6 +2707,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             googleService: googleService,
             extService: extService
         )
+        requestNghiNextChapterPrefixIfNeeded(currentIndex: N, blockedIndices: blockedIndices)
 
         let cachedTime = calculateNghiCachedTime()
         let threshold = nghittsSafeCachedTimeThreshold

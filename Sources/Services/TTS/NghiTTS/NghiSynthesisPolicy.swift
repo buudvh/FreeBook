@@ -11,6 +11,11 @@ enum NghiSynthesisPolicy {
     static let safeCachedTimeThresholdRange: ClosedRange<Double> = 4.0...20.0
     static let maxOptionalReserveItems: Int = 2
 
+    /// Trần tổng số payload audio logic giữ đồng thời cho NghiTTS: đoạn hiện tại + `N+1`
+    /// + tối đa 2 optional reserve + chunk 0 chương kế. Prefix chương kế **mượn** trong
+    /// đúng trần này chứ không nới nó ra.
+    static let maxTotalAudioPayloads: Int = 5
+
     static func clampSafeCachedTimeThreshold(_ value: Double) -> Double {
         max(safeCachedTimeThresholdRange.lowerBound, min(safeCachedTimeThresholdRange.upperBound, value))
     }

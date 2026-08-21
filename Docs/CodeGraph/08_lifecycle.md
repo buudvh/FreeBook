@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Next-chapter prefix audio lifecycle (1.3.234)
+
+* `TTSNextChapterPrefixCache.shared` sống suốt vòng đời app (singleton `@MainActor`), nhưng dữ liệu bên trong chỉ sống theo một `TTSPreparedNextChapterKey`: key mới là reset, `consume` là reset, stop/đổi engine/đổi giọng là reset.
+* Vòng đời một chunk prefix: `request` mở `Task(priority: mặc định của Task {} trên MainActor)` → coordinator của engine xếp hàng ở mức ưu tiên thấp nhất → `finishSynthesis` ghi vào `chunks` nếu `generation`/`activeKey` còn khớp → `applyNextChapter` chuyển nó thành `preloadedData[index]` của chương mới, từ đó nó tuân theo đúng vòng đời cửa sổ trượt đã có (`cacheKeepIndices`, `clearCurrentParagraphPrefetchCache`).
+* Pause chỉ hủy phần đang bay (`cancelPendingWork`), giữ chunk đã tổng hợp — cùng triết lý với `PiperSynthesisCoordinator.cancelPendingOptionalReserveRequests()` (cho phép inference đang chạy hoàn tất và cache lại).
+* Không có timer, observer hay `Task.sleep` nào thuộc bộ đệm này; mọi lần đánh giá đều do sự kiện chuyển đoạn/chuyển chương/resume đẩy tới, nên nó không tạo tải nền khi app ở background ngoài chính phần tổng hợp âm thanh.
+
 ## Tạm ngưng Reader TTS auto-scroll khi ứng dụng không hiển thị (1.3.233)
 
 * Reader sử dụng trạng thái `@State internal var isSceneActive` (đồng bộ tại `onAppear` và `.onChange(of: scenePhase)`) và số thế hệ `ttsAutoScrollGeneration` tăng dần mỗi khi đổi `scenePhase` để quản lý an toàn luồng auto-scroll mà không bị ảnh hưởng bởi struct snapshot capture của SwiftUI.

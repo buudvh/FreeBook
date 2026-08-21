@@ -15,6 +15,15 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Incremental complexity update (1.3.234)
+
+* File mới `Sources/Services/TTS/TTSNextChapterPrefixCache.swift`: **380 dòng vật lý**, 1 primary type (kèm nested `PreparedChunk`), hàm dài nhất `synthesize` (~62 dòng, 3 nhánh engine), không có nested closure sâu quá 2 mức. Dưới trần 400 dòng cho file mới.
+* File mới `Sources/Services/TTS/Extensions/TTSManager+NextChapterPrefix.swift`: **130 dòng vật lý**, extension nên không khai primary type; 8 hàm, hàm dài nhất `requestNghiNextChapterPrefixIfNeeded` (~26 dòng).
+* `Sources/Services/TTS/NghiTTS/NghiSynthesisPolicy.swift`: 28 → **32 dòng** (thêm hằng `maxTotalAudioPayloads` + doc comment).
+* `Sources/Services/TTS/TTSManager.swift`: 4097 → **4101 dòng** (+4 call site: `pause`, `applyNextChapter`, `updatePrefetchWindow`, `updateNghiPrefetchWindow`). Baseline allowlist là 3470 nên file này vẫn nằm trong danh sách `LINE_LIMIT_EXCEEDED` đã có từ trước; thay đổi này **không tạo violation mới** nhưng cũng chưa hạ được baseline — cần được tính vào nợ kỹ thuật của `TTSManager`.
+* `Sources/Services/TTS/Extensions/TTSManager+PrefetchCache.swift`: 46 → **47 dòng**.
+* `check_architecture.py` trước/sau thay đổi: cùng 30 violation, khác biệt duy nhất là số dòng của `TTSManager.swift`.
+
 ## Incremental complexity update (1.3.14)
 
 * Reader paragraph creation and translated-selection mapping moved out of `ReaderView`/`ReaderViewModel` into two focused, unit-testable helpers.

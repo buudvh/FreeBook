@@ -15,6 +15,16 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Next-chapter prefix audio events (1.3.234)
+
+* Mỗi sự kiện chuyển đoạn (`commitAudibleParagraphState` → `updatePrefetchWindow`) phát thêm một lần đánh giá prefix chương kế. Ở giữa chương capacity bằng 0 nên sự kiện này **không** tạo request nào; chỉ khi cửa sổ bắt đầu co ở cuối chương thì mới sinh request tổng hợp.
+* Với NghiTTS, sự kiện đánh giá prefix chỉ tới được sau khi slot bắt buộc `N+1` đã đủ (nhánh `scheduleNghiRefill()` + `return` chặn trước đó) và sau `promoteAudioIfNeeded`, nên thứ tự vào hàng đợi luôn là `N+1` → chunk 0 chương kế → prefix. Sự kiện này chỉ tạo request khi `cachedTime` (đã tính cả chuỗi prefix liên tục vượt biên chương) còn dưới `nghittsSafeCachedTimeThreshold`; đủ ngưỡng thì `nghiWakeTask` được lên lịch như cũ và không có request nào phát sinh.
+* Với Google/Ext, sự kiện chuyển đoạn giữ độ sâu buffer phía trước bằng đúng `count` (`preload_size`/`googlePrefetchCount`): phần chương hiện tại thiếu bao nhiêu chunk thì prefix chương kế bù đúng bấy nhiêu. Mỗi request prefix thứ `index` bị giãn `index × max(300, prefetchDelayMs)` trước khi vào coordinator, nên chuỗi sự kiện tổng hợp chương kế có nhịp giống hệt prefetch trong chương thay vì phát cùng lúc.
+* Sự kiện hoàn tất tổng hợp prefix phát `[TTSPerf] NextChapterPrefixReady chapter=… engine=… index=… prepared=…`; thất bại phát `[TTSPerf] NextChapterPrefixFailure chapter=… engine=… index=… attempt=… reason=… action=blocked_non_retryable|blocked_max_retries|retry_on_next_window` (cùng bộ `reason` với `[TTSPerf] PrefetchFailure` của refill NghiTTS). `CancellationError` **không** phát log và không thay đổi state.
+* Sự kiện chuyển chương (`applyNextChapter`) phát `[TTSPerf] NextChapterPrefixApplied chapter=… engine=… chunks=N textMismatch=M`. `M > 0` là tín hiệu chunk bị loại vì văn bản không khớp `paragraphs[index]` — đây là hàng rào giữ highlight khỏi lệch, không phải lỗi phát. Sau khi nhồi, sự kiện phát audio của chunk prefix vẫn đi qua `commitAudibleParagraphState` nên chuỗi sự kiện highlight (`playbackSnapshot` → `ReaderTTSStateReader` → `ParagraphCardView`) không khác gì chunk tổng hợp tại chỗ.
+* Sự kiện `pause()` hủy mọi tổng hợp prefix đang bay; sự kiện `resume()` đi qua `updatePrefetchWindow` nên tự đánh giá lại. Sự kiện stop/đổi `tool`/đổi `selectedVoice` giải phóng toàn bộ qua `clearAllTTSCaches`.
+* Sự kiện đổi cấu hình mà **không** đi qua `clearPrefetchCache` (ví dụ `pitch.didSet` của Google) không xóa ngay chunk cũ; chúng bị loại ở lần `request` kế tiếp (key khác) hoặc ở `consume(matching:)` (key không trùng), nên không có audio sai cấu hình được phát.
+
 ## Luồng sự kiện điều hướng Chi tiết truyện trong Khám phá (1.3.228)
 
 * Sự kiện chọn hàng truyện (`Button`) trong `DiscoveryCategoryTabView` kích hoạt callback `onSelectNovel(novel)`.

@@ -15,6 +15,15 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Next-chapter prefix audio resource lifecycle (1.3.234)
+
+* Tài nguyên được quản lý: các `Data` audio (WAV cho Nghi, MP3/nhị phân cho remote) của chunk đầu chương kế, thời lượng tương ứng (`durations`), cộng một `Task<Void, Never>` cho mỗi chunk đang tổng hợp.
+* **Trần chiếm dụng**: `chunks.count + tasks.count <= capacity` do caller truyền vào — Google/Ext `max(0, count - inChapterTargetCount - 1)` (giữ độ sâu phía trước đúng bằng `count`); NghiTTS `max(0, NghiSynthesisPolicy.maxTotalAudioPayloads - heldPayloads)` và chỉ khi `cachedTime` chưa đạt ngưỡng. Vì vậy tổng payload audio trong RAM giữ nguyên trần cũ (`count + 1` cho remote; 5 payload logic cho Nghi).
+* `trim(toCapacity:)` là điểm thu hồi duy nhất khi capacity co lại: hủy task và xóa `chunks` + `durations` có index vượt trần, snapshot khoá bằng `Array(...)` trước khi mutate dictionary.
+* Giải phóng: `consume(matching:)` (chuyển quyền sở hữu sang `preloadedData`), `reset()` (stop/đổi engine/đổi giọng/key khác), `cancelPendingWork()` (pause — chỉ giải phóng task, giữ `Data`).
+* Sau khi được nhồi vào `preloadedData`, các `Data` này chịu đúng cơ chế thu hồi cũ: `cacheKeepIndices` của `updatePrefetchWindow` (remote) và `clearCurrentParagraphPrefetchCache()` ở mỗi lần chuyển chương/stop. Không có đường nào giữ tham chiếu kép.
+* Không có file tạm nào được tạo bởi bộ đệm này; với extension TTS, việc dọn file tạm vẫn thuộc `extService.cleanupAllTempFiles()` như trước.
+
 ## NghiTTS refill failure lifecycle (1.3.147)
 
 * Mỗi lỗi refill được sở hữu bởi khóa `sessionID + chapterIndex + paragraphIndex`; success xóa state, lỗi không retry hoặc attempt thứ hai chuyển state sang blocked.

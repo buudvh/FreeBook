@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-21T04:58:46Z",
-  "gitCommit": "28a25164d8d7a2dd5ead17b6e560b11d73adf2cd",
-  "sourceFileCount": 218,
+  "generatedAt": "2026-08-21T08:58:34Z",
+  "gitCommit": "398e6652f3841a7efb6431bd340023940c13dd63",
+  "sourceFileCount": 220,
   "documentCount": 16,
   "documents": [
     {
@@ -104,6 +104,7 @@
         "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
         "Sources/Services/TTS/Ext/ExtTTSService.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Interruption.swift",
+        "Sources/Services/TTS/Extensions/TTSManager+NextChapterPrefix.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NghiEnergy.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NowPlaying.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Playback.swift",
@@ -139,6 +140,7 @@
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
+        "Sources/Services/TTS/TTSNextChapterPrefixCache.swift",
         "Sources/Services/TTS/TTSNowPlayingController.swift",
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
@@ -235,13 +237,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "7d48f43e71cae850b6dde92b32c0e48f6d58043e9abda2f444ddf43e309fb22f",
-      "sourceHash": "b25117fbc7ec81b02524a39f5a9c45f4719c4fc0d6eb1e665f66043cc5e15451",
-      "generatedHash": "a5f9886b73f95e0b61fd5265d1a804b51b186859b24449c4cda481e5cf62ee18",
-      "generatedAt": "2026-08-21T03:58:18Z",
-      "reviewedAt": "2026-08-21T03:58:18Z",
-      "reviewedCommit": "f820d2b7542dc812ec6e6f2778dc01bae8ba5fd9",
-      "reviewMode": "bootstrap"
+      "structureHash": "dfbb8e1a5cc6209f16f1a5b07c8fc077b4d0d11eae118354a16c099271bde6c5",
+      "sourceHash": "1e8976ee6f41ae3549e0616836165bfe18fdbc339d37e76b69064f500141dc54",
+      "generatedHash": "c8105df4b34089f15c75b61314d457a82f73f58ebaaaa797e7a5731fad91236d",
+      "generatedAt": "2026-08-21T08:58:34Z",
+      "reviewedAt": "2026-08-21T08:58:34Z",
+      "reviewedCommit": "398e6652f3841a7efb6431bd340023940c13dd63",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "01_project.md",
@@ -366,6 +368,7 @@
         "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
         "Sources/Services/TTS/Ext/ExtTTSService.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Interruption.swift",
+        "Sources/Services/TTS/Extensions/TTSManager+NextChapterPrefix.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NghiEnergy.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NowPlaying.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Playback.swift",
@@ -401,6 +404,7 @@
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
+        "Sources/Services/TTS/TTSNextChapterPrefixCache.swift",
         "Sources/Services/TTS/TTSNowPlayingController.swift",
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
@@ -497,13 +501,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "7d48f43e71cae850b6dde92b32c0e48f6d58043e9abda2f444ddf43e309fb22f",
-      "sourceHash": "b25117fbc7ec81b02524a39f5a9c45f4719c4fc0d6eb1e665f66043cc5e15451",
-      "generatedHash": "b395b22b996d035bea8a56e293a9a4a01e1c7ad187b8062fa5a5356061343938",
-      "generatedAt": "2026-08-21T03:58:18Z",
-      "reviewedAt": "2026-08-21T03:58:18Z",
-      "reviewedCommit": "f820d2b7542dc812ec6e6f2778dc01bae8ba5fd9",
-      "reviewMode": "bootstrap"
+      "structureHash": "dfbb8e1a5cc6209f16f1a5b07c8fc077b4d0d11eae118354a16c099271bde6c5",
+      "sourceHash": "1e8976ee6f41ae3549e0616836165bfe18fdbc339d37e76b69064f500141dc54",
+      "generatedHash": "eb064557955622461ddc0a468d66e04d87d5ba075e03bb0e6bce16c623986547",
+      "generatedAt": "2026-08-21T08:58:34Z",
+      "reviewedAt": "2026-08-21T08:58:34Z",
+      "reviewedCommit": "398e6652f3841a7efb6431bd340023940c13dd63",
+      "reviewMode": "accept"
     },
     {
       "filename": "03_type_graph.md",
@@ -624,6 +628,7 @@
         "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
         "Sources/Services/TTS/Ext/ExtTTSService.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Interruption.swift",
+        "Sources/Services/TTS/Extensions/TTSManager+NextChapterPrefix.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NghiEnergy.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NowPlaying.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Playback.swift",
@@ -659,6 +664,7 @@
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
+        "Sources/Services/TTS/TTSNextChapterPrefixCache.swift",
         "Sources/Services/TTS/TTSNowPlayingController.swift",
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
@@ -689,13 +695,13 @@
         "Sources/Views/Reader/ReaderViewModel.swift",
         "Sources/Views/Reader/ReaderViewModelObserver.swift"
       ],
-      "structureHash": "16b6c52e6fc990e53f72b7b0bc1c5d7fda77d804109b402a1785b08fa5bf708a",
-      "sourceHash": "5ee6494ee9f98e2bef36110d6fed8e83e0d0f99c169e658d175ffb4ee2cf4d9a",
-      "generatedHash": "b2b8e897338a0431e395a30e52ac7bc5b2a12a89865dabbad7421a3a8e73b2f6",
-      "generatedAt": "2026-08-21T04:57:32Z",
-      "reviewedAt": "2026-08-21T04:57:32Z",
-      "reviewedCommit": "28a25164d8d7a2dd5ead17b6e560b11d73adf2cd",
-      "reviewMode": "no-change-needed"
+      "structureHash": "962ddd2d2124e5d211d28b621c91936ed2ca3ffcbe0e0be08b41daec5d5ecaae",
+      "sourceHash": "7fd9288cf339c52ae190544308a9a6f91c6453979d93b93d12acc404236b16b8",
+      "generatedHash": "c92dcb15961cacd3c6dff04c603f14da2044d4bfbc59104295bf6909476982ad",
+      "generatedAt": "2026-08-21T08:58:34Z",
+      "reviewedAt": "2026-08-21T08:58:34Z",
+      "reviewedCommit": "398e6652f3841a7efb6431bd340023940c13dd63",
+      "reviewMode": "accept"
     },
     {
       "filename": "05_state_graph.md",
@@ -721,6 +727,7 @@
         "Sources/Services/ReadingProgress/ReaderProgressScheduler.swift",
         "Sources/Services/ReadingProgress/ReadingProgressStore.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Interruption.swift",
+        "Sources/Services/TTS/Extensions/TTSManager+NextChapterPrefix.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NghiEnergy.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NowPlaying.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Playback.swift",
@@ -742,13 +749,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "7f455072e00017dbd2265e4804b9a004f4b96fa3e8667963606edd94c1adc833",
-      "sourceHash": "ed2646390347870905ce56421b8014c15e9694c8d6e6cad63010e89e6fea6ef7",
-      "generatedHash": "5f17d12049f32533e5981e96b773c4c8c4118774675b5d729eaeebcaf3ca69a4",
-      "generatedAt": "2026-08-21T04:57:32Z",
-      "reviewedAt": "2026-08-21T04:57:32Z",
-      "reviewedCommit": "28a25164d8d7a2dd5ead17b6e560b11d73adf2cd",
-      "reviewMode": "no-change-needed"
+      "structureHash": "4cb91c6fa83d91f8b2716976ab9a3e6cce2b07d1aa9b5e6bbca0f09652c963f1",
+      "sourceHash": "15d319c53474f6fa79a2561a446155427381db78fcb625a02c4d96cfa6e4989a",
+      "generatedHash": "855b131aada5859fe097a3caafe039a5c44455a5a5b33bf502b0e45cca1e9e38",
+      "generatedAt": "2026-08-21T08:58:34Z",
+      "reviewedAt": "2026-08-21T08:58:34Z",
+      "reviewedCommit": "398e6652f3841a7efb6431bd340023940c13dd63",
+      "reviewMode": "accept"
     },
     {
       "filename": "06_event_graph.md",
@@ -772,6 +779,7 @@
         "Sources/Services/TTS/Events/TTSPresentationEvent.swift",
         "Sources/Services/TTS/Events/TTSPresentationEventCenter.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Interruption.swift",
+        "Sources/Services/TTS/Extensions/TTSManager+NextChapterPrefix.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NghiEnergy.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NowPlaying.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Playback.swift",
@@ -781,13 +789,13 @@
         "Sources/Services/Translation/Manager/TranslationManager.swift",
         "Sources/Views/MainTabView.swift"
       ],
-      "structureHash": "3e937d97eef2e10d22d05e21f5497ab54a7ebc85dd53d568c3ece652cbd2544b",
-      "sourceHash": "d5b540b210f9ba43f257ae43cc820667b3d83a69a2a7b77cf6a12402b86b93bf",
-      "generatedHash": "40755734288ec18876e3dcf47f5ce116d8e37f9229e5d97d926ab3efe90d4425",
-      "generatedAt": "2026-08-21T03:58:18Z",
-      "reviewedAt": "2026-08-21T03:58:18Z",
-      "reviewedCommit": "f820d2b7542dc812ec6e6f2778dc01bae8ba5fd9",
-      "reviewMode": "bootstrap"
+      "structureHash": "12c2f90f0472928c5273756cb1b5f51e430eee1b0114829880c4188993f756de",
+      "sourceHash": "3a3e5f9f492091cec5bc84d5845acd02d34c58a39178df1edf39b4ea9daf4183",
+      "generatedHash": "e37fa65578e73124ba7decceb346414aa320afb8227576bf022f97ee586963a8",
+      "generatedAt": "2026-08-21T08:58:34Z",
+      "reviewedAt": "2026-08-21T08:58:34Z",
+      "reviewedCommit": "398e6652f3841a7efb6431bd340023940c13dd63",
+      "reviewMode": "accept"
     },
     {
       "filename": "07_dataflow.md",
@@ -884,12 +892,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "acad37ecfe6bd6c367da5de500cdaf028298b3fb613e49e119afecb80611eb31",
-      "sourceHash": "ac7214449201c16fdfeaa6410ed5760f9f21a6a82cf2cebeb47d947d41913ce5",
-      "generatedHash": "60d8214ec4da1bda49547173aa635c3f3973549bf28ed665e0aee97bfc92f1e5",
-      "generatedAt": "2026-08-21T04:58:46Z",
-      "reviewedAt": "2026-08-21T04:58:46Z",
-      "reviewedCommit": "28a25164d8d7a2dd5ead17b6e560b11d73adf2cd",
-      "reviewMode": "accept"
+      "sourceHash": "f642d557c3fc416551706dfb653a9297cdd6c19403e8152ab82c064685e6f1c1",
+      "generatedHash": "3c6355b1d528995c231aeae6c44cc412373604bc4ec4ae528d747517808231ee",
+      "generatedAt": "2026-08-21T08:58:34Z",
+      "reviewedAt": "2026-08-21T08:58:34Z",
+      "reviewedCommit": "398e6652f3841a7efb6431bd340023940c13dd63",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "09_dependency_rules.md",
@@ -991,6 +999,7 @@
         "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
         "Sources/Services/TTS/Ext/ExtTTSService.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Interruption.swift",
+        "Sources/Services/TTS/Extensions/TTSManager+NextChapterPrefix.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NghiEnergy.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NowPlaying.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Playback.swift",
@@ -1026,6 +1035,7 @@
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
+        "Sources/Services/TTS/TTSNextChapterPrefixCache.swift",
         "Sources/Services/TTS/TTSNowPlayingController.swift",
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
@@ -1122,13 +1132,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "d88c2631bcaccb2b6f69420c1324efe5301c18610b783667b8dc9b41df93fe8a",
-      "sourceHash": "f46f05cee99b0928de6a0a7ddc99e560997d2b840c6a153865bb809c846b03fe",
-      "generatedHash": "ec3af5022d262fda5c02707ac2c7d9e92d6e00790d5b4da660bf01d3844384ec",
-      "generatedAt": "2026-08-21T03:58:18Z",
-      "reviewedAt": "2026-08-21T03:58:18Z",
-      "reviewedCommit": "f820d2b7542dc812ec6e6f2778dc01bae8ba5fd9",
-      "reviewMode": "bootstrap"
+      "structureHash": "cc0c6c5d783fd810eb37a7e1990f0257c870bd23e8bfac3a859f070ba629452a",
+      "sourceHash": "b7ccb984c1568c6f112ff26d28b5b22c9e70468f7a9cc539db5ea01c00e6609f",
+      "generatedHash": "7162e93aee188fa52e56f6c0fc4460e9ab64a112908e47217730258a4b9092f3",
+      "generatedAt": "2026-08-21T08:58:34Z",
+      "reviewedAt": "2026-08-21T08:58:34Z",
+      "reviewedCommit": "398e6652f3841a7efb6431bd340023940c13dd63",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "10_risk_report.md",
@@ -1177,6 +1187,7 @@
         "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
         "Sources/Services/TTS/Ext/ExtTTSService.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Interruption.swift",
+        "Sources/Services/TTS/Extensions/TTSManager+NextChapterPrefix.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NghiEnergy.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NowPlaying.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Playback.swift",
@@ -1212,6 +1223,7 @@
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
+        "Sources/Services/TTS/TTSNextChapterPrefixCache.swift",
         "Sources/Services/TTS/TTSNowPlayingController.swift",
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
@@ -1219,13 +1231,13 @@
         "Sources/Views/Reader/ReaderView.swift",
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
-      "structureHash": "db26c5f518a1e43c73adef7b73122540579720e8e9865d4d9fee3b7b4df2eb6f",
-      "sourceHash": "4b37b7d2a6ec31e0830b96553a0afedf4028f77c86ed87c57ede9a48effaa3cd",
-      "generatedHash": "abcf0e26b1cf16ad215ee8afdf283b5b74f5bd8756b09ef00a7a555a716c7526",
-      "generatedAt": "2026-08-21T04:57:32Z",
-      "reviewedAt": "2026-08-21T04:57:32Z",
-      "reviewedCommit": "28a25164d8d7a2dd5ead17b6e560b11d73adf2cd",
-      "reviewMode": "no-change-needed"
+      "structureHash": "d12c096f637ad3866f15b6bea7018806bb1735715097f91461ec102001f0c326",
+      "sourceHash": "50d15c683ebed95f36cbe3c8286105e757181a28304b7f385dd277e050aca179",
+      "generatedHash": "2db41e39393050c48daddd5c7fab84e67fd86a2d2b15a5f50f12bc6c5d73ebd7",
+      "generatedAt": "2026-08-21T08:58:34Z",
+      "reviewedAt": "2026-08-21T08:58:34Z",
+      "reviewedCommit": "398e6652f3841a7efb6431bd340023940c13dd63",
+      "reviewMode": "accept"
     },
     {
       "filename": "11_subsystems.md",
@@ -1289,6 +1301,7 @@
         "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
         "Sources/Services/TTS/Ext/ExtTTSService.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Interruption.swift",
+        "Sources/Services/TTS/Extensions/TTSManager+NextChapterPrefix.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NghiEnergy.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NowPlaying.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Playback.swift",
@@ -1324,6 +1337,7 @@
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
+        "Sources/Services/TTS/TTSNextChapterPrefixCache.swift",
         "Sources/Services/TTS/TTSNowPlayingController.swift",
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
@@ -1420,12 +1434,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "8cd55120bebeaffdc6568482d27c988a5bc5e6fc230460ca6074270e74dde95a",
-      "sourceHash": "2d2b084dbe1fde8a752fb443a7a19e35ed5dff317beb28a26f60dc3327240759",
-      "generatedHash": "a6854eea781b3cc8a2bee3afdec5529b620ecc7ceef4a238de51998681f3e26d",
-      "generatedAt": "2026-08-21T04:57:32Z",
-      "reviewedAt": "2026-08-21T04:57:32Z",
-      "reviewedCommit": "28a25164d8d7a2dd5ead17b6e560b11d73adf2cd",
+      "structureHash": "f745187c0e1eb2e271731337870bac9ccd118f5ba214085a50305ca00bdc8996",
+      "sourceHash": "53bb1539950810cb5c8b3a1aa8588ac890e44b2d07c04f97c4096317c1306dac",
+      "generatedHash": "db360c111e3017a2b24f4e698f46d1ffd613b780ddf50f40a7d1b37b3a57d348",
+      "generatedAt": "2026-08-21T08:58:34Z",
+      "reviewedAt": "2026-08-21T08:58:34Z",
+      "reviewedCommit": "398e6652f3841a7efb6431bd340023940c13dd63",
       "reviewMode": "no-change-needed"
     },
     {
@@ -1523,6 +1537,7 @@
         "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
         "Sources/Services/TTS/Ext/ExtTTSService.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Interruption.swift",
+        "Sources/Services/TTS/Extensions/TTSManager+NextChapterPrefix.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NghiEnergy.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NowPlaying.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Playback.swift",
@@ -1558,6 +1573,7 @@
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
+        "Sources/Services/TTS/TTSNextChapterPrefixCache.swift",
         "Sources/Services/TTS/TTSNowPlayingController.swift",
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
@@ -1587,12 +1603,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift",
         "Sources/Views/Reader/ReaderViewModelObserver.swift"
       ],
-      "structureHash": "2ee2fa65716f4207b69d061cf437784a426069685e2adfbab96f7074ae5ba58a",
-      "sourceHash": "6a86e70a1f96ac19615554e3e66273dd92a40aaddd7e96aa85ef246609983f70",
-      "generatedHash": "4594fb35dc5112b64b20958b3184b969dd9e9d6d811a4aecdfcf5a9a2836b7da",
-      "generatedAt": "2026-08-21T04:57:32Z",
-      "reviewedAt": "2026-08-21T04:57:32Z",
-      "reviewedCommit": "28a25164d8d7a2dd5ead17b6e560b11d73adf2cd",
+      "structureHash": "0842c8fd604b3fd66768ead447a31382f5158764ef7e65b91c691f0ca4231386",
+      "sourceHash": "7677bb06e893b5ec8216120518584aca13d2690e816a27286298a29b2373acc3",
+      "generatedHash": "4a525cec427e29a2abf54287304d1c6109670f4466fb1890cb2fd5fc279d9a1c",
+      "generatedAt": "2026-08-21T08:58:34Z",
+      "reviewedAt": "2026-08-21T08:58:34Z",
+      "reviewedCommit": "398e6652f3841a7efb6431bd340023940c13dd63",
       "reviewMode": "no-change-needed"
     },
     {
@@ -1691,6 +1707,7 @@
         "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
         "Sources/Services/TTS/Ext/ExtTTSService.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Interruption.swift",
+        "Sources/Services/TTS/Extensions/TTSManager+NextChapterPrefix.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NghiEnergy.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NowPlaying.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Playback.swift",
@@ -1726,6 +1743,7 @@
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
+        "Sources/Services/TTS/TTSNextChapterPrefixCache.swift",
         "Sources/Services/TTS/TTSNowPlayingController.swift",
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
@@ -1822,13 +1840,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "7d48f43e71cae850b6dde92b32c0e48f6d58043e9abda2f444ddf43e309fb22f",
-      "sourceHash": "b25117fbc7ec81b02524a39f5a9c45f4719c4fc0d6eb1e665f66043cc5e15451",
-      "generatedHash": "bda54835078f25ba97642fbf4983c3c91ef4ce5da87a30ab6c5c4bc3f1e60a87",
-      "generatedAt": "2026-08-21T03:58:18Z",
-      "reviewedAt": "2026-08-21T03:58:18Z",
-      "reviewedCommit": "f820d2b7542dc812ec6e6f2778dc01bae8ba5fd9",
-      "reviewMode": "bootstrap"
+      "structureHash": "dfbb8e1a5cc6209f16f1a5b07c8fc077b4d0d11eae118354a16c099271bde6c5",
+      "sourceHash": "1e8976ee6f41ae3549e0616836165bfe18fdbc339d37e76b69064f500141dc54",
+      "generatedHash": "db1085d9aac597923bb89d1510b3e19284fdae621bffa7fce24fdbebee619699",
+      "generatedAt": "2026-08-21T08:58:34Z",
+      "reviewedAt": "2026-08-21T08:58:34Z",
+      "reviewedCommit": "398e6652f3841a7efb6431bd340023940c13dd63",
+      "reviewMode": "accept"
     },
     {
       "filename": "rules.md",
@@ -1871,6 +1889,7 @@
         "Sources/Services/TTS/Ext/ExtTTSRuntime.swift",
         "Sources/Services/TTS/Ext/ExtTTSService.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Interruption.swift",
+        "Sources/Services/TTS/Extensions/TTSManager+NextChapterPrefix.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NghiEnergy.swift",
         "Sources/Services/TTS/Extensions/TTSManager+NowPlaying.swift",
         "Sources/Services/TTS/Extensions/TTSManager+Playback.swift",
@@ -1906,6 +1925,7 @@
         "Sources/Services/TTS/TTSChapterTextWorker.swift",
         "Sources/Services/TTS/TTSManager.swift",
         "Sources/Services/TTS/TTSModels.swift",
+        "Sources/Services/TTS/TTSNextChapterPrefixCache.swift",
         "Sources/Services/TTS/TTSNowPlayingController.swift",
         "Sources/Services/TTS/TTSParagraphBuilder.swift",
         "Sources/Services/TTS/TTSSynthesisIdentity.swift",
@@ -1914,13 +1934,13 @@
         "Sources/Views/Reader/ReaderTextView.swift",
         "Sources/Views/Reader/ReaderView.swift"
       ],
-      "structureHash": "c369e898623d718e0bdfbe3b4d4c79cf3e0adc385c22ecaeedc129339458de5c",
-      "sourceHash": "c0774271a47c78c7dd3595edcad97093c85ecf6cbe0edf709e53f11fcc71663b",
-      "generatedHash": "eb7a6ac87bef97f9511f8876080d1db9711b0a4befd029b8fd921ab7604423f1",
-      "generatedAt": "2026-08-21T04:57:32Z",
-      "reviewedAt": "2026-08-21T04:57:32Z",
-      "reviewedCommit": "28a25164d8d7a2dd5ead17b6e560b11d73adf2cd",
-      "reviewMode": "no-change-needed"
+      "structureHash": "13d8dbfbd775d6170bf89d34fe555b6a6106374b0ed3564fa61deb272e9f7025",
+      "sourceHash": "483a57e2afccec4fa897f112b61e795c96883834e9ebce9d15cd4a1f71914d34",
+      "generatedHash": "e9861688b987fad59765f81d8d58f4f8abb33208e5319d52ff489ef97944130e",
+      "generatedAt": "2026-08-21T08:58:34Z",
+      "reviewedAt": "2026-08-21T08:58:34Z",
+      "reviewedCommit": "398e6652f3841a7efb6431bd340023940c13dd63",
+      "reviewMode": "accept"
     }
   ]
 }
