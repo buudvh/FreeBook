@@ -3,7 +3,7 @@ generated_by: Antigravity
 generator_version: 1.0
 generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 216
+source_files: 230
 document_version: 4
 ---
 
@@ -15,6 +15,13 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tách file theo luật một-primary-type (1.3.236)
+
+* Tám file vi phạm `MULTI_PRIMARY_TYPES` được tách thành **14 file mới**, mỗi file đúng một type top-level. Không đổi logic, chỉ đổi nơi khai báo.
+* Hai file vi phạm `NEW_FILE_TOO_LARGE` cũng được giải quyết bằng chính phép tách đó: `VisibleBrowserTabManager.swift` 448 → 234 dòng, `VisibleWebViewLoader.swift` 404 → 285 dòng.
+* Hai type phải nâng access level khi rời file gốc (`private` → mặc định internal): `SizeReader`, `BookTitleTranslationBackfill`.
+* Kết quả gate: `check_architecture.py` **28 → 18 violation**. Phần còn lại là 16 `LINE_LIMIT_EXCEEDED` (cần tách *thành viên* chứ không phải tách type) và 2 `VIEW_SWIFTDATA_MUTATION` thật — xem [10_risk_report.md](10_risk_report.md).
+
 ## Dọn code chết, bỏ tầng test và scaffolding chẩn đoán (1.3.235)
 
 * **Tầng test bị loại bỏ hoàn toàn** theo yêu cầu trực tiếp của người dùng: 20 file dưới `Tests/` bị `git rm` (vẫn tra được trong git history) và target `FreeBookTests` bị bỏ khỏi `project.yml`. Từ đây `Sources/` là toàn bộ mã được biên dịch.

@@ -22,15 +22,6 @@ extension BookDisplayable {
     var extensionIconUrl: String? { nil }
 }
 
-/// Phong cách hiển thị của một row truyện. Cover và title đồng bộ ở mọi style;
-/// chỉ khác phần thông tin phụ bên dưới title.
-enum BookListItemStyle {
-    /// Kệ sách / Lịch sử đọc / sheet chọn truyện: author (Hán-Việt) + pill nguồn + dòng "Đang đọc".
-    case shelfOrHistory
-    /// Discovery / genre: hiển thị description thay cho author/source.
-    case discovery
-}
-
 /// Row hiển thị một cuốn sách (cover + title dịch + author/source hoặc description),
 /// dùng chung cho Kệ sách (ShelfView), sheet chọn truyện (BookShareTargetSheet),
 /// danh sách genre (CategoryNovelsListView) và màn hình discovery (DiscoveryCategoryTabView).

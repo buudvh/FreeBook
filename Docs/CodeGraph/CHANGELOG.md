@@ -4,6 +4,22 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.200) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.236] - 2026-08-21
+
+### Tách file theo luật một-primary-type, hết MULTI_PRIMARY_TYPES và NEW_FILE_TOO_LARGE
+
+Phase 3 phần cơ học của kế hoạch dọn nợ kiến trúc: tách type, **không đổi một dòng logic nào**. Mọi tham chiếu vẫn trong cùng module nên đây chỉ là dịch chuyển khai báo.
+
+* **8 file vi phạm `MULTI_PRIMARY_TYPES` → 14 file mới**, mỗi file đúng một type top-level: `TextEncodingOption` ← `TextEncodingDecoder.swift`; `BookListItemStyle` ← `BookListItemView.swift`; `VisibleBrowserPresentationReader`/`VisibleBrowserReopenViewModel`/`SizeReader` ← `VisibleBrowserReopenView.swift`; `CodeEditorTextView` ← `HighlightingCodeEditor.swift`; `ShelfBookSearchMatcher` ← `ShelfSearchView.swift`; `FloatingWidgetUIWindow`/`FloatingWidgetContainerViewController` ← `TTSFloatingWidgetWindowManager.swift`; `BookTitleTranslationBackfill` ← `BookTitleTranslationMigrator.swift`; `DictionaryInvalidationScope` ← `TranslationManager.swift`; `VisibleWebViewController` ← `VisibleWebViewLoader.swift`; `VisibleBrowserTabItem`/`TabbedVisibleBrowserViewController` ← `VisibleBrowserTabManager.swift`.
+* **Cả 2 `NEW_FILE_TOO_LARGE` cũng hết** nhờ chính phép tách đó: `VisibleBrowserTabManager.swift` 448 → 234, `VisibleWebViewLoader.swift` 404 → 285.
+* **Hai type nâng access level** vì `private` ở Swift là phạm vi file: `SizeReader` (`private struct` → internal), `BookTitleTranslationBackfill` (`private actor` → `internal actor`). Không type nào thành `public`.
+* Type lồng đi cùng type cha (`Layout`, `Snapshot`, `Coordinator`); protocol `BookDisplayable` ở lại `BookListItemView.swift` vì luật không tính protocol.
+* Không file mới nào dưới `Sources/Services/**` import SwiftUI, nên miễn trừ `SERVICE_SWIFTUI_IMPORT` cho `*WebViewLoader.swift` không bị nới rộng.
+* **Sự cố đã sửa trong lúc làm**: lần ghi file đầu dùng `newline=CRLF` trên nội dung vốn đã CRLF nên sinh `\r\r\n`, khiến gate đọc `TabbedVisibleBrowserViewController.swift` thành 402 dòng (gấp đôi 201 thật). Đã chuẩn hoá cả 14 file về LF cho khớp phần còn lại của repo.
+* **Kết quả gate**: `check_architecture.py` **28 → 18 violation**. Tổng file Swift 216 → 230.
+* **Còn nợ, chưa làm trong lần này**: 16 `LINE_LIMIT_EXCEEDED` (không giải được bằng tách type vì các file đó chỉ có 1 type — phải tách *thành viên* sang `X+Feature.swift`; nợ lớn nhất `TTSManager.swift` −533 dòng, `JSExecutor.swift` −448, `ReaderView.swift` −197) và 2 `VIEW_SWIFTDATA_MUTATION` thật ở `DiscoveryView.swift`/`ReaderView.swift` (phải chuyển ghi qua transaction coordinator — đổi quyền sở hữu transaction, không phải dọn cơ học).
+* **Chưa biên dịch cục bộ**: máy Windows. Cần `xcodegen generate` + build trên macOS; CI là bước xác minh compile.
+
 ## [1.3.235] - 2026-08-21
 
 ### Xoá tầng test, dọn code chết và scaffolding chẩn đoán

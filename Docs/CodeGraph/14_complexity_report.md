@@ -3,7 +3,7 @@ generated_by: Antigravity
 generator_version: 1.0
 generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 216
+source_files: 230
 document_version: 3
 ---
 
@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số liệu sau phép tách một-primary-type (1.3.236)
+
+* Tổng file Swift: **216 → 230** (+14 file tách ra, không xoá file nào).
+* `check_architecture.py`: **28 → 18 violation**. Hết toàn bộ 8 `MULTI_PRIMARY_TYPES` và cả 2 `NEW_FILE_TOO_LARGE`.
+* File lớn nhất trong 14 file mới: `FloatingWidgetContainerViewController.swift` 240 dòng; `TabbedVisibleBrowserViewController.swift` 201; `VisibleWebViewController.swift` 122; `CodeEditorTextView.swift` 111; `TextEncodingOption.swift` 102. Tất cả dưới trần 400 dòng cho file mới.
+* Giảm dòng đáng kể ở file gốc: `TTSFloatingWidgetWindowManager.swift` 375 → 112 (−263), `VisibleBrowserTabManager.swift` 448 → 234 (−214), `HighlightingCodeEditor.swift` 278 → 166 (−112), `VisibleWebViewLoader.swift` 404 → 285 (−119), `VisibleBrowserReopenView.swift` 234 → 128 (−106), `TextEncodingDecoder.swift` 145 → 43 (−102).
+* **Nợ còn lại: 16 `LINE_LIMIT_EXCEEDED`.** Không file nào trong số đó có type top-level thứ hai để tách, nên phải tách thành viên sang file `X+Feature.swift`. Khoảng cách tới baseline: `TTSManager.swift` −533, `JSExecutor.swift` −448, `ReaderView.swift` −197, `ShelfView.swift` −134, `TranslateUtils.swift` −124, `ExtensionScriptEditorView.swift` −109, `DictionaryListView.swift` −77, `ReaderViewModel.swift` −66, `TTSDictionaryEditView.swift` −65, `ReaderChapterListView.swift` −60, `DownloadManager.swift` −48, `ChapterPersistenceStore.swift` −31, `JSDom.swift` −28, `ExtensionManager.swift` −27, `ReaderDefinitionOverlayView.swift` −21, `BookDetailView.swift` −12.
+
 ## Dọn code chết: số liệu trước/sau (1.3.235)
 
 * Tổng file Swift: **220 → 216** (xoá 5, thêm 1 do đổi tên). Ngoài ra 20 file dưới `Tests/` bị xoá khỏi repo (không tính vào `Sources/`).

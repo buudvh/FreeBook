@@ -3,7 +3,7 @@ generated_by: Antigravity
 generator_version: 1.0
 generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 216
+source_files: 230
 document_version: 6
 ---
 
@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ sau phép tách file (1.3.236)
+
+* Phân hệ **TTS Widget** nay có ba file thay vì một: `TTSFloatingWidgetWindowManager.swift` (chỉ còn điều phối UIWindow, 112 dòng), `FloatingWidgetUIWindow.swift` (ranh giới hit-testing), `FloatingWidgetContainerViewController.swift` (layout/gesture/animation). Ba trách nhiệm vốn đã tách trong code nay tách cả ở mức file.
+* Phân hệ **Visible Browser** (`Services/Extensions/Engine/`) tách thành: `VisibleBrowserTabManager.swift` (state tab), `VisibleBrowserTabItem.swift` (DTO), `TabbedVisibleBrowserViewController.swift` (UI tab), `VisibleWebViewLoader.swift` (bridge JS), `VisibleWebViewController.swift` (WKWebView host).
+* Phân hệ **Translation**: `DictionaryInvalidationScope` (DTO phạm vi invalidation) và `BookTitleTranslationBackfill` (actor chạy nền) rời khỏi file manager/migrator tương ứng.
+* Không phân hệ nào đổi ranh giới trách nhiệm hay public API; đây là thay đổi tổ chức file thuần.
+
 ## Phân hệ mất thư mục Helpers và tầng test (1.3.235)
 
 * Phân hệ TTS không còn thư mục `Services/TTS/Helpers/`: cả `TTSHighlightCalculator`, `TTSParagraphSplitter`, `TTSVoiceResolver` đều không có consumer nào trong `Sources/`. Chức năng tương ứng thực tế nằm ở `TTSParagraphBuilder`/`TTSBackgroundProcessor` (chunk hoá) và `TTSManager`/`NghiTTSClient` (chọn giọng); highlight do `commitAudibleParagraphState` phát từ `paragraphs[index]`.

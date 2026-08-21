@@ -3,7 +3,7 @@ generated_by: Antigravity
 generator_version: 1.0
 generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 216
+source_files: 230
 document_version: 4
 ---
 
@@ -15,6 +15,17 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro của phép tách file (1.3.236)
+
+| Rủi ro | Severity | Likelihood | Ghi chú |
+|---|---|---|---|
+| Type `private` rời file gốc làm rộng phạm vi truy cập ngoài dự kiến | Low | — | Chỉ 2 trường hợp (`SizeReader`, `BookTitleTranslationBackfill`), cả hai lên internal (trong module) chứ không public. Không có consumer mới nào được thêm. |
+| Tách sai biên khối làm mất/nhân đôi code | High | **Low** | Cắt bằng brace-matching có bỏ qua string/comment, sau đó đối chiếu cân bằng ngoặc của 10 file gốc với `HEAD`: giống nhau tuyệt đối. 14 file mới đều cân bằng 0. |
+| Line-ending sai ở file mới | Medium | — | **Đã xảy ra và đã sửa**: lần ghi đầu dùng `newline=CRLF` trên nội dung vốn đã CRLF nên thành `\r\r\n`, khiến gate đọc `TabbedVisibleBrowserViewController.swift` thành 402 dòng (gấp đôi 201). Đã chuẩn hoá toàn bộ 14 file về LF cho khớp phần còn lại của repo. |
+| Còn 16 `LINE_LIMIT_EXCEEDED` chưa xử lý | Medium | — | Không giải được bằng tách type (các file này chỉ có 1 type); cần tách **thành viên** sang file `X+Feature.swift`. Nợ lớn nhất: `TTSManager.swift` (4003, cần ≤3470), `JSExecutor.swift` (1514, cần ≤1066), `ReaderView.swift` (2250, cần ≤2053). |
+| 2 `VIEW_SWIFTDATA_MUTATION` thật vẫn còn | Medium | — | `DiscoveryView.swift`, `ReaderView.swift`. Sửa đúng cách phải chuyển ghi qua `BookTransactionCoordinator`/`ExtensionTransactionCoordinator` — đổi quyền sở hữu transaction, không phải dọn dẹp cơ học, nên tách thành quyết định riêng. |
+| Chưa biên dịch cục bộ | Medium | — | Máy Windows; xác minh compile dựa vào CI trên macOS. 14 file mới + 10 file sửa đều chưa qua compiler tại thời điểm commit. |
+
 ## Rủi ro của lần dọn code chết (1.3.235)
 
 | Rủi ro | Severity | Likelihood | Ghi chú |

@@ -3,7 +3,7 @@ generated_by: Antigravity
 generator_version: 1.0
 generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 216
+source_files: 230
 document_version: 2
 ---
 
@@ -15,6 +15,12 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Luật một-primary-type đã được thoả mà không cần miễn trừ (1.3.236)
+
+* Sau phép tách, **không file nào** trong `Sources/` còn vi phạm `MULTI_PRIMARY_TYPES`; 8 file trước đây vi phạm nay mỗi file đúng một type top-level. Miễn trừ `MULTI_PRIMARY_TYPES` trong `architecture_allowlist.json` không bị thêm entry nào.
+* Chiều phụ thuộc không đổi — tách file chỉ dịch chuyển khai báo trong cùng module. Cặp phụ thuộc mới xuất hiện đều là nội bộ tầng: `TTSFloatingWidgetWindowManager` → `FloatingWidgetUIWindow` → `FloatingWidgetContainerViewController` (cùng `Views/TTSWidget/`), `VisibleBrowserTabManager` → `TabbedVisibleBrowserViewController` (cùng `Services/Extensions/Engine/`).
+* Ranh giới `SERVICE_SWIFTUI_IMPORT` giữ nguyên: hai file mới dưới `Sources/Services/**` (`VisibleWebViewController.swift`, `TabbedVisibleBrowserViewController.swift`, `VisibleBrowserTabItem.swift`, `BookTitleTranslationBackfill.swift`, `DictionaryInvalidationScope.swift`) không import SwiftUI, nên miễn trừ chỉ-dành-cho-`*WebViewLoader.swift` không bị nới.
+
 ## Ranh giới target sau khi bỏ tầng test (1.3.235)
 
 * `project.yml` chỉ còn **một** target biên dịch (`FreeBook`, `sources: - path: Sources`). Target `FreeBookTests` và thư mục `Tests/` đã bị xoá theo yêu cầu trực tiếp của người dùng, nên không còn phụ thuộc `Tests → FreeBook` và không còn API nào tồn tại chỉ để phục vụ test.

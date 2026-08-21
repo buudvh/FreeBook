@@ -3,90 +3,7 @@ import Combine
 
 // MARK: - Presentation Reader
 
-@MainActor
-final class VisibleBrowserPresentationReader: ObservableObject {
-    struct Snapshot: Equatable {
-        var isHidden = false
-        var tabCount = 0
-        var showReopenButton = false
-    }
-
-    @Published private(set) var snapshot = Snapshot()
-    private var cancellable: AnyCancellable?
-
-    init(manager: VisibleBrowserTabManager? = nil) {
-        let manager = manager ?? VisibleBrowserTabManager.shared
-        snapshot = Self.makeSnapshot(from: manager)
-        cancellable = NotificationCenter.default
-            .publisher(for: VisibleBrowserTabManager.stateDidChangeNotification)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.refresh(from: manager)
-            }
-    }
-
-    private func refresh(from manager: VisibleBrowserTabManager) {
-        let newSnapshot = Self.makeSnapshot(from: manager)
-        guard newSnapshot != snapshot else { return }
-        snapshot = newSnapshot
-    }
-
-    private static func makeSnapshot(from manager: VisibleBrowserTabManager) -> Snapshot {
-        Snapshot(
-            isHidden: manager.isHidden,
-            tabCount: manager.tabs.count,
-            showReopenButton: manager.isHidden && !manager.tabs.isEmpty
-        )
-    }
-}
-
 // MARK: - Reopen Pill View Model
-
-@MainActor
-final class VisibleBrowserReopenViewModel: ObservableObject {
-    @Published var verticalRatio: CGFloat
-    @Published var edgeDirection: EdgeDirection
-    @Published var isDragging = false
-
-    private let storedRatioKey = "visibleBrowserReopenVerticalRatio"
-    private let storedEdgeKey = "visibleBrowserReopenEdge"
-
-    init() {
-        let storedRatio = UserDefaults.standard.double(forKey: storedRatioKey)
-        let storedEdge = UserDefaults.standard.string(forKey: storedEdgeKey)
-        self.verticalRatio = storedRatio > 0 ? CGFloat(storedRatio) : 1.0
-        self.edgeDirection = (storedEdge == "left") ? .left : .right
-    }
-
-    func handleDragStart() {
-        isDragging = true
-    }
-
-    func handleDragEnd(
-        finalPosition: CGPoint,
-        pillHeight: CGFloat,
-        screenWidth: CGFloat,
-        screenHeight: CGFloat
-    ) {
-        guard screenWidth > 0, screenHeight > 0 else {
-            isDragging = false
-            return
-        }
-
-        let targetEdge: EdgeDirection = finalPosition.x < screenWidth - finalPosition.x ? .left : .right
-        let minCenterFromBottom: CGFloat = pillHeight / 2 + 8
-        let maxCenterFromBottom: CGFloat = 92 - pillHeight / 2 - 6
-        let centerFromBottom = min(max(screenHeight - finalPosition.y, minCenterFromBottom), maxCenterFromBottom)
-        let targetY = screenHeight - centerFromBottom
-
-        verticalRatio = targetY / screenHeight
-        edgeDirection = targetEdge
-        isDragging = false
-
-        UserDefaults.standard.set(Double(verticalRatio), forKey: storedRatioKey)
-        UserDefaults.standard.set(targetEdge == .left ? "left" : "right", forKey: storedEdgeKey)
-    }
-}
 
 // MARK: - Reopen Button
 
@@ -215,21 +132,5 @@ struct VisibleBrowserReopenButton: View {
                 }
                 dragOrigin = nil
             }
-    }
-}
-
-private struct SizeReader: View {
-    @Binding var size: CGSize
-
-    var body: some View {
-        GeometryReader { geometry in
-            Color.clear
-                .onAppear {
-                    size = geometry.size
-                }
-                .onChange(of: geometry.size) { _, newValue in
-                    size = newValue
-                }
-        }
     }
 }

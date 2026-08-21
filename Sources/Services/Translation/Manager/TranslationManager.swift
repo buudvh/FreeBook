@@ -4,12 +4,6 @@ extension Notification.Name {
     public static let translationDictionariesDidUpdate = Notification.Name("translationDictionariesDidUpdate")
 }
 
-public enum DictionaryInvalidationScope: Equatable, Sendable {
-    case term(word: String, isName: Bool, bookId: String?)
-    case config(bookId: String?)
-    case globalReload
-}
-
 public final class TranslationManager: ObservableObject {
     public static let shared = TranslationManager()
     
@@ -598,4 +592,3 @@ public final class TranslationManager: ObservableObject {
         return nil
     }
 }
-

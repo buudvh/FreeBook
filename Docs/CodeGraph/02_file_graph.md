@@ -3,7 +3,7 @@ generated_by: Antigravity
 generator_version: 1.0
 generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 216
+source_files: 230
 document_version: 4
 ---
 
@@ -15,6 +15,29 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## 14 file mới sinh ra từ phép tách một-primary-type (1.3.236)
+
+| File mới | Tách khỏi | Dòng |
+|---|---|---|
+| `Common/Utils/TextEncodingOption.swift` | `TextEncodingDecoder.swift` | 102 |
+| `Common/BookListItemStyle.swift` (Views) | `BookListItemView.swift` | 10 |
+| `Views/Common/VisibleBrowserPresentationReader.swift` | `VisibleBrowserReopenView.swift` | 39 |
+| `Views/Common/VisibleBrowserReopenViewModel.swift` | `VisibleBrowserReopenView.swift` | 48 |
+| `Views/Common/SizeReader.swift` | `VisibleBrowserReopenView.swift` | 17 |
+| `Views/Extensions/Editor/CodeEditorTextView.swift` | `HighlightingCodeEditor.swift` | 111 |
+| `Views/Shelf/ShelfMain/ShelfBookSearchMatcher.swift` | `ShelfSearchView.swift` | 22 |
+| `Views/TTSWidget/FloatingWidgetUIWindow.swift` | `TTSFloatingWidgetWindowManager.swift` | 29 |
+| `Views/TTSWidget/FloatingWidgetContainerViewController.swift` | `TTSFloatingWidgetWindowManager.swift` | 240 |
+| `Services/Translation/BookTitleTranslationBackfill.swift` | `BookTitleTranslationMigrator.swift` | 40 |
+| `Services/Translation/Manager/DictionaryInvalidationScope.swift` | `TranslationManager.swift` | 7 |
+| `Services/Extensions/Engine/VisibleWebViewController.swift` | `VisibleWebViewLoader.swift` | 122 |
+| `Services/Extensions/Engine/VisibleBrowserTabItem.swift` | `VisibleBrowserTabManager.swift` | 18 |
+| `Services/Extensions/Engine/TabbedVisibleBrowserViewController.swift` | `VisibleBrowserTabManager.swift` | 201 |
+
+* Quan hệ *uses/used by* không đổi: mọi tham chiếu vẫn nằm trong cùng module nên chỉ là dịch chuyển khai báo. Hai type đổi access level (`SizeReader`, `BookTitleTranslationBackfill`) vì `private` ở file cũ là phạm vi file.
+* Không file nào trong `Sources/Services/**` mới thêm `import SwiftUI`: `VisibleWebViewController.swift` và `TabbedVisibleBrowserViewController.swift` chỉ dùng `Foundation`/`UIKit`/`WebKit`, nên miễn trừ `SERVICE_SWIFTUI_IMPORT` cho `*WebViewLoader.swift` vẫn không bị nới rộng.
+* File gốc sau khi tách: `TextEncodingDecoder.swift` 145 → 43, `BookListItemView.swift` 182 → 171, `VisibleBrowserReopenView.swift` 234 → 128, `HighlightingCodeEditor.swift` 278 → 166, `ShelfSearchView.swift` 263 → 240, `TTSFloatingWidgetWindowManager.swift` 375 → 112, `BookTitleTranslationMigrator.swift` 79 → 38, `TranslationManager.swift` 601 → 593, `VisibleBrowserTabManager.swift` 448 → 234, `VisibleWebViewLoader.swift` 404 → 285.
+
 ## File bị xoá/đổi tên khi dọn code chết (1.3.235)
 
 * **Xoá**: `Sources/Services/TTS/Helpers/TTSHighlightCalculator.swift`, `Sources/Services/TTS/Helpers/TTSParagraphSplitter.swift`, `Sources/Services/TTS/Helpers/TTSVoiceResolver.swift` (cả ba đều 0 *used by*; thư mục `Helpers/` không còn tồn tại), `Sources/Views/Reader/ReaderViewModelObserver.swift` (0 *used by*).

@@ -3,7 +3,7 @@ generated_by: Antigravity
 generator_version: 1.0
 generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 216
+source_files: 230
 document_version: 5
 ---
 
@@ -15,6 +15,13 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Nơi khai báo type sau phép tách (1.3.236)
+
+* 14 type rời file gốc sang file riêng mang đúng tên nó: `TextEncodingOption`, `BookListItemStyle`, `VisibleBrowserPresentationReader`, `VisibleBrowserReopenViewModel`, `SizeReader`, `CodeEditorTextView`, `ShelfBookSearchMatcher`, `FloatingWidgetUIWindow`, `FloatingWidgetContainerViewController`, `BookTitleTranslationBackfill`, `DictionaryInvalidationScope`, `VisibleWebViewController`, `VisibleBrowserTabItem`, `TabbedVisibleBrowserViewController`.
+* Không type nào đổi tên, đổi kế thừa, đổi conformance hay đổi thành viên. Hai type đổi access level do rời phạm vi file: `SizeReader` (`private struct` → internal), `BookTitleTranslationBackfill` (`private actor` → `internal actor`).
+* Type lồng bên trong vẫn đi cùng type cha: `Layout` theo `FloatingWidgetContainerViewController`, `Snapshot` theo `VisibleBrowserPresentationReader`, `Coordinator` theo `HighlightingCodeEditor`.
+* Protocol không bị luật `MULTI_PRIMARY_TYPES` tính, nên `BookDisplayable` vẫn ở `BookListItemView.swift`.
+
 ## Type bị xoá khi dọn code chết (1.3.235)
 
 * Xoá hẳn: `TTSHighlightCalculator`, `TTSParagraphSplitter`, `TTSVoiceResolver`, `ReaderViewModelObserver`, `ReaderParagraphBuilder`, `UnavailablePiperEngine` (struct fallback không bao giờ được khởi tạo), `SearchBar` (trong `BookDictionaryView.swift`), `CacheSummary` (`ModelStore`), `ModelsResponse` (`NghiTTSClient`), `GlobalToastModifier`.
