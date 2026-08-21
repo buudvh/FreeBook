@@ -1,5 +1,4 @@
 import Foundation
-import Foundation
 
 /// Energy policy for the on-device Piper/ONNX pipeline.
 ///

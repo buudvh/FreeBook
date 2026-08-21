@@ -87,13 +87,6 @@ public final class ImageCacheManager {
         return coversDirectory.appendingPathComponent(getNewFileName(for: bookId))
     }
 
-    public func hasLocalCover(for bookId: String) -> Bool {
-        migrateLegacyFileIfNecessary(for: bookId)
-        let destinationURL = coversDirectory.appendingPathComponent(getNewFileName(for: bookId))
-        guard (try? validatePathSafety(for: destinationURL)) != nil else { return false }
-        return fileManager.fileExists(atPath: destinationURL.path)
-    }
-
     public func loadLocalCover(for bookId: String) -> UIImage? {
         migrateLegacyFileIfNecessary(for: bookId)
         let destinationURL = coversDirectory.appendingPathComponent(getNewFileName(for: bookId))

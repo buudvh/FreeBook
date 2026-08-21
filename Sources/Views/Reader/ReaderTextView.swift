@@ -295,18 +295,13 @@ struct ReaderTextView: UIViewRepresentable {
         /// Dùng firstRect (đầu selection) và lastRect (cuối selection) để union,
         /// tránh menu đè lên vùng bôi đen khi selection nhiều dòng.
         func selectionGlobalMinMaxY(textView: UITextView, textRange: UITextRange) -> (CGFloat?, CGFloat?) {
-            guard let start = textView.selectedTextRange?.start,
-                  let end = textView.selectedTextRange?.end,
-                  let startRange = textView.textRange(from: start, to: start),
-                  let endRange = textView.textRange(from: end, to: end) else {
+            guard let end = textView.selectedTextRange?.end else {
                 let rect = textView.firstRect(for: textRange)
                 let globalRect = textView.convert(rect, to: nil)
                 return (globalRect.minY, globalRect.maxY)
             }
             let firstRect = textView.convert(textView.firstRect(for: textRange), to: nil)
             let lastRect = textView.convert(textView.caretRect(for: end), to: nil)
-            let _ = startRange // suppress unused warning
-            let _ = endRange   // suppress unused warning
             let unionMinY = min(firstRect.minY, lastRect.minY)
             let unionMaxY = max(firstRect.maxY, lastRect.maxY)
             return (unionMinY, unionMaxY)

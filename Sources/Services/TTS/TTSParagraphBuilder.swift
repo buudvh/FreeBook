@@ -15,16 +15,6 @@ public struct TTSLineEntry: Sendable {
 }
 
 enum TTSParagraphBuilder {
-    static func build(
-        from normalizedText: NormalizedChapterText,
-        chunkLength: Int
-    ) -> [TTSParagraph] {
-        let entries = normalizedText.lines.map {
-            TTSLineEntry(lineId: $0.id, originalText: $0.text, translatedText: $0.text, spans: [])
-        }
-        return buildFromEntries(entries, chunkLength: chunkLength)
-    }
-
     static func buildFromEntries(
         _ entries: [TTSLineEntry],
         chunkLength: Int

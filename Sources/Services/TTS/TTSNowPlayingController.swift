@@ -77,8 +77,4 @@ public final class TTSNowPlayingController {
         center.nowPlayingInfo = info
     }
 
-    public func clearNowPlayingInfo() {
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
-        MPNowPlayingInfoCenter.default().playbackState = .stopped
-    }
 }

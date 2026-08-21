@@ -344,33 +344,6 @@ internal final class TTSChapterPrefetcher {
         return .idle
     }
 
-    internal func awaitTextWorkerResult(matching key: TTSPreparedNextChapterKey) async -> ProcessedChapterDTO? {
-        switch currentState {
-        case .processedReady(let k, _, let processed, _, _),
-             .synthesizingAudio(let k, _, let processed, _, _, _, _),
-             .audioReady(let k, _, let processed, _, _, _, _):
-            if k == key { return processed }
-        case .loadingContent(let k, let gen):
-            if k == key {
-                if let textResult = await textWorker.getReadyResult(for: key, ownerGeneration: gen) {
-                    if activeGeneration == gen {
-                        currentState = .processedReady(
-                            key: key,
-                            generation: gen,
-                            processed: textResult.dto,
-                            loadMs: textResult.loadMs,
-                            processMs: textResult.processMs
-                        )
-                    }
-                    return textResult.dto
-                }
-            }
-        default:
-            break
-        }
-        return nil
-    }
-
     internal func cancel() {
         let oldKey: TTSPreparedNextChapterKey?
         let oldGen: UInt64

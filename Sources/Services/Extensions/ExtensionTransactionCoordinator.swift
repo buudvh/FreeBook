@@ -121,21 +121,6 @@ public final class ExtensionTransactionCoordinator {
         }
     }
 
-    public func deleteExtension(packageId: String, in context: ModelContext) -> Result<Void, ExtensionTransactionError> {
-        var descriptor = FetchDescriptor<Extension>(predicate: #Predicate { $0.packageId == packageId })
-        descriptor.fetchLimit = 1
-        if let ext = try? context.fetch(descriptor).first {
-            context.delete(ext)
-            do {
-                try context.save()
-                return .success(())
-            } catch {
-                return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
-            }
-        }
-        return .success(())
-    }
-
     public func togglePinned(packageId: String, in context: ModelContext) -> Result<Void, ExtensionTransactionError> {
         var descriptor = FetchDescriptor<Extension>(predicate: #Predicate { $0.packageId == packageId })
         descriptor.fetchLimit = 1

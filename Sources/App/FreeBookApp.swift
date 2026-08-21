@@ -62,7 +62,6 @@ struct AppLaunchRootView: View {
                     .zIndex(9998)
             }
         }
-        .globalToast()
         .onAppear {
             BookStorageManager.shared.drainRetryQueue()
             BookStorageManager.shared.retryFailedChapterStoreDeletions()

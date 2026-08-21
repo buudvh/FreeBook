@@ -3,7 +3,7 @@ generated_by: Antigravity
 generator_version: 1.0
 generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 218
+source_files: 216
 document_version: 6
 ---
 
@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ mất thư mục Helpers và tầng test (1.3.235)
+
+* Phân hệ TTS không còn thư mục `Services/TTS/Helpers/`: cả `TTSHighlightCalculator`, `TTSParagraphSplitter`, `TTSVoiceResolver` đều không có consumer nào trong `Sources/`. Chức năng tương ứng thực tế nằm ở `TTSParagraphBuilder`/`TTSBackgroundProcessor` (chunk hoá) và `TTSManager`/`NghiTTSClient` (chọn giọng); highlight do `commitAudibleParagraphState` phát từ `paragraphs[index]`.
+* `TTSParagraphBuilder` còn đúng **một** API dựng chunk: `buildFromEntries(_:chunkLength:)`. Overload `build(from:chunkLength:)` đã xoá, nên không còn hai bản logic dựng chunk song song.
+* Reader còn đúng **một** đường dựng `[ParagraphItem]`: `ReaderViewModel+Translation`. Bản song song `ReaderParagraphBuilder` đã xoá.
+* Phân hệ test không còn tồn tại: `Tests/` và target `FreeBookTests` bị xoá; xác minh từ nay dựa trên đọc code, build trên macOS và hai script tĩnh.
+
 ## Phân hệ TTS: prefix audio chương kế (1.3.234)
 
 * Phân hệ TTS nay có **ba** owner audio thay vì hai: (1) cửa sổ đoạn văn của chương đang phát (`preloadedData`/`preloadedDurations` + `prefetchTasks`/`nghiRefillTask`), (2) `TTSChapterPrefetcher` cho DTO văn bản + chunk 0 chương kế, (3) `TTSNextChapterPrefixCache` cho các chunk `>= 1` đầu chương kế.

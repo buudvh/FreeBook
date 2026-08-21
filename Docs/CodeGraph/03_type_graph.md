@@ -3,7 +3,7 @@ generated_by: Antigravity
 generator_version: 1.0
 generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 218
+source_files: 216
 document_version: 5
 ---
 
@@ -15,6 +15,13 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type bị xoá khi dọn code chết (1.3.235)
+
+* Xoá hẳn: `TTSHighlightCalculator`, `TTSParagraphSplitter`, `TTSVoiceResolver`, `ReaderViewModelObserver`, `ReaderParagraphBuilder`, `UnavailablePiperEngine` (struct fallback không bao giờ được khởi tạo), `SearchBar` (trong `BookDictionaryView.swift`), `CacheSummary` (`ModelStore`), `ModelsResponse` (`NghiTTSClient`), `GlobalToastModifier`.
+* Xoá hai `typealias` tương thích ngược không còn tham chiếu: `SearchNovelResult = ExtensionItemResult` và `TTSProcessedChapter = ProcessedChapterDTO`. Tên chính thức duy nhất nay là `ExtensionItemResult` và `ProcessedChapterDTO`.
+* `ReaderParagraphBuildResult` vẫn tồn tại (production dùng) và nay là primary type duy nhất của file cùng tên.
+* Không có protocol nào mất requirement: đã kiểm tra toàn bộ thân `protocol` trong `Sources/` không khai bất kỳ symbol nào bị xoá.
+
 ## ExtensionType namespace (1.3.226)
 
 * `public enum ExtensionType` là namespace không có case, cung cấp bốn `public static let String`: `novel`, `chineseNovel`, `comic`, và `tts`.

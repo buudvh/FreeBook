@@ -124,20 +124,6 @@ public final class ReaderChapterListStore {
         return ChapterRowItem(id: displayPosition, index: logicIdx)
     }
 
-    public func loadPageIfNeeded(displayPosition: Int) {
-        guard displayPosition >= 0 && displayPosition < totalCount else { return }
-        let page = displayPosition / pageSize
-        self.currentTargetPage = page
-        self.lastViewportPage = page
-
-        let minPage = max(0, page - 1)
-        let maxPage = min((totalCount - 1) / pageSize, page + 1)
-        let pagesToLoad = Set(minPage...maxPage)
-        if pagesToLoad.isSubset(of: loadedPages) { return }
-
-        loadPagesAround(page: page)
-    }
-
     public func loadVisiblePageIfNeeded(displayPosition: Int) {
         guard displayPosition >= 0 && displayPosition < totalCount else { return }
         let page = displayPosition / pageSize

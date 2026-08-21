@@ -25,10 +25,6 @@ public final class NghiTTSClient {
         Voice(name: "adam")
     ]
 
-    private struct ModelsResponse: Codable {
-        let models: [String]
-    }
-
     private let baseURL = URL(string: "https://huggingface.co/raikiri1498/nghitts/resolve/main")!
     private let session: URLSession
     private let modelStore: ModelStore
@@ -36,47 +32,6 @@ public final class NghiTTSClient {
     public init(modelStore: ModelStore, session: URLSession = .shared) {
         self.modelStore = modelStore
         self.session = session
-    }
-
-    public func fetchVietnameseVoices(forceRefresh: Bool) async throws -> [Voice] {
-        let fm = FileManager.default
-        let localWords = modelStore.rootURL.appendingPathComponent("non-vietnamese-words.plist")
-        
-        let currentVersion = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "") + "-" + (Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "")
-        let lastVersion = UserDefaults.standard.string(forKey: "LastInstalledVersion") ?? ""
-        
-        var shouldDownload = false
-        if !fm.fileExists(atPath: localWords.path) || currentVersion != lastVersion {
-            shouldDownload = true
-        }
-        
-        if forceRefresh || shouldDownload {
-            do {
-                try await downloadDictionaries()
-                UserDefaults.standard.set(currentVersion, forKey: "LastInstalledVersion")
-            } catch {
-                AppLogger.shared.log("Warning: Failed to download dictionary files: \(error.localizedDescription)")
-            }
-        }
-
-        if !forceRefresh, let cached = modelStore.readCachedVoices(), !cached.isEmpty {
-            return cached.map { Voice(name: $0.precomposedStringWithCanonicalMapping) }
-        }
-
-        do {
-            let url = baseURL.appendingPathComponent("models.json")
-            let (data, response) = try await session.data(from: url)
-            try Self.validateHTTP(response)
-            let decoded = try JSONDecoder().decode(ModelsResponse.self, from: data)
-            let normalizedVoices = decoded.models.map { $0.precomposedStringWithCanonicalMapping }
-            try modelStore.writeCachedVoices(normalizedVoices)
-            return normalizedVoices.map { Voice(name: $0) }
-        } catch {
-            if let cached = modelStore.readCachedVoices(), !cached.isEmpty {
-                return cached.map { Voice(name: $0.precomposedStringWithCanonicalMapping) }
-            }
-            return Self.fallbackVietnameseVoices
-        }
     }
 
     public func getAllVoices(forceRefresh: Bool = false) async throws -> [Voice] {
@@ -98,18 +53,6 @@ public final class NghiTTSClient {
             }
         }
         return filteredVoices
-    }
-
-    public func getModelList() -> [Voice] {
-        var allVoices = Self.fallbackVietnameseVoices
-        let localVoiceIds = modelStore.getLocalVoiceIDs()
-        for voiceId in localVoiceIds {
-            if !allVoices.contains(where: { $0.id == voiceId }) {
-                let displayName = voiceId.replacingOccurrences(of: "_", with: " ").capitalized
-                allVoices.append(Voice(id: voiceId, name: displayName))
-            }
-        }
-        return allVoices
     }
 
     public func downloadDictionaries() async throws {

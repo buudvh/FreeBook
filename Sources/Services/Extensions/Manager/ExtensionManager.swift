@@ -67,8 +67,6 @@ public struct ExtensionItemResult: Identifiable, Hashable {
         self.host = host
     }
 }
-public typealias SearchNovelResult = ExtensionItemResult
-
 public struct NovelDetailResult {
     public let name: String
     public let author: String
@@ -305,21 +303,6 @@ public final class ExtensionManager: ObservableObject {
         
         // Trả về lỗi nếu không tìm thấy file script ở cả 2 vị trí trên
         throw NSError(domain: "ExtensionManager", code: -5, userInfo: [NSLocalizedDescriptionKey: "Script file '\(scriptFileName)' not found in root or src/"])
-    }
-    
-    // MARK: - Helper Cấu hình
-    public func hasConfig(localPath: String) -> Bool {
-        guard !localPath.isEmpty else { return false }
-        let extUrl = URL(fileURLWithPath: localPath)
-        let pluginJsonUrl = extUrl.appendingPathComponent("plugin.json")
-        guard FileManager.default.fileExists(atPath: pluginJsonUrl.path) else { return false }
-        
-        guard let data = try? Data(contentsOf: pluginJsonUrl),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let config = json["config"] as? [String: Any] else {
-            return false
-        }
-        return config.values.contains { $0 is [String: Any] }
     }
     
     public func getCombinedConfigs(localPath: String, configJson: String) -> [String: Any] {

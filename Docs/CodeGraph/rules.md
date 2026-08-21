@@ -3,7 +3,7 @@ generated_by: Antigravity
 generator_version: 1.0
 generated_at: 2026-08-21T14:10:00+07:00
 git_commit: UNKNOWN
-source_files: 218
+source_files: 216
 document_version: 9
 ---
 
@@ -47,7 +47,7 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 * **VBook JS Runtime Boundaries**: Extraction operations use short-lived `JSExecutor` instances; only `ExtTTSRuntime` may persist a long-lived runtime. All extension calls must preserve `execute(...)`, `runAsync`, global API injections (`Html`, `Engine`, `Response`, `fetch`), and root vs `src/` script path resolution.
 * **Logging and Observability**: Log via `AppLogger.shared` with structured tags; do not use raw `print`. Never log secrets, full chapter payloads, or sensitive user data.
 * **Security**: Enforce `validatePathSafety(for:)` on all physical file operations. Validate external URLs and input data at extension boundaries. Never expose API keys.
-* **Test Placement & Test Lock Rule (AGENTS.md Rule 2.1)**: Unit test modifications are strictly forbidden. DO NOT create, edit, rename, move, delete, or format any file under `Tests/`.
+* **Test Layer Removed (1.3.235, user-directed)**: tầng test không còn tồn tại — `Tests/` và target `FreeBookTests` đã bị xoá khỏi repo và `project.yml`. Không tạo lại thư mục `Tests/` hay target test khi người dùng chưa yêu cầu rõ ràng. Xác minh tính đúng dựa trên đọc code, build trên macOS và hai script tĩnh (`validate_links.py`, `check_architecture.py`); không được viện dẫn test làm bằng chứng.
 * **UI Views & Event Handlers**: SwiftUI Views must perform zero direct file I/O or SwiftData mutations. `@Query` reads are permitted for reactive presentation only; user actions must dispatch command DTOs to Coordinators.
 * **Code Placement Naming Matrix**:
   - `View`: SwiftUI visual interface element under `Sources/Views/`
@@ -69,7 +69,7 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
   3. Physical Line Limit: Max 400 lines for new files; legacy allowlisted files must ratchet down.
   4. Exactly 1 primary type per file.
   5. Services must not import SwiftUI (exemption matches file names ending `WebViewLoader.swift`) or invoke ToastManager.shared.
-  6. Unit test modifications under `Tests/` are strictly forbidden (Rule 2.1).
+  6. Không tạo lại `Tests/` hay target test (tầng test đã bị xoá ở 1.3.235).
   7. CodeGraph docs must be updated factually and validated with `validate_links.py`.
 
 ## Thermal State Invariants (Phase 0.1)

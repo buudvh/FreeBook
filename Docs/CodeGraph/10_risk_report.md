@@ -3,7 +3,7 @@ generated_by: Antigravity
 generator_version: 1.0
 generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 218
+source_files: 216
 document_version: 4
 ---
 
@@ -15,6 +15,15 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro của lần dọn code chết (1.3.235)
+
+| Rủi ro | Severity | Likelihood | Ghi chú |
+|---|---|---|---|
+| Xoá symbol mà một đường gọi động (JS bridge, `#selector`, delegate) vẫn cần | High | Low | Đã loại trừ có phương pháp: bỏ qua toàn bộ `Services/Extensions/Engine/JS*` (API mà extension JavaScript gọi theo tên), bỏ qua conformance delegate, và đếm tham chiếu theo **tên trần** nên hàm truyền dạng closure/`#selector` vẫn được tính. Đã kiểm tra không symbol nào là protocol requirement. |
+| Mất vĩnh viễn 20 file test | Medium | — | Xoá bằng `git rm` nên phục hồi được từ git history; đây là quyết định trực tiếp của người dùng, không phải suy đoán. |
+| Còn code chết dây chuyền sau khi xoá | Low | Low | Đã quét lại sau khi dọn: 0 hàm `public`/`internal` không tham chiếu (đợt hai đã xoá thêm `ModelStore.readCachedVoices`/`writeCachedVoices`/`voicesCacheURL` vốn chỉ phục vụ hàm vừa xoá). Type duy nhất còn báo là `FreeBookApp` (`@main`, false positive). |
+| Chưa kiểm chứng bằng biên dịch | **High** | — | Đây là lần thay đổi rộng nhất (5 file xoá, 1 đổi tên, ~30 symbol, 20 file source đụng tới) và vẫn **chưa build được** vì máy là Windows. Bắt buộc `xcodegen generate` + build trên macOS trước khi coi là xong. |
+
 ## Next-chapter prefix audio risks (1.3.234)
 
 | Rủi ro | Severity | Likelihood | Ghi chú |

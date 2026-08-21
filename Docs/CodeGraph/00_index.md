@@ -3,7 +3,7 @@ generated_by: Antigravity
 generator_version: 1.0
 generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 218
+source_files: 216
 document_version: 4
 ---
 
@@ -15,6 +15,14 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Dọn code chết, bỏ tầng test và scaffolding chẩn đoán (1.3.235)
+
+* **Tầng test bị loại bỏ hoàn toàn** theo yêu cầu trực tiếp của người dùng: 20 file dưới `Tests/` bị `git rm` (vẫn tra được trong git history) và target `FreeBookTests` bị bỏ khỏi `project.yml`. Từ đây `Sources/` là toàn bộ mã được biên dịch.
+* **5 file bị xoá**: `Services/TTS/Helpers/{TTSHighlightCalculator,TTSParagraphSplitter,TTSVoiceResolver}.swift` (thư mục `Helpers/` biến mất), `Views/Reader/ReaderViewModelObserver.swift`; `Views/Reader/ReaderParagraphBuilder.swift` được đổi tên thành `ReaderParagraphBuildResult.swift` sau khi xoá enum builder chết (DTO `ReaderParagraphBuildResult` vẫn được `ReaderViewModel+Translation` dùng).
+* **~30 symbol chết bị xoá** khỏi 20 file, gồm cả hai alias tương thích ngược không còn ai dùng (`SearchNovelResult`, `TTSProcessedChapter`) và abstraction rỗng `GlobalToastModifier`/`globalToast()` (toast do `ToastUIWindow` vẽ trực tiếp).
+* **Scaffolding chẩn đoán `logRemoteTrace`** (đã tự đánh dấu `REMOVE_AFTER_TTS_REMOTE_DIAGNOSIS`, chỉ chạy trong `#if DEBUG` nên vô hiệu trên LiveContainer) bị xoá cùng 3 tham số chỉ dùng để nuôi nó ở `dispatchRemoteTransportCommand`.
+* Kết quả gate: `check_architecture.py` **30 → 28 violation**; `TTSManager.swift` 4097 → 4003 dòng; `TTSChapterPrefetcher.swift` 402 → 375 nên hết vi phạm `NEW_FILE_TOO_LARGE`; `TranslationManager.swift` xuống dưới baseline.
+
 ## Lấp buffer ở biên chương bằng prefix audio chương kế (1.3.234)
 
 * File mới `Sources/Services/TTS/TTSNextChapterPrefixCache.swift` (`@MainActor`, singleton `.shared`) nạp trước các chunk **index >= 1** của chương kế tiếp cho cả NghiTTS, Google và Extension TTS; chunk 0 vẫn do `TTSChapterPrefetcher` sở hữu.
@@ -72,7 +80,7 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 * `BookDetailHeaderView` thêm `.fixedSize(horizontal: false, vertical: true)` cho title; title được phép chiếm đủ chiều cao cần thiết trong cột cạnh cover thay vì bị cắt khi bản gốc/bản dịch dài.
 * Reader có lựa chọn menu `"Văn bản trước khi dịch"` (Giữ nguyên / Phồn thể → giản thể), chỉ hiện khi bật Quick Translate. Trạng thái lưu riêng theo `convertTraditionalToSimplified_<bookId>`, được đọc lúc bootstrap và đổi lựa chọn sẽ làm mới bản dịch chương đang đọc, metadata Reader, TOC/paging/search và popup dịch từ/câu.
 * `TranslateUtils` chuyển chuỗi qua ICU transform `StringTransform("Traditional-Simplified")` trước khi tra từ điển khi caller chọn tuỳ chọn; `translateMeta`, `translateContent`, `translateChapterTitle`, và hai API trả `TranslatedTextResult` nhận thêm cờ mặc định `false`. Span dùng input đã chuyển đổi chỉ khi độ dài UTF-16 không đổi; nếu không, trả mảng rỗng để `ReaderSelectionMapper` dùng fallback an toàn.
-* `ReaderViewModel`/`CachedChapter` mang cờ chuyển đổi trong identity cache, nên cache cũ không thể được tái dùng sau khi đổi cấu hình. Đường production dựng `[ParagraphItem]` ở `Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift` (và worker danh sách chương) giữ API tương thích ngược nhờ default `false`; `ReaderParagraphBuilder` là API song song **không có caller nào trong `Sources/`** (chỉ test dùng), nên sửa logic dựng đoạn phải sửa cả hai bản.
+* `ReaderViewModel`/`CachedChapter` mang cờ chuyển đổi trong identity cache, nên cache cũ không thể được tái dùng sau khi đổi cấu hình. Đường production dựng `[ParagraphItem]` ở `Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift` (và worker danh sách chương) giữ API tương thích ngược nhờ default `false`. *(Cập nhật 1.3.235: bản song song `ReaderParagraphBuilder` đã bị xoá, nay chỉ còn **một** đường dựng đoạn ở `ReaderViewModel+Translation.swift`.)*
 * TTS đọc cùng cấu hình theo truyện khi prepare/start: title và nội dung chương hiện tại được chuyển phồn → giản trước VietPhrase, đồng thời key của prepared chapter, snapshot, auto-advance và text/audio prefetch chương kế đều mang cờ để không tái dùng kết quả sai cấu hình. Metadata Now Playing cũng dùng cùng cờ session; thay đổi trong lúc phát hủy prefetch/metadata cũ, còn đoạn hiện tại đã dựng tiếp tục cho đến lần dựng chương kế tiếp.
 
 ## Revert dùng BookListItemView trong DownloadTrackerView, chuẩn hoá BookListItemView 2 style và bỏ chevron NavigationLink (1.3.219)
@@ -198,7 +206,7 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 
 ## Rename SearchNovelResult to ExtensionItemResult & pure data-driven filtering (1.3.173)
 
-* Renamed DTO `SearchNovelResult` to `ExtensionItemResult` in `Sources/Services/Extensions/Manager/ExtensionManager.swift` to reflect its true generic role for novels, genres, similar recommendations, and comments/reviews. Added `public typealias SearchNovelResult = ExtensionItemResult` for backward compatibility.
+* Renamed DTO `SearchNovelResult` to `ExtensionItemResult` in `Sources/Services/Extensions/Manager/ExtensionManager.swift` to reflect its true generic role for novels, genres, similar recommendations, and comments/reviews. Added `public typealias SearchNovelResult = ExtensionItemResult` for backward compatibility. *(Cập nhật 1.3.235: alias này đã bị xoá vì không còn tham chiếu nào; tên chính thức duy nhất là `ExtensionItemResult`.)*
 * `ExtensionManager.executeCustomScript` eliminates script-name hardcoding (`isCommentScript` via `scriptFileName.contains("comment")`), replacing it with 100% data-driven validation: `guard hasLink || hasContent else { continue }` where `hasLink = !link.isEmpty` (novel items) and `hasContent = !(dict["content"]?.toString() ?? "").isEmpty` (comment/review items like `book_review.js`, `review.js`, `comment.js`). `author` fallback changed to `""`.
 * All consumer components synchronized: `PaginatedNovelLoader`, `NovelListUtils`, `BookListItemView` (`ExtensionItemResult: BookDisplayable`), `CommentSectionView`, `AllCommentsView`, `SuggestRowView`, and `SearchView`.
 

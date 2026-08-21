@@ -1,16 +1,9 @@
 import Foundation
 
-public struct CacheSummary: Codable {
-    public let voicesCached: Bool
-    public let modelCount: Int
-    public let totalBytes: Int64
-}
-
 public final class ModelStore {
     private let fileManager: FileManager
     public let rootURL: URL
     public let modelsURL: URL
-    private let voicesCacheURL: URL
 
     public init(fileManager: FileManager = .default) throws {
         self.fileManager = fileManager
@@ -22,38 +15,7 @@ public final class ModelStore {
         )
         self.rootURL = appSupport.appendingPathComponent("FreeBook/TTS", isDirectory: true)
         self.modelsURL = rootURL.appendingPathComponent("Models", isDirectory: true)
-        self.voicesCacheURL = rootURL.appendingPathComponent("voices.json")
         try fileManager.createDirectory(at: modelsURL, withIntermediateDirectories: true)
-    }
-
-    public func cacheSummary() -> CacheSummary {
-        let files = (try? fileManager.contentsOfDirectory(
-            at: modelsURL,
-            includingPropertiesForKeys: [.fileSizeKey],
-            options: [.skipsHiddenFiles]
-        )) ?? []
-
-        let totalBytes = files.reduce(Int64(0)) { partial, url in
-            let size = ((try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize) ?? 0
-            return partial + Int64(size)
-        }
-
-        let modelCount = files.filter { $0.pathExtension == "onnx" }.count
-        return CacheSummary(
-            voicesCached: fileManager.fileExists(atPath: voicesCacheURL.path),
-            modelCount: modelCount,
-            totalBytes: totalBytes
-        )
-    }
-
-    public func readCachedVoices() -> [String]? {
-        guard let data = try? Data(contentsOf: voicesCacheURL) else { return nil }
-        return try? JSONDecoder().decode([String].self, from: data)
-    }
-
-    public func writeCachedVoices(_ voices: [String]) throws {
-        let data = try JSONEncoder().encode(voices)
-        try data.write(to: voicesCacheURL, options: [.atomic])
     }
 
     public func modelURL(for voiceId: String, extension ext: String) -> URL {

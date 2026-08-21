@@ -190,14 +190,6 @@ public final class JunkFilterManager: ObservableObject {
     }
 
     @MainActor
-    public func toggleRule(id: String, isEnabled: Bool) {
-        if let idx = rules.firstIndex(where: { $0.id == id }) {
-            rules[idx].isEnabled = isEnabled
-            saveRules()
-        }
-    }
-
-    @MainActor
     public func moveRules(from source: IndexSet, to destination: Int) {
         rules.move(fromOffsets: source, toOffset: destination)
         saveRules()

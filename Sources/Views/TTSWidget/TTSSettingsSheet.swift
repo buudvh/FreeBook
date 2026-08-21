@@ -10,6 +10,5 @@ struct TTSSettingsSheet: View {
         NavigationStack {
             TTSSettingsView(isPresentedAsSheet: true)
         }
-        .globalToast()
     }
 }

@@ -16,23 +16,6 @@ internal actor TTSChapterTextWorker {
 
     internal init() {}
 
-    /// Kiểm tra xem có cần nạp trước văn bản chương hay không dựa trên điều kiện tiến độ nghe
-    internal func shouldTriggerPrefetch(
-        isPlaying: Bool,
-        currentParagraphIndex: Int,
-        totalParagraphs: Int,
-        remainingParentCount: Int,
-        nextKey: TTSPreparedNextChapterKey
-    ) -> Bool {
-        guard isPlaying, totalParagraphs > 0 else { return false }
-        if cachedKey == nextKey && (cachedResult != nil || fetchTask != nil) {
-            return false
-        }
-        let isPastHalfway = currentParagraphIndex >= totalParagraphs / 2
-        let isNearEnd = remainingParentCount <= 3
-        return isPastHalfway || isNearEnd
-    }
-
     /// Kích hoạt tải ngầm văn bản DTO của chương tiếp theo với ownerGeneration do TTSChapterPrefetcher làm chủ
     internal func replacePrefetch(
         ownerGeneration: UInt64,

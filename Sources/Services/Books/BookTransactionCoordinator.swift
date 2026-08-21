@@ -140,22 +140,6 @@ public final class BookTransactionCoordinator {
     }
 
     @discardableResult
-    public func updateCurrentChapterTitle(bookId: String, title: String, in context: ModelContext) -> Result<Void, Error> {
-        var descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.bookId == bookId })
-        descriptor.fetchLimit = 1
-        guard let book = try? context.fetch(descriptor).first else {
-            return .failure(BookTransactionError.bookNotFound(bookId))
-        }
-        book.currentChapterTitle = title
-        do {
-            try context.save()
-            return .success(())
-        } catch {
-            return .failure(BookTransactionError.saveFailed(error.localizedDescription))
-        }
-    }
-
-    @discardableResult
     public func deleteBook(bookId: String, in context: ModelContext) -> Result<Void, Error> {
         var descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.bookId == bookId })
         descriptor.fetchLimit = 1

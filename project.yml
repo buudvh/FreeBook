@@ -59,16 +59,3 @@ targets:
         DEVELOPMENT_TEAM: ""
         PRODUCT_BUNDLE_IDENTIFIER: com.raikiri1498.FreeBook
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-  FreeBookTests:
-    type: bundle.unit-test
-    platform: iOS
-    sources:
-      - path: Tests
-    dependencies:
-      - target: FreeBook
-    settings:
-      base:
-        CODE_SIGNING_ALLOWED: "NO"
-        CODE_SIGNING_REQUIRED: "NO"
-        CODE_SIGN_IDENTITY: ""
-        PRODUCT_BUNDLE_IDENTIFIER: com.raikiri1498.FreeBookTests

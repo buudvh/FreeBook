@@ -162,14 +162,3 @@ public struct ToastOverlayView: View {
     }
 }
 
-public struct GlobalToastModifier: ViewModifier {
-    public func body(content: Content) -> some View {
-        content
-    }
-}
-
-extension View {
-    public func globalToast() -> some View {
-        self.modifier(GlobalToastModifier())
-    }
-}

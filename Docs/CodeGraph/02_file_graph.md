@@ -3,7 +3,7 @@ generated_by: Antigravity
 generator_version: 1.0
 generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 218
+source_files: 216
 document_version: 4
 ---
 
@@ -15,6 +15,13 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## File bị xoá/đổi tên khi dọn code chết (1.3.235)
+
+* **Xoá**: `Sources/Services/TTS/Helpers/TTSHighlightCalculator.swift`, `Sources/Services/TTS/Helpers/TTSParagraphSplitter.swift`, `Sources/Services/TTS/Helpers/TTSVoiceResolver.swift` (cả ba đều 0 *used by*; thư mục `Helpers/` không còn tồn tại), `Sources/Views/Reader/ReaderViewModelObserver.swift` (0 *used by*).
+* **Đổi tên**: `Sources/Views/Reader/ReaderParagraphBuilder.swift` → `Sources/Views/Reader/ReaderParagraphBuildResult.swift` (7 dòng). *Used by*: `Views/Reader/Extensions/ReaderViewModel+Translation.swift`. Enum `ReaderParagraphBuilder` bị xoá; đường dựng `[ParagraphItem]` của production nay là **một bản duy nhất** trong `ReaderViewModel+Translation.swift`.
+* **Xoá `Tests/` (20 file) và target `FreeBookTests` trong `project.yml`** — không còn file nào ngoài `Sources/` được biên dịch, nên đồ thị import/dependency chỉ còn một target.
+* Các file mất bớt thành viên nhưng giữ nguyên quan hệ *uses/used by*: `TTSManager.swift`, `TTSChapterPrefetcher.swift`, `TTSChapterTextWorker.swift`, `TTSNowPlayingController.swift`, `TTSParagraphBuilder.swift`, `ModelStore.swift`, `NghiTTSClient.swift`, `PiperTTSService.swift`, `ExtensionManager.swift`, `TranslationManager.swift`, `TranslateUtils.swift`, `BookTransactionCoordinator.swift`, `ExtensionTransactionCoordinator.swift`, `JunkFilterManager.swift`, `ReaderChapterListStore.swift`, `ImageCacheManager.swift`, `DisplayTextFormatter.swift`, `DoubleArrayTrie.swift`, `ToastManager.swift`, `BookDictionaryView.swift`.
+
 ## Next-chapter prefix audio files (1.3.234)
 
 * `Sources/Services/TTS/TTSNextChapterPrefixCache.swift` (380 dòng, 1 primary type `TTSNextChapterPrefixCache`)

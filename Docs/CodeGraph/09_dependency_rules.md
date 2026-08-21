@@ -3,7 +3,7 @@ generated_by: Antigravity
 generator_version: 1.0
 generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 218
+source_files: 216
 document_version: 2
 ---
 
@@ -15,6 +15,12 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ranh giới target sau khi bỏ tầng test (1.3.235)
+
+* `project.yml` chỉ còn **một** target biên dịch (`FreeBook`, `sources: - path: Sources`). Target `FreeBookTests` và thư mục `Tests/` đã bị xoá theo yêu cầu trực tiếp của người dùng, nên không còn phụ thuộc `Tests → FreeBook` và không còn API nào tồn tại chỉ để phục vụ test.
+* Hệ quả cho luật phụ thuộc: mọi symbol `public`/`internal` không có tham chiếu trong `Sources/` nay là code chết thật sự — trước đây không thể kết luận vì `Tests/` có thể đang dùng.
+* Chiều phụ thuộc của các phân hệ không đổi; việc dọn chỉ **bớt** cạnh (xoá 5 file, ~30 symbol) chứ không thêm cạnh mới nào.
+
 ## Next-chapter prefix dependency direction (1.3.234)
 
 * `TTSNextChapterPrefixCache` nằm ở `Sources/Services/TTS/`, chỉ `import Foundation`, **không** import SwiftUI và **không** gọi `ToastManager.shared` — thoả `SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING`.

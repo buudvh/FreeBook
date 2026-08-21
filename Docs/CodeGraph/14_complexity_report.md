@@ -3,7 +3,7 @@ generated_by: Antigravity
 generator_version: 1.0
 generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 218
+source_files: 216
 document_version: 3
 ---
 
@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Dọn code chết: số liệu trước/sau (1.3.235)
+
+* Tổng file Swift: **220 → 216** (xoá 5, thêm 1 do đổi tên). Ngoài ra 20 file dưới `Tests/` bị xoá khỏi repo (không tính vào `Sources/`).
+* `check_architecture.py`: **30 → 28 violation**. Hai violation hết hẳn: `NEW_FILE_TOO_LARGE` của `TTSChapterPrefetcher.swift` (402 → 375) và `LINE_LIMIT_EXCEEDED` của `TranslationManager.swift` (649 → 601, dưới baseline 642).
+* Các file lớn giảm dòng: `TTSManager.swift` **4097 → 4003** (xoá `logRemoteTrace` + 4 hàm chết, sau khi đã cộng +4 dòng của tính năng prefix chương kế ở 1.3.234); `ExtensionManager.swift` 1066 → 1049; `TranslateUtils.swift` 1046 → 1041; `DoubleArrayTrie.swift` −49; `NghiTTSClient.swift` −57.
+* Không file nào tăng dòng. Không thêm primary type mới; `ReaderParagraphBuildResult.swift` (7 dòng) là file nhỏ nhất repo sau thay đổi.
+
 ## Incremental complexity update (1.3.234)
 
 * File mới `Sources/Services/TTS/TTSNextChapterPrefixCache.swift`: **380 dòng vật lý**, 1 primary type (kèm nested `PreparedChunk`), hàm dài nhất `synthesize` (~62 dòng, 3 nhánh engine), không có nested closure sâu quá 2 mức. Dưới trần 400 dòng cho file mới.

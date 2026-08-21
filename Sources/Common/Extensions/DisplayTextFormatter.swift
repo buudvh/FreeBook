@@ -13,14 +13,6 @@ public enum DisplayTextFormatter {
         return formatString(text)
     }
 
-    /// Formats an optional title or author string into Title Case, returning nil if empty or nil.
-    public static func titleCaseOrNil(_ text: String?) -> String? {
-        guard let text = text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return nil
-        }
-        return formatString(text)
-    }
-
     internal static func formatString(_ text: String) -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let words = trimmed.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }

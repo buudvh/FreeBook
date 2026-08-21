@@ -746,11 +746,6 @@ public final class TranslateUtils {
         return true
     }
 
-    @discardableResult
-    public static func resetTOCRulesToDefault() -> Bool {
-        return saveTOCRules(defaultTOCRules)
-    }
-
     public static func validateTOCRulePattern(_ pattern: String) -> String? {
         let trimmed = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return "Chuỗi mẫu Regex không được để trống." }

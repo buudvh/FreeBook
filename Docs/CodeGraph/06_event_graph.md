@@ -3,7 +3,7 @@ generated_by: Antigravity
 generator_version: 1.0
 generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 218
+source_files: 216
 document_version: 8
 ---
 
@@ -190,7 +190,7 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 * **Deletion Events**: Tapping delete/remove in `ShelfView` or `BookDetailView` triggers database deletion (`BookStorageManager`) and side-effect cancellation (stops playback via `TTSManager.stop` and cancels downloads via `DownloadManager.cancelTasksForBook`).
 * **Background Cleanup Events**: A successful DB commit dispatches asynchronous file deletions via a background `Task`. If deletion fails, a failure event enqueues the file path in `UserDefaults` (`failed_file_deletions_queue`).
 * **Startup Retry Event**: At app startup, `drainRetryQueue()` is called to process the failed deletion queue, trying up to 3 times before discarding the item.
-* **TOC Paging Events**: Scrolling a placeholder list item into view triggers a `loadPageIfNeeded` event in `ReaderChapterListStore` which asynchronously fetches chapter metadata.
+* **TOC Paging Events**: Scrolling a placeholder list item into view triggers a `loadVisiblePageIfNeeded` event in `ReaderChapterListStore` which asynchronously fetches chapter metadata.
 * **Cancellation Event**: Task cancellation during download/export propagates cooperative cancellation checks at chapter boundaries, raising a cancellation event that aborts subsequent chapters.
 
 ## Reader translation-selection events (1.3.14)
@@ -309,7 +309,7 @@ graph TD
 - Repository-row trash taps open a confirmation alert; confirmation uninstalls owned local extensions and deletes the repository, while horizontal swipes remain owned by the parent paged tab.
 - Book deletion taps on `ShelfView` and `BookDetailView` trigger database deletion, stops active TTS playback (`TTSManager.stop`), and cancels active downloads (`DownloadManager.cancelTasksForBook`) before dispatching background file cleanup.
 - Physical file deletion failures raise an event to enqueue the path in the `UserDefaults` retry queue, and app launch triggers `drainRetryQueue()` to process failed items.
-- Scrolling placeholder rows in the TOC triggers a `loadPageIfNeeded` event in `ReaderChapterListStore` which launches background tasks to fetch metadata for the visible window.
+- Scrolling placeholder rows in the TOC triggers a `loadVisiblePageIfNeeded` event in `ReaderChapterListStore` which launches background tasks to fetch metadata for the visible window.
 - Task cancellation in `DownloadManager` emits cooperative cancellation events at chapter boundaries to halt execution.
 
 - `ProcessInfo.thermalStateDidChangeNotification` is telemetry-only: its handler (`TTSManager.swift:4009-4020`) updates `TTSManager.currentThermalState` and calls `RemoteTTSSynthesisCoordinator.recordThermalStateChange` to emit one energy-log line. It does **not** gate or cancel Nghi or Remote prefetch — for remote engines it in fact triggers `triggerNextChapterPrefetch()` regardless of thermal level.

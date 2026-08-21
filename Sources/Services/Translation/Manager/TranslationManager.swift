@@ -149,25 +149,6 @@ public final class TranslationManager: ObservableObject {
         notifyDictionariesDidUpdate(bookId: bookId, scope: .term(word: cleanWord, isName: isName, bookId: bookId))
     }
     
-    public func addDeletedWords(_ words: [String], isName: Bool) {
-        let fileUrl = customTextURL(isName: isName, bookId: nil)
-        var records = (try? DictionaryTextFileStore.parseRecords(from: fileUrl)) ?? []
-        let deletedRecords = words
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .map { DictionaryTextRecord(key: $0, value: "") }
-
-        guard !deletedRecords.isEmpty else { return }
-        let deletedKeys = Set(deletedRecords.map { $0.key })
-        records.removeAll { deletedKeys.contains($0.key) }
-        records.insert(contentsOf: deletedRecords, at: 0)
-
-        if (try? DictionaryTextFileStore.persist(records: records, to: fileUrl)) != nil {
-            updateDeletedState(from: records, isName: isName)
-            notifyDictionariesDidUpdate()
-        }
-    }
-    
     public func removeDeletedWords(_ words: [String], isName: Bool) {
         let fileUrl = customTextURL(isName: isName, bookId: nil)
         let wordSet = Set(words.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
@@ -457,35 +438,6 @@ public final class TranslationManager: ObservableObject {
         }
         
         try await loadAllDictionaries()
-        notifyDictionariesDidUpdate()
-    }
-    
-    public func deleteDictionary(type: String) async {
-        if type == "vietphrase" {
-            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("VietPhrase.txt"))
-            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("VietPhrase.dat"))
-            self.vietPhraseDict = nil
-            await MainActor.run { self.isVietPhraseLoaded = false }
-        } else if type == "names" {
-            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("Names.txt"))
-            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("Names.dat"))
-            self.namesDict = nil
-            await MainActor.run { self.isNamesLoaded = false }
-        } else if type == "pronouns" {
-            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("Pronouns.txt"))
-            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("Pronouns.dat"))
-            self.pronounsDict = nil
-            await MainActor.run { self.isPronounsLoaded = false }
-        } else if type == "luatnhan" {
-            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("LuatNhan.txt"))
-            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("LuatNhan.dat"))
-            self.luatNhanDict = nil
-            await MainActor.run { self.isLuatNhanLoaded = false }
-        } else if type == "phienam" {
-            try? FileManager.default.removeItem(at: translateDirectory.appendingPathComponent("ChinesePhienAmWords.txt"))
-            self.phienAmMap = [:]
-            await MainActor.run { self.isPhienAmLoaded = false }
-        }
         notifyDictionariesDidUpdate()
     }
     
