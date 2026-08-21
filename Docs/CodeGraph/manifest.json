@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-21T11:45:02Z",
-  "gitCommit": "63576740dc3b2b4c756c6c4c700f07adee13f9c2",
+  "generatedAt": "2026-08-21T12:02:57Z",
+  "gitCommit": "60937fd698c326badc804e91cf8fd6e08e7c028b",
   "sourceFileCount": 230,
   "documentCount": 16,
   "documents": [
@@ -275,11 +275,11 @@
         "project.yml"
       ],
       "structureHash": "8465fb28c38bb8230fbde3fc5fac9f8327ab95fbd971aa7a6077f5d6e76ec335",
-      "sourceHash": "669e5c6f94a7ca0e8732d51c2f58794d37a9dac6eacce1f182166af280429e68",
+      "sourceHash": "b4204aaac9e46871db6e6bd42c0ddabd6f69224ac1965558a66da814f4e0b46e",
       "generatedHash": "df5e879240263fae5fd7ec1c3d6789cf71768857dde990e91118365ce15094c8",
-      "generatedAt": "2026-08-21T11:26:29Z",
-      "reviewedAt": "2026-08-21T11:26:29Z",
-      "reviewedCommit": "511e1b5e4dcd1836f21eb0d18b0a6ae7b0721b4c",
+      "generatedAt": "2026-08-21T12:02:57Z",
+      "reviewedAt": "2026-08-21T12:02:57Z",
+      "reviewedCommit": "60937fd698c326badc804e91cf8fd6e08e7c028b",
       "reviewMode": "no-change-needed"
     },
     {

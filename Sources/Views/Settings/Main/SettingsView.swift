@@ -224,7 +224,7 @@ struct SettingsView: View {
                             Text("Ghi log hệ thống")
                                 .font(.body)
                                 .fontWeight(.medium)
-                            Text("Bật ghi log giúp chẩn đoán và sửa lỗi của các VBook extension. Log được lưu trong file app_logs.txt trên thiết bị.")
+                            Text("Bật ghi log giúp chẩn đoán và sửa lỗi. Log được lưu trong file applicationSupportDirectory/app_logs.txt trên thiết bị.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }

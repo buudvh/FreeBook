@@ -183,16 +183,21 @@ jobs:
         FILE_SIZE=$(wc -c < "$IPA_PATH")
         MAX_SIZE=50000000 # ~47.6 MB để đảm bảo an toàn cho giới hạn 50MB của Telegram Bot
         
-        # Lấy toàn bộ nội dung commit message gần nhất
+        # Lấy toàn bộ nội dung commit message gần nhất (dùng cho sendMessage, giới hạn 4096 ký tự)
         COMMIT_MSG=$(git log -1 --pretty=format:"%B")
-        
+        # Riêng caption của sendDocument bị Telegram giới hạn 1024 ký tự: commit message
+        # nhiều đoạn sẽ bị trả về 400 "message caption is too long" và IPA không tới được
+        # Telegram (curl vẫn exit 0 nên step vẫn xanh). Vì vậy caption chỉ dùng subject
+        # một dòng; toàn bộ message vẫn tra được bằng git log.
+        COMMIT_SUBJECT=$(git log -1 --pretty=format:"%s")
+
         echo "IPA File Size: $FILE_SIZE bytes"
-        
+
         if [ "$FILE_SIZE" -lt "$MAX_SIZE" ]; then
           echo "File size is under 50MB. Uploading directly to Telegram..."
-          
+
           # Dùng printf để định dạng chuỗi xuống dòng an toàn cho YAML
-          CAPTION=$(printf "📦 FreeBook Build Thành Công! 🚀\n\n💬 Commit Message:\n%s" "$COMMIT_MSG")
+          CAPTION=$(printf "📦 FreeBook Build Thành Công! 🚀\n\n💬 Commit: %s" "$COMMIT_SUBJECT")
 
           curl -F chat_id="${TELEGRAM_CHAT_ID}" \
                -F document=@"$IPA_PATH" \
