@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tạm ngưng Reader TTS auto-scroll khi ứng dụng không hiển thị (1.3.233)
+
+* Reader sử dụng trạng thái `@State internal var isSceneActive` (đồng bộ tại `onAppear` và `.onChange(of: scenePhase)`) và số thế hệ `ttsAutoScrollGeneration` tăng dần mỗi khi đổi `scenePhase` để quản lý an toàn luồng auto-scroll mà không bị ảnh hưởng bởi struct snapshot capture của SwiftUI.
+* Khi `isSceneActive == false`, mọi entry point auto-scroll TTS (`onChange` parent paragraph, `requestTTSScrollIfNeeded`, và `scrollToTTSHighlightIfNeeded` kể cả bên trong closure `DispatchQueue.main.asyncAfter` kiểm tra token `ttsAutoScrollGeneration == currentGen`) bị chặn hoàn toàn.
+* Khi `scenePhase` chuyển sang inactive/background, `ttsAutoScrollGeneration` tăng lên làm vô hiệu hóa lập tức mọi callback `asyncAfter` đang chờ, đồng thời Reader tự động hủy `scrollTarget` có `reason == .ttsAuto`; các target navigation/manual/initial-restore vẫn được bảo toàn.
+* Ngay tại đường thực thi `proxy.scrollTo` (`attemptScroll` & `onChange(of: scrollTarget)`), bất kỳ target `.ttsAuto` dư thừa nào nếu phát sinh khi `isSceneActive == false` sẽ lập tức bị hủy mà không thực thi.
+* Khi ứng dụng trở lại `scenePhase == .active`, `ttsAutoScrollGeneration` tiếp tục tăng để loại bỏ các callback cũ, và lên lịch resync 1-shot duy nhất (`scrollToTTSHighlightIfNeeded`) khớp với thế hệ mới nhất để cuộn về vị trí câu TTS hiện tại mà không replay lịch sử scroll ngầm.
+
 ## Local TXT confirmation/import lifecycle (1.3.224)
 
 * Confirmation preview owns only a derived six-index list (plus an omitted-count row) and recomputes it whenever reanalysis replaces `parsed`; it never mounts the full chapter list.

@@ -2,12 +2,15 @@ import SwiftUI
 
 extension ReaderView {
     internal func scrollToTTSHighlightIfNeeded() {
+        guard isSceneActive else { return }
         guard !isAutoScrollDisabled else { return }
         if ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId && ttsState.snapshot.currentParentParagraphIndex >= 0 {
             let targetIdx = ttsState.snapshot.currentParentParagraphIndex
             let chapIdx = ttsState.snapshot.playingChapterIndex
             if chapIdx == chapterIndex {
+                let currentGen = ttsAutoScrollGeneration
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    guard self.isSceneActive && self.ttsAutoScrollGeneration == currentGen else { return }
                     self.requestTTSScrollIfNeeded(chapterIndex: chapIdx, paragraphIndex: targetIdx)
                 }
             }
@@ -15,6 +18,7 @@ extension ReaderView {
     }
 
     internal func requestTTSScrollIfNeeded(chapterIndex: Int, paragraphIndex: Int) {
+        guard isSceneActive else { return }
         guard !isRestoringReaderPosition else { return }
         let isInsideSafeViewport = paragraphTracker.isParagraphInsideSafeViewport(
             bookId: bookId,

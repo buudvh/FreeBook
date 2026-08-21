@@ -86,7 +86,7 @@ struct ReaderView: View {
     // @Environment: Lấy các biến môi trường của hệ thống
     @Environment(\.modelContext) private var modelContext // Context quản lý dữ liệu SwiftData
     @Environment(\.dismiss) internal var dismiss // Hàm dùng để đóng màn hình hiện tại và quay về màn hình trước
-    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.scenePhase) internal var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // @Query: Tự động tải dữ liệu từ database SwiftData
@@ -183,6 +183,8 @@ struct ReaderView: View {
     @State internal var readerViewportMaxY: CGFloat = 0
     @State internal var isRestoringReaderPosition = true
     @State internal var isAutoScrollDisabled = false
+    @State internal var isSceneActive: Bool = true
+    @State internal var ttsAutoScrollGeneration: Int = 0
     @State internal var viewModel: ReaderViewModel? = nil
     @State private var updateProgressWorkItem: DispatchWorkItem? = nil
     @State private var updateTTSPositionWorkItem: DispatchWorkItem? = nil
@@ -886,6 +888,7 @@ struct ReaderView: View {
             await initializeReaderIfNeeded()
         }
         .onAppear {
+            isSceneActive = (scenePhase == .active)
             ttsState.scope(to: bookId)
             ReaderEnergyDiagnostics.shared.beginReaderSession()
             updateDisplayedBookTitleCache()
@@ -912,6 +915,21 @@ struct ReaderView: View {
             }
         }
         .onChange(of: scenePhase) { _, newPhase in
+            let activeNow = (newPhase == .active)
+            isSceneActive = activeNow
+            ttsAutoScrollGeneration += 1
+
+            if !activeNow {
+                if scrollTarget?.reason == .ttsAuto {
+                    scrollTarget = nil
+                }
+            } else {
+                let currentGen = ttsAutoScrollGeneration
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    guard self.isSceneActive && self.ttsAutoScrollGeneration == currentGen else { return }
+                    self.scrollToTTSHighlightIfNeeded()
+                }
+            }
             if newPhase == .background {
                 ReaderEnergyDiagnostics.shared.flush(reason: "app_background")
             }
@@ -962,6 +980,7 @@ struct ReaderView: View {
             }
         }
         .onChange(of: ttsState.snapshot.currentParentParagraphIndex) { _, newValue in
+            guard isSceneActive else { return }
             guard ttsState.snapshot.isPlaying &&
                   ttsState.snapshot.playingBookId == bookId &&
                   ttsState.snapshot.playingChapterIndex >= 0 &&
@@ -2073,6 +2092,10 @@ struct ReaderView: View {
 
 
     private func attemptScroll(to target: ScrollTarget, proxy: ScrollViewProxy, vm: ReaderViewModel) -> Bool {
+        if target.reason == .ttsAuto && !isSceneActive {
+            scrollTarget = nil
+            return true
+        }
         let reqTarget = ReaderScrollTarget(
             chapterIndex: target.chapterIndex,
             paragraphIndex: target.paragraphIndex,
@@ -2158,6 +2181,10 @@ struct ReaderView: View {
             }
             .onChange(of: scrollTarget) { _, target in
                 guard let target, target.chapterIndex == chapter.index else { return }
+                if target.reason == .ttsAuto && !isSceneActive {
+                    scrollTarget = nil
+                    return
+                }
                 if attemptScroll(to: target, proxy: proxy, vm: vm) {
                     scrollTarget = nil
                 }

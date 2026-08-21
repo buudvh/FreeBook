@@ -4,6 +4,18 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.200) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.233] - 2026-08-21
+
+### Tạm ngưng Reader TTS auto-scroll khi ứng dụng không hiển thị (scenePhase != .active)
+
+* **`ReaderView.swift` & `ReaderView+LoadingView.swift`**:
+  - Quản lý trạng thái hiển thị qua `@State internal var isSceneActive` (đồng bộ tại `onAppear` và `.onChange(of: scenePhase)`) và số thế hệ `ttsAutoScrollGeneration` tăng dần mỗi lần chuyển phase, tránh việc SwiftUI closure capture snapshot struct `self.scenePhase` cũ.
+  - Chặn mọi entry point TTS auto-scroll khi `isSceneActive == false`, bao gồm callback `.onChange(of: currentParentParagraphIndex)`, `requestTTSScrollIfNeeded`, và callback delayed `scrollToTTSHighlightIfNeeded` (closure `asyncAfter` kiểm tra cờ `isSceneActive` và token `ttsAutoScrollGeneration == currentGen`).
+  - Khi `scenePhase` chuyển sang inactive/background, `ttsAutoScrollGeneration` tăng lên làm hủy lập tức mọi callback `asyncAfter` đang chờ, đồng thời tự động hủy `scrollTarget` pending có `reason == .ttsAuto`, không ảnh hưởng đến các target navigation/manual/initial-restore.
+  - Thêm kiểm tra phòng thủ (defense-in-depth) tại `attemptScroll` và `.onChange(of: scrollTarget)` để hủy lập tức bất kỳ `.ttsAuto` target nào phát sinh khi `!isSceneActive` mà không thực thi.
+  - Khi `scenePhase` trở lại `.active`, kích hoạt resync 1-shot duy nhất (`scrollToTTSHighlightIfNeeded`) khớp với token mới nhất sau 0.1s defer để đồng bộ về câu TTS hiện tại mà không replay backlog scroll ngầm.
+  - Giữ nguyên trạng thái hiển thị highlight, audio TTS, tiến độ logic, prefetch, và background chapter sync.
+
 ## [1.3.232] - 2026-08-21
 
 ### Đưa cơ chế staleness mới tới Codex/agent khác: sửa .agents/AGENTS.md, bỏ gitignore AGENTS.md
