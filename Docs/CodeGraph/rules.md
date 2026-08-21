@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-17T23:26:29+07:00
+generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 93
-document_version: 7
+source_files: 218
+document_version: 8
 ---
 
 # Hướng dẫn Quy định Lập trình (Coding & Architecture Rules)
@@ -20,7 +20,7 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 * **Physical File Line Limit**: New Swift files created during refactoring must stay <= 400 physical lines. Legacy files exceeding 400 lines are tracked in `Scripts/architecture_allowlist.json` and must ratchet downward.
 * **One Primary Type Per File**: Each Swift file must declare exactly one primary type (class, struct, enum, or actor).
 * **SwiftData Write Coordinators**: SwiftUI Views must not perform direct `modelContext` write mutations (`insert`, `delete`, `save`). All write transactions are owned by domain transaction coordinators (`ExtensionTransactionCoordinator`, `BookTransactionCoordinator`) accepting immutable Command DTOs/IDs.
-* **Services Layer Boundaries**: `Sources/Services/` must not import `SwiftUI` (except designated platform adapters like `WebViewLoader.swift`) and must not invoke `ToastManager.shared` directly.
+* **Services Layer Boundaries**: `Sources/Services/` must not import `SwiftUI` and must not invoke `ToastManager.shared` directly. The `SERVICE_SWIFTUI_IMPORT` check exempts only files whose name ends with `WebViewLoader.swift` (currently `WebViewLoader.swift` and `VisibleWebViewLoader.swift`); as of this revision no Services file imports SwiftUI at all, so the exemption is a standing allowance rather than an active carve-out.
 * **Presentation Event Center**: UI presentation events (toasts) emitted by background services use thread-safe `AsyncStream` event centers (`TTSPresentationEventCenter`, `DownloadPresentationEventCenter`) with `AppLaunchRootView` as the sole UI presentation subscriber.
 * **VBook JS Runtime Boundaries**: Extraction operations use short-lived `JSExecutor` instances; only `ExtTTSRuntime` may persist a long-lived runtime. All extension calls must preserve `execute(...)`, `runAsync`, global API injections (`Html`, `Engine`, `Response`, `fetch`), and root vs `src/` script path resolution.
 * **Logging and Observability**: Log via `AppLogger.shared` with structured tags; do not use raw `print`. Never log secrets, full chapter payloads, or sensitive user data.
@@ -46,7 +46,7 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
   2. Dependencies: Views -> ViewModel/Coordinator -> Services/Repositories -> Models. Views MUST NOT import SwiftData or perform direct `modelContext` write mutations.
   3. Physical Line Limit: Max 400 lines for new files; legacy allowlisted files must ratchet down.
   4. Exactly 1 primary type per file.
-  5. Services must not import SwiftUI (except platform adapters) or invoke ToastManager.shared.
+  5. Services must not import SwiftUI (exemption matches file names ending `WebViewLoader.swift`) or invoke ToastManager.shared.
   6. Unit test modifications under `Tests/` are strictly forbidden (Rule 2.1).
   7. CodeGraph docs must be updated factually and validated with `validate_links.py`.
 
@@ -80,17 +80,20 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 * Lock Screen book title, chapter title, translation result, and artwork are static metadata keyed by book/chapter/cover/translation generation. Only one static metadata task may be active; paragraph transitions update only timeline, progress, speed, and playback state.
 * NghiTTS model preparation is lazy: app initialization may warm the model only when `tool == "nghitts"`; selecting another engine cancels pending warm-up.
 
-## TTS highlight coordinate invariants (1.3.80)
+## TTS highlight coordinate invariants (1.3.81, supersedes 1.3.80)
 
-* `TTSParagraph.range` is always expressed in UTF-16 offsets of the **original** `ChapterTextLine.text`. `TTSManager.highlightRange` and `ReaderView` must preserve that coordinate space; no component may pre-translate it.
-* Any component that paints a TTS highlight onto displayed text must first map the range through `ReaderSelectionMapper.mapHighlight(_:in:displayText:)`. Applying an original-text range directly onto translated text is forbidden.
-* `mapHighlight` receives the **actual displayed string**, not an `isTranslationEnabled` flag. `toggleTranslation` only flips the flag without rebuilding `paragraphItems`, so `ParagraphItem.translated` may lag behind what is rendered.
-* Stored `translationSpans` are authoritative only when the displayed string equals `ParagraphItem.translated`. Otherwise, and whenever `buildTranslationSpans` returned `[]`, the proportional-length fallback applies.
+* `TTSParagraph.range` is expressed in UTF-16 offsets of the **displayed** string (`TTSLineEntry.translatedText` — the translated line when VietPhrase is on, the original line when it is off) and is **relative to its parent line**, not absolute within the chapter. `TTSParagraph.sourceRange` is the range mapped back onto the original text.
+* Reader and TTS share one coordinate space by construction: `TTSBackgroundProcessor.processChapter` translates **line by line first**, then rebuilds through `reconstructContentPreservingLineIDs` → `ChapterTextNormalizer.normalizeProcessedContent`, so the TTS `normalizedContent` and Reader's `ParagraphItem` list describe the same string.
+* Therefore `ReaderView` passes `ttsState.snapshot.highlightRange` **directly** to `ParagraphCardView` → `ReaderTextView` with no remapping. Correctness is enforced by identity guards (`playingBookId`, `playingChapterIndex`, `currentParentParagraphIndex`), not by coordinate translation.
+* `ReaderSelectionMapper.mapHighlight`, `mappedRangeUsingOriginalSpans`, and `proportionalHighlightFallback` were removed in 1.3.81 because the pipeline no longer produces a coordinate mismatch. **Do not reintroduce them and do not wrap the highlight range in any mapper.**
+* `ReaderSelectionMapper` retains only the reverse direction for user selection: `mapSelection(_:in:isTranslationEnabled:bookId:)` maps a selection on the displayed string back onto the original text for dictionary lookup. Stored `translationSpans` take precedence; the sentence/token heuristic is fallback-only when spans are empty or do not cover the selection.
 * Range validity checks guard against crashes only; they must never be relied on as correctness of alignment.
 
 ## Reader/TTS normalized-text invariants (1.3.15)
 
 * `ChapterTextNormalizer` is the only component allowed to canonicalize chapter newlines, remove blank lines, assign paragraph IDs, and calculate UTF-16 ranges.
+* `ChapterTextLine.id` is the **raw line index and counts blank lines**, so paragraph IDs are sparse and are never array offsets: `"Một\n\nHai"` yields ids `[0, 2]`. `ParagraphItem.id` and `TTSParagraph.paragraphIndex` inherit that property; always look up by `id`. The chapter-title chunk uses `-1` on both sides.
+* `ChapterTextLine.utf16Range` is computed over the string **before** blank lines are dropped, so it must not be used to slice `NormalizedChapterText.content`.
 * `ChapterDocument` is created once by `ChapterContentRepository`; Reader and TTS builders must consume its normalized lines without re-splitting or re-numbering.
 * TTS chunks may split a line but must retain the parent `ChapterTextLine.id`; replacement output must be non-empty before extension synthesis.
 * TTS owns progress while playing. Reader snapshots are ignored during TTS ownership and all checkpoints flush through `ReadingProgressStore` off the MainActor.
@@ -179,7 +182,7 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
     *   `Extensions/`: Các phần mở rộng (Extensions/Helpers) dùng chung (`String+HTML.swift`, `View+Keyboard.swift`, `String+Crypto.swift`...).
     *   `Services/`: Các Service/Manager dùng chung cho toàn bộ ứng dụng (`ImageCacheManager.swift`, `ToastManager.swift`...).
 *   **Models (`Sources/Models`)**:
-    *   `Database/`: All SwiftData persistable model classes (`Book`, `Chapter`, `Extension`, `Repository`).
+    *   `Database/`: All SwiftData persistable model classes (`Book`, `Chapter`, `Extension`, `Repository`, `DownloadTaskModel` — the `ModelContainer` schema in `FreeBookApp.swift` registers all five).
     *   `Dictionaries/`: All translation lookup data structure classes (`DoubleArrayTrie`, `TextDictionary`, `SearchEngine`).
 *   **Views (`Sources/Views`)**: Tổ chức thành các thư mục con theo module chức năng độc lập:
     *   `Shelf/ShelfMain/`: Chỉ chứa kệ sách chính (`ShelfView.swift`).
@@ -330,22 +333,23 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
     ```
 
 ### 5.6. TTS Rules
-*   **Tên**: Dọn dẹp cửa sổ trượt prefetch WAV của đoạn văn
+*   **Tên**: Dọn dẹp cửa sổ trượt prefetch audio của đoạn văn
 *   **Loại quy tắc**: **Observed Rule**
-*   **Mô tả**: Chỉ giữ buffer âm thanh PCM của đoạn hiện tại đang đọc (N) và đoạn tiếp theo (N+1) trong cache `preloadedWavs`.
-*   **Lý do**: Buffer âm thanh PCM thô tiêu tốn rất nhiều bộ nhớ RAM, nếu không dọn dẹp sẽ gây crash app vì cạn bộ nhớ (OOM).
+*   **Mô tả**: Bộ đệm audio đoạn văn là `preloadedData` (dữ liệu WAV/MP3) đi kèm `preloadedDurations`; mọi index nằm ngoài cửa sổ trượt hiện hành phải bị loại bỏ. Cửa sổ khác nhau theo engine:
+    *   Google/Ext (`updatePrefetchWindow`): giữ `[N, N + count]` với `count = max(1, min(10, currentPrefetchCount))` — `currentPrefetchCount` lấy từ `googlePrefetchCount` (2-10) hoặc `preload_size` của extension.
+    *   NghiTTS (`updateNghiPrefetchWindow`): giữ đoạn hiện tại `N`, đoạn kế `N + 1` (slot bắt buộc), tối đa `NghiSynthesisPolicy.maxOptionalReserveItems` (2) optional reserve từ `N + 2`, cộng audio chương kế do `TTSChapterPrefetcher` giữ riêng.
+*   **Lý do**: Buffer âm thanh thô tiêu tốn rất nhiều bộ nhớ RAM, nếu không dọn dẹp sẽ gây crash app vì cạn bộ nhớ (OOM).
 *   **Ví dụ đúng**:
     ```swift
-    let cacheKeepIndices = [N, N + 1]
-    for idx in preloadedWavs.keys {
-        if !cacheKeepIndices.contains(idx) {
-            preloadedWavs.removeValue(forKey: idx)
-        }
+    let cacheKeepIndices = Set(Array(N...(N + count)))
+    for idx in preloadedData.keys where !cacheKeepIndices.contains(idx) {
+        preloadedData.removeValue(forKey: idx)
+        preloadedDurations.removeValue(forKey: idx)
     }
     ```
 *   **Ví dụ sai**:
     ```swift
-    preloadedWavs[index] = buffer // Không bao giờ giải phóng
+    preloadedData[index] = data // Không bao giờ giải phóng
     ```
 
 ### 5.7. Extension Rules
@@ -389,13 +393,13 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
 ### 5.7.2. NghiTTS Energy Rules
 * NghiTTS synthesis phải tiếp tục đi qua `PiperSynthesisCoordinator` với tối đa một inference đang chạy.
 * ORT/XNNPACK mặc định chỉ dùng một worker; không tăng thread count theo số core vì nghe lâu là sustained workload.
-* `NghiSynthesisPolicy` là nguồn duy nhất cho watermark, cooldown và thermal eligibility; không lặp các hằng số này trong manager/prefetcher.
-* `.serious`/`.critical` phải dừng speculative refill và next-chapter audio. N+1 thiết yếu không có cooldown và vẫn được phép ở `.serious`; `.critical` chỉ cho phép chunk hiện tại bị thiếu tổng hợp on-demand.
-* Refill N+1 đang chạy phải được playback demand tái sử dụng; không được hủy rồi tổng hợp trùng cùng đoạn. Mọi refill xa hơn N+1 mới được áp dụng cooldown theo thermal policy.
-* Audio chương kế của NghiTTS chỉ được tạo ở `.nominal`; `.fair` ưu tiên CPU idle cho chương đang phát.
+* `NghiSynthesisPolicy` là nguồn duy nhất cho watermark cached-time (`defaultSafeCachedTimeThreshold = 8.0`, dải `safeCachedTimeThresholdRange = 4.0...20.0`) và `maxOptionalReserveItems = 2`; không lặp các hằng số này trong manager/prefetcher. Policy này **không** chứa cooldown hay thermal eligibility — đừng thêm vào.
+* Thermal state là diagnostic-only cho toàn bộ TTS (Nghi và Remote): nó chỉ cập nhật `TTSManager.currentThermalState` cho telemetry và làm nhãn trong energy log. Không được dùng `.serious`/`.critical` để hủy, điều tiết hay thu hẹp refill, prefetch, hoặc audio chương kế.
+* Refill N+1 đang chạy phải được playback demand tái sử dụng; không được hủy rồi tổng hợp trùng cùng đoạn.
+* Audio chương kế của NghiTTS do `TTSChapterPrefetcher` sở hữu và chỉ được promote khi chuỗi chunk còn lại của chương hiện tại đã đủ; nó không phải một slot refill của cửa sổ đoạn văn.
 * Kết quả sau `TextPreprocessor` không còn ký tự có thể đọc phải được `PiperTTSService` chuyển thành WAV/PCM khoảng lặng hợp lệ. Luồng streaming phải phát đúng một terminal chunk và không chuyển chuỗi rỗng vào ONNX/eSpeak.
-* NghiTTS refill được phép retry tại `TTSManager` vì đây là chính sách cửa sổ prefetch, không phải retry nội bộ engine: tối đa hai attempt tổng cộng cho mỗi session/chapter/paragraph, cooldown 1 giây, lỗi model/engine/request không retry bị block ngay.
-* Trong thời gian cooldown, scheduler không được tạo refill thay thế. Retry task phải xác thực session/chapter/generation, xóa reference của chính nó trước khi gọi lại prefetch, và bị hủy/reset khi stop, đổi session hoặc chuyển chương.
+* NghiTTS refill được phép retry tại `TTSManager` vì đây là chính sách cửa sổ prefetch, không phải retry nội bộ engine: tối đa hai attempt tổng cộng cho mỗi session/chapter/paragraph (`evaluateRefillError(maxAttempts: 2)`), retry backoff 1 giây, lỗi model/engine/request không retry bị block ngay.
+* Trong thời gian chờ backoff, scheduler không được tạo refill thay thế (`canScheduleNghiRefill` chặn khi còn `nghiRefillRetryTask`). Retry task phải xác thực session/chapter/generation, xóa reference của chính nó trước khi gọi lại prefetch, và bị hủy/reset khi stop, đổi session hoặc chuyển chương.
 * `CancellationError` không được ghi failure state, log như synthesis failure hoặc lên lịch retry. Index đã block chỉ bị bỏ qua ở prefetch; foreground/on-demand synthesis vẫn giữ quyền thử lại.
 
 ### 5.8. Memory Rules
@@ -422,7 +426,7 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
 ### 5.9. Logging Rules
 *   **Tên**: Ghi log ngoại lệ chi tiết của JS Engine ra tệp logs
 *   **Loại quy tắc**: **Observed Rule**
-*   **Mô tả**: Toàn bộ thông tin crash, exception của JS phải được lưu vào file `app_logs.txt` trong thư mục `Documents`.
+*   **Mô tả**: Toàn bộ thông tin crash, exception của JS phải được lưu vào file `app_logs.txt` trong thư mục `applicationSupportDirectory` (không phải `Documents`). `AppLogger.init` set `isLoggingEnabled = false` mỗi lần khởi chạy và tự xóa file khi vượt 5 MB, nên phải bật lại trong Settings mới thấy log mới.
 *   **Lý do**: Nhà phát triển ứng dụng cài app qua LiveContainer test trực tiếp trên iOS vật lý, không thể debug qua Xcode Console.
 *   **Ví dụ đúng**:
     ```swift
@@ -495,7 +499,7 @@ Dự án FreeBook được tổ chức theo cấu trúc phân tầng nghiêm ng�
 
 ### 6.3. Thiết kế Kiến trúc & Tối ưu hóa Hiệu năng (Performance & Memory Rules)
 - **Architecture Decision Rule**: Ưu tiên tối đa việc tái sử dụng các lớp Manager, Service và ViewModel sẵn có trong dự án (ví dụ: `TTSManager`, `ExtensionManager`, `DownloadManager`, `TranslationManager`). Tránh tạo ra duplicate logic hoặc tự ý xây dựng lại các kiến trúc thiết kế mới song song nếu không có yêu cầu cụ thể từ người dùng.
-- **Logging Rule**: Mọi log runtime trong mã nguồn Swift hoặc engine JS phải sử dụng tiện ích `AppLogger` để ghi trực tiếp vào tệp logs `app_logs.txt` trong thư mục `Documents` của thiết bị. Không sử dụng hoặc phụ thuộc vào Xcode Console (do môi trường chạy thực tế là LiveContainer trên iOS vật lý không thể đính Xcode).
+- **Logging Rule**: Mọi log runtime trong mã nguồn Swift hoặc engine JS phải sử dụng tiện ích `AppLogger` để ghi trực tiếp vào tệp logs `app_logs.txt` trong thư mục `applicationSupportDirectory` của thiết bị. Không sử dụng hoặc phụ thuộc vào Xcode Console (do môi trường chạy thực tế là LiveContainer trên iOS vật lý không thể đính Xcode). `AppLogger.log` tự gọi `print` bên trong — luật "không `print`" là không gọi trực tiếp ở nơi khác.
 - **Performance & Memory Rules**:
   * Tránh khởi tạo lại thực thể `AVAudioEngine` nhiều lần không cần thiết.
   * NGHI-TTS playback must run strictly via `AVAudioPlayer` double-buffering queue (`NghiAudioPlayerQueue`). `AVAudioEngine` node streaming path must not be used.
@@ -512,6 +516,6 @@ Trước khi kết thúc lượt và thông báo hoàn thành, AI bắt buộc p
 - [ ] **Compile**: Mã nguồn sửa đổi biên dịch thành công, không vi phạm Actor isolation, không lỗi threading SwiftData?
 - [ ] **Architecture**: Tái sử dụng components cũ tối đa, tránh tạo logic trùng lặp, giữ vững Clean Architecture?
 - [ ] **Extension**: Giữ nguyên tính tương thích ngược, không đổi API của tiện ích mở rộng nếu không được yêu cầu?
-- [ ] **TTS & Audio**: Dọn dẹp preloadedWavs RAM cache đoạn văn đúng cửa sổ trượt [N, N+1], tránh retain cycle?
+- [ ] **TTS & Audio**: Dọn dẹp `preloadedData`/`preloadedDurations` đúng cửa sổ trượt của từng engine (Google/Ext `[N, N + count]`, NghiTTS `N` + `N+1` + tối đa 2 optional reserve), tránh retain cycle?
 - [ ] **Validation**: Chạy kịch bản `validate_links.py` và PASS 100%, cập nhật manifest.json và CHANGELOG.md thành công?
 <!-- GENERATED END -->

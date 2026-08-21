@@ -1,15 +1,15 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-17T23:26:29+07:00
+generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 93
-document_version: 3
+source_files: 218
+document_version: 4
 ---
 
 # Đồ thị File & Quan hệ Import (File & Import Graph)
 
-Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc giữa 87 file mã nguồn Swift trong dự án FreeBook, tách biệt rõ ràng giữa Import Graph và Dependency Graph cho từng tệp.
+Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc giữa 218 file mã nguồn Swift trong dự án FreeBook, tách biệt rõ ràng giữa Import Graph và Dependency Graph cho từng tệp.
 
 ## Ghi chú thủ công (Human Notes)
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
@@ -34,7 +34,7 @@ Sơ đồ liên kết file của toàn bộ dự án FreeBook sau refactor:
   - `Services/Extensions/`: `ExtensionTransactionCoordinator.swift`, `Policies/RepositoryFilterPolicy.swift`, `Workers/BookDetailLoader.swift`, `Engine/JSExecutor.swift`, `Engine/JSExecutor+Async.swift`.
   - `Services/ChapterText/`: `PrefetchManager.swift`, `ReaderChapterListStore.swift`, `Coordinators/ChapterListSearchCoordinator.swift`, `Workers/BackgroundPagingWorker.swift`, `BackgroundSearchWorker.swift`, `ReaderChapterListPageFetcher.swift`.
   - `Services/ReadingProgress/`: `ReaderProgressScheduler.swift`.
-  - `Services/TTS/`: `TTSManager.swift`, `TTSAudioEngineController.swift`, `TTSAudioSessionController.swift`, `Events/TTSPresentationEventCenter.swift`, `Events/TTSPresentationEvent.swift`, `Extensions/TTSManager+*.swift`, `Helpers/DisplayTextFormatter.swift`.
+  - `Services/TTS/`: `TTSManager.swift`, `TTSAudioEngineController.swift`, `TTSAudioSessionController.swift`, `Events/TTSPresentationEventCenter.swift`, `Events/TTSPresentationEvent.swift`, `Extensions/TTSManager+*.swift`. `DisplayTextFormatter.swift` nằm ở `Common/Extensions/DisplayTextFormatter.swift`, không phải trong `Services/TTS/`.
   - `Services/Download/`: `DownloadManager.swift`, `Events/DownloadPresentationEventCenter.swift`, `Events/DownloadPresentationEvent.swift`.
   - `Services/Translation/`: `Utils/TranslateUtils.swift`, `Extensions/TranslateUtils+Tokenization.swift`, `Engine/VietPhraseTokenizer.swift`, `Utils/TOCRuleSaveCoordinator.swift`.
 - **Views**:

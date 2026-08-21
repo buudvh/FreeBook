@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-17T23:26:29+07:00
+generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 93
-document_version: 4
+source_files: 218
+document_version: 5
 ---
 
 # Đồ thị Kiểu dữ liệu (Type Graph)
@@ -36,7 +36,8 @@ Các kiểu dữ liệu chính và mối quan hệ sau refactor:
    - `BookTransactionCoordinator` (`@MainActor` singleton): Nhận `AddBookToShelfCommand`, `updateBookMetadata`, `setOnShelf`, `setCurrentChapterIndex`, `insertChapterDTO`, `updateChapterTitleTranslations`.
    - `ExtensionTransactionCoordinator` (`@MainActor` singleton): Nhận `UpsertExtensionCommand`, `ExtensionConfigCommand`, `UpdateExtensionFolderCommand`, `touchRepositoryLastUpdated`.
 3. **Reader & Extension Components**:
-   - `ReaderScrollCoordinator`, `ReaderSelectionCoordinator`: Điều khiển cuộn và menu chọn cho `ReaderView`.
+   - `ReaderScrollCoordinator`: Điều khiển cuộn cho `ReaderView`.
+   - `ReaderSelectionCoordinator`: **Tên gọi là misnomer lịch sử** — không điều khiển selection/menu chọn. Thực tế chỉ có `getHanViet(for:)` (tra Hán-Việt một từ) và `formatMeaning(_:style:)` (format hoa/thường nghĩa tra được).
    - `ReaderProgressScheduler`: Lập lịch lưu tiến độ đọc định kỳ cho `ReaderViewModel`.
    - `RepositoryFilterPolicy`: Lọc và sắp xếp danh sách tiện ích trong `RepositoryManagerView`.
    - `BookDetailLoader`: Tải chi tiết và danh sách chương online cho `BookDetailView`.

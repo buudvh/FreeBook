@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-14T09:15:00+07:00
+generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 87
-document_version: 1
+source_files: 218
+document_version: 2
 ---
 
 # Quy tắc Phụ thuộc Kiến trúc (Dependency Rules)
@@ -25,7 +25,7 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 1. **Ma Trận Phụ Thuộc Phân Tầng**:
    - `Views` -> `ViewModels` / `Transaction Coordinators` -> `Services` / `Repositories` -> `Models`
    - Views **KHÔNG ĐƯỢC** thực hiện thay đổi dữ liệu SwiftData trực tiếp.
-   - Services **KHÔNG ĐƯỢC** import `SwiftUI` (trừ adapter `WebViewLoader.swift`) và **KHÔNG ĐƯỢC** gọi `ToastManager.shared` trực tiếp.
+   - Services **KHÔNG ĐƯỢC** import `SwiftUI` và **KHÔNG ĐƯỢC** gọi `ToastManager.shared` trực tiếp. Check `SERVICE_SWIFTUI_IMPORT` miễn trừ đúng các file có tên kết thúc bằng `WebViewLoader.swift` (hiện là `WebViewLoader.swift` và `VisibleWebViewLoader.swift`); tính đến bản này **không file nào** trong `Sources/Services/` còn import SwiftUI, nên miễn trừ chỉ là an toàn tương lai.
 
 2. **Giới Hạn File & Ratcheting**:
    - File mới được tạo trong refactor phải <= 400 dòng physical.

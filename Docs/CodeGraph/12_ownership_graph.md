@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-14T09:15:00+07:00
+generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 87
-document_version: 4
+source_files: 218
+document_version: 5
 ---
 
 # Đồ thị Sở hữu Đối tượng (Ownership Graph)

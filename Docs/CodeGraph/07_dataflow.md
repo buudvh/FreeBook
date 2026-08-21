@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-17T23:26:29+07:00
+generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 93
-document_version: 6
+source_files: 218
+document_version: 7
 ---
 
 # Dòng chảy Dữ liệu & Cơ chế Cache (Data Flow & Caching)

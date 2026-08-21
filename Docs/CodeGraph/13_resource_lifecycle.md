@@ -1,15 +1,15 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-14T09:15:00+07:00
+generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 87
-document_version: 5
+source_files: 218
+document_version: 6
 ---
 
 # Vòng đời Tài nguyên Hệ thống (Resource Lifecycle)
 
-Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử dụng, thu hồi và giải phóng) của các tài nguyên hệ thống đặc biệt trong dự án FreeBook: Phiên âm thanh (`AVAudioEngine`, `AVAudioSession`), các tác vụ nền (`Task`), thông báo hệ thống (`NotificationCenter`), ngữ cảnh cơ sở dữ liệu (`ModelContext` của SwiftData) và trình duyệt ngầm (`WKWebView`).
+Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử dụng, thu hồi và giải phóng) của các tài nguyên hệ thống đặc biệt trong dự án FreeBook: Phiên âm thanh (`AVAudioSession` cùng đường phát thật `AVAudioPlayer`/`AVSpeechSynthesizer`; đồ thị `AVAudioEngine` được dựng nhưng không tham gia phát), các tác vụ nền (`Task`), thông báo hệ thống (`NotificationCenter`), ngữ cảnh cơ sở dữ liệu (`ModelContext` của SwiftData) và trình duyệt ngầm (`WKWebView`).
 
 ## Ghi chú thủ công (Human Notes)
 *Ghi chú thủ công của con người.*
@@ -60,35 +60,41 @@ Speculative loading owns a separate 750 ms settled timer and requests only N+1. 
 
 The chapter-list store and its lazy list stay allocated while Reader is alive, then release together. Individual cache icon updates mutate one row object and allocate no replacement list.
 
-## 1. Vòng đời AVAudioEngine & AVAudioSession (Âm thanh nền)
+## 1. Vòng đời phát âm thanh & AVAudioSession (Âm thanh nền)
 
-Dự án FreeBook sử dụng các thư viện đa phương tiện cấp thấp để phát TTS ổn định dưới nền.
+FreeBook phát TTS ổn định dưới nền. **Lưu ý quan trọng**: đường phát thực tế **không** dùng `AVAudioEngine` node-streaming. `TTSManager` khởi tạo một `TTSAudioEngineController` và gọi `configureEngine(...)` để dựng đồ thị node (`audioEngine`/`playerNode`/`timePitchNode`/`eqNode`), nhưng `audioEngineController.play()` (chứa `engine.start()` + `player.play()` + `scheduleBuffer`) **không có caller nào** — đồ thị node được dựng rồi bỏ không, và trong repo hiện tại **không tồn tại lệnh `scheduleBuffer`** nào. Âm thanh thật được phát qua:
+
+| `tool` | Cơ chế phát thật |
+|---|---|
+| `nghitts` | `AVAudioPlayer` double-buffer qua `NghiAudioPlayerQueue` |
+| `google` / *(ext)* | `AVAudioPlayer` (`TTSManager.audioPlayer`, delegate `audioPlayerDidFinishPlaying`) |
+| `system` | `AVSpeechSynthesizer` (`SiriTTSService`) |
 
 ```mermaid
 stateDiagram-v2
     [*] --> Uninitialized : App Start
-    Uninitialized --> Initialized : setupAudioEngine() / Khởi tạo nodes
-    
-    Initialized --> Active : startSpeaking() / setActive(true) & configureAudioSession()
-    Active --> Running : engine.start() & player.play()
-    
-    Running --> Interrupted : Interruption began (Cuộc gọi đến) / playerNode.stop() & engine.stop()
-    Interrupted --> Running : Interruption ended / engine.start() & player.play()
-    
-    Running --> Stopped : stopPlayback() / playerNode.stop() & engine.stop()
+    Uninitialized --> Configured : setupAudioEngine() / configureEngine() dựng node graph (không phát)
+
+    Configured --> Active : startSpeaking() / setActive(true) & configureAudioSession()
+    Active --> Playing : AVAudioPlayer.play() (nghitts/google/ext) hoặc AVSpeechSynthesizer.speak() (system)
+
+    Playing --> Interrupted : Interruption began (Cuộc gọi đến) / audioPlayer.pause()
+    Interrupted --> Playing : Interruption ended / audioPlayer.play()
+
+    Playing --> Stopped : stopPlayback() / audioPlayer.stop() & audioPlayer = nil
     Stopped --> Inactive : setActive(false) / Giải phóng session hệ thống
     Inactive --> [*] : Hủy app
 ```
 
 ### Chi tiết các bước vòng đời:
-1.  **Khởi tạo (Initialization)**: `audioEngine`, `playerNode` và `timePitchNode` được khởi tạo và kết nối một lần duy nhất qua `setupAudioEngine()`. Định dạng kết nối ban đầu là `nil`.
-2.  **Kích hoạt Session (Activation)**: `configureAudioSession()` cấu hình category `.playback`, mode `.spokenAudio` với options `.duckOthers` + `.allowBluetoothA2DP` và gọi `setActive(true)`. Lúc này, hệ thống iOS cấp quyền chiếm dụng kênh phát âm thanh cho FreeBook. Ghi chú (1.3.180): option `.allowBluetooth` (HFP) đã được bỏ vì không hợp lệ với category `.playback` — kết hợp này khiến `setCategory` ném `OSStatus -50` (`AVAudioSessionErrorCodeBadParam`), làm `setActive(true)` không bao giờ chạy.
-3.  **Lập lịch phát (Scheduling & Playback)**: 
-    *   Buffer âm thanh PCM được nạp vào RAM cache `preloadedWavs`.
-    *   Gọi `player.scheduleBuffer(buffer, completionHandler:)`.
-    *   Gọi `try engine.start()` và `player.play()`.
-4.  **Tách/Kết nối lại động (Re-connection)**: Để tránh tiếng pop/click do re-sync codec, `TTSManager` so sánh định dạng buffer. Chỉ khi `lastBufferFormat != buffer.format`, nó mới thực hiện `disconnectNodeOutput` và `connect` lại các node.
-5.  **Dừng & Thu hồi (Deactivation)**: Khi dừng phát hoàn toàn (`stopPlayback` với `keepWidget = false`), hệ thống gọi `playerNode.stop()`, `audioEngine.stop()`, sau đó trả lại kênh âm thanh cho hệ thống qua `AVAudioSession.sharedInstance().setActive(false)`.
+1.  **Khởi tạo (Initialization)**: `setupAudioEngine()` gọi `audioEngineController.configureEngine(...)` để dựng và kết nối `audioEngine`/`playerNode`/`timePitchNode`/`eqNode` một lần. Đồ thị này hiện **không tham gia phát**; nó chỉ tồn tại như hạ tầng dự phòng.
+2.  **Kích hoạt Session (Activation)**: `configureAudioSession()` cấu hình category `.playback`, mode `.spokenAudio` với options `.duckOthers` + `.allowBluetoothA2DP` và gọi `setActive(true)`. Ghi chú (1.3.180): option `.allowBluetooth` (HFP) đã được bỏ vì không hợp lệ với category `.playback` — kết hợp này khiến `setCategory` ném `OSStatus -50` (`AVAudioSessionErrorCodeBadParam`), làm `setActive(true)` không bao giờ chạy.
+3.  **Phát (Playback)**:
+    *   Buffer WAV/MP3 đã tổng hợp được nạp vào RAM cache `preloadedData` (kèm `preloadedDurations`).
+    *   Với `nghitts`/`google`/ext: khởi tạo `AVAudioPlayer` từ dữ liệu preloaded rồi gọi `player.play()`; `nghitts` xoay vòng hai player qua `NghiAudioPlayerQueue`.
+    *   Với `system`: đẩy `AVSpeechUtterance` vào `AVSpeechSynthesizer`.
+4.  **Chuyển đoạn (Advance)**: `audioPlayerDidFinishPlaying` (delegate `AVAudioPlayer`) hoặc callback tương ứng của `AVSpeechSynthesizer` kích hoạt đoạn kế; không có bước `disconnectNodeOutput`/`connect` lại node vì đường node-streaming không được dùng.
+5.  **Dừng & Thu hồi (Deactivation)**: Khi dừng phát hoàn toàn (`stopPlayback` với `keepWidget = false`), hệ thống gọi `audioPlayer?.stop()`, giải phóng `audioPlayer = nil`, rồi trả kênh âm thanh cho hệ thống qua `AVAudioSession.sharedInstance().setActive(false)`.
 
 ---
 
@@ -143,17 +149,15 @@ WKWebView được sử dụng để tải các trang web chứa mã bảo vệ 
 *   **Vấn đề**: Khi một View đăng ký lắng nghe callbacks từ một dịch vụ Singleton (như `TTSManager.shared.onChapterFinished = { ... }`), dịch vụ Singleton sẽ giữ chặt tham chiếu đến View (thông qua closure gán). Điều này dẫn đến việc View không thể deinit (bị rò rỉ bộ nhớ dưới dạng Ghost Reference) ngay cả khi đã bị đóng/dismiss khỏi UI.
 *   **Giải pháp trong FreeBook**:
     *   *Khởi tạo*: View (như `ReaderView.swift`) đăng ký callbacks cho `TTSManager` khi xuất hiện (`.onAppear` hoặc khi khởi chạy TTS).
-    *   *Giải phóng*: Khi View biến mất, modifier `.onDisappear` bắt buộc phải dọn dẹp các callbacks này:
+    *   *Giải phóng*: `TTSManager` giờ chỉ còn **một** callback do View gán là `onChapterFinished`; hai callback cũ `onChapterNext`/`onChapterPrev` đã bị xóa. Reader không nil hóa callback trong `.onDisappear` nữa vì phiên TTS được thiết kế sống lâu hơn vòng đời Reader:
         ```swift
-        ttsManager.onChapterFinished = nil
-        ttsManager.onChapterNext = nil
-        ttsManager.onChapterPrev = nil
+        ttsManager.onChapterFinished = { ... } // đăng ký khi bắt đầu phát
         ```
     *   *Độc lập hóa nghiệp vụ*: Trình quản lý singleton (`TTSManager`) tự động hóa các tiến trình nội bộ (như tự chuyển chương qua `advanceToNextChapter` mà không cần callbacks trung gian điều khiển từ View).
 
 #### Reader/TTS unified pipeline (2026-07)
 
-- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, compact paragraph IDs, and UTF-16 ranges. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
+- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, **sparse paragraph IDs (`ChapterTextLine.id` is the raw line index and counts blank lines, so IDs are not array offsets and must be looked up by `id`, never used as an array index)**, and UTF-16 ranges. Because those ranges are computed before blank lines are dropped, `ChapterTextLine.utf16Range` must not be used to slice `NormalizedChapterText.content`. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
 - Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
@@ -163,9 +167,9 @@ WKWebView được sử dụng để tải các trang web chứa mã bảo vệ 
 - Book deletion database context changes commit first, spawning a background task (`Task.detached`) for physical file cleanup. Physical file cleanup failures enter a persistent retry queue in `UserDefaults` and undergo retry cycles at app launch up to 3 times before discard.
 - TOC pagination bounds the memory lifecycle: only 3 pages (300 rows) are kept loaded at any time in `loadedRowStates`. When a new page is loaded, pages outside the active window are evicted and their state objects are destroyed, freeing memory.
 
-- Remote TTS jobs enter a single priority queue. A job owns its service operation until completion; duplicate callers own only continuations. At `.serious`, only the current/N+1 lifecycle may survive and distant/next-chapter work is released; `.critical`, pause, or stop cancels the applicable remaining continuations/tasks.
+- Remote TTS jobs enter a single priority queue owned by `RemoteTTSSynthesisCoordinator`. A job owns its service operation until completion; duplicate callers own only continuations. Retry (max 2 attempts) lives inside the coordinator, not `TTSManager`. Pause or stop cancels the applicable remaining continuations/tasks. Thermal state is telemetry-only: `.serious`/`.critical` do not release or throttle distant/next-chapter work.
 - `ExtTTSRuntime` keeps its `JSExecutor` across chunks of the same extension/config. It cancels registered network tasks and releases the context when identity changes, an execution fails, or full TTS cache cleanup requests reset.
 - Native sync fetch registers each `URLSessionDataTask`, cancels it on Swift task cancellation/timeout, and waits a bounded interval for its completion callback before returning from the JS bridge.
-- The cached NghiTTS ORT session keeps one worker for its lifetime and prefers XNNPACK when available. Essential N+1 refill has no sleep and survives `.serious`; N+2+ may sleep and is removed under pressure, while `.critical` cancels all refill until a later window update after cooling.
+- The cached NghiTTS ORT session keeps one worker for its lifetime and prefers XNNPACK when available. The prefetch window keeps the current paragraph `N` and mandatory next `N+1`, plus up to `NghiSynthesisPolicy.maxOptionalReserveItems` (2) optional reserve items from `N+2` gated by the cached-time watermark (`defaultSafeCachedTimeThreshold = 8.0`s); reserve items are dropped under memory pressure. Thermal state is diagnostic-only and never cancels or gates refill; `TTSManager` owns the refill retry (max 2 attempts, 1 s backoff).
 
 <!-- GENERATED END -->

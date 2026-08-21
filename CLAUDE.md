@@ -29,15 +29,9 @@ xcodegen generate
 # Build
 xcodebuild build -project FreeBook.xcodeproj -scheme FreeBook \
   -destination 'platform=iOS Simulator,name=iPhone 15'
-
-# Chạy toàn bộ test (target FreeBookTests, 20 file)
-xcodebuild test -project FreeBook.xcodeproj -scheme FreeBook \
-  -destination 'platform=iOS Simulator,name=iPhone 15'
-
-# Một test class / một test case
-xcodebuild test ... -only-testing:FreeBookTests/BookIdUtilsTests
-xcodebuild test ... -only-testing:FreeBookTests/BookIdUtilsTests/testMake_withEmptyInputs_returnsEmptyString
 ```
+
+Không có lệnh test ở đây — xem mục [Tests](#tests): tầng test bị coi như không tồn tại.
 
 Hai script Python là cổng kiểm tra chạy được **mọi nền tảng**, kể cả Windows — luôn chạy chúng dù không build được:
 
@@ -47,7 +41,7 @@ python Docs/CodeGraph/validate_links.py --update-hashes   # sau khi sửa source
 python Scripts/check_architecture.py                      # gate kiến trúc, exit 0 = pass
 ```
 
-**Lưu ý môi trường**: build chỉ chạy được trên macOS. Repo hay được mở trên Windows — khi đó không build/test tại chỗ được; phải nói rõ điều đó thay vì báo "đã test".
+**Lưu ý môi trường**: build chỉ chạy được trên macOS. Repo hay được mở trên Windows — khi đó không build tại chỗ được; phải nói rõ điều đó thay vì báo "đã kiểm chứng".
 
 **CI không phải test gate.** `.github/workflows/build-ipa.yml` chỉ `xcodegen generate` → `xcodebuild archive` (unsigned) → đóng gói IPA + nhồi `espeak-ng-data` → gửi Telegram. Nó **không chạy unit test, không chạy `validate_links.py`, không chạy `check_architecture.py`**, và chỉ trigger khi đổi `Sources/**` hoặc `project.yml`. Nghĩa là CI xanh = *biên dịch được*, không phải *đúng*.
 
@@ -146,11 +140,11 @@ Text đi qua `Preprocessing/` (đọc số tiếng Việt, chuyển tự Anh/Nh�
 
 Giới hạn cần nhớ:
 
-- Cache PCM `preloadedWavs` chỉ giữ cửa sổ trượt `[N, N+1]` — không dọn sẽ OOM. Callback audio ngầm phải `[weak self]`.
-- `NghiSynthesisPolicy` là nguồn duy nhất cho watermark/cooldown/thermal: `defaultSafeCachedTimeThreshold = 8.0`s, dải `4.0...20.0` (UserDefaults `nghittsSafeCachedTimeSeconds`), `maxOptionalReserveItems = 2`. Đừng nhân bản các hằng này sang manager/prefetcher.
+- Cache PCM `preloadedData` (+ `preloadedDurations`) chỉ giữ cửa sổ trượt của từng engine — Remote (Google/Ext) `[N, N+count]` với `count = clamp(currentPrefetchCount, 1, 10)`, NghiTTS `N` + `N+1` bắt buộc + tối đa 2 optional reserve — không dọn sẽ OOM. Callback audio ngầm phải `[weak self]`.
+- `NghiSynthesisPolicy` là nguồn duy nhất cho watermark cached-time: `defaultSafeCachedTimeThreshold = 8.0`s, dải `4.0...20.0` (UserDefaults `nghittsSafeCachedTimeSeconds`), `maxOptionalReserveItems = 2`. **Không** chứa cooldown hay thermal eligibility. Thermal state chỉ là telemetry (energy log), không bao giờ chặn/điều tiết refill hay prefetch của Nghi lẫn Remote. Đừng nhân bản các hằng này sang manager/prefetcher.
 - ONNX/XNNPACK cố định **1 worker** — cố ý, không phải thiếu tối ưu; đừng scale theo số core.
 - Chỉ **1** operation tổng hợp chạy tại một thời điểm; `PiperSynthesisCoordinator` xếp hàng theo 4 mức ưu tiên.
-- **Retry thuộc về đúng một tầng**: Remote (Google/Ext) retry tối đa 2 lần *bên trong* `RemoteTTSSynthesisCoordinator` — `TTSManager` **không** được bọc thêm vòng retry. Ngược lại refill của NghiTTS do `TTSManager` sở hữu (2 lần, cooldown 1s).
+- **Retry thuộc về đúng một tầng**: Remote (Google/Ext) retry tối đa 2 lần *bên trong* `RemoteTTSSynthesisCoordinator` — `TTSManager` **không** được bọc thêm vòng retry. Ngược lại refill của NghiTTS do `TTSManager` sở hữu (2 lần, retry backoff 1s qua `Task.sleep`).
 - Không dùng `AVAudioEngine` node-streaming cho NghiTTS; đường phát là `AVAudioPlayer` double-buffering qua `NghiAudioPlayerQueue`.
 - `ChapterContentRepository` giữ cache chia sẻ tối đa **12 entry / 12 MiB** (`maxMemoryEntryCount`, `maxMemoryCost`). Document vượt budget vẫn trả về cho caller, chỉ là không được cache.
 
@@ -197,20 +191,15 @@ Có skill riêng cho việc này: `.agents/skills/vbook_helper/SKILL.md` (mẫu 
 
 ## Tests
 
-XCTest trong `Tests/` (20 file), `@testable import FreeBook`. Test nhắm tầng logic thuần (normalizer, builder, translate utils, repository, accounting) chứ không phải UI.
+**Coi `Tests/` như không tồn tại.** Theo yêu cầu của người dùng, từ nay bỏ qua hoàn toàn tầng test: **không** tạo, sửa, đổi tên, xoá, format, chạy hay đọc bất kỳ file nào dưới `Tests/`; **không** dùng test (đang có hay giả định) làm bằng chứng cho tính đúng; **không** báo "đã test" hay "test pass". Xác minh chỉ dựa trên đọc code, build (khi có macOS) và validator tĩnh (`validate_links.py`, `check_architecture.py`).
 
-**Test Lock Rule** — `.agents/AGENTS.md` §2.1: **không tạo mới, bổ sung hay chỉnh sửa unit test nếu người dùng chưa yêu cầu rõ ràng**; `rules.md` siết thêm là không tạo/sửa/đổi tên/xoá/format bất kỳ file nào dưới `Tests/`. Vẫn được phép **chạy** test có sẵn và chạy validation tĩnh.
-
-**`Tests/ChapterTextNormalizerTests.swift` đang lạc hậu và sẽ FAIL** — nó assert `ids == [0, 1]` và `utf16Range.location == 4` từ thời paragraph ID còn liên tục, trong khi normalizer hiện gán chỉ số dòng thô (xem mục Architecture). Truy vết bằng tay: `"  Một\r\n\r\n \t\rHai 😀  \n"` cho `ids == [0, 3]` và range thứ hai ở `location: 6`; `"Một\n\nHai"` cho `[0, 2]`. Ba trong bốn test trong file này fail, kể cả `testNormalizationIsIdempotent`. CI không chạy test nên chuyện này không tự lộ ra, và Test Lock Rule khiến nó không tự lành. **Đừng dùng file này làm đặc tả.** (Truy vết thủ công — chưa thực thi được vì cần macOS.)
+Luật này **chặt hơn và bao trùm** Test Lock Rule ở `.agents/AGENTS.md` §2.1 và mục "Test Placement" của `rules.md` (vốn chỉ cấm tạo/sửa test). Khi hai bên xung đột, áp luật này. `.agents/AGENTS.md` và `rules.md` giữ nguyên văn — không sửa chúng theo luật này trừ khi người dùng yêu cầu.
 
 ## Bẫy đã xác minh & sai lệch tài liệu
 
 `rules.md` là tài liệu quy phạm có thẩm quyền cao nhất, **nhưng vài chỗ đã cũ hơn code**. Ở các điểm dưới đây phải đánh dấu `UNKNOWN` và hỏi người dùng, **không** tự sửa code để khớp rules.md:
 
-1. **`ReaderSelectionMapper.mapHighlight` đã bị xoá.** `rules.md:86-87` vẫn bắt buộc mọi highlight TTS phải map qua hàm này. Nó bị xoá ở 1.3.81 cùng `mappedRangeUsingOriginalSpans` và `proportionalHighlightFallback` (xem `CHANGELOG.md` mục `[1.3.81]`), vì pipeline đã dịch-trước-khi-normalize nên không còn lệch hệ toạ độ. Đừng thêm lại.
-2. **Thermal state của NghiTTS mâu thuẫn nội bộ.** `rules.md` khẳng định ba lần rằng thermal chỉ dùng để log và không được chặn refill/prefetch, nhưng §5.7.2 lại quy định gating theo `.serious`/`.critical`. Hỏi trước khi dựa vào bên nào.
-3. **`Scripts/check_architecture.py` không phải build gate.** `rules.md` không yêu cầu chạy nó (chỉ nhắc `architecture_allowlist.json` như baseline), và step chạy nó đã bị bỏ khỏi `build-ipa.yml` theo quyết định của maintainer. Nó là tool local — vẫn nên chạy, nhưng không ai chặn merge vì nó.
-4. **`ReaderParagraphBuilder` và `TTSParagraphBuilder.build(from:)` là API chỉ test dùng.** Production dựng `[ParagraphItem]` ở `Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift` (logic gần như copy y nguyên của `ReaderParagraphBuilder.build`, thêm `Task.checkCancellation()` mỗi 5 dòng) và dựng chunk qua `TTSBackgroundProcessor` → `TTSParagraphBuilder.buildFromEntries`. Cả `ReaderParagraphBuilder` và overload `build(from:chunkLength:)` **không có caller nào trong `Sources/`**. Sửa logic dựng đoạn phải sửa **cả hai bản**; test xanh không chứng minh đường production đúng.
-5. **`00_index.md` front matter ghi `source_files: 87`** trong khi `manifest.json` và validator đếm **218**. Con số trong front matter đã lạc hậu, đừng dùng nó để suy luận phạm vi.
-6. **`ReaderRoute` không nằm trong thư mục Reader.** Nó khai ở `Sources/Views/BookDetail/BookDetailView.swift:4`; một type khác `ShelfReaderRoute` ở `Sources/Views/Shelf/ShelfMain/ShelfView.swift:5`. Không có file `ReaderRoute.swift` nào dù `Tests/ReaderRouteTests.swift` tồn tại.
-7. **`ReaderSelectionCoordinator` bị đặt tên sai** — nó chỉ làm tra Hán-Việt và format chữ hoa/thường, không liên quan gì tới selection.
+1. **`Scripts/check_architecture.py` không phải build gate.** `rules.md` không yêu cầu chạy nó (chỉ nhắc `architecture_allowlist.json` như baseline), và step chạy nó đã bị bỏ khỏi `build-ipa.yml` theo quyết định của maintainer. Nó là tool local — vẫn nên chạy, nhưng không ai chặn merge vì nó.
+2. **`ReaderParagraphBuilder` và `TTSParagraphBuilder.build(from:)` là API chỉ test dùng.** Production dựng `[ParagraphItem]` ở `Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift` (logic gần như copy y nguyên của `ReaderParagraphBuilder.build`, thêm `Task.checkCancellation()` mỗi 5 dòng) và dựng chunk qua `TTSBackgroundProcessor` → `TTSParagraphBuilder.buildFromEntries`. Cả `ReaderParagraphBuilder` và overload `build(from:chunkLength:)` **không có caller nào trong `Sources/`**. Sửa logic dựng đoạn phải sửa **cả hai bản**.
+3. **`ReaderRoute` không nằm trong thư mục Reader.** Nó khai ở `Sources/Views/BookDetail/BookDetailView.swift:4`; một type khác `ShelfReaderRoute` ở `Sources/Views/Shelf/ShelfMain/ShelfView.swift:5`. Không có file `ReaderRoute.swift` nào.
+4. **`ReaderSelectionCoordinator` bị đặt tên sai** — nó chỉ làm tra Hán-Việt và format chữ hoa/thường, không liên quan gì tới selection.

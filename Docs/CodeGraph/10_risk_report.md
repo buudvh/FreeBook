@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-14T09:15:00+07:00
+generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 87
-document_version: 3
+source_files: 218
+document_version: 4
 ---
 
 # Báo cáo Rủi ro Kỹ thuật (Technical Risk Report)
@@ -86,9 +86,9 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 | **R-01** | **Deadlock cứng hệ thống** | [JSExecutor.swift](../../Sources/Services/Extensions/Engine/JSExecutor.swift#L442-L458) | **Critical** | **Medium** | [13_resource_lifecycle.md](13_resource_lifecycle.md), [11_subsystems.md](11_subsystems.md) |
 | **R-02** | **Rò rỉ tài nguyên ngầm** | [JSExecutor.swift](../../Sources/Services/Extensions/Engine/JSExecutor.swift#L9) | **High** | **High** | [12_ownership_graph.md](12_ownership_graph.md), [13_resource_lifecycle.md](13_resource_lifecycle.md) |
 | **R-03** | **Lỗi Concurrency SwiftData** | Các ViewModel & Manager | **High** | **Medium** | [09_dependency_rules.md](09_dependency_rules.md), [13_resource_lifecycle.md](13_resource_lifecycle.md) |
-| **R-04** | **Lỗi hồi phục AVAudioSession** | [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift#L1458) | **Medium** | **Medium** | [13_resource_lifecycle.md](13_resource_lifecycle.md), [11_subsystems.md](11_subsystems.md) |
-| **R-05** | **Strong Reference Cycle trong Audio** | [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift#L986-L999) | **Medium** | **Low** | [12_ownership_graph.md](12_ownership_graph.md), [04_call_graph.md](04_call_graph.md) |
-| **R-06** | **Rò rỉ subscription cảnh báo** | [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift#L115) | **Low** | **Low** | [08_lifecycle.md](08_lifecycle.md) |
+| **R-04** | **Lỗi hồi phục AVAudioSession** | [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift#L3939) | **Medium** | **Medium** | [13_resource_lifecycle.md](13_resource_lifecycle.md), [11_subsystems.md](11_subsystems.md) |
+| **R-05** | **Strong Reference Cycle trong callback AVAudioPlayer** | [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift#L986) | **Medium** | **Low** | [12_ownership_graph.md](12_ownership_graph.md), [04_call_graph.md](04_call_graph.md) |
+| **R-06** | **Rò rỉ subscription cảnh báo** | [ReaderViewModel.swift](../../Sources/Views/Reader/ReaderViewModel.swift#L125) | **Low** | **Low** | [08_lifecycle.md](08_lifecycle.md) |
 | **R-07** | **Race Condition xử lý nền TTS** | [TTSBackgroundProcessor.swift](../../Sources/Services/TTS/TTSBackgroundProcessor.swift#L13) | **Medium** | **Low** | [05_state_graph.md](05_state_graph.md), [07_dataflow.md](07_dataflow.md) |
 
 ---
@@ -136,7 +136,7 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 ---
 
 ### R-04: Thất bại khi kích hoạt lại AVAudioSession sau cuộc gọi (Interruption)
-*   **Vị trí**: Lắng nghe sự kiện ngắt tại [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift#L1458).
+*   **Vị trí**: Lắng nghe sự kiện ngắt tại [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift#L3939) (`setupInterruptionObserver`).
 *   **Mức độ nghiêm trọng (Severity)**: **Medium** (Giao diện hiển thị đang phát nhưng không có tiếng ra loa).
 *   **Khả năng xảy ra (Likelihood)**: **Medium** (Phổ biến khi người dùng nghe truyện bằng tai nghe Bluetooth và nhận cuộc gọi).
 *   **Nguyên nhân**:
@@ -148,15 +148,16 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 ---
 
-### R-05: Strong Reference Cycle trong AVAudioPlayerNode completionHandler
-*   **Vị trí**: Khối lập lịch phát [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift#L986-L999).
+### R-05: Strong Reference Cycle trong callback của AVAudioPlayer
+*   **Vị trí**: Wiring callback phát audio [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift#L986) (`configureNghiAudioPlayerQueueCallbacks`) và delegate `audioPlayerDidFinishPlaying`.
 *   **Mức độ nghiêm trọng (Severity)**: **Medium** (Rò rỉ bộ nhớ của TTSManager).
 *   **Khả năng xảy ra (Likelihood)**: **Low** (Do đã được giảm thiểu).
+*   **Ghi chú cập nhật**: Đường phát **không** dùng `AVAudioPlayerNode.scheduleBuffer` — repo hiện không có lệnh `scheduleBuffer` nào và `TTSAudioEngineController.play()` không có caller. Rủi ro retain cycle thực tế nằm ở các closure callback của `AVAudioPlayer`/`NghiAudioPlayerQueue` và block `DispatchQueue.main.async` lồng bên trong.
 *   **Nguyên nhân**:
-    *   Completion handler của `player.scheduleBuffer` chạy trên thread nền của AudioEngine.
-    *   Mặc dù closure ngoài dùng `[weak self]`, nhưng bên trong có gọi `DispatchQueue.main.async` mà không capture `[weak self]` lần nữa, có thể vô tình giữ chặt `self` trong hàng đợi Main Queue nếu ViewModel bị hủy trước đó.
+    *   Callback hoàn tất phát (`audioPlayerDidFinishPlaying`) và các completion closure của `NghiAudioPlayerQueue` chạy ngoài Main Actor.
+    *   Nếu closure lồng `DispatchQueue.main.async` mà không capture lại `[weak self]`, có thể vô tình giữ chặt `self` trong Main Queue khi manager/session bị thay thế.
 *   **Giải pháp (Mitigation)**:
-    *   Đảm bảo capture `[weak self]` ở cả block `DispatchQueue.main.async` lồng bên trong.
+    *   Đảm bảo capture `[weak self]` ở cả callback ngoài lẫn block `DispatchQueue.main.async` lồng bên trong; giải phóng `audioPlayer = nil` khi stop.
 
 ### R-07: Race Condition khi xử lý chuẩn hóa và dịch văn bản chạy nền
 *   **Vị trí**: [TTSBackgroundProcessor.swift](../../Sources/Services/TTS/TTSBackgroundProcessor.swift#L13), [TTSManager.swift](../../Sources/Services/TTS/TTSManager.swift#L318)
@@ -174,16 +175,16 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 
 #### Reader/TTS unified pipeline (2026-07)
 
-- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, compact paragraph IDs, and UTF-16 ranges. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
+- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, **sparse paragraph IDs (`ChapterTextLine.id` is the raw line index and counts blank lines, so IDs are not array offsets and must be looked up by `id`, never used as an array index)**, and UTF-16 ranges. Because those ranges are computed before blank lines are dropped, `ChapterTextLine.utf16Range` must not be used to slice `NormalizedChapterText.content`. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
 - Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
 - **R-08: Main Thread Deadlock in WebView Native Bridge**: If browser wait/load operations are called on the Main Actor, `semaphore.wait()` blocks the Main Thread, preventing WKWebView from executing scripts and causing an instant deadlock. Mitigated by fail-fast thread check (`Thread.isMainThread`) returning a failed JSON readiness DTO immediately, exclusively on the new `waitForReady` bridge, while legacy synchronous `launch`/`callJs` API bridges remain unmitigated.
 - **R-09: WKWebView Shared Cookie Persistence Limitation**: Default `WKWebViewConfiguration` shares cookie persistence via the default data store at the application configuration level (WKWebsiteDataStore persistence), which remains a limitation with no per-extension or per-session isolation; the `waitForReady` DTO design only limits what readiness data crosses the bridge and is unrelated to cookie isolation.
 
-- **R-10: Remote TTS thermal/CPU burst (Mitigated)**: A depth-three window previously created independent Google/Ext tasks with no concurrency cap and nested retry. Mitigation is one priority coordinator, service-owned retry capped at two attempts, thermal cancellation, and delayed next-chapter audio.
+- **R-10: Remote TTS thermal/CPU burst (Partially mitigated)**: A depth-three window previously created independent Google/Ext tasks with no concurrency cap and nested retry. Mitigation is one priority coordinator (`RemoteTTSSynthesisCoordinator`), service-owned retry capped at two attempts, and delayed next-chapter audio. Thermal state is telemetry-only, so heat is **not** actively throttled — sustained remote synthesis on a warm device remains a residual risk.
 - **R-11: Persistent Ext TTS JS state (Mitigated)**: Reusing JavaScriptCore can retain extension globals. The runtime is isolated to TTS, serialized, keyed by exact script/config identity, reset on error/full cache teardown, and never shared with search/detail/toc/chap execution.
-- **R-12: Sustained NghiTTS on-device inference heat (Mitigated with residual critical-state risk)**: Piper remains one-worker and serialized. Cooldown applies only beyond deadline N+1, `.serious` retains one survival chunk, `.critical` is demand-only, and matching in-flight work is reused to prevent duplicate heat. Very long sessions and measured RTF >= 1 still require a lighter model or another engine for guaranteed gapless playback.
+- **R-12: Sustained NghiTTS on-device inference heat (Unmitigated for heat)**: Piper remains one-worker and serialized; the prefetch window keeps `N` + mandatory `N+1` plus up to two optional reserve items from `N+2` gated by the cached-time watermark, and matching in-flight work is reused to prevent duplicate synthesis. There is **no** thermal gating: `.serious`/`.critical` are logged only and never cancel or throttle refill, and there is no cooldown throttle. Very long sessions and measured RTF >= 1 therefore still generate unbounded heat and require a lighter model or another engine for guaranteed gapless playback.
 - **Residual risk**: The VBook-compatible synchronous `fetch` API still waits on a worker semaphore. Registered URLSession tasks are now cancellable and binary payload text decoding is skipped, but changing the public JS API to mandatory Promise semantics remains incompatible with existing extensions.
 
 <!-- GENERATED END -->

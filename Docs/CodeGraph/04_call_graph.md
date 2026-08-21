@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-17T23:26:29+07:00
+generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 93
-document_version: 6
+source_files: 218
+document_version: 7
 ---
 
 # Đồ thị Lời gọi Hàm (Call Graph)
@@ -46,8 +46,8 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 
 1. **Luồng Khởi Chạy Ứng Dụng & Nhận Sự Kiện Toast**:
    `FreeBookApp.swift` -> `AppLaunchRootView.task`
-     ├── Lắng nghe `TTSPresentationEventCenter.shared.events` -> `ToastManager.shared.show(...)`
-     └── Lắng nghe `DownloadPresentationEventCenter.shared.events` -> `ToastManager.shared.show(...)`
+     ├── Lắng nghe `TTSPresentationEventCenter.shared.stream` -> `ToastManager.shared.show(...)`
+     └── Lắng nghe `DownloadPresentationEventCenter.shared.stream` -> `ToastManager.shared.show(...)`
 
 2. **Luồng Ghi SwiftData qua Transaction Coordinators**:
    - `ShelfView` / `BookDetailView` -> `BookTransactionCoordinator.shared.addBookToShelf(command:in:)` -> `ModelContext.save()`
@@ -63,6 +63,6 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
    `TTSManager.scheduleNghiRefill()` -> `PiperTTSService.synthesizeWithDuration(...)` -> `TextPreprocessor.preprocess(...)`
      ├── Có nội dung đọc được -> `ONNXPiperEngine.synthesizeWithDuration(...)`
      └── Rỗng/chỉ dấu câu -> `PiperTTSService.makeSilenceSpec(...)` -> `WAVEncoder.encodePCM16(...)`
-   - Lỗi prefetch tạm thời -> `evaluateRefillError(...)` -> task cooldown 1 giây -> `updateNghiPrefetchWindow()`.
+   - Lỗi prefetch tạm thời -> `evaluateRefillError(...)` -> retry backoff 1 giây (`Task.sleep`, tối đa 2 lần) -> `updateNghiPrefetchWindow()`.
    - Lỗi không retry hoặc đủ hai attempt -> đánh dấu index bị block -> chọn ứng viên prefetch khác.
 <!-- GENERATED END -->

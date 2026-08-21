@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-17T23:26:29+07:00
+generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 93
-document_version: 4
+source_files: 218
+document_version: 5
 ---
 
 # Vòng đời các SwiftUI View (SwiftUI View Lifecycle)
@@ -118,10 +118,9 @@ sequenceDiagram
     
     User->>View: Bấm đóng / Quay lại
     View->>View: onDisappear() kích hoạt
-    View->>VM: Gọi saveProgressImmediately()
-    VM->>VM: Hủy dbSaveTask đang hoãn (debounce)
-    VM->>VM: Lưu vị trí đọc mới xuống SQLite
-    View->>View: prefetchTask.cancel() (Hủy tải trước chương)
+    View->>VM: Gọi shutdown(saveProgress: !ttsOwnsProgress)
+    VM->>VM: Hủy dbSaveTask/navigation/prefetch, lưu vị trí đọc xuống SQLite (nếu không do TTS sở hữu)
+    View->>View: flush ChapterContentRepository(bookId:) + hủy metadata/work items
     deactivate VM
     deactivate View
     
@@ -138,18 +137,20 @@ sequenceDiagram
 *   **Khi xuất hiện (`onAppear`)**:
     *   Đọc cấu hình hệ thống từ `UserDefaults`.
     *   Khởi tạo `ReaderViewModel` và nạp vị trí đọc được lưu từ phiên trước.
-    *   Đăng ký 3 hàm callbacks để chuyển chương cho `TTSManager.shared`: `onChapterFinished`, `onChapterNext`, `onChapterPrev`.
+    *   Đăng ký callback chuyển chương cho `TTSManager.shared`: chỉ còn **một** callback `onChapterFinished` (hai callback cũ `onChapterNext`/`onChapterPrev` đã bị xóa).
 *   **Vòng đời điều hướng Reader và TTS độc lập**:
     1. Next/Prev hoặc mục lục chỉ yêu cầu `ReaderViewModel` tải và commit chương Reader.
     2. Reader có thể prewarm nội dung chương đang hiển thị vào cache TTS, nhưng thao tác này không đổi trạng thái/chương của phiên TTS.
     3. TTS chỉ đổi chương khi người dùng chủ động bấm phát tại chương Reader hiện tại, hoặc khi TTS tự đọc hết chương và gọi `advanceToNextChapter`.
     4. Khi bấm phát, Reader chỉ truy vấn metadata chương hiện tại và chương kế; queue đầy đủ được cập nhật trễ qua `updateChaptersQueue(_:for:)` sau khi `isPlaying` để không chặn âm thanh đầu tiên.
-*   **Khi biến mất (`onDisappear`)**:
-    *   Reset biến tĩnh `ReaderView.activeBookId = nil`.
-    *   Hủy task prefetch chương truyện đang chạy ngầm (`prefetchTask?.cancel()`).
-    *   Ghi đè vị trí đọc và lưu ngay xuống cơ sở dữ liệu (`viewModel?.saveProgressImmediately()`).
+*   **Khi biến mất (`onDisappear`)** (theo `ReaderView.swift:896-913`):
+    *   Flush diagnostics (`ReaderEnergyDiagnostics.shared.flush(reason: "reader_disappear")`).
+    *   Hủy các task/work item đang chạy: `metadataTask`, `updateProgressWorkItem`, `updateTTSPositionWorkItem`, `prepareTTSTask`.
+    *   Reset biến tĩnh `ReaderView.activeBookId = nil` (chỉ khi còn khớp `bookId`) và `paragraphTracker.removeAll()`.
+    *   Gọi `viewModel.shutdown(saveProgress: !ttsOwnsProgress)` rồi `ChapterContentRepository.shared.flush(bookId:)` trong một `Task`; `ttsOwnsProgress` đúng khi TTS đang phát chính `bookId` này (khi đó TTS sở hữu tiến độ nên Reader **không** lưu đè).
+    *   **Lưu ý**: `onDisappear` **không** gọi `saveProgressImmediately()` — lưu tức thời chỉ thuộc nhánh `scenePhase == .background`.
 *   **Khi chuyển xuống chạy ngầm (`scenePhase == .background`)**:
-    *   Tự động kích hoạt ghi đĩa vị trí đọc (`saveProgressImmediately()`) để tránh việc iOS chấm dứt ứng dụng đột ngột làm mất bookmark.
+    *   Flush diagnostics với lý do `"app_background"`, và nếu TTS **không** đang phát chính sách này thì gọi `viewModel?.saveProgressImmediately()` để tránh iOS chấm dứt ứng dụng đột ngột làm mất bookmark.
 
 ### 2.2. Kệ sách (`ShelfView.swift`)
 *   **Khi xuất hiện (`onAppear`)**:
@@ -185,7 +186,7 @@ sequenceDiagram
 
 #### Reader/TTS unified pipeline (2026-07)
 
-- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, compact paragraph IDs, and UTF-16 ranges. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
+- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, **sparse paragraph IDs (`ChapterTextLine.id` is the raw line index and counts blank lines, so IDs are not array offsets and must be looked up by `id`, never used as an array index)**, and UTF-16 ranges. Because those ranges are computed before blank lines are dropped, `ChapterTextLine.utf16Range` must not be used to slice `NormalizedChapterText.content`. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
 - Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.

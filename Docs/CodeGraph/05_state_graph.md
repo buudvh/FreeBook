@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-17T22:00:00+07:00
+generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 91
-document_version: 5
+source_files: 218
+document_version: 6
 ---
 
 # Máy Trạng thái (State Graph)

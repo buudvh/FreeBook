@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-17T23:26:29+07:00
+generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 93
-document_version: 7
+source_files: 218
+document_version: 8
 ---
 
 # Bản đồ Sự kiện & Cơ chế Giao tiếp (Event Graph)
@@ -289,7 +289,7 @@ graph TD
 
 #### Reader/TTS unified pipeline (2026-07)
 
-- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, compact paragraph IDs, and UTF-16 ranges. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
+- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, **sparse paragraph IDs (`ChapterTextLine.id` is the raw line index and counts blank lines, so IDs are not array offsets and must be looked up by `id`, never used as an array index)**, and UTF-16 ranges. Because those ranges are computed before blank lines are dropped, `ChapterTextLine.utf16Range` must not be used to slice `NormalizedChapterText.content`. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
 - Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
@@ -302,9 +302,9 @@ graph TD
 - Scrolling placeholder rows in the TOC triggers a `loadPageIfNeeded` event in `ReaderChapterListStore` which launches background tasks to fetch metadata for the visible window.
 - Task cancellation in `DownloadManager` emits cooperative cancellation events at chapter boundaries to halt execution.
 
-- `ProcessInfo.thermalStateDidChangeNotification` updates Nghi prefetch policy while Remote TTS continues to prefetch up to configured depth.
-- For NghiTTS, the same notification cancels next-chapter audio outside `.nominal`; `.serious` narrows refill to N+1, `.critical` cancels refill, and cooling rebuilds the configured window through `updateNghiPrefetchWindow`.
+- `ProcessInfo.thermalStateDidChangeNotification` is telemetry-only: its handler (`TTSManager.swift:4009-4020`) updates `TTSManager.currentThermalState` and calls `RemoteTTSSynthesisCoordinator.recordThermalStateChange` to emit one energy-log line. It does **not** gate or cancel Nghi or Remote prefetch — for remote engines it in fact triggers `triggerNextChapterPrefetch()` regardless of thermal level.
+- NghiTTS and Remote prefetch windows are driven only by the cached-time watermark and per-engine window sizing (`updateNghiPrefetchWindow` / `updatePrefetchWindow`); `.serious`/`.critical` never narrow, cancel, or demand-gate refill.
 - Pause/stop events cancel remote playback/prefetch waiters and reset the Ext runtime on full cache teardown; URLSession cancellation unblocks the synchronous extension fetch bridge.
-- Paragraph-finished events update the depth-three cache window, but scheduler priority—not task creation count—determines execution order.
+- Paragraph-finished events update the cache window, but scheduler priority—not task creation count—determines execution order.
 
 <!-- GENERATED END -->

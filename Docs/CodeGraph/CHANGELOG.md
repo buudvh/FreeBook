@@ -2,6 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
+## [1.3.229] - 2026-08-21
+
+### Cập nhật tài liệu CodeGraph khớp code: highlight TTS, thermal, cache prefetch, số liệu file
+
+Sửa **tài liệu** (không đụng `Sources/` hay `Tests/`) tại 22 điểm đã trôi so với code hiện tại. Toàn bộ nội dung nằm trong vùng `<!-- GENERATED START/END -->` và YAML front matter; không đụng "Ghi chú thủ công".
+
+* **Highlight & selection (`rules.md`, `CLAUDE.md`, `AGENTS.md`)**: `TTSParagraph.range` là offset UTF-16 trên chuỗi **đang hiển thị** và **tương đối dòng cha**, `sourceRange` mới ánh xạ về text gốc. `ReaderSelectionMapper.mapHighlight`/`mappedRangeUsingOriginalSpans`/`proportionalHighlightFallback` đã xoá ở 1.3.81 — bỏ yêu cầu map highlight; `ReaderSelectionMapper` chỉ còn `mapSelection`.
+* **Thermal (`rules.md`, `00_index`, `06`, `10`, `13`)**: bỏ mọi mô tả gating theo `.serious`/`.critical` cho Nghi/Remote refill và next-chapter audio. Thermal chỉ là telemetry/diagnostic (`TTSManager.currentThermalState` + energy log). `NghiSynthesisPolicy` chỉ giữ watermark (`defaultSafeCachedTimeThreshold = 8.0`, dải `4.0...20.0`) và `maxOptionalReserveItems = 2`, không cooldown/thermal eligibility; retry refill là backoff 1s (tối đa 2 lần) do `TTSManager` sở hữu.
+* **Cache prefetch (`rules.md`, `CLAUDE.md`, `AGENTS.md`)**: `preloadedWavs` → `preloadedData`/`preloadedDurations`; cửa sổ đúng là Remote `[N, N+count]` (count clamp 1…10), Nghi `N` + `N+1` bắt buộc + ≤2 optional reserve.
+* **Audio playback (`13`, `10` R-05/R-15)**: node graph `AVAudioEngine` được dựng nhưng **không phát** (`TTSAudioEngineController.play()` không caller, không `scheduleBuffer`); phát thật qua `AVAudioPlayer` (`NghiAudioPlayerQueue` double-buffer cho nghitts, `TTSManager.audioPlayer` cho google/ext) và `AVSpeechSynthesizer` cho `system`. Retain-cycle risk chuyển về callback delegate `AVAudioPlayer`.
+* **Lifecycle & callbacks (`08`, `13`)**: chỉ còn callback `onChapterFinished` (bỏ `onChapterNext`/`onChapterPrev`); Reader không nil callback trong `onDisappear`. `onDisappear` chạy `shutdown(saveProgress: !ttsOwnsProgress)` + `ChapterContentRepository.flush(bookId:)`; `saveProgressImmediately()` thuộc nhánh `scenePhase == .background`.
+* **Logging (`rules.md`, `CLAUDE.md`, `AGENTS.md`)**: `app_logs.txt` ở `applicationSupportDirectory`, không phải `Documents`; `AppLogger.init` set `isLoggingEnabled = false` mỗi lần khởi chạy, tự xoá khi >5 MB.
+* **Model schema (`rules.md`)**: thêm `DownloadTaskModel` (schema có 5 `@Model`).
+* **Sai lệch tên/đường dẫn**: `TTSPresentationEventCenter.shared.events` → `.stream` (`04`); `DisplayTextFormatter.swift` ở `Common/Extensions/` (`02`); `ReaderSelectionCoordinator` là misnomer, chỉ có `getHanViet`+`formatMeaning` (`03`); miễn trừ SwiftUI khớp hậu tố `*WebViewLoader.swift`, hiện không file Services nào import SwiftUI (`09`, `rules.md`).
+* **Sparse paragraph IDs**: sửa cùng một câu ở `00_index`, `06`, `08`, `10`, `13`, `14` — `ChapterTextLine.id` là chỉ số dòng thô (tính cả dòng trống), không phải array index; `utf16Range` không dùng để cắt `content`.
+* **Số liệu (`14`, `00_index`, `02`, front matter 16 file)**: `source_files` → `218`; §1.1/§1.2 dựng lại theo `wc -l` và công thức CC của doc; §1.3 đổi nhãn thành "Max Brace Nesting Depth" (giá trị thật 10–18). `ReaderParagraphBuilder`/`TTSParagraphBuilder.build(from:)` chỉ test dùng, không caller production (`00_index`).
+
 ## [1.3.228] - 2026-08-21
 
 ### Khắc phục lỗi pop Chi tiết truyện khi vuốt tab Home Khám phá

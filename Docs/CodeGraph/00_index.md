@@ -1,10 +1,10 @@
 ---
 generated_by: Antigravity
 generator_version: 1.0
-generated_at: 2026-07-14T22:25:00+07:00
+generated_at: 2026-08-21T10:30:00+07:00
 git_commit: UNKNOWN
-source_files: 87
-document_version: 3
+source_files: 218
+document_version: 4
 ---
 
 # Hướng dẫn Điều hướng CodeGraph - Dự án FreeBook
@@ -66,7 +66,7 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 * `BookDetailHeaderView` thêm `.fixedSize(horizontal: false, vertical: true)` cho title; title được phép chiếm đủ chiều cao cần thiết trong cột cạnh cover thay vì bị cắt khi bản gốc/bản dịch dài.
 * Reader có lựa chọn menu `"Văn bản trước khi dịch"` (Giữ nguyên / Phồn thể → giản thể), chỉ hiện khi bật Quick Translate. Trạng thái lưu riêng theo `convertTraditionalToSimplified_<bookId>`, được đọc lúc bootstrap và đổi lựa chọn sẽ làm mới bản dịch chương đang đọc, metadata Reader, TOC/paging/search và popup dịch từ/câu.
 * `TranslateUtils` chuyển chuỗi qua ICU transform `StringTransform("Traditional-Simplified")` trước khi tra từ điển khi caller chọn tuỳ chọn; `translateMeta`, `translateContent`, `translateChapterTitle`, và hai API trả `TranslatedTextResult` nhận thêm cờ mặc định `false`. Span dùng input đã chuyển đổi chỉ khi độ dài UTF-16 không đổi; nếu không, trả mảng rỗng để `ReaderSelectionMapper` dùng fallback an toàn.
-* `ReaderViewModel`/`CachedChapter` mang cờ chuyển đổi trong identity cache, nên cache cũ không thể được tái dùng sau khi đổi cấu hình; `ReaderParagraphBuilder` và các worker danh sách chương giữ API tương thích ngược nhờ default `false`.
+* `ReaderViewModel`/`CachedChapter` mang cờ chuyển đổi trong identity cache, nên cache cũ không thể được tái dùng sau khi đổi cấu hình. Đường production dựng `[ParagraphItem]` ở `Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift` (và worker danh sách chương) giữ API tương thích ngược nhờ default `false`; `ReaderParagraphBuilder` là API song song **không có caller nào trong `Sources/`** (chỉ test dùng), nên sửa logic dựng đoạn phải sửa cả hai bản.
 * TTS đọc cùng cấu hình theo truyện khi prepare/start: title và nội dung chương hiện tại được chuyển phồn → giản trước VietPhrase, đồng thời key của prepared chapter, snapshot, auto-advance và text/audio prefetch chương kế đều mang cờ để không tái dùng kết quả sai cấu hình. Metadata Now Playing cũng dùng cùng cờ session; thay đổi trong lúc phát hủy prefetch/metadata cũ, còn đoạn hiện tại đã dựng tiếp tục cho đến lần dựng chương kế tiếp.
 
 ## Revert dùng BookListItemView trong DownloadTrackerView, chuẩn hoá BookListItemView 2 style và bỏ chevron NavigationLink (1.3.219)
@@ -266,7 +266,7 @@ graph TD
 *   **[11_subsystems.md](11_subsystems.md)**: Phân tích 14 phân hệ (Subsystems) chính của ứng dụng như Reader, TTS, Download, Audio, Extension Engine...
 
 ### 2. Đồ thị & Quan hệ thành phần
-*   **[02_file_graph.md](02_file_graph.md)**: Đồ thị quan hệ phụ thuộc (Uses / Used by) và Import Graph của từng file trong số 87 file mã nguồn Swift.
+*   **[02_file_graph.md](02_file_graph.md)**: Đồ thị quan hệ phụ thuộc (Uses / Used by) và Import Graph của từng file trong số 218 file mã nguồn Swift.
 *   **[03_type_graph.md](03_type_graph.md)**: Chi tiết về các lớp, struct, enum, protocol, actor và extension.
 *   **[12_ownership_graph.md](12_ownership_graph.md)**: Biểu diễn mối quan hệ sở hữu đối tượng theo cấu trúc cây từ View -> ViewModel -> Manager -> Service.
 *   **[04_call_graph.md](04_call_graph.md)**: Đồ thị cuộc gọi hàm quan trọng kèm theo đánh giá mức độ tin cậy và đánh dấu UNKNOWN cho các dynamic dispatch.
@@ -286,7 +286,7 @@ graph TD
 
 #### Reader/TTS unified pipeline (2026-07)
 
-- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, compact paragraph IDs, and UTF-16 ranges. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
+- `ChapterTextNormalizer` is the single source for LF newlines, trimmed non-empty lines, **sparse paragraph IDs (`ChapterTextLine.id` is the raw line index and counts blank lines, so IDs are not array offsets and must be looked up by `id`, never used as an array index)**, and UTF-16 ranges. Because those ranges are computed before blank lines are dropped, `ChapterTextLine.utf16Range` must not be used to slice `NormalizedChapterText.content`. `ChapterContentRepository` produces one normalized `ChapterDocument` for both Reader and TTS.
 - Reader uses `ReaderLoadState` with bootstrap retry/clamping, typed failures, generation checks, cache-first rendering, and a short opacity crossfade only for newly fetched content. `ReaderRoute.chapterIndex` preserves the selected TOC index through navigation.
 - `TTSParagraphBuilder` chunks normalized lines without renumbering parent paragraph IDs; replacement output is checked before synthesis. TTS asynchronous work is guarded by session identity and TTS owns progress while playing.
 - `ReadingProgressStore` coalesces RAM snapshots in an actor and flushes from background contexts on checkpoints, dismissal, and app backgrounding. Legacy window/tab Reader, duplicate progress repository, and `TTSSession` mirror are removed.
@@ -304,8 +304,8 @@ graph TD
 - Dictionary updates enqueue one cancelable Reader refresh that rebuilds the displayed chapter first, then loaded/preloaded chapters by distance. Translation work runs off the MainActor and updates full `ParagraphItem` mappings without clearing live TTS audio prefetch; pressing Reader's listen action starts a new TTS session from the refreshed VP/Name content.
 - `TranslateUtils.tokenize` pre-scans VietPhrase candidates ($L \ge 2$) and resolves overlaps by prioritizing longer length (`length DESC`), then earlier start index (`lowerBound ASC`), while preserving single Chinese character fallback lookup in `performTranslation`.
 
-- Google/Ext giữ cửa sổ cache tối đa ba chunk nhưng tổng hợp qua một `RemoteTTSSynthesisCoordinator`; chỉ một operation chạy tại một thời điểm, ưu tiên chunk hiện tại và dừng prefetch ở thermal `.serious/.critical`.
+- Google/Ext giữ cửa sổ cache `[N, N + count]` (`count = max(1, min(10, currentPrefetchCount))`) và tổng hợp qua một `RemoteTTSSynthesisCoordinator`; chỉ một operation chạy tại một thời điểm, ưu tiên chunk hiện tại. Thermal state chỉ là telemetry — không dừng hay thu hẹp prefetch theo `.serious/.critical`.
 - Ext TTS dùng `ExtTTSRuntime` actor để tái sử dụng một `JSExecutor` theo script/config, trong khi các script bóc tách nội dung vẫn dùng executor ngắn hạn.
-- NghiTTS dùng `NghiSynthesisPolicy` để giới hạn ONNX/XNNPACK ở một worker, giữ buffer 2.5–5 giây khi nominal, chỉ chèn cooldown từ N+2, giữ N+1 tại `.serious`, và chuyển sang demand-only tại `.critical`.
+- NghiTTS dùng `NghiSynthesisPolicy` để giới hạn ONNX/XNNPACK ở một worker và `PiperSynthesisCoordinator` xếp hàng theo 4 mức ưu tiên; cửa sổ prefetch giữ đoạn hiện tại `N`, đoạn kế `N+1`, tối đa 2 optional reserve (`maxOptionalReserveItems`) từ `N+2`, theo watermark cached-time (`defaultSafeCachedTimeThreshold = 8.0`s). Thermal state là diagnostic-only, không gating refill/prefetch.
 
 <!-- GENERATED END -->
