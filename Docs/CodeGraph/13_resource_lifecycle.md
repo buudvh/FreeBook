@@ -15,6 +15,14 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời `UINavigationController` của trình duyệt và hẹn giờ kiểm tra present (1.3.245)
+
+* **Nav container nay được tái dùng thay vì cấp phát mỗi lần bấm.** Trước đây `reopenContainer()` tạo `UINavigationController(rootViewController: container)` **trước** khi biết có host để present hay không; khi không có host, nav đó bị bỏ nhưng `container` đã mắc `parent` là nó, và UIKit không cho một VC có hai parent. Nay thứ tự đảo lại (tìm host trước, bọc nav sau) và `navigationController(wrapping:)` tái dùng nav cũ nếu `container.parent` vẫn là một nav chưa được present có `viewControllers.first === container`; chỉ khi không tái dùng được mới `willMove(toParent: nil)` → `view.removeFromSuperview()` → `removeFromParent()` rồi tạo nav mới. Nhờ vậy mỗi lần thu nhỏ/mở lại không sinh thêm nav mồ côi.
+* **Một hẹn giờ one-shot, không lưu handle**: `verifyReopenPresented(_:)` dùng `DispatchQueue.main.asyncAfter(deadline: .now() + 1.2)` với `[weak self, weak nav]`. Không có `Timer` nào được giữ nên không có gì phải `invalidate()`; nếu trạng thái đã đổi thì guard `self.navController === nav` cho nó thoát vô hại. `nav` sống được tới lúc kiểm tra là nhờ `navController` giữ mạnh — khi `navController` đã bị gán lại/nil thì `weak nav` có thể `nil` và closure cũng thoát.
+* Vòng đời `TabbedVisibleBrowserViewController` (container) **không đổi**: vẫn do manager giữ mạnh, vẫn chỉ bị thả ở `dismissContainer()`. `prepareContainerMinimized()` vẫn `loadViewIfNeeded()` một lần; sau 1.3.245 container này có thể sống cả phiên **mà chưa bao giờ vào window** khi cài đặt "mở thu nhỏ" bật — webview vẫn được attach vào view của container, chỉ không có window (xem `10_risk_report.md`).
+* `activateTab(id:)` không cấp phát gì: đổi `activeTabId`, gọi `reloadTabs()` (tái dùng child VC sẵn có) và phát notification.
+* Nhịp nháy đỏ không thêm tài nguyên: `VisibleBrowserReopenButton` vẫn đúng **một** `@State Bool` (`isDimmed` → `isPulseBright`), màu được tính trong computed property, animation `repeatForever` vẫn do SwiftUI sở hữu và tự dừng khi `isPulsing = false`. Timer one-shot của `VisibleBrowserPulseMonitor` mô tả ở mục 1.3.244 giữ nguyên từng chi tiết.
+
 ## Timer nháy, window overlay thứ hai và cử chỉ của widget trình duyệt (1.3.244)
 
 * **Một `Timer` one-shot cho toàn app**, do `VisibleBrowserPulseMonitor.shared` giữ. Cấp phát: cuối `evaluate()` khi đang thu nhỏ, có tab, và tab già nhất **chưa** đủ 10 s — hẹn đúng `max(0.2, 10 - tuổi)`. Thu hồi: dòng đầu tiên của `evaluate()` luôn `timer?.invalidate(); timer = nil`, và `evaluate()` chạy lại ở mọi `stateDidChangeNotification`. Ở trạng thái "đang nháy" hoặc "không có tab" thì **không tồn tại timer nào**. Closure timer bắt `[weak self]` và chỉ `Task { @MainActor in self?.evaluate() }` — không giữ tab, không giữ view.

@@ -2,7 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.214) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.215) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.245] - 2026-08-22
+
+### Sửa mở thu nhỏ, nháy đỏ và tap mở lại widget trình duyệt
+
+Ba lỗi của 1.3.244, không lỗi nào nằm ở tầng cài đặt: `VisibleBrowserSettings` và `BrowserSettingsSection` đều đúng.
+
+* **"Bật mở thu nhỏ nhưng không thu nhỏ" — nguyên nhân là `presentUIIfNeeded()` bị gọi hai lần.** `VisibleWebViewLoader.presentUIIfNeeded()` chạy ở **mỗi** `load(url:timeout:completion:)` và `loadAsync(url:)`, không chỉ lúc tạo loader. Nên `Engine.newVisibleBrowser()` → `addTab` (ID mới) → `prepareContainerMinimized()` đúng như thiết kế, rồi `launch(url)` → `addTab` (ID **trùng**) → `selectTab(id:)` → `if isHidden { reopenContainer() }` bung trình duyệt ra ngay. Sửa: tách `activateTab(id:)` (internal — chỉ đổi `activeTabId`, `reloadTabs()`, `notifyStateChanged()`) khỏi `selectTab(id:)` (public, dành cho **cử chỉ người dùng**, giữ nguyên hành vi mở lại). Nhánh tab trùng của `addTab` nay gọi `activateTab` và chỉ `reopenContainer()` khi `!VisibleBrowserSettings.opensMinimized` — cùng điều kiện đã dùng cho nhánh tab mới, nên **cài đặt tắt thì hành vi cũ không đổi**. `selectTab` còn đúng một caller: `TabbedVisibleBrowserViewController.handleTabTap`.
+* **"Nhấp nháy dùng trong suốt" → nháy đỏ.** `VisibleBrowserReopenView.swift` 51 → **78 dòng**: bỏ `@State isDimmed` + `.opacity(isDimmed ? 0.45 : 1.0)`, thay bằng `@State isPulseBright` → `pulseLevel` (0.4 ↔ 1.0) → `Color(red: 0.42 + 0.48·level, green: 0.04 + 0.13·level, blue: 0.04 + 0.13·level)` phủ đặc trên `.ultraThinMaterial`, chữ trắng khi đang nháy. **Alpha luôn 1** nên `hitTest` của `BrowserFloatingWidgetUIWindow` và alpha của `widgetContainerView` không dính nhịp nháy — bất biến cũ được giữ, chỉ đổi cách biểu diễn. Chuỗi timer one-shot của `VisibleBrowserPulseMonitor` **không đổi một dòng logic** (72 → 73, chỉ doc comment).
+* **"Bấm widget thì widget mất mà trình duyệt không mở" — hai nghi phạm, bịt cả hai.** Triệu chứng chỉ xảy ra được khi `isHidden` đã thành `false` (widget hết điều kiện hiện) mà sheet không lên. (a) `findTopViewController()` nhặt window theo `isKeyWindow ?? windows.first`, tức có thể chọn **window overlay của chính widget** (`alert - 2`) hoặc của TTS (`alert - 1`); present pageSheet vào đó thì `notifyStateChanged()` ngay sau đó ẩn window ⇒ sheet biến mất cùng nó. Nay chỉ nhận `windowLevel == .normal` (ưu tiên `isKeyWindow`, fallback cuối vẫn quét window `.normal`). (b) `reopenContainer()` tạo nav **trước** khi biết có host, nên khi không có host thì `container` mắc parent là nav bị bỏ và nav sau không bọc lại được nó; nay tìm host trước, và `navigationController(wrapping:)` tái dùng nav cũ hoặc `removeFromParent()` rồi bọc mới.
+* **Lưới an toàn `verifyReopenPresented(_:)`.** Sau `present`, hẹn **một** lần kiểm tra 1.2 s (`asyncAfter`, `[weak self, weak nav]`, guard `navController === nav`): nếu `nav.presentingViewController == nil` thì trả trạng thái về `isHidden = true`, `navController = nil` và phát notification ⇒ **widget hiện lại**. Nếu còn nguyên nhân thứ ba chưa biết thì lỗi thoái hoá thành "bấm không ăn" thay vì "mất hết". Đường thành công không bị ảnh hưởng: UIKit gán `presentingViewController` ngay lúc `present`, không chờ animation.
+* **Gate:** `check_architecture.py` **18 → 18 violation**, tập vi phạm y hệt; không entry `architecture_allowlist.json` nào được thêm hay nới. `VisibleBrowserTabManager.swift` 263 → **325 dòng** (dưới trần, không vào danh sách vi phạm), `VisibleBrowserReopenView.swift` 51 → 78, `VisibleBrowserPulseMonitor.swift` 72 → 73. **Không file Swift nào được thêm/xoá** (vẫn 244) nên các doc `staleOn: structure` không stale. `validate_links.py`: 5 doc `--accept` (`06`, `07`, `10`, `11`, `13`), 1 doc `--no-change-needed` (`rules.md`), read-only PASS.
+* **Chưa biên dịch**: host là Windows, `xcodebuild` chỉ chạy trên macOS. Xác minh ở đây là đọc code (hai call site `presentUIIfNeeded`, caller duy nhất của `selectTab`, điều kiện `refreshState()` của window manager, `hitTest` của window widget, `webView.load` không phụ thuộc window) cộng hai script Python. CI xanh chỉ nghĩa là biên dịch được.
+* **Chưa thể xác minh ở môi trường này**: cả ba lỗi đều là hành vi runtime. Đặc biệt chưa xác nhận được: window nào thực sự được `findTopViewController()` chọn trên máy thật (app chạy qua LiveContainer), và WKWebView của tab có nạp bình thường khi container **chưa bao giờ** vào window — đường này trước 1.3.245 chưa từng chạy thật vì lỗi (a) luôn present container lên.
 
 ## [1.3.244] - 2026-08-22
 
@@ -348,12 +362,3 @@ Sửa **tài liệu** (không đụng `Sources/` hay `Tests/`) tại 22 điểm 
 * **`Sources/Views/Dictionary/BookShareTargetSheet.swift`**: thêm `@Query private var allExtensions: [Extension]`; resolve extension và truyền icon.
 * **`Sources/Views/Reader/ReaderChapterListView.swift`**: badge `Local`/`ext.name` đổi từ pill xanh sang capsule xám; dùng sẵn đối tượng `ext` để lấy `localPath`/`iconUrl`; không đổi API view.
 * Không đổi public API Service/Manager, không đổi font size; không cần cập nhật `rules.md`.
-
-## [1.3.215] - 2026-08-20
-
-### Giảm cỡ chữ toàn bộ BookListItemView và BookDetailHeaderView
-
-* **Phạm vi**: Thu nhỏ font theo tỉ lệ ~×0.85 (floor 11pt) cho mọi thành phần text của 2 view hiển thị title sách, giữ title luôn là phần lớn nhất; bỏ giới hạn số dòng title ở detail.
-* **`Sources/Views/Common/BookListItemView.swift`**: title `.headline` (17pt semibold) → `.system(size: 14.5, weight: .semibold)`; author `.subheadline` (15pt) → `.system(size: 13)`; dòng "Đang đọc" `.caption` (12pt) → `.caption2` (11pt). Badge nguồn/Local và description giữ `.caption2`.
-* **`Sources/Views/BookDetail/BookDetailHeaderView.swift`**: title `.title3.bold` (20pt bold) + `lineLimit(3)` → `.headline` (17pt semibold) không còn `lineLimit`; section "Thể loại"/"Giới thiệu" `.headline` (17pt) → `.system(size: 14.5, weight: .semibold)`; author `.subheadline` (15pt) → `.system(size: 13)`; tên nguồn `.caption.medium` (12pt) → `.caption2.medium` (11pt); giới thiệu (ExpandableTextView) `.body` (17pt) → `.system(size: 14.5)`. Metadata `caption2` và genre tags giữ nguyên.
-* Không đổi public API, protocol `BookDisplayable` hay dependency; không cần cập nhật `rules.md`.

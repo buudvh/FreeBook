@@ -10,8 +10,9 @@ import Combine
 /// - Mọi thay đổi trạng thái trình duyệt (thêm/xóa tab, thu nhỏ, mở lại, đóng) đều đi
 ///   qua `VisibleBrowserTabManager.stateDidChangeNotification` → tính lại từ tuổi thật
 ///   của tab, nên mở lại rồi thu nhỏ lần nữa vẫn đúng.
-/// - Chỉ đổi một `@Published Bool`; hiệu ứng nháy nằm trong SwiftUI (opacity), không
-///   chạm alpha/isHidden của view container nên không ảnh hưởng hit-testing.
+/// - Chỉ đổi một `@Published Bool`; hiệu ứng nháy nằm trong SwiftUI và chỉ đổi **màu**
+///   (đỏ sẫm ↔ đỏ tươi, alpha luôn 1), không chạm alpha/isHidden của view container
+///   nên không ảnh hưởng hit-testing.
 @MainActor
 final class VisibleBrowserPulseMonitor: ObservableObject {
     static let shared = VisibleBrowserPulseMonitor()

@@ -27,9 +27,14 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
     }
 
     public func addTab(id: String, loader: VisibleWebViewLoader) {
-        // Tránh thêm trùng tab ID
-        if let _ = tabs.firstIndex(where: { $0.id == id }) {
-            selectTab(id: id)
+        // Tránh thêm trùng tab ID. `presentUIIfNeeded()` được gọi lại ở mỗi lần
+        // `load`/`loadAsync`, nên nhánh này là đường **lập trình**, không phải cử chỉ
+        // người dùng: chỉ kích hoạt tab, không tự mở container (xem `activateTab`).
+        if tabs.contains(where: { $0.id == id }) {
+            activateTab(id: id)
+            if isHidden, !VisibleBrowserSettings.opensMinimized {
+                reopenContainer()
+            }
             return
         }
 
@@ -68,13 +73,22 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
         }
     }
 
+    /// Chọn tab theo **cử chỉ người dùng** (bấm pill tab trong container): nếu đang thu
+    /// nhỏ thì mở container lên.
     public func selectTab(id: String) {
         guard tabs.contains(where: { $0.id == id }) else { return }
-        activeTabId = id
-        containerViewController?.reloadTabs()
+        activateTab(id: id)
         if isHidden {
             reopenContainer()
         }
+    }
+
+    /// Kích hoạt tab **không** đổi trạng thái thu nhỏ/mở của container. Dùng cho mọi
+    /// đường lập trình (extension gọi `load` lại trên loader đã có tab).
+    internal func activateTab(id: String) {
+        guard tabs.contains(where: { $0.id == id }) else { return }
+        activeTabId = id
+        containerViewController?.reloadTabs()
         notifyStateChanged()
     }
 
@@ -179,11 +193,8 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
     public func reopenContainer() {
         guard isHidden, !tabs.isEmpty, let container = containerViewController else { return }
 
-        let nav = UINavigationController(rootViewController: container)
-        nav.modalPresentationStyle = .pageSheet
-        nav.presentationController?.delegate = self
-        self.navController = nav
-
+        // Tìm host **trước** khi bọc nav: nếu bọc trước rồi bỏ dở, `container` sẽ mắc
+        // parent là nav vừa bị bỏ, và nav sau không bọc lại được nó.
         guard let topVC = findTopViewController() else { return }
 
         if topVC.isBeingPresented || topVC.isBeingDismissed {
@@ -193,16 +204,67 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
             return
         }
 
+        let nav = navigationController(wrapping: container)
+        nav.modalPresentationStyle = .pageSheet
+        nav.presentationController?.delegate = self
+        self.navController = nav
+
         self.isPresented = true
         self.isHidden = false
         topVC.present(nav, animated: true, completion: nil)
         notifyStateChanged()
+        verifyReopenPresented(nav)
     }
 
+    /// Bọc container vào một `UINavigationController` dùng được: tái dùng nav cũ nếu
+    /// container vẫn còn là root của nó (UIKit không cho một VC có hai parent), ngược lại
+    /// tách khỏi parent cũ rồi tạo nav mới.
+    private func navigationController(wrapping container: TabbedVisibleBrowserViewController) -> UINavigationController {
+        if let existing = container.parent as? UINavigationController,
+           existing.presentingViewController == nil,
+           existing.viewControllers.first === container {
+            return existing
+        }
+        if container.parent != nil {
+            container.willMove(toParent: nil)
+            container.view.removeFromSuperview()
+            container.removeFromParent()
+        }
+        return UINavigationController(rootViewController: container)
+    }
+
+    /// Lưới an toàn cho triệu chứng "bấm widget thì widget mất mà trình duyệt không mở":
+    /// nếu sau khi animation kết thúc mà nav vẫn không được present (host từ chối), trả
+    /// trạng thái về thu nhỏ để widget hiện lại thay vì kẹt không có gì trên màn hình.
+    private func verifyReopenPresented(_ nav: UINavigationController) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self, weak nav] in
+            guard let self, let nav, self.navController === nav else { return }
+            guard nav.presentingViewController == nil else { return }
+
+            self.isPresented = false
+            self.isHidden = true
+            self.navController = nil
+            self.notifyStateChanged()
+        }
+    }
+
+    /// Tìm view controller trên cùng để present container.
+    ///
+    /// Chỉ nhận window ở level `.normal`: TTS widget và widget trình duyệt sống trong
+    /// `UIWindow` riêng ở level `alert - 1` / `alert - 2`. Nếu present sheet lên window
+    /// widget thì `notifyStateChanged()` ngay sau đó sẽ ẩn chính window đó (widget không
+    /// còn điều kiện hiển thị vì `isHidden == false`), kéo theo sheet vừa present cũng
+    /// biến mất — đúng triệu chứng "bấm widget thì widget mất mà trình duyệt không mở".
     private func findTopViewController() -> UIViewController? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        guard let windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first,
-              let window = windowScene.windows.first(where: { $0.isKeyWindow }) ?? windowScene.windows.first,
+        guard let windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first else {
+            return nil
+        }
+
+        let hostWindows = windowScene.windows.filter { $0.windowLevel == .normal && !$0.isHidden }
+        guard let window = hostWindows.first(where: { $0.isKeyWindow })
+                ?? hostWindows.first
+                ?? windowScene.windows.first(where: { $0.windowLevel == .normal }),
               let rootVC = window.rootViewController else {
             return nil
         }

@@ -4,25 +4,28 @@ import SwiftUI
 ///
 /// View này **chỉ vẽ**: vị trí, kéo/thả, snap cạnh và tap-để-mở do
 /// `BrowserFloatingWidgetContainerViewController` (UIKit) xử lý, giống TTS widget.
-/// Nhịp nháy chỉ đổi `opacity` nên không ảnh hưởng alpha/hit-testing của view container.
+/// Nhịp nháy khi trình duyệt mở lâu chỉ đổi **màu** (đỏ sẫm ↔ đỏ tươi, alpha luôn 1),
+/// không đổi opacity của pill nên alpha/hit-testing của view container giữ nguyên.
 struct VisibleBrowserReopenButton: View {
     let tabCount: Int
 
     @ObservedObject private var pulseMonitor = VisibleBrowserPulseMonitor.shared
-    @State private var isDimmed = false
+
+    /// Pha của nhịp nháy: `true` = đỏ tươi, `false` = đỏ sẫm. Chỉ có nghĩa khi
+    /// `pulseMonitor.isPulsing == true`.
+    @State private var isPulseBright = false
 
     var body: some View {
         pillContent
-            .opacity(isDimmed ? 0.45 : 1.0)
             .animation(
                 pulseMonitor.isPulsing
                     ? .easeInOut(duration: 0.9).repeatForever(autoreverses: true)
                     : .easeInOut(duration: 0.2),
-                value: isDimmed
+                value: pulseLevel
             )
-            .onAppear { isDimmed = pulseMonitor.isPulsing }
+            .onAppear { isPulseBright = pulseMonitor.isPulsing }
             .onChange(of: pulseMonitor.isPulsing) { _, newValue in
-                isDimmed = newValue
+                isPulseBright = newValue
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Mở lại trình duyệt (\(tabCount) tab)")
@@ -30,6 +33,22 @@ struct VisibleBrowserReopenButton: View {
             .accessibilityAction {
                 VisibleBrowserTabManager.shared.reopenContainer()
             }
+    }
+
+    /// 0 = đỏ sẫm nhất, 1 = đỏ tươi nhất. Dùng làm giá trị cho `animation(value:)`
+    /// và để nội suy màu — **không** bao giờ dùng làm opacity.
+    private var pulseLevel: Double {
+        guard pulseMonitor.isPulsing else { return 0 }
+        return isPulseBright ? 1.0 : 0.4
+    }
+
+    /// Màu đỏ đặc (alpha = 1) nội suy theo `pulseLevel`.
+    private var pulseColor: Color {
+        Color(
+            red: 0.42 + 0.48 * pulseLevel,
+            green: 0.04 + 0.13 * pulseLevel,
+            blue: 0.04 + 0.13 * pulseLevel
+        )
     }
 
     private var pillContent: some View {
@@ -40,10 +59,18 @@ struct VisibleBrowserReopenButton: View {
                 .font(.system(size: 13, weight: .semibold))
                 .lineLimit(1)
         }
-        .foregroundStyle(.primary)
+        .foregroundStyle(pulseMonitor.isPulsing ? Color.white : Color.primary)
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(Capsule(style: .continuous).fill(.ultraThinMaterial))
+        .background(
+            Capsule(style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    if pulseMonitor.isPulsing {
+                        Capsule(style: .continuous).fill(pulseColor)
+                    }
+                }
+        )
         .overlay(Capsule(style: .continuous).stroke(Color.white.opacity(0.14), lineWidth: 1))
         .shadow(color: .black.opacity(0.24), radius: 10, x: 0, y: 4)
         .contentShape(Capsule())

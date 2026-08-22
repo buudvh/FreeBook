@@ -15,6 +15,14 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Sự kiện kích hoạt tab lập trình và nhịp nháy đỏ (1.3.245)
+
+* **Tách sự kiện "kích hoạt tab" khỏi sự kiện "mở lại container".** `VisibleBrowserTabManager.addTab` khi gặp tab ID trùng nay gọi `activateTab(id:)` — chỉ đổi `activeTabId`, `reloadTabs()` và phát `stateDidChangeNotification` — thay vì `selectTab(id:)`. Đây là nguyên nhân của lỗi "bật mở thu nhỏ nhưng không thu nhỏ": `VisibleWebViewLoader.presentUIIfNeeded()` được gọi lại ở **mỗi** `load(url:timeout:completion:)` ([VisibleWebViewLoader.swift:110](../../Sources/Services/Extensions/Engine/VisibleWebViewLoader.swift#L110)) và `loadAsync(url:)` ([:149](../../Sources/Services/Extensions/Engine/VisibleWebViewLoader.swift#L149)), nên sau `Engine.newVisibleBrowser()` (tab được tạo, container ở trạng thái thu nhỏ) thì `launch(url)` phát lượt `addTab` thứ hai → `selectTab` → `reopenContainer()` → trình duyệt bung toàn màn hình ngay.
+* `selectTab(id:)` giờ **chỉ** phục vụ cử chỉ người dùng và vẫn giữ nguyên hành vi mở lại khi đang thu nhỏ. Caller duy nhất trong `Sources/` là `TabbedVisibleBrowserViewController.handleTabTap` ([:173](../../Sources/Services/Extensions/Engine/TabbedVisibleBrowserViewController.swift#L173)).
+* Nhánh tương thích khi cài đặt **tắt**: `addTab` (cả tab mới lẫn tab trùng) vẫn phát `reopenContainer()` nếu `!VisibleBrowserSettings.opensMinimized`, nên hành vi cũ không đổi một sự kiện nào.
+* **Sự kiện kiểm tra present (mới).** Sau khi `reopenContainer()` gọi `present`, `verifyReopenPresented(_:)` hẹn **một** lần kiểm tra sau 1.2 s: nếu `nav.presentingViewController == nil` (host từ chối present) thì phát **một** notification rollback đưa trạng thái về `isHidden = true` để widget xuất hiện lại — thay cho triệu chứng "widget mất mà trình duyệt không mở". Trên đường thành công không phát thêm sự kiện nào (`presentingViewController` được UIKit gán ngay lúc `present`, không chờ animation).
+* **Nhịp nháy đổi hiệu ứng, không đổi chuỗi sự kiện.** Chuỗi timer → `isPulsing` → `onChange` của `VisibleBrowserReopenButton` giữ nguyên như 1.3.244; chỉ state đích đổi từ `isDimmed` (`opacity`) sang `isPulseBright` (nội suy **màu đỏ**, alpha luôn 1). Mọi mô tả `opacity`/`isDimmed` ở mục 1.3.244 bên dưới đã bị thay thế.
+
 ## Sự kiện nháy widget trình duyệt và sự kiện copy từ điển (1.3.244)
 
 * `VisibleBrowserTabManager.stateDidChangeNotification` (`Notification.Name("VisibleBrowserStateDidChange")`) nay có **ba** subscriber thay vì một: `VisibleBrowserPresentationReader` (đã có), `VisibleBrowserPulseMonitor` (mới) và `BrowserFloatingWidgetWindowManager` (mới). Cả hai subscriber mới `.receive(on: RunLoop.main)`. Không tên notification nào mới được thêm — đây là lý do không cần string literal mới.

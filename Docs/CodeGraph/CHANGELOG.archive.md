@@ -1,6 +1,15 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.214) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.215) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.215] - 2026-08-20
+
+### Giảm cỡ chữ toàn bộ BookListItemView và BookDetailHeaderView
+
+* **Phạm vi**: Thu nhỏ font theo tỉ lệ ~×0.85 (floor 11pt) cho mọi thành phần text của 2 view hiển thị title sách, giữ title luôn là phần lớn nhất; bỏ giới hạn số dòng title ở detail.
+* **`Sources/Views/Common/BookListItemView.swift`**: title `.headline` (17pt semibold) → `.system(size: 14.5, weight: .semibold)`; author `.subheadline` (15pt) → `.system(size: 13)`; dòng "Đang đọc" `.caption` (12pt) → `.caption2` (11pt). Badge nguồn/Local và description giữ `.caption2`.
+* **`Sources/Views/BookDetail/BookDetailHeaderView.swift`**: title `.title3.bold` (20pt bold) + `lineLimit(3)` → `.headline` (17pt semibold) không còn `lineLimit`; section "Thể loại"/"Giới thiệu" `.headline` (17pt) → `.system(size: 14.5, weight: .semibold)`; author `.subheadline` (15pt) → `.system(size: 13)`; tên nguồn `.caption.medium` (12pt) → `.caption2.medium` (11pt); giới thiệu (ExpandableTextView) `.body` (17pt) → `.system(size: 14.5)`. Metadata `caption2` và genre tags giữ nguyên.
+* Không đổi public API, protocol `BookDisplayable` hay dependency; không cần cập nhật `rules.md`.
 
 ## [1.3.214] - 2026-08-19
 

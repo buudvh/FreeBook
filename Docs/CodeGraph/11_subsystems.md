@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ Trình duyệt hiển thị: một cửa "mở lại" duy nhất (1.3.245)
+
+* `VisibleBrowserTabManager.swift` 263 → **325 dòng** và ranh giới bên trong nó được vạch lại: quyền "đổi tab đang hoạt động" (`activateTab(id:)`, internal) tách khỏi quyền "đổi trạng thái thu nhỏ/mở" (`selectTab(id:)` public cho cử chỉ, `reopenContainer()`, `hideContainer()`, `openContainer(initialActiveId:)`). Mọi caller lập trình — thực tế là `addTab` khi tab ID trùng — chỉ được dùng nhóm thứ nhất. `selectTab` còn đúng một caller trong `Sources/`: `TabbedVisibleBrowserViewController.handleTabTap`.
+* Ba thành viên riêng tư mới, tất cả nằm trong `VisibleBrowserTabManager` (không thêm file, không thêm type): `activateTab(id:)`, `navigationController(wrapping:)` (tái dùng nav cũ nếu `container` vẫn là root của nó, ngược lại `removeFromParent()` rồi bọc nav mới), `verifyReopenPresented(_:)` (lưới an toàn 1.2 s). `findTopViewController()` siết lại còn window `windowLevel == .normal`.
+* Ranh giới cũ giữ nguyên: `TabbedVisibleBrowserViewController` vẫn là nơi duy nhất biết cách attach tab, manager vẫn là nơi duy nhất quyết định present/hide, `notifyStateChanged()` vẫn là kênh duy nhất ra ngoài. Phân hệ Widget nổi **không** được cấp quyền present: nó vẫn chỉ gọi `reopenContainer()` như trước.
+* **Phân hệ Widget nổi**: `VisibleBrowserReopenView.swift` 51 → **78 dòng** — vẫn chỉ vẽ, nhưng nhịp nháy chuyển từ `opacity` sang nội suy **màu đỏ đặc** (`pulseLevel` 0.4 ↔ 1.0 → `Color(red:green:blue:)`, alpha luôn 1) phủ trên `.ultraThinMaterial`, chữ trắng khi đang nháy. Bất biến của phân hệ được giữ tường minh: không giá trị nào của nhịp nháy chảy vào alpha/`isHidden` của `widgetContainerView`, nên `hitTest` của `BrowserFloatingWidgetUIWindow` không phụ thuộc trạng thái nháy. `VisibleBrowserPulseMonitor` giữ nguyên vai trò (72 → 73 dòng, chỉ đổi doc comment).
+* Không phân hệ nào khác đổi ranh giới: Từ điển, Kệ sách, Reader, TTS, Translation engine, Download giữ nguyên; `FloatingWidgetGeometry` và họ TTS widget không bị đụng tới.
+
 ## Phân hệ Từ điển, Trình duyệt hiển thị và Widget nổi (1.3.244)
 
 * **Phân hệ Từ điển** thêm bốn thành viên ở `Views/Dictionary/`: `DictionaryTransferTarget.swift` (12), `DictionaryEntryTransferAction.swift` (47), `DictionaryEntryRow.swift` (119), `DictionaryListView+Transfer.swift` (41). Ranh giới quan trọng: **không thành viên nào sở hữu lưu trữ**. Toàn bộ việc ghi vẫn thuộc `DictionaryCache` (tầng chung custom) và `TranslationManager` (tầng riêng); `DictionaryTextFileStore` vẫn là nơi duy nhất biết định dạng TXT. `DictionaryEntryTransferAction` chỉ là bộ định tuyến 2×2 (loại đích × phạm vi đích) — nó không mở file, không biết đường dẫn, không biết `.dat` tồn tại.
