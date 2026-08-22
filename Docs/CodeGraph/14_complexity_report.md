@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số liệu sau khi trả lại quan sát view model (1.3.243)
+
+* Tổng file Swift: **231 → 232** (thêm `Views/Reader/Components/ReaderViewModelInvalidationRelay.swift`, 40 dòng, 1 primary type — file nhỏ nhất trong thư mục `Views/Reader/`).
+* `ReaderView.swift`: 2263 → **2268 dòng** (+5: một `@StateObject`, hai lời gọi `observe`, ba dòng comment). Khoảng cách tới baseline 2053 còn −215. Vẫn là `LINE_LIMIT_EXCEEDED` cũ.
+* Không file nào khác đổi số dòng: `ReaderViewModel.swift` 933, `ReaderView+LoadingView.swift` 112, `ReaderView+Controls.swift` 211, `ReaderEnergyDiagnostics.swift` 338.
+* Độ phức tạp nhận thức giảm ở một điểm đáng kể hơn số dòng: cổng render của Reader (1.3.242) và nhịp chờ 32 ms (1.3.241) trước đây **không thể suy ra hành vi từ chính chúng** — phải biết thêm rằng view không quan sát view model. Sau 1.3.243 chuỗi đọc code là tuyến tính: `@Published` đổi → relay → pass → cổng.
+
 ## Số liệu sau tối ưu năng lượng Reader (1.3.239)
 
 * Tổng file Swift: **230 → 231** (thêm `Views/Reader/Components/ReaderEnergyDiagnostics.swift`, 258 dòng, 1 primary type — dưới trần 400 dòng cho file mới).

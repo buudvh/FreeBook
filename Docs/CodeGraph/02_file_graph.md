@@ -15,6 +15,15 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Thêm relay quan sát view model của Reader (1.3.243)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| `Views/Reader/Components/ReaderViewModelInvalidationRelay.swift` | forward `ReaderViewModel.objectWillChange` → `ReaderView` | 40 |
+
+* Consumer duy nhất: `ReaderView.swift` (`@StateObject viewModelObserver`, gọi `observe(_:)` ở `ensureViewModel` và `.onDisappear`). Không file nào khác import/khởi tạo type này.
+* Tổng file Swift 231 → **232**. Không file nào bị xoá, đổi tên hay đổi thư mục.
+
 ## Tách `ReaderEnergyDiagnostics` khỏi `ReaderTextView` (1.3.239)
 
 | File mới | Tách khỏi | Dòng |

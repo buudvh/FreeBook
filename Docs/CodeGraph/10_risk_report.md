@@ -15,6 +15,15 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro của việc trả lại quan sát view model cho Reader (1.3.243)
+
+* **Chưa biên dịch**: viết trên Windows, không có `xcodebuild`. Hai cổng tĩnh giữ nguyên (`check_architecture.py`: đúng 18 violation cũ, `ReaderView.swift` 2263 → 2268 vẫn là violation cũ; `validate_links.py`: PASS). CI xanh chỉ chứng minh *biên dịch được*.
+* **Tăng số update pass của một view 2268 dòng**: từ nay **mọi** `@Published` của `ReaderViewModel` đều invalidate `ReaderView`, kể cả `currentProgress` (ghi mỗi 0.2 s khi cuộn) và `currentRevision`. Trước đây phần lớn thay đổi này im lặng — con số `updateUIView=151`/`contentSizeInvalidation=252` trong `[ReaderEnergy] Summary` gần như chắc chắn sẽ tăng. Đây là đánh đổi có chủ ý: lọc theo danh sách `@Published` là đúng loại bug vừa sửa (thêm state mới mà quên khai). Nếu cuộn bị giật sau thay đổi này, hướng xử lý là giảm nhịp ghi `currentProgress`, **không** phải bỏ relay.
+* **Nguy cơ vòng lặp invalidate**: relay chỉ forward `objectWillChange`, không đọc/ghi state của view. Nếu ai đó ghi `@Published` của view model **trong** body hoặc trong `updateUIView` thì sẽ thành vòng lặp — trước 1.3.243 việc đó im lặng vô hại, nay thành vòng lặp thật. Không có điểm ghi nào như vậy hiện tại.
+* **`observe(_:)` phải được gọi lại nếu `viewModel` bị dựng lại**: hiện chỉ có đúng một điểm gán (`ensureViewModel`), và relay so identity nên gọi lặp là vô hại. Thêm điểm gán `viewModel = …` ở nơi khác mà quên gọi `observe(_:)` là tái tạo lại đúng bug này — đây là mắt yếu nhất.
+* **Chưa xác nhận trên máy thật**: giả thuyết được suy ra từ đường code cộng log thiết bị 2026-08-22 (khoảng lặng 0.6–4.3 s không có dòng log nào của Reader, trong khi TTS vẫn log và app vẫn nhận tap — tức main thread *không* bị chiếm). Cần một lượt log mới để chốt.
+* **Chưa xử lý**: `prediction=reader_layout_churn_likely` và chi phí thật của một pass dựng subtree chương (`RepoLoad origin=extensionFetch ms=5051.59` là đường mạng, khác chuyện này).
+
 ## Rủi ro của cổng bắt tay skeleton (1.3.242)
 
 * **Chưa biên dịch**: viết trên Windows, không có `xcodebuild`. Hai cổng tĩnh giữ nguyên (`check_architecture.py`: đúng 18 violation cũ; `validate_links.py`: PASS). CI xanh chỉ chứng minh *biên dịch được*.

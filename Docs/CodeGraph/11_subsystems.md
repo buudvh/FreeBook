@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ Reader: quan sát view model là trách nhiệm của một relay riêng (1.3.243)
+
+* Phân hệ Reader có thành viên mới: `Components/ReaderViewModelInvalidationRelay.swift` (40 dòng, 1 primary type) — `ObservableObject` duy nhất có nhiệm vụ forward `ReaderViewModel.objectWillChange` sang `ReaderView`. Nó tồn tại vì `ReaderViewModel` chỉ có sau khi bootstrap mục lục nên phải ở `@State`, mà `@State` không subscribe gì cả.
+* Ranh giới: relay **không** đọc, không lọc, không sửa state — không có API nào ngoài `observe(_:)`. Nó không biết `pendingNavigationIndex` hay `navigationCommit` là gì; quyết định render vẫn nằm nguyên ở cổng `isChapterSubtreeRenderable(_:)` của `ReaderView+LoadingView` (1.3.242) và ở `ReaderScrollCoordinator`.
+* Mẫu này khớp với phân hệ TTS Widget, nơi `FloatingWidgetViewModel` được giữ bằng `@ObservedObject`. `ReaderViewModel` là view model duy nhất còn lại nằm trong `@State`, nên đây là chỗ duy nhất cần relay. Nếu sau này Reader dựng được view model ngay lúc `init` thì relay nên bị xoá thay vì giữ song song.
+* `ReaderViewModel` **không đổi public API** và vẫn là `ObservableObject` với 15 `@Published`. `ReaderView.swift` 2263 → 2268 dòng (thêm một `@StateObject`, hai lời gọi `observe`), vẫn là `LINE_LIMIT_EXCEEDED` cũ. Tổng file Swift 231 → 232.
+* Không phân hệ nào khác đổi ranh giới: TTS, Translation, Extension giữ nguyên; quyền sở hữu tiến độ khi TTS đang phát và đường highlight không đụng tới.
+
 ## Phân hệ Reader: render gate thuộc về `ReaderView+LoadingView` (1.3.242)
 
 * `Extensions/ReaderView+LoadingView.swift` (112 dòng) nhận thêm một trách nhiệm ngoài việc dựng skeleton: nó sở hữu **luật mở cổng** dựng subtree chương — `isChapterSubtreeRenderable(_:)`. `ReaderView.swift` (2263 dòng) chỉ còn *áp dụng* luật đó trong `singleChapterReaderView` và khai hai `@State` mà luật đọc (`renderedChapterIndex`, `skeletonHandshakeIndex`).

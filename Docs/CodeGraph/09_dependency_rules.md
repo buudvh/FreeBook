@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vị trí tầng của `ReaderViewModelInvalidationRelay` (1.3.243)
+
+* File mới `Sources/Views/Reader/Components/ReaderViewModelInvalidationRelay.swift` nằm trong tầng **Views**. Nó chỉ `import Combine`, phụ thuộc ra ngoài duy nhất là `ReaderViewModel` (cùng tầng, cùng thư mục) và giữ nó bằng `weak` chỉ để so identity — không SwiftData, không `ToastManager.shared`, không `import SwiftUI`, nên không đụng `VIEW_SWIFTDATA_MUTATION` lẫn `SERVICE_TOAST_COUPLING`.
+* Chiều phụ thuộc mới là chiều **View → ViewModel** đã cho phép, đi qua một trung gian: `ReaderView` → `ReaderViewModelInvalidationRelay` → `ReaderViewModel.objectWillChange`. Không có cạnh ngược nào: relay không tham chiếu view, không biết `ReaderView` tồn tại.
+* Luật đi kèm cho tầng Views: **`ObservableObject` giữ trong `@State` thì không được coi là đã quan sát.** Hoặc dùng `@StateObject`/`@ObservedObject`, hoặc phải có relay như file này; ngược lại body sẽ chỉ dựng lại nhờ nguồn invalidate vô can (đúng bug 1.3.243 sửa).
+* File mới dài **40 dòng** (dưới trần 400 cho file mới), đúng một type top-level ⇒ không cần entry nào trong `architecture_allowlist.json`. Tổng file Swift 231 → 232; `check_architecture.py` giữ đúng **18 violation** cũ, không baseline nào bị nới.
+
 ## Vị trí tầng của `ReaderEnergyDiagnostics` sau khi tách file (1.3.239)
 
 * File mới `Sources/Views/Reader/Components/ReaderEnergyDiagnostics.swift` nằm trong tầng **Views**, đúng nơi nó vốn ở (trước đây là type thứ hai trong `ReaderTextView.swift`). Nó chỉ `import UIKit`, phụ thuộc ra ngoài duy nhất là `AppLogger` — không chạm SwiftData, không `ToastManager.shared`, nên không đụng `VIEW_SWIFTDATA_MUTATION` lẫn `SERVICE_TOAST_COUPLING`.

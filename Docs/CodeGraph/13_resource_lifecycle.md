@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Subscription Combine của Reader (1.3.243)
+
+* Tài nguyên mới duy nhất: **một** `AnyCancellable` trong `ReaderViewModelInvalidationRelay`, giữ subscription tới `ReaderViewModel.objectWillChange`. Nó do `@StateObject` của `ReaderView` sở hữu nên sống theo màn hình Reader.
+* Vòng đời: tạo ở `ensureViewModel` (ngay sau `viewModel = newViewModel`), huỷ ở `.onDisappear` bằng `observe(nil)`, và tự thay thế nếu view model được dựng lại (`observe(_:)` so identity rồi gán `cancellable` mới — bản cũ được `deinit` giải phóng). Tham chiếu tới view model là `weak`, nên relay không kéo dài tuổi thọ view model.
+* Sink dùng `[weak self]` và chỉ gọi `objectWillChange.send()` — không giữ giá trị, không tạo Task, không đọc `UserDefaults`. Không có timer, KVO hay observer NotificationCenter nào được thêm.
+
 ## Timer hạ cánh sâu và nhịp chờ frame (1.3.241)
 
 * `memoryCommitTask` giữ nguyên chủ sở hữu (`ReaderViewModel`) và mọi điểm cancel (đầu `requestChapter`, `shutdown`), chỉ đổi cách chờ: `Task.sleep(32 ms)` thay `Task.yield()`, kèm `guard !Task.isCancelled` trước khi commit. Task của worker (`navigationWorkerTask`) cũng chờ đúng nhịp đó trước khi vào `runNavigationWorker`.

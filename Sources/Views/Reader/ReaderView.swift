@@ -174,6 +174,9 @@ struct ReaderView: View {
 
     // Reader chỉ quan sát projection TTS cần để render; manager singleton vẫn xử lý action.
     @StateObject internal var ttsState = ReaderTTSStateReader()
+    /// `viewModel` nằm trong `@State` nên SwiftUI không tự subscribe nó — relay này mới là
+    /// thứ làm `@Published` của view model invalidate được `ReaderView`.
+    @StateObject internal var viewModelRelay = ReaderViewModelInvalidationRelay()
     internal let ttsManager = TTSManager.shared
     @State private var triggerGetVisibleIndex: UUID? = nil
     @State private var editingParagraphIndex: Int? = nil
@@ -902,6 +905,7 @@ struct ReaderView: View {
         }
         .onDisappear {
             ReaderEnergyDiagnostics.shared.flush(reason: "reader_disappear")
+            viewModelRelay.observe(nil)
             metadataTask?.cancel()
             if ReaderView.activeBookId == bookId {
                 ReaderView.activeBookId = nil
@@ -1096,6 +1100,7 @@ struct ReaderView: View {
                 !(ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId)
             )
             viewModel = newViewModel
+            viewModelRelay.observe(newViewModel)
 
             if !hasOpenedReader {
                 hasOpenedReader = true

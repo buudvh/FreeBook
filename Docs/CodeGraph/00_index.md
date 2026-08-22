@@ -15,6 +15,14 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## ReaderView quan sát lại ReaderViewModel (1.3.243)
+
+* Nguyên nhân thật của "đơ khi Next/Prev": `ReaderViewModel` là `ObservableObject` nhưng `ReaderView` giữ nó trong `@State` — `@State` **chỉ giữ tham chiếu, không subscribe `objectWillChange`**. Mọi `@Published` của view model (kể cả `pendingNavigationIndex`, `navigationCommit` mà cổng render 1.3.242 đọc) không làm Reader dựng lại body; Reader chỉ được vẽ lại nhờ nguồn invalidate vô can (`ttsState` publish, một `@State` khác đổi, notification, `@Query`). Khoảng chờ từ cú bấm tới frame đầu tiên bằng đúng khoảng chờ tới sự kiện vô can kế tiếp — log thiết bị đo 0.6–4.3 s.
+* Hệ quả: ba lần sửa trước (`Task.yield()` 1.3.240, `Task.sleep` 32 ms 1.3.241, cổng handshake skeleton 1.3.242) đều **không thể** có tác dụng — chúng sắp xếp lại việc *bên trong* một update pass mà không có gì kích hoạt.
+* File mới `Views/Reader/Components/ReaderViewModelInvalidationRelay.swift` (40 dòng): `@StateObject` của `ReaderView`, forward `ReaderViewModel.objectWillChange` sang chính nó. Đăng ký trong `ensureViewModel` ngay sau `viewModel = newViewModel`, bỏ trong `.onDisappear`; `observe(_:)` idempotent theo identity nên bootstrap chạy lại không tạo thêm subscription. Không lọc theo thuộc tính — chính việc phải nhớ danh sách `@Published` là mầm của bug này.
+* Đường chọn chương từ danh sách chương không bị đơ vì đóng sheet tự sinh một chuỗi update pass; đó là lý do triệu chứng chỉ xuất hiện ở Next/Prev và cú nhảy từ widget TTS.
+* `check_architecture.py` giữ **18 violation** với tập vi phạm y hệt; file mới dưới trần 400 dòng, đúng một type top-level.
+
 ## Tối ưu năng lượng Reader khi TTS (1.3.239)
 
 * KVO `UIScrollView.contentOffset` trong `ReaderTextView.Coordinator` chuyển từ *cài vô điều kiện mỗi `updateUIView`* sang *cài lazy khi có selection thật*: `setupScrollObservation` chỉ gọi từ `textViewDidChangeSelection` khi `selectedRange.length > 0`, và `teardownScrollObservation()` chạy ngay khi selection về rỗng. Trạng thái thường ngày của Reader: **0 observer** thay vì một observer cho mỗi paragraph đang realized.

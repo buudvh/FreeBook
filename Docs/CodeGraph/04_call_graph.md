@@ -15,6 +15,14 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Cạnh invalidate bị thiếu giữa `ReaderViewModel` và `ReaderView` (1.3.243)
+
+* Trước 1.3.243 **không có** cạnh nào từ `ReaderViewModel.objectWillChange` về `ReaderView`. `ReaderViewModel` là `ObservableObject` nhưng `ReaderView` giữ nó ở `@State` (`ReaderView.swift:196`), mà `@State` chỉ lưu tham chiếu — nó không subscribe publisher. Vì vậy `pendingNavigationIndex`, `navigationCommit`, `loadState`, `navigationFailure` đổi giá trị mà **không** kích hoạt update pass nào.
+* Hệ quả trên đồ thị gọi: `ReaderView.nextChapter/prevChapter → requestChapter → (pendingNavigationIndex = N)` là một nhánh **chết ở giữa** — không dẫn tới `singleChapterReaderView` cho tới khi một nguồn invalidate *khác* nổ: `ttsState` (`@StateObject`) publish, một `@State` khác của `ReaderView` đổi, một trong bốn `.onReceive` NotificationCenter, hoặc `@Query`. Log thiết bị 2026-08-22 đo khoảng chờ đó là 0.6–4.3 s.
+* Cùng lý do: `.onChange(of: vm.navigationCommit)` (→ `applyNavigationCommit`) chỉ được so sánh trong một update pass, nên nó cũng chờ chung sự kiện vô can đó. Dòng `[ReaderPerf] NavRealize reason=commit` **không** chứng minh có pass — nó phát từ `ReaderViewModel.commitNavigation` (`ReaderViewModel.swift:672`), không phải từ view.
+* Cạnh mới: `ReaderViewModel.objectWillChange → ReaderViewModelInvalidationRelay.objectWillChange → ReaderView` (`@StateObject`). Đăng ký tại `ensureViewModel` ngay sau `viewModel = newViewModel`, huỷ tại `.onDisappear`. Không lọc theo thuộc tính: mọi `@Published` của view model nay đều invalidate Reader, đúng như `@ObservedObject` sẽ làm.
+* Không cạnh nào khác đổi: cổng bắt tay skeleton (1.3.242), `scheduleDeepLandingScroll`, nhịp chờ 32 ms, `ReaderScrollCoordinator` giữ nguyên — chúng chỉ *bây giờ mới* chạy đúng nhịp vì đã có pass để chạy.
+
 ## Cổng bắt tay skeleton nằm giữa hai subtree chương (1.3.242)
 
 * Cạnh mới trong render gate của `singleChapterReaderView`: `ZStack → ReaderView.isChapterSubtreeRenderable(_:)` (khai ở `ReaderView+LoadingView.swift`). Nhánh `singleChapterScrollView` chỉ được chọn khi hàm này trả `true`; ngược lại đi nhánh `chapterInlineLoadingView`.

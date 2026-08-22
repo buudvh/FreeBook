@@ -15,6 +15,20 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời chuyển chương: ai đánh thức SwiftUI (1.3.243)
+
+Chuỗi 1.3.241/1.3.242 bên dưới mô tả *đúng* thứ tự các bước, nhưng thiếu một điều kiện: mỗi bước chỉ chạy khi SwiftUI thực sự chạy một update pass. Từ 1.3.243, nguồn đánh thức là `ReaderViewModelInvalidationRelay`, nên chuỗi đó mới chạy theo nhịp của chính cú bấm:
+
+1. `t=0` — người dùng bấm Next/Prev. `requestChapter` set `pendingNavigationIndex = N`, `loadState = .loading` ⇒ `objectWillChange` ⇒ relay invalidate `ReaderView`.
+2. `t≈1 frame` — pass đầu: cổng thấy `pendingNavigationIndex != displayedChapterIndex` → skeleton; `onAppear` ghi `skeletonHandshakeIndex = N` và log `[ReaderPerf] Skeleton`.
+3. `t≈32 ms` — `memoryCommitTask` (đường RAM) hoặc worker commit: `pendingNavigationIndex = nil`, `displayedChapterIndex = N`, `navigationCommit` ⇒ relay invalidate lần hai.
+4. `t≈32 ms + 1 frame` — pass thứ hai: cổng mở (`skeletonHandshakeIndex == N`) → dựng `singleChapterScrollView`; `.onChange(of: navigationCommit)` chạy `applyNavigationCommit` → `scrollTarget`, `paragraphTracker.removeAll()`, `scheduleDeepLandingScroll`.
+5. `t+0.25 s` — `completeReaderPositionRestore` nhả `isRestoringReaderPosition`; auto-scroll TTS trở lại bình thường.
+
+Trước 1.3.243, bước 2 và 4 **không có mốc thời gian riêng**: cả hai cùng chờ sự kiện invalidate vô can kế tiếp rồi chạy dồn trong một lần drain (log thiết bị: `Skeleton` và `Present` cách nhau 15–30 ms, nhưng cách cú bấm 0.6–4.3 s). Đó là lý do ba lần sửa trước (yield → sleep 32 ms → cổng bắt tay) đều không đổi được cảm giác đơ: chúng sắp lại thứ tự trong một pass mà chưa ai kích hoạt.
+
+Đường chọn chương từ danh sách vốn không bị vì việc đóng sheet tự sinh một chuỗi pass; đường `ttsSync` từ widget có skeleton sớm (notification handler ghi `@State`) nhưng nội dung vẫn phải chờ — cả hai nay đi cùng một nhịp với Next/Prev.
+
 ## Vòng đời chuyển chương: skeleton là bước bắt buộc, không còn là bước may mắn (1.3.242)
 
 Bổ sung cho chuỗi 1.3.241 bên dưới: bước 2 (skeleton) trước đây chỉ *có thể* xảy ra nếu SwiftUI kịp chạy một update pass trong nhịp 32 ms. Log thiết bị 2026-08-22 cho thấy khi chương đích đã nằm trong `ChapterCache` (`origin=memory`, `commitMs≈41`) thì pass đó thường không kịp: không có dòng `[ReaderPerf] Skeleton`, và `[ReaderPerf] Present` cách cú bấm 1.6–3.5 s. Ngược lại, mọi lượt *có* dòng `Skeleton` đều present sau commit ~20 ms.
