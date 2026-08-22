@@ -4,6 +4,18 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.215) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.249] - 2026-08-22
+
+### Lấy tiến độ tải Drive qua didCreateTask và KVO
+
+Sửa nốt lỗi 1.3.248 chưa vá đúng: thanh tiến độ tải xuống **vẫn đứng im** dù đã gắn task delegate. Một file Swift đổi, không thêm/xoá file (279 file), không type top-level nào mới.
+
+* **Nguyên nhân thật**: bản **async** của `URLSession.download(for:delegate:)` được dựng trên completion handler, và Foundation **chặn toàn bộ callback của `URLSessionDownloadDelegate`** ở đường đó — `didWriteData` không bao giờ được gọi. Tệ hơn, tham số `delegate:` khai kiểu `URLSessionTaskDelegate`, nên `didWriteData` (thuộc `URLSessionDownloadDelegate`) thậm chí không nằm trong tập hàm được xét. Apple DTS xác nhận hành vi này và coi việc chặn *riêng* callback tiến độ là đáng báo lỗi, nhưng nó vẫn còn nguyên.
+* **Sửa**: `DownloadProgressObserver` chuyển sang conform `URLSessionTaskDelegate` và cài `urlSession(_:didCreateTask:)` — callback **vẫn được gọi** ở đường async và là nơi *duy nhất* lấy được `URLSessionTask` (API async không trả về task handle). Từ đó bám `task.progress` bằng **KVO**. Vẫn không duyệt từng byte kiểu `for await`: quá chậm với archive vài trăm MB.
+* **Bám hai khoá KVO, không phải một**: `fractionCompleted` là khoá chính thức của `Progress`, nhưng nếu Drive không gửi `Content-Length` thì `totalUnitCount` là -1 ⇒ `fractionCompleted` đứng im ở 0 và **không phát tín hiệu nào**; vì vậy bám thêm `completedUnitCount` và tính phần trăm với tổng rơi về `GoogleDriveFile.byteCount` (lấy từ lượt `listBackups`). Tiết chế theo phần trăm giữ nguyên nên hai khoá cùng nổ cũng không nhân đôi lượt hop lên MainActor; `deinit` `invalidate()` cả hai observation.
+* Phần đã đúng ở 1.3.248 **không sửa lại**: `BackupCoordinator` vẫn truyền `makeReporter()` ở cả hai call site, khoá đăng xuất (`guard !isBusy` + `.disabled(coordinator.isBusy)`) giữ nguyên. `GoogleDriveClient` 203 → **216** dòng (trần 400); observer vẫn là `private final class` lồng trong actor nên không thêm primary type ở cột 0.
+* **Xác minh**: `check_architecture.py` giữ **đúng 16 violation với tập y hệt**; `validate_links.py` PASS sau khi cập nhật `11_subsystems.md`. **Không biên dịch được tại chỗ** (host Windows) — CI xanh chỉ nghĩa là biên dịch được; tiến độ chạy thật phải nhìn trên máy.
+
 ## [1.3.248] - 2026-08-22
 
 ### Thanh tiến độ tải Drive chạy thật, chặn đăng xuất khi đang tải

@@ -77,8 +77,8 @@ public actor GoogleDriveClient {
     ///
     /// Dùng `URLSession.download(for:)` chứ không stream từng byte: archive có thể vài trăm MB,
     /// vòng lặp `for await byte in` sẽ chậm hơn nhiều lần và giữ RAM vô ích. Tiến độ lấy qua
-    /// **task delegate** (`didWriteData`) — API async không trả về `URLSessionTask` nên không có
-    /// đường nào khác để đọc số byte đã nhận.
+    /// **task delegate** — xem `DownloadProgressObserver` để biết vì sao phải đi qua `didCreateTask`
+    /// + KVO thay vì `didWriteData`.
     public func download(
         file: GoogleDriveFile,
         report: @escaping @Sendable (BackupProgress) -> Void = { _ in }
@@ -116,15 +116,21 @@ public actor GoogleDriveClient {
 
     // MARK: - Tiến độ tải xuống
 
-    /// Chỉ cài đúng `didWriteData`. **Không** cài `didFinishDownloadingTo`: bản async của
-    /// `download(for:delegate:)` tự dời file tạm, cài thêm hàm đó là tranh chấp với nó.
+    /// Bản async của `download(for:delegate:)` **không** gọi `URLSessionDownloadDelegate`: nó dựng
+    /// trên completion handler nên mọi callback tải xuống bị chặn, và tham số `delegate:` còn khai
+    /// kiểu `URLSessionTaskDelegate` nên `didWriteData` không nằm trong tập được gọi.
     ///
-    /// Delegate được gọi trên queue của `URLSession`, và mỗi lần có gói dữ liệu về là một lần gọi,
-    /// nên chỉ báo khi **phần trăm đổi** — không thì hàng nghìn cập nhật sẽ dội lên MainActor.
-    private final class DownloadProgressObserver: NSObject, URLSessionDownloadDelegate {
+    /// Đường còn lại (Apple DTS đề nghị): `didCreateTask` **vẫn** được gọi ⇒ bám vào `task.progress`
+    /// bằng KVO. Vẫn không stream từng byte: archive có thể vài trăm MB, vòng lặp `for await byte in`
+    /// sẽ chậm hơn nhiều lần và giữ RAM vô ích.
+    ///
+    /// Chỉ báo khi **phần trăm đổi** — KVO nổ theo từng gói dữ liệu, không tiết chế thì hàng nghìn
+    /// cập nhật sẽ dội lên MainActor.
+    private final class DownloadProgressObserver: NSObject, URLSessionTaskDelegate {
         private let name: String
         private let fallbackTotal: Int64
         private let report: @Sendable (BackupProgress) -> Void
+        private var observations: [NSKeyValueObservation] = []
         private var lastPercent = -1
 
         init(
@@ -137,18 +143,32 @@ public actor GoogleDriveClient {
             self.report = report
         }
 
-        func urlSession(
-            _ session: URLSession,
-            downloadTask: URLSessionDownloadTask,
-            didWriteData bytesWritten: Int64,
-            totalBytesWritten: Int64,
-            totalBytesExpectedToWrite: Int64
-        ) {
+        deinit {
+            observations.forEach { $0.invalidate() }
+        }
+
+        /// Callback duy nhất còn sống ở đường async — nơi duy nhất lấy được `URLSessionTask`.
+        func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
+            let progress = task.progress
+            // Bám hai khoá: `fractionCompleted` là khoá KVO chính thức của `Progress`, còn
+            // `completedUnitCount` phủ trường hợp thiếu `Content-Length` (lúc đó `totalUnitCount`
+            // là -1 nên `fractionCompleted` đứng im ở 0 và sẽ không phát tín hiệu nào).
+            observations = [
+                progress.observe(\.fractionCompleted, options: [.initial, .new]) { [weak self] value, _ in
+                    self?.emit(completed: value.completedUnitCount, expected: value.totalUnitCount)
+                },
+                progress.observe(\.completedUnitCount, options: [.new]) { [weak self] value, _ in
+                    self?.emit(completed: value.completedUnitCount, expected: value.totalUnitCount)
+                }
+            ]
+        }
+
+        private func emit(completed: Int64, expected: Int64) {
             // Drive có thể không gửi `Content-Length`; khi đó dùng dung lượng lấy từ danh sách file.
-            let total = totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : fallbackTotal
+            let total = expected > 0 ? expected : fallbackTotal
             guard total > 0 else { return }
 
-            let percent = Int(min(100, Double(totalBytesWritten) / Double(total) * 100))
+            let percent = Int(min(100, max(0, Double(completed) / Double(total) * 100)))
             guard percent != lastPercent else { return }
             lastPercent = percent
 
@@ -159,13 +179,6 @@ public actor GoogleDriveClient {
                 detail: name
             ))
         }
-
-        /// Bắt buộc có vì protocol yêu cầu, nhưng cố ý để trống — xem ghi chú ở đầu type.
-        func urlSession(
-            _ session: URLSession,
-            downloadTask: URLSessionDownloadTask,
-            didFinishDownloadingTo location: URL
-        ) {}
     }
 
     // MARK: - Hạ tầng
