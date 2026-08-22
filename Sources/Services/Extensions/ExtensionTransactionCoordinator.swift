@@ -34,6 +34,34 @@ public final class ExtensionTransactionCoordinator {
     }
 
     public func upsertExtension(command: UpsertExtensionCommand, in context: ModelContext) -> Result<Void, ExtensionTransactionError> {
+        apply(command: command, in: context)
+
+        do {
+            try context.save()
+            return .success(())
+        } catch {
+            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
+        }
+    }
+
+    /// Áp nhiều command rồi `save()` **một lần**. Dùng cho đồng bộ cả kho: mỗi `save()` riêng lẻ
+    /// vừa là một transaction vừa kéo `@Query` của View render lại, nên kho vài chục ext trả giá rất đắt.
+    public func upsertExtensions(commands: [UpsertExtensionCommand], in context: ModelContext) -> Result<Void, ExtensionTransactionError> {
+        guard !commands.isEmpty else { return .success(()) }
+        for command in commands {
+            apply(command: command, in: context)
+        }
+
+        do {
+            try context.save()
+            return .success(())
+        } catch {
+            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
+        }
+    }
+
+    /// Phần áp field dùng chung cho cả bản đơn lẻ và bản batch — **không** `save()`.
+    private func apply(command: UpsertExtensionCommand, in context: ModelContext) {
         let pkgId = command.packageId
         var descriptor = FetchDescriptor<Extension>(predicate: #Predicate { $0.packageId == pkgId })
         descriptor.fetchLimit = 1
@@ -79,13 +107,6 @@ public final class ExtensionTransactionCoordinator {
             )
             if let repo = repoEntity { newExt.repository = repo }
             context.insert(newExt)
-        }
-
-        do {
-            try context.save()
-            return .success(())
-        } catch {
-            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
         }
     }
 

@@ -132,6 +132,37 @@ public final class ImageCacheManager {
         }
     }
 
+    /// Ghi ảnh bìa do người dùng chọn từ máy vào đúng chỗ mà `loadLocalCover` đọc.
+    /// Ảnh được thu nhỏ về cạnh dài ≤ `maxDimension` px rồi nén JPEG để không phình thư mục `covers/`.
+    @discardableResult
+    public func saveCover(data: Data, for bookId: String, maxDimension: CGFloat = 1024, quality: CGFloat = 0.85) -> UIImage? {
+        guard let image = UIImage(data: data) else { return nil }
+        let resized = downscaled(image, maxDimension: maxDimension)
+        guard let jpegData = resized.jpegData(compressionQuality: quality) else { return nil }
+
+        let destinationURL = coversDirectory.appendingPathComponent(getNewFileName(for: bookId))
+        do {
+            try validatePathSafety(for: destinationURL)
+            try jpegData.write(to: destinationURL, options: .atomic)
+            AppLogger.shared.log("💾 Đã lưu ảnh bìa do người dùng chọn cho sách: \(bookId)")
+            return resized
+        } catch {
+            AppLogger.shared.log("❌ Lỗi ghi ảnh bìa người dùng chọn: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private func downscaled(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
+        let longestSide = max(image.size.width, image.size.height)
+        guard longestSide > maxDimension, longestSide > 0 else { return image }
+        let scale = maxDimension / longestSide
+        let targetSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+    }
+
     public func downloadAndSaveCover(urlStr: String, bookId: String, completion: @escaping (UIImage?) -> Void = { _ in }) {
         guard !urlStr.isEmpty, let url = URL(string: urlStr) else {
             completion(nil)

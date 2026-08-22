@@ -15,6 +15,50 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Sao lưu/khôi phục, tăng tốc cập nhật ext, sửa thông tin truyện (1.3.246)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| `Models/Books/EditBookInfoCommand.swift` | command bất biến cho sửa tên/tác giả/bìa | 20 |
+| `Services/Backup/BackupScope.swift` | 6 nhóm dữ liệu chọn được, `books` bắt buộc | 54 |
+| `Services/Backup/BackupPaths.swift` | nguồn duy nhất của tên entry trong archive + thư mục `backups/` | 94 |
+| `Services/Backup/BackupManifest.swift` | `manifest.json`, `schemaVersion 1`, `Counts` | 80 |
+| `Services/Backup/BackupPayload.swift` | DTO Codable của Book/Repository/Extension/Chapter | 196 |
+| `Services/Backup/BackupProgress.swift` | 17 pha tiến độ + nhãn tiếng Việt | 79 |
+| `Services/Backup/BackupZipArchive.swift` | **điểm gọi ZIPFoundation duy nhất** của phân hệ backup | 93 |
+| `Services/Backup/BackupLibraryReader.swift` | đọc SwiftData → DTO `Sendable` (MainActor, chỉ đọc) | 139 |
+| `Services/Backup/BackupDictionaryArchiver.swift` | gom file từ điển nguyên trạng, không parse | 93 |
+| `Services/Backup/BackupSizeEstimator.swift` | dung lượng ước tính từng nhóm cho UI | 45 |
+| `Services/Backup/BackupExportWorker.swift` | actor dựng thư mục tạm rồi zip | 232 |
+| `Services/Backup/BackupRestoreWorker.swift` | actor điều phối restore (chỉ merge, không xoá) | 236 |
+| `Services/Backup/BackupLibraryWriter.swift` | ghi SwiftData qua coordinator, chỉ chèn cái thiếu | 187 |
+| `Services/Backup/BackupChapterRestorer.swift` | TOC + cache chương, quyết định giữ/bỏ offset | 189 |
+| `Services/Backup/BackupExtensionInstaller.swift` | cài ext, tính lại `localPath` trên máy đích | 120 |
+| `Services/Backup/BackupDictionaryRestorer.swift` | merge từ điển, tombstone đi kèm miễn phí | 127 |
+| `Services/Backup/LocalBackupStore.swift` | liệt kê/xoá/đổi tên/nhập file trong `backups/` | 105 |
+| `Services/Backup/BackupCoordinator.swift` | `ObservableObject` cầu nối UI ↔ worker | 209 |
+| `Services/Backup/GoogleDrive/GoogleDriveConfiguration.swift` | clientId (override + Info.plist), scope `drive.file`, endpoint | 64 |
+| `Services/Backup/GoogleDrive/GoogleDriveAuthService.swift` | PKCE S256 + `ASWebAuthenticationSession` | 201 |
+| `Services/Backup/GoogleDrive/GoogleDriveTokenStore.swift` | refresh token: Keychain + fallback file có file protection | 105 |
+| `Services/Backup/GoogleDrive/GoogleDriveFile.swift` | DTO file Drive + tên/kích thước hiển thị | 54 |
+| `Services/Backup/GoogleDrive/GoogleDriveClient.swift` | tìm/tạo thư mục, list, download, delete | 137 |
+| `Services/Backup/GoogleDrive/GoogleDriveUploader.swift` | resumable upload chunk 8 MiB, xử lý 308 | 171 |
+| `Services/Extensions/Manager/ExtensionSyncCommandBuilder.swift` | tải/parse `plugin.json` song song ngoài main | 168 |
+| `Views/BookDetail/BookInfoEditView.swift` | form sửa tên/tác giả/bìa (URL hoặc `PhotosPicker`) | 214 |
+| `Views/Settings/Backup/BackupHubView.swift` | màn gốc Sao lưu & Khôi phục | 187 |
+| `Views/Settings/Backup/BackupScopeToggleList.swift` | toggle nhóm + dung lượng ước tính | 94 |
+| `Views/Settings/Backup/LocalBackupListView.swift` | danh sách file backup trong app | 134 |
+| `Views/Settings/Backup/GoogleDriveBackupListView.swift` | danh sách file trên Drive + đăng nhập | 168 |
+| `Views/Settings/Backup/RestoreOptionsSheet.swift` | tóm tắt manifest + chọn nhóm khôi phục | 108 |
+| `Views/Settings/Main/BackupSettingsSection.swift` | section "Sao Lưu & Khôi Phục" trong Cài đặt | 12 |
+| `Views/Settings/Main/TTSSettingsSection.swift` | section "Nghe Truyện (TTS)" trích từ `SettingsView` | 24 |
+* Tổng file Swift 244 → **277** (+33). Không file nào bị xoá, đổi tên hay đổi thư mục.
+* File sửa nội dung: `SettingsView.swift` 453 → **439** (−14: mục TTS chuyển sang `TTSSettingsSection`, thêm `BackupSettingsSection`), `RepositoryManagerView.swift` 751 → **709** (−42: `syncExtensions` chỉ còn snapshot → builder → batch upsert), `BookDetailView.swift` 1213 → **1181** (−32: `ellipsisMenu` chuyển sang file `+Extensions`), `BookDetailView+Extensions.swift` 285 → **343** (+58: `ellipsisMenu` + item "Sửa thông tin truyện"), `ExtensionTransactionCoordinator.swift` → **174** (thêm `upsertExtensions` + helper `apply` dùng chung), `BookTransactionCoordinator.swift` → **239** (thêm `updateBookInfo`), `ImageCacheManager.swift` → **204** (thêm `saveCover` + `downscaled`).
+* Quan hệ mới: `Views/Settings/Backup/**` → `BackupCoordinator` → `BackupExportWorker` / `BackupRestoreWorker` / `LocalBackupStore` / `GoogleDrive*`; `BackupLibraryWriter` → `BookTransactionCoordinator` + `ExtensionTransactionCoordinator`; `BackupChapterRestorer` → `ChapterStore` + `BookBinManager`; `BackupDictionaryRestorer` → `DictionaryTextFileStore` + `TranslationManager`; `RepositoryManagerView` → `ExtensionSyncCommandBuilder`.
+* [BackupZipArchive.swift:1](../../Sources/Services/Backup/BackupZipArchive.swift#L1) là consumer ZIPFoundation thứ hai của repo (sau `ExtensionManager.swift`) và chỉ dùng `FileManager.zipItem/unzipItem`: `Archive.init` đổi chữ ký giữa các bản 0.9.x mà `Package.resolved` không được commit, nên mọi lời gọi thư viện gói trong đúng một file để sửa nhanh nếu CI resolve bản khác.
+* `project.yml` **có sửa** lần này: thêm khoá Info.plist `GOOGLE_DRIVE_CLIENT_ID: "$(GOOGLE_DRIVE_CLIENT_ID)"` ([project.yml:54](../../project.yml#L54)). Danh sách file vẫn tự nhặt vì target khai `sources: - path: Sources` theo thư mục.
+* Không build được để xác minh biên dịch: host là Windows, `xcodebuild` chỉ chạy trên macOS.
+
 ## Tìm kiếm truyện đích, copy VP/Name, widget trình duyệt kéo được (1.3.244)
 
 | File mới | Vai trò | Dòng |

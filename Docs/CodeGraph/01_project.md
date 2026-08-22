@@ -32,4 +32,9 @@ Dự án FreeBook đã hoàn tất tái cấu trúc kiến trúc v4.1/v5.0 với
    - `AppLaunchRootView` (`FreeBookApp.swift`) là điểm duy nhất trong ứng dụng đăng ký lắng nghe và hiển thị Toast trên UI.
 4. **Hệ Thống Kiểm Tra Kiến Trúc Fail-Closed**:
    - `Scripts/check_architecture.py` (v2 fail-closed schema validation) kiểm tra giới hạn dòng (<= 400 dòng cho file mới), 1 loại chính/file, cấm ghi `@Model` trong View, và cấm Service phụ thuộc direct ToastManager/SwiftUI.
+5. **Phân hệ Sao lưu/Khôi phục (1.3.246)** — `Sources/Services/Backup/` (+ `GoogleDrive/`) và `Sources/Views/Settings/Backup/`:
+   - Tuân thủ đúng chiều phụ thuộc đã có: View → `BackupCoordinator` (`@MainActor ObservableObject`) → actor worker (`BackupExportWorker`, `BackupRestoreWorker`, `GoogleDriveUploader`, `GoogleDriveClient`) → store/repository sẵn có (`ChapterStore`, `BookBinManager`, `DictionaryTextFileStore`, `TranslationManager`).
+   - **Không mở đường ghi SwiftData mới**: mọi thay đổi thư viện đi qua `BookTransactionCoordinator` / `ExtensionTransactionCoordinator` với Command DTO bất biến, gom trong `BackupLibraryWriter` (`@MainActor`); `EditBookInfoCommand` là DTO mới duy nhất của lần này.
+   - Giữ luật tầng Service: `Sources/Services/Backup/**` không `import SwiftUI` và không gọi `ToastManager.shared` — tiến độ đi ra ngoài bằng `@Published` của coordinator, toast do `BackupHubView` hiển thị.
+   - Điểm nạp cấu hình bí mật thứ hai của app, cùng cơ chế với Google TTS: `GOOGLE_DRIVE_CLIENT_ID` (GitHub secret → build setting → Info.plist) với override `UserDefaults("googleDriveClientId")`; thiếu cấu hình thì chỉ tắt kênh Drive, không ảnh hưởng kênh backup local.
 <!-- GENERATED END -->

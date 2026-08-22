@@ -15,6 +15,42 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ mới: Sao lưu & Khôi phục (1.3.246)
+
+Phân hệ thứ hai của repo có kênh mạng riêng (sau TTS Google) và là phân hệ **duy nhất** biết cách đọc/ghi xuyên qua mọi tầng lưu trữ của app. Ranh giới được vạch để nó *điều phối* mà không *sở hữu* tầng nào: mọi ghi vẫn đi qua owner sẵn có (`ChapterStore`, `BookBinManager`, `DictionaryTextFileStore`, `BookTransactionCoordinator`, `ExtensionTransactionCoordinator`, `ExtensionManager`).
+
+* **Định dạng `.fbbackup`** (ZIP, `schemaVersion 1`) — cây entry do `BackupPaths` khai một chỗ duy nhất:
+
+```
+manifest.json                              schemaVersion, appVersion, createdAt, scope[], counts
+library/slugs.json                         [{slug, bookId}] — phủ cả bookId chỉ còn từ điển riêng
+library/books.json                         Book + tiến độ đọc
+library/repositories.json                  Repository
+library/extensions.json                    Extension + localPathRelative
+chapters/<slug>.json                       TOC đầy đủ: index,title,url,host,titleTrans,isCached,offset,length
+content/<slug>.bin                         bản copy nguyên vẹn books/<sha256(bookId)>.bin
+extensions/<packageId>/**                  file gốc của ext (+ extensions/common)
+dict/global/CustomVietPhrase.txt, CustomNames.txt
+dict/books/<slug>/VietPhrase.txt, Names.txt
+dict/shared/{VietPhrase,Names,Pronouns,LuatNhan}.dat, ChinesePhienAmWords.txt
+```
+
+* **6 nhóm chọn được** (`BackupScope`, mặc định bật hết): `books` (bắt buộc — nền của mọi nhóm khác), `content`, `extensions`, `dictBooks`, `dictCustom`, `dictShared`. **Không có nhóm ảnh bìa**: bìa tải lại được từ `coverUrl`, và đó cũng là giới hạn đã biết — bìa người dùng chọn từ thư viện ảnh sẽ mất khi restore sang máy khác.
+* **Luật `dict/shared`** (`BackupDictionaryArchiver.sharedFileNames`): lấy các `.dat` đang có, chỉ lấy thêm `<Name>.txt` ở gốc `translate/` khi **không** có `.dat` cùng tên (tránh nhân đôi vài chục MB), và luôn lấy `ChinesePhienAmWords.txt`. Vì nhóm này rất lớn, `BackupSizeEstimator` phải hiện dung lượng ước tính để người dùng tắt được.
+* **Tombstone không có định dạng riêng**: `DictionaryTextRecord.isDeleted` chính là `value.isEmpty` và bản ghi rỗng nằm ngay trong `Custom*.txt` / `books/<bookId>/*.txt`. Backup hai nhóm TXT đó là đã phủ luôn "mục VP/Name đã xoá".
+* **Restore chỉ merge**: `bookId` / `Repository.url` / `packageId` đã có thì giữ bản local (ext chỉ bị thay khi `version` trong backup lớn hơn); từ điển đi qua `mergedRecords(imported:existing:isMerge: true)`. Không nhánh nào xoá dữ liệu người dùng, nên restore lại cùng một file là **idempotent** — không nhân đôi truyện, kho, ext hay key từ điển.
+* **Điều kiện chặn**: restore bị chặn khi TTS đang phát, vì nó ghi vào đúng những hàng mà TTS đang sở hữu tiến độ. `BackupHubView` đọc trạng thái qua projection reader `TTSWidgetStateReader` (đúng luật "View không observe trực tiếp `TTSManager`"), có cả gợi ý ở footer và guard cứng trong `startRestore`.
+* **`importBookMigration` lần đầu có caller production**: nó xoá chương local không nằm trong tập truyền vào và ghi bảng `migration_status` (không ai đọc), nên chỉ được dùng ở nhánh "local chưa có TOC". Nhánh sách đã có TOC dùng `upsertPage` + `updateCacheMetadata`.
+* **Mirror SwiftData `Chapter`** chỉ chạy khi `ChapterStoreConfiguration.enableSwiftDataTOCWrite` (production là `false`) — `BackupLibraryWriter.mirrorChapters` trả về ngay, giữ đúng bất biến "TOC nằm ở sqlite".
+* **Giới hạn đã biết của restore ext**: `UpsertExtensionCommand` không mang `isEnabled`/`isPinned`, nên ext mới sau restore mặc định bật và không ghim. `localPath` **luôn được tính lại** bằng `ExtensionManager.findMainExtensionFolder(at:)` trên thư mục thật, vì `localPath` trong DB là đường dẫn tuyệt đối của sandbox máy cũ.
+* **Giới hạn đã biết của restore truyện**: `AddBookToShelfCommand` không mang `lastReadDate`, nên thứ tự "đọc gần đây" của truyện mới thêm bắt đầu lại từ thời điểm restore.
+* **Kênh Google Drive** (`Services/Backup/GoogleDrive/`): PKCE S256 + `ASWebAuthenticationSession` (Google trả `disallowed_useragent` cho WKWebView nhúng; và vì session tự bắt callback theo scheme nên **không cần khai `CFBundleURLTypes`**), client iOS không có `client_secret`, scope `drive.file` (chỉ file do app tạo — quyền tối thiểu và không phải scope sensitive), thư mục `FreeBookBackups`, upload resumable chunk 8 MiB có xử lý 308 + retry 5xx tối đa 3 lần. Refresh token ở Keychain (`kSecAttrAccessibleAfterFirstUnlock`), fallback file có `FileProtectionType.completeUntilFirstUserAuthentication`. Không log token, không log payload.
+* **Kênh local** (`LocalBackupStore`): liệt kê/xoá/đổi tên/nhập file trong `applicationSupportDirectory/backups/`, xuất ra Files bằng `ShareSheet` sẵn có, nhập từ Files bằng `DocumentPicker` với `UTType(filenameExtension: "fbbackup") ?? .data`. Kênh này **độc lập hoàn toàn** với Drive: thiếu client id thì tab Drive hiện "chưa cấu hình" mà backup local vẫn chạy đủ.
+* **Ranh giới trình bày**: `Sources/Services/Backup/**` không `import SwiftUI`, không gọi `ToastManager` — tiến độ ra ngoài bằng `BackupProgress` (17 pha) qua `@Published` của `BackupCoordinator`; `BackupHubView` là nơi duy nhất hiển thị toast.
+* **ZIPFoundation bị cô lập** trong `BackupZipArchive` (chỉ `FileManager.zipItem/unzipItem`), vì `Archive.init` đổi giữa dạng optional (≤0.9.18) và dạng `throws` (0.9.19+) mà `Package.resolved` không được commit. `stage(fileAt:)` thử `linkItem` (hard link) trước `copyItem` để không nhân đôi dung lượng `.bin`/`.dat` khi dựng thư mục tạm.
+* Phân hệ **Ext manager** đổi ranh giới nhỏ: `RepositoryManagerView` không còn tự tải `plugin.json`; việc đó thuộc `ExtensionSyncCommandBuilder` (Services), và việc ghi thuộc `ExtensionTransactionCoordinator.upsertExtensions` — một transaction cho cả kho. Phân hệ **Chi tiết truyện** thêm `BookInfoEditView` + `updateBookInfo`; `ImageCacheManager` nay có đường ghi bìa từ ảnh người dùng (`saveCover`), vẫn qua `validatePathSafety` của chính nó.
+* Không phân hệ nào khác đổi ranh giới: Reader, TTS, Translation engine, Download, Trình duyệt hiển thị, Widget nổi giữ nguyên; quyền sở hữu tiến độ đọc và đường highlight không bị đụng tới.
+
 ## Phân hệ Trình duyệt hiển thị: một cửa "mở lại" duy nhất (1.3.245)
 
 * `VisibleBrowserTabManager.swift` 263 → **325 dòng** và ranh giới bên trong nó được vạch lại: quyền "đổi tab đang hoạt động" (`activateTab(id:)`, internal) tách khỏi quyền "đổi trạng thái thu nhỏ/mở" (`selectTab(id:)` public cho cử chỉ, `reopenContainer()`, `hideContainer()`, `openContainer(initialActiveId:)`). Mọi caller lập trình — thực tế là `addTab` khi tab ID trùng — chỉ được dùng nhóm thứ nhất. `selectTab` còn đúng một caller trong `Sources/`: `TabbedVisibleBrowserViewController.handleTabTap`.

@@ -678,72 +678,30 @@ struct RepositoryManagerView: View {
         }
     }
     
+    /// Đồng bộ cả kho: chụp `localPath` hiện có trên MainActor, tải/parse `plugin.json` **song song
+    /// ngoài main** qua `ExtensionSyncCommandBuilder`, rồi ghi **một transaction duy nhất**.
     @MainActor
     @discardableResult
     internal func syncExtensions(for repoUrl: String, with items: [ExtensionRegistryItem]) async -> Result<Void, ExtensionTransactionError> {
-        for item in items {
-            let packageId = item.name.lowercased()
-                .replacingOccurrences(of: " ", with: "_")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            
-            let existingExt = allExtensions.first(where: { $0.packageId == packageId })
-            let localPath = existingExt?.localPath ?? ""
-            
-            var resolvedAuthor: String? = nil
-            var resolvedLanguage: String? = nil
-            var resolvedType: String? = nil
-            var resolvedVersion: Int? = nil
-            var resolvedSource: String? = nil
-            
-            // Ưu tiên đọc plugin.json cục bộ nếu tiện ích đã được tải về
-            var loadedFromLocal = false
-            if !localPath.isEmpty {
-                let localJsonUrl = URL(fileURLWithPath: localPath).appendingPathComponent("plugin.json")
-                if FileManager.default.fileExists(atPath: localJsonUrl.path),
-                   let jsonData = try? Data(contentsOf: localJsonUrl),
-                   let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-                    let meta = json["metadata"] as? [String: Any] ?? json
-                    resolvedAuthor = meta["author"] as? String
-                    resolvedLanguage = (meta["locale"] as? String) ?? (meta["language"] as? String)
-                    resolvedType = meta["type"] as? String
-                    if let v = meta["version"] as? Int { resolvedVersion = v }
-                    else if let vs = meta["version"] as? String { resolvedVersion = Int(vs) }
-                    resolvedSource = meta["source"] as? String
-                    loadedFromLocal = true
-                }
-            }
-            
-            // Fallback: tải plugin.json từ thư mục gốc của file zip trên mạng
-            if !loadedFromLocal, let zipURL = URL(string: item.path) {
-                let pluginURL = zipURL.deletingLastPathComponent().appendingPathComponent("plugin.json")
-                do {
-                    let (data, _) = try await URLSession.shared.data(from: pluginURL)
-                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                        let meta = json["metadata"] as? [String: Any] ?? json
-                        resolvedAuthor = meta["author"] as? String
-                        resolvedLanguage = (meta["locale"] as? String) ?? (meta["language"] as? String)
-                        resolvedType = meta["type"] as? String
-                        if let v = meta["version"] as? Int { resolvedVersion = v }
-                        else if let vs = meta["version"] as? String { resolvedVersion = Int(vs) }
-                        resolvedSource = meta["source"] as? String
-                    }
-                } catch {
-                    print("⚠️ Lỗi tải/parse plugin.json từ mạng cho \(item.name): \(error.localizedDescription)")
-                }
-            }
-            
-            let repoRemoteVersion = item.version ?? 1
-            let finalAuthor = resolvedAuthor ?? item.author ?? ""
-            let finalLocale = resolvedLanguage ?? item.locale ?? "vi_VN"
-            let finalType = resolvedType ?? item.type ?? ExtensionType.novel
-            let finalVersion = resolvedVersion ?? item.version ?? 1
-            let finalSource = resolvedSource ?? item.source ?? ""
-            
-            let cmd = UpsertExtensionCommand(packageId: packageId, name: item.name, author: finalAuthor, version: finalVersion, remoteVersion: repoRemoteVersion, sourceUrl: finalSource, iconUrl: item.icon, desc: item.description, type: finalType, locale: finalLocale, localPath: localPath.isEmpty ? nil : localPath, downloadUrl: item.path, configJson: nil, repositoryUrl: repoUrl)
-            let res = ExtensionTransactionCoordinator.shared.upsertExtension(command: cmd, in: modelContext)
-            if case .failure(let err) = res { return .failure(err) }
+        guard !items.isEmpty else { return .success(()) }
+        let startedAt = Date()
+
+        var localPaths: [String: String] = [:]
+        for ext in allExtensions where !ext.localPath.isEmpty {
+            localPaths[ext.packageId] = ext.localPath
         }
-        return .success(())
+        let inputs = items.map { item in
+            ExtensionSyncCommandBuilder.Input(
+                item: item,
+                existingLocalPath: localPaths[ExtensionSyncCommandBuilder.packageId(forName: item.name)] ?? ""
+            )
+        }
+
+        let commands = await ExtensionSyncCommandBuilder.build(inputs: inputs, repositoryUrl: repoUrl)
+        let result = ExtensionTransactionCoordinator.shared.upsertExtensions(commands: commands, in: modelContext)
+        let elapsed = String(format: "%.2f", Date().timeIntervalSince(startedAt))
+        AppLogger.shared.log("ℹ️ [ExtSync] Đồng bộ \(commands.count)/\(items.count) ext của kho \(repoUrl) trong \(elapsed)s")
+        return result
     }
     
 

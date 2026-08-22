@@ -69,11 +69,12 @@ struct BookDetailView: View {
     @State internal var remainingPagesLoaded = false
     @State internal var isLoadingRemainingPages = false
     @State internal var readerRoute: ReaderRoute?
-    @State private var navigateToDictionary = false
-    @State private var navigateToChangeSource = false
+    @State internal var navigateToDictionary = false
+    @State internal var navigateToChangeSource = false
+    @State internal var showingEditInfo = false
 
     // Trình duyệt bypass Cloudflare & Import
-    @State private var showingBypassBrowser = false
+    @State internal var showingBypassBrowser = false
     @State private var importedBookId = ""
     @State private var importedExtensionPackageId = ""
     @State private var importedDetailUrl = ""
@@ -259,6 +260,16 @@ struct BookDetailView: View {
         .onChange(of: isTranslationEnabled) { _, _ in
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
+        }
+        .sheet(isPresented: $showingEditInfo, onDismiss: refreshDisplayedBookInfo) {
+            if let book = localBook {
+                BookInfoEditView(
+                    bookId: book.bookId,
+                    title: book.title,
+                    author: book.author,
+                    coverUrl: book.coverUrl
+                )
+            }
         }
         .fullScreenCover(item: $readerRoute) { route in
             NavigationStack {
@@ -574,49 +585,6 @@ struct BookDetailView: View {
         }
         .refreshable {
             await reloadBookData()
-        }
-    }
-
-    @ViewBuilder
-    private var ellipsisMenu: some View {
-        Menu {
-            Button(action: {
-                isTranslationEnabled.toggle()
-            }) {
-                Label(
-                    isTranslationEnabled ? "Tắt dịch" : "Bật dịch",
-                    systemImage: isTranslationEnabled ? "character.bubble.fill" : "character.bubble"
-                )
-            }
-
-            if localBook != nil {
-                Button(action: {
-                    navigateToDictionary = true
-                }) {
-                    Label("Từ điển", systemImage: "character.book.closed")
-                }
-            }
-
-            Button(action: {
-                navigateToChangeSource = true
-            }) {
-                Label("Thay đổi nguồn", systemImage: "arrow.2.squarepath")
-            }
-
-            Button(action: {
-                showingBypassBrowser = true
-            }) {
-                Label("Mở bằng trình duyệt", systemImage: "safari")
-            }
-
-            Button(action: {
-                // Chưa làm chức năng
-            }) {
-                Label("Chia sẻ", systemImage: "square.and.arrow.up")
-            }
-        } label: {
-            Image(systemName: "ellipsis")
-                .rotationEffect(.degrees(90))
         }
     }
 

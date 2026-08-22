@@ -200,25 +200,11 @@ struct SettingsView: View {
                         .disabled(!importingTypes.isEmpty)
                     }
                 
-                Section(header: Text("Nghe Truyện (TTS)")) {
-                    NavigationLink(destination: TTSSettingsView(isPresentedAsSheet: false)) {
-                        Label("Cài đặt TTS", systemImage: "waveform")
-                    }
-                    NavigationLink(destination: TTSModelManagerView()) {
-                        Label("Quản lý Model", systemImage: "waveform.and.mic")
-                    }
-                    NavigationLink(destination: TTSDictionaryEditView()) {
-                        Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
-                    }
-                    NavigationLink(destination: TTSReplacementManagerView()) {
-                        Label("Quản lý thay thế ký tự", systemImage: "pencil.and.outline")
-                    }
-                    NavigationLink(destination: NghiTTSSettingsView()) {
-                        Label("Cấu hình tiền xử lý & ngắt nghỉ", systemImage: "slider.horizontal.3")
-                    }
-                }
+                TTSSettingsSection()
 
                 BrowserSettingsSection()
+
+                BackupSettingsSection()
 
                 Section(header: Text("Cấu Hình Ghi Log")) {
                     Toggle(isOn: $isLoggingEnabled) {

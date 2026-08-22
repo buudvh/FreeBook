@@ -51,6 +51,7 @@ targets:
         UIBackgroundModes:
           - audio
         GOOGLE_CLOUD_TTS_API_KEY: "$(GOOGLE_CLOUD_TTS_API_KEY)"
+        GOOGLE_DRIVE_CLIENT_ID: "$(GOOGLE_DRIVE_CLIENT_ID)"
     settings:
       base:
         CODE_SIGNING_ALLOWED: "NO"

@@ -86,6 +86,29 @@ public final class BookTransactionCoordinator {
         }
     }
 
+    /// Người dùng tự sửa thông tin truyện. Tính lại luôn `titleTrans`/`authorTrans` theo đúng công thức
+    /// của `BookTitleTranslationBackfill`, vì kệ sách đọc hai field đó chứ không dịch lại tại chỗ.
+    @discardableResult
+    public func updateBookInfo(command: EditBookInfoCommand, in context: ModelContext) -> Result<Void, Error> {
+        let bookId = command.bookId
+        var descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.bookId == bookId })
+        descriptor.fetchLimit = 1
+        guard let book = try? context.fetch(descriptor).first else {
+            return .failure(BookTransactionError.bookNotFound(bookId))
+        }
+        book.title = command.title
+        book.author = command.author
+        book.coverUrl = command.coverUrl
+        book.titleTrans = TranslateUtils.translateMeta(command.title, bookId: bookId)
+        book.authorTrans = TranslateUtils.translateAuthorHanViet(command.author)
+        do {
+            try context.save()
+            return .success(())
+        } catch {
+            return .failure(BookTransactionError.saveFailed(error.localizedDescription))
+        }
+    }
+
     @discardableResult
     public func setOnShelf(bookId: String, isOnShelf: Bool, in context: ModelContext) -> Result<Void, Error> {
         var descriptor = FetchDescriptor<Book>(predicate: #Predicate { $0.bookId == bookId })

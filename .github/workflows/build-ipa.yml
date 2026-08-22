@@ -69,6 +69,7 @@ jobs:
     - name: Build and Archive App (Unsigned)
       env:
         GOOGLE_CLOUD_TTS_API_KEY: ${{ secrets.GOOGLE_CLOUD_TTS_API_KEY }}
+        GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
       run: |
         set -euo pipefail
         xcodebuild archive \
@@ -82,16 +83,18 @@ jobs:
           CODE_SIGN_IDENTITY="" \
           PROVISIONING_PROFILE_SPECIFIER="" \
           DEVELOPMENT_TEAM="" \
-          GOOGLE_CLOUD_TTS_API_KEY="${GOOGLE_CLOUD_TTS_API_KEY}"
+          GOOGLE_CLOUD_TTS_API_KEY="${GOOGLE_CLOUD_TTS_API_KEY}" \
+          GOOGLE_DRIVE_CLIENT_ID="${GOOGLE_DRIVE_CLIENT_ID}"
 
     - name: Package IPA
       env:
         GOOGLE_CLOUD_TTS_API_KEY: ${{ secrets.GOOGLE_CLOUD_TTS_API_KEY }}
+        GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
       run: |
         set -euo pipefail
         mkdir -p build/Payload
         cp -r build/FreeBook.xcarchive/Products/Applications/FreeBook.app build/Payload/
-        
+
         # Inject Google Cloud TTS API Key vào Info.plist của FreeBook.app
         if [ -n "$GOOGLE_CLOUD_TTS_API_KEY" ] && [ -f "build/Payload/FreeBook.app/Info.plist" ]; then
           echo "Injecting GOOGLE_CLOUD_TTS_API_KEY into build/Payload/FreeBook.app/Info.plist..."
@@ -101,7 +104,17 @@ jobs:
             plutil -insert GOOGLE_CLOUD_TTS_API_KEY -string "$GOOGLE_CLOUD_TTS_API_KEY" build/Payload/FreeBook.app/Info.plist
           fi
         fi
-        
+
+        # Inject Google Drive OAuth Client ID (loại iOS, không phải secret nhưng giữ ngoài repo)
+        if [ -n "$GOOGLE_DRIVE_CLIENT_ID" ] && [ -f "build/Payload/FreeBook.app/Info.plist" ]; then
+          echo "Injecting GOOGLE_DRIVE_CLIENT_ID into build/Payload/FreeBook.app/Info.plist..."
+          if plutil -extract GOOGLE_DRIVE_CLIENT_ID xml1 -o - build/Payload/FreeBook.app/Info.plist >/dev/null 2>&1; then
+            plutil -replace GOOGLE_DRIVE_CLIENT_ID -string "$GOOGLE_DRIVE_CLIENT_ID" build/Payload/FreeBook.app/Info.plist
+          else
+            plutil -insert GOOGLE_DRIVE_CLIENT_ID -string "$GOOGLE_DRIVE_CLIENT_ID" build/Payload/FreeBook.app/Info.plist
+          fi
+        fi
+
         # 1. Cài đặt espeak-ng trên máy chủ macOS của Github để lấy dữ liệu âm vị đã biên dịch nhị phân
         HOMEBREW_NO_AUTO_UPDATE=1 brew install espeak-ng
         BREW_DATA_PATH="$(brew --prefix espeak-ng)/share/espeak-ng-data"

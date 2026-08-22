@@ -2,6 +2,64 @@ import SwiftUI
 import SwiftData
 
 extension BookDetailView {
+    /// Menu "…" ở toolbar. Nằm ở đây thay vì `BookDetailView.swift` để giữ file gốc dưới baseline dòng.
+    @ViewBuilder
+    internal var ellipsisMenu: some View {
+        Menu {
+            Button(action: {
+                isTranslationEnabled.toggle()
+            }) {
+                Label(
+                    isTranslationEnabled ? "Tắt dịch" : "Bật dịch",
+                    systemImage: isTranslationEnabled ? "character.bubble.fill" : "character.bubble"
+                )
+            }
+
+            if localBook != nil {
+                Button(action: {
+                    showingEditInfo = true
+                }) {
+                    Label("Sửa thông tin truyện", systemImage: "square.and.pencil")
+                }
+
+                Button(action: {
+                    navigateToDictionary = true
+                }) {
+                    Label("Từ điển", systemImage: "character.book.closed")
+                }
+            }
+
+            Button(action: {
+                navigateToChangeSource = true
+            }) {
+                Label("Thay đổi nguồn", systemImage: "arrow.2.squarepath")
+            }
+
+            Button(action: {
+                showingBypassBrowser = true
+            }) {
+                Label("Mở bằng trình duyệt", systemImage: "safari")
+            }
+
+            Button(action: {
+                // Chưa làm chức năng
+            }) {
+                Label("Chia sẻ", systemImage: "square.and.arrow.up")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .rotationEffect(.degrees(90))
+        }
+    }
+
+    /// Đồng bộ lại phần hiển thị sau khi người dùng tự sửa thông tin truyện.
+    internal func refreshDisplayedBookInfo() {
+        guard let book = localBook else { return }
+        title = book.title
+        author = book.author
+        coverUrl = book.coverUrl
+    }
+
     internal func prepareForTask(taskType: TaskType) {
         if tocPages.count > 1 && !remainingPagesLoaded {
             isLoadingRemainingPages = true

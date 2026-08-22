@@ -15,6 +15,22 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type mới cho sao lưu/khôi phục, đồng bộ ext theo lô, sửa thông tin truyện (1.3.246)
+
+* `EditBookInfoCommand` (`struct`, bất biến): `bookId`, `title`, `author`, `coverUrl`. Command DTO duy nhất được thêm; `AddBookToShelfCommand` và `UpsertExtensionCommand` **không đổi shape**.
+* `BookTransactionCoordinator` thêm `updateBookInfo(command:in:) -> Result<Void, Error>` (`@discardableResult`), tính lại `titleTrans = TranslateUtils.translateMeta(...)` và `authorTrans = TranslateUtils.translateAuthorHanViet(...)` — xem [BookTransactionCoordinator.swift:89](../../Sources/Services/Books/BookTransactionCoordinator.swift#L89). `updateBookMetadata` cũ giữ nguyên hành vi (không đụng hai field dịch), nên hai API cố ý cùng tồn tại.
+* `ExtensionTransactionCoordinator` thêm `upsertExtensions(commands:in:)` (một `save()` cho cả lô) và private `apply(command:in:)` dùng chung với `upsertExtension` — xem [ExtensionTransactionCoordinator.swift:47](../../Sources/Services/Extensions/ExtensionTransactionCoordinator.swift#L47). Chữ ký `upsertExtension(command:in:)` không đổi.
+* `ExtensionSyncCommandBuilder` (`enum` namespace, không case): type lồng `Input { item: ExtensionRegistryItem, existingLocalPath: String }`, `static let defaultConcurrency = 6`, `requestTimeout: TimeInterval = 10`, `packageId(forName:)`, `build(inputs:repositoryUrl:maxConcurrent:) async -> [UpsertExtensionCommand]` (giữ đúng thứ tự input).
+* `ImageCacheManager` thêm `saveCover(data:for:maxDimension:quality:) -> UIImage?` (`@discardableResult`) và private `downscaled(_:maxDimension:)`; dùng lại `validatePathSafety`/`getNewFileName` private sẵn có, không thêm root lưu trữ mới.
+* Phân hệ backup — mỗi type một file, `Sources/Services/Backup/`:
+  - Giá trị/DTO: `BackupScope` (`enum: String, CaseIterable`, 6 case, `isMandatory`, `defaultSelection`, `displayOrder`), `BackupManifest` (`Codable`, type lồng `Counts`, `currentSchemaVersion = 1`, `isSupported`), `BackupPayload` (`enum` namespace chứa `BookRecord`/`RepositoryRecord`/`ExtensionRecord`/`ChapterRecord`/`SlugRecord`), `BackupProgress` (`struct` + `enum Phase` 17 case, `idle`), `GoogleDriveFile` (`Codable`), `LocalBackupStore.Item`.
+  - Namespace thuần: `BackupPaths` (tên entry archive + `backupsDirectory`), `BackupZipArchive`, `BackupSizeEstimator`, `BackupDictionaryArchiver`, `GoogleDriveConfiguration`.
+  - Actor: `BackupExportWorker`, `BackupRestoreWorker` (type lồng `Prepared`/`Options`/`Outcome`/`Failure`), `GoogleDriveClient`, `GoogleDriveUploader`.
+  - `@MainActor`: `BackupCoordinator` (`ObservableObject`, singleton `.shared`), `BackupLibraryReader` (chỉ đọc, type lồng `Payload`), `BackupLibraryWriter` (`struct`), `GoogleDriveAuthService` (type lồng `PresentationProvider`, `Failure`).
+  - Còn lại: `BackupChapterRestorer`, `BackupExtensionInstaller`, `BackupDictionaryRestorer`, `GoogleDriveTokenStore`, `LocalBackupStore`.
+* View mới đều là `struct: View` một type/file: `BookInfoEditView`, `BackupHubView`, `BackupScopeToggleList`, `LocalBackupListView`, `GoogleDriveBackupListView`, `RestoreOptionsSheet`, `BackupSettingsSection`, `TTSSettingsSection`. `TTSSettingsSection` là phép trích **nguyên văn** mục TTS khỏi `SettingsView` — không type nào của màn TTS đổi.
+* Không type nào bị xoá, đổi tên, đổi kế thừa hay đổi conformance trong lần này. Không `@Model` nào đổi shape ⇒ không có rủi ro lightweight migration.
+
 ## Type mới cho copy từ điển và widget trình duyệt (1.3.244)
 
 * `DictionaryTransferTarget` (`enum`, `Equatable`): `case globalCustom` và `case privateBook(bookId: String)`. Đây là **toàn bộ** vốn từ vựng về đích copy — không có case nào trỏ tới dữ liệu dựng sẵn (`.dat`), nên "ghi vào built-in" không biểu diễn được bằng type.
