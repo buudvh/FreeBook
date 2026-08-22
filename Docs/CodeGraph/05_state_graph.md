@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Trạng thái navigation của Reader: commit RAM hoãn một turn (1.3.240)
+
+* `ReaderLoadState` không thêm case nào, nhưng **thứ tự thời gian** đổi ở đường cache-hit: trước đây `requestChapter` set `.loading(chapterIndex:)` + `pendingNavigationIndex = N` rồi gọi `commitNavigation` **đồng bộ trong cùng turn main actor**, nên `.loading` → `.ready` và `pendingNavigationIndex` N → `nil` xảy ra trước khi SwiftUI kịp present frame nào. Từ 1.3.240 commit đó chạy trong `memoryCommitTask` (`Task { @MainActor }` + `await Task.yield()`) và guard theo `navigationGeneration`, nên tồn tại đúng một frame ở trạng thái `(pending = N, .loading)`.
+* Cổng render của `singleChapterReaderView` đọc đúng trạng thái đó: nhánh mới `pending != displayedChapterIndex` → `chapterInlineLoadingView(index: pending)` đặt **trước** nhánh `cache.get(presentationIndex)?.state == .loaded`. Vì `ChapterCache` thực tế không evict (`queueRelease*` không có caller) và N+1 được prefetch, chương đích gần như luôn `.loaded`; không có nhánh này thì skeleton không bao giờ được vẽ khi Next/Prev. Reload cùng chương (`pending == displayedChapterIndex`) vẫn đi nhánh cũ nên không nháy skeleton.
+* `memoryCommitTask` bị cancel ở đúng ba chỗ đang cancel `navigationWorkerTask`: đầu `requestChapter`, `failBootstrap`, `shutdown(saveProgress:)`. Bấm Next/Prev liên tiếp vì vậy chỉ commit lần cuối — generation cũ bị guard chặn.
+* Cờ `isRestoringReaderPosition` hết đường kẹt: nhánh thoát sớm `guard !chapter.isPositionRestored` của `restoreReaderPositionIfNeeded` nay gọi `completeReaderPositionRestore()` trước khi return. Trước đó, một chương từng restore rồi cộng với `scrollTarget` đã tiêu thụ sẽ để cờ ở `true` hết session, làm `requestTTSScrollIfNeeded` và `updateScrollReadingProgress` (cả hai mở đầu bằng `guard !isRestoringReaderPosition`) chết im lặng.
+
 ## Next-chapter prefix cache state (1.3.234)
 
 * `TTSNextChapterPrefixCache` giữ trạng thái phẳng, không phải máy trạng thái enum như `TTSChapterPrefetcher`: `activeKey: TTSPreparedNextChapterKey?`, `chunks: [Int: PreparedChunk]` (audio + `finalText` đã đọc), `durations: [Int: Double]`, `tasks: [Int: Task<Void, Never>]`, `taskTokens: [Int: UInt64]`, `failureStates: [Int: TTSManager.RefillFailureState]`, `nextTaskToken`/`generation: UInt64`.

@@ -56,6 +56,10 @@ extension ReaderView {
 
     internal func restoreReaderPositionIfNeeded(proxy: ScrollViewProxy, chapter: CachedChapter) {
         guard !chapter.isPositionRestored else {
+            // Chương này đã restore ở lần hiển thị trước nên không có cú scroll nào để chờ.
+            // Phải nhả cờ tại đây, nếu không isRestoringReaderPosition kẹt true cả session
+            // và mọi consumer (auto-scroll TTS, lưu tiến độ theo cuộn) chết im lặng.
+            completeReaderPositionRestore()
             schedulePrepareTTS()
             return
         }
@@ -71,6 +75,33 @@ extension ReaderView {
             completeReaderPositionRestore()
             schedulePrepareTTS()
         }
+    }
+
+    /// Next/Prev: khi chương đích đúng là chương TTS đang phát của sách này, hạ cánh thẳng
+    /// vào đoạn đang đọc thay vì đầu chương. Nhờ vậy `LazyVStack` chỉ phải realize/đo các
+    /// card trung gian MỘT lần; `requestTTSScrollIfNeeded` sau đó thoát ngay vì đoạn đã nằm
+    /// trong safe viewport, không còn cú nhảy sâu thứ hai vài giây sau khi chuyển chương.
+    internal func stepChapterHonoringTTS(by offset: Int, source: ReaderNavigationSource) {
+        let snapshot = ttsState.snapshot
+        let isTTSOwningThisBook = snapshot.isPlaying && snapshot.playingBookId == bookId
+        let persistProgress = !isTTSOwningThisBook
+        let targetIndex = (viewModel?.pendingNavigationIndex ?? chapterIndex) + offset
+        guard targetIndex >= 0 && targetIndex < totalChaptersCount else { return }
+
+        if isTTSOwningThisBook,
+           snapshot.playingChapterIndex == targetIndex,
+           snapshot.currentParentParagraphIndex >= 0,
+           !isAutoScrollDisabled {
+            viewModel?.requestChapter(
+                index: targetIndex,
+                paragraphIndex: snapshot.currentParentParagraphIndex,
+                source: source,
+                persistProgress: persistProgress
+            )
+            return
+        }
+
+        viewModel?.stepChapter(by: offset, source: source, persistProgress: persistProgress)
     }
 
     internal var readerBookDisplayTitle: String {

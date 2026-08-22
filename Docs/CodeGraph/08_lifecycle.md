@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời một lượt chuyển chương của Reader (1.3.240)
+
+* Chuỗi khi bấm Next/Prev với chương đích đã nằm trong RAM: turn 1 = `requestChapter` set `pendingNavigationIndex`/`.loading` và tạo `memoryCommitTask`; frame 1 = SwiftUI vẽ `chapterInlineLoadingView`; turn 2 = `commitNavigation` → `navigationCommit` → `.onChange` → `applyNavigationCommit` (set `isRestoringReaderPosition = true`, `paragraphTracker.removeAll()`, `scrollTarget`); frame 2 = subtree `singleChapterScrollView` mới (`.id("single-chapter-N")`) được dựng, `onAppear` → `restoreSingleChapterPosition` → `attemptScroll`; +0.25 s = `completeReaderPositionRestore` nhả cờ.
+* Việc dựng subtree (teardown chương cũ, `ForEach` vài trăm `ParagraphItem`, tạo + layout `UITextView` TextKit 1, giải neo `LazyVStack`) vẫn nằm trong một turn — thay đổi này **không làm nó nhanh hơn**, chỉ đảm bảo có một frame skeleton trước nó nên UI không còn đứng im không phản hồi.
+* Task mới `memoryCommitTask` thuộc cùng nhóm vòng đời với `navigationWorkerTask`/`navigationDebounceTask`/`settledPrefetchTask`: tạo trong `requestChapter`, cancel ở `requestChapter` kế tiếp, `failBootstrap` và `shutdown(saveProgress:)`. Không có timer hay observer mới.
+* `ReaderEnergyDiagnostics` thêm hai mốc theo vòng đời session: `beginReaderSession()` reset bộ đếm card realize và `lastNavigationIndex`; `flush(reason:)` xả nốt dòng `[ReaderPerf] NavRealize` của chương cuối trước khi in `Summary` rồi bỏ window.
+
 ## Next-chapter prefix audio lifecycle (1.3.234)
 
 * `TTSNextChapterPrefixCache.shared` sống suốt vòng đời app (singleton `@MainActor`), nhưng dữ liệu bên trong chỉ sống theo một `TTSPreparedNextChapterKey`: key mới là reset, `consume` là reset, stop/đổi engine/đổi giọng là reset.

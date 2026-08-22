@@ -20,6 +20,7 @@ final class ReaderEnergyDiagnostics {
         var ttsScrollExecuted = 0
         var frameUpdates = 0
         var frameUpdatesSkipped = 0
+        var paragraphsRealized = 0
 
         init(startedAt: TimeInterval) {
             self.startedAt = startedAt
@@ -35,17 +36,61 @@ final class ReaderEnergyDiagnostics {
     /// đo đếm rút về một phép so bool, không đụng UserDefaults hay đồng hồ hệ thống.
     private var isEnabled = false
     private var eventsSinceClockCheck = 0
+    /// Đếm card `ParagraphCardView` mà `LazyVStack` phải realize kể từ lần commit
+    /// navigation gần nhất. Đây là con số phân biệt "một lượt realize" với "hai lượt"
+    /// (hạ cánh đầu chương rồi bị auto-scroll TTS kéo sâu vài giây sau).
+    private var paragraphsRealizedSinceNavigation = 0
+    private var lastNavigationIndex = -1
 
     private init() {}
 
     func beginReaderSession() {
         isEnabled = AppLogger.shared.isLoggingEnabled
         eventsSinceClockCheck = 0
+        paragraphsRealizedSinceNavigation = 0
+        lastNavigationIndex = -1
         guard isEnabled else {
             window = nil
             return
         }
         window = Window(startedAt: ProcessInfo.processInfo.systemUptime)
+    }
+
+    func recordParagraphRealized() {
+        guard isEnabled else { return }
+        paragraphsRealizedSinceNavigation += 1
+        updateWindow { $0.paragraphsRealized += 1 }
+    }
+
+    func recordNavigationCommit(index: Int) {
+        guard isEnabled else { return }
+        emitNavigationRealizeCount(reason: "commit")
+        lastNavigationIndex = index
+    }
+
+    /// Không đo ms quanh `proxy.scrollTo`: hàm đó chỉ ghi nhận neo, còn phần đắt (realize +
+    /// đo các card trung gian của `LazyVStack`) xảy ra ở layout pass sau đó nên số ms sẽ
+    /// gần 0 và gây hiểu sai. Neo đã chọn + `NavRealize cards=` mới là bằng chứng thật.
+    func recordScrollAttempt(chapterIndex: Int, paragraphIndex: Int, reason: String, anchor: String) {
+        guard isEnabled else { return }
+        AppLogger.shared.log(String(
+            format: "[ReaderPerf] Scroll chapter=%d paragraph=%d reason=%@ anchor=%@",
+            chapterIndex,
+            paragraphIndex,
+            reason,
+            anchor
+        ))
+    }
+
+    private func emitNavigationRealizeCount(reason: String) {
+        guard lastNavigationIndex >= 0 else { return }
+        AppLogger.shared.log(String(
+            format: "[ReaderPerf] NavRealize index=%d cards=%d reason=%@",
+            lastNavigationIndex,
+            paragraphsRealizedSinceNavigation,
+            reason
+        ))
+        paragraphsRealizedSinceNavigation = 0
     }
 
     func recordUIViewUpdate(for coordinator: AnyObject) {
@@ -109,6 +154,8 @@ final class ReaderEnergyDiagnostics {
 
     func flush(reason: String) {
         guard isEnabled else { return }
+        emitNavigationRealizeCount(reason: reason)
+        lastNavigationIndex = -1
         emitSummary(reason: reason, resetWindow: false)
         window = nil
     }
@@ -161,7 +208,7 @@ final class ReaderEnergyDiagnostics {
         )
 
         let message = String(
-            format: "[ReaderEnergy] Summary reason=%@ state=%@ elapsedSec=%.1f updateUIView=%d updateRPM=%.1f repeatUpdateRPM=%.1f uniqueViews=%d highlight=%d highlightRPM=%.1f geometry=%d repeatGeometry=%d theme=%d explicitSizeInvalidation=%d contentSizeInvalidation=%d sizeInvalidationRPM=%.1f ttsScrollTarget=%d scrollRPM=%.1f scrollSkippedVisible=%d scrollExecuted=%d executedScrollRPM=%.1f frameUpdate=%d frameUpdateRPM=%.1f frameUpdateSkipped=%d thermal=%@ prediction=%@",
+            format: "[ReaderEnergy] Summary reason=%@ state=%@ elapsedSec=%.1f updateUIView=%d updateRPM=%.1f repeatUpdateRPM=%.1f uniqueViews=%d highlight=%d highlightRPM=%.1f geometry=%d repeatGeometry=%d theme=%d explicitSizeInvalidation=%d contentSizeInvalidation=%d sizeInvalidationRPM=%.1f ttsScrollTarget=%d scrollRPM=%.1f scrollSkippedVisible=%d scrollExecuted=%d executedScrollRPM=%.1f frameUpdate=%d frameUpdateRPM=%.1f frameUpdateSkipped=%d paragraphRealized=%d thermal=%@ prediction=%@",
             reason,
             Self.applicationStateName(),
             elapsedSeconds,
@@ -185,6 +232,7 @@ final class ReaderEnergyDiagnostics {
             snapshot.frameUpdates,
             frameUpdateRPM,
             snapshot.frameUpdatesSkipped,
+            snapshot.paragraphsRealized,
             Self.thermalStateName(thermal),
             prediction
         )

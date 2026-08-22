@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ Reader: instrumentation nay phủ cả navigation (1.3.240)
+
+* `Components/ReaderEnergyDiagnostics.swift` (306 dòng) mở rộng vai trò: ngoài cửa sổ đo 60 giây và dòng `[ReaderEnergy] Summary`, nó là owner duy nhất của bộ đếm card realize (`recordParagraphRealized`, cột `paragraphRealized` trong `Summary`, dòng `[ReaderPerf] NavRealize`) và của dòng `[ReaderPerf] Scroll`. Mọi API vẫn thoát ngay bằng `guard isEnabled` với cờ latch một lần ở `beginReaderSession()`.
+* `Coordinators/ReaderScrollCoordinator.swift` không quyết định gì thêm — chỉ báo cáo neo đã chọn (`paragraph` / `chapterFallback` / `chapterTop`) cho diagnostics. Cố ý **không** đo ms quanh `proxy.scrollTo`: hàm đó chỉ ghi nhận neo, còn phần đắt (realize + đo card trung gian của `LazyVStack`) xảy ra ở layout pass sau đó, nên ms tại chỗ sẽ gần 0 và gây hiểu sai.
+* Ranh giới trách nhiệm Next/Prev dịch sang `Extensions/ReaderView+Controls.swift` (192 dòng): `stepChapterHonoringTTS` là nơi duy nhất biết luật "hạ cánh thẳng vào đoạn TTS đang đọc". `ReaderView.swift` còn 2246 dòng, `ReaderViewModel.swift` tăng lên 943 dòng — cả hai vẫn là `LINE_LIMIT_EXCEEDED` cũ, không phải violation mới.
+* Không phân hệ nào đổi public API. `ReaderViewModel` thêm một private task (`memoryCommitTask`) và một mốc đo (`navigationStartUptime`); đường highlight, `ParagraphTracker.minimumFrameDelta`, và quyền sở hữu tiến độ khi TTS đang phát đều giữ nguyên.
+
 ## Phân hệ Reader: đo đếm năng lượng tách khỏi bridge UIKit (1.3.239)
 
 * Phân hệ **Reader** nay có ranh giới rõ giữa *bridge UIKit* và *instrumentation*: `ReaderTextView.swift` (450 dòng) chỉ còn `UIViewRepresentable` + `ReaderUITextView`/`AutoSizingTextView`, còn `Components/ReaderEnergyDiagnostics.swift` (258 dòng) là owner duy nhất của cửa sổ đo 60 giây và dòng log `[ReaderEnergy] Summary`.

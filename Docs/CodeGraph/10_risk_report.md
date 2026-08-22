@@ -15,6 +15,13 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro của lần sửa đơ Next/Prev khi TTS đang phát (1.3.240)
+
+* **Đã sửa, là bug thật chứ không phải tối ưu**: `restoreReaderPositionIfNeeded` thoát sớm mà không nhả `isRestoringReaderPosition`, khiến auto-scroll TTS và lưu tiến độ theo cuộn có thể chết im lặng tới hết session. Dạng lỗi không log, không crash, chỉ "tự nhiên không chạy nữa".
+* **Rủi ro mới, mức thấp**: nay có thêm một frame skeleton chen giữa mọi lượt Next/Prev, kể cả khi nội dung đã ở RAM. Khi người dùng bấm rất nhanh, mỗi cú bấm huỷ `memoryCommitTask` trước đó nên chỉ chương cuối được commit — hành vi này dựa vào guard `request.generation == navigationGeneration`; sai guard là quay lại cảnh commit chồng.
+* **Rủi ro còn nguyên, chỉ được đo chứ chưa sửa**: `ChapterContentRepository.shared` là một actor dùng chung giữa Reader và TTS, nên khi chương đích chưa cache, `load` của Reader có thể xếp hàng sau một lượt fetch chương của TTS. Log `[ReaderPerf] RepoLoad` thêm vào để lượng hoá đúng đường này; đường đó **có** skeleton nên nó không phải triệu chứng đang báo.
+* **Không đo được tại chỗ**: host là Windows, `xcodebuild` chỉ chạy trên macOS. Mọi kết luận ở trên là đọc code cộng `check_architecture.py` (giữ đúng 18 violation, tập vi phạm y hệt), không phải profiling.
+
 ## Rủi ro của phép tách file (1.3.236)
 
 | Rủi ro | Severity | Likelihood | Ghi chú |

@@ -22,17 +22,35 @@ public final class ReaderScrollCoordinator {
                 if target.reason == .ttsAuto {
                     ReaderEnergyDiagnostics.shared.recordTTSScrollExecuted()
                 }
+                ReaderEnergyDiagnostics.shared.recordScrollAttempt(
+                    chapterIndex: target.chapterIndex,
+                    paragraphIndex: target.paragraphIndex,
+                    reason: "\(target.reason)",
+                    anchor: "paragraph"
+                )
                 proxy.scrollTo("paragraph-\(target.chapterIndex)-\(target.paragraphIndex)", anchor: .center)
             } else {
                 if target.reason == .ttsAuto {
                     ReaderEnergyDiagnostics.shared.recordTTSScrollExecuted()
                 }
+                ReaderEnergyDiagnostics.shared.recordScrollAttempt(
+                    chapterIndex: target.chapterIndex,
+                    paragraphIndex: target.paragraphIndex,
+                    reason: "\(target.reason)",
+                    anchor: "chapterFallback"
+                )
                 proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
             }
             onComplete()
             return true
         }
 
+        ReaderEnergyDiagnostics.shared.recordScrollAttempt(
+            chapterIndex: target.chapterIndex,
+            paragraphIndex: target.paragraphIndex,
+            reason: "\(target.reason)",
+            anchor: "chapterTop"
+        )
         proxy.scrollTo("chapter-\(target.chapterIndex)", anchor: .top)
         onComplete()
         return true

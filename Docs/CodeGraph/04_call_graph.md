@@ -15,6 +15,17 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đường Next/Prev khi TTS đang phát & log `[ReaderPerf]` (1.3.240)
+
+* `nextChapter()`/`prevChapter()` của `ReaderView` không còn gọi `viewModel?.stepChapter(by:)` trực tiếp: cả hai rút về một dòng gọi `stepChapterHonoringTTS(by:source:)` ở `ReaderView+Controls.swift`. Helper clamp chỉ số đích như cũ, nhưng khi chương đích **đúng là chương TTS đang phát của sách này** (`snapshot.isPlaying`, `playingBookId == bookId`, `playingChapterIndex == target`, `currentParentParagraphIndex >= 0`, `!isAutoScrollDisabled`) thì gọi thẳng `viewModel?.requestChapter(index:paragraphIndex:source:persistProgress:)` với đoạn TTS đang đọc; mọi trường hợp còn lại vẫn đi `stepChapter` (tức `paragraphIndex: -1`). `stepChapter` không đổi vì còn phục vụ đường khác.
+* Hệ quả trên `ReaderScrollCoordinator.attemptScroll`: target hạ cánh mang `paragraphIndex >= 0` nên nó chọn neo `paragraph-N-P` (`anchor: .center`) ngay lượt dựng đầu tiên, thay vì `chapter-N` (`.top`) rồi vài giây sau bị `requestTTSScrollIfNeeded` bắn thêm một cú `scrollTo` sâu thứ hai.
+* Đường commit RAM đổi hình dạng: `requestChapter` → (hit cache) → `memoryCommitTask = Task { @MainActor … await Task.yield() … commitNavigation(request, origin: .memory) }`, tức `commitNavigation` không còn nằm trong stack của cú bấm.
+* Bốn call site log mới, tất cả sau cổng cờ đã latch (không đọc `UserDefaults` trên hot path):
+  - `ReaderViewModel.commitNavigation` → `[ReaderPerf] Nav index=… paragraph=… origin=… source=… commitMs=…`, mốc bắt đầu đặt ở đầu `requestChapter`.
+  - `ReaderViewModel.loadChapterContentFromExtension` → `[ReaderPerf] RepoLoad index=… origin=… ms=…` quanh `ChapterContentRepository.shared.load`.
+  - `ReaderScrollCoordinator.attemptScroll` → `ReaderEnergyDiagnostics.recordScrollAttempt` → `[ReaderPerf] Scroll chapter=… paragraph=… reason=… anchor=…`.
+  - `.onAppear` của card đoạn trong `ReaderView` → `recordParagraphRealized()`, in ra ở lần commit kế tiếp dưới dạng `[ReaderPerf] NavRealize index=… cards=…`.
+
 ## Reader selection/scroll & energy-diagnostics call graph (1.3.239)
 
 * Đường selection (mới): `ReaderUITextView` báo `textViewDidChangeSelection` → nếu `selectedRange.length > 0` thì `Coordinator.setupScrollObservation(for:)` **cài KVO** trên `textView.parentScrollView.contentOffset` rồi `publishSelection(range, minY, maxY, force: true)`; nếu `length == 0` thì `teardownScrollObservation()` + `publishSelection(NSRange(location: NSNotFound, length: 0), nil, nil, force: true)`. `updateUIView` **không còn** gọi `setupScrollObservation` — cạnh `updateUIView → setupScrollObservation` (chạy mỗi paragraph, mỗi lượt cập nhật) đã bị xoá.

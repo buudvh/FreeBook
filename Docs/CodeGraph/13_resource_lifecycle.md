@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời `memoryCommitTask` và bộ đếm card realize (1.3.240)
+
+* `ReaderViewModel.memoryCommitTask` là task duy nhất được thêm: sống đúng một turn main actor (`await Task.yield()` rồi commit), không giữ tài nguyên nào ngoài `[weak self]`. Cancel ở đầu `requestChapter`, `failBootstrap` và `shutdown(saveProgress:)` — cùng bộ ba đang cancel `navigationWorkerTask`, nên không có đường nào để nó sống quá vòng đời Reader.
+* `navigationStartUptime` là mốc `TimeInterval` dùng-một-lần: đặt ở đầu `requestChapter` **chỉ khi** log đang bật (`0` nghĩa là tắt, không đọc đồng hồ hệ thống), tiêu thụ và reset về `0` ở cuối `commitNavigation`. Nếu một request thất bại (`failNavigation`) thì mốc đó bị request kế tiếp ghi đè — không rò rỉ gì ngoài một dòng log thiếu.
+* Bộ đếm `paragraphsRealizedSinceNavigation` của `ReaderEnergyDiagnostics` chỉ là số nguyên trong window: reset ở `beginReaderSession()` và mỗi lần `recordNavigationCommit(index:)`, xả nốt lần cuối ở `flush(reason:)`. Nó không giữ reference tới card nào nên không có nguy cơ giữ sống view.
+
 ## Vòng đời KVO `contentOffset` và cửa sổ đo năng lượng của Reader (1.3.239)
 
 * Tài nguyên được quản lý: một `NSKeyValueObservation` (`Coordinator.offsetObservation`) trên `contentOffset` của `UIScrollView` bao ngoài Reader, và một `Window` (class) của `ReaderEnergyDiagnostics` giữ bộ đếm + `Set<ObjectIdentifier>`.

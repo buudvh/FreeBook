@@ -115,7 +115,13 @@ class ReaderViewModel: ObservableObject {
     private var settledPrefetchTask: Task<Void, Never>? = nil
     private var navigationDebounceTask: Task<Void, Never>? = nil
     private var navigationWorkerTask: Task<Void, Never>? = nil
+    // Commit của đường ngắn mạch RAM bị hoãn đúng một turn main actor để SwiftUI
+    // kịp vẽ skeleton trước khi dựng lại toàn bộ subtree chương mới.
+    private var memoryCommitTask: Task<Void, Never>? = nil
     private var bootstrapTimeoutTask: Task<Void, Never>? = nil
+    /// Mốc đo `[ReaderPerf] Nav`: đặt ở đầu `requestChapter`, tiêu thụ ở cuối
+    /// `commitNavigation`. Bằng 0 nghĩa là log đang tắt (không đọc đồng hồ hệ thống).
+    private var navigationStartUptime: TimeInterval = 0
     internal var translationRefreshTask: Task<Void, Never>? = nil
     private var queuedNavigation: ReaderNavigationRequest?
     private var navigationGeneration = 0
@@ -272,6 +278,8 @@ class ReaderViewModel: ObservableObject {
         navigationDebounceTask = nil
         navigationWorkerTask?.cancel()
         navigationWorkerTask = nil
+        memoryCommitTask?.cancel()
+        memoryCommitTask = nil
         queuedNavigation = nil
         pendingNavigationIndex = nil
         loadState = .failed(chapterIndex: nil, message: message)
@@ -439,6 +447,9 @@ class ReaderViewModel: ObservableObject {
 
         settledPrefetchTask?.cancel()
         settledPrefetchTask = nil
+        memoryCommitTask?.cancel()
+        memoryCommitTask = nil
+        navigationStartUptime = AppLogger.shared.isLoggingEnabled ? ProcessInfo.processInfo.systemUptime : 0
         // Cancel worker cũ ngay lập tức để startNavigationWorkerIfNeeded
         // luôn tạo Task mới → Task.yield() luôn chạy → SwiftUI render Skeleton trước I/O
         navigationWorkerTask?.cancel()
@@ -481,7 +492,14 @@ class ReaderViewModel: ObservableObject {
                 cached.isTranslationEnabled == isTranslationEnabled &&
                 cached.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified {
                 queuedNavigation = nil
-                commitNavigation(request, origin: .memory)
+                // Nhường một turn main actor: pendingNavigationIndex/.loading vừa được set
+                // ở trên nên SwiftUI vẽ được skeleton trước khi subtree chương mới
+                // (vài trăm ParagraphCardView + UITextView TextKit 1) chiếm main thread.
+                memoryCommitTask = Task { @MainActor [weak self] in
+                    await Task.yield()
+                    guard let self, request.generation == self.navigationGeneration else { return }
+                    self.commitNavigation(request, origin: .memory)
+                }
                 return
             }
             // Token lỗi thời → tiếp tục để worker dịch lại
@@ -646,6 +664,22 @@ class ReaderViewModel: ObservableObject {
             animateContent: origin == .extensionFetch && request.source != .ttsSync
         )
         scheduleSettledPrefetch(after: request.chapterIndex, within: [request.chapterIndex + 1])
+
+        // Đo tay: từ cú bấm (đầu requestChapter) tới lúc state đã đổi sang .ready. Bao gồm
+        // cả turn nhường cho skeleton của đường .memory và toàn bộ I/O của đường fetch.
+        if navigationStartUptime > 0 {
+            let commitMs = (ProcessInfo.processInfo.systemUptime - navigationStartUptime) * 1000
+            navigationStartUptime = 0
+            AppLogger.shared.log(String(
+                format: "[ReaderPerf] Nav index=%d paragraph=%d origin=%@ source=%@ commitMs=%.2f",
+                request.chapterIndex,
+                request.paragraphIndex,
+                "\(origin)",
+                "\(request.source)",
+                commitMs
+            ))
+        }
+        ReaderEnergyDiagnostics.shared.recordNavigationCommit(index: request.chapterIndex)
     }
 
     private func failNavigation(_ request: ReaderNavigationRequest, message: String) {
@@ -749,6 +783,8 @@ class ReaderViewModel: ObservableObject {
         navigationDebounceTask = nil
         navigationWorkerTask?.cancel()
         navigationWorkerTask = nil
+        memoryCommitTask?.cancel()
+        memoryCommitTask = nil
         queuedNavigation = nil
         await prefetcher.cancelAll()
         if saveProgress {
@@ -804,6 +840,7 @@ class ReaderViewModel: ObservableObject {
             return nil
         }()
         await ChapterContentRepository.shared.configure(container: modelContext.container)
+        let repoStartUptime = AppLogger.shared.isLoggingEnabled ? ProcessInfo.processInfo.systemUptime : 0
         let result = try await ChapterContentRepository.shared.load(
             ChapterContentRequest(
                 bookId: bookId,
@@ -816,6 +853,16 @@ class ReaderViewModel: ObservableObject {
                 forceRefresh: forceRefresh
             )
         )
+        if repoStartUptime > 0 {
+            // Actor này dùng chung với TTS, nên ms ở đây gồm cả thời gian xếp hàng sau một
+            // lượt fetch chương của TTS — không chỉ thời gian tải/bóc tách của Reader.
+            AppLogger.shared.log(String(
+                format: "[ReaderPerf] RepoLoad index=%d origin=%@ ms=%.2f",
+                index,
+                "\(result.origin)",
+                (ProcessInfo.processInfo.systemUptime - repoStartUptime) * 1000
+            ))
+        }
 
         try Task.checkCancellation()
         let cleanedContent = result.document.text.content

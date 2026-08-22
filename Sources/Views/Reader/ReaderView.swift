@@ -1763,6 +1763,7 @@ struct ReaderView: View {
                 }
             )
             .onAppear {
+                ReaderEnergyDiagnostics.shared.recordParagraphRealized()
                 paragraphTracker.insert(bookId: bookId, chapterIndex: chapter.index, paragraphIndex: item.id)
                 updateScrollReadingProgress()
             }
@@ -1830,19 +1831,11 @@ struct ReaderView: View {
     }
 
     private func nextChapter() {
-        let persistProgress = !(ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId)
-        let targetIndex = (viewModel?.pendingNavigationIndex ?? chapterIndex) + 1
-        if targetIndex >= 0 && targetIndex < totalChaptersCount {
-            viewModel?.stepChapter(by: 1, source: .nextButton, persistProgress: persistProgress)
-        }
+        stepChapterHonoringTTS(by: 1, source: .nextButton)
     }
 
     private func prevChapter() {
-        let persistProgress = !(ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId)
-        let targetIndex = (viewModel?.pendingNavigationIndex ?? chapterIndex) - 1
-        if targetIndex >= 0 && targetIndex < totalChaptersCount {
-            viewModel?.stepChapter(by: -1, source: .previousButton, persistProgress: persistProgress)
-        }
+        stepChapterHonoringTTS(by: -1, source: .previousButton)
     }
 
     private func selectChapter(at index: Int, scroll: Bool = true) {
@@ -2113,6 +2106,11 @@ struct ReaderView: View {
                     chapterNavigationErrorView(failure: failure, viewModel: vm)
                 } else if case .failed(_, let message) = vm.loadState {
                     chapterBootstrapErrorView(message: message)
+                } else if let pending = vm.pendingNavigationIndex, pending != vm.displayedChapterIndex {
+                    // Chương đích chưa commit: luôn nhường một frame cho skeleton, kể cả khi
+                    // nội dung đã nằm sẵn trong RAM. Nếu không, commit đồng bộ sẽ xoá
+                    // pendingNavigationIndex trong cùng turn và skeleton không bao giờ được vẽ.
+                    chapterInlineLoadingView(index: pending)
                 } else if let chapter = vm.cache.get(presentationIndex),
                           chapter.state == .loaded {
                     singleChapterScrollView(chapter: chapter, viewModel: vm)
