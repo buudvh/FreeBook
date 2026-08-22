@@ -151,18 +151,24 @@ final class FloatingWidgetContainerViewController: UIViewController, UIGestureRe
             let x = viewModel.edgeDirection == .left ? 0 : screenWidth
             return CGPoint(x: x, y: y)
         } else {
-            let halfWidth = size.width / 2
-            let x = viewModel.edgeDirection == .left
-                ? (Layout.horizontalMargin + halfWidth)
-                : (screenWidth - Layout.horizontalMargin - halfWidth)
+            let x = FloatingWidgetGeometry.restingCenterX(
+                edge: viewModel.edgeDirection,
+                widgetWidth: size.width,
+                screenWidth: screenWidth,
+                horizontalMargin: Layout.horizontalMargin
+            )
             return CGPoint(x: x, y: y)
         }
     }
 
     private func clampedY(_ value: CGFloat, height: CGFloat, screenHeight: CGFloat) -> CGFloat {
-        let minY = Layout.verticalMargin + height / 2
-        let maxY = max(minY, screenHeight - Layout.verticalMargin - height / 2)
-        return min(max(value, minY), maxY)
+        FloatingWidgetGeometry.clampedCenterY(
+            value,
+            widgetHeight: height,
+            screenHeight: screenHeight,
+            topMargin: Layout.verticalMargin,
+            bottomMargin: Layout.verticalMargin
+        )
     }
 
     public func updateLayoutForCurrentMode(animated: Bool) {

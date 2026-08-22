@@ -15,6 +15,17 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Trạng thái trình duyệt thu nhỏ, nhịp nháy và vị trí widget (1.3.244)
+
+* `VisibleBrowserTabManager` có **một trạng thái mới hợp lệ**: `isPresented == false && isHidden == true && !tabs.isEmpty` — container đã dựng (`loadViewIfNeeded()`) và tab đã attach, nhưng **chưa bao giờ được present**. Trước 1.3.244 `isHidden == true` chỉ đạt được sau một lần present rồi thu nhỏ. `prepareContainerMinimized()` là điểm vào duy nhất của trạng thái này và tự guard `!isPresented, !isDismissing`.
+* Bất biến giữ nguyên: mọi consumer đọc "đang thu nhỏ" bằng `isHidden && !tabs.isEmpty` (`VisibleBrowserPresentationReader.showReopenButton`, `BrowserFloatingWidgetWindowManager.refreshState`, `VisibleBrowserPulseMonitor.evaluate`), nên trạng thái mới tự động hợp lệ với cả ba mà không cần cờ phụ. `reopenContainer()`/`hideContainer()` không đổi ngữ nghĩa.
+* `VisibleBrowserSettings.opensMinimized` là **input**, không phải state: nó chỉ được đọc tại `openContainer(initialActiveId:)`. Đổi cài đặt không hề chuyển trạng thái của trình duyệt đang mở — nó quyết định trạng thái *khởi tạo* của lần mở kế tiếp.
+* `VisibleBrowserTabItem.createdAt` là dữ liệu bất biến đặt lúc tạo tab; tuổi tab vì vậy suy ra được, không phải state phải duy trì. Không có bộ đếm nào cho mỗi tab.
+* `VisibleBrowserPulseMonitor.isPulsing` là **hàm của ba đại lượng**: `isHidden`, `tabs`, và `now`. Luật: `isPulsing == isHidden && !tabs.isEmpty && max(now - tab.createdAt) >= 10`. Không có trạng thái "đã từng nháy" — mở rộng trình duyệt (`isHidden = false`) đưa cờ về `false` ngay, thu nhỏ lại thì tính lại từ `createdAt` thật (nên một tab 30 s vẫn nháy ngay, không chờ thêm 10 s). Đóng tab tới khi không tab nào đủ tuổi thì cờ về `false`.
+* Nhịp nháy được biểu diễn **thuần bằng `opacity` của SwiftUI** (`isDimmed` 1.0 ↔ 0.45, `repeatForever(autoreverses:)`); `alpha` của `widgetContainerView` giữ nguyên 1.0 nên `BrowserFloatingWidgetUIWindow.hitTest` (guard `alpha > 0.01`) không bao giờ đổi kết quả theo nhịp nháy.
+* Vị trí widget trình duyệt vẫn là hai giá trị bền trong `UserDefaults` (`visibleBrowserReopenVerticalRatio` mặc định 1.0, `visibleBrowserReopenEdge`), y như trước — nhưng nay **không còn là `@Published` điều khiển layout**: `center` do UIKit ghi trực tiếp trong `.changed`, và `restingCenter(in:)` chỉ đọc lại hai giá trị đó khi layout lại. Hệ quả: vẽ lại SwiftUI (đổi `tabCount`, nhịp nháy) không reset vị trí, và ngón tay không chờ vòng cập nhật state.
+* `isDragging` của `VisibleBrowserReopenViewModel` là cờ chặn duy nhất: `viewDidLayoutSubviews` và nhánh đổi `tabCount` đều bỏ qua layout khi nó `true`, và `handleTap` bỏ qua khi nó `true`.
+
 ## Hai cờ mới quyết định lúc nào subtree chương được dựng (1.3.242)
 
 * `ReaderView` thêm hai `@State`: `renderedChapterIndex: Int?` (chương mà subtree nội dung đang thực sự hiển thị, set ở `onAppear` của `singleChapterScrollView`) và `skeletonHandshakeIndex: Int?` (chương mà skeleton đã xuất hiện ít nhất một frame, set ở `onAppear` của `chapterInlineLoadingView`).

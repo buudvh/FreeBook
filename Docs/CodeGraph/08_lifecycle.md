@@ -15,6 +15,27 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời trình duyệt mở-thu-nhỏ và widget nổi thứ hai (1.3.244)
+
+Khi cài đặt "Mở trình duyệt ở chế độ thu nhỏ" **bật**, `openTab` đi nhánh mới:
+
+1. `VisibleBrowserTabManager.openTab(...)` tạo `VisibleBrowserTabItem` (đóng dấu `createdAt`) → `openContainer(initialActiveId:)`.
+2. `prepareContainerMinimized()`: tạo `TabbedVisibleBrowserViewController`, gán `containerViewController`, để `navController = nil`, gọi `loadViewIfNeeded()`.
+3. `loadViewIfNeeded()` kích `viewDidLoad` → `setupNavigationBar()` + `setupUI()` + `reloadTabs()` → `displayChildViewController(activeItem.loader.viewController)`. **`WKWebView` được attach và bắt đầu tải ở bước này**, dù chưa có `present(_:animated:)` nào — đây là điều làm nhánh thu nhỏ an toàn mà không cần một đường tải riêng.
+4. `isPresented = false`, `isHidden = true`, `notifyStateChanged()` ⇒ ba subscriber cùng thức: presentation reader (hiện nút), pulse monitor (hẹn timer 10 s), window manager (dựng window widget).
+5. `reopenContainer()` sau đó đi đúng đường present cũ; `dismissContainer()` gặp nhánh sớm `!isPresented` nên dọn được cả trạng thái "thu nhỏ từ đầu" mà chưa từng present.
+
+Khi cài đặt **tắt**, bước 2–4 không tồn tại: `presentContainerView(initialActiveId:)` chạy y như trước 1.3.244.
+
+Vòng đời widget nổi của trình duyệt (song song, không chồng lấn với TTS widget):
+
+* Dựng: `BrowserFloatingWidgetWindowManager.refreshState()` thấy `TranslationManager.shared.isInitialized && isHidden && !tabs.isEmpty` → `showWidget()` → tạo `BrowserFloatingWidgetUIWindow` ở level `alert - 2` (TTS ở `alert - 1`, nên chỗ chồng nhau TTS nhận trước), `backgroundColor = .clear`, **không bao giờ** `makeKeyAndVisible()`.
+* Duy trì: `UIScene.didActivateNotification` / `UIApplication.didBecomeActiveNotification` re-parent `windowScene` và gọi `setNeedsLayout()`; `viewWillTransition(to:with:)` layout lại theo kích thước mới; đổi `tabCount` chỉ layout lại khi **không** đang kéo.
+* Ẩn: điều kiện trên sai ⇒ `hideWidget()` chỉ set `window?.isHidden = true` — window được **giữ lại để tái dùng**, không huỷ mỗi lần ẩn (cùng mẫu với TTS widget).
+* Widget không còn nằm trong cây view của app: khối `VisibleBrowserReopenButton` với `zIndex(9998)` trong `ZStack` của `AppLaunchRootView` đã bị xoá, nên vòng đời của nó không còn dính vào vòng đời `MainTabView`/`AppLoadingView`.
+
+Vòng đời nhịp nháy: `VisibleBrowserPulseMonitor.shared` là singleton sống theo tiến trình, nhưng **tài nguyên** nó giữ (một `Timer` one-shot) chỉ tồn tại trong khoảng "đang thu nhỏ, có tab, chưa tới 10 s". Đóng hết tab hoặc mở rộng trình duyệt ⇒ `evaluate()` `invalidate()` timer và không hẹn lại.
+
 ## Vòng đời chuyển chương: ai đánh thức SwiftUI (1.3.243)
 
 Chuỗi 1.3.241/1.3.242 bên dưới mô tả *đúng* thứ tự các bước, nhưng thiếu một điều kiện: mỗi bước chỉ chạy khi SwiftUI thực sự chạy một update pass. Từ 1.3.243, nguồn đánh thức là `ReaderViewModelInvalidationRelay`, nên chuỗi đó mới chạy theo nhịp của chính cú bấm:

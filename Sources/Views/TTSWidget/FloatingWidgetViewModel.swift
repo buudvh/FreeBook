@@ -66,10 +66,17 @@ public final class FloatingWidgetViewModel: ObservableObject {
         }
         _ = widgetWidth
 
-        let targetEdge: EdgeDirection = finalPosition.x < screenWidth - finalPosition.x ? .left : .right
-        let minY: CGFloat = widgetHeight / 2 + 92
-        let maxY: CGFloat = max(minY, screenHeight - widgetHeight / 2 - 92)
-        let targetY = min(max(finalPosition.y, minY), maxY)
+        let targetEdge = FloatingWidgetGeometry.nearestEdge(
+            centerX: finalPosition.x,
+            screenWidth: screenWidth
+        )
+        let targetY = FloatingWidgetGeometry.clampedCenterY(
+            finalPosition.y,
+            widgetHeight: widgetHeight,
+            screenHeight: screenHeight,
+            topMargin: 92,
+            bottomMargin: 92
+        )
 
         verticalRatio = targetY / screenHeight
         edgeDirection = targetEdge

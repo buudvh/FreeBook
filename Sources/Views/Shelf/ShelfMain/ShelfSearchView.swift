@@ -93,33 +93,9 @@ struct ShelfSearchView: View {
 
     @ViewBuilder
     private var searchBarView: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-                TextField("Tìm truyện hoặc tác giả...", text: $searchQuery, onCommit: {
-                    searchHistory = SearchHistoryStore.addQuery(searchQuery, to: searchHistory)
-                })
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.none)
-
-                if !searchQuery.isEmpty {
-                    Button(action: {
-                        searchQuery = ""
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(Color(.secondarySystemBackground))
-            .cornerRadius(10)
+        BookSearchBarView(text: $searchQuery) {
+            searchHistory = SearchHistoryStore.addQuery(searchQuery, to: searchHistory)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(Color(.systemBackground))
     }
 
     @ViewBuilder

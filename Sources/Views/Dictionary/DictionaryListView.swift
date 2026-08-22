@@ -18,6 +18,9 @@ struct DictionaryListView: View {
     let type: DictType
     let bookId: String?
     var bookName: String = ""
+    /// Truyện của màn Từ điển đang mở, chỉ dùng cho danh sách Chung (`bookId == nil`)
+    /// để biết đích khi COPY một entry Chung sang từ điển riêng.
+    var contextBookId: String? = nil
 
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var cache = DictionaryCache.shared
@@ -262,37 +265,15 @@ struct DictionaryListView: View {
             // Entries
             Section {
                 ForEach(displayedEntries) { entry in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(entry.key)
-                                .font(.headline)
-                                .foregroundStyle(.primary)
-                            Text(entry.value)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        
-                        Button {
-                            editingEntry = entry
-                        } label: {
-                            Image(systemName: "pencil")
-                                .foregroundColor(.accentColor)
-                                .font(.subheadline)
-                        }
-                        .buttonStyle(.plain)
-                        
-                        Button {
-                            deleteEntry(entry)
-                        } label: {
-                            Image(systemName: "trash")
-                                .foregroundColor(.red)
-                                .font(.subheadline)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.leading, 8)
-                    }
-                    .contentShape(Rectangle())
+                    DictionaryEntryRow(
+                        entry: entry,
+                        isGlobalScope: isGlobal,
+                        contextBookId: transferContextBookId,
+                        onEdit: { editingEntry = entry },
+                        onDelete: { deleteEntry(entry) },
+                        onCopy: { destType, target in copyEntry(entry, to: destType, target: target) },
+                        onMissingContext: { reportMissingTransferContext() }
+                    )
                     .onAppear {
                         if entry.id == displayedEntries.last?.id && visibleCount < matchedEntries.count {
                             visibleCount += 200

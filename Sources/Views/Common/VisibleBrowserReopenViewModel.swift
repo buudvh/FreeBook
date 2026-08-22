@@ -1,6 +1,9 @@
 import SwiftUI
 import Combine
 
+/// Trạng thái kéo/thả và vị trí nghỉ của widget trình duyệt thu nhỏ.
+/// Cùng vai trò với `FloatingWidgetViewModel` của TTS widget và giữ nguyên hai key
+/// UserDefaults cũ nên vị trí người dùng đã chọn trước đây không bị mất.
 @MainActor
 final class VisibleBrowserReopenViewModel: ObservableObject {
     @Published var verticalRatio: CGFloat
@@ -21,22 +24,32 @@ final class VisibleBrowserReopenViewModel: ObservableObject {
         isDragging = true
     }
 
+    /// Chốt vị trí sau khi nhả tay: snap về cạnh gần nhất, kẹp Y trong vùng hợp lệ,
+    /// rồi lưu tỉ lệ/cạnh để không bị reset khi view dựng lại.
     func handleDragEnd(
         finalPosition: CGPoint,
-        pillHeight: CGFloat,
+        widgetHeight: CGFloat,
         screenWidth: CGFloat,
-        screenHeight: CGFloat
+        screenHeight: CGFloat,
+        topMargin: CGFloat,
+        bottomMargin: CGFloat
     ) {
         guard screenWidth > 0, screenHeight > 0 else {
             isDragging = false
             return
         }
 
-        let targetEdge: EdgeDirection = finalPosition.x < screenWidth - finalPosition.x ? .left : .right
-        let minCenterFromBottom: CGFloat = pillHeight / 2 + 8
-        let maxCenterFromBottom: CGFloat = 92 - pillHeight / 2 - 6
-        let centerFromBottom = min(max(screenHeight - finalPosition.y, minCenterFromBottom), maxCenterFromBottom)
-        let targetY = screenHeight - centerFromBottom
+        let targetEdge = FloatingWidgetGeometry.nearestEdge(
+            centerX: finalPosition.x,
+            screenWidth: screenWidth
+        )
+        let targetY = FloatingWidgetGeometry.clampedCenterY(
+            finalPosition.y,
+            widgetHeight: widgetHeight,
+            screenHeight: screenHeight,
+            topMargin: topMargin,
+            bottomMargin: bottomMargin
+        )
 
         verticalRatio = targetY / screenHeight
         edgeDirection = targetEdge

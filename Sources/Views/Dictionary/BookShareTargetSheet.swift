@@ -14,43 +14,66 @@ struct BookShareTargetSheet: View {
     @State private var books: [Book] = []
     @State private var pendingTarget: Book? = nil
     @State private var showingModeDialog = false
+    @State private var searchQuery = ""
+
+    private var trimmedQuery: String {
+        searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Lọc realtime theo tên truyện (kèm tên dịch) và tác giả, dùng chung matcher với Kệ sách.
+    private var filteredBooks: [Book] {
+        guard !trimmedQuery.isEmpty else { return books }
+        return books.filter {
+            ShelfBookSearchMatcher.matches(
+                query: trimmedQuery,
+                title: $0.title,
+                titleTrans: $0.titleTrans,
+                author: $0.author,
+                authorTrans: $0.authorTrans
+            )
+        }
+    }
 
     var body: some View {
         NavigationStack {
-            List(books) { book in
-                Button {
-                    pendingTarget = book
-                    showingModeDialog = true
-                } label: {
-                    let ext = allExtensions.first(where: { $0.packageId == book.extensionPackageId })
-                    BookListItemView(
-                        item: book,
-                        showChapter: false,
-                        extensionLocalPath: ext?.localPath ?? "",
-                        extensionIconUrl: ext?.iconUrl
-                    )
-                    .contentShape(Rectangle())
+            VStack(spacing: 0) {
+                BookSearchBarView(text: $searchQuery)
+                Divider()
+                List(filteredBooks) { book in
+                    Button {
+                        pendingTarget = book
+                        showingModeDialog = true
+                    } label: {
+                        let ext = allExtensions.first(where: { $0.packageId == book.extensionPackageId })
+                        BookListItemView(
+                            item: book,
+                            showChapter: false,
+                            extensionLocalPath: ext?.localPath ?? "",
+                            extensionIconUrl: ext?.iconUrl
+                        )
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                .overlay {
+                    if filteredBooks.isEmpty {
+                        VStack(spacing: 8) {
+                            Image(systemName: books.isEmpty ? "book.closed" : "magnifyingglass")
+                                .font(.largeTitle)
+                                .foregroundColor(.secondary)
+                            Text(books.isEmpty ? "Không có truyện khác để chia sẻ" : "Không tìm thấy truyện nào")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
             }
             .navigationTitle("Chọn truyện đích")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Hủy") { dismiss() }
-                }
-            }
-            .overlay {
-                if books.isEmpty {
-                    VStack(spacing: 8) {
-                        Image(systemName: "book.closed")
-                            .font(.largeTitle)
-                            .foregroundColor(.secondary)
-                        Text("Không có truyện khác để chia sẻ")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
             .dictionaryModeDialog(

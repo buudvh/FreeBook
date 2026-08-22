@@ -217,7 +217,9 @@ struct SettingsView: View {
                         Label("Cấu hình tiền xử lý & ngắt nghỉ", systemImage: "slider.horizontal.3")
                     }
                 }
-                
+
+                BrowserSettingsSection()
+
                 Section(header: Text("Cấu Hình Ghi Log")) {
                     Toggle(isOn: $isLoggingEnabled) {
                         VStack(alignment: .leading, spacing: 4) {
@@ -404,8 +406,6 @@ struct SettingsView: View {
         }
         return "<Chưa thiết lập>"
     }
-    
-
 }
 
 // MARK: - Dictionary Status Card Subview

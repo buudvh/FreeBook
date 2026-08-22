@@ -29,7 +29,7 @@ struct DictionaryHubView: View {
             }
 
             Section(header: Text("Từ Điển Chung (Toàn Cục)")) {
-                NavigationLink(destination: DictionaryListView(type: .vietPhrase, bookId: nil)) {
+                NavigationLink(destination: DictionaryListView(type: .vietPhrase, bookId: nil, contextBookId: bookId)) {
                     DictionaryNavRow(
                         title: "VietPhrase Chung",
                         icon: "book.closed",
@@ -37,7 +37,7 @@ struct DictionaryHubView: View {
                         subtitle: globalStatusText(type: .vietPhrase)
                     )
                 }
-                NavigationLink(destination: DictionaryListView(type: .names, bookId: nil)) {
+                NavigationLink(destination: DictionaryListView(type: .names, bookId: nil, contextBookId: bookId)) {
                     DictionaryNavRow(
                         title: "Names Chung",
                         icon: "person.2",

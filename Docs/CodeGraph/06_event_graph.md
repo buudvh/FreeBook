@@ -15,6 +15,16 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Sự kiện nháy widget trình duyệt và sự kiện copy từ điển (1.3.244)
+
+* `VisibleBrowserTabManager.stateDidChangeNotification` (`Notification.Name("VisibleBrowserStateDidChange")`) nay có **ba** subscriber thay vì một: `VisibleBrowserPresentationReader` (đã có), `VisibleBrowserPulseMonitor` (mới) và `BrowserFloatingWidgetWindowManager` (mới). Cả hai subscriber mới `.receive(on: RunLoop.main)`. Không tên notification nào mới được thêm — đây là lý do không cần string literal mới.
+* Nhịp nháy dùng **đúng một** sự kiện hẹn giờ: mỗi lần `evaluate()` chạy, timer cũ bị `invalidate()` và (chỉ khi chưa tới ngưỡng) một `Timer` **one-shot** được hẹn đúng `max(0.2, 10 - tuổi_tab_già_nhất)`. Không có timer lặp, không có tick mỗi giây, không có timer cho từng tab. Ở trạng thái "đang nháy" và trạng thái "không có tab" thì **không có timer nào tồn tại**.
+* Chuỗi sự kiện điển hình: mở tab (t=0) → notification → `evaluate()` hẹn timer 10 s → thu nhỏ (t=3 s) → notification → `evaluate()` hẹn lại 7 s → timer nổ (t=10 s) → `isPulsing = true` → `VisibleBrowserReopenButton.onChange(of: isPulsing)` → `isDimmed` → animation `opacity`. Mở rộng lại → notification → `evaluate()` → `isPulsing = false`, không timer.
+* Sự kiện chạm trên widget đi qua UIKit, không qua SwiftUI: `hitTest` của window quyết định trước (ngoài viên pill trả `nil` ⇒ sự kiện rơi xuống window dưới, gồm cả TTS widget ở `alert - 1` và app), rồi `UIPanGestureRecognizer`/`UITapGestureRecognizer` trên `widgetContainerView` phân xử. `cancelsTouchesInView = true` ở cả hai và `shouldRecognizeSimultaneouslyWith → false` ⇒ một cú kéo không phát sự kiện tap.
+* Sự kiện `UIScene.didActivateNotification` / `UIApplication.didBecomeActiveNotification` được `BrowserFloatingWidgetWindowManager` dùng để re-parent `windowScene` khi đang hiện — cùng mẫu với `TTSFloatingWidgetWindowManager`, không chia sẻ observer.
+* Sự kiện copy từ điển: chạm icon `arrow.left.arrow.right` mở Menu (không phát sự kiện ghi), chọn một dòng trong Menu → `Task { @MainActor }` gọi `DictionaryEntryTransferAction.copy(...)` → khi xong phát **một** toast thành công (`"Đã copy \(key) → \(label)"`), khi lỗi phát toast lỗi. Sự kiện copy **không** phát `translationDictionariesDidUpdate` thêm lần nào: cả `DictionaryCache.upsertEntry` và `TranslationManager.saveCustomEntry` vốn đã tự phát tín hiệu invalidate của mình — đường copy không thêm sự kiện nào vào bus.
+* Sự kiện gõ trong `BookSearchBarView` lọc **realtime theo từng ký tự** (computed property, không debounce, không Task) ở cả `ShelfSearchView` và `BookShareTargetSheet`. Nút xoá (`xmark.circle.fill`) phát sự kiện gán `text = ""`; `onCommit` chỉ có ở Kệ sách (ghi lịch sử tìm kiếm), `BookShareTargetSheet` không truyền `onCommit` nên Return chỉ đóng bàn phím.
+
 ## Next-chapter prefix audio events (1.3.234)
 
 * Mỗi sự kiện chuyển đoạn (`commitAudibleParagraphState` → `updatePrefetchWindow`) phát thêm một lần đánh giá prefix chương kế. Ở giữa chương capacity bằng 0 nên sự kiện này **không** tạo request nào; chỉ khi cửa sổ bắt đầu co ở cuối chương thì mới sinh request tổng hợp.

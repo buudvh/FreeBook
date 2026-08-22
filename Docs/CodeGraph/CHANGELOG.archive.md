@@ -1,6 +1,25 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.200) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.214) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.214] - 2026-08-19
+
+### Badge tên nguồn (extension / Local) trong Reader danh sách chương và BookListItemView
+
+* **Phạm vi**: 2 view hiển thị pill nguồn sách được bổ sung nhánh badge "Local" và chuẩn hoá hiển thị tên extension.
+* **`Sources/Views/Reader/ReaderChapterListView.swift`**: Trong `header`, bọc text `"\(store.totalCount) chương"` vào `HStack(spacing: 6)` và thêm badge pill bên cạnh — nếu `isLocalTXTBook == true` hiển thị `"Local"`, ngược lại nếu `ext != nil` (và `ext.name` không rỗng) hiển thị `ext.name`. Style pill xanh: `.caption2`, `.lineLimit(1)`, `.padding(.horizontal, 6)` / `.padding(.vertical, 2)`, `.background(Color.blue.opacity(0.1))`, `.foregroundColor(.blue)`, `.cornerRadius(4)`. Giữ nguyên `Spacer(minLength: 4)` và nút refresh/sort; không đổi API của view.
+* **`Sources/Views/Common/BookListItemView.swift`**: Thêm `isLocalBook: Bool` vào protocol `BookDisplayable` (default `false` qua `extension BookDisplayable`); `Book` thoả mãn sẵn qua computed property `Book.isLocalBook` (dựa trên `extensionPackageId`/`detailUrl`/`sourceUrl`/`sourceName` local), `ExtensionItemResult` dùng default. Khối pill nguồn thay bằng nhánh: `item.isLocalBook == true` → pill `"Local"`, ngược lại `!item.sourceName.isEmpty` → pill `sourceName` (giữ nguyên hành vi cũ cho sách online).
+
+## [1.3.213] - 2026-08-19
+
+### Revert toàn bộ về c78d042, giữ lại các tính năng logic (trừ hiển thị Detail và danh sách chương từ Reader)
+
+* **Phạm vi**: Đưa toàn bộ mã nguồn về trạng thái commit `c78d042`, sau đó thêm lại các tính năng không thuộc 2 nhóm bị loại.
+* **Loại bỏ (trình bày Detail)**: `BookDetailRoute`/`DetailRouter`, root presentation hub `ReaderRouter`/`DetailRouter` (2 `.fullScreenCover` root trong `AppLaunchRootView`), `BookDetailRoute` rải khắp 9 view (ShelfView, SearchView, DiscoveryView, CategoryNovelsListView, SuggestRowView, ReaderChapterListView, ReaderView, BookDetailView import), fix crash env injection (1.3.212). Detail quay lại mở bằng `NavigationLink` push trong NavigationStack của tab (tab bar hiện).
+* **Loại bỏ (danh sách chương từ Reader)**: Bottom Sheet `presentationDetents` (978f200), badge nguồn, prefetch & giảm skeleton, fix skeleton forever, refactor single source of truth (82af6f8) và việc xoá `ReaderChapterListPageFetcher.swift`/`Tests/ReaderViewModelTests.swift`. Danh sách chương quay lại overlay custom (`readerChapterListOverlay` + Capsule + `dismissGesture`).
+* **Loại bỏ (trình bày Reader)**: root ReaderRouter, fix re-creation loop (8e53471/144feb4), ẩn nav bar detail khi reader mở (3d090af), gỡ ignoresSafeArea (8978405), diagnostics (99d5fb3). Reader mở bằng `.fullScreenCover(item: $readerRoute)` cục bộ trong `BookDetailView` như c78d042.
+* **Thêm lại (Nhóm C)**: `VietPhraseTokenizer` (tiếng Việt có dấu, số thập phân, gom cụm Latin/ASCII), `TranslateUtils` gom token tên tác giả, `ExpandableTextView` (căn lề 2 bên Description, layout-safe, fix "Xem thêm", fix comment, `WrappingLabel` public) + `Tests/ExpandableTextViewTests.swift`, `TTSManager` khôi phục chính xác chunk TTS, `TTSQuickTimerSheet` (spacing, nút gearshape, detents 0.85), tối ưu `BookListItemView`/`BookDetailHeaderView`, cải tiến Lịch Sử Đọc trong `ShelfView` (sort theo `lastReadDate`, `removeFromHistory` thông minh), toast thông minh cập nhật mục lục trong `ReaderChapterListView+Refresh`.
+* **File mới/xoá**: xoá `Sources/Views/Reader/ReaderRouter.swift`; khôi phục `Sources/Services/ChapterText/Workers/ReaderChapterListPageFetcher.swift` và `Tests/ReaderViewModelTests.swift`; thêm `Tests/ExpandableTextViewTests.swift`.
 
 ## [1.3.200] - 2026-08-17
 

@@ -15,6 +15,17 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Timer nháy, window overlay thứ hai và cử chỉ của widget trình duyệt (1.3.244)
+
+* **Một `Timer` one-shot cho toàn app**, do `VisibleBrowserPulseMonitor.shared` giữ. Cấp phát: cuối `evaluate()` khi đang thu nhỏ, có tab, và tab già nhất **chưa** đủ 10 s — hẹn đúng `max(0.2, 10 - tuổi)`. Thu hồi: dòng đầu tiên của `evaluate()` luôn `timer?.invalidate(); timer = nil`, và `evaluate()` chạy lại ở mọi `stateDidChangeNotification`. Ở trạng thái "đang nháy" hoặc "không có tab" thì **không tồn tại timer nào**. Closure timer bắt `[weak self]` và chỉ `Task { @MainActor in self?.evaluate() }` — không giữ tab, không giữ view.
+* Không có timer nào cho từng tab và không có vòng polling: tuổi tab được suy ra từ `VisibleBrowserTabItem.createdAt` (giá trị bất biến, không phải tài nguyên phải giải phóng).
+* **Một `AnyCancellable`** trong `VisibleBrowserPulseMonitor` (subscription `stateDidChangeNotification`) và **một** trong `BrowserFloatingWidgetWindowManager` (cùng notification), cộng hai observer `NotificationCenter` kiểu selector của window manager (`UIScene.didActivateNotification`, `UIApplication.didBecomeActiveNotification`). Cả hai type là singleton sống theo tiến trình nên các đăng ký này cố ý **không** được huỷ — cùng mẫu với `TTSFloatingWidgetWindowManager`. Sink dùng `[weak self]`.
+* **`BrowserFloatingWidgetUIWindow` được tạo một lần rồi tái dùng**: `showWidget()` chỉ tạo khi `window == nil`, các lần sau đổi `windowScene` nếu scene khác và set `isHidden = false`; `hideWidget()` chỉ set `isHidden = true` — window và container VC **không bị huỷ** mỗi lần thu nhỏ/mở rộng. Đây là chủ ý (tránh dựng lại `UIHostingController` liên tục), đánh đổi là một window nền trong suốt sống hết phiên. `containerViewController` được giữ mạnh bởi manager và bằng `weak` trong window (`weak var containerViewController`) nên không có chu trình giữ.
+* **`UIHostingController<VisibleBrowserReopenButton>`** là child VC của container, tạo một lần trong `viewDidLoad`; đổi `tabCount` chỉ gán lại `rootView` (không tạo controller mới). `bindState()` giữ một `AnyCancellable` trong `cancellables` của container, sống theo container.
+* **Hai `UIGestureRecognizer`** (`pan`, `tap`) gắn trên `widgetContainerView`, `delegate = self` — vòng đời theo view, không cần thu hồi tay. `panStartCenter` là `CGPoint` (không giữ đối tượng). Animation nhả tay là `UIView.animate` 0.34 s (`.beginFromCurrentState`) nên kéo tiếp trong lúc đang animate không tích luỹ animation cũ.
+* Đường copy từ điển **không tạo tài nguyên dài hạn nào**: mỗi lần chạm là một `Task { @MainActor }` sống đúng một lần ghi, và hai API ghi tự nạp lại từ điển rồi phát tín hiệu invalidate. Không file handle nào được giữ mở (`DictionaryTextFileStore.persist` ghi rồi đóng), không cache mới được cấp phát.
+* `BookSearchBarView` không giữ tài nguyên: lọc bằng computed property, không `Task`, không debounce timer.
+
 ## Subscription Combine của Reader (1.3.243)
 
 * Tài nguyên mới duy nhất: **một** `AnyCancellable` trong `ReaderViewModelInvalidationRelay`, giữ subscription tới `ReaderViewModel.objectWillChange`. Nó do `@StateObject` của `ReaderView` sở hữu nên sống theo màn hình Reader.

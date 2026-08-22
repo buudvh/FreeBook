@@ -15,6 +15,28 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Tìm kiếm truyện đích, copy VP/Name, widget trình duyệt kéo được (1.3.244)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| `Views/Common/BookSearchBarView.swift` | thanh tìm kiếm dùng chung (trích từ `ShelfSearchView`) | 41 |
+| `Views/Common/FloatingWidgetGeometry.swift` | hình học kẹp/snap cạnh dùng chung cho hai widget nổi | 39 |
+| `Views/Common/VisibleBrowserPulseMonitor.swift` | nguồn duy nhất của cờ nháy widget trình duyệt (ngưỡng 10 s) | 72 |
+| `Views/Common/BrowserFloatingWidgetUIWindow.swift` | `UIWindow` overlay + `hitTest` của widget trình duyệt | 26 |
+| `Views/Common/BrowserFloatingWidgetContainerViewController.swift` | pan/tap + layout frame trực tiếp của widget trình duyệt | 197 |
+| `Views/Common/BrowserFloatingWidgetWindowManager.swift` | điều phối hiện/ẩn window, re-parent scene | 121 |
+| `Views/Dictionary/DictionaryTransferTarget.swift` | enum đích copy (`globalCustom` / `privateBook`) | 12 |
+| `Views/Dictionary/DictionaryEntryTransferAction.swift` | thực thi copy cho cả 8 tổ hợp nguồn→đích | 47 |
+| `Views/Dictionary/DictionaryEntryRow.swift` | một hàng từ điển + 3 icon `[Sửa] [Chuyển] [Xóa]` | 119 |
+| `Views/Dictionary/DictionaryListView+Transfer.swift` | keo dán giữa row và action (context bookId, toast) | 41 |
+| `Services/Extensions/Engine/VisibleBrowserSettings.swift` | khoá + getter `UserDefaults` cho cài đặt mở thu nhỏ | 13 |
+| `Views/Settings/Main/BrowserSettingsSection.swift` | section "Trình Duyệt Hiển Thị" trong Cài đặt | 22 |
+
+* Tổng file Swift 232 → **244**. Không file nào bị xoá, đổi tên hay đổi thư mục.
+* File sửa nội dung: `DictionaryListView.swift` 767 → **748** (−19: hàng inline chuyển sang `DictionaryEntryRow`), `BookShareTargetSheet.swift` 77 → 100, `DictionaryHubView.swift` 116 (truyền `contextBookId`), `ShelfSearchView.swift` 242 → 218 (dùng `BookSearchBarView`), `VisibleBrowserTabManager.swift` 234 → 263, `VisibleBrowserTabItem.swift` 18 → 28 (thêm `createdAt`), `VisibleBrowserReopenView.swift` 136 → 51, `VisibleBrowserReopenViewModel.swift` 48 → 61, `FloatingWidgetViewModel.swift` 101 → 108, `FloatingWidgetContainerViewController.swift` 240 → 246, `FreeBookApp.swift` 103 (đổi chỗ, không đổi số dòng), `SettingsView.swift` **453 dòng không đổi**.
+* `Views/Common/SizeReader.swift` (17 dòng) nay **không còn consumer** trong `Sources/`: consumer duy nhất là viên pill SwiftUI cũ trong `VisibleBrowserReopenView.swift`. File được giữ nguyên vì xoá nó nằm ngoài phạm vi yêu cầu.
+* `project.yml` không cần sửa: target khai `sources: - path: Sources` theo thư mục nên `xcodegen generate` tự nhặt 12 file mới.
+
 ## Thêm relay quan sát view model của Reader (1.3.243)
 
 | File mới | Vai trò | Dòng |

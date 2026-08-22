@@ -52,13 +52,17 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
 
         if isHidden, let container = containerViewController {
             container.reloadTabs()
-            reopenContainer()
+            // Cài đặt "mở ở chế độ thu nhỏ" bật thì giữ nguyên trạng thái thu nhỏ,
+            // không tự bật container lên khi có tab mới.
+            if !VisibleBrowserSettings.opensMinimized {
+                reopenContainer()
+            }
         } else if isDismissing {
             // Browser đang bị tắt (Đóng tất cả / đóng tab cuối): không nhét tab vào
             // container đang teardown. dismissContainer's completion sẽ present lại
             // container mới nếu vẫn còn tab.
         } else if !isPresented || navController == nil {
-            presentContainerView(initialActiveId: id)
+            openContainer(initialActiveId: id)
         } else {
             containerViewController?.reloadTabs()
         }
@@ -104,6 +108,31 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
         }
 
         dismissContainer()
+        notifyStateChanged()
+    }
+
+    /// Mở trình duyệt mới theo cài đặt: toàn màn hình (mặc định) hoặc thu nhỏ ngay.
+    internal func openContainer(initialActiveId: String) {
+        if VisibleBrowserSettings.opensMinimized {
+            prepareContainerMinimized()
+        } else {
+            presentContainerView(initialActiveId: initialActiveId)
+        }
+    }
+
+    /// Khởi tạo container ở trạng thái thu nhỏ: nạp view (để webview của tab được
+    /// gắn vào đúng container, giống trạng thái sau khi vuốt xuống ẩn) nhưng **không**
+    /// present lên bất kỳ view controller nào. Chỉ áp dụng cho trình duyệt mới.
+    internal func prepareContainerMinimized() {
+        guard !isPresented, !isDismissing else { return }
+
+        let container = TabbedVisibleBrowserViewController()
+        self.containerViewController = container
+        self.navController = nil
+        container.loadViewIfNeeded()
+
+        self.isPresented = false
+        self.isHidden = true
         notifyStateChanged()
     }
 
@@ -210,7 +239,7 @@ public final class VisibleBrowserTabManager: NSObject, UIAdaptivePresentationCon
             // browser để bypass Cloudflare), present lại container mới để webview
             // không bị bỏ rơi trong container đang bị hủy.
             if !self.tabs.isEmpty, let activeId = self.activeTabId {
-                self.presentContainerView(initialActiveId: activeId)
+                self.openContainer(initialActiveId: activeId)
             }
         }
     }

@@ -15,6 +15,17 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số liệu sau tìm kiếm truyện đích, copy VP/Name và widget kéo được (1.3.244)
+
+* Tổng file Swift: **232 → 244** (+12, không xoá file nào). File mới lớn nhất là `Views/Common/BrowserFloatingWidgetContainerViewController.swift` **197 dòng** — cách trần 400 cho file mới đúng 203 dòng; nhỏ nhất là `Views/Dictionary/DictionaryTransferTarget.swift` **12 dòng** và `Services/Extensions/Engine/VisibleBrowserSettings.swift` **13 dòng**. Cả 12 file đều đúng 1 primary type.
+* Dòng của 12 file mới: `BrowserFloatingWidgetContainerViewController.swift` 197, `DictionaryEntryRow.swift` 119, `BrowserFloatingWidgetWindowManager.swift` 121, `VisibleBrowserPulseMonitor.swift` 72, `DictionaryEntryTransferAction.swift` 47, `DictionaryListView+Transfer.swift` 41, `BookSearchBarView.swift` 41, `FloatingWidgetGeometry.swift` 39, `BrowserFloatingWidgetUIWindow.swift` 26, `BrowserSettingsSection.swift` 22, `VisibleBrowserSettings.swift` 13, `DictionaryTransferTarget.swift` 12.
+* File cũ **giảm** dòng: `VisibleBrowserReopenView.swift` 136 → **51** (−85, chuyển cử chỉ/vị trí sang UIKit), `ShelfSearchView.swift` 242 → **218** (−24), `DictionaryListView.swift` 767 → **748** (−19 — lần đầu file này giảm, khoảng cách tới baseline 690 thu từ −77 còn −58).
+* File cũ **tăng** dòng: `VisibleBrowserTabManager.swift` 234 → **263** (+29), `BookShareTargetSheet.swift` 77 → **100** (+23), `VisibleBrowserReopenViewModel.swift` 48 → **61** (+13), `VisibleBrowserTabItem.swift` 18 → **28** (+10), `FloatingWidgetViewModel.swift` 101 → **108** (+7), `FloatingWidgetContainerViewController.swift` 240 → **246** (+6). Không file nào trong nhóm này nằm trong allowlist, nên không baseline nào bị chạm.
+* Hai file over-baseline được giữ nguyên có chủ ý: `SettingsView.swift` đúng **453 dòng** (bằng baseline — section cài đặt mới nằm ở file riêng nên không phình), `DictionaryListView.swift` giảm như trên. `git diff --stat`: 12 file sửa, 187 thêm / 227 xoá.
+* `check_architecture.py`: **18 → 18 violation**, tập vi phạm giống hệt (9 `LINE_LIMIT_EXCEEDED` ở Services, 7 ở Views, 2 `VIEW_SWIFTDATA_MUTATION`). Không entry `architecture_allowlist.json` nào được thêm hay nới.
+* Độ phức tạp rẽ nhánh: nơi tăng đáng kể duy nhất là `DictionaryEntryRow` (2 nhánh scope × 2 loại đích = 4 mục Menu mỗi chiều, cộng nhánh thiếu ngữ cảnh) và `VisibleBrowserTabManager.openContainer` (+1 nhánh `opensMinimized`). `DictionaryEntryTransferAction.copy` chỉ có 2 nhánh và không có vòng lặp. Không file nào vào/ra khỏi top-10 độ phức tạp.
+* Không build được để xác minh biên dịch: host là Windows, `xcodebuild` chỉ chạy trên macOS.
+
 ## Số liệu sau khi trả lại quan sát view model (1.3.243)
 
 * Tổng file Swift: **231 → 232** (thêm `Views/Reader/Components/ReaderViewModelInvalidationRelay.swift`, 40 dòng, 1 primary type — file nhỏ nhất trong thư mục `Views/Reader/`).

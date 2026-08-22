@@ -15,6 +15,20 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type mới cho copy từ điển và widget trình duyệt (1.3.244)
+
+* `DictionaryTransferTarget` (`enum`, `Equatable`): `case globalCustom` và `case privateBook(bookId: String)`. Đây là **toàn bộ** vốn từ vựng về đích copy — không có case nào trỏ tới dữ liệu dựng sẵn (`.dat`), nên "ghi vào built-in" không biểu diễn được bằng type.
+* `DictionaryEntryTransferAction` (`@MainActor enum` không case, dùng như namespace): `copy(key:value:destinationType:target:) async throws` và `destinationLabel(destinationType:target:) -> String`. Nó không sở hữu storage — chỉ định tuyến sang `DictionaryCache.shared.upsertEntry(key:value:type:)` (đích `globalCustom`) hoặc `TranslationManager.shared.saveCustomEntry(word:meaning:isName:bookId:)` (đích `privateBook`). Cả hai API đã tồn tại trước 1.3.244; không API nào của chúng đổi shape.
+* `DictionaryEntryRow` (`struct: View`): hàng từ điển tách khỏi `DictionaryListView`, nhận `entry`, `type`, `isGlobalScope`, `contextBookId`, `onEdit`, `onDelete`, `onTransfer(DictType, DictionaryTransferTarget)`, `onMissingContext`.
+* `DictionaryListView` thêm **một** thuộc tính: `var contextBookId: String? = nil` (mặc định `nil` ⇒ mọi call site cũ vẫn biên dịch). `bookId` giữ đúng nghĩa cũ (scope của danh sách); `contextBookId` chỉ là ngữ cảnh "sách nào đang mở màn Từ điển".
+* `BookSearchBarView` (`struct: View`): `@Binding text`, `placeholder`, `onCommit` — trích nguyên `searchBarView` của `ShelfSearchView`, không đổi visual hay hành vi.
+* `FloatingWidgetGeometry` (`enum` namespace, `import UIKit`): `clampedCenterY(_:widgetHeight:screenHeight:topMargin:bottomMargin:)`, `nearestEdge(centerX:screenWidth:)`, `restingCenterX(edge:widgetWidth:screenWidth:horizontalMargin:)`. Ba hàm thuần, không state.
+* `VisibleBrowserPulseMonitor` (`@MainActor final class: ObservableObject`, singleton `.shared`): `static let pulseThreshold: TimeInterval = 10`, `@Published private(set) var isPulsing`, `func evaluate()`.
+* `BrowserFloatingWidgetUIWindow: UIWindow`, `BrowserFloatingWidgetContainerViewController: UIViewController, UIGestureRecognizerDelegate` (type lồng `Layout`), `BrowserFloatingWidgetWindowManager` (`@MainActor final class: ObservableObject`, singleton) — bộ ba đối xứng với `FloatingWidgetUIWindow` / `FloatingWidgetContainerViewController` / `TTSFloatingWidgetWindowManager` của TTS widget, nhưng là **type riêng**, không kế thừa hay chia sẻ base class.
+* `VisibleBrowserReopenViewModel` giữ tên và hai khoá `UserDefaults` cũ, đổi API sang mô hình UIKit: `handleDragStart()`, `handleDragEnd(finalPosition:widgetHeight:screenWidth:screenHeight:topMargin:bottomMargin:)`. `VisibleBrowserReopenButton` thu về `let tabCount: Int` — không còn cử chỉ, không còn đo kích thước.
+* `VisibleBrowserTabItem` thêm `public let createdAt: Date` (mặc định `Date()` trong init) — nguồn tuổi tab duy nhất. `VisibleBrowserSettings` (`enum` namespace, chỉ `Foundation`): `openMinimizedKey`, `opensMinimized`. `VisibleBrowserTabManager` thêm `internal func prepareContainerMinimized()`.
+* `EdgeDirection`, `DictType`, `DictEntry` **không đổi** — cả ba được tái dùng nguyên.
+
 ## Thành viên đổi ở đường điều hướng Reader (1.3.241)
 
 * `ReaderViewModel`: **xoá** `stepChapter(by:source:persistProgress:)`. Không type nào khác đổi thành viên public; `requestChapter(index:paragraphIndex:source:persistProgress:forceRefresh:)` là API điều hướng duy nhất còn lại.
