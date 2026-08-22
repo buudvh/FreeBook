@@ -16,6 +16,9 @@ public struct AddBookToShelfCommand: Sendable {
     public let isOnShelf: Bool
     public let isHistory: Bool
     public let host: String?
+    /// Mốc đọc gần nhất muốn giữ lại (dùng khi khôi phục sao lưu để kệ sách giữ đúng thứ tự cũ).
+    /// `nil` = lấy thời điểm hiện tại, giữ nguyên hành vi thêm sách thủ công.
+    public let lastReadDate: Date?
 
     public init(
         bookId: String,
@@ -32,7 +35,8 @@ public struct AddBookToShelfCommand: Sendable {
         currentChapterTitle: String = "",
         isOnShelf: Bool = true,
         isHistory: Bool = false,
-        host: String? = nil
+        host: String? = nil,
+        lastReadDate: Date? = nil
     ) {
         self.bookId = bookId
         self.title = title
@@ -49,5 +53,6 @@ public struct AddBookToShelfCommand: Sendable {
         self.isOnShelf = isOnShelf
         self.isHistory = isHistory
         self.host = host
+        self.lastReadDate = lastReadDate
     }
 }

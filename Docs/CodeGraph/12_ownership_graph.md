@@ -15,6 +15,15 @@ Tài liệu này mô tả mối quan hệ sở hữu đối tượng (Object Own
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Chủ sở hữu mốc đọc, khoá `isBusy` và tô màu trình soạn script (1.3.247)
+
+* **Mốc đọc `Book.lastReadDate` nay có chủ rõ ràng ở hai vai**: `BookTransactionCoordinator.addBookToShelf` vẫn là **nơi ghi duy nhất** khi thêm sách, nhưng nó không còn là nơi *quyết định giá trị* — biểu thức `command.lastReadDate ?? Date()` giao quyền quyết định cho caller. Caller khôi phục (`BackupLibraryWriter.insertMissingBooks`) sở hữu giá trị lấy từ backup; caller thêm sách thủ công không truyền gì nên coordinator vẫn tự đóng `Date()`. Hệ quả về sở hữu: `AddBookToShelfCommand` là DTO bất biến nên không có đường nào khác ghi được field này, và không View nào chạm `Book.lastReadDate` trực tiếp.
+* **Khoá `isBusy` của `BackupCoordinator` vẫn do đúng một tầng sở hữu — tầng entry point công khai.** `restoreEverythingFromDrive` và `runRestore` mỗi hàm tự `guard !isBusy` rồi giữ khoá; phần thân dùng chung `performRestore(prepared:container:options:)` là private và **cố ý không** giữ khoá. Luật kèm theo: mọi hàm mới muốn khôi phục phải gọi `performRestore`, không được gọi `runRestore` từ trong coordinator — làm vậy là tự khoá chính mình. Tiền điều kiện "TTS không đang phát" vẫn được kiểm ở **cả hai** entry point, không nằm trong thân dùng chung.
+* `LocalBackupStore` giữ nguyên quyền sở hữu thư mục `backups/`: đường một chạm từ Drive tải xuống thư mục **tạm** rồi bàn giao cho `importArchive(from:)`, và tự xoá thư mục tạm bằng `defer`. `GoogleDriveClient` không bao giờ ghi thẳng vào `backups/`.
+* `BackupProgress` chỉ có một chủ (`BackupCoordinator.@Published progress`) nhưng nay có **hai** người đọc (`BackupHubView`, `GoogleDriveBackupListView`); không view nào sở hữu bản sao tiến độ riêng.
+* **Trình soạn script**: `CodeEditorTextView` sở hữu `keyboardObservers` (`[NSObjectProtocol]`) và tự gỡ trong `deinit` — không có chủ nào khác đăng ký observer bàn phím cho editor này, và `contentInset.bottom` chỉ được ghi từ `setKeyboardInset(_:)`. `HighlightingCodeEditor.Coordinator` sở hữu `regexCache` và nay là nơi **duy nhất** sửa attribute của `textStorage` khi người dùng gõ (`applyHighlight(to:fontSize:)` tại chỗ); đường gán lại `attributedText` chỉ còn ở `makeUIView`/`updateUIView`. `ExtensionScriptEditorView` sở hữu first responder gián tiếp qua `dismissKeyboard()` — hai file `+Picker`/`+Toolbars` là `extension` nên không thêm chủ sở hữu state nào.
+* `RepositoryFilterPolicy` tiếp tục sở hữu duy nhất thứ tự danh sách tiện ích. `Extension.hasUpdate` là thuộc tính phái sinh (computed) nên không ai "sở hữu" nó: chủ hai field nguồn `version`/`remoteVersion`/`localPath` vẫn là `ExtensionTransactionCoordinator`.
+
 ## Sơ Đồ Quyền Sở Hữu & Quyền Hạn (Ownership Graph v4.1/v5.0)
 
 1. **Quyền Sở Hữu Giao Dịch SwiftData**:

@@ -15,6 +15,16 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Đổi shape command khôi phục + API tô màu trình soạn script (1.3.247)
+
+* `AddBookToShelfCommand` **đổi shape** (lần đầu): thêm `public let lastReadDate: Date?` cuối danh sách thuộc tính, tham số init `lastReadDate: Date? = nil` — mặc định `nil` nên **mọi call site cũ biên dịch không đổi**. Ngữ nghĩa: `nil` = lấy `Date()` như trước (thêm sách thủ công), có giá trị = giữ đúng mốc đọc của máy nguồn khi khôi phục. Điểm đọc duy nhất là `BookTransactionCoordinator.addBookToShelf` (`command.lastReadDate ?? Date()` ở cả hai nhánh); điểm ghi duy nhất là `BackupLibraryWriter.insertMissingBooks`. Không `@Model` nào đổi shape ⇒ không rủi ro lightweight migration. Điều này **thay thế** câu "`AddBookToShelfCommand` không đổi shape" ở mục 1.3.246 dưới đây.
+* `BackupCoordinator` thêm hai thành viên: `restoreEverythingFromDrive(_:container:) async` (public) và `performRestore(prepared:container:options:) async` (private — thân dùng chung, **không** tự giữ `isBusy`). `runRestore(container:options:)` giữ nguyên chữ ký, nay chỉ là lớp bọc giữ khoá quanh `performRestore`.
+* `RepositoryFilterPolicy.sortExtensions(_:)` giữ nguyên chữ ký, thêm khoá so sánh đầu tiên `hasUpdate`. `Extension.hasUpdate` không đổi.
+* `CodeEditorTextView` thêm state riêng tư `keyboardScreenFrame: CGRect?` + `keyboardObservers: [NSObjectProtocol]`, `deinit` gỡ observer, override `layoutSubviews()`, và ba hàm riêng tư `observeKeyboard()` / `applyKeyboardInset()` / `setKeyboardInset(_:)`. `gutterWidth`, `updateGutterInset()`, `draw(_:)` không đổi.
+* `HighlightingCodeEditor.Coordinator` thêm `applyHighlight(to:fontSize:)` (public — tô tại chỗ trên `textStorage`), `tokenColors(in:) -> [(NSRange, UIColor)]` (internal) và `intersectsProtected(_:_:)` (private, tìm nhị phân). `highlight(_:fontSize:) -> NSAttributedString` giữ nguyên chữ ký (dùng cho `makeUIView`/`updateUIView`) nhưng nay dựng màu từ `tokenColors`. `regexCache` đổi **tập khoá**: hai khoá `comment` + `string` gộp thành một khoá `protected`.
+* `ExtensionScriptEditorView` không đổi thuộc tính hay chữ ký nào — chỉ chuyển khai báo sang hai file `extension` mới; `dismissKeyboard()` là thành viên `internal` mới duy nhất. `ScriptFileInfo` không đổi.
+* Không type nào bị xoá, đổi tên, đổi kế thừa hay đổi conformance trong lần này.
+
 ## Type mới cho sao lưu/khôi phục, đồng bộ ext theo lô, sửa thông tin truyện (1.3.246)
 
 * `EditBookInfoCommand` (`struct`, bất biến): `bookId`, `title`, `author`, `coverUrl`. Command DTO duy nhất được thêm; `AddBookToShelfCommand` và `UpsertExtensionCommand` **không đổi shape**.

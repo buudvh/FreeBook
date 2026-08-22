@@ -65,18 +65,21 @@ struct BackupHubView: View {
 
     // MARK: - Các section
 
+    /// Chiều cao **không đổi** trong suốt tiến trình: thông báo dài ngắn khác nhau vẫn chiếm đúng
+    /// 2 dòng (`reservesSpace`), và luôn dùng một `ProgressView` kiểu `.linear` — kể cả khi chưa có
+    /// phần trăm (`value: nil` = vô định) — nên đổi thông báo không còn làm giật khung hình.
     private var progressSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
                 Text(coordinator.progress.message)
                     .font(.subheadline)
-                if let fraction = coordinator.progress.fraction {
-                    ProgressView(value: fraction)
-                } else {
-                    ProgressView()
-                }
+                    .lineLimit(2, reservesSpace: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                ProgressView(value: coordinator.progress.fraction)
+                    .progressViewStyle(.linear)
             }
             .padding(.vertical, 2)
+            .animation(nil, value: coordinator.progress.message)
         }
     }
 

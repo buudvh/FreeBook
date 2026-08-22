@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-22T10:45:01Z",
-  "gitCommit": "7e10030231d7f5e92d42cc82b3b55bbd26453587",
-  "sourceFileCount": 277,
+  "generatedAt": "2026-08-22T11:51:47Z",
+  "gitCommit": "3333eac40eca3e1386a1897682b588c58d0ca04c",
+  "sourceFileCount": 279,
   "documentCount": 16,
   "documents": [
     {
@@ -229,6 +229,8 @@
         "Sources/Views/Download/TaskOptionsSheet.swift",
         "Sources/Views/Extensions/Config/ExtensionConfigView.swift",
         "Sources/Views/Extensions/Editor/CodeEditorTextView.swift",
+        "Sources/Views/Extensions/Editor/ExtensionScriptEditorView+Picker.swift",
+        "Sources/Views/Extensions/Editor/ExtensionScriptEditorView+Toolbars.swift",
         "Sources/Views/Extensions/Editor/ExtensionScriptEditorView.swift",
         "Sources/Views/Extensions/Editor/HighlightingCodeEditor.swift",
         "Sources/Views/Extensions/Manager/AddRepositoryView.swift",
@@ -294,12 +296,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "9bd8ddc1498cfeb53cf3e5d67f61fe19e9a98374a124ad4b2cc4a12cd33463e8",
-      "sourceHash": "798352bf74e987f32d0741b45fc03230a2239a2c72ab7c46fa56a9d2d210bc75",
-      "generatedHash": "ab8eb9b74df69269958fae13c6bbf44cc8c47b6e37e8b31022918d6160c42832",
-      "generatedAt": "2026-08-22T10:45:01Z",
-      "reviewedAt": "2026-08-22T10:45:01Z",
-      "reviewedCommit": "7e10030231d7f5e92d42cc82b3b55bbd26453587",
+      "structureHash": "5c41331a10d7adbaddae1a7ca94860d60fe4026cc917bfa7edf7e3d0393db947",
+      "sourceHash": "f991c5259f95131db8c2e0aaceae3facbf1754da1b68950ba22f92b90ea6e330",
+      "generatedHash": "aab9202ee32be287ab37eac979a9582a90bcc1c65e80202abfde049c1f28ee76",
+      "generatedAt": "2026-08-22T11:51:41Z",
+      "reviewedAt": "2026-08-22T11:51:41Z",
+      "reviewedCommit": "3333eac40eca3e1386a1897682b588c58d0ca04c",
       "reviewMode": "accept"
     },
     {
@@ -550,6 +552,8 @@
         "Sources/Views/Download/TaskOptionsSheet.swift",
         "Sources/Views/Extensions/Config/ExtensionConfigView.swift",
         "Sources/Views/Extensions/Editor/CodeEditorTextView.swift",
+        "Sources/Views/Extensions/Editor/ExtensionScriptEditorView+Picker.swift",
+        "Sources/Views/Extensions/Editor/ExtensionScriptEditorView+Toolbars.swift",
         "Sources/Views/Extensions/Editor/ExtensionScriptEditorView.swift",
         "Sources/Views/Extensions/Editor/HighlightingCodeEditor.swift",
         "Sources/Views/Extensions/Manager/AddRepositoryView.swift",
@@ -615,12 +619,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "9bd8ddc1498cfeb53cf3e5d67f61fe19e9a98374a124ad4b2cc4a12cd33463e8",
-      "sourceHash": "798352bf74e987f32d0741b45fc03230a2239a2c72ab7c46fa56a9d2d210bc75",
-      "generatedHash": "f17a73fbb175545c1b6ec7b1bf5af920d05a617b3f303be029e88dc26135ccf9",
-      "generatedAt": "2026-08-22T10:45:01Z",
-      "reviewedAt": "2026-08-22T10:45:01Z",
-      "reviewedCommit": "7e10030231d7f5e92d42cc82b3b55bbd26453587",
+      "structureHash": "5c41331a10d7adbaddae1a7ca94860d60fe4026cc917bfa7edf7e3d0393db947",
+      "sourceHash": "f991c5259f95131db8c2e0aaceae3facbf1754da1b68950ba22f92b90ea6e330",
+      "generatedHash": "1142a8e67bd92486c32013af38dc92ad8c4889ed3d1b0a8597e44bdde6ff835e",
+      "generatedAt": "2026-08-22T11:51:41Z",
+      "reviewedAt": "2026-08-22T11:51:41Z",
+      "reviewedCommit": "3333eac40eca3e1386a1897682b588c58d0ca04c",
       "reviewMode": "accept"
     },
     {
@@ -695,11 +699,11 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "42bcab1bac5c2d459211e028a83181327f5afafcab7b8a97830e243d5ed197fd",
-      "sourceHash": "28bf95991d6959962094747276941b1b7d93a8037e478320f170736701724bf5",
-      "generatedHash": "1975dcc3c54acdd99801717ea8f39720abec1d964b298071f99481a92548f545",
-      "generatedAt": "2026-08-22T10:45:01Z",
-      "reviewedAt": "2026-08-22T10:45:01Z",
-      "reviewedCommit": "7e10030231d7f5e92d42cc82b3b55bbd26453587",
+      "sourceHash": "18608f05dc08196f9b6c3fd7dbe3a4e24030993a51fe6c421a6ae4abf1796f06",
+      "generatedHash": "5b01e4db65d574b5a9e1398ed8a61f06156ddc7f8cc787732dbedfe05d23e577",
+      "generatedAt": "2026-08-22T11:51:41Z",
+      "reviewedAt": "2026-08-22T11:51:41Z",
+      "reviewedCommit": "3333eac40eca3e1386a1897682b588c58d0ca04c",
       "reviewMode": "accept"
     },
     {
@@ -983,11 +987,11 @@
         "Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift"
       ],
       "structureHash": "42e3cef4d1aa7b7b85bd06733fad4ce2eb4ea4ba32663387748e2fb012e09bed",
-      "sourceHash": "5f9cb42d0bc41396819d0280a8ed1e65c89d8c6a137b6cd202324e3f2283e3af",
-      "generatedHash": "c1e5807456628f5c05592aa2e45e5f218f8b099ee0abaf15cdd36777ed578da7",
-      "generatedAt": "2026-08-22T10:45:01Z",
-      "reviewedAt": "2026-08-22T10:45:01Z",
-      "reviewedCommit": "7e10030231d7f5e92d42cc82b3b55bbd26453587",
+      "sourceHash": "19eb4ce94d7d0990815e0f3b6665b947ca9a7a8aa63febc5c03cfe201d9ae79c",
+      "generatedHash": "9f54f83989f7bb437c41877910380bd4a62f13823a0833a5b6a244727bc12ec5",
+      "generatedAt": "2026-08-22T11:51:41Z",
+      "reviewedAt": "2026-08-22T11:51:41Z",
+      "reviewedCommit": "3333eac40eca3e1386a1897682b588c58d0ca04c",
       "reviewMode": "accept"
     },
     {
@@ -1248,6 +1252,8 @@
         "Sources/Views/Download/TaskOptionsSheet.swift",
         "Sources/Views/Extensions/Config/ExtensionConfigView.swift",
         "Sources/Views/Extensions/Editor/CodeEditorTextView.swift",
+        "Sources/Views/Extensions/Editor/ExtensionScriptEditorView+Picker.swift",
+        "Sources/Views/Extensions/Editor/ExtensionScriptEditorView+Toolbars.swift",
         "Sources/Views/Extensions/Editor/ExtensionScriptEditorView.swift",
         "Sources/Views/Extensions/Editor/HighlightingCodeEditor.swift",
         "Sources/Views/Extensions/Manager/AddRepositoryView.swift",
@@ -1313,12 +1319,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "76ba41fe779fd0f8811f12512ce17f53a65369b4d394f57e9cbed39cb48cd757",
-      "sourceHash": "7abd7e4e20d511887c3050daafe8040eb70aadb9bcb7d354b2ca35defa319b74",
-      "generatedHash": "7b0af0840b10728122def76128bb495111ecc760444f60ca3c4dff9fb744047c",
-      "generatedAt": "2026-08-22T10:45:01Z",
-      "reviewedAt": "2026-08-22T10:45:01Z",
-      "reviewedCommit": "7e10030231d7f5e92d42cc82b3b55bbd26453587",
+      "structureHash": "d094029c9c3b97d06825d51e9ed01e77610167d2a3b5351d4a60064e8e263c21",
+      "sourceHash": "7d81c30836d24f500b308efea2af46201cc1f19c1834aa8718f04ab58581b131",
+      "generatedHash": "234a23c5b08324d0463a1c17c14b18606b79fae48839ad12b624c275b491edac",
+      "generatedAt": "2026-08-22T11:51:41Z",
+      "reviewedAt": "2026-08-22T11:51:41Z",
+      "reviewedCommit": "3333eac40eca3e1386a1897682b588c58d0ca04c",
       "reviewMode": "accept"
     },
     {
@@ -1606,6 +1612,8 @@
         "Sources/Views/Download/TaskOptionsSheet.swift",
         "Sources/Views/Extensions/Config/ExtensionConfigView.swift",
         "Sources/Views/Extensions/Editor/CodeEditorTextView.swift",
+        "Sources/Views/Extensions/Editor/ExtensionScriptEditorView+Picker.swift",
+        "Sources/Views/Extensions/Editor/ExtensionScriptEditorView+Toolbars.swift",
         "Sources/Views/Extensions/Editor/ExtensionScriptEditorView.swift",
         "Sources/Views/Extensions/Editor/HighlightingCodeEditor.swift",
         "Sources/Views/Extensions/Manager/AddRepositoryView.swift",
@@ -1671,12 +1679,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "eb18cd624174d0145652833f760012fdef685cb45f9c3665a6bb821f7d5132cf",
-      "sourceHash": "2fef030fe11f37311114191b1d203be53828bf442251e986d3314c5eb4347f2c",
-      "generatedHash": "cf308140158d604d785e5554cfa6f93d1f5cfaa2c7d149e3e6cefa868405544f",
-      "generatedAt": "2026-08-22T10:45:01Z",
-      "reviewedAt": "2026-08-22T10:45:01Z",
-      "reviewedCommit": "7e10030231d7f5e92d42cc82b3b55bbd26453587",
+      "structureHash": "35e06936c146f758888aa38e8f1878bd2c65f3fb0e5435b5ede9a9b959d4396f",
+      "sourceHash": "b5f090cd4fe44ad84acd621354191d21123e04413b15dfb9a23624a74278812d",
+      "generatedHash": "9c1377a39cbb6e2f269599e554064cfa936ab52db28ad2bfa12d3998839621a1",
+      "generatedAt": "2026-08-22T11:51:41Z",
+      "reviewedAt": "2026-08-22T11:51:41Z",
+      "reviewedCommit": "3333eac40eca3e1386a1897682b588c58d0ca04c",
       "reviewMode": "accept"
     },
     {
@@ -1709,11 +1717,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "f9d7880a4b773c04e0cb024cdd3e444c1a51b6746e84a9c26aa3ad8316004d3f",
-      "sourceHash": "6325ad29215bfc0135724db0d4d3a889a26310edba4c4c6b6760416f5d141474",
-      "generatedHash": "349e0b29163c758b928d18fc15c91f9c7680a99de7087327cb481f1ba1d4edd3",
-      "generatedAt": "2026-08-22T10:45:01Z",
-      "reviewedAt": "2026-08-22T10:45:01Z",
-      "reviewedCommit": "7e10030231d7f5e92d42cc82b3b55bbd26453587",
+      "sourceHash": "13f887bcc0133cc4e47c7df4c9d80d1d073137e019dbc8fae4bd9db2d3b2a7d8",
+      "generatedHash": "0ce34a9a6538744515c7a9633c43809ded83f50c0d7893172e75e041dc771f79",
+      "generatedAt": "2026-08-22T11:51:41Z",
+      "reviewedAt": "2026-08-22T11:51:41Z",
+      "reviewedCommit": "3333eac40eca3e1386a1897682b588c58d0ca04c",
       "reviewMode": "accept"
     },
     {
@@ -1844,12 +1852,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "00cc8763ba6cd48fd8b94e7e73f86dba3d3024c83c51a6020c9b21f4bfa768e6",
-      "sourceHash": "3e1cc2f471e41046c45ff6bff44f21d4cad052eae2438a04bcc7603e218eb053",
+      "sourceHash": "3dd3e63a7163d6584ce6d7a3b1aaa3510776d1d435cce03d00a60f3bc6c18fcc",
       "generatedHash": "e541cad6f31ec9296170aed1dda95852b9a8244f742b10c8ab7a9a2ea321875b",
-      "generatedAt": "2026-08-22T10:45:01Z",
-      "reviewedAt": "2026-08-22T10:45:01Z",
-      "reviewedCommit": "7e10030231d7f5e92d42cc82b3b55bbd26453587",
-      "reviewMode": "accept"
+      "generatedAt": "2026-08-22T11:51:47Z",
+      "reviewedAt": "2026-08-22T11:51:47Z",
+      "reviewedCommit": "3333eac40eca3e1386a1897682b588c58d0ca04c",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "14_complexity_report.md",
@@ -2072,6 +2080,8 @@
         "Sources/Views/Download/TaskOptionsSheet.swift",
         "Sources/Views/Extensions/Config/ExtensionConfigView.swift",
         "Sources/Views/Extensions/Editor/CodeEditorTextView.swift",
+        "Sources/Views/Extensions/Editor/ExtensionScriptEditorView+Picker.swift",
+        "Sources/Views/Extensions/Editor/ExtensionScriptEditorView+Toolbars.swift",
         "Sources/Views/Extensions/Editor/ExtensionScriptEditorView.swift",
         "Sources/Views/Extensions/Editor/HighlightingCodeEditor.swift",
         "Sources/Views/Extensions/Manager/AddRepositoryView.swift",
@@ -2137,12 +2147,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "9bd8ddc1498cfeb53cf3e5d67f61fe19e9a98374a124ad4b2cc4a12cd33463e8",
-      "sourceHash": "798352bf74e987f32d0741b45fc03230a2239a2c72ab7c46fa56a9d2d210bc75",
-      "generatedHash": "a91e06b072416f0659afcb4a364497a816f58a73d0606561025da36522ae40f1",
-      "generatedAt": "2026-08-22T10:45:01Z",
-      "reviewedAt": "2026-08-22T10:45:01Z",
-      "reviewedCommit": "7e10030231d7f5e92d42cc82b3b55bbd26453587",
+      "structureHash": "5c41331a10d7adbaddae1a7ca94860d60fe4026cc917bfa7edf7e3d0393db947",
+      "sourceHash": "f991c5259f95131db8c2e0aaceae3facbf1754da1b68950ba22f92b90ea6e330",
+      "generatedHash": "c6e3acfea44fcfeb1ced040acedf92d19433d897596f28c350e2d5ed203c0b04",
+      "generatedAt": "2026-08-22T11:51:41Z",
+      "reviewedAt": "2026-08-22T11:51:41Z",
+      "reviewedCommit": "3333eac40eca3e1386a1897682b588c58d0ca04c",
       "reviewMode": "accept"
     },
     {

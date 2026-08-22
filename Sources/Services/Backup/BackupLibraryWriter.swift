@@ -86,8 +86,8 @@ public struct BackupLibraryWriter {
 
     /// Chỉ thêm truyện chưa có. Truyện đã có giữ nguyên metadata **và tiến độ đọc** của máy này.
     ///
-    /// Giới hạn đã biết: `AddBookToShelfCommand` không mang `lastReadDate`, nên truyện mới thêm
-    /// nhận thời điểm khôi phục làm mốc đọc gần nhất (ảnh hưởng thứ tự sắp xếp kệ sách).
+    /// Truyện mới nhận lại `lastReadDate` từ bản sao lưu (qua `AddBookToShelfCommand.lastReadDate`)
+    /// để kệ sách — vốn sắp theo `lastReadDate` giảm dần — giữ đúng thứ tự đọc của máy nguồn.
     public func insertMissingBooks(_ records: [BackupPayload.BookRecord]) -> Report {
         var report = Report()
         let existing = existingBookIds()
@@ -114,7 +114,8 @@ public struct BackupLibraryWriter {
                     currentChapterTitle: record.currentChapterTitle,
                     isOnShelf: record.isOnShelf,
                     isHistory: record.isHistory,
-                    host: record.host
+                    host: record.host,
+                    lastReadDate: record.lastReadDate
                 ),
                 in: context
             )

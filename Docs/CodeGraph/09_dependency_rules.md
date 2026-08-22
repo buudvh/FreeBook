@@ -15,6 +15,15 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vị trí tầng của 2 file mới (1.3.247)
+
+* Cả **2 file đều ở tầng Views**: `Views/Extensions/Editor/ExtensionScriptEditorView+Picker.swift` (117) và `+Toolbars.swift` (119) — đều là `extension ExtensionScriptEditorView`, **không khai type top-level** nên `MULTI_PRIMARY_TYPES` không áp dụng; không file nào `modelContext.insert/delete/save` hay gán thuộc tính `@Model` ⇒ không đụng `VIEW_SWIFTDATA_MUTATION`. Không cạnh phụ thuộc mới nào: hai file chỉ dịch chuyển khai báo trong cùng một struct.
+* `+Toolbars.swift` khai `import UIKit` cạnh `import SwiftUI` — nằm ở `Views/**` nên luật `SERVICE_SWIFTUI_IMPORT` (chỉ áp cho `Sources/Services/**`) không liên quan; `dismissKeyboard()` cần `UIApplication`/`UIResponder` nên import tường minh thay vì dựa vào việc SwiftUI re-export UIKit.
+* `RepositoryFilterPolicy` (Services) nhận thêm khoá sắp xếp `hasUpdate` — vẫn là hàm thuần trên `[Extension]`, không thêm import, không chạm `ModelContext`. Chiều Views → Services giữ nguyên: `RepositoryManagerView.filteredExtensions` gọi policy, policy không biết View tồn tại. Sắp xếp làm trên RAM đúng luật "không đặt predicate/sort chuỗi trong `@Query`".
+* `GoogleDriveBackupListView` (Views) thêm phụ thuộc `TTSWidgetStateReader` + `modelContext.container`: đúng mẫu "View không observe trực tiếp `TTSManager`, chỉ qua projection reader", và container chỉ được **truyền xuống** `BackupCoordinator` chứ View không tự mở `ModelContext` để ghi.
+* `AddBookToShelfCommand` (Models) thêm `lastReadDate: Date?` — DTO bất biến, mặc định `nil` nên mọi call site cũ không đổi; điểm đọc duy nhất là `BookTransactionCoordinator` (Services). `BackupLibraryWriter` vẫn ghi qua coordinator, không ghi thẳng `@Model`.
+* Trần dòng: `ExtensionScriptEditorView.swift` 583 → **384** (baseline 474) ⇒ rời khỏi danh sách vi phạm; hai file mới ≤ 119 dòng. **Không entry `architecture_allowlist.json` nào được thêm hay nới.** `check_architecture.py`: **17 → 16 violation**, không violation mới. Tổng file Swift 277 → **279**.
+
 ## Vị trí tầng của 33 file mới (1.3.246)
 
 * **23 file ở tầng Services** — `Services/Backup/` (17) + `Services/Backup/GoogleDrive/` (6): chỉ import `Foundation`, `SwiftData`, `Combine`, `ZIPFoundation`, `CryptoKit`, `Security`, `AuthenticationServices`, `UIKit`. **Không file nào `import SwiftUI`** ⇒ miễn trừ chỉ-dành-cho-`*WebViewLoader.swift` của `SERVICE_SWIFTUI_IMPORT` không bị nới; `UIKit` (key window cho `ASWebAuthenticationSession`) và `AuthenticationServices` không thuộc luật đó. **Không file nào gọi `ToastManager.shared`** ⇒ `SERVICE_TOAST_COUPLING` an toàn: `BackupCoordinator` chỉ publish `lastMessage`/`lastError` và `BackupHubView` mới hiển thị toast.

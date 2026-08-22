@@ -15,6 +15,21 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Sửa trình soạn script, khôi phục giữ thứ tự, sắp ext có cập nhật lên đầu (1.3.247)
+
+| File mới | Tách khỏi | Dòng |
+|---|---|---|
+| `Views/Extensions/Editor/ExtensionScriptEditorView+Picker.swift` | `ExtensionScriptEditorView.swift` | 117 |
+| `Views/Extensions/Editor/ExtensionScriptEditorView+Toolbars.swift` | `ExtensionScriptEditorView.swift` | 119 |
+
+* Tổng file Swift 277 → **279** (+2). Không file nào bị xoá, đổi tên hay đổi thư mục.
+* `ExtensionScriptEditorView.swift` 583 → **384** (−199): sheet chọn file sang `+Picker`, hai thanh dưới cùng + `dismissKeyboard()` sang `+Toolbars`. File rời khỏi danh sách vi phạm `LINE_LIMIT_EXCEEDED` (baseline 474).
+* `+Toolbars.swift` là file duy nhất trong `Views/Extensions/Editor/**` khai `import UIKit` bên cạnh `SwiftUI`: `dismissKeyboard()` gọi `UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), …)` nên không dựa vào việc SwiftUI re-export UIKit.
+* File sửa nội dung, quan hệ import không đổi: `CodeEditorTextView.swift` 111 → **170** (quan sát 3 notification bàn phím, cộng phần bị che vào `contentInset.bottom`), `HighlightingCodeEditor.swift` 169 → **204** (`tokenColors` + `applyHighlight` tại chỗ trên `textStorage`), `RepositoryFilterPolicy.swift` 49 → **55** (khoá sắp xếp `hasUpdate` đứng đầu), `AddBookToShelfCommand.swift` (+`lastReadDate`), `BookTransactionCoordinator.swift`, `BackupLibraryWriter.swift`, `BackupCoordinator.swift` 209 → **259** (tách `performRestore` + `restoreEverythingFromDrive`), `BackupHubView.swift`, `GoogleDriveBackupListView.swift` 168 → **211**.
+* Quan hệ mới: `GoogleDriveBackupListView` → `TTSWidgetStateReader` + `modelContext.container` (một chạm khôi phục cần container và cờ TTS đang phát); `BackupCoordinator.restoreEverythingFromDrive` → `GoogleDriveClient` → `LocalBackupStore` → `BackupRestoreWorker` trong **một** lượt giữ khoá `isBusy`.
+* `project.yml` không cần sửa: target khai `sources: - path: Sources` theo thư mục nên `xcodegen generate` tự nhặt 2 file mới.
+* Không build được để xác minh biên dịch: host là Windows, `xcodebuild` chỉ chạy trên macOS.
+
 ## Sao lưu/khôi phục, tăng tốc cập nhật ext, sửa thông tin truyện (1.3.246)
 
 | File mới | Vai trò | Dòng |

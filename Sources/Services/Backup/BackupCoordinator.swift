@@ -107,7 +107,18 @@ public final class BackupCoordinator: ObservableObject {
     public func runRestore(container: ModelContainer, options: BackupRestoreWorker.Options) async {
         guard let prepared = preparedRestore, !isBusy else { return }
         isBusy = true
+        await performRestore(prepared: prepared, container: container, options: options)
+        isBusy = false
+    }
 
+    /// Thân khôi phục dùng chung cho cả luồng có hộp thoại và luồng một-chạm từ Drive.
+    /// Caller chịu trách nhiệm bật/tắt `isBusy` — hàm này không tự khoá để chuỗi tải-về-rồi-khôi-phục
+    /// không tự chặn chính nó.
+    private func performRestore(
+        prepared: BackupRestoreWorker.Prepared,
+        container: ModelContainer,
+        options: BackupRestoreWorker.Options
+    ) async {
         let worker = BackupRestoreWorker(
             container: container,
             prepared: prepared,
@@ -123,7 +134,6 @@ public final class BackupCoordinator: ObservableObject {
         } else {
             lastError = "Khôi phục xong nhưng có \(outcome.errors.count) lỗi: \(outcome.errors[0])"
         }
-        isBusy = false
     }
 
     // MARK: - Google Drive
@@ -186,6 +196,46 @@ public final class BackupCoordinator: ObservableObject {
             lastError = "Tải xuống thất bại: \(error.localizedDescription)"
         }
         isBusy = false
+    }
+
+    /// Khôi phục một-chạm từ Drive: tải về → nhập vào `backups/` → đọc manifest → ghi **toàn bộ**
+    /// nhóm dữ liệu, không hiện hộp thoại chọn nhóm. Cả chuỗi chạy dưới một lần khoá `isBusy`.
+    ///
+    /// Không ghi đè từ điển chung (`overwriteSharedDictionaries: false`) — nhóm đó chỉ được cài khi
+    /// máy này còn thiếu file, đúng như luồng khôi phục có hộp thoại khi người dùng không tick.
+    public func restoreEverythingFromDrive(_ file: GoogleDriveFile, container: ModelContainer) async {
+        guard !isBusy else { return }
+        isBusy = true
+        defer { isBusy = false }
+
+        progress = BackupProgress(phase: .downloading, detail: file.name)
+        let archiveURL: URL
+        do {
+            let temporaryURL = try await GoogleDriveClient.shared.download(file: file)
+            defer { try? FileManager.default.removeItem(at: temporaryURL.deletingLastPathComponent()) }
+            archiveURL = try LocalBackupStore.importArchive(from: temporaryURL).url
+            refreshLocal()
+        } catch {
+            progress = BackupProgress(phase: .failed, detail: error.localizedDescription)
+            lastError = "Tải xuống thất bại: \(error.localizedDescription)"
+            return
+        }
+
+        progress = BackupProgress(phase: .extracting, detail: file.name)
+        cancelPreparedRestore()
+        do {
+            let prepared = try await Task.detached(priority: .userInitiated) {
+                try BackupRestoreWorker.prepare(archive: archiveURL)
+            }.value
+            await performRestore(
+                prepared: prepared,
+                container: container,
+                options: BackupRestoreWorker.Options(scopes: BackupScope.defaultSelection)
+            )
+        } catch {
+            progress = BackupProgress(phase: .failed, detail: error.localizedDescription)
+            lastError = error.localizedDescription
+        }
     }
 
     public func deleteFromDrive(_ file: GoogleDriveFile) async {

@@ -27,7 +27,7 @@ public final class BookTransactionCoordinator {
             if let h = command.host { book.host = h }
             book.isOnShelf = command.isOnShelf
             book.isHistory = command.isHistory
-            book.lastReadDate = Date()
+            book.lastReadDate = command.lastReadDate ?? Date()
         } else {
             book = Book(
                 bookId: command.bookId,
@@ -46,7 +46,7 @@ public final class BookTransactionCoordinator {
                 isHistory: command.isHistory,
                 host: command.host
             )
-            book.lastReadDate = Date()
+            book.lastReadDate = command.lastReadDate ?? Date()
             context.insert(book)
         }
 

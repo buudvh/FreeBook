@@ -1,11 +1,14 @@
+import SwiftData
 import SwiftUI
 
-/// Tab Google Drive của màn Sao lưu: đăng nhập, xem danh sách `.fbbackup` trên Drive, tải về máy,
-/// xoá. Việc tải lên nằm ở menu từng bản trong danh sách local.
+/// Tab Google Drive của màn Sao lưu: đăng nhập, xem danh sách `.fbbackup` trên Drive, khôi phục
+/// một chạm, tải về máy, xoá. Việc tải lên nằm ở menu từng bản trong danh sách local.
 ///
 /// Chưa cấu hình client id thì màn này chỉ hiện ô dán — **kênh local vẫn chạy bình thường**.
 struct GoogleDriveBackupListView: View {
     @ObservedObject var coordinator: BackupCoordinator
+    @Environment(\.modelContext) private var modelContext
+    @StateObject private var ttsState = TTSWidgetStateReader()
 
     @State private var clientIdInput = ""
     @State private var isConfigured = GoogleDriveConfiguration.isConfigured
@@ -13,6 +16,9 @@ struct GoogleDriveBackupListView: View {
 
     var body: some View {
         List {
+            if coordinator.progress.isActive {
+                progressSection
+            }
             if isConfigured {
                 accountSection
                 if coordinator.isDriveSignedIn {
@@ -27,6 +33,25 @@ struct GoogleDriveBackupListView: View {
         .task {
             guard isConfigured, coordinator.isDriveSignedIn, coordinator.driveFiles.isEmpty else { return }
             await coordinator.refreshDriveFiles()
+        }
+    }
+
+    // MARK: - Tiến trình
+
+    /// Cùng cách giữ chiều cao cố định như `BackupHubView`: 2 dòng dành sẵn + một `ProgressView`
+    /// kiểu `.linear`, để thông báo dài ngắn khác nhau không làm giật danh sách.
+    private var progressSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(coordinator.progress.message)
+                    .font(.subheadline)
+                    .lineLimit(2, reservesSpace: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                ProgressView(value: coordinator.progress.fraction)
+                    .progressViewStyle(.linear)
+            }
+            .padding(.vertical, 2)
+            .animation(nil, value: coordinator.progress.message)
         }
     }
 
@@ -106,7 +131,7 @@ struct GoogleDriveBackupListView: View {
     }
 
     private var footer: some View {
-        Text("Tải về xong, bản sao lưu xuất hiện trong danh sách ở máy — khôi phục từ đó.")
+        Text("“Khôi phục ngay tất cả” tự tải bản sao lưu về rồi gộp mọi nhóm dữ liệu vào máy, không hỏi lại. Muốn chọn từng nhóm thì dùng “Tải về máy” rồi khôi phục từ danh sách ở máy.")
             .confirmationDialog(
                 "Xoá \(deletingFile?.name ?? "") trên Drive?",
                 isPresented: isDeleting,
@@ -136,6 +161,13 @@ struct GoogleDriveBackupListView: View {
             Spacer(minLength: 8)
             Menu {
                 Button {
+                    startRestoreEverything(file)
+                } label: {
+                    Label("Khôi phục ngay tất cả", systemImage: "arrow.clockwise.icloud")
+                }
+                .disabled(coordinator.isBusy || ttsState.snapshot.isPlaying)
+
+                Button {
                     Task { await coordinator.downloadFromDrive(file) }
                 } label: {
                     Label("Tải về máy", systemImage: "icloud.and.arrow.down")
@@ -156,6 +188,17 @@ struct GoogleDriveBackupListView: View {
 
     private var isDeleting: Binding<Bool> {
         Binding(get: { deletingFile != nil }, set: { if !$0 { deletingFile = nil } })
+    }
+
+    /// Một chạm: tải về → khôi phục **toàn bộ** nhóm dữ liệu, không hiện hộp thoại chọn nhóm.
+    /// Vẫn chặn khi TTS đang phát vì khôi phục ghi vào đúng hàng mà TTS đang giữ tiến độ.
+    private func startRestoreEverything(_ file: GoogleDriveFile) {
+        guard !ttsState.snapshot.isPlaying else {
+            ToastManager.shared.show(message: "Hãy dừng phát TTS trước khi khôi phục", type: .error)
+            return
+        }
+        let container = modelContext.container
+        Task { await coordinator.restoreEverythingFromDrive(file, container: container) }
     }
 
     private static func dateText(_ date: Date) -> String {

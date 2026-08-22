@@ -15,6 +15,15 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số liệu sau khi sửa trình soạn script và thứ tự khôi phục/ext (1.3.247)
+
+* Tổng file Swift: **277 → 279** (+2, không xoá và không đổi tên file nào). Hai file mới đều là `extension` của `ExtensionScriptEditorView`: `+Toolbars.swift` **119 dòng**, `+Picker.swift` **117 dòng** — không khai type top-level nên không cần entry `MULTI_PRIMARY_TYPES`, và còn dư ~280 dòng tới trần 400.
+* File cũ **giảm** dòng: `ExtensionScriptEditorView.swift` 583 → **384** (−199, baseline 474 ⇒ từ vượt +109 thành dư −90). Đây là violation duy nhất mất đi lần này.
+* File cũ **tăng** dòng, không file nào trong allowlist: `BackupCoordinator.swift` 209 → **259** (+50: `performRestore` + `restoreEverythingFromDrive`), `GoogleDriveBackupListView.swift` 168 → **211** (+43), `HighlightingCodeEditor.swift` 169 → **204** (+35), `CodeEditorTextView.swift` 111 → **170** (+59), `RepositoryFilterPolicy.swift` 49 → **55** (+6), `BackupHubView.swift` 187 → **190** (+3). Ba file còn lại chỉ +2…+5 dòng: `AddBookToShelfCommand.swift`, `BookTransactionCoordinator.swift`, `BackupLibraryWriter.swift`. `git diff --stat` phần code: 10 file sửa, 270 thêm / 267 xoá; cộng 2 file mới tổng **236 dòng**.
+* `check_architecture.py`: **17 → 16 violation** (8 `LINE_LIMIT_EXCEEDED` ở Services, 6 ở Views, 2 `VIEW_SWIFTDATA_MUTATION`). Không violation mới; không entry `architecture_allowlist.json` nào được thêm, nới hay gia hạn.
+* Độ phức tạp rẽ nhánh: hai điểm tăng, cả hai đều thay *nhiều* nhánh bằng *ít* nhánh. (1) `HighlightingCodeEditor.Coordinator.tokenColors` gộp 2 lượt regex chồng nhau thành 1 lượt "vùng bảo vệ" + 4 lượt bị lọc bằng `intersectsProtected` (tìm nhị phân trên mảng range đã sắp tăng dần) — số nhánh giữ nguyên nhưng thứ tự ưu tiên nay do chính regex quyết định thay vì do thứ tự gọi. (2) `CodeEditorTextView` thêm 3 observer bàn phím dồn về **một** hàm `applyKeyboardInset()` với 2 nhánh (không có window/bàn phím ẩn ⇒ inset 0). `BackupCoordinator.restoreEverythingFromDrive` là chuỗi 3 bước tuần tự có `guard` lỗi từng bước, không lồng sâu. Không file nào vào hay ra khỏi top-10 độ phức tạp / top-10 độ sâu lồng khối.
+* Không build được để xác minh biên dịch: host là Windows, `xcodebuild` chỉ chạy trên macOS.
+
 ## Số liệu sau sao lưu/khôi phục, tăng tốc cập nhật ext và sửa thông tin truyện (1.3.246)
 
 * Tổng file Swift: **244 → 277** (+33, không xoá và không đổi tên file nào). Đây là lần thêm file lớn nhất từ phép tách một-primary-type 1.3.236 (+14). File mới lớn nhất là `Services/Backup/BackupRestoreWorker.swift` **236 dòng** — còn dư 164 dòng tới trần 400 cho file mới; nhỏ nhất là `Views/Settings/Main/BackupSettingsSection.swift` **12 dòng**. Cả 33 file đều đúng 1 primary type (các record Codable dùng type lồng trong `BackupPayload`), nên **không entry `MULTI_PRIMARY_TYPES` nào được thêm**.

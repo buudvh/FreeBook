@@ -10,6 +10,10 @@ public final class CodeEditorTextView: UITextView {
     public var gutterBgColor: UIColor = UIColor(red: 30/255, green: 30/255, blue: 46/255, alpha: 1.0)
     public var dividerColor: UIColor = UIColor.white.withAlphaComponent(0.12)
 
+    /// Khung bàn phím lần cuối (toạ độ màn hình); `nil` = bàn phím đang ẩn.
+    private var keyboardScreenFrame: CGRect?
+    private var keyboardObservers: [NSObjectProtocol] = []
+
     public override init(frame: CGRect, textContainer: NSTextContainer?) {
         super.init(frame: frame, textContainer: textContainer)
         setupView()
@@ -18,6 +22,10 @@ public final class CodeEditorTextView: UITextView {
     public required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupView()
+    }
+
+    deinit {
+        keyboardObservers.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     private func setupView() {
@@ -29,6 +37,57 @@ public final class CodeEditorTextView: UITextView {
         smartInsertDeleteType = .no
         isScrollEnabled = true
         updateGutterInset()
+        observeKeyboard()
+    }
+
+    // MARK: - Chừa chỗ cho bàn phím
+
+    private func observeKeyboard() {
+        let names: [Notification.Name] = [
+            UIResponder.keyboardWillShowNotification,
+            UIResponder.keyboardWillChangeFrameNotification,
+            UIResponder.keyboardWillHideNotification
+        ]
+        keyboardObservers = names.map { name in
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+                guard let self else { return }
+                if name == UIResponder.keyboardWillHideNotification {
+                    self.keyboardScreenFrame = nil
+                } else if let value = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue {
+                    self.keyboardScreenFrame = value.cgRectValue
+                }
+                self.setNeedsLayout()
+                self.applyKeyboardInset()
+            }
+        }
+    }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        // Tính lại **sau** khi layout xong: SwiftUI có thể đã tự thu nhỏ khung theo bàn phím, khi đó
+        // phần che thực tế bằng 0 và không được cộng thêm inset.
+        applyKeyboardInset()
+    }
+
+    /// Cộng đúng phần bàn phím phủ lên text view vào `contentInset.bottom`. Thiếu inset này thì tài
+    /// liệu ngắn hơn khung hiển thị **không cuộn được**, nên mấy dòng cuối bị bàn phím che vĩnh viễn.
+    private func applyKeyboardInset() {
+        guard let window, let keyboardFrame = keyboardScreenFrame else {
+            setKeyboardInset(0)
+            return
+        }
+        let keyboardInWindow = window.convert(keyboardFrame, from: nil)
+        let selfInWindow = convert(bounds, to: window)
+        setKeyboardInset(max(0, selfInWindow.maxY - keyboardInWindow.minY))
+    }
+
+    private func setKeyboardInset(_ bottom: CGFloat) {
+        guard abs(contentInset.bottom - bottom) > 0.5 else { return }
+        contentInset.bottom = bottom
+        verticalScrollIndicatorInsets.bottom = bottom
+        if bottom > 0, isFirstResponder {
+            scrollRangeToVisible(selectedRange)
+        }
     }
 
     public func updateGutterInset() {

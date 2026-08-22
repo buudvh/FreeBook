@@ -68,8 +68,12 @@ public struct HighlightingCodeEditor: UIViewRepresentable {
 
         internal func precompileRegexes() {
             let patterns: [(String, String)] = [
-                ("comment", "//.*$|/\\*[\\s\\S]*?\\*/"),
-                ("string", "\"([^\"\\\\]|\\\\.)*\"|'([^'\\\\]|\\\\.)*'|`([^`\\\\]|\\\\.)*`"),
+                // Ghi chú + chuỗi nằm trong **một** regex: NSRegularExpression quét từ trái sang phải
+                // và không cho match chồng nhau, nên match bắt đầu trước sẽ thắng. Nhờ vậy
+                // `"https://x"` được nhận là chuỗi (không biến phần sau `//` thành ghi chú), còn
+                // `// đừng "mở chuỗi"` được nhận là ghi chú (dấu nháy trong đó không mở chuỗi).
+                ("protected", "//[^\\n]*|/\\*[\\s\\S]*?\\*/"
+                    + "|\"([^\"\\\\\\n]|\\\\.)*\"|'([^'\\\\\\n]|\\\\.)*'|`([^`\\\\]|\\\\.)*`"),
                 ("keyword", "\\b(function|var|let|const|return|if|else|for|while|do|switch|case|break|continue|try|catch|finally|throw|async|await|import|export|from|default|class|extends|new|typeof|instanceof|in|of|void|delete)\\b"),
                 ("builtin", "\\b(Response|JSON|Math|String|Array|Object|Number|Boolean|Date|RegExp|console|fetch|encodeURIComponent|decodeURIComponent|parseInt|parseFloat|localStorage|cacheStorage|localConfig|localCookie|UserAgent|Qt|Crypto|Script|Engine|Http|Html|toast|sleep|print|Log|atob|btoa)\\b"),
                 ("functionCall", "\\b([a-zA-Z_$][a-zA-Z0-9_$]*)\\s*(?=\\()"),
@@ -77,8 +81,7 @@ public struct HighlightingCodeEditor: UIViewRepresentable {
             ]
 
             for (key, pattern) in patterns {
-                let options: NSRegularExpression.Options = key == "comment" ? [.anchorsMatchLines] : []
-                if let regex = try? NSRegularExpression(pattern: pattern, options: options) {
+                if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
                     regexCache[key] = regex
                 }
             }
@@ -89,19 +92,33 @@ public struct HighlightingCodeEditor: UIViewRepresentable {
         }
 
         public func textViewDidChange(_ textView: UITextView) {
-            let selectedRange = textView.selectedRange
-            let newText = textView.text ?? ""
-            
-            parent.text = newText
-            textView.attributedText = highlight(newText, fontSize: parent.fontSize)
-            
-            if selectedRange.location <= (textView.text as NSString).length {
-                textView.selectedRange = selectedRange
-            }
+            parent.text = textView.text ?? ""
+            // Tô màu **tại chỗ** trên textStorage thay vì gán lại `attributedText`: giữ nguyên con trỏ,
+            // vùng chọn và marked text của bàn phím, nên màu không còn chớp/nhảy khi gõ nhanh.
+            applyHighlight(to: textView, fontSize: parent.fontSize)
 
             if let codeEditor = textView as? CodeEditorTextView {
                 codeEditor.updateGutterInset()
             }
+        }
+
+        /// Cập nhật màu ngay trên `textStorage` của text view đang gõ.
+        public func applyHighlight(to textView: UITextView, fontSize: CGFloat) {
+            let storage = textView.textStorage
+            let code = storage.string
+            let font = UIFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+            let fullRange = NSRange(location: 0, length: (code as NSString).length)
+
+            storage.beginEditing()
+            storage.setAttributes([.font: font, .foregroundColor: colorDefault], range: fullRange)
+            for (range, color) in tokenColors(in: code) {
+                storage.addAttribute(.foregroundColor, value: color, range: range)
+            }
+            storage.endEditing()
+
+            // Không có dòng này thì ký tự vừa gõ tiếp sau một token sẽ thừa hưởng màu của token đó
+            // cho tới lượt tô kế tiếp — đúng hiện tượng "màu thỉnh thoảng trục trặc".
+            textView.typingAttributes = [.font: font, .foregroundColor: colorDefault]
         }
 
         public func highlight(_ code: String, fontSize: CGFloat) -> NSAttributedString {
@@ -113,57 +130,75 @@ public struct HighlightingCodeEditor: UIViewRepresentable {
                     .foregroundColor: colorDefault
                 ]
             )
+            for (range, color) in tokenColors(in: code) {
+                attributedString.addAttribute(.foregroundColor, value: color, range: range)
+            }
+            return attributedString
+        }
 
+        /// Danh sách (range, màu) cho toàn bộ tài liệu, theo hai lượt:
+        /// 1. Chuỗi & ghi chú — quét trước để biết vùng nào là "văn bản thuần".
+        /// 2. Số / từ khoá / built-in / tên hàm — chỉ tô khi **không** giao với vùng ở lượt 1.
+        ///
+        /// Cách này bỏ được lỗi của bản cũ: các lượt chồng nhau theo thứ tự ưu tiên, nên `//` trong
+        /// một URL làm cả phần còn lại của dòng thành màu ghi chú.
+        internal func tokenColors(in code: String) -> [(NSRange, UIColor)] {
             let nsString = code as NSString
             let fullRange = NSRange(location: 0, length: nsString.length)
-            guard fullRange.length > 0 else { return attributedString }
+            guard fullRange.length > 0 else { return [] }
 
-            // 1. Phân tích Số & Values
-            if let numberRegex = regexCache["number"] {
-                for match in numberRegex.matches(in: code, options: [], range: fullRange) {
-                    attributedString.addAttribute(.foregroundColor, value: colorNumber, range: match.range)
+            var result: [(NSRange, UIColor)] = []
+            var protectedRanges: [NSRange] = []
+
+            if let regex = regexCache["protected"] {
+                for match in regex.matches(in: code, options: [], range: fullRange) {
+                    protectedRanges.append(match.range)
+                    let isComment = nsString.substring(with: NSRange(location: match.range.location, length: 1)) == "/"
+                    result.append((match.range, isComment ? colorComment : colorString))
                 }
             }
 
-            // 2. Phân tích Từ khóa (Keywords)
-            if let keywordRegex = regexCache["keyword"] {
-                for match in keywordRegex.matches(in: code, options: [], range: fullRange) {
-                    attributedString.addAttribute(.foregroundColor, value: colorKeyword, range: match.range)
+            let simplePasses: [(String, UIColor)] = [
+                ("number", colorNumber),
+                ("keyword", colorKeyword),
+                ("builtin", colorBuiltin)
+            ]
+            for (key, color) in simplePasses {
+                guard let regex = regexCache[key] else { continue }
+                for match in regex.matches(in: code, options: [], range: fullRange)
+                where !intersectsProtected(match.range, protectedRanges) {
+                    result.append((match.range, color))
                 }
             }
 
-            // 3. Phân tích Đối tượng tích hợp (Built-in Objects)
-            if let builtinRegex = regexCache["builtin"] {
-                for match in builtinRegex.matches(in: code, options: [], range: fullRange) {
-                    attributedString.addAttribute(.foregroundColor, value: colorBuiltin, range: match.range)
-                }
-            }
-
-            // 4. Phân tích Tên hàm (Function Calls)
-            if let funcRegex = regexCache["functionCall"] {
-                for match in funcRegex.matches(in: code, options: [], range: fullRange) {
+            if let regex = regexCache["functionCall"] {
+                for match in regex.matches(in: code, options: [], range: fullRange) {
                     let nameRange = match.range(at: 1)
-                    if nameRange.location != NSNotFound {
-                        attributedString.addAttribute(.foregroundColor, value: colorFunction, range: nameRange)
-                    }
+                    guard nameRange.location != NSNotFound,
+                          !intersectsProtected(nameRange, protectedRanges) else { continue }
+                    result.append((nameRange, colorFunction))
                 }
             }
 
-            // 5. Phân tích Chuỗi (Strings - Ghi đè màu từ khóa nếu nằm trong chuỗi)
-            if let stringRegex = regexCache["string"] {
-                for match in stringRegex.matches(in: code, options: [], range: fullRange) {
-                    attributedString.addAttribute(.foregroundColor, value: colorString, range: match.range)
+            return result
+        }
+
+        /// `ranges` do NSRegularExpression sinh ra nên đã rời nhau và tăng dần theo `location`,
+        /// đủ điều kiện tìm nhị phân.
+        private func intersectsProtected(_ range: NSRange, _ ranges: [NSRange]) -> Bool {
+            var low = 0
+            var high = ranges.count - 1
+            while low <= high {
+                let mid = (low + high) / 2
+                let candidate = ranges[mid]
+                if NSIntersectionRange(candidate, range).length > 0 { return true }
+                if candidate.location > range.location {
+                    high = mid - 1
+                } else {
+                    low = mid + 1
                 }
             }
-
-            // 6. Phân tích Ghi chú (Comments - Ghi đè cao nhất)
-            if let commentRegex = regexCache["comment"] {
-                for match in commentRegex.matches(in: code, options: [], range: fullRange) {
-                    attributedString.addAttribute(.foregroundColor, value: colorComment, range: match.range)
-                }
-            }
-
-            return attributedString
+            return false
         }
     }
 }
