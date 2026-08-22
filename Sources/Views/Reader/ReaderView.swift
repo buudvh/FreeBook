@@ -182,6 +182,11 @@ struct ReaderView: View {
     @State internal var readerViewportMinY: CGFloat = 0
     @State internal var readerViewportMaxY: CGFloat = 0
     @State internal var isRestoringReaderPosition = true
+    /// Chương mà subtree nội dung đang thực sự hiển thị (set ở `onAppear` của scroll view).
+    @State internal var renderedChapterIndex: Int? = nil
+    /// Chương mà skeleton đã kịp xuất hiện. Cổng ở `singleChapterReaderView` bắt buộc
+    /// mọi lượt đổi chương phải đi qua một frame skeleton trước khi dựng subtree mới.
+    @State internal var skeletonHandshakeIndex: Int? = nil
     @State internal var isAutoScrollDisabled = false
     @State internal var isSceneActive: Bool = true
     @State internal var ttsAutoScrollGeneration: Int = 0
@@ -2107,18 +2112,23 @@ struct ReaderView: View {
                     chapterNavigationErrorView(failure: failure, viewModel: vm)
                 } else if case .failed(_, let message) = vm.loadState {
                     chapterBootstrapErrorView(message: message)
-                } else if let pending = vm.pendingNavigationIndex, pending != vm.displayedChapterIndex {
-                    // Chương đích chưa commit: luôn nhường một frame cho skeleton, kể cả khi
-                    // nội dung đã nằm sẵn trong RAM. Nếu không, commit đồng bộ sẽ xoá
-                    // pendingNavigationIndex trong cùng turn và skeleton không bao giờ được vẽ.
-                    chapterInlineLoadingView(index: pending)
                 } else if let chapter = vm.cache.get(presentationIndex),
-                          chapter.state == .loaded {
+                          chapter.state == .loaded,
+                          vm.pendingNavigationIndex == nil
+                            || vm.pendingNavigationIndex == vm.displayedChapterIndex,
+                          isChapterSubtreeRenderable(chapter.index) {
                     singleChapterScrollView(chapter: chapter, viewModel: vm)
                         .id("single-chapter-\(chapter.index)")
                         .transition(vm.pendingNavigationIndex == nil ? .opacity : .identity)
                 } else {
+                    // Một nhánh skeleton duy nhất cho cả "chương đích chưa commit" và
+                    // "đã commit nhưng skeleton chưa kịp xuất hiện" — nhờ vậy hai trạng thái
+                    // đó không tạo thêm một lượt remove/insert vô ích của SwiftUI.
                     chapterInlineLoadingView(index: presentationIndex)
+                        // Đổi chương liên tiếp trong lúc skeleton đang hiển thị phải làm
+                        // skeleton được insert lại, nếu không `onAppear` không nổ lần hai và
+                        // cổng bắt tay sẽ treo ở chương cũ.
+                        .id("chapter-skeleton-\(presentationIndex)")
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -2174,6 +2184,7 @@ struct ReaderView: View {
                 .padding(.vertical, 24)
             }
             .onAppear {
+                renderedChapterIndex = chapter.index
                 ReaderEnergyDiagnostics.shared.recordChapterPresented(index: chapter.index)
                 restoreSingleChapterPosition(proxy: proxy, chapter: chapter, viewModel: vm)
             }

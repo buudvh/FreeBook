@@ -15,6 +15,13 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Cổng bắt tay skeleton nằm giữa hai subtree chương (1.3.242)
+
+* Cạnh mới trong render gate của `singleChapterReaderView`: `ZStack → ReaderView.isChapterSubtreeRenderable(_:)` (khai ở `ReaderView+LoadingView.swift`). Nhánh `singleChapterScrollView` chỉ được chọn khi hàm này trả `true`; ngược lại đi nhánh `chapterInlineLoadingView`.
+* `chapterInlineLoadingView.onAppear` nay có **hai** việc: ghi `skeletonHandshakeIndex = index` (cạnh dữ liệu nuôi cổng ở trên) rồi mới `recordSkeletonPresented(index:)`. `singleChapterScrollView.onAppear` cũng thêm `renderedChapterIndex = chapter.index` trước `recordChapterPresented(index:)`.
+* Hai nhánh skeleton cũ (`pendingNavigationIndex != displayedChapterIndex` và fallback "chưa loaded") **gộp thành một** nhánh `else`, mang `.id("chapter-skeleton-\(presentationIndex)")` để đổi chương liên tiếp vẫn tạo cạnh `onAppear` mới.
+* Không cạnh nào ở `ReaderViewModel`, `ReaderScrollCoordinator` hay `ReaderEnergyDiagnostics` đổi; nhịp chờ 32 ms và `scheduleDeepLandingScroll` giữ nguyên.
+
 ## Next/Prev nhập vào cùng một cửa với danh sách chương (1.3.241)
 
 * Cạnh gọi `stepChapterHonoringTTS → ReaderViewModel.stepChapter` và `→ ReaderViewModel.requestChapter` **không còn**. Thay bằng một cạnh duy nhất: `nextChapter/prevChapter → stepChapterHonoringTTS → ReaderView.requestChapter(at:…) → ReaderViewModel.requestChapter(index:…)`. `ReaderViewModel.stepChapter` đã xoá khỏi `Sources/` (không còn caller nào).

@@ -15,6 +15,20 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời chuyển chương: skeleton là bước bắt buộc, không còn là bước may mắn (1.3.242)
+
+Bổ sung cho chuỗi 1.3.241 bên dưới: bước 2 (skeleton) trước đây chỉ *có thể* xảy ra nếu SwiftUI kịp chạy một update pass trong nhịp 32 ms. Log thiết bị 2026-08-22 cho thấy khi chương đích đã nằm trong `ChapterCache` (`origin=memory`, `commitMs≈41`) thì pass đó thường không kịp: không có dòng `[ReaderPerf] Skeleton`, và `[ReaderPerf] Present` cách cú bấm 1.6–3.5 s. Ngược lại, mọi lượt *có* dòng `Skeleton` đều present sau commit ~20 ms.
+
+Vòng đời từ 1.3.242:
+
+1. Cú bấm → `ReaderView.requestChapter(at:…)` (log `Tap`), `pendingNavigationIndex = index`.
+2. Update pass kế tiếp: cổng `isChapterSubtreeRenderable` chưa cho dựng chương mới → **luôn** vẽ `chapterInlineLoadingView` (log `Skeleton`), `onAppear` ghi `skeletonHandshakeIndex = index`.
+3. `commitNavigation` (sau nhịp 32 ms, giữ nguyên) → `applyNavigationCommit`: `chapterIndex`, `scrollTarget` đầu chương.
+4. Update pass sau khi bắt tay xong: dựng `singleChapterScrollView`, `onAppear` ghi `renderedChapterIndex` (log `Present`) rồi `restoreSingleChapterPosition`.
+5. `scheduleDeepLandingScroll` sau 0.15 s: pha hai tới đoạn TTS (không đổi).
+
+Điểm mấu chốt của bước 2–4: subtree TextKit-1 của chương cũ được tháo trong pass vẽ skeleton, còn subtree chương mới được dựng trong pass sau — hai việc này không bao giờ còn nằm trong **cùng một** update pass. Trường hợp reload đúng chương đang hiển thị không đi qua bước 2 (không nháy skeleton).
+
 ## Vòng đời chuyển chương: một frame skeleton, rồi mới neo sâu (1.3.241)
 
 Thứ tự mới cho một lượt Next/Prev (cả khi chương đích là chương TTS đang phát):

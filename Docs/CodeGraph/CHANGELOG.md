@@ -4,6 +4,20 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.200) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.242] - 2026-08-22
+
+### Bắt buộc một frame skeleton giữa hai subtree chương ở Reader
+
+Log thiết bị (`app_logs (41).txt`, 2026-08-22 11:48) cho phép quy trách nhiệm chính xác, 6/6 mẫu khớp: mỗi lượt Next/Prev **có** dòng `[ReaderPerf] Skeleton` thì `Present` cách commit ~15–20 ms; mỗi lượt **thiếu** dòng đó thì `Present` cách cú bấm 1.6–3.5 s (`Tap index=23 → Nav … origin=memory commitMs=41.49 → Present sinceTapMs=3520.6`). Đúng bốn lượt xấu đều là đường hit RAM (`ChapterCache` đã có chương, không có dòng `RepoLoad`). Nghĩa là nhịp chờ 32 ms của 1.3.241 **không đủ**: nếu SwiftUI không kịp chạy một update pass trong cửa sổ đó, pass kế tiếp thấy `pendingNavigationIndex` đã bị xoá và đi thẳng nhánh nội dung — vừa tháo subtree TextKit-1 của chương cũ vừa dựng subtree chương mới trong **cùng một** update pass.
+
+* **`ReaderView+LoadingView.swift` — thêm cổng bắt tay `isChapterSubtreeRenderable(_:)`.** Subtree nội dung của chương `N` chỉ được dựng khi `renderedChapterIndex == nil` (lần đầu mở), `renderedChapterIndex == N` (reload tại chỗ), hoặc `skeletonHandshakeIndex == N` (skeleton của chính chương đó đã xuất hiện ít nhất một frame). Đây là điều kiện **cấu trúc**, thay cho phỏng đoán thời gian: dù commit nhanh cỡ nào, pass "tháo chương cũ" và pass "dựng chương mới" cũng bị tách ra.
+* **`ReaderView.swift` — áp cổng và hợp nhất nhánh skeleton.** Hai nhánh skeleton cũ (pending chưa commit / chưa `.loaded`) gộp thành một nhánh `else` mang `.id("chapter-skeleton-\(presentationIndex)")`; nhánh nội dung thêm điều kiện `pendingNavigationIndex == nil || == displayedChapterIndex` cộng cổng bắt tay. `.id` của skeleton là bắt buộc: bấm tiếp trong lúc skeleton đang hiển thị mà không đổi identity thì `onAppear` không nổ lần hai và cổng sẽ treo ở chương cũ.
+* **Hai `@State` mới nuôi cổng**: `renderedChapterIndex` (set ở `onAppear` của `singleChapterScrollView`, cạnh `recordChapterPresented`), `skeletonHandshakeIndex` (set ở `onAppear` của `chapterInlineLoadingView`, cạnh `recordSkeletonPresented`). Cả hai thuần trạng thái render, `ReaderViewModel` không biết tới, không ảnh hưởng quyết định điều hướng.
+* **Giữ nguyên** nhịp 32 ms, hạ cánh hai pha `scheduleDeepLandingScroll`, `ReaderScrollCoordinator`, transition `.opacity`, `.id("single-chapter-N")`, đường highlight, prefetch khi TTS sở hữu sách. Từ 1.3.242, dòng `[ReaderPerf] Skeleton` phải xuất hiện ở **mọi** lượt đổi chương — thiếu nó là dấu hiệu cổng bị bỏ qua.
+* **Chưa giải thích được** vì sao pass gộp tốn tới 1.6–3.5 s trong khi pass dựng chương sau skeleton chỉ tốn ~20 ms; giả thuyết còn lại là hai cây `UITextView` cùng sống trong một transition `.opacity` bọc `withAnimation(.easeOut(0.12))`, phù hợp với `sizeInvalidationRPM=498.6` và `prediction=reader_layout_churn_likely` trong `[ReaderEnergy] Summary`. Bản sửa này chặn pass đó xảy ra chứ không tối ưu nó.
+* `check_architecture.py`: **18 violation** trước và sau, tập vi phạm y hệt, không nới baseline nào (`ReaderView.swift` 2252 → 2263, `ReaderView+LoadingView.swift` 95 → 112 < 400). `validate_links.py`: 5 doc `--accept` (`04`, `05`, `08`, `10`, `11`), 2 doc `--no-change-needed` (`13`, `rules.md`).
+* **Chưa biên dịch**: host là Windows, `xcodebuild` chỉ chạy trên macOS. Xác minh ở đây gồm đọc code (cân bằng nhánh của render gate, mọi đường set/đọc hai cờ mới, đường không nháy skeleton khi reload cùng chương, `.id` chống treo cổng) và hai script Python.
+
 ## [1.3.241] - 2026-08-22
 
 ### Sửa đơ Next/Prev khi TTS phát: chờ frame thật và hạ cánh hai pha

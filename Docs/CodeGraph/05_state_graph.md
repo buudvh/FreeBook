@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hai cờ mới quyết định lúc nào subtree chương được dựng (1.3.242)
+
+* `ReaderView` thêm hai `@State`: `renderedChapterIndex: Int?` (chương mà subtree nội dung đang thực sự hiển thị, set ở `onAppear` của `singleChapterScrollView`) và `skeletonHandshakeIndex: Int?` (chương mà skeleton đã xuất hiện ít nhất một frame, set ở `onAppear` của `chapterInlineLoadingView`).
+* Bất biến mới: subtree nội dung của chương `N` chỉ hợp lệ khi `renderedChapterIndex == nil` (lần đầu mở), `renderedChapterIndex == N` (reload tại chỗ), hoặc `skeletonHandshakeIndex == N`. Nghĩa là **mọi lần đổi chương đều đi qua trạng thái skeleton**, kể cả khi `commitNavigation` xoá `pendingNavigationIndex` trước khi SwiftUI kịp chạy một update pass. Đây là điều kiện cấu trúc, không phải hẹn giờ — trước 1.3.242 chỉ có nhịp 32 ms bảo vệ, và log thiết bị cho thấy nhịp đó thường xuyên bị bỏ lỡ (không có dòng `[ReaderPerf] Skeleton`, `Present` cách cú bấm 1.6–3.5 s).
+* Điều kiện nhánh nội dung thêm `pendingNavigationIndex == nil || pendingNavigationIndex == displayedChapterIndex`, thay cho nhánh skeleton riêng của trạng thái pending. Trạng thái "pending trùng chương đang hiển thị" (reload) vẫn giữ nội dung, không nháy skeleton.
+* Hai cờ này reset theo vòng đời `@State` của `ReaderView` (mở lại Reader là `nil`), không được ghi từ `ReaderViewModel` và không tham gia quyết định điều hướng.
+
 ## Trạng thái navigation: hạ cánh hai pha, `stepChapter` biến mất (1.3.241)
 
 * `ReaderViewModel.stepChapter(by:source:persistProgress:)` **đã xoá**. Mọi chuyển chương của Reader nay đi qua đúng một cửa ở tầng View: `ReaderView.requestChapter(at:paragraphIndex:source:persistProgress:)` (nay `internal`) → `ReaderViewModel.requestChapter(index:…)`. Bốn điểm vào (Next/Prev, danh sách chương, nhảy từ widget TTS, `ttsSync`) vì vậy có **cùng** tiền trạng thái: `isRestoringReaderPosition = true` và `paragraphTracker.removeAll()` được đặt *trước* khi phát yêu cầu, không còn đường nào bỏ qua cổng này.

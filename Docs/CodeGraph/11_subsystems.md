@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ Reader: render gate thuộc về `ReaderView+LoadingView` (1.3.242)
+
+* `Extensions/ReaderView+LoadingView.swift` (112 dòng) nhận thêm một trách nhiệm ngoài việc dựng skeleton: nó sở hữu **luật mở cổng** dựng subtree chương — `isChapterSubtreeRenderable(_:)`. `ReaderView.swift` (2263 dòng) chỉ còn *áp dụng* luật đó trong `singleChapterReaderView` và khai hai `@State` mà luật đọc (`renderedChapterIndex`, `skeletonHandshakeIndex`).
+* Ranh giới quan trọng: cổng này là chuyện **thứ tự render**, không phải chuyện điều hướng. `ReaderViewModel` không biết tới nó, không type nào ở tầng dưới đổi API, và `ReaderScrollCoordinator` vẫn là nơi duy nhất chọn neo.
+* `ReaderEnergyDiagnostics` (338 dòng) không đổi: ba mốc `Tap → Skeleton → Present` giữ nguyên ngữ nghĩa, nhưng từ 1.3.242 dòng `Skeleton` phải có mặt ở **mọi** lượt đổi chương — thiếu nó là dấu hiệu cổng bị bỏ qua.
+* `ReaderView.swift` và `ReaderViewModel.swift` vẫn là hai `LINE_LIMIT_EXCEEDED` cũ (2263 / 933), không phải violation mới.
+
 ## Phân hệ Reader: một cửa điều hướng duy nhất (1.3.241)
 
 * Ranh giới điều hướng của phân hệ Reader thu về **một cửa**: `ReaderView.requestChapter(at:paragraphIndex:source:persistProgress:)` (đổi từ `private` sang `internal`). `ReaderViewModel.stepChapter` đã xoá — public API của view model giảm đúng một hàm, không thêm gì.

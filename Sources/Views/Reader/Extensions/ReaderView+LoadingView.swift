@@ -55,9 +55,26 @@ extension ReaderView {
             chapterSkeletonLines
         }
         .frame(maxWidth: .infinity, minHeight: 360)
-        .onAppear { ReaderEnergyDiagnostics.shared.recordSkeletonPresented(index: index) }
+        .onAppear {
+            skeletonHandshakeIndex = index
+            ReaderEnergyDiagnostics.shared.recordSkeletonPresented(index: index)
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Đang tải \(getChapterTitle(at: index))")
+    }
+
+    /// Cổng bắt tay skeleton: subtree nội dung của chương `index` chỉ được dựng khi
+    /// (a) chưa từng dựng chương nào, (b) đúng chương đang hiển thị (reload tại chỗ), hoặc
+    /// (c) skeleton của chính chương đó đã xuất hiện ít nhất một frame.
+    ///
+    /// Đây là điều kiện *cấu trúc*, không phải hẹn giờ. Nếu thiếu nó, một lượt commit từ
+    /// RAM có thể vừa tháo subtree chương cũ vừa dựng subtree chương mới trong cùng một
+    /// update pass; log thiết bị cho thấy pass gộp đó tốn 1.6–3.5 s (không có dòng
+    /// `[ReaderPerf] Skeleton`), còn khi đi qua skeleton thì `Present` chỉ cách commit ~20 ms.
+    internal func isChapterSubtreeRenderable(_ index: Int) -> Bool {
+        guard let rendered = renderedChapterIndex else { return true }
+        if rendered == index { return true }
+        return skeletonHandshakeIndex == index
     }
 
     @ViewBuilder

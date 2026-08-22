@@ -15,6 +15,14 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro của cổng bắt tay skeleton (1.3.242)
+
+* **Chưa biên dịch**: viết trên Windows, không có `xcodebuild`. Hai cổng tĩnh giữ nguyên (`check_architecture.py`: đúng 18 violation cũ; `validate_links.py`: PASS). CI xanh chỉ chứng minh *biên dịch được*.
+* **Nguy cơ treo cổng nếu `onAppear` của skeleton không nổ**: cổng chỉ mở khi `skeletonHandshakeIndex == N`. Nếu skeleton đang hiển thị mà người dùng bấm tiếp sang chương khác, SwiftUI sẽ **không** chạy lại `onAppear` cho cùng một view — vì vậy nhánh skeleton mang `.id("chapter-skeleton-\(presentationIndex)")` để đổi chương là đổi identity. Đây là mắt yếu nhất của thiết kế: bỏ `.id` đó là mở lại đường treo ở chương cũ.
+* **Thêm một frame trễ**: mỗi lượt đổi chương nay tốn thêm đúng một update pass (~16 ms) cho skeleton, cộng với nhịp 32 ms sẵn có. Đánh đổi có chủ ý: đổi tổng thời gian dài hơn một chút để lấy phản hồi tức thì.
+* **Chỉ chữa cảm giác đơ, không chữa nguyên nhân của pass gộp**: chưa xác định được vì sao một pass vừa tháo vừa dựng hai subtree TextKit-1 lại tốn 1.6–3.5 s (giả thuyết: hai cây `UITextView` cùng sống trong một transition `.opacity` bọc bởi `withAnimation(.easeOut(0.12))`, cùng `contentSizeInvalidation=174`/`sizeInvalidationRPM=498.6` trong `[ReaderEnergy] Summary`). 1.3.242 chỉ bảo đảm pass gộp đó không còn xảy ra. `prediction=reader_layout_churn_likely` vẫn đúng và vẫn chưa xử lý.
+* **Không đụng prefetch khi TTS sở hữu sách**: `setSpeculativePrefetchEnabled(false)` vẫn tắt N+1 của Reader, nên lượt tải lạnh thật (log có `RepoLoad origin=extensionFetch ms=2041`) vẫn dài như trước — chỉ khác là có skeleton suốt thời gian đó.
+
 ## Rủi ro còn lại sau lần sửa hạ cánh hai pha (1.3.241)
 
 * **Chưa biên dịch**: thay đổi 1.3.241 viết trên Windows, không có `xcodebuild`. Chỉ hai cổng tĩnh chạy được (`check_architecture.py` giữ đúng 18 violation cũ, `validate_links.py`). CI xanh cũng chỉ chứng minh *biên dịch được*.
