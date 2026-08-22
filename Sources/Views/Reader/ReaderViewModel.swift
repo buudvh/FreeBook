@@ -412,21 +412,6 @@ class ReaderViewModel: ObservableObject {
         }
     }
 
-    func stepChapter(
-        by offset: Int,
-        source: ReaderNavigationSource,
-        persistProgress: Bool = true
-    ) {
-        guard offset != 0 else { return }
-        let baseIndex = pendingNavigationIndex ?? displayedChapterIndex
-        requestChapter(
-            index: baseIndex + offset,
-            paragraphIndex: -1,
-            source: source,
-            persistProgress: persistProgress
-        )
-    }
-
     func requestChapter(
         index: Int,
         paragraphIndex: Int = -1,
@@ -450,8 +435,8 @@ class ReaderViewModel: ObservableObject {
         memoryCommitTask?.cancel()
         memoryCommitTask = nil
         navigationStartUptime = AppLogger.shared.isLoggingEnabled ? ProcessInfo.processInfo.systemUptime : 0
-        // Cancel worker cũ ngay lập tức để startNavigationWorkerIfNeeded
-        // luôn tạo Task mới → Task.yield() luôn chạy → SwiftUI render Skeleton trước I/O
+        // Cancel worker cũ ngay lập tức để startNavigationWorkerIfNeeded luôn tạo Task mới
+        // → nhịp chờ một frame luôn chạy → SwiftUI render Skeleton trước I/O
         navigationWorkerTask?.cancel()
         navigationWorkerTask = nil
         navigationGeneration += 1
@@ -492,12 +477,16 @@ class ReaderViewModel: ObservableObject {
                 cached.isTranslationEnabled == isTranslationEnabled &&
                 cached.shouldConvertTraditionalToSimplified == shouldConvertTraditionalToSimplified {
                 queuedNavigation = nil
-                // Nhường một turn main actor: pendingNavigationIndex/.loading vừa được set
-                // ở trên nên SwiftUI vẽ được skeleton trước khi subtree chương mới
-                // (vài trăm ParagraphCardView + UITextView TextKit 1) chiếm main thread.
+                // Chờ đúng một nhịp frame, KHÔNG dùng Task.yield(): yield chỉ đưa
+                // continuation về cuối hàng đợi main actor, mà run loop drain hết hàng đợi
+                // *trước* khi CoreAnimation commit ⇒ skeleton không bao giờ được present.
+                // Timer của Task.sleep nổ ở turn sau nên chắc chắn có một frame skeleton
+                // trước khi subtree chương mới (vài trăm UITextView TextKit 1) chiếm main.
                 memoryCommitTask = Task { @MainActor [weak self] in
-                    await Task.yield()
-                    guard let self, request.generation == self.navigationGeneration else { return }
+                    try? await Task.sleep(nanoseconds: 32_000_000)
+                    guard !Task.isCancelled,
+                          let self,
+                          request.generation == self.navigationGeneration else { return }
                     self.commitNavigation(request, origin: .memory)
                 }
                 return
@@ -566,7 +555,8 @@ class ReaderViewModel: ObservableObject {
         let myWorkerIdentity = activeWorkerIdentity
         navigationWorkerTask = Task { [weak self] in
             guard let self else { return }
-            await Task.yield()
+            // Cùng lý do như đường RAM: Task.yield() không bảo đảm một frame được present.
+            try? await Task.sleep(nanoseconds: 32_000_000)
             await self.runNavigationWorker(workerIdentity: myWorkerIdentity)
         }
     }

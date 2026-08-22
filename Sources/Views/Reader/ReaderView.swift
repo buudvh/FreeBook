@@ -1848,13 +1848,14 @@ struct ReaderView: View {
         )
     }
 
-    private func requestChapter(
+    internal func requestChapter(
         at index: Int,
         paragraphIndex: Int,
         source: ReaderNavigationSource,
         persistProgress: Bool
     ) {
         guard index >= 0 && index < totalChaptersCount else { return }
+        ReaderEnergyDiagnostics.shared.recordNavigationTap(index: index, source: "\(source)")
         isRestoringReaderPosition = true
         paragraphTracker.removeAll()
         viewModel?.requestChapter(
@@ -2173,6 +2174,7 @@ struct ReaderView: View {
                 .padding(.vertical, 24)
             }
             .onAppear {
+                ReaderEnergyDiagnostics.shared.recordChapterPresented(index: chapter.index)
                 restoreSingleChapterPosition(proxy: proxy, chapter: chapter, viewModel: vm)
             }
             .onChange(of: scrollTarget) { _, target in
@@ -2209,9 +2211,12 @@ struct ReaderView: View {
         paragraphTracker.removeAll()
         let apply = {
             chapterIndex = commit.chapterIndex
+            // Luôn hạ cánh đầu chương trước. Neo sâu "paragraph-N-P" buộc LazyVStack realize
+            // + đo MỌI card trung gian ngay trong layout pass dựng chương, tức cú bấm phải
+            // trả cả hai chi phí trong một turn main actor (nhiều giây khi TTS đang phát).
             scrollTarget = ScrollTarget(
                 chapterIndex: commit.chapterIndex,
-                paragraphIndex: commit.paragraphIndex
+                paragraphIndex: -1
             )
         }
         if reduceMotion || !commit.animateContent || commit.source == .ttsSync {
@@ -2221,6 +2226,7 @@ struct ReaderView: View {
                 apply()
             }
         }
+        scheduleDeepLandingScroll(commit)
         // Reader navigation is intentionally independent from the active TTS chapter.
     }
 

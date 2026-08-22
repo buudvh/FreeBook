@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Timer hạ cánh sâu và nhịp chờ frame (1.3.241)
+
+* `memoryCommitTask` giữ nguyên chủ sở hữu (`ReaderViewModel`) và mọi điểm cancel (đầu `requestChapter`, `shutdown`), chỉ đổi cách chờ: `Task.sleep(32 ms)` thay `Task.yield()`, kèm `guard !Task.isCancelled` trước khi commit. Task của worker (`navigationWorkerTask`) cũng chờ đúng nhịp đó trước khi vào `runNavigationWorker`.
+* Tài nguyên mới duy nhất: một `DispatchQueue.main.asyncAfter(0.15)` do `scheduleDeepLandingScroll` tạo mỗi lượt commit có `paragraphIndex >= 0`. Không giữ handle để cancel — đây là chủ ý: block tự vô hiệu bằng ba điều kiện (generation commit, `pendingNavigationIndex == nil`, `displayedChapterIndex`), giống mẫu `restoreReaderPositionIfNeeded`/`completeReaderPositionRestore` đang dùng. Không có tham chiếu mạnh nào ngoài `ReaderView` (struct) và `ReaderViewModel` (đã sống theo màn hình).
+* `ReaderEnergyDiagnostics` thêm hai biến mốc (`navigationTapUptime`, `navigationTapIndex`) reset ở `beginReaderSession()`; chúng chỉ chứa giá trị số nên không giữ đối tượng nào. Mọi API mới vẫn thoát ngay bằng cờ `isEnabled` đã latch — log tắt thì không đọc đồng hồ.
+
 ## Vòng đời `memoryCommitTask` và bộ đếm card realize (1.3.240)
 
 * `ReaderViewModel.memoryCommitTask` là task duy nhất được thêm: sống đúng một turn main actor (`await Task.yield()` rồi commit), không giữ tài nguyên nào ngoài `[weak self]`. Cancel ở đầu `requestChapter`, `failBootstrap` và `shutdown(saveProgress:)` — cùng bộ ba đang cancel `navigationWorkerTask`, nên không có đường nào để nó sống quá vòng đời Reader.

@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Trạng thái navigation: hạ cánh hai pha, `stepChapter` biến mất (1.3.241)
+
+* `ReaderViewModel.stepChapter(by:source:persistProgress:)` **đã xoá**. Mọi chuyển chương của Reader nay đi qua đúng một cửa ở tầng View: `ReaderView.requestChapter(at:paragraphIndex:source:persistProgress:)` (nay `internal`) → `ReaderViewModel.requestChapter(index:…)`. Bốn điểm vào (Next/Prev, danh sách chương, nhảy từ widget TTS, `ttsSync`) vì vậy có **cùng** tiền trạng thái: `isRestoringReaderPosition = true` và `paragraphTracker.removeAll()` được đặt *trước* khi phát yêu cầu, không còn đường nào bỏ qua cổng này.
+* `scrollTarget` nay chuyển **hai pha** cho một lượt chuyển chương có đoạn hạ cánh sâu: `applyNavigationCommit` luôn đặt `ScrollTarget(paragraphIndex: -1, reason: .navigation)` (đầu chương), rồi `scheduleDeepLandingScroll` đặt `ScrollTarget(paragraphIndex: commit.paragraphIndex, reason: .initialRestore)` sau 0.15 s. Trạng thái trung gian "đã hiện chương, chưa tới đoạn" là hợp lệ và có thật, khác với trước 1.3.241 (neo sâu giải ngay trong layout pass dựng chương).
+* Cờ `isRestoringReaderPosition` được **đặt lại `true`** ngay trước pha hai, nên nó bao trọn cả hai cú cuộn; `completeReaderPositionRestore(after: 0.25)` của mỗi cú cuộn là nơi duy nhất nhả cờ.
+* Chuyển pha hai bị bỏ (không đổi trạng thái) khi generation commit đã cũ, còn `pendingNavigationIndex != nil`, hoặc `displayedChapterIndex` đã khác — tức mọi cú bấm mới đều thắng.
+
 ## Trạng thái navigation của Reader: commit RAM hoãn một turn (1.3.240)
 
 * `ReaderLoadState` không thêm case nào, nhưng **thứ tự thời gian** đổi ở đường cache-hit: trước đây `requestChapter` set `.loading(chapterIndex:)` + `pendingNavigationIndex = N` rồi gọi `commitNavigation` **đồng bộ trong cùng turn main actor**, nên `.loading` → `.ready` và `pendingNavigationIndex` N → `nil` xảy ra trước khi SwiftUI kịp present frame nào. Từ 1.3.240 commit đó chạy trong `memoryCommitTask` (`Task { @MainActor }` + `await Task.yield()`) và guard theo `navigationGeneration`, nên tồn tại đúng một frame ở trạng thái `(pending = N, .loading)`.

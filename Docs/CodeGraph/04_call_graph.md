@@ -15,6 +15,13 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Next/Prev nhập vào cùng một cửa với danh sách chương (1.3.241)
+
+* Cạnh gọi `stepChapterHonoringTTS → ReaderViewModel.stepChapter` và `→ ReaderViewModel.requestChapter` **không còn**. Thay bằng một cạnh duy nhất: `nextChapter/prevChapter → stepChapterHonoringTTS → ReaderView.requestChapter(at:…) → ReaderViewModel.requestChapter(index:…)`. `ReaderViewModel.stepChapter` đã xoá khỏi `Sources/` (không còn caller nào).
+* `ReaderView.requestChapter(at:…)` nay là điểm hợp lưu của **cả bốn** đường: `.nextButton`, `.previousButton`, `.chapterList`, `.ttsSync` (cả notification `navigateReaderToPlayingChapter`). Nó cũng là nơi phát `ReaderEnergyDiagnostics.recordNavigationTap(index:source:)`.
+* Cạnh mới ở đường hạ cánh: `applyNavigationCommit → scheduleDeepLandingScroll` (trong `ReaderView+Controls.swift`) → `DispatchQueue.main.asyncAfter(0.15)` → ghi `scrollTarget` → `.onChange(of: scrollTarget)` → `attemptScroll → ReaderScrollCoordinator.attemptScroll`. Coordinator không đổi chữ nào.
+* Hai cạnh instrumentation mới: `chapterInlineLoadingView.onAppear → recordSkeletonPresented(index:)` và `singleChapterScrollView.onAppear → recordChapterPresented(index:)`.
+
 ## Đường Next/Prev khi TTS đang phát & log `[ReaderPerf]` (1.3.240)
 
 * `nextChapter()`/`prevChapter()` của `ReaderView` không còn gọi `viewModel?.stepChapter(by:)` trực tiếp: cả hai rút về một dòng gọi `stepChapterHonoringTTS(by:source:)` ở `ReaderView+Controls.swift`. Helper clamp chỉ số đích như cũ, nhưng khi chương đích **đúng là chương TTS đang phát của sách này** (`snapshot.isPlaying`, `playingBookId == bookId`, `playingChapterIndex == target`, `currentParentParagraphIndex >= 0`, `!isAutoScrollDisabled`) thì gọi thẳng `viewModel?.requestChapter(index:paragraphIndex:source:persistProgress:)` với đoạn TTS đang đọc; mọi trường hợp còn lại vẫn đi `stepChapter` (tức `paragraphIndex: -1`). `stepChapter` không đổi vì còn phục vụ đường khác.

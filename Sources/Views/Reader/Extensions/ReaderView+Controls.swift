@@ -77,31 +77,50 @@ extension ReaderView {
         }
     }
 
-    /// Next/Prev: khi chương đích đúng là chương TTS đang phát của sách này, hạ cánh thẳng
-    /// vào đoạn đang đọc thay vì đầu chương. Nhờ vậy `LazyVStack` chỉ phải realize/đo các
-    /// card trung gian MỘT lần; `requestTTSScrollIfNeeded` sau đó thoát ngay vì đoạn đã nằm
-    /// trong safe viewport, không còn cú nhảy sâu thứ hai vài giây sau khi chuyển chương.
+    /// Next/Prev đi qua đúng cùng một cửa với chọn chương từ danh sách (`requestChapter(at:)`)
+    /// — đường duy nhất người dùng báo là không đơ: cờ restore được đặt và frame map được
+    /// xoá *trước* khi phát yêu cầu, nên không consumer nào đọc vị trí cũ giữa hai chương.
+    /// Khi chương đích đúng là chương TTS đang phát, đoạn hạ cánh là đoạn đang đọc; cú cuộn
+    /// sâu đó được `scheduleDeepLandingScroll` dời sang turn sau để không chặn chuyển chương.
     internal func stepChapterHonoringTTS(by offset: Int, source: ReaderNavigationSource) {
         let snapshot = ttsState.snapshot
         let isTTSOwningThisBook = snapshot.isPlaying && snapshot.playingBookId == bookId
-        let persistProgress = !isTTSOwningThisBook
-        let targetIndex = (viewModel?.pendingNavigationIndex ?? chapterIndex) + offset
+        let baseIndex = viewModel?.pendingNavigationIndex ?? viewModel?.displayedChapterIndex ?? chapterIndex
+        let targetIndex = baseIndex + offset
         guard targetIndex >= 0 && targetIndex < totalChaptersCount else { return }
 
-        if isTTSOwningThisBook,
-           snapshot.playingChapterIndex == targetIndex,
-           snapshot.currentParentParagraphIndex >= 0,
-           !isAutoScrollDisabled {
-            viewModel?.requestChapter(
-                index: targetIndex,
-                paragraphIndex: snapshot.currentParentParagraphIndex,
-                source: source,
-                persistProgress: persistProgress
-            )
-            return
-        }
+        let landsOnPlayingParagraph = isTTSOwningThisBook &&
+            snapshot.playingChapterIndex == targetIndex &&
+            snapshot.currentParentParagraphIndex >= 0 &&
+            !isAutoScrollDisabled
 
-        viewModel?.stepChapter(by: offset, source: source, persistProgress: persistProgress)
+        requestChapter(
+            at: targetIndex,
+            paragraphIndex: landsOnPlayingParagraph ? snapshot.currentParentParagraphIndex : -1,
+            source: source,
+            persistProgress: !isTTSOwningThisBook
+        )
+    }
+
+    /// Cuộn sâu tới đoạn hạ cánh ở một turn run loop SAU khi chương đã hiện — cùng mẫu trì
+    /// hoãn 0.15 s với `restoreReaderPositionIfNeeded`. Timer chỉ nổ khi main thread rảnh,
+    /// tức sau khi subtree chương mới đã dựng và present xong.
+    internal func scheduleDeepLandingScroll(_ commit: ReaderNavigationCommit) {
+        guard commit.paragraphIndex >= 0 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            guard let vm = viewModel,
+                  vm.navigationCommit?.generation == commit.generation,
+                  vm.pendingNavigationIndex == nil,
+                  vm.displayedChapterIndex == commit.chapterIndex else { return }
+            // Giữ cờ restore qua cú cuộn thứ hai: auto-scroll TTS và lưu tiến độ theo cuộn
+            // không được đọc vị trí giữa đường của cú nhảy sâu.
+            isRestoringReaderPosition = true
+            scrollTarget = ScrollTarget(
+                chapterIndex: commit.chapterIndex,
+                paragraphIndex: commit.paragraphIndex,
+                reason: .initialRestore
+            )
+        }
     }
 
     internal var readerBookDisplayTitle: String {

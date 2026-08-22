@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ Reader: một cửa điều hướng duy nhất (1.3.241)
+
+* Ranh giới điều hướng của phân hệ Reader thu về **một cửa**: `ReaderView.requestChapter(at:paragraphIndex:source:persistProgress:)` (đổi từ `private` sang `internal`). `ReaderViewModel.stepChapter` đã xoá — public API của view model giảm đúng một hàm, không thêm gì.
+* `Extensions/ReaderView+Controls.swift` (211 dòng) nhận thêm owner của pha hai hạ cánh: `scheduleDeepLandingScroll(_:)`. `ReaderView.swift` (2252 dòng) chỉ giữ quyết định "hạ cánh đầu chương trước" trong `applyNavigationCommit`; `ReaderScrollCoordinator` không đổi — nó vẫn là nơi duy nhất chọn neo `paragraph-N-P`/`chapter-N`.
+* `Components/ReaderEnergyDiagnostics.swift` (338 dòng) mở rộng vai trò instrumentation: ngoài `Summary`/`NavRealize`/`Scroll`, nay sở hữu ba mốc `[ReaderPerf] Tap` → `Skeleton` → `Present` (ms kể từ cú bấm). Cả ba vẫn sau cờ `isEnabled` latch một lần ở `beginReaderSession()`.
+* Cả hai file `LINE_LIMIT_EXCEEDED` cũ vẫn là violation cũ, không phải mới: `ReaderView.swift` 2252 (+6), `ReaderViewModel.swift` 931 (−12).
+* Không phân hệ nào khác đổi ranh giới: TTS, Translation, Extension giữ nguyên; quyền sở hữu tiến độ khi TTS đang phát và đường highlight không đụng tới.
+
 ## Phân hệ Reader: instrumentation nay phủ cả navigation (1.3.240)
 
 * `Components/ReaderEnergyDiagnostics.swift` (306 dòng) mở rộng vai trò: ngoài cửa sổ đo 60 giây và dòng `[ReaderEnergy] Summary`, nó là owner duy nhất của bộ đếm card realize (`recordParagraphRealized`, cột `paragraphRealized` trong `Summary`, dòng `[ReaderPerf] NavRealize`) và của dòng `[ReaderPerf] Scroll`. Mọi API vẫn thoát ngay bằng `guard isEnabled` với cờ latch một lần ở `beginReaderSession()`.

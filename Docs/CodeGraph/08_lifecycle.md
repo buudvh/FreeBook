@@ -15,6 +15,19 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời chuyển chương: một frame skeleton, rồi mới neo sâu (1.3.241)
+
+Thứ tự mới cho một lượt Next/Prev (cả khi chương đích là chương TTS đang phát):
+
+1. Cú bấm → `stepChapterHonoringTTS` → `ReaderView.requestChapter(at:…)`: đặt `isRestoringReaderPosition = true`, `paragraphTracker.removeAll()`, log `[ReaderPerf] Tap`.
+2. `ReaderViewModel.requestChapter`: `pendingNavigationIndex = index`, `loadState = .loading` → render gate vẽ skeleton (`[ReaderPerf] Skeleton sinceTapMs=`).
+3. Nhịp chờ một frame **bằng `Task.sleep(32 ms)`**, không phải `Task.yield()`: yield chỉ đưa continuation về cuối hàng đợi main actor và run loop drain hết hàng đợi *trước* khi CoreAnimation commit, nên trước 1.3.241 không có frame skeleton nào được present. Áp cho cả đường RAM (`memoryCommitTask`) và đường worker (`startNavigationWorkerIfNeeded`).
+4. `commitNavigation` → `applyNavigationCommit`: hạ cánh **đầu chương** (`paragraphIndex: -1`). Layout pass dựng chương vì vậy không phải realize/đo các card trung gian để giải neo sâu.
+5. `singleChapterScrollView.onAppear` → `[ReaderPerf] Present sinceTapMs=` → `restoreSingleChapterPosition` tiêu thụ target đầu chương.
+6. +0.15 s (timer chỉ nổ khi main thread rảnh, tức sau khi chương đã present): `scheduleDeepLandingScroll` đặt target sâu `reason: .initialRestore` → cuộn tới đoạn TTS đang đọc. Cờ restore được đặt lại `true` trước cú cuộn này.
+
+Ba dòng log `Tap → Skeleton → Present` là cách phân biệt "main thread bị chiếm" (Skeleton muộn/không có) với "chương load lâu nhưng UI vẫn phản hồi" (Skeleton ~0 ms, Present muộn). Chi phí thêm cố định: 32 ms mỗi lượt điều hướng.
+
 ## Vòng đời một lượt chuyển chương của Reader (1.3.240)
 
 * Chuỗi khi bấm Next/Prev với chương đích đã nằm trong RAM: turn 1 = `requestChapter` set `pendingNavigationIndex`/`.loading` và tạo `memoryCommitTask`; frame 1 = SwiftUI vẽ `chapterInlineLoadingView`; turn 2 = `commitNavigation` → `navigationCommit` → `.onChange` → `applyNavigationCommit` (set `isRestoringReaderPosition = true`, `paragraphTracker.removeAll()`, `scrollTarget`); frame 2 = subtree `singleChapterScrollView` mới (`.id("single-chapter-N")`) được dựng, `onAppear` → `restoreSingleChapterPosition` → `attemptScroll`; +0.25 s = `completeReaderPositionRestore` nhả cờ.

@@ -55,6 +55,7 @@ extension ReaderView {
             chapterSkeletonLines
         }
         .frame(maxWidth: .infinity, minHeight: 360)
+        .onAppear { ReaderEnergyDiagnostics.shared.recordSkeletonPresented(index: index) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Đang tải \(getChapterTitle(at: index))")
     }

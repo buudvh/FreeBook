@@ -15,6 +15,13 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Thành viên đổi ở đường điều hướng Reader (1.3.241)
+
+* `ReaderViewModel`: **xoá** `stepChapter(by:source:persistProgress:)`. Không type nào khác đổi thành viên public; `requestChapter(index:paragraphIndex:source:persistProgress:forceRefresh:)` là API điều hướng duy nhất còn lại.
+* `ReaderView`: `requestChapter(at:paragraphIndex:source:persistProgress:)` đổi access level `private` → `internal` để `ReaderView+Controls.swift` gọi được; thêm `scheduleDeepLandingScroll(_:)` (internal, khai trong file `+Controls`).
+* `ReaderEnergyDiagnostics`: thêm `recordNavigationTap(index:source:)`, `recordSkeletonPresented(index:)`, `recordChapterPresented(index:)`; hai thuộc tính private mới (`navigationTapUptime`, `navigationTapIndex`). Không đổi kế thừa/conformance của bất kỳ type nào.
+* `ScrollTarget` không đổi shape — pha hai hạ cánh chỉ dùng lại `reason: .initialRestore` vốn đã có.
+
 ## Nơi khai báo type sau phép tách (1.3.236)
 
 * 14 type rời file gốc sang file riêng mang đúng tên nó: `TextEncodingOption`, `BookListItemStyle`, `VisibleBrowserPresentationReader`, `VisibleBrowserReopenViewModel`, `SizeReader`, `CodeEditorTextView`, `ShelfBookSearchMatcher`, `FloatingWidgetUIWindow`, `FloatingWidgetContainerViewController`, `BookTitleTranslationBackfill`, `DictionaryInvalidationScope`, `VisibleWebViewController`, `VisibleBrowserTabItem`, `TabbedVisibleBrowserViewController`.

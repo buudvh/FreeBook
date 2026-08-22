@@ -41,6 +41,11 @@ final class ReaderEnergyDiagnostics {
     /// (hạ cánh đầu chương rồi bị auto-scroll TTS kéo sâu vài giây sau).
     private var paragraphsRealizedSinceNavigation = 0
     private var lastNavigationIndex = -1
+    /// Mốc cú bấm chuyển chương gần nhất. Ba dòng Tap → Skeleton → Present là bằng chứng
+    /// phân biệt "main thread bị chiếm" (Skeleton xuất hiện muộn hoặc không có) với
+    /// "chương load lâu nhưng UI vẫn phản hồi" (Skeleton ~0 ms, Present muộn).
+    private var navigationTapUptime: TimeInterval = 0
+    private var navigationTapIndex = -1
 
     private init() {}
 
@@ -49,6 +54,8 @@ final class ReaderEnergyDiagnostics {
         eventsSinceClockCheck = 0
         paragraphsRealizedSinceNavigation = 0
         lastNavigationIndex = -1
+        navigationTapUptime = 0
+        navigationTapIndex = -1
         guard isEnabled else {
             window = nil
             return
@@ -66,6 +73,31 @@ final class ReaderEnergyDiagnostics {
         guard isEnabled else { return }
         emitNavigationRealizeCount(reason: "commit")
         lastNavigationIndex = index
+    }
+
+    func recordNavigationTap(index: Int, source: String) {
+        guard isEnabled else { return }
+        navigationTapUptime = ProcessInfo.processInfo.systemUptime
+        navigationTapIndex = index
+        AppLogger.shared.log(String(format: "[ReaderPerf] Tap index=%d source=%@", index, source))
+    }
+
+    func recordSkeletonPresented(index: Int) {
+        emitMillisecondsSinceTap(label: "Skeleton", index: index)
+    }
+
+    func recordChapterPresented(index: Int) {
+        emitMillisecondsSinceTap(label: "Present", index: index)
+    }
+
+    private func emitMillisecondsSinceTap(label: String, index: Int) {
+        guard isEnabled, navigationTapUptime > 0, index == navigationTapIndex else { return }
+        AppLogger.shared.log(String(
+            format: "[ReaderPerf] %@ index=%d sinceTapMs=%.1f",
+            label,
+            index,
+            (ProcessInfo.processInfo.systemUptime - navigationTapUptime) * 1000
+        ))
     }
 
     /// Không đo ms quanh `proxy.scrollTo`: hàm đó chỉ ghi nhận neo, còn phần đắt (realize +

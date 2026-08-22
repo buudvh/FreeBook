@@ -15,6 +15,14 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro còn lại sau lần sửa hạ cánh hai pha (1.3.241)
+
+* **Chưa biên dịch**: thay đổi 1.3.241 viết trên Windows, không có `xcodebuild`. Chỉ hai cổng tĩnh chạy được (`check_architecture.py` giữ đúng 18 violation cũ, `validate_links.py`). CI xanh cũng chỉ chứng minh *biên dịch được*.
+* **Giả định về timer 0.15 s**: pha hai (cuộn tới đoạn TTS) dựa vào việc `DispatchQueue.main.asyncAfter` không thể nổ khi main thread còn bận, nên nó luôn chạy *sau* khi chương đã present. Nếu một lượt dựng chương nào đó dài hơn và `onAppear` chưa kịp tiêu thụ target đầu chương, target sâu sẽ ghi đè và neo sâu lại được giải trong cùng layout pass — đúng hành vi cũ, không tệ hơn, nhưng cũng không được lợi.
+* **Cửa sổ nhả cờ chồng nhau**: cú cuộn pha một hẹn nhả `isRestoringReaderPosition` sau 0.25 s, pha hai đặt lại cờ ở 0.15 s rồi hẹn nhả tiếp. Có ~0.1 s cờ bị nhả sớm giữa hai cú cuộn; hệ quả xấu nhất là một tick auto-scroll TTS trỏ đúng vào đoạn đang được cuộn tới, tức vô hại.
+* **Chi phí cố định 32 ms/lượt điều hướng** (nhịp chờ frame) — đánh đổi lấy việc skeleton chắc chắn được present.
+* **Không sửa nguyên nhân thời gian tải thật**: khi TTS sở hữu sách, `setSpeculativePrefetchEnabled(false)` tắt prefetch N+1 của Reader, nên Next/Prev lúc đang phát gần như luôn đi đường worker qua `ChapterContentRepository` (actor dùng chung với TTS). 1.3.241 làm chờ đợi đó *có phản hồi* (skeleton), **không** làm nó ngắn hơn. Nới điều kiện prefetch khi đang phát là quyết định năng lượng, chưa làm.
+
 ## Rủi ro của lần sửa đơ Next/Prev khi TTS đang phát (1.3.240)
 
 * **Đã sửa, là bug thật chứ không phải tối ưu**: `restoreReaderPositionIfNeeded` thoát sớm mà không nhả `isRestoringReaderPosition`, khiến auto-scroll TTS và lưu tiến độ theo cuộn có thể chết im lặng tới hết session. Dạng lỗi không log, không crash, chỉ "tự nhiên không chạy nữa".
