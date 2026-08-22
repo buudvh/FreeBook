@@ -76,13 +76,25 @@ public actor GoogleDriveClient {
     /// Tải về thư mục tạm; **người gọi tự dọn** thư mục cha của URL trả về.
     ///
     /// Dùng `URLSession.download(for:)` chứ không stream từng byte: archive có thể vài trăm MB,
-    /// vòng lặp `for await byte in` sẽ chậm hơn nhiều lần và giữ RAM vô ích.
-    public func download(file: GoogleDriveFile) async throws -> URL {
+    /// vòng lặp `for await byte in` sẽ chậm hơn nhiều lần và giữ RAM vô ích. Tiến độ lấy qua
+    /// **task delegate** (`didWriteData`) — API async không trả về `URLSessionTask` nên không có
+    /// đường nào khác để đọc số byte đã nhận.
+    public func download(
+        file: GoogleDriveFile,
+        report: @escaping @Sendable (BackupProgress) -> Void = { _ in }
+    ) async throws -> URL {
         var components = URLComponents(string: "\(GoogleDriveConfiguration.filesEndpoint)/\(file.id)")!
         components.queryItems = [URLQueryItem(name: "alt", value: "media")]
 
+        // Giữ mạnh tới hết lời gọi: `download(for:delegate:)` chỉ giữ delegate yếu.
+        let observer = DownloadProgressObserver(
+            name: file.name,
+            fallbackTotal: file.byteCount,
+            report: report
+        )
         let (temporaryURL, response) = try await URLSession.shared.download(
-            for: try await makeRequest(url: components.url!)
+            for: try await makeRequest(url: components.url!),
+            delegate: observer
         )
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
@@ -100,6 +112,60 @@ public actor GoogleDriveClient {
             throw error
         }
         return target
+    }
+
+    // MARK: - Tiến độ tải xuống
+
+    /// Chỉ cài đúng `didWriteData`. **Không** cài `didFinishDownloadingTo`: bản async của
+    /// `download(for:delegate:)` tự dời file tạm, cài thêm hàm đó là tranh chấp với nó.
+    ///
+    /// Delegate được gọi trên queue của `URLSession`, và mỗi lần có gói dữ liệu về là một lần gọi,
+    /// nên chỉ báo khi **phần trăm đổi** — không thì hàng nghìn cập nhật sẽ dội lên MainActor.
+    private final class DownloadProgressObserver: NSObject, URLSessionDownloadDelegate {
+        private let name: String
+        private let fallbackTotal: Int64
+        private let report: @Sendable (BackupProgress) -> Void
+        private var lastPercent = -1
+
+        init(
+            name: String,
+            fallbackTotal: Int64,
+            report: @escaping @Sendable (BackupProgress) -> Void
+        ) {
+            self.name = name
+            self.fallbackTotal = fallbackTotal
+            self.report = report
+        }
+
+        func urlSession(
+            _ session: URLSession,
+            downloadTask: URLSessionDownloadTask,
+            didWriteData bytesWritten: Int64,
+            totalBytesWritten: Int64,
+            totalBytesExpectedToWrite: Int64
+        ) {
+            // Drive có thể không gửi `Content-Length`; khi đó dùng dung lượng lấy từ danh sách file.
+            let total = totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : fallbackTotal
+            guard total > 0 else { return }
+
+            let percent = Int(min(100, Double(totalBytesWritten) / Double(total) * 100))
+            guard percent != lastPercent else { return }
+            lastPercent = percent
+
+            report(BackupProgress(
+                phase: .downloading,
+                completedUnits: percent,
+                totalUnits: 100,
+                detail: name
+            ))
+        }
+
+        /// Bắt buộc có vì protocol yêu cầu, nhưng cố ý để trống — xem ghi chú ở đầu type.
+        func urlSession(
+            _ session: URLSession,
+            downloadTask: URLSessionDownloadTask,
+            didFinishDownloadingTo location: URL
+        ) {}
     }
 
     // MARK: - Hạ tầng

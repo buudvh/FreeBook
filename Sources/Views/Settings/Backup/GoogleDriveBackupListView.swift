@@ -89,6 +89,7 @@ struct GoogleDriveBackupListView: View {
                     Label("Đăng xuất Google Drive", systemImage: "rectangle.portrait.and.arrow.right")
                         .foregroundColor(.red)
                 }
+                .disabled(coordinator.isBusy)
                 Button {
                     Task { await coordinator.refreshDriveFiles() }
                 } label: {

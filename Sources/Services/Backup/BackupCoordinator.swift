@@ -148,7 +148,13 @@ public final class BackupCoordinator: ObservableObject {
         }
     }
 
+    /// Chặn khi đang có việc chạy: đăng xuất giữa lúc tải/khôi phục là thu hồi access token mà
+    /// worker đang dùng — request đang bay sẽ chết giữa đường và archive dở dang.
     public func signOutDrive() {
+        guard !isBusy else {
+            lastError = "Đang tải dữ liệu từ Google Drive, không thể đăng xuất lúc này"
+            return
+        }
         GoogleDriveAuthService.shared.signOut()
         isDriveSignedIn = false
         driveFiles = []
@@ -185,7 +191,10 @@ public final class BackupCoordinator: ObservableObject {
         isBusy = true
         progress = BackupProgress(phase: .downloading, detail: file.name)
         do {
-            let temporaryURL = try await GoogleDriveClient.shared.download(file: file)
+            let temporaryURL = try await GoogleDriveClient.shared.download(
+                file: file,
+                report: makeReporter()
+            )
             defer { try? FileManager.default.removeItem(at: temporaryURL.deletingLastPathComponent()) }
             _ = try LocalBackupStore.importArchive(from: temporaryURL)
             refreshLocal()
@@ -211,7 +220,10 @@ public final class BackupCoordinator: ObservableObject {
         progress = BackupProgress(phase: .downloading, detail: file.name)
         let archiveURL: URL
         do {
-            let temporaryURL = try await GoogleDriveClient.shared.download(file: file)
+            let temporaryURL = try await GoogleDriveClient.shared.download(
+                file: file,
+                report: makeReporter()
+            )
             defer { try? FileManager.default.removeItem(at: temporaryURL.deletingLastPathComponent()) }
             archiveURL = try LocalBackupStore.importArchive(from: temporaryURL).url
             refreshLocal()
