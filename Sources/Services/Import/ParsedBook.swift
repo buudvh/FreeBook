@@ -2,16 +2,18 @@ import Foundation
 
 /// Kết quả bóc tách một file sách người dùng nhập từ máy.
 ///
-/// Mọi format (TXT / HTML / EPUB / MOBI–AZW3) đều đổ về đúng type này rồi đi tiếp qua **một** đường
-/// ghi duy nhất ở `ShelfView.performImport` (`AddBookToShelfCommand` → `ChapterStore.replaceFullTOC`
-/// → `BookBinManager.writeChapterContent` + `upsertCachedChapter`). Vì vậy thêm format mới **không**
-/// cần thêm một dòng code lưu trữ nào.
+/// Mọi format (TXT / HTML / EPUB / MOBI–AZW3 / PRC / DOCX / FB2) đều đổ về đúng type này rồi đi tiếp
+/// qua **một** đường ghi duy nhất ở `ShelfView.performImport` (`AddBookToShelfCommand` →
+/// `ChapterStore.replaceFullTOC` → `BookBinManager.writeChapterContent` + `upsertCachedChapter`).
+/// Vì vậy thêm format mới **không** cần thêm một dòng code lưu trữ nào.
 ///
 /// Các field metadata đều có giá trị mặc định để đường nhập TXT (chỉ có `title` + `chapters`)
 /// giữ nguyên hành vi cũ.
 struct ParsedBook: Sendable {
     let title: String
-    let chapters: [ParserChapter]
+    /// `var` vì `ChapterLengthLimiter` thay danh sách chương ở bước hậu xử lý chung của
+    /// `BookImportService.parse`, sau parser và trước sheet xác nhận.
+    var chapters: [ParserChapter]
     /// `dc:creator` của EPUB / EXTH 100 của MOBI. `nil` ⇒ dùng `"Local"` như TXT.
     var author: String? = nil
     /// `dc:description` của EPUB / EXTH 103 của MOBI.

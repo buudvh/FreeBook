@@ -1,9 +1,15 @@
 import Foundation
 
-/// Đọc file MOBI / AZW / AZW3 (PalmDB) ra thân HTML + metadata.
+/// Đọc file MOBI / AZW / AZW3 / PRC (PalmDB) ra thân sách + metadata.
 ///
 /// **Thử nghiệm, chỉ file không DRM.** Không cài SKEL/FDST của KF8 và không đọc index nhị phân
-/// (INDX/NCX) — ranh giới chương để `HtmlBookParser` suy ra từ chính HTML.
+/// (INDX/NCX) — ranh giới chương để parser ở trên suy ra từ chính thân sách.
+///
+/// Chữ ký PalmDB ở byte 60…67 (`type` + `creator`) quyết định **hai họ file khác nhau**, và đây là
+/// khác biệt bắt buộc phải giữ: `"BOOKMOBI"` là MOBI/AZW3 với thân HTML, còn `"TEXtREAd"` là PalmDOC
+/// (`.prc` kinh điển) với thân **text thuần** — cho text thuần đi qua parser HTML sẽ mất hết ranh giới
+/// dòng (SwiftSoup `text()` gộp khoảng trắng) và cả sách rút về một chương. Chữ ký khác hai giá trị
+/// này (eReader, iSilo…) bị từ chối kèm thông điệp rõ, thay vì đọc sai trong im lặng.
 ///
 /// Mọi số trong PalmDB/MOBI là **big-endian**, và mọi offset đều kiểm biên trước khi đọc: file hỏng
 /// phải ra lỗi hoặc text ngắn hơn, không bao giờ đọc rác hay crash.
@@ -20,11 +26,14 @@ enum MobiArchiveReader {
         let author: String?
         let desc: String?
         let coverData: Data?
+        /// `true` khi chữ ký là `"TEXtREAd"`: thân sách là text thuần, **không** phải HTML.
+        let isPlainText: Bool
     }
 
     private typealias Failure = BookImportService.ImportError
 
     static func read(data: Data) throws -> Package {
+        let plainText = try isPlainTextVariant(data)
         let records = try recordRanges(in: data)
         let record0 = slice(data, records[0])
 
@@ -84,8 +93,30 @@ enum MobiArchiveReader {
                 firstImageIndex: firstImageIndex,
                 textRecordCount: Int(textRecordCount),
                 coverOffset: exth[201]
-            )
+            ),
+            isPlainText: plainText
         )
+    }
+
+    // MARK: - Chữ ký PalmDB
+
+    /// `type` @60 + `creator` @64. Trả `true` cho PalmDOC text thuần, `false` cho MOBI, và `throw`
+    /// cho mọi biến thể PalmDB khác.
+    private static func isPlainTextVariant(_ data: Data) throws -> Bool {
+        guard let signature = ascii(data, 60, 8) else {
+            throw Failure.malformed("PalmDB header quá ngắn")
+        }
+        switch signature {
+        case "BOOKMOBI": return false
+        case "TEXtREAd": return true
+        default: throw Failure.malformed("biến thể PalmDB '\(printable(signature))' chưa hỗ trợ")
+        }
+    }
+
+    /// Chữ ký của file hỏng có thể là byte nhị phân; chỉ đưa ký tự in được vào thông điệp lỗi.
+    private static func printable(_ text: String) -> String {
+        let cleaned = String(text.map { ($0.isASCII && ($0.isLetter || $0.isNumber)) ? $0 : "?" })
+        return cleaned.isEmpty ? "?" : cleaned
     }
 
     // MARK: - PalmDB

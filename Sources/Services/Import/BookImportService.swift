@@ -84,6 +84,9 @@ enum BookImportService {
         }
     }
 
+    /// Mọi nhánh chỉ dựng `parsed` / `autoDecodeID` / `probe`; phần đuôi **dùng chung** kiểm chương rỗng,
+    /// áp `ChapterLengthLimiter` rồi mới trả `Result`. Nhờ vậy limiter chạy đúng **một** lần cho mọi
+    /// format, ngay trước sheet xác nhận, và thêm format mới không thể quên bước này.
     static func parse(_ request: Request) async throws -> Result {
         let data: Data
         do {
@@ -96,67 +99,79 @@ enum BookImportService {
         let format = BookImportFormat.detect(fileName: request.fileName, data: data)
         let rules = resolvedRules(request.ruleIDs)
 
+        var parsed: ParsedBook
+        var autoDecodeID: String?
+        let probe: String
+
         switch format {
         case .txt:
             let text = try decodeText(data, override: request.encodingOverride, declaredCharset: nil)
-            var parsed = TxtBookParser.parse(content: text, fileName: request.fileName, rules: rules)
-            guard !parsed.chapters.isEmpty else { throw ImportError.emptyContent }
+            parsed = TxtBookParser.parse(content: text, fileName: request.fileName, rules: rules)
             parsed.structureNote = "Quy tắc TOC — \(parsed.chapters.count) chương"
-            return Result(
-                parsed: parsed,
-                format: .txt,
-                autoDecodeID: TextEncodingDecoder.detect(data)?.rawValue,
-                matchedRuleIDs: matchedRules(in: text)
-            )
+            autoDecodeID = TextEncodingDecoder.detect(data)?.rawValue
+            probe = text
 
         case .html:
             let charset = XhtmlTextExtractor.declaredCharsetName(in: data)
             let html = try decodeText(data, override: request.encodingOverride, declaredCharset: charset)
-            let parsed = HtmlBookParser.parse(
+            parsed = HtmlBookParser.parse(
                 html: html,
                 fileName: request.fileName,
                 rules: rules,
                 structure: request.structure
             )
-            guard !parsed.chapters.isEmpty else { throw ImportError.emptyContent }
-            return Result(
-                parsed: parsed,
-                format: .html,
-                autoDecodeID: TextEncodingDecoder.detect(data)?.rawValue,
-                matchedRuleIDs: matchedRules(in: probeText(parsed))
-            )
+            autoDecodeID = TextEncodingDecoder.detect(data)?.rawValue
+            probe = probeText(parsed)
 
         case .epub:
-            let parsed = try EpubBookParser.parse(
+            parsed = try EpubBookParser.parse(
                 fileUrl: request.tempFileUrl,
                 fileName: request.fileName,
                 rules: rules,
                 structure: request.structure
             )
-            guard !parsed.chapters.isEmpty else { throw ImportError.emptyContent }
-            return Result(
-                parsed: parsed,
-                format: .epub,
-                autoDecodeID: nil,
-                matchedRuleIDs: matchedRules(in: probeText(parsed))
-            )
+            probe = probeText(parsed)
 
         case .mobi:
-            let parsed = try MobiBookParser.parse(
+            parsed = try MobiBookParser.parse(
                 data: data,
                 fileName: request.fileName,
                 rules: rules,
                 structure: request.structure,
                 encodingOverride: request.encodingOverride
             )
-            guard !parsed.chapters.isEmpty else { throw ImportError.emptyContent }
-            return Result(
-                parsed: parsed,
-                format: .mobi,
-                autoDecodeID: nil,
-                matchedRuleIDs: matchedRules(in: probeText(parsed))
+            probe = probeText(parsed)
+
+        case .docx:
+            parsed = try DocxBookParser.parse(
+                fileUrl: request.tempFileUrl,
+                fileName: request.fileName,
+                rules: rules,
+                structure: request.structure
             )
+            probe = probeText(parsed)
+
+        case .fb2:
+            parsed = try Fb2BookParser.parse(
+                data: data,
+                fileName: request.fileName,
+                rules: rules,
+                structure: request.structure
+            )
+            probe = probeText(parsed)
         }
+
+        guard !parsed.chapters.isEmpty else { throw ImportError.emptyContent }
+        // `structureNote` giữ số chương **parser tìm được**; số chương sau cùng và báo cáo tách dài do
+        // sheet xác nhận tự tính từ `chapters` + `ChapterLengthLimiter.report`.
+        parsed.chapters = ChapterLengthLimiter.apply(to: parsed.chapters)
+
+        return Result(
+            parsed: parsed,
+            format: format,
+            autoDecodeID: autoDecodeID,
+            matchedRuleIDs: matchedRules(in: probe)
+        )
     }
 
     // MARK: - Helpers

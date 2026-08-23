@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// Sheet xác nhận thông tin trước khi nhập truyện từ file vào CSDL (TXT / HTML / EPUB / MOBI–AZW3).
-/// Hiển thị tên truyện, số chương, tên file, cách tách chương đã dùng và danh sách chương rút gọn để
-/// người dùng kiểm tra kết quả parse. Cho phép chọn bảng mã, quy tắc TOC và cách tách chương (mặc
-/// định Tự động) rồi "Phân tích lại" để làm mới danh sách chương.
+/// Sheet xác nhận thông tin trước khi nhập truyện từ file vào CSDL
+/// (TXT / HTML / EPUB / MOBI–AZW3 / PRC / DOCX / FB2).
+/// Hiển thị tên truyện, số chương **sau cùng**, tên file, cách tách chương đã dùng, báo cáo chương quá
+/// dài đã bị `ChapterLengthLimiter` tách, và danh sách chương rút gọn để người dùng kiểm tra kết quả
+/// parse. Cho phép chọn bảng mã, quy tắc TOC và cách tách chương (mặc định Tự động) rồi "Phân tích
+/// lại" để làm mới danh sách chương.
 ///
 /// Ba picker nằm ở `Extensions/BookImportConfirmationSheet+Pickers.swift`; vì `private` của Swift là
 /// phạm vi **file** nên các `@State` dưới đây phải là `internal`.
@@ -71,9 +73,18 @@ struct BookImportConfirmationSheet: View {
         return "\(selectedRuleIDs.count) quy tắc"
     }
 
-    /// EPUB luôn là UTF-8 theo chuẩn nên hàng "Bảng mã" là lựa chọn vô nghĩa, ẩn đi.
+    /// EPUB/DOCX/FB2 tự khai bảng mã trong file (XML luôn UTF-8 trên thực tế) nên hàng "Bảng mã" là
+    /// lựa chọn vô nghĩa, ẩn đi.
     private var showsDecodeRow: Bool {
-        return format != .epub
+        switch format {
+        case .epub, .docx, .fb2: return false
+        case .txt, .html, .mobi: return true
+        }
+    }
+
+    /// Báo cáo của bước hậu xử lý chung: chương dài bất thường đã bị tách thành nhiều phần.
+    private var splitReport: String? {
+        return ChapterLengthLimiter.report(for: parsed.chapters)
     }
 
     private var previewChapterIndices: [Int] {
@@ -113,6 +124,13 @@ struct BookImportConfirmationSheet: View {
                                 Text("Cách tách: \(note)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
+                                    .lineLimit(2)
+                            }
+
+                            if let splitReport {
+                                Text(splitReport)
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
                                     .lineLimit(2)
                             }
                         }
