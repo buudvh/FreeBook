@@ -15,6 +15,50 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Xuất truyện TXT, EPUB, FB2, MOBI trong một tác vụ (1.3.253)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Services/Export/BookExportRequest.swift`](../../Sources/Services/Export/BookExportRequest.swift) | DTO **bất biến** của một lần xuất; renderer không thấy `DownloadTask`/`Book`/SwiftData | 44 |
+| [`Services/Export/BookExportFormat.swift`](../../Sources/Services/Export/BookExportFormat.swift) | `txt`/`epub3`/`fb2`/`mobi` + `fileExtension`/`taskType`/`supportsCover`/`supportsNavigation` | 72 |
+| [`Services/Export/ExportRenderer.swift`](../../Sources/Services/Export/ExportRenderer.swift) | protocol `append(_:)`/`finish()`/`discard()` + `writtenChapterCount`/`hasContent` | 19 |
+| [`Services/Export/ExportRendererFactory.swift`](../../Sources/Services/Export/ExportRendererFactory.swift) | `BookExportFormat` → renderer; `switch` liệt kê đủ case | 18 |
+| [`Services/Export/ExportContentProvider.swift`](../../Sources/Services/Export/ExportContentProvider.swift) | lấy một chương (cache → tải → `.bin` → `ChapterStore`) + `Tally`; **dùng chung** cho tải và xuất | 111 |
+| [`Services/Export/ExportChapterPayload.swift`](../../Sources/Services/Export/ExportChapterPayload.swift) | `ordinal`/`title`/`content` đưa vào renderer | 16 |
+| [`Services/Export/ExportArtifact.swift`](../../Sources/Services/Export/ExportArtifact.swift) | kết quả `finish()` + `exists` — cổng chặn "hoàn thành mà không có file" | 23 |
+| [`Services/Export/ExportStage.swift`](../../Sources/Services/Export/ExportStage.swift) | 3 giai đoạn hiển thị: đang lấy chương / đang tạo file / sẵn sàng chia sẻ | 21 |
+| [`Services/Export/ExportRenderError.swift`](../../Sources/Services/Export/ExportRenderError.swift) | `cannotCreateFile`/`emptyExport`/`archiveTooLarge`/`sizeLimitExceeded` (thông báo tiếng Việt) | 23 |
+| [`Services/Export/ExportFileNaming.swift`](../../Sources/Services/Export/ExportFileNaming.swift) | `Documents/Exports/<tên>-yyyyMMdd-HHmmss.<ext>` + khử trùng `-2…`, `stagingURL` = `.part` | 54 |
+| [`Services/Export/ExportStagingFile.swift`](../../Sources/Services/Export/ExportStagingFile.swift) | `FileHandle` ghi thẳng xuống `.part`, `commit()` mới rename (kế thừa `TxtExportFileWriter`) | 74 |
+| [`Services/Export/ExportParagraphSplitter.swift`](../../Sources/Services/Export/ExportParagraphSplitter.swift) | cắt đoạn **giống hệt** `DownloadManager.formatChapter` cũ, dùng chung 4 renderer | 15 |
+| [`Services/Export/ExportTextEscaper.swift`](../../Sources/Services/Export/ExportTextEscaper.swift) | escape XML/HTML + bỏ ký tự điều khiển (một `\u{0}` là EPUB/FB2 sai chuẩn) | 41 |
+| [`Services/Export/TxtExportRenderer.swift`](../../Sources/Services/Export/TxtExportRenderer.swift) | TXT **giữ nguyên từng byte** bố cục bản xuất cũ | 44 |
+| [`Services/Export/ZipStoreWriter.swift`](../../Sources/Services/Export/ZipStoreWriter.swift) | ZIP stored-only (method 0) tự viết: local header + central directory + EOCD, CRC-32 bảng tra | 154 |
+| [`Services/Export/EpubExportRenderer.swift`](../../Sources/Services/Export/EpubExportRenderer.swift) | EPUB 3: `mimetype` đầu tiên, `container.xml`, OPF, `nav.xhtml`, một XHTML mỗi chương | 180 |
+| [`Services/Export/Fb2ExportRenderer.swift`](../../Sources/Services/Export/Fb2ExportRenderer.swift) | FB2 2.0 chảy thẳng ra đĩa; bìa base64 `<binary>` ghi ở `finish()` | 94 |
+| [`Services/Export/MobiExportRenderer.swift`](../../Sources/Services/Export/MobiExportRenderer.swift) | PalmDB/PalmDOC không nén; text staged rồi copy, vá `filepos` mục lục 10 chữ số | 207 |
+| [`Services/Export/MobiHeaderBuilder.swift`](../../Sources/Services/Export/MobiHeaderBuilder.swift) | record 0: PalmDOC 16 B + MOBI 232 B + EXTH (100/103/503/201) | 138 |
+| [`Services/Export/BigEndianBytes.swift`](../../Sources/Services/Export/BigEndianBytes.swift) | nối UInt16/UInt32 **big-endian** (ngược với ZIP little-endian) | 27 |
+| [`Views/Common/ExportShareCoordinator.swift`](../../Sources/Views/Common/ExportShareCoordinator.swift) | chủ `UIActivityViewController`; giữ pending khi app ở background rồi bàn giao lúc `.active` | 100 |
+
+| File sửa nội dung | Dòng | Thay đổi |
+|---|---|---|
+| [`Services/Download/DownloadManager.swift`](../../Sources/Services/Download/DownloadManager.swift) | 484 → **437** | `TaskType` thêm 3 case xuất; vòng lặp dùng `ExportContentProvider` + `ExportRenderer`; **xoá** `formatChapter`/`presentShareSheet` và `import UIKit` |
+| [`Services/Download/DownloadManager+TaskStore.swift`](../../Sources/Services/Download/DownloadManager+TaskStore.swift) | 249 → **277** | thêm `updateExportStage` + `markExportCompleted` (lưu path, tổng kết, phát `exportReady`) |
+| [`Services/Download/DownloadTaskOutcomeCalculator.swift`](../../Sources/Services/Download/DownloadTaskOutcomeCalculator.swift) | 39 → **62** | nhánh xuất theo `renderedChapterCount` + `exportSummary(...)` |
+| [`Services/Download/Events/DownloadPresentationEvent.swift`](../../Sources/Services/Download/Events/DownloadPresentationEvent.swift) | 5 → **11** | case `exportReady(filePath:bookTitle:)` |
+| [`Views/Download/TaskOptionsSheet.swift`](../../Sources/Views/Download/TaskOptionsSheet.swift) | 148 → **209** | picker "Định dạng bản xuất" + xem trước `đã tải X/Y chương`, enqueue `effectiveTaskType` |
+| [`Views/Download/DownloadTrackerView.swift`](../../Sources/Views/Download/DownloadTrackerView.swift) | 208 → **217** | dòng giai đoạn + dòng tổng kết thiếu chương; `exportFromCached` mở sheet thay vì enqueue TXT |
+| [`App/FreeBookApp.swift`](../../Sources/App/FreeBookApp.swift) | 103 → **105** | `AppLaunchRootView` nhận `.exportReady` → `ExportShareCoordinator.requestShare` |
+| [`Views/MainTabView.swift`](../../Sources/Views/MainTabView.swift) | 70 → **76** | `scenePhase == .active` → `flushPendingShare()` |
+| [`Views/Shelf/ShelfMain/ShelfView.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift) | 811 (không đổi) | nhãn `"Xuất ebook TXT"` → `"Xuất ebook"` (2 chỗ) — định dạng chọn ở sheet |
+| [`Views/BookDetail/BookDetailView.swift`](../../Sources/Views/BookDetail/BookDetailView.swift) | 1175 (không đổi) | nhãn `"Xuất TXT"` → `"Xuất ebook"` |
+
+* File bị xoá: `Services/Download/TxtExportFileWriter.swift` (97 dòng) — thay bằng `Services/Export/ExportStagingFile.swift` dùng chung cho cả 4 renderer.
+* Tổng file Swift 303 → **323** (+21 mới, −1 xoá). Thư mục mới duy nhất: [`Sources/Services/Export/`](../../Sources/Services/Export/BookExportRequest.swift) (20 file).
+* Quan hệ import mới: `Services/Download/DownloadManager` → `Services/Export/*` (một chiều — không renderer nào biết `DownloadManager`); `App/FreeBookApp` + `Views/MainTabView` → `Views/Common/ExportShareCoordinator`. `Sources/Services/Export/**` **không** `import UIKit`/`SwiftUI`, **không** gọi `ToastManager.shared`, **không** `import ZIPFoundation` (EPUB dùng `ZipStoreWriter` tự viết).
+* `project.yml` không cần sửa: target khai `sources: - path: Sources` nên `xcodegen generate` tự nhặt 21 file mới.
+
 ## Nhập truyện PRC, DOCX, FB2 và tách chương quá dài (1.3.252)
 
 | File mới | Vai trò | Dòng |
@@ -233,7 +277,8 @@ Sơ đồ liên kết file của toàn bộ dự án FreeBook sau refactor:
   - `Services/ChapterText/`: `PrefetchManager.swift`, `ReaderChapterListStore.swift`, `Coordinators/ChapterListSearchCoordinator.swift`, `Workers/BackgroundPagingWorker.swift`, `BackgroundSearchWorker.swift`, `ReaderChapterListPageFetcher.swift`, `ChapterStore/ChapterTOCDiff.swift` (hàm thuần, không phụ thuộc sqlite — `ChapterStoreDatabase.swift` gọi vào để chọn `.unchanged`/`.appendOnly`/`.full`).
   - `Services/ReadingProgress/`: `ReaderProgressScheduler.swift`.
   - `Services/TTS/`: `TTSManager.swift`, `TTSAudioEngineController.swift`, `TTSAudioSessionController.swift`, `Events/TTSPresentationEventCenter.swift`, `Events/TTSPresentationEvent.swift`, `Extensions/TTSManager+*.swift`. `DisplayTextFormatter.swift` nằm ở `Common/Extensions/DisplayTextFormatter.swift`, không phải trong `Services/TTS/`.
-  - `Services/Download/`: `DownloadManager.swift`, `DownloadManager+TaskStore.swift` (CRUD/tiến độ của `DownloadTaskModel`, giữ một `ModelContext` dùng lại), `TxtExportFileWriter.swift` (ghi dần `.txt.part` rồi rename), `Events/DownloadPresentationEventCenter.swift`, `Events/DownloadPresentationEvent.swift`.
+  - `Services/Download/`: `DownloadManager.swift`, `DownloadManager+TaskStore.swift` (CRUD/tiến độ của `DownloadTaskModel`, giữ một `ModelContext` dùng lại), `DownloadTaskOutcomeCalculator.swift` (chính sách `completed`/`failed` + dòng tổng kết bản xuất thiếu chương), `Events/DownloadPresentationEventCenter.swift`, `Events/DownloadPresentationEvent.swift`.
+  - `Services/Export/`: `BookExportRequest.swift` (DTO bất biến), `BookExportFormat.swift`, `ExportRenderer.swift` (protocol `append`/`finish`/`discard`), `ExportRendererFactory.swift`, `ExportContentProvider.swift` (lấy chương — dùng chung cho cả tác vụ tải), `ExportChapterPayload.swift`, `ExportArtifact.swift`, `ExportStage.swift`, `ExportRenderError.swift`, `ExportFileNaming.swift`, `ExportStagingFile.swift` (`.part` rồi rename), `ExportParagraphSplitter.swift`, `ExportTextEscaper.swift`, `TxtExportRenderer.swift`, `EpubExportRenderer.swift` + `ZipStoreWriter.swift`, `Fb2ExportRenderer.swift`, `MobiExportRenderer.swift` + `MobiHeaderBuilder.swift` + `BigEndianBytes.swift`. Phân hệ chỉ sinh file trong `Documents/Exports/`, không mở share sheet (`Sources/Views/Common/ExportShareCoordinator.swift` lo việc đó).
   - `Services/Import/`: `BookImportService.swift` (điểm vào duy nhất), `BookImportFormat.swift`, `ParsedBook.swift`, `ParserChapter.swift`, `ChapterLengthLimiter.swift` (hậu xử lý chung, chạy trong phần đuôi của `BookImportService.parse`), `TxtBookParser.swift`, `XhtmlTextExtractor.swift`, `HtmlBookParser.swift`, `EpubArchiveReader.swift`, `EpubOpfParser.swift`, `EpubNavParser.swift`, `EpubBookParser.swift`, `MobiArchiveReader.swift`, `PalmDocDecompressor.swift`, `MobiBookParser.swift`, `DocxArchiveReader.swift`, `DocxBookParser.swift`, `Fb2BookParser.swift`. Phân hệ chỉ sinh `ParsedBook`, không sở hữu lưu trữ.
   - `Services/Translation/`: `Utils/TranslateUtils.swift`, `Extensions/TranslateUtils+Tokenization.swift`, `Engine/VietPhraseTokenizer.swift`, `Utils/TOCRuleSaveCoordinator.swift`.
 - **Views**:

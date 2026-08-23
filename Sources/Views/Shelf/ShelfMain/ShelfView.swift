@@ -509,7 +509,7 @@ struct ShelfView: View {
                             Button {
                                 prepareTaskForBook(book, type: .exportTxt)
                             } label: {
-                                Label("Xuất ebook TXT", systemImage: "square.and.arrow.up")
+                                Label("Xuất ebook", systemImage: "square.and.arrow.up")
                             }
 
                             Button {
@@ -632,7 +632,7 @@ struct ShelfView: View {
                             Button {
                                 prepareTaskForBook(book, type: .exportTxt)
                             } label: {
-                                Label("Xuất ebook TXT", systemImage: "square.and.arrow.up")
+                                Label("Xuất ebook", systemImage: "square.and.arrow.up")
                             }
 
                             Button {

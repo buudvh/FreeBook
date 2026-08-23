@@ -2,7 +2,25 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.220) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.223) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.253] - 2026-08-23
+
+### Xuất truyện TXT, EPUB, FB2, MOBI trong một tác vụ
+
+Tách hai ý định bị trộn chung: `Tải truyện` = chỉ lấy + cache; `Xuất truyện` = lấy → cache → kết xuất → **xác minh file tồn tại** → sẵn sàng chia sẻ, tất cả trong **một** tác vụ. Thêm **21** file Swift, xoá **1** (303 → 323), **không** `@Model` nào đổi shape, **không** thêm dependency.
+
+* **Phân hệ mới `Sources/Services/Export/` (20 file)**, điểm vào là `BookExportRequest` bất biến, điểm ra là `ExportArtifact`. Nhánh `.exportTxt` cứng nhắc trong `DownloadManager` được tách thành ba vai: `ExportContentProvider` (lấy nội dung: cache trước, tải khi cần) → `ExportRenderer` (`append` / `finish` / `discard`) → `ExportArtifact`. `DownloadManager.swift` **437** dòng (từ 484) và bỏ được `import UIKit`.
+* **Chương vừa tải xong đi thẳng vào renderer của cùng tác vụ đó** — không còn lượt hai đọc lại `.bin` sau khi tải xong. Đây là lý do hai ý định phải nằm trong một job chứ không phải hai.
+* **Bốn định dạng, một giao thức**: `TxtExportRenderer`, `EpubExportRenderer` (EPUB 3), `Fb2ExportRenderer`, `MobiExportRenderer`; `ExportRendererFactory.makeRenderer(for:)` là chỗ duy nhất biết đủ cả bốn, nên thêm định dạng về sau **không** đụng `DownloadManager`. Markdown/HTML cố ý **không** làm.
+* **Hai chỗ phải tự viết vì thư viện bị giam đúng chỗ**: (1) `ZipStoreWriter` — ZIP stored-only (method 0) tự dựng CRC-32 + central directory + EOCD, vì EPUB bắt buộc entry `mimetype` **không nén** đứng đầu mà `FileManager.zipItem` không đảm bảo được, và `BackupZipArchive` là file duy nhất được gọi ZIPFoundation; không cài ZIP64 nên chặn `maxSize = Int(UInt32.max)` rồi `throw .archiveTooLarge`. (2) `MobiHeaderBuilder` — PalmDB + PalmDOC (`compression = 1` **không nén** có chủ ý, `encryptionType = 0`) + MOBI header **232 byte** + EXTH (100 tác giả / 103 mô tả / 503 tên sách / 201 offset bìa).
+* **MOBI là chỗ khó nhất**: `filepos` của mục lục là **offset byte tuyệt đối trong toàn văn**, không thể biết trước khi có đủ text ⇒ text được ghi ra file tạm trước, rồi copy lại theo record 4096 byte trong lúc **vá tại chỗ** chỗ trống 10 chữ số cố định (bất biến: chuỗi vá phải đúng 10 ký tự). `recordCount` là UInt16 nên vượt 65535 record ⇒ `throw .sizeLimitExceeded` thay vì tạo file hỏng.
+* **"Hoàn thành" nay có nghĩa chặt hơn**: chỉ đánh dấu xong khi `finish()` thành công **và** file thật sự tồn tại **và** đường dẫn đã được bền hoá. Xuất thiếu chương không còn im lặng: `DownloadTaskOutcomeCalculator` cho `.failed` khi **0** chương ghi được, còn > 0 thì `.completed` kèm dòng cam `"Đã xuất X/Y chương (thiếu M, lỗi F)"` (nil khi đủ chương, nên sự xuất hiện của dòng này tự mang nghĩa cảnh báo) hiện ở **cả** tracker **và** toast.
+* **Ranh giới Services ↔ Views của share sheet**: tầng Services dừng ở `ExportArtifact` và phát `DownloadPresentationEvent.exportReady(filePath:bookTitle:)` trên `AsyncStream` sẵn có (**không** thêm tên `NotificationCenter` string trần); `AppLaunchRootView` — subscriber UI duy nhất — chuyển cho `ExportShareCoordinator` (Views) mở `UIActivityViewController`. Bản xuất xong lúc app ở background thì share sheet không trình bày được, nên yêu cầu được giữ ở `pendingFileURL` và flush khi `scenePhase == .active` từ `MainTabView`.
+* **Một chủ cho mỗi việc dùng chung** thay vì mỗi renderer tự làm: `ExportParagraphSplitter` (tách đoạn, logic y nguyên `formatChapter` cũ), `ExportTextEscaper` (escape XML cho EPUB/FB2), `ExportStagingFile` (chủ **duy nhất** của quy ước `.part` → `commit()`/`discard()`, `init` xoá `.part` sót lại), `ExportFileNaming` (tên file mang định dạng + mốc thời gian ⇒ **không ghi đè im lặng**), `BigEndianBytes`. `TxtExportFileWriter.swift` (97 dòng) bị xoá, vai trò về `ExportStagingFile`. `renderer` được khai **ngoài** khối `do` nên `discard()` với tới được mọi nhánh thoát; file text tạm của MOBI dọn bằng `defer`.
+* **Không đổi schema SwiftData**: định dạng bền hoá bằng raw value mới của `TaskType` trong cột `taskTypeRaw` sẵn có; `exportStage`/`exportSummary` là field **tạm** trên `DownloadTask` trong RAM (đánh đổi đã biết: mất sau khi khởi động lại app, nhưng nút chia sẻ lại vẫn còn vì `exportFilePath` đã bền hoá). Việc thêm field kiểu `exportOptionsJson` là **điểm dừng thiết kế được báo lại, không tự cài**.
+* **UI**: `TaskOptionsSheet` thêm picker định dạng + dòng mô tả + thống kê chương đã cache; `DownloadTrackerView` thêm dòng bước, dòng tổng kết và nút chia sẻ lại. Nhãn `"Xuất TXT"`/`"Xuất ebook TXT"` → `"Xuất ebook"`. **Đổi hành vi có chủ ý**: nút "Xuất từ chương đã tải" trong tracker nay **mở `TaskOptionsSheet`** (để chọn định dạng) thay vì xếp hàng TXT ngay.
+* Gate: `check_architecture.py` giữ đúng **14 violation** với tập **y hệt** — 21 file mới đều ≤ **207** dòng và đúng 1 type top-level, không entry `architecture_allowlist.json` nào được thêm hay nới. `Sources/Services/Export/**` không `import SwiftUI`, không `import UIKit`, không gọi `ToastManager.shared`, không `import ZIPFoundation`. Không biên dịch tại chỗ (host Windows — `xcodegen generate`/`xcodebuild` chỉ chạy trên macOS) và **chưa** kiểm trên máy thật: **chưa** có máy đọc nào xác nhận 3 file nhị phân mở được. CI chỉ chứng minh *biên dịch được*.
 
 ## [1.3.252] - 2026-08-23
 
@@ -394,29 +412,3 @@ Sửa **tài liệu** (không đụng `Sources/` hay `Tests/`) tại 22 điểm 
 * **Confirmation sheet**: tối đa sáu chương hiển thị toàn bộ; trên sáu chương chỉ render ba đầu, một dòng số chương bị lược và ba cuối. Reanalyze dùng cùng preview.
 * **Chapter search**: bỏ `searchTrans` khỏi ChapterStore API; SQLite và các bộ lọc local BookDetail luôn OR `title`/`titleTrans`, còn toggle dịch chỉ điều khiển presentation. Không migration localBook cũ.
 * Không thay đổi parser, DocumentPicker, nội dung chương hay TOC online; cập nhật CodeGraph tại `00_index.md`, `03_type_graph.md`, `04_call_graph.md`, `06_event_graph.md`, `07_dataflow.md`, và `08_lifecycle.md`.
-
-## [1.3.223] - 2026-08-20
-
-### Không còn khoảng trống giữa wait layer parse TXT và sheet xác nhận
-
-* **`Sources/Views/Shelf/ShelfMain/ShelfView.swift`**: nhánh parse thành công giữ `isParsingTXT` bật sau khi gán `pendingImport`; chỉ tắt khi `TXTImportConfirmationSheet.onAppear`. Nhánh lỗi và cleanup Hủy/Nhập giữ nguyên.
-* **`Sources/Views/Shelf/ShelfMain/TXTImportConfirmationSheet.swift`**: danh sách chương dùng `LazyVStack` và duyệt trực tiếp `parsed.chapters.indices`, tránh dựng/copy toàn bộ row trước khi sheet xuất hiện.
-* Không đổi DocumentPicker, parser, reanalyze hay database import; cập nhật CodeGraph tại `00_index.md`, `04_call_graph.md`, `06_event_graph.md`, và `08_lifecycle.md`.
-
-## [1.3.222] - 2026-08-20
-
-### Toggle dịch đúng cho tác giả/tên chương và history ShelfSearch tự co chiều cao
-
-* **`Sources/Views/Common/BookListItemView.swift`**: tác giả chỉ phiên âm Hán-Việt khi `isTranslationEnabled` bật; khi tắt hiển thị author gốc trên mọi row dùng chung của Shelf/History/ShelfSearch.
-* **`Sources/Views/Reader/ReaderViewModel.swift` / `Sources/Services/ReadingProgress/ReadingProgressStore.swift`**: thêm đường lấy original chapter title riêng cho progress, không persist `CachedChapter.title` đã dịch; snapshot title rỗng được bỏ qua để fallback sang TOC gốc.
-* **`Sources/Views/Shelf/ShelfMain/ShelfView.swift`**: `"Dịch lại tên chương"` chỉ cập nhật `titleTrans`, bỏ ghi bản dịch vào `Book.currentChapterTitle`. Không triển khai migration phục hồi dữ liệu cũ theo yêu cầu người dùng.
-* **`Sources/Views/Shelf/ShelfMain/ShelfSearchView.swift`**: history khớp query co theo tối đa bốn row, không giữ khoảng trống khi không match và chỉ scroll khi vượt bốn kết quả.
-* Không đổi quy chuẩn trong `rules.md`; cập nhật CodeGraph tại `00_index.md`, `04_call_graph.md`, `06_event_graph.md`, và `08_lifecycle.md`.
-
-## [1.3.221] - 2026-08-20
-
-### Upsert rule thay thế TTS khi thêm trùng pattern
-
-* **`Sources/Services/TTS/Preprocessing/TTSReplacementManager.swift`**: `addRule(_:)` xóa toàn bộ rule cũ có cùng pattern chính xác rồi append rule mới xuống cuối và chỉ `saveRules()` một lần; trả `AddRuleResult.added/replaced` với `@discardableResult` để giữ tương thích caller hiện có.
-* **`Sources/Views/Reader/ReaderView.swift`**: dùng kết quả từ manager để Toast phân biệt `"Đã thêm"` và `"Đã cập nhật"` thay thế TTS.
-* Không đổi `updateRule(_:)`, import JSON hay quy chuẩn kiến trúc trong `rules.md`; cập nhật CodeGraph liên quan ở `00_index.md`, `04_call_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.

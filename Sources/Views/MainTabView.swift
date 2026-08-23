@@ -53,6 +53,12 @@ struct MainTabView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                // Bản xuất hoàn thành lúc app ở background: share sheet không trình bày được, được giữ lại
+                // và bàn giao ngay khi app trở lại foreground.
+                ExportShareCoordinator.shared.flushPendingShare()
+                return
+            }
             guard phase == .inactive || phase == .background else { return }
             TTSManager.shared.checkpointForBackground()
             let backgroundSession = BackgroundTaskSession.begin(name: "Flush reading progress")

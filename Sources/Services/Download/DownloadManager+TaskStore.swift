@@ -215,6 +215,34 @@ extension DownloadManager {
         DownloadPresentationEventCenter.shared.send(.showToast(message: "Đã xong: \(type) '\(title)' thành công!", type: .success))
     }
 
+    /// Đổi giai đoạn của một tác vụ xuất. Chỉ là trạng thái hiển thị (không ghi CSDL) nên không cần
+    /// coalesce: mỗi tác vụ đi qua tối đa 3 giai đoạn.
+    @MainActor
+    internal func updateExportStage(taskId: UUID, stage: ExportStage) {
+        guard let index = tasks.firstIndex(where: { $0.id == taskId }) else { return }
+        tasks[index].exportStage = stage
+    }
+
+    /// Kết thúc một tác vụ **xuất**: lưu đường dẫn artifact, ghi dòng tổng kết nếu bản xuất thiếu chương,
+    /// rồi phát `exportReady` để tầng Views mở share sheet.
+    ///
+    /// Tách khỏi `markCompleted` vì tác vụ xuất chỉ được coi là xong khi đã có file thật trên đĩa —
+    /// `DownloadManager.executeTask` kiểm `artifact.exists` trước khi gọi hàm này.
+    @MainActor
+    internal func markExportCompleted(taskId: UUID, artifact: ExportArtifact, summary: String?) {
+        let path = artifact.fileURL.path
+        markCompleted(taskId: taskId, exportFilePath: path)
+        guard let index = tasks.firstIndex(where: { $0.id == taskId }) else { return }
+        tasks[index].exportStage = .readyToShare
+        tasks[index].exportSummary = summary
+        if let summary {
+            DownloadPresentationEventCenter.shared.send(.showToast(message: summary, type: .info))
+        }
+        DownloadPresentationEventCenter.shared.send(
+            .exportReady(filePath: path, bookTitle: tasks[index].bookTitle)
+        )
+    }
+
     @MainActor
     internal func markFailed(taskId: UUID, error: String) {
         guard let index = tasks.firstIndex(where: { $0.id == taskId }) else { return }

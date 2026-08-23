@@ -96,6 +96,8 @@ struct AppLaunchRootView: View {
                 switch event {
                 case .showToast(let msg, let type):
                     ToastManager.shared.show(message: msg, type: type)
+                case .exportReady(let filePath, let bookTitle):
+                    ExportShareCoordinator.shared.requestShare(filePath: filePath, bookTitle: bookTitle)
                 }
             }
         }

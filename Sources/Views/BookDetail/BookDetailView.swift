@@ -711,7 +711,7 @@ struct BookDetailView: View {
                                 prepareForTask(taskType: .exportTxt)
                             }) {
                                 HStack {
-                                    Text("Xuất TXT")
+                                    Text("Xuất ebook")
                                         .font(.caption)
                                         .fontWeight(.bold)
                                     Image(systemName: "square.and.arrow.up.fill")

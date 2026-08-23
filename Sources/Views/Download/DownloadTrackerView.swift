@@ -24,7 +24,7 @@ struct DownloadTrackerView: View {
                         .font(.title3)
                         .fontWeight(.semibold)
                     
-                    Text("Các tác vụ tải truyện đọc offline và xuất ebook file TXT chạy nền sẽ hiển thị ở đây.")
+                    Text("Các tác vụ tải truyện đọc offline và xuất ebook (TXT, EPUB, FB2, MOBI) chạy nền sẽ hiển thị ở đây.")
                         .font(.subheadline)
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
@@ -80,16 +80,31 @@ struct DownloadTrackerView: View {
                         ProgressView(value: Double(task.progressCount), total: Double(max(1, task.totalCount)))
                             .tint(.blue)
                             .scaleEffect(x: 1, y: 0.8, anchor: .center)
-                        
+
                         Text("Tiến độ: \(task.progressCount)/\(task.totalCount) chương")
                             .font(.caption2)
                             .foregroundColor(.secondary)
+
+                        // Giai đoạn của tác vụ xuất: chương cuối chạy xong không còn là khoảng im lặng
+                        // không giải thích được nữa (renderer đang đóng file / dựng mục lục).
+                        if let stage = task.exportStage {
+                            Text(stage.displayName)
+                                .font(.caption2)
+                                .foregroundColor(.orange)
+                        }
                     }
                     .padding(.top, 2)
                 } else if task.status == .completed {
                     Text("Đã xử lý \(task.progressCount) chương thành công")
                         .font(.caption)
                         .foregroundColor(.secondary)
+
+                    // Bản xuất thiếu chương phải nói rõ thiếu bao nhiêu, không im lặng báo "hoàn thành".
+                    if let summary = task.exportSummary {
+                        Text(summary)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
                 } else if task.status == .failed, let error = task.errorMessage {
                     Text("Lỗi: \(error)")
                         .font(.caption)
@@ -139,7 +154,7 @@ struct DownloadTrackerView: View {
                 Button {
                     downloadManager.shareExportedFile(taskId: task.id)
                 } label: {
-                    Label("Xuất / Chia sẻ file TXT", systemImage: "square.and.arrow.up")
+                    Label("Chia sẻ lại file đã xuất", systemImage: "square.and.arrow.up")
                 }
             }
 
@@ -187,22 +202,16 @@ struct DownloadTrackerView: View {
             .cornerRadius(4)
     }
     
+    /// Mở sheet tuỳ chọn với "Chỉ xuất chương đã tải" bật sẵn.
+    ///
+    /// Từ 1.3.253 đường này **không** enqueue thẳng `.exportTxt` nữa: có 4 định dạng nên người dùng phải
+    /// được chọn định dạng trước, và sheet tuỳ chọn cũng cho biết trước bản xuất offline thiếu bao nhiêu chương.
     private func exportFromCached(_ task: DownloadTask) {
         let allBooks = (try? modelContext.fetch(FetchDescriptor<Book>())) ?? []
         if let book = allBooks.first(where: { $0.bookId == task.bookId }) {
-            DownloadManager.shared.enqueueTask(
-                book: book,
-                taskType: .exportTxt,
-                startFromCurrent: false,
-                limit: .all,
-                translate: false,
-                onlyExportCached: true,
-                container: modelContext.container
-            )
-            let displayTitle = isTranslationEnabled
-                ? TranslateUtils.translateBookTitleIfNeeded(book.title, bookId: book.bookId)
-                : book.title
-            ToastManager.shared.show(message: "Đã thêm tác vụ xuất '\(displayTitle)' từ các chương đã tải.")
+            selectedTaskType = .exportTxt
+            defaultOnlyExportCached = true
+            selectedBookForTask = book
         }
     }
 }

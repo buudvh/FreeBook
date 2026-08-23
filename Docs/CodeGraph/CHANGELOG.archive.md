@@ -1,6 +1,32 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.220) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.223) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.223] - 2026-08-20
+
+### Không còn khoảng trống giữa wait layer parse TXT và sheet xác nhận
+
+* **`Sources/Views/Shelf/ShelfMain/ShelfView.swift`**: nhánh parse thành công giữ `isParsingTXT` bật sau khi gán `pendingImport`; chỉ tắt khi `TXTImportConfirmationSheet.onAppear`. Nhánh lỗi và cleanup Hủy/Nhập giữ nguyên.
+* **`Sources/Views/Shelf/ShelfMain/TXTImportConfirmationSheet.swift`**: danh sách chương dùng `LazyVStack` và duyệt trực tiếp `parsed.chapters.indices`, tránh dựng/copy toàn bộ row trước khi sheet xuất hiện.
+* Không đổi DocumentPicker, parser, reanalyze hay database import; cập nhật CodeGraph tại `00_index.md`, `04_call_graph.md`, `06_event_graph.md`, và `08_lifecycle.md`.
+
+## [1.3.222] - 2026-08-20
+
+### Toggle dịch đúng cho tác giả/tên chương và history ShelfSearch tự co chiều cao
+
+* **`Sources/Views/Common/BookListItemView.swift`**: tác giả chỉ phiên âm Hán-Việt khi `isTranslationEnabled` bật; khi tắt hiển thị author gốc trên mọi row dùng chung của Shelf/History/ShelfSearch.
+* **`Sources/Views/Reader/ReaderViewModel.swift` / `Sources/Services/ReadingProgress/ReadingProgressStore.swift`**: thêm đường lấy original chapter title riêng cho progress, không persist `CachedChapter.title` đã dịch; snapshot title rỗng được bỏ qua để fallback sang TOC gốc.
+* **`Sources/Views/Shelf/ShelfMain/ShelfView.swift`**: `"Dịch lại tên chương"` chỉ cập nhật `titleTrans`, bỏ ghi bản dịch vào `Book.currentChapterTitle`. Không triển khai migration phục hồi dữ liệu cũ theo yêu cầu người dùng.
+* **`Sources/Views/Shelf/ShelfMain/ShelfSearchView.swift`**: history khớp query co theo tối đa bốn row, không giữ khoảng trống khi không match và chỉ scroll khi vượt bốn kết quả.
+* Không đổi quy chuẩn trong `rules.md`; cập nhật CodeGraph tại `00_index.md`, `04_call_graph.md`, `06_event_graph.md`, và `08_lifecycle.md`.
+
+## [1.3.221] - 2026-08-20
+
+### Upsert rule thay thế TTS khi thêm trùng pattern
+
+* **`Sources/Services/TTS/Preprocessing/TTSReplacementManager.swift`**: `addRule(_:)` xóa toàn bộ rule cũ có cùng pattern chính xác rồi append rule mới xuống cuối và chỉ `saveRules()` một lần; trả `AddRuleResult.added/replaced` với `@discardableResult` để giữ tương thích caller hiện có.
+* **`Sources/Views/Reader/ReaderView.swift`**: dùng kết quả từ manager để Toast phân biệt `"Đã thêm"` và `"Đã cập nhật"` thay thế TTS.
+* Không đổi `updateRule(_:)`, import JSON hay quy chuẩn kiến trúc trong `rules.md`; cập nhật CodeGraph liên quan ở `00_index.md`, `04_call_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
 
 ## [1.3.220] - 2026-08-20
 

@@ -1,6 +1,5 @@
 import Foundation
 import SwiftData
-import UIKit
 
 public enum ChapterLimitOption: Int, CaseIterable, Codable {
     case all = 0
@@ -25,10 +24,29 @@ public enum ChapterLimitOption: Int, CaseIterable, Codable {
     }
 }
 
+/// Loại tác vụ. `rawValue` được ghi vào `DownloadTaskModel.taskTypeRaw`, nên đây cũng là chỗ **định dạng
+/// xuất được lưu bền** — không cần thêm cột mới vào schema SwiftData. Giữ nguyên hai raw value cũ để tác vụ
+/// đã lưu trước 1.3.253 vẫn đọc lại đúng.
 public enum TaskType: String, Codable, Identifiable {
     case download = "Tải truyện"
     case exportTxt = "Xuất ebook TXT"
+    case exportEpub = "Xuất ebook EPUB"
+    case exportFb2 = "Xuất ebook FB2"
+    case exportMobi = "Xuất ebook MOBI"
     public var id: String { self.rawValue }
+
+    /// Định dạng cần render; `nil` nghĩa là tác vụ chỉ tải/cache chứ không tạo file.
+    public var exportFormat: BookExportFormat? {
+        switch self {
+        case .download: return nil
+        case .exportTxt: return .txt
+        case .exportEpub: return .epub3
+        case .exportFb2: return .fb2
+        case .exportMobi: return .mobi
+        }
+    }
+
+    public var isExport: Bool { exportFormat != nil }
 }
 
 public enum TaskStatus: String, Codable {
@@ -58,6 +76,10 @@ public struct DownloadTask: Identifiable {
     public let translate: Bool
     public let onlyExportCached: Bool
     public var exportFilePath: String? = nil
+    /// Giai đoạn của tác vụ xuất (`nil` với tác vụ tải). Trạng thái tạm thời, không lưu CSDL.
+    public var exportStage: ExportStage? = nil
+    /// Tổng kết `đã xuất/thiếu/lỗi` khi bản xuất không đủ chương. Cũng là trạng thái tạm thời.
+    public var exportSummary: String? = nil
 }
 
 public final class DownloadManager: ObservableObject {
@@ -235,9 +257,8 @@ public final class DownloadManager: ObservableObject {
             }
         }
 
-        // Ghi dần bản xuất TXT ra đĩa thay cho bộ đệm chuỗi cũ (giữ cả file trong RAM). Khai ngoài `do`
-        // để mọi nhánh lỗi/huỷ đều dọn được file `.part` dở dang.
-        var exportWriter: TxtExportFileWriter?
+        // Renderer ghi dần bản xuất ra đĩa. Khai ngoài `do` để mọi nhánh lỗi/huỷ đều dọn được file tạm.
+        var renderer: ExportRenderer?
 
         do {
             // 1. Fetch Book by filtering in memory to avoid SwiftData #Predicate compiler bugs
@@ -286,97 +307,51 @@ public final class DownloadManager: ObservableObject {
             let total = chapsToProcess.count
             await self.updateProgress(taskId: taskId, progress: 0, total: total)
 
-            var cachedCount = 0
-            var skippedUncachedCount = 0
-            var uncachedAttemptCount = 0
-            var savedCount = 0
-            var failedCount = 0
-            var processedCount = 0
-            if task.taskType == .exportTxt {
-                exportWriter = try TxtExportFileWriter(bookTitle: bgBook.title)
+            let exportFormat = task.taskType.exportFormat
+            if let exportFormat {
+                // Bìa lấy trực tiếp từ file JPEG đã cache (`loadLocalCover` trả `UIImage`, ở đây cần bytes).
+                var coverData: Data? = nil
+                if exportFormat.supportsCover {
+                    coverData = try? Data(contentsOf: ImageCacheManager.shared.localCoverURL(for: bgBook.bookId))
+                }
+                let request = BookExportRequest(
+                    format: exportFormat,
+                    bookId: bgBook.bookId,
+                    bookTitle: bgBook.title,
+                    author: bgBook.author,
+                    desc: bgBook.desc,
+                    coverJpegData: coverData,
+                    translate: task.translate,
+                    cacheOnly: task.onlyExportCached,
+                    plannedChapterCount: total
+                )
+                renderer = try ExportRendererFactory.makeRenderer(for: request)
+                await self.updateExportStage(taskId: taskId, stage: .fetchingChapters)
             }
 
-            for chapter in chapsToProcess {
-                let targetChapterTitle = chapter.title
-                let targetChapterUrl = chapter.url
-                let isChapterCached = chapter.isCached
+            // Cùng một provider cho tải và xuất: khác biệt duy nhất là `skipUncached`.
+            let provider = ExportContentProvider(
+                bookId: bgBook.bookId,
+                worker: worker,
+                skipUncached: exportFormat != nil && task.onlyExportCached
+            )
+            var processedCount = 0
 
+            for chapter in chapsToProcess {
                 // Không hop MainActor chỉ để hỏi cờ huỷ nữa: `activeTasks[taskId]` được gán ngay sau
                 // `Task.detached`, và mọi đường huỷ (`cancelTask`, `cancelTasksForBook`, `deleteTask`) đều gọi
                 // `handle.cancel()` ⇒ `Task.isCancelled` đã phủ hết. Đọc `cancelledTaskIds` từ đây còn là một
                 // truy cập `Set` không đồng bộ hoá.
                 if Task.isCancelled {
-                    exportWriter?.discard()
+                    renderer?.discard()
                     await self.markCancelled(taskId: taskId)
                     return
                 }
 
-                // Đọc nội dung cache từ file .bin nếu đã được lưu offline
-                var cachedContent: String? = nil
-                if isChapterCached && chapter.length > 0 {
-                    cachedContent = try? await BookBinManager.shared.readChapterContent(bookId: bgBook.bookId, offset: chapter.offset, length: chapter.length)
-                }
+                let acquisition = try await provider.acquire(chapter: chapter)
 
-                var originalContent = ""
-
-                if isChapterCached, let existingContent = cachedContent, !existingContent.isEmpty {
-                    cachedCount += 1
-                    originalContent = existingContent
-                } else if task.taskType == .exportTxt && task.onlyExportCached {
-                    skippedUncachedCount += 1
-                    processedCount += 1
-                    await self.updateProgress(taskId: taskId, progress: processedCount, total: total)
-                    continue
-                } else {
-                    uncachedAttemptCount += 1
-                    do {
-                        guard let worker = worker else {
-                            failedCount += 1
-                            processedCount += 1
-                            await self.updateProgress(taskId: taskId, progress: processedCount, total: total)
-                            continue
-                        }
-
-                        // Download from extension via single sequential worker
-                        let content = try await worker.fetchChapterContent(
-                            url: targetChapterUrl,
-                            host: chapter.host
-                        )
-                        let cleaned = content.cleanHTML()
-
-                        if cleaned.isEmpty {
-                            failedCount += 1
-                        } else if let (offset, length) = try? await BookBinManager.shared.writeChapterContent(bookId: bgBook.bookId, content: cleaned) {
-                            let meta = ChapterMetadataSnapshot(title: chapter.title, url: targetChapterUrl, index: chapter.index, host: chapter.host, titleTrans: chapter.titleTrans)
-                            do {
-                                try await ChapterStore.shared.upsertCachedChapter(
-                                    bookId: bgBook.bookId,
-                                    metadata: meta,
-                                    isCached: true,
-                                    offset: offset,
-                                    length: length
-                                )
-
-                                savedCount += 1
-                                originalContent = cleaned
-                            } catch {
-                                failedCount += 1
-                            }
-                        } else {
-                            failedCount += 1
-                        }
-                    } catch is CancellationError {
-                        exportWriter?.discard()
-                        await self.markCancelled(taskId: taskId)
-                        return
-                    } catch {
-                        failedCount += 1
-                    }
-                }
-
-                if task.taskType == .exportTxt && !originalContent.isEmpty {
-                    // Format for TXT
-                    var titleToExport = targetChapterTitle
+                if case .content(let originalContent) = acquisition, renderer != nil {
+                    var titleToExport = chapter.title
                     var contentToExport = originalContent
 
                     if task.translate {
@@ -384,7 +359,12 @@ public final class DownloadManager: ObservableObject {
                         contentToExport = TranslateUtils.translateContent(contentToExport, bookId: bgBook.bookId)
                     }
 
-                    try exportWriter?.append(formatChapter(title: titleToExport, content: contentToExport))
+                    let payload = ExportChapterPayload(
+                        ordinal: (renderer?.writtenChapterCount ?? 0) + 1,
+                        title: titleToExport,
+                        content: contentToExport
+                    )
+                    try renderer?.append(payload)
                 }
 
                 processedCount += 1
@@ -392,51 +372,56 @@ public final class DownloadManager: ObservableObject {
             }
 
             // 4. Save and finish outcome
-            AppLogger.shared.log("📊 [DownloadManager] Tác vụ \(taskId) hoàn tất xử lý: cachedCount=\(cachedCount), savedCount=\(savedCount), skippedUncachedCount=\(skippedUncachedCount), uncachedAttemptCount=\(uncachedAttemptCount), failedCount=\(failedCount)")
+            let tally = provider.tally
+            AppLogger.shared.log("📊 [DownloadManager] Tác vụ \(taskId) hoàn tất xử lý: cachedCount=\(tally.cached), savedCount=\(tally.saved), skippedUncachedCount=\(tally.skippedUncached), uncachedAttemptCount=\(tally.uncachedAttempt), failedCount=\(tally.failed)")
+            let renderedChapterCount = renderer?.writtenChapterCount ?? 0
             let outcome = DownloadTaskOutcomeCalculator.calculateOutcome(
-                taskType: task.taskType,
-                uncachedAttemptCount: uncachedAttemptCount,
-                savedCount: savedCount,
-                failedCount: failedCount,
-                isExportTxtEmpty: exportWriter?.hasNoContent ?? true
+                isExport: renderer != nil,
+                uncachedAttemptCount: tally.uncachedAttempt,
+                savedCount: tally.saved,
+                failedCount: tally.failed,
+                skippedUncachedCount: tally.skippedUncached,
+                renderedChapterCount: renderedChapterCount
             )
 
             switch outcome {
             case .completed:
-                if let exportWriter {
-                    let fileURL = try exportWriter.finish()
-                    let savedPath = fileURL.path
-                    await MainActor.run {
-                        self.markCompleted(taskId: taskId, exportFilePath: savedPath)
-                        self.presentShareSheet(for: fileURL)
+                if let renderer {
+                    await self.updateExportStage(taskId: taskId, stage: .renderingFile)
+                    let artifact = try renderer.finish()
+                    // Chỉ báo hoàn thành khi file **thật sự** nằm trên đĩa — trước đây chỉ cần
+                    // `finish()` không ném là đã đánh `completed`.
+                    guard artifact.exists else {
+                        throw ExportRenderError.cannotCreateFile(artifact.fileURL.path)
                     }
+                    let summary = DownloadTaskOutcomeCalculator.exportSummary(
+                        plannedCount: total,
+                        renderedChapterCount: renderedChapterCount,
+                        skippedUncachedCount: tally.skippedUncached,
+                        failedCount: tally.failed
+                    )
+                    await self.markExportCompleted(taskId: taskId, artifact: artifact, summary: summary)
                 } else {
                     await self.markCompleted(taskId: taskId)
                 }
             case .failed(let message):
-                exportWriter?.discard()
+                renderer?.discard()
                 await self.markFailed(taskId: taskId, error: message)
             }
 
         } catch is CancellationError {
-            exportWriter?.discard()
+            renderer?.discard()
             await self.markCancelled(taskId: taskId)
         } catch {
-            exportWriter?.discard()
+            renderer?.discard()
             await self.markFailed(taskId: taskId, error: error.localizedDescription)
         }
     }
 
-    private func formatChapter(title: String, content: String) -> String {
-        let paragraphs = content.components(separatedBy: .newlines)
-        let formattedParagraphs = paragraphs
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .map { "    " + $0 }
-            .joined(separator: "\n\n")
-        return "\(title)\n\n\(formattedParagraphs)"
-    }
-
+    /// Mở lại share sheet cho một bản xuất đã hoàn thành (nút "Chia sẻ" trên trình theo dõi).
+    ///
+    /// Chỉ **phát event**: `DownloadManager` không còn tự đi tìm `rootViewController` nữa, việc trình bày
+    /// thuộc `ExportShareCoordinator` ở tầng Views.
     @MainActor
     public func shareExportedFile(taskId: UUID) {
         guard let task = tasks.first(where: { $0.id == taskId }),
@@ -445,40 +430,8 @@ public final class DownloadManager: ObservableObject {
             DownloadPresentationEventCenter.shared.send(.showToast(message: "Tệp xuất không tồn tại hoặc đã bị xóa.", type: .error))
             return
         }
-        let fileURL = URL(fileURLWithPath: path)
-        presentShareSheet(for: fileURL)
-    }
-
-    @MainActor
-    public func presentShareSheet(for fileURL: URL) {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        guard let windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first,
-              let window = windowScene.windows.first(where: { $0.isKeyWindow }) ?? windowScene.windows.first,
-              let rootVC = window.rootViewController else {
-            AppLogger.shared.log("⚠️ [DownloadManager] Không tìm thấy rootViewController để mở share sheet.")
-            return
-        }
-
-        var topVC = rootVC
-        while let presented = topVC.presentedViewController {
-            topVC = presented
-        }
-
-        if topVC.isBeingPresented || topVC.isBeingDismissed {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self.presentShareSheet(for: fileURL)
-            }
-            return
-        }
-
-        let activityVC = UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)
-
-        if let popoverController = activityVC.popoverPresentationController {
-            popoverController.sourceView = topVC.view
-            popoverController.sourceRect = CGRect(x: topVC.view.bounds.midX, y: topVC.view.bounds.midY, width: 0, height: 0)
-            popoverController.permittedArrowDirections = []
-        }
-
-        topVC.present(activityVC, animated: true, completion: nil)
+        DownloadPresentationEventCenter.shared.send(
+            .exportReady(filePath: path, bookTitle: task.bookTitle)
+        )
     }
 }
