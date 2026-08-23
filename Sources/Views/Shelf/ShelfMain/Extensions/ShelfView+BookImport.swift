@@ -229,6 +229,16 @@ extension ShelfView {
                         length: length
                     )
 
+                    // Truyện nhập cục bộ không bao giờ đi qua ChapterPersistenceStore, nên phải tự
+                    // đưa nội dung vào chỉ mục tìm toàn văn ở đây.
+                    await ChapterSearchIndex.shared.indexChapter(
+                        bookId: newBookId,
+                        chapterIndex: meta.index,
+                        chapterUrl: meta.url,
+                        chapterTitle: meta.title,
+                        content: chapData.content
+                    )
+
                     if ChapterStoreConfiguration.enableSwiftDataTOCWrite {
                         let res = BookTransactionCoordinator.shared.insertChapterDTO(bookId: newBook.bookId, title: chapData.title, url: meta.url, index: idx, isCached: true, offset: offset, length: length, titleTrans: meta.titleTrans, in: self.modelContext)
                         if case .failure(let err) = res {

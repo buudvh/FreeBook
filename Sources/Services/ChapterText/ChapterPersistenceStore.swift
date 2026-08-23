@@ -721,6 +721,17 @@ actor ChapterPersistenceStore {
             length: length
         )
 
+        // Chỉ mục tìm toàn văn: ghi **đúng chuỗi** vừa vào `.bin` để đoạn tìm ra trùng đoạn Reader
+        // hiển thị. Không throw ra ngoài — chỉ mục là dữ liệu dựng lại được, lỗi của nó không được
+        // làm hỏng việc lưu chương.
+        await ChapterSearchIndex.shared.indexChapter(
+            bookId: bookId,
+            chapterIndex: metadata.index,
+            chapterUrl: metadata.url,
+            chapterTitle: metadata.title,
+            content: content
+        )
+
         let context = ModelContext(container)
         let book: Book
 

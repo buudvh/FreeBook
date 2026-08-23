@@ -206,6 +206,8 @@ struct SettingsView: View {
 
                 NewChapterSettingsSection()
 
+                ChapterSearchSettingsSection()
+
                 BackupSettingsSection()
 
                 Section(header: Text("Cấu Hình Ghi Log")) {

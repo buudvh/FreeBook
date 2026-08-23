@@ -1,6 +1,13 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.226) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.227) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.227] - 2026-08-20
+
+### Mở rộng vùng bấm lịch sử tìm kiếm
+
+* **`ShelfSearchView.historyView` / `SearchView.searchHistoryView`**: label nút chọn lịch sử chiếm toàn bộ chiều rộng còn lại và dùng `Rectangle` cho hit testing, nên vùng trống trước nút `x` có thể bấm được.
+* Giữ nút xóa độc lập và không đổi action chọn lịch sử, layout row, scroll hay logic lọc; cập nhật CodeGraph tại `00_index.md` và `06_event_graph.md`.
 
 ## [1.3.226] - 2026-08-20
 

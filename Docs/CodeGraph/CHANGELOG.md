@@ -2,7 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.226) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.227) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.257] - 2026-08-23
+
+### Tìm toàn văn offline cho chương đã tải
+
+Tìm theo **nội dung** chương đã có trên máy (truyện nhập cục bộ và chương online đã cache), trả về snippet + đúng chương + đúng đoạn để mở Reader ngay tại chỗ. Thêm **10** file Swift (334 → 344), **không** `@Model` nào đổi shape, **không** thêm dependency, tính năng **mặc định tắt**.
+
+* **Phân hệ mới `Sources/Services/Search/` (7 file) là chủ sở hữu duy nhất của chỉ mục**, đặt ở `applicationSupportDirectory/search/chapter_search.sqlite` — file sqlite **thứ ba** của app, tách hẳn khỏi `chapters/chapter_store.sqlite` để bật/tắt/xoá chỉ mục không bao giờ đụng tới mục lục thật. Bảy vai rời nhau: `ChapterSearchPolicy` (nguồn duy nhất của mọi hằng + cờ bật), `ChapterSearchIndexPath`, `ChapterSearchIndexDatabase` (chỗ duy nhất `import SQLite3` ngoài `ChapterStoreDatabase`), `ChapterSearchHit`, `ChapterSearchSnippetBuilder`, `ChapterSearchIndex` (actor, cửa duy nhất ra ngoài), `ChapterSearchIndexBuilder`.
+* **Tokenizer là `trigram`, và đó là lý do mặc định TẮT**: đây là tokenizer built-in duy nhất khớp được chuỗi con cho tiếng Trung/Việt không dấu cách, nhưng nó lưu cả nội dung nên chỉ mục phình vài lần dung lượng text. Vì vậy có màn riêng để bật/dựng/xoá, hiện dung lượng thật, và truy vấn **bắt buộc ≥ 3 ký tự** (`minimumQueryLength`) vì trigram không match nổi chuỗi ngắn hơn.
+* **Hai bảng chứ không một bảng FTS5 có cột `UNINDEXED`**: `chapter_doc` (khoá + `book_id` có index) và `chapter_fts` (chỉ text), vì `DELETE … WHERE book_id = ?` trên bảng FTS5 là full scan. Cạm bẫy đã gặp: FTS5 nhận `MATCH` theo **tên bảng**, đặt alias cho `chapter_fts` là SQLite báo "no such column".
+* **Đoạn trả về khớp đúng đoạn Reader hiển thị**: `ChapterSearchSnippetBuilder` chạy `ChapterTextNormalizer.normalize` — **đúng biến thể có lọc rác** mà `ChapterContentRepository.makeDocument` dùng — nên `line.id` bằng thẳng `ParagraphItem.id`. `ChapterSearchHit.paragraphIndex` đi tiếp qua `ShelfReaderRoute.paragraphIndex` → `ReaderView.initialParagraphIndex` **không qua một phép ánh xạ toạ độ nào**. Đổi sang `normalizeProcessedContent` là vỡ ngầm bất biến này.
+* **Index incremental gắn ở đúng 4 chỗ ghi nội dung và 3 chỗ xoá**, không có đường ghi `.bin` nào bỏ sót: `ChapterPersistenceStore.upsert`, `ShelfView+BookImport`, `BackupChapterRestorer`, `ExportContentProvider`; xoá qua `BookStorageManager`. Mọi lời gọi ghi chỉ mục là `async` và **không bao giờ throw** — thất bại chỉ vào `AppLogger`, nên `SERVICE_TOAST_COUPLING` giữ nguyên và một chỉ mục lỗi không bao giờ làm hỏng lượt ghi chương.
+* **Kết quả được đối chiếu lại với mục lục hiện tại** trước khi hiện: hit còn URL nhưng đổi số chương ⇒ sửa số; biến mất khỏi mục lục ⇒ bỏ hit. `removeBook` **không** gác theo cờ bật/tắt để tắt tính năng rồi xoá truyện vẫn không để lại rác.
+* CodeGraph: `00_index`, `02_file_graph`, `09_dependency_rules`, `11_subsystems`, `14_complexity_report`. `check_architecture.py` giữ đúng **14 violation** với tập vi phạm y hệt, không thêm allowlist entry (file mới lớn nhất `ChapterSearchIndexDatabase.swift` **397/400**); host là Windows nên không `xcodegen generate`/`xcodebuild` tại chỗ, biên dịch do CI xác nhận.
 
 ## [1.3.256] - 2026-08-23
 
@@ -422,10 +436,3 @@ Sửa **tài liệu** (không đụng `Sources/` hay `Tests/`) tại 22 điểm 
 * **`Sources/Views/Discovery/DiscoveryView.swift`**: Khai báo `DiscoveryDetailRoute` tuân thủ `Identifiable, Hashable` giữ các thuộc tính bất biến (`bookId`, `extensionPackageId`, `initialDetailUrl`, `sourceName`, `initialHost`); di chuyển `@State selectedDetailRoute` và `.navigationDestination(item: $selectedDetailRoute)` từ `DiscoveryCategoryTabView` lên root `NavigationStack` trong `DiscoveryView`.
 * **`DiscoveryCategoryTabView`**: Bỏ `@State selectedNovel` và `.navigationDestination` cục bộ, nhận callback `onSelectNovel: (ExtensionItemResult) -> Void` từ view cha khi bấm vào một hàng truyện.
 * Bảo toàn route state không bị reset hay tháo gỡ khi swiping tab Home trong `TabView`; cập nhật CodeGraph tại `00_index.md`, `06_event_graph.md`, và `12_ownership_graph.md`.
-
-## [1.3.227] - 2026-08-20
-
-### Mở rộng vùng bấm lịch sử tìm kiếm
-
-* **`ShelfSearchView.historyView` / `SearchView.searchHistoryView`**: label nút chọn lịch sử chiếm toàn bộ chiều rộng còn lại và dùng `Rectangle` cho hit testing, nên vùng trống trước nút `x` có thể bấm được.
-* Giữ nút xóa độc lập và không đổi action chọn lịch sử, layout row, scroll hay logic lọc; cập nhật CodeGraph tại `00_index.md` và `06_event_graph.md`.
