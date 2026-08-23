@@ -2,7 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.223) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.224) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.254] - 2026-08-23
+
+### Sao lưu và khôi phục ảnh bìa của truyện nhập từ file
+
+Truyện nhập từ file (TXT/EPUB/HTML/MOBI/DOCX/FB2) lưu bìa **chỉ** ở `covers/<sha256(bookId)>.jpg` với `coverUrl` rỗng, nên archive `.fbbackup` trước đây khôi phục xong là mất bìa vĩnh viễn. Thêm **1** file Swift (323 → 324), **không** `@Model` nào đổi shape, **không** phá tương thích file sao lưu cũ.
+
+* **`BackupCoverArchiver` (80 dòng) là chủ duy nhất của entry `covers/<slug>.jpg`**, giữ cả hai chiều xuất/khôi phục trong một file để tên entry không lệch — cùng lý do `BackupPaths` tồn tại. `BackupExportWorker` và `BackupRestoreWorker` mỗi bên chỉ gọi một hàm.
+* **Tiêu chí là "tải lại được hay không"**, không phải "sách local hay không": `BookRecord.hasUnrecoverableCover` = `coverUrl` không bắt đầu bằng `http(s)`. Nhờ vậy bìa người dùng tự chọn cho truyện online (`BookInfoEditView` cũng để `coverUrl` rỗng) được cứu luôn, còn bìa online tải lại được vẫn bị bỏ qua để archive không phình vài chục MB.
+* **Không thêm case `BackupScope`** — rawValue của scope nằm trong `manifest.scopes`, thêm case là bản app cũ đọc file mới decode lỗi. Bìa vì vậy đi kèm nhóm bắt buộc `books`, không có toggle riêng.
+* **`BackupManifest.Counts` thêm `covers` kèm `CodingKeys` + `init(from:)` viết tay** dùng `decodeIfPresent(...) ?? 0` cho **mọi** khoá: decoder tổng hợp của Swift **không** dùng giá trị mặc định của thuộc tính, thiếu bước này là mọi `.fbbackup` cũ decode lỗi.
+* **Khôi phục vẫn thuần gộp**: máy đang có bìa thì giữ bìa của máy (`skippedCovers`), chỉ điền chỗ thiếu ⇒ khôi phục lại cùng một file vẫn idempotent. Byte JPEG chép nguyên qua `ImageCacheManager.localCoverURL(for:)`, **không** qua `saveCover` (hàm đó giải mã `UIImage` rồi nén lại, và sẽ kéo `UIKit` vào tầng Services).
+* **UI/telemetry**: `BackupProgress.Phase` 17 → **19** pha (`copyingCovers`, `restoringCovers`); `RestoreOptionsSheet` thêm hàng "Ảnh bìa truyện nhập" (ẩn khi `counts.covers == 0` nên archive cũ không hiện số 0); toast khôi phục cộng thêm số bìa khi > 0; log xuất/khôi phục ghi số bìa. `BackupSizeEstimator` **giữ nguyên** vì `covers/` lẫn cả bìa online.
+* CodeGraph: `00_index`, `02_file_graph`, `09_dependency_rules`, `11_subsystems` (gạch bỏ câu "không có nhóm ảnh bìa: bìa tải lại được từ `coverUrl`" đã sai), `14_complexity_report`. `check_architecture.py` **14 → 14 violation** đúng cùng một tập; host Windows nên không build tại chỗ, biên dịch do CI xác nhận.
 
 ## [1.3.253] - 2026-08-23
 
@@ -403,12 +417,3 @@ Sửa **tài liệu** (không đụng `Sources/` hay `Tests/`) tại 22 điểm 
 
 * **`Sources/Views/Search/SearchView.swift`**: thêm `searchableExtensions = activeExtensions.filter { $0.type != "tts" }`; chế độ tất cả nguồn dùng tập này cho task search, source state, render kết quả và `Xem thêm`.
 * Không đổi tìm một nguồn cụ thể, public API, model hay chính sách lọc của caller; cập nhật CodeGraph tại `00_index.md`, `04_call_graph.md`, `06_event_graph.md`, và `07_dataflow.md`.
-
-## [1.3.224] - 2026-08-20
-
-### Persist titleTrans cho local TXT, preview bounded và search hai cột
-
-* **TXT import**: `ParserChapter`/`ParsedBook` trở thành `Sendable`; `ShelfView.performImport` dịch title và dựng toàn bộ metadata trong `Task.detached`, persist `titleTrans` cùng title gốc và tái sử dụng snapshot khi ghi cache. `BookTransactionCoordinator.insertChapterDTO` nhận thêm `titleTrans` optional cho nhánh SwiftData dự phòng.
-* **Confirmation sheet**: tối đa sáu chương hiển thị toàn bộ; trên sáu chương chỉ render ba đầu, một dòng số chương bị lược và ba cuối. Reanalyze dùng cùng preview.
-* **Chapter search**: bỏ `searchTrans` khỏi ChapterStore API; SQLite và các bộ lọc local BookDetail luôn OR `title`/`titleTrans`, còn toggle dịch chỉ điều khiển presentation. Không migration localBook cũ.
-* Không thay đổi parser, DocumentPicker, nội dung chương hay TOC online; cập nhật CodeGraph tại `00_index.md`, `03_type_graph.md`, `04_call_graph.md`, `06_event_graph.md`, `07_dataflow.md`, và `08_lifecycle.md`.

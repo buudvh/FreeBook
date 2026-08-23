@@ -15,6 +15,19 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ảnh bìa vào archive `.fbbackup`: một chủ, không thêm nhóm (1.3.254)
+
+* **Entry mới trong cây archive**, khai ở `BackupPaths.cover(slug:)` như mọi entry khác:
+
+```
+covers/<slug>.jpg                          bìa của truyện nhập từ file (không tải lại được)
+```
+
+* **`BackupCoverArchiver` là chủ duy nhất của entry này**, giữ **cả hai** chiều trong một file để tên entry không lệch giữa xuất và khôi phục — cùng lý do `BackupPaths` tồn tại. `BackupExportWorker` và `BackupRestoreWorker` mỗi bên chỉ gọi một hàm; không bên nào tự dựng `"covers/…"`.
+* **Tiêu chí chọn là "tải lại được hay không", không phải "sách local hay không"**: `BookRecord.hasUnrecoverableCover` = `coverUrl` không bắt đầu bằng `http://`/`https://`. Truyện nhập từ file có bìa nằm **chỉ** ở `covers/<sha256(bookId)>.jpg` với `coverUrl` rỗng nên mất backup là mất bìa; truyện online thì `BookCoverView` tự tải lại, gom vào chỉ làm archive phình. Cố ý **không** nhân bản `Book.isLocalBook` vào DTO: bìa người dùng tự chọn cho truyện online (`BookInfoEditView`) cũng có `coverUrl` rỗng và cũng cần được cứu.
+* **Không thêm `BackupScope`** — rawValue của scope được ghi vào `manifest.scopes`, thêm case là bản app cũ đọc file mới bị lỗi. Bìa vì vậy thuộc nhóm bắt buộc `books`. `BackupManifest.Counts` thì thêm được `covers` **với điều kiện** có `init(from:)` viết tay (`decodeIfPresent(...) ?? 0`) — decoder tổng hợp của Swift không dùng giá trị mặc định của thuộc tính.
+* **Khôi phục theo đúng luật gộp của phân hệ**: có bìa trên máy thì giữ bìa của máy (`skippedCovers`), chỉ điền chỗ thiếu ⇒ khôi phục lại cùng một file vẫn idempotent. Byte JPEG được chép nguyên qua `ImageCacheManager.localCoverURL(for:)`; **không** đi qua `saveCover` vì hàm đó giải mã `UIImage` rồi nén JPEG lần nữa (và sẽ kéo `UIKit` vào tầng Services). `BackupSizeEstimator` **không** đổi: `covers/` chứa lẫn bìa online tải lại được nên cộng cả thư mục vào ước tính nhóm `books` còn sai hơn là không cộng.
+
 ## Phân hệ mới: Xuất truyện (Export) — tách khỏi phân hệ Tải truyện (1.3.253)
 
 * **Ranh giới**: `Sources/Services/Export/` (20 file) nhận **một** `BookExportRequest` bất biến và sinh ra **một** `ExportArtifact` (đường dẫn file + số chương đã ghi). Nó **không sở hữu lưu trữ nào của app** — không `ModelContext`, không `ChapterStore`, không `BookBinManager`; nội dung chương vào phân hệ này qua `ExportContentProvider`, còn trạng thái tác vụ vẫn do phân hệ Tải truyện bền hoá. Ba luật tầng Services được giữ: không `import SwiftUI`, không `ToastManager.shared`, không `import ZIPFoundation`.
@@ -95,7 +108,7 @@ dict/books/<slug>/VietPhrase.txt, Names.txt
 dict/shared/{VietPhrase,Names,Pronouns,LuatNhan}.dat, ChinesePhienAmWords.txt
 ```
 
-* **6 nhóm chọn được** (`BackupScope`, mặc định bật hết): `books` (bắt buộc — nền của mọi nhóm khác), `content`, `extensions`, `dictBooks`, `dictCustom`, `dictShared`. **Không có nhóm ảnh bìa**: bìa tải lại được từ `coverUrl`, và đó cũng là giới hạn đã biết — bìa người dùng chọn từ thư viện ảnh sẽ mất khi restore sang máy khác.
+* **6 nhóm chọn được** (`BackupScope`, mặc định bật hết): `books` (bắt buộc — nền của mọi nhóm khác), `content`, `extensions`, `dictBooks`, `dictCustom`, `dictShared`. ~~**Không có nhóm ảnh bìa**: bìa tải lại được từ `coverUrl`, và đó cũng là giới hạn đã biết — bìa người dùng chọn từ thư viện ảnh sẽ mất khi restore sang máy khác.~~ — bìa không tải lại được đã được gom từ 1.3.254 (vẫn **không** có nhóm riêng), xem mục đầu tài liệu này.
 * **Luật `dict/shared`** (`BackupDictionaryArchiver.sharedFileNames`): lấy các `.dat` đang có, chỉ lấy thêm `<Name>.txt` ở gốc `translate/` khi **không** có `.dat` cùng tên (tránh nhân đôi vài chục MB), và luôn lấy `ChinesePhienAmWords.txt`. Vì nhóm này rất lớn, `BackupSizeEstimator` phải hiện dung lượng ước tính để người dùng tắt được.
 * **Tombstone không có định dạng riêng**: `DictionaryTextRecord.isDeleted` chính là `value.isEmpty` và bản ghi rỗng nằm ngay trong `Custom*.txt` / `books/<bookId>/*.txt`. Backup hai nhóm TXT đó là đã phủ luôn "mục VP/Name đã xoá".
 * **Restore chỉ merge**: `bookId` / `Repository.url` / `packageId` đã có thì giữ bản local (ext chỉ bị thay khi `version` trong backup lớn hơn); từ điển đi qua `mergedRecords(imported:existing:isMerge: true)`. Không nhánh nào xoá dữ liệu người dùng, nên restore lại cùng một file là **idempotent** — không nhân đôi truyện, kho, ext hay key từ điển.
@@ -106,7 +119,7 @@ dict/shared/{VietPhrase,Names,Pronouns,LuatNhan}.dat, ChinesePhienAmWords.txt
 * ~~**Giới hạn đã biết của restore truyện**: `AddBookToShelfCommand` không mang `lastReadDate`~~ — đã sửa ở 1.3.247, xem mục đầu tài liệu này.
 * **Kênh Google Drive** (`Services/Backup/GoogleDrive/`): PKCE S256 + `ASWebAuthenticationSession` (Google trả `disallowed_useragent` cho WKWebView nhúng; và vì session tự bắt callback theo scheme nên **không cần khai `CFBundleURLTypes`**), client iOS không có `client_secret`, scope `drive.file` (chỉ file do app tạo — quyền tối thiểu và không phải scope sensitive), thư mục `FreeBookBackups`, upload resumable chunk 8 MiB có xử lý 308 + retry 5xx tối đa 3 lần. Refresh token ở Keychain (`kSecAttrAccessibleAfterFirstUnlock`), fallback file có `FileProtectionType.completeUntilFirstUserAuthentication`. Không log token, không log payload.
 * **Kênh local** (`LocalBackupStore`): liệt kê/xoá/đổi tên/nhập file trong `applicationSupportDirectory/backups/`, xuất ra Files bằng `ShareSheet` sẵn có, nhập từ Files bằng `DocumentPicker` với `UTType(filenameExtension: "fbbackup") ?? .data`. Kênh này **độc lập hoàn toàn** với Drive: thiếu client id thì tab Drive hiện "chưa cấu hình" mà backup local vẫn chạy đủ.
-* **Ranh giới trình bày**: `Sources/Services/Backup/**` không `import SwiftUI`, không gọi `ToastManager` — tiến độ ra ngoài bằng `BackupProgress` (17 pha) qua `@Published` của `BackupCoordinator`; `BackupHubView` là nơi duy nhất hiển thị toast.
+* **Ranh giới trình bày**: `Sources/Services/Backup/**` không `import SwiftUI`, không gọi `ToastManager` — tiến độ ra ngoài bằng `BackupProgress` (17 pha, **19** từ 1.3.254) qua `@Published` của `BackupCoordinator`; `BackupHubView` là nơi duy nhất hiển thị toast.
 * **ZIPFoundation bị cô lập** trong `BackupZipArchive` (chỉ `FileManager.zipItem/unzipItem`), vì `Archive.init` đổi giữa dạng optional (≤0.9.18) và dạng `throws` (0.9.19+) mà `Package.resolved` không được commit. `stage(fileAt:)` thử `linkItem` (hard link) trước `copyItem` để không nhân đôi dung lượng `.bin`/`.dat` khi dựng thư mục tạm.
 * Phân hệ **Ext manager** đổi ranh giới nhỏ: `RepositoryManagerView` không còn tự tải `plugin.json`; việc đó thuộc `ExtensionSyncCommandBuilder` (Services), và việc ghi thuộc `ExtensionTransactionCoordinator.upsertExtensions` — một transaction cho cả kho. Phân hệ **Chi tiết truyện** thêm `BookInfoEditView` + `updateBookInfo`; `ImageCacheManager` nay có đường ghi bìa từ ảnh người dùng (`saveCover`), vẫn qua `validatePathSafety` của chính nó.
 * Không phân hệ nào khác đổi ranh giới: Reader, TTS, Translation engine, Download, Trình duyệt hiển thị, Widget nổi giữ nguyên; quyền sở hữu tiến độ đọc và đường highlight không bị đụng tới.

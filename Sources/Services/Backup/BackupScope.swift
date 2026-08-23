@@ -3,7 +3,8 @@ import Foundation
 /// Nhóm nội dung người dùng chọn khi sao lưu / khôi phục.
 ///
 /// `books` là nền của mọi nhóm khác (mọi entry còn lại tra theo `slug` trong `library/slugs.json`)
-/// nên luôn bật, không cho tắt. Ảnh bìa **không** có nhóm nào: bìa tải lại được từ `coverUrl`.
+/// nên luôn bật, không cho tắt. Ảnh bìa **không** có nhóm riêng: bìa tải lại được thì bỏ qua, bìa
+/// của truyện nhập từ file đi kèm nhóm `books` (xem `BackupCoverArchiver`).
 public enum BackupScope: String, Codable, CaseIterable, Sendable, Identifiable {
     /// Danh sách truyện + tiến độ đọc + mục lục chương (metadata).
     case books

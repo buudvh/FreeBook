@@ -68,6 +68,14 @@ public enum BackupPayload {
             self.isOnShelf = isOnShelf
             self.isHistory = isHistory
         }
+
+        /// `true` khi bìa **không** tải lại được từ mạng — đúng trường hợp truyện nhập từ file:
+        /// `ImageCacheManager` giữ file JPEG trong `covers/` còn `coverUrl` để rỗng. Chỉ nhóm này
+        /// mới cần gom ảnh bìa vào archive.
+        public var hasUnrecoverableCover: Bool {
+            let url = coverUrl.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            return !url.hasPrefix("http://") && !url.hasPrefix("https://")
+        }
     }
 
     public struct RepositoryRecord: Codable, Sendable {

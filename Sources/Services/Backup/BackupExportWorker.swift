@@ -55,6 +55,14 @@ public actor BackupExportWorker {
         if scopes.contains(.content) {
             try await stageContent(books: payload.books, slugByBookId: slugByBookId, into: staging)
         }
+
+        report(BackupProgress(phase: .copyingCovers))
+        counts.covers = try BackupCoverArchiver.stage(
+            books: payload.books,
+            slugByBookId: slugByBookId,
+            into: staging
+        )
+
         if scopes.contains(.extensions) {
             try stageExtensionFolders(records: payload.extensions, into: staging)
         }
@@ -87,7 +95,7 @@ public actor BackupExportWorker {
         try BackupZipArchive.makeArchive(from: staging, to: target)
 
         let size = ByteCountFormatter.string(fromByteCount: BackupPaths.fileSize(at: target), countStyle: .file)
-        AppLogger.shared.log("💾 [Backup] Đã tạo \(target.lastPathComponent) — \(size), \(counts.books) truyện, \(counts.chapters) chương")
+        AppLogger.shared.log("💾 [Backup] Đã tạo \(target.lastPathComponent) — \(size), \(counts.books) truyện, \(counts.chapters) chương, \(counts.covers) bìa")
         report(BackupProgress(phase: .finished, detail: size))
         return Outcome(fileURL: target, manifest: manifest)
     }

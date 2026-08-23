@@ -129,8 +129,12 @@ public final class BackupCoordinator: ObservableObject {
         cancelPreparedRestore()
 
         if outcome.errors.isEmpty {
-            lastMessage = "Đã khôi phục \(outcome.library.insertedBooks) truyện mới,"
+            var message = "Đã khôi phục \(outcome.library.insertedBooks) truyện mới,"
                 + " \(outcome.chapters.restoredChapters) chương"
+            if outcome.covers.restoredCovers > 0 {
+                message += ", \(outcome.covers.restoredCovers) ảnh bìa"
+            }
+            lastMessage = message
         } else {
             lastError = "Khôi phục xong nhưng có \(outcome.errors.count) lỗi: \(outcome.errors[0])"
         }

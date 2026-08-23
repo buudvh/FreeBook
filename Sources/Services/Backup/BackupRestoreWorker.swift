@@ -30,10 +30,11 @@ public actor BackupRestoreWorker {
     public struct Outcome: Sendable {
         public let library: BackupLibraryWriter.Report
         public let chapters: BackupChapterRestorer.Outcome
+        public let covers: BackupCoverArchiver.Report
         public let dictionaries: BackupDictionaryRestorer.Report
 
         public var errors: [String] {
-            library.errors + chapters.errors + dictionaries.errors
+            library.errors + chapters.errors + covers.errors + dictionaries.errors
         }
     }
 
@@ -115,6 +116,13 @@ public actor BackupRestoreWorker {
 
         await restoreChapters(books: books, library: &library, chapters: &chapters)
 
+        report(BackupProgress(phase: .restoringCovers, totalUnits: books.count))
+        let covers = BackupCoverArchiver.restore(
+            books: books,
+            bookIdBySlug: prepared.bookIdBySlug,
+            from: prepared.directory
+        )
+
         report(BackupProgress(phase: .restoringDictionaries))
         let dictionaries = BackupDictionaryRestorer.restore(
             from: prepared.directory,
@@ -131,12 +139,13 @@ public actor BackupRestoreWorker {
         AppLogger.shared.log(
             "♻️ [Restore] \(library.insertedBooks) truyện mới, \(library.skippedBooks) bỏ qua, "
             + "\(chapters.restoredChapters) chương, \(chapters.restoredCachedChapters) chương có nội dung, "
+            + "\(covers.restoredCovers) bìa (\(covers.skippedCovers) đã có), "
             + "\(library.insertedRepositories) kho, \(library.upsertedExtensions) ext, "
             + "\(dictionaries.customFiles + dictionaries.bookFiles + dictionaries.sharedFiles) file từ điển"
         )
         report(BackupProgress(phase: .finished))
 
-        return Outcome(library: library, chapters: chapters, dictionaries: dictionaries)
+        return Outcome(library: library, chapters: chapters, covers: covers, dictionaries: dictionaries)
     }
 
     // MARK: - Các bước

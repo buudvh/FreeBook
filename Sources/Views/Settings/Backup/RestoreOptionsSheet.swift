@@ -79,6 +79,9 @@ struct RestoreOptionsSheet: View {
             infoRow("Phiên bản app", manifest.appVersion)
             infoRow("Truyện", "\(manifest.counts.books)")
             infoRow("Chương", "\(manifest.counts.chapters) (\(manifest.counts.cachedChapters) đã tải)")
+            if manifest.counts.covers > 0 {
+                infoRow("Ảnh bìa truyện nhập", "\(manifest.counts.covers)")
+            }
             infoRow("Kho / Extension", "\(manifest.counts.repositories) / \(manifest.counts.extensions)")
             infoRow(
                 "File từ điển",

@@ -15,6 +15,15 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Sao lưu ảnh bìa của truyện nhập từ file (1.3.254)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Services/Backup/BackupCoverArchiver.swift`](../../Sources/Services/Backup/BackupCoverArchiver.swift) | chủ duy nhất của entry `covers/<slug>.jpg`, cả hai chiều xuất/khôi phục | 80 |
+
+* File sửa nội dung, quan hệ import không đổi: `BackupPaths.swift` 94 → **96** (`cover(slug:)`), `BackupPayload.swift` 196 → **204** (`BookRecord.hasUnrecoverableCover`), `BackupManifest.swift` 80 → **103** (`Counts.covers` + `CodingKeys` + `init(from:)` khoan nhượng), `BackupProgress.swift` 79 → **83** (19 pha: thêm `copyingCovers`/`restoringCovers`), `BackupExportWorker.swift` 232 → **240**, `BackupRestoreWorker.swift` 236 → **245** (`Outcome.covers`), `BackupCoordinator.swift` 259 → **275**, `BackupScope.swift` (chỉ sửa doc comment đã sai), `RestoreOptionsSheet.swift` 108 → **111**.
+* Quan hệ mới: `Services/Backup/BackupCoverArchiver` → `Common/Services/ImageCacheManager` (`localCoverURL(for:)` — không đi qua `saveCover` để không nén lại JPEG) + `Services/Backup/BackupZipArchive`. Cả `BackupExportWorker` và `BackupRestoreWorker` gọi vào **một** file này, không tự dựng tên entry `covers/`.
+
 ## Xuất truyện TXT, EPUB, FB2, MOBI trong một tác vụ (1.3.253)
 
 | File mới | Vai trò | Dòng |

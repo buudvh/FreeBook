@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vị trí tầng của `BackupCoverArchiver` (1.3.254)
+
+* **1 file mới ở tầng Services**, trong phân hệ có sẵn [`Sources/Services/Backup/`](../../Sources/Services/Backup/BackupCoverArchiver.swift#L1) (17 → **18** file, cộng 6 file `GoogleDrive/` là 24): [`BackupCoverArchiver`](../../Sources/Services/Backup/BackupCoverArchiver.swift#L1) (80 dòng, `Report` **nest** ⇒ đúng 1 type top level, không cần entry `architecture_allowlist.json`).
+* **Ba luật tầng Services đều giữ**: chỉ `import Foundation` (không `SwiftUI`, cũng không `UIKit` — dùng `ImageCacheManager.localCoverURL(for:)` rồi chép byte, **không** gọi `saveCover` vốn cần `UIImage`); không `ToastManager.shared` (lỗi trả về trong `Report.errors`, `BackupCoordinator` mới publish `lastMessage`/`lastError`); chiều phụ thuộc `Services/Backup` → `Common/Services/ImageCacheManager` là đúng chiều Services → Common.
+* **Ràng buộc tương thích định dạng, không phải ràng buộc tầng**: `BackupScope` **không** được thêm case (rawValue của nó nằm trong `manifest.scopes`, bản app cũ đọc file mới sẽ decode lỗi) nên bìa đi kèm nhóm bắt buộc `books`; đổi lại `BackupManifest.Counts` phải có `init(from:)` viết tay vì `init(from:)` tổng hợp bỏ qua giá trị mặc định của thuộc tính.
+* **`RestoreOptionsSheet.swift` (Views) chỉ thêm một hàng đọc `manifest.counts.covers`** — không `modelContext.insert/delete/save` ⇒ `VIEW_SWIFTDATA_MUTATION` không áp.
+
 ## Vị trí tầng của phân hệ `Services/Export/` và chủ share sheet (1.3.253)
 
 * **20 file mới ở tầng Services**, trong phân hệ mới [`Sources/Services/Export/`](../../Sources/Services/Export/BookExportRequest.swift#L1); **1 file mới ở tầng Views**: [`Sources/Views/Common/ExportShareCoordinator.swift`](../../Sources/Views/Common/ExportShareCoordinator.swift#L1) (100). Mỗi file **≤ 400 dòng** (lớn nhất [`MobiExportRenderer`](../../Sources/Services/Export/MobiExportRenderer.swift#L1) **207**) và **đúng 1 type top level** — `ChapterAnchor` của MOBI, `Entry` của [`ZipStoreWriter`](../../Sources/Services/Export/ZipStoreWriter.swift#L1), `Layout` của [`MobiHeaderBuilder`](../../Sources/Services/Export/MobiHeaderBuilder.swift#L1), `Acquisition`/`Tally` của [`ExportContentProvider`](../../Sources/Services/Export/ExportContentProvider.swift#L1) đều **nest** ⇒ không entry `architecture_allowlist.json` nào được thêm.

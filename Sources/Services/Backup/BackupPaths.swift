@@ -15,6 +15,8 @@ public enum BackupPaths {
 
     public static func chapters(slug: String) -> String { "chapters/\(slug).json" }
     public static func content(slug: String) -> String { "content/\(slug).bin" }
+    /// Ảnh bìa nằm trong `covers/` như file gốc trên máy (`ImageCacheManager` luôn ghi JPEG).
+    public static func cover(slug: String) -> String { "covers/\(slug).jpg" }
     public static func extensionFolder(packageId: String) -> String { "extensions/\(packageId)" }
 
     /// `extensions/common` — thư viện JS dùng chung mà extension `load()` tới. Không phải một

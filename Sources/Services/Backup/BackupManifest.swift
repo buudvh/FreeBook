@@ -10,6 +10,7 @@ public struct BackupManifest: Codable, Sendable {
         public var books: Int
         public var chapters: Int
         public var cachedChapters: Int
+        public var covers: Int
         public var repositories: Int
         public var extensions: Int
         public var bookDictionaries: Int
@@ -20,6 +21,7 @@ public struct BackupManifest: Codable, Sendable {
             books: Int = 0,
             chapters: Int = 0,
             cachedChapters: Int = 0,
+            covers: Int = 0,
             repositories: Int = 0,
             extensions: Int = 0,
             bookDictionaries: Int = 0,
@@ -29,11 +31,32 @@ public struct BackupManifest: Codable, Sendable {
             self.books = books
             self.chapters = chapters
             self.cachedChapters = cachedChapters
+            self.covers = covers
             self.repositories = repositories
             self.extensions = extensions
             self.bookDictionaries = bookDictionaries
             self.customDictionaries = customDictionaries
             self.sharedDictionaries = sharedDictionaries
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case books, chapters, cachedChapters, covers, repositories, extensions
+            case bookDictionaries, customDictionaries, sharedDictionaries
+        }
+
+        /// Viết tay vì `init(from:)` tổng hợp **không** dùng giá trị mặc định của thuộc tính:
+        /// thêm khoá mới (`covers`) mà không có decoder này là mọi file `.fbbackup` cũ decode lỗi.
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            books = try container.decodeIfPresent(Int.self, forKey: .books) ?? 0
+            chapters = try container.decodeIfPresent(Int.self, forKey: .chapters) ?? 0
+            cachedChapters = try container.decodeIfPresent(Int.self, forKey: .cachedChapters) ?? 0
+            covers = try container.decodeIfPresent(Int.self, forKey: .covers) ?? 0
+            repositories = try container.decodeIfPresent(Int.self, forKey: .repositories) ?? 0
+            extensions = try container.decodeIfPresent(Int.self, forKey: .extensions) ?? 0
+            bookDictionaries = try container.decodeIfPresent(Int.self, forKey: .bookDictionaries) ?? 0
+            customDictionaries = try container.decodeIfPresent(Int.self, forKey: .customDictionaries) ?? 0
+            sharedDictionaries = try container.decodeIfPresent(Int.self, forKey: .sharedDictionaries) ?? 0
         }
     }
 

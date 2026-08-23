@@ -7,6 +7,7 @@ public struct BackupProgress: Sendable, Equatable {
         case readingLibrary
         case writingChapters
         case copyingContent
+        case copyingCovers
         case copyingExtensions
         case copyingDictionaries
         case compressing
@@ -15,6 +16,7 @@ public struct BackupProgress: Sendable, Equatable {
         case restoringExtensions
         case restoringBooks
         case restoringChapters
+        case restoringCovers
         case restoringDictionaries
         case uploading
         case downloading
@@ -27,6 +29,7 @@ public struct BackupProgress: Sendable, Equatable {
             case .readingLibrary: return "Đang đọc thư viện"
             case .writingChapters: return "Đang ghi mục lục"
             case .copyingContent: return "Đang gom nội dung chương"
+            case .copyingCovers: return "Đang gom ảnh bìa"
             case .copyingExtensions: return "Đang gom extension"
             case .copyingDictionaries: return "Đang gom từ điển"
             case .compressing: return "Đang nén"
@@ -35,6 +38,7 @@ public struct BackupProgress: Sendable, Equatable {
             case .restoringExtensions: return "Đang khôi phục extension"
             case .restoringBooks: return "Đang khôi phục truyện"
             case .restoringChapters: return "Đang khôi phục chương"
+            case .restoringCovers: return "Đang khôi phục ảnh bìa"
             case .restoringDictionaries: return "Đang khôi phục từ điển"
             case .uploading: return "Đang tải lên"
             case .downloading: return "Đang tải xuống"

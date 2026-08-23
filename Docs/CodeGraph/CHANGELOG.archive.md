@@ -1,6 +1,15 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.223) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.224) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.224] - 2026-08-20
+
+### Persist titleTrans cho local TXT, preview bounded và search hai cột
+
+* **TXT import**: `ParserChapter`/`ParsedBook` trở thành `Sendable`; `ShelfView.performImport` dịch title và dựng toàn bộ metadata trong `Task.detached`, persist `titleTrans` cùng title gốc và tái sử dụng snapshot khi ghi cache. `BookTransactionCoordinator.insertChapterDTO` nhận thêm `titleTrans` optional cho nhánh SwiftData dự phòng.
+* **Confirmation sheet**: tối đa sáu chương hiển thị toàn bộ; trên sáu chương chỉ render ba đầu, một dòng số chương bị lược và ba cuối. Reanalyze dùng cùng preview.
+* **Chapter search**: bỏ `searchTrans` khỏi ChapterStore API; SQLite và các bộ lọc local BookDetail luôn OR `title`/`titleTrans`, còn toggle dịch chỉ điều khiển presentation. Không migration localBook cũ.
+* Không thay đổi parser, DocumentPicker, nội dung chương hay TOC online; cập nhật CodeGraph tại `00_index.md`, `03_type_graph.md`, `04_call_graph.md`, `06_event_graph.md`, `07_dataflow.md`, và `08_lifecycle.md`.
 
 ## [1.3.223] - 2026-08-20
 
