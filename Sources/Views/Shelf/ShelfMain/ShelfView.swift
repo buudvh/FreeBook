@@ -15,24 +15,6 @@ struct ShelfReaderRoute: Identifiable, Hashable {
     }
 }
 
-// Dữ liệu phân tích file TXT cục bộ, dùng chung cho ShelfView và sheet xác nhận.
-struct ParserChapter: Sendable {
-    let title: String
-    var content: String
-}
-
-struct ParsedBook: Sendable {
-    let title: String
-    let chapters: [ParserChapter]
-}
-
-// Kết quả phân tích lại sau khi người dùng chọn bảng mã / quy tắc TOC khác.
-struct TXTReanalysisResult {
-    let parsed: ParsedBook
-    let autoDecodeID: String?
-    let matchedRuleIDs: Set<String>
-}
-
 struct ShelfView: View {
     // @Environment: Truy cập context cơ sở dữ liệu của SwiftData.
     // Dùng để thêm mới, chỉnh sửa hoặc xóa dữ liệu Book trong app.
@@ -58,19 +40,19 @@ struct ShelfView: View {
     // @AppStorage: Đọc/Ghi dữ liệu trực tiếp vào UserDefaults của iOS để lưu cấu hình hệ thống lâu dài.
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false // Trạng thái bật/tắt tự động dịch Trung-Việt
     @State private var showingBypassBrowser = false // Hiện WebView để bypass Cloudflare (nếu có)
-    @State private var showingFilePicker = false // Hiện hộp thoại chọn tệp tin TXT cục bộ
+    @State private var showingFilePicker = false // Hiện hộp thoại chọn tệp truyện cục bộ (TXT/HTML/EPUB/MOBI)
 
-    // Trạng thái hiển thị tiến độ import file TXT. `internal` vì khối nhập TXT đã tách sang
-    // `Extensions/ShelfView+TXTImport.swift`, và `private` trong Swift là phạm vi **file**.
+    // Trạng thái hiển thị tiến độ nhập file truyện. `internal` vì khối nhập file đã tách sang
+    // `Extensions/ShelfView+BookImport.swift`, và `private` trong Swift là phạm vi **file**.
     @State internal var isImporting = false
     @State internal var importIsIndeterminate = true
     @State internal var importProgress: Double = 0.0
     @State internal var importStatusText = ""
 
-    // Xác nhận thông tin trước khi thực sự import TXT vào CSDL
+    // Xác nhận thông tin trước khi thực sự nhập truyện vào CSDL
     @State internal var pendingImport: PendingImport? = nil
     // Màn hình chờ từ lúc chọn file đến khi phân tích xong và hiện sheet xác nhận
-    @State internal var isParsingTXT = false
+    @State internal var isParsingImport = false
 
     @State private var shelfLimit = 50 // Giới hạn số lượng sách hiển thị trên kệ để tối ưu hiệu năng cuộn
     @State private var historyLimit = 50 // Giới hạn số lượng sách hiển thị trong lịch sử đọc
@@ -175,7 +157,7 @@ struct ShelfView: View {
                         Button(action: {
                             showingFilePicker = true
                         }) {
-                            Label("Nhập truyện TXT", systemImage: "square.and.arrow.down")
+                            Label("Nhập truyện từ file", systemImage: "square.and.arrow.down")
                         }
 
                         Button(action: {
@@ -313,12 +295,12 @@ struct ShelfView: View {
             }
             .sheet(isPresented: $showingFilePicker) {
                 DocumentPicker(
-                    allowedContentTypes: [.plainText],
+                    allowedContentTypes: BookImportFormat.pickerContentTypes,
                     allowsMultipleSelection: false,
                     onPick: { urls in
                         showingFilePicker = false
                         guard let selectedUrl = urls.first else { return }
-                        importTxtBook(from: selectedUrl)
+                        importLocalBook(from: selectedUrl)
                     },
                     onCancel: {
                         showingFilePicker = false
@@ -326,13 +308,14 @@ struct ShelfView: View {
                 )
             }
             .sheet(item: $pendingImport) { pending in
-                TXTImportConfirmationSheet(
+                BookImportConfirmationSheet(
                     fileName: pending.fileName,
+                    format: pending.format,
                     initialParsed: pending.parsed,
                     autoDecodeID: pending.autoDecodeID,
                     matchedRuleIDs: pending.matchedRuleIDs,
-                    onReanalyze: { decodeID, ruleIDs in
-                        await self.reanalyzeTxt(decodeID: decodeID, ruleIDs: ruleIDs, tempFileUrl: pending.tempFileUrl, fileName: pending.fileName)
+                    onReanalyze: { decodeID, ruleIDs, structure in
+                        await self.reanalyzeImport(decodeID: decodeID, ruleIDs: ruleIDs, structure: structure, tempFileUrl: pending.tempFileUrl, fileName: pending.fileName)
                     },
                     onCancel: {
                         cancelImport()
@@ -342,11 +325,11 @@ struct ShelfView: View {
                     }
                 )
                 .onAppear {
-                    isParsingTXT = false
+                    isParsingImport = false
                 }
             }
-            // Overlay chờ phân tích file TXT (từ lúc chọn file đến khi sheet xác nhận hiện)
-            if isParsingTXT {
+            // Overlay chờ phân tích file truyện (từ lúc chọn file đến khi sheet xác nhận hiện)
+            if isParsingImport {
                 ZStack {
                     Color.black.opacity(0.4)
                         .edgesIgnoringSafeArea(.all)
@@ -817,6 +800,7 @@ struct ShelfView: View {
         let id = UUID()
         let tempFileUrl: URL
         let fileName: String
+        let format: BookImportFormat
         var parsed: ParsedBook
         let autoDecodeID: String?
         let matchedRuleIDs: Set<String>

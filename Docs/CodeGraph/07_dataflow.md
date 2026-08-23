@@ -15,6 +15,15 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Luồng dữ liệu nhập truyện EPUB/HTML/MOBI–AZW3 (1.3.251)
+
+* File người dùng chọn → bản copy trong `temporaryDirectory/<uuid>.<ext>` → `Data` → `BookImportFormat.detect` → **một** `ParsedBook` (`title`, `chapters`, `author`, `desc`, `coverData`, `remoteCoverUrl`, `structureNote`). `ParsedBook` là **giao diện duy nhất** giữa phân hệ nhập và tầng lưu trữ: mọi format đổ về cùng một shape nên không có nhánh ghi riêng cho format nào.
+* `ParsedBook` → chuỗi ghi cũ không đổi: `AddBookToShelfCommand` (`author: parsed.author ?? "Local"`, `desc: parsed.desc ?? "Truyện nhập cục bộ từ file …"`, `coverUrl: parsed.remoteCoverUrl ?? ""`) → `BookTransactionCoordinator.addBookToShelf` → `ChapterMetadataSnapshot(url: "local://<id>/chapter/<i>")` + `TranslateUtils.translateChapterTitle` (detached) → `ChapterStore.replaceFullTOC` → mỗi chương `BookBinManager.writeChapterContent` → `(offset, length)` → `ChapterStore.upsertCachedChapter(isCached: true)`.
+* Bìa có hai đường tách bạch: `coverData` (bìa nhúng trong EPUB/MOBI) → `ImageCacheManager.saveCover` → `covers/<sha256(bookId)>.jpg`, **`coverUrl` giữ rỗng** vì `BookCoverView` ưu tiên file bìa local; `remoteCoverUrl` (`<img src="http…">` của HTML) → `coverUrl` → `AsyncImage`.
+* Encoding chảy theo thứ tự cố định: **override người dùng** (picker "Bảng mã") → **khai báo trong file** (`<meta charset>` của HTML, `<?xml encoding=…>` của XHTML, `codepage` trong MOBI header) → `TextEncodingDecoder.decode` auto-detect. EPUB ẩn hàng "Bảng mã" vì XHTML là UTF-8 theo chuẩn.
+* Dữ liệu **không** đi ra: ảnh trong nội dung (Reader là `UITextView` plain text) và định dạng chữ đều bị loại ở bước `XhtmlTextExtractor.plainText`; chương lưu xuống `.bin` là plain text.
+* Vòng đời file tạm: `<uuid>.<ext>` bị xoá ở cả 3 nhánh của tầng View (nhập xong / huỷ / lỗi); thư mục giải nén `<uuid>-epub` do `EpubBookParser` `defer` xoá ngay sau khi mọi nội dung và bìa đã vào RAM.
+
 ## Luồng diff mục lục, luồng sửa từ điển và luồng ghi file TXT (1.3.250)
 
 * **Luồng mục lục có thêm một trạm quyết định trước khi ghi**: `ExtensionManager.toc` → `[ChapterResult]` → `tocMetadata(from:)` → `[ChapterMetadataSnapshot]` → `ChapterContentRepository.saveChapterList` → `ChapterStoreActor` → `ChapterStoreDatabase.replaceFullTOC` → `fetchOrderedTOC` (`[StoredChapterSnapshot]`) → **`ChapterTOCDiff.plan(existing:incoming:protectedTTS:bookId:)`** → `.unchanged` (dừng, không transaction) / `.appendOnly(tailStart:)` (chỉ ghi `chapters[tailStart...]`) / `.full`. `plan` là hàm **thuần**, so từng field `(index, url, title, host, titleTrans-nếu-mới-khác-rỗng)` và **không cấp phát chuỗi** — trước đây caller ở Reader phải dựng 2×N chuỗi nội suy để làm cùng việc này.

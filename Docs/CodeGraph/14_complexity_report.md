@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số liệu sau khi thêm nhập truyện EPUB/HTML/MOBI–AZW3 (1.3.251)
+
+* Tổng file Swift 284 → **299** (+15). **15/15 file mới dưới trần 400 dòng**, file lớn nhất là [`EpubBookParser.swift`](../../Sources/Services/Import/EpubBookParser.swift) **306**, kế tiếp `MobiArchiveReader.swift` 305, `XhtmlTextExtractor.swift` 242, `BookImportConfirmationSheet+Pickers.swift` 203, `BookImportService.swift` 199; nhỏ nhất `ParserChapter.swift` 10. Không file mới nào vào bảng 1.1.
+* File co lại: `ShelfView.swift` 827 → **811** (dời 3 DTO xuống `Services/Import/`), `TXTImportConfirmationSheet.swift` 374 → `BookImportConfirmationSheet.swift` **288** (tách 2 picker sang `+Pickers`, thêm picker "Cấu trúc"), `ShelfView+TXTImport.swift` 283 → `ShelfView+BookImport.swift` **215** (`parseTxtBook` 43 dòng dời sang `TxtBookParser`, phần decode/parse thay bằng một lời gọi `BookImportService.parse`). File phình: `TextEncodingDecoder.swift` 44 → **102**.
+* Điểm nóng độ phức tạp mới, đều cố ý và đã cô lập trong file riêng: `PalmDocDecompressor.decompress` (LZ77 4 dải byte, vòng lặp con trỏ ngược) và `stripTrailingEntries` (backwards variable-width integer); `MobiArchiveReader` đọc PalmDB/PalmDOC/MOBI/EXTH với **mọi offset kiểm biên trước khi đọc** rồi `throw .malformed(...)` thay vì đọc rác; `XhtmlTextExtractor.anchorSegments` định vị từng `id` neo rồi **lùi về dấu `<` mở tag** để không cắt giữa tag, sắp theo vị trí và cắt tài liệu thành map `id` → text. Ba chỗ này là nơi cần đọc kỹ nhất khi sửa về sau.
+* `check_architecture.py`: **14 → 14 violation**, đúng cùng một tập — không vi phạm mới, không baseline nào bị nới, không entry `architecture_allowlist.json` nào được thêm.
+* Không build được để đo thời gian biên dịch: host là Windows, `xcodebuild` chỉ chạy trên macOS.
+
 ## Số liệu sau khi tối ưu xuất TXT, mục lục, từ điển (1.3.250)
 
 * Tổng file Swift: **279 → 284** (+5, không xoá và không đổi tên file nào). Ba file mới ở Services: `Download/DownloadManager+TaskStore.swift` **249 dòng**, `Download/TxtExportFileWriter.swift` **97**, `ChapterText/ChapterStore/ChapterTOCDiff.swift` **55**. Hai ở Views: `Shelf/ShelfMain/Extensions/ShelfView+TXTImport.swift` **283**, `Reader/Extensions/ReaderView+Suggestions.swift` **106**. File lớn nhất còn dư 117 dòng tới trần 400; chỉ `TxtExportFileWriter` khai type top-level (`public final class`), bốn file kia là `extension` nên **không entry `MULTI_PRIMARY_TYPES` nào được thêm**.
@@ -152,7 +160,7 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 | 5 | `TTSDictionaryEditView.swift` | [Views/Settings/TTS/TTSDictionaryEditView.swift](../../Sources/Views/Settings/TTS/TTSDictionaryEditView.swift) | 11 |
 | 6 | `BookDetailView.swift` | [Views/BookDetail/BookDetailView.swift](../../Sources/Views/BookDetail/BookDetailView.swift) | 11 |
 | 7 | `BookDetailTOCView.swift` | [Views/BookDetail/BookDetailTOCView.swift](../../Sources/Views/BookDetail/BookDetailTOCView.swift) | 11 |
-| 8 | `TXTImportConfirmationSheet.swift` | [Views/Shelf/ShelfMain/TXTImportConfirmationSheet.swift](../../Sources/Views/Shelf/ShelfMain/TXTImportConfirmationSheet.swift) | 10 |
+| 8 | `BookImportConfirmationSheet.swift` | [Views/Shelf/ShelfMain/BookImportConfirmationSheet.swift](../../Sources/Views/Shelf/ShelfMain/BookImportConfirmationSheet.swift) | 10 |
 | 9 | `ShelfSearchView.swift` | [Views/Shelf/ShelfMain/ShelfSearchView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfSearchView.swift) | 10 |
 | 10 | `ReaderChapterListView.swift` | [Views/Reader/ReaderChapterListView.swift](../../Sources/Views/Reader/ReaderChapterListView.swift) | 10 |
 

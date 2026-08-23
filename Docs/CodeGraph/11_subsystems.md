@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ mới: Nhập truyện từ file (1.3.251)
+
+* **Ranh giới**: `Sources/Services/Import/` (14 file) nhận **một** file cục bộ và sinh ra **một** `ParsedBook`. Nó **không sở hữu lưu trữ nào** — không `ModelContext`, không `ChapterStore`, không `BookBinManager`, không `ImageCacheManager`. Toàn bộ việc ghi vẫn ở `performImport` của tầng View, đúng chuỗi cũ: `AddBookToShelfCommand` → `BookTransactionCoordinator.addBookToShelf` → `ChapterStore.replaceFullTOC` → mỗi chương `BookBinManager.writeChapterContent` + `ChapterStore.upsertCachedChapter(isCached: true)`. Vì vậy thêm format **không** sinh pipeline lưu trữ thứ hai.
+* **Điểm vào duy nhất** là [`BookImportService.parse(_:)`](../../Sources/Services/Import/BookImportService.swift#L1): nhận `Request { tempFileUrl, fileName, encodingOverride, ruleIDs, structure }`, tự `detect` format rồi phân nhánh, trả `Result { parsed, format, autoDecodeID, matchedRuleIDs }`. Tầng View gọi đúng hàm này cho **cả** lần parse đầu và mỗi lần "Phân tích lại" — không có hai đường code song song.
+* **Bốn nhánh format dồn về hai bộ tách chương**: TXT → `TxtBookParser` (regex quy tắc TOC); HTML → `HtmlBookParser`; EPUB → `EpubBookParser` (mục lục thật NCX/nav, rơi về spine, rơi tiếp về `TxtBookParser`); MOBI/AZW3 → `MobiBookParser` → `HtmlBookParser`. Nghĩa là chi phí thêm format về sau chỉ là viết reader, không viết lại logic chương.
+* **Quan hệ với phân hệ sẵn có**: mượn `TranslateUtils.getAllTOCRules()`/`matchingRuleIDs` (quy tắc TOC), `TextEncodingDecoder` (giải mã), `BackupZipArchive` (giải nén EPUB, để ZIPFoundation vẫn bị giam đúng chỗ), `SwiftSoup` (**chỉ** `XhtmlTextExtractor` `import` nó; `EpubNavParser` đi qua `XhtmlTextExtractor.inlineText`). **Không** phân hệ nào gọi ngược vào `Services/Import/**` ngoài tầng View của Kệ sách.
+* **Truyện nhập không cần extension**: `ChapterContentRepository.loadUnshared` phục vụ từ persistence store trước nhánh `guard let extensionInfo`, nên Reader/TTS/VietPhrase đọc sách nhập y như sách tải về. Phân hệ nhập vì thế đứng hoàn toàn ngoài phân hệ Extension JavaScript.
+* **Giới hạn thuộc về ranh giới phân hệ, không phải bug**: ảnh trong nội dung bị bỏ (Reader là `UITextView` plain text), định dạng chữ bị mất (chương lưu plain text trong `.bin`), nhập lại cùng file tạo truyện mới (`bookId = UUID().uuidString`, không dedupe — giữ đúng hành vi TXT cũ), MOBI/AZW3 là **thử nghiệm** (từ chối DRM và HUFF/CDIC, không cài SKEL/FDST/INDX của KF8), HTML nhiều file/thư mục không hỗ trợ (picker một file).
+* **Dọn rác là trách nhiệm chia đôi**: `EpubBookParser` `defer` xoá thư mục giải nén tạm `<uuid>-epub` của chính nó; file tạm `<uuid>.<ext>` do tầng View tạo thì tầng View xoá ở cả 3 nhánh (nhập xong, huỷ, lỗi).
+
 ## Bốn phân hệ siết lại phạm vi công việc (1.3.250)
 
 Không phân hệ nào được thêm hay gộp; thay đổi ở đây đều là **thu hẹp phạm vi việc phải làm** cho một thao tác, giữ nguyên ranh giới sở hữu.

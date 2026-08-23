@@ -15,6 +15,38 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Nhập truyện từ EPUB, HTML, MOBI/AZW3 ngoài TXT (1.3.251)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Services/Import/ParserChapter.swift`](../../Sources/Services/Import/ParserChapter.swift) | DTO một chương đã bóc tách (dời từ `ShelfView.swift`) | 10 |
+| [`Services/Import/ParsedBook.swift`](../../Sources/Services/Import/ParsedBook.swift) | DTO cả sách; thêm `author/desc/coverData/remoteCoverUrl/structureNote` đều mặc định `nil` | 25 |
+| [`Services/Import/BookImportFormat.swift`](../../Sources/Services/Import/BookImportFormat.swift) | 4 format + `detect(fileName:data:)` (đuôi file trước, magic bytes sau) + `pickerContentTypes` | 79 |
+| [`Services/Import/BookImportService.swift`](../../Sources/Services/Import/BookImportService.swift) | điểm vào duy nhất `parse(_:)`; nest `StructureMode`/`Request`/`Result`/`ImportError` | 199 |
+| [`Services/Import/TxtBookParser.swift`](../../Sources/Services/Import/TxtBookParser.swift) | `parseTxtBook` cũ dời nguyên văn khỏi tầng View | 57 |
+| [`Services/Import/XhtmlTextExtractor.swift`](../../Sources/Services/Import/XhtmlTextExtractor.swift) | SwiftSoup → plain text (sentinel `@@FBNL@@`), `headingSections`, `anchorSegments(html:anchorIds:)`, `declaredCharsetName(in:)` | 242 |
+| [`Services/Import/HtmlBookParser.swift`](../../Sources/Services/Import/HtmlBookParser.swift) | `<mbp:pagebreak>` → heading → quy tắc TOC → 1 chương | 138 |
+| [`Services/Import/EpubArchiveReader.swift`](../../Sources/Services/Import/EpubArchiveReader.swift) | giải nén qua `BackupZipArchive`, `container.xml` → OPF, `resolve(href:)` chặn zip-slip | 98 |
+| [`Services/Import/EpubOpfParser.swift`](../../Sources/Services/Import/EpubOpfParser.swift) | `XMLParser` một lượt: metadata + manifest + spine + `coverId` | 146 |
+| [`Services/Import/EpubNavParser.swift`](../../Sources/Services/Import/EpubNavParser.swift) | `toc.ncx` (flatten navPoint lồng) và `nav` EPUB3 | 136 |
+| [`Services/Import/EpubBookParser.swift`](../../Sources/Services/Import/EpubBookParser.swift) | `tocIndex` → `spine` → `tocRules`; `defer` dọn thư mục tạm | 306 |
+| [`Services/Import/PalmDocDecompressor.swift`](../../Sources/Services/Import/PalmDocDecompressor.swift) | LZ77 PalmDOC + `stripTrailingEntries(record:flags:)` | 97 |
+| [`Services/Import/MobiArchiveReader.swift`](../../Sources/Services/Import/MobiArchiveReader.swift) | PalmDB/PalmDOC/MOBI/EXTH, mọi offset kiểm biên trước khi đọc | 305 |
+| [`Services/Import/MobiBookParser.swift`](../../Sources/Services/Import/MobiBookParser.swift) | ghép record text → decode → `HtmlBookParser` | 63 |
+| [`Views/Shelf/ShelfMain/Extensions/BookImportConfirmationSheet+Pickers.swift`](../../Sources/Views/Shelf/ShelfMain/Extensions/BookImportConfirmationSheet+Pickers.swift) | 3 picker: bảng mã, quy tắc TOC, **Cấu trúc** (mới) | 203 |
+
+| File đổi tên | Thành | Dòng |
+|---|---|---|
+| `Views/Shelf/ShelfMain/Extensions/ShelfView+TXTImport.swift` (283) | [`ShelfView+BookImport.swift`](../../Sources/Views/Shelf/ShelfMain/Extensions/ShelfView+BookImport.swift) | 215 |
+| `Views/Shelf/ShelfMain/TXTImportConfirmationSheet.swift` (374) | [`BookImportConfirmationSheet.swift`](../../Sources/Views/Shelf/ShelfMain/BookImportConfirmationSheet.swift) | 288 |
+
+* Tổng file Swift 284 → **299** (+15). Thư mục mới duy nhất: [`Sources/Services/Import/`](../../Sources/Services/Import/BookImportService.swift) (14 file).
+* File sửa nội dung: [`ShelfView.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift) 827 → **811** (−16: xoá 3 DTO `ParserChapter`/`ParsedBook`/`TXTReanalysisResult` đã dời xuống Services, nhãn menu thành `"Nhập truyện từ file"`, picker dùng `BookImportFormat.pickerContentTypes`, `PendingImport` thêm `format`), [`TextEncodingDecoder.swift`](../../Sources/Common/Utils/TextEncodingDecoder.swift) 44 → **102** (thêm `option(forCharsetName:)` + `decodeDeclared(_:charsetName:)`, không thêm case mới cho `TextEncodingOption`).
+* Quan hệ import mới: `Views/Shelf/ShelfMain/**` → `Services/Import/**` (một chiều, đúng chiều Views → Services); `Services/Import/EpubArchiveReader` → `Services/Backup/BackupZipArchive` (điểm gọi ZIPFoundation duy nhất — file mới **không** `import ZIPFoundation`); `XhtmlTextExtractor` → `SwiftSoup` (**file duy nhất** của phân hệ `import SwiftSoup`; `EpubNavParser` đi qua `XhtmlTextExtractor.inlineText` vì selector SwiftSoup không nhận tên thuộc tính có dấu `:` như `epub:type`); `MobiArchiveReader`/`EpubOpfParser`/`EpubNavParser` → `Foundation` (`XMLParser`, `Data`) không thư viện ngoài.
+* `Services/Import/**` không file nào `import SwiftUI` hay gọi `ToastManager.shared`: lỗi đi bằng `throw BookImportService.ImportError` và tầng View đổ `localizedDescription` vào Toast.
+* `project.yml` không cần sửa: target khai `sources: - path: Sources` nên `xcodegen generate` tự nhặt 15 file mới và 2 file đổi tên.
+* Không build được để xác minh biên dịch: host là Windows, `xcodebuild` chỉ chạy trên macOS.
+
 ## Sửa trình soạn script, khôi phục giữ thứ tự, sắp ext có cập nhật lên đầu (1.3.247)
 
 | File mới | Tách khỏi | Dòng |
@@ -177,12 +209,13 @@ Sơ đồ liên kết file của toàn bộ dự án FreeBook sau refactor:
   - `Services/ReadingProgress/`: `ReaderProgressScheduler.swift`.
   - `Services/TTS/`: `TTSManager.swift`, `TTSAudioEngineController.swift`, `TTSAudioSessionController.swift`, `Events/TTSPresentationEventCenter.swift`, `Events/TTSPresentationEvent.swift`, `Extensions/TTSManager+*.swift`. `DisplayTextFormatter.swift` nằm ở `Common/Extensions/DisplayTextFormatter.swift`, không phải trong `Services/TTS/`.
   - `Services/Download/`: `DownloadManager.swift`, `DownloadManager+TaskStore.swift` (CRUD/tiến độ của `DownloadTaskModel`, giữ một `ModelContext` dùng lại), `TxtExportFileWriter.swift` (ghi dần `.txt.part` rồi rename), `Events/DownloadPresentationEventCenter.swift`, `Events/DownloadPresentationEvent.swift`.
+  - `Services/Import/`: `BookImportService.swift` (điểm vào duy nhất), `BookImportFormat.swift`, `ParsedBook.swift`, `ParserChapter.swift`, `TxtBookParser.swift`, `XhtmlTextExtractor.swift`, `HtmlBookParser.swift`, `EpubArchiveReader.swift`, `EpubOpfParser.swift`, `EpubNavParser.swift`, `EpubBookParser.swift`, `MobiArchiveReader.swift`, `PalmDocDecompressor.swift`, `MobiBookParser.swift`. Phân hệ chỉ sinh `ParsedBook`, không sở hữu lưu trữ.
   - `Services/Translation/`: `Utils/TranslateUtils.swift`, `Extensions/TranslateUtils+Tokenization.swift`, `Engine/VietPhraseTokenizer.swift`, `Utils/TOCRuleSaveCoordinator.swift`.
 - **Views**:
   - `Views/BookDetail/`: `BookDetailView.swift`, `Extensions/BookDetailView+Extensions.swift`, `BookDetailView+TOCPreparation.swift`.
   - `Views/Reader/`: `ReaderView.swift`, `ReaderViewModel.swift`, `ReaderChapterListView.swift`, `Coordinators/ReaderScrollCoordinator.swift`, `ReaderSelectionCoordinator.swift`, `Extensions/ReaderView+Controls.swift`, `ReaderView+LoadingView.swift`, `ReaderView+Suggestions.swift`, `ReaderViewModel+Translation.swift`.
   - `Views/Extensions/`: `Manager/RepositoryManagerView.swift`, `Extensions/RepositoryManagerView+Actions.swift`, `RepositoryManagerView+RepoOps.swift`.
-  - `Views/Shelf/`: `ShelfMain/ShelfView.swift`, `ShelfMain/Extensions/ShelfView+TXTImport.swift` (nhập truyện từ TXT; đọc/ghi `@State` của `ShelfView` nên chúng phải `internal`, không `private`).
+  - `Views/Shelf/`: `ShelfMain/ShelfView.swift`, `ShelfMain/Extensions/ShelfView+BookImport.swift` (nhập truyện từ file TXT/HTML/EPUB/MOBI–AZW3; đọc/ghi `@State` của `ShelfView` nên chúng phải `internal`, không `private`), `ShelfMain/BookImportConfirmationSheet.swift` + `ShelfMain/Extensions/BookImportConfirmationSheet+Pickers.swift`. Logic bóc tách nằm ở `Services/Import/`.
   - `Views/Search/`: `SearchView.swift`.
   - `Views/Discovery/`: `DiscoveryView.swift`.
   - `Views/Common/`: `VisibleBrowserReopenView.swift`.

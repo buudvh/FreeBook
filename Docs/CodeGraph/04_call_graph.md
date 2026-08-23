@@ -15,6 +15,18 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nhập truyện đa định dạng call graph (1.3.251)
+
+* Chọn file → `ShelfView.importLocalBook(from:)` copy sang `temporaryDirectory/<uuid>.<ext>` (giữ đúng đuôi gốc) → bật `isParsingImport` → `Task.detached` → [`BookImportService.parse(_:)`](../../Sources/Services/Import/BookImportService.swift#L1) → `MainActor` gán `pendingImport` → `BookImportConfirmationSheet`.
+* Bên trong `BookImportService.parse`: `BookImportFormat.detect(fileName:data:)` → **một** trong bốn nhánh:
+  * `.txt` → `TextEncodingDecoder.decode` (hoặc `encodingOverride`) → `TxtBookParser.parse`.
+  * `.html` → `TextEncodingDecoder.decodeDeclared` theo `XhtmlTextExtractor.declaredCharsetName(in:)` → `HtmlBookParser.parse` → `<mbp:pagebreak>` ≥ 2 mảnh → `XhtmlTextExtractor.headingSections` ≥ 2 → `XhtmlTextExtractor.plainText` + `TxtBookParser.parse` → 1 chương.
+  * `.epub` → `EpubArchiveReader.read(fileUrl:)` (`BackupZipArchive.extract` → `container.xml` → OPF) → `EpubOpfParser.parse(opfURL:)` → `EpubNavParser.parseNcx(data:)`/`parseNav(html:)` → `EpubBookParser` chọn `tocIndex` (nhiều `Entry` cùng file có `fragment` → `XhtmlTextExtractor.anchorSegments`) → `spine` → `tocRules` (`TxtBookParser`).
+  * `.mobi` → `MobiArchiveReader.read` (PalmDB → PalmDOC → MOBI → EXTH; `encryptionType != 0` ⇒ `throw .drmProtected`, HUFF/CDIC ⇒ `throw .unsupportedCompression`) → mỗi record `PalmDocDecompressor.stripTrailingEntries` + `decompress` → `MobiBookParser` decode theo codepage → `HtmlBookParser.parse`.
+* "Phân tích lại" trên sheet → `ShelfView.reanalyzeImport(decodeID:ruleIDs:structure:tempFileUrl:fileName:)` → **cùng** `BookImportService.parse` với `Request` mang lựa chọn người dùng → `Result` cập nhật `parsed`/`autoDecodeID`/`matchedRuleIDs` của sheet. Không có đường parse thứ hai.
+* "Nhập" → `performImport(parsed:fileName:tempFileUrl:)` giữ nguyên chuỗi ghi cũ, chỉ thêm một nhánh bìa: `parsed.coverData` → `ImageCacheManager.shared.saveCover(data:for:)` (giữ `coverUrl` rỗng), ngược lại `parsed.remoteCoverUrl` → `AddBookToShelfCommand.coverUrl`.
+* Nhánh lỗi: `BookImportService.ImportError` → `catch` ở `importLocalBook` → xoá file tạm → tắt `isParsingImport` → `AppLogger` + `ToastManager.show(error.localizedDescription)`. Sách rỗng **không** được tạo vì mọi lỗi xảy ra trước `addBookToShelf`.
+
 ## Đường sửa từ điển, cập nhật mục lục và xuất TXT (1.3.250)
 
 * **Sửa một từ (global)**: `ReaderDefinitionOverlayView.updateButtonView` → `onSaveDefinition` → `ReaderView.saveDefinition` → `TranslationManager.saveCustomEntry(word:meaning:isName:bookId: nil)` → `DictionaryTextFileStore.persist` → `DictionaryCache.invalidate` → **`reloadCustomDictionary(isName:)`** → `updateDeletedState` → `notifyDictionariesDidUpdate(bookId:scope:)` → `TranslateUtils.invalidateCache` → `.translationDictionariesDidUpdate` → `ReaderView.onReceive` → `scheduleCoalescedTranslationRefresh` → (150 ms) → `updateCachedTranslatedContent` → `refreshParagraphItems()`. Cạnh `loadAllDictionaries()` (→ 4× `DoubleArrayTrie.load` → `loadPhoneticMap` → `ChinesePhienAmWords.txt`) **đã bị xoá** khỏi đường này; nó chỉ còn ở khởi động, tải/thay từ điển chung và khôi phục backup.
@@ -104,6 +116,8 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 * BookDetail local TOC search OR-matches `StoredChapterSnapshot.title/titleTrans` (and the SwiftData fallback matches `Chapter.title/titleTrans`) without consulting the translation toggle.
 
 ## TXT import confirmation handoff call graph (1.3.223)
+
+> Từ 1.3.251: `isParsingTXT` → `isParsingImport`, `TXTImportConfirmationSheet` → `BookImportConfirmationSheet`, `importTxtBook` → `importLocalBook`. Handoff wait-layer → sheet không đổi.
 
 * Parse nền thành công → `MainActor` gán `pendingImport` trong khi `isParsingTXT` vẫn bật → SwiftUI trình bày `TXTImportConfirmationSheet` → sheet `onAppear` đặt `isParsingTXT = false`.
 * Parse thất bại → xóa file tạm → `MainActor` tắt `isParsingTXT` → log file + Toast. Hủy/xác nhận sheet tiếp tục đi qua `cancelImport`/`performImport` hiện có.
