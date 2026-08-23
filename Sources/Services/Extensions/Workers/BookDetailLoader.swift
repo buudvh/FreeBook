@@ -68,6 +68,21 @@ public actor BookDetailLoader {
         return (firstPageChapters, pages)
     }
 
+    /// Mục lục của **đúng một** trang đã biết url — dùng khi chỉ cần trang cuối (kiểm tra chương mới).
+    public func fetchPageTOC(
+        snapshot: ExtensionExecutionSnapshot,
+        url: String,
+        host: String?
+    ) async throws -> [ChapterResult] {
+        return try await ExtensionManager.shared.toc(
+            localPath: snapshot.localPath,
+            downloadUrl: snapshot.downloadUrl,
+            url: url,
+            host: host,
+            configJson: snapshot.configJson
+        )
+    }
+
     public func fetchRemainingPages(
         snapshot: ExtensionExecutionSnapshot,
         pages: [String],

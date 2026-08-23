@@ -1,6 +1,14 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.225) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.226) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.226] - 2026-08-20
+
+### Chuẩn hóa hằng số Extension.type
+
+* **`Sources/Models/Extensions/ExtensionType.swift`**: thêm namespace public với các giá trị chuẩn `novel`, `chineseNovel`, `comic`, và `tts`.
+* Thay literal biểu diễn `Extension.type` trong model command, metadata import, repository policy, Search, Discovery, TTS Settings và UI quản lý extension; giữ nguyên script key/action TTS, sentinel `"all"`, schema `String` và dữ liệu hiện có.
+* Không migration, không đổi public API shape và không khóa type lạ; cập nhật CodeGraph tại `00_index.md`, `02_file_graph.md`, `03_type_graph.md`, `09_dependency_rules.md`, và `11_subsystems.md`.
 
 ## [1.3.225] - 2026-08-20
 

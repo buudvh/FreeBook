@@ -2,7 +2,21 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.225) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.226) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.256] - 2026-08-23
+
+### Hộp thư chương mới: badge, cooldown và refresh từng truyện
+
+Theo dõi chương mới cho truyện online trên kệ: mỗi truyện có mốc riêng, lượt kiểm tra tự động chạy **sau** khi Kệ sách đã hiện và bị chặn bởi cooldown (hoặc giờ người dùng chọn), có badge trên dòng truyện + tab, refresh tay toàn bộ hoặc từng truyện. Thêm **8** file Swift (326 → 334), **không** `@Model` nào đổi shape, **không** thêm dependency.
+
+* **Phân hệ mới `Sources/Services/NewChapters/` (5 file)** với 5 vai rời nhau: `NewChapterRecord` (DTO `Codable`), `NewChapterStore` (actor, chủ duy nhất của `applicationSupportDirectory/new_chapters.json`), `NewChapterCheckPolicy` (nguồn duy nhất của "được kiểm tra lúc này không" + mọi hằng điều tiết), `NewChapterProbe` (một lượt dò cho một truyện, thuần — không ghi đĩa/không toast/không SwiftData), `NewChapterInboxManager` (`@MainActor ObservableObject`, chủ duy nhất của việc lượt nào chạy và lưu gì).
+* **Không thêm `@Model` thứ sáu**: `ModelContainer` khai đúng 5 `@Model` và **không** có `VersionedSchema`/`SchemaMigrationPlan`, nên thêm thuộc tính vào `Book` là rủi ro migration cho dữ liệu mà **một lượt tải mục lục dựng lại được**. Mốc theo dõi vì vậy nằm ở một file JSON ghi `.atomic`, đọc đĩa một lần mỗi phiên, decode lỗi ⇒ log + coi như rỗng, `prune(keeping:)` mỗi lần mở Kệ sách. Tích hợp sao lưu/khôi phục **chưa** làm ở đợt này.
+* **Chỉ tải mục lục, và có trần trang**: `NewChapterProbe` gọi **duy nhất** `BookDetailLoader` (thêm `fetchPageTOC(snapshot:url:host:)`, 97 → 112 dòng; ba hàm cũ không đổi một dòng) nên không có đường nào lỡ tải nội dung chương. Mục lục quá `maxTOCPagesPerCheck = 8` trang ⇒ chỉ lấy **trang cuối** (1 request thay vì 50), biết "có chương lạ" nhưng không biết tổng số ⇒ `isCountExact = false` và badge hiện **dấu chấm** thay vì con số sai. Lần kiểm tra đầu lấy mốc từ `ChapterStore.fetchOrderedTOC` để thư viện sẵn có không bị báo "toàn bộ là chương mới".
+* **Hai mốc, hai chủ**: `seen*` chỉ đổi khi người dùng **mở truyện** (`markSeen`, và thoát sớm không ghi đĩa khi không có gì mới), `probed*` chỉ đổi khi probe chạy. `newChapterCount` là kết quả **suy ra** từ hiệu hai mốc chứ không phải bộ đếm tự cộng, nên kiểm tra lặp lại không nhân đôi số chương. Hai nhánh bằng chứng yếu cố ý *không* báo động giả: chỉ có trang cuối mà không thấy mốc ⇒ báo 1 + dấu chấm; nguồn đổi url chương cuối mà tổng số chương không tăng ⇒ báo **0**.
+* **Không chặn khởi động, một toast mỗi lượt**: `.task` của `ShelfView` chạy sau khi Kệ sách đã hiện và thoát im lặng khi chưa tới lượt (mặc định cách nhau 6 giờ; chế độ "mỗi ngày một lần" so với giờ người dùng chọn). Một lượt = tối đa `maxBooksPerBatch = 20` truyện, tuần tự, cách nhau 0,4 s, **một** lượt ghi file, **một** toast; `Outcome.newlyFound` trừ phần đã biết nên lượt sau không báo lại chương cũ. Refresh tay bỏ qua cooldown và luôn báo kết quả.
+* **Ranh giới tầng giữ nguyên**: `Services/NewChapters/**` không `import SwiftUI`, không `ToastManager.shared` — manager **trả về** `BatchSummary` và `ShelfView+NewChapters` (`@MainActor`, vì `ToastManager` là `@MainActor`) mới hiện toast. Badge tab dùng `.badge(totalNewBooks)` (`0` không vẽ gì); `BookListItemView` **không** bị sửa vì dùng chung với Khám phá và sheet chia sẻ — badge là view em cạnh nó trong `HStack`. Hai `@Query` của `ShelfView` đổi `private` → `internal` do `private` của Swift là phạm vi file.
+* CodeGraph: `00_index`, `02_file_graph`, `04_call_graph`, `06_event_graph`, `07_dataflow`, `08_lifecycle`, `09_dependency_rules`, `11_subsystems`, `13_resource_lifecycle`, `14_complexity_report`. `check_architecture.py` **14 → 14 violation** đúng cùng một tập (8 file mới ≤ 209 dòng, mỗi file 1 type top level; `ShelfView.swift` 836 → 867, baseline 942); host Windows nên không `xcodegen generate`/`xcodebuild` tại chỗ, biên dịch do CI xác nhận.
 
 ## [1.3.255] - 2026-08-23
 
@@ -415,11 +429,3 @@ Sửa **tài liệu** (không đụng `Sources/` hay `Tests/`) tại 22 điểm 
 
 * **`ShelfSearchView.historyView` / `SearchView.searchHistoryView`**: label nút chọn lịch sử chiếm toàn bộ chiều rộng còn lại và dùng `Rectangle` cho hit testing, nên vùng trống trước nút `x` có thể bấm được.
 * Giữ nút xóa độc lập và không đổi action chọn lịch sử, layout row, scroll hay logic lọc; cập nhật CodeGraph tại `00_index.md` và `06_event_graph.md`.
-
-## [1.3.226] - 2026-08-20
-
-### Chuẩn hóa hằng số Extension.type
-
-* **`Sources/Models/Extensions/ExtensionType.swift`**: thêm namespace public với các giá trị chuẩn `novel`, `chineseNovel`, `comic`, và `tts`.
-* Thay literal biểu diễn `Extension.type` trong model command, metadata import, repository policy, Search, Discovery, TTS Settings và UI quản lý extension; giữ nguyên script key/action TTS, sentinel `"all"`, schema `String` và dữ liệu hiện có.
-* Không migration, không đổi public API shape và không khóa type lạ; cập nhật CodeGraph tại `00_index.md`, `02_file_graph.md`, `03_type_graph.md`, `09_dependency_rules.md`, và `11_subsystems.md`.

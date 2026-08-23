@@ -15,6 +15,19 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời lượt kiểm tra chương mới (1.3.256)
+
+Lượt tự động **không** nằm trong chuỗi khởi động. `AppLaunchRootView` vẫn chặn app tới khi `TranslationManager.shared.isInitialized`, `MainTabView` mount sau đó, và chỉ khi Kệ sách **đã hiện** thì `.task` mới chạy:
+
+1. `ShelfView.body` xuất hiện → `.task { await runAutoNewChapterCheck() }`. Task này thuộc vòng đời của view: người dùng rời Kệ sách là nó bị cancel, không có timer nền nào.
+2. `NewChapterInboxManager.loadIfNeeded()` — cờ `didLoad` khiến `new_chapters.json` chỉ được đọc **một lần mỗi phiên**; các lượt sau chỉ đọc RAM.
+3. `prune(keeping:)` — record của truyện đã xoá khỏi kệ bị bỏ **trước** khi kiểm tra, và chỉ ghi đĩa khi thật sự có gì bị bỏ.
+4. `NewChapterCheckPolicy.shouldRunBatch()` — tắt trong Cài Đặt, chưa hết `cooldownHours` (mặc định 6), hoặc chế độ "mỗi ngày một lần" mà chưa qua `dailyHour` ⇒ **thoát im lặng**, không toast, không request nào.
+5. `run(_:)` — `guard !isChecking` chặn lượt thứ hai (ví dụ người dùng bấm refresh tay ngay lúc lượt tự động đang chạy); `isChecking`/`checkProgress` được `@Published` nên nút menu tự `disabled` và Cài Đặt hiện `ProgressView`.
+6. Kết thúc: **một** lượt `NewChapterStore.save(batch)` → `markBatchRun()` (mốc cooldown) → trả `BatchSummary`. Lượt tự động im lặng khi rỗng; refresh tay luôn báo.
+
+Vòng đời badge độc lập với vòng đời lượt kiểm tra: nó tắt ở `markSeen(bookId:)` — chạy đúng lúc người dùng **chạm dòng truyện** trong `ShelfView`, **trước** khi `readerPresentationRoute` được gán (xem `### 2.2. Kệ sách (ShelfView.swift)` bên dưới). Không có hook `.onDisappear` nào, và Reader không biết gì về hộp thư này.
+
 ## Vòng đời trình duyệt mở-thu-nhỏ và widget nổi thứ hai (1.3.244)
 
 Khi cài đặt "Mở trình duyệt ở chế độ thu nhỏ" **bật**, `openTab` đi nhánh mới:

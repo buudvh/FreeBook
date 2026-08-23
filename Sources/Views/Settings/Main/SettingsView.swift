@@ -204,6 +204,8 @@ struct SettingsView: View {
 
                 BrowserSettingsSection()
 
+                NewChapterSettingsSection()
+
                 BackupSettingsSection()
 
                 Section(header: Text("Cấu Hình Ghi Log")) {

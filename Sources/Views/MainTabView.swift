@@ -4,13 +4,16 @@ struct MainTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 0
-    
+    /// Số truyện có chương mới, hiện trên tab Kệ Sách.
+    @ObservedObject private var newChapters = NewChapterInboxManager.shared
+
     var body: some View {
         TabView(selection: $selectedTab) {
             ShelfView()
                 .tabItem {
                     Label("Kệ Sách", systemImage: "books.vertical.fill")
                 }
+                .badge(newChapters.totalNewBooks)
                 .tag(0)
             
             DiscoveryView()

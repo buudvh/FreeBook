@@ -15,6 +15,31 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Hộp thư chương mới (1.3.256)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Services/NewChapters/NewChapterRecord.swift`](../../Sources/Services/NewChapters/NewChapterRecord.swift) | DTO `Codable` cho một truyện: mốc `seen*` (người dùng đã thấy) vs kết quả `probed*` (lượt dò cuối) | 87 |
+| [`Services/NewChapters/NewChapterStore.swift`](../../Sources/Services/NewChapters/NewChapterStore.swift) | actor — **chủ duy nhất** của `applicationSupportDirectory/new_chapters.json` | 107 |
+| [`Services/NewChapters/NewChapterCheckPolicy.swift`](../../Sources/Services/NewChapters/NewChapterCheckPolicy.swift) | nguồn duy nhất của "có được kiểm tra lúc này không" + mọi hằng điều tiết | 110 |
+| [`Services/NewChapters/NewChapterProbe.swift`](../../Sources/Services/NewChapters/NewChapterProbe.swift) | một lượt dò mục lục cho **một** truyện; không ghi đĩa, không toast, không SwiftData | 209 |
+| [`Services/NewChapters/NewChapterInboxManager.swift`](../../Sources/Services/NewChapters/NewChapterInboxManager.swift) | `@MainActor ObservableObject` — điều phối lượt kiểm tra, `@Published records` cho badge | 138 |
+| [`Views/Shelf/ShelfMain/Extensions/ShelfView+NewChapters.swift`](../../Sources/Views/Shelf/ShelfMain/Extensions/ShelfView+NewChapters.swift) | dựng `Target` từ `@Query`, badge, 3 đường refresh, một toast mỗi lượt | 127 |
+| [`Views/Settings/NewChapters/NewChapterSettingsView.swift`](../../Sources/Views/Settings/NewChapters/NewChapterSettingsView.swift) | bật/tắt, chế độ chu kỳ hoặc mỗi ngày sau giờ chọn, trạng thái lượt gần nhất | 82 |
+| [`Views/Settings/Main/NewChapterSettingsSection.swift`](../../Sources/Views/Settings/Main/NewChapterSettingsSection.swift) | section `Chương Mới` mở màn cài đặt, y hệt `BackupSettingsSection` | 12 |
+
+| File sửa | Dòng | Thay đổi |
+|---|---|---|
+| [`Services/Extensions/Workers/BookDetailLoader.swift`](../../Sources/Services/Extensions/Workers/BookDetailLoader.swift) | 97 → **112** | thêm `fetchPageTOC(snapshot:url:host:)` — mục lục của **đúng một** trang đã biết url |
+| [`Views/Shelf/ShelfMain/ShelfView.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift) | 836 → **867** | `@Query allBooks`/`allExtensions` đổi `private` → `internal`, `@ObservedObject newChapters`, `.task`, 2 mục menu, `markSeen` lúc mở truyện, badge trong `bookItemView` |
+| [`Views/MainTabView.swift`](../../Sources/Views/MainTabView.swift) | 76 → **79** | `.badge(newChapters.totalNewBooks)` trên tab Kệ Sách |
+| [`Views/Settings/Main/SettingsView.swift`](../../Sources/Views/Settings/Main/SettingsView.swift) | 440 → **441** | một dòng `NewChapterSettingsSection()` |
+
+* Tổng file Swift 326 → **334** (+8). Hai thư mục mới: [`Sources/Services/NewChapters/`](../../Sources/Services/NewChapters/NewChapterInboxManager.swift) (5 file) và [`Sources/Views/Settings/NewChapters/`](../../Sources/Views/Settings/NewChapters/NewChapterSettingsView.swift) (1 file). Không file nào bị xoá hay đổi tên.
+* Chuỗi cạnh mới, một chiều: `ShelfView` → `ShelfView+NewChapters` → `NewChapterInboxManager` → {`NewChapterProbe`, `NewChapterStore`, `NewChapterCheckPolicy`} → `NewChapterProbe` → {[`BookDetailLoader`](../../Sources/Services/Extensions/Workers/BookDetailLoader.swift#L1), [`ChapterStore`](../../Sources/Services/ChapterText/ChapterStore/ChapterStoreActor.swift#L1)}. `NewChapterRecord` là lá (chỉ `Foundation`), `NewChapterStore` là **chủ duy nhất** của `new_chapters.json`.
+* `NewChapterProbe` gọi **chỉ** `BookDetailLoader` ⇒ đường kiểm tra không thể vô tình tải nội dung chương; cạnh sang `ChapterStore.fetchOrderedTOC` chỉ dùng để lấy mốc lần đầu.
+* Cạnh UI: `MainTabView` và `NewChapterSettingsView` cùng observe `NewChapterInboxManager.shared` (đúng tiền lệ `@ObservedObject … = X.shared`). [`BookListItemView`](../../Sources/Views/Common/BookListItemView.swift#L1) **không** bị sửa — badge là view em cạnh nó trong `HStack` của `ShelfView.bookItemView`, vì view đó dùng chung với Khám phá và sheet chia sẻ truyện.
+
 ## Nhập truyện PDF chỉ lấy lớp văn bản (1.3.255)
 
 | File mới | Vai trò | Dòng |

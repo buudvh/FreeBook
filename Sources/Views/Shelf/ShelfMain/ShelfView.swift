@@ -22,8 +22,12 @@ struct ShelfView: View {
 
     // @Query: Tự động tải danh sách Book từ database lên, sắp xếp theo ngày đọc gần nhất giảm dần.
     // SwiftUI sẽ tự động vẽ lại giao diện bất cứ khi nào danh sách sách trong database thay đổi.
-    @Query(sort: \Book.lastReadDate, order: .reverse) private var allBooks: [Book]
-    @Query private var allExtensions: [Extension]
+    // `internal` vì khối kiểm tra chương mới đã tách sang `Extensions/ShelfView+NewChapters.swift`.
+    @Query(sort: \Book.lastReadDate, order: .reverse) internal var allBooks: [Book]
+    @Query internal var allExtensions: [Extension]
+
+    /// Hộp thư chương mới — chỉ đọc, mọi thao tác ghi đi qua manager.
+    @ObservedObject internal var newChapters = NewChapterInboxManager.shared
     
     private var activeExtensions: [Extension] {
         allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
@@ -136,6 +140,11 @@ struct ShelfView: View {
             }
             .navigationTitle(selectedTab == 0 ? "Downloads" : (selectedTab == 1 ? "Kệ Sách" : "Lịch Sử Đọc"))
             .navigationBarTitleDisplayMode(.inline)
+            // Kiểm tra chương mới chạy async sau khi Kệ sách đã hiện — không chặn khởi động app,
+            // và tự bỏ qua nếu chưa hết cooldown / chưa tới giờ người dùng chọn.
+            .task {
+                await runAutoNewChapterCheck()
+            }
             .toolbar {
                 if selectedTab != 0 {
                     ToolbarItem(placement: .navigationBarTrailing) {
@@ -168,6 +177,15 @@ struct ShelfView: View {
                             showingBypassBrowser = true
                         }) {
                             Label("Mở trình duyệt web", systemImage: "globe")
+                        }
+
+                        if selectedTab == 1 && !shelfBooks.isEmpty {
+                            Button(action: {
+                                checkAllNewChapters()
+                            }) {
+                                Label("Kiểm tra chương mới", systemImage: "bell.badge")
+                            }
+                            .disabled(newChapters.isChecking)
                         }
 
                         if selectedTab == 0 && !DownloadManager.shared.tasks.isEmpty {
@@ -478,6 +496,7 @@ struct ShelfView: View {
                 List {
                     ForEach(displayedShelfBooks) { book in
                         Button {
+                            newChapters.markSeen(bookId: book.bookId)
                             readerPresentationRoute = ShelfReaderRoute(
                                 bookId: book.bookId,
                                 extensionPackageId: book.extensionPackageId,
@@ -501,6 +520,13 @@ struct ShelfView: View {
                                 )) {
                                     Label("Xem chi tiết", systemImage: "info.circle")
                                 }
+
+                                Button {
+                                    checkNewChapters(for: book)
+                                } label: {
+                                    Label("Kiểm tra chương mới", systemImage: "bell.badge")
+                                }
+                                .disabled(newChapters.isChecking)
 
                                 Button {
                                     changeSourceTargetBook = book
@@ -687,11 +713,16 @@ struct ShelfView: View {
     @ViewBuilder
     private func bookItemView(_ book: Book) -> some View {
         let ext = allExtensions.first(where: { $0.packageId == book.extensionPackageId })
-        BookListItemView(
-            item: book,
-            extensionLocalPath: ext?.localPath ?? "",
-            extensionIconUrl: ext?.iconUrl
-        )
+        // Badge nằm **cạnh** `BookListItemView` chứ không nhét vào trong: view đó dùng chung với
+        // Khám phá / chia sẻ truyện, sửa nó là đổi cả những màn không liên quan.
+        HStack(spacing: 8) {
+            BookListItemView(
+                item: book,
+                extensionLocalPath: ext?.localPath ?? "",
+                extensionIconUrl: ext?.iconUrl
+            )
+            newChapterBadge(for: book.bookId)
+        }
     }
 
     private func retranslateChapterTitles(for book: Book) {

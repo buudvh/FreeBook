@@ -15,6 +15,13 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Badge chương mới đi bằng Combine, không thêm tên notification nào (1.3.256)
+
+* **Không có tên `NotificationCenter` mới, không có event center mới.** Hộp thư chương mới dùng `@Published` của [`NewChapterInboxManager`](../../Sources/Services/NewChapters/NewChapterInboxManager.swift#L1) (`records`, `isChecking`, `checkProgress`) — ba subscriber cùng thức bằng `@ObservedObject … = NewChapterInboxManager.shared`: [ShelfView.swift](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift#L1) (badge từng dòng truyện + `disabled` cho 2 mục menu), [MainTabView.swift](../../Sources/Views/MainTabView.swift#L1) (`.badge(totalNewBooks)` trên tab Kệ Sách), [NewChapterSettingsView.swift](../../Sources/Views/Settings/NewChapters/NewChapterSettingsView.swift#L1) (trạng thái + `ProgressView`). Đúng luật "signalling mới thì dùng `AsyncStream`/Combine, đừng thêm notification string" — ở đây thậm chí không cần `AsyncStream` vì chỉ là trạng thái, không phải sự kiện một lần.
+* **Toast không phải sự kiện phát từ Services.** Khác đường tải/xuất (dùng `DownloadPresentationEventCenter`), lượt kiểm tra là **hành động do View khởi xướng** nên kết quả được **trả về** dưới dạng `BatchSummary` và `ShelfView` tự gọi `ToastManager`. Không thêm publisher nào vào hai event center sẵn có, và `SERVICE_TOAST_COUPLING` không bị chạm tới.
+* **Kích hoạt lượt kiểm tra là vòng đời view, không phải sự kiện app.** `.task` của `ShelfView` là điểm phát duy nhất của lượt tự động — không hook `scenePhase`, không `applicationDidBecomeActive`, không background task. Hệ quả cần biết: app ở background lâu rồi quay lại **không** tự kiểm tra lại nếu người dùng chưa rời và quay lại Kệ sách; refresh tay là đường bù.
+* `markSeen(bookId:)` là mũi ghi duy nhất phát ngược từ tương tác người dùng (chạm dòng truyện) về `@Published records`, nên badge tắt trong cùng vòng render — không có độ trễ chờ lượt kiểm tra sau.
+
 ## Sự kiện `exportReady` và bàn giao share sheet theo `scenePhase` (1.3.253)
 
 * **Sự kiện mới, không phải notification mới.** [DownloadPresentationEvent.swift](../../Sources/Services/Download/Events/DownloadPresentationEvent.swift) thêm case `exportReady(filePath: String, bookTitle: String)` cạnh `showToast`. Nó đi trên `AsyncStream` sẵn có của `DownloadPresentationEventCenter` — **không** thêm tên `NotificationCenter` string trần nào (đúng luật "signalling mới thì dùng `AsyncStream` event center"). Publisher duy nhất: `DownloadManager+TaskStore.markExportCompleted`; subscriber duy nhất: `AppLaunchRootView` (`for await event in DownloadPresentationEventCenter.shared.stream`).

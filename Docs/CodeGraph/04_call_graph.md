@@ -15,6 +15,15 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ba đường kiểm tra chương mới (1.3.256)
+
+* **Đường tự động** (không ai bấm gì): `ShelfView.body.task` → `ShelfView.runAutoNewChapterCheck()` → `NewChapterInboxManager.loadIfNeeded()` (→ `NewChapterStore.all()`, chỉ đọc đĩa lượt đầu) → `prune(keeping: Set(allBooks.map(\.bookId)))` → `newChapterTargets` (`allBooks` đã sort `lastReadDate` giảm dần) → `autoCheck(targets:)` → `NewChapterCheckPolicy.shouldRunBatch()` **thoát sớm nếu chưa tới lượt** → lọc `shouldCheck(record:)` → `prefix(maxBooksPerBatch)` → `run(_:)`.
+* **Đường refresh toàn bộ**: menu toolbar `"Kiểm tra chương mới"` → `ShelfView.checkAllNewChapters()` → `checkAll(targets:)` → `run(_:)`. Khác đường tự động ở đúng hai điểm: **không** hỏi `shouldRunBatch`/`shouldCheck`, và `announceEmpty: true` nên "Không có chương mới" cũng được báo.
+* **Đường refresh một truyện**: context menu trên dòng truyện → `ShelfView.checkNewChapters(for: book)` → `newChapterTarget(for:)` (`nil` ⇒ toast lỗi, dừng) → `check(target:)` → `run([target])`.
+* **Thân chung `run(_:)`** (chỗ duy nhất có `guard !isChecking`): với **từng** target tuần tự → `NewChapterProbe.probe(target:previous:)` → gom `Outcome` → cộng `BatchSummary` → `Task.sleep(interBookDelayNanoseconds)` giữa hai truyện → `NewChapterStore.save(batch)` **một** lượt ghi file → `NewChapterCheckPolicy.markBatchRun()` → trả `BatchSummary` → `ShelfView.showNewChapterSummary(_:announceEmpty:)` → **một** `ToastManager.shared.show`.
+* **Bên trong `probe`** (nhánh gọi sâu nhất): `fetchTOC` → `BookDetailLoader.fetchFirstPageTOC` → *nếu* `pages.count > 1`: `≤ maxTOCPagesPerCheck` ⇒ `fetchRemainingPages` (`isPartial = false`), ngược lại ⇒ `fetchPageTOC(url: pages.last!)` (`isPartial = true`) → `dedupePreservingOrder` → `resolveBaseline` (mốc rỗng ⇒ `ChapterStore.fetchOrderedTOC(bookId:)`) → `applyDiff`. Không có cạnh nào tới hàm tải nội dung chương.
+* **Đường tắt badge**: chạm dòng truyện → `NewChapterInboxManager.markSeen(bookId:)` → `NewChapterRecord.markSeen()` → `NewChapterStore.save(record)`; `!hasNew` thì thoát ngay, **không** ghi đĩa. Cạnh đọc: `MainTabView` và `NewChapterSettingsView` → `newChapters.totalNewBooks` (Combine, không có lời gọi nào ngược lại).
+
 ## Một tác vụ xuất: lấy chương → render → kiểm file → chia sẻ (1.3.253)
 
 * **Enqueue**: `ShelfView.prepareTaskForBook(book, type: .exportTxt)` / `BookDetailView.prepareForTask(taskType: .exportTxt)` (chỉ để mở sheet) → `TaskOptionsSheet` → người dùng chọn `BookExportFormat` → `effectiveTaskType` = `format.taskType` → [`DownloadManager.enqueueTask(book:taskType:startFromCurrent:limit:translate:onlyExportCached:container:)`](../../Sources/Services/Download/DownloadManager.swift#L1). Cạnh cũ `DownloadTrackerView.exportFromCached → enqueueTask(.exportTxt)` **bị xoá** — nó đi qua sheet để chọn định dạng và thấy trước số chương thiếu (`ChapterStore.fetchOrderedTOC` → đếm `isCached && length > 0`).
