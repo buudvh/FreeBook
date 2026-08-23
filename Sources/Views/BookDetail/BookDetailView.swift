@@ -71,7 +71,6 @@ struct BookDetailView: View {
     @State internal var readerRoute: ReaderRoute?
     @State internal var navigateToDictionary = false
     @State internal var navigateToChangeSource = false
-    @State internal var showingEditInfo = false
 
     // Trình duyệt bypass Cloudflare & Import
     @State internal var showingBypassBrowser = false
@@ -260,16 +259,6 @@ struct BookDetailView: View {
         .onChange(of: isTranslationEnabled) { _, _ in
             updateFilteredLocalChapters()
             updateFilteredOnlineChapters()
-        }
-        .sheet(isPresented: $showingEditInfo, onDismiss: refreshDisplayedBookInfo) {
-            if let book = localBook {
-                BookInfoEditView(
-                    bookId: book.bookId,
-                    title: book.title,
-                    author: book.author,
-                    coverUrl: book.coverUrl
-                )
-            }
         }
         .fullScreenCover(item: $readerRoute) { route in
             NavigationStack {
@@ -901,19 +890,24 @@ struct BookDetailView: View {
                 }
 
                 if shouldPersistTOC {
-                    let targetBookId = await MainActor.run { self.actualBookId }
-                    let ttsProtection = await MainActor.run { self.activeTTSProtectedChapter }
-                    let snapshots = await MainActor.run { self.tocMetadata(from: firstPageChapters) }
-                    _ = try await ChapterContentRepository.shared.saveChapterList(
-                        bookId: targetBookId,
+                    // Một hop MainActor cho cả ba giá trị, thay vì ba `await MainActor.run` rời rạc.
+                    let saveContext: (bookId: String, ttsProtection: ProtectedTTSChapter?, snapshots: [ChapterMetadataSnapshot]) = await MainActor.run {
+                        (self.actualBookId, self.activeTTSProtectedChapter, self.tocMetadata(from: firstPageChapters))
+                    }
+                    let saveResult = try await ChapterContentRepository.shared.saveChapterList(
+                        bookId: saveContext.bookId,
                         createSnapshot: nil,
-                        chapters: snapshots,
+                        chapters: saveContext.snapshots,
                         mode: pages.count > 1 ? .upsertPage : .replaceFullTOC,
-                        protectedTTSChapter: ttsProtection
+                        protectedTTSChapter: saveContext.ttsProtection
                     )
+                    let didChangeTOC = saveResult.inserted > 0 || saveResult.updated > 0 || saveResult.deleted > 0
                     await MainActor.run {
-                        self.refreshLocalTOCSnapshots()
-                        if let savedBook = self.refetchBook(bookId: targetBookId) {
+                        // Mục lục y nguyên ⇒ không đọc lại toàn bộ TOC chỉ để gán lại mảng `@State`.
+                        if didChangeTOC || self.chapterSnapshots.isEmpty {
+                            self.refreshLocalTOCSnapshots()
+                        }
+                        if let savedBook = self.refetchBook(bookId: saveContext.bookId) {
                             self.chaptersList = savedBook.chapters
                         } else {
                             self.syncChaptersList()

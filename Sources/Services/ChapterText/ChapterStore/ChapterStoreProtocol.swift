@@ -27,7 +27,7 @@ internal protocol ChapterStoreProtocol: Sendable {
     func upsertCachedChapter(bookId: String, metadata: ChapterMetadataSnapshot, isCached: Bool, offset: Int64, length: Int64) async throws
     func updateTitleTranslations(bookId: String, updates: [(index: Int, url: String, titleTrans: String)]) async throws
     func importBookMigration(bookId: String, snapshots: [StoredChapterSnapshot], statusInfo: MigrationStatusInfo) async throws
-    func fetchCountAndChecksum(bookId: String) async throws -> (count: Int, checksum: Int64)
+    func countChapters(bookId: String) async throws -> Int
     func getMigrationStatus(bookId: String) async throws -> MigrationStatusInfo?
     func updateMigrationStatus(bookId: String, status: String, migratedCount: Int) async throws
     func deleteBook(bookId: String) async throws

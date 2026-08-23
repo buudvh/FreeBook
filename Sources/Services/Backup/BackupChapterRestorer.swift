@@ -36,7 +36,7 @@ public enum BackupChapterRestorer {
 
         let sorted = records.sorted { $0.index < $1.index }
         do {
-            let localCount = (try? await ChapterStore.shared.fetchCountAndChecksum(bookId: bookId).count) ?? 0
+            let localCount = (try? await ChapterStore.shared.countChapters(bookId: bookId)) ?? 0
             if localCount == 0 {
                 try await importFresh(bookId: bookId, records: sorted, contentFileURL: contentFileURL, into: &outcome)
             } else {

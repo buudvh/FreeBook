@@ -98,19 +98,20 @@ public final class TranslationManager: ObservableObject {
         // 3. Ghi TXT-only; helper tự xoá file .dat custom cũ cùng tên nếu còn.
         try DictionaryTextFileStore.persist(records: records, to: fileUrl)
         
-        // 4. Reset cache và load lại
+        // 4. Reset cache và nạp lại đúng phần bị ảnh hưởng (không đụng .dat / phiên âm)
         if let bid = bookId {
+            // File TXT riêng của truyện đổi ⇒ chỉ cần bỏ cache; `getBookDictionaries` nạp lại lazy ở lần dịch sau.
             bookDicts.removeValue(forKey: bid)
         } else {
             // Invalidate global dictionary cache
             await MainActor.run {
                 DictionaryCache.shared.invalidate(type: isName ? .names : .vietPhrase)
             }
+            await reloadCustomDictionary(isName: isName)
         }
-        try await loadAllDictionaries()
         notifyDictionariesDidUpdate(bookId: bookId, scope: .term(word: cleanWord, isName: isName, bookId: bookId))
     }
-    
+
     public func deleteCustomEntry(word: String, isName: Bool, bookId: String?) async throws {
         let fileUrl = customTextURL(isName: isName, bookId: bookId)
         let cleanWord = word.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -130,7 +131,7 @@ public final class TranslationManager: ObservableObject {
             try DictionaryTextFileStore.persist(records: records, to: fileUrl)
         }
         
-        // 3. Reset cache và load lại
+        // 3. Reset cache và nạp lại đúng phần bị ảnh hưởng (không đụng .dat / phiên âm)
         if let bid = bookId {
             bookDicts.removeValue(forKey: bid)
         } else {
@@ -138,8 +139,8 @@ public final class TranslationManager: ObservableObject {
             await MainActor.run {
                 DictionaryCache.shared.invalidate(type: isName ? .names : .vietPhrase)
             }
+            await reloadCustomDictionary(isName: isName)
         }
-        try await loadAllDictionaries()
         notifyDictionariesDidUpdate(bookId: bookId, scope: .term(word: cleanWord, isName: isName, bookId: bookId))
     }
     
@@ -152,6 +153,42 @@ public final class TranslationManager: ObservableObject {
         if (try? DictionaryTextFileStore.persist(records: records, to: fileUrl)) != nil {
             updateDeletedState(from: records, isName: isName)
             notifyDictionariesDidUpdate()
+        }
+    }
+
+    /// Nạp lại **chỉ** từ điển custom global (`CustomNames.txt` / `CustomVietPhrase.txt`) và danh sách tombstone
+    /// tương ứng, tương đương khối 1.1/2.1 của `loadAllDictionaries()`.
+    ///
+    /// Dùng cho mọi thao tác CRUD một từ: các file `.dat` chung và `ChinesePhienAmWords.txt` không hề bị thao tác đó
+    /// ghi vào, nên nạp lại chúng là việc dư (đặc biệt `loadPhoneticMap` phải dựng lại hàng trăm nghìn entry).
+    /// Cùng mẫu với `removeDeletedWords`: persist → cập nhật state hẹp → notify.
+    public func reloadCustomDictionary(isName: Bool) async {
+        let fileUrl = customTextURL(isName: isName, bookId: nil)
+        var records: [DictionaryTextRecord] = []
+        var reloaded: TrieDictionary? = nil
+
+        if FileManager.default.fileExists(atPath: fileUrl.path) {
+            records = (try? DictionaryTextFileStore.parseRecords(from: fileUrl)) ?? []
+            let text = TextDictionary()
+            try? text.load(from: fileUrl)
+            if text.isLoaded, text.wordCount > 0 { reloaded = text }
+        }
+
+        let loaded = reloaded != nil
+        if isName {
+            self.customNamesDict = reloaded
+        } else {
+            self.customVietPhraseDict = reloaded
+        }
+        // Dòng blacklist `word=` là cách biểu diễn "đã xoá", phải cập nhật cùng lúc với dict.
+        updateDeletedState(from: records, isName: isName)
+
+        await MainActor.run {
+            if isName {
+                self.isCustomNamesLoaded = loaded
+            } else {
+                self.isCustomVietPhraseLoaded = loaded
+            }
         }
     }
 

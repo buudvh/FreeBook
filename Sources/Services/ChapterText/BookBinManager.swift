@@ -70,11 +70,26 @@ public actor BookBinManager {
         return booksDirectory.appendingPathComponent(sha256Hex(bookId) + ".bin")
     }
 
+    /// URL `.bin` đã resolve **và** đã qua `validatePathSafety`, giữ lại theo `bookId`.
+    ///
+    /// Mỗi lần đọc/ghi một chương trước đây đều chạy lại `binFilePath` ⇒ 2× SHA-256, 2× `validatePathSafety`
+    /// (mỗi lần một `resolvingSymlinksInPath`) và 2–3× `fileExists` chỉ để kiểm tra việc di trú file định dạng cũ.
+    /// Việc di trú chỉ cần làm **một** lần cho mỗi truyện trong một phiên chạy, còn URL thì thuần tất định
+    /// (`booksDirectory` + sha256 của `bookId`), nên kết quả được giữ lại. Vòng lặp xuất TXT hàng nghìn chương
+    /// nhờ đó chỉ còn mở `FileHandle`, không còn băm lại đường dẫn từng chương.
+    private var resolvedBinURLs: [String: URL] = [:]
+
+    private func resolvedBinURL(for bookId: String) throws -> URL {
+        if let cached = resolvedBinURLs[bookId] { return cached }
+        let url = binFilePath(for: bookId)
+        try validatePathSafety(for: url)
+        resolvedBinURLs[bookId] = url
+        return url
+    }
+
     public func readChapterContent(bookId: String, offset: Int64, length: Int64) throws -> String {
         guard length > 0 else { return "" }
-        let fileURL = binFilePath(for: bookId)
-
-        try validatePathSafety(for: fileURL)
+        let fileURL = try resolvedBinURL(for: bookId)
 
         guard fileManager.fileExists(atPath: fileURL.path) else {
             throw NSError(domain: "BookBinManager", code: 404, userInfo: [NSLocalizedDescriptionKey: "File .bin không tồn tại cho sách \(bookId)"])
@@ -95,9 +110,7 @@ public actor BookBinManager {
     }
 
     public func writeChapterContent(bookId: String, content: String) throws -> (offset: Int64, length: Int64) {
-        let fileURL = binFilePath(for: bookId)
-
-        try validatePathSafety(for: fileURL)
+        let fileURL = try resolvedBinURL(for: bookId)
 
         let data = Data(content.utf8)
         let length = Int64(data.count)
@@ -117,6 +130,7 @@ public actor BookBinManager {
     }
 
     public func deleteBinFile(for bookId: String) throws {
+        resolvedBinURLs.removeValue(forKey: bookId)
         let fileURL = binFilePath(for: bookId)
         let oldURL = booksDirectory.appendingPathComponent("\(bookId).bin")
 

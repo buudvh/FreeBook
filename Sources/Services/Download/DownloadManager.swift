@@ -63,107 +63,21 @@ public struct DownloadTask: Identifiable {
 public final class DownloadManager: ObservableObject {
     public static let shared = DownloadManager()
 
+    /// Khoảng coalesce `save()` của task store, tính bằng giây — xem `DownloadManager+TaskStore.swift`.
+    internal static let taskSaveCoalesceInterval: CFAbsoluteTime = 1.0
+    /// Khoảng phát `@Published tasks` khi tiến độ nhảy từng chương ⇒ tối đa ~10 lần/giây, giá trị cuối luôn phát.
+    internal static let progressPublishInterval: CFAbsoluteTime = 0.1
+
     @Published public var tasks: [DownloadTask] = []
     public var cancelledTaskIds: Set<UUID> = []
-    private var container: ModelContainer?
+    internal var container: ModelContainer?
+    /// Context dùng lại cho mọi CRUD của task. Tạo `ModelContext` mới ở từng lần cập nhật tiến độ là một trong
+    /// ba nguồn chậm chính của vòng lặp tải/xuất (hai nguồn còn lại: fetch toàn bảng và `save()` mỗi chương).
+    internal var taskContext: ModelContext?
+    internal var lastTaskSaveAt: CFAbsoluteTime = 0
+    internal var lastProgressPublishAt: [UUID: CFAbsoluteTime] = [:]
 
     private init() {}
-
-    public func initialize(container: ModelContainer) {
-        self.container = container
-
-        let context = ModelContext(container)
-        do {
-            let descriptor = FetchDescriptor<DownloadTaskModel>(sortBy: [SortDescriptor(\.createdAt, order: .forward)])
-            let models = try context.fetch(descriptor)
-
-            var loadedTasks: [DownloadTask] = []
-            for model in models {
-                var task = DownloadTask(
-                    id: model.id,
-                    bookId: model.bookId,
-                    bookTitle: model.bookTitle,
-                    bookCoverUrl: model.bookCoverUrl,
-                    taskType: TaskType(rawValue: model.taskTypeRaw) ?? .download,
-                    status: TaskStatus(rawValue: model.statusRaw) ?? .pending,
-                    progressCount: model.progressCount,
-                    totalCount: model.totalCount,
-                    errorMessage: model.errorMessage,
-                    isCancelled: model.isCancelled,
-                    extensionPackageId: model.extensionPackageId,
-                    detailUrl: model.detailUrl,
-                    startFromCurrent: model.startFromCurrent,
-                    limit: ChapterLimitOption(rawValue: model.limitRaw) ?? .all,
-                    translate: model.translate,
-                    onlyExportCached: model.onlyExportCached,
-                    exportFilePath: model.exportFilePath
-                )
-
-                if task.status == .running || task.status == .pending {
-                    task.status = .failed
-                    task.errorMessage = "Tác vụ bị dừng đột ngột (ứng dụng khởi động lại)"
-
-                    model.statusRaw = TaskStatus.failed.rawValue
-                    model.errorMessage = "Tác vụ bị dừng đột ngột (ứng dụng khởi động lại)"
-                }
-
-                loadedTasks.append(task)
-            }
-            try? context.save()
-            self.tasks = loadedTasks
-        } catch {
-            AppLogger.shared.log("Error loading download tasks from DB: \(error.localizedDescription)")
-        }
-    }
-
-    public func deleteTask(taskId: UUID) {
-        cancelTask(taskId: taskId)
-
-        guard let container = container else { return }
-        let context = ModelContext(container)
-        let allModels = (try? context.fetch(FetchDescriptor<DownloadTaskModel>())) ?? []
-        if let model = allModels.first(where: { $0.id == taskId }) {
-            context.delete(model)
-            try? context.save()
-        }
-
-        if let idx = tasks.firstIndex(where: { $0.id == taskId }) {
-            tasks.remove(at: idx)
-        }
-    }
-
-    public func retryTask(taskId: UUID) {
-        guard let idx = tasks.firstIndex(where: { $0.id == taskId }) else { return }
-        let task = tasks[idx]
-        guard task.status == .failed || task.status == .cancelled else { return }
-
-        cancelledTaskIds.remove(taskId)
-
-        tasks[idx].status = .pending
-        tasks[idx].isCancelled = false
-        tasks[idx].progressCount = 0
-        tasks[idx].errorMessage = nil
-
-        if let container = self.container {
-            updateTaskInDB(taskId: taskId) { model in
-                model.statusRaw = TaskStatus.pending.rawValue
-                model.isCancelled = false
-                model.progressCount = 0
-                model.errorMessage = nil
-            }
-            runNextTasksIfNeeded(container: container)
-        }
-    }
-
-    private func updateTaskInDB(taskId: UUID, updateBlock: (DownloadTaskModel) -> Void) {
-        guard let container = container else { return }
-        let context = ModelContext(container)
-        let allModels = (try? context.fetch(FetchDescriptor<DownloadTaskModel>())) ?? []
-        if let model = allModels.first(where: { $0.id == taskId }) {
-            updateBlock(model)
-            try? context.save()
-        }
-    }
 
     public func enqueueTask(
         book: Book,
@@ -217,9 +131,11 @@ public final class DownloadManager: ObservableObject {
             onlyExportCached: onlyExportCached
         )
 
-        let context = ModelContext(container)
-        context.insert(dbModel)
-        try? context.save()
+        if let context = taskStoreContext() {
+            context.insert(dbModel)
+            try? context.save()
+            lastTaskSaveAt = CFAbsoluteTimeGetCurrent()
+        }
 
         self.tasks.append(newTask)
         self.runNextTasksIfNeeded(container: container)
@@ -262,103 +178,7 @@ public final class DownloadManager: ObservableObject {
         }
     }
 
-    public func clearFinishedTasks() {
-        let taskIdsToRemove = tasks.filter { task in
-            task.status == .completed || task.status == .failed || task.status == .cancelled
-        }.map { $0.id }
-
-        tasks.removeAll { task in
-            taskIdsToRemove.contains(task.id)
-        }
-
-        if let container = container {
-            let context = ModelContext(container)
-            let allModels = (try? context.fetch(FetchDescriptor<DownloadTaskModel>())) ?? []
-            for model in allModels {
-                if taskIdsToRemove.contains(model.id) {
-                    context.delete(model)
-                }
-            }
-            try? context.save()
-        }
-    }
-
-    public func isTaskCancelled(taskId: UUID) -> Bool {
-        if cancelledTaskIds.contains(taskId) {
-            return true
-        }
-        return tasks.first(where: { $0.id == taskId })?.isCancelled ?? false
-    }
-
-    @MainActor
-    private func updateProgress(taskId: UUID, progress: Int, total: Int) {
-        if let index = tasks.firstIndex(where: { $0.id == taskId }) {
-            tasks[index].progressCount = progress
-            tasks[index].totalCount = total
-            tasks[index].status = .running
-
-            updateTaskInDB(taskId: taskId) { model in
-                model.progressCount = progress
-                model.totalCount = total
-                model.statusRaw = TaskStatus.running.rawValue
-            }
-        }
-    }
-
-    @MainActor
-    private func markCompleted(taskId: UUID, exportFilePath: String? = nil) {
-        if let index = tasks.firstIndex(where: { $0.id == taskId }) {
-            tasks[index].status = .completed
-            if let path = exportFilePath {
-                tasks[index].exportFilePath = path
-            }
-
-            updateTaskInDB(taskId: taskId) { model in
-                model.statusRaw = TaskStatus.completed.rawValue
-                if let path = exportFilePath {
-                    model.exportFilePath = path
-                }
-            }
-
-            let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)
-            let type = tasks[index].taskType.rawValue
-            DownloadPresentationEventCenter.shared.send(.showToast(message: "Đã xong: \(type) '\(title)' thành công!", type: .success))
-        }
-    }
-
-    @MainActor
-    private func markFailed(taskId: UUID, error: String) {
-        if let index = tasks.firstIndex(where: { $0.id == taskId }) {
-            tasks[index].status = .failed
-            tasks[index].errorMessage = error
-
-            updateTaskInDB(taskId: taskId) { model in
-                model.statusRaw = TaskStatus.failed.rawValue
-                model.errorMessage = error
-            }
-
-            let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)
-            let type = tasks[index].taskType.rawValue
-            DownloadPresentationEventCenter.shared.send(.showToast(message: "Lỗi \(type) '\(title)': \(error)", type: .error))
-        }
-    }
-
-    @MainActor
-    private func markCancelled(taskId: UUID) {
-        if let index = tasks.firstIndex(where: { $0.id == taskId }) {
-            tasks[index].status = .cancelled
-
-            updateTaskInDB(taskId: taskId) { model in
-                model.statusRaw = TaskStatus.cancelled.rawValue
-            }
-
-            let title = TranslateUtils.translateBookTitleIfNeeded(tasks[index].bookTitle, bookId: tasks[index].bookId)
-            let type = tasks[index].taskType.rawValue
-            DownloadPresentationEventCenter.shared.send(.showToast(message: "Đã hủy tác vụ: \(type) '\(title)'", type: .info))
-        }
-    }
-
-    private func runNextTasksIfNeeded(container: ModelContainer) {
+    internal func runNextTasksIfNeeded(container: ModelContainer) {
         let runningCount = tasks.filter { $0.status == .running }.count
         let availableSlots = max(0, maxConcurrentTasks - runningCount)
         guard availableSlots > 0 else { return }
@@ -415,6 +235,10 @@ public final class DownloadManager: ObservableObject {
             }
         }
 
+        // Ghi dần bản xuất TXT ra đĩa thay cho bộ đệm chuỗi cũ (giữ cả file trong RAM). Khai ngoài `do`
+        // để mọi nhánh lỗi/huỷ đều dọn được file `.part` dở dang.
+        var exportWriter: TxtExportFileWriter?
+
         do {
             // 1. Fetch Book by filtering in memory to avoid SwiftData #Predicate compiler bugs
             let allBooks = (try? bgContext.fetch(FetchDescriptor<Book>())) ?? []
@@ -460,9 +284,7 @@ public final class DownloadManager: ObservableObject {
             let chapsToProcess = Array(sortedChapters[startIdx..<endIdx])
 
             let total = chapsToProcess.count
-            await MainActor.run {
-                self.updateProgress(taskId: taskId, progress: 0, total: total)
-            }
+            await self.updateProgress(taskId: taskId, progress: 0, total: total)
 
             var cachedCount = 0
             var skippedUncachedCount = 0
@@ -470,21 +292,22 @@ public final class DownloadManager: ObservableObject {
             var savedCount = 0
             var failedCount = 0
             var processedCount = 0
-            var txtAccumulator = ""
+            if task.taskType == .exportTxt {
+                exportWriter = try TxtExportFileWriter(bookTitle: bgBook.title)
+            }
 
             for chapter in chapsToProcess {
                 let targetChapterTitle = chapter.title
                 let targetChapterUrl = chapter.url
                 let isChapterCached = chapter.isCached
 
-                // Check if cancelled
-                let isCancelled = await MainActor.run {
-                    Task.isCancelled || self.isTaskCancelled(taskId: taskId)
-                }
-                if isCancelled {
-                    await MainActor.run {
-                        self.markCancelled(taskId: taskId)
-                    }
+                // Không hop MainActor chỉ để hỏi cờ huỷ nữa: `activeTasks[taskId]` được gán ngay sau
+                // `Task.detached`, và mọi đường huỷ (`cancelTask`, `cancelTasksForBook`, `deleteTask`) đều gọi
+                // `handle.cancel()` ⇒ `Task.isCancelled` đã phủ hết. Đọc `cancelledTaskIds` từ đây còn là một
+                // truy cập `Set` không đồng bộ hoá.
+                if Task.isCancelled {
+                    exportWriter?.discard()
+                    await self.markCancelled(taskId: taskId)
                     return
                 }
 
@@ -502,10 +325,7 @@ public final class DownloadManager: ObservableObject {
                 } else if task.taskType == .exportTxt && task.onlyExportCached {
                     skippedUncachedCount += 1
                     processedCount += 1
-                    let currentProgress = processedCount
-                    await MainActor.run {
-                        self.updateProgress(taskId: taskId, progress: currentProgress, total: total)
-                    }
+                    await self.updateProgress(taskId: taskId, progress: processedCount, total: total)
                     continue
                 } else {
                     uncachedAttemptCount += 1
@@ -513,10 +333,7 @@ public final class DownloadManager: ObservableObject {
                         guard let worker = worker else {
                             failedCount += 1
                             processedCount += 1
-                            let currentProgress = processedCount
-                            await MainActor.run {
-                                self.updateProgress(taskId: taskId, progress: currentProgress, total: total)
-                            }
+                            await self.updateProgress(taskId: taskId, progress: processedCount, total: total)
                             continue
                         }
 
@@ -549,9 +366,8 @@ public final class DownloadManager: ObservableObject {
                             failedCount += 1
                         }
                     } catch is CancellationError {
-                        await MainActor.run {
-                            self.markCancelled(taskId: taskId)
-                        }
+                        exportWriter?.discard()
+                        await self.markCancelled(taskId: taskId)
                         return
                     } catch {
                         failedCount += 1
@@ -568,66 +384,46 @@ public final class DownloadManager: ObservableObject {
                         contentToExport = TranslateUtils.translateContent(contentToExport, bookId: bgBook.bookId)
                     }
 
-                    let formatted = formatChapter(title: titleToExport, content: contentToExport)
-                    if !txtAccumulator.isEmpty {
-                        txtAccumulator += "\n\n"
-                    }
-                    txtAccumulator += formatted
+                    try exportWriter?.append(formatChapter(title: titleToExport, content: contentToExport))
                 }
 
                 processedCount += 1
-                let currentProgress = processedCount
-                await MainActor.run {
-                    self.updateProgress(taskId: taskId, progress: currentProgress, total: total)
-                }
+                await self.updateProgress(taskId: taskId, progress: processedCount, total: total)
             }
 
             // 4. Save and finish outcome
             AppLogger.shared.log("📊 [DownloadManager] Tác vụ \(taskId) hoàn tất xử lý: cachedCount=\(cachedCount), savedCount=\(savedCount), skippedUncachedCount=\(skippedUncachedCount), uncachedAttemptCount=\(uncachedAttemptCount), failedCount=\(failedCount)")
-            let isExportTxtEmpty = txtAccumulator.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             let outcome = DownloadTaskOutcomeCalculator.calculateOutcome(
                 taskType: task.taskType,
                 uncachedAttemptCount: uncachedAttemptCount,
                 savedCount: savedCount,
                 failedCount: failedCount,
-                isExportTxtEmpty: isExportTxtEmpty
+                isExportTxtEmpty: exportWriter?.hasNoContent ?? true
             )
 
             switch outcome {
             case .completed:
-                if task.taskType == .exportTxt {
-                    let exportDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Exports", isDirectory: true)
-                    try? FileManager.default.createDirectory(at: exportDir, withIntermediateDirectories: true)
-
-                    let sanitizedTitle = bgBook.title.replacingOccurrences(of: "[\\\\/:*?\"<>|]", with: "_", options: .regularExpression)
-                    let fileName = "\(sanitizedTitle).txt"
-                    let fileURL = exportDir.appendingPathComponent(fileName)
-                    try txtAccumulator.write(to: fileURL, atomically: true, encoding: .utf8)
+                if let exportWriter {
+                    let fileURL = try exportWriter.finish()
                     let savedPath = fileURL.path
-
                     await MainActor.run {
                         self.markCompleted(taskId: taskId, exportFilePath: savedPath)
                         self.presentShareSheet(for: fileURL)
                     }
                 } else {
-                    await MainActor.run {
-                        self.markCompleted(taskId: taskId)
-                    }
+                    await self.markCompleted(taskId: taskId)
                 }
             case .failed(let message):
-                await MainActor.run {
-                    self.markFailed(taskId: taskId, error: message)
-                }
+                exportWriter?.discard()
+                await self.markFailed(taskId: taskId, error: message)
             }
 
         } catch is CancellationError {
-            await MainActor.run {
-                self.markCancelled(taskId: taskId)
-            }
+            exportWriter?.discard()
+            await self.markCancelled(taskId: taskId)
         } catch {
-            await MainActor.run {
-                self.markFailed(taskId: taskId, error: error.localizedDescription)
-            }
+            exportWriter?.discard()
+            await self.markFailed(taskId: taskId, error: error.localizedDescription)
         }
     }
 

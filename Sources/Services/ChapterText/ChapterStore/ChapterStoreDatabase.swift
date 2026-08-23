@@ -345,35 +345,21 @@ internal final class ChapterStoreDatabase {
         try? execRaw("ROLLBACK;")
     }
 
-    // MARK: - Deterministic FNV-1a Checksum
-    internal func computeDeterministicChecksum(chapters: [StoredChapterSnapshot]) -> Int64 {
-        var hash: UInt64 = 14695981039346656037
-        for ch in chapters {
-            hash = fnv1aUpdate(hash, string: ch.id)
-            hash = fnv1aUpdate(hash, string: String(ch.index))
-            hash = fnv1aUpdate(hash, string: ch.url)
-            hash = fnv1aUpdate(hash, string: ch.title)
-            hash = fnv1aUpdate(hash, string: ch.titleTrans ?? "")
-            hash = fnv1aUpdate(hash, string: ch.isCached ? "1" : "0")
-            hash = fnv1aUpdate(hash, string: String(ch.offset))
-            hash = fnv1aUpdate(hash, string: String(ch.length))
-        }
-        return Int64(bitPattern: hash)
-    }
-
-    private func fnv1aUpdate(_ currentHash: UInt64, string: String) -> UInt64 {
-        var h = currentHash
-        for byte in string.utf8 {
-            h ^= UInt64(byte)
-            h = h &* 1099511628211
-        }
-        return h
-    }
-
     // MARK: - Operations
-    func replaceFullTOC(bookId: String, chapters: [ChapterMetadataSnapshot], protectedTTS: ProtectedTTSChapter?) throws -> (result: SaveTOCResult, reconcileMs: Double, writeMs: Double, checksum: Int64, parityOk: Bool) {
+    func replaceFullTOC(bookId: String, chapters: [ChapterMetadataSnapshot], protectedTTS: ProtectedTTSChapter?) throws -> (result: SaveTOCResult, reconcileMs: Double, writeMs: Double, parityOk: Bool) {
         let tReconcile0 = CFAbsoluteTimeGetCurrent()
         let existingChapters = try fetchOrderedTOC(bookId: bookId)
+
+        let plan = ChapterTOCDiff.plan(existing: existingChapters, incoming: chapters, protectedTTS: protectedTTS, bookId: bookId)
+        if plan == .unchanged {
+            // Không có gì đổi ⇒ không mở transaction, không ghi hàng nào.
+            let reconcileMs = (CFAbsoluteTimeGetCurrent() - tReconcile0) * 1000.0
+            let result = SaveTOCResult(inserted: 0, updated: 0, deleted: 0, totalChapters: existingChapters.count)
+            return (result, reconcileMs, 0, true)
+        }
+        // `.appendOnly` ⇒ tiền tố khớp hết nên chỉ ghi phần đuôi, và không có hàng nào stale để xoá.
+        var tailStart = 0
+        if case .appendOnly(let start) = plan { tailStart = start }
 
         var candidateMap: [CompositeKey: [StoredChapterSnapshot]] = [:]
         for ch in existingChapters {
@@ -392,7 +378,7 @@ internal final class ChapterStoreDatabase {
         let tWrite0 = CFAbsoluteTimeGetCurrent()
         try beginTransaction()
         do {
-            for item in chapters {
+            for item in chapters[tailStart...] {
                 try Task.checkCancellation()
                 let key = CompositeKey(url: item.url, index: item.index)
 
@@ -448,10 +434,10 @@ internal final class ChapterStoreDatabase {
                 }
             }
 
-            // Stale Deletion using pre-prepared statement
+            // Stale Deletion using pre-prepared statement (bỏ hẳn ở nhánh `.appendOnly`: mọi hàng cũ đều còn dùng)
             var deletedCount = 0
             guard let delStmt = stmtDeleteStaleChapter else { throw ChapterStoreError.databaseError(code: 402) }
-            for ch in existingChapters {
+            for ch in existingChapters where tailStart == 0 {
                 if !matchedOrInsertedIds.contains(ch.id) {
                     if let prot = protectedTTS, prot.bookId == bookId, ch.index == prot.index, (prot.url.isEmpty || ch.url == prot.url) {
                         continue
@@ -473,20 +459,27 @@ internal final class ChapterStoreDatabase {
             applyFileProtection()
             let writeMs = (CFAbsoluteTimeGetCurrent() - tWrite0) * 1000.0
 
-            let finalTOC = try fetchOrderedTOC(bookId: bookId)
-            let checksum = computeDeterministicChecksum(chapters: finalTOC)
-            let parityOk = (finalTOC.count == chapters.count || (protectedTTS != nil && finalTOC.count == chapters.count + 1))
-            let result = SaveTOCResult(inserted: insertedCount, updated: updatedCount, deleted: deletedCount, totalChapters: finalTOC.count)
-            return (result, reconcileMs, writeMs, checksum, parityOk)
+            // Thay `fetchOrderedTOC` lần hai bằng COUNT(*): vẫn kiểm chứng từ DB nhưng không materialize N hàng.
+            let storedCount = try countChapters(bookId: bookId)
+            let parityOk = (storedCount == chapters.count || (protectedTTS != nil && storedCount == chapters.count + 1))
+            let result = SaveTOCResult(inserted: insertedCount, updated: updatedCount, deleted: deletedCount, totalChapters: storedCount)
+            return (result, reconcileMs, writeMs, parityOk)
         } catch {
             rollbackTransaction()
             throw error
         }
     }
 
-    func upsertPage(bookId: String, chapters: [ChapterMetadataSnapshot]) throws -> (result: SaveTOCResult, reconcileMs: Double, writeMs: Double, checksum: Int64, parityOk: Bool) {
+    func upsertPage(bookId: String, chapters: [ChapterMetadataSnapshot]) throws -> (result: SaveTOCResult, reconcileMs: Double, writeMs: Double, parityOk: Bool) {
         let tReconcile0 = CFAbsoluteTimeGetCurrent()
         let existingChapters = try fetchOrderedTOC(bookId: bookId)
+
+        if ChapterTOCDiff.plan(existing: existingChapters, incoming: chapters, protectedTTS: nil, bookId: bookId) == .unchanged {
+            // Trang vừa nạp trùng khít phần đã lưu ⇒ không mở transaction.
+            let reconcileMs = (CFAbsoluteTimeGetCurrent() - tReconcile0) * 1000.0
+            let result = SaveTOCResult(inserted: 0, updated: 0, deleted: 0, totalChapters: existingChapters.count)
+            return (result, reconcileMs, 0, true)
+        }
 
         var expectedKeys = Set(existingChapters.map { CompositeKey(url: $0.url, index: $0.index) })
         for item in chapters {
@@ -567,11 +560,10 @@ internal final class ChapterStoreDatabase {
             applyFileProtection()
             let writeMs = (CFAbsoluteTimeGetCurrent() - tWrite0) * 1000.0
 
-            let finalTOC = try fetchOrderedTOC(bookId: bookId)
-            let checksum = computeDeterministicChecksum(chapters: finalTOC)
-            let parityOk = (finalTOC.count == expectedCount)
-            let result = SaveTOCResult(inserted: insertedCount, updated: updatedCount, deleted: 0, totalChapters: finalTOC.count)
-            return (result, reconcileMs, writeMs, checksum, parityOk)
+            let storedCount = try countChapters(bookId: bookId)
+            let parityOk = (storedCount == expectedCount)
+            let result = SaveTOCResult(inserted: insertedCount, updated: updatedCount, deleted: 0, totalChapters: storedCount)
+            return (result, reconcileMs, writeMs, parityOk)
         } catch {
             rollbackTransaction()
             throw error
@@ -857,10 +849,17 @@ internal final class ChapterStoreDatabase {
         }
     }
 
-    func fetchCountAndChecksum(bookId: String) throws -> (count: Int, checksum: Int64) {
-        let chapters = try fetchOrderedTOC(bookId: bookId)
-        let checksum = computeDeterministicChecksum(chapters: chapters)
-        return (chapters.count, checksum)
+    /// Đếm số hàng của một truyện. Cũng là bước kiểm chứng sau khi ghi, thay cho `fetchOrderedTOC` lần hai:
+    /// mọi caller trước đây gọi `fetchCountAndChecksum` cũng chỉ cần con số này, không cần checksum.
+    func countChapters(bookId: String) throws -> Int {
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        try prepareOne("SELECT COUNT(*) FROM chapter_metadata WHERE book_id = ?;", &stmt)
+        try bindText(stmt, 1, bookId)
+        guard sqlite3_step(stmt) == SQLITE_ROW else {
+            throw ChapterStoreError.databaseError(code: sqlite3_errcode(db))
+        }
+        return Int(sqlite3_column_int(stmt, 0))
     }
 
     func getMigrationStatus(bookId: String) throws -> MigrationStatusInfo? {

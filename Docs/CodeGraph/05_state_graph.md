@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Trạng thái gợi ý ô nghĩa, sheet sửa thông tin và tiến độ task (1.3.250)
+
+* `ReaderView.suggestionChips` đổi từ **giá trị phái sinh** (computed property, tính lại mỗi lần `body` evaluate) sang **state tường minh** `@State internal var suggestionChips: [SuggestionChip]`. Nó nay là hàm của hai đại lượng và chỉ được ghi khi một trong hai đổi: chuỗi đang chọn (`updateEditorFromSelection`, `onGetDictionaryMatches`) và nội dung từ điển của từ đó (nhánh xoá định nghĩa). Bất biến bắt buộc: cache phải bị làm mới theo **cả** `bookId` và chuỗi chọn — `refreshSuggestionChips(for:)` luôn nhận từ mới và luôn ghi đè, không có nhánh nào giữ lại giá trị cũ.
+* `showingEditInfo` của `BookDetailView` **không còn tồn tại**. Trạng thái "đang sửa thông tin truyện" chuyển thành `@State private var editingInfoBook: Book?` của `ShelfView`, dùng chung cho hai tab — `nil` là đóng, khác `nil` là mở, không còn cặp cờ Bool + tham chiếu rời rạc. Không có state hiển thị nào cần đồng bộ tay sau khi lưu (`refreshDisplayedBookInfo()` đã bị xoá): `@Query` của ShelfView là nguồn duy nhất.
+* `DownloadManager` có hai state phụ mới, cả hai **thuần để giảm nhịp ghi**, không mang ngữ nghĩa nghiệp vụ: `taskContext` (một `ModelContext` `autosaveEnabled = false` giữ suốt phiên) và `lastTaskSaveAt` + `lastProgressPublishAt[taskId]`. Bất biến: giá trị mới **luôn** được áp vào `DownloadTaskModel` ở mọi lần gọi `updateTaskInDB`; chỉ `save()` bị gộp (`coalesce: true` cho bước trung gian, `false` cho mọi trạng thái cuối). `@Published tasks` chỉ đổi tối đa ~10 lần/giây nhưng bước đầu, bước cuối và mọi thay đổi trạng thái/tổng số luôn được phát — nên `progressCount` mà UI thấy có thể nhảy bậc, còn giá trị cuối luôn đúng. `lastProgressPublishAt` được xoá ở `deleteTask`/`retryTask`/`markCompleted`/`markFailed`/`markCancelled` để không rò theo số task.
+* `BookBinManager.resolvedBinURLs` là cache phái sinh (bookId → URL đã resolve + đã migrate legacy), không phải nguồn sự thật; `deleteBinFile` xoá entry để không giữ URL của truyện đã bị xoá.
+* `ChapterTOCDiff.Plan` là giá trị bất biến tính **một lần** trên snapshot đọc từ DB, không phải state được duy trì: `.unchanged` / `.appendOnly(tailStart:)` / `.full`. Bất biến an toàn: mọi tình huống không chắc (ít hàng hơn hiện có, lệch bất kỳ field nào, chương TTS đang được bảo vệ mà TOC mới không chứa) phải trả `.full`.
+
 ## Trạng thái trình duyệt thu nhỏ, nhịp nháy và vị trí widget (1.3.244)
 
 * `VisibleBrowserTabManager` có **một trạng thái mới hợp lệ**: `isPresented == false && isHidden == true && !tabs.isEmpty` — container đã dựng (`loadViewIfNeeded()`) và tab đã attach, nhưng **chưa bao giờ được present**. Trước 1.3.244 `isHidden == true` chỉ đạt được sau một lần present rồi thu nhỏ. `prepareContainerMinimized()` là điểm vào duy nhất của trạng thái này và tự guard `!isPresented, !isDismissing`.

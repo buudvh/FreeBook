@@ -329,8 +329,8 @@ actor ChapterPersistenceStore {
                 isNewBook = false
                 if let createSnapshot {
                     applyMetadata(from: createSnapshot, to: existing)
+                    try context.save() // `createSnapshot == nil` ⇒ `Book` không đổi field nào, không cần fsync.
                 }
-                try context.save()
             } else if let createSnapshot {
                 isNewBook = true
                 let book = Book(

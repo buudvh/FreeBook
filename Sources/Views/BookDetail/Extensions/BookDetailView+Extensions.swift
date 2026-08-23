@@ -17,12 +17,6 @@ extension BookDetailView {
 
             if localBook != nil {
                 Button(action: {
-                    showingEditInfo = true
-                }) {
-                    Label("Sửa thông tin truyện", systemImage: "square.and.pencil")
-                }
-
-                Button(action: {
                     navigateToDictionary = true
                 }) {
                     Label("Từ điển", systemImage: "character.book.closed")
@@ -50,14 +44,6 @@ extension BookDetailView {
             Image(systemName: "ellipsis")
                 .rotationEffect(.degrees(90))
         }
-    }
-
-    /// Đồng bộ lại phần hiển thị sau khi người dùng tự sửa thông tin truyện.
-    internal func refreshDisplayedBookInfo() {
-        guard let book = localBook else { return }
-        title = book.title
-        author = book.author
-        coverUrl = book.coverUrl
     }
 
     internal func prepareForTask(taskType: TaskType) {
@@ -270,17 +256,26 @@ extension BookDetailView {
 
                 if let book = localBook {
                     let savedDesc = detailResult.detail.isEmpty ? detailResult.description.cleanHTML() : "\(detailResult.description.cleanHTML())\n\n---\n\(self.cleanDetailText(detailResult.detail))"
-                    let res = BookTransactionCoordinator.shared.updateBookMetadata(
-                        bookId: book.bookId,
-                        title: detailResult.name,
-                        author: detailResult.author,
-                        coverUrl: detailResult.cover,
-                        desc: savedDesc,
-                        host: detailResult.host,
-                        in: modelContext
-                    )
-                    if case .failure(let err) = res {
-                        self.detailErrorMessage = err.localizedDescription
+                    // Kéo refresh mà nguồn không đổi gì là trường hợp phổ biến nhất; khi đó bỏ hẳn transaction
+                    // SwiftData (`updateBookMetadata` luôn `save()` ⇒ một fsync + một vòng invalidate `@Query`).
+                    let isMetadataUnchanged = book.title == detailResult.name
+                        && book.author == detailResult.author
+                        && book.coverUrl == detailResult.cover
+                        && book.desc == savedDesc
+                        && (book.host ?? "") == detailResult.host
+                    if !isMetadataUnchanged {
+                        let res = BookTransactionCoordinator.shared.updateBookMetadata(
+                            bookId: book.bookId,
+                            title: detailResult.name,
+                            author: detailResult.author,
+                            coverUrl: detailResult.cover,
+                            desc: savedDesc,
+                            host: detailResult.host,
+                            in: modelContext
+                        )
+                        if case .failure(let err) = res {
+                            self.detailErrorMessage = err.localizedDescription
+                        }
                     }
                 }
             }
@@ -311,25 +306,32 @@ extension BookDetailView {
                 allChapters = tocResult
             }
 
-            let targetBookId = await MainActor.run { self.actualBookId }
-            let shouldPersist = await MainActor.run { self.localBook != nil }
-            let ttsProtection = await MainActor.run { self.activeTTSProtectedChapter }
-            let snapshots = await MainActor.run { self.tocMetadata(from: allChapters) }
+            // Một hop MainActor duy nhất cho cả bốn giá trị (trước đây là bốn `await MainActor.run` rời rạc).
+            let saveContext: (bookId: String, shouldPersist: Bool, ttsProtection: ProtectedTTSChapter?, snapshots: [ChapterMetadataSnapshot]) = await MainActor.run {
+                (self.actualBookId, self.localBook != nil, self.activeTTSProtectedChapter, self.tocMetadata(from: allChapters))
+            }
 
-            if shouldPersist {
-                _ = try await ChapterContentRepository.shared.saveChapterList(
-                    bookId: targetBookId,
+            var didChangeTOC = true
+            if saveContext.shouldPersist {
+                let saveResult = try await ChapterContentRepository.shared.saveChapterList(
+                    bookId: saveContext.bookId,
                     createSnapshot: nil,
-                    chapters: snapshots,
+                    chapters: saveContext.snapshots,
                     mode: .replaceFullTOC,
-                    protectedTTSChapter: ttsProtection
+                    protectedTTSChapter: saveContext.ttsProtection
                 )
+                didChangeTOC = saveResult.inserted > 0 || saveResult.updated > 0 || saveResult.deleted > 0
             }
 
             await MainActor.run {
                 self.onlineChapters = allChapters
-                if let savedBook = refetchBook(bookId: targetBookId) {
+                if let savedBook = refetchBook(bookId: saveContext.bookId) {
                     self.chaptersList = savedBook.chapters
+                    // Chỉ nạp lại mảng `@State` khi engine thật sự ghi hàng nào đó; kéo refresh liên tục mà
+                    // mục lục y nguyên thì không đọc lại toàn bộ TOC và không gán lại `chapterSnapshots`.
+                    if didChangeTOC || self.chapterSnapshots.isEmpty {
+                        self.refreshLocalTOCSnapshots()
+                    }
                 } else {
                     self.syncChaptersList()
                 }

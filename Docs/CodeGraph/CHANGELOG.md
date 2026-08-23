@@ -2,7 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.215) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.220) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.250] - 2026-08-23
+
+### Tối ưu xuất TXT, mục lục, từ điển; dời sửa thông tin truyện
+
+Bốn việc hiệu năng + một việc dời UI trong một commit. Thêm **5** file Swift (279 → 284), không `@Model` nào đổi shape, không thêm tên notification string nào.
+
+* **Sửa một từ VietPhrase/Names không còn nạp lại cả từ điển.** `TranslationManager.reloadCustomDictionary(isName:)` parse lại đúng một file (`CustomNames.txt` **hoặc** `CustomVietPhrase.txt`), dựng lại dict tương ứng và gọi `updateDeletedState` (nên tombstone `word=` của nhánh xoá cũng đúng) — **không** chạm 4 file `.dat` lẫn `ChinesePhienAmWords.txt`. `saveCustomEntry`/`deleteCustomEntry` với `bookId != nil` thì chỉ bỏ entry `bookDicts[bid]` và **không reload gì cả** (`getBookDictionaries` nạp lazy ở lần dịch sau). `DictionaryCache.persistAndUpdate` cũng chuyển sang hàm này và đưa `loadEntries` ra khỏi actor của caller. `loadAllDictionaries()` giữ nguyên cho khởi động, tải/cài lại từ điển chung và khôi phục backup. Tiền lệ có sẵn trong file: `removeDeletedWords` vốn đã persist → `updateDeletedState` → notify mà không reload.
+* **Bảo đảm không bị cắt**: thêm/sửa/xoá VietPhrase–Names **vẫn dịch lại chương**, và giờ **đúng một lần** thay vì ≥ 2. Chuỗi còn nguyên: ghi TXT → `reloadCustomDictionary` → `notifyDictionariesDidUpdate` → `TranslateUtils.invalidateCache` (bump generation) → `.translationDictionariesDidUpdate` → `ReaderView.onReceive` → `scheduleCoalescedTranslationRefresh` (defer nếu overlay đang mở) → 150 ms → `updateCachedTranslatedContent` → `refreshParagraphItems()`. Cái bị bỏ ở `saveDefinition` là lần `updateCachedTranslatedContent` gọi **trực tiếp** và lần `scheduleCoalescedTranslationRefresh` tường minh — đường notification vốn đã có scope + debounce + deferral. `suggestionChips` từ computed property (chạy ~6 `findLongestMatch` + `getHanViet` **mỗi lần body dựng lại**, tức mỗi ký tự gõ vào ô nghĩa) thành `@State` tính một lần khi chuỗi chọn đổi, tách sang `ReaderView+Suggestions.swift`.
+* **Mục lục: quyết định trước khi ghi.** `ChapterTOCDiff.plan` (hàm thuần, không sqlite) so từng field `(index, url, title, host, titleTrans-nếu-mới-khác-rỗng)` **không cấp phát chuỗi nội suy**; `.unchanged` ⇒ `replaceFullTOC`/`upsertPage` **không mở transaction**, `.appendOnly` ⇒ chỉ `REPLACE` phần đuôi và bỏ pass xoá stale, mọi trường hợp không chắc ⇒ `.full` như cũ (chương TTS được bảo vệ mà TOC mới không có ⇒ ép `.full`). Lượt `fetchOrderedTOC` **thứ hai** — trước dùng để tính `computeDeterministicChecksum`/parity, tức materialize lại N hàng — bị bỏ, thay bằng `countChapters(bookId:)` O(1). Nút "Cập nhật mục lục" trong Reader bỏ luôn `fetchOrderedTOC` + 2×N chuỗi identity mà nó tự dựng để so, giờ đọc `SaveTOCResult`; `reloadBookData()` gom 4 `await MainActor.run` thành 1, chỉ `updateBookMetadata` khi field thật khác, và chỉ `refreshLocalTOCSnapshots()` khi có gì đổi ⇒ kéo-để-tải-lại không có chương mới **không** ghi DB và **không** gán lại mảng `@State`. `saveChapterList` bỏ `context.save()` khi `createSnapshot == nil`.
+* **Xuất TXT (kể cả "Chỉ xuất chương đã tải") bỏ phần lớn việc dư mỗi chương.** CRUD task tách sang `DownloadManager+TaskStore.swift`: một `ModelContext` dùng lại cho cả phiên (thay vì tạo mới **mỗi** lần cập nhật tiến độ), `FetchDescriptor` có `#Predicate` theo `id` + `fetchLimit = 1` (thay cho fetch **toàn bảng**), `save()` được coalesce theo thời gian nhưng luôn ghi chắc ở `markCompleted`/`markFailed`/`markCancelled`/`initialize`, và `@Published tasks` chỉ đổi ~10 lần/giây (bước cuối, bước 0 và mọi thay đổi trạng thái luôn phát) — giá trị mới vẫn áp vào model ở mọi lần gọi, chỉ fsync bị gộp. Bỏ hop MainActor chỉ để hỏi cancel (`Task.isCancelled` là đủ vì mọi đường huỷ đều `handle.cancel()`). `BookBinManager` cache đường dẫn `.bin` đã resolve (`resolvedBinURLs`, dọn trong `deleteBinFile`) nên `sha256Hex` + `validatePathSafety` + kiểm migrate legacy không còn chạy lại cho từng chương. Bộ đệm `String` cộng dồn cả bản xuất bị thay bằng `TxtExportFileWriter`: ghi dần vào `<tên>.txt.part`, `finish()` mới rename ⇒ RAM phẳng và huỷ/lỗi không để lại `.txt` dở dang.
+* **"Sửa thông tin truyện" dời khỏi màn Chi tiết.** `BookDetailView` bỏ `showingEditInfo`, `.sheet`, item menu và `refreshDisplayedBookInfo()` (caller cuối là `onDismiss` của sheet đó); `ShelfView` giữ một `@State editingInfoBook: Book?` + một `.sheet(item:)` dùng chung cho cả tab Kệ sách và Lịch sử, sau khi lưu thì `@Query` tự cập nhật. `BookInfoEditView.swift` giữ nguyên chỗ cũ để tránh churn.
+* **Lệch có chủ ý so với plan** (ghi lại để không bị coi là quên): (1) `BookBinManager` được cache **đường dẫn** thay vì `openReader(bookId:)` giữ `FileHandle` — handle mang `FileHandle` không `Sendable` nên không qua được ranh giới actor, còn cache cho cùng phần tiết kiệm và có lợi cho mọi caller; (2) kiểm cancel dùng `Task.isCancelled` **một mình** thay vì cộng thêm snapshot `Set` `cancelledTaskIds` — đọc `Set` đó từ task nền là truy cập không đồng bộ hoá, thêm race để lấy một tín hiệu đã có.
+* **Trần dòng, không nới gì**: `ShelfView.swift` 1076 → **827** (baseline 942) nhờ tách `Extensions/ShelfView+TXTImport.swift` (283) và `DownloadManager.swift` 688 → **484** (baseline 640) nhờ tách `+TaskStore` (249) + `TxtExportFileWriter` (97) ⇒ **cả hai rời khỏi danh sách vi phạm**. `ReaderView.swift` 2268 → **2186**, `ChapterStoreDatabase.swift` 955 → **954**, `BookDetailView.swift` 1181 → **1175**, `ChapterPersistenceStore.swift` giữ **915** — đều đúng chiều "chỉ được giảm"; `TranslationManager.swift` 594 → **631** (baseline 642). Năm file mới đều ≤ 400 dòng và đúng 1 type top-level; `Sources/Services/**` không `import SwiftUI`, không `ToastManager.shared` (toast xuất TXT vẫn qua `DownloadPresentationEventCenter`).
+* **Xác minh**: `check_architecture.py` **16 → 14 violation**, tập còn lại là **tập con thật sự** — không entry `architecture_allowlist.json` nào được thêm, nới hay gia hạn, không baseline nào bị nới. `validate_links.py` PASS 16 doc / 284 file Swift. **Không biên dịch được tại chỗ** (host Windows, `xcodebuild` chỉ chạy trên macOS) — CI xanh chỉ nghĩa là *biên dịch được*; hiệu năng thật và 6 tổ hợp thêm/sửa/xoá × VietPhrase/Names × global/riêng-truyện phải kiểm trên máy thật với log bật.
 
 ## [1.3.249] - 2026-08-22
 
@@ -370,59 +385,3 @@ Sửa **tài liệu** (không đụng `Sources/` hay `Tests/`) tại 22 điểm 
 * **`Sources/Services/TTS/Preprocessing/TTSReplacementManager.swift`**: `addRule(_:)` xóa toàn bộ rule cũ có cùng pattern chính xác rồi append rule mới xuống cuối và chỉ `saveRules()` một lần; trả `AddRuleResult.added/replaced` với `@discardableResult` để giữ tương thích caller hiện có.
 * **`Sources/Views/Reader/ReaderView.swift`**: dùng kết quả từ manager để Toast phân biệt `"Đã thêm"` và `"Đã cập nhật"` thay thế TTS.
 * Không đổi `updateRule(_:)`, import JSON hay quy chuẩn kiến trúc trong `rules.md`; cập nhật CodeGraph liên quan ở `00_index.md`, `04_call_graph.md`, `06_event_graph.md`, và `11_subsystems.md`.
-
-## [1.3.220] - 2026-08-20
-
-### Đồng bộ Download/Detail và chuyển Phồn thể → Giản thể theo truyện
-
-* **`Sources/Views/Download/DownloadTrackerView.swift`**: task row dùng cover 50x70 và title 14.5pt semibold, tối đa 2 dòng — cùng style cover/title với Shelf và History.
-* **`Sources/Views/BookDetail/BookDetailHeaderView.swift`**: title được cố định theo chiều dọc để không cắt tên truyện dài trong cột bên cạnh cover.
-* **`Sources/Views/Reader/ReaderSettingsView.swift` / `ReaderView.swift`**: thêm Picker `"Văn bản trước khi dịch"`, lưu `convertTraditionalToSimplified_<bookId>` và làm mới bản dịch khi đổi lựa chọn.
-* **`Sources/Services/Translation/Utils/TranslateUtils.swift`** và pipeline Reader: khi bật, dùng ICU transform `StringTransform("Traditional-Simplified")` để chuẩn hoá phồn thể sang giản thể trước tra từ điển; text lưu trữ không đổi và translation spans chỉ dùng khi bảo toàn UTF-16. Cờ cấu hình trở thành một phần identity của `CachedChapter`; TOC paging/search và popup dịch từ/câu cũng dùng cùng cấu hình.
-* **Pipeline TTS (`TTSManager`, `TTSBackgroundProcessor`, prepared models/prefetch workers)**: áp dụng cùng option cho title/nội dung TTS của chương hiện tại, auto-advance, text/audio prefetch chương kế và metadata Now Playing. Key/snapshot mang cờ chuyển đổi để loại cache khác cấu hình; đổi option giữa phiên hủy prefetch cũ nhưng không ngắt audio chương đã dựng.
-* Không đổi quy chuẩn kiến trúc trong `rules.md`; các cập nhật CodeGraph liên quan nằm trong `00_index.md`, `06_event_graph.md`, và `08_lifecycle.md`.
-
-## [1.3.219] - 2026-08-20
-
-### Revert dùng BookListItemView trong DownloadTrackerView, chuẩn hoá BookListItemView 2 style và bỏ chevron NavigationLink
-
-* **`Sources/Views/Download/DownloadTrackerView.swift`**: revert `taskRow` về HStack cover+title custom gốc (cover 44x60, title `.headline` lineLimit(1), badge taskType, `statusBadge`, ProgressView, nút cancel/share/retry, contextMenu). Bỏ `extension DownloadTask: BookDisplayable`; `taskRow` dịch title nội bộ qua `@AppStorage("isTranslationEnabled")` + `TranslateUtils.translateMeta`. Giữ `.contentShape(Rectangle())` và Toast `exportFromCached`.
-* **`Sources/Views/Common/BookListItemView.swift`**: thêm `enum BookListItemStyle { case shelfOrHistory, discovery }`. `.shelfOrHistory` default `showChapter=true`/`showDescription=false`; `.discovery` default `showChapter=false`/`showDescription=true`. Init nhận `showChapter`/`showDescription` dạng `Bool?` (nil → theo style). Cover 50x70 + title `.system(size:14.5, weight:.semibold)` lineLimit(2) đồng bộ mọi style; HStack author/source chỉ render khi `hasAuthor || hasSource`.
-* **`Sources/Views/Common/CategoryNovelsListView.swift`**: `BookListItemView(item: novel, style: .discovery)` (bỏ override cover 60x80); đổi `NavigationLink` → `Button` + `@State selectedNovel` + `.navigationDestination(item:)` để bỏ chevron.
-* **`Sources/Views/Discovery/DiscoveryView.swift`**: `DiscoveryCategoryTabView` dùng `BookListItemView(item: novel, style: .discovery)`; đổi `NavigationLink` → `Button` + `selectedNovel` + `.navigationDestination(item:)`.
-* **`Sources/Views/Shelf/ShelfMain/ShelfView.swift`**: dời 3 overlay chờ (`isParsingTXT`/`isImporting`/`isProcessingDeletion`) ra khỏi closure `.sheet(item: $pendingImport)` thành sibling của `VStack` trong `ZStack` — fix không hiển thị khi `pendingImport == nil`. Sheet content chỉ còn `TXTImportConfirmationSheet`.
-* **`Sources/Services/Extensions/Manager/ExtensionManager.swift`**: `ExtensionItemResult` thêm conformance `Hashable` (dùng làm item của `.navigationDestination(item:)`).
-* `ShelfView`, `ShelfSearchView`, `BookShareTargetSheet` dùng default `.shelfOrHistory` (BookShareTargetSheet override `showChapter: false`) — không đổi API. Không cần cập nhật `rules.md`.
-
-## [1.3.218] - 2026-08-20
-
-### Tái sử dụng BookListItemView trong DownloadTrackerView và bỏ chevron NavigationLink
-
-* **`Sources/Views/Download/DownloadTrackerView.swift`**: thêm `extension DownloadTask: BookDisplayable` (title→`bookTitle`, coverUrl→`bookCoverUrl`, còn lại rỗng/0; `bookId` có sẵn). `taskRow` bỏ HStack cover+title custom → `BookListItemView(item: task, showChapter: false)`; badge taskType, statusBadge, ProgressView, nút cancel/share/retry + contextMenu chuyển xuống dưới row truyện trong `VStack`. Bỏ dịch title thủ công trong taskRow (BookListItemView tự dịch nội bộ qua `@AppStorage`); giữ `@AppStorage("isTranslationEnabled")` để dùng trong Toast `exportFromCached` (bọc `TranslateUtils.translateBookTitleIfNeeded`).
-* **`Sources/Views/Common/CategoryNovelsListView.swift`**: thêm `.buttonStyle(.plain)` lên NavigationLink → bỏ chevron `>` mặc định, giữ tap đi chi tiết.
-* **`Sources/Views/Discovery/DiscoveryView.swift`**: thêm `.buttonStyle(.plain)` lên NavigationLink → bỏ chevron `>` mặc định ở `DiscoveryCategoryTabView` (home tabs).
-* Không đổi public API Service/Manager, không đổi dependency tầng logic; không cần cập nhật `rules.md`.
-
-## [1.3.217] - 2026-08-20
-
-### Import TXT: bảng mã giải mã đa dạng, xác nhận trước khi nhập, overlay Material
-
-* File mới `Sources/Common/Utils/TextEncodingDecoder.swift`: helper giải mã `Data → String` thử tuần tự 20 bảng mã (UTF-8/BOM, UTF-16LE/BE, UTF-32LE/BOM/BE, GB18030, GBK, Big5-HKSCS, Big5, EUC-JP, windowsVietnamese/CP1258, VSCII/TCVN3, ISO-8859-1, windows-1250/1251/1252/1253/1254, ASCII). Mã đơn byte đặt cuối để tránh nuốt nhầm file tiếng Trung.
-* `JSExecutor.decodeData` dùng chung `TextEncodingDecoder.decode(data)` thay cho logic tự viết.
-* `ShelfView` tách import TXT thành 3 giai đoạn: `importTxtBook(from:)` (copy + decode + parse → hiện sheet xác nhận, giữ file tạm), `performImport()` (tạo Book + ghi chương + progress, xóa temp), `cancelImport()` (xóa temp). Thêm `PendingImport` struct + state `pendingImport`/`showImportConfirmation`/`importIsIndeterminate`.
-* Sheet mới `Sources/Views/Shelf/ShelfMain/TXTImportConfirmationSheet.swift`: hiện tên truyện, số chương, tên file và danh sách toàn bộ chương trước khi nhập; nút Hủy/Nhập.
-* Overlay import + overlay xóa sách bọc trong ZStack riêng (fix lệch giữa), card `.ultraThinMaterial`, spinner khi indeterminate, thanh linear + % khi ghi chương.
-
-## [1.3.216] - 2026-08-20
-
-### Đồng bộ badge nguồn sách thành capsule xám giữa detail, BookListItemView và ReaderChapterListView
-
-* **Phạm vi**: 3 badge hiển thị tên nguồn/extension (và "Local") đồng nhất style capsule xám trung tính, thay thế pill xanh.
-* **Style mới**: icon extension + chữ `.caption2` medium `.secondary`, nền `Color.secondary.opacity(0.12)` bo `Capsule()`, padding `(6, 2)`. Font size không đổi.
-* **`Sources/Views/BookDetail/BookDetailHeaderView.swift`**: badge nguồn bỏ trạng thái chỉ icon+chữ → bọc thêm nền capsule; fallback `puzzlepiece.extension` giảm 16→14pt.
-* **`Sources/Views/Common/BookListItemView.swift`**: protocol `BookDisplayable` thêm `extensionLocalPath: String` (default `""`) và `extensionIconUrl: String?` (default `nil`) qua `extension BookDisplayable`; `BookListItemView` thêm 2 init param `extensionLocalPath`/`extensionIconUrl`; badge thay 2 nhánh pill xanh (`Local`/`sourceName`) bằng helper `sourceBadge(text:)` (icon + chữ trong capsule). `Book` conformance giữ default.
-* **`Sources/Views/Shelf/ShelfMain/ShelfView.swift`**: `bookItemView` resolve `allExtensions.first(where: { $0.packageId == book.extensionPackageId })` và truyền `localPath`/`iconUrl` vào `BookListItemView`.
-* **`Sources/Views/Shelf/ShelfMain/ShelfSearchView.swift`**: thêm `@Query private var allExtensions: [Extension]`; resolve extension và truyền icon.
-* **`Sources/Views/Dictionary/BookShareTargetSheet.swift`**: thêm `@Query private var allExtensions: [Extension]`; resolve extension và truyền icon.
-* **`Sources/Views/Reader/ReaderChapterListView.swift`**: badge `Local`/`ext.name` đổi từ pill xanh sang capsule xám; dùng sẵn đối tượng `ext` để lấy `localPath`/`iconUrl`; không đổi API view.
-* Không đổi public API Service/Manager, không đổi font size; không cần cập nhật `rules.md`.

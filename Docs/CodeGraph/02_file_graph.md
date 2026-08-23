@@ -173,16 +173,16 @@ Sơ đồ liên kết file của toàn bộ dự án FreeBook sau refactor:
 - **Services**:
   - `Services/Books/`: `BookTransactionCoordinator.swift`.
   - `Services/Extensions/`: `ExtensionTransactionCoordinator.swift`, `Policies/RepositoryFilterPolicy.swift`, `Workers/BookDetailLoader.swift`, `Engine/JSExecutor.swift`, `Engine/JSExecutor+Async.swift`.
-  - `Services/ChapterText/`: `PrefetchManager.swift`, `ReaderChapterListStore.swift`, `Coordinators/ChapterListSearchCoordinator.swift`, `Workers/BackgroundPagingWorker.swift`, `BackgroundSearchWorker.swift`, `ReaderChapterListPageFetcher.swift`.
+  - `Services/ChapterText/`: `PrefetchManager.swift`, `ReaderChapterListStore.swift`, `Coordinators/ChapterListSearchCoordinator.swift`, `Workers/BackgroundPagingWorker.swift`, `BackgroundSearchWorker.swift`, `ReaderChapterListPageFetcher.swift`, `ChapterStore/ChapterTOCDiff.swift` (hàm thuần, không phụ thuộc sqlite — `ChapterStoreDatabase.swift` gọi vào để chọn `.unchanged`/`.appendOnly`/`.full`).
   - `Services/ReadingProgress/`: `ReaderProgressScheduler.swift`.
   - `Services/TTS/`: `TTSManager.swift`, `TTSAudioEngineController.swift`, `TTSAudioSessionController.swift`, `Events/TTSPresentationEventCenter.swift`, `Events/TTSPresentationEvent.swift`, `Extensions/TTSManager+*.swift`. `DisplayTextFormatter.swift` nằm ở `Common/Extensions/DisplayTextFormatter.swift`, không phải trong `Services/TTS/`.
-  - `Services/Download/`: `DownloadManager.swift`, `Events/DownloadPresentationEventCenter.swift`, `Events/DownloadPresentationEvent.swift`.
+  - `Services/Download/`: `DownloadManager.swift`, `DownloadManager+TaskStore.swift` (CRUD/tiến độ của `DownloadTaskModel`, giữ một `ModelContext` dùng lại), `TxtExportFileWriter.swift` (ghi dần `.txt.part` rồi rename), `Events/DownloadPresentationEventCenter.swift`, `Events/DownloadPresentationEvent.swift`.
   - `Services/Translation/`: `Utils/TranslateUtils.swift`, `Extensions/TranslateUtils+Tokenization.swift`, `Engine/VietPhraseTokenizer.swift`, `Utils/TOCRuleSaveCoordinator.swift`.
 - **Views**:
   - `Views/BookDetail/`: `BookDetailView.swift`, `Extensions/BookDetailView+Extensions.swift`, `BookDetailView+TOCPreparation.swift`.
-  - `Views/Reader/`: `ReaderView.swift`, `ReaderViewModel.swift`, `ReaderChapterListView.swift`, `Coordinators/ReaderScrollCoordinator.swift`, `ReaderSelectionCoordinator.swift`, `Extensions/ReaderView+Controls.swift`, `ReaderView+LoadingView.swift`, `ReaderViewModel+Translation.swift`.
+  - `Views/Reader/`: `ReaderView.swift`, `ReaderViewModel.swift`, `ReaderChapterListView.swift`, `Coordinators/ReaderScrollCoordinator.swift`, `ReaderSelectionCoordinator.swift`, `Extensions/ReaderView+Controls.swift`, `ReaderView+LoadingView.swift`, `ReaderView+Suggestions.swift`, `ReaderViewModel+Translation.swift`.
   - `Views/Extensions/`: `Manager/RepositoryManagerView.swift`, `Extensions/RepositoryManagerView+Actions.swift`, `RepositoryManagerView+RepoOps.swift`.
-  - `Views/Shelf/`: `ShelfMain/ShelfView.swift`.
+  - `Views/Shelf/`: `ShelfMain/ShelfView.swift`, `ShelfMain/Extensions/ShelfView+TXTImport.swift` (nhập truyện từ TXT; đọc/ghi `@State` của `ShelfView` nên chúng phải `internal`, không `private`).
   - `Views/Search/`: `SearchView.swift`.
   - `Views/Discovery/`: `DiscoveryView.swift`.
   - `Views/Common/`: `VisibleBrowserReopenView.swift`.

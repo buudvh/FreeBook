@@ -21,7 +21,7 @@ extension BookDetailView {
         bookOpenTask = Task { @MainActor in
             do {
                 if let book = localBook {
-                    let count = (try? await ChapterStore.shared.fetchCountAndChecksum(bookId: resolvedBookId))?.count ?? 0
+                    let count = (try? await ChapterStore.shared.countChapters(bookId: resolvedBookId)) ?? 0
                     if count > 0 {
                         let res = BookTransactionCoordinator.shared.setCurrentChapterIndex(bookId: resolvedBookId, index: chapterIndex, in: modelContext)
                         if case .failure(let err) = res {

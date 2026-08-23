@@ -28,7 +28,7 @@ internal actor ChapterStore: ChapterStoreProtocol {
         }
         let t0 = CFAbsoluteTimeGetCurrent()
         do {
-            let (result, reconcileMs, writeMs, _, parityOk) = try database.replaceFullTOC(bookId: bookId, chapters: chapters, protectedTTS: protectedTTS)
+            let (result, reconcileMs, writeMs, parityOk) = try database.replaceFullTOC(bookId: bookId, chapters: chapters, protectedTTS: protectedTTS)
             let totalMs = (CFAbsoluteTimeGetCurrent() - t0) * 1000.0
             let parityStr = parityOk ? "ok" : "mismatch"
             AppLogger.shared.log("[ChapterStore Save] mode=replaceFullTOC items=\(chapters.count) stored=\(result.totalChapters) inserted=\(result.inserted) updated=\(result.updated) deleted=\(result.deleted) openSchemaMs=\(String(format: "%.1f", database.openSchemaMs)) prepareMs=\(String(format: "%.1f", database.prepareMs)) reconcileMs=\(String(format: "%.1f", reconcileMs)) transactionWriteMs=\(String(format: "%.1f", writeMs)) totalMs=\(String(format: "%.1f", totalMs)) status=success parity=\(parityStr)")
@@ -50,7 +50,7 @@ internal actor ChapterStore: ChapterStoreProtocol {
         }
         let t0 = CFAbsoluteTimeGetCurrent()
         do {
-            let (result, reconcileMs, writeMs, _, parityOk) = try database.upsertPage(bookId: bookId, chapters: chapters)
+            let (result, reconcileMs, writeMs, parityOk) = try database.upsertPage(bookId: bookId, chapters: chapters)
             let totalMs = (CFAbsoluteTimeGetCurrent() - t0) * 1000.0
             let parityStr = parityOk ? "ok" : "mismatch"
             AppLogger.shared.log("[ChapterStore Save] mode=upsertPage items=\(chapters.count) stored=\(result.totalChapters) inserted=\(result.inserted) updated=\(result.updated) deleted=\(result.deleted) openSchemaMs=\(String(format: "%.1f", database.openSchemaMs)) prepareMs=\(String(format: "%.1f", database.prepareMs)) reconcileMs=\(String(format: "%.1f", reconcileMs)) transactionWriteMs=\(String(format: "%.1f", writeMs)) totalMs=\(String(format: "%.1f", totalMs)) status=success parity=\(parityStr)")
@@ -105,9 +105,9 @@ internal actor ChapterStore: ChapterStoreProtocol {
         try database.importBookMigration(bookId: bookId, snapshots: snapshots, statusInfo: statusInfo)
     }
 
-    internal func fetchCountAndChecksum(bookId: String) async throws -> (count: Int, checksum: Int64) {
+    internal func countChapters(bookId: String) async throws -> Int {
         guard let database else { throw ChapterStoreError.unavailable }
-        return try database.fetchCountAndChecksum(bookId: bookId)
+        return try database.countChapters(bookId: bookId)
     }
 
     internal func getMigrationStatus(bookId: String) async throws -> MigrationStatusInfo? {

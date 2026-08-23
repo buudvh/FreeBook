@@ -1,6 +1,62 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.215) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.220) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.220] - 2026-08-20
+
+### Đồng bộ Download/Detail và chuyển Phồn thể → Giản thể theo truyện
+
+* **`Sources/Views/Download/DownloadTrackerView.swift`**: task row dùng cover 50x70 và title 14.5pt semibold, tối đa 2 dòng — cùng style cover/title với Shelf và History.
+* **`Sources/Views/BookDetail/BookDetailHeaderView.swift`**: title được cố định theo chiều dọc để không cắt tên truyện dài trong cột bên cạnh cover.
+* **`Sources/Views/Reader/ReaderSettingsView.swift` / `ReaderView.swift`**: thêm Picker `"Văn bản trước khi dịch"`, lưu `convertTraditionalToSimplified_<bookId>` và làm mới bản dịch khi đổi lựa chọn.
+* **`Sources/Services/Translation/Utils/TranslateUtils.swift`** và pipeline Reader: khi bật, dùng ICU transform `StringTransform("Traditional-Simplified")` để chuẩn hoá phồn thể sang giản thể trước tra từ điển; text lưu trữ không đổi và translation spans chỉ dùng khi bảo toàn UTF-16. Cờ cấu hình trở thành một phần identity của `CachedChapter`; TOC paging/search và popup dịch từ/câu cũng dùng cùng cấu hình.
+* **Pipeline TTS (`TTSManager`, `TTSBackgroundProcessor`, prepared models/prefetch workers)**: áp dụng cùng option cho title/nội dung TTS của chương hiện tại, auto-advance, text/audio prefetch chương kế và metadata Now Playing. Key/snapshot mang cờ chuyển đổi để loại cache khác cấu hình; đổi option giữa phiên hủy prefetch cũ nhưng không ngắt audio chương đã dựng.
+* Không đổi quy chuẩn kiến trúc trong `rules.md`; các cập nhật CodeGraph liên quan nằm trong `00_index.md`, `06_event_graph.md`, và `08_lifecycle.md`.
+
+## [1.3.219] - 2026-08-20
+
+### Revert dùng BookListItemView trong DownloadTrackerView, chuẩn hoá BookListItemView 2 style và bỏ chevron NavigationLink
+
+* **`Sources/Views/Download/DownloadTrackerView.swift`**: revert `taskRow` về HStack cover+title custom gốc (cover 44x60, title `.headline` lineLimit(1), badge taskType, `statusBadge`, ProgressView, nút cancel/share/retry, contextMenu). Bỏ `extension DownloadTask: BookDisplayable`; `taskRow` dịch title nội bộ qua `@AppStorage("isTranslationEnabled")` + `TranslateUtils.translateMeta`. Giữ `.contentShape(Rectangle())` và Toast `exportFromCached`.
+* **`Sources/Views/Common/BookListItemView.swift`**: thêm `enum BookListItemStyle { case shelfOrHistory, discovery }`. `.shelfOrHistory` default `showChapter=true`/`showDescription=false`; `.discovery` default `showChapter=false`/`showDescription=true`. Init nhận `showChapter`/`showDescription` dạng `Bool?` (nil → theo style). Cover 50x70 + title `.system(size:14.5, weight:.semibold)` lineLimit(2) đồng bộ mọi style; HStack author/source chỉ render khi `hasAuthor || hasSource`.
+* **`Sources/Views/Common/CategoryNovelsListView.swift`**: `BookListItemView(item: novel, style: .discovery)` (bỏ override cover 60x80); đổi `NavigationLink` → `Button` + `@State selectedNovel` + `.navigationDestination(item:)` để bỏ chevron.
+* **`Sources/Views/Discovery/DiscoveryView.swift`**: `DiscoveryCategoryTabView` dùng `BookListItemView(item: novel, style: .discovery)`; đổi `NavigationLink` → `Button` + `selectedNovel` + `.navigationDestination(item:)`.
+* **`Sources/Views/Shelf/ShelfMain/ShelfView.swift`**: dời 3 overlay chờ (`isParsingTXT`/`isImporting`/`isProcessingDeletion`) ra khỏi closure `.sheet(item: $pendingImport)` thành sibling của `VStack` trong `ZStack` — fix không hiển thị khi `pendingImport == nil`. Sheet content chỉ còn `TXTImportConfirmationSheet`.
+* **`Sources/Services/Extensions/Manager/ExtensionManager.swift`**: `ExtensionItemResult` thêm conformance `Hashable` (dùng làm item của `.navigationDestination(item:)`).
+* `ShelfView`, `ShelfSearchView`, `BookShareTargetSheet` dùng default `.shelfOrHistory` (BookShareTargetSheet override `showChapter: false`) — không đổi API. Không cần cập nhật `rules.md`.
+
+## [1.3.218] - 2026-08-20
+
+### Tái sử dụng BookListItemView trong DownloadTrackerView và bỏ chevron NavigationLink
+
+* **`Sources/Views/Download/DownloadTrackerView.swift`**: thêm `extension DownloadTask: BookDisplayable` (title→`bookTitle`, coverUrl→`bookCoverUrl`, còn lại rỗng/0; `bookId` có sẵn). `taskRow` bỏ HStack cover+title custom → `BookListItemView(item: task, showChapter: false)`; badge taskType, statusBadge, ProgressView, nút cancel/share/retry + contextMenu chuyển xuống dưới row truyện trong `VStack`. Bỏ dịch title thủ công trong taskRow (BookListItemView tự dịch nội bộ qua `@AppStorage`); giữ `@AppStorage("isTranslationEnabled")` để dùng trong Toast `exportFromCached` (bọc `TranslateUtils.translateBookTitleIfNeeded`).
+* **`Sources/Views/Common/CategoryNovelsListView.swift`**: thêm `.buttonStyle(.plain)` lên NavigationLink → bỏ chevron `>` mặc định, giữ tap đi chi tiết.
+* **`Sources/Views/Discovery/DiscoveryView.swift`**: thêm `.buttonStyle(.plain)` lên NavigationLink → bỏ chevron `>` mặc định ở `DiscoveryCategoryTabView` (home tabs).
+* Không đổi public API Service/Manager, không đổi dependency tầng logic; không cần cập nhật `rules.md`.
+
+## [1.3.217] - 2026-08-20
+
+### Import TXT: bảng mã giải mã đa dạng, xác nhận trước khi nhập, overlay Material
+
+* File mới `Sources/Common/Utils/TextEncodingDecoder.swift`: helper giải mã `Data → String` thử tuần tự 20 bảng mã (UTF-8/BOM, UTF-16LE/BE, UTF-32LE/BOM/BE, GB18030, GBK, Big5-HKSCS, Big5, EUC-JP, windowsVietnamese/CP1258, VSCII/TCVN3, ISO-8859-1, windows-1250/1251/1252/1253/1254, ASCII). Mã đơn byte đặt cuối để tránh nuốt nhầm file tiếng Trung.
+* `JSExecutor.decodeData` dùng chung `TextEncodingDecoder.decode(data)` thay cho logic tự viết.
+* `ShelfView` tách import TXT thành 3 giai đoạn: `importTxtBook(from:)` (copy + decode + parse → hiện sheet xác nhận, giữ file tạm), `performImport()` (tạo Book + ghi chương + progress, xóa temp), `cancelImport()` (xóa temp). Thêm `PendingImport` struct + state `pendingImport`/`showImportConfirmation`/`importIsIndeterminate`.
+* Sheet mới `Sources/Views/Shelf/ShelfMain/TXTImportConfirmationSheet.swift`: hiện tên truyện, số chương, tên file và danh sách toàn bộ chương trước khi nhập; nút Hủy/Nhập.
+* Overlay import + overlay xóa sách bọc trong ZStack riêng (fix lệch giữa), card `.ultraThinMaterial`, spinner khi indeterminate, thanh linear + % khi ghi chương.
+
+## [1.3.216] - 2026-08-20
+
+### Đồng bộ badge nguồn sách thành capsule xám giữa detail, BookListItemView và ReaderChapterListView
+
+* **Phạm vi**: 3 badge hiển thị tên nguồn/extension (và "Local") đồng nhất style capsule xám trung tính, thay thế pill xanh.
+* **Style mới**: icon extension + chữ `.caption2` medium `.secondary`, nền `Color.secondary.opacity(0.12)` bo `Capsule()`, padding `(6, 2)`. Font size không đổi.
+* **`Sources/Views/BookDetail/BookDetailHeaderView.swift`**: badge nguồn bỏ trạng thái chỉ icon+chữ → bọc thêm nền capsule; fallback `puzzlepiece.extension` giảm 16→14pt.
+* **`Sources/Views/Common/BookListItemView.swift`**: protocol `BookDisplayable` thêm `extensionLocalPath: String` (default `""`) và `extensionIconUrl: String?` (default `nil`) qua `extension BookDisplayable`; `BookListItemView` thêm 2 init param `extensionLocalPath`/`extensionIconUrl`; badge thay 2 nhánh pill xanh (`Local`/`sourceName`) bằng helper `sourceBadge(text:)` (icon + chữ trong capsule). `Book` conformance giữ default.
+* **`Sources/Views/Shelf/ShelfMain/ShelfView.swift`**: `bookItemView` resolve `allExtensions.first(where: { $0.packageId == book.extensionPackageId })` và truyền `localPath`/`iconUrl` vào `BookListItemView`.
+* **`Sources/Views/Shelf/ShelfMain/ShelfSearchView.swift`**: thêm `@Query private var allExtensions: [Extension]`; resolve extension và truyền icon.
+* **`Sources/Views/Dictionary/BookShareTargetSheet.swift`**: thêm `@Query private var allExtensions: [Extension]`; resolve extension và truyền icon.
+* **`Sources/Views/Reader/ReaderChapterListView.swift`**: badge `Local`/`ext.name` đổi từ pill xanh sang capsule xám; dùng sẵn đối tượng `ext` để lấy `localPath`/`iconUrl`; không đổi API view.
+* Không đổi public API Service/Manager, không đổi font size; không cần cập nhật `rules.md`.
 
 ## [1.3.215] - 2026-08-20
 

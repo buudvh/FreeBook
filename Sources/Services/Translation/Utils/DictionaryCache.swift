@@ -116,9 +116,8 @@ public final class DictionaryCache: ObservableObject {
             records = importedRecords
         }
 
+        // `persistAndUpdate` đã gán lại `entries` từ đúng file vừa ghi ⇒ không cần invalidate + parse lần nữa.
         try await persistAndUpdate(records: records, type: type)
-        invalidate(type: type)
-        await loadIfNeeded(type: type)
     }
 
     public func invalidate(type: DictType) {
@@ -154,12 +153,12 @@ public final class DictionaryCache: ObservableObject {
         let translateDir = TranslationManager.shared.translateDirectory
         let fileUrl = Self.globalCustomTextURL(type: type, translateDir: translateDir)
 
-        try await Task.detached(priority: .userInitiated) {
+        // Ghi file **và** parse lại đều nằm ngoài actor của caller (thường là MainActor khi gọi từ View).
+        let rawEntries = try await Task.detached(priority: .userInitiated) { () -> [(key: String, value: String)] in
             try DictionaryTextFileStore.persist(records: records, to: fileUrl)
+            return DictionaryTextFileStore.loadEntries(from: fileUrl)
         }.value
-
-        let entries = DictionaryTextFileStore.loadEntries(from: fileUrl)
-            .map { DictEntry(key: $0.key, value: $0.value) }
+        let entries = rawEntries.map { DictEntry(key: $0.key, value: $0.value) }
 
         // Update in-memory cache
         switch type {
@@ -167,8 +166,8 @@ public final class DictionaryCache: ObservableObject {
         case .names: namesEntries = entries
         }
 
-        // Reload translation engine
-        try await TranslationManager.shared.loadAllDictionaries()
+        // Reload translation engine: chỉ từ điển custom vừa ghi, không đụng .dat chung / phiên âm.
+        await TranslationManager.shared.reloadCustomDictionary(isName: type == .names)
         TranslationManager.shared.notifyDictionariesDidUpdate(bookId: nil)
     }
 }

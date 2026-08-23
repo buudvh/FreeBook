@@ -133,6 +133,9 @@ struct ReaderView: View {
     @State private var translationMode: String = "VP" // Dịch dạng: "VP" (Vietphrase) hoặc "HV" (Hán Việt)
     @State private var translationTokens: [TranslationWordToken] = []
     @State private var dictionaryMatches: [DictionaryMatchInfo] = []
+    // Gợi ý nghĩa của từ đang chọn — tính trong `ReaderView+Suggestions.swift`, không phải computed property
+    // (xem doc ở file đó: computed property khiến ~6 lần tra trie chạy lại mỗi lần body evaluate).
+    @State internal var suggestionChips: [SuggestionChip] = []
     @State private var showingManageDefinitionsSheet = false
     @State private var showingFloatingMenu = false
     @State private var selectionMinY: CGFloat? = nil
@@ -393,7 +396,12 @@ struct ReaderView: View {
                             onOpenSearchEngineConfig: {
                                 showingSearchEnginesConfigSheet = true
                             },
-                            onGetDictionaryMatches: getDictionaryMatches,
+                            // Overlay chỉ gọi closure này sau khi màn quản lý định nghĩa báo có thay đổi ⇒
+                            // tính lại chip cùng lúc với `dictionaryMatches` để gợi ý không bị cũ.
+                            onGetDictionaryMatches: { word in
+                                refreshSuggestionChips(for: word)
+                                return getDictionaryMatches(for: word)
+                            },
                             onGetHanViet: { getHanViet(for: $0) },
                             onApplyTranslation: applyTranslation
                         )
@@ -1163,7 +1171,7 @@ struct ReaderView: View {
 
         if localBookSnapshot != nil && !ChapterStoreConfiguration.enableSwiftDataTOCWrite {
             do {
-                let count = try await ChapterStore.shared.fetchCountAndChecksum(bookId: bookId).count
+                let count = try await ChapterStore.shared.countChapters(bookId: bookId)
                 guard !Task.isCancelled, ReaderView.activeBookId == bookId else { return }
                 if count > 0 {
                     self.localChaptersCount = count
@@ -1373,15 +1381,13 @@ struct ReaderView: View {
             do {
                 try await TranslationManager.shared.saveCustomEntry(word: word, meaning: meaning, isName: saveAsNameType, bookId: bid)
                 await MainActor.run {
-                    // Invalidate token ngay lập tức (0ms) trước mọi thao tác chuyển chương
-                    viewModel?.updateCachedTranslatedContent(
-                        bookId: bookId,
-                        scope: .term(word: word, isName: saveAsNameType, bookId: bid)
-                    )
+                    // Không tự dịch lại ở đây: `saveCustomEntry` đã post `.translationDictionariesDidUpdate`,
+                    // và `.onReceive` của view đã lo scope + debounce + deferral. Gọi thêm ở đây làm chương bị
+                    // dựng lại 2 lần cho một từ.
                     showingDefinitionSheet = false
                     applyTranslation()
+                    // Nếu notification tới trước khi overlay đóng thì nó đã bị defer — bung ra ở đây.
                     checkAndReleaseDeferredTranslationRefresh()
-                    scheduleCoalescedTranslationRefresh(scope: .term(word: word, isName: saveAsNameType, bookId: bid))
                 }
             } catch {
                 // AppLogger.shared.log("❌ Lỗi lưu định nghĩa từ: \(error.localizedDescription)")
@@ -1397,96 +1403,6 @@ struct ReaderView: View {
 
     private func formatMeaning(_ input: String, style: String) -> String {
         ReaderSelectionCoordinator.shared.formatMeaning(input, style: style)
-    }
-
-    private var suggestionChips: [SuggestionChip] {
-        var chips: [SuggestionChip] = []
-        let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !word.isEmpty else { return [] }
-
-        let manager = TranslationManager.shared
-        let bookDicts = manager.getBookDictionaries(for: bookId)
-
-        func addTranslation(_ translation: String, category: SuggestionChipCategory) {
-            let clean = translation.replacingOccurrences(of: "¦", with: "/")
-            let parts = clean.components(separatedBy: "/")
-            for part in parts {
-                let trimmed = part.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !trimmed.isEmpty {
-                    let isDuplicate = chips.contains { existing in
-                        existing.text == trimmed
-                    }
-                    if !isDuplicate {
-                        chips.append(SuggestionChip(text: trimmed, category: category))
-                    }
-                }
-            }
-        }
-
-        // 1. Book Names
-        if let bookNames = bookDicts.names,
-           let match = bookNames.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
-            addTranslation(match.value, category: .name)
-        }
-
-        // 1.1 Custom Names (custom.dat)
-        var hasCustomName = false
-        if let customNames = manager.customNamesDict,
-           let match = customNames.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
-            addTranslation(match.value, category: .name)
-            hasCustomName = true
-        }
-
-        // 2. Global Names (Names.dat)
-        if !hasCustomName,
-           !manager.deletedNames.contains(word),
-           let names = manager.namesDict,
-           let match = names.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
-            addTranslation(match.value, category: .name)
-        }
-
-        // 3. Book VietPhrase
-        if let bookVP = bookDicts.vietPhrase,
-           let match = bookVP.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
-            addTranslation(match.value, category: .vietPhrase)
-        }
-
-        // 3.1 Custom VietPhrase (custom.dat)
-        var hasCustomVP = false
-        if let customVP = manager.customVietPhraseDict,
-           let match = customVP.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
-            addTranslation(match.value, category: .vietPhrase)
-            hasCustomVP = true
-        }
-
-        // 4. Global VietPhrase (VietPhrase.dat)
-        if !hasCustomVP,
-           !manager.deletedVietPhrase.contains(word),
-           let vp = manager.vietPhraseDict,
-           let match = vp.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
-            if match.value.count < 100 {
-                addTranslation(match.value, category: .vietPhrase)
-            }
-        }
-
-        // 5. Phiên âm Hán Việt
-        let hv = getHanViet(for: word).lowercased()
-        if !hv.isEmpty {
-            let isDuplicate = chips.contains { existing in
-                existing.text == hv
-            }
-            if !isDuplicate {
-                chips.append(SuggestionChip(text: hv, category: .hanViet))
-            }
-        }
-
-        return chips
     }
 
     private var sentenceSegments: (prefix: String, selected: String, suffix: String) {
@@ -1583,6 +1499,7 @@ struct ReaderView: View {
         // Cập nhật các tokens phân tách và tra cứu từ điển đa tầng
         self.translationTokens = TranslateUtils.getTranslationTokens(for: originalSentence, bookId: bookId)
         self.dictionaryMatches = getDictionaryMatches(for: word)
+        refreshSuggestionChips(for: word)
     }
 
     private func getDictionaryMatches(for word: String) -> [DictionaryMatchInfo] {
@@ -1691,6 +1608,7 @@ struct ReaderView: View {
                 try await TranslationManager.shared.deleteCustomEntry(word: word, isName: isName, bookId: bid)
                 await MainActor.run {
                     self.dictionaryMatches = getDictionaryMatches(for: word)
+                    refreshSuggestionChips(for: word)
                     if self.translationMode == "VP" {
                         self.customMeaning = TranslateUtils.translateMeta(
                             word,
