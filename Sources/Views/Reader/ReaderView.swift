@@ -211,6 +211,7 @@ struct ReaderView: View {
     @State internal var paragraphTracker = ParagraphTracker()
 
     @State internal var showingChapterList = false
+    @State private var showingReaderSearch = false
     @State internal var showingBookDictionary = false
     @State internal var currentOnlineChapters: [ChapterResult] = []
     @State internal var chapterListStore: ReaderChapterListStore? = nil
@@ -580,6 +581,17 @@ struct ReaderView: View {
                         showingBookDictionary = false
                     })
             }
+        }
+        .sheet(isPresented: $showingReaderSearch) {
+            let snapshot = buildReaderSearchSnapshot()
+            ReaderSearchView(
+                chapters: snapshot.chapters,
+                chapterTitles: snapshot.titles,
+                currentChapterIndex: viewModel?.displayedChapterIndex ?? chapterIndex,
+                onSelect: { targetChapter, targetParagraph in
+                    jumpToReaderSearchResult(chapterIndex: targetChapter, paragraphIndex: targetParagraph)
+                }
+            )
         }
         .sheet(isPresented: $showingSearchEnginesConfigSheet, onDismiss: {
             searchEngines = SearchEngine.loadEngines()
@@ -1063,6 +1075,9 @@ struct ReaderView: View {
                 onOpenChapterList: {
                     _ = getOrInitChapterListStore()
                     showingChapterList = true
+                },
+                onOpenReaderSearch: {
+                    showingReaderSearch = true
                 },
                 onPrevChapter: prevChapter,
                 onNextChapter: nextChapter
@@ -1774,6 +1789,46 @@ struct ReaderView: View {
             source: .chapterList,
             persistProgress: persistProgress
         )
+    }
+
+    /// Dựng snapshot bất biến các chương đã nạp (`state == .loaded`) cho `ReaderSearchView`. Chỉ đọc
+    /// dữ liệu đã ở RAM — không nạp chương mới, không đọc đĩa/mạng.
+    private func buildReaderSearchSnapshot() -> (chapters: [ReaderSearchMatcher.Chapter], titles: [Int: String]) {
+        guard let vm = viewModel else { return ([], [:]) }
+        var chapters: [ReaderSearchMatcher.Chapter] = []
+        var titles: [Int: String] = [:]
+        for (index, cached) in vm.cache.cache where cached.state == .loaded {
+            let paragraphs = cached.paragraphItems.map { item in
+                ReaderSearchMatcher.Paragraph(
+                    paragraphIndex: item.id,
+                    isTitle: item.isTitle,
+                    original: item.original,
+                    translated: item.translated
+                )
+            }
+            guard !paragraphs.isEmpty else { continue }
+            chapters.append(ReaderSearchMatcher.Chapter(chapterIndex: index, paragraphs: paragraphs))
+            let title = cached.title.isEmpty ? vm.chapterTitle(at: index) : cached.title
+            titles[index] = translateMetaIfNeeded(title)
+        }
+        return (chapters, titles)
+    }
+
+    /// Nhảy tới kết quả tìm: cùng chương ⇒ chỉ cuộn; khác chương ⇒ đi qua đúng cửa `requestChapter`
+    /// mà danh sách chương / TTS-sync đang dùng.
+    private func jumpToReaderSearchResult(chapterIndex targetChapter: Int, paragraphIndex targetParagraph: Int) {
+        let displayedIndex = viewModel?.displayedChapterIndex ?? chapterIndex
+        if targetChapter == displayedIndex {
+            scrollTarget = ScrollTarget(chapterIndex: targetChapter, paragraphIndex: targetParagraph)
+        } else {
+            let persistProgress = !(ttsState.snapshot.isPlaying && ttsState.snapshot.playingBookId == bookId)
+            requestChapter(
+                at: targetChapter,
+                paragraphIndex: targetParagraph,
+                source: .chapterList,
+                persistProgress: persistProgress
+            )
+        }
     }
 
     internal func requestChapter(

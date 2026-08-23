@@ -2,7 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.227) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.228) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.258] - 2026-08-23
+
+### Tìm trong Reader + Trung tâm thông báo, gỡ tìm toàn văn toàn cục
+
+Gỡ hẳn phân hệ tìm toàn văn 1.3.257 (nguồn crash, sai ý định), thay bằng **tìm trong Reader** chạy trên cache RAM và một **Trung tâm thông báo** ở header Kệ sách. Xoá **10** file, thêm **6** file Swift (344 → 340), **không** `@Model` nào đổi shape, **không** thêm dependency.
+
+* **Gỡ toàn bộ `Sources/Services/Search/` (7 file) + 3 view** (`ShelfContentSearchView`, `ChapterSearchSettingsSection`, `ChapterSearchIndexSettingsView`) và mọi lời gọi `ChapterSearchIndex.shared.*` tại 4 chỗ ghi + 3 chỗ xoá (`ChapterPersistenceStore`, `ShelfView+BookImport`, `BackupChapterRestorer`, `ExportContentProvider`, `BookStorageManager`). `ShelfSearchView` hoàn nguyên về tìm-theo-tên (xoá `SearchScope`, picker, `@AppStorage` cờ bật). `MainTabView` thêm dọn best-effort một lần thư mục `applicationSupportDirectory/search/` còn sót. Grep xác nhận không còn tham chiếu `ChapterSearch*` nào trong `Sources/`.
+* **Tìm trong Reader thuần RAM, không đường crash**: `ReaderSearchMatcher` (enum namespace + 3 struct lồng) khớp không dấu/không hoa-thường trên **cả** `original` và `translated` của các `CachedChapter` `state == .loaded` (chương đang đọc + lân cận đã cache), 1 hit/đoạn + snippet. `ReaderSearchView` (sheet, debounce 250ms, nhóm theo chương) mở từ menu `ellipsis`; chọn kết quả nhảy đúng đoạn (cùng chương ⇒ `scrollTarget`, khác chương ⇒ `requestChapter(source: .chapterList)`). Không đọc đĩa/mạng, không dựng chỉ mục.
+* **Trung tâm thông báo (nút chuông trên cả 3 tab con)**: choke point `ToastManager.show` ghi mọi toast vào `NotificationInboxManager` (Common, không `import SwiftUI`) → `NotificationInboxStore` (actor, `notifications.json`, `.atomic`, cap 200). `NotificationInboxView` gộp hai nguồn nhóm theo ngày: nhật ký toast (swipe-xoá, "đánh dấu đã đọc hết", "dọn dẹp") và **cập nhật chương mới per-book** — tái dùng `NewChapterInboxManager`, mỗi truyện hiện rõ "N chương mới" (hoặc "≥N" khi `!isCountExact`) + tên chương mới nhất; bấm mở truyện + `markSeen`. Badge chuông = `unreadCount` + `totalNewBooks`.
+* CodeGraph: `00_index`, `02_file_graph`, `03_type_graph`, `04_call_graph`, `08_lifecycle`, `09_dependency_rules`, `11_subsystems`, `14_complexity_report`. `check_architecture.py` giữ đúng **14 violation** cùng một tập (6 file mới ≤ 299 dòng, mỗi file 1 type top level); host Windows nên không `xcodegen generate`/`xcodebuild` tại chỗ, biên dịch do CI xác nhận.
 
 ## [1.3.257] - 2026-08-23
 
@@ -429,10 +440,3 @@ Sửa **tài liệu** (không đụng `Sources/` hay `Tests/`) tại 22 điểm 
 * **Sparse paragraph IDs**: sửa cùng một câu ở `00_index`, `06`, `08`, `10`, `13`, `14` — `ChapterTextLine.id` là chỉ số dòng thô (tính cả dòng trống), không phải array index; `utf16Range` không dùng để cắt `content`.
 * **Số liệu (`14`, `00_index`, `02`, front matter 16 file)**: `source_files` → `218`; §1.1/§1.2 dựng lại theo `wc -l` và công thức CC của doc; §1.3 đổi nhãn thành "Max Brace Nesting Depth" (giá trị thật 10–18). `ReaderParagraphBuilder`/`TTSParagraphBuilder.build(from:)` chỉ test dùng, không caller production (`00_index`).
 
-## [1.3.228] - 2026-08-21
-
-### Khắc phục lỗi pop Chi tiết truyện khi vuốt tab Home Khám phá
-
-* **`Sources/Views/Discovery/DiscoveryView.swift`**: Khai báo `DiscoveryDetailRoute` tuân thủ `Identifiable, Hashable` giữ các thuộc tính bất biến (`bookId`, `extensionPackageId`, `initialDetailUrl`, `sourceName`, `initialHost`); di chuyển `@State selectedDetailRoute` và `.navigationDestination(item: $selectedDetailRoute)` từ `DiscoveryCategoryTabView` lên root `NavigationStack` trong `DiscoveryView`.
-* **`DiscoveryCategoryTabView`**: Bỏ `@State selectedNovel` và `.navigationDestination` cục bộ, nhận callback `onSelectNovel: (ExtensionItemResult) -> Void` từ view cha khi bấm vào một hàng truyện.
-* Bảo toàn route state không bị reset hay tháo gỡ khi swiping tab Home trong `TabView`; cập nhật CodeGraph tại `00_index.md`, `06_event_graph.md`, và `12_ownership_graph.md`.

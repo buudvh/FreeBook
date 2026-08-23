@@ -100,14 +100,6 @@ final class ExportContentProvider {
                 return .failed
             }
             tally.saved += 1
-            // Chương tải thêm trong lúc xuất file cũng vào chỉ mục tìm toàn văn.
-            await ChapterSearchIndex.shared.indexChapter(
-                bookId: bookId,
-                chapterIndex: chapter.index,
-                chapterUrl: chapter.url,
-                chapterTitle: chapter.title,
-                content: cleaned
-            )
             return .content(cleaned)
         } catch is CancellationError {
             throw CancellationError()

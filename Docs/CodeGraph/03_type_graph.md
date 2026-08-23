@@ -15,6 +15,12 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type của tìm-Reader + Trung tâm thông báo (1.3.258)
+
+* **Gỡ mọi type của phân hệ tìm toàn văn 1.3.257** (`ChapterSearch*`, `SearchScope`…) cùng 10 file bị xoá. Không type nào khác tham chiếu chúng.
+* [`ReaderSearchMatcher`](../../Sources/Common/Utils/ReaderSearchMatcher.swift#L1) là `enum` namespace thuần (không case, không state) với 3 struct lồng để giữ đúng 1 type top level: `Paragraph { paragraphIndex, isTitle, original, translated }`, `Chapter { chapterIndex, paragraphs }`, `Hit { chapterIndex, paragraphIndex, isTitle, snippet, matchedInTranslated }` (`id = "\(chapterIndex).\(paragraphIndex).\(matchedInTranslated)"`). `paragraphIndex` thừa hưởng `ParagraphItem.id` **sparse** (chỉ số dòng thô, không phải array offset) — dùng thẳng cho điều hướng, không index vào mảng.
+* Phân hệ Trung tâm thông báo thêm ba type ở `Common`: [`NotificationInboxRecord`](../../Sources/Common/Services/NotificationInboxRecord.swift#L1) (`Codable, Identifiable, Sendable, Equatable`: `id: UUID`, `message`, `type: ToastType`, `date`, `var isRead`) với `init(from:)` chịu lỗi (mọi field `decodeIfPresent`); `NotificationInboxStore` (actor); `NotificationInboxManager` (`@MainActor ObservableObject`). Kèm **retroactive conformance** `extension ToastType: Codable` (map string `success`/`error`/`info`) — `ToastType` gốc chỉ `Sendable, Equatable`, nên conformance này là điểm phải giữ khi đổi `ToastType`. [`NotificationInboxView`](../../Sources/Views/Shelf/ShelfMain/NotificationInboxView.swift#L1) lồng `enum InboxItem: Identifiable { case newChapter(NewChapterRecord); case toast(NotificationInboxRecord) }` với `date`/`sortRank` để gộp-nhóm hai nguồn.
+
 ## Type của phân hệ nhập truyện đa định dạng (1.3.251)
 
 * **Dời tầng, không đổi shape**: `ParserChapter` (`title`, `content`) và `ParsedBook` rời `Sources/Views/Shelf/ShelfMain/ShelfView.swift` xuống `Sources/Services/Import/` — bắt buộc, vì parser ở tầng Services không được trả về type khai trong tầng View (sẽ đảo chiều phụ thuộc). Cả hai vẫn `Sendable`.

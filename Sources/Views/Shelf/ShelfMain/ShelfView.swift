@@ -28,6 +28,8 @@ struct ShelfView: View {
 
     /// Hộp thư chương mới — chỉ đọc, mọi thao tác ghi đi qua manager.
     @ObservedObject internal var newChapters = NewChapterInboxManager.shared
+    /// Nhật ký toast cho Trung tâm thông báo — badge chuông cập nhật realtime.
+    @ObservedObject private var notificationInbox = NotificationInboxManager.shared
     
     private var activeExtensions: [Extension] {
         allExtensions.filter { !$0.localPath.isEmpty && $0.isEnabled }
@@ -40,6 +42,7 @@ struct ShelfView: View {
     @State internal var selectedTab = 1 // Tab đang chọn: 0 là Tải trước, 1 là Kệ Sách, 2 là Lịch Sử
     @State private var showingClearHistoryAlert = false // Hiện alert xác nhận xóa lịch sử đọc
     @State private var showingShelfSearch = false // Hiện màn hình tìm kiếm sách trong Kệ sách & Lịch sử
+    @State private var showingNotificationInbox = false // Hiện Trung tâm thông báo (nút chuông)
 
     // @AppStorage: Đọc/Ghi dữ liệu trực tiếp vào UserDefaults của iOS để lưu cấu hình hệ thống lâu dài.
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false // Trạng thái bật/tắt tự động dịch Trung-Việt
@@ -99,6 +102,11 @@ struct ShelfView: View {
             .filter { $0.isHistory && !$0.isOnShelf }
     }
 
+    /// Badge chuông = số toast chưa đọc + số truyện có chương mới.
+    private var notificationBadgeCount: Int {
+        notificationInbox.unreadCount + newChapters.totalNewBooks
+    }
+
     private var displayedShelfBooks: [Book] {
         Array(shelfBooks.prefix(shelfLimit))
     }
@@ -146,6 +154,25 @@ struct ShelfView: View {
                 await runAutoNewChapterCheck()
             }
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        showingNotificationInbox = true
+                    }) {
+                        Image(systemName: notificationBadgeCount > 0 ? "bell.badge.fill" : "bell")
+                            .overlay(alignment: .topTrailing) {
+                                if notificationBadgeCount > 0 {
+                                    Text(notificationBadgeCount > 99 ? "99+" : "\(notificationBadgeCount)")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 1)
+                                        .background(Color.red, in: Capsule())
+                                        .offset(x: 10, y: -8)
+                                }
+                            }
+                    }
+                    .accessibilityLabel("Trung tâm thông báo")
+                }
                 if selectedTab != 0 {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button(action: {
@@ -239,6 +266,22 @@ struct ShelfView: View {
             }
             .navigationDestination(isPresented: $showingShelfSearch) {
                 ShelfSearchView()
+            }
+            .sheet(isPresented: $showingNotificationInbox) {
+                NotificationInboxView(onOpenBook: { book in
+                    // Sheet đóng trước, present Reader ở turn sau để hai lớp trình bày không chọi nhau.
+                    DispatchQueue.main.async {
+                        self.selectedTab = 1
+                        self.readerPresentationRoute = ShelfReaderRoute(
+                            bookId: book.bookId,
+                            extensionPackageId: book.extensionPackageId,
+                            chapterIndex: book.currentChapterIndex,
+                            paragraphIndex: nil,
+                            detailUrl: book.detailUrl,
+                            sourceName: book.sourceName
+                        )
+                    }
+                })
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openCurrentlyPlayingReader"))) { _ in
                 guard !ttsManager.playingBookId.isEmpty else {

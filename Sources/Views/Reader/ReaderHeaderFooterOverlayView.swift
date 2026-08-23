@@ -29,6 +29,7 @@ struct ReaderHeaderFooterOverlayView: View {
     let onToggleChapterTitle: () -> Void
     let onToggleRemoveDuplicatedTitle: () -> Void
     let onOpenChapterList: () -> Void
+    let onOpenReaderSearch: () -> Void
     let onPrevChapter: () -> Void
     let onNextChapter: () -> Void
 
@@ -72,6 +73,10 @@ struct ReaderHeaderFooterOverlayView: View {
                     }
 
                     Menu {
+                        Button(action: onOpenReaderSearch) {
+                            Label("Tìm trong chương", systemImage: "magnifyingglass")
+                        }
+
                         Button(action: onToggleChapterTitle) {
                             Label("Hiển thị tên chương trong nội dung", systemImage: showChapterTitle ? "checkmark.square" : "square")
                         }

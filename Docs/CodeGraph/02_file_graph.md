@@ -15,35 +15,31 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
-## Tìm toàn văn offline cho chương đã tải (1.3.257)
+## Gỡ tìm toàn văn toàn cục; tìm trong Reader + Trung tâm thông báo (1.3.258)
 
 | File mới | Vai trò | Dòng |
 |---|---|---|
-| [`Services/Search/ChapterSearchPolicy.swift`](../../Sources/Services/Search/ChapterSearchPolicy.swift) | nguồn duy nhất của cờ bật/tắt, độ dài truy vấn tối thiểu, trần kết quả, bán kính snippet | 48 |
-| [`Services/Search/ChapterSearchIndexPath.swift`](../../Sources/Services/Search/ChapterSearchIndexPath.swift) | chủ duy nhất đường dẫn `search/chapter_search.sqlite` + `FileProtectionType` + chặn path traversal | 83 |
-| [`Services/Search/ChapterSearchIndexDatabase.swift`](../../Sources/Services/Search/ChapterSearchIndexDatabase.swift) | engine sqlite3 thô: `chapter_doc` + `chapter_fts` (FTS5 trigram), prepared statement, WAL | 397 |
-| [`Services/Search/ChapterSearchHit.swift`](../../Sources/Services/Search/ChapterSearchHit.swift) | DTO một kết quả: chapter identity + `paragraphIndex` + snippet | 18 |
-| [`Services/Search/ChapterSearchSnippetBuilder.swift`](../../Sources/Services/Search/ChapterSearchSnippetBuilder.swift) | định vị đoạn qua `ChapterTextNormalizer.normalize` rồi cắt snippet — **không** làm việc này trong SQL | 45 |
-| [`Services/Search/ChapterSearchIndex.swift`](../../Sources/Services/Search/ChapterSearchIndex.swift) | `actor` + `shared` — API duy nhất ra ngoài; ghi/xoá không throw, đọc đối chiếu mục lục sống | 189 |
-| [`Services/Search/ChapterSearchIndexBuilder.swift`](../../Sources/Services/Search/ChapterSearchIndexBuilder.swift) | `@MainActor ObservableObject` — xây lại toàn bộ chỉ mục có tiến độ, huỷ được | 151 |
-| [`Views/Settings/Search/ChapterSearchIndexSettingsView.swift`](../../Sources/Views/Settings/Search/ChapterSearchIndexSettingsView.swift) | bật/tắt, dung lượng chỉ mục, xây lại/huỷ, xoá chỉ mục | 120 |
-| [`Views/Settings/Main/ChapterSearchSettingsSection.swift`](../../Sources/Views/Settings/Main/ChapterSearchSettingsSection.swift) | section `Tìm Kiếm` mở màn cài đặt, y hệt `NewChapterSettingsSection` | 12 |
-| [`Views/Shelf/ShelfMain/ShelfContentSearchView.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfContentSearchView.swift) | danh sách hit; **không** sở hữu ô nhập, nhận `query` và tự debounce 300 ms | 123 |
+| [`Common/Utils/ReaderSearchMatcher.swift`](../../Sources/Common/Utils/ReaderSearchMatcher.swift) | helper thuần: chuẩn hoá không dấu + case-insensitive, khớp `original`/`translated`, dựng snippet; `Paragraph`/`Chapter`/`Hit` nest | 88 |
+| [`Views/Reader/ReaderSearchView.swift`](../../Sources/Views/Reader/ReaderSearchView.swift) | sheet tìm trong Reader: ô nhập + `List` kết quả nhóm theo chương, debounce 250 ms | 220 |
+| [`Common/Services/NotificationInboxRecord.swift`](../../Sources/Common/Services/NotificationInboxRecord.swift) | DTO một toast đã hiện + `ToastType: Codable` (retroactive) | 54 |
+| [`Common/Services/NotificationInboxStore.swift`](../../Sources/Common/Services/NotificationInboxStore.swift) | actor — chủ duy nhất `notifications.json`, `.atomic`, tối đa 200 record | 82 |
+| [`Common/Services/NotificationInboxManager.swift`](../../Sources/Common/Services/NotificationInboxManager.swift) | `@MainActor ObservableObject` (Combine, không SwiftUI); gọi từ `ToastManager` | 68 |
+| [`Views/Shelf/ShelfMain/NotificationInboxView.swift`](../../Sources/Views/Shelf/ShelfMain/NotificationInboxView.swift) | Trung tâm thông báo: gộp chương mới + toast, nhóm theo ngày; `InboxItem` nest | 299 |
 
 | File sửa | Dòng | Thay đổi |
 |---|---|---|
-| [`Views/Shelf/ShelfMain/ShelfSearchView.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfSearchView.swift) | 218 → **264** | `SearchScope` (nest) + `Picker` phạm vi chỉ hiện khi tính năng bật; nhánh `.content` nhúng `ShelfContentSearchView`, truyền `hit.paragraphIndex` vào `ShelfReaderRoute` |
-| [`Services/ChapterText/ChapterPersistenceStore.swift`](../../Sources/Services/ChapterText/ChapterPersistenceStore.swift) | 915 → **926** | một lời gọi `indexChapter` sau `upsertCachedChapter`, cùng chuỗi vừa ghi `.bin` |
-| [`Views/Shelf/ShelfMain/Extensions/ShelfView+BookImport.swift`](../../Sources/Views/Shelf/ShelfMain/Extensions/ShelfView+BookImport.swift) | 273 → **283** | index chương lúc nhập file cục bộ |
-| [`Services/Backup/BackupChapterRestorer.swift`](../../Sources/Services/Backup/BackupChapterRestorer.swift) | 189 → **198** | index chương lúc khôi phục sao lưu |
-| [`Services/Export/ExportContentProvider.swift`](../../Sources/Services/Export/ExportContentProvider.swift) | 111 → **119** | index chương vừa tải trong lúc xuất file |
-| [`Services/Download/BookStorageManager.swift`](../../Sources/Services/Download/BookStorageManager.swift) | 363 → **375** | `removeBook` ở **cả ba** nhánh cleanup |
-| [`Views/Settings/Main/SettingsView.swift`](../../Sources/Views/Settings/Main/SettingsView.swift) | 441 → **443** | một dòng `ChapterSearchSettingsSection()` |
+| [`Views/Shelf/ShelfMain/ShelfSearchView.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfSearchView.swift) | 264 → **219** | gỡ `SearchScope` + `Picker` phạm vi + nhánh `.content` → về đúng hình dạng cũ (chỉ tìm theo tên) |
+| [`Services/ChapterText/ChapterPersistenceStore.swift`](../../Sources/Services/ChapterText/ChapterPersistenceStore.swift) | 926 → **915** | gỡ lời gọi `ChapterSearchIndex.indexChapter` |
+| [`Common/Services/ToastManager.swift`](../../Sources/Common/Services/ToastManager.swift) | | `show(message:type:)` ghi vào `NotificationInboxManager` tại choke point |
+| [`Views/Reader/ReaderView.swift`](../../Sources/Views/Reader/ReaderView.swift) | | `.sheet` ReaderSearch + `buildReaderSearchSnapshot`/`jumpToReaderSearchResult` |
+| [`Views/Reader/ReaderHeaderFooterOverlayView.swift`](../../Sources/Views/Reader/ReaderHeaderFooterOverlayView.swift) | | mục "Tìm trong chương" trong menu `ellipsis` (`onOpenReaderSearch`) |
+| [`Views/Shelf/ShelfMain/ShelfView.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift) | | nút chuông leading `.toolbar` + `.sheet { NotificationInboxView }`, badge realtime |
+| [`Views/MainTabView.swift`](../../Sources/Views/MainTabView.swift) | | preload inbox + `cleanupLegacyChapterSearchIndex()` |
+| [`Views/Settings/Main/SettingsView.swift`](../../Sources/Views/Settings/Main/SettingsView.swift) | 443 → **441** | gỡ dòng `ChapterSearchSettingsSection()` |
 
-* Tổng file Swift 334 → **344** (+10). Hai thư mục mới: [`Sources/Services/Search/`](../../Sources/Services/Search/ChapterSearchIndex.swift) (7 file) và [`Sources/Views/Settings/Search/`](../../Sources/Views/Settings/Search/ChapterSearchIndexSettingsView.swift) (1 file). Không file nào bị xoá hay đổi tên.
-* Cạnh mới, một chiều, **không có vòng**: `ShelfSearchView` → `ShelfContentSearchView` → `ChapterSearchIndex` → {`ChapterSearchIndexDatabase`, `ChapterSearchSnippetBuilder`, [`ChapterStore`](../../Sources/Services/ChapterText/ChapterStore/ChapterStoreActor.swift#L1)}; `ChapterSearchSnippetBuilder` → [`ChapterTextNormalizer`](../../Sources/Services/ChapterText/ChapterTextNormalizer.swift#L1); `ChapterSearchIndexBuilder` → {`ChapterSearchIndex`, `ChapterStore`, [`BookBinManager`](../../Sources/Services/ChapterText/BookBinManager.swift#L1)}. `ChapterSearchHit`/`ChapterSearchPolicy` là lá.
-* Cạnh **vào** chỉ mục nằm ở đúng 4 file ghi nội dung + 1 file xoá sách kể trên; không có đường thứ hai. Chiều ngược lại không tồn tại: `ChapterSearchIndex` không biết `Book`/`@Model` nào, chỉ nhận `bookId: String`.
-* `ChapterSearchIndexDatabase` là file thứ hai trong repo `import SQLite3` trực tiếp sau [`ChapterStoreDatabase`](../../Sources/Services/ChapterText/ChapterStore/ChapterStoreDatabase.swift#L1) — cố ý sao chép house style (prepared statement, `transientDestructor`, WAL, `busy_timeout`) chứ **không** tách lớp trừu tượng dùng chung, để hai chỉ mục hỏng độc lập nhau.
+* **File xoá (10)**: cả `Sources/Services/Search/` (7 file: `ChapterSearchPolicy`, `ChapterSearchIndexPath`, `ChapterSearchIndexDatabase`, `ChapterSearchHit`, `ChapterSearchSnippetBuilder`, `ChapterSearchIndex`, `ChapterSearchIndexBuilder`) + `ShelfContentSearchView.swift`, `ChapterSearchIndexSettingsView.swift`, `ChapterSearchSettingsSection.swift`. Thư mục `Sources/Views/Settings/Search/` biến mất.
+* Tổng file Swift 344 → **340** (−10 +6). Không còn cạnh nào tới phân hệ Search đã gỡ. Cạnh mới: `ReaderView` → `ReaderSearchView` → `ReaderSearchMatcher` (lá, thuần); `ToastManager` → `NotificationInboxManager` → `NotificationInboxStore`; `NotificationInboxView` → {`NotificationInboxManager`, `NewChapterInboxManager`}.
+* Trung tâm thông báo đặt ở `Common` vì `NotificationInboxManager` bị gọi từ `ToastManager` — luật cấm `Services/**` gọi `ToastManager`/`import SwiftUI`. Nguồn dữ liệu tìm-Reader là cache RAM (`ChapterCache`), không đọc đĩa/mạng, nên không tái lập đường crash của FTS5.
 
 ## Hộp thư chương mới (1.3.256)
 

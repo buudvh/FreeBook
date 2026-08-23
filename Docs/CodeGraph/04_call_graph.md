@@ -15,6 +15,12 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tìm trong Reader + choke point ghi thông báo (1.3.258)
+
+* **Gỡ đồ thị tìm toàn văn 1.3.257**: mọi cạnh tới `ChapterSearchIndex.shared.*` bị cắt tại các owner (`ChapterPersistenceStore`, `ShelfView+BookImport`, `BackupChapterRestorer`, `ExportContentProvider`, 3 chỗ `removeBook` trong `BookStorageManager`) — logic quanh nó giữ nguyên, chỉ xoá lời gọi phái sinh.
+* **Đường tìm trong Reader** (thuần RAM, không cạnh nào tới đĩa/mạng): menu `ellipsis` → `onOpenReaderSearch` → `ReaderView` present `.sheet { ReaderSearchView }`. Dữ liệu dựng **một** snapshot từ `ReaderViewModel.cache.cache` (chỉ chương `state == .loaded`) → `[ReaderSearchMatcher.Chapter]`. Gõ (debounce 250ms) → `ReaderSearchMatcher.search(query:in:maxHits:)` (khớp `translated` trước rồi `original`, 1 `Hit`/đoạn). Chọn kết quả → `onSelect(chapterIndex, paragraphIndex)`: cùng chương ⇒ `scrollTarget = ScrollTarget(...)`, khác chương ⇒ `requestChapter(at:paragraphIndex:source: .chapterList)` (tái dùng đúng cơ chế danh sách chương/TTS-sync).
+* **Choke point ghi thông báo**: `ToastManager.show(message:type:)` gọi `NotificationInboxManager.shared.record(message:type:)` ở dòng đầu ⇒ **mọi** toast (info/success/error) đều vào log. `record` append vào `@Published records` rồi `Task` ghi qua `NotificationInboxStore` (actor, `.atomic`, cap 200). Cạnh preload: `MainTabView` startup Task → `NotificationInboxManager.shared.loadIfNeeded()`; badge đọc `unreadCount` + `NewChapterInboxManager.totalNewBooks`.
+
 ## Ba đường kiểm tra chương mới (1.3.256)
 
 * **Đường tự động** (không ai bấm gì): `ShelfView.body.task` → `ShelfView.runAutoNewChapterCheck()` → `NewChapterInboxManager.loadIfNeeded()` (→ `NewChapterStore.all()`, chỉ đọc đĩa lượt đầu) → `prune(keeping: Set(allBooks.map(\.bookId)))` → `newChapterTargets` (`allBooks` đã sort `lastReadDate` giảm dần) → `autoCheck(targets:)` → `NewChapterCheckPolicy.shouldRunBatch()` **thoát sớm nếu chưa tới lượt** → lọc `shouldCheck(record:)` → `prefix(maxBooksPerBatch)` → `run(_:)`.

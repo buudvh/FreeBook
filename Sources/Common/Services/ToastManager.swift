@@ -37,6 +37,9 @@ public final class ToastManager: ObservableObject {
     }
     
     public func show(message: String, type: ToastType = .info) {
+        // Choke point duy nhất mọi toast đi qua ⇒ ghi vào nhật ký Trung tâm thông báo tại đây.
+        NotificationInboxManager.shared.record(message: message, type: type)
+
         currentTask?.cancel()
         
         self.toastMessage = message

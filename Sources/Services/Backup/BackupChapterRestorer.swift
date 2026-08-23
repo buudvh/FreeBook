@@ -160,15 +160,6 @@ public enum BackupChapterRestorer {
             )
             outcome.restoredCachedChapters += 1
 
-            // Chương khôi phục từ sao lưu cũng phải vào chỉ mục tìm toàn văn.
-            await ChapterSearchIndex.shared.indexChapter(
-                bookId: bookId,
-                chapterIndex: record.index,
-                chapterUrl: local.url,
-                chapterTitle: local.title,
-                content: text
-            )
-
             processed += 1
             if processed % 50 == 0 {
                 try? await Task.sleep(nanoseconds: 1_000_000)

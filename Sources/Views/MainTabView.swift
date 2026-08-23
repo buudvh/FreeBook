@@ -53,7 +53,9 @@ struct MainTabView: View {
             Task {
                 await ReadingProgressStore.shared.configure(container: modelContext.container)
                 await ChapterContentRepository.shared.configure(container: modelContext.container)
+                await NotificationInboxManager.shared.loadIfNeeded()
             }
+            Self.cleanupLegacyChapterSearchIndex()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
@@ -70,6 +72,21 @@ struct MainTabView: View {
                 await ChapterContentRepository.shared.flushAll()
                 backgroundSession.end()
             }
+        }
+    }
+}
+
+extension MainTabView {
+    /// Dọn best-effort thư mục chỉ mục tìm toàn văn cũ (`applicationSupportDirectory/search/`) còn
+    /// sót của người từng bật bản 1.3.257. Chỉ mục là dữ liệu phái sinh, xoá luôn cho gọn — chạy nền
+    /// một lần lúc khởi động, nuốt mọi lỗi vì không ảnh hưởng tính đúng.
+    static func cleanupLegacyChapterSearchIndex() {
+        Task.detached(priority: .background) {
+            let fm = FileManager.default
+            guard let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return }
+            let legacyDir = appSupport.appendingPathComponent("search", isDirectory: true)
+            guard fm.fileExists(atPath: legacyDir.path) else { return }
+            try? fm.removeItem(at: legacyDir)
         }
     }
 }

@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời preload Trung tâm thông báo + dọn chỉ mục cũ (1.3.258)
+
+Trung tâm thông báo có store JSON riêng (`notifications.json`), nạp ngoài chuỗi chặn khởi động:
+
+1. `MainTabView` mount **sau** cổng từ điển. `.onAppear` gọi `Self.cleanupLegacyChapterSearchIndex()` — best-effort **một lần** xoá thư mục `applicationSupportDirectory/search/` còn sót của người từng bật tìm toàn văn 1.3.257; lỗi/không tồn tại đều nuốt im lặng, không chặn UI.
+2. `.task` gọi `await NotificationInboxManager.shared.loadIfNeeded()` — đọc `notifications.json` **một lần mỗi phiên** (cờ `didLoad`), các lượt sau chỉ RAM; decode lỗi ⇒ coi như rỗng, không crash.
+3. Sau đó mọi `ToastManager.show` append record đồng bộ vào `@Published records` (badge cập nhật tức thì) rồi `Task` ghi nền qua actor store. Vòng đời badge chuông độc lập: `unreadCount` tắt bằng `markAllRead()`; phần chương mới vẫn tắt bằng `NewChapterInboxManager.markSeen(bookId:)` như cũ.
+
+Không thêm bước nào vào `AppLaunchRootView` — phân hệ tìm toàn văn 1.3.257 (từng có đường dựng chỉ mục lúc ghi/xoá chương) đã bị gỡ hẳn, nên không còn vòng đời index nào.
+
 ## Vòng đời lượt kiểm tra chương mới (1.3.256)
 
 Lượt tự động **không** nằm trong chuỗi khởi động. `AppLaunchRootView` vẫn chặn app tới khi `TranslationManager.shared.isInitialized`, `MainTabView` mount sau đó, và chỉ khi Kệ sách **đã hiện** thì `.task` mới chạy:

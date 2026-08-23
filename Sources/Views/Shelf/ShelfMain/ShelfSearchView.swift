@@ -3,26 +3,8 @@ import SwiftData
 
 /// Màn hình tìm kiếm sách trong Kệ sách + Lịch sử, được push từ nút search trên
 /// `ShelfView`. Dùng chung lịch sử tìm kiếm (`search_history`) với màn hình Tìm Kiếm.
-/// Bấm vào kết quả sẽ mở ReaderView.
-///
-/// Khi người dùng đã bật chỉ mục tìm toàn văn
-/// ([`ChapterSearchPolicy`](../../../Services/Search/ChapterSearchPolicy.swift)) thì có thêm một
-/// picker chuyển giữa tìm theo **tên truyện** và tìm theo **nội dung chương**. Chỉ mục tắt thì màn
-/// này giữ nguyên hình dạng cũ, không hiện picker.
+/// Bấm vào kết quả sẽ mở ReaderView. Chỉ tìm theo **tên truyện** (gốc + bản dịch).
 struct ShelfSearchView: View {
-    /// Phạm vi tìm. Khai **lồng** trong View để không thêm top-level type vào file.
-    private enum SearchScope: String, CaseIterable {
-        case title
-        case content
-
-        var displayName: String {
-            switch self {
-            case .title: return "Tên truyện"
-            case .content: return "Nội dung"
-            }
-        }
-    }
-
     private let historyHeaderHeight: CGFloat = 40
     private let historyRowHeight: CGFloat = 45
     private let historySectionSpacing: CGFloat = 12
@@ -31,11 +13,9 @@ struct ShelfSearchView: View {
     @Query(sort: \Book.lastReadDate, order: .reverse) private var allBooks: [Book]
     @Query private var allExtensions: [Extension]
     @AppStorage(SearchHistoryStore.storageKey) private var searchHistoryJSON = "[]"
-    @AppStorage(ChapterSearchPolicy.enabledKey) private var isContentSearchEnabled = false
 
     @State private var searchQuery = ""
     @State private var readerRoute: ShelfReaderRoute? = nil
-    @State private var scope: SearchScope = .title
 
     private var searchHistory: [String] {
         get { SearchHistoryStore.decode(searchHistoryJSON) }
@@ -80,34 +60,9 @@ struct ShelfSearchView: View {
     var body: some View {
         VStack(spacing: 0) {
             searchBarView
-            if isContentSearchEnabled {
-                Picker("Phạm vi", selection: $scope) {
-                    ForEach(SearchScope.allCases, id: \.rawValue) { item in
-                        Text(item.displayName).tag(item)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-            }
             Divider()
             if trimmedQuery.isEmpty {
                 historyView
-            } else if isContentSearchEnabled && scope == .content {
-                ShelfContentSearchView(
-                    query: trimmedQuery,
-                    books: searchableBooks,
-                    onSelect: { book, hit in
-                        readerRoute = ShelfReaderRoute(
-                            bookId: book.bookId,
-                            extensionPackageId: book.extensionPackageId,
-                            chapterIndex: hit.chapterIndex,
-                            paragraphIndex: hit.paragraphIndex,
-                            detailUrl: book.detailUrl,
-                            sourceName: book.sourceName
-                        )
-                    }
-                )
             } else {
                 if !matchingHistory.isEmpty {
                     historyView

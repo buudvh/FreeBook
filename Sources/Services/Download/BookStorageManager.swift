@@ -90,10 +90,6 @@ public final class BookStorageManager {
                     }
                 }
 
-                // Chỉ mục tìm toàn văn là dữ liệu phái sinh: xoá luôn, không cần retry queue vì
-                // dựng lại được từ nội dung đã cache.
-                await ChapterSearchIndex.shared.removeBook(bookId: bookId)
-
                 do {
                     try ImageCacheManager.shared.deleteCover(for: bookId)
                 } catch {
@@ -162,10 +158,6 @@ public final class BookStorageManager {
                         await Self.shared.enqueueFailedChapterStoreDeletionAsync(bookId: bookId)
                     }
                 }
-
-                // Chỉ mục tìm toàn văn là dữ liệu phái sinh: xoá luôn, không cần retry queue vì
-                // dựng lại được từ nội dung đã cache.
-                await ChapterSearchIndex.shared.removeBook(bookId: bookId)
 
                 do {
                     try ImageCacheManager.shared.deleteCover(for: bookId)
@@ -249,10 +241,6 @@ public final class BookStorageManager {
                         await Self.shared.enqueueFailedChapterStoreDeletionAsync(bookId: bookId)
                     }
                 }
-
-                // Chỉ mục tìm toàn văn là dữ liệu phái sinh: xoá luôn, không cần retry queue vì
-                // dựng lại được từ nội dung đã cache.
-                await ChapterSearchIndex.shared.removeBook(bookId: bookId)
 
                 // Xóa file cover
                 do {
