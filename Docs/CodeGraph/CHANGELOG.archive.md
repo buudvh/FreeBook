@@ -1,6 +1,13 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.224) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.225) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.225] - 2026-08-20
+
+### Loại nguồn TTS khỏi tìm kiếm tất cả truyện
+
+* **`Sources/Views/Search/SearchView.swift`**: thêm `searchableExtensions = activeExtensions.filter { $0.type != "tts" }`; chế độ tất cả nguồn dùng tập này cho task search, source state, render kết quả và `Xem thêm`.
+* Không đổi tìm một nguồn cụ thể, public API, model hay chính sách lọc của caller; cập nhật CodeGraph tại `00_index.md`, `04_call_graph.md`, `06_event_graph.md`, và `07_dataflow.md`.
 
 ## [1.3.224] - 2026-08-20
 

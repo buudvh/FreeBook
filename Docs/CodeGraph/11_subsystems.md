@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ `Services/Import/` nhận PDF: tách PDFKit khỏi chỗ tách chương (1.3.255)
+
+* **Phân hệ 18 → 20 file**, hai file mới nằm đúng ranh giới đã có: [`PdfDocumentReader`](../../Sources/Services/Import/PdfDocumentReader.swift#L17) là *reader* (giống `EpubArchiveReader`/`MobiArchiveReader`/`DocxArchiveReader`) và [`PdfBookParser`](../../Sources/Services/Import/PdfBookParser.swift#L17) là *parser* (giống `EpubBookParser`/`Fb2BookParser`). Nhờ đó `import PDFKit` bị cô lập trong **một** file và chỗ quyết định ranh giới chương chỉ thấy `[String]` text từng trang.
+* **Điểm khác biệt duy nhất so với 6 format cũ: PDF không nhận `Data`.** `BookImportService.parse` giờ nhận diện bằng `BookImportFormat.detect(fileNameOnly:)` trước; chỉ khi đuôi file lạ mới `loadData` để dò magic bytes. Nhánh PDF truyền URL cho `PDFDocument(url:)` (đọc theo trang), nên tài liệu vài trăm MB vẫn nhập được. Các nhánh cũ dùng `try fileData ?? loadData(...)`: cùng một `Data`, cùng một thứ tự kiểm lỗi ⇒ **hành vi không đổi**.
+* **Thứ tự rơi của PDF khớp mô hình chung** (mục lục thật → cấu trúc tài liệu → quy tắc TOC): outline PDF ⇒ mỗi mục một chương với biên là **biên trang**; không có outline dùng được ⇒ ghép text theo thứ tự trang rồi `TxtBookParser`; `spine` ⇒ mỗi trang một chương. Sau đó vẫn là `ChapterLengthLimiter` chung ở phần đuôi `parse`.
+* **Hai giới hạn được đẩy lên UI thay vì xử lý ngầm**: PDF scan hoàn toàn ⇒ `noTextLayer` (không OCR); PDF hỗn hợp ⇒ `ParsedBook.warningNote` và sheet xác nhận **chặn nút "Nhập"** tới khi người dùng tick chấp nhận. Đây là field cảnh báo đầu tiên của `ParsedBook`, dùng lại được cho format sau mà không cần cơ chế mới.
+* **Tài liệu khoá**: `passwordRequired`/`wrongPassword` là hai `ImportError` mới; vòng hỏi mật khẩu nằm ở tầng View (`startImportParse` dùng chung cho lần đầu và lần thử lại) và **file tạm không bị xoá** ở hai nhánh lỗi này để còn thử lại. App chỉ mở tài liệu bằng đúng mật khẩu người dùng nhập — PDFKit tự thử mật khẩu rỗng lúc khởi tạo (file chỉ có owner password), ngoài ra không có đường dò nào.
+
 ## Ảnh bìa vào archive `.fbbackup`: một chủ, không thêm nhóm (1.3.254)
 
 * **Entry mới trong cây archive**, khai ở `BackupPaths.cover(slug:)` như mọi entry khác:

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Một chương đã bóc tách từ file người dùng nhập vào (TXT / HTML / EPUB / MOBI / DOCX / FB2).
+/// Một chương đã bóc tách từ file người dùng nhập vào (TXT / HTML / EPUB / MOBI / DOCX / FB2 / PDF).
 ///
 /// Trước 1.3.251 type này khai trong `ShelfView.swift` (tầng View) nên parser ở tầng Services
 /// không thể trả về được. Dời xuống đây để chiều phụ thuộc đúng: Views → Services.

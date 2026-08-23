@@ -40,7 +40,7 @@ struct ShelfView: View {
     // @AppStorage: Đọc/Ghi dữ liệu trực tiếp vào UserDefaults của iOS để lưu cấu hình hệ thống lâu dài.
     @AppStorage("isTranslationEnabled") private var isTranslationEnabled = false // Trạng thái bật/tắt tự động dịch Trung-Việt
     @State private var showingBypassBrowser = false // Hiện WebView để bypass Cloudflare (nếu có)
-    @State private var showingFilePicker = false // Hiện hộp thoại chọn tệp truyện cục bộ (TXT/HTML/EPUB/MOBI)
+    @State private var showingFilePicker = false // Hiện hộp thoại chọn tệp truyện cục bộ (TXT/HTML/EPUB/MOBI/DOCX/FB2/PDF)
 
     // Trạng thái hiển thị tiến độ nhập file truyện. `internal` vì khối nhập file đã tách sang
     // `Extensions/ShelfView+BookImport.swift`, và `private` trong Swift là phạm vi **file**.
@@ -53,6 +53,10 @@ struct ShelfView: View {
     @State internal var pendingImport: PendingImport? = nil
     // Màn hình chờ từ lúc chọn file đến khi phân tích xong và hiện sheet xác nhận
     @State internal var isParsingImport = false
+    // Hỏi mật khẩu khi file người dùng chọn là tài liệu khoá (PDF có mật khẩu)
+    @State internal var pendingPasswordFile: PendingPasswordFile? = nil
+    @State internal var showingPasswordPrompt = false
+    @State internal var importPassword = ""
 
     @State private var shelfLimit = 50 // Giới hạn số lượng sách hiển thị trên kệ để tối ưu hiệu năng cuộn
     @State private var historyLimit = 50 // Giới hạn số lượng sách hiển thị trong lịch sử đọc
@@ -315,7 +319,7 @@ struct ShelfView: View {
                     autoDecodeID: pending.autoDecodeID,
                     matchedRuleIDs: pending.matchedRuleIDs,
                     onReanalyze: { decodeID, ruleIDs, structure in
-                        await self.reanalyzeImport(decodeID: decodeID, ruleIDs: ruleIDs, structure: structure, tempFileUrl: pending.tempFileUrl, fileName: pending.fileName)
+                        await self.reanalyzeImport(decodeID: decodeID, ruleIDs: ruleIDs, structure: structure, tempFileUrl: pending.tempFileUrl, fileName: pending.fileName, password: pending.password)
                     },
                     onCancel: {
                         cancelImport()
@@ -327,6 +331,18 @@ struct ShelfView: View {
                 .onAppear {
                     isParsingImport = false
                 }
+            }
+            // Tài liệu khoá: chỉ mở được bằng đúng mật khẩu người dùng nhập, app không dò/vượt bảo vệ.
+            .alert("File có mật khẩu", isPresented: $showingPasswordPrompt) {
+                SecureField("Mật khẩu", text: $importPassword)
+                Button("Mở khóa") {
+                    submitImportPassword()
+                }
+                Button("Hủy", role: .cancel) {
+                    cancelPasswordPrompt()
+                }
+            } message: {
+                Text("Nhập mật khẩu để mở \(pendingPasswordFile?.fileName ?? "file này").")
             }
             // Overlay chờ phân tích file truyện (từ lúc chọn file đến khi sheet xác nhận hiện)
             if isParsingImport {
@@ -804,6 +820,15 @@ struct ShelfView: View {
         var parsed: ParsedBook
         let autoDecodeID: String?
         let matchedRuleIDs: Set<String>
+        /// Mật khẩu đã mở được tài liệu khoá, để "Phân tích lại" không phải hỏi lại người dùng.
+        var password: String? = nil
+    }
+
+    /// File khoá đang chờ người dùng nhập mật khẩu; file tạm **chưa** bị xoá để còn thử lại.
+    struct PendingPasswordFile: Identifiable {
+        let id = UUID()
+        let tempFileUrl: URL
+        let fileName: String
     }
 
 }

@@ -2,7 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.224) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.225) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.255] - 2026-08-23
+
+### Nhập truyện PDF chỉ lấy lớp văn bản
+
+Thêm `.pdf` vào đường nhập file, dùng **PDFKit** của hệ thống (không dependency mới, `project.yml` không đổi). Thêm **2** file Swift (324 → 326), **không** `@Model` nào đổi shape, **không** thêm OCR và **không** vượt bảo vệ tài liệu.
+
+* **PDF không đi qua `Data`**: `BookImportFormat` tách `detect(fileNameOnly:) -> BookImportFormat?` (chỉ theo đuôi file, `nil` khi lạ) chạy trước; chỉ đuôi lạ mới nạp byte để dò magic (`%PDF-` trong 1 KB đầu). Sáu format cũ đọc byte qua `try fileData ?? loadData(...)` nên hành vi **không đổi**, còn PDF được `PDFDocument(url:)` mở lazy từng trang thay vì nạp cả file vào RAM.
+* **`PdfDocumentReader` (131 dòng) là file duy nhất `import PDFKit`** — mở/mở khoá, lấy text từng trang, phẳng hoá `outlineRoot`, đọc `documentAttributes`. Đệ quy outline bị chặn `maxOutlineDepth = 8` và `maxOutlineEntries = 10_000`; trang lấy qua `destination?.page`, thiếu thì `PDFActionGoTo`.
+* **Biên chương chỉ tới mức trang**: mục outline cùng một trang gộp về mục đầu, mục trỏ lùi bị bỏ để dãy trang đơn điệu tăng; phần trước mục đầu thành `"Mở đầu"`. Thứ tự rơi giống các format khác: outline (`.auto`/`.tocIndex`) → mỗi trang một chương (`.spine`) → nối text rồi `TxtBookParser.parse` (quy tắc TOC), rồi vẫn qua `ChapterLengthLimiter` đúng một lần ở `BookImportService.parse`.
+* **PDF scan báo không hỗ trợ, PDF hỗn hợp phải xác nhận**: trang dưới **16 ký tự** bị tính là không có lớp văn bản; *mọi* trang như vậy ⇒ `throw .noTextLayer` ("PDF này chỉ có ảnh scan…"); một phần ⇒ `ParsedBook.warningNote` ghi rõ *N/M trang* bị bỏ và **nút "Nhập" bị chặn** cho tới khi người dùng tick "Tôi hiểu, chỉ nhập phần có văn bản". Ngưỡng 16 ký tự chỉ dùng để đếm và cảnh báo, không loại nội dung.
+* **Tài liệu khoá**: `isLocked` ⇒ `throw .passwordRequired`, View hiện `.alert` với `SecureField` rồi gọi lại `reanalyzeImport(... password:)`; sai mật khẩu ⇒ `.wrongPassword`. Hai nhánh này **không** xoá file tạm để nhập lại được ngay. Mật khẩu chỉ nằm trong `@State`/`PendingImport.password`, **không** ghi UserDefaults/Keychain, **không** log; PDFKit tự thử mật khẩu người dùng rỗng nên file chỉ có owner password vẫn mở được mà không phá gì.
+* CodeGraph: `00_index`, `02_file_graph`, `09_dependency_rules`, `11_subsystems`, `14_complexity_report`. `check_architecture.py` **14 → 14 violation** đúng cùng một tập (2 file mới 131/136 dòng, mỗi file 1 type top level, `OutlineEntry` nest); host Windows nên không `xcodegen generate`/`xcodebuild` tại chỗ, biên dịch do CI xác nhận.
 
 ## [1.3.254] - 2026-08-23
 
@@ -410,10 +423,3 @@ Sửa **tài liệu** (không đụng `Sources/` hay `Tests/`) tại 22 điểm 
 * **`Sources/Models/Extensions/ExtensionType.swift`**: thêm namespace public với các giá trị chuẩn `novel`, `chineseNovel`, `comic`, và `tts`.
 * Thay literal biểu diễn `Extension.type` trong model command, metadata import, repository policy, Search, Discovery, TTS Settings và UI quản lý extension; giữ nguyên script key/action TTS, sentinel `"all"`, schema `String` và dữ liệu hiện có.
 * Không migration, không đổi public API shape và không khóa type lạ; cập nhật CodeGraph tại `00_index.md`, `02_file_graph.md`, `03_type_graph.md`, `09_dependency_rules.md`, và `11_subsystems.md`.
-
-## [1.3.225] - 2026-08-20
-
-### Loại nguồn TTS khỏi tìm kiếm tất cả truyện
-
-* **`Sources/Views/Search/SearchView.swift`**: thêm `searchableExtensions = activeExtensions.filter { $0.type != "tts" }`; chế độ tất cả nguồn dùng tập này cho task search, source state, render kết quả và `Xem thêm`.
-* Không đổi tìm một nguồn cụ thể, public API, model hay chính sách lọc của caller; cập nhật CodeGraph tại `00_index.md`, `04_call_graph.md`, `06_event_graph.md`, và `07_dataflow.md`.

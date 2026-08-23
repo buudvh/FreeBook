@@ -1,11 +1,14 @@
 import SwiftUI
 
 /// Sheet xác nhận thông tin trước khi nhập truyện từ file vào CSDL
-/// (TXT / HTML / EPUB / MOBI–AZW3 / PRC / DOCX / FB2).
+/// (TXT / HTML / EPUB / MOBI–AZW3 / PRC / DOCX / FB2 / PDF).
 /// Hiển thị tên truyện, số chương **sau cùng**, tên file, cách tách chương đã dùng, báo cáo chương quá
-/// dài đã bị `ChapterLengthLimiter` tách, và danh sách chương rút gọn để người dùng kiểm tra kết quả
-/// parse. Cho phép chọn bảng mã, quy tắc TOC và cách tách chương (mặc định Tự động) rồi "Phân tích
-/// lại" để làm mới danh sách chương.
+/// dài đã bị `ChapterLengthLimiter` tách, cảnh báo mất mát nội dung (nếu có) và danh sách chương rút
+/// gọn để người dùng kiểm tra kết quả parse. Cho phép chọn bảng mã, quy tắc TOC và cách tách chương
+/// (mặc định Tự động) rồi "Phân tích lại" để làm mới danh sách chương.
+///
+/// Khi parser trả `warningNote` (PDF hỗn hợp: một phần trang là ảnh scan) thì nút "Nhập" bị chặn cho
+/// tới khi người dùng tự tick chấp nhận — đúng yêu cầu "xác nhận trước khi nhập phần còn lại".
 ///
 /// Ba picker nằm ở `Extensions/BookImportConfirmationSheet+Pickers.swift`; vì `private` của Swift là
 /// phạm vi **file** nên các `@State` dưới đây phải là `internal`.
@@ -34,6 +37,8 @@ struct BookImportConfirmationSheet: View {
 
     @State internal var isReanalyzing = false
     @State internal var activePicker: PickerType? = nil
+    /// Người dùng đã tự chấp nhận `parsed.warningNote` (PDF hỗn hợp thiếu lớp văn bản ở một số trang).
+    @State internal var acknowledgedWarning = false
 
     let onReanalyze: (String?, Set<String>, BookImportService.StructureMode) async -> BookImportService.Result?
     let onCancel: () -> Void
@@ -73,13 +78,19 @@ struct BookImportConfirmationSheet: View {
         return "\(selectedRuleIDs.count) quy tắc"
     }
 
-    /// EPUB/DOCX/FB2 tự khai bảng mã trong file (XML luôn UTF-8 trên thực tế) nên hàng "Bảng mã" là
-    /// lựa chọn vô nghĩa, ẩn đi.
+    /// EPUB/DOCX/FB2 tự khai bảng mã trong file (XML luôn UTF-8 trên thực tế) và PDF do PDFKit tự
+    /// giải mã, nên hàng "Bảng mã" là lựa chọn vô nghĩa, ẩn đi.
     private var showsDecodeRow: Bool {
         switch format {
-        case .epub, .docx, .fb2: return false
+        case .epub, .docx, .fb2, .pdf: return false
         case .txt, .html, .mobi: return true
         }
+    }
+
+    /// Nhập được hay chưa: cảnh báo mất mát nội dung (PDF hỗn hợp) phải được người dùng chấp nhận trước.
+    private var canConfirm: Bool {
+        guard let warning = parsed.warningNote, !warning.isEmpty else { return true }
+        return acknowledgedWarning
     }
 
     /// Báo cáo của bước hậu xử lý chung: chương dài bất thường đã bị tách thành nhiều phần.
@@ -135,6 +146,10 @@ struct BookImportConfirmationSheet: View {
                             }
                         }
 
+                        if let warning = parsed.warningNote, !warning.isEmpty {
+                            warningSection(warning)
+                        }
+
                         Divider()
 
                         optionRows
@@ -169,7 +184,7 @@ struct BookImportConfirmationSheet: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.blue)
-                    .disabled(isReanalyzing)
+                    .disabled(isReanalyzing || !canConfirm)
                 }
                 .padding(16)
             }
@@ -245,6 +260,27 @@ struct BookImportConfirmationSheet: View {
             .buttonStyle(.bordered)
             .disabled(isReanalyzing)
         }
+    }
+
+    /// Cảnh báo mất mát nội dung + ô người dùng tự chấp nhận. Chỉ hiện khi parser có `warningNote`
+    /// (hiện là PDF hỗn hợp), nên các format khác không thấy gì thêm.
+    private func warningSection(_ warning: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.orange)
+                Text(warning)
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Toggle("Tôi hiểu, chỉ nhập phần có văn bản", isOn: $acknowledgedWarning)
+                .font(.caption)
+        }
+        .padding(10)
+        .background(Color.orange.opacity(0.12))
+        .cornerRadius(8)
     }
 
     private func pickerRowLabel(title: String, systemImage: String, value: String) -> some View {

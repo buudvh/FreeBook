@@ -37,19 +37,23 @@ enum BookImportService {
         /// Tập quy tắc TOC người dùng chọn; rỗng = dùng quy tắc đang bật.
         let ruleIDs: Set<String>
         let structure: StructureMode
+        /// Mật khẩu người dùng nhập cho tài liệu khoá (hiện chỉ PDF). `nil` = chưa nhập.
+        let password: String?
 
         init(
             tempFileUrl: URL,
             fileName: String,
             encodingOverride: TextEncodingOption? = nil,
             ruleIDs: Set<String> = [],
-            structure: StructureMode = .auto
+            structure: StructureMode = .auto,
+            password: String? = nil
         ) {
             self.tempFileUrl = tempFileUrl
             self.fileName = fileName
             self.encodingOverride = encodingOverride
             self.ruleIDs = ruleIDs
             self.structure = structure
+            self.password = password
         }
     }
 
@@ -67,6 +71,10 @@ enum BookImportService {
         case drmProtected
         case unsupportedCompression
         case malformed(String)
+        /// Tài liệu khoá: View phải hỏi mật khẩu rồi gọi lại `parse` với `Request.password`.
+        case passwordRequired
+        case wrongPassword
+        case noTextLayer
 
         var errorDescription: String? {
             switch self {
@@ -80,6 +88,12 @@ enum BookImportService {
                 return "File dùng nén HUFF/CDIC, chưa hỗ trợ."
             case .malformed(let reason):
                 return "File không đọc được: \(reason)"
+            case .passwordRequired:
+                return "File có mật khẩu, cần nhập mật khẩu để mở."
+            case .wrongPassword:
+                return "Mật khẩu không đúng."
+            case .noTextLayer:
+                return "PDF này chỉ có ảnh scan, không có lớp văn bản để nhập (app không hỗ trợ OCR)."
             }
         }
     }
@@ -87,16 +101,19 @@ enum BookImportService {
     /// Mọi nhánh chỉ dựng `parsed` / `autoDecodeID` / `probe`; phần đuôi **dùng chung** kiểm chương rỗng,
     /// áp `ChapterLengthLimiter` rồi mới trả `Result`. Nhờ vậy limiter chạy đúng **một** lần cho mọi
     /// format, ngay trước sheet xác nhận, và thêm format mới không thể quên bước này.
+    ///
+    /// Nội dung file chỉ được nạp khi nhánh format thật sự cần: PDF đưa URL cho PDFKit (tài liệu vài
+    /// trăm MB vẫn nhập được), và chỉ file có đuôi lạ mới phải nạp cả file để dò magic bytes.
     static func parse(_ request: Request) async throws -> Result {
-        let data: Data
-        do {
-            data = try Data(contentsOf: request.tempFileUrl)
-        } catch {
-            throw ImportError.malformed(error.localizedDescription)
+        var fileData: Data?
+        let format: BookImportFormat
+        if let byExtension = BookImportFormat.detect(fileNameOnly: request.fileName) {
+            format = byExtension
+        } else {
+            let data = try loadData(request.tempFileUrl)
+            fileData = data
+            format = BookImportFormat.detect(fileName: request.fileName, data: data)
         }
-        guard !data.isEmpty else { throw ImportError.decodeFailed }
-
-        let format = BookImportFormat.detect(fileName: request.fileName, data: data)
         let rules = resolvedRules(request.ruleIDs)
 
         var parsed: ParsedBook
@@ -105,6 +122,7 @@ enum BookImportService {
 
         switch format {
         case .txt:
+            let data = try fileData ?? loadData(request.tempFileUrl)
             let text = try decodeText(data, override: request.encodingOverride, declaredCharset: nil)
             parsed = TxtBookParser.parse(content: text, fileName: request.fileName, rules: rules)
             parsed.structureNote = "Quy tắc TOC — \(parsed.chapters.count) chương"
@@ -112,6 +130,7 @@ enum BookImportService {
             probe = text
 
         case .html:
+            let data = try fileData ?? loadData(request.tempFileUrl)
             let charset = XhtmlTextExtractor.declaredCharsetName(in: data)
             let html = try decodeText(data, override: request.encodingOverride, declaredCharset: charset)
             parsed = HtmlBookParser.parse(
@@ -133,6 +152,7 @@ enum BookImportService {
             probe = probeText(parsed)
 
         case .mobi:
+            let data = try fileData ?? loadData(request.tempFileUrl)
             parsed = try MobiBookParser.parse(
                 data: data,
                 fileName: request.fileName,
@@ -152,11 +172,22 @@ enum BookImportService {
             probe = probeText(parsed)
 
         case .fb2:
+            let data = try fileData ?? loadData(request.tempFileUrl)
             parsed = try Fb2BookParser.parse(
                 data: data,
                 fileName: request.fileName,
                 rules: rules,
                 structure: request.structure
+            )
+            probe = probeText(parsed)
+
+        case .pdf:
+            parsed = try PdfBookParser.parse(
+                fileUrl: request.tempFileUrl,
+                fileName: request.fileName,
+                rules: rules,
+                structure: request.structure,
+                password: request.password
             )
             probe = probeText(parsed)
         }
@@ -175,6 +206,18 @@ enum BookImportService {
     }
 
     // MARK: - Helpers
+
+    /// Nạp toàn bộ file tạm. Chỉ gọi từ các nhánh format thật sự cần `Data` — nhánh PDF không gọi.
+    private static func loadData(_ url: URL) throws -> Data {
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            throw ImportError.malformed(error.localizedDescription)
+        }
+        guard !data.isEmpty else { throw ImportError.decodeFailed }
+        return data
+    }
 
     private static func resolvedRules(_ ruleIDs: Set<String>) -> [TOCRule] {
         guard !ruleIDs.isEmpty else { return TranslateUtils.getActiveTOCRules() }

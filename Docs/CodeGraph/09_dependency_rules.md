@@ -15,6 +15,14 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vị trí tầng của 2 file PDF (1.3.255)
+
+* **Cả 2 file ở tầng Services**, trong phân hệ có sẵn [`Sources/Services/Import/`](../../Sources/Services/Import/BookImportService.swift#L1) (18 → **20** file): [`PdfDocumentReader`](../../Sources/Services/Import/PdfDocumentReader.swift#L1) (131) và [`PdfBookParser`](../../Sources/Services/Import/PdfBookParser.swift#L1) (136). Mỗi file **≤ 400 dòng** và **đúng 1 type top level** — `OutlineEntry` **nest** trong `PdfDocumentReader` ⇒ không cần entry `architecture_allowlist.json` nào. File sửa: `BookImportFormat` 107 → **125**, `BookImportService` 214 → **257**, `ParsedBook` 27 → **30**, tất cả vẫn dưới trần 400.
+* **`import PDFKit` không phá `SERVICE_SWIFTUI_IMPORT`**: PDFKit là framework hệ thống độc lập với SwiftUI, và nó bị **cô lập trong đúng một file**. `PdfBookParser` chỉ `import Foundation` — chỗ tách chương không biết `PDFDocument` là gì, nên đổi cách tách chương không bao giờ phải chạm PDFKit và ngược lại. Không cần sửa `project.yml` (không phải dependency SPM).
+* **Không gọi `ToastManager.shared`** ⇒ `SERVICE_TOAST_COUPLING` an toàn. Ba lỗi mới là `passwordRequired`, `wrongPassword`, `noTextLayer` — đều có `errorDescription` tiếng Việt, và hai lỗi đầu được tầng View **bắt riêng** (`catch BookImportService.ImportError.passwordRequired`) để hỏi mật khẩu chứ không đổ vào toast.
+* Cạnh phụ thuộc mới bên trong phân hệ, vẫn **không có vòng**: `BookImportService` → `PdfBookParser` → {`PdfDocumentReader`, `TxtBookParser`, `XhtmlTextExtractor`}. `PdfDocumentReader` là **lá** (chỉ `Foundation` + `PDFKit`), nó *throw* `BookImportService.ImportError` — cùng cách `EpubArchiveReader`/`MobiArchiveReader` đang làm, không sinh type lỗi riêng cho từng reader.
+* **Tầng View không mọc quyền mới**: `ShelfView` thêm 3 `@State` mật khẩu + một `.alert` `SecureField`, `PendingPasswordFile` **nest** trong `ShelfView`; không `modelContext.insert/delete/save` ⇒ `VIEW_SWIFTDATA_MUTATION` không áp. Mật khẩu chỉ sống trong `@State` và `PendingImport.password`, **không** vào UserDefaults/Keychain/log.
+
 ## Vị trí tầng của `BackupCoverArchiver` (1.3.254)
 
 * **1 file mới ở tầng Services**, trong phân hệ có sẵn [`Sources/Services/Backup/`](../../Sources/Services/Backup/BackupCoverArchiver.swift#L1) (17 → **18** file, cộng 6 file `GoogleDrive/` là 24): [`BackupCoverArchiver`](../../Sources/Services/Backup/BackupCoverArchiver.swift#L1) (80 dòng, `Report` **nest** ⇒ đúng 1 type top level, không cần entry `architecture_allowlist.json`).

@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số liệu sau khi nhập PDF (1.3.255)
+
+* Tổng file Swift 324 → **326** (+2: [`PdfDocumentReader.swift`](../../Sources/Services/Import/PdfDocumentReader.swift) **131**, [`PdfBookParser.swift`](../../Sources/Services/Import/PdfBookParser.swift) **136** — đều dưới trần 400 và đúng 1 type top level với `OutlineEntry` nest). Phân hệ `Sources/Services/Import/` 18 → **20** file.
+* File phình: [`BookImportService.swift`](../../Sources/Services/Import/BookImportService.swift) 214 → **257** (+43 — nhánh `.pdf`, `Request.password`, 3 `ImportError`, và tách `loadData(_:)` ra khỏi đầu `parse`), [`BookImportConfirmationSheet.swift`](../../Sources/Views/Shelf/ShelfMain/BookImportConfirmationSheet.swift) 307 → **342**, [`ShelfView+BookImport.swift`](../../Sources/Views/Shelf/ShelfMain/Extensions/ShelfView+BookImport.swift) 215 → **273**, [`ShelfView.swift`](../../Sources/Views/Shelf/ShelfMain/ShelfView.swift) 811 → **836** (baseline allowlist 942, còn dư), [`BookImportFormat.swift`](../../Sources/Services/Import/BookImportFormat.swift) 107 → **125**, [`ParsedBook.swift`](../../Sources/Services/Import/ParsedBook.swift) 27 → **30**. Không file nào vào bảng 1.1.
+* Điểm nóng thật của đợt này **không** phải độ phức tạp thuật toán — PDFKit đã lo phần phân tích cú pháp — mà là ba quyết định biên: (1) **ngưỡng 16 ký tự/trang** phân biệt trang scan với trang có chữ; nó chỉ dùng để *đếm và cảnh báo*, không loại nội dung, vì một trang bìa chương hợp lệ cũng rất ngắn. (2) **biên chương chỉ tới mức trang**: mục outline cùng trang bị gộp, mục trỏ lùi bị bỏ, để dãy trang luôn tăng — cắt trong lòng trang cần toạ độ đích và dễ làm sai thứ tự hơn là được thêm chương. (3) **`maxOutlineDepth = 8` / `maxOutlineEntries = 10_000`** chặn outline lồng sâu do máy sinh; đệ quy `appendChildren` là chỗ duy nhất có thể nổ.
+* Không nạp cả file vào RAM: đây là lý do `detect(fileNameOnly:)` tồn tại. Chi phí trả thêm là một nhánh `try fileData ?? loadData(...)` ở 6 format cũ — rẻ hơn hẳn việc đổi mọi format sang mapped I/O.
+* `check_architecture.py`: **14 → 14 violation**, đúng cùng một tập — không vi phạm mới, không baseline nào bị nới, không entry `architecture_allowlist.json` nào được thêm. Host là Windows nên **không build tại chỗ**; số dòng đo bằng `wc -l`, tính đúng đắn biên dịch do CI xác nhận.
+
 ## Số liệu sau khi sao lưu ảnh bìa (1.3.254)
 
 * Tổng file Swift 323 → **324** (+1: [`BackupCoverArchiver.swift`](../../Sources/Services/Backup/BackupCoverArchiver.swift) **80** dòng, dưới trần 400, 1 type top level với `Report` nest). Phân hệ `Sources/Services/Backup/` 17 → **18** file (24 kể cả `GoogleDrive/`).

@@ -1,9 +1,9 @@
 import SwiftUI
 import SwiftData
 
-/// Khối nhập truyện từ file của `ShelfView` (TXT / HTML / EPUB / MOBI–AZW3): copy file vào thư mục
-/// tạm, gọi `BookImportService` bóc tách, phân tích lại theo lựa chọn của người dùng, rồi ghi vào
-/// `ChapterStore` + `.bin`.
+/// Khối nhập truyện từ file của `ShelfView` (TXT / HTML / EPUB / MOBI–AZW3 / PRC / DOCX / FB2 / PDF):
+/// copy file vào thư mục tạm, gọi `BookImportService` bóc tách, phân tích lại theo lựa chọn của người
+/// dùng, rồi ghi vào `ChapterStore` + `.bin`.
 ///
 /// Tách khỏi `ShelfView.swift` để file gốc trở lại dưới baseline dòng — phần này độc lập với thân
 /// `body` và chỉ đọc/ghi các `@State` của màn Kệ sách (vì vậy chúng phải là `internal`, không
@@ -38,15 +38,25 @@ extension ShelfView {
             return
         }
 
+        startImportParse(tempFileUrl: tempFileUrl, fileName: url.lastPathComponent, password: nil)
+    }
+
+    // startImportParse: Bóc tách file tạm ở tiến trình nền rồi mở sheet xác nhận. Dùng cho cả lần
+    // chọn file đầu tiên và lần thử lại sau khi người dùng nhập mật khẩu, nên file tạm chỉ bị xoá
+    // khi lỗi **không** phải chuyện thiếu mật khẩu.
+    internal func startImportParse(tempFileUrl: URL, fileName: String, password: String?) {
         // Hiện màn hình chờ từ lúc chọn file đến khi phân tích xong
         isParsingImport = true
 
         // Chạy tiến trình nền để đọc và bóc tách file
         Task.detached(priority: .userInitiated) {
-            let fileName = url.lastPathComponent
             do {
                 let result = try await BookImportService.parse(
-                    BookImportService.Request(tempFileUrl: tempFileUrl, fileName: fileName)
+                    BookImportService.Request(
+                        tempFileUrl: tempFileUrl,
+                        fileName: fileName,
+                        password: password
+                    )
                 )
 
                 // Quay lại Main Thread để yêu cầu hiện sheet xác nhận. Giữ wait layer
@@ -58,7 +68,20 @@ extension ShelfView {
                         format: result.format,
                         parsed: result.parsed,
                         autoDecodeID: result.autoDecodeID,
-                        matchedRuleIDs: result.matchedRuleIDs
+                        matchedRuleIDs: result.matchedRuleIDs,
+                        password: password
+                    )
+                }
+            } catch BookImportService.ImportError.passwordRequired {
+                await MainActor.run {
+                    self.askImportPassword(tempFileUrl: tempFileUrl, fileName: fileName, message: nil)
+                }
+            } catch BookImportService.ImportError.wrongPassword {
+                await MainActor.run {
+                    self.askImportPassword(
+                        tempFileUrl: tempFileUrl,
+                        fileName: fileName,
+                        message: "Mật khẩu không đúng, thử lại."
                     )
                 }
             } catch {
@@ -72,6 +95,39 @@ extension ShelfView {
         }
     }
 
+    // askImportPassword: Mở hộp thoại nhập mật khẩu cho tài liệu khoá. Không log mật khẩu.
+    internal func askImportPassword(tempFileUrl: URL, fileName: String, message: String?) {
+        isParsingImport = false
+        importPassword = ""
+        pendingPasswordFile = PendingPasswordFile(tempFileUrl: tempFileUrl, fileName: fileName)
+        showingPasswordPrompt = true
+        if let message {
+            ToastManager.shared.show(message: message)
+        }
+    }
+
+    // submitImportPassword: Thử lại việc bóc tách với mật khẩu người dùng vừa nhập.
+    internal func submitImportPassword() {
+        guard let pending = pendingPasswordFile else { return }
+        let password = importPassword
+        pendingPasswordFile = nil
+        importPassword = ""
+        guard !password.isEmpty else {
+            try? FileManager.default.removeItem(at: pending.tempFileUrl)
+            return
+        }
+        startImportParse(tempFileUrl: pending.tempFileUrl, fileName: pending.fileName, password: password)
+    }
+
+    // cancelPasswordPrompt: Người dùng bỏ qua tài liệu khoá — xoá file tạm để không rác thư mục tạm.
+    internal func cancelPasswordPrompt() {
+        if let pending = pendingPasswordFile {
+            try? FileManager.default.removeItem(at: pending.tempFileUrl)
+        }
+        pendingPasswordFile = nil
+        importPassword = ""
+    }
+
     // reanalyzeImport: Bóc tách lại file tạm theo bảng mã / quy tắc TOC / cách tách chương
     // người dùng chọn trên sheet. Trả về kết quả mới để sheet cập nhật, `nil` khi thất bại.
     nonisolated internal func reanalyzeImport(
@@ -79,14 +135,16 @@ extension ShelfView {
         ruleIDs: Set<String>,
         structure: BookImportService.StructureMode,
         tempFileUrl: URL,
-        fileName: String
+        fileName: String,
+        password: String? = nil
     ) async -> BookImportService.Result? {
         let request = BookImportService.Request(
             tempFileUrl: tempFileUrl,
             fileName: fileName,
             encodingOverride: decodeID.flatMap { TextEncodingOption(rawValue: $0) },
             ruleIDs: ruleIDs,
-            structure: structure
+            structure: structure,
+            password: password
         )
         return try? await BookImportService.parse(request)
     }

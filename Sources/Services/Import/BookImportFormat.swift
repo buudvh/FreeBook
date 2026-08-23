@@ -9,6 +9,9 @@ import UniformTypeIdentifiers
 /// Hai format cùng là ZIP (`epub` và `docx`) nên nhánh magic bytes phải soi thêm *bên trong* archive:
 /// EPUB bắt buộc có entry `mimetype` chứa `application/epub+zip` ngay đầu file, DOCX có entry
 /// `word/document.xml`.
+///
+/// PDF nhận diện bằng `%PDF-`; nội dung do PDFKit đọc trực tiếp từ URL nên nhánh này không cần
+/// (và không được) nạp cả file vào RAM.
 enum BookImportFormat: String, Sendable, CaseIterable {
     case txt
     case html
@@ -16,6 +19,7 @@ enum BookImportFormat: String, Sendable, CaseIterable {
     case mobi
     case docx
     case fb2
+    case pdf
 
     var displayName: String {
         switch self {
@@ -25,6 +29,7 @@ enum BookImportFormat: String, Sendable, CaseIterable {
         case .mobi: return "MOBI/AZW3/PRC"
         case .docx: return "DOCX"
         case .fb2: return "FB2"
+        case .pdf: return "PDF"
         }
     }
 
@@ -33,7 +38,7 @@ enum BookImportFormat: String, Sendable, CaseIterable {
     /// hệ thống nếu có, như `docx`), picker vẫn lọc đúng theo đuôi file. **Không** dùng
     /// `UTType(exportedAs:)` vì app không khai type đó trong `Info.plist`.
     static var pickerContentTypes: [UTType] {
-        var types: [UTType] = [.plainText, .html, .epub]
+        var types: [UTType] = [.plainText, .html, .epub, .pdf]
         for ext in ["mobi", "azw3", "azw", "prc", "docx", "fb2"] {
             if let type = UTType(filenameExtension: ext, conformingTo: .data) {
                 types.append(type)
@@ -44,6 +49,14 @@ enum BookImportFormat: String, Sendable, CaseIterable {
 
     /// Nhận diện format của file đã copy vào thư mục tạm.
     static func detect(fileName: String, data: Data) -> BookImportFormat {
+        return detect(fileNameOnly: fileName) ?? detectByMagic(data)
+    }
+
+    /// Nhận diện **chỉ bằng đuôi file**, `nil` khi đuôi lạ (caller phải dò magic bytes).
+    ///
+    /// Tách riêng để `BookImportService` biết format trước khi nạp nội dung: nhánh PDF đưa thẳng URL
+    /// cho PDFKit nên không bao giờ phải giữ cả file trong RAM.
+    static func detect(fileNameOnly fileName: String) -> BookImportFormat? {
         switch (fileName as NSString).pathExtension.lowercased() {
         case "epub":
             return .epub
@@ -55,10 +68,12 @@ enum BookImportFormat: String, Sendable, CaseIterable {
             return .docx
         case "fb2":
             return .fb2
+        case "pdf":
+            return .pdf
         case "txt":
             return .txt
         default:
-            return detectByMagic(data)
+            return nil
         }
     }
 
@@ -71,6 +86,9 @@ enum BookImportFormat: String, Sendable, CaseIterable {
            data[base + 2] == 0x03, data[base + 3] == 0x04 {
             return detectZipFamily(data)
         }
+
+        // PDF: `%PDF-` ở đầu file (chuẩn cho phép lệch vài byte nên dò trong 1 KB đầu).
+        if contains(Data(data.prefix(1024)), "%PDF-") { return .pdf }
 
         // PalmDB: type + creator nằm ở byte 60...67
         if data.count >= 68 {

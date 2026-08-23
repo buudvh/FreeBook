@@ -193,9 +193,9 @@ extension BookImportConfirmationSheet {
         case .auto:
             return "Mục lục nhúng → thứ tự file → quy tắc TOC"
         case .tocIndex:
-            return "Dùng mục lục nhúng trong file (NCX/nav của EPUB)"
+            return "Dùng mục lục nhúng trong file (NCX/nav của EPUB, outline của PDF)"
         case .spine:
-            return "Mỗi file nội dung trong sách là một chương"
+            return "Mỗi file nội dung trong sách là một chương (PDF: mỗi trang)"
         case .tocRules:
             return "Tách bằng regex quy tắc TOC như file TXT"
         }

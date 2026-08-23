@@ -2,7 +2,7 @@ import Foundation
 
 /// Kết quả bóc tách một file sách người dùng nhập từ máy.
 ///
-/// Mọi format (TXT / HTML / EPUB / MOBI–AZW3 / PRC / DOCX / FB2) đều đổ về đúng type này rồi đi tiếp
+/// Mọi format (TXT / HTML / EPUB / MOBI–AZW3 / PRC / DOCX / FB2 / PDF) đều đổ về đúng type này rồi đi tiếp
 /// qua **một** đường ghi duy nhất ở `ShelfView.performImport` (`AddBookToShelfCommand` →
 /// `ChapterStore.replaceFullTOC` → `BookBinManager.writeChapterContent` + `upsertCachedChapter`).
 /// Vì vậy thêm format mới **không** cần thêm một dòng code lưu trữ nào.
@@ -24,4 +24,7 @@ struct ParsedBook: Sendable {
     var remoteCoverUrl: String? = nil
     /// Mô tả cách đã tách chương, chỉ để hiện trên sheet xác nhận. Không lưu vào CSDL.
     var structureNote: String? = nil
+    /// Cảnh báo mất mát nội dung mà người dùng phải tự chấp nhận trước khi nhập (hiện chỉ PDF hỗn hợp:
+    /// một phần trang là ảnh scan). `nil` ⇒ sheet xác nhận không hỏi gì thêm.
+    var warningNote: String? = nil
 }
