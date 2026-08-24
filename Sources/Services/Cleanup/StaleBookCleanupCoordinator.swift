@@ -1,8 +1,10 @@
 import Foundation
 import SwiftData
 
-/// Lượt dọn **truyện lâu không đọc**: quét toàn thư viện, chọn truyện có `lastReadDate` cũ hơn ngưỡng
-/// rồi giao cho `BookStorageManager` xoá.
+/// Lượt dọn **truyện lâu không đọc**: quét phần **lịch sử** của thư viện (truyện không nằm trên Kệ
+/// sách), chọn truyện có `lastReadDate` cũ hơn ngưỡng rồi giao cho `BookStorageManager` xoá.
+///
+/// Truyện trên Kệ sách (`Book.isOnShelf`) **không bao giờ** bị lượt này chạm tới.
 ///
 /// Cùng khuôn với lượt tự động sao lưu Drive: cửa mở/đóng do
 /// [`StaleBookCleanupPolicy`](StaleBookCleanupPolicy.swift) quyết định, và hàm **trả về** kết quả cho
@@ -109,6 +111,10 @@ enum StaleBookCleanupCoordinator {
 
             let books = try context.fetch(FetchDescriptor<Book>())
             return books.filter { book in
+                // Truyện nằm trên Kệ sách là truyện người dùng **cố ý** giữ — theo yêu cầu tường minh,
+                // lượt dọn tự động không bao giờ chạm tới nó, dù bỏ quên bao lâu. Chỉ phần lịch sử
+                // (`isOnShelf == false`, tức xem qua ở Khám phá rồi rời đi) mới nằm trong tầm dọn.
+                guard !book.isOnShelf else { return false }
                 // Sách local/TXT import: nguồn gốc nằm ngoài app, xoá là mất vĩnh viễn vì không tải
                 // lại được từ đâu. Không bao giờ dọn tự động, kể cả khi đã quên rất lâu.
                 guard !book.isLocalBook else { return false }

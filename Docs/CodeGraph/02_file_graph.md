@@ -15,6 +15,31 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Backup kèm cài đặt, sửa nghĩa tại chỗ, không dọn truyện trên kệ (1.3.264)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Views/Dictionary/ManageDefinitionsDraft.swift`](../../Sources/Views/Dictionary/ManageDefinitionsDraft.swift) | bản nháp thuần (không `import SwiftUI`) của màn Quản lý nghĩa: `Row` có `id: UUID`/`isDeleted`/`preservesEmpty`, `activeMeanings`, `move`/`insertEmptyRow`/`appendEmptyRow`, `splitMeanings` | 126 |
+| [`Services/Backup/BackupSettingsArchiver.swift`](../../Sources/Services/Backup/BackupSettingsArchiver.swift) | chụp/ghi lại `UserDefaults` dạng plist nhị phân: `isExportable(key:)`, `exportableSnapshot()`, `stage(into:)`, `restore(from:) -> Report` | 123 |
+| [`Views/Dictionary/ManageDefinitionRowView.swift`](../../Sources/Views/Dictionary/ManageDefinitionRowView.swift) | một hàng nghĩa: `TextField` + 4 nút icon `.borderless` (lên/xuống/chèn trên/xoá, hoặc hoàn tác khi đã xoá mềm) | 73 |
+
+| File sửa | Dòng | Thay đổi |
+|---|---|---|
+| [`Views/Dictionary/ManageDefinitionsView.swift`](../../Sources/Views/Dictionary/ManageDefinitionsView.swift) | 343 → **186** | thay 4 khối `TextField` "thêm nghĩa" + `.alert` nhập nghĩa bằng `@State draft` + `ManageDefinitionRowView`; `textBinding(rowId:source:)`, `saveAllChangesToDisk()` lặp `editableSources` và bỏ qua nhóm không đổi, `mergedMatches(originals:draft:)` |
+| [`Services/Backup/BackupRestoreWorker.swift`](../../Sources/Services/Backup/BackupRestoreWorker.swift) | 249 → **271** | `Options.restoreSettings`, `Outcome.settings: BackupSettingsArchiver.Report`, gọi `BackupSettingsArchiver.restore` ở **bước cuối** của `restore()` |
+| [`Services/Backup/BackupExportWorker.swift`](../../Sources/Services/Backup/BackupExportWorker.swift) | 248 → **252** | `counts.settings = try BackupSettingsArchiver.stage(into: staging)` sau phần từ điển |
+| [`Views/Settings/Backup/RestoreOptionsSheet.swift`](../../Sources/Views/Settings/Backup/RestoreOptionsSheet.swift) | 111 → **123** | `@State restoreSettings` (khởi tạo theo `manifest.counts.settings > 0`), section công tắc "Khôi phục cài đặt & cấu hình", `infoRow("Khoá cài đặt", …)` |
+| [`Services/Backup/BackupPaths.swift`](../../Sources/Services/Backup/BackupPaths.swift) | 130 → **136** | hằng `settings = "settings/user_defaults.plist"` |
+| [`Services/Backup/BackupManifest.swift`](../../Sources/Services/Backup/BackupManifest.swift) | 103 → **108** | `Counts.settings` + `CodingKeys` + `decodeIfPresent(… ) ?? 0` (file tạo trước 1.3.264 đọc thành 0) |
+| [`Services/Cleanup/StaleBookCleanupCoordinator.swift`](../../Sources/Services/Cleanup/StaleBookCleanupCoordinator.swift) | 120 → **126** | `guard !book.isOnShelf` trong `staleBookIds` + doc comment thu hẹp phạm vi về phần lịch sử |
+| [`Views/Settings/Cleanup/StaleBookCleanupSettingsView.swift`](../../Sources/Views/Settings/Cleanup/StaleBookCleanupSettingsView.swift) | 208 → **209** | **chỉ đổi chuỗi** hai footer cho khớp phạm vi mới (không markdown `**` vì `Text` nối chuỗi không parse) |
+| [`Services/Backup/BackupCoordinator.swift`](../../Sources/Services/Backup/BackupCoordinator.swift) | 287 → **290** | nối "Mở lại app để cài đặt có hiệu lực" vào toast khi `outcome.settings.restoredKeys > 0` |
+| [`Views/Settings/Backup/BackupHubView.swift`](../../Sources/Views/Settings/Backup/BackupHubView.swift) | 206 | **chỉ đổi chuỗi** footer: mọi bản sao lưu đều kèm cài đặt (trừ khoá API và token) |
+
+* Tổng file Swift 356 → **359** (+3, không xoá file nào). Không thư mục mới: `Sources/Views/Dictionary/` và `Sources/Services/Backup/` đều đã có.
+* Cạnh mới: `BackupExportWorker` → `BackupSettingsArchiver` → {`BackupPaths`, `BackupZipArchive`, `AppLogger`}; `BackupRestoreWorker` → `BackupSettingsArchiver`; `ManageDefinitionsView` → {`ManageDefinitionsDraft`, `ManageDefinitionRowView`}. `ManageDefinitionsDraft` **không** phụ thuộc gì ngoài `Foundation` + `DictionaryMatchInfo`.
+* Cạnh bị xoá: `ManageDefinitionsView` không còn dựng `.alert` nhập nghĩa nào. `ManageDefinitionsView(word:bookId:matches:onChanged:)` **giữ nguyên chữ ký** nên call site duy nhất ([ReaderDefinitionOverlayView.swift](../../Sources/Views/Reader/ReaderDefinitionOverlayView.swift#L1)) không phải sửa; `BackupRestoreWorker.Options.init` thêm tham số **có giá trị mặc định** nên các call site cũ vẫn biên dịch.
+
 ## Tự xoá truyện cũ, tuỳ chọn số chương, backup từ điển TTS, xoá báo đã đọc (1.3.263)
 
 | File mới | Vai trò | Dòng |

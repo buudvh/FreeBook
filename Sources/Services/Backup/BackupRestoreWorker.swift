@@ -20,10 +20,18 @@ public actor BackupRestoreWorker {
     public struct Options: Sendable {
         public var scopes: Set<BackupScope>
         public var overwriteSharedDictionaries: Bool
+        /// Có ghi khối `settings/user_defaults.plist` vào `UserDefaults` hay không. Là cờ riêng chứ
+        /// không phải một `BackupScope` — xem `BackupSettingsArchiver`.
+        public var restoreSettings: Bool
 
-        public init(scopes: Set<BackupScope>, overwriteSharedDictionaries: Bool = false) {
+        public init(
+            scopes: Set<BackupScope>,
+            overwriteSharedDictionaries: Bool = false,
+            restoreSettings: Bool = true
+        ) {
             self.scopes = scopes.union([.books])
             self.overwriteSharedDictionaries = overwriteSharedDictionaries
+            self.restoreSettings = restoreSettings
         }
     }
 
@@ -32,9 +40,10 @@ public actor BackupRestoreWorker {
         public let chapters: BackupChapterRestorer.Outcome
         public let covers: BackupCoverArchiver.Report
         public let dictionaries: BackupDictionaryRestorer.Report
+        public let settings: BackupSettingsArchiver.Report
 
         public var errors: [String] {
-            library.errors + chapters.errors + covers.errors + dictionaries.errors
+            library.errors + chapters.errors + covers.errors + dictionaries.errors + settings.errors
         }
     }
 
@@ -132,6 +141,12 @@ public actor BackupRestoreWorker {
         )
         await reloadDictionariesIfNeeded(dictionaries)
 
+        // Ghi cài đặt sau cùng: các bước trên không đọc `UserDefaults`, còn manager đang chạy thì
+        // vẫn giữ giá trị cũ trong bộ nhớ nên cài đặt chỉ áp đủ sau khi mở lại app.
+        let settings = options.restoreSettings
+            ? BackupSettingsArchiver.restore(from: prepared.directory)
+            : BackupSettingsArchiver.Report()
+
         await MainActor.run {
             NotificationCenter.default.post(name: Notification.Name("extensionDidUpdate"), object: nil)
         }
@@ -141,11 +156,18 @@ public actor BackupRestoreWorker {
             + "\(chapters.restoredChapters) chương, \(chapters.restoredCachedChapters) chương có nội dung, "
             + "\(covers.restoredCovers) bìa (\(covers.skippedCovers) đã có), "
             + "\(library.insertedRepositories) kho, \(library.upsertedExtensions) ext, "
-            + "\(dictionaries.customFiles + dictionaries.bookFiles + dictionaries.sharedFiles) file từ điển"
+            + "\(dictionaries.customFiles + dictionaries.bookFiles + dictionaries.sharedFiles) file từ điển, "
+            + "\(settings.restoredKeys) khoá cài đặt"
         )
         report(BackupProgress(phase: .finished))
 
-        return Outcome(library: library, chapters: chapters, covers: covers, dictionaries: dictionaries)
+        return Outcome(
+            library: library,
+            chapters: chapters,
+            covers: covers,
+            dictionaries: dictionaries,
+            settings: settings
+        )
     }
 
     // MARK: - Các bước

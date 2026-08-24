@@ -52,6 +52,12 @@ public enum BackupPaths {
         "character_replacements.json"
     ]
 
+    /// Cài đặt & cấu hình của app (`UserDefaults`), dạng plist nhị phân. **Không** thuộc nhóm nào:
+    /// luôn được ghi vào archive vì chỉ vài KB, còn phía khôi phục bật/tắt bằng
+    /// `BackupRestoreWorker.Options.restoreSettings`. Lý do không thêm `BackupScope`: xem
+    /// `ttsDictionaryFolder` ở trên.
+    public static let settings = "settings/user_defaults.plist"
+
     // MARK: - Thư mục trên máy
 
     private static var applicationSupport: URL {

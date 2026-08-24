@@ -134,6 +134,9 @@ public final class BackupCoordinator: ObservableObject {
             if outcome.covers.restoredCovers > 0 {
                 message += ", \(outcome.covers.restoredCovers) ảnh bìa"
             }
+            if outcome.settings.restoredKeys > 0 {
+                message += ". Mở lại app để cài đặt có hiệu lực"
+            }
             lastMessage = message
         } else {
             lastError = "Khôi phục xong nhưng có \(outcome.errors.count) lỗi: \(outcome.errors[0])"

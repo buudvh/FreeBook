@@ -73,8 +73,8 @@ struct StaleBookCleanupSettingsView: View {
             Toggle("Tự động xoá truyện lâu không đọc", isOn: $isEnabled)
         } footer: {
             Text("Mặc định tắt vì đây là thao tác xoá dữ liệu không hoàn tác được. Khi bật, lượt dọn"
-                 + " chạy khoảng \(startupDelaySeconds) giây sau khi mở app, xoá cả truyện trên kệ và"
-                 + " trong lịch sử nếu quá lâu không đọc.")
+                 + " chạy khoảng \(startupDelaySeconds) giây sau khi mở app và chỉ xoá truyện trong"
+                 + " lịch sử — truyện đã thêm vào Kệ sách không bao giờ bị dọn.")
         }
     }
 
@@ -97,8 +97,9 @@ struct StaleBookCleanupSettingsView: View {
         } header: {
             Text("Ngưỡng")
         } footer: {
-            Text("Truyện có lần đọc gần nhất cũ hơn số ngày này sẽ bị xoá. Sách local/TXT tự nhập,"
-                 + " truyện đang tải hoặc đang xuất ebook, và truyện đang được đọc bằng TTS luôn được giữ lại.")
+            Text("Truyện trong lịch sử có lần đọc gần nhất cũ hơn số ngày này sẽ bị xoá. Truyện trên Kệ"
+                 + " sách, sách local/TXT tự nhập, truyện đang tải hoặc đang xuất ebook, và truyện đang"
+                 + " được đọc bằng TTS luôn được giữ lại.")
         }
     }
 

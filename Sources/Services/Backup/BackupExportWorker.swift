@@ -85,6 +85,10 @@ public actor BackupExportWorker {
         counts.bookDictionaries = dictSummary.bookFolders
         counts.sharedDictionaries = dictSummary.sharedFiles
 
+        // Cài đặt & cấu hình luôn đi kèm, không phụ thuộc nhóm nào (chỉ vài KB) — phía khôi phục mới
+        // hỏi người dùng có ghi vào máy hay không.
+        counts.settings = try BackupSettingsArchiver.stage(into: staging)
+
         let manifest = BackupManifest(
             appVersion: BackupManifest.runningAppVersion,
             createdAt: Date(),

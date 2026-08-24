@@ -12,6 +12,7 @@ struct RestoreOptionsSheet: View {
 
     @State private var scopes: Set<BackupScope>
     @State private var overwriteShared = false
+    @State private var restoreSettings: Bool
 
     init(
         sourceName: String,
@@ -26,6 +27,8 @@ struct RestoreOptionsSheet: View {
         self.onConfirm = onConfirm
         self.onCancel = onCancel
         _scopes = State(initialValue: Set(manifest.availableScopes))
+        // File tạo trước 1.3.264 không có khối cài đặt — tắt sẵn để công tắc không hứa hẹn hão.
+        _restoreSettings = State(initialValue: manifest.counts.settings > 0)
     }
 
     var body: some View {
@@ -43,6 +46,11 @@ struct RestoreOptionsSheet: View {
                 Section(footer: Text("Từ điển chung chỉ được cài khi máy còn thiếu. Bật tuỳ chọn này nếu muốn lấy bản trong file sao lưu thay cho bản đang có.")) {
                     Toggle("Ghi đè từ điển chung", isOn: $overwriteShared)
                         .disabled(!manifest.availableScopes.contains(.dictShared))
+                }
+
+                Section(footer: Text("Ghi các cài đặt trong file sao lưu lên cài đặt hiện tại (giao diện đọc, TTS, dịch, tự sao lưu…). Không gồm khoá API, token và tiến độ đọc. Cần mở lại app để mọi cài đặt có hiệu lực.")) {
+                    Toggle("Khôi phục cài đặt & cấu hình", isOn: $restoreSettings)
+                        .disabled(manifest.counts.settings == 0)
                 }
 
                 if isTTSPlaying {
@@ -63,7 +71,8 @@ struct RestoreOptionsSheet: View {
                     Button("Khôi phục") {
                         onConfirm(BackupRestoreWorker.Options(
                             scopes: scopes,
-                            overwriteSharedDictionaries: overwriteShared
+                            overwriteSharedDictionaries: overwriteShared,
+                            restoreSettings: restoreSettings
                         ))
                     }
                     .disabled(isTTSPlaying)
@@ -87,6 +96,9 @@ struct RestoreOptionsSheet: View {
                 "File từ điển",
                 "\(manifest.counts.customDictionaries + manifest.counts.bookDictionaries + manifest.counts.sharedDictionaries)"
             )
+            if manifest.counts.settings > 0 {
+                infoRow("Khoá cài đặt", "\(manifest.counts.settings)")
+            }
         }
     }
 
