@@ -169,27 +169,34 @@ struct NotificationInboxView: View {
     }
 
     private func toastRow(_ record: NotificationInboxRecord) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            toastIcon(record.type)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(record.message)
-                    .font(.subheadline)
-                    .foregroundColor(.primary)
-                    .lineLimit(4)
-                Text(timeLabel(record.date))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+        Button {
+            inbox.markRead(record)
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                toastIcon(record.type)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(record.message)
+                        .font(.subheadline)
+                        .foregroundColor(.primary)
+                        .lineLimit(4)
+                    Text(timeLabel(record.date))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer(minLength: 0)
+                if !record.isRead {
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 8, height: 8)
+                        .padding(.top, 6)
+                }
             }
-            Spacer(minLength: 0)
-            if !record.isRead {
-                Circle()
-                    .fill(Color.accentColor)
-                    .frame(width: 8, height: 8)
-                    .padding(.top, 6)
-            }
+            .padding(.vertical, 2)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 2)
+        .buttonStyle(.plain)
+        .accessibilityHint(record.isRead ? "" : "Bấm để đánh dấu đã đọc")
     }
 
     @ViewBuilder
@@ -235,11 +242,12 @@ struct NotificationInboxView: View {
                     Label("Đánh dấu đã đọc hết", systemImage: "checkmark.circle")
                 }
                 Button(role: .destructive) {
-                    inbox.clearAll()
+                    // Không hiện toast xác nhận: `ToastManager.show` lại ghi vào chính hộp thư này.
+                    inbox.deleteUnread()
                 } label: {
-                    Label("Dọn dẹp nhật ký toast", systemImage: "trash")
+                    Label("Xoá thông báo chưa đọc", systemImage: "trash")
                 }
-                .disabled(inbox.records.isEmpty)
+                .disabled(!inbox.hasUnread)
             } label: {
                 Image(systemName: "ellipsis.circle")
             }

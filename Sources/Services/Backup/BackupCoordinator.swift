@@ -265,6 +265,18 @@ public final class BackupCoordinator: ObservableObject {
 
     // MARK: - Hạ tầng
 
+    /// `isBusy` / `progress` là `private(set)` nên extension ở **file khác** không ghi được.
+    /// Hai hàm này là cửa duy nhất cho phần tự động sao lưu
+    /// ([`BackupCoordinator+AutoDrive`](BackupCoordinator+AutoDrive.swift)) dùng chung một khoá
+    /// `isBusy` với các luồng bấm tay — đừng gọi từ tầng View.
+    func setBusy(_ value: Bool) {
+        isBusy = value
+    }
+
+    func setProgress(_ value: BackupProgress) {
+        progress = value
+    }
+
     private func makeReporter() -> @Sendable (BackupProgress) -> Void {
         { [weak self] value in
             Task { @MainActor in

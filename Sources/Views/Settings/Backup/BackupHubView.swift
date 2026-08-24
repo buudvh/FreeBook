@@ -120,7 +120,23 @@ struct BackupHubView: View {
                         .foregroundColor(.secondary)
                 }
             }
+
+            NavigationLink {
+                DriveAutoBackupSettingsView()
+            } label: {
+                HStack {
+                    Label("Tự động sao lưu lên Drive", systemImage: "clock.arrow.circlepath")
+                    Spacer()
+                    Text(autoBackupStateText)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
         }
+    }
+
+    private var autoBackupStateText: String {
+        DriveAutoBackupPolicy.isEnabled ? "Đang bật" : "Đang tắt"
     }
 
     private var driveStateText: String {

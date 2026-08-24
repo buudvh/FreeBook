@@ -65,10 +65,27 @@ public enum BackupPaths {
     }
 
     public static func makeBackupFileName(at date: Date = Date()) -> String {
+        return "\(manualBackupPrefix)\(timestamp(at: date)).\(fileExtension)"
+    }
+
+    /// Tiền tố phân biệt bản do **lượt tự động** tạo. Việc dọn bản cũ (cả trên máy và trên Drive)
+    /// chỉ được chạm vào file có tiền tố này — bản người dùng tự tạo/đổi tên không bao giờ bị xoá hộ.
+    public static let autoBackupPrefix = "freebook-auto-"
+    private static let manualBackupPrefix = "freebook-"
+
+    public static func makeAutoBackupFileName(at date: Date = Date()) -> String {
+        return "\(autoBackupPrefix)\(timestamp(at: date)).\(fileExtension)"
+    }
+
+    public static func isAutoBackupFileName(_ name: String) -> Bool {
+        name.hasPrefix(autoBackupPrefix) && name.lowercased().hasSuffix(".\(fileExtension)")
+    }
+
+    private static func timestamp(at date: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return "freebook-\(formatter.string(from: date)).\(fileExtension)"
+        return formatter.string(from: date)
     }
 
     /// Dung lượng thật của một file (0 nếu không đọc được).

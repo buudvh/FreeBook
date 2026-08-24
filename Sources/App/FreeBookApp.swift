@@ -12,6 +12,8 @@ struct FreeBookApp: App {
         UITabBar.appearance().standardAppearance = tabBarAppearance
         UITabBar.appearance().scrollEdgeAppearance = tabBarAppearance
 
+        NavigationBarAppearance.applyTitlelessBackButton()
+
         do {
             let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)

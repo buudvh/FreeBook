@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 struct MainTabView: View {
@@ -57,6 +58,9 @@ struct MainTabView: View {
             }
             Self.cleanupLegacyChapterSearchIndex()
         }
+        .task {
+            await runAutoDriveBackupIfDue(container: modelContext.container)
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 // Bản xuất hoàn thành lúc app ở background: share sheet không trình bày được, được giữ lại
@@ -77,6 +81,24 @@ struct MainTabView: View {
 }
 
 extension MainTabView {
+    /// Lượt **tự động** sao lưu lên Google Drive. Cửa mở/đóng thuộc `DriveAutoBackupPolicy`; ở đây
+    /// chỉ có việc hoãn cho qua lúc khởi động rồi hiện đúng một toast cho kết quả — service không
+    /// được gọi `ToastManager`.
+    func runAutoDriveBackupIfDue(container: ModelContainer) async {
+        guard DriveAutoBackupPolicy.shouldRun() else { return }
+        try? await Task.sleep(nanoseconds: DriveAutoBackupPolicy.startupDelayNanoseconds)
+        guard !Task.isCancelled else { return }
+
+        switch await BackupCoordinator.shared.runAutoDriveBackup(container: container) {
+        case .skipped:
+            break
+        case .succeeded(_, let size, _, _):
+            ToastManager.shared.show(message: "Đã tự động sao lưu lên Google Drive (\(size))", type: .success)
+        case .failed(let message):
+            ToastManager.shared.show(message: "Tự động sao lưu thất bại: \(message)", type: .error)
+        }
+    }
+
     /// Dọn best-effort thư mục chỉ mục tìm toàn văn cũ (`applicationSupportDirectory/search/`) còn
     /// sót của người từng bật bản 1.3.257. Chỉ mục là dữ liệu phái sinh, xoá luôn cho gọn — chạy nền
     /// một lần lúc khởi động, nuốt mọi lỗi vì không ảnh hưởng tính đúng.
