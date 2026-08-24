@@ -1,6 +1,16 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.231) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.232) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.232] - 2026-08-21
+
+### Đưa cơ chế staleness mới tới Codex/agent khác: sửa .agents/AGENTS.md, bỏ gitignore AGENTS.md
+
+Chỉ sửa hạ tầng tài liệu/quy trình; không đụng `Sources/`, `Tests/`, hay vùng ngoài `GENERATED` của doc nào. Vá lỗ hổng: cơ chế routing per-doc (1.3.230) chỉ nằm ở `rules.md` + `CLAUDE.md`, còn hai kênh mà agent khác thật sự đọc thì lệch — `.agents/AGENTS.md` (tài liệu bước-1 bắt buộc) vẫn mô tả quy trình cũ, và bản mirror `AGENTS.md` cho Codex bị gitignore nên không tới được agent nào clone repo.
+
+* **`.agents/AGENTS.md`** (sửa theo yêu cầu trực tiếp của người dùng, đúng §7): bước 6 đổi từ "tính lại `sourceHash`/`generatedHash` thủ công" sang chạy `--explain` rồi ghi nhận từng doc bằng `--accept`/`--no-change-needed` (validator tự ghi 3 hash + `reviewMode`, không sửa tay); bước 7 nêu rõ read-only phải PASS gồm cả điều kiện "không doc nào còn stale"; §5 thêm ghi chú validator tự phát hiện trigger qua `sourcePatterns`/`staleOn`; §6 Completion Criteria mục 3-4 cập nhật theo audit trail + luật xoay CHANGELOG. Mọi chi tiết luật vẫn trỏ về `rules.md` §6.2, không nhân bản.
+* **`.gitignore`**: bỏ dòng `/AGENTS.md`. Bản mirror `AGENTS.md` (đích cho Codex, đúng ghi chú đầu `CLAUDE.md`) trước đây bị ignore nên chỉ tồn tại cục bộ; giờ được track để commit và tới được agent khác. Regenerate mirror từ `CLAUDE.md`, `diff` từ dòng 4 = khớp.
+* Không entry nào trong 16 doc CodeGraph bị stale (thay đổi không chạm `Sources/**`); `validate_links.py` read-only vẫn PASS.
 
 ## [1.3.231] - 2026-08-21
 

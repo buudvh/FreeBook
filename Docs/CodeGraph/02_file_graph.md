@@ -15,6 +15,26 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Nút back không chữ chạy thật, ô URL tự bôi đen, bypass browser nhiều tab (1.3.262)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Views/Common/BypassBrowserTabStore.swift`](../../Sources/Views/Common/BypassBrowserTabStore.swift) | chủ sở hữu **duy nhất** mọi `WKWebView` của phiên duyệt bypass; `WKNavigationDelegate` + `WKUIDelegate` dùng chung; trần 8 tab; mở tab mới cho `target="_blank"`/`window.open` | 149 |
+| [`Views/Common/BypassBrowserHomePage.swift`](../../Sources/Views/Common/BypassBrowserHomePage.swift) | tách nguyên văn HTML trang Home (Google/Bing/Baidu + thẻ tiện ích đã cài) ra khỏi `BypassWebView` | 170 |
+| [`Views/Common/BypassBrowserTab.swift`](../../Sources/Views/Common/BypassBrowserTab.swift) | một tab: `WKWebView` riêng + 6 `NSKeyValueObservation` phản chiếu tiêu đề/URL/tiến độ/cờ điều hướng; `pendingUrl` nạp một lần | 107 |
+| [`Views/Common/URLBarTextField.swift`](../../Sources/Views/Common/URLBarTextField.swift) | bọc `UITextField` để **chạm là bôi đen toàn bộ** URL (SwiftUI `TextField` iOS 17 không có API chọn hết) | 102 |
+| [`Views/Common/BypassBrowserTabBar.swift`](../../Sources/Views/Common/BypassBrowserTabBar.swift) | dải pill tab ngang, chỉ hiện khi > 1 tab; `TabPill` nest | 62 |
+| [`Views/Common/BypassBrowserWebPane.swift`](../../Sources/Views/Common/BypassBrowserWebPane.swift) | `UIViewRepresentable` bọc `UIView` container; đổi tab = đổi subview nên giữ lịch sử + vị trí cuộn | 38 |
+
+| File sửa | Dòng | Thay đổi |
+|---|---|---|
+| [`Views/Common/BypassWebView.swift`](../../Sources/Views/Common/BypassWebView.swift) | 599 → **350** | gỡ `WebViewStore`, `SwiftUIWebView` + Coordinator, `isDomainBlocked`, `generateHomeHtml()` và 6 `@State` phản chiếu trạng thái webview; nay chỉ giữ `@StateObject store`, thanh địa chỉ và logic import. API `BypassWebView(urlString:host:onImport:)` **không đổi** |
+| [`Common/Utils/NavigationBarAppearance.swift`](../../Sources/Common/Utils/NavigationBarAppearance.swift) | 44 → **56** | dựng 4 `UINavigationBarAppearance()` **mới** thay vì đọc rồi sửa tại chỗ proxy (getter proxy không trả đối tượng đang hiệu lực ⇒ bản 1.3.260 vô tác dụng); thêm `.font` 0.1pt để nhãn không chiếm chỗ |
+
+* Tổng file Swift 346 → **352** (+6, không xoá file nào).
+* Cạnh mới: `BypassWebView` → {`BypassBrowserTabStore`, `BypassBrowserTabBar`, `BypassBrowserWebPane`, `BypassBrowserHomePage`, `URLBarTextField`}; `BypassBrowserTabStore` → {`BypassBrowserTab`, `isEngineDomainBlocked` (`Services/Extensions/Engine/Browser/WebViewLoader.swift`), `AppLogger`}; `BypassBrowserTabBar`/`BypassBrowserWebPane` → `BypassBrowserTab`. Danh sách tên miền chặn **không** bị nhân bản: store gọi lại `isEngineDomainBlocked` thay vì giữ bản sao như `BypassWebView` cũ.
+* 6 call site của `BypassWebView` không phải sửa: `BookDetailActionSheetView.swift:20`, `DiscoveryView.swift:440` và `:846`, `ReaderView.swift:712` và `:736`, `ShelfView.swift:332`.
+
 ## Nhảy + tô kết quả tìm rồi tắt cuộn; tự tắt cuộn khi kéo tay; dọn tiện ích kho đã gỡ (1.3.261)
 
 | File mới | Vai trò | Dòng |

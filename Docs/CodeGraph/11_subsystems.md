@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Trình duyệt bypass thành phân hệ riêng, tách khỏi trình duyệt của Engine (1.3.262)
+
+* **Trình duyệt bypass giờ là một phân hệ có ranh giới rõ** trong `Sources/Views/Common/`: `BypassWebView` (khung + import truyện) → `BypassBrowserTabStore` (chủ sở hữu webview + delegate) → `BypassBrowserTab` (trạng thái một tab) → `BypassBrowserTabBar`/`BypassBrowserWebPane`/`URLBarTextField` (trình bày). Trước đây toàn bộ nằm trong một file 599 dòng với `WebViewStore` + `SwiftUIWebView` nội bộ.
+* **Vẫn là hai phân hệ trình duyệt độc lập, cố ý không hợp nhất.** Trình duyệt của Engine (`Services/Extensions/Engine/` + `TabbedVisibleBrowserViewController` + `VisibleBrowserTabManager.shared`) là **singleton toàn app**, sống ngoài SwiftUI để bypass Cloudflare cho tác vụ bóc tách; trình duyệt bypass là **một phiên theo màn hình** (`@StateObject` chết theo view) cho người dùng tự duyệt và import. Điểm dùng chung duy nhất là hàm `isEngineDomainBlocked` — dùng chung *luật chặn*, không dùng chung *vòng đời*.
+* **Ranh giới sở hữu webview**: tất cả `WKWebView` của phiên duyệt do store tạo trong `makeTab` và chỉ bị tháo ở `closeTab`/`deinit` bằng `stopLoadingAndDetach()` (invalidate KVO → `nil` hai delegate → `stopLoading()` → `removeFromSuperview()`). View **không** được tự tạo webview; `BypassBrowserWebPane` chỉ nhận webview đã có.
+* **Phân hệ import truyện không đổi**: `handleImportTap` → `findMatchingExtensions` (regexp trong `plugin.json`, cache tĩnh theo `localPath`) → `onImport(detailUrl, packageId, sourceName)` rồi `dismiss()`. Nó nay đọc URL từ `store.activeTab?.urlString` nên **import theo đúng tab đang xem**, kể cả tab mở từ link ngoài.
+* **Hiệu ứng nút back không chữ vẫn không thuộc phân hệ nào**: `NavigationBarAppearance` ở `Common/Utils`, gọi một lần trong `FreeBookApp.init()`; lượt này chỉ sửa cách dựng `UINavigationBarAppearance` để lệnh thật sự có hiệu lực, không đổi phạm vi ảnh hưởng (chỉ `backButtonAppearance`, không chạm nút hành động có chữ).
+
 ## Phân hệ Reader và phân hệ kho tiện ích cùng nhận một mảnh mới (1.3.261)
 
 * **Reader — tìm trong chương** không còn là phân hệ chỉ-đọc: `ReaderSearchMatcher` từ chỗ chỉ dò kết quả nay còn cung cấp `Highlight` + `static firstHighlightRange(of:in:)` cho tầng vẽ, và `ReaderSearchView` báo lên bằng `(Int, Int, String)`. Ranh giới giữ nguyên: matcher **thuần** (không state, không UIKit), `ReaderView` giữ state, `ParagraphCardView`/`ReaderTextView` chỉ nhận `NSRange` đã tính. Vệt tô của tìm kiếm và vệt tô của TTS đi cùng một tham số xuống `ReaderTextView`, TTS thắng khi cả hai cùng có (`relativeHighlightRange ?? searchHighlightRange(...)`).

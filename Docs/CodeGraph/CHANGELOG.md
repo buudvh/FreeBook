@@ -2,7 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.231) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.232) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.262] - 2026-08-24
+
+### Nút back không chữ chạy thật, ô URL tự bôi đen, bypass browser nhiều tab
+
+Thêm **6** file Swift (346 → 352), sửa 2 file; **không** `@Model` nào đổi shape, **không** thêm dependency. Chưa biên dịch (viết trên Windows, không có `xcodebuild`/`xcodegen`) — **phải chạy `xcodegen generate` trên macOS/CI** vì có file mới.
+
+* **Sửa lỗi "bỏ chữ nút back không hoạt động" của 1.3.260**: nguyên nhân là `NavigationBarAppearance` đọc `UINavigationBar.appearance().standardAppearance` rồi sửa **tại chỗ** — appearance proxy chỉ bảo đảm hợp đồng cho *setter*, getter của nó không trả về đối tượng đang có hiệu lực, nên phép sửa rơi vào hư không. Nay dựng **4 `UINavigationBarAppearance()` mới**: `standard`/`compact` dùng `configureWithDefaultBackground()`, `scrollEdge`/`compactScrollEdge` dùng `configureWithTransparentBackground()` (đúng mặc định iOS 15+ nên diện mạo thanh nav không đổi). Thêm `.font: .systemFont(ofSize: 0.1)` cạnh `.foregroundColor: .clear` cho cả 4 trạng thái `backButtonAppearance` để nhãn không **chiếm chỗ** — chỉ đổi màu thì chevron bị đẩy lệch khỏi vị trí quen thuộc. Vẫn không dùng `UIBarButtonItem.appearance()`.
+* **Bypass browser mở nhiều tab, link ngoài mở tab mới**: 4 file mới `BypassBrowserTabStore` (149), `BypassBrowserTab` (107), `BypassBrowserTabBar` (62), `BypassBrowserWebPane` (38). Trước đây `BypassWebView` **không gắn `WKUIDelegate`** nên `target="_blank"`/`window.open` không làm gì cả. Store là chủ sở hữu duy nhất mọi `WKWebView` và là delegate dùng chung; `createWebViewWith` **dùng lại** `WKWebViewConfiguration` do WebKit trao và **không** tự `load` (tạo config mới ⇒ mất `window.opener`; tự load ⇒ nạp hai lần), trần **8 tab** vì mỗi tab là một webview, đạt trần thì nạp link trên tab hiện tại. KVO (6 khoá) nằm trên tab chứ không trên `Coordinator` nên tab nền vẫn cập nhật tiêu đề/URL; đổi tab chỉ đổi subview của một `UIView` container nên giữ nguyên lịch sử và vị trí cuộn. `webViewDidClose` đóng đúng tab; `closeTab` từ chối đóng tab cuối.
+* **Chạm ô URL là bôi đen toàn bộ địa chỉ**: file mới `URLBarTextField` (102) bọc `UITextField` vì SwiftUI `TextField` (iOS 17) không có API chọn hết. Đặt `selectedTextRange` trong `textFieldDidBeginEditing` phải **hoãn một vòng run loop** (UIKit ghi đè bằng caret cuối chuỗi ngay sau callback), và dùng `selectedTextRange` thay `selectAll(nil)` để không bật kèm menu Cut/Copy/Paste. Cờ `isEditing` chặn observer URL của webview ghi đè lúc đang gõ; `updateUIView` chỉ gán `text` khi khác thật.
+* **`BypassWebView.swift` 599 → 350 dòng** (baseline legacy 599, chỉ được giảm): gỡ `WebViewStore`, `SwiftUIWebView` + Coordinator, `fileprivate isDomainBlocked` (dùng lại `isEngineDomainBlocked` của Engine — một nguồn sự thật cho danh sách chặn) và `generateHomeHtml()` (tách nguyên văn sang `BypassBrowserHomePage`, 170 dòng). API công khai `BypassWebView(urlString:host:onImport:)` **không đổi** nên 6 call site không phải sửa.
+* `check_architecture.py` giữ **14 violation, đúng cùng một tập** trước/sau; 6 file mới đều ≤ 400 dòng và đúng 1 type top level, không nới baseline, không sửa `architecture_allowlist.json`. CodeGraph: cập nhật `00`, `02`, `03`, `09`, `11`, `14`.
 
 ## [1.3.261] - 2026-08-24
 
@@ -416,13 +428,3 @@ Trước thay đổi này, cửa sổ prefetch đoạn văn bị chặn cứng �
   - Thêm kiểm tra phòng thủ (defense-in-depth) tại `attemptScroll` và `.onChange(of: scrollTarget)` để hủy lập tức bất kỳ `.ttsAuto` target nào phát sinh khi `!isSceneActive` mà không thực thi.
   - Khi `scenePhase` trở lại `.active`, kích hoạt resync 1-shot duy nhất (`scrollToTTSHighlightIfNeeded`) khớp với token mới nhất sau 0.1s defer để đồng bộ về câu TTS hiện tại mà không replay backlog scroll ngầm.
   - Giữ nguyên trạng thái hiển thị highlight, audio TTS, tiến độ logic, prefetch, và background chapter sync.
-
-## [1.3.232] - 2026-08-21
-
-### Đưa cơ chế staleness mới tới Codex/agent khác: sửa .agents/AGENTS.md, bỏ gitignore AGENTS.md
-
-Chỉ sửa hạ tầng tài liệu/quy trình; không đụng `Sources/`, `Tests/`, hay vùng ngoài `GENERATED` của doc nào. Vá lỗ hổng: cơ chế routing per-doc (1.3.230) chỉ nằm ở `rules.md` + `CLAUDE.md`, còn hai kênh mà agent khác thật sự đọc thì lệch — `.agents/AGENTS.md` (tài liệu bước-1 bắt buộc) vẫn mô tả quy trình cũ, và bản mirror `AGENTS.md` cho Codex bị gitignore nên không tới được agent nào clone repo.
-
-* **`.agents/AGENTS.md`** (sửa theo yêu cầu trực tiếp của người dùng, đúng §7): bước 6 đổi từ "tính lại `sourceHash`/`generatedHash` thủ công" sang chạy `--explain` rồi ghi nhận từng doc bằng `--accept`/`--no-change-needed` (validator tự ghi 3 hash + `reviewMode`, không sửa tay); bước 7 nêu rõ read-only phải PASS gồm cả điều kiện "không doc nào còn stale"; §5 thêm ghi chú validator tự phát hiện trigger qua `sourcePatterns`/`staleOn`; §6 Completion Criteria mục 3-4 cập nhật theo audit trail + luật xoay CHANGELOG. Mọi chi tiết luật vẫn trỏ về `rules.md` §6.2, không nhân bản.
-* **`.gitignore`**: bỏ dòng `/AGENTS.md`. Bản mirror `AGENTS.md` (đích cho Codex, đúng ghi chú đầu `CLAUDE.md`) trước đây bị ignore nên chỉ tồn tại cục bộ; giờ được track để commit và tới được agent khác. Regenerate mirror từ `CLAUDE.md`, `diff` từ dòng 4 = khớp.
-* Không entry nào trong 16 doc CodeGraph bị stale (thay đổi không chạm `Sources/**`); `validate_links.py` read-only vẫn PASS.

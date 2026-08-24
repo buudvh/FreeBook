@@ -15,6 +15,15 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Sáu file mới, một file legacy tự thu nhỏ, không luật nào bị nới (1.3.262)
+
+* **6 file mới đều ở tầng Views** (`Sources/Views/Common/` 22 → **28** file): `BypassBrowserTabStore` (149), `BypassBrowserHomePage` (170), `BypassBrowserTab` (107), `URLBarTextField` (102), `BypassBrowserTabBar` (62), `BypassBrowserWebPane` (38). Tất cả **≤ 400 dòng** và **đúng 1 type top level** (`TabPill` nest trong tab bar, `Coordinator` nest trong `URLBarTextField`) ⇒ **không** thêm hay nới entry `architecture_allowlist.json` nào.
+* **`BypassWebView.swift` 599 → 350 dòng**: baseline legacy là 599 và luật cho phép **chỉ giảm**, nên đây là hướng đúng — không cần và không được sửa baseline. Việc tách ra 6 file là cách duy nhất thêm tính năng vào file này mà không phá trần.
+* **Cầu UIKit ở tầng Views là hợp lệ**: `BypassBrowserWebPane` (`import SwiftUI` + `UIKit` + `WebKit`), `URLBarTextField` (`SwiftUI` + `UIKit`), `BypassBrowserTab` (`Foundation` + `UIKit` + `WebKit`) — cùng loại với `ReaderTextView`, `ReaderUserScrollDetector`. Luật `SERVICE_SWIFTUI_IMPORT` chỉ chặn `Sources/Services/**` nên không liên quan.
+* **Chiều phụ thuộc Views → Services vẫn một chiều, không có vòng**: `BypassBrowserTabStore` gọi hàm global `isEngineDomainBlocked` khai ở [`Services/Extensions/Engine/Browser/WebViewLoader.swift`](../../Sources/Services/Extensions/Engine/Browser/WebViewLoader.swift#L29) thay vì **nhân bản** danh sách tên miền chặn như `BypassWebView` cũ (`fileprivate func isDomainBlocked`) — một nguồn sự thật, và Services không biết gì về Views.
+* **Store không ghi SwiftData**: nó chỉ `@Query`-đọc qua `BypassWebView` và không gọi `modelContext.insert/delete/save`, nên luật `VIEW_SWIFTDATA_MUTATION` không bị chạm. Nó cũng không gọi `ToastManager` — thông tin trần tab đi vào `AppLogger`.
+* `NavigationBarAppearance` giữ nguyên vị trí `Common/Utils` và vẫn là **lá** (chỉ `import UIKit`, người dùng duy nhất là `App/FreeBookApp`); lượt này chỉ đổi cách dựng appearance object, không thêm cạnh phụ thuộc nào.
+
 ## Hai file mới, không luật nào bị nới (1.3.261)
 
 * `Sources/Views/Reader/Components/ReaderUserScrollDetector.swift` `import SwiftUI` + `import UIKit` — hợp lệ vì nó ở tầng **Views**, nơi cầu UIKit được phép sống (cùng loại với `ReaderTextView`, `ReaderViewModelInvalidationRelay`, `ReaderEnergyDiagnostics`). Nó phụ thuộc `UIView.parentScrollView` khai ở `ReaderTextView.swift:440` — cùng module, cùng tầng, không tạo chiều phụ thuộc mới nào.

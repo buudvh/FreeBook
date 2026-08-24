@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số dòng sau lượt 1.3.262
+
+* **File legacy lớn nhất của `Views/Common` tự thu nhỏ**: [`BypassWebView.swift`](../../Sources/Views/Common/BypassWebView.swift) 599 → **350** dòng (−249, baseline legacy 599 chỉ được giảm). Sáu file mới chia phần đã tách, tất cả dưới trần 400 và đúng 1 type top level: [`BypassBrowserHomePage.swift`](../../Sources/Views/Common/BypassBrowserHomePage.swift) **170**, [`BypassBrowserTabStore.swift`](../../Sources/Views/Common/BypassBrowserTabStore.swift) **149**, [`BypassBrowserTab.swift`](../../Sources/Views/Common/BypassBrowserTab.swift) **107**, [`URLBarTextField.swift`](../../Sources/Views/Common/URLBarTextField.swift) **102** (`Coordinator` nest), [`BypassBrowserTabBar.swift`](../../Sources/Views/Common/BypassBrowserTabBar.swift) **62** (`TabPill` nest), [`BypassBrowserWebPane.swift`](../../Sources/Views/Common/BypassBrowserWebPane.swift) **38**.
+* File đã có, tăng: [`NavigationBarAppearance.swift`](../../Sources/Common/Utils/NavigationBarAppearance.swift) 44 → **56** (+12, gần hết là doc comment giải thích vì sao phải dựng appearance mới). Tổng file Swift 346 → **352**; `Sources/Views/Common/` 22 → **28** file.
+* Chi phí runtime của lượt này nằm ở **bộ nhớ, không phải CPU**: mỗi tab là một `WKWebView` nên `BypassBrowserTabStore.maxTabCount = 8` là trần bắt buộc, và tab đóng phải đi qua `stopLoadingAndDetach()` mới thu hồi được (invalidate 6 KVO + `nil` hai delegate + `stopLoading`). Không có prefetch, không có cache nội dung — đúng 8 webview là mức xấu nhất.
+* Đường vẽ lại của SwiftUI được cố tình thu hẹp: `objectWillChange` của mỗi tab được chuyển tiếp lên store nên View quan sát **một** publisher, còn `BypassBrowserWebPane.updateUIView` `return` ngay khi `webView.superview === uiView` ⇒ đổi tiêu đề/tiến độ **không** làm gắn lại webview. `URLBarTextField.updateUIView` chỉ gán `text` khi khác thật, tránh reset caret mỗi lần progress nhảy.
+* `check_architecture.py`: **14 → 14 violation**, đúng cùng một tập — không vi phạm mới, không baseline nào bị nới, `architecture_allowlist.json` không đổi. Host là Windows nên **không build tại chỗ** và `xcodegen generate` chưa chạy (6 file mới cần nó trên macOS/CI, `project.yml` khai theo thư mục nên không phải sửa); số dòng đo bằng `wc -l`, tính đúng đắn biên dịch do CI xác nhận.
+
 ## Số dòng sau lượt 1.3.261
 
 * Hai file mới, cả hai dưới hạn 400 dòng của file mới: `Sources/Views/Reader/Components/ReaderUserScrollDetector.swift` **143** dòng (một type chính, hai type lồng `Coordinator`/`ProbeView` — `MULTI_PRIMARY_TYPES` chỉ đếm top level nên không vi phạm), `Sources/Models/Extensions/PruneRepositoryExtensionsCommand.swift` **22** dòng.
