@@ -15,6 +15,21 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Nút -/+ ngưỡng dọn truyện cũ, bấm ra ngoài là tắt bàn phím (1.3.266)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Common/Utils/KeyboardDismissGesture.swift`](../../Sources/Common/Utils/KeyboardDismissGesture.swift) | singleton `@MainActor` gắn `UITapGestureRecognizer` lên `UIWindow` level `.normal` để bấm ra ngoài ô nhập là tắt bàn phím: `activate()`, `installIfNeeded()`, `handleTap(_:)`, `isEditableTextInput(_:)` + hai hàm `UIGestureRecognizerDelegate` | 112 |
+
+| File sửa | Dòng | Thay đổi |
+|---|---|---|
+| [`Views/Settings/Cleanup/StaleBookCleanupSettingsView.swift`](../../Sources/Views/Settings/Cleanup/StaleBookCleanupSettingsView.swift) | 209 → **238** | `clampedInactiveDays`, `nudgeButton(systemImage:delta:)`; `thresholdSection` đổi bố cục: nút −/+ kẹp hai đầu slider, mốc 7/365 xuống dưới thanh trượt |
+| [`App/FreeBookApp.swift`](../../Sources/App/FreeBookApp.swift) | 107 → **108** | `AppLaunchRootView.onAppear` gọi thêm `KeyboardDismissGesture.shared.activate()` (dòng đầu, trước hai lệnh drain của `BookStorageManager`) |
+
+* Tổng file Swift 361 → **362** (+1, không xoá file nào). Không thư mục mới: `Sources/Common/Utils/` 7 → **8** file.
+* Cạnh mới: `AppLaunchRootView` (App) → `KeyboardDismissGesture` (Common). `KeyboardDismissGesture` chỉ phụ thuộc `UIKit` — **không** `SwiftUI`, không type nào của repo, nên nó là lá của đồ thị và không tạo vòng. Không cạnh nào bị xoá.
+* `Common/Extensions/View+Keyboard.swift` (`hideKeyboard()` gửi `resignFirstResponder`) **vẫn còn nguyên** và vẫn có người gọi (`ExtensionScriptEditorView`, `ReaderJunkDeleteOverlayView`, `ReaderDefinitionOverlayView` gọi thẳng `UIApplication.sendAction`): đó là các chỗ tắt bàn phím **chủ động** theo lệnh (nút Xong, đóng overlay), khác nhiệm vụ với recognizer nền.
+
 ## Backup quy tắc mục lục, xuất nhập công cụ tra cứu nhanh (1.3.265)
 
 | File mới | Vai trò | Dòng |

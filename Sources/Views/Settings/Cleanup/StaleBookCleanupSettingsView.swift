@@ -26,12 +26,36 @@ struct StaleBookCleanupSettingsView: View {
         StaleBookCleanupPolicy.Mode(rawValue: modeRaw) ?? .daily
     }
 
+    /// Giá trị đang có hiệu lực — luôn đọc qua policy để giá trị cũ ngoài biên vẫn hiển thị đúng.
+    private var clampedInactiveDays: Int {
+        StaleBookCleanupPolicy.clampInactiveDays(inactiveDays)
+    }
+
     /// Slider cần `Double`; setter kẹp lại bằng chính policy để không ghi giá trị ngoài biên.
     private var inactiveDaysValue: Binding<Double> {
         Binding(
             get: { Double(StaleBookCleanupPolicy.clampInactiveDays(inactiveDays)) },
             set: { inactiveDays = StaleBookCleanupPolicy.clampInactiveDays(Int($0.rounded())) }
         )
+    }
+
+    /// Nút −/+ bước 1 ngày kèm slider: slider kéo tay rất khó dừng đúng một ngày trên dải 7…365.
+    ///
+    /// `buttonStyle(.borderless)` là bắt buộc trong `Form`, nếu không cả hàng thành một vùng bấm
+    /// và bấm chỗ nào cũng lọt vào nút.
+    private func nudgeButton(systemImage: String, delta: Int) -> some View {
+        Button {
+            inactiveDays = StaleBookCleanupPolicy.clampInactiveDays(clampedInactiveDays + delta)
+        } label: {
+            Image(systemName: systemImage)
+                .font(.body.weight(.semibold))
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .disabled(delta < 0
+                  ? clampedInactiveDays <= StaleBookCleanupPolicy.inactiveDaysRange.lowerBound
+                  : clampedInactiveDays >= StaleBookCleanupPolicy.inactiveDaysRange.upperBound)
     }
 
     var body: some View {
@@ -80,19 +104,24 @@ struct StaleBookCleanupSettingsView: View {
 
     private var thresholdSection: some View {
         Section {
-            LabeledContent("Ngưỡng bỏ quên", value: "\(StaleBookCleanupPolicy.clampInactiveDays(inactiveDays)) ngày")
-            HStack(spacing: 8) {
-                Text("\(StaleBookCleanupPolicy.inactiveDaysRange.lowerBound)")
+            LabeledContent("Ngưỡng bỏ quên", value: "\(clampedInactiveDays) ngày")
+            HStack(spacing: 10) {
+                nudgeButton(systemImage: "minus", delta: -1)
+                VStack(spacing: 2) {
+                    Slider(
+                        value: inactiveDaysValue,
+                        in: Double(StaleBookCleanupPolicy.inactiveDaysRange.lowerBound)...Double(StaleBookCleanupPolicy.inactiveDaysRange.upperBound),
+                        step: 1
+                    )
+                    HStack {
+                        Text("\(StaleBookCleanupPolicy.inactiveDaysRange.lowerBound)")
+                        Spacer()
+                        Text("\(StaleBookCleanupPolicy.inactiveDaysRange.upperBound)")
+                    }
                     .font(.caption2)
                     .foregroundColor(.secondary)
-                Slider(
-                    value: inactiveDaysValue,
-                    in: Double(StaleBookCleanupPolicy.inactiveDaysRange.lowerBound)...Double(StaleBookCleanupPolicy.inactiveDaysRange.upperBound),
-                    step: 1
-                )
-                Text("\(StaleBookCleanupPolicy.inactiveDaysRange.upperBound)")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+                }
+                nudgeButton(systemImage: "plus", delta: 1)
             }
         } header: {
             Text("Ngưỡng")

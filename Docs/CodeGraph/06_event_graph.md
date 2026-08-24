@@ -15,6 +15,13 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Một observer hệ thống mới, không tên notification nội bộ nào (1.3.266)
+
+* **Kênh mới duy nhất là `UIResponder.keyboardWillShowNotification`**, do [KeyboardDismissGesture](../../Sources/Common/Utils/KeyboardDismissGesture.swift#L1) đăng ký (selector `@objc`, không phải Combine). Đây là **notification của hệ thống**, không phải tên nội bộ — nên nó không thuộc nhóm string literal trần dễ vỡ (`"openCurrentlyPlayingReader"`, `"ttsDidAdvanceToNextChapter"`…) và **không** thêm tên mới vào bus liên module. Không event center nào bị sửa, không `AsyncStream` mới.
+* **Payload bị bỏ hoàn toàn**: handler không đọc `userInfo` (khung bàn phím, thời lượng animation) vì việc duy nhất nó làm là bảo đảm recognizer đã được cài. Sự kiện ở đây dùng như một *tín hiệu thời điểm*, không phải nguồn dữ liệu.
+* **Observer không bao giờ được gỡ** — chủ là singleton sống suốt vòng đời app, và cờ `isObserving` bảo đảm `activate()` chỉ đăng ký một lần dù `AppLaunchRootView.onAppear` chạy lại. Cùng khuôn với các observer `AVAudioSession` của `TTSManager` (mục 3.2 của `08_lifecycle.md`): tồn tại vĩnh viễn là có chủ ý, không phải rò.
+* Chiều đi của sự kiện là **một nhánh, không phân phát lại**: bàn phím hiện → quét window → (nếu thiếu) cài recognizer. Cú tap sau đó gọi `endEditing(true)` trực tiếp trên window, **không** phát notification nào cho phần còn lại của app biết.
+
 ## Lượt tự dọn truyện cũ dùng lại đúng khuôn Outcome, không thêm kênh sự kiện (1.3.263)
 
 * **Không tên `NotificationCenter` mới, không event center mới, không publisher mới.** `StaleBookCleanupCoordinator.runIfDue`/`runNow` **trả về** `Outcome` (`.skipped` / `.deleted(count:)` / `.failed(message:)`); `MainTabView` và `StaleBookCleanupSettingsView` mới là nơi gọi `ToastManager`. Đây là cùng khuôn `AutoDriveBackupOutcome` của 1.3.260, và là lý do `Sources/Services/Cleanup/` không vi phạm `SERVICE_TOAST_COUPLING`.

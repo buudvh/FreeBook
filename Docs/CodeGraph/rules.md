@@ -15,6 +15,13 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tắt bàn phím là hành vi toàn app, có đúng một chủ (1.3.266)
+
+* **Không thêm `.onTapGesture { hideKeyboard() }` (hay `background` bắt tap) cho từng màn để tắt bàn phím.** Hành vi "bấm ra ngoài ô nhập thì bàn phím tắt" do `KeyboardDismissGesture` (`Sources/Common/Utils/`) phủ ở tầng `UIWindow` cho mọi màn. Thêm ở màn lẻ là tạo điểm điều khiển thứ hai cho cùng một hành vi, và thường kèm tác dụng phụ ăn mất touch của nút bên dưới.
+* **Vẫn được tắt bàn phím tường minh** khi đó là *lệnh* của người dùng — nút "Xong", đóng overlay, submit form: dùng `View.hideKeyboard()` (`Common/Extensions/View+Keyboard.swift`). Ranh giới: recognizer nền xử lý tap vào vùng trống; lệnh tường minh xử lý phần còn lại.
+* **Nếu phải sửa `KeyboardDismissGesture`, giữ ba thiết lập sau** — mỗi cái chặn một lỗi cụ thể: `cancelsTouchesInView = false` (không thì nút/hàng `List` mất touch), `shouldRecognizeSimultaneouslyWith → true` (không thì pan của scroll view và tap chọn hàng bị chặn), và `shouldReceive touch` bỏ qua ô **đang nhập được** (không thì bấm vào chính ô đang gõ lại tắt bàn phím). Thêm loại ô nhập mới thì sửa trong `isEditableTextInput` bằng `as?` + cờ `isEnabled`/`isEditable`, **không** so tên class.
+* **Chỉ cài lên `UIWindow` ở level `.normal`.** Cài lên window của toast/TTS widget/widget trình duyệt (quanh level `.alert`, hit-test passthrough) là vô ích và gây nhiễu; bàn phím nằm ở window hệ thống riêng nên vốn không đi qua đây.
+
 ## Next-chapter prefix audio invariants (1.3.234)
 
 * Cửa sổ prefetch đoạn văn **vẫn bị chặn ở biên chương**: `updatePrefetchWindow` và `updateNghiPrefetchWindow` không bao giờ tạo index vượt `paragraphs.count` của chương đang phát. Phần thiếu ở cuối chương được lấp bằng **chunk đầu của chương kế** do `TTSNextChapterPrefixCache` sở hữu, chứ không bằng cách mở rộng không gian index của `preloadedData`.

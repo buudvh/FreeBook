@@ -60,6 +60,7 @@ struct AppLaunchRootView: View {
             .animation(.easeInOut(duration: 0.5), value: translationManager.isInitialized)
         }
         .onAppear {
+            KeyboardDismissGesture.shared.activate()
             BookStorageManager.shared.drainRetryQueue()
             BookStorageManager.shared.retryFailedChapterStoreDeletions()
             TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container

@@ -15,6 +15,14 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Một file mới ở Common, không luật nào bị nới (1.3.266)
+
+* **File mới, không thư mục mới**: `Sources/Common/Utils/KeyboardDismissGesture.swift` (112 dòng, chỉ `import UIKit`) — **≤ 400 dòng**, **đúng 1 type top level** ⇒ **không** thêm hay nới entry `architecture_allowlist.json` nào; `check_architecture.py` giữ đúng 14 violation, cùng một tập.
+* **Đặt ở `Common/` chứ không phải `Services/`**: hai luật `SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING` chỉ soi `Sources/Services/**`, nhưng lý do thật là bản chất file — nó chạm UIKit ở tầng `UIWindow`, không sở hữu dữ liệu và không có domain nào. Đúng chỗ của `NavigationBarAppearance` (cũng là UIKit-only, cũng cài một lần cho toàn app, cũng nằm ở `Common/Utils/`).
+* **Chiều phụ thuộc mới là App → Common**, một cạnh duy nhất và hợp lệ: `AppLaunchRootView.onAppear` → `KeyboardDismissGesture.shared.activate()`. File này **không** import `SwiftUI`, không nhìn thấy type nào của `Models`/`Services`/`Views`, nên nó là lá của đồ thị — không có vòng nào mới.
+* **Không nhân bản điểm tắt bàn phím.** `Common/Extensions/View+Keyboard.swift` giữ nguyên vai "tắt theo lệnh" (nút Xong của editor script, đóng overlay Reader); recognizer nền không gọi vào đó mà dùng `endEditing(true)` trên window đang chạm. Từ nay **không thêm** `.onTapGesture { hideKeyboard() }` cho từng màn nữa — việc đó đã được phủ ở tầng window.
+* **`StaleBookCleanupSettingsView.swift` 209 → 238 dòng** (chưa từng có entry allowlist, vẫn dưới trần 400) và **`FreeBookApp.swift` 107 → 108**. View này vẫn chỉ đọc/ghi `@AppStorage` của `StaleBookCleanupPolicy` và không chạm `modelContext`, nên `VIEW_SWIFTDATA_MUTATION` không liên quan; cấu hình vẫn có đúng một nguồn là policy (`clampInactiveDays`, `inactiveDaysRange`), nút −/+ không tự viết lại biên.
+
 ## Hai file mới, một codec đặt ở tầng Models để hai tầng cùng dùng (1.3.265)
 
 * **Hai file mới, không thư mục mới**: `Sources/Services/Backup/BackupConfigArchiver.swift` (109 dòng, chỉ `import Foundation`) và `Sources/Models/Dictionaries/SearchEngineTransfer.swift` (107 dòng, chỉ `import Foundation`). Cả hai **≤ 400 dòng** và **đúng 1 type top level** (`Report` nest trong `BackupConfigArchiver`, `Failure` nest trong `SearchEngineTransfer`) ⇒ **không** thêm hay nới entry `architecture_allowlist.json` nào; `check_architecture.py` giữ đúng 14 violation, cùng một tập.

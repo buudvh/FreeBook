@@ -15,6 +15,13 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type mới ở tầng Common: KeyboardDismissGesture (1.3.266)
+
+* **`KeyboardDismissGesture` là `@MainActor final class: NSObject, UIGestureRecognizerDelegate`** — không phải `enum` hàm tĩnh như `NavigationBarAppearance` cùng thư mục, vì nó **phải** là đối tượng: cần `target` cho `#selector` của `UITapGestureRecognizer`, cần là `delegate` của recognizer, và cần một cờ `isObserving` để `activate()` idempotent. `NSObject` là điều kiện của cả hai vai đó.
+* **Toàn bộ trạng thái là một `Bool`**: `isObserving`. Danh sách window đã cài **không** được giữ trong type — mỗi lượt `installIfNeeded()` tự nhận diện bằng `UIGestureRecognizer.name == "FreeBookKeyboardDismissTap"`, nên window bị hủy/tạo lại không để lại tham chiếu treo và không cần `NSHashTable` weak.
+* **Không có type nào của repo xuất hiện trong chữ ký của nó** — chỉ `UIWindow`, `UITapGestureRecognizer`, `UITouch`, `UIView`, `UITextField`, `UITextView`, `UISearchBar`. Việc phân loại "ô nhập được" đọc `isEnabled`/`isEditable` chứ không so tên class, nên `ReaderUITextView` (chỉ đọc) không bị coi là ô nhập.
+* Quan hệ duy nhất với phần còn lại: `AppLaunchRootView` gọi `KeyboardDismissGesture.shared.activate()`. Type này **không** thay thế `View.hideKeyboard()` ở `Common/Extensions/View+Keyboard.swift` — cái đó là lệnh tắt chủ động do người dùng bấm, còn đây là recognizer nền.
+
 ## Type của codec công cụ tra cứu nhanh (1.3.265)
 
 * [`SearchEngineTransfer`](../../Sources/Models/Dictionaries/SearchEngineTransfer.swift#L1) là `public enum` namespace thuần (không case, không state, chỉ `Foundation` + `SearchEngine`) — đặt ở tầng `Models` **vì có hai người gọi ở hai tầng khác nhau**: [`SearchEnginesConfigView`](../../Sources/Views/Settings/Search/SearchEnginesConfigView.swift#L1) (Views) và [`BackupConfigArchiver`](../../Sources/Services/Backup/BackupConfigArchiver.swift#L1) (Services). Đưa logic này vào một trong hai tầng đó là buộc tầng kia phải phụ thuộc ngang.

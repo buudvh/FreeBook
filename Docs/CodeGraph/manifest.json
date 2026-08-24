@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-24T09:32:09Z",
-  "gitCommit": "4ff9f53325e3c8a2b5e16dadfbdcc363d92ee3da",
-  "sourceFileCount": 361,
+  "generatedAt": "2026-08-24T11:04:04Z",
+  "gitCommit": "6f6b9f682d3379a9432501992255baa191f23646",
+  "sourceFileCount": 362,
   "documentCount": 16,
   "documents": [
     {
@@ -28,6 +28,7 @@
         "Sources/Common/Services/NotificationInboxStore.swift",
         "Sources/Common/Services/ToastManager.swift",
         "Sources/Common/Utils/BookIdUtils.swift",
+        "Sources/Common/Utils/KeyboardDismissGesture.swift",
         "Sources/Common/Utils/NavigationBarAppearance.swift",
         "Sources/Common/Utils/NovelListUtils.swift",
         "Sources/Common/Utils/ReaderSearchMatcher.swift",
@@ -378,12 +379,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "bd827d74dfbc7a22824e57bac2d08e7cd578652a43e965cf818851a27aeae5ae",
-      "sourceHash": "1b5d9fe4c26b9713662a1c072567240b758ec9e7d3d95a08fdca1257becd0b6c",
-      "generatedHash": "6abde7f5c57d087ab446dee26fcf65fc415b6ff91f91e533e6666b2eb00f46f6",
-      "generatedAt": "2026-08-24T09:32:09Z",
-      "reviewedAt": "2026-08-24T09:32:09Z",
-      "reviewedCommit": "4ff9f53325e3c8a2b5e16dadfbdcc363d92ee3da",
+      "structureHash": "c360a9de5940ca37415faf0fab4d439e13379e674d790a7c9a36990e0293f304",
+      "sourceHash": "0c5de75778afedeaba631a6c5a53a2ea36abf49d2fb5c8433ce867a2550437c8",
+      "generatedHash": "becccca12696a1b43c6fe1aca18705ef9c7d0ced866548d99041daf7af81d57d",
+      "generatedAt": "2026-08-24T11:02:35Z",
+      "reviewedAt": "2026-08-24T11:02:35Z",
+      "reviewedCommit": "6f6b9f682d3379a9432501992255baa191f23646",
       "reviewMode": "accept"
     },
     {
@@ -406,12 +407,12 @@
         "project.yml"
       ],
       "structureHash": "8465fb28c38bb8230fbde3fc5fac9f8327ab95fbd971aa7a6077f5d6e76ec335",
-      "sourceHash": "2d2507816d1f3e8a863cb8b1c3e5903a40867cb8e0d01c9bca62d5a76fa93606",
+      "sourceHash": "9eef45772e6669b45c3e66b99164b80449b2d988411f551cdec2fafeb47db8c3",
       "generatedHash": "c290e20a50114a62e05a53e8f449f6a4e9bea0abad6c755f0306183d520953e1",
-      "generatedAt": "2026-08-24T04:52:03Z",
-      "reviewedAt": "2026-08-24T04:52:03Z",
-      "reviewedCommit": "bd08df0385153fe1a712823c0b311eeef3fe0853",
-      "reviewMode": "accept"
+      "generatedAt": "2026-08-24T11:04:04Z",
+      "reviewedAt": "2026-08-24T11:04:04Z",
+      "reviewedCommit": "6f6b9f682d3379a9432501992255baa191f23646",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "02_file_graph.md",
@@ -433,6 +434,7 @@
         "Sources/Common/Services/NotificationInboxStore.swift",
         "Sources/Common/Services/ToastManager.swift",
         "Sources/Common/Utils/BookIdUtils.swift",
+        "Sources/Common/Utils/KeyboardDismissGesture.swift",
         "Sources/Common/Utils/NavigationBarAppearance.swift",
         "Sources/Common/Utils/NovelListUtils.swift",
         "Sources/Common/Utils/ReaderSearchMatcher.swift",
@@ -783,12 +785,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "bd827d74dfbc7a22824e57bac2d08e7cd578652a43e965cf818851a27aeae5ae",
-      "sourceHash": "1b5d9fe4c26b9713662a1c072567240b758ec9e7d3d95a08fdca1257becd0b6c",
-      "generatedHash": "efa90ea1f4f4333eb29c0e2c891dbef210bd29310bfa1d7f898f0ac5123ea083",
-      "generatedAt": "2026-08-24T09:32:09Z",
-      "reviewedAt": "2026-08-24T09:32:09Z",
-      "reviewedCommit": "4ff9f53325e3c8a2b5e16dadfbdcc363d92ee3da",
+      "structureHash": "c360a9de5940ca37415faf0fab4d439e13379e674d790a7c9a36990e0293f304",
+      "sourceHash": "0c5de75778afedeaba631a6c5a53a2ea36abf49d2fb5c8433ce867a2550437c8",
+      "generatedHash": "266f79373cd37af289e4a93258ded06ecc178cc970defb16a7fa4ef74319f454",
+      "generatedAt": "2026-08-24T11:02:35Z",
+      "reviewedAt": "2026-08-24T11:02:35Z",
+      "reviewedCommit": "6f6b9f682d3379a9432501992255baa191f23646",
       "reviewMode": "accept"
     },
     {
@@ -815,6 +817,7 @@
         "Sources/Common/Services/NotificationInboxStore.swift",
         "Sources/Common/Services/ToastManager.swift",
         "Sources/Common/Utils/BookIdUtils.swift",
+        "Sources/Common/Utils/KeyboardDismissGesture.swift",
         "Sources/Common/Utils/NavigationBarAppearance.swift",
         "Sources/Common/Utils/NovelListUtils.swift",
         "Sources/Common/Utils/ReaderSearchMatcher.swift",
@@ -869,12 +872,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "da66a14aaaee260d6d2f9080a3b56a3e978c242b30ba90e1735178e2d358fbba",
-      "sourceHash": "c81274d178ce656ba179f400fee0c71b12301a58a8cad53612a05316e7665790",
-      "generatedHash": "52c10523ed4b1e9b631e8a2f55d4f17e318e8bcd1623ce10b1927be778181f6e",
-      "generatedAt": "2026-08-24T09:32:09Z",
-      "reviewedAt": "2026-08-24T09:32:09Z",
-      "reviewedCommit": "4ff9f53325e3c8a2b5e16dadfbdcc363d92ee3da",
+      "structureHash": "fb010bc36a528a53dde93f0e71d8e61c04bb3082e05788ed67932f23dcc7f935",
+      "sourceHash": "70af67615c498e8e041d52b73534f5bb5449ca84e8e95c187f1fbc1edc836f0b",
+      "generatedHash": "cbef5cd3320a69407454b1db91779e5bedac878618c27702bcdf1217a4c88a1a",
+      "generatedAt": "2026-08-24T11:02:35Z",
+      "reviewedAt": "2026-08-24T11:02:35Z",
+      "reviewedCommit": "6f6b9f682d3379a9432501992255baa191f23646",
       "reviewMode": "accept"
     },
     {
@@ -992,12 +995,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "d282bbeea1b02abf2406c8578c19dda26173a418c58a1a8e1059ace0acca93b0",
-      "sourceHash": "8f0aaf6ae8a4438fcc68e97a27368476c71603602c1756be829e813534d2f326",
+      "sourceHash": "84528249b9bd0b67766e3fe674e1b8aab6c16934cabd9e1c732ec50ddbcf0dac",
       "generatedHash": "23dbe099ef1c53506ef6ddf61ca7e3d150cc690da32d4bc4c8cc5b21c4ec5495",
-      "generatedAt": "2026-08-24T07:29:29Z",
-      "reviewedAt": "2026-08-24T07:29:29Z",
-      "reviewedCommit": "398a5e48c6ddba5c7521640b1a9debdb203ab710",
-      "reviewMode": "accept"
+      "generatedAt": "2026-08-24T11:04:04Z",
+      "reviewedAt": "2026-08-24T11:04:04Z",
+      "reviewedCommit": "6f6b9f682d3379a9432501992255baa191f23646",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "05_state_graph.md",
@@ -1088,11 +1091,11 @@
         "Sources/Views/MainTabView.swift"
       ],
       "structureHash": "12c2f90f0472928c5273756cb1b5f51e430eee1b0114829880c4188993f756de",
-      "sourceHash": "95408177603b5d32aa04b328cc9852b0243102bd102b355c09c7ea09bd5eaced",
-      "generatedHash": "e250d842e8e1a269b1192f694a0f65783830d7323ec2a00e4facba99b8dc7f70",
-      "generatedAt": "2026-08-24T07:29:29Z",
-      "reviewedAt": "2026-08-24T07:29:29Z",
-      "reviewedCommit": "398a5e48c6ddba5c7521640b1a9debdb203ab710",
+      "sourceHash": "c9992036615f8f57fbaf59dba141a1361eac2c529f188d9bb1e4f01a34672e12",
+      "generatedHash": "60dce711f50304556eea9a41e6549ef4624e14def6e24edd02f4b3f408f85c96",
+      "generatedAt": "2026-08-24T11:02:35Z",
+      "reviewedAt": "2026-08-24T11:02:35Z",
+      "reviewedCommit": "6f6b9f682d3379a9432501992255baa191f23646",
       "reviewMode": "accept"
     },
     {
@@ -1198,11 +1201,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "acad37ecfe6bd6c367da5de500cdaf028298b3fb613e49e119afecb80611eb31",
-      "sourceHash": "1bfd95388a4f97723bc7052dd17f2a1984834833c50688ea6992ed5c0cf95335",
-      "generatedHash": "3b6f09965d43c0365da9a1fdd277084034559dc5edf16bb53aa8eb4a7452feb5",
-      "generatedAt": "2026-08-24T07:29:29Z",
-      "reviewedAt": "2026-08-24T07:29:29Z",
-      "reviewedCommit": "398a5e48c6ddba5c7521640b1a9debdb203ab710",
+      "sourceHash": "6d601e27552d5d9fe39e4631a7e7c0f359acc4c5a98e76bc30a85bbf85120f7e",
+      "generatedHash": "d8d36cec9c086f8ff54b0fec10837583e97ee2887e5efde44e5f6a5c68b489d5",
+      "generatedAt": "2026-08-24T11:02:35Z",
+      "reviewedAt": "2026-08-24T11:02:35Z",
+      "reviewedCommit": "6f6b9f682d3379a9432501992255baa191f23646",
       "reviewMode": "accept"
     },
     {
@@ -1229,6 +1232,7 @@
         "Sources/Common/Services/NotificationInboxStore.swift",
         "Sources/Common/Services/ToastManager.swift",
         "Sources/Common/Utils/BookIdUtils.swift",
+        "Sources/Common/Utils/KeyboardDismissGesture.swift",
         "Sources/Common/Utils/NavigationBarAppearance.swift",
         "Sources/Common/Utils/NovelListUtils.swift",
         "Sources/Common/Utils/ReaderSearchMatcher.swift",
@@ -1579,12 +1583,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "1c1db7b64176e6d4bc28a799b8ae202080b561b49aa6b2def29f3eb3900c3ce1",
-      "sourceHash": "29a45aa8fc4b0414acbd44d4f56606391649e6d839f7716eb675ad3f808641df",
-      "generatedHash": "49c355a298ea17e61555e176d63fda1b38cf1bd6d2c27031db5a6ac33d6cbf30",
-      "generatedAt": "2026-08-24T09:32:09Z",
-      "reviewedAt": "2026-08-24T09:32:09Z",
-      "reviewedCommit": "4ff9f53325e3c8a2b5e16dadfbdcc363d92ee3da",
+      "structureHash": "d572f22e2cf434373b9e8d6cd1d668efdca53bb1759beaa2de7aeee7f1ab8ffd",
+      "sourceHash": "61632b9905828c3a61c39fc0587199cba503f3c168c8efb270e44f8349d3cb5a",
+      "generatedHash": "715058e004544ed107362be659995fc9e80ef2faa2926fe73294c8b92621562e",
+      "generatedAt": "2026-08-24T11:02:35Z",
+      "reviewedAt": "2026-08-24T11:02:35Z",
+      "reviewedCommit": "6f6b9f682d3379a9432501992255baa191f23646",
       "reviewMode": "accept"
     },
     {
@@ -2018,11 +2022,11 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "bcdf510bc6555e59d585f35970947edffa2a2f0cde970b6d137ed5c4b7b60f81",
-      "sourceHash": "bfa936b58bc16ac867b11001d21f432f6e4466eb68dde31090d87ea46fd39986",
-      "generatedHash": "d38dae20447ad28ef9cf0fc0731072c99374b624eb1ee23a5e6ca30e4a268903",
-      "generatedAt": "2026-08-24T09:32:09Z",
-      "reviewedAt": "2026-08-24T09:32:09Z",
-      "reviewedCommit": "4ff9f53325e3c8a2b5e16dadfbdcc363d92ee3da",
+      "sourceHash": "413f3c612e808becac2e474419201a47d7a2e9a9bb3d0d5d51881a18f8ced07e",
+      "generatedHash": "a930e3530d1ff316bdaadaf9a399150633d6afde09e2f4e0689df61253bee63c",
+      "generatedAt": "2026-08-24T11:02:35Z",
+      "reviewedAt": "2026-08-24T11:02:35Z",
+      "reviewedCommit": "6f6b9f682d3379a9432501992255baa191f23646",
       "reviewMode": "accept"
     },
     {
@@ -2055,12 +2059,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "f9d7880a4b773c04e0cb024cdd3e444c1a51b6746e84a9c26aa3ad8316004d3f",
-      "sourceHash": "69b8b621185d00ea39f2081b5b3779289ea33071c74336bb777686cc29838415",
+      "sourceHash": "997c3a0bee9999229d77b3c9baef03d826b5a387512fc601af96d103cc7dd5d1",
       "generatedHash": "a21abb22a4ecd56973331b088586add36de1b017fea2bae8e1d7dbb05483b956",
-      "generatedAt": "2026-08-24T04:52:03Z",
-      "reviewedAt": "2026-08-24T04:52:03Z",
-      "reviewedCommit": "bd08df0385153fe1a712823c0b311eeef3fe0853",
-      "reviewMode": "accept"
+      "generatedAt": "2026-08-24T11:04:04Z",
+      "reviewedAt": "2026-08-24T11:04:04Z",
+      "reviewedCommit": "6f6b9f682d3379a9432501992255baa191f23646",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "13_resource_lifecycle.md",
@@ -2195,12 +2199,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "8d67178a203e30c4e8304716c9bb926fbe0fbee2ee592946849bc60d4368a349",
-      "sourceHash": "ee7e137c6cbe56fd588d840cd3e483871b5d1ee183459c69333a82b7b02fa157",
-      "generatedHash": "abaa6fb9a179a096dacda115b25f29cdbf2aa34465ab081c4a90d116c8e9e013",
-      "generatedAt": "2026-08-24T07:29:37Z",
-      "reviewedAt": "2026-08-24T07:29:37Z",
-      "reviewedCommit": "398a5e48c6ddba5c7521640b1a9debdb203ab710",
-      "reviewMode": "no-change-needed"
+      "sourceHash": "b7ffdd6ec488531fbf15b37c9306189756cf6f17f90b1256a166cbab21215ce1",
+      "generatedHash": "8ab32630dfb5c7fe254c75f32c72b2e2441c8f1b7c7b21092cf25d0696011a1b",
+      "generatedAt": "2026-08-24T11:02:35Z",
+      "reviewedAt": "2026-08-24T11:02:35Z",
+      "reviewedCommit": "6f6b9f682d3379a9432501992255baa191f23646",
+      "reviewMode": "accept"
     },
     {
       "filename": "14_complexity_report.md",
@@ -2222,6 +2226,7 @@
         "Sources/Common/Services/NotificationInboxStore.swift",
         "Sources/Common/Services/ToastManager.swift",
         "Sources/Common/Utils/BookIdUtils.swift",
+        "Sources/Common/Utils/KeyboardDismissGesture.swift",
         "Sources/Common/Utils/NavigationBarAppearance.swift",
         "Sources/Common/Utils/NovelListUtils.swift",
         "Sources/Common/Utils/ReaderSearchMatcher.swift",
@@ -2572,12 +2577,12 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "bd827d74dfbc7a22824e57bac2d08e7cd578652a43e965cf818851a27aeae5ae",
-      "sourceHash": "1b5d9fe4c26b9713662a1c072567240b758ec9e7d3d95a08fdca1257becd0b6c",
-      "generatedHash": "9cf38b3b625fc11584f5792d78b3163de14ad1d8898d3439cd01ec3689fc1db8",
-      "generatedAt": "2026-08-24T09:32:09Z",
-      "reviewedAt": "2026-08-24T09:32:09Z",
-      "reviewedCommit": "4ff9f53325e3c8a2b5e16dadfbdcc363d92ee3da",
+      "structureHash": "c360a9de5940ca37415faf0fab4d439e13379e674d790a7c9a36990e0293f304",
+      "sourceHash": "0c5de75778afedeaba631a6c5a53a2ea36abf49d2fb5c8433ce867a2550437c8",
+      "generatedHash": "e93c313c7b836d252336f93aecb78c6a3fa584e42f125548d85d42744fbb8639",
+      "generatedAt": "2026-08-24T11:02:35Z",
+      "reviewedAt": "2026-08-24T11:02:35Z",
+      "reviewedCommit": "6f6b9f682d3379a9432501992255baa191f23646",
       "reviewMode": "accept"
     },
     {
@@ -2668,12 +2673,12 @@
         "Sources/Views/Reader/ReaderView.swift"
       ],
       "structureHash": "56bdac887e2190ada22648f1770c86955a1176cfe1fd298191091165804460cf",
-      "sourceHash": "94cb349bd408480758f5983842c0f5a4790ea4d544b86fde5279c97ac5eee2a4",
-      "generatedHash": "708a95b66562194643b545ebe8f9552dd5f03ad6e4131989bc15b063ce54a765",
-      "generatedAt": "2026-08-24T04:52:10Z",
-      "reviewedAt": "2026-08-24T04:52:10Z",
-      "reviewedCommit": "bd08df0385153fe1a712823c0b311eeef3fe0853",
-      "reviewMode": "no-change-needed"
+      "sourceHash": "e2611e97ef406d64bb01698fd318861e2f96781720d7db780b988f99a2a20077",
+      "generatedHash": "723086d8e91f670fac04f829a986f0e36067595f3dc598f36663b7788dc01f66",
+      "generatedAt": "2026-08-24T11:02:35Z",
+      "reviewedAt": "2026-08-24T11:02:35Z",
+      "reviewedCommit": "6f6b9f682d3379a9432501992255baa191f23646",
+      "reviewMode": "accept"
     }
   ]
 }

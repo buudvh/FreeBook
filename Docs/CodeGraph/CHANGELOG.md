@@ -2,7 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.235) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.236) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.266] - 2026-08-24
+
+### Nút -/+ ngưỡng dọn truyện cũ, bấm ra ngoài là tắt bàn phím
+
+Thêm **1** file Swift (361 → 362), sửa 2 file. Chưa biên dịch (viết trên Windows, không có `xcodebuild`/`xcodegen`) — **phải chạy `xcodegen generate` trên macOS/CI** vì có file mới.
+
+* **Nút −/+ cạnh thanh trượt "Ngưỡng bỏ quên"** (`StaleBookCleanupSettingsView.swift`, 209 → 238): mỗi lần bấm đổi đúng 1 ngày. Cả nút và slider đều ghi qua `StaleBookCleanupPolicy.clampInactiveDays` nên dải `7...365` vẫn có **một** nguồn duy nhất; nút tự `disabled` khi tới biên. Dùng `.buttonStyle(.borderless)` để hàng `Form` không biến thành một vùng bấm chung, và `LabeledContent` hiển thị số ngày hiện tại phía trên slider.
+* **Bàn phím tự tắt khi bấm ra ngoài ô nhập** — trước đây phải mỗi màn tự gọi `hideKeyboard()` nên phần lớn ô nhập trong app không tắt được bàn phím. Nay giải ở tầng window bằng file mới `Sources/Common/Utils/KeyboardDismissGesture.swift` (112 dòng, chỉ `import UIKit`, 1 type top-level): singleton `@MainActor` gắn `UITapGestureRecognizer` lên mọi `UIWindow` có `windowLevel == .normal && !isHidden`, tap thì `endEditing(true)`.
+  * `cancelsTouchesInView = false` + `shouldRecognizeSimultaneouslyWith → true`: recognizer **không** ăn touch, nên scroll/list/nút bấm vẫn hoạt động y như trước.
+  * `shouldReceive touch` đi ngược cây superview, gặp `UITextField.isEnabled` / `UITextView.isEditable` / `UISearchBar` thì **bỏ qua** tap — tránh lỗi cổ điển "bấm vào chính ô nhập lại tự tắt bàn phím". Kiểm theo thuộc tính chứ không theo tên class nên `ReaderUITextView` (read-only) vẫn tắt được bàn phím.
+  * Lọc theo `windowLevel == .normal` loại các overlay window (toast `.alert`, widget TTS `alert - 1`, widget browser `alert - 2`) và window bàn phím của hệ thống — cùng idiom đã dùng ở `VisibleBrowserTabManager.swift:264`.
+  * Cài **trễ** theo `keyboardWillShowNotification` thay vì lúc khởi động, để bắt cả window sinh sau (scene mới, LiveContainer). Idempotent nhờ cờ `isObserving` + đặt `name` cho recognizer, nên không cần bảng weak window.
+  * `FreeBookApp.swift` (107 → 108): `AppLaunchRootView.onAppear` gọi `KeyboardDismissGesture.shared.activate()` trước khi drain retry queue.
+  * `View.hideKeyboard()` và 3 chỗ `resignFirstResponder` tường minh (`ExtensionScriptEditorView+Toolbars`, `ReaderJunkDeleteOverlayView`, `ReaderDefinitionOverlayView`) **giữ nguyên** — chúng tắt bàn phím theo hành động cụ thể, không phải theo tap ra ngoài.
+* **Kết quả gate**: `check_architecture.py` giữ **14 violation** (baseline, không có violation mới). `validate_links.py` PASS.
 
 ## [1.3.265] - 2026-08-24
 
@@ -413,19 +429,3 @@ CI của `6357674` fail ở step `Build and Archive App (Unsigned)`. Nguyên nh�
 * Giá trị 50 và hành vi batch không đổi.
 * **Kiểm tra bổ sung sau sự cố** (để không lặp lại cùng loại lỗi ở 13 phép tách còn lại): quét chéo mọi khai báo `private`/`fileprivate` giữa từng cặp file-gốc ↔ file-mới → chỉ còn 3 kết quả và cả 3 là trùng tên vô hại (`container` là tham số, `pillHeight` là tham số, `containerViewController` do mỗi type tự khai); quét trùng khai báo type top-level toàn `Sources/` → 0; quét identifier chưa resolve trong 14 file mới → không thiếu `import` nào.
 * `check_architecture.py` giữ **18 violation** (không đổi). `validate_links.py` PASS.
-
-## [1.3.236] - 2026-08-21
-
-### Tách file theo luật một-primary-type, hết MULTI_PRIMARY_TYPES và NEW_FILE_TOO_LARGE
-
-Phase 3 phần cơ học của kế hoạch dọn nợ kiến trúc: tách type, **không đổi một dòng logic nào**. Mọi tham chiếu vẫn trong cùng module nên đây chỉ là dịch chuyển khai báo.
-
-* **8 file vi phạm `MULTI_PRIMARY_TYPES` → 14 file mới**, mỗi file đúng một type top-level: `TextEncodingOption` ← `TextEncodingDecoder.swift`; `BookListItemStyle` ← `BookListItemView.swift`; `VisibleBrowserPresentationReader`/`VisibleBrowserReopenViewModel`/`SizeReader` ← `VisibleBrowserReopenView.swift`; `CodeEditorTextView` ← `HighlightingCodeEditor.swift`; `ShelfBookSearchMatcher` ← `ShelfSearchView.swift`; `FloatingWidgetUIWindow`/`FloatingWidgetContainerViewController` ← `TTSFloatingWidgetWindowManager.swift`; `BookTitleTranslationBackfill` ← `BookTitleTranslationMigrator.swift`; `DictionaryInvalidationScope` ← `TranslationManager.swift`; `VisibleWebViewController` ← `VisibleWebViewLoader.swift`; `VisibleBrowserTabItem`/`TabbedVisibleBrowserViewController` ← `VisibleBrowserTabManager.swift`.
-* **Cả 2 `NEW_FILE_TOO_LARGE` cũng hết** nhờ chính phép tách đó: `VisibleBrowserTabManager.swift` 448 → 234, `VisibleWebViewLoader.swift` 404 → 285.
-* **Hai type nâng access level** vì `private` ở Swift là phạm vi file: `SizeReader` (`private struct` → internal), `BookTitleTranslationBackfill` (`private actor` → `internal actor`). Không type nào thành `public`.
-* Type lồng đi cùng type cha (`Layout`, `Snapshot`, `Coordinator`); protocol `BookDisplayable` ở lại `BookListItemView.swift` vì luật không tính protocol.
-* Không file mới nào dưới `Sources/Services/**` import SwiftUI, nên miễn trừ `SERVICE_SWIFTUI_IMPORT` cho `*WebViewLoader.swift` không bị nới rộng.
-* **Sự cố đã sửa trong lúc làm**: lần ghi file đầu dùng `newline=CRLF` trên nội dung vốn đã CRLF nên sinh `\r\r\n`, khiến gate đọc `TabbedVisibleBrowserViewController.swift` thành 402 dòng (gấp đôi 201 thật). Đã chuẩn hoá cả 14 file về LF cho khớp phần còn lại của repo.
-* **Kết quả gate**: `check_architecture.py` **28 → 18 violation**. Tổng file Swift 216 → 230.
-* **Còn nợ, chưa làm trong lần này**: 16 `LINE_LIMIT_EXCEEDED` (không giải được bằng tách type vì các file đó chỉ có 1 type — phải tách *thành viên* sang `X+Feature.swift`; nợ lớn nhất `TTSManager.swift` −533 dòng, `JSExecutor.swift` −448, `ReaderView.swift` −197) và 2 `VIEW_SWIFTDATA_MUTATION` thật ở `DiscoveryView.swift`/`ReaderView.swift` (phải chuyển ghi qua transaction coordinator — đổi quyền sở hữu transaction, không phải dọn cơ học).
-* **Chưa biên dịch cục bộ**: máy Windows. Cần `xcodegen generate` + build trên macOS; CI là bước xác minh compile.

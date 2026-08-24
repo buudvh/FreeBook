@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số dòng sau lượt 1.3.266
+
+* **Một file mới, dưới trần 400 và đúng 1 type top level**: [`KeyboardDismissGesture.swift`](../../Sources/Common/Utils/KeyboardDismissGesture.swift) **112** dòng (trong đó ~25 dòng là comment giải thích ba thiết lập của recognizer). Tổng file Swift 361 → **362**; không thư mục mới (`Sources/Common/Utils/` 7 → **8** file).
+* **File đã có, tăng**: [`StaleBookCleanupSettingsView.swift`](../../Sources/Views/Settings/Cleanup/StaleBookCleanupSettingsView.swift) 209 → **238** (+29: `clampedInactiveDays`, `nudgeButton`, bố cục mới của `thresholdSection`), [`FreeBookApp.swift`](../../Sources/App/FreeBookApp.swift) 107 → **108** (+1). Không file nào chạm trần 400 lần đầu, không file nào vào bảng 1.1, không baseline nào bị sửa.
+* **Chi phí lúc chạy của recognizer gần như bằng không, nhưng chỗ tốn nằm ở nơi dễ bỏ qua**: `installIfNeeded()` quét `connectedScenes → windows` **mỗi lần bàn phím hiện**, không phải một lần. Vòng quét là O(số scene × số window) với số window thực tế ≤ 4 (window chính + toast + 2 widget) và mỗi window chỉ so `gestureRecognizers.name`, nên chi phí là hằng số cỡ vài phép so chuỗi — đổi lấy việc phủ được window sinh ra sau. Không tạo `Task`, không giữ danh sách, không có gì cần dọn.
+* **`isEditableTextInput` là O(độ sâu cây view)** tính từ view bị chạm lên tới window, chạy **một lần mỗi touch** khi bàn phím đang hiện. Cây view SwiftUI sâu nhưng hữu hạn (thực tế vài chục tầng) và phép kiểm tra chỉ là `as?` + đọc `isEnabled`/`isEditable`; không có regex, không cấp phát. Nếu sau này cần thêm loại ô nhập, thêm vào đúng vòng lặp này thay vì tra bảng tên class.
+* **Không có đường rò**: recognizer do window giữ (`window.addGestureRecognizer`) và `target` là singleton sống suốt vòng đời app, nên vòng tham chiếu recognizer ↔ singleton là **có chủ ý** và không cần `[weak self]` (đây là closure-free `#selector`, không phải callback audio). Observer `keyboardWillShowNotification` cũng không cần gỡ vì singleton không bao giờ bị hủy.
+
 ## Số dòng sau lượt 1.3.265
 
 * **Hai file mới, đều dưới trần 400 và đúng 1 type top level**: [`BackupConfigArchiver.swift`](../../Sources/Services/Backup/BackupConfigArchiver.swift) **109** (`Report` nest), [`SearchEngineTransfer.swift`](../../Sources/Models/Dictionaries/SearchEngineTransfer.swift) **107** (`Failure` nest). Tổng file Swift 359 → **361**; không thư mục mới (`Sources/Services/Backup/` 22 → **23** file).

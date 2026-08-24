@@ -15,6 +15,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Recognizer thứ hai của repo — lần này cố ý không thu hồi (1.3.266)
+
+* **`UITapGestureRecognizer` của [KeyboardDismissGesture](../../Sources/Common/Utils/KeyboardDismissGesture.swift#L1) là đối lập có chủ ý của recognizer ở 1.3.261.** Cái ở `ReaderUserScrollDetector` **phải** có ba đường thu hồi vì nó gắn lên `UIScrollView` sống lâu hơn subtree chương, nên mỗi lần đổi chương mà không `detach()` là một recognizer chết cộng thêm. Cái này gắn lên **`UIWindow`** — vòng đời của nó *là* vòng đời window, và `target` là singleton sống suốt app, nên không có `dismantleUIView`/`deinit` nào cần dọn.
+* **Chốt chống nhân bản không phải là danh sách, mà là chính recognizer**: `installIfNeeded()` so `UIGestureRecognizer.name == "FreeBookKeyboardDismissTap"` trước khi gắn. Cố ý không giữ `NSHashTable<UIWindow>` weak: giữ danh sách thì phải đồng bộ với việc window bị hủy, còn đọc từ chính window thì trạng thái luôn đúng và window chết mang recognizer đi cùng.
+* **Vòng tham chiếu recognizer → singleton là có chủ ý** (không `[weak self]`): `#selector`, không phải closure, và singleton vốn không bao giờ bị hủy. Cùng lý do đó, observer `keyboardWillShowNotification` **không** được `removeObserver` — cờ `isObserving` bảo đảm chỉ có đúng một observer, và nó chết cùng process.
+* **Window ở level quanh `.alert` không nhận recognizer nào**: `windowLevel == .normal && !isHidden` loại window của toast/TTS widget/widget trình duyệt. Nghĩa là chu kỳ tạo–hủy liên tục của các window đó (`refreshState()` gọi rất thường) không kéo theo bất kỳ tài nguyên nào của phân hệ bàn phím.
+
 ## Recognizer là tài nguyên phải thu hồi tay (1.3.261)
 
 * Tài nguyên duy nhất mà 1.3.261 thêm vào là `UIPanGestureRecognizer` của `ReaderUserScrollDetector`. Nó **không** tự biến mất theo `@State`: `UIScrollView` giữ nó strong, mà scroll view sống lâu hơn subtree nội dung chương. Ba đường thu hồi: `dismantleUIView` → `detach()` (đường thường), `attach(to:)` gọi `detach()` trước khi gắn recognizer mới (đổi scroll view), và `Coordinator.deinit` (lưới cuối). Thiếu bất kỳ đường nào thì mỗi lần đổi chương để lại một recognizer chết trên scroll view và `onUserScroll` bị gọi nhiều lần cho một cú kéo.

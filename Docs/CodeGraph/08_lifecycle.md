@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Bàn phím: cài recognizer trễ thay vì lúc khởi động (1.3.266)
+
+`AppLaunchRootView.onAppear` có thêm **một** lệnh, đặt trước hai lệnh drain của `BookStorageManager`: `KeyboardDismissGesture.shared.activate()`. Lệnh này **không** cài gì cả — nó chỉ đăng ký observer `keyboardWillShowNotification`; việc gắn `UITapGestureRecognizer` xảy ra ở lần bàn phím hiện đầu tiên.
+
+* **Vì sao không cài ngay**: lúc `FreeBookApp.init` chưa có `UIWindow` nào (mirror lý do `NavigationBarAppearance` phải đi qua appearance proxy thay vì sửa từng thanh). Ngay cả `onAppear` cũng chỉ bảo đảm window chính đã có — window sinh sau (scene mới, LiveContainer, hoặc widget window vừa tạo) sẽ bị bỏ sót nếu chỉ quét một lần.
+* **Hệ quả có chủ ý**: mỗi lần bàn phím hiện là một lần quét lại `connectedScenes → windows`. Không có bước "gỡ recognizer" trong vòng đời — recognizer sống cùng window, và `activate()` idempotent qua cờ `isObserving` nên `onAppear` chạy lại (đổi scene, quay lại foreground) không tạo observer thứ hai.
+* **Không chen vào cổng từ điển**: lệnh này nằm trong `onAppear` của `AppLaunchRootView`, tức chạy **trước** khi `TranslationManager.shared.isInitialized` mở cổng cho `MainTabView` — nhưng nó không chờ gì và không chặn gì, nên thứ tự của phần bootstrap còn lại (drain retry queue → bơm `ModelContainer` cho widget → `BookTitleTranslationMigrator`) không đổi.
+
 ## Vòng đời lượt tự dọn truyện cũ và vòng đời ô số chương tuỳ chọn (1.3.263)
 
 Lượt dọn là `.task` **thứ hai** của `MainTabView`, chạy song song với `.task` sao lưu chứ không nối sau nó. Hai lượt tự phân thứ tự bằng độ dài giấc ngủ:
