@@ -1,0 +1,109 @@
+import Foundation
+
+/// Sao lưu / phục hồi các **file cấu hình** không nằm trong `UserDefaults` và cũng không phải từ
+/// điển:
+/// - `translate/toc_rules.json` — quy tắc regex nhận diện dòng tiêu đề chương khi nhập sách,
+/// - `config/search_engines.json` — danh sách công cụ tra cứu nhanh (nguồn thật là `UserDefaults`,
+///   nhưng tách ra file riêng để phục hồi **gộp** được thay vì ghi đè cả mảng như khối cài đặt).
+///
+/// Không thêm `BackupScope` mới (xem `BackupSettingsArchiver` để biết lý do): luôn ghi vào archive
+/// vì chỉ vài KB, phía khôi phục bật/tắt bằng `BackupRestoreWorker.Options.restoreSettings`.
+public enum BackupConfigArchiver {
+    public struct Report: Sendable {
+        /// Số quy tắc mục lục có trong file sao lưu và đã được gộp vào máy.
+        public var tocRules = 0
+        /// Số công cụ tra cứu **mới** được thêm vào máy.
+        public var searchEngines = 0
+        public var errors: [String] = []
+
+        public var restoredFiles: Int {
+            (tocRules > 0 ? 1 : 0) + (searchEngines > 0 ? 1 : 0)
+        }
+
+        public init() {}
+    }
+
+    // MARK: - Xuất
+
+    /// Ghi các file cấu hình vào staging. Trả về số file đã ghi để `manifest.counts.config` báo
+    /// đúng cho màn Khôi phục.
+    public static func stage(into staging: URL) throws -> Int {
+        var staged = 0
+
+        let tocURL = TranslationManager.shared.translateDirectory
+            .appendingPathComponent(BackupPaths.tocRulesFileName)
+        if FileManager.default.fileExists(atPath: tocURL.path) {
+            // Sao lưu nguyên trạng: quy tắc đã tắt (`enabled == false`) cũng phải đi theo, vì đó
+            // cũng là lựa chọn của người dùng.
+            try BackupZipArchive.stage(fileAt: tocURL, entryName: BackupPaths.tocRules, in: staging)
+            staged += 1
+        }
+
+        // Đọc thẳng khoá `UserDefaults` thay vì `SearchEngine.loadEngines()`: hàm đó **ghi** bộ mặc
+        // định vào máy khi khoá còn trống, không được để chiều xuất gây tác dụng phụ.
+        if let data = UserDefaults.standard.data(forKey: SearchEngine.storageKey) {
+            try BackupZipArchive.stage(data: data, entryName: BackupPaths.searchEngines, in: staging)
+            staged += 1
+        }
+
+        if staged > 0 {
+            AppLogger.shared.log("💾 [Backup] Đã sao lưu \(staged) file cấu hình (quy tắc mục lục / công cụ tra cứu)")
+        }
+        return staged
+    }
+
+    // MARK: - Nhập
+
+    /// Gộp cấu hình trong archive vào máy. Archive cũ không có `config/` thì trả báo cáo rỗng.
+    public static func restore(from directory: URL) -> Report {
+        var report = Report()
+        restoreTOCRules(from: directory, into: &report)
+        restoreSearchEngines(from: directory, into: &report)
+
+        if report.restoredFiles > 0 {
+            AppLogger.shared.log(
+                "♻️ [Restore] Cấu hình: \(report.tocRules) quy tắc mục lục,"
+                + " \(report.searchEngines) công cụ tra cứu mới"
+            )
+        }
+        return report
+    }
+
+    /// Gộp theo `id` bằng đúng primitive của màn Quy tắc mục lục (`TranslateUtils.mergeTOCRules`):
+    /// quy tắc trùng `id` lấy bản trong archive, quy tắc chỉ có trên máy được giữ nguyên.
+    /// `saveTOCRules` tự dọn cache regex + cache tiêu đề chương nên không cần gọi thêm.
+    private static func restoreTOCRules(from directory: URL, into report: inout Report) {
+        guard let data = BackupZipArchive.readStaged(entryName: BackupPaths.tocRules, in: directory) else { return }
+
+        switch TranslateUtils.validateImportedTOCRules(data) {
+        case .failure(let error):
+            report.errors.append("Quy tắc mục lục: \(error.localizedDescription)")
+        case .success(let imported):
+            guard !imported.isEmpty else { return }
+            let merged = TranslateUtils.mergeTOCRules(current: TranslateUtils.getAllTOCRules(), imported: imported)
+            guard TranslateUtils.saveTOCRules(merged) else {
+                report.errors.append("Quy tắc mục lục: không ghi được toc_rules.json")
+                return
+            }
+            report.tocRules = imported.count
+        }
+    }
+
+    /// Chỉ **thêm** công cụ máy chưa có, không sửa và không xoá công cụ đang dùng — cùng nguyên tắc
+    /// "khôi phục là gộp" của cả phân hệ.
+    private static func restoreSearchEngines(from directory: URL, into report: inout Report) {
+        guard let data = BackupZipArchive.readStaged(entryName: BackupPaths.searchEngines, in: directory) else { return }
+
+        switch SearchEngineTransfer.decode(data) {
+        case .failure(let error):
+            report.errors.append("Công cụ tra cứu nhanh: \(error.localizedDescription)")
+        case .success(let imported):
+            let current = SearchEngine.loadEngines()
+            let merged = SearchEngineTransfer.merged(current: current, imported: imported)
+            let added = merged.count - current.count
+            guard added > 0 else { return }
+            SearchEngine.saveEngines(merged)
+            report.searchEngines = added
+        }
+    }
+}

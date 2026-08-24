@@ -15,6 +15,31 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Backup quy tắc mục lục, xuất nhập công cụ tra cứu nhanh (1.3.265)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Services/Backup/BackupConfigArchiver.swift`](../../Sources/Services/Backup/BackupConfigArchiver.swift) | chủ nhánh archive `config/`: `stage(into:) -> Int`, `restore(from:) -> Report` (`tocRules`/`searchEngines`/`errors`/`restoredFiles`) | 109 |
+| [`Models/Dictionaries/SearchEngineTransfer.swift`](../../Sources/Models/Dictionaries/SearchEngineTransfer.swift) | codec + luật gộp công cụ tra cứu dùng chung cho View và archiver: `encode`, `decode(_:maxSizeBytes:) -> Result<_, Failure>`, `merged(current:imported:)`, `newCount`, `signature(of:)` | 107 |
+
+| File sửa | Dòng | Thay đổi |
+|---|---|---|
+| [`Views/Settings/Search/SearchEnginesConfigView.swift`](../../Sources/Views/Settings/Search/SearchEnginesConfigView.swift) | 116 → **259** | `ExportDocument`, menu toolbar Nhập/Xuất JSON, `DocumentPickerPresenter` trong `.background`, `confirmationDialog` Gộp/Thay thế + `importDialogMessage`, `handlePickedFile`, `applyImport(replacing:)`, `exportEngines`, `cleanUpExportFile` |
+| [`Services/Backup/BackupRestoreWorker.swift`](../../Sources/Services/Backup/BackupRestoreWorker.swift) | 271 → **280** | `Outcome.config: BackupConfigArchiver.Report` (nối vào `errors`), gọi `BackupConfigArchiver.restore` dưới cùng cờ `restoreSettings` |
+| [`Services/Backup/BackupPaths.swift`](../../Sources/Services/Backup/BackupPaths.swift) | 136 → **143** | hằng `tocRules = "config/toc_rules.json"`, `searchEngines = "config/search_engines.json"`, `tocRulesFileName` |
+| [`Services/Backup/BackupManifest.swift`](../../Sources/Services/Backup/BackupManifest.swift) | 108 → **114** | `Counts.config` + `CodingKeys` + `decodeIfPresent(…) ?? 0` (file tạo trước 1.3.265 đọc thành 0) |
+| [`Views/Settings/Backup/RestoreOptionsSheet.swift`](../../Sources/Views/Settings/Backup/RestoreOptionsSheet.swift) | 123 → **130** | công tắc bật sẵn khi `counts.settings > 0 \|\| counts.config > 0`, `infoRow("File cấu hình", …)`, footer nói rõ gộp quy tắc mục lục + công cụ tra cứu |
+| [`Models/Dictionaries/SearchEngine.swift`](../../Sources/Models/Dictionaries/SearchEngine.swift) | 49 → **54** | `static let storageKey = "custom_search_engines"`; `loadEngines`/`saveEngines` dùng hằng thay chuỗi trần |
+| [`Services/Backup/BackupSettingsArchiver.swift`](../../Sources/Services/Backup/BackupSettingsArchiver.swift) | 123 → **127** | thêm `SearchEngine.storageKey` vào `deniedKeys` (chủ mới là `BackupConfigArchiver` để khôi phục gộp được) |
+| [`Services/Backup/BackupExportWorker.swift`](../../Sources/Services/Backup/BackupExportWorker.swift) | 252 → **253** | `counts.config = try BackupConfigArchiver.stage(into: staging)` |
+| [`Services/Backup/BackupCoordinator.swift`](../../Sources/Services/Backup/BackupCoordinator.swift) | 290 → **293** | nối ", N công cụ tra cứu" vào toast khi `outcome.config.searchEngines > 0` |
+| [`Views/Settings/Backup/BackupHubView.swift`](../../Sources/Views/Settings/Backup/BackupHubView.swift) | 206 | **chỉ đổi chuỗi** footer: nêu quy tắc mục lục + công cụ tra cứu, và luật thay ký tự TTS đi theo nhóm `.dictCustom` |
+| [`Services/Backup/BackupScope.swift`](../../Sources/Services/Backup/BackupScope.swift) | 55 | **chỉ đổi chuỗi** `subtitle` của `.dictCustom` (thêm "luật thay ký tự TTS") |
+
+* Tổng file Swift 359 → **361** (+2, không xoá file nào). Không thư mục mới: `Sources/Models/Dictionaries/` và `Sources/Services/Backup/` (22 → **23** file) đều đã có.
+* Cạnh mới: `BackupExportWorker`/`BackupRestoreWorker` → `BackupConfigArchiver` → {`BackupPaths`, `BackupZipArchive`, `TranslateUtils`, `TranslationManager`, `SearchEngine`, `SearchEngineTransfer`, `AppLogger`}; `SearchEnginesConfigView` → `SearchEngineTransfer`. `SearchEngineTransfer` chỉ phụ thuộc `Foundation` + `SearchEngine` (tầng `Models`, gọi được từ cả `Views` và `Services`).
+* Không cạnh nào bị xoá. `BackupRestoreWorker.Outcome` thêm field nhưng khởi tạo nội bộ; chữ ký công khai của `BackupConfigArchiver` là hai hàm static nên không call site cũ nào phải sửa.
+
 ## Backup kèm cài đặt, sửa nghĩa tại chỗ, không dọn truyện trên kệ (1.3.264)
 
 | File mới | Vai trò | Dòng |

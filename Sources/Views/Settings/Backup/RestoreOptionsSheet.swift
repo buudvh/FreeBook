@@ -27,8 +27,9 @@ struct RestoreOptionsSheet: View {
         self.onConfirm = onConfirm
         self.onCancel = onCancel
         _scopes = State(initialValue: Set(manifest.availableScopes))
-        // File tạo trước 1.3.264 không có khối cài đặt — tắt sẵn để công tắc không hứa hẹn hão.
-        _restoreSettings = State(initialValue: manifest.counts.settings > 0)
+        // File tạo trước 1.3.264 không có khối cài đặt (trước 1.3.265 thì không có file cấu hình) —
+        // tắt sẵn để công tắc không hứa hẹn hão.
+        _restoreSettings = State(initialValue: manifest.counts.settings > 0 || manifest.counts.config > 0)
     }
 
     var body: some View {
@@ -48,9 +49,12 @@ struct RestoreOptionsSheet: View {
                         .disabled(!manifest.availableScopes.contains(.dictShared))
                 }
 
-                Section(footer: Text("Ghi các cài đặt trong file sao lưu lên cài đặt hiện tại (giao diện đọc, TTS, dịch, tự sao lưu…). Không gồm khoá API, token và tiến độ đọc. Cần mở lại app để mọi cài đặt có hiệu lực.")) {
+                Section(footer: Text("Ghi các cài đặt trong file sao lưu lên cài đặt hiện tại (giao"
+                                     + " diện đọc, TTS, dịch, tự sao lưu…), gộp thêm quy tắc mục lục"
+                                     + " và công cụ tra cứu nhanh. Không gồm khoá API, token và tiến"
+                                     + " độ đọc. Cần mở lại app để mọi cài đặt có hiệu lực.")) {
                     Toggle("Khôi phục cài đặt & cấu hình", isOn: $restoreSettings)
-                        .disabled(manifest.counts.settings == 0)
+                        .disabled(manifest.counts.settings == 0 && manifest.counts.config == 0)
                 }
 
                 if isTTSPlaying {
@@ -98,6 +102,9 @@ struct RestoreOptionsSheet: View {
             )
             if manifest.counts.settings > 0 {
                 infoRow("Khoá cài đặt", "\(manifest.counts.settings)")
+            }
+            if manifest.counts.config > 0 {
+                infoRow("File cấu hình", "\(manifest.counts.config)")
             }
         }
     }

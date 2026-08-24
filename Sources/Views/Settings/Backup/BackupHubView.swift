@@ -103,7 +103,7 @@ struct BackupHubView: View {
         } footer: {
             Text(ttsState.snapshot.isPlaying
                  ? "Đang phát TTS — hãy dừng phát trước khi khôi phục. Việc tạo bản sao lưu vẫn được."
-                 : "Mọi bản sao lưu đều kèm cài đặt & cấu hình của app (trừ khoá API và token). Khôi phục là gộp vào dữ liệu hiện có: truyện, kho, extension đã có trong máy được giữ nguyên, chỉ thêm phần còn thiếu.")
+                 : "Mọi bản sao lưu đều kèm cài đặt & cấu hình của app, gồm quy tắc mục lục và công cụ tra cứu nhanh (trừ khoá API và token); luật thay ký tự TTS đi theo nhóm Custom VietPhrase / Names. Khôi phục là gộp vào dữ liệu hiện có: truyện, kho, extension đã có trong máy được giữ nguyên, chỉ thêm phần còn thiếu.")
         }
     }
 

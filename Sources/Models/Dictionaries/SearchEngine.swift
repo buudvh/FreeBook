@@ -13,6 +13,11 @@ public struct SearchEngine: Codable, Identifiable, Hashable {
 }
 
 extension SearchEngine {
+    /// Khoá `UserDefaults` giữ danh sách công cụ tra cứu nhanh. Khai ở đây để phần sao lưu
+    /// (`BackupConfigArchiver`) và phần lọc khoá cài đặt (`BackupSettingsArchiver`) không phải
+    /// nhắc lại chuỗi trần.
+    public static let storageKey = "custom_search_engines"
+
     public static let defaults: [SearchEngine] = [
         SearchEngine(
             name: "Google",
@@ -29,21 +34,21 @@ extension SearchEngine {
     ]
     
     public static func loadEngines() -> [SearchEngine] {
-        guard let data = UserDefaults.standard.data(forKey: "custom_search_engines") else {
+        guard let data = UserDefaults.standard.data(forKey: storageKey) else {
             saveEngines(defaults)
             return defaults
         }
-        
+
         do {
             return try JSONDecoder().decode([SearchEngine].self, from: data)
         } catch {
             return defaults
         }
     }
-    
+
     public static func saveEngines(_ engines: [SearchEngine]) {
         if let data = try? JSONEncoder().encode(engines) {
-            UserDefaults.standard.set(data, forKey: "custom_search_engines")
+            UserDefaults.standard.set(data, forKey: storageKey)
         }
     }
 }

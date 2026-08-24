@@ -43,7 +43,7 @@ public enum BackupScope: String, Codable, CaseIterable, Sendable, Identifiable {
         case .content: return "Chương đã tải offline; có thể rất lớn. Truyện local/TXT luôn được sao lưu dù tắt nhóm này"
         case .extensions: return "File extension trong máy + kho tải về"
         case .dictBooks: return "Gồm cả mục VietPhrase/Names đã xoá"
-        case .dictCustom: return "Gồm cả mục đã xoá, kèm từ điển phiên âm NghiTTS"
+        case .dictCustom: return "Gồm cả mục đã xoá, kèm từ điển phiên âm NghiTTS và luật thay ký tự TTS"
         case .dictShared: return "VietPhrase/Names/Pronouns/LuatNhan/PhienAm dùng chung"
         }
     }

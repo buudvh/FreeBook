@@ -134,6 +134,9 @@ public final class BackupCoordinator: ObservableObject {
             if outcome.covers.restoredCovers > 0 {
                 message += ", \(outcome.covers.restoredCovers) ảnh bìa"
             }
+            if outcome.config.searchEngines > 0 {
+                message += ", \(outcome.config.searchEngines) công cụ tra cứu"
+            }
             if outcome.settings.restoredKeys > 0 {
                 message += ". Mở lại app để cài đặt có hiệu lực"
             }

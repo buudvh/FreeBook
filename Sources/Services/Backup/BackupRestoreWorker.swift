@@ -20,8 +20,9 @@ public actor BackupRestoreWorker {
     public struct Options: Sendable {
         public var scopes: Set<BackupScope>
         public var overwriteSharedDictionaries: Bool
-        /// Có ghi khối `settings/user_defaults.plist` vào `UserDefaults` hay không. Là cờ riêng chứ
-        /// không phải một `BackupScope` — xem `BackupSettingsArchiver`.
+        /// Có ghi khối `settings/user_defaults.plist` **và** các file `config/*.json` (quy tắc mục
+        /// lục, công cụ tra cứu nhanh) vào máy hay không. Là cờ riêng chứ không phải một
+        /// `BackupScope` — xem `BackupSettingsArchiver`.
         public var restoreSettings: Bool
 
         public init(
@@ -41,9 +42,11 @@ public actor BackupRestoreWorker {
         public let covers: BackupCoverArchiver.Report
         public let dictionaries: BackupDictionaryRestorer.Report
         public let settings: BackupSettingsArchiver.Report
+        public let config: BackupConfigArchiver.Report
 
         public var errors: [String] {
-            library.errors + chapters.errors + covers.errors + dictionaries.errors + settings.errors
+            library.errors + chapters.errors + covers.errors + dictionaries.errors
+                + settings.errors + config.errors
         }
     }
 
@@ -142,10 +145,14 @@ public actor BackupRestoreWorker {
         await reloadDictionariesIfNeeded(dictionaries)
 
         // Ghi cài đặt sau cùng: các bước trên không đọc `UserDefaults`, còn manager đang chạy thì
-        // vẫn giữ giá trị cũ trong bộ nhớ nên cài đặt chỉ áp đủ sau khi mở lại app.
+        // vẫn giữ giá trị cũ trong bộ nhớ nên cài đặt chỉ áp đủ sau khi mở lại app. Quy tắc mục lục
+        // là ngoại lệ có hiệu lực ngay: `TranslateUtils.saveTOCRules` tự dọn cache của chính nó.
         let settings = options.restoreSettings
             ? BackupSettingsArchiver.restore(from: prepared.directory)
             : BackupSettingsArchiver.Report()
+        let config = options.restoreSettings
+            ? BackupConfigArchiver.restore(from: prepared.directory)
+            : BackupConfigArchiver.Report()
 
         await MainActor.run {
             NotificationCenter.default.post(name: Notification.Name("extensionDidUpdate"), object: nil)
@@ -157,7 +164,8 @@ public actor BackupRestoreWorker {
             + "\(covers.restoredCovers) bìa (\(covers.skippedCovers) đã có), "
             + "\(library.insertedRepositories) kho, \(library.upsertedExtensions) ext, "
             + "\(dictionaries.customFiles + dictionaries.bookFiles + dictionaries.sharedFiles) file từ điển, "
-            + "\(settings.restoredKeys) khoá cài đặt"
+            + "\(settings.restoredKeys) khoá cài đặt, "
+            + "\(config.tocRules) quy tắc mục lục, \(config.searchEngines) công cụ tra cứu"
         )
         report(BackupProgress(phase: .finished))
 
@@ -166,7 +174,8 @@ public actor BackupRestoreWorker {
             chapters: chapters,
             covers: covers,
             dictionaries: dictionaries,
-            settings: settings
+            settings: settings,
+            config: config
         )
     }
 

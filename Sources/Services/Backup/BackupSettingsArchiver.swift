@@ -27,7 +27,10 @@ public enum BackupSettingsArchiver {
     ///   đường dẫn không tồn tại;
     /// - ba mốc `...LastRunAt` / `LastBatchAt` quyết định lần chạy nền kế tiếp: mang mốc của máy cũ
     ///   sang sẽ làm lượt tự động chạy sai thời điểm;
-    /// - hai hàng đợi `failed_*` là việc dở của riêng máy đó.
+    /// - hai hàng đợi `failed_*` là việc dở của riêng máy đó;
+    /// - `custom_search_engines` do `BackupConfigArchiver` sở hữu (entry `config/search_engines.json`)
+    ///   để phục hồi **gộp** được từng công cụ; để ở đây thì cả mảng bị ghi đè, xoá mất công cụ chỉ
+    ///   có trên máy đang phục hồi.
     private static let deniedKeys: Set<String> = [
         "google_cloud_tts_custom_api_key",
         "googleDriveClientId",
@@ -36,7 +39,8 @@ public enum BackupSettingsArchiver {
         "staleBookCleanupLastRunAt",
         "newChapterLastBatchAt",
         "failed_file_deletions_queue",
-        "failed_chapterstore_deletions_queue"
+        "failed_chapterstore_deletions_queue",
+        SearchEngine.storageKey
     ]
 
     /// Tiền tố bị loại:

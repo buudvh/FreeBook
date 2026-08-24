@@ -58,6 +58,13 @@ public enum BackupPaths {
     /// `ttsDictionaryFolder` ở trên.
     public static let settings = "settings/user_defaults.plist"
 
+    /// Cấu hình dạng **file rời** (không nằm trong `UserDefaults`, cũng không phải từ điển): quy tắc
+    /// nhận diện mục lục ở `translate/toc_rules.json` và danh sách công cụ tra cứu nhanh. Đi cùng
+    /// công tắc `restoreSettings` như khối cài đặt, và cũng **không** thêm `BackupScope` mới.
+    public static let tocRules = "config/toc_rules.json"
+    public static let searchEngines = "config/search_engines.json"
+    public static let tocRulesFileName = "toc_rules.json"
+
     // MARK: - Thư mục trên máy
 
     private static var applicationSupport: URL {
