@@ -69,6 +69,19 @@ public enum BackupPayload {
             self.isHistory = isHistory
         }
 
+        /// `true` khi truyện được nhập từ file trong máy (TXT/EPUB) — không có nguồn online để tải
+        /// lại nội dung, nên nội dung chương của nhóm này phải luôn nằm trong archive dù người dùng
+        /// tắt nhóm `.content`.
+        ///
+        /// **Phải khớp đúng logic `Book.isLocalBook`** (`Sources/Models/Database/Book.swift`) — sửa
+        /// một bên thì sửa cả bên kia, nếu không backup và app sẽ hiểu khác nhau về "truyện local".
+        public var isLocalBook: Bool {
+            extensionPackageId.lowercased() == "local"
+                || detailUrl.lowercased().hasPrefix("local://")
+                || sourceUrl.lowercased().hasPrefix("local://")
+                || sourceName.lowercased() == "local"
+        }
+
         /// `true` khi bìa **không** tải lại được từ mạng — đúng trường hợp truyện nhập từ file:
         /// `ImageCacheManager` giữ file JPEG trong `covers/` còn `coverUrl` để rỗng. Chỉ nhóm này
         /// mới cần gom ảnh bìa vào archive.

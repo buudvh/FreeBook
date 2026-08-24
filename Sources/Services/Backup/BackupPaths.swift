@@ -41,6 +41,17 @@ public enum BackupPaths {
     /// Không có bản `.dat`, luôn lấy nguyên file text.
     public static let sharedDictionaryAlwaysFiles = ["ChinesePhienAmWords.txt"]
 
+    /// Bộ tiền xử lý TTS (từ điển phiên âm cá nhân của NghiTTS + viết tắt + luật thay ký tự).
+    /// Nằm ở `FreeBook/TTS/` chứ không thuộc `translate/`, nhưng **đi kèm nhóm `.dictCustom`**:
+    /// `BackupScope` là `Codable` và rawValue được ghi vào `manifest.scopes`, thêm case mới sẽ
+    /// làm bản app cũ decode manifest lỗi.
+    public static let ttsDictionaryFolder = "dict/tts"
+    public static let ttsDictionaryFiles = [
+        "non-vietnamese-words.plist",
+        "acronyms.plist",
+        "character_replacements.json"
+    ]
+
     // MARK: - Thư mục trên máy
 
     private static var applicationSupport: URL {
@@ -54,6 +65,12 @@ public enum BackupPaths {
             try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         }
         return directory
+    }
+
+    /// Nơi `TextPreprocessor` / `TTSReplacementManager` giữ từ điển phiên âm cá nhân và luật thay
+    /// ký tự. Getter chỉ dựng đường dẫn, **không** tạo thư mục — phía phục hồi tự tạo khi cần.
+    public static var ttsDictionaryDirectory: URL {
+        applicationSupport.appendingPathComponent("FreeBook/TTS", isDirectory: true)
     }
 
     /// Thư mục tạm dùng làm staging khi nén / giải nén. Người gọi chịu trách nhiệm xoá.

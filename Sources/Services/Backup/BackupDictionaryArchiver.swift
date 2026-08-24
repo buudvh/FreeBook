@@ -29,6 +29,7 @@ public enum BackupDictionaryArchiver {
                 )
                 summary.customFiles += 1
             }
+            summary.customFiles += try stageTTSDictionaries(into: stagingDirectory)
         }
 
         if scopes.contains(.dictBooks) {
@@ -62,6 +63,26 @@ public enum BackupDictionaryArchiver {
         }
 
         return summary
+    }
+
+    /// Bộ tiền xử lý TTS ở `FreeBook/TTS/` (từ điển phiên âm cá nhân của NghiTTS, viết tắt, luật
+    /// thay ký tự). Cố ý gom vào nhóm `.dictCustom` — xem chú thích ở `BackupPaths`. Trả về số file
+    /// đã stage để người gọi cộng vào `Summary.customFiles` (không thêm field mới để giữ nguyên
+    /// chữ ký `Summary` cho các call site ngoài file này).
+    private static func stageTTSDictionaries(into stagingDirectory: URL) throws -> Int {
+        let root = BackupPaths.ttsDictionaryDirectory
+        var staged = 0
+        for name in BackupPaths.ttsDictionaryFiles {
+            let source = root.appendingPathComponent(name)
+            guard FileManager.default.fileExists(atPath: source.path) else { continue }
+            try BackupZipArchive.stage(
+                fileAt: source,
+                entryName: "\(BackupPaths.ttsDictionaryFolder)/\(name)",
+                in: stagingDirectory
+            )
+            staged += 1
+        }
+        return staged
     }
 
     /// Danh sách file từ điển chung thực sự có trên máy. Bản `.txt` chỉ được lấy khi **không** có

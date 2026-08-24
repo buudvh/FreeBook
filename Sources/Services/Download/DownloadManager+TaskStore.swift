@@ -71,7 +71,9 @@ extension DownloadManager {
                     extensionPackageId: model.extensionPackageId,
                     detailUrl: model.detailUrl,
                     startFromCurrent: model.startFromCurrent,
-                    limit: ChapterLimitOption(rawValue: model.limitRaw) ?? .all,
+                    // `ChapterLimitOption` là struct nên `init(rawValue:)` không thất bại: mọi số
+                    // chương đã lưu (kể cả giá trị tuỳ chọn) đọc lại nguyên vẹn.
+                    limit: ChapterLimitOption(rawValue: model.limitRaw),
                     translate: model.translate,
                     onlyExportCached: model.onlyExportCached,
                     exportFilePath: model.exportFilePath

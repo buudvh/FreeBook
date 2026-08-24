@@ -15,6 +15,10 @@ public enum BackupSizeEstimator {
                 .appendingPathComponent("chapters", isDirectory: true)
                 .appendingPathComponent("chapter_store.sqlite"))
         case .content:
+            // Ước tính này **thiếu** khi người dùng tắt `.content`: nội dung của truyện local/TXT
+            // vẫn luôn được sao lưu (xem `BackupExportWorker.export`), mà ở đây không có cách rẻ
+            // nào biết truyện nào là local — tên file trong `books/` là sha256 của bookId, muốn
+            // biết phải mở SwiftData. Chấp nhận, vì con số này vốn chỉ là xấp xỉ.
             return BackupPaths.directorySize(at: applicationSupport.appendingPathComponent("books", isDirectory: true))
         case .extensions:
             return BackupPaths.directorySize(at: ExtensionManager.shared.extensionsDirectory)
@@ -23,8 +27,13 @@ public enum BackupSizeEstimator {
                 .appendingPathComponent("books", isDirectory: true))
         case .dictCustom:
             let root = TranslationManager.shared.translateDirectory
-            return BackupPaths.globalDictionaryFiles.reduce(0) { total, name in
+            let global = BackupPaths.globalDictionaryFiles.reduce(Int64(0)) { total, name in
                 total + BackupPaths.fileSize(at: root.appendingPathComponent(name))
+            }
+            // Bộ tiền xử lý TTS ở `FreeBook/TTS/` đi kèm nhóm này, nên phải cộng cả vào ước tính.
+            let ttsRoot = BackupPaths.ttsDictionaryDirectory
+            return BackupPaths.ttsDictionaryFiles.reduce(global) { total, name in
+                total + BackupPaths.fileSize(at: ttsRoot.appendingPathComponent(name))
             }
         case .dictShared:
             let root = TranslationManager.shared.translateDirectory

@@ -26,6 +26,11 @@ final class NotificationInboxManager: ObservableObject {
         records.contains { !$0.isRead }
     }
 
+    /// Có dòng nào đã đọc để dọn không — dùng để bật/tắt mục "Xoá thông báo đã đọc".
+    var hasRead: Bool {
+        records.contains { $0.isRead }
+    }
+
     /// Nạp từ đĩa lần đầu (mở Trung tâm thông báo hoặc lúc khởi động).
     func loadIfNeeded() async {
         guard !didLoad else { return }
@@ -73,11 +78,11 @@ final class NotificationInboxManager: ObservableObject {
         Task { await NotificationInboxStore.shared.replace(with: snapshot) }
     }
 
-    /// "Xoá thông báo chưa đọc": chỉ bỏ các toast **chưa** đọc, giữ lại phần đã đọc như nhật ký.
-    /// Trả về số dòng đã xoá để View báo lại cho người dùng.
+    /// "Xoá thông báo đã đọc": chỉ bỏ các toast **đã** đọc, giữ lại phần chưa đọc để người dùng
+    /// không mất thông báo mình còn chưa xem. Trả về số dòng đã xoá để View báo lại cho người dùng.
     @discardableResult
-    func deleteUnread() -> Int {
-        let remaining = records.filter { $0.isRead }
+    func deleteRead() -> Int {
+        let remaining = records.filter { !$0.isRead }
         let removed = records.count - remaining.count
         guard removed > 0 else { return 0 }
         records = remaining

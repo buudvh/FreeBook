@@ -52,8 +52,16 @@ public actor BackupExportWorker {
         counts.chapters = chapterTotals.chapters
         counts.cachedChapters = chapterTotals.cached
 
-        if scopes.contains(.content) {
-            try await stageContent(books: payload.books, slugByBookId: slugByBookId, into: staging)
+        // Nhóm `.content` bật thì gom nội dung mọi truyện. Tắt thì vẫn phải gom nội dung của truyện
+        // local/TXT: loại này không có nguồn online để tải lại, mất file `.bin` là mất luôn nội dung.
+        let contentBooks = scopes.contains(.content)
+            ? payload.books
+            : payload.books.filter { $0.isLocalBook }
+        if !contentBooks.isEmpty {
+            if !scopes.contains(.content) {
+                AppLogger.shared.log("💾 [Backup] Không chọn nhóm nội dung — vẫn sao lưu nội dung của \(contentBooks.count) truyện local/TXT")
+            }
+            try await stageContent(books: contentBooks, slugByBookId: slugByBookId, into: staging)
         }
 
         report(BackupProgress(phase: .copyingCovers))

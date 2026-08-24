@@ -40,10 +40,10 @@ public enum BackupScope: String, Codable, CaseIterable, Sendable, Identifiable {
     public var subtitle: String {
         switch self {
         case .books: return "Bắt buộc — nền của mọi nhóm khác, kèm tiến độ đọc"
-        case .content: return "Chương đã tải offline; có thể rất lớn"
+        case .content: return "Chương đã tải offline; có thể rất lớn. Truyện local/TXT luôn được sao lưu dù tắt nhóm này"
         case .extensions: return "File extension trong máy + kho tải về"
         case .dictBooks: return "Gồm cả mục VietPhrase/Names đã xoá"
-        case .dictCustom: return "Gồm cả mục đã xoá"
+        case .dictCustom: return "Gồm cả mục đã xoá, kèm từ điển phiên âm NghiTTS"
         case .dictShared: return "VietPhrase/Names/Pronouns/LuatNhan/PhienAm dùng chung"
         }
     }

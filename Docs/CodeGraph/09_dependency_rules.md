@@ -15,6 +15,17 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ Cleanup mới, bốn file mới, không luật nào bị nới (1.3.263)
+
+* **Thư mục tầng Services mới**: `Sources/Services/Cleanup/` (`StaleBookCleanupPolicy` 126 dòng — chỉ `import Foundation`; `StaleBookCleanupCoordinator` 120 dòng — `import Foundation` + `SwiftData`). **Không** `import SwiftUI`, **không** `ToastManager.shared` (chỉ có một comment nhắc luật đó) ⇒ `SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING` không bị chạm; kết quả đi ra ngoài bằng `Outcome` để View tự hiện toast.
+* **Thư mục tầng Views mới**: `Sources/Views/Settings/Cleanup/` (`StaleBookCleanupSettingsView` 208 dòng) + `Sources/Views/Settings/Main/StaleBookCleanupSettingsSection.swift` (12 dòng). Cả 4 file mới đều **≤ 400 dòng** và **đúng 1 type top level** ⇒ **không** thêm hay nới entry `architecture_allowlist.json` nào.
+* **Chiều phụ thuộc mới đều là Views → Services hoặc Services → Services cùng tầng**: `MainTabView`/`StaleBookCleanupSettingsView` → `Services/Cleanup/*`; `StaleBookCleanupCoordinator` → `Services/Download/BookStorageManager` (xoá), `Services/TTS/TTSManager` + `Services/Download/DownloadManager` (trạng thái đang chạy để loại truyện được bảo vệ), `Models/Database/Book`, `Services/Logging/AppLogger`. Không cạnh nào đi từ Services lên Views, không vòng nào mới.
+* **Cấu hình có đúng một nguồn**: mọi khoá UserDefaults và giá trị mặc định/khoảng kẹp khai trong `StaleBookCleanupPolicy`; `@AppStorage` của view bind vào chính các hằng đó thay vì viết lại string literal — cùng khuôn `DriveAutoBackupPolicy` ↔ `DriveAutoBackupSettingsView`.
+* **Không view nào ghi SwiftData**: `StaleBookCleanupSettingsView` chỉ lấy `modelContext.container` rồi giao cho coordinator; coordinator cũng **không** gọi `ModelContext.delete` mà uỷ quyền cho `BookStorageManager` (nơi duy nhất được xoá truyện) ⇒ `VIEW_SWIFTDATA_MUTATION` giữ nguyên.
+* **`SettingsView.swift` 441 → 443 dòng** (baseline legacy 453, luật chỉ cho giảm nhưng trần chưa bị vượt); `MainTabView.swift` 118 → 139 và `DownloadManager.swift` 437 → 467 (baseline 640) — đều dưới baseline, không sửa baseline nào.
+* **`ChapterLimitOption` enum → struct `RawRepresentable`** vẫn nằm nguyên trong `Sources/Services/Download/DownloadManager.swift`, không tạo file hay cạnh phụ thuộc mới; `TaskOptionsSheet` (Views) vẫn là phía tiêu thụ duy nhất và vẫn đi qua `DownloadManager.enqueueTask`.
+* **Từ điển phiên âm TTS vào backup không tạo cạnh mới**: `BackupPaths` đã sở hữu mọi tên entry và đường dẫn, nên `BackupDictionaryArchiver`/`BackupDictionaryRestorer` chỉ đọc thêm hằng ở đó; phần nạp lại cache gọi `TextPreprocessor` và `TTSReplacementManager` — cùng tầng Services, không mượn gì từ Views.
+
 ## Sáu file mới, một file legacy tự thu nhỏ, không luật nào bị nới (1.3.262)
 
 * **6 file mới đều ở tầng Views** (`Sources/Views/Common/` 22 → **28** file): `BypassBrowserTabStore` (149), `BypassBrowserHomePage` (170), `BypassBrowserTab` (107), `URLBarTextField` (102), `BypassBrowserTabBar` (62), `BypassBrowserWebPane` (38). Tất cả **≤ 400 dòng** và **đúng 1 type top level** (`TabPill` nest trong tab bar, `Coordinator` nest trong `URLBarTextField`) ⇒ **không** thêm hay nới entry `architecture_allowlist.json` nào.

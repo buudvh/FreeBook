@@ -1,26 +1,56 @@
 import Foundation
 import SwiftData
 
-public enum ChapterLimitOption: Int, CaseIterable, Codable {
-    case all = 0
-    case fifty = 50
-    case oneHundred = 100
-    case twoHundred = 200
-    case fiveHundred = 500
-    case oneThousand = 1000
+/// Số chương của một tác vụ tải/xuất. Cố ý là **struct** chứ không phải enum để nhận được mọi con số
+/// người dùng kéo tay ở mục "Tuỳ chọn" (1...1000), trong khi `rawValue` vẫn mang đúng nghĩa cũ:
+/// `0` = tất cả, số dương = số chương. Nhờ đó `DownloadTaskModel.limitRaw` không cần đổi schema và
+/// tác vụ lưu từ bản trước 1.3.263 đọc lại vẫn đúng.
+public struct ChapterLimitOption: RawRepresentable, Hashable, Codable, CaseIterable, Sendable {
+    public let rawValue: Int
 
-    public var title: String {
-        switch self {
-        case .all: return "Tất cả"
-        default: return "\(self.rawValue) chương"
-        }
+    public init(rawValue: Int) {
+        self.rawValue = rawValue
     }
 
+    /// Tải/xuất từ chương bắt đầu tới hết mục lục.
+    public static let all = ChapterLimitOption(rawValue: 0)
+
+    /// Mốc "Tuỳ chọn" trong picker — chỉ là nhãn để mở thanh kéo. Giá trị này **không bao giờ**
+    /// được đưa vào hàng đợi; View phải quy đổi sang số chương thật trước khi enqueue.
+    public static let custom = ChapterLimitOption(rawValue: -1)
+
+    /// Dải cho phép của thanh kéo "Tuỳ chọn".
+    public static let customRange = 1...1000
+
+    /// Các mốc sẵn hiện trong picker (không gồm "Tuỳ chọn").
+    public static let allCases: [ChapterLimitOption] = [
+        .all,
+        ChapterLimitOption(rawValue: 50),
+        ChapterLimitOption(rawValue: 100),
+        ChapterLimitOption(rawValue: 200),
+        ChapterLimitOption(rawValue: 500),
+        ChapterLimitOption(rawValue: 1000)
+    ]
+
+    public var title: String {
+        if rawValue < 0 { return "Tuỳ chọn" }
+        if rawValue == 0 { return "Tất cả" }
+        return "\(rawValue) chương"
+    }
+
+    /// `nil` nghĩa là không giới hạn. Giá trị âm (mốc "Tuỳ chọn" lỡ rơi xuống đây) cũng coi là
+    /// không giới hạn để không bao giờ tải 0 chương.
     public var limitValue: Int? {
-        switch self {
-        case .all: return nil
-        default: return self.rawValue
-        }
+        rawValue > 0 ? rawValue : nil
+    }
+
+    public init(from decoder: Decoder) throws {
+        self.rawValue = try decoder.singleValueContainer().decode(Int.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 

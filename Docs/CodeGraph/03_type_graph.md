@@ -15,6 +15,11 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type của hộp thư thông báo sau lượt 1.3.263
+
+* [`NotificationInboxManager`](../../Sources/Common/Services/NotificationInboxManager.swift#L1) đổi **API xoá theo lô**: `deleteUnread() -> Int` biến thành [`deleteRead() -> Int`](../../Sources/Common/Services/NotificationInboxManager.swift#L84) (`records.filter { !$0.isRead }` giữ lại, tức xoá đúng phần **đã** đọc), và có thêm computed [`hasRead`](../../Sources/Common/Services/NotificationInboxManager.swift#L30) đứng cạnh `hasUnread`. Cả hai giữ nguyên hình dạng cũ: `@discardableResult`, trả số dòng đã xoá, ghi đĩa bằng `Task { await NotificationInboxStore.shared.replace(with:) }` với **snapshot** chụp sau khi sửa `records` (không capture `self`). Manager **không** có API xoá trắng — `NotificationInboxStore.clearAll()` vẫn tồn tại ở tầng lưu trữ nhưng không có đường nào từ UI tới nó, nên mục menu duy nhất giờ là "Xoá thông báo đã đọc" và thông báo chưa đọc chỉ mất khi người dùng tự xoá từng dòng.
+* Không có type nào trong `Sources/Models/**` hay `Sources/Common/**` được thêm/xoá/đổi shape ở lượt này; `NotificationInboxRecord` và `NotificationInboxStore` không đổi, nên dữ liệu đã ghi trên đĩa đọc lại nguyên vẹn.
+
 ## Type của trình duyệt bypass nhiều tab và ô URL tự bôi đen (1.3.262)
 
 * [`BypassBrowserTabStore`](../../Sources/Views/Common/BypassBrowserTabStore.swift#L1) — `final class : NSObject, ObservableObject, WKNavigationDelegate, WKUIDelegate`. Trạng thái: `@Published private(set) tabs: [BypassBrowserTab]`, `@Published private(set) activeTabId: String`, `private tabObservations: [String: AnyCancellable]`, `static let maxTabCount = 8`. **Cố ý không `@MainActor`** — theo tiền lệ `VisibleWebViewController`, để không xung đột isolation với hai protocol delegate của WebKit (vốn không isolated). Nó chuyển tiếp `objectWillChange` của từng tab lên chính mình nên View chỉ quan sát **một** đối tượng (cần `import Combine`).

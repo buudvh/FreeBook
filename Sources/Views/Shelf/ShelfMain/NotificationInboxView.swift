@@ -243,11 +243,11 @@ struct NotificationInboxView: View {
                 }
                 Button(role: .destructive) {
                     // Không hiện toast xác nhận: `ToastManager.show` lại ghi vào chính hộp thư này.
-                    inbox.deleteUnread()
+                    inbox.deleteRead()
                 } label: {
-                    Label("Xoá thông báo chưa đọc", systemImage: "trash")
+                    Label("Xoá thông báo đã đọc", systemImage: "trash")
                 }
-                .disabled(!inbox.hasUnread)
+                .disabled(!inbox.hasRead)
             } label: {
                 Image(systemName: "ellipsis.circle")
             }

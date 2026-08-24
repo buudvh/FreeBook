@@ -15,6 +15,17 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Lượt tự dọn truyện cũ dùng lại đúng khuôn Outcome, không thêm kênh sự kiện (1.3.263)
+
+* **Không tên `NotificationCenter` mới, không event center mới, không publisher mới.** `StaleBookCleanupCoordinator.runIfDue`/`runNow` **trả về** `Outcome` (`.skipped` / `.deleted(count:)` / `.failed(message:)`); `MainTabView` và `StaleBookCleanupSettingsView` mới là nơi gọi `ToastManager`. Đây là cùng khuôn `AutoDriveBackupOutcome` của 1.3.260, và là lý do `Sources/Services/Cleanup/` không vi phạm `SERVICE_TOAST_COUPLING`.
+* **`.skipped` là im lặng có chủ ý**: lượt chưa tới hạn, cờ tắt, hoặc không tìm thấy truyện nào quá hạn đều rơi vào nhánh này và **không** phát toast. Người dùng chỉ nghe thấy hệ thống khi có truyện thật sự bị xoá hoặc khi xoá lỗi.
+* **Kích hoạt là vòng đời view, không phải sự kiện app**: `.task` thứ hai của `MainTabView` (ngay sau `.task` của lượt sao lưu) là điểm phát duy nhất. Không `scenePhase`, không `applicationDidBecomeActive`, không `BGTaskScheduler` — nên **một lần khởi động tiến trình là nhiều nhất một lượt**; app nằm background nhiều ngày rồi quay lại không tự dọn.
+* **Delay 40 s là quan hệ thứ tự giữa hai lượt nền, không phải số tuỳ ý**: lượt sao lưu ngủ 25 s, lượt dọn ngủ 40 s, nên bản sao lưu luôn bắt đầu **trước** khi có gì bị xoá. `StaleBookCleanupPolicy.shouldRun()` chạy trước `Task.sleep` (không tới hạn thì không giữ Task 40 giây) và `markRun()` chạy **trước** phần việc — nghĩa là một lượt bị treo hay bị huỷ giữa đường vẫn tính là đã dùng nhịp của ngày đó, cố ý nghiêng về "xoá ít hơn dự kiến".
+* **Truyện bị xoá lan ra UI bằng `@Query`, không bằng tín hiệu**: `BookStorageManager.deleteBooksAsync` `save()` xong là `ShelfView`/`BookDetailView` tự vẽ lại. Không phát `"extensionDidUpdate"`, không phát tên thông báo mới nào; nếu truyện đang mở Reader bị xoá thì đường thoát vẫn là đường cũ của `BookStorageManager` (truyện đang phát TTS đã bị loại từ `protectedBookIds()`).
+* **Số chương "Tuỳ chọn" không sinh sự kiện**: `Slider` và hai nút −/+ chỉ ghi `@State customLimit` trong `TaskOptionsSheet`; giá trị chỉ rời sheet đúng một lần, lúc `startTask()` gọi `enqueueTask`. Tiến độ tải sau đó vẫn đi bằng `DownloadPresentationEventCenter` như cũ.
+* **Mục menu xoá thông báo đổi ngữ nghĩa, không đổi kênh**: `deleteRead()` sửa `@Published records` nên `NotificationInboxView` và badge chuông `ShelfView` cập nhật trong cùng vòng render. Vẫn **cố ý không** phát toast xác nhận, vì `ToastManager.show` ghi vào chính hộp thư này — và giờ hệ quả còn rõ hơn: toast xác nhận sẽ tạo một thông báo **chưa đọc**, đúng loại mà hành động này không xoá.
+
+
 ## Cuộn của người dùng và kết quả tìm đi bằng closure, không thêm kênh sự kiện (1.3.261)
 
 * **Không tên `NotificationCenter` mới, không event center mới.** Tín hiệu "người dùng tự kéo trang" đi từ UIKit lên SwiftUI bằng closure `ReaderUserScrollDetector.onUserScroll` (`@objc handlePan` → `onUserScroll()` → `ReaderView.handleUserScrollWhilePlaying()`), tức lời gọi trực tiếp trên main thread trong cùng tiến trình. Đây là kênh một chiều, không có subscriber thứ hai và không cần dọn dẹp: `dismantleUIView` gỡ recognizer là hết.

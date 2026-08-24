@@ -61,6 +61,9 @@ struct MainTabView: View {
         .task {
             await runAutoDriveBackupIfDue(container: modelContext.container)
         }
+        .task {
+            await runStaleBookCleanupIfDue(container: modelContext.container)
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 // Bản xuất hoàn thành lúc app ở background: share sheet không trình bày được, được giữ lại
@@ -96,6 +99,24 @@ extension MainTabView {
             ToastManager.shared.show(message: "Đã tự động sao lưu lên Google Drive (\(size))", type: .success)
         case .failed(let message):
             ToastManager.shared.show(message: "Tự động sao lưu thất bại: \(message)", type: .error)
+        }
+    }
+
+    /// Lượt **tự động** dọn truyện lâu không đọc. Cửa mở/đóng thuộc `StaleBookCleanupPolicy` (mặc định
+    /// tắt); hoãn lâu hơn lượt sao lưu để bản sao lưu chạy trước khi có gì bị xoá. Toast chỉ hiện khi
+    /// thật sự xoá được truyện hoặc khi lỗi — service không được gọi `ToastManager`.
+    func runStaleBookCleanupIfDue(container: ModelContainer) async {
+        guard StaleBookCleanupPolicy.shouldRun() else { return }
+        try? await Task.sleep(nanoseconds: StaleBookCleanupPolicy.startupDelayNanoseconds)
+        guard !Task.isCancelled else { return }
+
+        switch await StaleBookCleanupCoordinator.runIfDue(container: container) {
+        case .skipped:
+            break
+        case .deleted(let count):
+            ToastManager.shared.show(message: "Đã tự động xoá \(count) truyện lâu không đọc", type: .info)
+        case .failed(let message):
+            ToastManager.shared.show(message: "Tự động dọn truyện cũ thất bại: \(message)", type: .error)
         }
     }
 

@@ -15,6 +15,21 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời lượt tự dọn truyện cũ và vòng đời ô số chương tuỳ chọn (1.3.263)
+
+Lượt dọn là `.task` **thứ hai** của `MainTabView`, chạy song song với `.task` sao lưu chứ không nối sau nó. Hai lượt tự phân thứ tự bằng độ dài giấc ngủ:
+
+1. `MainTabView.body` xuất hiện (đã sau cổng `TranslationManager.shared.isInitialized`) → `.task { await runStaleBookCleanupIfDue(container:) }`. Task thuộc vòng đời view ⇒ **mỗi lần khởi động tiến trình đúng một cơ hội chạy**, không `BGTaskScheduler`, không timer nền.
+2. `guard StaleBookCleanupPolicy.shouldRun()` **trước** khi ngủ — lượt chưa tới hạn (hoặc cờ tắt, mà cờ mặc định là **tắt**) không giữ Task 40 giây.
+3. `Task.sleep(40 s)` rồi `guard !Task.isCancelled`. **40 s > 25 s của lượt sao lưu là ràng buộc thứ tự có chủ ý**: bản sao lưu phải bắt đầu trước khi có gì bị xoá, và hai lượt nền không đấu CPU/băng thông cùng lúc với `DownloadManager.initialize`, `TTSManager.initialize` và lượt kiểm tra chương mới của `ShelfView`.
+4. `StaleBookCleanupCoordinator.runIfDue` kiểm `shouldRun()` **lần thứ hai** (40 giây là đủ để một lượt tay trong Cài đặt xen vào) rồi `markRun()` **trước** phần việc. Hệ quả vòng đời cần biết: Task bị huỷ giữa lúc đang xoá vẫn đã tiêu nhịp của ngày hôm đó — thiết kế nghiêng về "xoá ít hơn dự kiến", không bao giờ xoá hai lượt liền.
+5. Phần đọc DB sống trong `Task.detached(priority: .utility)` với `ModelContext(container)` **riêng** (`autosaveEnabled = false`), tạo và thả trong đúng một lần gọi — không giữ context nào qua biên lượt chạy. Việc xoá thật thuộc vòng đời của `BookStorageManager` (DB `save()` trước, file sau, thất bại đẩy vào `failed_file_deletions_queue` để retry ở lần khởi động sau).
+
+`StaleBookCleanupSettingsView` có vòng đời riêng, độc lập với nhịp tự động: `.task` → `refreshStaleCount()`, `.onChange(of: inactiveDays)` → đếm lại (nên kéo thanh trượt là thấy ngay số truyện sẽ bị xoá). Nút "Dọn ngay" đi qua `confirmationDialog` rồi `runNow` — **bỏ qua** `shouldRun()`, tức bỏ cả cờ bật/tắt và nhịp chờ, nhưng vẫn `markRun()` nên nó đẩy lượt tự động kế tiếp ra xa. `isRunning` chặn bấm trùng trong vòng đời view; view bị dismiss giữa lượt thì Task chết theo và toast không hiện, còn việc xoá đã `save()` vẫn giữ nguyên.
+
+Ô "Tuỳ chọn" của `TaskOptionsSheet` giữ `customLimit` trong `@State` của sheet nên **không sống lâu hơn sheet**: đóng ra mở lại là về mặc định (không ghi `@AppStorage`), và sentinel `.custom` (`-1`) chỉ tồn tại trong vòng đời sheet — `startTask()` quy đổi sang số thật trước khi `enqueueTask`, nên `DownloadTaskModel.limitRaw` trong DB không bao giờ mang `-1`.
+
+
 ## Vòng đời đầu dò cuộn, vệt tô kết quả tìm và lượt dọn kho (1.3.261)
 
 * `ReaderUserScrollDetector` có **hai đường gắn và hai đường gỡ**, cố ý dư thừa: gắn chính ở `ProbeView.didMoveToWindow` (thời điểm sớm nhất chắc chắn có `UIScrollView` bao ngoài), lưới an toàn ở `updateUIView` cho trường hợp probe vào hierarchy trước khi tìm ra scroll view; gỡ chính ở `dismantleUIView` → `Coordinator.detach()`, gỡ dự phòng ở `Coordinator.deinit`. `attach(to:)` guard theo identity (`attachedScrollView !== scrollView`) nên hai đường gắn không bao giờ tạo recognizer thứ hai; `detach()` idempotent.

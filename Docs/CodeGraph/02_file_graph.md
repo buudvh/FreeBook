@@ -15,6 +15,37 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Tự xoá truyện cũ, tuỳ chọn số chương, backup từ điển TTS, xoá báo đã đọc (1.3.263)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Views/Settings/Cleanup/StaleBookCleanupSettingsView.swift`](../../Sources/Views/Settings/Cleanup/StaleBookCleanupSettingsView.swift) | màn cấu hình dọn truyện cũ: bật/tắt, thanh kéo ngưỡng ngày, nhịp chạy, đếm trước số truyện sẽ xoá + nút "Dọn ngay" có `confirmationDialog` | 208 |
+| [`Services/Cleanup/StaleBookCleanupPolicy.swift`](../../Sources/Services/Cleanup/StaleBookCleanupPolicy.swift) | nguồn duy nhất của khoá UserDefaults, hằng, `shouldRun()`/`markRun()`/`cutoffDate()`; mặc định **tắt**, hoãn khởi động 40s | 126 |
+| [`Services/Cleanup/StaleBookCleanupCoordinator.swift`](../../Sources/Services/Cleanup/StaleBookCleanupCoordinator.swift) | `@MainActor enum` điều phối: `runIfDue`/`runNow`/`previewStaleCount`, lọc truyện được bảo vệ, gọi `BookStorageManager.deleteBooksAsync`, trả `Outcome` | 120 |
+| [`Views/Settings/Main/StaleBookCleanupSettingsSection.swift`](../../Sources/Views/Settings/Main/StaleBookCleanupSettingsSection.swift) | một `Section` + `NavigationLink` mở màn trên, cùng khuôn `BackupSettingsSection` | 12 |
+
+| File sửa | Dòng | Thay đổi |
+|---|---|---|
+| [`Views/Download/TaskOptionsSheet.swift`](../../Sources/Views/Download/TaskOptionsSheet.swift) | 209 → **277** | thêm `customLimit` + `customLimitRow` (thanh kéo 1...1000 step 1, hai nút −/+ `.borderless`), `clampCustomLimit`, `effectiveLimit`; `startTask()` enqueue `effectiveLimit` chứ không phải `limitOption` |
+| [`Services/Download/DownloadManager.swift`](../../Sources/Services/Download/DownloadManager.swift) | 437 → **467** | `ChapterLimitOption` enum → struct `RawRepresentable, Hashable, Codable, CaseIterable, Sendable`; thêm `.custom` (−1), `customRange`, `title`, `limitValue`, `init(from:)`/`encode(to:)` |
+| [`Services/Backup/BackupDictionaryRestorer.swift`](../../Sources/Services/Backup/BackupDictionaryRestorer.swift) | 127 → **242** | `restoreTTSDictionaries` + `mergeStringPlist`/`readStringPlist`/`mergeReplacementRules`; nạp lại `TextPreprocessor`/`TTSReplacementManager` sau khi gộp |
+| [`Views/MainTabView.swift`](../../Sources/Views/MainTabView.swift) | 118 → **139** | `.task` thứ hai + `runStaleBookCleanupIfDue(container:)` trong extension, cùng khuôn `runAutoDriveBackupIfDue` |
+| [`Services/Backup/BackupDictionaryArchiver.swift`](../../Sources/Services/Backup/BackupDictionaryArchiver.swift) | 93 → **114** | `stageTTSDictionaries` stage 3 file `FreeBook/TTS/` vào `dict/tts/`, cộng vào `Summary.customFiles` |
+| [`Services/Backup/BackupPaths.swift`](../../Sources/Services/Backup/BackupPaths.swift) | 113 → **130** | `ttsDictionaryFolder`, `ttsDictionaryFiles`, `ttsDictionaryDirectory` (getter thuần, không tạo thư mục) |
+| [`Services/Backup/BackupPayload.swift`](../../Sources/Services/Backup/BackupPayload.swift) | 204 → **217** | `BookRecord.isLocalBook` **computed** — không thêm stored property/`CodingKeys` nên JSON cũ vẫn decode |
+| [`Services/Backup/BackupSizeEstimator.swift`](../../Sources/Services/Backup/BackupSizeEstimator.swift) | 45 → **54** | `.dictCustom` cộng thêm 3 file TTS; `.content` ghi rõ ước tính **thiếu** phần truyện local khi nhóm này tắt |
+| [`Services/Backup/BackupExportWorker.swift`](../../Sources/Services/Backup/BackupExportWorker.swift) | 240 → **248** | `contentBooks` = tất cả truyện khi bật `.content`, ngược lại chỉ `isLocalBook` |
+| [`Common/Services/NotificationInboxManager.swift`](../../Sources/Common/Services/NotificationInboxManager.swift) | 88 → **93** | `deleteUnread()` → `deleteRead()`, thêm `hasRead` |
+| [`Services/Backup/BackupRestoreWorker.swift`](../../Sources/Services/Backup/BackupRestoreWorker.swift) | 245 → **249** | `wantsContent = scopes.contains(.content) \|\| book.isLocalBook` |
+| [`Services/Backup/BackupScope.swift`](../../Sources/Services/Backup/BackupScope.swift) | 55 | **chỉ đổi chuỗi** `subtitle` của `.content` và `.dictCustom`, không thêm/bớt case |
+| [`Services/Download/DownloadManager+TaskStore.swift`](../../Sources/Services/Download/DownloadManager+TaskStore.swift) | 277 → **279** | bỏ `?? .all` khi dựng `limit` — `init(rawValue:)` của struct không thất bại |
+| [`Views/Settings/Main/SettingsView.swift`](../../Sources/Views/Settings/Main/SettingsView.swift) | 441 → **443** | chèn `StaleBookCleanupSettingsSection()` ngay sau `BackupSettingsSection()` (baseline legacy 453) |
+| [`Views/Shelf/ShelfMain/NotificationInboxView.swift`](../../Sources/Views/Shelf/ShelfMain/NotificationInboxView.swift) | 307 | đổi nhãn + gọi `deleteRead()`, `.disabled(!inbox.hasRead)` |
+
+* Tổng file Swift 352 → **356** (+4, không xoá file nào). Thư mục **mới**: `Sources/Services/Cleanup/` và `Sources/Views/Settings/Cleanup/`.
+* Cạnh mới: `MainTabView` → `StaleBookCleanupPolicy` + `StaleBookCleanupCoordinator`; `SettingsView` → `StaleBookCleanupSettingsSection` → `StaleBookCleanupSettingsView` → {`StaleBookCleanupPolicy`, `StaleBookCleanupCoordinator`, `ToastManager`}; `StaleBookCleanupCoordinator` → {`StaleBookCleanupPolicy`, `BookStorageManager`, `TTSManager`, `DownloadManager`, `AppLogger`}; `BackupDictionaryRestorer` → {`TextPreprocessor`, `TTSReplacementManager`, `TTSReplacementRule`} (cạnh mới trong `Services/`, cùng tầng).
+* Không có cạnh nào bị xoá. `deleteUnread()` chỉ có **một** call site (`NotificationInboxView.swift:246`) nên việc đổi tên không lan; `enqueueTask` cũng chỉ có **một** call site (`TaskOptionsSheet.swift:258`) nên `effectiveLimit` phủ hết đường vào hàng đợi.
+
 ## Nút back không chữ chạy thật, ô URL tự bôi đen, bypass browser nhiều tab (1.3.262)
 
 | File mới | Vai trò | Dòng |

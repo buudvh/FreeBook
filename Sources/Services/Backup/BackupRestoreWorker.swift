@@ -201,7 +201,11 @@ public actor BackupRestoreWorker {
                   !records.isEmpty
             else { continue }
 
-            let contentURL = options.scopes.contains(.content)
+            // Đối xứng với chiều sao lưu: nội dung của truyện local/TXT phải được phục hồi kể cả khi
+            // người dùng không chọn nhóm nội dung. `stagedURL` trả `nil` nếu archive không chứa
+            // `content/<slug>.bin`, nên file cũ (tạo trước thay đổi này) vẫn an toàn.
+            let wantsContent = options.scopes.contains(.content) || book.isLocalBook
+            let contentURL = wantsContent
                 ? BackupZipArchive.stagedURL(entryName: BackupPaths.content(slug: slug), in: prepared.directory)
                 : nil
 
