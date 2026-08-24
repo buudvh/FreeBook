@@ -15,6 +15,16 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro của lượt dọn kho tiện ích, đầu dò cuộn và vệt tô tìm kiếm (1.3.261)
+
+* **Chưa biên dịch, chưa kiểm trên máy thật**: viết trên Windows, không có `xcodebuild` lẫn `xcodegen` — **hai file Swift mới nên bắt buộc chạy `xcodegen generate` trên macOS/CI trước khi build**. `check_architecture.py` giữ đúng **14 violation** (tập y hệt), `validate_links.py` PASS. Không dùng `Tests/` làm bằng chứng. CI xanh chỉ chứng minh *biên dịch được*.
+* **Rủi ro nặng nhất: lượt dọn xoá oan bản ghi tiện ích** — một lần fetch registry lỗi (mạng trả file trắng, kho đổi cấu trúc `plugin.json`) mà vẫn được coi là "kho đã gỡ hết" sẽ quét sạch danh sách của kho đó. Ba chốt độc lập chặn việc này: `syncExtensions` thoát sớm khi `items.isEmpty`; `pruneRepositoryExtensions` trả `.success(0)` khi `keepPackageIds` rỗng; và prune **chỉ** chạy khi upsert trả `.success`. Chốt yếu nhất còn lại: registry trả về **một phần** (ví dụ 3/40 `plugin.json` tải được) thì 37 bản ghi chưa cài **sẽ** bị xoá. Đánh đổi cố ý — bản ghi chưa cài chỉ là dòng danh sách, đồng bộ lại là có lại; nhưng nếu người dùng báo "tiện ích trong kho tự biến mất" thì đây là chỗ phải xem trước.
+* **Tiện ích đã cài không bao giờ bị xoá** (`localPath` khác rỗng bị loại ở bộ lọc), nên không có đường nào làm truyện trong tủ mất nguồn. Rủi ro ngược lại là **rác**: tiện ích đã cài mà kho đã gỡ vẫn nằm trong danh sách mãi, không có dấu hiệu nào cho người dùng biết nó đã bị tác giả kho bỏ. Đây là điểm dừng thiết kế được báo lại, không tự cài.
+* **Đầu dò cuộn có thể tắt cuộn-theo-highlight ngoài ý muốn** nếu recognizer nổ vì một cú kéo không phải "cuộn đọc" — nới vùng bôi đen là ca thật, đã chặn bằng `guard !showingFloatingMenu`. Ba guard còn lại (`!isAutoScrollDisabled`, `isTTSPlayingThisBook`, `!isRestoringReaderPosition`) chặn các ca máy-cuộn. Cờ chỉ có phạm vi phiên và bật lại được bằng một lần bấm ở header, nên hậu quả tệ nhất là một lần bấm — không mất dữ liệu.
+* **Chiều rủi ro ngược của đầu dò: recognizer rò.** `UIScrollView` giữ recognizer strong và sống lâu hơn subtree chương, nên nếu `dismantleUIView` không chạy thì mỗi lần đổi chương để lại một recognizer chết. Giảm thiểu: `attach(to:)` idempotent theo identity + tự `detach()` trước khi gắn mới, cộng `deinit` làm lưới cuối. Chưa xác nhận bằng Instruments — chỉ bằng đọc code.
+* **Vệt tô tìm kiếm có thể không hiện** khi chuỗi hiển thị không chứa truy vấn (bật/tắt dịch giữa lúc nhảy tới kết quả, hoặc `translated` chưa dựng xong). Đây là **chế độ suy giảm có chủ ý**: `searchHighlightRange(...)` trả `nil` và trang vẫn nhảy đúng đoạn. Rủi ro đã tránh được là nghiêm trọng hơn nhiều — cache `NSRange` vào state sẽ tô sai ký tự thay vì không tô.
+
+
 ## Rủi ro của bốn bộ ghi định dạng nhị phân (1.3.253)
 
 * **Chưa biên dịch, chưa kiểm trên máy thật**: viết trên Windows, không có `xcodebuild` lẫn `xcodegen`. `check_architecture.py` giữ đúng **14 violation** (tập y hệt), `validate_links.py` PASS. Không dùng `Tests/` làm bằng chứng. CI xanh chỉ chứng minh *biên dịch được* — **không** chứng minh 3 file nhị phân mở được trên máy đọc thật.

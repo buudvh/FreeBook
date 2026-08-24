@@ -52,6 +52,15 @@ struct ReaderHeaderFooterOverlayView: View {
 
                     Spacer()
 
+                    // Tìm trong chương — để cạnh nút cuộn theo TTS thay vì nằm trong menu "..."
+                    Button(action: onOpenReaderSearch) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(selectedTheme.textColor)
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Tìm trong chương")
+
                     // Nút toggle tự động cuộn theo Highlight TTS - luôn hiển thị
                     Button(action: { isAutoScrollDisabled.toggle() }) {
                         Image(systemName: isAutoScrollDisabled ? "scroll" : "scroll.fill")
@@ -73,10 +82,6 @@ struct ReaderHeaderFooterOverlayView: View {
                     }
 
                     Menu {
-                        Button(action: onOpenReaderSearch) {
-                            Label("Tìm trong chương", systemImage: "magnifyingglass")
-                        }
-
                         Button(action: onToggleChapterTitle) {
                             Label("Hiển thị tên chương trong nội dung", systemImage: showChapterTitle ? "checkmark.square" : "square")
                         }

@@ -15,6 +15,52 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Nhảy + tô kết quả tìm rồi tắt cuộn; tự tắt cuộn khi kéo tay; dọn tiện ích kho đã gỡ (1.3.261)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Views/Reader/Components/ReaderUserScrollDetector.swift`](../../Sources/Views/Reader/Components/ReaderUserScrollDetector.swift) | `UIViewRepresentable` gắn `UIPanGestureRecognizer` không tiêu thụ touch lên `UIScrollView` bao ngoài; báo lên khi ngón tay kéo dọc quá ngưỡng — phân biệt "người cuộn" với cú `scrollTo` của TTS. `Coordinator`/`ProbeView` nest | 143 |
+| [`Models/Extensions/PruneRepositoryExtensionsCommand.swift`](../../Sources/Models/Extensions/PruneRepositoryExtensionsCommand.swift) | DTO bất biến: `repositoryUrl` + `keepPackageIds` cho lệnh dọn tiện ích kho đã gỡ; tập giữ rỗng = không xoá gì | 22 |
+
+| File sửa | Dòng | Thay đổi |
+|---|---|---|
+| [`Common/Utils/ReaderSearchMatcher.swift`](../../Sources/Common/Utils/ReaderSearchMatcher.swift) | 88 → **120** | thêm value type `Highlight` (nest) + `firstHighlightRange(of:in:)` trả `NSRange` UTF-16 trên chuỗi đang hiển thị |
+| [`Views/Reader/ParagraphCardView.swift`](../../Sources/Views/Reader/ParagraphCardView.swift) | 101 → **106** | `displayText(for:isTranslationEnabled:)` thành `static` — nguồn duy nhất của luật "dịch hay gốc" để range tìm trỏ đúng chuỗi trong `UITextView` |
+| [`Views/Reader/ReaderSearchView.swift`](../../Sources/Views/Reader/ReaderSearchView.swift) | 220 → **223** | `onSelect` mang thêm `query` đã trim lên `ReaderView` để tô lại đúng chữ |
+| [`Views/Reader/ReaderView.swift`](../../Sources/Views/Reader/ReaderView.swift) | 2241 → **2286** | `@State searchHighlight`; `showingFloatingMenu` → `internal`; `jumpToReaderSearchResult` đặt vệt + tắt cuộn; `effectiveHighlightRange` (TTS thắng vệt tìm); gắn `ReaderUserScrollDetector` trong content ScrollView; xoá vệt cũ khi đổi chương |
+| [`Views/Reader/Extensions/ReaderView+Controls.swift`](../../Sources/Views/Reader/Extensions/ReaderView+Controls.swift) | 211 → **248** | `searchHighlightRange(for:chapterIndex:isTranslationEnabled:)` + `handleUserScrollWhilePlaying()` (4 cửa chặn tự tắt oan) |
+| [`Services/Extensions/ExtensionTransactionCoordinator.swift`](../../Sources/Services/Extensions/ExtensionTransactionCoordinator.swift) | 175 → **213** | `pruneRepositoryExtensions(command:in:)` — xoá bản ghi tiện ích kho đã gỡ, chừa tiện ích đã cài (`localPath` khác rỗng), một `save()` |
+| [`Views/Extensions/Manager/RepositoryManagerView.swift`](../../Sources/Views/Extensions/Manager/RepositoryManagerView.swift) | 709 → **726** | `syncExtensions` gọi prune sau khi upsert thành công; tập giữ = `packageId` của command vừa ghi |
+
+* Tổng file Swift 344 → **346** (+2, không xoá file nào).
+* Cạnh mới: `ReaderView` → `ReaderUserScrollDetector` (lá, `import SwiftUI`+`UIKit`; dùng lại `extension UIView.parentScrollView` khai ở `ReaderTextView.swift`); `ReaderView`/`ReaderView+Controls` → `ReaderSearchMatcher.firstHighlightRange` + `ParagraphCardView.displayText`; `RepositoryManagerView` → `ExtensionTransactionCoordinator.pruneRepositoryExtensions` → `PruneRepositoryExtensionsCommand`.
+* Vệt tìm **không** đi qua `ReaderSelectionMapper` (đã xoá 1.3.81): range tính lại mỗi lần render trên chuỗi hiển thị, TTS highlight vẫn thắng. Prune chỉ xoá bản ghi, không đụng file vì tiện ích đã cài bị loại ngay ở bộ lọc.
+
+
+## Tự động sao lưu lên Drive, nút tìm ra header, thông báo đánh dấu đã đọc, nút back không chữ (1.3.260)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Common/Utils/NavigationBarAppearance.swift`](../../Sources/Common/Utils/NavigationBarAppearance.swift) | sửa **tại chỗ** `UINavigationBar.appearance()` để nút back mọi màn chỉ còn mũi tên (iOS 17 không có `.navigationBarBackButtonDisplayMode`) | 44 |
+| [`Services/Backup/DriveAutoBackupPolicy.swift`](../../Sources/Services/Backup/DriveAutoBackupPolicy.swift) | nguồn duy nhất của "có được tự động sao lưu lúc này không" + mọi hằng điều tiết (`maxVersions = 5`, delay khởi động, nhóm mặc định) | 123 |
+| [`Services/Backup/BackupCoordinator+AutoDrive.swift`](../../Sources/Services/Backup/BackupCoordinator+AutoDrive.swift) | một lượt tự động: export → upload → dọn bản `freebook-auto-*` cũ; trả `AutoDriveBackupOutcome`, không toast | 125 |
+| [`Views/Settings/Backup/DriveAutoBackupSettingsView.swift`](../../Sources/Views/Settings/Backup/DriveAutoBackupSettingsView.swift) | bật/tắt, nhịp chạy, nhóm nội dung, trạng thái + nút chạy ngay; `@AppStorage` bind đúng key của policy | 143 |
+
+| File sửa | Dòng | Thay đổi |
+|---|---|---|
+| [`Services/Backup/BackupPaths.swift`](../../Sources/Services/Backup/BackupPaths.swift) | 96 → **113** | tách tiền tố `freebook-auto-` khỏi `freebook-`, thêm `makeAutoBackupFileName`/`isAutoBackupFileName` + helper `timestamp(at:)` dùng chung |
+| [`Services/Backup/BackupCoordinator.swift`](../../Sources/Services/Backup/BackupCoordinator.swift) | 275 → **287** | mở đúng hai cửa nội bộ `setBusy`/`setProgress` cho extension `+AutoDrive` (hai thuộc tính là `private(set)`) |
+| [`Views/Settings/Backup/BackupHubView.swift`](../../Sources/Views/Settings/Backup/BackupHubView.swift) | 190 → **206** | `NavigationLink` thứ hai trong `driveSection` mở màn tự động sao lưu + `autoBackupStateText` |
+| [`Views/MainTabView.swift`](../../Sources/Views/MainTabView.swift) | 96 → **118** | `import SwiftData` + `.task { runAutoDriveBackupIfDue(container:) }` (hoãn ~25 s, một toast cho kết quả) |
+| [`Views/Reader/ReaderHeaderFooterOverlayView.swift`](../../Sources/Views/Reader/ReaderHeaderFooterOverlayView.swift) | 210 → **215** | nút `magnifyingglass` cạnh nút cuộn-theo-TTS; gỡ mục "Tìm trong chương" khỏi menu `ellipsis` |
+| [`Common/Services/NotificationInboxManager.swift`](../../Sources/Common/Services/NotificationInboxManager.swift) | 68 → **88** | thêm `hasUnread` + `markRead(_:)`; `clearAll()` → `deleteUnread()` (chỉ bỏ phần chưa đọc) |
+| [`Views/Shelf/ShelfMain/NotificationInboxView.swift`](../../Sources/Views/Shelf/ShelfMain/NotificationInboxView.swift) | 299 → **307** | hàng toast thành `Button` `.plain` gọi `markRead`; mục menu đổi thành "Xoá thông báo chưa đọc", `.disabled(!hasUnread)` |
+| [`App/FreeBookApp.swift`](../../Sources/App/FreeBookApp.swift) | 105 → **107** | `init()` gọi `NavigationBarAppearance.applyTitlelessBackButton()` cạnh hai dòng `UITabBar.appearance()` |
+
+* Tổng file Swift 340 → **344** (+4, không xoá file nào). `NotificationInboxStore.clearAll()` không còn caller nhưng **giữ lại** vì là primitive hợp lệ của store, không phải code chết của tính năng.
+* Cạnh mới: `MainTabView` → `BackupCoordinator` (trước đây chỉ có `Views/Settings/Backup/**` đi vào coordinator — đây là đường vào **thứ hai**, chạy nền, dùng chung khoá `isBusy`); `BackupCoordinator+AutoDrive` → {`BackupExportWorker`, `GoogleDriveUploader`, `GoogleDriveClient`, `LocalBackupStore`, `DriveAutoBackupPolicy`, `BackupPaths`}; `DriveAutoBackupSettingsView` → {`DriveAutoBackupPolicy`, `BackupCoordinator`, `BackupScopeToggleList`}; `App/FreeBookApp` → `Common/Utils/NavigationBarAppearance` (lá, chỉ `import UIKit`).
+* `Sources/Services/Backup/**` vẫn không `import SwiftUI` và không gọi `ToastManager.shared`: `+AutoDrive` **trả về** `AutoDriveBackupOutcome`, `MainTabView`/`DriveAutoBackupSettingsView` mới hiện toast.
+
 ## Gỡ tìm toàn văn toàn cục; tìm trong Reader + Trung tâm thông báo (1.3.258)
 
 | File mới | Vai trò | Dòng |

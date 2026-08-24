@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Trạng thái vệt tô kết quả tìm và cờ tắt cuộn theo highlight (1.3.261)
+
+* `ReaderView.searchHighlight: ReaderSearchMatcher.Highlight?` là state **ý nghĩa**, không phải state **toạ độ**: nó giữ `(chapterIndex, paragraphIndex, query)`, còn `NSRange` là giá trị **phái sinh tính lại mỗi lần render** trong `searchHighlightRange(...)`. Bất biến bắt buộc: không được cache `NSRange` vào state này — chuỗi hiển thị đổi theo công tắc dịch (`isTranslationEnabled`) và theo việc `translated` đã dựng xong chưa, nên một range đã lưu sẽ trỏ sai ký tự; range phái sinh thì tệ nhất là tự mất (trả `nil`).
+* Vòng đời của nó: `nil` là "không tô gì" (giá trị khởi tạo), được ghi **duy nhất** ở `jumpToReaderSearchResult`, và bị xoá về `nil` ở `.onChange(of: chapterIndex)` — không xoá thì vệt của chương cũ còn treo và sẽ tự tô lại nếu người dùng quay về đúng chương đó. Không có đường nào khác ghi vào nó; đóng sheet tìm **không** xoá vệt (cố ý: vệt là chỉ dẫn cho trang đọc, không thuộc vòng đời của sheet).
+* `isAutoScrollDisabled` nay có **ba** nguồn ghi thay vì một: nút bật/tắt ở header (đã có), `jumpToReaderSearchResult` (nhảy tới kết quả tìm), và `handleUserScrollWhilePlaying` (người dùng kéo trang khi TTS đang đọc). Cả ba đều chỉ ghi `true` ngoài nút toggle. Cờ vẫn **không được persist**: `ReaderView.swift` đọc `UserDefaults("disableAutoScroll_\(bookId)")` một lần lúc dựng và không nơi nào ghi key đó, nên trạng thái tắt là **phạm vi phiên** — cố ý, mở lại truyện là quay về cuộn theo highlight.
+* Mỗi lần ghi `isAutoScrollDisabled = true` phải đi kèm **hai** động tác dọn, nếu không cú cuộn đã hẹn giờ trước đó vẫn nổ: `ttsAutoScrollGeneration += 1` (vô hiệu closure đã schedule) và huỷ `scrollTarget` khi `reason == .ttsAuto` (cú đang chờ). Đây là bất biến của cả hai điểm ghi mới.
+* `ReaderUserScrollDetector.Coordinator.didReportForCurrentDrag` là state **cấp cú kéo**, không phải cấp phiên: bật ở `.changed` khi vượt ngưỡng, tắt ở `.began`/`.ended`/`.cancelled`/`.failed` và ở `detach()`. Nhờ nó một cú kéo dài chỉ gọi `onUserScroll()` đúng **một** lần thay vì mỗi frame. `attachedScrollView` là `weak` và `attach(to:)` idempotent theo identity (`!==`), nên `updateUIView` chạy nhiều lần không tạo recognizer thứ hai.
+* `showingFloatingMenu` đổi từ `private` sang `internal` (không đổi ngữ nghĩa, chỉ mở phạm vi): Swift `private` là phạm vi **file**, mà `handleUserScrollWhilePlaying` sống ở `ReaderView+Controls.swift` và cần đọc cờ này để không coi cú kéo nới vùng bôi đen là "người dùng cuộn".
+
+
 ## Trạng thái gợi ý ô nghĩa, sheet sửa thông tin và tiến độ task (1.3.250)
 
 * `ReaderView.suggestionChips` đổi từ **giá trị phái sinh** (computed property, tính lại mỗi lần `body` evaluate) sang **state tường minh** `@State internal var suggestionChips: [SuggestionChip]`. Nó nay là hàm của hai đại lượng và chỉ được ghi khi một trong hai đổi: chuỗi đang chọn (`updateEditorFromSelection`, `onGetDictionaryMatches`) và nội dung từ điển của từ đó (nhánh xoá định nghĩa). Bất biến bắt buộc: cache phải bị làm mới theo **cả** `bookId` và chuỗi chọn — `refreshSuggestionChips(for:)` luôn nhận từ mới và luôn ghi đè, không có nhánh nào giữ lại giá trị cũ.

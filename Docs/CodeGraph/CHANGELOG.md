@@ -2,7 +2,29 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.228) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.231) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.261] - 2026-08-24
+
+### Tô sáng kết quả tìm, tự tắt cuộn khi kéo trang, dọn tiện ích kho đã gỡ
+
+Thêm **2** file Swift (344 → 346), sửa 7 file; **không** `@Model` nào đổi shape, **không** thêm dependency. Chưa biên dịch (viết trên Windows, không có `xcodebuild`/`xcodegen`) — **phải chạy `xcodegen generate` trên macOS/CI** vì có file mới.
+
+* **Chọn kết quả tìm ⇒ nhảy + tô sáng + tắt cuộn theo highlight**: `ReaderSearchView.onSelect` đổi thành `(Int, Int, String) -> Void` (chapterIndex, paragraphIndex, **query**) để chuỗi truy vấn sống lâu hơn sheet. `ReaderSearchMatcher` thêm struct lồng `Highlight` + `static firstHighlightRange(of:in:)`; `ReaderView.searchHighlight` là `@State` giữ **ý nghĩa** `(chapterIndex, paragraphIndex, query)` chứ không cache `NSRange` — range được tính lại mỗi lần render (`searchHighlightRange(...)`) nên không bao giờ trỏ sai khi bật/tắt dịch. Vệt TTS vẫn thắng: `relativeHighlightRange ?? searchHighlightRange(...)`. Vệt bị xoá ở `.onChange(of: chapterIndex)`, **không** xoá khi đóng sheet.
+* **Người dùng kéo trang lúc TTS đang đọc ⇒ tự tắt cuộn theo highlight**: file mới `Sources/Views/Reader/Components/ReaderUserScrollDetector.swift` (143 dòng) — `UIViewRepresentable` gắn `UIPanGestureRecognizer` **không tiêu thụ touch** (`cancelsTouchesInView = false`, nhận diện đồng thời, không đòi recognizer khác fail) lên `UIScrollView` bao ngoài. Quan sát `contentOffset` bị loại vì cú `ScrollViewProxy.scrollTo` của TTS cũng đổi offset. `handleUserScrollWhilePlaying` (`ReaderView+Controls`) có 4 guard: `!isAutoScrollDisabled`, `isTTSPlayingThisBook`, `!isRestoringReaderPosition`, `!showingFloatingMenu` (chặn cú kéo nới vùng bôi đen). Mỗi lần tắt đều `ttsAutoScrollGeneration += 1` và huỷ `scrollTarget` khi `reason == .ttsAuto`.
+* **Tiện ích kho đã gỡ khỏi registry bị xoá khỏi máy, trừ tiện ích đã cài**: file mới `Sources/Models/Extensions/PruneRepositoryExtensionsCommand.swift` (22 dòng) + `ExtensionTransactionCoordinator.pruneRepositoryExtensions(command:in:)` trả `Result<Int, _>`. `RepositoryManagerView.syncExtensions` gọi prune **sau** khi upsert `.success`, với tập giữ lại suy ra từ chính `commands.map(\.packageId)` nên hai transaction không thể lệch cách viết `packageId`. Ba chốt chặn xoá oan: `items.isEmpty` thoát sớm, `keepPackageIds` rỗng ⇒ `.success(0)`, prune chỉ chạy khi upsert thành công. Tiện ích đã cài (`localPath` khác rỗng) và tiện ích nhập từ zip (`repository == nil`) luôn được giữ; chỉ xoá **bản ghi**, không đụng file.
+* `check_architecture.py` giữ **14 violation, đúng cùng một tập** trước/sau; không nới baseline, không sửa `architecture_allowlist.json`. CodeGraph: cập nhật `00`–`06`, `08`–`14` (`07`, `rules.md` xem lại và vẫn đúng).
+
+## [1.3.260] - 2026-08-24
+
+### Tự sao lưu Drive, nút tìm ra header, thông báo đã đọc, nút back không chữ
+
+Bốn thay đổi UX/nền độc lập. Thêm **4** file Swift, **không** `@Model` nào đổi shape, **không** thêm dependency. Chưa biên dịch (Windows).
+
+* **Nút tìm trong chương ra ngoài header**, đứng cạnh nút bật/tắt cuộn theo TTS thay vì nằm trong menu `ellipsis` (`ReaderHeaderFooterOverlayView`, `ReaderView`, `ReaderView+Controls`).
+* **Trung tâm thông báo**: bấm vào một thông báo ⇒ chỉ thông báo đó thành đã đọc (`NotificationInboxManager.markRead(_:)`, không ghi đĩa lại nếu đã đọc). `clearAll()` được **thay** bằng `deleteUnread() -> Int` — theo đúng yêu cầu "xoá tất cả thông báo chỉ xoá thông báo chưa đọc", nên phần **đã đọc** được giữ lại như nhật ký và nút đổi nhãn theo nghĩa mới (`hasUnread`).
+* **Bỏ chữ ở nút back mọi màn hình**: file mới `Sources/Common/Utils/NavigationBarAppearance.swift` — `applyTitlelessBackButton()` đặt màu chữ trong suốt cho **cả bốn** trạng thái của `backButtonAppearance` trên `UINavigationBar.appearance()`, sửa tại chỗ đối tượng appearance đang có để giữ nền mờ mặc định. Không dùng `UIBarButtonItem.appearance()` (sẽ xoá luôn chữ "Đóng"/"Xong"/"Huỷ"), không dùng `navigationBarBackButtonDisplayMode(.minimal)` (API iOS 18). Gọi một lần ở `FreeBookApp.init()`. Hai nút *hành động* nhãn "Quay lại" trong nội dung (`BookDetailView.swift:611`, `ReaderView+LoadingView.swift:90`) **giữ nguyên** — chúng không phải nút back của thanh điều hướng.
+* **Tự động sao lưu lên Google Drive, giữ 5 bản gần nhất**: file mới `DriveAutoBackupPolicy` (nguồn duy nhất của chính sách chạy: `.cooldown`/`.daily`, `maxVersions = 5`, hoãn 25 s sau khởi động, nhóm mặc định `books/extensions/dictBooks/dictCustom` — cố ý bỏ `.content` và `.dictShared`), `BackupCoordinator+AutoDrive` (thân việc, **trả về** `AutoDriveBackupOutcome`) và `DriveAutoBackupSettingsView`. Đúng khuôn lượt kiểm tra chương mới: `MainTabView.task` là điểm phát duy nhất và là nơi hiện toast, nên `Sources/Services/**` vẫn không gọi `ToastManager`. Bản thứ 6 trở đi (cũ nhất trước) bị xoá ngay sau khi bản mới tải lên xong.
 
 ## [1.3.259] - 2026-08-23
 
@@ -404,45 +426,3 @@ Chỉ sửa hạ tầng tài liệu/quy trình; không đụng `Sources/`, `Test
 * **`.agents/AGENTS.md`** (sửa theo yêu cầu trực tiếp của người dùng, đúng §7): bước 6 đổi từ "tính lại `sourceHash`/`generatedHash` thủ công" sang chạy `--explain` rồi ghi nhận từng doc bằng `--accept`/`--no-change-needed` (validator tự ghi 3 hash + `reviewMode`, không sửa tay); bước 7 nêu rõ read-only phải PASS gồm cả điều kiện "không doc nào còn stale"; §5 thêm ghi chú validator tự phát hiện trigger qua `sourcePatterns`/`staleOn`; §6 Completion Criteria mục 3-4 cập nhật theo audit trail + luật xoay CHANGELOG. Mọi chi tiết luật vẫn trỏ về `rules.md` §6.2, không nhân bản.
 * **`.gitignore`**: bỏ dòng `/AGENTS.md`. Bản mirror `AGENTS.md` (đích cho Codex, đúng ghi chú đầu `CLAUDE.md`) trước đây bị ignore nên chỉ tồn tại cục bộ; giờ được track để commit và tới được agent khác. Regenerate mirror từ `CLAUDE.md`, `diff` từ dòng 4 = khớp.
 * Không entry nào trong 16 doc CodeGraph bị stale (thay đổi không chạm `Sources/**`); `validate_links.py` read-only vẫn PASS.
-
-## [1.3.231] - 2026-08-21
-
-### Xoay CHANGELOG: tách lịch sử cũ sang CHANGELOG.archive.md
-
-Chỉ sửa hạ tầng tài liệu; không đụng `Sources/` hay `Tests/`. `CHANGELOG.md` đã phình tới ~95K token / 2986 dòng (222 entry ≤ 1.3.200), lớn hơn nửa mã nguồn và không ai được lệnh *đọc* — thuần chi phí ghi, đi ngược mục tiêu tiết kiệm token của CodeGraph.
-
-* **Tách file**: giữ 18 version gần nhất (1.3.213 → 1.3.231, ~6.9K token) trong `CHANGELOG.md`; chuyển toàn bộ entry ≤ 1.3.200 sang `CHANGELOG.archive.md` (~88K token, chỉ để tra cứu). 3 link `../../Sources/*.swift` trong phần cũ vẫn resolve vì archive nằm cùng thư mục.
-* **Luật xoay (`CLAUDE.md` / `AGENTS.md`)**: khi `CHANGELOG.md` vượt ~30 entry, đẩy phần cũ nhất sang `CHANGELOG.archive.md`; luôn thêm entry mới vào `CHANGELOG.md`, không bao giờ vào archive.
-* `validate_links.py` vẫn PASS 16 documents / 218 Swift files (nó kiểm link mọi `*.md` trong `Docs/CodeGraph`, gồm cả archive mới).
-
-## [1.3.230] - 2026-08-21
-
-### Định tuyến staleness theo từng doc: sourcePatterns, --explain, --accept/--no-change-needed
-
-Chỉ sửa hạ tầng tài liệu (`Docs/CodeGraph/`, `CLAUDE.md`, `AGENTS.md`); không đụng `Sources/` hay `Tests/`. Trước bản này, `manifest.json` lưu **cùng một danh sách 205 file** cho cả 16 doc và `--update-hashes` tính lại mọi hash vô điều kiện, nên đổi logic hay thêm file chỉ làm `manifest.json` + `CHANGELOG.md` đổi còn doc không bao giờ bị chỉ ra là stale.
-
-* **`manifest.json` → `schemaVersion: 2`**: mỗi doc khai `sourcePatterns` (glob tương đối gốc repo) thay cho danh sách file nhân bản, cộng `staleOn` (`structure` cho `00_index`, `02`, `09`, `14`; `content` cho `01`, `03`–`08`, `10`–`13`, `rules.md`), `structureHash` (băm *tập đường dẫn*), và audit trail `reviewedAt` / `reviewedCommit` / `reviewMode`. `sourceFiles` giờ do script tự ghi từ pattern.
-* **`codegraph.schema.json`**: khai 6 field mới và đưa vào `required`.
-* **`validate_links.py`**: viết lại phần manifest — `structureHash` bắt thêm/xoá/đổi tên file, `sourceHash` bắt sửa nội dung trong phạm vi doc; thêm **Coverage Rule** hai điều kiện (mọi `Sources/**/*.swift` phải khớp pattern của ít nhất một doc, **và** phải được ít nhất một doc `content` phủ — nếu chỉ doc `structure` phủ thì sửa nội dung không làm doc nào stale), FAIL kèm tên file nếu vi phạm; thêm `--explain [--since REF]` liệt kê doc stale + lý do + file Swift đã đổi; thêm `--accept DOC…` (từ chối nếu vùng GENERATED không đổi) và `--no-change-needed DOC…` (ghi nhận "đã xem, vẫn đúng"); `--update-hashes` chỉ accept doc đã sửa rồi **FAIL nếu còn doc stale**; `--bootstrap` dành riêng cho lần đổi `sourcePatterns`. Tên doc nhận `08`, `08_lifecycle.md` hoặc đường dẫn đầy đủ; output ép UTF-8 để chạy được trên console Windows.
-* **Phạm vi `11_subsystems.md`** mở rộng thành `Sources/Services/**` + `Sources/Views/**` + `Sources/Models/Extensions/*` để 218/218 file đều có doc content-mode phụ trách (trước đó 49 file Views chỉ được doc structure phủ, và 12 file chưa từng nằm trong `sourceFiles` của doc nào).
-* **`rules.md` §6.2 + §7**: thêm Doc Routing Policy / Doc Review Policy / Coverage Rule, viết lại Manifest Hash Policy theo 3 hash, và bỏ thói quen `--update-hashes` vô điều kiện khỏi checklist.
-* **`CLAUDE.md` / `AGENTS.md`**: mục Commands liệt kê 5 chế độ validator và nêu rõ không có hook/CI nào chạy nó — đây là cổng chạy tay.
-* Cổng đã được tự kiểm chứng bằng cách giả lập stale trong `manifest.json` (không sửa `Sources/`): read-only FAIL đúng tên doc → `--update-hashes` từ chối bless → `--accept` bị chặn vì GENERATED không đổi → `--no-change-needed` xoá stale; trường hợp "thêm file mới" cũng báo đúng tên file thêm vào.
-
-## [1.3.229] - 2026-08-21
-
-### Cập nhật tài liệu CodeGraph khớp code: highlight TTS, thermal, cache prefetch, số liệu file
-
-Sửa **tài liệu** (không đụng `Sources/` hay `Tests/`) tại 22 điểm đã trôi so với code hiện tại. Toàn bộ nội dung nằm trong vùng `<!-- GENERATED START/END -->` và YAML front matter; không đụng "Ghi chú thủ công".
-
-* **Highlight & selection (`rules.md`, `CLAUDE.md`, `AGENTS.md`)**: `TTSParagraph.range` là offset UTF-16 trên chuỗi **đang hiển thị** và **tương đối dòng cha**, `sourceRange` mới ánh xạ về text gốc. `ReaderSelectionMapper.mapHighlight`/`mappedRangeUsingOriginalSpans`/`proportionalHighlightFallback` đã xoá ở 1.3.81 — bỏ yêu cầu map highlight; `ReaderSelectionMapper` chỉ còn `mapSelection`.
-* **Thermal (`rules.md`, `00_index`, `06`, `10`, `13`)**: bỏ mọi mô tả gating theo `.serious`/`.critical` cho Nghi/Remote refill và next-chapter audio. Thermal chỉ là telemetry/diagnostic (`TTSManager.currentThermalState` + energy log). `NghiSynthesisPolicy` chỉ giữ watermark (`defaultSafeCachedTimeThreshold = 8.0`, dải `4.0...20.0`) và `maxOptionalReserveItems = 2`, không cooldown/thermal eligibility; retry refill là backoff 1s (tối đa 2 lần) do `TTSManager` sở hữu.
-* **Cache prefetch (`rules.md`, `CLAUDE.md`, `AGENTS.md`)**: `preloadedWavs` → `preloadedData`/`preloadedDurations`; cửa sổ đúng là Remote `[N, N+count]` (count clamp 1…10), Nghi `N` + `N+1` bắt buộc + ≤2 optional reserve.
-* **Audio playback (`13`, `10` R-05/R-15)**: node graph `AVAudioEngine` được dựng nhưng **không phát** (`TTSAudioEngineController.play()` không caller, không `scheduleBuffer`); phát thật qua `AVAudioPlayer` (`NghiAudioPlayerQueue` double-buffer cho nghitts, `TTSManager.audioPlayer` cho google/ext) và `AVSpeechSynthesizer` cho `system`. Retain-cycle risk chuyển về callback delegate `AVAudioPlayer`.
-* **Lifecycle & callbacks (`08`, `13`)**: chỉ còn callback `onChapterFinished` (bỏ `onChapterNext`/`onChapterPrev`); Reader không nil callback trong `onDisappear`. `onDisappear` chạy `shutdown(saveProgress: !ttsOwnsProgress)` + `ChapterContentRepository.flush(bookId:)`; `saveProgressImmediately()` thuộc nhánh `scenePhase == .background`.
-* **Logging (`rules.md`, `CLAUDE.md`, `AGENTS.md`)**: `app_logs.txt` ở `applicationSupportDirectory`, không phải `Documents`; `AppLogger.init` set `isLoggingEnabled = false` mỗi lần khởi chạy, tự xoá khi >5 MB.
-* **Model schema (`rules.md`)**: thêm `DownloadTaskModel` (schema có 5 `@Model`).
-* **Sai lệch tên/đường dẫn**: `TTSPresentationEventCenter.shared.events` → `.stream` (`04`); `DisplayTextFormatter.swift` ở `Common/Extensions/` (`02`); `ReaderSelectionCoordinator` là misnomer, chỉ có `getHanViet`+`formatMeaning` (`03`); miễn trừ SwiftUI khớp hậu tố `*WebViewLoader.swift`, hiện không file Services nào import SwiftUI (`09`, `rules.md`).
-* **Sparse paragraph IDs**: sửa cùng một câu ở `00_index`, `06`, `08`, `10`, `13`, `14` — `ChapterTextLine.id` là chỉ số dòng thô (tính cả dòng trống), không phải array index; `utf16Range` không dùng để cắt `content`.
-* **Số liệu (`14`, `00_index`, `02`, front matter 16 file)**: `source_files` → `218`; §1.1/§1.2 dựng lại theo `wc -l` và công thức CC của doc; §1.3 đổi nhãn thành "Max Brace Nesting Depth" (giá trị thật 10–18). `ReaderParagraphBuilder`/`TTSParagraphBuilder.build(from:)` chỉ test dùng, không caller production (`00_index`).
-

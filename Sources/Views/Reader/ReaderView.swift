@@ -137,7 +137,9 @@ struct ReaderView: View {
     // (xem doc ở file đó: computed property khiến ~6 lần tra trie chạy lại mỗi lần body evaluate).
     @State internal var suggestionChips: [SuggestionChip] = []
     @State private var showingManageDefinitionsSheet = false
-    @State private var showingFloatingMenu = false
+    /// `internal` để `ReaderView+Controls` đọc được: đầu dò cuộn tay phải bỏ qua cú kéo đang mở
+    /// menu bôi đen (kéo để nới vùng chọn không phải là "người dùng cuộn trang").
+    @State internal var showingFloatingMenu = false
     @State private var selectionMinY: CGFloat? = nil
     @State private var selectionMaxY: CGFloat? = nil
     @State private var showingAddNghiTTSPhonemeSheet = false
@@ -212,6 +214,8 @@ struct ReaderView: View {
 
     @State internal var showingChapterList = false
     @State private var showingReaderSearch = false
+    /// Kết quả tìm vừa được nhảy tới — dùng để tô vệt trên trang. `nil` = không tô gì.
+    @State internal var searchHighlight: ReaderSearchMatcher.Highlight? = nil
     @State internal var showingBookDictionary = false
     @State internal var currentOnlineChapters: [ChapterResult] = []
     @State internal var chapterListStore: ReaderChapterListStore? = nil
@@ -588,8 +592,12 @@ struct ReaderView: View {
                 chapters: snapshot.chapters,
                 chapterTitles: snapshot.titles,
                 currentChapterIndex: viewModel?.displayedChapterIndex ?? chapterIndex,
-                onSelect: { targetChapter, targetParagraph in
-                    jumpToReaderSearchResult(chapterIndex: targetChapter, paragraphIndex: targetParagraph)
+                onSelect: { targetChapter, targetParagraph, query in
+                    jumpToReaderSearchResult(
+                        chapterIndex: targetChapter,
+                        paragraphIndex: targetParagraph,
+                        query: query
+                    )
                 }
             )
         }
@@ -965,11 +973,15 @@ struct ReaderView: View {
                 viewModel?.saveProgressImmediately()
             }
         }
-        .onChange(of: chapterIndex) { _, _ in
+        .onChange(of: chapterIndex) { _, newIndex in
             updateProgressWorkItem?.cancel()
             updateTTSPositionWorkItem?.cancel()
             prepareTTSTask?.cancel()
             paragraphTracker.removeAll()
+            // Vệt tìm chỉ có nghĩa ở đúng chương của nó; rời chương thì bỏ.
+            if let highlight = searchHighlight, highlight.chapterIndex != newIndex {
+                searchHighlight = nil
+            }
 
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ttsDidAdvanceToNextChapter"))) { notification in
@@ -1661,6 +1673,13 @@ struct ReaderView: View {
 
                 return chunkRange
             }()
+            // Vệt TTS luôn thắng vệt tìm: hệ toạ độ của TTS là bất biến của trục highlight, còn
+            // vệt tìm chỉ là chỉ dẫn tạm cho người dùng.
+            let effectiveHighlightRange = relativeHighlightRange ?? searchHighlightRange(
+                for: item,
+                chapterIndex: chapter.index,
+                isTranslationEnabled: isTrans
+            )
 
             ParagraphCardView(
                 item: item,
@@ -1670,7 +1689,7 @@ struct ReaderView: View {
                 lineSpacing: spacing,
                 fontFamily: fontFamily,
                 theme: theme,
-                highlightRange: relativeHighlightRange,
+                highlightRange: effectiveHighlightRange,
                 triggerGetVisibleIndex: $triggerGetVisibleIndex,
                 clearSelectionTrigger: $clearSelectionTrigger,
                 onGetVisibleIndex: { visibleOffset in
@@ -1816,7 +1835,26 @@ struct ReaderView: View {
 
     /// Nhảy tới kết quả tìm: cùng chương ⇒ chỉ cuộn; khác chương ⇒ đi qua đúng cửa `requestChapter`
     /// mà danh sách chương / TTS-sync đang dùng.
-    private func jumpToReaderSearchResult(chapterIndex targetChapter: Int, paragraphIndex targetParagraph: Int) {
+    ///
+    /// Kèm hai hệ quả cố ý: (1) tô vệt đúng từ khoá tại đoạn đích, (2) **tắt** cuộn theo highlight
+    /// TTS — nếu để bật, lượt highlight kế tiếp sẽ kéo màn hình khỏi kết quả người dùng vừa mở.
+    /// `ttsAutoScrollGeneration` tăng để mọi cú cuộn TTS đã hẹn giờ trước đó tự vô hiệu.
+    private func jumpToReaderSearchResult(
+        chapterIndex targetChapter: Int,
+        paragraphIndex targetParagraph: Int,
+        query: String
+    ) {
+        searchHighlight = ReaderSearchMatcher.Highlight(
+            chapterIndex: targetChapter,
+            paragraphIndex: targetParagraph,
+            query: query
+        )
+        isAutoScrollDisabled = true
+        ttsAutoScrollGeneration += 1
+        if scrollTarget?.reason == .ttsAuto {
+            scrollTarget = nil
+        }
+
         let displayedIndex = viewModel?.displayedChapterIndex ?? chapterIndex
         if targetChapter == displayedIndex {
             scrollTarget = ScrollTarget(chapterIndex: targetChapter, paragraphIndex: targetParagraph)
@@ -2160,6 +2198,13 @@ struct ReaderView: View {
                 )
                 .padding(.horizontal, 18)
                 .padding(.vertical, 24)
+                // Đầu dò phải nằm TRONG content của ScrollView để tìm được `UIScrollView` bao ngoài.
+                .background(
+                    ReaderUserScrollDetector { handleUserScrollWhilePlaying() }
+                        .frame(width: 1, height: 1)
+                        .allowsHitTesting(false),
+                    alignment: .topLeading
+                )
             }
             .onAppear {
                 renderedChapterIndex = chapter.index

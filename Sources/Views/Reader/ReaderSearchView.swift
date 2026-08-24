@@ -4,13 +4,16 @@ import SwiftUI
 /// đọc + vài chương lân cận đã cache). Khớp cả chữ gốc lẫn chữ đã dịch qua `ReaderSearchMatcher`;
 /// bấm một kết quả sẽ nhảy tới đúng đoạn qua closure `onSelect`.
 ///
+/// `onSelect` trả kèm **từ khoá đã trim** để `ReaderView` tô lại đúng chữ đó trên trang; sheet
+/// không tự tính `NSRange` vì range phải tính trên chuỗi đang hiển thị ở trang đọc.
+///
 /// View chỉ nhận **snapshot bất biến** các chương (dựng sẵn từ `ReaderViewModel.cache` ở `ReaderView`),
 /// nên nó không giữ tham chiếu tới view model và không kích hoạt nạp chương mới.
 struct ReaderSearchView: View {
     let chapters: [ReaderSearchMatcher.Chapter]
     let chapterTitles: [Int: String]
     let currentChapterIndex: Int
-    let onSelect: (_ chapterIndex: Int, _ paragraphIndex: Int) -> Void
+    let onSelect: (_ chapterIndex: Int, _ paragraphIndex: Int, _ query: String) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var query: String = ""
@@ -103,7 +106,7 @@ struct ReaderSearchView: View {
                 Section {
                     ForEach(group.hits) { hit in
                         Button {
-                            onSelect(hit.chapterIndex, hit.paragraphIndex)
+                            onSelect(hit.chapterIndex, hit.paragraphIndex, trimmedQuery)
                             dismiss()
                         } label: {
                             resultRow(hit)

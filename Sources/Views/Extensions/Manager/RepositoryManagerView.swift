@@ -680,6 +680,10 @@ struct RepositoryManagerView: View {
     
     /// Đồng bộ cả kho: chụp `localPath` hiện có trên MainActor, tải/parse `plugin.json` **song song
     /// ngoài main** qua `ExtensionSyncCommandBuilder`, rồi ghi **một transaction duy nhất**.
+    ///
+    /// Sau khi ghi xong mới dọn các tiện ích kho đã gỡ khỏi registry (`pruneRepositoryExtensions`) —
+    /// đúng thứ tự này, vì tập giữ lại được suy ra từ chính danh sách command vừa ghi. Registry rỗng
+    /// thoát sớm ở `guard` đầu hàm nên một lần fetch lỗi không bao giờ quét sạch kho.
     @MainActor
     @discardableResult
     internal func syncExtensions(for repoUrl: String, with items: [ExtensionRegistryItem]) async -> Result<Void, ExtensionTransactionError> {
@@ -699,6 +703,19 @@ struct RepositoryManagerView: View {
 
         let commands = await ExtensionSyncCommandBuilder.build(inputs: inputs, repositoryUrl: repoUrl)
         let result = ExtensionTransactionCoordinator.shared.upsertExtensions(commands: commands, in: modelContext)
+        if case .success = result {
+            let keep = Set(commands.map { $0.packageId })
+            let pruneCmd = PruneRepositoryExtensionsCommand(repositoryUrl: repoUrl, keepPackageIds: keep)
+            let pruneRes = ExtensionTransactionCoordinator.shared.pruneRepositoryExtensions(command: pruneCmd, in: modelContext)
+            switch pruneRes {
+            case .success(let removed) where removed > 0:
+                AppLogger.shared.log("ℹ️ [ExtSync] Đã xoá \(removed) tiện ích kho \(repoUrl) đã gỡ khỏi registry (giữ tiện ích đã cài)")
+            case .success:
+                break
+            case .failure(let err):
+                AppLogger.shared.log("⚠️ [ExtSync] Dọn tiện ích đã gỡ của kho \(repoUrl) thất bại: \(err.localizedDescription)")
+            }
+        }
         let elapsed = String(format: "%.2f", Date().timeIntervalSince(startedAt))
         AppLogger.shared.log("ℹ️ [ExtSync] Đồng bộ \(commands.count)/\(items.count) ext của kho \(repoUrl) trong \(elapsed)s")
         return result

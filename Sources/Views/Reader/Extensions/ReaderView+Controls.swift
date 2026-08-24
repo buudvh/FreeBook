@@ -208,4 +208,41 @@ extension ReaderView {
                 .clipShape(Circle())
         }
     }
+
+    /// `NSRange` (UTF-16) của từ khoá tìm trong đoạn `item`, hoặc `nil` khi đoạn này không phải
+    /// đoạn vừa được nhảy tới. Range tính lại mỗi lần render trên **chuỗi đang hiển thị**, nên bật/
+    /// tắt dịch giữa đường chỉ làm vệt tự dời hoặc tự mất, không bao giờ trỏ sai chỗ.
+    internal func searchHighlightRange(
+        for item: ParagraphItem,
+        chapterIndex: Int,
+        isTranslationEnabled: Bool
+    ) -> NSRange? {
+        guard let highlight = searchHighlight,
+              highlight.chapterIndex == chapterIndex,
+              highlight.paragraphIndex == item.id else { return nil }
+        let displayed = ParagraphCardView.displayText(for: item, isTranslationEnabled: isTranslationEnabled)
+        return ReaderSearchMatcher.firstHighlightRange(of: highlight.query, in: displayed)
+    }
+
+    /// Người dùng tự kéo trang trong lúc TTS đang đọc truyện này ⇒ tắt cuộn theo highlight.
+    /// Không có cú kéo nào thì không đổi gì, nên tính năng này vô hình với người không dùng tới.
+    ///
+    /// Ba cửa chặn để không tự tắt oan: đang bôi đen chữ (kéo để nới vùng chọn), đang khôi phục
+    /// vị trí đọc (cú cuộn sâu của máy), và trạng thái đã tắt sẵn. Cú cuộn tự động của TTS không
+    /// bao giờ tới được đây vì đầu dò chỉ nổ theo `UIPanGestureRecognizer` — xem
+    /// `ReaderUserScrollDetector`.
+    internal func handleUserScrollWhilePlaying() {
+        guard !isAutoScrollDisabled else { return }
+        guard isTTSPlayingThisBook else { return }
+        guard !isRestoringReaderPosition else { return }
+        guard !showingFloatingMenu else { return }
+
+        isAutoScrollDisabled = true
+        // Vô hiệu mọi cú cuộn TTS đã hẹn giờ trước đó, kể cả cú đang chờ trong scrollTarget.
+        ttsAutoScrollGeneration += 1
+        if scrollTarget?.reason == .ttsAuto {
+            scrollTarget = nil
+        }
+        AppLogger.shared.log("[Reader] Người dùng tự cuộn khi TTS đang đọc — tắt cuộn theo highlight")
+    }
 }

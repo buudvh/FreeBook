@@ -15,6 +15,27 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời đầu dò cuộn, vệt tô kết quả tìm và lượt dọn kho (1.3.261)
+
+* `ReaderUserScrollDetector` có **hai đường gắn và hai đường gỡ**, cố ý dư thừa: gắn chính ở `ProbeView.didMoveToWindow` (thời điểm sớm nhất chắc chắn có `UIScrollView` bao ngoài), lưới an toàn ở `updateUIView` cho trường hợp probe vào hierarchy trước khi tìm ra scroll view; gỡ chính ở `dismantleUIView` → `Coordinator.detach()`, gỡ dự phòng ở `Coordinator.deinit`. `attach(to:)` guard theo identity (`attachedScrollView !== scrollView`) nên hai đường gắn không bao giờ tạo recognizer thứ hai; `detach()` idempotent.
+* Đầu dò sống theo **subtree nội dung chương**, không theo `ReaderView`: nó là `.background` của `LazyVStack` trong `singleChapterScrollView`, nên mỗi lần đổi chương (subtree bị dựng lại qua trạng thái skeleton, xem 1.3.242) là một vòng `dismantle` → `make` mới. Đây là lý do không được giữ trạng thái phiên nào trong `Coordinator` ngoài `didReportForCurrentDrag`.
+* `searchHighlight` sống lâu hơn sheet tìm: sheet đóng ngay khi `onSelect` chạy, còn vệt tô chỉ bị xoá ở `.onChange(of: chapterIndex)` hoặc khi `ReaderView` bị huỷ (`@State` mất theo view). Không có `.onDisappear` nào dọn nó — đóng sheet mà xoá vệt thì người dùng không bao giờ thấy kết quả mình vừa bấm.
+* Lượt đồng bộ kho nay có **hai transaction nối tiếp trong một vòng đời `syncExtensions`**: upsert trước, prune sau, và prune chỉ chạy khi upsert `.success`. Thứ tự này là bắt buộc vì tập giữ lại được suy ra từ chính danh sách command vừa ghi (`commands.map(\.packageId)`), không phải chuẩn hoá lại `items`. Cả hai điểm vào (`addNewRepository` cho kho mới, `refreshAllRepositories` cho refresh tay và `.onAppear`) đi qua đúng hàm này nên đều dọn.
+
+
+## Vòng đời lượt tự động sao lưu Drive + appearance nút back (1.3.260)
+
+Lượt tự động sao lưu **không** nằm trong chuỗi khởi động chặn app. Nó là bước thứ hai được treo vào `.task` của `MainTabView`, tức chỉ chạy sau khi cổng `TranslationManager.shared.isInitialized` của `AppLaunchRootView` mở:
+
+1. `MainTabView.body` xuất hiện → `.task { await runAutoDriveBackupIfDue(container: modelContext.container) }`. Task thuộc vòng đời view: app bị kill là nó chết, không có `BGTaskScheduler`, không có timer nền. Nghĩa là mỗi lần khởi động app có **đúng một** cơ hội chạy.
+2. `DriveAutoBackupPolicy.shouldRun()` — tắt trong Cài Đặt, chưa hết `cooldownHours` (mặc định 24, kẹp 6...168), hoặc chế độ "mỗi ngày một lần" mà chưa qua `dailyHour` (mặc định 22) ⇒ **thoát im lặng ngay**, không ngủ, không request nào.
+3. `Task.sleep(startupDelayNanoseconds)` (~25 s) rồi `guard !Task.isCancelled` — nhường lúc `DownloadManager.initialize`/`TTSManager.initialize` và lượt kiểm tra chương mới của `ShelfView` đang tranh CPU/mạng. Người dùng đóng app trong 25 s đầu ⇒ lượt bị bỏ, mốc cooldown **chưa** bị đánh dấu nên lần mở sau vẫn chạy.
+4. `runAutoDriveBackup` — `guard !isBusy` chặn chồng lượt với mọi việc sao lưu/khôi phục thủ công (cùng một khoá của `BackupCoordinator`), sau đó `markRun()` **trước** phần việc nặng: lượt thất bại cũng phải chờ tới lượt kế, không nén-và-tải lại mỗi lần mở app.
+5. `setBusy(true)` + `defer { setBusy(false) }` bao trọn export → upload → dọn → `refreshLocal()`/`refreshDriveFiles()`. Vì `isBusy`/`progress` là `@Published`, màn Backup nếu đang mở sẽ thấy đúng tiến độ này; `defer` bảo đảm khoá được nhả cả trên nhánh `throw`.
+6. Vòng đời file: mỗi lượt sinh một `freebook-auto-<yyyyMMdd-HHmmss>.fbbackup` **trong máy** rồi tải lên Drive; dọn chạy **sau** khi upload xong nên số bản luôn ≥ 1 kể cả khi việc xoá lỗi. Xem `13_resource_lifecycle.md` cho trần 5 bản ở hai phía.
+
+Appearance nút back là hiệu ứng **một lần, toàn tiến trình**: `FreeBookApp.init()` gọi `NavigationBarAppearance.applyTitlelessBackButton()` cùng chỗ với hai lời gọi `UITabBar.appearance()`. Nó sửa **tại chỗ** object appearance đang có (không thay object mới) nên nền translucent mặc định của navigation bar giữ nguyên, và vì proxy UIKit chỉ ảnh hưởng view **được tạo sau đó**, chỗ gọi phải là `init()` của `App` — không View nào được gọi lại.
+
 ## Vòng đời preload Trung tâm thông báo + dọn chỉ mục cũ (1.3.258)
 
 Trung tâm thông báo có store JSON riêng (`notifications.json`), nạp ngoài chuỗi chặn khởi động:

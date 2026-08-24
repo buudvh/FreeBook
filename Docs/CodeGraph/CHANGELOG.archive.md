@@ -1,6 +1,47 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.228) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.231) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.231] - 2026-08-21
+
+### Xoay CHANGELOG: tách lịch sử cũ sang CHANGELOG.archive.md
+
+Chỉ sửa hạ tầng tài liệu; không đụng `Sources/` hay `Tests/`. `CHANGELOG.md` đã phình tới ~95K token / 2986 dòng (222 entry ≤ 1.3.200), lớn hơn nửa mã nguồn và không ai được lệnh *đọc* — thuần chi phí ghi, đi ngược mục tiêu tiết kiệm token của CodeGraph.
+
+* **Tách file**: giữ 18 version gần nhất (1.3.213 → 1.3.231, ~6.9K token) trong `CHANGELOG.md`; chuyển toàn bộ entry ≤ 1.3.200 sang `CHANGELOG.archive.md` (~88K token, chỉ để tra cứu). 3 link `../../Sources/*.swift` trong phần cũ vẫn resolve vì archive nằm cùng thư mục.
+* **Luật xoay (`CLAUDE.md` / `AGENTS.md`)**: khi `CHANGELOG.md` vượt ~30 entry, đẩy phần cũ nhất sang `CHANGELOG.archive.md`; luôn thêm entry mới vào `CHANGELOG.md`, không bao giờ vào archive.
+* `validate_links.py` vẫn PASS 16 documents / 218 Swift files (nó kiểm link mọi `*.md` trong `Docs/CodeGraph`, gồm cả archive mới).
+
+## [1.3.230] - 2026-08-21
+
+### Định tuyến staleness theo từng doc: sourcePatterns, --explain, --accept/--no-change-needed
+
+Chỉ sửa hạ tầng tài liệu (`Docs/CodeGraph/`, `CLAUDE.md`, `AGENTS.md`); không đụng `Sources/` hay `Tests/`. Trước bản này, `manifest.json` lưu **cùng một danh sách 205 file** cho cả 16 doc và `--update-hashes` tính lại mọi hash vô điều kiện, nên đổi logic hay thêm file chỉ làm `manifest.json` + `CHANGELOG.md` đổi còn doc không bao giờ bị chỉ ra là stale.
+
+* **`manifest.json` → `schemaVersion: 2`**: mỗi doc khai `sourcePatterns` (glob tương đối gốc repo) thay cho danh sách file nhân bản, cộng `staleOn` (`structure` cho `00_index`, `02`, `09`, `14`; `content` cho `01`, `03`–`08`, `10`–`13`, `rules.md`), `structureHash` (băm *tập đường dẫn*), và audit trail `reviewedAt` / `reviewedCommit` / `reviewMode`. `sourceFiles` giờ do script tự ghi từ pattern.
+* **`codegraph.schema.json`**: khai 6 field mới và đưa vào `required`.
+* **`validate_links.py`**: viết lại phần manifest — `structureHash` bắt thêm/xoá/đổi tên file, `sourceHash` bắt sửa nội dung trong phạm vi doc; thêm **Coverage Rule** hai điều kiện (mọi `Sources/**/*.swift` phải khớp pattern của ít nhất một doc, **và** phải được ít nhất một doc `content` phủ — nếu chỉ doc `structure` phủ thì sửa nội dung không làm doc nào stale), FAIL kèm tên file nếu vi phạm; thêm `--explain [--since REF]` liệt kê doc stale + lý do + file Swift đã đổi; thêm `--accept DOC…` (từ chối nếu vùng GENERATED không đổi) và `--no-change-needed DOC…` (ghi nhận "đã xem, vẫn đúng"); `--update-hashes` chỉ accept doc đã sửa rồi **FAIL nếu còn doc stale**; `--bootstrap` dành riêng cho lần đổi `sourcePatterns`. Tên doc nhận `08`, `08_lifecycle.md` hoặc đường dẫn đầy đủ; output ép UTF-8 để chạy được trên console Windows.
+* **Phạm vi `11_subsystems.md`** mở rộng thành `Sources/Services/**` + `Sources/Views/**` + `Sources/Models/Extensions/*` để 218/218 file đều có doc content-mode phụ trách (trước đó 49 file Views chỉ được doc structure phủ, và 12 file chưa từng nằm trong `sourceFiles` của doc nào).
+* **`rules.md` §6.2 + §7**: thêm Doc Routing Policy / Doc Review Policy / Coverage Rule, viết lại Manifest Hash Policy theo 3 hash, và bỏ thói quen `--update-hashes` vô điều kiện khỏi checklist.
+* **`CLAUDE.md` / `AGENTS.md`**: mục Commands liệt kê 5 chế độ validator và nêu rõ không có hook/CI nào chạy nó — đây là cổng chạy tay.
+* Cổng đã được tự kiểm chứng bằng cách giả lập stale trong `manifest.json` (không sửa `Sources/`): read-only FAIL đúng tên doc → `--update-hashes` từ chối bless → `--accept` bị chặn vì GENERATED không đổi → `--no-change-needed` xoá stale; trường hợp "thêm file mới" cũng báo đúng tên file thêm vào.
+
+## [1.3.229] - 2026-08-21
+
+### Cập nhật tài liệu CodeGraph khớp code: highlight TTS, thermal, cache prefetch, số liệu file
+
+Sửa **tài liệu** (không đụng `Sources/` hay `Tests/`) tại 22 điểm đã trôi so với code hiện tại. Toàn bộ nội dung nằm trong vùng `<!-- GENERATED START/END -->` và YAML front matter; không đụng "Ghi chú thủ công".
+
+* **Highlight & selection (`rules.md`, `CLAUDE.md`, `AGENTS.md`)**: `TTSParagraph.range` là offset UTF-16 trên chuỗi **đang hiển thị** và **tương đối dòng cha**, `sourceRange` mới ánh xạ về text gốc. `ReaderSelectionMapper.mapHighlight`/`mappedRangeUsingOriginalSpans`/`proportionalHighlightFallback` đã xoá ở 1.3.81 — bỏ yêu cầu map highlight; `ReaderSelectionMapper` chỉ còn `mapSelection`.
+* **Thermal (`rules.md`, `00_index`, `06`, `10`, `13`)**: bỏ mọi mô tả gating theo `.serious`/`.critical` cho Nghi/Remote refill và next-chapter audio. Thermal chỉ là telemetry/diagnostic (`TTSManager.currentThermalState` + energy log). `NghiSynthesisPolicy` chỉ giữ watermark (`defaultSafeCachedTimeThreshold = 8.0`, dải `4.0...20.0`) và `maxOptionalReserveItems = 2`, không cooldown/thermal eligibility; retry refill là backoff 1s (tối đa 2 lần) do `TTSManager` sở hữu.
+* **Cache prefetch (`rules.md`, `CLAUDE.md`, `AGENTS.md`)**: `preloadedWavs` → `preloadedData`/`preloadedDurations`; cửa sổ đúng là Remote `[N, N+count]` (count clamp 1…10), Nghi `N` + `N+1` bắt buộc + ≤2 optional reserve.
+* **Audio playback (`13`, `10` R-05/R-15)**: node graph `AVAudioEngine` được dựng nhưng **không phát** (`TTSAudioEngineController.play()` không caller, không `scheduleBuffer`); phát thật qua `AVAudioPlayer` (`NghiAudioPlayerQueue` double-buffer cho nghitts, `TTSManager.audioPlayer` cho google/ext) và `AVSpeechSynthesizer` cho `system`. Retain-cycle risk chuyển về callback delegate `AVAudioPlayer`.
+* **Lifecycle & callbacks (`08`, `13`)**: chỉ còn callback `onChapterFinished` (bỏ `onChapterNext`/`onChapterPrev`); Reader không nil callback trong `onDisappear`. `onDisappear` chạy `shutdown(saveProgress: !ttsOwnsProgress)` + `ChapterContentRepository.flush(bookId:)`; `saveProgressImmediately()` thuộc nhánh `scenePhase == .background`.
+* **Logging (`rules.md`, `CLAUDE.md`, `AGENTS.md`)**: `app_logs.txt` ở `applicationSupportDirectory`, không phải `Documents`; `AppLogger.init` set `isLoggingEnabled = false` mỗi lần khởi chạy, tự xoá khi >5 MB.
+* **Model schema (`rules.md`)**: thêm `DownloadTaskModel` (schema có 5 `@Model`).
+* **Sai lệch tên/đường dẫn**: `TTSPresentationEventCenter.shared.events` → `.stream` (`04`); `DisplayTextFormatter.swift` ở `Common/Extensions/` (`02`); `ReaderSelectionCoordinator` là misnomer, chỉ có `getHanViet`+`formatMeaning` (`03`); miễn trừ SwiftUI khớp hậu tố `*WebViewLoader.swift`, hiện không file Services nào import SwiftUI (`09`, `rules.md`).
+* **Sparse paragraph IDs**: sửa cùng một câu ở `00_index`, `06`, `08`, `10`, `13`, `14` — `ChapterTextLine.id` là chỉ số dòng thô (tính cả dòng trống), không phải array index; `utf16Range` không dùng để cắt `content`.
+* **Số liệu (`14`, `00_index`, `02`, front matter 16 file)**: `source_files` → `218`; §1.1/§1.2 dựng lại theo `wc -l` và công thức CC của doc; §1.3 đổi nhãn thành "Max Brace Nesting Depth" (giá trị thật 10–18). `ReaderParagraphBuilder`/`TTSParagraphBuilder.build(from:)` chỉ test dùng, không caller production (`00_index`).
 
 ## [1.3.228] - 2026-08-21
 

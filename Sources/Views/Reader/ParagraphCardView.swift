@@ -16,12 +16,7 @@ struct ParagraphCardView: View {
     let onSpeakFromHere: (Int) -> Void
     
     var body: some View {
-        let displayText: String = {
-            guard isTranslationEnabled && TranslateUtils.containsChinese(item.original) else {
-                return item.original
-            }
-            return item.translated.isEmpty ? item.original : item.translated
-        }()
+        let displayText = Self.displayText(for: item, isTranslationEnabled: isTranslationEnabled)
 
         ReaderTextView(
             text: displayText,
@@ -42,6 +37,16 @@ struct ParagraphCardView: View {
         )
         .frame(minHeight: 20)
         .padding(.top, item.isTitle ? 10 : 0)
+    }
+
+    /// Chuỗi **đang thật sự hiển thị** của một đoạn. Là nguồn duy nhất của luật "dịch hay gốc" —
+    /// mọi nơi cần toạ độ ký tự trên chữ người dùng đang thấy (ví dụ tô vệt kết quả tìm) phải gọi
+    /// hàm này thay vì tự lặp lại điều kiện, nếu không range sẽ lệch khỏi chuỗi trong `UITextView`.
+    static func displayText(for item: ParagraphItem, isTranslationEnabled: Bool) -> String {
+        guard isTranslationEnabled && TranslateUtils.containsChinese(item.original) else {
+            return item.original
+        }
+        return item.translated.isEmpty ? item.original : item.translated
     }
 }
 

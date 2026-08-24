@@ -110,6 +110,45 @@ public final class ExtensionTransactionCoordinator {
         }
     }
 
+    /// Xoá bản ghi những tiện ích của kho mà registry mới **không còn liệt kê**, trừ tiện ích đã cài.
+    /// Trả về số bản ghi đã xoá (0 là hợp lệ, không phải lỗi).
+    ///
+    /// Lọc trên RAM qua quan hệ `Repository.extensions` thay vì viết predicate đi xuyên quan hệ: một
+    /// kho chỉ vài chục ext, còn predicate lồng quan hệ trên iOS 17 là đường dễ vỡ ngầm. Tiện ích
+    /// import từ file zip có `repository == nil` nên không bao giờ nằm trong tập này.
+    ///
+    /// Chỉ xoá **bản ghi**, không đụng file: tiện ích đã cài bị loại ngay ở bộ lọc nên không có
+    /// thư mục nào cần thu hồi. Xem `PruneRepositoryExtensionsCommand` cho hai lằn ranh an toàn.
+    @discardableResult
+    public func pruneRepositoryExtensions(
+        command: PruneRepositoryExtensionsCommand,
+        in context: ModelContext
+    ) -> Result<Int, ExtensionTransactionError> {
+        guard !command.keepPackageIds.isEmpty else { return .success(0) }
+
+        let repoUrl = command.repositoryUrl
+        var descriptor = FetchDescriptor<Repository>(predicate: #Predicate { $0.url == repoUrl })
+        descriptor.fetchLimit = 1
+        guard let repo = try? context.fetch(descriptor).first else {
+            return .failure(ExtensionTransactionError.entityNotFound(repoUrl))
+        }
+
+        let stale = repo.extensions.filter { ext in
+            ext.localPath.isEmpty && !command.keepPackageIds.contains(ext.packageId)
+        }
+        guard !stale.isEmpty else { return .success(0) }
+
+        for ext in stale {
+            context.delete(ext)
+        }
+        do {
+            try context.save()
+            return .success(stale.count)
+        } catch {
+            return .failure(ExtensionTransactionError.saveFailed(error.localizedDescription))
+        }
+    }
+
     public func saveExtensionConfig(command: ExtensionConfigCommand, in context: ModelContext) -> Result<Void, ExtensionTransactionError> {
         let packageId = command.packageId
         var descriptor = FetchDescriptor<Extension>(predicate: #Predicate { $0.packageId == packageId })
