@@ -15,6 +15,16 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.269)
+
+* **Bộ nhớ mới thường trú, nhỏ nhưng phải biết**: một `QuickTranslationRuleSnapshot` giữ toàn bộ rule đã compile (AST + template + literal) cộng `QuickTranslationLiteralIndex`. Với bộ mặc định 633 rule (nguồn 36 KB, tải từ HuggingFace) đây là cỡ vài trăm KB; với `Rule_new.txt` (nguồn 690 KB, 17.278 rule) là cỡ vài MB và **không có cơ chế nhả** — snapshot sống tới khi bị thay bằng snapshot khác. Đây là đánh đổi có chủ ý: compile mỗi lần dịch là không dùng được.
+* **Chỉ tồn tại đúng một snapshot tại một thời điểm.** Swap là gán một biến dưới `NSLock`, snapshot cũ được ARC thu ngay khi lượt `rewrite` đang chạy (nếu có) kết thúc — vì bên đọc giữ *giá trị* nên không có cửa sổ nào hai bộ rule cùng nằm trong RAM lâu dài.
+* **Memo của engine có trần cứng**: `NSCache` countLimit **64** entry, khoá `generation|bookId|md5`, giá trị là `QuickTranslationRewriteResult` (text + mảng segment). Nó tồn tại để lượt dựng span không phải chạy lại matcher, và bị dọn ở `TranslateUtils.clearCache()`/`invalidateCache(bookId:)` cùng nhịp với cache dịch. Khoá có `generation` nên entry của bộ rule cũ không bao giờ bị đọc lại kể cả khi chưa bị dọn.
+* **Cấp phát tạm mỗi lượt `rewrite`** (cần biết khi đo hiệu năng): `Array(text.utf16)` **hai lần** (một ở engine, một trong matcher), một `NSString` bridge, một dictionary `[Int: [Int]]` cho tập vị trí bắt đầu, và một `NSString.substring` cho mỗi ứng viên độ dài của token số/từ điển. Tất cả chết cuối lượt; không có buffer nào được giữ lại giữa hai lượt.
+* **Danh sách issue bị cắt cứng ở 400 phần tử** (`maxStoredIssues`) trước khi vào `status`, vì `Rule_new.txt` sinh 166 cảnh báo space và có thể nhiều hơn ở bộ khác — số **tổng** vẫn được giữ riêng (`warningCount`) để UI báo đúng.
+* **File tạm khi xuất bộ rule** nằm ở `NSTemporaryDirectory()/QuickTranslateRules.txt`, ghi đè mỗi lần xuất, do hệ thống dọn — khác `Documents/Exports/` của đường xuất TXT truyện (có `ExportFileNaming` cấp phát tên).
+* **Lượt tải bộ rule giữ toàn bộ file trong RAM** (`URLSession.shared.data(from:)`, không dùng file tạm) vì bộ rule đã biết chỉ 36 KB – 690 KB; có trần cứng 8 MB (`maxRuleFileBytes`) chặn trước cả khi parse. Không có tài nguyên nào cần dọn sau khi tải: `Data` chết cuối hàm, file đích ghi bằng `options: .atomic`.
+
 ## Không tài nguyên mới; lỗi dọn bản cũ thôi bị chôn (1.3.268)
 
 * **Lượt này không thêm tài nguyên nào phải thu hồi**: không recognizer, không timer, không task nền, không file mới, không buffer. Hai khoá `UserDefaults` mới/cũ (`driveAutoBackupLastRunAt`, `driveAutoBackupLastLinkWarningAt`) là hai `Date` — chi phí không đáng kể và không có vòng đời cần dọn.

@@ -65,6 +65,12 @@ public enum BackupPaths {
     public static let searchEngines = "config/search_engines.json"
     public static let tocRulesFileName = "toc_rules.json"
 
+    /// Bộ rule dịch Quick Translate đang có trên máy (`translate/QuickTranslateRules.txt`). Bộ rule
+    /// **không** đi kèm app — người dùng tải từ HuggingFace hoặc nhập file — nên nó là dữ liệu người
+    /// dùng và phải vào archive. Đi cùng công tắc `restoreSettings`, **không** thêm `BackupScope` mới.
+    public static let quickTranslateRules = "config/QuickTranslateRules.txt"
+    public static let quickTranslateRulesFileName = "QuickTranslateRules.txt"
+
     // MARK: - Thư mục trên máy
 
     private static var applicationSupport: URL {

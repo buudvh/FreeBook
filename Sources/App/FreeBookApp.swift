@@ -61,6 +61,11 @@ struct AppLaunchRootView: View {
         }
         .onAppear {
             KeyboardDismissGesture.shared.activate()
+            // Compile bộ rule dịch trước khi lần dịch đầu chạy: `AppLaunchRootView` chặn app tới khi
+            // từ điển nạp xong, nên đây là chỗ sớm nhất mà snapshot chắc chắn sẵn sàng trước Reader.
+            Task.detached(priority: .utility) {
+                QuickTranslationRuleStore.shared.prewarm()
+            }
             BookStorageManager.shared.drainRetryQueue()
             BookStorageManager.shared.retryFailedChapterStoreDeletions()
             TTSFloatingWidgetWindowManager.shared.modelContainer = modelContext.container

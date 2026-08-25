@@ -21,6 +21,9 @@ public final class TranslateUtils {
         hasher.combine(globalGeneration)
         hasher.combine(bGen)
         hasher.combine(settingsGeneration)
+        // Công tắc + generation của bộ rule dịch: đổi rule là đổi kết quả dịch, snapshot Reader/TTS
+        // cũ phải bị loại đúng lúc.
+        hasher.combine(QuickTranslationRuleStore.shared.cacheTag)
         return hasher.finalize()
     }
 
@@ -204,7 +207,8 @@ public final class TranslateUtils {
     public static func translateMeta(
         _ text: String?,
         bookId: String? = nil,
-        shouldConvertTraditionalToSimplified: Bool = false
+        shouldConvertTraditionalToSimplified: Bool = false,
+        applyingQuickTranslationRules: Bool = true
     ) -> String {
         let translationInput = text.map {
             textForTranslation(
@@ -212,18 +216,24 @@ public final class TranslateUtils {
                 shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
             )
         }
-        return translateText(translationInput, isMeta: true, bookId: bookId)
+        return translateText(
+            translationInput,
+            isMeta: true,
+            bookId: bookId,
+            applyingQuickTranslationRules: applyingQuickTranslationRules
+        )
     }
 
     public static func translateBookTitleIfNeeded(_ title: String, bookId: String? = nil) -> String {
         guard isTranslationEnabled, containsChinese(title) else { return title }
         return translateMeta(title, bookId: bookId)
     }
-    
+
     public static func translateContent(
         _ text: String?,
         bookId: String? = nil,
-        shouldConvertTraditionalToSimplified: Bool = false
+        shouldConvertTraditionalToSimplified: Bool = false,
+        applyingQuickTranslationRules: Bool = true
     ) -> String {
         let translationInput = text.map {
             textForTranslation(
@@ -231,7 +241,12 @@ public final class TranslateUtils {
                 shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
             )
         }
-        return translateText(translationInput, isMeta: false, bookId: bookId)
+        return translateText(
+            translationInput,
+            isMeta: false,
+            bookId: bookId,
+            applyingQuickTranslationRules: applyingQuickTranslationRules
+        )
     }
 
     public static func translateContentWithMapping(
@@ -248,7 +263,7 @@ public final class TranslateUtils {
         return TranslatedTextResult(
             text: translated,
             spans: translationInput.utf16.count == original.utf16.count
-                ? buildTranslationSpans(original: translationInput, translated: translated, bookId: bookId)
+                ? translationSpansApplyingRules(source: translationInput, translated: translated, bookId: bookId)
                 : []
         )
     }
@@ -266,7 +281,7 @@ public final class TranslateUtils {
         return TranslatedTextResult(
             text: translated,
             spans: translationInput.utf16.count == text.utf16.count
-                ? buildTranslationSpans(original: translationInput, translated: translated, bookId: bookId)
+                ? translationSpansApplyingRules(source: translationInput, translated: translated, bookId: bookId)
                 : []
         )
     }
@@ -290,7 +305,8 @@ public final class TranslateUtils {
     public static func translateChapterTitle(
         _ text: String,
         bookId: String? = nil,
-        shouldConvertTraditionalToSimplified: Bool = false
+        shouldConvertTraditionalToSimplified: Bool = false,
+        applyingQuickTranslationRules: Bool = true
     ) -> String {
         let trimmed = textForTranslation(
             text,
@@ -298,11 +314,15 @@ public final class TranslateUtils {
         )
         .trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return "" }
-        
+
+        // Đường Qt bridge (`applyingQuickTranslationRules == false`) phải có khoá cache riêng để bản
+        // dịch bridge không lẫn bản dịch trong app. Namespace ở khoá con để `invalidateCache(bookId:)`
+        // vẫn dọn được cả hai.
         let bid = bookId ?? "global"
+        let cacheEntryKey = applyingQuickTranslationRules ? trimmed : "\u{1}norule|" + trimmed
         
         cacheLock.lock()
-        let cached = chapterTitleCacheDict[bid]?[trimmed]
+        let cached = chapterTitleCacheDict[bid]?[cacheEntryKey]
         cacheLock.unlock()
         
         if let cached = cached {
@@ -349,8 +369,12 @@ public final class TranslateUtils {
             let rawPost = String(trimmed[matchRange.upperBound...])
             let cleanPost = cleanLeadingDelimiters(rawPost)
             
-            let translatedPre = preMatch.isEmpty ? "" : translateMeta(preMatch, bookId: bookId) + " "
-            let translatedPost = cleanPost.isEmpty ? "" : ": " + translateMeta(cleanPost, bookId: bookId)
+            let translatedPre = preMatch.isEmpty
+                ? ""
+                : translateMeta(preMatch, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules) + " "
+            let translatedPost = cleanPost.isEmpty
+                ? ""
+                : ": " + translateMeta(cleanPost, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules)
             
             translated = "\(translatedPre)\(unitVal) \(numberVal)\(translatedPost)".trimmingCharacters(in: .whitespacesAndNewlines)
         } else if let match = arabicNumberTitleRegex.firstMatch(in: trimmed, options: [], range: range),
@@ -362,44 +386,56 @@ public final class TranslateUtils {
                 rawPost = String(trimmed[postRange])
             }
             let cleanPost = cleanLeadingDelimiters(rawPost)
-            let translatedPost = cleanPost.isEmpty ? "" : ": " + translateMeta(cleanPost, bookId: bookId)
-            
+            let translatedPost = cleanPost.isEmpty
+                ? ""
+                : ": " + translateMeta(cleanPost, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules)
+
             translated = "Chương \(numberVal)\(translatedPost)".trimmingCharacters(in: .whitespacesAndNewlines)
         } else {
-            translated = translateMeta(trimmed, bookId: bookId)
+            translated = translateMeta(trimmed, bookId: bookId, applyingQuickTranslationRules: applyingQuickTranslationRules)
         }
         
         cacheLock.lock()
         if chapterTitleCacheDict[bid] == nil {
             chapterTitleCacheDict[bid] = [:]
         }
-        chapterTitleCacheDict[bid]?[trimmed] = translated
+        chapterTitleCacheDict[bid]?[cacheEntryKey] = translated
         cacheLock.unlock()
         
         return translated
     }
     
-    private static func translateText(_ text: String?, isMeta: Bool, bookId: String?) -> String {
+    private static func translateText(
+        _ text: String?,
+        isMeta: Bool,
+        bookId: String?,
+        applyingQuickTranslationRules: Bool = true
+    ) -> String {
         guard let text = text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return text ?? "" }
         guard containsChinese(text) else { return text }
-        
+
         // Nếu từ điển chưa load xong, trả về văn bản gốc và không lưu cache dịch
         guard TranslationManager.shared.isVietPhraseLoaded else {
             return text
         }
-        
+
         let md5 = text.md5()
+        let ruleTag = applyingQuickTranslationRules ? QuickTranslationRuleStore.shared.cacheTag : "off"
         cacheLock.lock()
         let bGen = bookId.flatMap { bookGenerations[$0] } ?? 0
-        let cacheKey = "translate|v3|g:\(globalGeneration)|b:\(bGen)|s:\(settingsGeneration)|\(isMeta ? "meta" : "content")|\(bookId ?? "global")|\(md5)" as NSString
+        let cacheKey = "translate|v4|g:\(globalGeneration)|b:\(bGen)|s:\(settingsGeneration)|q:\(ruleTag)|\(isMeta ? "meta" : "content")|\(bookId ?? "global")|\(md5)" as NSString
         let cached = translationCache.object(forKey: cacheKey)
         cacheLock.unlock()
-        
+
         if let cached = cached {
             return cached as String
         }
-        
-        let translated = performTranslation(text, bookId: bookId)
+
+        let translated = performTranslation(
+            text,
+            bookId: bookId,
+            applyingQuickTranslationRules: applyingQuickTranslationRules
+        )
         cacheLock.lock()
         translationCache.setObject(translated as NSString, forKey: cacheKey)
         cacheLock.unlock()
@@ -509,9 +545,22 @@ public final class TranslateUtils {
         return (translatedToken, false)
     }
 
-    private static func performTranslation(_ text: String, bookId: String?) -> String {
+    private static func performTranslation(
+        _ text: String,
+        bookId: String?,
+        applyingQuickTranslationRules: Bool = true
+    ) -> String {
+        // Rule dịch chạy **sau** Phồn thể → Giản thể (đã làm ở `textForTranslation`) và **trước**
+        // `punctuationMapping`: LHS của rule có literal `．`, `.`, `,` và dấu ngoặc, normalize dấu câu
+        // trước sẽ đổi literal và chèn space làm match sai. Vẫn thoả yêu cầu "trước tokenize".
+        var source = text
+        if applyingQuickTranslationRules,
+           let rewritten = QuickTranslationRuleEngine.rewrite(text, bookId: bookId) {
+            source = rewritten.text
+        }
+
         var converted = ""
-        for char in text {
+        for char in source {
             converted.append(punctuationMapping[char] ?? String(char))
         }
         
@@ -608,7 +657,8 @@ public final class TranslateUtils {
         return result
     }
     
-    private static func postProcessText(_ input: String) -> String {
+    /// `internal` (không `private`) vì `TranslateUtils+QuickTranslationRules` dựng span ở file khác.
+    internal static func postProcessText(_ input: String) -> String {
         let lines = input.components(separatedBy: .newlines)
         let trimmedLines = lines.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         var result = trimmedLines.joined(separator: "\n")
@@ -943,6 +993,7 @@ public final class TranslateUtils {
     }
     
     public static func invalidateCache(bookId: String? = nil) {
+        QuickTranslationRuleEngine.clearCache()
         cacheLock.lock()
         if let bid = bookId {
             bookGenerations[bid] = (bookGenerations[bid] ?? 0) + 1
@@ -965,77 +1016,8 @@ public final class TranslateUtils {
         translationCache.removeAllObjects()
         chapterTitleCacheDict.removeAll()
         cacheLock.unlock()
+        QuickTranslationRuleEngine.clearCache()
         invalidateTOCRulesCache()
     }
-
-    public static func buildTranslationSpans(
-        original: String,
-        translated: String,
-        bookId: String? = nil
-    ) -> [TranslationSpan] {
-        guard !original.isEmpty, !translated.isEmpty else { return [] }
-        if original == translated {
-            return untranslatedTextResult(original).spans
-        }
-
-        let translatedNSString = translated as NSString
-        let tokens = getTranslationTokens(for: original, bookId: bookId)
-        var cursor = 0
-        var spans: [TranslationSpan] = []
-
-        for token in tokens {
-            let candidate = postProcessText(token.translatedText)
-            guard !candidate.isEmpty, cursor <= translatedNSString.length else { continue }
-
-            let searchRange = NSRange(location: cursor, length: translatedNSString.length - cursor)
-            guard let translatedRange = findTranslatedTokenRange(
-                candidate,
-                in: translated,
-                searchRange: searchRange
-            ) else {
-                continue
-            }
-
-            spans.append(TranslationSpan(
-                originalLocation: token.originalOffset,
-                originalLength: token.originalLength,
-                translatedLocation: translatedRange.location,
-                translatedLength: translatedRange.length
-            ))
-            cursor = NSMaxRange(translatedRange)
-        }
-
-        return spans
-    }
-
-    private static func findTranslatedTokenRange(
-        _ tokenText: String,
-        in translated: String,
-        searchRange: NSRange
-    ) -> NSRange? {
-        let translatedNSString = translated as NSString
-        let literalRange = translatedNSString.range(
-            of: tokenText,
-            options: [.caseInsensitive],
-            range: searchRange
-        )
-        if literalRange.location != NSNotFound {
-            return literalRange
-        }
-
-        let parts = tokenText
-            .components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-        guard !parts.isEmpty else { return nil }
-
-        let pattern = parts
-            .map(NSRegularExpression.escapedPattern(for:))
-            .joined(separator: #"\s+"#)
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
-            return nil
-        }
-        return regex.firstMatch(in: translated, options: [], range: searchRange)?.range
-    }
-    
 
 }

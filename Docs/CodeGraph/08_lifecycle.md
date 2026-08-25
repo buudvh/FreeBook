@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.269)
+
+* **Bộ rule được compile một lần cho mỗi lần nạp, không compile theo từng lần dịch.** `AppLaunchRootView.onAppear` chạy `Task.detached(priority: .utility) { QuickTranslationRuleStore.shared.prewarm() }`; `prewarm()` đặt cờ `didPrewarm` **trước** khi làm việc nên lần gọi thứ hai (mở màn quản lý) trả về ngay, không chờ.
+* **Vì sao chạy nền được mà không cần chặn**: cửa `guard TranslationManager.shared.isVietPhraseLoaded` trong `translateText` vẫn giữ mọi lượt dịch lại cho tới khi từ điển nạp xong, mà nạp từ điển lâu hơn parse 633 rule nhiều lần. Nếu vì lý do nào đó lượt dịch đầu chạy trước, `activeSnapshot` trả `nil` ⇒ rơi về đường dịch cũ, và entry cache của lượt đó mang `q:…:0` nên không bị tái dùng sau khi snapshot lên.
+* **Vòng đời một lần đổi bộ rule là validate-then-swap, không có trạng thái nửa vời**: parse + validate + compile **toàn bộ vào staging** → có bất kỳ hard error thì trả `.rejected` và **không** ghi file, **không** swap (bộ đang chạy giữ nguyên) → không có hard error mới `Data.write(to:options:.atomic)` rồi swap snapshot dưới `NSLock`, `generation += 1`, dọn cache, phát notification. Không nạp một phần file lỗi.
+* **`generation` là thứ quyết định vòng đời của snapshot Reader/TTS**, không phải notification: nó đi vào `translationGenerationToken(for:)` nên `TTSPreparedChapterKey`/`TTSPreparedNextChapterKey`/`NowPlayingStaticMetadataKey` dựng bằng bộ rule cũ không bao giờ khớp `consumeCache` và rơi về `fallbackAdvanceToNextChapter`.
+* **Không có tài nguyên nào cần dọn khi màn quản lý đóng**: store là singleton sống suốt vòng đời app, matcher/`QuickTranslationDictionaryToken` được tạo và huỷ trong đúng một lượt `rewrite`, file tạm khi xuất nằm ở `NSTemporaryDirectory()`.
+
 ## Hai đồng hồ của lượt sao lưu tự động, và điểm chốt số truyện đã xoá (1.3.268)
 
 `DriveAutoBackupPolicy` nay giữ **hai** mốc thời gian trong `UserDefaults`, phục vụ hai câu hỏi khác nhau:

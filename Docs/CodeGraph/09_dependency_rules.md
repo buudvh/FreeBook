@@ -15,6 +15,15 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.269)
+
+* **19 file mới, không luật nào bị nới**: 14 file `Sources/Services/Translation/Engine/QuickTranslation*.swift` (thư mục đã có, 1 → 15 file), 1 file `Sources/Services/Translation/Extensions/`, 3 file `Sources/Views/Settings/Translation/`, 1 file `Sources/Views/Settings/Main/`. Tất cả **≤ 400 dòng** (lớn nhất: parser 329) và **đúng 1 type top level** ⇒ **không** thêm/nới entry `architecture_allowlist.json`; `check_architecture.py` giữ đúng 14 violation, cùng một tập.
+* **`SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING` được giữ bằng thiết kế, không bằng ngoại lệ**: `QuickTranslationRuleStore` là `ObservableObject` chỉ `import Foundation` + `Combine` (đúng khuôn `JunkFilterManager`), mọi hàm ghi trả `LoadOutcome` và `QuickTranslationRulesView` là nơi duy nhất gọi `ToastManager`.
+* **Chiều phụ thuộc mới đều đi xuống**: `Views/Settings/**` → `Services/Translation/Engine/**` → `Models/Dictionaries` (`TrieDictionary`) + `Services/Translation/Manager` (`TranslationManager`). Không file nào ở `Engine/` nhìn thấy type nào của `Views/`.
+* **Một cạnh hai chiều có chủ ý, không phải vòng**: `TranslateUtils` đọc `QuickTranslationRuleStore.cacheTag` và gọi `QuickTranslationRuleEngine.rewrite`, còn store gọi `TranslateUtils.clearCache()`/`clearChapterTitleCache()`. Cả hai đầu là type static/singleton không giữ tham chiếu lẫn nhau và không khởi tạo lẫn nhau lúc `init`, nên không có vòng khởi tạo. Đừng đổi store thành thứ được `TranslateUtils` khởi tạo.
+* **`TranslateUtils.swift` 1041 → 1023 dòng** — file legacy này chỉ được **giảm**, và lượt này giảm thật nhờ dời `buildTranslationSpans` + `findTranslatedTokenRange` sang `TranslateUtils+QuickTranslationRules.swift`. Hai hàm đó phải bỏ `private` (thành internal) vì `private` trong Swift là phạm vi **file**; `postProcessText` cũng vậy.
+* **Không thêm resource nào vào bundle.** Bộ rule là *dữ liệu người dùng tải về*, nằm cùng chỗ với từ điển (`applicationSupportDirectory/translate/`), nên `project.yml` không phải sửa và không có rủi ro "resource bị bỏ khỏi Copy Bundle Resources" — thứ mà cả `check_architecture.py` lẫn `validate_links.py` đều không phủ được. Đổi lại, phân hệ dịch nhận một cạnh mạng mới: `QuickTranslationRuleStore` → `URLSession` (một URL https cố định, không gửi dữ liệu người dùng đi đâu), đúng khuôn `TranslationManager.downloadDefaultDictionaries`.
+
 ## Một file mới ở Common, không luật nào bị nới (1.3.266)
 
 * **File mới, không thư mục mới**: `Sources/Common/Utils/KeyboardDismissGesture.swift` (112 dòng, chỉ `import UIKit`) — **≤ 400 dòng**, **đúng 1 type top level** ⇒ **không** thêm hay nới entry `architecture_allowlist.json` nào; `check_architecture.py` giữ đúng 14 violation, cùng một tập.

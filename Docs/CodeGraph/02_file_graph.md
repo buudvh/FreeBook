@@ -15,6 +15,44 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.269)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Services/Translation/Engine/QuickTranslationRuleElement.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleElement.swift) | phần tử AST (`literal`/`numeral`/`chapterLabel`/`dictionary`/`group`, `indirect enum Kind`) + `minimumWidth`/`maximumWidth`/`leading-trailingLiteralUnits` cho prefilter và guard | 126 |
+| [`…/QuickTranslationRuleIssue.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleIssue.swift) | 13 mã lỗi + 3 mức `Severity` (`hard`/`disabling`/`warning`) | 72 |
+| [`…/QuickTranslationParsedRule.swift`](../../Sources/Services/Translation/Engine/QuickTranslationParsedRule.swift) | DTO rule đã tách dòng + dựng AST, chưa validate | 31 |
+| [`…/QuickTranslationRuleParser.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleParser.swift) | text → AST: 4 định dạng dòng, token `<n y L ne pn vp hv w>`, group lồng đệ quy, `\x` escape, `<x>?`/`(a|b)?` | 329 |
+| [`…/QuickTranslationCompiledRule.swift`](../../Sources/Services/Translation/Engine/QuickTranslationCompiledRule.swift) | dạng thi hành + `literalLength`/`wildcardCapacity`/`requiredLiteral`/`render(captures:)` | 83 |
+| [`…/QuickTranslationRuleCompiler.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleCompiler.swift) | validate + tính chỉ số ưu tiên + đặt cờ boundary guard có điều kiện | 279 |
+| [`…/QuickTranslationNumberFormatter.swift`](../../Sources/Services/Translation/Engine/QuickTranslationNumberFormatter.swift) | lớp ký tự `<n>/<y>/<L>` + `chineseNumber` cộng dồn section (parity reference) | 112 |
+| [`…/QuickTranslationDictionaryToken.swift`](../../Sources/Services/Translation/Engine/QuickTranslationDictionaryToken.swift) | ràng buộc từ điển qua `findAllPrefixMatches`, tôn trọng `isTranslationPronounsEnabled` | 127 |
+| [`…/QuickTranslationLiteralIndex.swift`](../../Sources/Services/Translation/Engine/QuickTranslationLiteralIndex.swift) | prefilter theo literal bắt buộc + suy tập vị trí bắt đầu | 98 |
+| [`…/QuickTranslationRuleMatcher.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleMatcher.swift) | AST-walk backtracking bằng stack frame + cap 4.000 bước | 200 |
+| [`…/QuickTranslationRuleSnapshot.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleSnapshot.swift) | bản chụp bất biến: `generation`, `sourceHash`, rules, literal index | 53 |
+| [`…/QuickTranslationRewriteResult.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRewriteResult.swift) | text + bản đồ đoạn nguồn↔output, `sourceRange(forOutputRange:)` | 62 |
+| [`…/QuickTranslationRuleEngine.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleEngine.swift) | `rewrite`/`preview`: prefilter → matcher → sort ưu tiên → greedy non-overlap → ghép | 183 |
+| [`…/QuickTranslationRuleStore.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleStore.swift) | `ObservableObject` singleton: nạp/tải HuggingFace/nhập/xoá, validate-then-swap, `cacheTag`, chẩn đoán | 315 |
+| [`Services/Translation/Extensions/TranslateUtils+QuickTranslationRules.swift`](../../Sources/Services/Translation/Extensions/TranslateUtils+QuickTranslationRules.swift) | `translationSpansApplyingRules` + **nơi ở mới** của `buildTranslationSpans`/`findTranslatedTokenRange` | 131 |
+| [`Views/Settings/Translation/QuickTranslationRulesView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRulesView.swift) | màn quản lý: trạng thái, nút tải về, nhập/xuất/xoá, danh sách phân trang 200 | 317 |
+| [`Views/Settings/Translation/QuickTranslationRuleIssueSheet.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleIssueSheet.swift) | sheet lỗi/cảnh báo theo dòng + copy toàn bộ | 98 |
+| [`Views/Settings/Translation/QuickTranslationRuleTesterView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleTesterView.swift) | ô thử nhanh: text sau rewrite + rule nào khớp ở offset nào | 99 |
+| [`Views/Settings/Main/QuickTranslateRuleSettingsRows.swift`](../../Sources/Views/Settings/Main/QuickTranslateRuleSettingsRows.swift) | hai dòng Settings (link + công tắc), bọc `Group` để thành hai row | 39 |
+
+| File sửa | Dòng | Thay đổi |
+|---|---|---|
+| [`Services/Translation/Utils/TranslateUtils.swift`](../../Sources/Services/Translation/Utils/TranslateUtils.swift) | 1041 → **1023** | `performTranslation` gọi `rewrite` ở đầu; tham số `applyingQuickTranslationRules` xuyên `translateMeta`/`translateContent`/`translateChapterTitle`/`translateText`; cache key `v3` → `v4` (+`q:`); `translationGenerationToken` nhúng `cacheTag`; `postProcessText`/`findTranslatedTokenRange` bỏ `private`; **dời** `buildTranslationSpans` + `findTranslatedTokenRange` sang file `+QuickTranslationRules` |
+| [`Views/Settings/Main/SettingsView.swift`](../../Sources/Views/Settings/Main/SettingsView.swift) | 443 → **448** | chèn `QuickTranslateRuleSettingsRows` vào section "Dịch Thuật Quick Translate", dưới hai link TOC/lọc rác |
+| [`App/FreeBookApp.swift`](../../Sources/App/FreeBookApp.swift) | 108 → **113** | `AppLaunchRootView.onAppear` chạy `Task.detached { QuickTranslationRuleStore.shared.prewarm() }` |
+| [`Services/Extensions/Engine/JSExecutor.swift`](../../Sources/Services/Extensions/Engine/JSExecutor.swift) | 1514 → **1516** | `_nativeQtTranslate` truyền `applyingQuickTranslationRules: false` cho hai nhánh `translateChapterTitle`/`translateMeta` |
+| [`Services/Backup/BackupConfigArchiver.swift`](../../Sources/Services/Backup/BackupConfigArchiver.swift) | 109 → **136** | `Report.quickTranslateRules`, stage file rule trên máy, `restoreQuickTranslateRules` (ghi + nạp lại store) |
+| [`Services/Backup/BackupPaths.swift`](../../Sources/Services/Backup/BackupPaths.swift) | 143 → **149** | `quickTranslateRules = "config/QuickTranslateRules.txt"`, `quickTranslateRulesFileName` |
+
+* **Không có resource nào được bundled.** Bộ rule mặc định nằm trên HuggingFace (`datasets/raikiri1498/vietpharse/resolve/main/QuickTranslateRules.txt`, cùng chỗ với `vietpharse.txt`/`phienam.txt`) và được tải xuống `translate/QuickTranslateRules.txt` bằng nút trong màn quản lý — app không mang theo file rule nào.
+* Tổng file Swift 362 → **381** (+19, không xoá file nào). Không thư mục resource nào mới. `Sources/Services/Translation/Engine/` 1 → **15** file; `Sources/Views/Settings/Translation/` 2 → **5** file.
+* Cạnh mới: `TranslateUtils` → `QuickTranslationRuleEngine` → {`QuickTranslationRuleStore`, `QuickTranslationRuleMatcher`, `QuickTranslationLiteralIndex`}; `QuickTranslationDictionaryToken` → {`TranslationManager`, `TrieDictionary`, `VietPhraseTokenizer`, `TranslateUtils.getFirstMeaning`}; `QuickTranslationRuleStore` → {`TranslationManager`, `TranslateUtils`, `AppLogger`}; `AppLaunchRootView` → `QuickTranslationRuleStore`; `BackupConfigArchiver` → `QuickTranslationRuleStore`; `SettingsView` → `QuickTranslateRuleSettingsRows` → `QuickTranslationRulesView` → `QuickTranslationRuleIssueSheet` / `QuickTranslationRuleTesterView`.
+* Không cạnh nào bị xoá. `TranslateUtils` ↔ store là **hai chiều** (store gọi `clearCache`, `TranslateUtils` đọc `cacheTag`) nhưng cả hai đều là type static/singleton không giữ nhau, nên không có vòng khởi tạo.
+
 ## Nút -/+ ngưỡng dọn truyện cũ, bấm ra ngoài là tắt bàn phím (1.3.266)
 
 | File mới | Vai trò | Dòng |

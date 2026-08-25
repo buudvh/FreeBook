@@ -4,7 +4,9 @@ import Foundation
 /// điển:
 /// - `translate/toc_rules.json` — quy tắc regex nhận diện dòng tiêu đề chương khi nhập sách,
 /// - `config/search_engines.json` — danh sách công cụ tra cứu nhanh (nguồn thật là `UserDefaults`,
-///   nhưng tách ra file riêng để phục hồi **gộp** được thay vì ghi đè cả mảng như khối cài đặt).
+///   nhưng tách ra file riêng để phục hồi **gộp** được thay vì ghi đè cả mảng như khối cài đặt),
+/// - `config/QuickTranslateRules.txt` — bộ rule dịch Quick Translate đang có trên máy (tải từ
+///   HuggingFace hoặc người dùng nhập; không đi kèm app nên phải sao lưu).
 ///
 /// Không thêm `BackupScope` mới (xem `BackupSettingsArchiver` để biết lý do): luôn ghi vào archive
 /// vì chỉ vài KB, phía khôi phục bật/tắt bằng `BackupRestoreWorker.Options.restoreSettings`.
@@ -14,10 +16,12 @@ public enum BackupConfigArchiver {
         public var tocRules = 0
         /// Số công cụ tra cứu **mới** được thêm vào máy.
         public var searchEngines = 0
+        /// Số rule dịch đã nạp lại từ file rule trong archive (0 nếu archive không có).
+        public var quickTranslateRules = 0
         public var errors: [String] = []
 
         public var restoredFiles: Int {
-            (tocRules > 0 ? 1 : 0) + (searchEngines > 0 ? 1 : 0)
+            (tocRules > 0 ? 1 : 0) + (searchEngines > 0 ? 1 : 0) + (quickTranslateRules > 0 ? 1 : 0)
         }
 
         public init() {}
@@ -46,8 +50,14 @@ public enum BackupConfigArchiver {
             staged += 1
         }
 
+        let ruleURL = QuickTranslationRuleStore.shared.ruleFileURL
+        if FileManager.default.fileExists(atPath: ruleURL.path) {
+            try BackupZipArchive.stage(fileAt: ruleURL, entryName: BackupPaths.quickTranslateRules, in: staging)
+            staged += 1
+        }
+
         if staged > 0 {
-            AppLogger.shared.log("💾 [Backup] Đã sao lưu \(staged) file cấu hình (quy tắc mục lục / công cụ tra cứu)")
+            AppLogger.shared.log("💾 [Backup] Đã sao lưu \(staged) file cấu hình (quy tắc mục lục / công cụ tra cứu / rule dịch)")
         }
         return staged
     }
@@ -59,14 +69,32 @@ public enum BackupConfigArchiver {
         var report = Report()
         restoreTOCRules(from: directory, into: &report)
         restoreSearchEngines(from: directory, into: &report)
+        restoreQuickTranslateRules(from: directory, into: &report)
 
         if report.restoredFiles > 0 {
             AppLogger.shared.log(
                 "♻️ [Restore] Cấu hình: \(report.tocRules) quy tắc mục lục,"
-                + " \(report.searchEngines) công cụ tra cứu mới"
+                + " \(report.searchEngines) công cụ tra cứu mới,"
+                + " \(report.quickTranslateRules) rule dịch"
             )
         }
         return report
+    }
+
+    /// Ghi lại override rule dịch rồi **nạp lại store ngay** để snapshot và thông báo cập nhật từ điển
+    /// đi cùng nhau (`BackupRestoreWorker` phát `notifyDictionariesDidUpdate` sau đó).
+    private static func restoreQuickTranslateRules(from directory: URL, into report: inout Report) {
+        guard let data = BackupZipArchive.readStaged(entryName: BackupPaths.quickTranslateRules, in: directory),
+              let text = String(data: data, encoding: .utf8) else { return }
+
+        switch QuickTranslationRuleStore.shared.importRules(text: text) {
+        case .success(let ruleCount, _):
+            report.quickTranslateRules = ruleCount
+        case .rejected(let issues):
+            report.errors.append("Rule dịch: \(issues.count) dòng lỗi nặng, giữ bộ đang dùng")
+        case .failure(let message):
+            report.errors.append("Rule dịch: \(message)")
+        }
     }
 
     /// Gộp theo `id` bằng đúng primitive của màn Quy tắc mục lục (`TranslateUtils.mergeTOCRules`):

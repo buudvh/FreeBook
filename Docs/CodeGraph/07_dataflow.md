@@ -15,6 +15,23 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.269)
+
+* **Một bước biến đổi mới trên trục dịch, đặt đúng giữa hai bước đã có**:
+
+```text
+raw chương → JunkFilterManager.filterRawContent → ChapterTextNormalizer
+  → textForTranslation (Phồn thể → Giản thể, khi callsite yêu cầu)
+  → QuickTranslationRuleEngine.rewrite        ← MỚI (chỉ khi công tắc bật + có snapshot)
+  → punctuationMapping → VietPhraseTokenizer.tokenize → 8 tầng từ điển
+  → joined(separator: " ") → postProcessText
+```
+
+* **Output của rule KHÔNG phải text cuối.** Chuỗi Việt do rule sinh ra vẫn đi qua tokenizer rồi bị ghép lại bằng `joined(separator: " ")`, và `postProcessText` chỉ dọn space trước `,.?!}]>”’):】`. Vì vậy khoảng trắng trong RHS của rule **không** là bất biến — đừng thiết kế rule dựa vào việc giữ nguyên từng space.
+* **Chữ Hán không khớp rule đi tiếp bằng đường cũ**: `assemble` chỉ thay đúng vùng match, phần còn lại được chép nguyên văn và được đánh dấu là đoạn passthrough trong bản đồ.
+* **Dòng dữ liệu ngược (output → nguồn) là dữ liệu hạng nhất, không phải suy luận**: `QuickTranslationRewriteResult.segments` mang cặp `(sourceRange, outputRange, sourceLine?)` theo UTF-16. Đoạn passthrough map theo offset tuyệt đối; đoạn rule map về **toàn bộ** match nguồn; token nằm vắt qua nhiều đoạn lấy hợp. Đây là dữ liệu duy nhất cho phép `TranslationSpan` (tra từ điển khi bôi chọn) còn đúng sau khi rule đảo thứ tự từ và đổi độ dài chuỗi.
+* **Dữ liệu vào của rule có ba nguồn, đúng một chủ và đúng một file trên máy** (`applicationSupportDirectory/translate/QuickTranslateRules.txt`): tải từ HuggingFace (`datasets/raikiri1498/vietpharse/…/QuickTranslateRules.txt`, cùng dataset với VietPhrase/PhienAm), người dùng nhập file, hoặc archive `config/QuickTranslateRules.txt` khi khôi phục backup. Cả ba đều đi qua `QuickTranslationRuleStore.importRules` → parser → compiler → ghi file → snapshot; không có đường nào nạp rule trực tiếp vào matcher, và **không có bộ rule nào bundled trong app** nên trạng thái mặc định của bản cài mới là *không có rule*.
+
 ## Luồng dữ liệu chương mới: mục lục → mốc → badge (1.3.256)
 
 * **Một shape đầu vào, một shape đầu ra.** `Book` + `Extension` (từ `@Query`) → [`NewChapterProbe.Target`](../../Sources/Services/NewChapters/NewChapterProbe.swift#L15) (`bookId`, `title`, `detailUrl`, `host`, `ExtensionExecutionSnapshot`) — **bất biến**, `Sendable`, và là **giao diện duy nhất** giữa tầng Views và phân hệ kiểm tra: phân hệ không thấy `Book`/`Extension` nên không có đường nào đọc/ghi SwiftData từ đó. Chiều ra là [`Outcome`](../../Sources/Services/NewChapters/NewChapterProbe.swift#L23) (`record`, `newlyFound`, `failure`).

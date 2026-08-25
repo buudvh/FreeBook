@@ -15,6 +15,13 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.269)
+
+* **Không có tên notification mới.** Bộ rule dùng lại đúng kênh sẵn có `.translationDictionariesDidUpdate` (hằng có kiểu, phát trong `TranslationManager.notifyDictionariesDidUpdate`), nên hai subscriber duy nhất (`ReaderView`, `TTSManager`) không phải biết gì về rule.
+* **Hai emitter mới của kênh đó**: (1) `QuickTranslationRuleStore.apply` sau khi swap snapshot thành công — nhập file, về mặc định, khôi phục backup; (2) `QuickTranslateRuleSettingsRows.onChange(of: isQuickTranslateRuleEnabled)`. Cả hai đi kèm `TranslateUtils.clearCache()` **trước** khi phát, vì dọn cache mà không phát thì bản dịch cũ vẫn nằm trên màn cho tới khi đổi chương (hợp đồng 1.3.267).
+* **Lượt nạp đầu lúc khởi động cố ý im lặng**: `prewarm()` gọi `load(notifiesObservers: false)`. Lúc đó chưa có cache dịch nào để dọn và chưa có Reader/TTS nào mở, phát ra chỉ bump `globalGeneration` vô ích. Không có race: entry cache tạo *trước* khi snapshot sẵn sàng mang `q:1:0`, entry sau mang `q:1:1` — khác khoá nên không bao giờ bị tái dùng sai.
+* **Kênh chẩn đoán một chiều, không phải event bus**: matcher chạm cap backtracking → `QuickTranslationRuleStore.noteComplexRule(sourceLine:)` → ghi `AppLogger` **một lần cho mỗi dòng** rồi cập nhật `status.complexRuleLines` trên MainActor để màn quản lý hiện được. Không phát notification, không toast từ Service.
+
 ## Outcome mang thêm lý do, vẫn không kênh sự kiện mới (1.3.268)
 
 * **Không thêm tên `NotificationCenter`, không event center, không publisher.** Cả hai lượt nền vẫn nói với UI bằng **giá trị trả về**: `AutoDriveBackupOutcome` nay là `.skipped(SkipReason)` / `.succeeded(fileName:size:prunedRemote:prunedLocal:pruneIncomplete:)` / `.failed(String)`, và `StaleBookCleanupCoordinator.Outcome` giữ nguyên ba nhánh. Đây là cách duy nhất giữ `Sources/Services/**` sạch `SERVICE_TOAST_COUPLING`.

@@ -15,6 +15,28 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.269)
+
+* **Chuỗi gọi mới, chèn vào giữa chuỗi dịch cũ** (`TranslateUtils.swift`):
+
+```text
+translateMeta / translateContent / translateChapterTitle
+  → translateText(_:isMeta:bookId:applyingQuickTranslationRules:)      // cache key v4, thêm q:<enabled>:<generation>
+    → performTranslation(_:bookId:applyingQuickTranslationRules:)
+      → QuickTranslationRuleEngine.rewrite(_:bookId:)                  // MỚI — nil khi tắt / chưa có snapshot
+        → QuickTranslationRuleStore.activeSnapshot
+        → QuickTranslationLiteralIndex.candidates(in:)                 // (ruleIndex, [start]) sau prefilter
+        → QuickTranslationDictionaryToken.resolve(bookId:)             // 1 lần/lượt, không phải 1 lần/token
+        → QuickTranslationRuleMatcher.match(_:at:)                     // AST-walk, cap 4.000 bước
+        → select(from:) → assemble(selected:…)                         // sort ưu tiên → greedy non-overlap → ghép
+      → punctuationMapping → VietPhraseTokenizer.tokenize → resolveTokenMeaning → postProcessText
+```
+
+* **Đường span đổi nhánh, không đổi API ngoài**: `translateContentWithMapping` / `translateChapterTitleWithMapping` gọi `translationSpansApplyingRules(source:translated:bookId:)`; hàm này chỉ rẽ sang nhánh mới khi `rewrite(...)?.didRewrite == true`, ngược lại gọi đúng `buildTranslationSpans(original:translated:bookId:)` như trước. `JSExecutor` vẫn gọi `buildTranslationSpans` trực tiếp — Qt bridge không áp rule.
+* **Hai lượt `rewrite` cho cùng một chuỗi là có thật** (một lần để dịch, một lần để dựng span), nên engine memo kết quả trong `NSCache` 64 entry theo khoá `generation|bookId|md5`; lượt thứ hai là cache hit chứ không chạy lại matcher.
+* **Chuỗi vô hiệu hoá**: `QuickTranslationRuleStore.apply` → `TranslateUtils.clearCache()` (đã tự gọi `QuickTranslationRuleEngine.clearCache()`) + `TranslateUtils.clearChapterTitleCache()` + `TranslationManager.notifyDictionariesDidUpdate()` — đúng **một** notification, không tạo đường refresh Reader thứ hai.
+* **Điểm gọi mới ngoài phân hệ dịch**: `AppLaunchRootView.onAppear` → `Task.detached` → `QuickTranslationRuleStore.prewarm()`; `BackupConfigArchiver.restore` → `QuickTranslationRuleStore.importRules(text:)`; `QuickTranslateRuleSettingsRows.onChange` → `TranslateUtils.clearCache()` + `notifyDictionariesDidUpdate()`.
+
 ## Nhánh nhắc "chưa đăng nhập Drive" và số truyện xoá thật (1.3.268)
 
 * **Sửa lại phát biểu của 1.3.260 ở dưới**: đường tự động sao lưu **không còn** im lặng ở mọi `.skipped`. `AutoDriveBackupOutcome.skipped` nay mang `SkipReason`, và `MainTabView.runAutoDriveBackupIfDue` hiện toast ở **ba** nhánh: `.succeeded`, `.failed`, và `.skipped(.driveNotLinked)`. Chỉ `.skipped(.notDue)` im lặng.

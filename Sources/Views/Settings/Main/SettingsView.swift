@@ -47,6 +47,11 @@ struct SettingsView: View {
                     }
                     .disabled(!importingTypes.isEmpty)
 
+                    QuickTranslateRuleSettingsRows(
+                        isTranslationEnabled: isTranslationEnabled,
+                        isBusy: !importingTypes.isEmpty
+                    )
+
                     if isTranslationEnabled {
                         Toggle(isOn: $isTranslationPronounsEnabled) {
                             Text("Dịch Đại từ (Pronouns)")

@@ -157,13 +157,15 @@ public final class JSExecutor: @unchecked Sendable {
 
             var translated = ""
             if isChapterName || isFirstLineChapterName {
-                translated = TranslateUtils.translateChapterTitle(text)
+                // Qt bridge **không** áp rule dịch: bản dịch ở đây đi ra ngoài cho extension dùng,
+                // phải giữ đúng hành vi tra từ điển thuần như trước.
+                translated = TranslateUtils.translateChapterTitle(text, applyingQuickTranslationRules: false)
             } else if target == "hv" {
                 translated = TranslateUtils.translateAuthorHanViet(text)
             } else if isPersonName {
                 translated = TranslateUtils.translateAuthorHanViet(text)
             } else {
-                translated = TranslateUtils.translateMeta(text)
+                translated = TranslateUtils.translateMeta(text, applyingQuickTranslationRules: false)
             }
 
             if isFirstCapitalize && !translated.isEmpty {
