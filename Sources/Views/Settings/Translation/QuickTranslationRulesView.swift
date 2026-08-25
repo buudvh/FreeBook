@@ -2,7 +2,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Màn hình quản lý rule dịch: trạng thái bộ đang chạy, tải bộ mặc định từ HuggingFace, nhập/xuất
-/// file, xoá bộ rule, danh sách rule và ô thử nhanh.
+/// file, xoá bộ rule, và đường vào hai công cụ (danh sách rule, thử nhanh một câu).
+///
+/// Danh sách rule **không** nằm ở đây mà ở `QuickTranslationRuleListView`: ô tìm kiếm phải lọc đúng
+/// thứ nó nói, và màn này còn có thẻ trạng thái + các nút hành động không liên quan tới truy vấn.
 ///
 /// Bộ rule **không** đi kèm app — chưa tải thì màn này chỉ hiện lời mời tải, và pipeline dịch chạy
 /// đúng như trước khi có tính năng.
@@ -18,29 +21,16 @@ struct QuickTranslationRulesView: View {
     @ObservedObject private var store = QuickTranslationRuleStore.shared
     @AppStorage("isQuickTranslateRuleEnabled") private var isQuickTranslateRuleEnabled = true
 
-    @State private var searchText = ""
-    @State private var visibleLimit = pageSize
     @State private var showingImporter = false
     @State private var showingIssues = false
     @State private var showingDeleteConfirm = false
+    @State private var showingImportModes = false
+    /// Text đã đọc từ file, giữ lại trong lúc người dùng chọn chế độ nhập.
+    @State private var pendingImportText: String? = nil
+    @State private var pendingPreview: (added: Int, overlapping: Int, machineOnly: Int) = (0, 0, 0)
     @State private var rejectedIssues: [QuickTranslationRuleIssue] = []
     @State private var dictionaryIssues: [QuickTranslationRuleIssue] = []
     @State private var sharedFile: SharedFile? = nil
-
-    private static let pageSize = 200
-
-    private var rules: [QuickTranslationCompiledRule] {
-        store.currentSnapshot?.rules ?? []
-    }
-
-    private var filteredRules: [QuickTranslationCompiledRule] {
-        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return rules }
-        return rules.filter {
-            $0.pattern.localizedCaseInsensitiveContains(trimmed)
-                || $0.replacement.localizedCaseInsensitiveContains(trimmed)
-        }
-    }
 
     private var allIssues: [QuickTranslationRuleIssue] {
         (rejectedIssues + store.status.issues + dictionaryIssues)
@@ -54,18 +44,13 @@ struct QuickTranslationRulesView: View {
         List {
             statusSection
             actionSection
-            testerSection
-            ruleListSection
+            toolsSection
         }
-        .searchable(text: $searchText, prompt: "Tìm mẫu hoặc bản dịch...")
         .navigationTitle("Quản lý rule dịch")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             store.prewarm()
             dictionaryIssues = store.dictionaryIssues()
-        }
-        .onChange(of: searchText) { _, _ in
-            visibleLimit = Self.pageSize
         }
         .sheet(isPresented: $showingIssues) {
             QuickTranslationRuleIssueSheet(issues: allIssues)
@@ -88,6 +73,26 @@ struct QuickTranslationRulesView: View {
                 onCancel: nil
             )
         )
+        .confirmationDialog(
+            "Nhập bộ rule thế nào?",
+            isPresented: $showingImportModes,
+            titleVisibility: .visible
+        ) {
+            // Ba chế độ dùng chung của app; không dùng chữ "Gộp" trần vì nó đang mang hai nghĩa
+            // trái ngược tuỳ màn (xem `DataImportMode`).
+            ForEach(DataImportMode.allCases, id: \.self) { mode in
+                Button(mode.actionTitle, role: mode.isDestructive ? .destructive : nil) {
+                    applyImport(mode: mode)
+                }
+            }
+            Button("Hủy", role: .cancel) { pendingImportText = nil }
+        } message: {
+            Text(
+                "File có \(pendingPreview.added + pendingPreview.overlapping) rule:"
+                + " \(pendingPreview.overlapping) trùng mẫu với bộ đang dùng, \(pendingPreview.added) mẫu mới."
+                + " Bộ trên máy có \(pendingPreview.machineOnly) mẫu không nằm trong file."
+            )
+        }
         .confirmationDialog(
             "Xoá bộ rule khỏi máy?",
             isPresented: $showingDeleteConfirm,
@@ -193,63 +198,28 @@ struct QuickTranslationRulesView: View {
         }
     }
 
+    // MARK: - Công cụ
+
+    /// Danh sách rule và ô thử nhanh đều là **màn riêng**: danh sách vì `.searchable` phải nói đúng
+    /// phạm vi nó lọc (xem `QuickTranslationRuleListView`), ô thử nhanh vì nó có state nhập liệu riêng.
     @ViewBuilder
-    private var testerSection: some View {
-        Section {
+    private var toolsSection: some View {
+        Section(header: Text("Công cụ")) {
+            NavigationLink {
+                QuickTranslationRuleListView(extraIssues: dictionaryIssues)
+            } label: {
+                Label("Danh sách rule (\(store.status.ruleCount))", systemImage: "list.number")
+            }
+
             NavigationLink(destination: QuickTranslationRuleTesterView()) {
                 Label("Thử nhanh một câu", systemImage: "text.magnifyingglass")
             }
         }
     }
 
-    // MARK: - Danh sách rule
-
-    @ViewBuilder
-    private var ruleListSection: some View {
-        let visible = Array(filteredRules.prefix(visibleLimit))
-
-        Section(header: Text("Danh sách rule (\(filteredRules.count))")) {
-            if visible.isEmpty {
-                Text("Không có rule nào khớp.")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-
-            // `LazyVStack` trong một hàng thay vì `ForEach` toàn bộ: 17k dòng render một lượt là treo UI.
-            LazyVStack(alignment: .leading, spacing: 10) {
-                ForEach(visible, id: \.sourceLine) { rule in
-                    ruleRow(rule)
-                }
-
-                if filteredRules.count > visible.count {
-                    Button("Xem thêm \(min(Self.pageSize, filteredRules.count - visible.count)) rule") {
-                        visibleLimit += Self.pageSize
-                    }
-                    .font(.subheadline)
-                    .padding(.top, 4)
-                }
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
-    @ViewBuilder
-    private func ruleRow(_ rule: QuickTranslationCompiledRule) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("dòng \(rule.sourceLine)")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-            Text(rule.pattern)
-                .font(.system(.footnote, design: .monospaced))
-            Text(rule.replacement)
-                .font(.footnote)
-                .foregroundColor(.accentColor)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     // MARK: - Thao tác
 
+    /// Đọc file rồi **hỏi chế độ trước khi ghi** — chọn file không còn tự động là "thay thế toàn bộ".
     private func importRules(from url: URL?) {
         guard let url = url else { return }
         let accessing = url.startAccessingSecurityScopedResource()
@@ -260,7 +230,19 @@ struct QuickTranslationRulesView: View {
             ToastManager.shared.show(message: "Không đọc được file rule (cần UTF-8).", type: .error)
             return
         }
-        handle(store.importRules(text: text), successVerb: "Đã nạp")
+
+        pendingImportText = text
+        pendingPreview = QuickTranslationRuleFileEditor.importPreview(
+            current: store.currentSourceText() ?? "",
+            imported: text
+        )
+        showingImportModes = true
+    }
+
+    private func applyImport(mode: DataImportMode) {
+        guard let text = pendingImportText else { return }
+        pendingImportText = nil
+        handle(store.importRules(text: text, mode: mode), successVerb: "Đã nhập — bộ hiện có")
     }
 
     private func downloadDefaultRules() {

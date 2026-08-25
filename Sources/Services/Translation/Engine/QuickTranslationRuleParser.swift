@@ -85,7 +85,10 @@ public enum QuickTranslationRuleParser {
 
     // MARK: - Tách một dòng
 
-    private static func splitRuleLine(_ trimmed: String) -> (pattern: String, replacement: String)? {
+    /// `internal` chứ không `private`: `QuickTranslationRuleFileEditor` phải hỏi **đúng** hàm này
+    /// "khoá của dòng này là gì" khi sửa/xoá theo key. Cài lại logic tách ở chỗ thứ hai là mở đường
+    /// cho hai nơi hiểu khác nhau về cùng một dòng (`"p"="r"`, tab, `unquote`).
+    internal static func splitRuleLine(_ trimmed: String) -> (pattern: String, replacement: String)? {
         if trimmed.hasPrefix("\"") {
             let quoted = #"^"([^"]+)"\s*=\s*"([^"]*)"$"#
             if let regex = try? NSRegularExpression(pattern: quoted),

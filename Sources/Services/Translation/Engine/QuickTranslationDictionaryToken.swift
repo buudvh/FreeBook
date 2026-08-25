@@ -20,11 +20,15 @@ public struct QuickTranslationDictionaryToken {
     private let bookVietPhrase: TrieDictionary?
     private let phienAm: [String: String]
 
-    /// Phân giải một lần cho mỗi lượt rewrite. `pronouns` theo đúng công tắc
-    /// `isTranslationPronounsEnabled` (mặc định **tắt**) để rule và tra từ điển không nói ngược nhau.
+    /// Phân giải một lần cho mỗi lượt rewrite.
+    ///
+    /// `pronouns` **không** đi theo công tắc `isTranslationPronounsEnabled` (quyết định của chủ dự án,
+    /// đổi so với plan §17 #5b): công tắc đó điều khiển việc *tra từ điển đại từ cho từng token* ở
+    /// tokenizer, còn ở đây `<pn>` là **ràng buộc của một rule người dùng chủ động viết** — rule
+    /// `<pn>一半 = một nửa của {0}` mà im lặng không nổ vì một công tắc ở màn khác là hành vi khó hiểu.
+    /// Từ điển `Pronouns` vẫn là optional nên `pronounsDict == nil` vẫn cho `DICT_TOKEN_WITHOUT_DICTIONARY`.
     public static func resolve(bookId: String?) -> QuickTranslationDictionaryToken {
         let manager = TranslationManager.shared
-        let isPronounsEnabled = UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
 
         var bookVP: TrieDictionary? = nil
         var bookNames: TrieDictionary? = nil
@@ -38,7 +42,7 @@ public struct QuickTranslationDictionaryToken {
             names: manager.namesDict,
             customNames: manager.customNamesDict,
             bookNames: bookNames,
-            pronouns: isPronounsEnabled ? manager.pronounsDict : nil,
+            pronouns: manager.pronounsDict,
             vietPhrase: manager.vietPhraseDict,
             customVietPhrase: manager.customVietPhraseDict,
             bookVietPhrase: bookVP,
@@ -54,7 +58,6 @@ public struct QuickTranslationDictionaryToken {
             return manager.namesDict != nil || manager.customNamesDict != nil
         case .pronoun:
             return manager.pronounsDict != nil
-                && UserDefaults.standard.bool(forKey: "isTranslationPronounsEnabled")
         case .vietPhrase:
             return manager.vietPhraseDict != nil || manager.customVietPhraseDict != nil
         case .hanViet:

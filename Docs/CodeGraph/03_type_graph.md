@@ -15,6 +15,18 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Type mới ở tầng Models: DataImportMode (1.3.269)
+
+* **`DataImportMode` là `enum String, CaseIterable, Sendable` ở `Sources/Models/Dictionaries/`, không phải type cục bộ của một màn.** Nó tồn tại vì chữ "Gộp" trong app đang mang **hai nghĩa trái ngược** tuỳ màn: `DictionaryCache.importEntries(isMerge:)`, `JunkFilterManager.importRules(mode: .merge)` và `TranslateUtils.mergeTOCRules` hiểu là *đè key trùng*, còn `TTSReplacementManager.importRules(mode: .merge)` và `SearchEngineTransfer.merged` hiểu là *giữ bản cũ*. Ba case `replaceAll` / `overwriteExisting` / `keepExisting` buộc mỗi màn nói rõ ai thắng khi trùng khoá.
+* **Ở tầng `Models` chứ không `Views`**: `QuickTranslationRuleStore.importRules(text:source:mode:)` (Service) nhận nó làm tham số, còn `QuickTranslationRulesView` (View) dựng dialog từ `allCases` — để cùng dùng được thì enum phải thuần Foundation và nằm dưới cả hai. `actionTitle`/`explanation`/`isDestructive` là dữ liệu trình bày *không phụ thuộc SwiftUI*, nên vẫn hợp luật `SERVICE_SWIFTUI_IMPORT`.
+* **Chỉ `replaceAll` mang `isDestructive == true`** — dialog dùng cờ này để gắn `role: .destructive`, thay vì mỗi màn tự đoán nút nào là nút phá dữ liệu.
+* Hiện chỉ màn rule dịch dùng; 8 màn còn lại trong `Docs/CheckList/import-3-modes-checklist.md` sẽ chuyển sang sau, và `DictionaryImportModeDialogModifier` (`onSelect(Bool)`) vẫn giữ nguyên tới lượt đó.
+
+## `QuickTranslationRuleEditorSheet.Mode` — enum lồng, `Identifiable` có lý do
+
+* `case add` / `case edit(pattern:replacement:sourceLine:)`, `id` là `"add"` hoặc `"edit:<line>:<pattern>"`. Conform `Identifiable` để mở sheet bằng `.sheet(item:)`: mở theo *dữ liệu* thì không có khoảng thời gian sheet đã hiện mà state còn rỗng như cách `isPresented` + biến phụ.
+* `pattern` trong case `edit` là **khoá định vị dòng trong file**, không phải chỉ để hiển thị — `sourceLine` chỉ để in cho người dùng biết dòng nào.
+
 ## Type mới ở tầng Common: KeyboardDismissGesture (1.3.266)
 
 * **`KeyboardDismissGesture` là `@MainActor final class: NSObject, UIGestureRecognizerDelegate`** — không phải `enum` hàm tĩnh như `NavigationBarAppearance` cùng thư mục, vì nó **phải** là đối tượng: cần `target` cho `#selector` của `UITapGestureRecognizer`, cần là `delegate` của recognizer, và cần một cờ `isObserving` để `activate()` idempotent. `NSObject` là điều kiện của cả hai vai đó.

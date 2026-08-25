@@ -58,7 +58,7 @@ public enum QuickTranslationRuleCompiler {
                 seenPatterns[rule.pattern] = rule.sourceLine
             }
 
-            if rule.pattern.contains(" ") || rule.pattern.contains("\u{3000}") {
+            if hasBareLiteralSpace(rule.elements) {
                 note(.literalSpaceInPattern, "Mẫu có khoảng trắng làm ký tự thường; văn bản Trung hầu như không có")
             }
 
@@ -197,6 +197,20 @@ public enum QuickTranslationRuleCompiler {
             case .numeral, .chapterLabel, .dictionary:
                 continue
             }
+        }
+        return false
+    }
+
+    /// Khoảng trắng **bắt buộc** trong mẫu: chỉ tính literal ở mức ngoài cùng và không optional.
+    ///
+    /// Không được tìm chuỗi `" "` trên `rule.pattern` thô: `( )?` là idiom "khoảng trắng tuỳ chọn"
+    /// và có ở 1.023/1.177 rule của `rule-aio.txt` — tìm thô sẽ sinh hơn nghìn cảnh báo rác, chôn
+    /// mất cảnh báo thật (`<n:1-6>…<y:1-4> km`, nơi space là literal trần và làm rule gần như không
+    /// bao giờ khớp).
+    private static func hasBareLiteralSpace(_ elements: [QuickTranslationRuleElement]) -> Bool {
+        for element in elements where !element.isOptional {
+            guard case .literal(let units) = element.kind else { continue }
+            if units.contains(0x0020) || units.contains(0x3000) { return true }
         }
         return false
     }

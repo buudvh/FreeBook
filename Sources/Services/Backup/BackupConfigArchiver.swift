@@ -81,13 +81,20 @@ public enum BackupConfigArchiver {
         return report
     }
 
-    /// Ghi lại override rule dịch rồi **nạp lại store ngay** để snapshot và thông báo cập nhật từ điển
-    /// đi cùng nhau (`BackupRestoreWorker` phát `notifyDictionariesDidUpdate` sau đó).
+    /// Ghi lại file rule dịch từ archive rồi **nạp lại store ngay**, nhưng **không** để store phát
+    /// `notifyDictionariesDidUpdate`: `BackupRestoreWorker` tự phát một lần ở cuối lượt khôi phục
+    /// (`:273`). Phát ở đây nữa là Reader dựng lại hai lượt, lượt đầu còn đang dở dữ liệu.
     private static func restoreQuickTranslateRules(from directory: URL, into report: inout Report) {
         guard let data = BackupZipArchive.readStaged(entryName: BackupPaths.quickTranslateRules, in: directory),
               let text = String(data: data, encoding: .utf8) else { return }
 
-        switch QuickTranslationRuleStore.shared.importRules(text: text) {
+        let outcome = QuickTranslationRuleStore.shared.importRules(
+            text: text,
+            source: .local,
+            mode: .replaceAll,
+            notifiesObservers: false
+        )
+        switch outcome {
         case .success(let ruleCount, _):
             report.quickTranslateRules = ruleCount
         case .rejected(let issues):

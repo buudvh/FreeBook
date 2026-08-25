@@ -131,22 +131,52 @@ public final class QuickTranslationRuleStore: ObservableObject {
 
     /// Nhập/ghi bộ rule: parse + validate + compile **toàn bộ vào staging**, chỉ khi không có hard
     /// error mới ghi file và swap snapshot. Có hard error thì file cũ giữ nguyên.
-    public func importRules(text: String, source: QuickTranslationRuleSnapshot.Source = .imported) -> LoadOutcome {
-        guard text.utf8.count <= Self.maxRuleFileBytes else {
+    ///
+    /// `mode` mặc định `.replaceAll` để hai caller không có UI chọn chế độ — nút tải bộ mặc định và
+    /// khôi phục backup — giữ đúng hành vi cũ. Trộn xong thì validate **toàn bộ** kết quả, không chỉ
+    /// phần mới: một rule cũ vẫn có thể thành lỗi khi đứng cạnh rule mới (trùng mẫu, capture không dùng).
+    ///
+    /// `notifiesObservers: false` dành riêng cho **khôi phục backup**: `BackupRestoreWorker` tự phát
+    /// `notifyDictionariesDidUpdate()` một lần ở cuối lượt, nên nếu ở đây phát thêm thì Reader dựng
+    /// lại hai lượt và lượt đầu còn đang dở dữ liệu. Bất biến "một lần đổi bộ rule = **một** thông
+    /// báo" là của plan §11.
+    public func importRules(
+        text: String,
+        source: QuickTranslationRuleSnapshot.Source = .imported,
+        mode: DataImportMode = .replaceAll,
+        notifiesObservers: Bool = true
+    ) -> LoadOutcome {
+        let merged: String
+        if mode == .replaceAll {
+            merged = text
+        } else {
+            merged = QuickTranslationRuleFileEditor.merge(
+                current: currentSourceText() ?? "",
+                imported: text,
+                mode: mode
+            )
+        }
+
+        guard merged.utf8.count <= Self.maxRuleFileBytes else {
             return .failure(message: "File rule vượt 8 MB, gần như chắc chắn không phải bộ rule")
         }
 
-        let staged = QuickTranslationRuleCompiler.compile(QuickTranslationRuleParser.parse(text))
+        let staged = QuickTranslationRuleCompiler.compile(QuickTranslationRuleParser.parse(merged))
         if staged.hasHardError {
             return .rejected(issues: staged.issues.filter { $0.severity == .hard })
         }
 
         do {
-            try Data(text.utf8).write(to: ruleFileURL, options: .atomic)
+            try Data(merged.utf8).write(to: ruleFileURL, options: .atomic)
         } catch {
             return .failure(message: "Không ghi được file rule: \(error.localizedDescription)")
         }
-        return apply(text: text, source: source, precompiled: staged)
+        return apply(
+            text: merged,
+            source: source,
+            precompiled: staged,
+            notifiesObservers: notifiesObservers
+        )
     }
 
     /// Tải bộ rule mặc định từ HuggingFace rồi đi tiếp bằng đúng đường `importRules` — tức vẫn
@@ -307,9 +337,15 @@ public final class QuickTranslationRuleStore: ObservableObject {
 
     /// Đổi bộ rule = đổi kết quả dịch: dọn cache dịch và phát **đúng một** thông báo cập nhật từ điển
     /// để Reader/TTS dựng lại snapshot. Không tạo đường refresh thứ hai.
+    ///
+    /// Chỉ hai lời gọi, không nhiều hơn: `clearCache()` là thứ duy nhất xoá được `NSCache` bản dịch
+    /// (và nó đã tự `chapterTitleCacheDict.removeAll()` nên **không** gọi thêm
+    /// `clearChapterTitleCache()`), còn `notifyDictionariesDidUpdate()` mới là kênh để Reader/TTS
+    /// dựng lại. Lời gọi thứ hai bên trong nó có tự bump generation lần nữa
+    /// (`TranslateUtils.invalidateCache`) — vô hại vì điều kiện là generation **đổi**, không phải
+    /// đổi đúng một lần.
     private func invalidateTranslationCaches() {
         TranslateUtils.clearCache()
-        TranslateUtils.clearChapterTitleCache()
         TranslationManager.shared.notifyDictionariesDidUpdate()
     }
 }

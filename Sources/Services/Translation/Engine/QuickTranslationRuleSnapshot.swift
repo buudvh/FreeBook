@@ -5,7 +5,7 @@ import Foundation
 /// Reader/TTS cũ bị loại đúng lúc.
 public struct QuickTranslationRuleSnapshot: Sendable {
     /// Bộ rule **không** đi kèm app: nó là một file trên máy ở `translate/QuickTranslateRules.txt`.
-    /// Ba case dưới đây chỉ nói *lần nạp này lấy text từ đâu*, để màn quản lý báo đúng cho người dùng.
+    /// Bốn case dưới đây chỉ nói *lần nạp này lấy text từ đâu*, để màn quản lý báo đúng cho người dùng.
     public enum Source: Sendable {
         /// Nạp từ file đã có trên máy (lúc khởi động, hoặc sau khi khôi phục backup).
         case local
@@ -13,12 +13,15 @@ public struct QuickTranslationRuleSnapshot: Sendable {
         case downloaded
         /// Vừa nhập từ file người dùng chọn.
         case imported
+        /// Vừa thêm/sửa/xoá một rule ngay trong app.
+        case edited
 
         public var label: String {
             switch self {
             case .local: return "Bộ rule trên máy"
             case .downloaded: return "Vừa tải từ HuggingFace"
             case .imported: return "File vừa nhập"
+            case .edited: return "Vừa sửa trong app"
             }
         }
     }
