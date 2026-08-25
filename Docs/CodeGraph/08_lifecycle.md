@@ -15,6 +15,19 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hai đồng hồ của lượt sao lưu tự động, và điểm chốt số truyện đã xoá (1.3.268)
+
+`DriveAutoBackupPolicy` nay giữ **hai** mốc thời gian trong `UserDefaults`, phục vụ hai câu hỏi khác nhau:
+
+1. `driveAutoBackupLastRunAt` — *đã sao lưu lần cuối lúc nào* (`shouldRun`/`markRun`, nhịp `cooldown`/`daily` theo cấu hình).
+2. `driveAutoBackupLastLinkWarningAt` — *đã nhắc "chưa đăng nhập Drive" lần cuối lúc nào* (`shouldWarnDriveNotLinked`/`markDriveNotLinkedWarned`, cố định `linkWarningCooldown = 24 h`).
+
+* **Vì sao phải là mốc riêng**: nhánh chưa-đăng-nhập rời `runAutoDriveBackup` **trước** `markRun()`. Nếu nó tiêu nhịp sao lưu, người dùng đăng nhập ngay sau khi thấy lời nhắc vẫn phải chờ hết cooldown mới có bản đầu tiên — đúng thứ tự xấu nhất. Ngược lại, nếu nhắc mà không ghi mốc nào thì mỗi lần mở app lại nhắc một lần.
+* **Thứ tự guard trong `runAutoDriveBackup` (đã đổi)**: `isConfigured` → `isDriveSignedIn` (nhánh else: `force` trả ngay `.driveNotLinked`; lượt tự động thì hỏi cửa nhắc 24 h) → `!isBusy` → `force || shouldRun()` → `markRun()` → `setBusy(true)` + `defer { setBusy(false) }` → export → upload → prune → refresh. Nghĩa là **chỉ lượt thật sự bắt đầu làm việc mới tiêu nhịp**; ba guard đầu không chạm mốc `lastRunAt`.
+* **Prune vẫn không rollback được và giờ nói ra điều đó**: hai hàm prune trả `(removed:incomplete:)`, `incomplete` chảy vào `.succeeded(…, pruneIncomplete:)`. Bản vừa upload luôn còn nguyên nên lượt vẫn tính là thành công; chỉ hạ `type` toast xuống `.info` và ghi thêm "; còn bản cũ chưa dọn được" vào `AppLogger`.
+* **Điểm chốt của lượt dọn truyện cũ dịch xuống một tầng**: số báo cho người dùng nay lấy tại thời điểm `bgContext.save()` thành công trong `deleteBooksAsync` (`-> Int`), không phải tại thời điểm quét `staleBookIds`. Khoảng giữa hai mốc đó là nơi TTS có thể bắt đầu phát một truyện đã chọn — truyện đó bị loại **bên trong** `deleteBooksAsync` và giờ không còn bị đếm. `deletedCount == 0` ⇒ `.skipped`.
+* **Phần vòng đời file vật lý không đổi**: `Task.detached(priority: .background)` xoá `.bin` → ChapterStore → cover sau khi DB đã commit, thất bại đẩy vào `failed_file_deletions_queue` và chỉ được thử lại ở lần khởi động sau (`drainRetryQueue`, tối đa 3 lần, im lặng). Đây vẫn là phần **không** có tín hiệu nào tới người dùng.
+
 ## Bàn phím: cài recognizer trễ thay vì lúc khởi động (1.3.266)
 
 `AppLaunchRootView.onAppear` có thêm **một** lệnh, đặt trước hai lệnh drain của `BookStorageManager`: `KeyboardDismissGesture.shared.activate()`. Lệnh này **không** cài gì cả — nó chỉ đăng ký observer `keyboardWillShowNotification`; việc gắn `UITapGestureRecognizer` xảy ra ở lần bàn phím hiện đầu tiên.

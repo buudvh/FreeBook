@@ -112,10 +112,15 @@ struct DriveAutoBackupSettingsView: View {
             let outcome = await coordinator.runAutoDriveBackup(container: container, force: true)
             lastRunAt = DriveAutoBackupPolicy.lastRunAt
             switch outcome {
-            case .skipped:
+            case .skipped(.driveNotLinked):
+                ToastManager.shared.show(message: "Chưa đăng nhập Google Drive", type: .error)
+            case .skipped(.notDue):
                 ToastManager.shared.show(message: "Chưa chạy được lúc này, thử lại sau", type: .error)
-            case .succeeded(_, let size, _, _):
-                ToastManager.shared.show(message: "Đã tải bản sao lưu \(size) lên Drive", type: .success)
+            case .succeeded(_, let size, _, _, let pruneIncomplete):
+                ToastManager.shared.show(
+                    message: "Đã tải bản sao lưu \(size) lên Drive" + outcome.pruneNote,
+                    type: pruneIncomplete ? .info : .success
+                )
             case .failed(let message):
                 ToastManager.shared.show(message: "Sao lưu tự động thất bại: \(message)", type: .error)
             }

@@ -15,7 +15,8 @@ import SwiftData
 @MainActor
 enum StaleBookCleanupCoordinator {
     enum Outcome: Sendable, Equatable {
-        /// Chưa tới lượt, hoặc đã quét mà không có truyện nào đủ cũ — View im lặng.
+        /// Chưa tới lượt, đã quét mà không có truyện nào đủ cũ, hoặc mọi truyện đã chọn đều bị loại
+        /// ngay lúc xoá (TTS vừa phát một trong số đó) — không có gì bị xoá, View im lặng.
         case skipped
         case deleted(count: Int)
         case failed(message: String)
@@ -62,12 +63,19 @@ enum StaleBookCleanupCoordinator {
                 return .skipped
             }
 
-            try await BookStorageManager.shared.deleteBooksAsync(bookIds: staleIds, container: container)
+            // Số báo cho người dùng lấy từ chính `BookStorageManager`, không phải `staleIds.count`:
+            // TTS có thể bắt đầu phát một trong các truyện này ngay giữa lúc quét và lúc xoá, và
+            // truyện đang phát thì bị loại ở đó chứ không loại ở đây.
+            let deletedCount = try await BookStorageManager.shared.deleteBooksAsync(bookIds: staleIds, container: container)
+            guard deletedCount > 0 else {
+                AppLogger.shared.log("🧹 [Cleanup] Không xoá được truyện nào (đều bị loại lúc xoá)")
+                return .skipped
+            }
             AppLogger.shared.log(
-                "🧹 [Cleanup] Đã xoá \(staleIds.count) truyện quá \(thresholdDays) ngày không đọc"
+                "🧹 [Cleanup] Đã xoá \(deletedCount) truyện quá \(thresholdDays) ngày không đọc"
                 + "; bỏ qua \(protectedIds.count) truyện đang tải/đang đọc TTS"
             )
-            return .deleted(count: staleIds.count)
+            return .deleted(count: deletedCount)
         } catch {
             AppLogger.shared.log("🧹 [Cleanup] Thất bại: \(error.localizedDescription)")
             return .failed(message: error.localizedDescription)

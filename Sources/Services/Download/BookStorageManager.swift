@@ -38,11 +38,14 @@ public final class BookStorageManager {
     }
 
     // API Xóa bất đồng bộ lõi theo danh sách bookId sử dụng ModelContainer (Non-blocking UI)
-    public func deleteBooksAsync(bookIds: [String], container: ModelContainer) async throws {
+    // Trả về **số truyện thật sự bị xoá khỏi DB** — nhỏ hơn `bookIds.count` khi có truyện đang phát
+    // TTS hoặc đã bị xoá từ trước. Toast/báo cáo phải dùng số này thay vì số đầu vào.
+    @discardableResult
+    public func deleteBooksAsync(bookIds: [String], container: ModelContainer) async throws -> Int {
         let isTTSActive = TTSManager.shared.isPlaying || TTSManager.shared.showFloatingWidget
         let playingId = isTTSActive ? TTSManager.shared.playingBookId : ""
         let validBookIds = Array(Set(bookIds)).filter { playingId.isEmpty || $0 != playingId }
-        guard !validBookIds.isEmpty else { return }
+        guard !validBookIds.isEmpty else { return 0 }
 
         // 1. Side-effects trên MainActor cho các bookId hợp lệ (không xóa/dừng sách đang phát TTS)
         for bookId in validBookIds {
@@ -51,7 +54,7 @@ public final class BookStorageManager {
         }
 
         // 2. DB Cascade Delete trên background context
-        try await Task.detached(priority: .userInitiated) {
+        let deletedCount = try await Task.detached(priority: .userInitiated) { () throws -> Int in
             let bgContext = ModelContext(container)
             bgContext.autosaveEnabled = false
 
@@ -59,16 +62,16 @@ public final class BookStorageManager {
             let allBooks = try bgContext.fetch(descriptor)
             let booksToDelete = allBooks.filter { validBookIds.contains($0.bookId) }
 
-            guard !booksToDelete.isEmpty else { return }
+            guard !booksToDelete.isEmpty else { return 0 }
 
             for book in booksToDelete {
                 bgContext.delete(book)
             }
 
             try bgContext.save()
+            return booksToDelete.count
         }.value
 
-        // 3. Physical file cleanup trong background thread
         // 3. Physical file cleanup trong background thread
         Task.detached(priority: .background) {
             for bookId in validBookIds {
@@ -99,6 +102,8 @@ public final class BookStorageManager {
                 }
             }
         }
+
+        return deletedCount
     }
 
     // Async wrapper xóa 1 cuốn sách theo bookId

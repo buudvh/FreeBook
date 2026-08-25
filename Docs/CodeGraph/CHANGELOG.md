@@ -2,7 +2,22 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.237) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.238) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.268] - 2026-08-25
+
+### Nhắc khi tự động sao lưu chưa đăng nhập Drive, báo đúng số truyện đã dọn
+
+Sửa **7** file Swift, không thêm/xoá file, không đổi shape `@Model`. Chưa biên dịch (viết trên Windows, không có `xcodebuild`/`xcodegen`; không có file mới nên không cần `xcodegen generate`).
+
+* **Lỗ tín hiệu 1 — bật tự động sao lưu mà chưa đăng nhập Drive thì hoàn toàn im lặng.** `runAutoDriveBackup` trả `.skipped` cho mọi lý do và `MainTabView` bỏ qua nhánh này, nên người dùng tưởng đang có bản sao lưu định kỳ trong khi không có bản nào. Nay `AutoDriveBackupOutcome.skipped` mang `SkipReason` (`.notDue` / `.driveNotLinked`) và `MainTabView` hiện toast `.error` "Tự động sao lưu đang bật nhưng chưa đăng nhập Google Drive". `GoogleDriveConfiguration.isConfigured == false` vẫn im lặng có chủ ý — build thiếu client id không phải việc người dùng sửa được.
+* **Nhịp nhắc là khoá riêng, không tiêu nhịp sao lưu** (`DriveAutoBackupPolicy.swift`, 123 → 143): thêm `driveAutoBackupLastLinkWarningAt` + `linkWarningCooldown = 24 h` (`shouldWarnDriveNotLinked`/`markDriveNotLinkedWarned`). Nhánh chưa-đăng-nhập rời `runAutoDriveBackup` **trước** `markRun()`, nên đăng nhập xong là lượt sao lưu chạy được ngay thay vì phải chờ hết cooldown. Đường bấm tay (`force`) bỏ qua cửa nhắc và luôn được trả lời ngay.
+* **Lỗ tín hiệu 2 — dọn bản cũ trên Drive lỗi mà toast vẫn báo thành công trọn vẹn** (`BackupCoordinator+AutoDrive.swift`, 125 → 157): `pruneRemoteAutoBackups`/`pruneLocalAutoBackups` đổi sang `-> (removed: Int, incomplete: Bool)`, gộp cả lỗi `listBackups()` và lỗi xoá từng file. `incomplete` chảy vào `.succeeded(…, pruneIncomplete:)`; toast đọc qua `AutoDriveBackupOutcome.pruneNote` (`" — đã dọn N bản cũ"` / `" — chưa dọn hết bản cũ"`) và hạ `type` xuống `.info`. Vẫn tính là thành công vì bản vừa upload còn nguyên. Gộp vào **một** message vì `ToastManager.show` gọi `currentTask?.cancel()` — toast thứ hai sẽ đè toast thứ nhất.
+* **Lỗ tín hiệu 3 — toast báo số truyện dự kiến, không phải số truyện thật sự bị xoá** (`BookStorageManager.swift` 363 → 368, `StaleBookCleanupCoordinator.swift` 126 → 134): `deleteBooksAsync` nay `-> Int` (`@discardableResult` nên caller cũ không phải sửa) trả số bản ghi đã `delete` + `save`. Truyện được TTS bắt đầu phát trong khoảng giữa lúc quét `staleBookIds` và lúc xoá bị loại **bên trong** `deleteBooksAsync`, nên trước bản này câu "Đã xoá N truyện" có thể sai. `deletedCount == 0` ⇒ `.skipped` thay vì `.deleted(count: 0)`.
+* **Câu chữ khớp giữa các màn**: `DriveAutoBackupSettingsView.swift` (143 → 148) map `.skipped(.driveNotLinked)` → "Chưa đăng nhập Google Drive", `.skipped(.notDue)` → "Chưa chạy được lúc này, thử lại sau"; `StaleBookCleanupSettingsView.swift:200` đổi `inactiveDays` → `clampedInactiveDays` để số ngày trong toast trùng hàng "Ngưỡng bỏ quên" khi UserDefaults còn giữ giá trị ngoài dải `7...365`.
+* **Cố ý không sửa trong lượt này**: xoá file vật lý (`.bin`, ChapterStore, cover) chạy `Task.detached` fire-and-forget, thất bại chỉ vào `failed_file_deletions_queue` và `drainRetryQueue` bỏ hẳn sau 3 lần — **không** báo gì cho người dùng. Báo được thì phải thêm một kênh báo cáo ra khỏi task nền, rộng hơn phạm vi vá tín hiệu này; đã ghi vào `10_risk_report.md`.
+* Không dòng nào trong `Sources/Services/**` gọi `ToastManager` — toàn bộ toast vẫn nằm ở View, mọi thay đổi đi qua giá trị trả về.
+* **Kết quả gate**: `check_architecture.py` giữ **14 violation** (tập y hệt, không violation mới; mọi file sửa đều dưới 400 dòng). `validate_links.py` PASS.
 
 ## [1.3.267] - 2026-08-25
 
@@ -419,13 +434,3 @@ Người dùng báo Reader nóng máy / tụt pin / lag khi TTS đang đọc, v�
 * **Không đổi**: đường highlight (`ttsState.snapshot.highlightRange` vẫn truyền thẳng, không ánh xạ), anchor `.center`, việc bám theo `currentParentParagraphIndex`, hành vi cuộn tay, `minimumFrameDelta`, hệ toạ độ `frame(in: .global)`.
 * Tổng file Swift 230 → 231. `check_architecture.py` giữ **18 violation**, tập vi phạm giống hệt trước thay đổi (phép tách file là để *tránh* violation mới: `ReaderTextView.swift` từng lên 707 dòng > baseline 651 trước khi tách). `validate_links.py`: 7 doc bị stale do thay đổi này đã cập nhật + `--accept`; **4 doc còn stale từ trước** (`05_state_graph.md`, `08_lifecycle.md`, `10_risk_report.md`, `rules.md`) không thuộc phạm vi thay đổi này nên không bless.
 * **Chưa biên dịch**: host là Windows, `xcodebuild` chỉ chạy trên macOS. Xác minh ở đây chỉ gồm đọc code, đối chiếu mọi đường tạo/huỷ `offsetObservation`, và hai script Python.
-
-## [1.3.238] - 2026-08-21
-
-### Sửa caption Telegram vượt 1024 ký tự và mô tả đường dẫn log trong Settings
-
-Hai sửa nhỏ, không đổi logic runtime nào.
-
-* **`.github/workflows/build-ipa.yml`** — bug hạ tầng phát hiện từ log CI thật: caption của `sendDocument` bị Telegram giới hạn **1024 ký tự**, nhưng workflow dựng caption từ *toàn bộ* commit message (`%B`). Với commit message nhiều đoạn, Telegram trả `400 Bad Request: message caption is too long` và **IPA không tới được Telegram** — trong khi `curl` vẫn exit 0 nên step `Send IPA to Telegram` vẫn báo success và CI vẫn xanh. Nay caption chỉ dùng **subject một dòng** (`%s` qua biến mới `COMMIT_SUBJECT`); `COMMIT_MSG` (`%B`) giữ nguyên cho hai nhánh `sendMessage` vì giới hạn ở đó là 4096 ký tự. Toàn bộ message vẫn tra được bằng `git log`.
-* **`Sources/Views/Settings/Main/SettingsView.swift`** — sửa mô tả nút "Ghi log hệ thống": bỏ giới hạn sai "của các VBook extension" (log phủ toàn app, không riêng extension) và ghi đúng đường dẫn `applicationSupportDirectory/app_logs.txt` thay vì `app_logs.txt`, khớp với thực tế `AppLogger` và với `rules.md` §5.9.
-* Hệ quả cần biết: các build đã push trước đó với commit message dài (`511e1b5`, `60937fd`) rất có thể **chưa từng gửi được IPA sang Telegram** dù CI xanh; run kế tiếp là lần đầu caption đủ ngắn.

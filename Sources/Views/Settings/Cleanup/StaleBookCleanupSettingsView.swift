@@ -197,7 +197,7 @@ struct StaleBookCleanupSettingsView: View {
             isRunning = false
             switch outcome {
             case .skipped:
-                ToastManager.shared.show(message: "Không có truyện nào quá \(inactiveDays) ngày không đọc", type: .info)
+                ToastManager.shared.show(message: "Không có truyện nào quá \(clampedInactiveDays) ngày không đọc", type: .info)
             case .deleted(let count):
                 ToastManager.shared.show(message: "Đã xoá \(count) truyện lâu không đọc", type: .success)
             case .failed(let message):

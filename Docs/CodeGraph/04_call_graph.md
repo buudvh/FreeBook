@@ -15,6 +15,13 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nhánh nhắc "chưa đăng nhập Drive" và số truyện xoá thật (1.3.268)
+
+* **Sửa lại phát biểu của 1.3.260 ở dưới**: đường tự động sao lưu **không còn** im lặng ở mọi `.skipped`. `AutoDriveBackupOutcome.skipped` nay mang `SkipReason`, và `MainTabView.runAutoDriveBackupIfDue` hiện toast ở **ba** nhánh: `.succeeded`, `.failed`, và `.skipped(.driveNotLinked)`. Chỉ `.skipped(.notDue)` im lặng.
+* **Thân `runAutoDriveBackup` tách guard cũ làm hai**: `guard GoogleDriveConfiguration.isConfigured` (build không nhúng client id → `.skipped(.notDue)`, im lặng vì người dùng không làm gì được) → `guard isDriveSignedIn` với nhánh else mới: `force` → trả `.driveNotLinked` ngay; lượt tự động thì `DriveAutoBackupPolicy.shouldWarnDriveNotLinked()` → `markDriveNotLinkedWarned()` → `.driveNotLinked`, còn ngoài cửa nhắc thì `.notDue`. Nhánh này **không** gọi `markRun()` — đăng nhập xong là lượt sao lưu chạy được ngay, không phải chờ hết cooldown.
+* **Hai hàm dọn bản cũ đổi kiểu trả về**: `pruneRemoteAutoBackups()`/`pruneLocalAutoBackups()` → `(removed: Int, incomplete: Bool)`. `incomplete` gộp cả lỗi `listBackups()` và lỗi xoá từng file, chảy vào `.succeeded(…, pruneIncomplete:)`; hai call site toast đọc nó qua `AutoDriveBackupOutcome.pruneNote` (hậu tố câu chữ dùng chung cho cả đường tự động và đường bấm tay) và đổi `type` sang `.info` khi dọn chưa xong.
+* **Đường dọn truyện cũ**: cạnh `StaleBookCleanupCoordinator.run` → `BookStorageManager.deleteBooksAsync(bookIds:container:)` nay **lấy giá trị trả về** (`@discardableResult ... -> Int`, số bản ghi `Book` thật sự bị `delete` + `save`). `deletedCount == 0` → `.skipped` thay vì `.deleted(count: 0)`; toast và `AppLogger` đều dùng số này chứ không dùng `staleIds.count`, vì truyện vừa được TTS phát bị loại **bên trong** `deleteBooksAsync`, không phải ở `protectedBookIds()`.
+
 ## Đường tự dọn truyện cũ và đường quy đổi số chương tuỳ chọn (1.3.263)
 
 * **Đường tự động dọn truyện lâu không đọc** (đối xứng hoàn toàn với đường tự động sao lưu Drive của 1.3.260): `MainTabView.body.task` → [`runStaleBookCleanupIfDue(container:)`](../../Sources/Views/MainTabView.swift#L108) → `StaleBookCleanupPolicy.shouldRun()` **thoát sớm trước cả khi ngủ** → `Task.sleep(startupDelayNanoseconds)` (**40 s**, dài hơn 25 s của lượt sao lưu) → `guard !Task.isCancelled` → `StaleBookCleanupCoordinator.runIfDue(container:)` → trả `Outcome` → **một** `ToastManager.shared.show` (chỉ ở `.deleted`/`.failed`; `.skipped` im lặng). Toast nằm ở View vì `Sources/Services/**` không được gọi `ToastManager`.

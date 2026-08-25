@@ -15,6 +15,14 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Outcome mang thêm lý do, vẫn không kênh sự kiện mới (1.3.268)
+
+* **Không thêm tên `NotificationCenter`, không event center, không publisher.** Cả hai lượt nền vẫn nói với UI bằng **giá trị trả về**: `AutoDriveBackupOutcome` nay là `.skipped(SkipReason)` / `.succeeded(fileName:size:prunedRemote:prunedLocal:pruneIncomplete:)` / `.failed(String)`, và `StaleBookCleanupCoordinator.Outcome` giữ nguyên ba nhánh. Đây là cách duy nhất giữ `Sources/Services/**` sạch `SERVICE_TOAST_COUPLING`.
+* **Sửa lại phát biểu "`.skipped` là im lặng có chủ ý" của 1.3.260**: nay chỉ đúng cho `.skipped(.notDue)`. `.skipped(.driveNotLinked)` **có** toast ở cả `MainTabView` (đường tự động) và `DriveAutoBackupSettingsView` (đường bấm tay) — im lặng ở đây là mất tín hiệu thật, vì người dùng đã bật tự động sao lưu mà không có bản nào được tạo. Bên dọn truyện cũ, `.skipped` vẫn im lặng ở đường tự động và **có** toast ở đường bấm tay như cũ.
+* **Nhịp nhắc "chưa đăng nhập Drive" là đồng hồ thứ hai, độc lập với nhịp sao lưu**: khoá `driveAutoBackupLastLinkWarningAt` + `linkWarningCooldown = 24 h` (`DriveAutoBackupPolicy`). Cố ý **không** dùng `lastRunKey`: nếu nhánh chưa-đăng-nhập gọi `markRun()` thì sau khi đăng nhập, lượt sao lưu đầu tiên vẫn phải chờ hết cooldown. Đường bấm tay (`force`) bỏ qua đồng hồ này và luôn được trả lời ngay.
+* **Toast phải là một thông điệp, không phải hai**: `ToastManager.show` gọi `currentTask?.cancel()` nên toast sau đè toast trước. Vì vậy tình trạng dọn bản cũ được gộp vào chính câu thành công qua `AutoDriveBackupOutcome.pruneNote` (`" — đã dọn N bản cũ"` / `" — chưa dọn hết bản cũ"`) thay vì phát thêm một toast riêng, và `type` hạ xuống `.info` khi `pruneIncomplete`.
+* **Số đếm trong toast là số thật, không phải số dự kiến**: `deleteBooksAsync` trả về số bản ghi đã `delete` + `save`; `StaleBookCleanupCoordinator` chuyển `deletedCount == 0` thành `.skipped`. Nghĩa là một truyện vừa được TTS phát trong khoảng giữa lúc quét và lúc xoá không còn làm người dùng thấy câu "đã xoá" sai sự thật.
+
 ## Một observer hệ thống mới, không tên notification nội bộ nào (1.3.266)
 
 * **Kênh mới duy nhất là `UIResponder.keyboardWillShowNotification`**, do [KeyboardDismissGesture](../../Sources/Common/Utils/KeyboardDismissGesture.swift#L1) đăng ký (selector `@objc`, không phải Combine). Đây là **notification của hệ thống**, không phải tên nội bộ — nên nó không thuộc nhóm string literal trần dễ vỡ (`"openCurrentlyPlayingReader"`, `"ttsDidAdvanceToNextChapter"`…) và **không** thêm tên mới vào bus liên module. Không event center nào bị sửa, không `AsyncStream` mới.

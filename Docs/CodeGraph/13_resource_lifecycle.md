@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Không tài nguyên mới; lỗi dọn bản cũ thôi bị chôn (1.3.268)
+
+* **Lượt này không thêm tài nguyên nào phải thu hồi**: không recognizer, không timer, không task nền, không file mới, không buffer. Hai khoá `UserDefaults` mới/cũ (`driveAutoBackupLastRunAt`, `driveAutoBackupLastLinkWarningAt`) là hai `Date` — chi phí không đáng kể và không có vòng đời cần dọn.
+* **Bổ sung cho mục 1.3.260 ở dưới**: câu "xoá lỗi chỉ `AppLogger` rồi bỏ qua và số đếm không tăng" vẫn đúng, nhưng nay lỗi **không còn bị chôn hoàn toàn** — `pruneRemoteAutoBackups`/`pruneLocalAutoBackups` trả `(removed:incomplete:)`, `incomplete` gộp cả lỗi `listBackups()` và lỗi xoá từng file, đi tiếp vào `.succeeded(…, pruneIncomplete:)` rồi hiện trong chính toast của lượt. Hệ quả dung lượng không đổi: bản vừa upload còn nguyên, phần vượt `maxVersions` được thử dọn lại ở lượt sau, và **vẫn không** có cơ chế dọn bù nào khác.
+* **Vòng đời xoá sách của `BookStorageManager` không đổi một bước nào**: `deleteBooksAsync` chỉ thêm giá trị trả về (`-> Int`, đếm bản ghi đã `delete` + `save`). Thứ tự vẫn là DB commit trước → `Task.detached(priority: .background)` xoá `.bin` → ChapterStore → cover; thất bại vẫn vào `failed_file_deletions_queue`/`failed_chapterstore_deletions_queue` và chỉ được thử lại lúc khởi động (tối đa 3 lần rồi bỏ). Số đếm được lấy **trước** khi task nền chạy, nên nó là số bản ghi DB đã mất, **không** phải bằng chứng file đã được thu hồi — đây là khoảng lệch đã biết giữa con số báo cho người dùng và dung lượng thật sự giải phóng.
+
 ## Recognizer thứ hai của repo — lần này cố ý không thu hồi (1.3.266)
 
 * **`UITapGestureRecognizer` của [KeyboardDismissGesture](../../Sources/Common/Utils/KeyboardDismissGesture.swift#L1) là đối lập có chủ ý của recognizer ở 1.3.261.** Cái ở `ReaderUserScrollDetector` **phải** có ba đường thu hồi vì nó gắn lên `UIScrollView` sống lâu hơn subtree chương, nên mỗi lần đổi chương mà không `detach()` là một recognizer chết cộng thêm. Cái này gắn lên **`UIWindow`** — vòng đời của nó *là* vòng đời window, và `target` là singleton sống suốt app, nên không có `dismantleUIView`/`deinit` nào cần dọn.

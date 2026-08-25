@@ -27,6 +27,10 @@ enum DriveAutoBackupPolicy {
     static let dailyHourKey = "driveAutoBackupDailyHour"
     static let scopesKey = "driveAutoBackupScopes"
     private static let lastRunKey = "driveAutoBackupLastRunAt"
+    private static let lastLinkWarningKey = "driveAutoBackupLastLinkWarningAt"
+
+    /// Khoảng cách tối thiểu giữa hai lời nhắc "đang bật tự động mà chưa đăng nhập Drive".
+    private static let linkWarningCooldown: TimeInterval = 24 * 3600
 
     /// Số bản `freebook-auto-*.fbbackup` được giữ lại trên Drive **và** trong máy. Bản thứ 6 trở đi
     /// (cũ nhất trước) bị xoá ngay sau khi bản mới tải lên xong.
@@ -110,6 +114,22 @@ enum DriveAutoBackupPolicy {
     /// từ chối) không được biến mỗi lần mở app thành một lần nén archive vô ích.
     static func markRun(now: Date = Date()) {
         lastRunAt = now
+    }
+
+    /// Cửa mở cho **lời nhắc**, không phải cho lượt sao lưu: lượt đã tới kỳ mà Drive chưa đăng nhập
+    /// thì im lặng là mất hẳn tín hiệu (dấu hiệu duy nhất còn lại nằm trong Cài đặt), nhưng nhắc mỗi
+    /// lần mở app thì thành spam.
+    ///
+    /// Cố ý **không** dùng `lastRunAt`/`markRun()` cho việc này: một lời nhắc không được tính là một
+    /// lượt sao lưu, nếu không thì ngay sau khi đăng nhập lại người dùng còn phải chờ hết cooldown
+    /// mới có bản sao lưu đầu tiên.
+    static func shouldWarnDriveNotLinked(now: Date = Date()) -> Bool {
+        guard let last = UserDefaults.standard.object(forKey: lastLinkWarningKey) as? Date else { return true }
+        return now.timeIntervalSince(last) >= linkWarningCooldown
+    }
+
+    static func markDriveNotLinkedWarned(now: Date = Date()) {
+        UserDefaults.standard.set(now, forKey: lastLinkWarningKey)
     }
 
     /// Mốc `dailyHour` giờ của **hôm nay** theo lịch/múi giờ máy.

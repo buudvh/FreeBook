@@ -15,6 +15,16 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro của lời nhắc chưa-đăng-nhập và của số đếm truyện đã xoá (1.3.268)
+
+* **Chưa biên dịch, chưa kiểm trên máy thật**: viết trên Windows, không có `xcodebuild` lẫn `xcodegen` — nhưng lượt này **không thêm file Swift nào** nên không cần `xcodegen generate`. `check_architecture.py` giữ đúng **14 violation** (tập y hệt), `validate_links.py` PASS. Không dùng `Tests/` làm bằng chứng. CI xanh chỉ chứng minh *biên dịch được*.
+* **Rủi ro chính của lượt này là quấy rối, không phải mất dữ liệu**: toast mới ở `.skipped(.driveNotLinked)` bắn **mà không ai bấm gì**, 25 giây sau khi mở app, và `ToastManager.show` ghi mọi toast vào hộp thư thông báo ⇒ mỗi lời nhắc còn để lại một badge chưa đọc. Giảm thiểu: chỉ bắn khi người dùng đã **tự bật** tự động sao lưu, và cửa `linkWarningCooldown = 24 h` đè lên số lần mở app. Ca xấu nhất còn lại: cài đè app/xoá `UserDefaults` làm mốc nhắc mất ⇒ nhắc lại một lần. Chấp nhận.
+* **`GoogleDriveConfiguration.isConfigured == false` vẫn im lặng có chủ ý** (trả `.skipped(.notDue)`): build không nhúng client id là chuyện của người build, người dùng bấm gì cũng không sửa được — nhắc chỉ gây nhiễu. Hệ quả cần biết: trên bản build thiếu key, bật tự động sao lưu là **hoàn toàn** không có phản hồi nào.
+* **Mốc nhắc và mốc sao lưu là hai khoá riêng** — nếu ai đó "gộp cho gọn" bằng cách gọi `markRun()` ở nhánh chưa-đăng-nhập, lỗi sinh ra rất khó thấy: đăng nhập xong vẫn không có bản sao lưu nào cho tới hết cooldown. Ghi lại vì đây là chỗ dễ refactor sai.
+* **`pruneIncomplete` chỉ hạ mức toast, không làm lượt thất bại**: bản vừa upload luôn còn nguyên, nên `.succeeded` là đúng. Nhưng hệ quả tích tụ vẫn thật — Drive có thể vượt `maxVersions` bản tự động nếu `listBackups()` hoặc `delete(fileId:)` lỗi nhiều lượt liền, và **không có** cơ chế dọn bù nào ngoài lượt kế tiếp.
+* **Số đếm truyện đã xoá giờ đúng, nhưng con số trong Cài đặt vẫn là ước lượng**: hàng "Sẽ bị xoá nếu dọn ngay" đọc `previewStaleCount` ở thời điểm khác với lúc xoá, nên nó có thể lớn hơn số thật (TTS bắt đầu phát giữa hai mốc). Toast sau lượt xoá mới là số chốt. Trước 1.3.268, `staleIds.count` bị dùng làm số báo và có thể nói "đã xoá N truyện" khi thật ra xoá ít hơn — nay không còn.
+* **Vẫn còn một khoảng im lặng đã biết, cố ý không sửa lượt này**: xoá file vật lý (`.bin`, ChapterStore, cover) chạy trong `Task.detached` fire-and-forget; thất bại chỉ vào `failed_file_deletions_queue` và `drainRetryQueue` bỏ hẳn sau 3 lần, **không** báo gì. Nghĩa là truyện có thể mất khỏi DB mà file vẫn chiếm chỗ, không ai biết. Muốn báo được thì phải thêm một kênh báo cáo ra khỏi task nền — thay đổi lớn hơn phạm vi lượt này, nên chỉ ghi nhận.
+
 ## Rủi ro của lượt tự xoá truyện, sentinel số chương và backup từ điển TTS (1.3.263)
 
 * **Chưa biên dịch, chưa kiểm trên máy thật**: viết trên Windows, không có `xcodebuild` lẫn `xcodegen` — **bốn file Swift mới nên bắt buộc chạy `xcodegen generate` trên macOS/CI trước khi build**. `check_architecture.py` giữ đúng **14 violation** (tập y hệt), `validate_links.py` PASS. Không dùng `Tests/` làm bằng chứng. CI xanh chỉ chứng minh *biên dịch được*.

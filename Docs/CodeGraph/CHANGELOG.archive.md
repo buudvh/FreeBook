@@ -1,6 +1,16 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.237) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.238) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.238] - 2026-08-21
+
+### Sửa caption Telegram vượt 1024 ký tự và mô tả đường dẫn log trong Settings
+
+Hai sửa nhỏ, không đổi logic runtime nào.
+
+* **`.github/workflows/build-ipa.yml`** — bug hạ tầng phát hiện từ log CI thật: caption của `sendDocument` bị Telegram giới hạn **1024 ký tự**, nhưng workflow dựng caption từ *toàn bộ* commit message (`%B`). Với commit message nhiều đoạn, Telegram trả `400 Bad Request: message caption is too long` và **IPA không tới được Telegram** — trong khi `curl` vẫn exit 0 nên step `Send IPA to Telegram` vẫn báo success và CI vẫn xanh. Nay caption chỉ dùng **subject một dòng** (`%s` qua biến mới `COMMIT_SUBJECT`); `COMMIT_MSG` (`%B`) giữ nguyên cho hai nhánh `sendMessage` vì giới hạn ở đó là 4096 ký tự. Toàn bộ message vẫn tra được bằng `git log`.
+* **`Sources/Views/Settings/Main/SettingsView.swift`** — sửa mô tả nút "Ghi log hệ thống": bỏ giới hạn sai "của các VBook extension" (log phủ toàn app, không riêng extension) và ghi đúng đường dẫn `applicationSupportDirectory/app_logs.txt` thay vì `app_logs.txt`, khớp với thực tế `AppLogger` và với `rules.md` §5.9.
+* Hệ quả cần biết: các build đã push trước đó với commit message dài (`511e1b5`, `60937fd`) rất có thể **chưa từng gửi được IPA sang Telegram** dù CI xanh; run kế tiếp là lần đầu caption đủ ngắn.
 
 ## [1.3.237] - 2026-08-21
 

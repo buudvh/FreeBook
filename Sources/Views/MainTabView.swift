@@ -92,11 +92,19 @@ extension MainTabView {
         try? await Task.sleep(nanoseconds: DriveAutoBackupPolicy.startupDelayNanoseconds)
         guard !Task.isCancelled else { return }
 
-        switch await BackupCoordinator.shared.runAutoDriveBackup(container: container) {
-        case .skipped:
+        let outcome = await BackupCoordinator.shared.runAutoDriveBackup(container: container)
+        switch outcome {
+        case .skipped(.notDue):
             break
-        case .succeeded(_, let size, _, _):
-            ToastManager.shared.show(message: "Đã tự động sao lưu lên Google Drive (\(size))", type: .success)
+        case .skipped(.driveNotLinked):
+            // Tới kỳ mà chưa đăng nhập: im lặng thì lượt tự động không bao giờ chạy mà người dùng
+            // không hề biết. Policy đã giới hạn nhịp nhắc nên đây không thành toast mỗi lần mở app.
+            ToastManager.shared.show(message: "Tự động sao lưu đang bật nhưng chưa đăng nhập Google Drive", type: .error)
+        case .succeeded(_, let size, _, _, let pruneIncomplete):
+            ToastManager.shared.show(
+                message: "Đã tự động sao lưu lên Google Drive (\(size))" + outcome.pruneNote,
+                type: pruneIncomplete ? .info : .success
+            )
         case .failed(let message):
             ToastManager.shared.show(message: "Tự động sao lưu thất bại: \(message)", type: .error)
         }
@@ -114,7 +122,7 @@ extension MainTabView {
         case .skipped:
             break
         case .deleted(let count):
-            ToastManager.shared.show(message: "Đã tự động xoá \(count) truyện lâu không đọc", type: .info)
+            ToastManager.shared.show(message: "Đã tự động xoá \(count) truyện lâu không đọc", type: .success)
         case .failed(let message):
             ToastManager.shared.show(message: "Tự động dọn truyện cũ thất bại: \(message)", type: .error)
         }
