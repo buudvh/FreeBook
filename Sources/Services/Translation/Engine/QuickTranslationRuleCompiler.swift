@@ -75,6 +75,7 @@ public enum QuickTranslationRuleCompiler {
             }
 
             let dictionaryKinds = collectDictionaryKinds(elements)
+            let tokenKinds = collectTokenKinds(elements)
             result.issues.append(contentsOf: issues)
 
             guard !issues.contains(where: { $0.severity == .hard }) else { continue }
@@ -91,7 +92,8 @@ public enum QuickTranslationRuleCompiler {
                 requiredLiteral: literal.units,
                 requiredLiteralPrefixMin: literal.prefixMin,
                 requiredLiteralPrefixMax: literal.prefixMax,
-                requiredDictionaryKinds: dictionaryKinds
+                requiredDictionaryKinds: dictionaryKinds,
+                requiredTokenKinds: tokenKinds
             ))
         }
 
@@ -244,6 +246,21 @@ public enum QuickTranslationRuleCompiler {
                 }
             case .literal, .numeral, .chapterLabel:
                 continue
+            }
+        }
+        return kinds
+    }
+
+    private static func collectTokenKinds(
+        _ elements: [QuickTranslationRuleElement]
+    ) -> Set<QuickTranslationRuleTokenSettings.Kind> {
+        var kinds: Set<QuickTranslationRuleTokenSettings.Kind> = []
+        for element in elements {
+            kinds.formUnion(element.sourceTokenKinds)
+            if case .group(let alternatives) = element.kind {
+                for alternative in alternatives {
+                    kinds.formUnion(collectTokenKinds(alternative))
+                }
             }
         }
         return kinds

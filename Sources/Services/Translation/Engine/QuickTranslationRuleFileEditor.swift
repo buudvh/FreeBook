@@ -1,6 +1,7 @@
 import Foundation
 
-/// Phẫu thuật **theo dòng** trên văn bản file rule, địa chỉ hoá **theo key** (mẫu bên trái dấu `=`).
+/// Phẫu thuật **theo dòng** trên văn bản file rule. Thêm/sửa địa chỉ hoá theo key (mẫu bên trái dấu `=`),
+/// còn xoá nhận đúng dòng đã được snapshot/revision bảo vệ.
 ///
 /// Vì sao không sinh lại file từ danh sách rule đã parse: làm vậy là mất comment (kể cả 11 dòng
 /// header đặc tả DSL) và xáo thứ tự dòng — mà thứ tự dòng là tiebreak cuối của priority. Ở đây chỉ
@@ -12,33 +13,75 @@ import Foundation
 /// - sửa key ⇒ xử như **thêm key mới**, dòng cũ **giữ nguyên** (đúng như `updateKey`: "if newKey !=
 ///   oldKey, keep oldKey, upsert newKey").
 public enum QuickTranslationRuleFileEditor {
+    /// Kết quả sửa kèm toạ độ thay đổi để Store giữ handle UI của các hàng không liên quan.
+    public struct Edit: Sendable {
+        public enum Kind: Sendable {
+            case inserted(sourceLine: Int)
+            case replaced(sourceLine: Int, previousPattern: String, previousReplacement: String)
+            case deleted(sourceLine: Int, pattern: String, replacement: String)
+            case unchanged
+        }
+
+        public let text: String
+        public let kind: Kind
+
+        public init(text: String, kind: Kind) {
+            self.text = text
+            self.kind = kind
+        }
+    }
+
     /// Thêm rule mới hoặc đè nghĩa của key đã có.
-    public static func upsert(pattern: String, replacement: String, in text: String) -> String {
+    public static func upsert(pattern: String, replacement: String, in text: String) -> Edit {
         let key = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !key.isEmpty else { return text }
+        guard !key.isEmpty else { return Edit(text: text, kind: .unchanged) }
 
         var lines = split(text)
         let formatted = format(pattern: key, replacement: replacement)
 
-        if let index = indexOfRule(key: key, in: lines) {
+        if let index = indexOfRule(key: key, in: lines),
+           let previous = QuickTranslationRuleParser.splitRuleLine(
+               lines[index].trimmingCharacters(in: .whitespacesAndNewlines)
+           ) {
             lines[index] = formatted
-            return lines.joined(separator: "\n")
+            return Edit(
+                text: lines.joined(separator: "\n"),
+                kind: .replaced(
+                    sourceLine: index + 1,
+                    previousPattern: previous.pattern,
+                    previousReplacement: previous.replacement
+                )
+            )
         }
 
         // Rule người dùng tự thêm đứng **trên** bộ tải về (nhưng dưới khối comment header): trùng mọi
         // tiêu chí priority thì dòng sớm hơn thắng, nên đây là cách "rule của tôi thắng rule mặc
         // định" mà không phải thêm khái niệm ưu tiên mới. Cùng tinh thần `insert(at: 0)` của từ điển.
-        lines.insert(formatted, at: insertionIndex(in: lines))
-        return lines.joined(separator: "\n")
+        let index = insertionIndex(in: lines)
+        lines.insert(formatted, at: index)
+        return Edit(text: lines.joined(separator: "\n"), kind: .inserted(sourceLine: index + 1))
     }
 
-    /// Xoá hẳn dòng của key. Trả `nil` khi file không có key đó (người gọi báo lỗi, không ghi file).
-    public static func delete(pattern: String, from text: String) -> String? {
-        let key = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// Xoá đúng dòng đã chọn. Không fallback theo key để rule trùng mẫu vẫn xoá đúng hàng đã vuốt.
+    public static func delete(
+        sourceLine: Int,
+        expectedPattern: String,
+        expectedReplacement: String,
+        from text: String
+    ) -> Edit? {
         var lines = split(text)
-        guard let index = indexOfRule(key: key, in: lines) else { return nil }
+        let index = sourceLine - 1
+        guard lines.indices.contains(index) else { return nil }
+        let trimmed = lines[index].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isRuleLine(trimmed),
+              let rule = QuickTranslationRuleParser.splitRuleLine(trimmed),
+              rule.pattern == expectedPattern,
+              rule.replacement == expectedReplacement else { return nil }
         lines.remove(at: index)
-        return lines.joined(separator: "\n")
+        return Edit(
+            text: lines.joined(separator: "\n"),
+            kind: .deleted(sourceLine: sourceLine, pattern: rule.pattern, replacement: rule.replacement)
+        )
     }
 
     /// Sửa một rule. Đổi key ⇒ giữ dòng cũ và thêm key mới, đúng ngữ nghĩa `DictionaryCache.updateKey`.
@@ -47,7 +90,7 @@ public enum QuickTranslationRuleFileEditor {
         newPattern: String,
         replacement: String,
         in text: String
-    ) -> String {
+    ) -> Edit {
         upsert(pattern: newPattern, replacement: replacement, in: text)
     }
 

@@ -33,6 +33,9 @@ public struct QuickTranslationRuleElement: Sendable {
     }
 
     public var kind: Kind
+    /// Cú pháp token nguyên gốc của phần tử này. Matcher dùng `kind` đã hạ xuống, còn policy dùng
+    /// metadata này để phân biệt `<w>` với tổ hợp các token từ điển tương đương.
+    public var sourceTokenKinds: Set<QuickTranslationRuleTokenSettings.Kind>
     /// Số ký tự UTF-16 tối thiểu token được nuốt (`:min-max`). Phần tử literal/group không dùng.
     public var minLength: Int
     public var maxLength: Int
@@ -47,6 +50,7 @@ public struct QuickTranslationRuleElement: Sendable {
 
     public init(
         kind: Kind,
+        sourceTokenKinds: Set<QuickTranslationRuleTokenSettings.Kind> = [],
         minLength: Int = 1,
         maxLength: Int = 1,
         isOptional: Bool = false,
@@ -55,6 +59,7 @@ public struct QuickTranslationRuleElement: Sendable {
         guardsRight: Bool = false
     ) {
         self.kind = kind
+        self.sourceTokenKinds = sourceTokenKinds
         self.minLength = minLength
         self.maxLength = maxLength
         self.isOptional = isOptional

@@ -15,11 +15,14 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.269)
+## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.272)
 
 * **Bộ rule được compile một lần cho mỗi lần nạp, không compile theo từng lần dịch.** `AppLaunchRootView.onAppear` chạy `Task.detached(priority: .utility) { QuickTranslationRuleStore.shared.prewarm() }`; `prewarm()` đặt cờ `didPrewarm` **trước** khi làm việc nên lần gọi thứ hai (mở màn quản lý) trả về ngay, không chờ.
+* **Cấu hình token có vòng đời khác với bộ rule.** Nó không nằm trong file, backup rule hay snapshot: mỗi lượt rewrite chụp `Configuration` mới từ `UserDefaults`, còn đổi Toggle chỉ dọn `TranslateUtils`/engine cache và phát một `notifyDictionariesDidUpdate()`. Vì `cacheTag` mang chữ ký cấu hình, Reader/TTS cũ cũng bị loại dù `generation` snapshot rule không đổi. Hai mode của ô Thử nhanh chỉ sống trong state màn đó và luôn bỏ qua công tắc tổng.
 * **Vì sao chạy nền được mà không cần chặn**: cửa `guard TranslationManager.shared.isVietPhraseLoaded` trong `translateText` vẫn giữ mọi lượt dịch lại cho tới khi từ điển nạp xong, mà nạp từ điển lâu hơn parse 633 rule nhiều lần. Nếu vì lý do nào đó lượt dịch đầu chạy trước, `activeSnapshot` trả `nil` ⇒ rơi về đường dịch cũ, và entry cache của lượt đó mang `q:…:0` nên không bị tái dùng sau khi snapshot lên.
 * **Vòng đời một lần đổi bộ rule là validate-then-swap, không có trạng thái nửa vời**: parse + validate + compile **toàn bộ vào staging** → có bất kỳ hard error thì trả `.rejected` và **không** ghi file, **không** swap (bộ đang chạy giữ nguyên) → không có hard error mới `Data.write(to:options:.atomic)` rồi swap snapshot dưới `NSLock`, `generation += 1`, dọn cache, phát notification. Không nạp một phần file lỗi.
+* **Snapshot có hai lớp định danh với vòng đời khác nhau**: `sourceLine` vẫn là toạ độ vật lý/tiebreak của file, còn `QuickTranslationRuleSnapshot.Row.id` là UUID chỉ sống trong bộ nhớ để `List` diff. CRUD tay carry-forward UUID theo metadata insert/replace/delete; tải, nhập, khôi phục hoặc nạp dataset tạo UUID mới toàn bộ.
+* **Xoá hàng là giao dịch revision-guarded**: mutation lock nối tiếp kiểm SHA-256 của text nguồn → tìm row UUID → FileEditor kiểm pattern/replacement tại `sourceLine` hiện hành → compile/validate → atomic write → swap. Revision lệch hoặc dòng không còn đúng thì trả lỗi trước khi ghi/swap; vì vậy rule trùng hoàn toàn vẫn xoá chính xác hàng người dùng vuốt.
 * **`generation` là thứ quyết định vòng đời của snapshot Reader/TTS**, không phải notification: nó đi vào `translationGenerationToken(for:)` nên `TTSPreparedChapterKey`/`TTSPreparedNextChapterKey`/`NowPlayingStaticMetadataKey` dựng bằng bộ rule cũ không bao giờ khớp `consumeCache` và rơi về `fallbackAdvanceToNextChapter`.
 * **Không có tài nguyên nào cần dọn khi màn quản lý đóng**: store là singleton sống suốt vòng đời app, matcher/`QuickTranslationDictionaryToken` được tạo và huỷ trong đúng một lượt `rewrite`, file tạm khi xuất nằm ở `NSTemporaryDirectory()`.
 

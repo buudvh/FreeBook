@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Ô thử nhanh: dán một câu Trung → xem text sau rewrite và **rule nào khớp ở offset nào**.
 ///
-/// Đây là công cụ debug chính khi rule không nổ như mong đợi. Chạy bỏ qua công tắc bật/tắt để thử
-/// được ngay cả khi đang tắt rule trong Cài đặt.
+/// Đây là công cụ debug chính khi rule không nổ như mong đợi. Người dùng có thể chạy theo cấu hình
+/// token hiện hành hoặc tạm coi mọi token là bật; cả hai vẫn bỏ qua công tắc tổng Quick Translate.
 struct QuickTranslationRuleTesterView: View {
     private struct Hit: Identifiable {
         let id = UUID()
@@ -18,6 +18,7 @@ struct QuickTranslationRuleTesterView: View {
     @State private var output = ""
     @State private var hits: [Hit] = []
     @State private var didRun = false
+    @State private var previewMode: QuickTranslationRuleEngine.PreviewMode = .respectTokenConfiguration
 
     var body: some View {
         Form {
@@ -32,6 +33,20 @@ struct QuickTranslationRuleTesterView: View {
                     .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
 
+            Section("Chế độ token") {
+                Picker("Áp dụng token", selection: $previewMode) {
+                    Text("Theo cấu hình token")
+                        .tag(QuickTranslationRuleEngine.PreviewMode.respectTokenConfiguration)
+                    Text("Bỏ qua cấu hình token")
+                        .tag(QuickTranslationRuleEngine.PreviewMode.ignoreTokenConfiguration)
+                }
+                .pickerStyle(.menu)
+
+                Text("Cả hai chế độ đều thử rule trực tiếp, không phụ thuộc công tắc tổng Quick Translate.")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
+
             if didRun {
                 Section(header: Text("Sau khi áp rule")) {
                     Text(output.isEmpty ? "(rỗng)" : output)
@@ -41,7 +56,7 @@ struct QuickTranslationRuleTesterView: View {
 
                 Section(header: Text("Rule đã khớp (\(hits.count))")) {
                     if hits.isEmpty {
-                        Text("Không rule nào khớp. Kiểm tra literal neo và khoảng độ dài token.")
+                        Text("Không rule nào khớp ở chế độ hiện tại. Kiểm tra literal neo và khoảng độ dài token.")
                             .font(.footnote)
                             .foregroundColor(.secondary)
                     }
@@ -63,6 +78,9 @@ struct QuickTranslationRuleTesterView: View {
         }
         .navigationTitle("Thử nhanh rule")
         .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: previewMode) { _, _ in
+            if didRun { run() }
+        }
     }
 
     private func run() {
@@ -70,7 +88,7 @@ struct QuickTranslationRuleTesterView: View {
         hits = []
         let text = input
 
-        guard let result = QuickTranslationRuleEngine.preview(text) else {
+        guard let result = QuickTranslationRuleEngine.preview(text, mode: previewMode) else {
             output = text
             return
         }

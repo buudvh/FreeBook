@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Màn hình quản lý rule dịch: trạng thái bộ đang chạy, tải bộ mặc định từ HuggingFace, nhập/xuất
-/// file, xoá bộ rule, và đường vào hai công cụ (danh sách rule, thử nhanh một câu).
+/// file, xoá bộ rule, và đường vào ba công cụ (danh sách rule, cấu hình token, thử nhanh một câu).
 ///
 /// Danh sách rule **không** nằm ở đây mà ở `QuickTranslationRuleListView`: ô tìm kiếm phải lọc đúng
 /// thứ nó nói, và màn này còn có thẻ trạng thái + các nút hành động không liên quan tới truy vấn.
@@ -123,7 +123,7 @@ struct QuickTranslationRulesView: View {
             }
 
             LabeledContent("Đang dùng", value: store.status.sourceLabel)
-            LabeledContent("Rule hoạt động", value: "\(store.status.ruleCount)")
+            LabeledContent("Rule đã nạp", value: "\(store.status.ruleCount)")
             LabeledContent("Cảnh báo", value: "\(store.status.warningCount + dictionaryIssues.count)")
             if !store.status.sourceHash.isEmpty {
                 LabeledContent("Mã bộ rule", value: store.status.sourceHash)
@@ -200,8 +200,8 @@ struct QuickTranslationRulesView: View {
 
     // MARK: - Công cụ
 
-    /// Danh sách rule và ô thử nhanh đều là **màn riêng**: danh sách vì `.searchable` phải nói đúng
-    /// phạm vi nó lọc (xem `QuickTranslationRuleListView`), ô thử nhanh vì nó có state nhập liệu riêng.
+    /// Các công cụ đều là **màn riêng**: danh sách vì `.searchable` phải nói đúng phạm vi nó lọc
+    /// (xem `QuickTranslationRuleListView`), còn cấu hình token và ô thử nhanh có state runtime riêng.
     @ViewBuilder
     private var toolsSection: some View {
         Section(header: Text("Công cụ")) {
@@ -209,6 +209,10 @@ struct QuickTranslationRulesView: View {
                 QuickTranslationRuleListView(extraIssues: dictionaryIssues)
             } label: {
                 Label("Danh sách rule (\(store.status.ruleCount))", systemImage: "list.number")
+            }
+
+            NavigationLink(destination: QuickTranslationRuleTokenSettingsView()) {
+                Label("Cấu hình token rule", systemImage: "switch.2")
             }
 
             NavigationLink(destination: QuickTranslationRuleTesterView()) {

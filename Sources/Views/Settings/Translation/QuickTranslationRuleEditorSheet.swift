@@ -67,7 +67,7 @@ struct QuickTranslationRuleEditorSheet: View {
                 } header: {
                     Text("Mẫu (vế trái dấu =)")
                 } footer: {
-                    Text("Token: `<n>` số, `<y>` đọc từng chữ số, `<L>` nhãn chương, `<hv>` một chữ Hán-Việt, `<ne>/<pn>/<vp>/<w>` cụm trong từ điển. Giới hạn độ dài viết liền: `<n:1-6>`. Nhóm `(a|b)` và `(a|b)?` không được đánh số.")
+                    Text("Token: `<n>` số, `<y>` đọc từng chữ số, `<L>` nhãn chương, `<hv>` một chữ Hán-Việt, `<ne>/<pn>/<vp>/<w>` cụm trong từ điển. Giới hạn độ dài viết liền: `<n:1-6>`. Nhóm `(a|b)` và `(a|b)?` không được đánh số. Mỗi token chịu sự chi phối của Cấu hình token rule; tắt token không sửa file nhưng rule chứa token đó sẽ không chạy.")
                 }
 
                 Section {

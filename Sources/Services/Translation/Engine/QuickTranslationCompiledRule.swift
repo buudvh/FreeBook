@@ -36,6 +36,9 @@ public struct QuickTranslationCompiledRule: Sendable {
     /// Các nhóm từ điển rule này cần. Dùng cho `DICT_TOKEN_WITHOUT_DICTIONARY` ở màn hình quản lý;
     /// runtime không chặn theo cờ này — thiếu từ điển thì token đơn giản không có ứng viên nào.
     public let requiredDictionaryKinds: [QuickTranslationRuleElement.DictionaryKind]
+    /// Các cú pháp token xuất hiện trong rule trước khi parser hạ `<w>` xuống các nhóm từ điển.
+    /// Token tắt làm cả rule không chạy, kể cả token nằm trong group, optional hoặc danh sách `|`.
+    public let requiredTokenKinds: Set<QuickTranslationRuleTokenSettings.Kind>
 
     public init(
         sourceLine: Int,
@@ -49,7 +52,8 @@ public struct QuickTranslationCompiledRule: Sendable {
         requiredLiteral: [UInt16],
         requiredLiteralPrefixMin: Int,
         requiredLiteralPrefixMax: Int,
-        requiredDictionaryKinds: [QuickTranslationRuleElement.DictionaryKind]
+        requiredDictionaryKinds: [QuickTranslationRuleElement.DictionaryKind],
+        requiredTokenKinds: Set<QuickTranslationRuleTokenSettings.Kind> = []
     ) {
         self.sourceLine = sourceLine
         self.pattern = pattern
@@ -63,6 +67,12 @@ public struct QuickTranslationCompiledRule: Sendable {
         self.requiredLiteralPrefixMin = requiredLiteralPrefixMin
         self.requiredLiteralPrefixMax = requiredLiteralPrefixMax
         self.requiredDictionaryKinds = requiredDictionaryKinds
+        self.requiredTokenKinds = requiredTokenKinds
+    }
+
+    /// Literal-only rule luôn hợp lệ; với token, chính sách yêu cầu mọi cú pháp đã ghi đều bật.
+    public func isEnabled(for configuration: QuickTranslationRuleTokenSettings.Configuration) -> Bool {
+        requiredTokenKinds.allSatisfy { configuration.isEnabled($0) }
     }
 
     /// Render RHS từ các capture đã khớp. Capture vắng (token optional) render chuỗi rỗng.

@@ -226,6 +226,7 @@ public enum QuickTranslationRuleParser {
         guard !names.isEmpty, !names.contains(where: { $0.isEmpty }) else {
             throw ParseError(code: .unknownTokenName, message: "Token <\(spec)> không có tên")
         }
+        let sourceTokenKinds = try tokenKinds(for: names)
 
         var minLength = 1
         var maxLength = 12
@@ -244,6 +245,7 @@ public enum QuickTranslationRuleParser {
         if names.allSatisfy({ $0 == "n" || $0 == "y" }) {
             return QuickTranslationRuleElement(
                 kind: .numeral(isDigitwise: names[0] == "y"),
+                sourceTokenKinds: sourceTokenKinds,
                 minLength: minLength,
                 maxLength: maxLength,
                 isOptional: isOptional,
@@ -256,6 +258,7 @@ public enum QuickTranslationRuleParser {
             // capture ≥ 2 ký tự — đó là rác, nên cố định 1 ký tự (lệch có chủ ý).
             return QuickTranslationRuleElement(
                 kind: .chapterLabel,
+                sourceTokenKinds: sourceTokenKinds,
                 minLength: 1,
                 maxLength: 1,
                 isOptional: isOptional,
@@ -286,11 +289,25 @@ public enum QuickTranslationRuleParser {
 
         return QuickTranslationRuleElement(
             kind: .dictionary(kinds),
+            sourceTokenKinds: sourceTokenKinds,
             minLength: minLength,
             maxLength: maxLength,
             isOptional: isOptional,
             captureIndex: index
         )
+    }
+
+    private static func tokenKinds(
+        for names: [String]
+    ) throws -> Set<QuickTranslationRuleTokenSettings.Kind> {
+        var kinds: Set<QuickTranslationRuleTokenSettings.Kind> = []
+        for name in names {
+            guard let kind = QuickTranslationRuleTokenSettings.Kind(rawValue: name) else {
+                throw ParseError(code: .unknownTokenName, message: "Token <\(name)> không được hỗ trợ")
+            }
+            kinds.insert(kind)
+        }
+        return kinds
     }
 
     private static func parseGroup(

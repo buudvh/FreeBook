@@ -25,7 +25,19 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 ## `QuickTranslationRuleEditorSheet.Mode` — enum lồng, `Identifiable` có lý do
 
 * `case add` / `case edit(pattern:replacement:sourceLine:)`, `id` là `"add"` hoặc `"edit:<line>:<pattern>"`. Conform `Identifiable` để mở sheet bằng `.sheet(item:)`: mở theo *dữ liệu* thì không có khoảng thời gian sheet đã hiện mà state còn rỗng như cách `isPresented` + biến phụ.
-* `pattern` trong case `edit` là **khoá định vị dòng trong file**, không phải chỉ để hiển thị — `sourceLine` chỉ để in cho người dùng biết dòng nào.
+* `pattern` trong case `edit` vẫn mang ngữ nghĩa key cho thao tác lưu; `sourceLine` chỉ để in dòng lỗi/đối chiếu ngắn hạn, không phải định danh hàng của `List`.
+
+## `QuickTranslationRuleTokenSettings` — policy Foundation, không phải thuộc tính của rule (1.3.272)
+
+* `Kind` là raw enum của đúng 8 cú pháp `<n>`, `<y>`, `<L>`, `<ne>`, `<pn>`, `<vp>`, `<hv>`, `<w>`; mỗi case sở hữu một khoá `UserDefaults` lower-camel-case và thiếu khoá nghĩa là `true`. Type sống ở `Services/Translation/Engine/` nhưng chỉ `import Foundation`, nên engine và View cùng dùng được mà Service không phụ thuộc ngược vào SwiftUI.
+* `Configuration` chỉ là `Set<Kind>` bất biến của **một** lượt rewrite. `signature` duyệt `Kind.allCases` theo thứ tự khai báo, không dùng `hashValue`, nên có thể làm một phần cache key ổn định giữa process.
+* `QuickTranslationRuleElement.sourceTokenKinds` giữ lại syntax trước khi parser hạ `<w>` thành `[name, pronoun, vietPhrase]`; compiler gộp đệ quy các element/group thành `QuickTranslationCompiledRule.requiredTokenKinds`. `isEnabled(for:)` là gate toàn rule: literal-only luôn qua, còn một token tắt trong optional, alternative hoặc `|` chặn rule.
+
+## `QuickTranslationRuleSnapshot.Row` — handle UI tạm thời, không phải dữ liệu rule
+
+* Snapshot giữ `rows: [Row]` song song với `rules`: mỗi `Row` có `UUID` ổn định trong đời snapshot và `ruleIndex` trỏ tới rule đã compile. `QuickTranslationRuleListView.DisplayRule` dùng UUID này cho `ForEach`, nên xoá một dòng không biến các `sourceLine` phía sau thành identity mới.
+* `sourceRevision` là SHA-256 đầy đủ của text nguồn, chỉ dùng để chặn xoá theo hàng khi file đã đổi ngoài snapshot. Cả revision lẫn UUID không ghi vào `QuickTranslateRules.txt`, backup hay SwiftData.
+* CRUD tay remap handle theo metadata insert/replace/delete của FileEditor; nhập, tải, khôi phục và nạp lại dataset tạo handle mới vì chúng thay toàn bộ tập rule.
 
 ## Type mới ở tầng Common: KeyboardDismissGesture (1.3.266)
 

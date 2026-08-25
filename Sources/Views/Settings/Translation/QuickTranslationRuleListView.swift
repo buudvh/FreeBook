@@ -23,12 +23,22 @@ struct QuickTranslationRuleListView: View {
 
     private static let pageSize = 200
 
+    /// ID này sống cùng snapshot và không đổi khi CRUD làm các `sourceLine` phía sau dịch vị trí.
+    private struct DisplayRule: Identifiable {
+        let id: UUID
+        let rule: QuickTranslationCompiledRule
+    }
+
     init(extraIssues: [QuickTranslationRuleIssue] = []) {
         self.extraIssues = extraIssues
     }
 
-    private var rules: [QuickTranslationCompiledRule] {
-        store.currentSnapshot?.rules ?? []
+    private var ruleRows: [DisplayRule] {
+        guard let snapshot = store.currentSnapshot else { return [] }
+        return snapshot.rows.compactMap { row in
+            guard snapshot.rules.indices.contains(row.ruleIndex) else { return nil }
+            return DisplayRule(id: row.id, rule: snapshot.rules[row.ruleIndex])
+        }
     }
 
     /// Gộp cảnh báo theo dòng để hàng nào có vấn đề thì thấy ngay, không phải mở sheet đối chiếu.
@@ -38,24 +48,24 @@ struct QuickTranslationRuleListView: View {
 
     /// Tìm theo mẫu, theo bản dịch, **và** theo số dòng — số dòng là thứ sheet lỗi in ra, nên đó là
     /// đường tự nhiên nhất để đi từ một cảnh báo tới rule tương ứng.
-    private var filteredRules: [QuickTranslationCompiledRule] {
+    private var filteredRows: [DisplayRule] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return rules }
+        guard !query.isEmpty else { return ruleRows }
         if let line = Int(query) {
-            return rules.filter {
-                $0.sourceLine == line
-                    || $0.pattern.localizedCaseInsensitiveContains(query)
-                    || $0.replacement.localizedCaseInsensitiveContains(query)
+            return ruleRows.filter {
+                $0.rule.sourceLine == line
+                    || $0.rule.pattern.localizedCaseInsensitiveContains(query)
+                    || $0.rule.replacement.localizedCaseInsensitiveContains(query)
             }
         }
-        return rules.filter {
-            $0.pattern.localizedCaseInsensitiveContains(query)
-                || $0.replacement.localizedCaseInsensitiveContains(query)
+        return ruleRows.filter {
+            $0.rule.pattern.localizedCaseInsensitiveContains(query)
+                || $0.rule.replacement.localizedCaseInsensitiveContains(query)
         }
     }
 
-    private var visibleRules: [QuickTranslationCompiledRule] {
-        Array(filteredRules.prefix(visibleLimit))
+    private var visibleRows: [DisplayRule] {
+        Array(filteredRows.prefix(visibleLimit))
     }
 
     var body: some View {
@@ -113,8 +123,8 @@ struct QuickTranslationRuleListView: View {
         return outcome
     }
 
-    private func delete(_ rule: QuickTranslationCompiledRule) {
-        switch store.deleteRule(pattern: rule.pattern) {
+    private func delete(_ row: DisplayRule) {
+        switch store.deleteRule(rowID: row.id) {
         case .success(let ruleCount, _):
             ToastManager.shared.show(message: "Đã xoá rule. Còn \(ruleCount) rule.", type: .info)
         case .rejected(let issues):
@@ -134,13 +144,13 @@ struct QuickTranslationRuleListView: View {
         Section {
             HStack {
                 Text(searchText.isEmpty
-                     ? "\(rules.count) rule đang chạy"
-                     : "\(filteredRules.count)/\(rules.count) rule khớp truy vấn")
+                     ? "\(ruleRows.count) rule đã nạp"
+                     : "\(filteredRows.count)/\(ruleRows.count) rule khớp truy vấn")
                     .font(.footnote)
                     .foregroundColor(.secondary)
                 Spacer()
-                if filteredRules.count > visibleRules.count {
-                    Text("hiện \(visibleRules.count)")
+                if filteredRows.count > visibleRows.count {
+                    Text("hiện \(visibleRows.count)")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
@@ -153,32 +163,32 @@ struct QuickTranslationRuleListView: View {
     @ViewBuilder
     private var rulesSection: some View {
         Section {
-            if rules.isEmpty {
+            if ruleRows.isEmpty {
                 Text("Chưa có bộ rule nào. Tải hoặc nhập bộ rule ở màn Quản lý rule dịch, hoặc bấm + để tự thêm rule đầu tiên.")
                     .font(.footnote)
                     .foregroundColor(.secondary)
-            } else if visibleRules.isEmpty {
+            } else if visibleRows.isEmpty {
                 Text("Không có rule nào khớp \"\(searchText)\".")
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }
 
-            ForEach(visibleRules, id: \.sourceLine) { rule in
-                ruleRow(rule)
+            ForEach(visibleRows) { row in
+                ruleRow(row.rule)
                     // Xoá là **xoá hẳn dòng** khỏi file, không hỏi lại — cùng ứng xử với hàng từ điển.
                     // Đổi ý thì tải lại bộ mặc định hoặc thêm lại rule.
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
-                            delete(rule)
+                            delete(row)
                         } label: {
                             Label("Xoá", systemImage: "trash")
                         }
 
                         Button {
                             editorMode = .edit(
-                                pattern: rule.pattern,
-                                replacement: rule.replacement,
-                                sourceLine: rule.sourceLine
+                                pattern: row.rule.pattern,
+                                replacement: row.rule.replacement,
+                                sourceLine: row.rule.sourceLine
                             )
                         } label: {
                             Label("Sửa", systemImage: "pencil")
@@ -187,8 +197,8 @@ struct QuickTranslationRuleListView: View {
                     }
             }
 
-            if filteredRules.count > visibleRules.count {
-                Button("Xem thêm \(min(Self.pageSize, filteredRules.count - visibleRules.count)) rule") {
+            if filteredRows.count > visibleRows.count {
+                Button("Xem thêm \(min(Self.pageSize, filteredRows.count - visibleRows.count)) rule") {
                     visibleLimit += Self.pageSize
                 }
                 .font(.subheadline)

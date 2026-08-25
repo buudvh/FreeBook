@@ -51,6 +51,8 @@ public final class QuickTranslationRuleStore: ObservableObject {
     @MainActor @Published public private(set) var isDownloading = false
 
     private let lock = NSLock()
+    /// Nối tiếp các giao dịch sửa file để text đã kiểm revision không bị một CRUD nội bộ khác chen vào.
+    private let mutationLock = NSLock()
     private nonisolated(unsafe) var snapshot: QuickTranslationRuleSnapshot?
     private nonisolated(unsafe) var generationCounter = 0
     private nonisolated(unsafe) var didPrewarm = false
@@ -66,12 +68,13 @@ public final class QuickTranslationRuleStore: ObservableObject {
         UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? true
     }
 
-    /// Thẻ đi vào cache key dịch: trạng thái công tắc + generation của snapshot.
+    /// Thẻ đi vào cache key dịch: công tắc tổng, cấu hình token và generation của snapshot.
     public var cacheTag: String {
         lock.lock()
         let generation = generationCounter
         lock.unlock()
-        return "\(isEnabled ? 1 : 0):\(generation)"
+        let tokenSignature = QuickTranslationRuleTokenSettings.currentConfiguration().signature
+        return "\(isEnabled ? 1 : 0):\(tokenSignature):\(generation)"
     }
 
     public var currentSnapshot: QuickTranslationRuleSnapshot? {
@@ -104,6 +107,12 @@ public final class QuickTranslationRuleStore: ObservableObject {
         try? String(contentsOf: ruleFileURL, encoding: .utf8)
     }
 
+    func withMutationLock<T>(_ operation: () -> T) -> T {
+        mutationLock.lock()
+        defer { mutationLock.unlock() }
+        return operation()
+    }
+
     // MARK: - Nạp
 
     /// Gọi một lần khi khởi động, **trước** khi lần dịch đầu chạy. Nạp lại nhiều lần là no-op.
@@ -122,11 +131,13 @@ public final class QuickTranslationRuleStore: ObservableObject {
     /// đơn giản là chưa được bật bằng dữ liệu.
     @discardableResult
     public func load(notifiesObservers: Bool = true) -> LoadOutcome {
-        guard let text = try? String(contentsOf: ruleFileURL, encoding: .utf8) else {
-            publish(Status())
-            return .failure(message: "Chưa có bộ rule nào trên máy")
+        withMutationLock {
+            guard let text = try? String(contentsOf: ruleFileURL, encoding: .utf8) else {
+                publish(Status())
+                return .failure(message: "Chưa có bộ rule nào trên máy")
+            }
+            return apply(text: text, source: .local, notifiesObservers: notifiesObservers)
         }
-        return apply(text: text, source: .local, notifiesObservers: notifiesObservers)
     }
 
     /// Nhập/ghi bộ rule: parse + validate + compile **toàn bộ vào staging**, chỉ khi không có hard
@@ -145,6 +156,24 @@ public final class QuickTranslationRuleStore: ObservableObject {
         source: QuickTranslationRuleSnapshot.Source = .imported,
         mode: DataImportMode = .replaceAll,
         notifiesObservers: Bool = true
+    ) -> LoadOutcome {
+        withMutationLock {
+            importRulesLocked(
+                text: text,
+                source: source,
+                mode: mode,
+                notifiesObservers: notifiesObservers
+            )
+        }
+    }
+
+    /// Gọi khi đã giữ `mutationLock`; CRUD theo hàng truyền metadata để snapshot giữ handle ổn định.
+    func importRulesLocked(
+        text: String,
+        source: QuickTranslationRuleSnapshot.Source,
+        mode: DataImportMode = .replaceAll,
+        notifiesObservers: Bool = true,
+        edit: QuickTranslationRuleFileEditor.Edit? = nil
     ) -> LoadOutcome {
         let merged: String
         if mode == .replaceAll {
@@ -175,7 +204,8 @@ public final class QuickTranslationRuleStore: ObservableObject {
             text: merged,
             source: source,
             precompiled: staged,
-            notifiesObservers: notifiesObservers
+            notifiesObservers: notifiesObservers,
+            edit: edit
         )
     }
 
@@ -214,26 +244,29 @@ public final class QuickTranslationRuleStore: ObservableObject {
     /// Xoá bộ rule khỏi máy: pipeline dịch quay về đúng hành vi khi chưa có rule.
     @discardableResult
     public func deleteRules() -> Bool {
-        let existed = hasRuleFile
-        try? FileManager.default.removeItem(at: ruleFileURL)
+        withMutationLock {
+            let existed = hasRuleFile
+            try? FileManager.default.removeItem(at: ruleFileURL)
 
-        lock.lock()
-        generationCounter += 1
-        snapshot = nil
-        complexRuleLines.removeAll()
-        lock.unlock()
+            lock.lock()
+            generationCounter += 1
+            snapshot = nil
+            complexRuleLines.removeAll()
+            lock.unlock()
 
-        publish(Status())
-        invalidateTranslationCaches()
-        AppLogger.shared.log("🗑️ [QuickTranslateRule] Đã xoá bộ rule dịch khỏi máy")
-        return existed
+            publish(Status())
+            invalidateTranslationCaches()
+            AppLogger.shared.log("🗑️ [QuickTranslateRule] Đã xoá bộ rule dịch khỏi máy")
+            return existed
+        }
     }
 
     private func apply(
         text: String,
         source: QuickTranslationRuleSnapshot.Source,
         precompiled: QuickTranslationRuleCompiler.Result? = nil,
-        notifiesObservers: Bool = true
+        notifiesObservers: Bool = true,
+        edit: QuickTranslationRuleFileEditor.Edit? = nil
     ) -> LoadOutcome {
         let compiled = precompiled ?? QuickTranslationRuleCompiler.compile(QuickTranslationRuleParser.parse(text))
         if compiled.hasHardError {
@@ -249,7 +282,13 @@ public final class QuickTranslationRuleStore: ObservableObject {
             generation: generation,
             source: source,
             sourceHash: String(text.md5().prefix(8)),
+            sourceRevision: text.sha256(),
             rules: compiled.rules,
+            rowIDs: Self.rowIDs(
+                for: compiled.rules,
+                previousSnapshot: snapshot,
+                edit: edit
+            ),
             issues: Array(warnings.prefix(Self.maxStoredIssues)),
             warningCount: warnings.count
         )
@@ -273,10 +312,12 @@ public final class QuickTranslationRuleStore: ObservableObject {
     /// trạng thái runtime, không phải lỗi cú pháp, nên không chốt được lúc compile.
     public func dictionaryIssues() -> [QuickTranslationRuleIssue] {
         guard let snapshot = currentSnapshot else { return [] }
+        let tokenConfiguration = QuickTranslationRuleTokenSettings.currentConfiguration()
         var missing: [QuickTranslationRuleElement.DictionaryKind: Bool] = [:]
         var issues: [QuickTranslationRuleIssue] = []
 
         for rule in snapshot.rules where !rule.requiredDictionaryKinds.isEmpty {
+            guard rule.isEnabled(for: tokenConfiguration) else { continue }
             let unavailable = rule.requiredDictionaryKinds.filter { kind in
                 if let cached = missing[kind] { return cached }
                 let available = QuickTranslationDictionaryToken.isAvailable(kind)

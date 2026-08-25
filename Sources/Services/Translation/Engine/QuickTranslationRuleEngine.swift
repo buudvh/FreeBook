@@ -10,6 +10,12 @@ import Foundation
 /// lại cho rule), **không exhaustive match** (mỗi rule chỉ phát match trái → phải), và **không**
 /// `trim()` input (trim là lệch range).
 public enum QuickTranslationRuleEngine {
+    /// Ô thử nhanh luôn bỏ qua công tắc tổng, nhưng có thể chọn phản ánh hoặc bỏ qua cấu hình token.
+    public enum PreviewMode: CaseIterable, Hashable, Sendable {
+        case respectTokenConfiguration
+        case ignoreTokenConfiguration
+    }
+
     private final class CacheEntry {
         let result: QuickTranslationRewriteResult
         init(_ result: QuickTranslationRewriteResult) { self.result = result }
@@ -36,11 +42,17 @@ public enum QuickTranslationRuleEngine {
     public static func rewrite(_ text: String, bookId: String?) -> QuickTranslationRewriteResult? {
         guard !text.isEmpty else { return nil }
         guard let snapshot = QuickTranslationRuleStore.shared.activeSnapshot else { return nil }
+        let tokenConfiguration = QuickTranslationRuleTokenSettings.currentConfiguration()
 
-        let key = "\(snapshot.generation)|\(bookId ?? "global")|\(text.md5())" as NSString
+        let key = "\(snapshot.generation)|\(tokenConfiguration.signature)|\(bookId ?? "global")|\(text.md5())" as NSString
         if let cached = cache.object(forKey: key) { return cached.result }
 
-        let result = execute(text, snapshot: snapshot, bookId: bookId)
+        let result = execute(
+            text,
+            snapshot: snapshot,
+            bookId: bookId,
+            tokenConfiguration: tokenConfiguration
+        )
         cache.setObject(CacheEntry(result), forKey: key)
         return result
     }
@@ -49,12 +61,28 @@ public enum QuickTranslationRuleEngine {
         cache.removeAllObjects()
     }
 
-    /// Dùng cho ô thử nhanh ở màn hình quản lý: chạy **bỏ qua công tắc** và không dùng memo, để người
-    /// dùng thử được rule ngay cả khi đang tắt rule trong Cài đặt.
-    public static func preview(_ text: String, bookId: String? = nil) -> QuickTranslationRewriteResult? {
+    /// Dùng cho ô thử nhanh ở màn hình quản lý: luôn bỏ qua công tắc tổng và không dùng memo.
+    /// `mode` chỉ quyết định có tôn trọng tám công tắc token hay xem rule với mọi token được bật.
+    public static func preview(
+        _ text: String,
+        bookId: String? = nil,
+        mode: PreviewMode = .respectTokenConfiguration
+    ) -> QuickTranslationRewriteResult? {
         guard !text.isEmpty, let snapshot = QuickTranslationRuleStore.shared.currentSnapshot,
               !snapshot.rules.isEmpty else { return nil }
-        return execute(text, snapshot: snapshot, bookId: bookId)
+        let tokenConfiguration: QuickTranslationRuleTokenSettings.Configuration
+        switch mode {
+        case .respectTokenConfiguration:
+            tokenConfiguration = QuickTranslationRuleTokenSettings.currentConfiguration()
+        case .ignoreTokenConfiguration:
+            tokenConfiguration = .allEnabled
+        }
+        return execute(
+            text,
+            snapshot: snapshot,
+            bookId: bookId,
+            tokenConfiguration: tokenConfiguration
+        )
     }
 
     // MARK: - Thi hành
@@ -62,7 +90,8 @@ public enum QuickTranslationRuleEngine {
     private static func execute(
         _ text: String,
         snapshot: QuickTranslationRuleSnapshot,
-        bookId: String?
+        bookId: String?,
+        tokenConfiguration: QuickTranslationRuleTokenSettings.Configuration
     ) -> QuickTranslationRewriteResult {
         let nsText = text as NSString
         let units = Array(text.utf16)
@@ -77,6 +106,7 @@ public enum QuickTranslationRuleEngine {
         var found: [Found] = []
         for candidate in candidates {
             let rule = snapshot.rules[candidate.ruleIndex]
+            guard rule.isEnabled(for: tokenConfiguration) else { continue }
             var cursor = 0
             for start in candidate.starts where start >= cursor {
                 guard let match = matcher.match(rule, at: start) else {
