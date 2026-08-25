@@ -1,6 +1,18 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.236) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.237) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.237] - 2026-08-21
+
+### Sửa lỗi biên dịch của phép tách file: batchSize fileprivate xuyên file
+
+CI của `6357674` fail ở step `Build and Archive App (Unsigned)`. Nguyên nhân là hệ quả trực tiếp của phép tách ở 1.3.236: `BookTitleTranslationMigrator.batchSize` được khai `fileprivate static let`, mà `fileprivate` trong Swift là **phạm vi file**, nên sau khi `BookTitleTranslationBackfill` rời sang file riêng thì `BookTitleTranslationMigrator.batchSize` không còn truy cập được.
+
+* **`BookTitleTranslationMigrator.swift`**: xoá `fileprivate static let batchSize = 50` (không còn ai trong file dùng).
+* **`BookTitleTranslationBackfill.swift`**: thêm `private static let batchSize = 50` (kèm doc comment nêu mục đích: giới hạn số sách mỗi lần `save()`), và đổi call site `BookTitleTranslationMigrator.batchSize` → `Self.batchSize`. Hằng nay nằm đúng chỗ actor thực sự dùng nó, phạm vi hẹp hơn trước.
+* Giá trị 50 và hành vi batch không đổi.
+* **Kiểm tra bổ sung sau sự cố** (để không lặp lại cùng loại lỗi ở 13 phép tách còn lại): quét chéo mọi khai báo `private`/`fileprivate` giữa từng cặp file-gốc ↔ file-mới → chỉ còn 3 kết quả và cả 3 là trùng tên vô hại (`container` là tham số, `pillHeight` là tham số, `containerViewController` do mỗi type tự khai); quét trùng khai báo type top-level toàn `Sources/` → 0; quét identifier chưa resolve trong 14 file mới → không thiếu `import` nào.
+* `check_architecture.py` giữ **18 violation** (không đổi). `validate_links.py` PASS.
 
 ## [1.3.236] - 2026-08-21
 

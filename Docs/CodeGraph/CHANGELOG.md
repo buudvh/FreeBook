@@ -2,7 +2,19 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.236) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.237) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.267] - 2026-08-25
+
+### Nhập/xoá từ điển VietPhrase riêng làm Reader dịch lại ngay
+
+Sửa **1** file Swift, không thêm/xoá file, không đổi shape `@Model`. Chưa biên dịch (viết trên Windows, không có `xcodebuild`/`xcodegen`).
+
+* **Lỗi**: "Từ điển truyện → VietPhrase Riêng → Nhập" ghi file, gọi `TranslateUtils.clearCache()` + `TranslationManager.shared.clearBookDictCache(for:)` rồi báo thành công, nhưng **không** phát `notifyDictionariesDidUpdate`. Reader chỉ dựng lại `[ParagraphItem]` khi nhận `.translationDictionariesDidUpdate` (`ReaderView.swift:672`), nên chương đang hiển thị giữ nguyên bản dịch cũ — chỉ đổi chương/tải lại mới thấy từ điển mới. Nhánh "Xoá tất cả" của từ điển truyện thiếu y hệt.
+* **Sửa** (`DictionaryListView.swift`, 748 → 752): thêm `TranslationManager.shared.notifyDictionariesDidUpdate(bookId: bid)` vào đúng hai nhánh sách sau khi ghi file thành công — `deleteAllEntries()` (:482) và `importFile(from:isMerge:)` (:523). Giữ `bookId` để chỉ Reader của truyện đó refresh, và giữ `scope` mặc định `.globalReload` vì nhập/xoá cả từ điển không phải sửa một từ (`.term`). Vẫn giữ `clearCache()` hiện có: thu hẹp nó thành `invalidateCache(bookId:)` là thay đổi hành vi rộng hơn, không thuộc lỗi này.
+* **Chỉ Reader cần vá.** Toàn repo có đúng hai subscriber của notification này: `ReaderView` và `TTSManager`. Phía TTS **đã** tự lo bằng token — `TTSPreparedChapterKey`/`TTSPreparedNextChapterKey`/`NowPlayingStaticMetadataKey` đều nhúng `translationGenerationToken`, nên prefetch cũ không bao giờ khớp `consumeCache` và rơi về `fallbackAdvanceToNextChapter` (nạp + xử lý lại). Notification với TTS chỉ là *áp dụng ngay cho chương đang phát*, không phải điều kiện đúng đắn.
+* `shareToBook(targetBook:isMerge:)` (:534) **cố ý giữ nguyên**: Reader luôn trình bày bằng `fullScreenCover(item:)` nên không thể có Reader của truyện đích đang mở, và phía TTS đã token-guard như trên.
+* **Kết quả gate**: `check_architecture.py` giữ **14 violation** (baseline, không có violation mới — `DictionaryListView.swift` vượt baseline 690 từ trước bản này). `validate_links.py` PASS.
 
 ## [1.3.266] - 2026-08-24
 
@@ -417,15 +429,3 @@ Hai sửa nhỏ, không đổi logic runtime nào.
 * **`.github/workflows/build-ipa.yml`** — bug hạ tầng phát hiện từ log CI thật: caption của `sendDocument` bị Telegram giới hạn **1024 ký tự**, nhưng workflow dựng caption từ *toàn bộ* commit message (`%B`). Với commit message nhiều đoạn, Telegram trả `400 Bad Request: message caption is too long` và **IPA không tới được Telegram** — trong khi `curl` vẫn exit 0 nên step `Send IPA to Telegram` vẫn báo success và CI vẫn xanh. Nay caption chỉ dùng **subject một dòng** (`%s` qua biến mới `COMMIT_SUBJECT`); `COMMIT_MSG` (`%B`) giữ nguyên cho hai nhánh `sendMessage` vì giới hạn ở đó là 4096 ký tự. Toàn bộ message vẫn tra được bằng `git log`.
 * **`Sources/Views/Settings/Main/SettingsView.swift`** — sửa mô tả nút "Ghi log hệ thống": bỏ giới hạn sai "của các VBook extension" (log phủ toàn app, không riêng extension) và ghi đúng đường dẫn `applicationSupportDirectory/app_logs.txt` thay vì `app_logs.txt`, khớp với thực tế `AppLogger` và với `rules.md` §5.9.
 * Hệ quả cần biết: các build đã push trước đó với commit message dài (`511e1b5`, `60937fd`) rất có thể **chưa từng gửi được IPA sang Telegram** dù CI xanh; run kế tiếp là lần đầu caption đủ ngắn.
-
-## [1.3.237] - 2026-08-21
-
-### Sửa lỗi biên dịch của phép tách file: batchSize fileprivate xuyên file
-
-CI của `6357674` fail ở step `Build and Archive App (Unsigned)`. Nguyên nhân là hệ quả trực tiếp của phép tách ở 1.3.236: `BookTitleTranslationMigrator.batchSize` được khai `fileprivate static let`, mà `fileprivate` trong Swift là **phạm vi file**, nên sau khi `BookTitleTranslationBackfill` rời sang file riêng thì `BookTitleTranslationMigrator.batchSize` không còn truy cập được.
-
-* **`BookTitleTranslationMigrator.swift`**: xoá `fileprivate static let batchSize = 50` (không còn ai trong file dùng).
-* **`BookTitleTranslationBackfill.swift`**: thêm `private static let batchSize = 50` (kèm doc comment nêu mục đích: giới hạn số sách mỗi lần `save()`), và đổi call site `BookTitleTranslationMigrator.batchSize` → `Self.batchSize`. Hằng nay nằm đúng chỗ actor thực sự dùng nó, phạm vi hẹp hơn trước.
-* Giá trị 50 và hành vi batch không đổi.
-* **Kiểm tra bổ sung sau sự cố** (để không lặp lại cùng loại lỗi ở 13 phép tách còn lại): quét chéo mọi khai báo `private`/`fileprivate` giữa từng cặp file-gốc ↔ file-mới → chỉ còn 3 kết quả và cả 3 là trùng tên vô hại (`container` là tham số, `pillHeight` là tham số, `containerViewController` do mỗi type tự khai); quét trùng khai báo type top-level toàn `Sources/` → 0; quét identifier chưa resolve trong 14 file mới → không thiếu `import` nào.
-* `check_architecture.py` giữ **18 violation** (không đổi). `validate_links.py` PASS.

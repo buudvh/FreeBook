@@ -478,7 +478,9 @@ struct DictionaryListView: View {
                     
                     TranslateUtils.clearCache()
                     TranslationManager.shared.clearBookDictCache(for: bid)
-                    
+                    // Xoá cache chưa đủ: Reader chỉ dựng lại đoạn khi nhận notification này.
+                    TranslationManager.shared.notifyDictionariesDidUpdate(bookId: bid)
+
                     let entries = await loadBookEntries()
                     bookEntries = entries
                 }
@@ -517,6 +519,8 @@ struct DictionaryListView: View {
 
                     TranslateUtils.clearCache()
                     TranslationManager.shared.clearBookDictCache(for: bid)
+                    // Xoá cache chưa đủ: Reader chỉ dựng lại đoạn khi nhận notification này.
+                    TranslationManager.shared.notifyDictionariesDidUpdate(bookId: bid)
                     let entries = await loadBookEntries()
                     bookEntries = entries
                 }
