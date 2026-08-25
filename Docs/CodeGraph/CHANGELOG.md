@@ -2,7 +2,16 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.242) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.243) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.273] - 2026-08-25
+
+### Rule dịch: sửa build token
+
+Sửa lỗi biên dịch SwiftUI ở màn **Cấu hình token rule**.
+
+* Đổi hai `Section` sang initializer `content/header/footer` tương thích với toolchain CI; giao diện và logic bật/tắt token không đổi.
+* Đã rà lại `11_subsystems.md` và ghi nhận `--no-change-needed`; CI macOS sẽ xác nhận build archive.
 
 ## [1.3.272] - 2026-08-25
 
@@ -421,18 +430,3 @@ Năm tính năng, tất cả dựng trên thành phần sẵn có: thanh tìm ki
 * **Gate:** `check_architecture.py` **18 → 18 violation**, tập vi phạm y hệt (9 `LINE_LIMIT_EXCEEDED` ở Services, 7 ở Views, 2 `VIEW_SWIFTDATA_MUTATION`); 12 file mới đều ≤ 197 dòng và đúng một type top-level nên **không entry `architecture_allowlist.json` nào được thêm hay nới**; `VisibleBrowserSettings.swift` không `import SwiftUI` nên miễn trừ `SERVICE_SWIFTUI_IMPORT` không bị nới, toast của đường copy phát từ tầng Views nên `SERVICE_TOAST_COUPLING` an toàn. Tổng file Swift 232 → **244**. `validate_links.py`: 14 doc `--accept` (`00`, `02`–`14`), 2 doc `--no-change-needed` (`01`, `rules.md`), read-only PASS 16 doc / 244 file Swift.
 * **Chưa biên dịch**: host là Windows, `xcodebuild` chỉ chạy trên macOS. Xác minh ở đây là đọc code (thứ tự tra từ điển từ `VietPhraseTokenizer`, ngữ nghĩa tombstone `value.isEmpty` và luật khử trùng key của `DictionaryTextFileStore`, thân hai API ghi, đường `loadViewIfNeeded` gắn WKWebView mà không present, nhánh dọn `!isPresented` của `dismissContainer`, `hitTest` của cả hai window, cấp phát/thu hồi `Timer`) cộng hai script Python. CI xanh chỉ nghĩa là biên dịch được.
 * **Chưa thể xác minh ở môi trường này**: mọi hành vi runtime — nháy đúng mốc 10 s, cảm giác kéo/snap, touch ngoài pill xuyên qua, hai widget cùng tồn tại không phá `hitTest` của nhau, toast copy, và việc từ điển được nạp lại sau khi ghi.
-
-## [1.3.243] - 2026-08-22
-
-### ReaderView quan sát lại ReaderViewModel, hết đơ khi đổi chương
-
-Ba lần sửa trước (`Task.yield()` 1.3.240, nhịp 32 ms 1.3.241, cổng bắt tay skeleton 1.3.242) đều sắp xếp lại việc **bên trong** một update pass, trong khi bug thật là **không có pass nào được kích hoạt**: `ReaderViewModel` là `ObservableObject` nhưng `ReaderView` giữ nó trong `@State` (`ReaderView.swift:193`), và `@State` chỉ giữ tham chiếu — nó **không** subscribe `objectWillChange`. Hệ quả: `pendingNavigationIndex`, `navigationCommit`, `loadState`… đổi mà body không dựng lại. Reader chỉ được vẽ lại nhờ những nguồn invalidate vô can: publish của `@StateObject ttsState`, một `@State` khác đổi, bốn `.onReceive` notification, `@Query`. Khoảng cách giữa cú bấm Next/Prev và frame đầu tiên vì vậy bằng đúng khoảng chờ tới sự kiện vô can kế tiếp — log thiết bị đo 0.6–4.3 s, và đó là cảm giác "đơ".
-
-* **File mới `Sources/Views/Reader/Components/ReaderViewModelInvalidationRelay.swift` (40 dòng, 1 primary type).** `@MainActor final class … : ObservableObject`, giữ một `AnyCancellable` forward `ReaderViewModel.objectWillChange` sang `objectWillChange` của chính nó — đúng cơ chế `@ObservedObject` dùng, chỉ khác là chịu được `nil` và đổi instance. `observe(_:)` idempotent theo identity (`observed !== viewModel`) nên bootstrap chạy lại không tạo thêm subscription; `observed` là `weak`, chỉ để so identity. Không lọc theo thuộc tính: phải nhớ danh sách `@Published` mới chính là mầm của bug này.
-* **`ReaderView.swift` — 3 điểm nối.** `@StateObject internal var viewModelRelay = ReaderViewModelInvalidationRelay()` cạnh `ttsState`; `viewModelRelay.observe(newViewModel)` ngay sau `viewModel = newViewModel` trong `ensureViewModel`; `viewModelRelay.observe(nil)` trong `.onDisappear`. Không đổi logic điều hướng, không đổi cổng render, không đổi nhịp 32 ms.
-* **Vì sao chọn chương từ danh sách không bị đơ**: việc đóng sheet tự sinh một chuỗi update pass, nên cổng render và commit gặp pass ngay. Cú nhảy từ widget TTS và Next/Prev không có nguồn pass nào ⇒ chỉ hai đường đó biểu hiện triệu chứng, khớp đúng báo cáo của người dùng.
-* **Chuỗi kỳ vọng sau bản này**: bấm → pass 1 vẽ skeleton (`[ReaderPerf] Skeleton sinceTapMs` ≈ 1 frame) → commit sau 32 ms → pass 2 dựng nội dung (`Present`) → +0.25 s nhả cờ restore. Tổng khoảng vài trăm ms thay cho 1.6–4.3 s. Dòng `[ReaderPerf] NavRealize reason=commit` **không** phải bằng chứng có pass: nó phát từ `ReaderViewModel.swift:672`, tức từ view model, không phải từ body.
-* **Rủi ro có chủ ý**: Reader nay dựng lại body theo *mọi* `@Published` của view model, kể cả `currentProgress`. Đây là đúng hành vi của `@ObservedObject` mà lẽ ra view đã phải có; nếu thấy churn, cách xử lý là giảm tần suất publish ở view model, **không** phải bỏ relay. Mọi điểm gán `viewModel = …` mới trong tương lai phải gọi kèm `observe(_:)`.
-* **Đặt tên**: không dùng lại `ReaderViewModelObserver` — đó là một wrapper view `@ObservedObject` chưa từng có caller, đã xoá ở 1.3.235; header của file mới ghi rõ sự khác biệt để không ai tưởng là revert.
-* `check_architecture.py`: **18 violation** trước và sau, tập vi phạm y hệt, không nới baseline nào (`ReaderView.swift` 2263 → 2268 so với baseline 2053 — vi phạm cũ, không phải mới). `validate_links.py`: 9 doc `--accept` (`00`, `02`, `04`, `08`, `09`, `10`, `11`, `13`, `14`), 1 doc `--no-change-needed` (`rules.md`), read-only PASS 16 doc / 232 file Swift.
-* **Chưa biên dịch**: host là Windows, `xcodebuild` chỉ chạy trên macOS. Xác minh ở đây là đọc code (không còn đường nào để view model thay đổi mà view không biết; relay không giữ tham chiếu mạnh nào tới view; `observe(nil)` chạy khi Reader rời màn hình) cộng hai script Python. CI xanh chỉ nghĩa là biên dịch được.

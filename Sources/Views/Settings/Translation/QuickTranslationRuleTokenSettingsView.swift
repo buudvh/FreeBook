@@ -16,20 +16,24 @@ struct QuickTranslationRuleTokenSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Token số và nhãn") {
+            Section {
                 Toggle("<n> — số", isOn: invalidating($isNumeralEnabled))
                 Toggle("<y> — đọc từng chữ số", isOn: invalidating($isDigitwiseEnabled))
                 Toggle("<L> — nhãn chương", isOn: invalidating($isChapterLabelEnabled))
+            } header: {
+                Text("Token số và nhãn")
             } footer: {
                 Text("Các token số và nhãn vẫn giữ nguyên cú pháp rule hiện có.")
             }
 
-            Section("Token từ điển") {
+            Section {
                 Toggle("<ne> — tên riêng", isOn: invalidating($isNameEnabled))
                 Toggle("<pn> — đại từ", isOn: invalidating($isPronounEnabled))
                 Toggle("<vp> — VietPhrase", isOn: invalidating($isVietPhraseEnabled))
                 Toggle("<hv> — một chữ Hán-Việt", isOn: invalidating($isHanVietEnabled))
                 Toggle("<w> — cụm từ điển", isOn: invalidating($isWordEnabled))
+            } header: {
+                Text("Token từ điển")
             } footer: {
                 Text("<w> có công tắc riêng, không phụ thuộc <ne>, <pn> hay <vp>.")
             }
