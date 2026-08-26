@@ -74,7 +74,7 @@ public enum ReaderFontFamily: String, CaseIterable, Identifiable, Codable {
     }
 }
 
-private struct ReaderLookupRoute: Identifiable, Equatable {
+struct ReaderLookupRoute: Identifiable, Equatable {
     let id = UUID()
     let urlString: String
 }

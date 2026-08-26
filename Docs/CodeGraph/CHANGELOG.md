@@ -4,6 +4,16 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.243) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.275] - 2026-08-26
+
+### Fix Reader lookup route visibility for CI build
+
+Sửa access control của `ReaderLookupRoute` để extension `ReaderView+Selection` có thể khởi tạo route tra cứu ngoài. Không đổi hành vi UI, navigation hay dữ liệu.
+
+* `ReaderLookupRoute` chuyển từ `private` thành internal để phù hợp với `ReaderView.lookupRoute` và call site ở file extension.
+* Sửa lỗi archive CI: `cannot find 'ReaderLookupRoute' in scope` và `property must be declared fileprivate because its type uses a private type`.
+* Windows không có `xcodebuild`; đã chạy kiểm tra tĩnh và sẽ xác nhận bằng CI macOS.
+
 ## [1.3.274] - 2026-08-26
 
 ### Rule dịch: trace lý do match, bật/tắt từng rule, bộ rule riêng theo truyện, overlay xem bản gốc
