@@ -44,7 +44,7 @@ extension QuickTranslationRuleStore {
     public func deleteRule(pattern: String) -> LoadOutcome {
         let key = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { return .failure(message: "Mẫu rule không được để trống") }
-        withMutationLock {
+        return withMutationLock {
             let current = currentSourceText() ?? ""
             let records = QuickTranslationRuleRecordStore.parseRecords(from: current)
             let updated = QuickTranslationRuleRecordStore.removing(pattern: key, from: records)

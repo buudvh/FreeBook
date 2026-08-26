@@ -4,6 +4,15 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.248) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.280] - 2026-08-26
+
+### Canonicalize Quick Translation rule storage
+
+Sửa lỗi build CI của hai API xoá rule sau khi chuyển sang closure `withMutationLock`.
+
+* Thêm `return withMutationLock { ... }` cho `deleteRule(pattern:)` ở store chung và riêng.
+* Giữ nguyên commit subject cho lần push sửa CI.
+
 ## [1.3.279] - 2026-08-26
 
 ### Canonicalize Quick Translation rule storage
