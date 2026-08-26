@@ -246,7 +246,7 @@ struct QuickTranslationRulesView: View {
         }
 
         pendingImportText = text
-        pendingPreview = QuickTranslationRuleFileEditor.importPreview(
+        pendingPreview = QuickTranslationRuleRecordStore.importPreview(
             current: store.currentSourceText() ?? "",
             imported: text
         )

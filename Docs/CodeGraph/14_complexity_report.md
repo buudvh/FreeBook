@@ -15,6 +15,12 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số dòng sau lượt 1.3.279
+
+* **Thay 1 file Service bằng 1 file Service, không tăng số file Swift tổng**: xoá `QuickTranslationRuleFileEditor.swift`, thêm `QuickTranslationRuleRecordStore.swift`. File mới là enum thuần Foundation, một type top-level, dưới trần 400.
+* **Giảm độ phức tạp CRUD/import Quick Translation Rule**: bỏ metadata row UUID/source revision và phẫu thuật theo dòng; hai store chung/riêng sửa mảng records theo `pattern` rồi serialize lại TXT canonical. Snapshot/trace nhỏ hơn vì không còn `Row.id`/`rowID`.
+* **`check_architecture.py` giữ đúng 14 violation nền** sau khi rút gọn `QuickTranslationRuleStore.swift` dưới trần 400; không thêm allowlist và không tạo violation mới. Build Swift vẫn cần macOS/CI vì host Windows không có `xcodebuild`/`xcodegen`.
+
 ## Số dòng sau lượt 1.3.274
 
 * **17 file mới, tất cả dưới trần 400 và đúng 1 type top level** (type lồng `Snapshot`/`Outcome`/`Capture`/`Status`/`SharedFile` không tính). Năm file lớn nhất: [`ReaderRuleTraceOverlayView.swift`](../../Sources/Views/Reader/ReaderRuleTraceOverlayView.swift) **383**, [`QuickTranslationRuleBookStore.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleBookStore.swift) **360**, [`ReaderView+RuleTools.swift`](../../Sources/Views/Reader/Extensions/ReaderView+RuleTools.swift) **272**, [`QuickTranslationRuleDisableStore.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleDisableStore.swift) **239**, [`QuickTranslationRuleDiagnostics.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleDiagnostics.swift) **232**. Nhỏ nhất [`TranslationManager+BookScopedFiles.swift`](../../Sources/Services/Translation/Extensions/TranslationManager+BookScopedFiles.swift) **28**; file dưới 100 dòng có 7 (`Scope` 38, `DisableFile` 81, `Trace` 93, `GuideSheet` 74, `ChipStyle` 61, `Chip` 68, `Transfer` 71).

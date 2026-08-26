@@ -6,12 +6,11 @@ import Combine
 ///
 /// Vì sao là type riêng chứ không tổng quát hoá store chung: store chung đã sát trần 400 dòng của
 /// `check_architecture.py` và mọi method của nó đều hard-code một file duy nhất. Toàn bộ phần khó
-/// (parse, compile, phẫu thuật theo dòng, trộn 3 chế độ) đã nằm ở các type **thuần** dùng chung nên
+/// (parse, compile, chuẩn hoá records, trộn 3 chế độ) đã nằm ở các type **thuần** dùng chung nên
 /// ở đây chỉ còn I/O + swap snapshot + phát đúng một thông báo.
 ///
-/// Giữ nguyên mọi bất biến của phân hệ: compile **toàn bộ** file vào staging, có hard error thì
-/// **không** ghi file và **không** swap snapshot; sạch thì `write(options: .atomic)` rồi swap dưới
-/// `NSLock` và phát đúng **một** `notifyDictionariesDidUpdate(bookId:)`.
+/// File rule riêng dùng cùng chính sách với VP/Name custom: dòng không hợp lệ bị bỏ qua, trùng mẫu lấy
+/// dòng đầu và mọi lần ghi đều sinh lại một file `pattern = replacement` sạch.
 ///
 /// Ranh giới tầng: Service ⇒ **không** `import SwiftUI`, **không** `ToastManager`.
 public final class QuickTranslationRuleBookStore: ObservableObject {
@@ -99,18 +98,18 @@ public final class QuickTranslationRuleBookStore: ObservableObject {
         guard !key.isEmpty else { return .failure(message: "Mẫu rule không được để trống") }
 
         return withMutationLock {
-            let edit = QuickTranslationRuleFileEditor.upsert(
+            let records = QuickTranslationRuleRecordStore.upsert(
                 pattern: key,
                 replacement: replacement,
-                in: currentSourceText(for: bookId) ?? ""
+                in: QuickTranslationRuleRecordStore.parseRecords(from: currentSourceText(for: bookId) ?? "")
             )
-            return writeLocked(text: edit.text, bookId: bookId, source: .edited, edit: edit)
+            return writeLocked(records: records, bookId: bookId, source: .edited)
         }
     }
 
     /// Đổi mẫu ⇒ xử như **thêm mẫu mới**, dòng cũ giữ nguyên (đúng `DictionaryCache.updateKey`).
     public func updateRule(
-        oldPattern: String,
+        oldPattern _: String,
         newPattern: String,
         replacement: String,
         bookId: String
@@ -119,52 +118,33 @@ public final class QuickTranslationRuleBookStore: ObservableObject {
         guard !newKey.isEmpty else { return .failure(message: "Mẫu rule không được để trống") }
 
         return withMutationLock {
-            guard let current = currentSourceText(for: bookId) else {
-                return .failure(message: "Truyện này chưa có bộ rule riêng")
-            }
-            let edit = QuickTranslationRuleFileEditor.update(
-                oldPattern: oldPattern,
-                newPattern: newKey,
+            let records = QuickTranslationRuleRecordStore.upsert(
+                pattern: newKey,
                 replacement: replacement,
-                in: current
+                in: QuickTranslationRuleRecordStore.parseRecords(from: currentSourceText(for: bookId) ?? "")
             )
-            return writeLocked(text: edit.text, bookId: bookId, source: .edited, edit: edit)
+            return writeLocked(records: records, bookId: bookId, source: .edited)
         }
     }
 
-    /// Xoá đúng hàng đã chọn, kể cả khi file có nhiều rule trùng hoàn toàn mẫu/vế phải.
-    /// Nhận **handle UUID** chứ không nhận `sourceLine`: số dòng đổi sau mỗi lần thêm/xoá, dùng nó
-    /// làm định danh chính là nguyên nhân crash đã sửa ở 1.3.271.
-    public func deleteRule(rowID: UUID, bookId: String) -> QuickTranslationRuleStore.LoadOutcome {
+    /// Xoá rule theo mẫu bên trái dấu `=`. File được chuẩn hoá first-wins nên key này là duy nhất.
+    public func deleteRule(pattern: String, bookId: String) -> QuickTranslationRuleStore.LoadOutcome {
+        let key = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { return .failure(message: "Mẫu rule không được để trống") }
         withMutationLock {
-            guard let snapshot = snapshot(for: bookId),
-                  let current = currentSourceText(for: bookId) else {
-                return .failure(message: "Truyện này chưa có bộ rule riêng")
-            }
-            guard current.sha256() == snapshot.sourceRevision else {
-                return .failure(message: "Bộ rule riêng đã thay đổi ngoài app, hãy tải lại danh sách rồi thử lại")
-            }
-            guard let row = snapshot.rows.first(where: { $0.id == rowID }),
-                  snapshot.rules.indices.contains(row.ruleIndex) else {
-                return .failure(message: "Rule đã không còn trong danh sách hiện tại")
-            }
-
-            let rule = snapshot.rules[row.ruleIndex]
-            guard let edit = QuickTranslationRuleFileEditor.delete(
-                sourceLine: rule.sourceLine,
-                expectedPattern: rule.pattern,
-                expectedReplacement: rule.replacement,
-                from: current
-            ) else {
+            let current = currentSourceText(for: bookId) ?? ""
+            let records = QuickTranslationRuleRecordStore.parseRecords(from: current)
+            let updated = QuickTranslationRuleRecordStore.removing(pattern: key, from: records)
+            guard updated.count != records.count else {
                 return .failure(message: "Không tìm thấy đúng rule đã chọn trong file")
             }
-            return writeLocked(text: edit.text, bookId: bookId, source: .edited, edit: edit)
+            return writeLocked(records: updated, bookId: bookId, source: .edited)
         }
     }
 
     // MARK: - Nhập / xuất cả bộ
 
-    /// Nhập file rule cho **một truyện**. Cùng 3 chế độ và cùng validate-then-swap như bộ chung.
+    /// Nhập file rule cho **một truyện**. Cùng 3 chế độ và cùng chính sách canonical như bộ chung.
     public func importRules(
         text: String,
         mode: DataImportMode = .replaceAll,
@@ -172,18 +152,16 @@ public final class QuickTranslationRuleBookStore: ObservableObject {
         notifiesObservers: Bool = true
     ) -> QuickTranslationRuleStore.LoadOutcome {
         withMutationLock {
-            let merged: String
-            if mode == .replaceAll {
-                merged = text
-            } else {
-                merged = QuickTranslationRuleFileEditor.merge(
-                    current: currentSourceText(for: bookId) ?? "",
-                    imported: text,
+            let imported = QuickTranslationRuleRecordStore.parseRecords(from: text)
+            let records = mode == .replaceAll
+                ? imported
+                : QuickTranslationRuleRecordStore.merge(
+                    existing: QuickTranslationRuleRecordStore.parseRecords(from: currentSourceText(for: bookId) ?? ""),
+                    imported: imported,
                     mode: mode
                 )
-            }
             return writeLocked(
-                text: merged,
+                records: records,
                 bookId: bookId,
                 source: .imported,
                 notifiesObservers: notifiesObservers
@@ -231,27 +209,35 @@ public final class QuickTranslationRuleBookStore: ObservableObject {
         return operation()
     }
 
-    /// Validate-then-swap: compile toàn bộ vào staging trước, chỉ khi sạch hard error mới ghi file.
+    /// Ghi canonical records rồi swap snapshot; rule hỏng bị bỏ qua như VP/Name custom.
     private func writeLocked(
-        text: String,
+        records: [QuickTranslationRuleRecordStore.Record],
         bookId: String,
         source: QuickTranslationRuleSnapshot.Source,
-        notifiesObservers: Bool = true,
-        edit: QuickTranslationRuleFileEditor.Edit? = nil
+        notifiesObservers: Bool = true
     ) -> QuickTranslationRuleStore.LoadOutcome {
+        let prepared = QuickTranslationRuleRecordStore.validRecords(from: records, scopeRank: 0)
+        let text = QuickTranslationRuleRecordStore.serialize(prepared.records)
+
         guard text.utf8.count <= Self.maxRuleFileBytes else {
             return .failure(message: "File rule vượt 8 MB, gần như chắc chắn không phải bộ rule")
         }
 
-        let staged = QuickTranslationRuleCompiler.compile(
-            QuickTranslationRuleParser.parse(text),
-            scopeRank: 0
-        )
-        if staged.hasHardError {
-            return .rejected(issues: staged.issues.filter { $0.severity == .hard })
+        let url = ruleFileURL(for: bookId)
+        if prepared.records.isEmpty {
+            try? FileManager.default.removeItem(at: url)
+            lock.lock()
+            snapshots.removeValue(forKey: bookId)
+            lruOrder.removeAll { $0 == bookId }
+            lock.unlock()
+            if notifiesObservers {
+                notifyChange(bookId: bookId)
+            } else {
+                bumpRevision()
+            }
+            return .success(ruleCount: 0, warningCount: 0)
         }
 
-        let url = ruleFileURL(for: bookId)
         do {
             try FileManager.default.createDirectory(
                 at: url.deletingLastPathComponent(),
@@ -266,8 +252,7 @@ public final class QuickTranslationRuleBookStore: ObservableObject {
             text: text,
             bookId: bookId,
             source: source,
-            precompiled: staged,
-            edit: edit
+            precompiled: prepared.compiled
         )
         if notifiesObservers {
             notifyChange(bookId: bookId)
@@ -280,38 +265,29 @@ public final class QuickTranslationRuleBookStore: ObservableObject {
 
     // MARK: - Phụ trợ
 
-    /// Compile rồi đặt vào cache LRU. Trả `nil` chỉ khi compile có hard error (caller đã chặn trước).
+    /// Compile rồi đặt vào cache LRU. Luồng canonical đã bỏ rule lỗi nặng trước khi tới đây.
     @discardableResult
     private func compileAndStore(
         text: String,
         bookId: String,
         source: QuickTranslationRuleSnapshot.Source,
-        precompiled: QuickTranslationRuleCompiler.Result? = nil,
-        edit: QuickTranslationRuleFileEditor.Edit? = nil
+        precompiled: QuickTranslationRuleCompiler.Result? = nil
     ) -> QuickTranslationRuleSnapshot? {
         let compiled = precompiled ?? QuickTranslationRuleCompiler.compile(
             QuickTranslationRuleParser.parse(text),
             scopeRank: 0
         )
-        guard !compiled.hasHardError else { return nil }
 
         let warnings = compiled.issues.filter { $0.severity != .hard }
 
         lock.lock()
         generationCounter += 1
         let generation = generationCounter
-        let previous = snapshots[bookId]
         let snapshot = QuickTranslationRuleSnapshot(
             generation: generation,
             source: source,
             sourceHash: String(text.md5().prefix(8)),
-            sourceRevision: text.sha256(),
             rules: compiled.rules,
-            rowIDs: QuickTranslationRuleStore.rowIDs(
-                for: compiled.rules,
-                previousSnapshot: previous,
-                edit: edit
-            ),
             issues: Array(warnings.prefix(Self.maxStoredIssues)),
             warningCount: warnings.count
         )

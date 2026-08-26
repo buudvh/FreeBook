@@ -4,8 +4,8 @@ import Foundation
 ///
 /// Hỗ trợ đúng các định dạng dòng mà bộ rule vBook đang dùng: `pattern = replacement`,
 /// `pattern=replacement`, `"pattern" = "replacement"` và phân tách bằng tab. Dòng trống, `#`, `//`,
-/// `===` bị bỏ qua. Dòng non-comment không thuộc định dạng nào thành `UNPARSEABLE_RULE_LINE` (hard)
-/// thay vì bỏ im lặng như reference — để không nạp thiếu mà không ai biết.
+/// `===` bị bỏ qua. Dòng non-comment không thuộc định dạng nào thành `UNPARSEABLE_RULE_LINE` khi gọi
+/// parser trực tiếp; luồng import/CRUD canonical lọc các dòng này trước khi compile.
 public enum QuickTranslationRuleParser {
     public struct Result {
         public var rules: [QuickTranslationParsedRule] = []
@@ -85,8 +85,8 @@ public enum QuickTranslationRuleParser {
 
     // MARK: - Tách một dòng
 
-    /// `internal` chứ không `private`: `QuickTranslationRuleFileEditor` phải hỏi **đúng** hàm này
-    /// "khoá của dòng này là gì" khi sửa/xoá theo key. Cài lại logic tách ở chỗ thứ hai là mở đường
+    /// `internal` chứ không `private`: `QuickTranslationRuleRecordStore` phải hỏi **đúng** hàm này
+    /// "khoá của dòng này là gì" khi chuẩn hoá TXT. Cài lại logic tách ở chỗ thứ hai là mở đường
     /// cho hai nơi hiểu khác nhau về cùng một dòng (`"p"="r"`, tab, `unquote`).
     internal static func splitRuleLine(_ trimmed: String) -> (pattern: String, replacement: String)? {
         if trimmed.hasPrefix("\"") {

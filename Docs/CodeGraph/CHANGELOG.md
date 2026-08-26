@@ -4,6 +4,18 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.248) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.279] - 2026-08-26
+
+### Canonicalize Quick Translation rule storage
+
+Quick Translation Rule chung và riêng theo truyện nay dùng cùng ngữ nghĩa TXT như VP/Name custom: thao tác theo key `pattern`, duplicate giữ dòng đầu, dòng hỏng bị bỏ qua và mọi lần ghi sinh lại file canonical `.txt`.
+
+* Thay `QuickTranslationRuleFileEditor` bằng `QuickTranslationRuleRecordStore` cho parse/merge/upsert/delete/serialize records.
+* `QuickTranslationRuleStore` và `QuickTranslationRuleBookStore` đều thêm/sửa/xoá theo `pattern`; không dùng UUID/sourceLine/sourceRevision cho nghiệp vụ.
+* Snapshot và trace bỏ `rowID`; UI list dùng `pattern` làm identity sau canonical first-wins và đảo thứ tự file để rule cuối file lên đầu.
+* Import preview và import 3 chế độ tính theo key hợp lệ; comments/header/dòng lỗi rơi khỏi file sau lần ghi đầu.
+* Windows không có `xcodebuild`/`xcodegen`; đã chạy validator tĩnh, build Swift cần xác nhận trên macOS/CI.
+
 ## [1.3.278] - 2026-08-26
 
 ### Match preparing TTS highlight color to config

@@ -30,22 +30,22 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 ## Hai bộ rule, hai chủ sở hữu: `QuickTranslationRuleScope` + `QuickTranslationRuleBookStore` (1.3.274)
 
 * **`QuickTranslationRuleScope` (`Sources/Models/Translation/`) là `enum { global, book(String) }`** — ở tầng Models vì cả Service (`DisableStore`, `Transfer`) và View (`QuickTranslationRuleListView`, hub từ điển) đều nhận nó làm tham số. `rank` (0 riêng / 1 chung) là **hằng số duy nhất** quyết định rule riêng thắng rule chung.
-* **`QuickTranslationRuleBookStore` là chủ sở hữu thứ hai, không phải bản tổng quát hoá của `QuickTranslationRuleStore`.** Store chung hard-code một file và đang **394/400 dòng**, tổng quát hoá nó phải sửa mọi method. Store mới giữ đúng hợp đồng validate-then-swap, và **dùng lại** `QuickTranslationRuleParser` / `Compiler` / `FileEditor` / `QuickTranslationRuleStore.rowIDs(...)` nên phần khó không bị cài lại lần hai.
+* **`QuickTranslationRuleBookStore` là chủ sở hữu thứ hai, không phải bản tổng quát hoá của `QuickTranslationRuleStore`.** Store chung hard-code một file; store riêng giữ cùng chính sách TXT canonical và **dùng lại** `QuickTranslationRuleParser` / `Compiler` / `QuickTranslationRuleRecordStore` nên phần khó không bị cài lại lần hai.
 * Cache snapshot theo `bookId` là **LRU cap 3**: bộ riêng nhỏ nên compile lại rẻ, còn giữ mọi truyện thì bộ nhớ phình theo số truyện từng mở. Hai `NSLock` (`mutationLock` → `lock`) luôn khoá theo một chiều nên không có deadlock.
 * **`QuickTranslationCompiledRule.scopeRank`** (mặc định `1`) là tiêu chí ưu tiên **thứ 5** trong `select`, đứng ngay trước `sourceLine`. Trong một bộ đơn lẻ nó là hằng số ⇒ thứ tự cũ của bộ chung **không đổi**.
 
 ## `QuickTranslationRuleDisableStore` + `QuickTranslationRuleDisableFile` — tắt rule bằng file (1.3.274)
 
-* **Bật/tắt không sửa file rule.** Rule bị tắt vẫn nằm trong `snapshot.rules` (để bật lại được và giữ nguyên `sourceLine`/`rowIDs`); chỉ có **mẫu** của nó được ghi vào một file thứ hai: `translate/QuickTranslateRulesDisabled.txt` (chung) hoặc `translate/books/<bookId>/QuickTranslateRulesDisabled.txt` (riêng).
-* **`QuickTranslationRuleDisableFile` là hàm thuần trên `String`** (`parse`/`serialize`/`adding`/`removing`/`union`), không chạm `FileManager` — cùng tinh thần `QuickTranslationRuleFileEditor`, để chỉ có **một** nơi ghi file.
+* **Bật/tắt không sửa file rule.** Rule bị tắt vẫn nằm trong `snapshot.rules` (để bật lại được và giữ nguyên `sourceLine`); chỉ có **mẫu** của nó được ghi vào một file thứ hai: `translate/QuickTranslateRulesDisabled.txt` (chung) hoặc `translate/books/<bookId>/QuickTranslateRulesDisabled.txt` (riêng).
+* **`QuickTranslationRuleDisableFile` là hàm thuần trên `String`** (`parse`/`serialize`/`adding`/`removing`/`union`), không chạm `FileManager` — cùng tinh thần key-based của `QuickTranslationRuleRecordStore`, để chỉ có **một** nơi ghi file.
 * **`Snapshot.isDisabled(pattern:scopeRank:)` là toàn bộ ngữ nghĩa**, và nó là ngữ nghĩa của VP riêng/chung: rule bộ riêng chỉ chịu file tắt riêng; rule bộ chung chịu file tắt chung (mọi truyện) **hoặc** file tắt riêng của truyện đang đọc. Muốn dùng lại một rule đã tắt chung ở đúng một truyện thì thêm mẫu vào bộ rule riêng của truyện đó.
 * Khoá là **mẫu** (phần trước dấu `=`), không phải `sourceLine`: số dòng đổi sau mỗi lần thêm/xoá. Hết mẫu thì file bị **xoá** thay vì để lại file rỗng.
 
 ## `QuickTranslationRuleTrace` — DTO chẩn đoán, giữ cả rule thua (1.3.274)
 
-* `QuickTranslationRewriteResult` chỉ giữ rule **thắng** nên không dùng được cho màn Check rule. `QuickTranslationRuleTrace` (Models) mang `rowID` + `scope` để hành động được ngay từ chip, `sourceRange`/`matchedText` để tô cụm, `captures` để hiện nghĩa **từng token**, và `Status` 6 case: `applied` · `lostOverlap(toSourceLine:)` · `disabledGlobally` · `disabledForBook` · `tokenDisabled` · `tooComplex`.
-* **`id` là `"\(rowID)#\(sourceRange.location)"` — xác định, không phải `UUID()` mới mỗi lượt.** Một rule khớp nhiều vị trí trong đoạn ⇒ mỗi vị trí một chip, và chẩn đoán lại không dựng lại cả dải.
-* `rowID` là handle của hàng trong snapshot (thứ `deleteRule(rowID:)` cần). **Không** dùng `sourceLine` làm định danh — đó chính là nguyên nhân crash đã sửa ở 1.3.271.
+* `QuickTranslationRewriteResult` chỉ giữ rule **thắng** nên không dùng được cho màn Check rule. `QuickTranslationRuleTrace` (Models) mang `scope` + `pattern` để hành động được ngay từ chip, `sourceRange`/`matchedText` để tô cụm, `captures` để hiện nghĩa **từng token**, và `Status` 6 case: `applied` · `lostOverlap(toSourceLine:)` · `disabledGlobally` · `disabledForBook` · `tokenDisabled` · `tooComplex`.
+* **`id` xác định theo scope/pattern/location — không phải `UUID()` mới mỗi lượt.** Một rule khớp nhiều vị trí trong đoạn ⇒ mỗi vị trí một chip, và chẩn đoán lại không dựng lại cả dải.
+* Hành động xoá dùng `pattern` (vế trái rule) như nghiệp vụ từ điển; `sourceLine` chỉ còn là tie-break/hiển thị sau khi compile lại.
 
 ## `QuickTranslationRuleMatcher.Capture` — một mảng, không hai mảng song song (1.3.274)
 
@@ -70,11 +70,11 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 * `Configuration` chỉ là `Set<Kind>` bất biến của **một** lượt rewrite. `signature` duyệt `Kind.allCases` theo thứ tự khai báo, không dùng `hashValue`, nên có thể làm một phần cache key ổn định giữa process.
 * `QuickTranslationRuleElement.sourceTokenKinds` giữ lại syntax trước khi parser hạ `<w>` thành `[name, pronoun, vietPhrase]`; compiler gộp đệ quy các element/group thành `QuickTranslationCompiledRule.requiredTokenKinds`. `isEnabled(for:)` là gate toàn rule: literal-only luôn qua, còn một token tắt trong optional, alternative hoặc `|` chặn rule.
 
-## `QuickTranslationRuleSnapshot.Row` — handle UI tạm thời, không phải dữ liệu rule
+## `QuickTranslationRuleSnapshot` — snapshot rule canonical, không giữ handle UI
 
-* Snapshot giữ `rows: [Row]` song song với `rules`: mỗi `Row` có `UUID` ổn định trong đời snapshot và `ruleIndex` trỏ tới rule đã compile. `QuickTranslationRuleListView.DisplayRule` dùng UUID này cho `ForEach`, nên xoá một dòng không biến các `sourceLine` phía sau thành identity mới.
-* `sourceRevision` là SHA-256 đầy đủ của text nguồn, chỉ dùng để chặn xoá theo hàng khi file đã đổi ngoài snapshot. Cả revision lẫn UUID không ghi vào `QuickTranslateRules.txt`, backup hay SwiftData.
-* CRUD tay remap handle theo metadata insert/replace/delete của FileEditor; nhập, tải, khôi phục và nạp lại dataset tạo handle mới vì chúng thay toàn bộ tập rule.
+* Snapshot chỉ giữ `rules`, `literalIndex`, `sourceHash`, `generation` và warning đã cắt. Không còn `Row.id`, `sourceRevision` hay UUID tạm song song với rule.
+* `QuickTranslationRuleListView.DisplayRule` dùng `pattern` cho `ForEach` vì file rule đã được canonical first-wins, nên mỗi pattern là duy nhất trong snapshot.
+* CRUD/import/tải/khôi phục đều đi qua `QuickTranslationRuleRecordStore`: bỏ dòng hỏng, duplicate lấy dòng đầu, sửa key cũ giữ vị trí, key mới append cuối rồi ghi lại TXT `pattern = replacement`.
 
 ## Type mới ở tầng Common: KeyboardDismissGesture (1.3.266)
 

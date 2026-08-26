@@ -11,8 +11,9 @@ import SwiftUI
 /// container bên trong cell làm layout tự vô hiệu giữa lượt cập nhật cell và trap `EXC_BREAKPOINT`
 /// (đã crash thật ở 1.3.269). Chặn danh sách dài bằng cách **cắt dữ liệu** (`prefix`).
 ///
-/// Bẫy thứ hai: identity của `ForEach` là **UUID của hàng trong snapshot**, không phải `sourceLine` —
-/// số dòng đổi sau mỗi lần thêm/xoá và dùng nó làm identity chính là nguyên nhân crash ở 1.3.271.
+/// Bẫy thứ hai: identity của `ForEach` là **mẫu rule** sau khi file đã canonical first-wins, không
+/// phải `sourceLine` — số dòng đổi sau mỗi lần thêm/xoá và dùng nó làm identity chính là nguyên nhân
+/// crash ở 1.3.271.
 struct QuickTranslationRuleListView: View {
     let scope: QuickTranslationRuleScope
     /// Lỗi trạng thái runtime do màn quản lý tính (`DICT_TOKEN_WITHOUT_DICTIONARY`) — không nằm trong
@@ -33,10 +34,10 @@ struct QuickTranslationRuleListView: View {
 
     private static let pageSize = 200
 
-    /// ID này sống cùng snapshot và không đổi khi CRUD làm các `sourceLine` phía sau dịch vị trí.
     private struct DisplayRule: Identifiable {
-        let id: UUID
         let rule: QuickTranslationCompiledRule
+
+        var id: String { rule.pattern }
     }
 
     init(
@@ -60,10 +61,7 @@ struct QuickTranslationRuleListView: View {
 
     private var ruleRows: [DisplayRule] {
         guard let snapshot else { return [] }
-        return snapshot.rows.compactMap { row in
-            guard snapshot.rules.indices.contains(row.ruleIndex) else { return nil }
-            return DisplayRule(id: row.id, rule: snapshot.rules[row.ruleIndex])
-        }
+        return snapshot.rules.map { DisplayRule(rule: $0) }
     }
 
     private var disabledPatterns: Set<String> {
@@ -104,7 +102,7 @@ struct QuickTranslationRuleListView: View {
     }
 
     private var visibleRows: [DisplayRule] {
-        Array(filteredRows.prefix(visibleLimit))
+        Array(filteredRows.reversed().prefix(visibleLimit))
     }
 
     private var enabledCount: Int {
@@ -347,9 +345,9 @@ struct QuickTranslationRuleListView: View {
         let outcome: QuickTranslationRuleStore.LoadOutcome
         switch scope {
         case .global:
-            outcome = QuickTranslationRuleStore.shared.deleteRule(rowID: row.id)
+            outcome = QuickTranslationRuleStore.shared.deleteRule(pattern: row.rule.pattern)
         case .book(let bookId):
-            outcome = QuickTranslationRuleBookStore.shared.deleteRule(rowID: row.id, bookId: bookId)
+            outcome = QuickTranslationRuleBookStore.shared.deleteRule(pattern: row.rule.pattern, bookId: bookId)
         }
         switch outcome {
         case .success(let ruleCount, _):

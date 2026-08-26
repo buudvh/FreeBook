@@ -106,7 +106,6 @@ public enum QuickTranslationRuleDiagnostics {
 
             traces.append(makeTrace(
                 rule: rule,
-                rowID: rowID(in: snapshot, ruleIndex: item.ruleIndex),
                 scope: scopeForRank(item.scopeRank),
                 range: range,
                 nsText: nsText,
@@ -127,7 +126,6 @@ public enum QuickTranslationRuleDiagnostics {
                 let rule = snapshot.rules[item.ruleIndex]
                 traces.append(makeTrace(
                     rule: rule,
-                    rowID: rowID(in: snapshot, ruleIndex: item.ruleIndex),
                     scope: scopeForRank(rank),
                     range: NSRange(location: item.start, length: 0),
                     nsText: nsText,
@@ -172,7 +170,6 @@ public enum QuickTranslationRuleDiagnostics {
 
     private static func makeTrace(
         rule: QuickTranslationCompiledRule,
-        rowID: UUID,
         scope: QuickTranslationRuleScope,
         range: NSRange,
         nsText: NSString,
@@ -207,7 +204,6 @@ public enum QuickTranslationRuleDiagnostics {
         }()
 
         return QuickTranslationRuleTrace(
-            rowID: rowID,
             scope: scope,
             pattern: rule.pattern,
             replacement: rule.replacement,
@@ -219,14 +215,5 @@ public enum QuickTranslationRuleDiagnostics {
             status: status,
             isTouchingSelection: touching
         )
-    }
-
-    /// Handle UUID của hàng trong snapshot. Không có thì sinh mới để UI vẫn dựng được, nhưng thao tác
-    /// Xoá trên hàng đó sẽ bị store từ chối — đúng hướng an toàn.
-    private static func rowID(in snapshot: QuickTranslationRuleSnapshot, ruleIndex: Int) -> UUID {
-        if let row = snapshot.rows.first(where: { $0.ruleIndex == ruleIndex }) {
-            return row.id
-        }
-        return UUID()
     }
 }

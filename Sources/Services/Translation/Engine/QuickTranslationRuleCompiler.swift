@@ -2,9 +2,8 @@ import Foundation
 
 /// AST đã parse → dạng thi hành, kèm validate theo hợp đồng trong header file rule.
 ///
-/// Chính sách phân loại lỗi: **hard** (engine có thể hiểu sai ý người viết) thì chặn không nạp cả
-/// file; **warning** thì vẫn nạp. Không nạp một phần file lỗi, và không dùng
-/// `validCount = tổng − hard` làm số rule hợp lệ (một rule có thể có nhiều issue).
+/// Chính sách phân loại lỗi: **hard** thì rule đó không vào engine; **warning** thì vẫn nạp. Luồng
+/// import/CRUD canonical sẽ bỏ dòng hỏng rồi ghi lại phần hợp lệ, không chặn cả file.
 public enum QuickTranslationRuleCompiler {
     public struct Result {
         public var rules: [QuickTranslationCompiledRule] = []

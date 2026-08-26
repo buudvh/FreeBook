@@ -46,10 +46,8 @@ public enum QuickTranslationRuleTransfer {
 
     /// Chia sẻ **cả bộ rule riêng** của một truyện sang truyện khác.
     ///
-    /// Hàm trộn là `QuickTranslationRuleFileEditor.merge` chứ **không** phải
-    /// `DictionaryTextFileStore.mergedRecords` như từ điển: primitive của từ điển sinh lại file từ
-    /// danh sách `key=value` nên mất comment và **xáo thứ tự dòng** — mà thứ tự dòng là tie-break cuối
-    /// của priority rule.
+    /// Chia sẻ đi qua `QuickTranslationRuleBookStore.importRules`, nơi trộn records rồi ghi lại file
+    /// canonical. Thứ tự file đích làm xương sống; mẫu mới từ file nguồn được nối cuối.
     public static func shareBookRules(
         from sourceBookId: String,
         to targetBookId: String,

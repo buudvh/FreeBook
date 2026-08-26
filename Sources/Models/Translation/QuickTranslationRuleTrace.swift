@@ -45,9 +45,6 @@ public struct QuickTranslationRuleTrace: Identifiable, Sendable {
         }
     }
 
-    /// Handle của hàng trong snapshot — thứ `deleteRule(rowID:)` cần. **Không** dùng `sourceLine`
-    /// làm định danh: số dòng đổi sau mỗi lần thêm/xoá (nguyên nhân crash đã sửa ở 1.3.271).
-    public let rowID: UUID
     public let scope: QuickTranslationRuleScope
     public let pattern: String
     public let replacement: String
@@ -63,10 +60,9 @@ public struct QuickTranslationRuleTrace: Identifiable, Sendable {
 
     /// Định danh **xác định** (không phải UUID mới mỗi lượt) để `ForEach` không dựng lại dải chip sau
     /// mỗi lần chẩn đoán lại. Một rule khớp nhiều vị trí trong đoạn ⇒ mỗi vị trí một chip riêng.
-    public var id: String { "\(rowID.uuidString)#\(sourceRange.location)" }
+    public var id: String { "\(scope.label)#\(pattern)#\(sourceRange.location)" }
 
     public init(
-        rowID: UUID,
         scope: QuickTranslationRuleScope,
         pattern: String,
         replacement: String,
@@ -78,7 +74,6 @@ public struct QuickTranslationRuleTrace: Identifiable, Sendable {
         status: Status,
         isTouchingSelection: Bool
     ) {
-        self.rowID = rowID
         self.scope = scope
         self.pattern = pattern
         self.replacement = replacement

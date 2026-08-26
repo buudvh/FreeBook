@@ -100,10 +100,10 @@ extension ReaderView {
             let outcome: QuickTranslationRuleStore.LoadOutcome
             switch trace.scope {
             case .global:
-                outcome = QuickTranslationRuleStore.shared.deleteRule(rowID: trace.rowID)
+                outcome = QuickTranslationRuleStore.shared.deleteRule(pattern: trace.pattern)
             case .book(let identifier):
                 outcome = QuickTranslationRuleBookStore.shared.deleteRule(
-                    rowID: trace.rowID,
+                    pattern: trace.pattern,
                     bookId: identifier
                 )
             }

@@ -4,18 +4,6 @@ import Foundation
 /// dịch. `generation` đi vào cache key dịch và vào `translationGenerationToken` để snapshot
 /// Reader/TTS cũ bị loại đúng lúc.
 public struct QuickTranslationRuleSnapshot: Sendable {
-    /// Handle chỉ dùng trong bộ nhớ cho từng hàng màn quản lý. Nó không đi vào file rule,
-    /// backup hay SwiftData; `sourceLine` vẫn chỉ là toạ độ vật lý ngắn hạn của file.
-    public struct Row: Identifiable, Sendable {
-        public let id: UUID
-        public let ruleIndex: Int
-
-        public init(id: UUID, ruleIndex: Int) {
-            self.id = id
-            self.ruleIndex = ruleIndex
-        }
-    }
-
     /// Bộ rule **không** đi kèm app: nó là một file trên máy ở `translate/QuickTranslateRules.txt`.
     /// Bốn case dưới đây chỉ nói *lần nạp này lấy text từ đâu*, để màn quản lý báo đúng cho người dùng.
     public enum Source: Sendable {
@@ -42,11 +30,7 @@ public struct QuickTranslationRuleSnapshot: Sendable {
     public let source: Source
     /// MD5 rút gọn của văn bản nguồn — đủ để đối chiếu bản đang chạy, không log nội dung.
     public let sourceHash: String
-    /// SHA-256 đầy đủ chỉ dùng để chặn thao tác theo hàng khi file đã đổi ngoài snapshot.
-    public let sourceRevision: String
     public let rules: [QuickTranslationCompiledRule]
-    /// Cặp handle/index song song với `rules`; không dùng `sourceLine` làm định danh UI.
-    public let rows: [Row]
     public let literalIndex: QuickTranslationLiteralIndex
     /// Lỗi/cảnh báo của lần nạp này (đã cắt bớt để không phình bộ nhớ với file 17k dòng).
     public let issues: [QuickTranslationRuleIssue]
@@ -60,9 +44,7 @@ public struct QuickTranslationRuleSnapshot: Sendable {
         generation: Int,
         source: Source,
         sourceHash: String,
-        sourceRevision: String,
         rules: [QuickTranslationCompiledRule],
-        rowIDs: [UUID],
         issues: [QuickTranslationRuleIssue],
         warningCount: Int,
         loadedAt: Date = Date()
@@ -70,10 +52,7 @@ public struct QuickTranslationRuleSnapshot: Sendable {
         self.generation = generation
         self.source = source
         self.sourceHash = sourceHash
-        self.sourceRevision = sourceRevision
         self.rules = rules
-        let identifiers = rowIDs.count == rules.count ? rowIDs : rules.map { _ in UUID() }
-        self.rows = rules.indices.map { Row(id: identifiers[$0], ruleIndex: $0) }
         self.literalIndex = QuickTranslationLiteralIndex(rules: rules)
         self.issues = issues
         self.warningCount = warningCount

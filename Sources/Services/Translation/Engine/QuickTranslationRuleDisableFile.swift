@@ -4,10 +4,10 @@ import Foundation
 /// dòng rule), không có vế phải.
 ///
 /// Vì sao khoá là mẫu chứ không phải số dòng: `sourceLine` đổi sau mỗi lần thêm/xoá rule, còn mẫu là
-/// thứ `QuickTranslationRuleFileEditor.upsert` / `merge` / `replacement(of:)` đã dùng làm khoá. Một
+/// thứ `QuickTranslationRuleRecordStore` dùng làm khoá. Một
 /// nguồn khoá duy nhất cho cả phân hệ.
 ///
-/// Cùng tinh thần `QuickTranslationRuleFileEditor`: ở đây **không** chạm `FileManager`. Chủ file là
+/// Cùng tinh thần `QuickTranslationRuleRecordStore`: ở đây **không** chạm `FileManager`. Chủ file là
 /// `QuickTranslationRuleDisableStore`.
 public enum QuickTranslationRuleDisableFile {
     public static let header = """
