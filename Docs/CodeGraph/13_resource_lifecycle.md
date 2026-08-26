@@ -15,6 +15,11 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Không tài nguyên mới khi đồng bộ màu preparing highlight (1.3.278)
+
+* Lượt này chỉ bỏ alpha riêng của preparing highlight và dùng lại màu highlight theme/config hiện có. Không thêm state, task, timer, cache, file hay buffer.
+* `highlightIsPreparing` vẫn là `Bool` render/diff đã có từ 1.3.276; không có vòng đời tài nguyên mới.
+
 ## Tài nguyên của request mở rộng widget TTS (1.3.277)
 
 * Tài nguyên mới chỉ là một `Bool` pending trong singleton `TTSFloatingWidgetWindowManager`. Nó được xoá ngay khi reveal chạy, không persist và không có cơ chế thu hồi riêng.

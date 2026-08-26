@@ -15,6 +15,11 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS preparing highlight color invariant (1.3.278)
+
+* Preparing highlight and active TTS highlight must use the same configured Reader highlight colors: `theme.highlightUIColor` for background and `theme.highlightTextUIColor` for foreground when available. Do not add a separate alpha, fallback color, or hard-coded preparing color.
+* `highlightIsPreparing` remains useful only as render/diff state and must not imply a distinct visual palette or progress ownership.
+
 ## TTS widget reveal-from-Reader invariants (1.3.277)
 
 * Hành động nghe khởi phát từ Reader phải yêu cầu widget TTS mở rộng ban đầu qua tầng View (`TTSFloatingWidgetWindowManager.requestRevealOnNextShow()`), không qua `TTSManager`. `Services/TTS` không được phụ thuộc `Views/TTSWidget` hoặc biết `WidgetMode`.

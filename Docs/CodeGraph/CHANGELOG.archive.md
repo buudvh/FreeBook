@@ -1,6 +1,18 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.247) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.248) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.248] - 2026-08-22
+
+### Thanh tiến độ tải Drive chạy thật, chặn đăng xuất khi đang tải
+
+Hai lỗi trong một commit, **không thêm/xoá/đổi tên file Swift nào** (279 file), không type top-level nào mới, **không `@Model` nào đổi shape**.
+
+* **Thanh tiến độ tải xuống hiện ra nhưng không bao giờ nhích** — nguyên nhân là dữ liệu, không phải UI. `BackupProgress.fraction` trả `nil` khi `totalUnits == 0`, và `ProgressView(value: nil)` kiểu `.linear` vẽ một thanh **tĩnh**; `GoogleDriveClient.download(file:)` chưa từng báo byte nào nên `totalUnits` giữ 0 suốt lượt tải. Sửa: `download(file:report:)` gắn task delegate `DownloadProgressObserver` vào `URLSession.shared.download(for:delegate:)`, và `BackupCoordinator` truyền `makeReporter()` ở **cả hai** call site (`downloadFromDrive`, `restoreEverythingFromDrive`) — đúng cầu hop-lên-MainActor mà `GoogleDriveUploader` đã dùng, nên hai chiều tải lên/tải xuống giờ đối xứng.
+* **Vì sao phải là task delegate**: bản async của `download(for:)` **không trả về `URLSessionTask`** nên không có handle nào để đọc `Progress`; còn duyệt `for await byte in` thì chậm hơn nhiều lần và giữ RAM vô ích với archive vài trăm MB (ghi chú sẵn có trong file đã nói rõ điều này). Ba chi tiết bắt buộc: (1) chỉ cài `didWriteData`, `didFinishDownloadingTo` cố ý **để trống** vì bản async tự dời file tạm — cài thật là tranh chấp với nó; (2) `totalBytesExpectedToWrite <= 0` (Drive có thể không gửi `Content-Length`) thì rơi về `GoogleDriveFile.byteCount` lấy từ lượt `listBackups`; (3) báo theo **phần trăm** (`completedUnits: percent, totalUnits: 100`) và **chỉ khi phần trăm đổi** — delegate được gọi mỗi lần có gói dữ liệu về, không tiết chế thì hàng nghìn lượt hop dội lên MainActor. Observer phải được giữ **mạnh** trong thân hàm vì `download(for:delegate:)` chỉ giữ delegate yếu.
+* **Đang tải dữ liệu từ Drive mà vẫn đăng xuất được** ⇒ `GoogleDriveAuthService.signOut()` thu hồi access token đang nằm trong tay worker, request đang bay chết giữa đường và để lại archive dở. Sửa ở hai tầng cho khớp mẫu sẵn có: `BackupCoordinator.signOutDrive()` thêm `guard !isBusy` và đặt `lastError` (**không** im lặng bỏ qua — toast do `BackupHubView` sở hữu vẫn sống khi màn Drive được push, nên người dùng thấy lý do), còn nút "Đăng xuất Google Drive" thêm `.disabled(coordinator.isBusy)` — trước đó nó là nút **duy nhất** ở `accountSection` thiếu điều kiện này.
+* **Kiến trúc**: `DownloadProgressObserver` là `private final class` **lồng trong** actor `GoogleDriveClient`, nên `check_architecture.py` (chỉ tính type ở cột 0) không coi là primary type thứ hai; `Services/Backup/**` vẫn không `import SwiftUI`, không gọi `ToastManager`. Số dòng: `GoogleDriveClient` 137 → **203**, `BackupCoordinator` 259 → **271**, `GoogleDriveBackupListView` 211 → **212** — cả ba là file mới của 1.3.246 nên trần là 400 dòng.
+* **Xác minh**: `check_architecture.py` giữ **đúng 16 violation với tập y hệt** (không nới baseline, không thêm allowlist); `validate_links.py` PASS 16 doc / 279 file Swift sau khi cập nhật `11_subsystems.md` (doc duy nhất có `sourcePatterns` phủ `Services/Backup/**` + `Views/Settings/**`). **Không biên dịch được tại chỗ** — host là Windows, `xcodebuild` chỉ chạy trên macOS; CI xanh chỉ nghĩa là *biên dịch được*, không phải đã kiểm chứng runtime của task delegate dưới LiveContainer.
 
 ## [1.3.247] - 2026-08-22
 

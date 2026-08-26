@@ -15,6 +15,18 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Màu preparing highlight dùng chung đường active highlight (1.3.278)
+
+```text
+ReaderView effectiveHighlightRange (active ?? preparing ?? search)
+  └─ ParagraphCardView(highlightIsPreparing: ...)
+       └─ ReaderTextView
+            ├─ backgroundColor = theme.highlightUIColor
+            └─ foregroundColor = theme.highlightTextUIColor nếu có
+```
+
+* `highlightIsPreparing` vẫn nằm trong diff/equality để UIKit repaint khi chuyển preparing → active, nhưng nó không còn đổi màu. Cả hai trạng thái dùng đúng màu highlight do config/theme hiện hành cung cấp.
+
 ## Reader yêu cầu widget TTS mở rộng trước khi bắt đầu nghe (1.3.277)
 
 ```text

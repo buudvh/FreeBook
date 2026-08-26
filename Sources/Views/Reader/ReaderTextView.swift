@@ -133,7 +133,7 @@ struct ReaderTextView: UIViewRepresentable {
         let isHighlightChanged = context.coordinator.lastHighlightRange != highlightRange ||
                                  context.coordinator.lastHighlightIsPreparing != highlightIsPreparing
         let oldHighlight = context.coordinator.lastHighlightRange
-        let highlightBackgroundColor = highlightIsPreparing ? theme.highlightUIColor.withAlphaComponent(0.28) : theme.highlightUIColor
+        let highlightBackgroundColor = theme.highlightUIColor
 
         if shouldRebuildAttributedText {
             if isTextOrLayoutConfigChanged {
@@ -171,7 +171,7 @@ struct ReaderTextView: UIViewRepresentable {
 
             if let highlight = highlightRange, highlight.location != NSNotFound, highlight.location >= 0, highlight.location + highlight.length <= nsText.length {
                 attributedText.addAttribute(.backgroundColor, value: highlightBackgroundColor, range: highlight)
-                if !highlightIsPreparing, let textFgColor = theme.highlightTextUIColor {
+                if let textFgColor = theme.highlightTextUIColor {
                     attributedText.addAttribute(.foregroundColor, value: textFgColor, range: highlight)
                 }
             }
@@ -196,7 +196,7 @@ struct ReaderTextView: UIViewRepresentable {
 
             if let highlight = highlightRange, highlight.location != NSNotFound, highlight.location >= 0, highlight.location + highlight.length <= storageLength {
                 uiView.textStorage.addAttribute(.backgroundColor, value: highlightBackgroundColor, range: highlight)
-                if !highlightIsPreparing, let textFgColor = theme.highlightTextUIColor {
+                if let textFgColor = theme.highlightTextUIColor {
                     uiView.textStorage.addAttribute(.foregroundColor, value: textFgColor, range: highlight)
                 }
             }

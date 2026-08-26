@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Preparing highlight dùng màu highlight config (1.3.278)
+
+* **Phân hệ Reader** giữ thứ tự chọn range active → preparing → search, nhưng màu preparing nay trùng active: `ReaderTextView` dùng `theme.highlightUIColor` và `theme.highlightTextUIColor` cho cả hai trạng thái.
+* `highlightIsPreparing` không còn là cờ chọn màu mờ; nó chỉ giữ vai trò diff/render state để TextKit repaint khi chuẩn bị chuyển sang đang nghe trên cùng một `NSRange`.
+* **Phân hệ TTS** không đổi: preparing vẫn là state presentation-only, không thành progress active.
+
 ## Reader khởi động TTS với widget mở rộng ban đầu (1.3.277)
 
 * **Phân hệ Reader** sở hữu ý định UI này: `ReaderView.startTTS(...)` gọi `TTSFloatingWidgetWindowManager.requestRevealOnNextShow()` trước `TTSManager.startSpeaking(...)`. Vì mọi đường nghe trong Reader đi qua `startTTS`, nút headphones và menu bôi đen cùng hành vi.
@@ -24,7 +30,7 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 ## Reader/TTS highlight chuẩn bị trước audio (1.3.276)
 
 * **Phân hệ TTS** sở hữu tín hiệu mới trong chính `TTSPlaybackSnapshot`, không thêm event center hay notification. `publishPreparingParagraphState(index:)` đọc `TTSParagraph.range`/`paragraphIndex` của đoạn hiện tại và publish vào hai field `preparing*`; `commitAudibleParagraphState(index:)` vẫn là cửa duy nhất cho highlight active khi audio thật bắt đầu.
-* **Phân hệ Reader** chỉ consume projection qua `ReaderTTSStateReader`, giữ ranh giới cũ "View không observe trực tiếp `TTSManager`". `ReaderView` chọn range hiệu lực theo thứ tự active → preparing → search, rồi `ParagraphCardView`/`ReaderTextView` render màu chuẩn bị mờ hơn.
+* **Phân hệ Reader** chỉ consume projection qua `ReaderTTSStateReader`, giữ ranh giới cũ "View không observe trực tiếp `TTSManager`". `ReaderView` chọn range hiệu lực theo thứ tự active → preparing → search, rồi `ParagraphCardView`/`ReaderTextView` render bằng màu highlight config.
 * **Không đổi pipeline text**: range chuẩn bị dùng cùng hệ toạ độ UTF-16 tương đối với dòng cha như active highlight, nên không thêm mapper và không chạm `ReaderSelectionMapper`.
 * **Không đổi ranh giới persistence/progress**: state chuẩn bị không đi vào `ReadingProgressStore`, Now Playing, prefetch window hay cache audio. Nó chỉ là presentation state để lấp khoảng chờ synthesis.
 

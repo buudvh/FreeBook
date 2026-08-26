@@ -15,6 +15,11 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Preparing highlight trùng màu active highlight (1.3.278)
+
+* `highlightIsPreparing` vẫn là state render cấp card/text-view để diff UIKit đúng khi chuyển preparing → active dù `NSRange` giống nhau, nhưng nó **không còn đổi màu**.
+* Preparing và active highlight đều dùng `theme.highlightUIColor` và `theme.highlightTextUIColor` nếu có. Màu đến từ cấu hình highlight/theme hiện hành; không hard-code alpha riêng cho preparing.
+
 ## State mở rộng ban đầu của widget TTS khi phát từ Reader (1.3.277)
 
 * `TTSFloatingWidgetWindowManager.shouldRevealOnNextShow` là cờ một lượt: `true` sau `requestRevealOnNextShow()`, trở về `false` ngay khi có `FloatingWidgetContainerViewController` để reveal.
@@ -24,7 +29,7 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 ## Trạng thái highlight chuẩn bị của TTS (1.3.276)
 
 * `TTSPlaybackSnapshot` nay có hai nhóm state highlight: nhóm **active** (`currentParentParagraphIndex` + `highlightRange`) chỉ được commit khi audio bắt đầu phát, và nhóm **preparing** (`preparingParentParagraphIndex` + `preparingHighlightRange`) được publish ngay trước khi tổng hợp/phát đoạn hiện tại.
-* State chuẩn bị không phải trạng thái tiến độ đọc. Nó không đổi `currentParagraphIndex`, không claim progress và không làm Reader lưu DB; nó chỉ cho Reader vẽ vệt tô mờ trong khoảng chờ engine, đặc biệt với `nghitts`.
+* State chuẩn bị không phải trạng thái tiến độ đọc. Nó không đổi `currentParagraphIndex`, không claim progress và không làm Reader lưu DB; nó chỉ cho Reader vẽ vệt tô trong khoảng chờ engine, đặc biệt với `nghitts`.
 * `ReaderView` không lưu range chuẩn bị vào `@State`: nó là giá trị phái sinh từ `ReaderTTSStateSnapshot`. Nếu active highlight có mặt thì chuẩn bị bị bỏ qua; nếu không có active highlight thì chuẩn bị thắng vệt tô tìm kiếm.
 * `highlightIsPreparing` là state render cấp card/text-view để diff UIKit đúng màu nền. Cờ này là một phần của equality/diff, nên chuyển từ chuẩn bị sang active được repaint dù `NSRange` giống nhau.
 

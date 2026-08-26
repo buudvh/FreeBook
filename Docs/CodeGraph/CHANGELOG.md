@@ -2,7 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.247) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.248) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.278] - 2026-08-26
+
+### Match preparing TTS highlight color to config
+
+Preparing highlight của đoạn sắp nghe nay dùng đúng màu highlight đã cấu hình, trùng với active TTS highlight.
+
+* `ReaderTextView` bỏ alpha riêng `0.28` cho preparing highlight; background luôn là `theme.highlightUIColor`.
+* Preparing highlight cũng áp `theme.highlightTextUIColor` nếu theme/config có màu chữ highlight, giống active highlight.
+* `highlightIsPreparing` vẫn giữ vai trò diff/repaint khi chuyển preparing → active, nhưng không còn tạo palette riêng.
+* Không đổi state TTS, progress, Now Playing, prefetch hay thứ tự ưu tiên active → preparing → search.
 
 ## [1.3.277] - 2026-08-26
 
@@ -22,7 +33,7 @@ Khi bấm nút nghe trong Reader hoặc bôi đen rồi bấm "Nghe", widget TTS
 Thêm state highlight chuẩn bị để Reader tô đoạn sắp nghe ngay khi bấm phát, trước khi engine TTS tổng hợp/phát audio thật. Không thêm file Swift, không đổi `@Model`, không thêm notification/event center mới.
 
 * `TTSPlaybackSnapshot` thêm `preparingParentParagraphIndex` và `preparingHighlightRange`; `TTSManager.speakCurrent()` publish hai field này trước khi dispatch engine, còn `commitAudibleParagraphState(index:)` vẫn là cửa duy nhất publish active `highlightRange` khi audio bắt đầu.
-* Reader projection (`ReaderTTSStateReader`) truyền state chuẩn bị chỉ cho đúng sách đang phát. `ReaderView` chọn highlight theo thứ tự active TTS → preparing TTS → search, và `ParagraphCardView`/`ReaderTextView` render vệt chuẩn bị mờ hơn bằng `highlightIsPreparing`.
+* Reader projection (`ReaderTTSStateReader`) truyền state chuẩn bị chỉ cho đúng sách đang phát. `ReaderView` chọn highlight theo thứ tự active TTS → preparing TTS → search, và `ParagraphCardView`/`ReaderTextView` render vệt chuẩn bị bằng `highlightIsPreparing`.
 * State chuẩn bị chỉ là presentation state: không lưu tiến độ, không update Now Playing, không claim `ReadingProgressStore`, không đổi prefetch/cache audio và không dùng mapper highlight.
 * Windows không có `xcodebuild`; đã chạy kiểm tra tĩnh cục bộ, build Swift cần xác nhận trên macOS/CI.
 
@@ -393,15 +404,3 @@ Sửa nốt lỗi 1.3.248 chưa vá đúng: thanh tiến độ tải xuống **v
 * **Bám hai khoá KVO, không phải một**: `fractionCompleted` là khoá chính thức của `Progress`, nhưng nếu Drive không gửi `Content-Length` thì `totalUnitCount` là -1 ⇒ `fractionCompleted` đứng im ở 0 và **không phát tín hiệu nào**; vì vậy bám thêm `completedUnitCount` và tính phần trăm với tổng rơi về `GoogleDriveFile.byteCount` (lấy từ lượt `listBackups`). Tiết chế theo phần trăm giữ nguyên nên hai khoá cùng nổ cũng không nhân đôi lượt hop lên MainActor; `deinit` `invalidate()` cả hai observation.
 * Phần đã đúng ở 1.3.248 **không sửa lại**: `BackupCoordinator` vẫn truyền `makeReporter()` ở cả hai call site, khoá đăng xuất (`guard !isBusy` + `.disabled(coordinator.isBusy)`) giữ nguyên. `GoogleDriveClient` 203 → **216** dòng (trần 400); observer vẫn là `private final class` lồng trong actor nên không thêm primary type ở cột 0.
 * **Xác minh**: `check_architecture.py` giữ **đúng 16 violation với tập y hệt**; `validate_links.py` PASS sau khi cập nhật `11_subsystems.md`. **Không biên dịch được tại chỗ** (host Windows) — CI xanh chỉ nghĩa là biên dịch được; tiến độ chạy thật phải nhìn trên máy.
-
-## [1.3.248] - 2026-08-22
-
-### Thanh tiến độ tải Drive chạy thật, chặn đăng xuất khi đang tải
-
-Hai lỗi trong một commit, **không thêm/xoá/đổi tên file Swift nào** (279 file), không type top-level nào mới, **không `@Model` nào đổi shape**.
-
-* **Thanh tiến độ tải xuống hiện ra nhưng không bao giờ nhích** — nguyên nhân là dữ liệu, không phải UI. `BackupProgress.fraction` trả `nil` khi `totalUnits == 0`, và `ProgressView(value: nil)` kiểu `.linear` vẽ một thanh **tĩnh**; `GoogleDriveClient.download(file:)` chưa từng báo byte nào nên `totalUnits` giữ 0 suốt lượt tải. Sửa: `download(file:report:)` gắn task delegate `DownloadProgressObserver` vào `URLSession.shared.download(for:delegate:)`, và `BackupCoordinator` truyền `makeReporter()` ở **cả hai** call site (`downloadFromDrive`, `restoreEverythingFromDrive`) — đúng cầu hop-lên-MainActor mà `GoogleDriveUploader` đã dùng, nên hai chiều tải lên/tải xuống giờ đối xứng.
-* **Vì sao phải là task delegate**: bản async của `download(for:)` **không trả về `URLSessionTask`** nên không có handle nào để đọc `Progress`; còn duyệt `for await byte in` thì chậm hơn nhiều lần và giữ RAM vô ích với archive vài trăm MB (ghi chú sẵn có trong file đã nói rõ điều này). Ba chi tiết bắt buộc: (1) chỉ cài `didWriteData`, `didFinishDownloadingTo` cố ý **để trống** vì bản async tự dời file tạm — cài thật là tranh chấp với nó; (2) `totalBytesExpectedToWrite <= 0` (Drive có thể không gửi `Content-Length`) thì rơi về `GoogleDriveFile.byteCount` lấy từ lượt `listBackups`; (3) báo theo **phần trăm** (`completedUnits: percent, totalUnits: 100`) và **chỉ khi phần trăm đổi** — delegate được gọi mỗi lần có gói dữ liệu về, không tiết chế thì hàng nghìn lượt hop dội lên MainActor. Observer phải được giữ **mạnh** trong thân hàm vì `download(for:delegate:)` chỉ giữ delegate yếu.
-* **Đang tải dữ liệu từ Drive mà vẫn đăng xuất được** ⇒ `GoogleDriveAuthService.signOut()` thu hồi access token đang nằm trong tay worker, request đang bay chết giữa đường và để lại archive dở. Sửa ở hai tầng cho khớp mẫu sẵn có: `BackupCoordinator.signOutDrive()` thêm `guard !isBusy` và đặt `lastError` (**không** im lặng bỏ qua — toast do `BackupHubView` sở hữu vẫn sống khi màn Drive được push, nên người dùng thấy lý do), còn nút "Đăng xuất Google Drive" thêm `.disabled(coordinator.isBusy)` — trước đó nó là nút **duy nhất** ở `accountSection` thiếu điều kiện này.
-* **Kiến trúc**: `DownloadProgressObserver` là `private final class` **lồng trong** actor `GoogleDriveClient`, nên `check_architecture.py` (chỉ tính type ở cột 0) không coi là primary type thứ hai; `Services/Backup/**` vẫn không `import SwiftUI`, không gọi `ToastManager`. Số dòng: `GoogleDriveClient` 137 → **203**, `BackupCoordinator` 259 → **271**, `GoogleDriveBackupListView` 211 → **212** — cả ba là file mới của 1.3.246 nên trần là 400 dòng.
-* **Xác minh**: `check_architecture.py` giữ **đúng 16 violation với tập y hệt** (không nới baseline, không thêm allowlist); `validate_links.py` PASS 16 doc / 279 file Swift sau khi cập nhật `11_subsystems.md` (doc duy nhất có `sourcePatterns` phủ `Services/Backup/**` + `Views/Settings/**`). **Không biên dịch được tại chỗ** — host là Windows, `xcodebuild` chỉ chạy trên macOS; CI xanh chỉ nghĩa là *biên dịch được*, không phải đã kiểm chứng runtime của task delegate dưới LiveContainer.
