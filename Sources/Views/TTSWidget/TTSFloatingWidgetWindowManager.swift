@@ -15,6 +15,7 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
     private var window: FloatingWidgetUIWindow?
     private var containerViewController: FloatingWidgetContainerViewController?
     private var isPresented = false
+    private var shouldRevealOnNextShow = false
 
     private init() {
         NotificationCenter.default.addObserver(
@@ -53,6 +54,7 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
             }
             updateWindowVisibility(hidden: false)
             isPresented = true
+            revealIfRequested(animated: false)
             containerViewController?.updateLayoutForCurrentMode(animated: false)
             return
         }
@@ -70,6 +72,12 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
 
         // Chỉ bật hiển thị cửa sổ qua hàm tập trung, TUYỆT ĐỐI không gọi makeKeyAndVisible()
         updateWindowVisibility(hidden: false)
+        revealIfRequested(animated: false)
+    }
+
+    func requestRevealOnNextShow() {
+        shouldRevealOnNextShow = true
+        revealIfRequested(animated: isWidgetActuallyVisible)
     }
 
     public func hideWidget() {
@@ -83,6 +91,12 @@ public final class TTSFloatingWidgetWindowManager: ObservableObject {
         if isWidgetActuallyVisible != actuallyVisible {
             isWidgetActuallyVisible = actuallyVisible
         }
+    }
+
+    private func revealIfRequested(animated: Bool) {
+        guard shouldRevealOnNextShow, let containerViewController else { return }
+        shouldRevealOnNextShow = false
+        containerViewController.reveal(animated: animated)
     }
 
     @objc private func handleSceneDidActivate(_ notification: Notification) {

@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader khởi động TTS với widget mở rộng ban đầu (1.3.277)
+
+* **Phân hệ Reader** sở hữu ý định UI này: `ReaderView.startTTS(...)` gọi `TTSFloatingWidgetWindowManager.requestRevealOnNextShow()` trước `TTSManager.startSpeaking(...)`. Vì mọi đường nghe trong Reader đi qua `startTTS`, nút headphones và menu bôi đen cùng hành vi.
+* **Phân hệ TTS Widget** chỉ thêm một bridge nội bộ: window manager giữ cờ pending và container expose `reveal(animated:)`. Nó dùng lại `FloatingWidgetViewModel.reveal()` nên mode/layout/auto-hide không có máy trạng thái mới.
+* **Phân hệ Services/TTS không đổi**: `TTSManager` không import SwiftUI/UIKit widget, không biết `WidgetMode`, và `startSpeaking` không nhận tham số UI.
+
 ## Reader/TTS highlight chuẩn bị trước audio (1.3.276)
 
 * **Phân hệ TTS** sở hữu tín hiệu mới trong chính `TTSPlaybackSnapshot`, không thêm event center hay notification. `publishPreparingParagraphState(index:)` đọc `TTSParagraph.range`/`paragraphIndex` của đoạn hiện tại và publish vào hai field `preparing*`; `commitAudibleParagraphState(index:)` vẫn là cửa duy nhất cho highlight active khi audio thật bắt đầu.

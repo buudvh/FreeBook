@@ -1697,6 +1697,7 @@ struct ReaderView: View {
             let chapterContentToUse = getTTSChapterContent(for: index)
             let snapshot = getPretranslatedSnapshot(for: index)
 
+            TTSFloatingWidgetWindowManager.shared.requestRevealOnNextShow()
             ttsManager.startSpeaking(
                 bookId: bookId,
                 chapters: initialQueue,
@@ -1720,7 +1721,6 @@ struct ReaderView: View {
             )
         }
     }
-
     private func getPretranslatedSnapshot(for index: Int) -> TTSPretranslatedSnapshot? {
         guard let cached = viewModel?.cache.get(index), cached.state == .loaded else { return nil }
         let currentToken = TranslateUtils.translationGenerationToken(for: bookId)

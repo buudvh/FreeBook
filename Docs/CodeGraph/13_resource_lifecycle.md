@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tài nguyên của request mở rộng widget TTS (1.3.277)
+
+* Tài nguyên mới chỉ là một `Bool` pending trong singleton `TTSFloatingWidgetWindowManager`. Nó được xoá ngay khi reveal chạy, không persist và không có cơ chế thu hồi riêng.
+* Không thêm window, timer hay gesture recognizer. Request dùng lại window/container/widget view model hiện có; auto-hide timer vẫn là `FloatingWidgetViewModel.autoHideTask` sẵn có.
+* Nếu widget chưa được tạo, pending bool giữ ý định cho lần `showWidget()` kế tiếp; nếu widget đã tồn tại, request reveal chạy ngay và không giữ thêm tài nguyên.
+
 ## Không tài nguyên mới cho highlight chuẩn bị TTS (1.3.276)
 
 * Lượt này chỉ thêm hai `NSRange?`/`Int?` trong snapshot và một cờ render `Bool`; không thêm task nền, timer, observer, file, cache hay buffer audio.

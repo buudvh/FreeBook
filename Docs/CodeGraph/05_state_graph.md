@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## State mở rộng ban đầu của widget TTS khi phát từ Reader (1.3.277)
+
+* `TTSFloatingWidgetWindowManager.shouldRevealOnNextShow` là cờ một lượt: `true` sau `requestRevealOnNextShow()`, trở về `false` ngay khi có `FloatingWidgetContainerViewController` để reveal.
+* Nếu widget đã tồn tại, request reveal chạy ngay; nếu widget chưa tồn tại, cờ được consume trong `showWidget()` sau khi window/container được tạo. Nhờ đó không cần đổi default `FloatingWidgetViewModel.mode` khỏi `.peeking` cho toàn app.
+* State mở rộng vẫn là `WidgetMode.revealed` hiện có và vẫn chịu auto-hide 3 giây của `FloatingWidgetViewModel.reveal()`. Không thêm state "force expanded" bền vững.
+
 ## Trạng thái highlight chuẩn bị của TTS (1.3.276)
 
 * `TTSPlaybackSnapshot` nay có hai nhóm state highlight: nhóm **active** (`currentParentParagraphIndex` + `highlightRange`) chỉ được commit khi audio bắt đầu phát, và nhóm **preparing** (`preparingParentParagraphIndex` + `preparingHighlightRange`) được publish ngay trước khi tổng hợp/phát đoạn hiện tại.

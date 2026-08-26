@@ -198,6 +198,11 @@ final class FloatingWidgetContainerViewController: UIViewController, UIGestureRe
         }
     }
 
+    func reveal(animated: Bool) {
+        viewModel.reveal()
+        updateLayoutForCurrentMode(animated: animated)
+    }
+
     @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
         guard let container = self.view else { return }
         switch gesture.state {

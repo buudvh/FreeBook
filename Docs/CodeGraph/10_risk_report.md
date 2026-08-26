@@ -15,6 +15,12 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro mở rộng widget TTS từ Reader (1.3.277)
+
+* **Rủi ro chính là đặt request ở sai tầng.** Nếu đưa vào `TTSManager.startSpeaking`, tầng Service sẽ biết widget UI và phá ranh giới kiến trúc. Bản này giữ request trong `ReaderView.startTTS(...)`, caller duy nhất của startSpeaking trong `Sources/`.
+* **Không đổi default mode của widget.** Đổi `FloatingWidgetViewModel.init()` sang `.revealed` sẽ làm mọi lần tạo widget mở rộng, kể cả ngoài yêu cầu Reader. Bản này dùng cờ một lượt `shouldRevealOnNextShow` nên phạm vi đúng với hành động người dùng.
+* **Auto-hide vẫn chạy.** "Mở rộng ban đầu" không có nghĩa là ghim mở rộng vô hạn; nếu muốn giữ mở lâu hơn thì phải là yêu cầu UI riêng, vì hiện tại nó dùng timer reveal 3 giây sẵn có.
+
 ## Rủi ro highlight chuẩn bị TTS (1.3.276)
 
 * **Chưa biên dịch trên host hiện tại.** Thay đổi chạm chữ ký view (`ReaderTextView`, `ParagraphCardView`) và shape snapshot TTS, nên lỗi compiler còn có thể chỉ lộ trên macOS/CI. Windows không có `xcodebuild`; xác minh cục bộ chỉ là đọc code, `validate_links.py`, `check_architecture.py` và `git diff --check`.

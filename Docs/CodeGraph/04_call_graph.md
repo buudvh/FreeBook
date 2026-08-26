@@ -15,6 +15,23 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader yêu cầu widget TTS mở rộng trước khi bắt đầu nghe (1.3.277)
+
+```text
+Reader button headphones | FloatingSelectionMenu("Nghe")
+  └─ ReaderView.startTTS(at:paragraphIndex:startTextOffset:resumeIdentity:)
+       ├─ chuẩn bị TTSChapterInfo + content/snapshot
+       ├─ TTSFloatingWidgetWindowManager.requestRevealOnNextShow()
+       │    ├─ nếu container đã tồn tại → FloatingWidgetContainerViewController.reveal(animated:)
+       │    └─ nếu chưa có container → giữ cờ shouldRevealOnNextShow
+       └─ TTSManager.startSpeaking(...)
+            └─ showFloatingWidget = true → AppLaunchRootView refreshState → showWidget()
+                 └─ consume cờ reveal nếu cần
+```
+
+* Điểm gọi nằm ở Reader, không ở `TTSManager`, vì widget là View/UI concern. `TTSManager.startSpeaking` giữ nguyên API và vẫn chỉ phát state TTS.
+* Cả hai đường người dùng yêu cầu đều đi qua cùng `startTTS(...)`: nút cạnh Reader và nút "Nghe" sau khi bôi đen. Không thêm đường gọi thứ hai ở menu bôi đen.
+
 ## Luồng highlight chuẩn bị trước audio TTS (1.3.276)
 
 ```text

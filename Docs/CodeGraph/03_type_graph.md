@@ -15,6 +15,12 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## API mở rộng widget TTS từ Reader (1.3.277)
+
+* `TTSFloatingWidgetWindowManager` thêm state nội bộ `shouldRevealOnNextShow` và method `requestRevealOnNextShow()`. Đây là API tầng View, không đi qua `TTSManager` để giữ `Services/TTS` không phụ thuộc `Views/TTSWidget`.
+* `FloatingWidgetContainerViewController` thêm method `reveal(animated:)` dùng lại `FloatingWidgetViewModel.reveal()` và layout hiện có. Không thêm enum mode mới: `WidgetMode` vẫn chỉ có `.peeking` và `.revealed`.
+* `ReaderView.startTTS(...)` là caller duy nhất của request này, nên cả nút headphones và menu bôi đen "Nghe" được phủ mà không đổi chữ ký `TTSManager.startSpeaking(...)`.
+
 ## Snapshot highlight chuẩn bị TTS (1.3.276)
 
 * `TTSPlaybackSnapshot` thêm hai field public `preparingParentParagraphIndex: Int?` và `preparingHighlightRange: NSRange?`. Đây là **visual state trước audio**, tách khỏi `currentParentParagraphIndex`/`highlightRange` active để `commitAudibleParagraphState` vẫn tạo snapshot khác khi audio thật bắt đầu.

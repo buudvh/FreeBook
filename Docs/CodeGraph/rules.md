@@ -15,6 +15,12 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS widget reveal-from-Reader invariants (1.3.277)
+
+* Hành động nghe khởi phát từ Reader phải yêu cầu widget TTS mở rộng ban đầu qua tầng View (`TTSFloatingWidgetWindowManager.requestRevealOnNextShow()`), không qua `TTSManager`. `Services/TTS` không được phụ thuộc `Views/TTSWidget` hoặc biết `WidgetMode`.
+* `FloatingWidgetViewModel` vẫn mặc định `.peeking`; không đổi default mode toàn app chỉ để phục vụ Reader. Reveal ban đầu là cờ một lượt ở window manager và phải được consume khi container sẵn sàng.
+* Reveal từ Reader dùng lại `FloatingWidgetViewModel.reveal()` và auto-hide hiện có. Muốn ghim widget mở lâu hơn phải là yêu cầu riêng, không lẫn vào request "mở rộng ban đầu".
+
 ## TTS preparing highlight invariants (1.3.276)
 
 * `TTSPlaybackSnapshot.preparingParentParagraphIndex` và `preparingHighlightRange` là **presentation-only state** cho đoạn sắp nghe trước khi audio thật bắt đầu. Không dùng chúng để lưu tiến độ đọc, update Now Playing, claim `ReadingProgressStore`, mở rộng prefetch window hay đánh dấu synthesis thành công.

@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời mở rộng ban đầu của widget TTS khi nghe từ Reader (1.3.277)
+
+* Reader gọi `requestRevealOnNextShow()` ngay trước `TTSManager.startSpeaking(...)`. Khi `startSpeaking` set `showFloatingWidget = true`, `AppLaunchRootView` vẫn là nơi refresh window như cũ; window manager chỉ consume cờ reveal nếu có.
+* Không có timer mới: `FloatingWidgetViewModel.reveal()` tự bắt đầu auto-hide timer hiện có nếu `disableAutoHide == false`, nên widget mở dạng capsule ban đầu rồi vẫn tự thu về peeking như các lần reveal bằng tap/kéo.
+* Cờ pending không sống qua vòng đời app và không persist vào `UserDefaults`; nếu không có container thì nó chỉ đợi lần `showWidget()` kế tiếp trong cùng process.
+
 ## Vòng đời vệt tô chuẩn bị TTS (1.3.276)
 
 * Mỗi lượt `speakCurrent()` publish vệt tô chuẩn bị **sau** các guard bỏ qua đoạn rỗng và **trước** khi dispatch sang engine (`system`/`google`/`nghitts`/extension). Nhờ vậy người dùng thấy đoạn sắp nghe ngay cả khi tổng hợp audio mất thời gian.
