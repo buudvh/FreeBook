@@ -15,6 +15,12 @@ Tài liệu này liệt kê các loại sự kiện, luồng truyền tải sự
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Highlight chuẩn bị TTS không thêm kênh sự kiện (1.3.276)
+
+* **Không tên `NotificationCenter` mới, không event center mới, không publisher mới.** Vệt tô chuẩn bị đi theo chính projection state đã có của TTS: `TTSManager.playbackSnapshot` → `ReaderTTSStateReader` → `ReaderView`.
+* Sự kiện âm thanh thật vẫn là đường cũ: engine bắt đầu phát → `commitAudibleParagraphState(index:)` → publish active `highlightRange`. Lượt chuẩn bị không phát toast, không gửi notification và không tạo subscriber thứ hai.
+* Reader ngoài sách đang phát vẫn bị collapse ở projection reader, nên một phiên TTS không làm các Reader khác nhận event chuẩn bị.
+
 ## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.269)
 
 * **Không có tên notification mới.** Bộ rule dùng lại đúng kênh sẵn có `.translationDictionariesDidUpdate` (hằng có kiểu, phát trong `TranslationManager.notifyDictionariesDidUpdate`), nên hai subscriber duy nhất (`ReaderView`, `TTSManager`) không phải biết gì về rule.

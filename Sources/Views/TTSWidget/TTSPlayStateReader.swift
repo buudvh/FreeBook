@@ -108,6 +108,8 @@ struct ReaderTTSStateSnapshot: Equatable {
     var playingChapterIndex = -1
     var currentParentParagraphIndex = -1
     var highlightRange: NSRange?
+    var preparingParentParagraphIndex: Int?
+    var preparingHighlightRange: NSRange?
 }
 
 /// Projects TTS state needed by one Reader. Highlight movement from another
@@ -130,7 +132,9 @@ final class ReaderTTSStateReader: ObservableObject {
             playingBookId: ps.playingBookId,
             playingChapterIndex: ps.playingChapterIndex,
             currentParentParagraphIndex: -1,
-            highlightRange: nil
+            highlightRange: nil,
+            preparingParentParagraphIndex: nil,
+            preparingHighlightRange: nil
         )
 
         manager.$playbackSnapshot.receive(on: RunLoop.main).sink { [weak self] _ in self?.refresh() }
@@ -154,7 +158,9 @@ final class ReaderTTSStateReader: ObservableObject {
             playingBookId: ps.playingBookId,
             playingChapterIndex: ps.playingChapterIndex,
             currentParentParagraphIndex: ownsBook ? ps.currentParentParagraphIndex : -1,
-            highlightRange: ownsBook ? ps.highlightRange : nil
+            highlightRange: ownsBook ? ps.highlightRange : nil,
+            preparingParentParagraphIndex: ownsBook ? ps.preparingParentParagraphIndex : nil,
+            preparingHighlightRange: ownsBook ? ps.preparingHighlightRange : nil
         )
         guard newSnapshot != snapshot else { return }
         snapshot = newSnapshot

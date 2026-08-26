@@ -113,7 +113,6 @@ struct ReaderView: View {
     @State internal var showChapterTitle = true // Ẩn/Hiện tiêu đề chương trên đầu màn hình đọc
     @State internal var removeDuplicatedTitle = true // Loại bỏ tiêu đề chương trùng ở đầu nội dung (dùng TOC rule)
 
-
     // Các biến trạng thái hỗ trợ bôi đen từ/câu để tra cứu từ điển.
     // `internal` (không `private`) vì `ReaderView+Selection` và `ReaderView+RuleTools` nằm ở file
     // khác — `private` trong Swift là phạm vi **file**, extension ngoài file không thấy được.
@@ -346,7 +345,6 @@ struct ReaderView: View {
             cachedDisplayedBookTitle = rawTitle
         }
     }
-
 
     var body: some View {
         readerLifecycleView
@@ -1388,8 +1386,6 @@ struct ReaderView: View {
         }
     }
 
-
-
     internal func translateMetaIfNeeded(_ text: String) -> String {
         guard isTranslationEnabled && TranslateUtils.containsChinese(text) else {
             return text
@@ -1462,9 +1458,16 @@ struct ReaderView: View {
 
                 return chunkRange
             }()
+            let isPreparingHighlight = relativeHighlightRange == nil &&
+                !isNavigatingNewChapter &&
+                ttsState.snapshot.playingBookId == bookId &&
+                ttsState.snapshot.playingChapterIndex == chapter.index &&
+                ttsState.snapshot.preparingParentParagraphIndex == .some(item.id)
+            let preparingHighlightRange = isPreparingHighlight ? ttsState.snapshot.preparingHighlightRange : nil
             // Vệt TTS luôn thắng vệt tìm: hệ toạ độ của TTS là bất biến của trục highlight, còn
-            // vệt tìm chỉ là chỉ dẫn tạm cho người dùng.
-            let effectiveHighlightRange = relativeHighlightRange ?? searchHighlightRange(
+            // vệt chuẩn bị chỉ là phản hồi tức thì trước khi audio bắt đầu, còn vệt tìm chỉ là
+            // chỉ dẫn tạm cho người dùng.
+            let effectiveHighlightRange = relativeHighlightRange ?? preparingHighlightRange ?? searchHighlightRange(
                 for: item,
                 chapterIndex: chapter.index,
                 isTranslationEnabled: isTrans
@@ -1479,6 +1482,7 @@ struct ReaderView: View {
                 fontFamily: fontFamily,
                 theme: theme,
                 highlightRange: effectiveHighlightRange,
+                highlightIsPreparing: isPreparingHighlight && preparingHighlightRange != nil,
                 triggerGetVisibleIndex: $triggerGetVisibleIndex,
                 clearSelectionTrigger: $clearSelectionTrigger,
                 onGetVisibleIndex: { visibleOffset in
@@ -1891,9 +1895,6 @@ struct ReaderView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: ttsWork)
     }
 
-
-
-
     private func attemptScroll(to target: ScrollTarget, proxy: ScrollViewProxy, vm: ReaderViewModel) -> Bool {
         if target.reason == .ttsAuto && !isSceneActive {
             scrollTarget = nil
@@ -2053,7 +2054,6 @@ struct ReaderView: View {
         scheduleDeepLandingScroll(commit)
         // Reader navigation is intentionally independent from the active TTS chapter.
     }
-
 
 }
 

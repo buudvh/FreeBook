@@ -15,6 +15,13 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS preparing highlight invariants (1.3.276)
+
+* `TTSPlaybackSnapshot.preparingParentParagraphIndex` và `preparingHighlightRange` là **presentation-only state** cho đoạn sắp nghe trước khi audio thật bắt đầu. Không dùng chúng để lưu tiến độ đọc, update Now Playing, claim `ReadingProgressStore`, mở rộng prefetch window hay đánh dấu synthesis thành công.
+* Active highlight vẫn chỉ được publish qua `commitAudibleParagraphState(index:)` khi audio đã bắt đầu/scheduled đúng đoạn. Không publish `highlightRange` active sớm trong `speakCurrent()`; guard dedupe của snapshot có thể làm lượt commit audible bị bỏ qua và mất side effect.
+* Reader phải ưu tiên highlight theo thứ tự active TTS → preparing TTS → search. Preparing highlight chỉ hợp lệ khi `playingBookId`, `playingChapterIndex` và `preparingParentParagraphIndex` khớp đoạn đang render; Reader sách khác phải nhận `nil` qua projection reader.
+* Preparing range dùng cùng hệ toạ độ UTF-16 tương đối với dòng cha như `TTSParagraph.range`. Không map lại qua `ReaderSelectionMapper` và không tạo hệ toạ độ thứ ba.
+
 ## Một nguồn duy nhất cho file riêng truyện; tắt rule bằng file theo phạm vi (1.3.274)
 
 * **Danh sách file riêng truyện chỉ được khai ở một nơi**: `Sources/Services/Translation/Extensions/TranslationManager+BookScopedFiles.swift` (`bookScopedDictionaryTextFiles`, `bookScopedDictionaryBinaryFiles`, `bookScopedRuleFiles`, `bookScopedMigrationFiles`). `BackupPaths` và luồng đổi nguồn của `SearchView` phải đọc hằng từ đó. Thêm tên file riêng truyện mới mà khai ở nơi khác (hoặc thêm danh sách `["VietPhrase.txt", …]` thứ ba) là tái tạo đúng loại bug im lặng "file không vào backup và không đi theo truyện khi đổi nguồn" mà 1.3.274 vừa dọn.

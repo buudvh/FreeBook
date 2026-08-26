@@ -15,6 +15,12 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Snapshot highlight chuẩn bị TTS (1.3.276)
+
+* `TTSPlaybackSnapshot` thêm hai field public `preparingParentParagraphIndex: Int?` và `preparingHighlightRange: NSRange?`. Đây là **visual state trước audio**, tách khỏi `currentParentParagraphIndex`/`highlightRange` active để `commitAudibleParagraphState` vẫn tạo snapshot khác khi audio thật bắt đầu.
+* `ReaderTTSStateSnapshot` mirror hai field trên nhưng chỉ phát khi `ReaderTTSStateReader.scope(to:)` khớp `playingBookId`; Reader sách khác vẫn nhận `nil` và không redraw theo lượt chuẩn bị của phiên TTS khác.
+* `ParagraphCardView` và `ReaderTextView` thêm cờ `highlightIsPreparing: Bool`. Type shape của `ParagraphItem`, `TTSParagraph`, `TTSPlaybackContext` và mọi `@Model` không đổi.
+
 ## Hai bộ rule, hai chủ sở hữu: `QuickTranslationRuleScope` + `QuickTranslationRuleBookStore` (1.3.274)
 
 * **`QuickTranslationRuleScope` (`Sources/Models/Translation/`) là `enum { global, book(String) }`** — ở tầng Models vì cả Service (`DisableStore`, `Transfer`) và View (`QuickTranslationRuleListView`, hub từ điển) đều nhận nó làm tham số. `rank` (0 riêng / 1 chung) là **hằng số duy nhất** quyết định rule riêng thắng rule chung.

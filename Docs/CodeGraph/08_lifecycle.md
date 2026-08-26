@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời vệt tô chuẩn bị TTS (1.3.276)
+
+* Mỗi lượt `speakCurrent()` publish vệt tô chuẩn bị **sau** các guard bỏ qua đoạn rỗng và **trước** khi dispatch sang engine (`system`/`google`/`nghitts`/extension). Nhờ vậy người dùng thấy đoạn sắp nghe ngay cả khi tổng hợp audio mất thời gian.
+* Vệt chuẩn bị tự kết thúc bằng snapshot active kế tiếp: khi byte audio thật bắt đầu, đường cũ `commitAudibleParagraphState(index:)` ghi `highlightRange`/`currentParentParagraphIndex`, và Reader ưu tiên active hơn preparing. Không cần task dọn riêng, timer riêng hay notification mới.
+* Khi pause/stop/đổi phiên, snapshot lifecycle cũ vẫn là nguồn dọn state: các đường reset snapshot làm `preparingParentParagraphIndex` và `preparingHighlightRange` về `nil` qua giá trị mặc định. Reader ngoài sách đang phát cũng bị `ReaderTTSStateReader.scope(to:)` collapse về `nil` như active highlight.
+* Không hook thêm `onDisappear` của Reader. Chu kỳ chuẩn bị/phát thuộc vòng đời TTSManager; Reader chỉ render projection hiện hành.
+
 ## Vòng đời hai panel mới của Reader và cơ chế deferral dịch lại (1.3.274)
 
 * Cả hai công cụ mới (panel Copy nội dung gốc và màn Check rule) có 7 `@State` khai ở `ReaderView.swift` nhưng **mọi hành vi** nằm ở `ReaderView+RuleTools.swift` — extension không khai stored property được, nên `ReaderView.swift` chỉ nhận thêm phần khai báo và một dòng gọi `ruleToolsOverlay(in:)`.

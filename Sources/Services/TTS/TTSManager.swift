@@ -85,14 +85,9 @@ private actor TTSChapterQueueMetadataWorker {
     }
 }
 
-
-
-
-
 @MainActor
 public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     public static let shared = TTSManager()
-
     // Cấu hình (lưu qua AppStorage/UserDefaults)
     @Published public var tool: String {
         didSet {
@@ -291,7 +286,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     @Published public var showFloatingWidget: Bool = false
     @Published public var showingSettingsSheet: Bool = false
 
-
     internal struct TTSAutoAdvancePerfContext {
         let sessionID: UUID
         let generation: Int
@@ -321,8 +315,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         let end = untilUptime ?? ProcessInfo.processInfo.systemUptime
         return max(0.0, (end - paragraph0SynthesisStartUptime) * 1000)
     }
-
-
 
     @MainActor
     internal func finishTTSPrefetchPerfSummary() {
@@ -557,7 +549,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
         TTSPresentationEventCenter.shared.send(.showToast(message: "⏱️ Hẹn giờ\(label): Đã tự động tạm dừng đọc.", type: .info))
     }
-
 
     // Thông tin phát nhạc độc lập toàn cục
     @Published public private(set) var playingBookId: String = ""
@@ -955,9 +946,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         setupAudioEngine()
         setupRemoteCommandCenter()
         setupInterruptionObserver()
-
-
-
 
         NotificationCenter.default.publisher(for: NSNotification.Name("translationDictionariesDidUpdate"))
             .receive(on: RunLoop.main)
@@ -1384,8 +1372,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
 
         speakCurrent()
     }
-
-
 
     public func pause() {
         guard isPlaying else { return }
@@ -2406,6 +2392,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
         }
 
+        publishPreparingParagraphState(index: currentParagraphIndex)
         // Điều hướng luồng phát âm thanh sang Engine tương ứng:
         if tool == "system" {
             playSystemTTS(textToSpeak) // Phát bằng Siri mặc định của iOS (không tốn dung lượng bộ nhớ)
@@ -2451,8 +2438,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
         updateNowPlayingInfo()
     }
-
-
 
     // updatePrefetchWindow: Cập nhật cửa sổ trượt (Sliding Window) tải trước dữ liệu âm thanh
     // Mục tiêu: Luôn có sẵn âm thanh PCMBuffer của đoạn tiếp theo (N+1) trong bộ đệm để phát ngay khi đoạn hiện tại (N) kết thúc, triệt tiêu hoàn toàn khoảng trễ tổng hợp âm thanh.
@@ -2503,8 +2488,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         requestRemoteNextChapterPrefixIfNeeded(windowCount: count, inChapterTargetCount: targetIndices.count)
     }
 
-
-
     private func recordNghiUnderrun(index: Int, reusedInFlight: Bool) {
         guard AppLogger.shared.isLoggingEnabled else { return }
         let now = ProcessInfo.processInfo.systemUptime
@@ -2520,8 +2503,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         )
         flushNghiEnergySummary(reason: "interval", force: false)
     }
-
-
 
     private func cancelNghiWakeTask() {
         nghiWakeTask?.cancel()
@@ -3126,6 +3107,30 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
+    private func publishPreparingParagraphState(index: Int) {
+        guard isPlaying, index >= 0, index < paragraphs.count else { return }
+
+        let paragraph = paragraphs[index]
+        let newParentIndex = paragraph.paragraphIndex
+        let newSnapshot = TTSPlaybackSnapshot(
+            isPlaying: isPlaying,
+            playingBookId: playingBookId,
+            playingChapterIndex: playingChapterIndex,
+            currentParentParagraphIndex: currentParentParagraphIndex,
+            highlightRange: nil,
+            preparingParentParagraphIndex: newParentIndex,
+            preparingHighlightRange: paragraph.range,
+            sessionID: sessionID,
+            handoffGeneration: audibleHandoffGeneration
+        )
+
+        if self.highlightRange != nil {
+            self.highlightRange = nil
+        }
+        if self.playbackSnapshot != newSnapshot {
+            self.playbackSnapshot = newSnapshot
+        }
+    }
     internal func publishLifecycleState(isPlaying: Bool, isStopped: Bool = false) {
         let newParentIndex = isStopped ? -1 : currentParentParagraphIndex
         let newRange = isStopped ? nil : highlightRange
@@ -3663,10 +3668,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-
-
-
-
     private func cleanUpTempFile() {
         // File tạm được dọn dẹp trực tiếp trong ExtTTSService.synthesize
     }
@@ -3674,8 +3675,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     // MARK: - Text Segmentation (Phân đoạn văn bản)
 
     // MARK: - Lock Screen & Remote Control Sync
-
-
 
     enum RemoteTransportAction {
         case play
@@ -3837,7 +3836,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
         }
     }
 
-
     // MARK: - NghiTTS Downloader Wrapper
 
     // MARK: - Audio Session & Engine Notification Handling
@@ -3968,7 +3966,6 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             }
             .store(in: &cancellables)
     }
-
 
     public func applyTOCReconciliation(_ result: LocalTOCRefreshResult, newChapters: [TTSChapterInfo]? = nil) {
         if let newChapters {

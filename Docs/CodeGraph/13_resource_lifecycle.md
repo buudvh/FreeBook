@@ -15,6 +15,12 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Không tài nguyên mới cho highlight chuẩn bị TTS (1.3.276)
+
+* Lượt này chỉ thêm hai `NSRange?`/`Int?` trong snapshot và một cờ render `Bool`; không thêm task nền, timer, observer, file, cache hay buffer audio.
+* Không có vòng đời thu hồi riêng: snapshot reset/replace của `TTSManager` làm các field chuẩn bị về `nil`; UIKit text view chỉ repaint attribute nền như đường highlight cũ.
+* Vì state chuẩn bị không giữ audio payload và không chạy synthesis riêng, các trần cache PCM/preload của NghiTTS/Google/Ext không đổi.
+
 ## Tài nguyên mới của phân hệ rule dịch (1.3.274)
 
 | Tài nguyên | Trần | Dọn khi nào |

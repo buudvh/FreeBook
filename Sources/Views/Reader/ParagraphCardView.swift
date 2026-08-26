@@ -9,6 +9,7 @@ struct ParagraphCardView: View {
     let fontFamily: ReaderFontFamily
     let theme: ReaderTheme
     let highlightRange: NSRange?
+    let highlightIsPreparing: Bool
     @Binding var triggerGetVisibleIndex: UUID?
     @Binding var clearSelectionTrigger: UUID?
     let onGetVisibleIndex: (Int) -> Void
@@ -25,6 +26,7 @@ struct ParagraphCardView: View {
             fontFamily: fontFamily,
             theme: theme,
             highlightRange: highlightRange,
+            highlightIsPreparing: highlightIsPreparing,
             isBold: item.isTitle,
             isCentered: item.isTitle,
             triggerGetVisibleIndex: $triggerGetVisibleIndex,
@@ -60,6 +62,7 @@ extension ParagraphCardView: Equatable {
                lhs.fontFamily == rhs.fontFamily &&
                lhs.theme == rhs.theme &&
                lhs.highlightRange == rhs.highlightRange &&
+               lhs.highlightIsPreparing == rhs.highlightIsPreparing &&
                lhs.triggerGetVisibleIndex == rhs.triggerGetVisibleIndex &&
                lhs.clearSelectionTrigger == rhs.clearSelectionTrigger
     }

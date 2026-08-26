@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Reader/TTS highlight chuẩn bị trước audio (1.3.276)
+
+* **Phân hệ TTS** sở hữu tín hiệu mới trong chính `TTSPlaybackSnapshot`, không thêm event center hay notification. `publishPreparingParagraphState(index:)` đọc `TTSParagraph.range`/`paragraphIndex` của đoạn hiện tại và publish vào hai field `preparing*`; `commitAudibleParagraphState(index:)` vẫn là cửa duy nhất cho highlight active khi audio thật bắt đầu.
+* **Phân hệ Reader** chỉ consume projection qua `ReaderTTSStateReader`, giữ ranh giới cũ "View không observe trực tiếp `TTSManager`". `ReaderView` chọn range hiệu lực theo thứ tự active → preparing → search, rồi `ParagraphCardView`/`ReaderTextView` render màu chuẩn bị mờ hơn.
+* **Không đổi pipeline text**: range chuẩn bị dùng cùng hệ toạ độ UTF-16 tương đối với dòng cha như active highlight, nên không thêm mapper và không chạm `ReaderSelectionMapper`.
+* **Không đổi ranh giới persistence/progress**: state chuẩn bị không đi vào `ReadingProgressStore`, Now Playing, prefetch window hay cache audio. Nó chỉ là presentation state để lấp khoảng chờ synthesis.
+
 ## Phân hệ rule dịch sau 1.3.274: hai bộ rule + hai file tắt + hai công cụ ở Reader
 
 Ranh giới tầng của 5 type Service mới đều giữ: chỉ `import Foundation`/`Combine`, **không** `import SwiftUI`, **không** gọi `ToastManager` — chúng trả `LoadOutcome`/`Outcome`, View gọi rồi tự phát toast.

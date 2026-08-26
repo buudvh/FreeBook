@@ -163,6 +163,8 @@ public struct TTSPlaybackSnapshot: Equatable, Sendable {
     public let playingChapterIndex: Int
     public let currentParentParagraphIndex: Int
     public let highlightRange: NSRange?
+    public let preparingParentParagraphIndex: Int?
+    public let preparingHighlightRange: NSRange?
     public let sessionID: UUID
     public let handoffGeneration: UInt64
 
@@ -172,6 +174,8 @@ public struct TTSPlaybackSnapshot: Equatable, Sendable {
         playingChapterIndex: Int = -1,
         currentParentParagraphIndex: Int = -1,
         highlightRange: NSRange? = nil,
+        preparingParentParagraphIndex: Int? = nil,
+        preparingHighlightRange: NSRange? = nil,
         sessionID: UUID = UUID(),
         handoffGeneration: UInt64 = 0
     ) {
@@ -180,6 +184,8 @@ public struct TTSPlaybackSnapshot: Equatable, Sendable {
         self.playingChapterIndex = playingChapterIndex
         self.currentParentParagraphIndex = currentParentParagraphIndex
         self.highlightRange = highlightRange
+        self.preparingParentParagraphIndex = preparingParentParagraphIndex
+        self.preparingHighlightRange = preparingHighlightRange
         self.sessionID = sessionID
         self.handoffGeneration = handoffGeneration
     }

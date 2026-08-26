@@ -15,6 +15,13 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro highlight chuẩn bị TTS (1.3.276)
+
+* **Chưa biên dịch trên host hiện tại.** Thay đổi chạm chữ ký view (`ReaderTextView`, `ParagraphCardView`) và shape snapshot TTS, nên lỗi compiler còn có thể chỉ lộ trên macOS/CI. Windows không có `xcodebuild`; xác minh cục bộ chỉ là đọc code, `validate_links.py`, `check_architecture.py` và `git diff --check`.
+* **Rủi ro hành vi chính là tô sớm nhưng không được commit sớm.** Nếu ai sau này dùng `preparingHighlightRange` như `highlightRange` active để lưu tiến độ/Now Playing/prefetch, bug ban đầu quay lại ở dạng mới: đoạn chưa nghe đã được coi là đã nghe. Bất biến: preparing chỉ là presentation state.
+* **Dedupe snapshot là bẫy.** Không được thay `publishPreparingParagraphState` bằng publish active `highlightRange` sớm; khi audio thật bắt đầu, snapshot active có thể không đổi và `commitAudibleParagraphState` sẽ skip side effects.
+* **Range chuẩn bị dùng cùng hệ toạ độ với active highlight.** Không thêm mapper; thêm mapper sẽ tái tạo nhóm lỗi đã xoá ở 1.3.81.
+
 ## Rủi ro của hai bộ rule, tắt-by-file, Check rule/Copy gốc và backup (1.3.274)
 
 * **Chưa biên dịch — 17 file Swift mới nên bắt buộc `xcodegen generate` rồi mới build trên macOS/CI.** Viết trên Windows nên không build tại chỗ và chưa kiểm trên máy thật. `check_architecture.py` không chạy được ở đây; kiểm tra bằng mắt: 17 file mới đều ≤ 400 dòng (lớn nhất 383) và đúng 1 type top-level, không file Service nào `import SwiftUI` hay gọi `ToastManager.shared`. CI xanh chỉ chứng minh *biên dịch được*.

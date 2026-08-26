@@ -8,6 +8,7 @@ struct ReaderTextView: UIViewRepresentable {
     let fontFamily: ReaderFontFamily
     let theme: ReaderTheme
     let highlightRange: NSRange?
+    let highlightIsPreparing: Bool
     let isBold: Bool
     let isCentered: Bool
     @Binding var triggerGetVisibleIndex: UUID?
@@ -24,6 +25,7 @@ struct ReaderTextView: UIViewRepresentable {
         fontFamily: ReaderFontFamily = .georgia,
         theme: ReaderTheme,
         highlightRange: NSRange?,
+        highlightIsPreparing: Bool = false,
         isBold: Bool = false,
         isCentered: Bool = false,
         triggerGetVisibleIndex: Binding<UUID?>,
@@ -38,6 +40,7 @@ struct ReaderTextView: UIViewRepresentable {
         self.fontFamily = fontFamily
         self.theme = theme
         self.highlightRange = highlightRange
+        self.highlightIsPreparing = highlightIsPreparing
         self.isBold = isBold
         self.isCentered = isCentered
         self._triggerGetVisibleIndex = triggerGetVisibleIndex
@@ -127,8 +130,10 @@ struct ReaderTextView: UIViewRepresentable {
         let isThemeChanged = context.coordinator.lastThemeName != theme.rawValue
         let shouldRebuildAttributedText = isTextOrLayoutConfigChanged || isThemeChanged
 
-        let isHighlightChanged = context.coordinator.lastHighlightRange != highlightRange
+        let isHighlightChanged = context.coordinator.lastHighlightRange != highlightRange ||
+                                 context.coordinator.lastHighlightIsPreparing != highlightIsPreparing
         let oldHighlight = context.coordinator.lastHighlightRange
+        let highlightBackgroundColor = highlightIsPreparing ? theme.highlightUIColor.withAlphaComponent(0.28) : theme.highlightUIColor
 
         if shouldRebuildAttributedText {
             if isTextOrLayoutConfigChanged {
@@ -145,6 +150,7 @@ struct ReaderTextView: UIViewRepresentable {
             context.coordinator.lastIsBold = isBold
             context.coordinator.lastThemeName = theme.rawValue
             context.coordinator.lastHighlightRange = highlightRange
+            context.coordinator.lastHighlightIsPreparing = highlightIsPreparing
             context.coordinator.lastIsCentered = isCentered
 
             let nsText = text as NSString
@@ -164,8 +170,8 @@ struct ReaderTextView: UIViewRepresentable {
             attributedText.addAttribute(.paragraphStyle, value: paragraphStyle, range: fullRange)
 
             if let highlight = highlightRange, highlight.location != NSNotFound, highlight.location >= 0, highlight.location + highlight.length <= nsText.length {
-                attributedText.addAttribute(.backgroundColor, value: theme.highlightUIColor, range: highlight)
-                if let textFgColor = theme.highlightTextUIColor {
+                attributedText.addAttribute(.backgroundColor, value: highlightBackgroundColor, range: highlight)
+                if !highlightIsPreparing, let textFgColor = theme.highlightTextUIColor {
                     attributedText.addAttribute(.foregroundColor, value: textFgColor, range: highlight)
                 }
             }
@@ -179,6 +185,7 @@ struct ReaderTextView: UIViewRepresentable {
         } else if isHighlightChanged {
             ReaderEnergyDiagnostics.shared.recordHighlightMutation()
             context.coordinator.lastHighlightRange = highlightRange
+            context.coordinator.lastHighlightIsPreparing = highlightIsPreparing
             let storageLength = uiView.textStorage.length
             uiView.textStorage.beginEditing()
 
@@ -188,8 +195,8 @@ struct ReaderTextView: UIViewRepresentable {
             }
 
             if let highlight = highlightRange, highlight.location != NSNotFound, highlight.location >= 0, highlight.location + highlight.length <= storageLength {
-                uiView.textStorage.addAttribute(.backgroundColor, value: theme.highlightUIColor, range: highlight)
-                if let textFgColor = theme.highlightTextUIColor {
+                uiView.textStorage.addAttribute(.backgroundColor, value: highlightBackgroundColor, range: highlight)
+                if !highlightIsPreparing, let textFgColor = theme.highlightTextUIColor {
                     uiView.textStorage.addAttribute(.foregroundColor, value: textFgColor, range: highlight)
                 }
             }
@@ -249,6 +256,7 @@ struct ReaderTextView: UIViewRepresentable {
         var lastIsBold: Bool? = nil
         var lastThemeName: String? = nil
         var lastHighlightRange: NSRange? = nil
+        var lastHighlightIsPreparing = false
         var lastIsCentered: Bool? = nil
         var cachedWidth: CGFloat? = nil
         var cachedHeight: CGFloat? = nil

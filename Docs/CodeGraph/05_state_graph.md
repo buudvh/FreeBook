@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Trạng thái highlight chuẩn bị của TTS (1.3.276)
+
+* `TTSPlaybackSnapshot` nay có hai nhóm state highlight: nhóm **active** (`currentParentParagraphIndex` + `highlightRange`) chỉ được commit khi audio bắt đầu phát, và nhóm **preparing** (`preparingParentParagraphIndex` + `preparingHighlightRange`) được publish ngay trước khi tổng hợp/phát đoạn hiện tại.
+* State chuẩn bị không phải trạng thái tiến độ đọc. Nó không đổi `currentParagraphIndex`, không claim progress và không làm Reader lưu DB; nó chỉ cho Reader vẽ vệt tô mờ trong khoảng chờ engine, đặc biệt với `nghitts`.
+* `ReaderView` không lưu range chuẩn bị vào `@State`: nó là giá trị phái sinh từ `ReaderTTSStateSnapshot`. Nếu active highlight có mặt thì chuẩn bị bị bỏ qua; nếu không có active highlight thì chuẩn bị thắng vệt tô tìm kiếm.
+* `highlightIsPreparing` là state render cấp card/text-view để diff UIKit đúng màu nền. Cờ này là một phần của equality/diff, nên chuyển từ chuẩn bị sang active được repaint dù `NSRange` giống nhau.
+
 ## State của hai công cụ mới ở Reader (1.3.274)
 
 * 6 `@State` mới khai trong `ReaderView.swift` nhưng **mọi hành vi** nằm ở `ReaderView+RuleTools.swift`: `showingCopyOriginalSheet`, `showingRuleTraceSheet`, `showingRuleGuide`, `ruleTraces`, `focusedRuleTraceID`, `ruleEditorMode`, `didChangeRuleData`. Extension **không thể** khai stored property nên state phải ở type gốc; đổi lại `ReaderView.swift` chỉ nhận thêm phần khai báo cộng một dòng `ruleToolsOverlay(in: geometry)`.

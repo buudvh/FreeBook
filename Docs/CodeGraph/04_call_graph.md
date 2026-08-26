@@ -15,6 +15,29 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Luồng highlight chuẩn bị trước audio TTS (1.3.276)
+
+```text
+TTSManager.speakCurrent()
+  └─ publishPreparingParagraphState(index: currentParagraphIndex)       // trước dispatch engine
+       └─ playbackSnapshot = TTSPlaybackSnapshot(
+            highlightRange: nil,
+            preparingParentParagraphIndex: paragraphs[index].paragraphIndex,
+            preparingHighlightRange: paragraphs[index].range)
+            └─ ReaderTTSStateReader.updateSnapshot()
+                 └─ ReaderView.chapterContentView
+                      └─ effectiveHighlightRange = active ?? preparing ?? search
+                           └─ ParagraphCardView → ReaderTextView(highlightIsPreparing: true)
+
+engine audio starts
+  └─ commitAudibleParagraphState(index:)
+       └─ publish active highlightRange/currentParentParagraphIndex
+```
+
+* `publishPreparingParagraphState` chỉ phát state trình bày. Nó **không** gọi `saveProgress`, không update Now Playing, không chạy prefetch side effect và không thay thế `commitAudibleParagraphState`.
+* Tách `preparingHighlightRange` khỏi `highlightRange` là bắt buộc: nếu publish active highlight sớm, snapshot lúc audio thật bắt đầu có thể giống hệt snapshot cũ và guard dedupe trong `commitAudibleParagraphState` bỏ qua các side effect của đoạn nghe thật.
+* Reader ưu tiên vệt tô theo thứ tự **active TTS → preparing TTS → search**. Vệt chuẩn bị chỉ áp dụng cho đúng `playingBookId`, `playingChapterIndex` và `preparingParentParagraphIndex` của đoạn đang render.
+
 ## Hai lối gọi mới từ menu bôi đen của Reader (1.3.274)
 
 ```text
