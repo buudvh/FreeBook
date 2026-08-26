@@ -9,10 +9,30 @@ import Foundation
 ///
 /// Mọi vị trí và độ dài đếm theo **UTF-16** để range trao ra ngoài dùng được ngay.
 public final class QuickTranslationRuleMatcher {
+    /// Một capture đã khớp: chuỗi **đã render** cộng range **nguồn** đã bị token nuốt.
+    ///
+    /// Vì sao gộp text và range vào **một** struct thay vì hai mảng song song: backtracking rollback
+    /// bằng mẫu `let saved = captures` … `captures = saved` ở **5** chỗ trong file này; hai mảng chỉ
+    /// cần quên một chỗ là range lệch âm thầm mà không có gì báo lỗi.
+    public struct Capture: Sendable {
+        public let text: String
+        /// `nil` khi token optional vắng mặt — không có ký tự nguồn nào bị nuốt.
+        public let sourceRange: NSRange?
+
+        public init(text: String, sourceRange: NSRange?) {
+            self.text = text
+            self.sourceRange = sourceRange
+        }
+    }
+
     public struct Match {
         public let start: Int
         public let length: Int
-        public let captures: [String]
+        public let captures: [Capture]
+
+        /// Dạng `[String]` cho `QuickTranslationCompiledRule.render(captures:)` — hàm đó giữ nguyên
+        /// chữ ký cũ vì nó chỉ cần chữ, không cần range.
+        public var captureTexts: [String] { captures.map(\.text) }
     }
 
     private struct Frame {
@@ -28,7 +48,7 @@ public final class QuickTranslationRuleMatcher {
     private let text: NSString
     private let dictionaries: QuickTranslationDictionaryToken
 
-    private var captures: [String] = []
+    private var captures: [Capture] = []
     private var steps = 0
     /// Rule vừa thử có chạm cap hay không — engine dùng để ghi cảnh báo `RULE_TOO_COMPLEX`.
     public private(set) var didExceedStepCap = false
@@ -45,7 +65,10 @@ public final class QuickTranslationRuleMatcher {
     /// dài → ngắn, group thử alternative theo thứ tự khai báo rồi mới thử nhánh vắng).
     public func match(_ rule: QuickTranslationCompiledRule, at start: Int) -> Match? {
         guard start >= 0, start <= units.count else { return nil }
-        captures = Array(repeating: "", count: rule.captureCount)
+        captures = Array(
+            repeating: Capture(text: "", sourceRange: nil),
+            count: rule.captureCount
+        )
         steps = 0
         didExceedStepCap = false
 
@@ -99,7 +122,11 @@ public final class QuickTranslationRuleMatcher {
             if position < units.count,
                QuickTranslationNumberFormatter.chapterLabelUnits.contains(units[position]) {
                 let value = text.substring(with: NSRange(location: position, length: 1))
-                store(QuickTranslationNumberFormatter.renderChapterLabel(value), for: element)
+                store(
+                    QuickTranslationNumberFormatter.renderChapterLabel(value),
+                    sourceRange: NSRange(location: position, length: 1),
+                    for: element
+                )
                 if let end = walk(advanced, position + 1) { return end }
                 captures = saved
             }
@@ -144,7 +171,11 @@ public final class QuickTranslationRuleMatcher {
             let rendered = isDigitwise
                 ? QuickTranslationNumberFormatter.renderDigitwise(value)
                 : QuickTranslationNumberFormatter.renderNumeral(value)
-            store(rendered, for: element)
+            store(
+                rendered,
+                sourceRange: NSRange(location: position, length: candidate),
+                for: element
+            )
             if let end = walk(advanced, position + candidate) { return end }
             captures = saved
             candidate -= 1
@@ -174,7 +205,11 @@ public final class QuickTranslationRuleMatcher {
 
         let saved = captures
         for candidate in candidates {
-            store(candidate.meaning, for: element)
+            store(
+                candidate.meaning,
+                sourceRange: NSRange(location: position, length: candidate.length),
+                for: element
+            )
             if let end = walk(advanced, position + candidate.length) { return end }
             captures = saved
         }
@@ -182,19 +217,20 @@ public final class QuickTranslationRuleMatcher {
         return skipOptional(element, advanced, position)
     }
 
-    /// Token optional vắng mặt ⇒ capture rỗng, `{i}` render chuỗi rỗng.
+    /// Token optional vắng mặt ⇒ capture rỗng, `{i}` render chuỗi rỗng; `sourceRange` là `nil` vì
+    /// không có ký tự nguồn nào bị nuốt.
     private func skipOptional(
         _ element: QuickTranslationRuleElement,
         _ advanced: [Frame],
         _ position: Int
     ) -> Int? {
         guard element.isOptional else { return nil }
-        store("", for: element)
+        store("", sourceRange: nil, for: element)
         return walk(advanced, position)
     }
 
-    private func store(_ value: String, for element: QuickTranslationRuleElement) {
+    private func store(_ value: String, sourceRange: NSRange?, for element: QuickTranslationRuleElement) {
         guard let index = element.captureIndex, index < captures.count else { return }
-        captures[index] = value
+        captures[index] = Capture(text: value, sourceRange: sourceRange)
     }
 }

@@ -15,6 +15,31 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Copy gốc · Check rule · Bộ rule riêng/chung + file tắt (1.3.274)
+
+| File mới | Vai trò | Dòng |
+|---|---|---|
+| [`Models/Translation/QuickTranslationRuleScope.swift`](../../Sources/Models/Translation/QuickTranslationRuleScope.swift) | `enum { global, book(String) }` + `rank` (0 riêng / 1 chung), `label`, `bookId` | 38 |
+| [`Models/Translation/QuickTranslationRuleTrace.swift`](../../Sources/Models/Translation/QuickTranslationRuleTrace.swift) | DTO một lần khớp rule trên đoạn văn: `rowID`, `scope`, `sourceRange`, `captures`, `Status` 6 case; `id` xác định `rowID#location` | 93 |
+| [`Services/Translation/Engine/QuickTranslationRuleBookStore.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleBookStore.swift) | chủ bộ rule **riêng truyện**; LRU cap 3; CRUD + nhập/xuất; validate-then-swap y hệt store chung | 360 |
+| [`…/QuickTranslationRuleDisableFile.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleDisableFile.swift) | hàm thuần trên `String` cho file tắt: `parse`/`serialize`/`adding`/`removing`/`union` | 81 |
+| [`…/QuickTranslationRuleDisableStore.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleDisableStore.swift) | chủ **hai** file tắt; `Snapshot.isDisabled(pattern:scopeRank:)` là toàn bộ ngữ nghĩa | 239 |
+| [`…/QuickTranslationRuleDiagnostics.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleDiagnostics.swift) | soi một đoạn, giữ cả rule thua/đang tắt; dùng lại `collectFound` + `select` | 232 |
+| [`…/QuickTranslationRuleTransfer.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleTransfer.swift) | chuyển một rule sang phạm vi còn lại (**COPY**) + chia sẻ cả bộ riêng sang truyện khác | 71 |
+| [`Services/Translation/Extensions/TranslationManager+BookScopedFiles.swift`](../../Sources/Services/Translation/Extensions/TranslationManager+BookScopedFiles.swift) | **một** nguồn khai tên file riêng truyện, thay 2 danh sách nhân bản cũ | 28 |
+| [`Views/Reader/ReaderCopyOriginalOverlayView.swift`](../../Sources/Views/Reader/ReaderCopyOriginalOverlayView.swift) | panel Copy nội dung gốc; không có nút Hủy, mọi đường đóng đều copy | 202 |
+| [`Views/Reader/ReaderRuleTraceOverlayView.swift`](../../Sources/Views/Reader/ReaderRuleTraceOverlayView.swift) | màn Check rule: thanh gốc → nghĩa rule → nghĩa token → dải chip + popup ấn giữ | 383 |
+| [`Views/Reader/ReaderRuleTraceGuideSheet.swift`](../../Sources/Views/Reader/ReaderRuleTraceGuideSheet.swift) | nội dung nút `?` | 74 |
+| [`Views/Reader/Components/ReaderRuleChipStyle.swift`](../../Sources/Views/Reader/Components/ReaderRuleChipStyle.swift) | 3 mức màu chip + dấu ✓ của rule thắng | 61 |
+| [`Views/Reader/Components/ReaderRuleTraceChip.swift`](../../Sources/Views/Reader/Components/ReaderRuleTraceChip.swift) | một chip + badge R/C + ấn giữ | 68 |
+| [`Views/Reader/Extensions/ReaderView+RuleTools.swift`](../../Sources/Views/Reader/Extensions/ReaderView+RuleTools.swift) | hành vi + overlay của **cả hai** công cụ mới | 272 |
+| [`Views/Reader/Extensions/ReaderView+Selection.swift`](../../Sources/Views/Reader/Extensions/ReaderView+Selection.swift) | khối biên tập vùng chọn dùng chung cho 4 panel (dời từ `ReaderView.swift`) | 179 |
+| [`Views/Settings/Translation/QuickTranslationRuleEntryRow.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleEntryRow.swift) | hàng rule `[Sửa][Chuyển][Tắt][Xoá]`, mirror `DictionaryEntryRow` | 151 |
+| [`Views/Settings/Translation/QuickTranslationRuleIOMenu.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleIOMenu.swift) | Nhập/Xuất/Xoá bộ rule riêng của một truyện | 168 |
+
+* **`ReaderView.swift` 2286 → 2076 dòng.** Ngoài phần dời sang `+Selection`, lượt này **xoá 73 dòng code chết** không có caller nào: `sentenceSegments`, `translatedSentenceSegments`, `selectedTokens`, `isEditableSource`, `deleteMatch`.
+* Thư mục: `Sources/Services/Translation/Engine/` 17 → **22** file, `Sources/Services/Translation/Extensions/` 3 → **4**, `Sources/Models/Translation/` +2, `Sources/Views/Reader/` +3, `Sources/Views/Reader/Components/` +2, `Sources/Views/Reader/Extensions/` +2, `Sources/Views/Settings/Translation/` 8 → **10**. Tổng Swift 388 → **404**. **Không** thêm resource bundled.
+
 ## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.272)
 
 | File mới | Vai trò | Dòng |

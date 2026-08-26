@@ -46,6 +46,24 @@ struct DictionaryHubView: View {
                     )
                 }
             }
+            Section(header: Text("Rule Dịch")) {
+                NavigationLink(destination: QuickTranslationRuleListView(scope: .book(bookId))) {
+                    DictionaryNavRow(
+                        title: "Rule Riêng (Truyện)",
+                        icon: "function",
+                        iconColor: .teal,
+                        subtitle: ruleStatusText(scope: .book(bookId))
+                    )
+                }
+                NavigationLink(destination: QuickTranslationRuleListView(scope: .global, contextBookId: bookId)) {
+                    DictionaryNavRow(
+                        title: "Rule Chung (Toàn cục)",
+                        icon: "function",
+                        iconColor: .indigo,
+                        subtitle: ruleStatusText(scope: .global)
+                    )
+                }
+            }
         }
         .id(refreshToken)
         .navigationTitle("Từ Điển")
@@ -59,6 +77,24 @@ struct DictionaryHubView: View {
                 }
             }
         }
+    }
+
+    /// "N đang bật • M đã tắt" cho một phạm vi rule. Bộ rule không đi kèm app nên rỗng là bình thường.
+    private func ruleStatusText(scope: QuickTranslationRuleScope) -> String {
+        let snapshot: QuickTranslationRuleSnapshot?
+        switch scope {
+        case .global:
+            snapshot = QuickTranslationRuleStore.shared.currentSnapshot
+        case .book(let identifier):
+            snapshot = QuickTranslationRuleBookStore.shared.snapshot(for: identifier)
+        }
+        guard let snapshot, !snapshot.rules.isEmpty else {
+            return scope.isGlobal ? "Chưa có bộ rule chung" : "Chưa có rule riêng"
+        }
+
+        let disabled = Set(QuickTranslationRuleDisableStore.shared.disabledPatterns(for: scope))
+        let disabledCount = snapshot.rules.filter { disabled.contains($0.pattern) }.count
+        return "\(snapshot.ruleCount - disabledCount) đang bật • \(disabledCount) đã tắt"
     }
 
     private func bookEntryCount(type: DictType) -> String {

@@ -2,9 +2,14 @@ import Foundation
 
 /// Áp bộ rule dịch lên một chuỗi Trung: chèn **sau** Phồn thể → Giản thể và **trước** tokenize.
 ///
+/// Từ 1.3.274 engine trộn **hai** bộ rule trong cùng một lượt: bộ **riêng của truyện**
+/// (`scopeRank = 0`) và bộ **chung** (`scopeRank = 1`). Hai bộ được thu match riêng rồi `select`
+/// **một** lần trên tập hợp nhất — không dựng `literalIndex` gộp cho từng truyện, vì index của bộ
+/// 17k dòng là cấu trúc lớn còn bộ riêng chỉ vài chục rule.
+///
 /// Thứ tự chọn match giữ đúng ngữ nghĩa `executeRules` của reference (index → literalLength →
-/// wildcardCapacity → độ dài match → dòng nguồn), chỉ đổi cách sinh candidate: prefilter theo literal
-/// bắt buộc rồi AST-walk, thay vì một regex mỗi rule quét cả chuỗi.
+/// wildcardCapacity → độ dài match → **scopeRank** → dòng nguồn). `scopeRank` là tiêu chí **mới** và
+/// đứng ngay trước `sourceLine`; trong một bộ đơn lẻ nó là hằng số nên thứ tự cũ **không đổi**.
 ///
 /// Ba ràng buộc giữ nguyên theo reference: **không cascade** (chuỗi Việt vừa render không được đưa
 /// lại cho rule), **không exhaustive match** (mỗi rule chỉ phát match trái → phải), và **không**
@@ -21,13 +26,19 @@ public enum QuickTranslationRuleEngine {
         init(_ result: QuickTranslationRewriteResult) { self.result = result }
     }
 
-    private struct Found {
+    /// `internal` chứ không `private`: `QuickTranslationRuleDiagnostics` phải dùng **đúng** hàm
+    /// `select` này, không được cài lại 6 tiêu chí ưu tiên ở chỗ thứ hai.
+    struct Found {
         let start: Int
         let length: Int
         let literalLength: Int
         let wildcardCapacity: Int
+        let scopeRank: Int
         let sourceLine: Int
         let rendered: String
+        /// Index của rule trong `snapshot.rules` của **bộ tương ứng với `scopeRank`**.
+        let ruleIndex: Int
+        let captures: [QuickTranslationRuleMatcher.Capture]
     }
 
     /// Memo nhỏ: pipeline gọi `rewrite` hai lần cho cùng một chuỗi (một lần để dịch, một lần để dựng
@@ -38,18 +49,25 @@ public enum QuickTranslationRuleEngine {
         return cache
     }()
 
-    /// `nil` khi công tắc tắt hoặc chưa có rule nào — bên gọi giữ nguyên đường dịch cũ.
+    /// `nil` khi công tắc tắt hoặc **cả hai** bộ đều không có rule — bên gọi giữ nguyên đường dịch cũ.
     public static func rewrite(_ text: String, bookId: String?) -> QuickTranslationRewriteResult? {
         guard !text.isEmpty else { return nil }
-        guard let snapshot = QuickTranslationRuleStore.shared.activeSnapshot else { return nil }
+        let globalSnapshot = QuickTranslationRuleStore.shared.activeSnapshot
+        let bookSnapshot = QuickTranslationRuleBookStore.shared.activeSnapshot(for: bookId)
+        guard globalSnapshot != nil || bookSnapshot != nil else { return nil }
+
         let tokenConfiguration = QuickTranslationRuleTokenSettings.currentConfiguration()
 
-        let key = "\(snapshot.generation)|\(tokenConfiguration.signature)|\(bookId ?? "global")|\(text.md5())" as NSString
+        // Khoá mang generation của **cả hai** bộ: hai truyện khác nhau đã khác `bookId`, nhưng cùng
+        // một truyện sau khi sửa bộ riêng phải là khoá khác.
+        let key = "\(globalSnapshot?.generation ?? 0)|\(bookSnapshot?.generation ?? 0)"
+            + "|\(tokenConfiguration.signature)|\(bookId ?? "global")|\(text.md5())" as NSString
         if let cached = cache.object(forKey: key) { return cached.result }
 
         let result = execute(
             text,
-            snapshot: snapshot,
+            bookSnapshot: bookSnapshot,
+            globalSnapshot: globalSnapshot,
             bookId: bookId,
             tokenConfiguration: tokenConfiguration
         )
@@ -61,15 +79,18 @@ public enum QuickTranslationRuleEngine {
         cache.removeAllObjects()
     }
 
-    /// Dùng cho ô thử nhanh ở màn hình quản lý: luôn bỏ qua công tắc tổng và không dùng memo.
-    /// `mode` chỉ quyết định có tôn trọng tám công tắc token hay xem rule với mọi token được bật.
+    /// Dùng cho ô thử nhanh ở màn hình quản lý: luôn bỏ qua công tắc tổng và không dùng memo, nhưng
+    /// **vẫn tôn trọng file tắt** — nếu không nó nói khác kết quả thật của Reader.
     public static func preview(
         _ text: String,
         bookId: String? = nil,
         mode: PreviewMode = .respectTokenConfiguration
     ) -> QuickTranslationRewriteResult? {
-        guard !text.isEmpty, let snapshot = QuickTranslationRuleStore.shared.currentSnapshot,
-              !snapshot.rules.isEmpty else { return nil }
+        guard !text.isEmpty else { return nil }
+        let globalSnapshot = nonEmpty(QuickTranslationRuleStore.shared.currentSnapshot)
+        let bookSnapshot = nonEmpty(QuickTranslationRuleBookStore.shared.snapshot(for: bookId))
+        guard globalSnapshot != nil || bookSnapshot != nil else { return nil }
+
         let tokenConfiguration: QuickTranslationRuleTokenSettings.Configuration
         switch mode {
         case .respectTokenConfiguration:
@@ -79,39 +100,93 @@ public enum QuickTranslationRuleEngine {
         }
         return execute(
             text,
-            snapshot: snapshot,
+            bookSnapshot: bookSnapshot,
+            globalSnapshot: globalSnapshot,
             bookId: bookId,
             tokenConfiguration: tokenConfiguration
         )
+    }
+
+    private static func nonEmpty(_ snapshot: QuickTranslationRuleSnapshot?) -> QuickTranslationRuleSnapshot? {
+        guard let snapshot, !snapshot.rules.isEmpty else { return nil }
+        return snapshot
     }
 
     // MARK: - Thi hành
 
     private static func execute(
         _ text: String,
-        snapshot: QuickTranslationRuleSnapshot,
+        bookSnapshot: QuickTranslationRuleSnapshot?,
+        globalSnapshot: QuickTranslationRuleSnapshot?,
         bookId: String?,
         tokenConfiguration: QuickTranslationRuleTokenSettings.Configuration
     ) -> QuickTranslationRewriteResult {
         let nsText = text as NSString
-        let units = Array(text.utf16)
-        let candidates = snapshot.literalIndex.candidates(in: units)
-        guard !candidates.isEmpty else { return passthrough(text, length: nsText.length) }
-
         let matcher = QuickTranslationRuleMatcher(
             text: text,
             dictionaries: QuickTranslationDictionaryToken.resolve(bookId: bookId)
         )
+        let disable = QuickTranslationRuleDisableStore.shared.snapshot(bookId: bookId)
+
+        var found: [Found] = []
+        // Bộ riêng đi trước cho dễ đọc log; thứ tự thu match không ảnh hưởng kết quả vì `select`
+        // sắp xếp lại toàn bộ.
+        found += collectFound(
+            text: text,
+            snapshot: bookSnapshot,
+            scopeRank: 0,
+            matcher: matcher,
+            tokenConfiguration: tokenConfiguration,
+            disable: disable,
+            includesDisabled: false
+        )
+        found += collectFound(
+            text: text,
+            snapshot: globalSnapshot,
+            scopeRank: 1,
+            matcher: matcher,
+            tokenConfiguration: tokenConfiguration,
+            disable: disable,
+            includesDisabled: false
+        )
+
+        guard !found.isEmpty else { return passthrough(text, length: nsText.length) }
+        return assemble(selected: select(from: found), text: text, nsText: nsText)
+    }
+
+    /// Thu **mọi** match của một bộ rule. `includesDisabled == true` chỉ dùng cho màn chẩn đoán:
+    /// nó cần thấy cả rule đang tắt và rule bị token tắt để hiện ra cho người dùng bật lại.
+    static func collectFound(
+        text: String,
+        snapshot: QuickTranslationRuleSnapshot?,
+        scopeRank: Int,
+        matcher: QuickTranslationRuleMatcher,
+        tokenConfiguration: QuickTranslationRuleTokenSettings.Configuration,
+        disable: QuickTranslationRuleDisableStore.Snapshot,
+        includesDisabled: Bool,
+        notesComplexRules: Bool = true,
+        onTooComplex: ((Int, Int) -> Void)? = nil
+    ) -> [Found] {
+        guard let snapshot, !snapshot.rules.isEmpty else { return [] }
+        let units = Array(text.utf16)
+        let candidates = snapshot.literalIndex.candidates(in: units)
+        guard !candidates.isEmpty else { return [] }
 
         var found: [Found] = []
         for candidate in candidates {
             let rule = snapshot.rules[candidate.ruleIndex]
-            guard rule.isEnabled(for: tokenConfiguration) else { continue }
+            if !includesDisabled {
+                guard rule.isEnabled(for: tokenConfiguration) else { continue }
+                guard !disable.isDisabled(pattern: rule.pattern, scopeRank: scopeRank) else { continue }
+            }
             var cursor = 0
             for start in candidate.starts where start >= cursor {
                 guard let match = matcher.match(rule, at: start) else {
                     if matcher.didExceedStepCap {
-                        QuickTranslationRuleStore.shared.noteComplexRule(sourceLine: rule.sourceLine)
+                        if notesComplexRules {
+                            QuickTranslationRuleStore.shared.noteComplexRule(sourceLine: rule.sourceLine)
+                        }
+                        onTooComplex?(candidate.ruleIndex, start)
                         break
                     }
                     continue
@@ -121,25 +196,30 @@ public enum QuickTranslationRuleEngine {
                     length: match.length,
                     literalLength: rule.literalLength,
                     wildcardCapacity: rule.wildcardCapacity,
+                    scopeRank: scopeRank,
                     sourceLine: rule.sourceLine,
-                    rendered: rule.render(captures: match.captures)
+                    rendered: rule.render(captures: match.captureTexts),
+                    ruleIndex: candidate.ruleIndex,
+                    captures: match.captures
                 ))
                 cursor = match.start + max(1, match.length)
             }
         }
-
-        guard !found.isEmpty else { return passthrough(text, length: nsText.length) }
-        return assemble(selected: select(from: found), text: text, nsText: nsText)
+        return found
     }
 
     /// Sort một lần rồi quét một pass tuyến tính. Reference gọi `matches.filter(...)` trong vòng
     /// `while` (bậc hai) nhưng kết quả giống hệt.
-    private static func select(from found: [Found]) -> [Found] {
+    ///
+    /// `scopeRank` là tiêu chí thứ **5**, đứng ngay trước `sourceLine`: rule của bộ riêng thắng rule
+    /// của bộ chung khi trùng mọi tiêu chí trước đó. Bốn tiêu chí đầu **không đổi**.
+    static func select(from found: [Found]) -> [Found] {
         let sorted = found.sorted { lhs, rhs in
             if lhs.start != rhs.start { return lhs.start < rhs.start }
             if lhs.literalLength != rhs.literalLength { return lhs.literalLength > rhs.literalLength }
             if lhs.wildcardCapacity != rhs.wildcardCapacity { return lhs.wildcardCapacity < rhs.wildcardCapacity }
             if lhs.length != rhs.length { return lhs.length > rhs.length }
+            if lhs.scopeRank != rhs.scopeRank { return lhs.scopeRank < rhs.scopeRank }
             return lhs.sourceLine < rhs.sourceLine
         }
 

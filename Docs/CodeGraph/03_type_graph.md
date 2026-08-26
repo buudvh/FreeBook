@@ -15,6 +15,31 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Hai bộ rule, hai chủ sở hữu: `QuickTranslationRuleScope` + `QuickTranslationRuleBookStore` (1.3.274)
+
+* **`QuickTranslationRuleScope` (`Sources/Models/Translation/`) là `enum { global, book(String) }`** — ở tầng Models vì cả Service (`DisableStore`, `Transfer`) và View (`QuickTranslationRuleListView`, hub từ điển) đều nhận nó làm tham số. `rank` (0 riêng / 1 chung) là **hằng số duy nhất** quyết định rule riêng thắng rule chung.
+* **`QuickTranslationRuleBookStore` là chủ sở hữu thứ hai, không phải bản tổng quát hoá của `QuickTranslationRuleStore`.** Store chung hard-code một file và đang **394/400 dòng**, tổng quát hoá nó phải sửa mọi method. Store mới giữ đúng hợp đồng validate-then-swap, và **dùng lại** `QuickTranslationRuleParser` / `Compiler` / `FileEditor` / `QuickTranslationRuleStore.rowIDs(...)` nên phần khó không bị cài lại lần hai.
+* Cache snapshot theo `bookId` là **LRU cap 3**: bộ riêng nhỏ nên compile lại rẻ, còn giữ mọi truyện thì bộ nhớ phình theo số truyện từng mở. Hai `NSLock` (`mutationLock` → `lock`) luôn khoá theo một chiều nên không có deadlock.
+* **`QuickTranslationCompiledRule.scopeRank`** (mặc định `1`) là tiêu chí ưu tiên **thứ 5** trong `select`, đứng ngay trước `sourceLine`. Trong một bộ đơn lẻ nó là hằng số ⇒ thứ tự cũ của bộ chung **không đổi**.
+
+## `QuickTranslationRuleDisableStore` + `QuickTranslationRuleDisableFile` — tắt rule bằng file (1.3.274)
+
+* **Bật/tắt không sửa file rule.** Rule bị tắt vẫn nằm trong `snapshot.rules` (để bật lại được và giữ nguyên `sourceLine`/`rowIDs`); chỉ có **mẫu** của nó được ghi vào một file thứ hai: `translate/QuickTranslateRulesDisabled.txt` (chung) hoặc `translate/books/<bookId>/QuickTranslateRulesDisabled.txt` (riêng).
+* **`QuickTranslationRuleDisableFile` là hàm thuần trên `String`** (`parse`/`serialize`/`adding`/`removing`/`union`), không chạm `FileManager` — cùng tinh thần `QuickTranslationRuleFileEditor`, để chỉ có **một** nơi ghi file.
+* **`Snapshot.isDisabled(pattern:scopeRank:)` là toàn bộ ngữ nghĩa**, và nó là ngữ nghĩa của VP riêng/chung: rule bộ riêng chỉ chịu file tắt riêng; rule bộ chung chịu file tắt chung (mọi truyện) **hoặc** file tắt riêng của truyện đang đọc. Muốn dùng lại một rule đã tắt chung ở đúng một truyện thì thêm mẫu vào bộ rule riêng của truyện đó.
+* Khoá là **mẫu** (phần trước dấu `=`), không phải `sourceLine`: số dòng đổi sau mỗi lần thêm/xoá. Hết mẫu thì file bị **xoá** thay vì để lại file rỗng.
+
+## `QuickTranslationRuleTrace` — DTO chẩn đoán, giữ cả rule thua (1.3.274)
+
+* `QuickTranslationRewriteResult` chỉ giữ rule **thắng** nên không dùng được cho màn Check rule. `QuickTranslationRuleTrace` (Models) mang `rowID` + `scope` để hành động được ngay từ chip, `sourceRange`/`matchedText` để tô cụm, `captures` để hiện nghĩa **từng token**, và `Status` 6 case: `applied` · `lostOverlap(toSourceLine:)` · `disabledGlobally` · `disabledForBook` · `tokenDisabled` · `tooComplex`.
+* **`id` là `"\(rowID)#\(sourceRange.location)"` — xác định, không phải `UUID()` mới mỗi lượt.** Một rule khớp nhiều vị trí trong đoạn ⇒ mỗi vị trí một chip, và chẩn đoán lại không dựng lại cả dải.
+* `rowID` là handle của hàng trong snapshot (thứ `deleteRule(rowID:)` cần). **Không** dùng `sourceLine` làm định danh — đó chính là nguyên nhân crash đã sửa ở 1.3.271.
+
+## `QuickTranslationRuleMatcher.Capture` — một mảng, không hai mảng song song (1.3.274)
+
+* `captures` đổi từ `[String]` sang `[Capture]` (`text` + `sourceRange?`) vì màn Check rule phải hiện **chữ gốc** của từng token, mà range đó trước đây bị bỏ dù mọi call site `store(...)` đều đang biết `position` và độ dài đã nuốt.
+* Bắt buộc là **một** mảng: matcher rollback bằng `let saved = captures` … `captures = saved` ở **5** chỗ; hai mảng song song chỉ cần quên một chỗ là range lệch âm thầm. `QuickTranslationCompiledRule.render(captures:)` giữ nguyên chữ ký `[String]`, engine truyền `match.captureTexts`.
+
 ## Type mới ở tầng Models: DataImportMode (1.3.269)
 
 * **`DataImportMode` là `enum String, CaseIterable, Sendable` ở `Sources/Models/Dictionaries/`, không phải type cục bộ của một màn.** Nó tồn tại vì chữ "Gộp" trong app đang mang **hai nghĩa trái ngược** tuỳ màn: `DictionaryCache.importEntries(isMerge:)`, `JunkFilterManager.importRules(mode: .merge)` và `TranslateUtils.mergeTOCRules` hiểu là *đè key trùng*, còn `TTSReplacementManager.importRules(mode: .merge)` và `SearchEngineTransfer.merged` hiểu là *giữ bản cũ*. Ba case `replaceAll` / `overwriteExisting` / `keepExisting` buộc mỗi màn nói rõ ai thắng khi trùng khoá.

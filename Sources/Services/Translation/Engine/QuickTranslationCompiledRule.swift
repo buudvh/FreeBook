@@ -39,6 +39,10 @@ public struct QuickTranslationCompiledRule: Sendable {
     /// Các cú pháp token xuất hiện trong rule trước khi parser hạ `<w>` xuống các nhóm từ điển.
     /// Token tắt làm cả rule không chạy, kể cả token nằm trong group, optional hoặc danh sách `|`.
     public let requiredTokenKinds: Set<QuickTranslationRuleTokenSettings.Kind>
+    /// 0 = rule của **bộ riêng truyện**, 1 = rule của **bộ chung**. Tiêu chí ưu tiên thứ 5 trong
+    /// `QuickTranslationRuleEngine.select`, đứng ngay trước `sourceLine`: trong một bộ đơn lẻ nó là
+    /// hằng số nên thứ tự cũ **không đổi**; khi trộn hai bộ thì rule riêng thắng.
+    public let scopeRank: Int
 
     public init(
         sourceLine: Int,
@@ -53,7 +57,8 @@ public struct QuickTranslationCompiledRule: Sendable {
         requiredLiteralPrefixMin: Int,
         requiredLiteralPrefixMax: Int,
         requiredDictionaryKinds: [QuickTranslationRuleElement.DictionaryKind],
-        requiredTokenKinds: Set<QuickTranslationRuleTokenSettings.Kind> = []
+        requiredTokenKinds: Set<QuickTranslationRuleTokenSettings.Kind> = [],
+        scopeRank: Int = 1
     ) {
         self.sourceLine = sourceLine
         self.pattern = pattern
@@ -68,6 +73,7 @@ public struct QuickTranslationCompiledRule: Sendable {
         self.requiredLiteralPrefixMax = requiredLiteralPrefixMax
         self.requiredDictionaryKinds = requiredDictionaryKinds
         self.requiredTokenKinds = requiredTokenKinds
+        self.scopeRank = scopeRank
     }
 
     /// Literal-only rule luôn hợp lệ; với token, chính sách yêu cầu mọi cú pháp đã ghi đều bật.

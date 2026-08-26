@@ -114,25 +114,27 @@ struct ReaderView: View {
     @State internal var removeDuplicatedTitle = true // Loại bỏ tiêu đề chương trùng ở đầu nội dung (dùng TOC rule)
 
 
-    // Các biến trạng thái hỗ trợ bôi đen từ/câu để tra cứu từ điển
-    @State private var selectedTextForDefinition = "" // Từ/Câu đang được bôi đen chọn tra từ
-    @State private var showingDefinitionSheet = false // Hiện hộp thoại tra nghĩa từ điển
-    @State private var customMeaning = "" // Nghĩa tự định nghĩa của người dùng lưu lại
-    @AppStorage("pinnedSaveToBookSpecific") private var pinnedSaveToBookSpecific = true
-    @AppStorage("pinnedSaveAsNameType") private var pinnedSaveAsNameType = false
-    @State private var saveToBookSpecific = true
-    @State private var saveAsNameType = false
+    // Các biến trạng thái hỗ trợ bôi đen từ/câu để tra cứu từ điển.
+    // `internal` (không `private`) vì `ReaderView+Selection` và `ReaderView+RuleTools` nằm ở file
+    // khác — `private` trong Swift là phạm vi **file**, extension ngoài file không thấy được.
+    @State var selectedTextForDefinition = "" // Từ/Câu đang được bôi đen chọn tra từ
+    @State var showingDefinitionSheet = false // Hiện hộp thoại tra nghĩa từ điển
+    @State var customMeaning = "" // Nghĩa tự định nghĩa của người dùng lưu lại
+    @AppStorage("pinnedSaveToBookSpecific") var pinnedSaveToBookSpecific = true
+    @AppStorage("pinnedSaveAsNameType") var pinnedSaveAsNameType = false
+    @State var saveToBookSpecific = true
+    @State var saveAsNameType = false
 
     // Các cấu hình tra từ nâng cao và hiển thị
-    @State private var originalSentence = ""
-    @State private var selectedWordOffset = 0
-    @State private var selectedWordLength = 0
-    @State private var selectedDisplayedOffset = 0
+    @State var originalSentence = ""
+    @State var selectedWordOffset = 0
+    @State var selectedWordLength = 0
+    @State var selectedDisplayedOffset = 0
     @State private var searchEngines: [SearchEngine] = []
     @State private var showingSearchEnginesConfigSheet = false
-    @State private var translationMode: String = "VP" // Dịch dạng: "VP" (Vietphrase) hoặc "HV" (Hán Việt)
-    @State private var translationTokens: [TranslationWordToken] = []
-    @State private var dictionaryMatches: [DictionaryMatchInfo] = []
+    @State var translationMode: String = "VP" // Dịch dạng: "VP" (Vietphrase) hoặc "HV" (Hán Việt)
+    @State var translationTokens: [TranslationWordToken] = []
+    @State var dictionaryMatches: [DictionaryMatchInfo] = []
     // Gợi ý nghĩa của từ đang chọn — tính trong `ReaderView+Suggestions.swift`, không phải computed property
     // (xem doc ở file đó: computed property khiến ~6 lần tra trie chạy lại mỗi lần body evaluate).
     @State internal var suggestionChips: [SuggestionChip] = []
@@ -145,10 +147,20 @@ struct ReaderView: View {
     @State private var showingAddNghiTTSPhonemeSheet = false
     @State private var showingAddTTSReplacementSheet = false
     @State private var pendingTTSReplacementPattern = ""
-    @State private var selectedDisplayedText = ""
-    @State private var clearSelectionTrigger: UUID? = nil
+    @State var selectedDisplayedText = ""
+    @State var clearSelectionTrigger: UUID? = nil
     @State private var wordSynthesizer: AVSpeechSynthesizer? = nil
     @State private var pendingTranslationScope: DictionaryInvalidationScope? = nil
+
+    /// Panel copy nội dung gốc và màn check rule — state ở đây, hành vi ở `ReaderView+RuleTools`.
+    @State var showingCopyOriginalSheet = false
+    @State var showingRuleTraceSheet = false
+    @State var showingRuleGuide = false
+    @State var ruleTraces: [QuickTranslationRuleTrace] = []
+    @State var focusedRuleTraceID: String? = nil
+    @State var ruleEditorMode: QuickTranslationRuleEditorSheet.Mode? = nil
+    /// Có thao tác nào đổi dữ liệu rule trong lượt mở sheet này hay chưa — quyết định có dịch lại khi đóng.
+    @State var didChangeRuleData = false
 
     // Cấu hình giao diện đọc (lưu trữ lâu dài qua UserDefaults nhờ @AppStorage)
     @AppStorage("readerFontSize") internal var fontSize: Double = 20.0 // Cỡ chữ của văn bản đọc
@@ -156,7 +168,7 @@ struct ReaderView: View {
     @AppStorage("isTranslationEnabled") internal var isTranslationEnabled = false // Trạng thái bật/tắt tự động dịch thuật
     @AppStorage("isTranslationPronounsEnabled") internal var isTranslationPronounsEnabled = false // Bật dịch đại từ
     @AppStorage("isTranslationLuatNhanEnabled") internal var isTranslationLuatNhanEnabled = false // Bật dịch luật nhân
-    @State private var shouldConvertTraditionalToSimplified = false
+    @State var shouldConvertTraditionalToSimplified = false
     @AppStorage("readerSelectedTheme") internal var selectedTheme: ReaderTheme = .dark // Theme giao diện đọc (Sáng, Trầm ấm, Tối)
     @AppStorage("readerFontFamily") internal var fontFamily: ReaderFontFamily = .georgia // Phông chữ đọc sách
     @AppStorage("hasOpenedReader") internal var hasOpenedReader = false
@@ -168,7 +180,7 @@ struct ReaderView: View {
 
     // Trạng thái bypass Cloudflare và import sách
     @State internal var showingBypassBrowser = false
-    @State private var lookupRoute: ReaderLookupRoute?
+    @State var lookupRoute: ReaderLookupRoute?
     @State private var importedBookId = ""
     @State private var importedExtensionPackageId = ""
     @State private var importedDetailUrl = ""
@@ -184,7 +196,7 @@ struct ReaderView: View {
     @StateObject internal var viewModelRelay = ReaderViewModelInvalidationRelay()
     internal let ttsManager = TTSManager.shared
     @State private var triggerGetVisibleIndex: UUID? = nil
-    @State private var editingParagraphIndex: Int? = nil
+    @State var editingParagraphIndex: Int? = nil
     @State internal var scrollTarget: ScrollTarget? = nil
     @State private var readerViewportHeight: CGFloat = 360
     @State internal var readerViewportMinY: CGFloat = 0
@@ -464,6 +476,9 @@ struct ReaderView: View {
                         UIPasteboard.general.string = selectedDisplayedText
                         ToastManager.shared.show(message: "Đã sao chép: \"\(selectedDisplayedText)\"")
                     },
+                    onCopyOriginal: {
+                        openCopyOriginalPanel()
+                    },
                     onReadSelected: {
                         readSelectedText()
                     },
@@ -475,6 +490,9 @@ struct ReaderView: View {
                     onAddToTTSReplacement: {
                         pendingTTSReplacementPattern = selectedDisplayedText
                         showingAddTTSReplacementSheet = true
+                    },
+                    onInspectRules: {
+                        openRuleTracePanel()
                     }
                 )
 
@@ -532,6 +550,8 @@ struct ReaderView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(6)
                 }
+
+                ruleToolsOverlay(in: geometry)
 
                 readerChapterListOverlay(in: geometry)
             }
@@ -1392,7 +1412,7 @@ struct ReaderView: View {
         )
     }
 
-    private func applyTranslation() {
+    func applyTranslation() {
         viewModel?.toggleTranslation(enabled: isTranslationEnabled)
     }
 
@@ -1418,237 +1438,6 @@ struct ReaderView: View {
                 }
             } catch {
                 // AppLogger.shared.log("❌ Lỗi lưu định nghĩa từ: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    // MARK: - Advanced Translation Editor Helpers
-
-    private func getHanViet(for word: String) -> String {
-        ReaderSelectionCoordinator.shared.getHanViet(for: word)
-    }
-
-    private func formatMeaning(_ input: String, style: String) -> String {
-        ReaderSelectionCoordinator.shared.formatMeaning(input, style: style)
-    }
-
-    private var sentenceSegments: (prefix: String, selected: String, suffix: String) {
-        let ns = originalSentence as NSString
-        guard selectedWordOffset >= 0 && selectedWordOffset + selectedWordLength <= ns.length else {
-            return ("", originalSentence, "")
-        }
-        let prefix = ns.substring(with: NSRange(location: 0, length: selectedWordOffset))
-        let selected = ns.substring(with: NSRange(location: selectedWordOffset, length: selectedWordLength))
-        let suffix = ns.substring(with: NSRange(location: selectedWordOffset + selectedWordLength, length: ns.length - (selectedWordOffset + selectedWordLength)))
-        return (prefix, selected, suffix)
-    }
-
-    private var translatedSentenceSegments: (prefix: String, selected: String, suffix: String) {
-        let translatedSentence = TranslateUtils.translateContent(
-            originalSentence,
-            bookId: bookId,
-            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-        )
-        let translatedWord = TranslateUtils.translateMeta(
-            selectedTextForDefinition,
-            bookId: bookId,
-            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-        )
-
-        guard !translatedWord.isEmpty,
-              let range = translatedSentence.range(of: translatedWord) else {
-            return ("", translatedSentence, "")
-        }
-
-        let prefix = String(translatedSentence[..<range.lowerBound])
-        let selected = String(translatedSentence[range])
-        let suffix = String(translatedSentence[range.upperBound...])
-        return (prefix, selected, suffix)
-    }
-
-    private var selectedTokens: [TranslationWordToken] {
-        translationTokens.filter { token in
-            token.originalOffset < selectedWordOffset + selectedWordLength &&
-            token.originalOffset + token.originalLength > selectedWordOffset
-        }
-    }
-
-    private func expandSelectionLeft() {
-        if selectedWordOffset > 0 {
-            selectedWordOffset -= 1
-            selectedWordLength += 1
-            updateEditorFromSelection()
-        }
-    }
-
-    private func shrinkSelectionLeft() {
-        if selectedWordLength > 1 {
-            selectedWordOffset += 1
-            selectedWordLength -= 1
-            updateEditorFromSelection()
-        }
-    }
-
-    private func shrinkSelectionRight() {
-        if selectedWordLength > 1 {
-            selectedWordLength -= 1
-            updateEditorFromSelection()
-        }
-    }
-
-    private func expandSelectionRight() {
-        let ns = originalSentence as NSString
-        if selectedWordOffset + selectedWordLength < ns.length {
-            selectedWordLength += 1
-            updateEditorFromSelection()
-        }
-    }
-
-    private func updateEditorFromSelection() {
-        self.saveAsNameType = self.pinnedSaveAsNameType
-        self.saveToBookSpecific = self.pinnedSaveToBookSpecific
-        let ns = originalSentence as NSString
-        guard selectedWordOffset >= 0 && selectedWordOffset + selectedWordLength <= ns.length else { return }
-        let word = ns.substring(with: NSRange(location: selectedWordOffset, length: selectedWordLength))
-        self.selectedTextForDefinition = word
-        self.junkPatternInput = word
-
-        if translationMode == "VP" {
-            self.customMeaning = TranslateUtils.translateMeta(
-                word,
-                bookId: bookId,
-                shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-            )
-        } else {
-            self.customMeaning = getHanViet(for: word)
-        }
-
-        // Cập nhật các tokens phân tách và tra cứu từ điển đa tầng
-        self.translationTokens = TranslateUtils.getTranslationTokens(for: originalSentence, bookId: bookId)
-        self.dictionaryMatches = getDictionaryMatches(for: word)
-        refreshSuggestionChips(for: word)
-    }
-
-    private func getDictionaryMatches(for word: String) -> [DictionaryMatchInfo] {
-        var matches: [DictionaryMatchInfo] = []
-        guard !word.isEmpty else { return matches }
-
-        let manager = TranslationManager.shared
-        let bookDicts = manager.getBookDictionaries(for: bookId)
-
-        // 1. Book Names
-        if let bookNames = bookDicts.names,
-           let match = bookNames.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
-            matches.append(DictionaryMatchInfo(source: "Names (Riêng)", translation: match.value))
-        }
-
-        // 2. Global Names
-        var namesTranslation: String? = nil
-        if let customNames = manager.customNamesDict,
-           let match = customNames.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
-            namesTranslation = match.value
-        } else if !manager.deletedNames.contains(word),
-                  let names = manager.namesDict,
-                  let match = names.findLongestMatch(text: word, startIndex: 0),
-                  match.length == word.count {
-            namesTranslation = match.value
-        }
-        if let trans = namesTranslation {
-            matches.append(DictionaryMatchInfo(source: "Names (Chung)", translation: trans))
-        }
-
-        // 3. Pronouns
-        if let pronouns = manager.pronounsDict,
-           let match = pronouns.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
-            matches.append(DictionaryMatchInfo(source: "Xưng hô (Pronouns)", translation: match.value))
-        }
-
-        // 4. LuatNhan
-        if let luatNhan = manager.luatNhanDict,
-           let match = luatNhan.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
-            matches.append(DictionaryMatchInfo(source: "Luật nhân (LuatNhan)", translation: match.value))
-        }
-
-        // 5. Book VietPhrase
-        if let bookVP = bookDicts.vietPhrase,
-           let match = bookVP.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
-            matches.append(DictionaryMatchInfo(source: "VietPhrase (Riêng)", translation: match.value))
-        }
-
-        // 6. Global VietPhrase
-        var vpTranslation: String? = nil
-        if let customVP = manager.customVietPhraseDict,
-           let match = customVP.findLongestMatch(text: word, startIndex: 0),
-           match.length == word.count {
-            vpTranslation = match.value
-        } else if !manager.deletedVietPhrase.contains(word),
-                  let vp = manager.vietPhraseDict,
-                  let match = vp.findLongestMatch(text: word, startIndex: 0),
-                  match.length == word.count {
-            vpTranslation = match.value
-        }
-        if let trans = vpTranslation {
-            matches.append(DictionaryMatchInfo(source: "VietPhrase (Chung)", translation: trans))
-        }
-
-        // 7. PhienAm
-        let phienAm = getHanViet(for: word)
-        if !phienAm.isEmpty {
-            matches.append(DictionaryMatchInfo(source: "Phiên âm", translation: phienAm))
-        }
-
-        return matches
-    }
-
-    private func performQuickLookup(using engine: SearchEngine) {
-        let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !word.isEmpty else { return }
-
-        let rawUrl = engine.urlTemplate.replacingOccurrences(of: "%s", with: word)
-        guard let encoded = rawUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: encoded),
-              let scheme = url.scheme?.lowercased(),
-              scheme == "http" || scheme == "https" else { return }
-
-        // Present one immutable URL snapshot. A fresh identity also guarantees
-        // the browser cannot reuse the previous lookup request.
-        self.lookupRoute = ReaderLookupRoute(urlString: url.absoluteString)
-    }
-
-    private func isEditableSource(_ source: String) -> Bool {
-        return source == "Names (Riêng)" || source == "Names (Chung)" ||
-               source == "VietPhrase (Riêng)" || source == "VietPhrase (Chung)"
-    }
-
-    private func deleteMatch(_ match: DictionaryMatchInfo) {
-        let isName = match.source.contains("Names")
-        let bid = match.source.contains("Riêng") ? bookId : nil
-        let word = selectedTextForDefinition.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        Task {
-            do {
-                try await TranslationManager.shared.deleteCustomEntry(word: word, isName: isName, bookId: bid)
-                await MainActor.run {
-                    self.dictionaryMatches = getDictionaryMatches(for: word)
-                    refreshSuggestionChips(for: word)
-                    if self.translationMode == "VP" {
-                        self.customMeaning = TranslateUtils.translateMeta(
-                            word,
-                            bookId: bookId,
-                            shouldConvertTraditionalToSimplified: shouldConvertTraditionalToSimplified
-                        )
-                    } else {
-                        self.customMeaning = getHanViet(for: word)
-                    }
-                    applyTranslation()
-                }
-            } catch {
-                // AppLogger.shared.log("❌ Lỗi xóa định nghĩa từ: \(error.localizedDescription)")
             }
         }
     }
@@ -1970,9 +1759,10 @@ struct ReaderView: View {
 
     private var isAnySelectionOrOverlayActive: Bool {
         showingFloatingMenu || showingDefinitionSheet || showingAddNghiTTSPhonemeSheet || showingJunkDeleteSheet || showingAddTTSReplacementSheet
+            || showingCopyOriginalSheet || showingRuleTraceSheet
     }
 
-    private func checkAndReleaseDeferredTranslationRefresh() {
+    func checkAndReleaseDeferredTranslationRefresh() {
         if !isAnySelectionOrOverlayActive && isTranslationRefreshDeferred {
             isTranslationRefreshDeferred = false
             scheduleCoalescedTranslationRefresh()

@@ -15,6 +15,46 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hai lối gọi mới từ menu bôi đen của Reader (1.3.274)
+
+```text
+FloatingSelectionMenu ("Gốc")
+  └─ ReaderFloatingMenuOverlayView.onCopyOriginal   (clear selection + đóng menu)
+       └─ ReaderView.openCopyOriginalPanel()                       [+RuleTools]
+            ├─ updateEditorFromSelection()                         [+Selection]
+            ├─ closeOtherSelectionPanels(except: .copyOriginal)
+            └─ showingCopyOriginalSheet = true
+                 └─ ReaderCopyOriginalOverlayView
+                      nút Copy | ✕ | kéo xuống | tap ra ngoài
+                        └─ ReaderView.commitCopyOriginal()   ← MỘT đường ra duy nhất
+                             └─ UIPasteboard + ToastManager
+
+FloatingSelectionMenu ("Rule")
+  └─ ReaderFloatingMenuOverlayView.onInspectRules
+       └─ ReaderView.openRuleTracePanel()                          [+RuleTools]
+            ├─ refreshRuleTraces()
+            │    └─ QuickTranslationRuleDiagnostics.diagnose(text: originalSentence, bookId:, selection:)
+            │         ├─ QuickTranslationRuleEngine.collectFound(... includesDisabled: true,
+            │         │                                          notesComplexRules: false)   × 2 bộ
+            │         └─ QuickTranslationRuleEngine.select(from: eligible)
+            └─ ReaderRuleTraceOverlayView
+                 ├─ bấm ký tự  → snapToRule(coveringCharacterAt:)  → focus + chọn cả cụm
+                 ├─ bấm chip   → focus(trace)
+                 ├─ ấn giữ chip→ confirmationDialog → ReaderView.handleRuleAction(_:_:)
+                 │                 ├─ QuickTranslationRuleDisableStore.setDisabled(_:pattern:scope:)
+                 │                 └─ QuickTranslationRule{Store|BookStore}.deleteRule(rowID:)
+                 ├─ nút +      → QuickTranslationRuleEditorSheet(.add(prefilledPattern:))
+                 │                 └─ ReaderView.saveRuleFromEditor(pattern:replacement:scope:)
+                 └─ đóng       → ReaderView.closeRuleTracePanel()
+                                   ├─ applyTranslation()   ← chỉ khi didChangeRuleData
+                                   └─ checkAndReleaseDeferredTranslationRefresh()
+```
+
+* **`diagnose` bắt buộc dùng lại `select` của engine**, không cài lại 6 tiêu chí ưu tiên ở chỗ thứ hai — nếu không màn chẩn đoán sẽ nói khác kết quả dịch thật. Vì vậy `Found` / `collectFound` / `select` đổi từ `private` sang `internal`; đó là thay đổi visibility **duy nhất** ở engine.
+* **`diagnose` không được ghi trạng thái**: `notesComplexRules: false` để mở màn xem không bơm `RULE_TOO_COMPLEX` vào `QuickTranslationRuleStore.status`.
+* Mọi thao tác đổi dữ liệu rule bật cờ `didChangeRuleData` rồi **chẩn đoán lại ngay** để dải chip và rule thắng cập nhật tại chỗ; chỉ khi đóng sheet mới dịch lại đoạn văn.
+* `checkAndReleaseDeferredTranslationRefresh()` vẫn phải gọi kể cả khi không đổi gì: một thông báo từ điển có thể đã tới trong lúc sheet mở và đang bị `isAnySelectionOrOverlayActive` giữ lại (hai cờ mới đã được thêm vào predicate đó).
+
 ## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.269)
 
 * **Chuỗi gọi mới, chèn vào giữa chuỗi dịch cũ** (`TranslateUtils.swift`):

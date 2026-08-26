@@ -15,6 +15,38 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ rule dịch sau 1.3.274: hai bộ rule + hai file tắt + hai công cụ ở Reader
+
+Ranh giới tầng của 5 type Service mới đều giữ: chỉ `import Foundation`/`Combine`, **không** `import SwiftUI`, **không** gọi `ToastManager` — chúng trả `LoadOutcome`/`Outcome`, View gọi rồi tự phát toast.
+
+| File | Vai trò |
+|---|---|
+| `Services/Translation/Engine/QuickTranslationRuleBookStore.swift` | Chủ bộ rule **riêng truyện** (`translate/books/<bookId>/QuickTranslateRules.txt`); LRU cap 3; CRUD + nhập/xuất; dùng lại Parser/Compiler/FileEditor của bộ chung |
+| `Services/Translation/Engine/QuickTranslationRuleDisableFile.swift` | Hàm thuần trên `String` cho file tắt (một mẫu mỗi dòng), không chạm `FileManager` |
+| `Services/Translation/Engine/QuickTranslationRuleDisableStore.swift` | Chủ **cả hai** file tắt; `Snapshot.isDisabled(pattern:scopeRank:)` là toàn bộ ngữ nghĩa |
+| `Services/Translation/Engine/QuickTranslationRuleDiagnostics.swift` | Soi một đoạn văn, giữ **cả** rule thua/đang tắt; dùng lại `collectFound` + `select` của engine |
+| `Services/Translation/Engine/QuickTranslationRuleTransfer.swift` | Chuyển một rule sang phạm vi còn lại (**COPY**) và chia sẻ cả bộ riêng sang truyện khác |
+| `Services/Translation/Extensions/TranslationManager+BookScopedFiles.swift` | **Một** nguồn khai tên file riêng truyện, thay 2 danh sách nhân bản cũ |
+
+Phía View:
+
+| File | Vai trò |
+|---|---|
+| `Views/Reader/ReaderCopyOriginalOverlayView.swift` | Panel Copy nội dung gốc (chọn cụm trên text gốc; mọi đường đóng đều copy) |
+| `Views/Reader/ReaderRuleTraceOverlayView.swift` | Màn Check rule: thanh gốc → thanh nghĩa rule → nghĩa từng token → dải chip |
+| `Views/Reader/ReaderRuleTraceGuideSheet.swift` | Nội dung nút `?` (3 màu, badge R/C, thao tác, 6 tiêu chí ưu tiên) |
+| `Views/Reader/Components/ReaderRuleChipStyle.swift` | 3 mức màu chip; màu ở tầng View, Models không biết `Color` |
+| `Views/Reader/Components/ReaderRuleTraceChip.swift` | Một chip + ấn giữ ra popup Bật/Tắt/Xoá |
+| `Views/Reader/Extensions/ReaderView+RuleTools.swift` | State-handler + overlay của **cả hai** công cụ mới |
+| `Views/Reader/Extensions/ReaderView+Selection.swift` | Khối biên tập vùng chọn dùng chung cho 4 panel |
+| `Views/Settings/Translation/QuickTranslationRuleEntryRow.swift` | Hàng rule `[Sửa][Chuyển][Tắt][Xoá]`, mirror `DictionaryEntryRow` |
+| `Views/Settings/Translation/QuickTranslationRuleIOMenu.swift` | Nhập/Xuất/Xoá bộ rule riêng của một truyện |
+
+* **`QuickTranslationRuleListView` giờ nhận `scope`** và có **2 tab** Đang bật / Đã tắt. Ba đường vào dùng chung một view: hub Từ điển của Reader (Rule Riêng → `.book(bookId)`, Rule Chung → `.global`) và mục Công cụ của màn Quản lý rule dịch (`.global`).
+* **Swipe Sửa/Xoá bị bỏ** khỏi danh sách rule: đã có icon trong hàng thì hai đường cho cùng một việc chỉ gây nhầm.
+* `DictionaryHubView` thêm section **Rule Dịch** với 2 hàng, subtitle "N đang bật • M đã tắt".
+* Menu bôi đen của Reader lên **2 hàng × 4 cột**; `menuWidth` **suy ra** từ các hằng thành phần vì nó vừa là chiều rộng thật vừa là số kẹp toạ độ `x` — hard-code hai chỗ là menu tràn mép (bug cũ khi lưới còn 3 cột mà hằng ghi 223).
+
 ## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.272)
 
 * **Rule dịch là *một tầng biến đổi* của phân hệ Dịch thuật, không phải phân hệ song song.** Nó nằm hoàn toàn trong `performTranslation`, nên ranh giới ra ngoài không đổi: Reader vẫn gọi `translateContentWithMapping`, TTS vẫn gọi `translateContentWithMapping` + `translateChapterTitle`, export vẫn gọi `translateContent`. Không có API mới nào chảy ra khỏi phân hệ dịch, và vì vậy Reader/TTS **không** phải biết rule tồn tại.

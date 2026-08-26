@@ -318,6 +318,8 @@ public final class QuickTranslationRuleStore: ObservableObject {
 
         for rule in snapshot.rules where !rule.requiredDictionaryKinds.isEmpty {
             guard rule.isEnabled(for: tokenConfiguration) else { continue }
+            // Rule đang bị tắt ở file tắt chung thì cảnh báo "thiếu từ điển" chỉ là tiếng ồn.
+            guard !QuickTranslationRuleDisableStore.shared.isDisabled(pattern: rule.pattern, in: .global) else { continue }
             let unavailable = rule.requiredDictionaryKinds.filter { kind in
                 if let cached = missing[kind] { return cached }
                 let available = QuickTranslationDictionaryToken.isAvailable(kind)

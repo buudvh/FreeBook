@@ -31,8 +31,15 @@ public enum BackupPaths {
     /// Custom VietPhrase/Names dùng chung — tombstone (value rỗng) nằm ngay trong hai file này.
     public static let globalDictionaryFiles = ["CustomVietPhrase.txt", "CustomNames.txt"]
 
-    /// Từ điển riêng của một truyện, nằm ở `translate/books/<bookId>/`.
-    public static let bookDictionaryFiles = ["VietPhrase.txt", "Names.txt"]
+    /// Từ điển riêng của một truyện, nằm ở `translate/books/<bookId>/`. Nguồn khai là
+    /// `TranslationManager` để danh sách file riêng truyện chỉ có **một** chỗ.
+    public static let bookDictionaryFiles = TranslationManager.bookScopedDictionaryTextFiles
+
+    /// Bộ rule riêng + danh sách rule đang tắt của truyện. **Không** gộp vào `bookDictionaryFiles`:
+    /// vòng khôi phục của nhóm đó trộn bằng `DictionaryTextFileStore.parseRecords`, hàm này bỏ mọi
+    /// dòng không có dấu `=` (⇒ file tắt bị ghi rỗng) và sinh lại file theo `key=value` (⇒ bộ rule
+    /// mất comment và mất thứ tự dòng, mà thứ tự dòng là tie-break cuối của priority).
+    public static let bookRuleFiles = TranslationManager.bookScopedRuleFiles
 
     /// Từ điển chung dạng nhị phân. Chỉ lấy `<Name>.txt` khi **không** có `.dat` cùng tên
     /// để tránh nhân đôi vài chục MB.
@@ -70,6 +77,11 @@ public enum BackupPaths {
     /// dùng và phải vào archive. Đi cùng công tắc `restoreSettings`, **không** thêm `BackupScope` mới.
     public static let quickTranslateRules = "config/QuickTranslateRules.txt"
     public static let quickTranslateRulesFileName = "QuickTranslateRules.txt"
+
+    /// Danh sách rule **đang tắt** ở phạm vi chung (`translate/QuickTranslateRulesDisabled.txt`).
+    /// Rule đã tắt là lựa chọn của người dùng nên phải đi theo archive, cùng nguyên tắc "quy tắc mục
+    /// lục đã tắt cũng phải sao lưu". Chiều khôi phục **hợp tập** mẫu, không ghi đè.
+    public static let quickTranslateRulesDisabled = "config/QuickTranslateRulesDisabled.txt"
 
     // MARK: - Thư mục trên máy
 

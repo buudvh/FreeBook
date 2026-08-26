@@ -15,6 +15,15 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## State của hai công cụ mới ở Reader (1.3.274)
+
+* 6 `@State` mới khai trong `ReaderView.swift` nhưng **mọi hành vi** nằm ở `ReaderView+RuleTools.swift`: `showingCopyOriginalSheet`, `showingRuleTraceSheet`, `showingRuleGuide`, `ruleTraces`, `focusedRuleTraceID`, `ruleEditorMode`, `didChangeRuleData`. Extension **không thể** khai stored property nên state phải ở type gốc; đổi lại `ReaderView.swift` chỉ nhận thêm phần khai báo cộng một dòng `ruleToolsOverlay(in: geometry)`.
+* **Nhiều thuộc tính đổi từ `private` sang `internal`** (không đổi ngữ nghĩa, chỉ mở phạm vi): `private` trong Swift là phạm vi **file**, mà `ReaderView+Selection.swift` và `ReaderView+RuleTools.swift` là file khác. Gồm `originalSentence`, `selectedWordOffset/Length`, `selectedTextForDefinition`, `customMeaning`, `translationMode`, `translationTokens`, `dictionaryMatches`, `saveAsNameType`, `saveToBookSpecific`, hai khoá `pinned*`, `shouldConvertTraditionalToSimplified`, `lookupRoute`, `editingParagraphIndex`, `selectedDisplayedText/Offset`, `clearSelectionTrigger`, và hai hàm `applyTranslation()` / `checkAndReleaseDeferredTranslationRefresh()`.
+* **Bốn panel dùng chung một vùng chọn.** Màn Dịch, panel Xoá từ rác, panel Copy gốc và màn Check rule đều đọc `originalSentence` + `selectedWordOffset/Length`, nên `closeOtherSelectionPanels(except:)` đóng những panel còn lại khi mở một panel. `isAnySelectionOrOverlayActive` được cộng thêm `showingCopyOriginalSheet || showingRuleTraceSheet` để cơ chế deferral dịch-lại vẫn đúng.
+* **`didChangeRuleData` là cờ một lượt**: bật khi có thao tác ghi rule thành công, đọc **một lần** lúc đóng sheet để quyết định gọi `applyTranslation()`, rồi reset. Không đổi gì ⇒ không dựng lại đoạn văn.
+* **`focusedRuleTraceID` là `String?` chứ không phải index**: `QuickTranslationRuleTrace.id` xác định theo `rowID#location`, nên sau khi chẩn đoán lại focus cũ còn tồn tại thì được giữ; không tồn tại thì về `nil` (`refreshRuleTraces` tự dọn).
+* **`revision` của hai store mới không phải state của Reader.** Nó là `@MainActor @Published` chỉ để đẩy UI danh sách/hub; nó **không** đi vào cache key dịch — đường invalidation là `notifyDictionariesDidUpdate`.
+
 ## Trạng thái vệt tô kết quả tìm và cờ tắt cuộn theo highlight (1.3.261)
 
 * `ReaderView.searchHighlight: ReaderSearchMatcher.Highlight?` là state **ý nghĩa**, không phải state **toạ độ**: nó giữ `(chapterIndex, paragraphIndex, query)`, còn `NSRange` là giá trị **phái sinh tính lại mỗi lần render** trong `searchHighlightRange(...)`. Bất biến bắt buộc: không được cache `NSRange` vào state này — chuỗi hiển thị đổi theo công tắc dịch (`isTranslationEnabled`) và theo việc `translated` đã dựng xong chưa, nên một range đã lưu sẽ trỏ sai ký tự; range phái sinh thì tệ nhất là tự mất (trả `nil`).

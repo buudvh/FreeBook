@@ -50,6 +50,10 @@ public enum BackupDictionaryArchiver {
             }
         }
 
+        if scopes.contains(.dictBooks) {
+            try stageBookRuleFiles(slugByBookId: slugByBookId, into: stagingDirectory)
+        }
+
         if scopes.contains(.dictShared) {
             for name in sharedFileNames() {
                 let source = translateRoot.appendingPathComponent(name)
@@ -83,6 +87,34 @@ public enum BackupDictionaryArchiver {
             staged += 1
         }
         return staged
+    }
+
+    /// Bộ rule riêng + danh sách rule đang tắt của từng truyện.
+    ///
+    /// Đi cùng scope `.dictBooks` và cùng thư mục `dict/books/<slug>/` như từ điển riêng, nhưng **tách
+    /// vòng lặp** vì chiều khôi phục phải dùng hàm trộn khác: `BackupPaths.bookDictionaryFiles` được
+    /// khôi phục qua `DictionaryTextFileStore` (chỉ hiểu `key=value`), sẽ ghi rỗng file tắt và làm bộ
+    /// rule mất comment + mất thứ tự dòng.
+    private static func stageBookRuleFiles(
+        slugByBookId: [String: String],
+        into stagingDirectory: URL
+    ) throws {
+        let booksRoot = TranslationManager.shared.translateDirectory
+            .appendingPathComponent("books", isDirectory: true)
+
+        for (bookId, slug) in slugByBookId.sorted(by: { $0.value < $1.value }) {
+            for name in BackupPaths.bookRuleFiles {
+                let source = booksRoot
+                    .appendingPathComponent(bookId, isDirectory: true)
+                    .appendingPathComponent(name)
+                guard FileManager.default.fileExists(atPath: source.path) else { continue }
+                try BackupZipArchive.stage(
+                    fileAt: source,
+                    entryName: "\(BackupPaths.bookDictionaryFolder(slug: slug))/\(name)",
+                    in: stagingDirectory
+                )
+            }
+        }
     }
 
     /// Danh sách file từ điển chung thực sự có trên máy. Bản `.txt` chỉ được lấy khi **không** có

@@ -676,7 +676,9 @@ struct SearchView: View {
 
                 if FileManager.default.fileExists(atPath: oldDir.path) {
                     try? FileManager.default.createDirectory(at: newDir, withIntermediateDirectories: true)
-                    let fileNames = ["VietPhrase.dat", "Names.dat", "VietPhrase.txt", "Names.txt"]
+                    // Nguồn khai duy nhất: thêm file riêng truyện mới chỉ cần sửa `TranslationManager`,
+                    // không phải nhớ ra chỗ này. Gồm cả bộ rule riêng và danh sách rule đang tắt.
+                    let fileNames = TranslationManager.bookScopedMigrationFiles
                     for name in fileNames {
                         let oldFile = oldDir.appendingPathComponent(name)
                         let newFile = newDir.appendingPathComponent(name)
@@ -688,6 +690,12 @@ struct SearchView: View {
                     if !isPlayingTTS {
                         try? FileManager.default.removeItem(at: oldDir)
                     }
+                    // Snapshot bộ rule riêng và tập mẫu đang tắt được cache theo bookId ⇒ cả hai
+                    // bookId đều phải bị bỏ cache, nếu không truyện mới còn thấy dữ liệu cũ.
+                    QuickTranslationRuleBookStore.shared.invalidate(bookId: oldBookId)
+                    QuickTranslationRuleBookStore.shared.invalidate(bookId: newBookId)
+                    QuickTranslationRuleDisableStore.shared.invalidateCache(for: .book(oldBookId))
+                    QuickTranslationRuleDisableStore.shared.invalidateCache(for: .book(newBookId))
                 }
 
                 if !isPlayingTTS {

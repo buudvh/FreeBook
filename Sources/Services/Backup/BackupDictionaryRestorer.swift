@@ -50,6 +50,13 @@ public enum BackupDictionaryRestorer {
                         report.bookFiles += 1
                     }
                 }
+                restoreBookRuleFiles(
+                    slug: slug,
+                    bookId: bookId,
+                    from: extractedDirectory,
+                    booksRoot: booksRoot,
+                    into: &report
+                )
             }
         }
 
@@ -66,6 +73,59 @@ public enum BackupDictionaryRestorer {
     }
 
     /// Gộp một file TXT dạng `key=value`. Trả `false` khi có lỗi để người gọi không đếm sai.
+    /// Bộ rule riêng và danh sách rule đang tắt của một truyện.
+    ///
+    /// **Không** dùng `merge(source:target:)` ở trên: hàm đó đi qua `DictionaryTextFileStore` nên (a)
+    /// bỏ mọi dòng không có dấu `=` — file tắt sẽ bị ghi rỗng, và (b) sinh lại file theo `key=value`,
+    /// làm bộ rule mất comment và mất **thứ tự dòng**, mà thứ tự dòng là tie-break cuối của priority.
+    ///
+    /// - Bộ rule riêng: trộn theo mẫu, **đè vế phải** của mẫu trùng (`.overwriteExisting`), giữ nguyên
+    ///   thứ tự dòng bản trên máy.
+    /// - File tắt: **hợp tập** mẫu, đúng nguyên tắc "khôi phục chỉ thêm, không xoá".
+    private static func restoreBookRuleFiles(
+        slug: String,
+        bookId: String,
+        from extractedDirectory: URL,
+        booksRoot: URL,
+        into report: inout Report
+    ) {
+        let folder = BackupPaths.bookDictionaryFolder(slug: slug)
+
+        if let source = BackupZipArchive.stagedURL(
+            entryName: "\(folder)/\(QuickTranslationRuleBookStore.ruleFileName)",
+            in: extractedDirectory
+        ), let text = try? String(contentsOf: source, encoding: .utf8) {
+            switch QuickTranslationRuleBookStore.shared.importRules(
+                text: text,
+                mode: .overwriteExisting,
+                bookId: bookId,
+                notifiesObservers: false
+            ) {
+            case .success:
+                report.bookFiles += 1
+            case .rejected(let issues):
+                report.errors.append("Rule riêng \(bookId): \(issues.count) dòng lỗi nặng, giữ bộ đang dùng")
+            case .failure(let message):
+                report.errors.append("Rule riêng \(bookId): \(message)")
+            }
+        }
+
+        if let source = BackupZipArchive.stagedURL(
+            entryName: "\(folder)/\(QuickTranslationRuleDisableStore.fileName)",
+            in: extractedDirectory
+        ), let text = try? String(contentsOf: source, encoding: .utf8) {
+            let patterns = QuickTranslationRuleDisableFile.parse(text)
+            if !patterns.isEmpty {
+                switch QuickTranslationRuleDisableStore.shared.merge(patterns: patterns, into: .book(bookId)) {
+                case .success:
+                    report.bookFiles += 1
+                case .failure(let message):
+                    report.errors.append("Rule đã tắt \(bookId): \(message)")
+                }
+            }
+        }
+    }
+
     private static func merge(source: URL, target: URL, label: String, into report: inout Report) -> Bool {
         do {
             let imported = try DictionaryTextFileStore.parseRecords(from: source)

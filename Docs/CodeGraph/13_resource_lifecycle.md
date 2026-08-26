@@ -15,6 +15,19 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Tài nguyên mới của phân hệ rule dịch (1.3.274)
+
+| Tài nguyên | Trần | Dọn khi nào |
+|---|---|---|
+| `QuickTranslationRuleBookStore.snapshots` | **LRU cap 3** truyện | Đẩy phần tử `lruOrder.first` khi vượt cap; `invalidate(bookId:)` khi đổi nguồn hoặc CRUD phạm vi đó |
+| `QuickTranslationRuleDisableStore` cache mẫu | không cap (một `[String]` mỗi phạm vi, vài chục mẫu) | `invalidateCache(for:)`; ghi file thành công thì thay tại chỗ |
+| Memo `QuickTranslationRuleEngine.cache` | 64 entry (không đổi) | `TranslateUtils.invalidateCache` gọi `clearCache()` ở dòng đầu |
+
+* **Bộ rule riêng compile lazy, không prewarm.** Lần đọc đầu của một truyện mới compile file của nó; bộ riêng nhỏ nên compile lại sau khi bị LRU đẩy ra là rẻ. Không thêm lời gọi nào vào `FreeBookApp.onAppear` — `QuickTranslationRuleStore.prewarm()` vẫn là điểm prewarm duy nhất, và nó chỉ lo bộ chung.
+* **Đọc snapshot trong lúc dựng view là an toàn**: `snapshot(for:)` và `disabledPatterns(for:)` chỉ điền cache, **không** bump `revision`, nên không có "Modifying state during view update". Chỉ đường ghi (`setDisabled`, CRUD, `invalidate`) mới publish, và luôn từ action của người dùng.
+* **File tắt hết mẫu thì bị xoá** thay vì để lại file rỗng — `translate/` không tích rác sau khi người dùng bật lại hết rule.
+* Hai `NSLock` của `QuickTranslationRuleBookStore` luôn khoá theo một chiều `mutationLock → lock` (giao dịch sửa file ở ngoài, đọc/ghi cache ở trong); `QuickTranslationRuleDisableStore` đọc file **ngoài** vùng khoá rồi mới khoá để ghi cache, nên `NSLock` không đệ quy vẫn an toàn.
+
 ## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.269)
 
 * **Bộ nhớ mới thường trú, nhỏ nhưng phải biết**: một `QuickTranslationRuleSnapshot` giữ toàn bộ rule đã compile (AST + template + literal) cộng `QuickTranslationLiteralIndex`. Với bộ mặc định 633 rule (nguồn 36 KB, tải từ HuggingFace) đây là cỡ vài trăm KB; với `Rule_new.txt` (nguồn 690 KB, 17.278 rule) là cỡ vài MB và **không có cơ chế nhả** — snapshot sống tới khi bị thay bằng snapshot khác. Đây là đánh đổi có chủ ý: compile mỗi lần dịch là không dùng được.

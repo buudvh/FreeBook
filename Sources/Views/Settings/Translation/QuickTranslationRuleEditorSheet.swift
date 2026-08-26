@@ -1,55 +1,87 @@
 import SwiftUI
 
-/// Sheet thêm / sửa **một** rule dịch.
+/// Sheet thêm / sửa **một** rule dịch, cho **cả hai** phạm vi (bộ chung và bộ riêng của truyện).
 ///
 /// Sheet **không** tự đóng khi lưu thất bại: `importRules` validate toàn bộ file, nên một mẫu viết
 /// sai (lệch ngoặc, `{2}` vượt số token, không có literal làm neo…) sẽ bị từ chối kèm lý do — đóng
 /// sheet lúc đó là bắt người dùng gõ lại từ đầu. Đóng chỉ khi ghi file thành công.
+///
+/// Segment **Riêng / Chung** chỉ hiện ở chế độ **thêm** và chỉ khi biết truyện đang mở. Ở chế độ sửa,
+/// phạm vi cố định theo rule đang sửa: đổi phạm vi lúc sửa là *copy sang bộ khác*, không phải sửa —
+/// việc đó đã có nút Chuyển ở danh sách.
 struct QuickTranslationRuleEditorSheet: View {
     /// `Identifiable` để màn danh sách mở sheet bằng `.sheet(item:)` — mở theo *dữ liệu* thì không có
     /// khoảng thời gian sheet đã hiện mà state còn rỗng như cách `isPresented` + biến phụ.
     enum Mode: Identifiable {
-        case add
+        /// `prefilledPattern` khác rỗng khi mở từ màn Check rule: mẫu điền sẵn bằng cụm đang chọn.
+        /// Không dùng giá trị mặc định cho tham số vì Swift không cho phép default argument trong
+        /// khai báo case của enum — mọi call site truyền tường minh.
+        case add(prefilledPattern: String)
         /// Sửa rule đang có. `pattern` là **key** dùng để định vị dòng trong file.
         case edit(pattern: String, replacement: String, sourceLine: Int)
 
         var id: String {
             switch self {
-            case .add: return "add"
+            case .add(let prefilled): return "add:\(prefilled)"
             case .edit(let pattern, _, let sourceLine): return "edit:\(sourceLine):\(pattern)"
             }
         }
     }
 
     let mode: Mode
+    /// Phạm vi mặc định khi mở sheet, và là phạm vi **cố định** ở chế độ sửa.
+    let defaultScope: QuickTranslationRuleScope
+    /// `nil` = không biết truyện nào đang mở ⇒ ẩn segment, chỉ lưu được vào bộ chung.
+    let contextBookId: String?
     /// Trả về kết quả để sheet biết đóng hay giữ; phía gọi chịu trách nhiệm phát toast.
-    let onSubmit: (_ pattern: String, _ replacement: String) -> QuickTranslationRuleStore.LoadOutcome
+    let onSubmit: (
+        _ pattern: String,
+        _ replacement: String,
+        _ scope: QuickTranslationRuleScope
+    ) -> QuickTranslationRuleStore.LoadOutcome
 
     @Environment(\.dismiss) private var dismiss
 
     @State private var pattern: String
     @State private var replacement: String
+    @State private var saveToBook: Bool
     @State private var errorText: String? = nil
 
     init(
         mode: Mode,
-        onSubmit: @escaping (_ pattern: String, _ replacement: String) -> QuickTranslationRuleStore.LoadOutcome
+        defaultScope: QuickTranslationRuleScope = .global,
+        contextBookId: String? = nil,
+        onSubmit: @escaping (
+            _ pattern: String,
+            _ replacement: String,
+            _ scope: QuickTranslationRuleScope
+        ) -> QuickTranslationRuleStore.LoadOutcome
     ) {
         self.mode = mode
+        self.defaultScope = defaultScope
+        self.contextBookId = contextBookId
         self.onSubmit = onSubmit
         switch mode {
-        case .add:
-            _pattern = State(initialValue: "")
+        case .add(let prefilled):
+            _pattern = State(initialValue: prefilled)
             _replacement = State(initialValue: "")
         case .edit(let pattern, let replacement, _):
             _pattern = State(initialValue: pattern)
             _replacement = State(initialValue: replacement)
         }
+        _saveToBook = State(initialValue: !defaultScope.isGlobal)
     }
 
     private var isEditing: Bool {
         if case .edit = mode { return true }
         return false
+    }
+
+    /// Phạm vi sẽ ghi. Chế độ sửa luôn dùng `defaultScope`; chế độ thêm theo segment.
+    private var effectiveScope: QuickTranslationRuleScope {
+        if isEditing { return defaultScope }
+        guard saveToBook, let contextBookId, !contextBookId.isEmpty else { return .global }
+        return .book(contextBookId)
     }
 
     private var canSave: Bool {
@@ -79,8 +111,21 @@ struct QuickTranslationRuleEditorSheet: View {
                     Text("`{0}`, `{1}`… đánh số **token** theo thứ tự xuất hiện, không đánh số nhóm hay literal. Mọi token phải được dùng, và mẫu phải có ít nhất một ký tự thường làm neo.")
                 }
 
+                if !isEditing, let contextBookId, !contextBookId.isEmpty {
+                    Section {
+                        Picker("Lưu vào", selection: $saveToBook) {
+                            Text("Bộ riêng truyện").tag(true)
+                            Text("Bộ chung").tag(false)
+                        }
+                        .pickerStyle(.segmented)
+                    } footer: {
+                        Text("Bộ riêng chỉ áp cho truyện đang đọc và **thắng** bộ chung khi trùng mọi tiêu chí ưu tiên khác.")
+                    }
+                }
+
                 if case .edit(_, _, let sourceLine) = mode {
                     Section {
+                        LabeledContent("Phạm vi", value: defaultScope.longLabel)
                         LabeledContent("Dòng trong file", value: "\(sourceLine)")
                         Text("Đổi mẫu sẽ **thêm rule mới** và giữ nguyên rule cũ — giống sửa key ở từ điển. Muốn bỏ rule cũ thì xoá nó ở danh sách.")
                             .font(.caption)
@@ -114,7 +159,7 @@ struct QuickTranslationRuleEditorSheet: View {
         let key = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { return }
 
-        switch onSubmit(key, replacement) {
+        switch onSubmit(key, replacement, effectiveScope) {
         case .success:
             errorText = nil
             dismiss()

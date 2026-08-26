@@ -42,7 +42,7 @@ struct QuickTranslationRuleTesterView: View {
                 }
                 .pickerStyle(.menu)
 
-                Text("Cả hai chế độ đều thử rule trực tiếp, không phụ thuộc công tắc tổng Quick Translate.")
+                Text("Cả hai chế độ đều thử rule trực tiếp, không phụ thuộc công tắc tổng Quick Translate. Nhưng ô thử **tôn trọng file tắt rule**: rule đã tắt sẽ không khớp ở đây, đúng như khi đọc.")
                     .font(.footnote)
                     .foregroundColor(.secondary)
             }

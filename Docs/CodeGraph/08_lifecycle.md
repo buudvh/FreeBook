@@ -15,6 +15,15 @@ Tài liệu này phân tích chi tiết cơ chế quản lý vòng đời của 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời hai panel mới của Reader và cơ chế deferral dịch lại (1.3.274)
+
+* Cả hai công cụ mới (panel Copy nội dung gốc và màn Check rule) có 7 `@State` khai ở `ReaderView.swift` nhưng **mọi hành vi** nằm ở `ReaderView+RuleTools.swift` — extension không khai stored property được, nên `ReaderView.swift` chỉ nhận thêm phần khai báo và một dòng gọi `ruleToolsOverlay(in:)`.
+* Mỗi panel có **một đường ra duy nhất** gom công việc khi đóng: tap vùng trống phía trên, kéo xuống > 50 pt và nút đóng trong panel đều đi qua cùng một closure (`bottomPanel` nhận `onDismiss` là đúng hàm với nút đóng trong panel) — `commitCopyOriginal()` (panel gốc: nút ✕ cũng **copy**, không có nút Hủy — chốt của chủ dự án) hoặc `closeRuleTracePanel()` (màn Check rule). Dùng đường đóng thứ hai là bỏ sót việc phải làm khi đóng.
+* `closeRuleTracePanel` đọc cờ `didChangeRuleData` **đúng một lần** rồi reset: có thao tác ghi rule thành công trong lượt mở ⇒ gọi `applyTranslation()`; không đổi gì ⇒ không dựng lại đoạn văn. Kể cả khi không đổi gì vẫn phải gọi `checkAndReleaseDeferredTranslationRefresh()` — một thông báo từ điển có thể đã tới lúc sheet mở và đang bị `isAnySelectionOrOverlayActive` giữ lại (predicate này được cộng thêm `showingCopyOriginalSheet || showingRuleTraceSheet`).
+* `refreshRuleTraces` chẩn đoán lại **cả đoạn** sau mỗi thao tác (bật/tắt/thêm/xoá); focus giữ theo id **xác định** (`rowID#location`) — chip cũ còn tồn tại thì giữ, mất thì tự về `nil`. Mở panel không khởi tạo gì nặng và không ghi trạng thái: `QuickTranslationRuleDiagnostics.diagnose` chạy với `notesComplexRules: false` nên không bơm `RULE_TOO_COMPLEX` vào `QuickTranslationRuleStore.status`.
+* Bộ rule riêng **không prewarm**: compile lazy ở lần đọc đầu của từng truyện, LRU cap 3 (đẩy `lruOrder.first` khi vượt cap). **Không** thêm lời gọi nào vào `AppLaunchRootView.onAppear` — `QuickTranslationRuleStore.prewarm()` vẫn là điểm prewarm duy nhất và chỉ lo bộ chung, nên chuỗi khởi động mô tả ở 1.3.272 không đổi.
+* Đọc snapshot/tập mẫu tắt trong lúc dựng view là an toàn: `QuickTranslationRuleBookStore.snapshot(for:)` và `QuickTranslationRuleDisableStore.disabledPatterns(for:)` chỉ điền cache dưới `NSLock`, **không** bump `revision` — `revision` (`@MainActor @Published`) chỉ đổi trên đường ghi (`setDisabled`, CRUD, `invalidate`, `merge`) vốn luôn chạy từ action của người dùng, nên không có "Modifying state during view update".
+
 ## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.272)
 
 * **Bộ rule được compile một lần cho mỗi lần nạp, không compile theo từng lần dịch.** `AppLaunchRootView.onAppear` chạy `Task.detached(priority: .utility) { QuickTranslationRuleStore.shared.prewarm() }`; `prewarm()` đặt cờ `didPrewarm` **trước** khi làm việc nên lần gọi thứ hai (mở màn quản lý) trả về ngay, không chờ.

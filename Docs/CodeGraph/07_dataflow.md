@@ -15,6 +15,32 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rule dịch: hai bộ trộn trong một lượt rewrite (1.3.274)
+
+```text
+chuỗi Trung (sau Phồn→Giản, trước punctuationMapping)
+  └─ QuickTranslationRuleEngine.rewrite(text, bookId:)
+       ├─ bookSnapshot   = QuickTranslationRuleBookStore.activeSnapshot(for: bookId)   scopeRank 0
+       ├─ globalSnapshot = QuickTranslationRuleStore.activeSnapshot                    scopeRank 1
+       ├─ disable        = QuickTranslationRuleDisableStore.snapshot(bookId:)
+       ├─ collectFound(bookSnapshot, 0) + collectFound(globalSnapshot, 1)
+       ├─ select(from: found)   ← MỘT lượt trên tập hợp nhất
+       └─ assemble(...)         → QuickTranslationRewriteResult
+```
+
+* **Không dựng `literalIndex` gộp cho từng truyện.** Index của bộ 17k dòng là cấu trúc lớn; bộ riêng thường vài chục rule nên hai lần `collectFound` rẻ hơn nhiều, và kết quả không đổi vì `select` vẫn chạy đúng một lượt trên tập hợp nhất.
+* **Thứ tự ưu tiên có 6 tiêu chí**: vị trí trái → `literalLength` dài hơn → `wildcardCapacity` hẹp hơn → match dài hơn → **`scopeRank` nhỏ hơn (riêng thắng chung)** → `sourceLine` nhỏ hơn. Tiêu chí thứ 5 là mới; bốn tiêu chí đầu và ngữ nghĩa `executeRules` của reference **không đổi**, và trong một bộ đơn lẻ `scopeRank` là hằng số nên kết quả của bộ chung giữ nguyên.
+* **Tập tắt tra theo phạm vi của rule, không phải hợp phẳng** (`Snapshot.isDisabled(pattern:scopeRank:)`): rule bộ riêng chỉ chịu file tắt riêng; rule bộ chung chịu file tắt chung **hoặc** file tắt riêng của truyện đang đọc. Đây đúng là ngữ nghĩa VP riêng/VP chung: tắt ở bộ chung là tắt cho **mọi** truyện, muốn dùng lại ở một truyện thì thêm mẫu vào bộ rule riêng của truyện.
+* **Chỗ dịch không truyền `bookId`** (meta/global, `Qt` bridge) chỉ thấy bộ chung. Đúng thiết kế, không phải bug.
+* Memo của engine mang generation của **cả hai** snapshot: hai truyện khác nhau đã khác `bookId`, nhưng cùng một truyện sau khi sửa bộ riêng phải là khoá khác.
+
+## Một lời gọi cho mọi invalidation khi đổi dữ liệu rule (1.3.274)
+
+* Mọi thao tác (tắt/bật/thêm/sửa/xoá/chuyển, phạm vi nào cũng vậy) kết thúc bằng **đúng một** `TranslationManager.notifyDictionariesDidUpdate(bookId:scope: .config(bookId:))`. Không thêm tên NotificationCenter mới, không mở đường refresh thứ hai.
+* Lý do đủ: `notifyDictionariesDidUpdate` → `TranslateUtils.invalidateCache(bookId:)` đã (a) gọi `QuickTranslationRuleEngine.clearCache()` ở **dòng đầu**, (b) bump `bookGenerations[bookId]` (phạm vi riêng) hoặc `globalGeneration + settingsGeneration` (phạm vi chung), (c) dọn cache tiêu đề chương — rồi post `.translationDictionariesDidUpdate`. Mọi cache key dịch đều mang các generation đó nên entry cũ thành không thể tra tới.
+* Vì vậy **không** thêm `disableRevision` vào cache key hay `cacheTag`: thêm nữa chỉ làm cache của các truyện khác bị đổ oan. `revision` của hai store mới chỉ để `@Published` đẩy UI.
+* Ghi file thất bại ⇒ **không** bump, **không** notify, trả lỗi lên View để `Toggle` quay về trạng thái cũ.
+
 ## Rule dịch Quick Translate: engine, màn hình quản lý và công tắc (1.3.272)
 
 * **Một bước biến đổi mới trên trục dịch, đặt đúng giữa hai bước đã có**:

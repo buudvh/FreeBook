@@ -56,6 +56,18 @@ public enum BackupConfigArchiver {
             staged += 1
         }
 
+        // Rule đã tắt cũng là lựa chọn của người dùng — cùng lý do "quy tắc mục lục đã tắt vẫn phải
+        // sao lưu" ở trên.
+        let disabledURL = QuickTranslationRuleDisableStore.shared.fileURL(for: .global)
+        if FileManager.default.fileExists(atPath: disabledURL.path) {
+            try BackupZipArchive.stage(
+                fileAt: disabledURL,
+                entryName: BackupPaths.quickTranslateRulesDisabled,
+                in: staging
+            )
+            staged += 1
+        }
+
         if staged > 0 {
             AppLogger.shared.log("💾 [Backup] Đã sao lưu \(staged) file cấu hình (quy tắc mục lục / công cụ tra cứu / rule dịch)")
         }
@@ -70,6 +82,7 @@ public enum BackupConfigArchiver {
         restoreTOCRules(from: directory, into: &report)
         restoreSearchEngines(from: directory, into: &report)
         restoreQuickTranslateRules(from: directory, into: &report)
+        restoreQuickTranslateDisabledRules(from: directory, into: &report)
 
         if report.restoredFiles > 0 {
             AppLogger.shared.log(
@@ -79,6 +92,29 @@ public enum BackupConfigArchiver {
             )
         }
         return report
+    }
+
+    /// Danh sách rule đang tắt: **hợp tập** mẫu, không ghi đè — đúng nguyên tắc "khôi phục chỉ thêm,
+    /// không xoá" của phân hệ này.
+    ///
+    /// Tradeoff phải biết: khôi phục từ bản sao lưu **cũ hơn** có thể tắt lại một rule người dùng vừa
+    /// bật. Chấp nhận được vì bật lại một rule rẻ hơn nhập lại cả danh sách; ngược lại, ghi đè sẽ xoá
+    /// trắng những mẫu chỉ có trên máy đang phục hồi.
+    private static func restoreQuickTranslateDisabledRules(from directory: URL, into report: inout Report) {
+        guard let data = BackupZipArchive.readStaged(
+            entryName: BackupPaths.quickTranslateRulesDisabled,
+            in: directory
+        ), let text = String(data: data, encoding: .utf8) else { return }
+
+        let patterns = QuickTranslationRuleDisableFile.parse(text)
+        guard !patterns.isEmpty else { return }
+
+        if case .failure(let message) = QuickTranslationRuleDisableStore.shared.merge(
+            patterns: patterns,
+            into: .global
+        ) {
+            report.errors.append("Rule đã tắt: \(message)")
+        }
     }
 
     /// Ghi lại file rule dịch từ archive rồi **nạp lại store ngay**, nhưng **không** để store phát

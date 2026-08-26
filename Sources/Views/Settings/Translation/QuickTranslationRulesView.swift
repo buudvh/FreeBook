@@ -19,7 +19,16 @@ struct QuickTranslationRulesView: View {
     }
 
     @ObservedObject private var store = QuickTranslationRuleStore.shared
+    @ObservedObject private var disableStore = QuickTranslationRuleDisableStore.shared
     @AppStorage("isQuickTranslateRuleEnabled") private var isQuickTranslateRuleEnabled = true
+
+    /// Rule bị tắt **vẫn** nằm trong `snapshot.rules` (để bật lại được và giữ `sourceLine`), nên số
+    /// "đã nạp" không đổi nghĩa — chỗ này chỉ nói thêm bao nhiêu trong số đó đang không chạy.
+    private var disabledCount: Int {
+        guard let snapshot = store.currentSnapshot else { return 0 }
+        let disabled = Set(disableStore.disabledPatterns(for: .global))
+        return snapshot.rules.filter { disabled.contains($0.pattern) }.count
+    }
 
     @State private var showingImporter = false
     @State private var showingIssues = false
@@ -124,6 +133,7 @@ struct QuickTranslationRulesView: View {
 
             LabeledContent("Đang dùng", value: store.status.sourceLabel)
             LabeledContent("Rule đã nạp", value: "\(store.status.ruleCount)")
+            LabeledContent("Đang tắt", value: "\(disabledCount)")
             LabeledContent("Cảnh báo", value: "\(store.status.warningCount + dictionaryIssues.count)")
             if !store.status.sourceHash.isEmpty {
                 LabeledContent("Mã bộ rule", value: store.status.sourceHash)
