@@ -14,10 +14,6 @@ struct QuickTranslationRuleDisableIOMenu: ViewModifier {
         let url: URL
     }
 
-    @ObservedObject private var store = QuickTranslationRuleStore.shared
-    @ObservedObject private var bookStore = QuickTranslationRuleBookStore.shared
-    @ObservedObject private var disableStore = QuickTranslationRuleDisableStore.shared
-
     @State private var showingDisabledImporter = false
     @State private var showingDisabledImportModes = false
     @State private var pendingDisabledPatterns: [String]? = nil
@@ -29,8 +25,8 @@ struct QuickTranslationRuleDisableIOMenu: ViewModifier {
 
     private var currentDisabledPatterns: [String] {
         switch scope {
-        case .global: return disableStore.disabledPatterns(for: .global)
-        case .book(let bookId): return disableStore.disabledPatterns(for: .book(bookId))
+        case .global: return QuickTranslationRuleDisableStore.shared.disabledPatterns(for: .global)
+        case .book(let bookId): return QuickTranslationRuleDisableStore.shared.disabledPatterns(for: .book(bookId))
         }
     }
 
@@ -118,7 +114,7 @@ struct QuickTranslationRuleDisableIOMenu: ViewModifier {
                 titleVisibility: .visible
             ) {
                 Button("Bật lại tất cả", role: .destructive) {
-                    let outcome = disableStore.clearDisabled(scope: scope)
+                    let outcome = QuickTranslationRuleDisableStore.shared.clearDisabled(scope: scope)
                     switch outcome {
                     case .success:
                         ToastManager.shared.show(message: "Đã bật lại mọi rule trong bộ \(scopeLabel).", type: .success)
@@ -171,7 +167,7 @@ struct QuickTranslationRuleDisableIOMenu: ViewModifier {
         guard let imported = pendingDisabledPatterns else { return }
         pendingDisabledPatterns = nil
 
-        let outcome = disableStore.importPatterns(
+        let outcome = QuickTranslationRuleDisableStore.shared.importPatterns(
             imported: imported,
             mode: mode,
             scope: scope
@@ -179,7 +175,7 @@ struct QuickTranslationRuleDisableIOMenu: ViewModifier {
         switch outcome {
         case .success:
             ToastManager.shared.show(
-                message: "Đã nhập — đang tắt \(disableStore.disabledPatterns(for: scope).count) mẫu ở bộ \(scopeLabel).",
+                message: "Đã nhập — đang tắt \(QuickTranslationRuleDisableStore.shared.disabledPatterns(for: scope).count) mẫu ở bộ \(scopeLabel).",
                 type: .success
             )
             onChanged()
@@ -213,7 +209,7 @@ struct QuickTranslationRuleDisableIOMenu: ViewModifier {
 
         switch outcome {
         case .success(let ruleCount, _):
-            let clearOutcome = disableStore.clearDisabled(scope: scope)
+            let clearOutcome = QuickTranslationRuleDisableStore.shared.clearDisabled(scope: scope)
             if case .failure(let msg) = clearOutcome {
                 ToastManager.shared.show(message: "Đã xoá \(patterns.count) rule, nhưng không dọn được danh sách tắt: \(msg)", type: .info)
             } else {
