@@ -20,9 +20,6 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
         let url: URL
     }
 
-    @ObservedObject private var store = QuickTranslationRuleStore.shared
-    @ObservedObject private var bookStore = QuickTranslationRuleBookStore.shared
-
     @State private var showingImporter = false
     @State private var showingImportModes = false
     @State private var showingDeleteConfirm = false
@@ -32,15 +29,15 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
 
     private var currentSourceText: String? {
         switch scope {
-        case .global: return store.currentSourceText()
-        case .book(let bookId): return bookStore.currentSourceText(for: bookId)
+        case .global: return QuickTranslationRuleStore.shared.currentSourceText()
+        case .book(let bookId): return QuickTranslationRuleBookStore.shared.currentSourceText(for: bookId)
         }
     }
 
     private var hasRuleFile: Bool {
         switch scope {
-        case .global: return store.hasRuleFile
-        case .book(let bookId): return bookStore.hasRuleFile(for: bookId)
+        case .global: return QuickTranslationRuleStore.shared.hasRuleFile
+        case .book(let bookId): return QuickTranslationRuleBookStore.shared.hasRuleFile(for: bookId)
         }
     }
 
@@ -126,9 +123,9 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                     let existed: Bool
                     switch scope {
                     case .global:
-                        existed = store.deleteRules()
+                        existed = QuickTranslationRuleStore.shared.deleteRules()
                     case .book(let bookId):
-                        existed = bookStore.deleteRules(for: bookId)
+                        existed = QuickTranslationRuleBookStore.shared.deleteRules(for: bookId)
                     }
                     ToastManager.shared.show(
                         message: existed
@@ -179,9 +176,9 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
         let outcome: QuickTranslationRuleStore.LoadOutcome
         switch scope {
         case .global:
-            outcome = store.importRules(text: text, mode: mode)
+            outcome = QuickTranslationRuleStore.shared.importRules(text: text, mode: mode)
         case .book(let bookId):
-            outcome = bookStore.importRules(text: text, mode: mode, bookId: bookId)
+            outcome = QuickTranslationRuleBookStore.shared.importRules(text: text, mode: mode, bookId: bookId)
         }
 
         switch outcome {

@@ -15,6 +15,13 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 - `QuickTranslationRuleStore+Editing` / `QuickTranslationRuleBookStore`: thêm bulk `deleteRules(patterns:)` / `deleteRules(patterns:bookId:)` — filter records rồi ghi lại; không fail khi có mẫu stale.
 - Cập nhật accessibility/hướng dẫn: "Ấn giữ: sửa / bật / tắt / xoá".
 
+## [1.3.283] - 2026-08-28
+
+### Fix: Remove @ObservedObject from QuickTranslationRuleIOMenu
+
+- Gỡ `@ObservedObject` khỏi `QuickTranslationRuleIOMenu`, vì `ViewModifier` dùng trực tiếp các singleton store giống modifier danh sách rule tắt.
+- Giữ nguyên hành vi đọc, nhập, xuất và xoá rule theo phạm vi chung/riêng.
+
 ## [1.3.281] - 2026-08-28
 
 ### Fix rule list back bug, add rule set import/export
