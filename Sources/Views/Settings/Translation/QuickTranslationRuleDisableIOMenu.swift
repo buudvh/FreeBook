@@ -215,7 +215,7 @@ struct QuickTranslationRuleDisableIOMenu: ViewModifier {
         case .success(let ruleCount, _):
             let clearOutcome = disableStore.clearDisabled(scope: scope)
             if case .failure(let msg) = clearOutcome {
-                ToastManager.shared.show(message: "Đã xoá \(patterns.count) rule, nhưng không dọn được danh sách tắt: \(msg)", type: .warning)
+                ToastManager.shared.show(message: "Đã xoá \(patterns.count) rule, nhưng không dọn được danh sách tắt: \(msg)", type: .info)
             } else {
                 ToastManager.shared.show(message: "Đã xoá \(patterns.count) rule đã tắt. Bộ \(scopeLabel) còn \(ruleCount) rule.", type: .success)
             }
