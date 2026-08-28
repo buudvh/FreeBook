@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Màn **Check rule** của Reader: soi cả đoạn văn, hiện mọi rule khớp (thắng / tranh chấp / đã tắt),
-/// cho bật-tắt-xoá ngay và thêm rule mới từ cụm đang chọn.
+/// cho sửa/bật-tắt-xoá ngay và thêm rule mới từ cụm đang chọn.
 ///
 /// Bố cục mượn màn Dịch (`ReaderDefinitionOverlayView`) để tay người dùng không phải học lại:
 /// 1. thanh **chữ gốc** của đoạn, có 4 chevron nới/thu cụm;
@@ -15,6 +15,7 @@ struct ReaderRuleTraceOverlayView: View {
     /// Ba việc có thể làm với một rule từ popup ấn giữ.
     enum RuleAction: Equatable {
         case setDisabled(Bool, QuickTranslationRuleScope)
+        case edit
         case delete
     }
 
@@ -307,6 +308,10 @@ struct ReaderRuleTraceOverlayView: View {
     private func actionButtons(for trace: QuickTranslationRuleTrace) -> some View {
         let bookScope = QuickTranslationRuleScope.book(bookId)
         let disabledForBook = disableStore.isDisabled(pattern: trace.pattern, in: bookScope)
+
+        Button("Sửa rule") {
+            onRuleAction(trace, .edit)
+        }
 
         if !bookId.isEmpty {
             Button(disabledForBook ? "Bật cho truyện này" : "Tắt cho truyện này") {

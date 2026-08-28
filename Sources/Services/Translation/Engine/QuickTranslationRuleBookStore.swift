@@ -142,6 +142,18 @@ public final class QuickTranslationRuleBookStore: ObservableObject {
         }
     }
 
+    /// Xoá nhiều rule cùng lúc theo tập mẫu. Không fail nếu có mẫu stale không tồn tại trong file.
+    /// Trả về `ruleCount` mới sau khi xoá.
+    public func deleteRules(patterns: Set<String>, bookId: String) -> QuickTranslationRuleStore.LoadOutcome {
+        guard !patterns.isEmpty else { return .success(ruleCount: ruleCount(for: bookId), warningCount: 0) }
+        return withMutationLock {
+            let current = currentSourceText(for: bookId) ?? ""
+            let records = QuickTranslationRuleRecordStore.parseRecords(from: current)
+            let updated = records.filter { !patterns.contains($0.pattern) }
+            return writeLocked(records: updated, bookId: bookId, source: .edited)
+        }
+    }
+
     // MARK: - Nhập / xuất cả bộ
 
     /// Nhập file rule cho **một truyện**. Cùng 3 chế độ và cùng chính sách canonical như bộ chung.

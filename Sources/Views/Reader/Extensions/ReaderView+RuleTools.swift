@@ -96,6 +96,14 @@ extension ReaderView {
                 ToastManager.shared.show(message: message, type: .error)
             }
 
+        case .edit:
+            ruleEditorMode = .edit(
+                pattern: trace.pattern,
+                replacement: trace.replacement,
+                sourceLine: trace.sourceLine,
+                scope: trace.scope
+            )
+
         case .delete:
             let outcome: QuickTranslationRuleStore.LoadOutcome
             switch trace.scope {
@@ -111,25 +119,37 @@ extension ReaderView {
         }
     }
 
-    /// Lưu rule mới từ nút `+`. Trả `LoadOutcome` để sheet biết đóng hay giữ lại kèm lý do.
+    /// Lưu rule mới từ nút `+` hoặc sửa rule từ Check rule. Trả `LoadOutcome` để sheet biết đóng hay giữ lại kèm lý do.
     func saveRuleFromEditor(
+        mode: QuickTranslationRuleEditorSheet.Mode,
         pattern: String,
         replacement: String,
         scope: QuickTranslationRuleScope
     ) -> QuickTranslationRuleStore.LoadOutcome {
         let outcome: QuickTranslationRuleStore.LoadOutcome
-        switch scope {
-        case .global:
-            outcome = QuickTranslationRuleStore.shared.addOrOverwriteRule(
-                pattern: pattern,
-                replacement: replacement
-            )
-        case .book(let identifier):
-            outcome = QuickTranslationRuleBookStore.shared.addOrOverwriteRule(
+        switch mode {
+        case .add:
+            outcome = QuickTranslationRuleTransfer.copy(
                 pattern: pattern,
                 replacement: replacement,
-                bookId: identifier
+                to: scope
             )
+        case .edit(let oldPattern, _, _, _):
+            switch scope {
+            case .global:
+                outcome = QuickTranslationRuleStore.shared.updateRule(
+                    oldPattern: oldPattern,
+                    newPattern: pattern,
+                    replacement: replacement
+                )
+            case .book(let identifier):
+                outcome = QuickTranslationRuleBookStore.shared.updateRule(
+                    oldPattern: oldPattern,
+                    newPattern: pattern,
+                    replacement: replacement,
+                    bookId: identifier
+                )
+            }
         }
         handleRuleOutcome(outcome, successMessage: "Đã lưu rule vào \(scope.longLabel.lowercased()).")
         return outcome
@@ -213,15 +233,18 @@ extension ReaderView {
         .sheet(isPresented: $showingRuleGuide) {
             ReaderRuleTraceGuideSheet()
         }
-        .sheet(item: $ruleEditorMode) { mode in
-            QuickTranslationRuleEditorSheet(
-                mode: mode,
-                defaultScope: .book(bookId),
-                contextBookId: bookId
-            ) { pattern, replacement, scope in
-                saveRuleFromEditor(pattern: pattern, replacement: replacement, scope: scope)
+.sheet(item: $ruleEditorMode) { mode in
+                QuickTranslationRuleEditorSheet(
+                    mode: mode,
+                    defaultScope: {
+                        if case .edit(_, _, _, let scope) = mode { return scope }
+                        return .book(bookId)
+                    }(),
+                    contextBookId: bookId
+                ) { pattern, replacement, scope in
+                    saveRuleFromEditor(mode: mode, pattern: pattern, replacement: replacement, scope: scope)
+                }
             }
-        }
     }
 
     /// Cụm chữ **gốc** đang chọn — dùng điền sẵn mẫu cho nút `+`.

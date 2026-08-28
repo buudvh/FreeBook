@@ -18,18 +18,18 @@ struct QuickTranslationRuleEditorSheet: View {
         /// khai báo case của enum — mọi call site truyền tường minh.
         case add(prefilledPattern: String)
         /// Sửa rule đang có. `pattern` là **key** dùng để định vị dòng trong file.
-        case edit(pattern: String, replacement: String, sourceLine: Int)
+        case edit(pattern: String, replacement: String, sourceLine: Int, scope: QuickTranslationRuleScope)
 
         var id: String {
             switch self {
             case .add(let prefilled): return "add:\(prefilled)"
-            case .edit(let pattern, _, let sourceLine): return "edit:\(sourceLine):\(pattern)"
+            case .edit(let pattern, _, let sourceLine, let scope): return "edit:\(scope.label)#\(sourceLine):\(pattern)"
             }
         }
     }
 
     let mode: Mode
-    /// Phạm vi mặc định khi mở sheet, và là phạm vi **cố định** ở chế độ sửa.
+    /// Phạm vi mặc định khi mở sheet (chỉ dùng ở chế độ thêm). Ở chế độ sửa, phạm vi lấy từ `mode`.
     let defaultScope: QuickTranslationRuleScope
     /// `nil` = không biết truyện nào đang mở ⇒ ẩn segment, chỉ lưu được vào bộ chung.
     let contextBookId: String?
@@ -65,7 +65,7 @@ struct QuickTranslationRuleEditorSheet: View {
         case .add(let prefilled):
             _pattern = State(initialValue: prefilled)
             _replacement = State(initialValue: "")
-        case .edit(let pattern, let replacement, _):
+        case .edit(let pattern, let replacement, _, _):
             _pattern = State(initialValue: pattern)
             _replacement = State(initialValue: replacement)
         }
@@ -77,9 +77,12 @@ struct QuickTranslationRuleEditorSheet: View {
         return false
     }
 
-    /// Phạm vi sẽ ghi. Chế độ sửa luôn dùng `defaultScope`; chế độ thêm theo segment.
+    /// Phạm vi sẽ ghi. Chế độ sửa luôn dùng scope từ `mode`; chế độ thêm theo segment.
     private var effectiveScope: QuickTranslationRuleScope {
-        if isEditing { return defaultScope }
+        if isEditing {
+            if case .edit(_, _, _, let scope) = mode { return scope }
+            return defaultScope
+        }
         guard saveToBook, let contextBookId, !contextBookId.isEmpty else { return .global }
         return .book(contextBookId)
     }
@@ -123,9 +126,9 @@ struct QuickTranslationRuleEditorSheet: View {
                     }
                 }
 
-                if case .edit(_, _, let sourceLine) = mode {
+                if case .edit(_, _, let sourceLine, let scope) = mode {
                     Section {
-                        LabeledContent("Phạm vi", value: defaultScope.longLabel)
+                        LabeledContent("Phạm vi", value: scope.longLabel)
                         LabeledContent("Dòng trong file", value: "\(sourceLine)")
                         Text("Đổi mẫu sẽ **thêm rule mới** và giữ nguyên rule cũ — giống sửa key ở từ điển. Muốn bỏ rule cũ thì xoá nó ở danh sách.")
                             .font(.caption)
@@ -164,7 +167,6 @@ struct QuickTranslationRuleEditorSheet: View {
             errorText = nil
             dismiss()
         case .rejected(let issues):
-            // Chỉ nêu dòng lỗi đầu tiên: sửa một rule thì lỗi gần như luôn nằm ở chính rule đó.
             if let first = issues.first {
                 errorText = "Dòng \(first.sourceLine) — \(first.code.rawValue): \(first.message)"
             } else {

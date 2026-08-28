@@ -3,9 +3,9 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-28T02:36:24Z",
-  "gitCommit": "d045429ebd922cadcf412cce7c9587f8717e877f",
-  "sourceFileCount": 405,
+  "generatedAt": "2026-08-28T03:24:47Z",
+  "gitCommit": "e2b4168a9c03368aa416b37ce4eb0925be08e396",
+  "sourceFileCount": 406,
   "documentCount": 16,
   "documents": [
     {
@@ -394,6 +394,7 @@
         "Sources/Views/Settings/TTS/TTSModelManagerView.swift",
         "Sources/Views/Settings/TTS/TTSReplacementManagerView.swift",
         "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
+        "Sources/Views/Settings/Translation/QuickTranslationRuleDisableIOMenu.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleEditorSheet.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleEntryRow.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleIOMenu.swift",
@@ -422,13 +423,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "5583f5b7e258d3430e76c48dc76c42397fcd1e76df86283d78188db762b22775",
-      "sourceHash": "bd6225cf5bae226df7a922f1ed2043a5c6432a2816a05d7fb1915bcf3c9236ac",
+      "structureHash": "e464cfa375a75bd9f0a58dffe304f4a8c42df0a5e8146f358e9d7204896a116a",
+      "sourceHash": "efbf5b776f73751c58f186a909ad6a5cceee614886b8c45242bb5d7f07dfc53d",
       "generatedHash": "7df530f75a01a01db391310b6c419e91f736964281348372b4ec599c1149170b",
-      "generatedAt": "2026-08-26T16:12:23Z",
-      "reviewedAt": "2026-08-26T16:12:23Z",
-      "reviewedCommit": "7a663704b862ae86c5d444ee96ea1958cd861349",
-      "reviewMode": "accept"
+      "generatedAt": "2026-08-28T03:24:47Z",
+      "reviewedAt": "2026-08-28T03:24:47Z",
+      "reviewedCommit": "e2b4168a9c03368aa416b37ce4eb0925be08e396",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "01_project.md",
@@ -843,6 +844,7 @@
         "Sources/Views/Settings/TTS/TTSModelManagerView.swift",
         "Sources/Views/Settings/TTS/TTSReplacementManagerView.swift",
         "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
+        "Sources/Views/Settings/Translation/QuickTranslationRuleDisableIOMenu.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleEditorSheet.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleEntryRow.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleIOMenu.swift",
@@ -871,13 +873,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "5583f5b7e258d3430e76c48dc76c42397fcd1e76df86283d78188db762b22775",
-      "sourceHash": "bd6225cf5bae226df7a922f1ed2043a5c6432a2816a05d7fb1915bcf3c9236ac",
+      "structureHash": "e464cfa375a75bd9f0a58dffe304f4a8c42df0a5e8146f358e9d7204896a116a",
+      "sourceHash": "efbf5b776f73751c58f186a909ad6a5cceee614886b8c45242bb5d7f07dfc53d",
       "generatedHash": "f85a4206ea45ac38a159c57489f08a30ca622f891ad2c520b1d3959ea0e617c1",
-      "generatedAt": "2026-08-26T16:12:23Z",
-      "reviewedAt": "2026-08-26T16:12:23Z",
-      "reviewedCommit": "7a663704b862ae86c5d444ee96ea1958cd861349",
-      "reviewMode": "accept"
+      "generatedAt": "2026-08-28T03:24:47Z",
+      "reviewedAt": "2026-08-28T03:24:47Z",
+      "reviewedCommit": "e2b4168a9c03368aa416b37ce4eb0925be08e396",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "03_type_graph.md",
@@ -1091,12 +1093,12 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "e777871c4ffda306ede1726a82849db32e0c712ac08bcdf55b4ebf5b81fdc94f",
-      "sourceHash": "bd07cc8c683ca5f7171f07a25fe9738446614c58733ccd29c833845b3f5eab9c",
+      "sourceHash": "1faecd3a81268f47b39ef52263727a9d2fff06aee6d5901eefa3de42f5569347",
       "generatedHash": "f8e1d5a25dbb8dad2950881d0fea575ee9fc84929a6a6dd1bbe866b327db6742",
-      "generatedAt": "2026-08-26T16:12:23Z",
-      "reviewedAt": "2026-08-26T16:12:23Z",
-      "reviewedCommit": "7a663704b862ae86c5d444ee96ea1958cd861349",
-      "reviewMode": "accept"
+      "generatedAt": "2026-08-28T03:24:47Z",
+      "reviewedAt": "2026-08-28T03:24:47Z",
+      "reviewedCommit": "e2b4168a9c03368aa416b37ce4eb0925be08e396",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "05_state_graph.md",
@@ -1149,12 +1151,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "8949d3a2f86c83b97c4e6da0db4b20045e1417b321db5d08511d89c8be47d43f",
-      "sourceHash": "2d6a6865e229b4e7189d53902b27a281991aede48c9735abb1af80aa2c491965",
+      "sourceHash": "abdffb8c0b8214899db9c7a16243fee95a0942343b30cf8f9ab9fcd79f7fe329",
       "generatedHash": "f78e1b321d9c3ef021a7258d86d60d9d344a91ba2fc3fd7696dedd21031cdca2",
-      "generatedAt": "2026-08-26T16:12:23Z",
-      "reviewedAt": "2026-08-26T16:12:23Z",
-      "reviewedCommit": "7a663704b862ae86c5d444ee96ea1958cd861349",
-      "reviewMode": "accept"
+      "generatedAt": "2026-08-28T03:24:47Z",
+      "reviewedAt": "2026-08-28T03:24:47Z",
+      "reviewedCommit": "e2b4168a9c03368aa416b37ce4eb0925be08e396",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "06_event_graph.md",
@@ -1292,11 +1294,11 @@
         "Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift"
       ],
       "structureHash": "5c11424202a443add3f78ea1bca4836cc950ed6ccdd2c00378eab4428e336c34",
-      "sourceHash": "5a1833c8421fc466a66f41b7a55e93c87af71a995bbfd104217d327c53cc5981",
+      "sourceHash": "f6c6d25941e989e9640263a87a79220107a23309ac94e21d63f57b22f72558d2",
       "generatedHash": "de9e1f1ddf8b2d70552336eaa4d33258f0dfd8c1973a299f0ac93e54d61a31aa",
-      "generatedAt": "2026-08-26T16:21:56Z",
-      "reviewedAt": "2026-08-26T16:21:56Z",
-      "reviewedCommit": "e249a043eb6cc2dede979eb54095bbe8e5444af3",
+      "generatedAt": "2026-08-28T03:24:47Z",
+      "reviewedAt": "2026-08-28T03:24:47Z",
+      "reviewedCommit": "e2b4168a9c03368aa416b37ce4eb0925be08e396",
       "reviewMode": "no-change-needed"
     },
     {
@@ -1722,6 +1724,7 @@
         "Sources/Views/Settings/TTS/TTSModelManagerView.swift",
         "Sources/Views/Settings/TTS/TTSReplacementManagerView.swift",
         "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
+        "Sources/Views/Settings/Translation/QuickTranslationRuleDisableIOMenu.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleEditorSheet.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleEntryRow.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleIOMenu.swift",
@@ -1750,13 +1753,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "dd4866abaea1b04d906152fb76861fb045ee0b6b304afecdd0ceba28cccb81df",
-      "sourceHash": "cd49a0a2ac1d7932c057f0b8b56b4cee8f646e2584ae467bccd6035937c14784",
+      "structureHash": "760bbd0838bc7945819e346de8122caa092f62c256364b27325c178991640de1",
+      "sourceHash": "c9ebc9b29e186568b178af36c09ec709e3304fe8e947ae9b68743eff95c219dc",
       "generatedHash": "ef88a139076f91a6c1abbecec3c56e8c08fc311d4bcdc70f936e7fbedb5ef3f9",
-      "generatedAt": "2026-08-26T16:12:23Z",
-      "reviewedAt": "2026-08-26T16:12:23Z",
-      "reviewedCommit": "7a663704b862ae86c5d444ee96ea1958cd861349",
-      "reviewMode": "accept"
+      "generatedAt": "2026-08-28T03:24:47Z",
+      "reviewedAt": "2026-08-28T03:24:47Z",
+      "reviewedCommit": "e2b4168a9c03368aa416b37ce4eb0925be08e396",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "10_risk_report.md",
@@ -2200,6 +2203,7 @@
         "Sources/Views/Settings/TTS/TTSModelManagerView.swift",
         "Sources/Views/Settings/TTS/TTSReplacementManagerView.swift",
         "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
+        "Sources/Views/Settings/Translation/QuickTranslationRuleDisableIOMenu.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleEditorSheet.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleEntryRow.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleIOMenu.swift",
@@ -2228,13 +2232,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "5eadf22b9d60e4f2dd63c1f1aa17f7450ab0990252b398de0d2456966e14a1da",
-      "sourceHash": "85593282f0bae25052af622d255df9af3a4fa1deb8dca31864ee29f94c5f5c94",
+      "structureHash": "5bbcec44cff86cf16fd40dbb6ad7dc13109f2b1e2628a5eafffe0d99f383098f",
+      "sourceHash": "e0b7753ca34c9837540e4388e0a3790c6cb21d1ed32ba5ca5f23e1733f073328",
       "generatedHash": "e3c9cd618acc83e2b403bba00fa79a75739236c4bb07bd2ddd2ded4bbb39757a",
-      "generatedAt": "2026-08-28T02:36:24Z",
-      "reviewedAt": "2026-08-28T02:36:24Z",
-      "reviewedCommit": "d045429ebd922cadcf412cce7c9587f8717e877f",
-      "reviewMode": "accept"
+      "generatedAt": "2026-08-28T03:24:47Z",
+      "reviewedAt": "2026-08-28T03:24:47Z",
+      "reviewedCommit": "e2b4168a9c03368aa416b37ce4eb0925be08e396",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "12_ownership_graph.md",
@@ -2413,11 +2417,11 @@
         "Sources/Views/Reader/ReaderViewModel.swift"
       ],
       "structureHash": "43e37057526007dadd539702574a93cc55edbc84642a7a42f4c495e24bbcbb1e",
-      "sourceHash": "8909955333120dbf9123d3c2ebb230b34969035ad530efabc5087d17741e7326",
+      "sourceHash": "59394290223d445676adb002175c2cf5568fa68274e9bc8e7c3fa21fcfff24b1",
       "generatedHash": "59062b1ab8ef3912fb5d920d75ceaf55aa50b3922ae041f9ccb8ab73b48bac8d",
-      "generatedAt": "2026-08-26T16:12:24Z",
-      "reviewedAt": "2026-08-26T16:12:24Z",
-      "reviewedCommit": "7a663704b862ae86c5d444ee96ea1958cd861349",
+      "generatedAt": "2026-08-28T03:24:47Z",
+      "reviewedAt": "2026-08-28T03:24:47Z",
+      "reviewedCommit": "e2b4168a9c03368aa416b37ce4eb0925be08e396",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2806,6 +2810,7 @@
         "Sources/Views/Settings/TTS/TTSModelManagerView.swift",
         "Sources/Views/Settings/TTS/TTSReplacementManagerView.swift",
         "Sources/Views/Settings/Translation/JunkFilterManagementView.swift",
+        "Sources/Views/Settings/Translation/QuickTranslationRuleDisableIOMenu.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleEditorSheet.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleEntryRow.swift",
         "Sources/Views/Settings/Translation/QuickTranslationRuleIOMenu.swift",
@@ -2834,13 +2839,13 @@
         "Sources/Views/TTSWidget/TTSSettingsView.swift",
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
-      "structureHash": "5583f5b7e258d3430e76c48dc76c42397fcd1e76df86283d78188db762b22775",
-      "sourceHash": "bd6225cf5bae226df7a922f1ed2043a5c6432a2816a05d7fb1915bcf3c9236ac",
+      "structureHash": "e464cfa375a75bd9f0a58dffe304f4a8c42df0a5e8146f358e9d7204896a116a",
+      "sourceHash": "efbf5b776f73751c58f186a909ad6a5cceee614886b8c45242bb5d7f07dfc53d",
       "generatedHash": "0d7327b2c73336f66efcecb7e63368df0843783efe0413d0d902b0602a078cdc",
-      "generatedAt": "2026-08-26T16:12:23Z",
-      "reviewedAt": "2026-08-26T16:12:23Z",
-      "reviewedCommit": "7a663704b862ae86c5d444ee96ea1958cd861349",
-      "reviewMode": "accept"
+      "generatedAt": "2026-08-28T03:24:47Z",
+      "reviewedAt": "2026-08-28T03:24:47Z",
+      "reviewedCommit": "e2b4168a9c03368aa416b37ce4eb0925be08e396",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "rules.md",

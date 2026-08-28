@@ -73,6 +73,17 @@ public enum QuickTranslationRuleDisableFile {
         return result
     }
 
+    /// Preview cho nhập danh sách tắt: `(added, overlapping, machineOnly)`.
+    /// `added` = mẫu chưa tắt → sẽ tắt thêm; `overlapping` = mẫu đã tắt sẵn; `machineOnly` = mẫu đang tắt nhưng file không có (liên quan khi Thay thế hoàn toàn).
+    public static func importPreview(current: [String], imported: [String]) -> (added: Int, overlapping: Int, machineOnly: Int) {
+        let currentSet = Set(current)
+        let importedSet = Set(imported)
+        let added = importedSet.subtracting(currentSet).count
+        let overlapping = importedSet.intersection(currentSet).count
+        let machineOnly = currentSet.subtracting(importedSet).count
+        return (added, overlapping, machineOnly)
+    }
+
     /// Bỏ cặp nháy kép bao ngoài, khớp cách `QuickTranslationRuleParser` chấp nhận `"mẫu" = "nghĩa"`.
     private static func unquote(_ value: String) -> String {
         guard value.count >= 2, value.hasPrefix("\""), value.hasSuffix("\"") else { return value }

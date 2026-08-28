@@ -23,7 +23,7 @@ struct ReaderRuleTraceGuideSheet: View {
                     Text("**Bấm một ký tự** ở thanh trên: chọn cả **cụm** mà rule phủ ký tự đó, không phải một ký tự lẻ.")
                     Text("**Bấm một chip**: xem nghĩa rule đó sinh ra và nghĩa từng token của nó.")
                     Text("**Bấm chip token** ở dải giữa: tô đúng phần chữ gốc mà token đã nuốt.")
-                    Text("**Ấn giữ một chip**: bật / tắt / xoá rule đó.")
+                    Text("**Ấn giữ một chip**: sửa / bật / tắt / xoá rule đó.")
                     Text("**Nút +**: thêm rule mới, mẫu điền sẵn bằng cụm đang chọn; chọn được lưu vào bộ riêng hay bộ chung.")
                 }
 

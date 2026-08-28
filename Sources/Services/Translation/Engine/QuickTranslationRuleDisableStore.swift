@@ -155,6 +155,53 @@ public final class QuickTranslationRuleDisableStore: ObservableObject {
         return .success
     }
 
+    /// Nhập danh sách mẫu tắt cho một phạm vi.
+    /// - `.replaceAll`: danh sách mới hoàn toàn thay thế danh sách cũ.
+    /// - `.overwriteExisting` / `.keepExisting`: gộp (union) danh sách cũ và mới — tập mẫu không có "giá trị" nên hai mode này đồng nghĩa.
+    /// Luôn `notifyChange` để Reader/TTS cập nhật (khác `merge` vốn im lặng dùng cho backup).
+    @discardableResult
+    public func importPatterns(
+        _ imported: [String],
+        mode: DataImportMode,
+        scope: QuickTranslationRuleScope
+    ) -> Outcome {
+        let current = disabledPatterns(for: scope)
+        let updated: [String]
+        switch mode {
+        case .replaceAll:
+            updated = imported
+        case .overwriteExisting, .keepExisting:
+            updated = QuickTranslationRuleDisableFile.union(current: current, imported: imported)
+        }
+        guard updated != current else { return .success }
+
+        if let message = write(updated, for: scope) {
+            return .failure(message: message)
+        }
+        lock.lock()
+        store(updated, for: scope)
+        lock.unlock()
+        notifyChange(scope: scope)
+        return .success
+    }
+
+    /// Xoá toàn bộ file tắt rule của một phạm vi (bật lại mọi rule đang tắt).
+    /// Kết quả rỗng thì `write` tự xoá file trên đĩa.
+    @discardableResult
+    public func clearDisabled(scope: QuickTranslationRuleScope) -> Outcome {
+        let current = disabledPatterns(for: scope)
+        guard !current.isEmpty else { return .success }
+
+        if let message = write([], for: scope) {
+            return .failure(message: message)
+        }
+        lock.lock()
+        store([], for: scope)
+        lock.unlock()
+        notifyChange(scope: scope)
+        return .success
+    }
+
     /// Bỏ cache của một truyện — gọi khi đổi nguồn (bookId đổi) hoặc sau khi khôi phục backup.
     public func invalidateCache(for scope: QuickTranslationRuleScope? = nil) {
         lock.lock()

@@ -54,4 +54,16 @@ extension QuickTranslationRuleStore {
             return writeRecordsLocked(updated, source: .edited)
         }
     }
+
+    /// Xoá nhiều rule cùng lúc theo tập mẫu. Không fail nếu có mẫu stale không tồn tại trong file.
+    /// Trả về `ruleCount` mới sau khi xoá.
+    public func deleteRules(patterns: Set<String>) -> LoadOutcome {
+        guard !patterns.isEmpty else { return .success(ruleCount: currentSnapshot?.ruleCount ?? 0, warningCount: 0) }
+        return withMutationLock {
+            let current = currentSourceText() ?? ""
+            let records = QuickTranslationRuleRecordStore.parseRecords(from: current)
+            let updated = records.filter { !patterns.contains($0.pattern) }
+            return writeRecordsLocked(updated, source: .edited)
+        }
+    }
 }

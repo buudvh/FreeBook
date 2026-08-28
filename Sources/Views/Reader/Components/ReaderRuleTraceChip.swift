@@ -63,6 +63,6 @@ struct ReaderRuleTraceChip: View {
             }
         )
         .accessibilityLabel("Rule \(trace.pattern), phạm vi \(trace.scope.label), \(ReaderRuleChipStyle.label(for: trace.status))")
-        .accessibilityHint("Nhấn để xem cụm áp dụng, nhấn giữ để bật, tắt hoặc xoá")
+        .accessibilityHint("Nhấn để xem cụm áp dụng, nhấn giữ để sửa, bật, tắt hoặc xoá")
     }
 }

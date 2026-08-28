@@ -135,6 +135,9 @@ struct QuickTranslationRuleListView: View {
         .quickTranslationRuleIOMenu(scope: scope) {
             visibleLimit = Self.pageSize
         }
+        .quickTranslationRuleDisableIOMenu(scope: scope) {
+            visibleLimit = Self.pageSize
+        }
         .sheet(item: $editorMode) { mode in
             QuickTranslationRuleEditorSheet(
                 mode: mode,
@@ -251,7 +254,8 @@ struct QuickTranslationRuleListView: View {
                 editorMode = .edit(
                     pattern: row.rule.pattern,
                     replacement: row.rule.replacement,
-                    sourceLine: row.rule.sourceLine
+                    sourceLine: row.rule.sourceLine,
+                    scope: scope
                 )
             },
             onTransfer: { target in transfer(row.rule, to: target) },
@@ -285,7 +289,7 @@ struct QuickTranslationRuleListView: View {
                 replacement: replacement,
                 to: targetScope
             )
-        case .edit(let oldPattern, _, _):
+        case .edit(let oldPattern, _, _, _):
             switch targetScope {
             case .global:
                 outcome = QuickTranslationRuleStore.shared.updateRule(
