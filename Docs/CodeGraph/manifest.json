@@ -3,8 +3,8 @@
   "project": "FreeBook",
   "generator": "Antigravity",
   "generatorVersion": "1.0",
-  "generatedAt": "2026-08-28T04:59:40Z",
-  "gitCommit": "a5e37f1f001aa2ae2110946db108cd9cdb0fccb3",
+  "generatedAt": "2026-08-28T08:58:46Z",
+  "gitCommit": "fcd8bec283aeb8c62f23e75e64b7f85fc7c55099",
   "sourceFileCount": 406,
   "documentCount": 16,
   "documents": [
@@ -424,11 +424,11 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "41b0974113e40b5fb827b6f098434958e82af9c1ffa95362105244970e9a2ace",
-      "sourceHash": "5f28f10958074e714117a839699a35ea5140fb378aa90e4b1dbd798b44c32436",
-      "generatedHash": "ab6dfb52395de3fc2a450515be7a1167a60d58dc2029e911327a7b458dbf781e",
-      "generatedAt": "2026-08-28T04:59:40Z",
-      "reviewedAt": "2026-08-28T04:59:40Z",
-      "reviewedCommit": "a5e37f1f001aa2ae2110946db108cd9cdb0fccb3",
+      "sourceHash": "1d0248d470ef01f2ae54ed5357bfbc3703b59a51468273ecf1e0cf0a1387e5f7",
+      "generatedHash": "29693ecc6fd143c982b7484b97348df77c07872a45e1df137b79fe54f3b850e7",
+      "generatedAt": "2026-08-28T08:58:46Z",
+      "reviewedAt": "2026-08-28T08:58:46Z",
+      "reviewedCommit": "fcd8bec283aeb8c62f23e75e64b7f85fc7c55099",
       "reviewMode": "accept"
     },
     {
@@ -874,11 +874,11 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "41b0974113e40b5fb827b6f098434958e82af9c1ffa95362105244970e9a2ace",
-      "sourceHash": "5f28f10958074e714117a839699a35ea5140fb378aa90e4b1dbd798b44c32436",
-      "generatedHash": "142d96d3e13cd8401fb0b7ed68e8075b7d6f6857b4f59ccf04a9abd95952899b",
-      "generatedAt": "2026-08-28T04:59:40Z",
-      "reviewedAt": "2026-08-28T04:59:40Z",
-      "reviewedCommit": "a5e37f1f001aa2ae2110946db108cd9cdb0fccb3",
+      "sourceHash": "1d0248d470ef01f2ae54ed5357bfbc3703b59a51468273ecf1e0cf0a1387e5f7",
+      "generatedHash": "f4a6d9b6bcbc1ca0633441c200d5e9e22498f509d9ef579c6718879c6def0543",
+      "generatedAt": "2026-08-28T08:58:46Z",
+      "reviewedAt": "2026-08-28T08:58:46Z",
+      "reviewedCommit": "fcd8bec283aeb8c62f23e75e64b7f85fc7c55099",
       "reviewMode": "accept"
     },
     {
@@ -1294,11 +1294,11 @@
         "Sources/Views/Reader/Extensions/ReaderViewModel+Translation.swift"
       ],
       "structureHash": "5c11424202a443add3f78ea1bca4836cc950ed6ccdd2c00378eab4428e336c34",
-      "sourceHash": "19dd7aaf3bf4f62a35c70b2131d4f56d011d4524eddb70a388738ce9e7979df6",
-      "generatedHash": "de9e1f1ddf8b2d70552336eaa4d33258f0dfd8c1973a299f0ac93e54d61a31aa",
-      "generatedAt": "2026-08-28T04:22:27Z",
-      "reviewedAt": "2026-08-28T04:22:27Z",
-      "reviewedCommit": "939cde6bc7dc047aa33147182d3e24e431d88543",
+      "sourceHash": "4377239ed72e53282960f59f0b17a6ea65b604e01d3e1cdffa17c154cbcc4474",
+      "generatedHash": "abac3276044b4096ff233c0809687311f7ffbf7433ccc8195bc5af5dd608ec03",
+      "generatedAt": "2026-08-28T08:58:46Z",
+      "reviewedAt": "2026-08-28T08:58:46Z",
+      "reviewedCommit": "fcd8bec283aeb8c62f23e75e64b7f85fc7c55099",
       "reviewMode": "no-change-needed"
     },
     {
@@ -2233,12 +2233,12 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "a0e339ac59a869c66582dcf1fab299b7a84bda227e98ba6ebf9cd2f7bbed9676",
-      "sourceHash": "8f9b099e811d412cc0bd7add08aea8a2d3ae5c5cd31c9d20793c9050231d0535",
-      "generatedHash": "acc3c88d95c94d6dd4b0ab4e2c353fc9dbe6bbcb209ff4a2f61cb4336d283da8",
-      "generatedAt": "2026-08-28T04:59:40Z",
-      "reviewedAt": "2026-08-28T04:59:40Z",
-      "reviewedCommit": "a5e37f1f001aa2ae2110946db108cd9cdb0fccb3",
-      "reviewMode": "accept"
+      "sourceHash": "902b464b3818d417b15bd22a46d1b3525ad1a1baff81b2d2700f2325c480b6f5",
+      "generatedHash": "1dba677796e8f2421627f8cf9c70984044919472be9ccb755c94b320a6bc3668",
+      "generatedAt": "2026-08-28T08:58:46Z",
+      "reviewedAt": "2026-08-28T08:58:46Z",
+      "reviewedCommit": "fcd8bec283aeb8c62f23e75e64b7f85fc7c55099",
+      "reviewMode": "no-change-needed"
     },
     {
       "filename": "12_ownership_graph.md",
@@ -2840,11 +2840,11 @@
         "Sources/Views/TTSWidget/WidgetState.swift"
       ],
       "structureHash": "41b0974113e40b5fb827b6f098434958e82af9c1ffa95362105244970e9a2ace",
-      "sourceHash": "5f28f10958074e714117a839699a35ea5140fb378aa90e4b1dbd798b44c32436",
-      "generatedHash": "a8abd99efd07e0427fb6ec29dcfb314aeb0a635c2ecaa7543be9573416dd66c3",
-      "generatedAt": "2026-08-28T04:59:40Z",
-      "reviewedAt": "2026-08-28T04:59:40Z",
-      "reviewedCommit": "a5e37f1f001aa2ae2110946db108cd9cdb0fccb3",
+      "sourceHash": "8bd6501b7574eff81c6b2c91e0f215ae7a5de2ccfff51fb4c483129ee7d68563",
+      "generatedHash": "334506c2640a262c995ba1c0e8f02383bfaac30304e35cf152077c95864fe057",
+      "generatedAt": "2026-08-28T08:54:22Z",
+      "reviewedAt": "2026-08-28T08:54:22Z",
+      "reviewedCommit": "fcd8bec283aeb8c62f23e75e64b7f85fc7c55099",
       "reviewMode": "accept"
     },
     {

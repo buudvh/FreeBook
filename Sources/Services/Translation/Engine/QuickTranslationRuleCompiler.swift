@@ -280,8 +280,8 @@ public enum QuickTranslationRuleCompiler {
     /// khi phần tử liền kề **không** tiếp tục chuỗi số theo lớp ký tự của chính token đó.
     private static func applyBoundaryGuards(_ elements: inout [QuickTranslationRuleElement]) {
         for index in elements.indices {
-            guard case .numeral(let isDigitwise) = elements[index].kind else { continue }
-            let units = QuickTranslationNumberFormatter.units(isDigitwise: isDigitwise)
+            guard case .numeral(let kind) = elements[index].kind else { continue }
+            let units = QuickTranslationNumberFormatter.units(for: kind)
 
             let previous = index > 0 ? elements[index - 1] : nil
             let next = index + 1 < elements.count ? elements[index + 1] : nil

@@ -4,6 +4,16 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.248) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.287] - 2026-08-28
+
+### Add `<h>` (Chinese digits) and `<d>` (ASCII + fullwidth digits) numeral tokens
+
+- `QuickTranslationRuleElement.NumeralKind` thay cho trạng thái `isDigitwise: Bool`: `<n>` = `.chinese`, `<y>` = `.digitwise`, `<h>` = `.hanDigits`, `<d>` = `.asciiDigits`.
+- `<h>` chỉ nuốt chữ số Hán `〇零一二两兩三四五六七八九`; `<d>` chỉ nuốt `0123456789` ASCII + full-width `０..９` (U+FF10-FF19), render full-width về ASCII. `<n>/<y>` cũng nhận full-width giờ.
+- `QuickTranslationNumberFormatter` thêm `hanDigitsUnits`/`asciiDigitsUnits`, `units(for:)`, `renderHanDigits`/`renderAsciiDigits`; `digitMap` thêm full-width. Matcher/Compiler dùng `units(for:)` cho boundary guard và render theo loại.
+- `QuickTranslationRuleTokenSettings` tăng 8 → **10** token (thêm `h`/`d` + 2 khoá UserDefaults lower-camel-case); `QuickTranslationRuleTokenSettingsView` thêm 2 Toggle ở nhóm "Token số và nhãn". `|` giữa các token số vẫn được parse theo loại đầu tiên để giữ tương thích `<n|y>` cũ.
+- Mọi file sửa vẫn ≤ 400 dòng; không thêm file mới.
+
 ## [1.3.286] - 2026-08-28
 
 ### Merge Quick Translation rule action menus

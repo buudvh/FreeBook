@@ -22,14 +22,28 @@ public struct QuickTranslationRuleElement: Sendable {
     public indirect enum Kind: Sendable {
         /// Chuỗi ký tự thường (đã gộp các ký tự liền nhau, đã bỏ dấu `\` escape).
         case literal([UInt16])
-        /// `<n>` (`isDigitwise == false`) hoặc `<y>` (`isDigitwise == true`).
-        case numeral(isDigitwise: Bool)
+        /// Token số: `<n>` (số Hán có bậc), `<y>` (digitwise rộng), `<h>` (chỉ chữ số Hán), `<d>` (chỉ digit 0-9/full-width).
+        case numeral(NumeralKind)
         /// `<L>` — đúng một nhãn chương, sinh tên nhãn tiếng Việt.
         case chapterLabel
         /// `<ne>/<pn>/<vp>/<hv>/<w>` — phải khớp một entry của từ điển tương ứng.
         case dictionary([DictionaryKind])
         /// `(a|b)` — mỗi alternative là một dãy phần tử; nhóm **không** sinh capture.
         case group([[QuickTranslationRuleElement]])
+    }
+
+    /// Loại số của token `<n>`, `<y>`, `<h>`, `<d>`.
+    public enum NumeralKind: String, Sendable {
+        /// `<n>`: số Hán tổng quát (có bậc 十百千万...) + ASCII + full-width; render về số Ả Rập.
+        case chinese = "n"
+        /// `<y>`: digitwise rộng — chữ số Hán + ASCII + full-width; render từng ký tự thành 0-9.
+        case digitwise = "y"
+        /// `<h>`: chỉ chữ số Hán `〇零一二两兩三四五六七八九`; không nhận bậc, không nhận 0-9.
+        case hanDigits = "h"
+        /// `<d>`: chỉ digit 0-9 (ASCII `0123456789` + full-width `０１２３４５６７８９`); render full-width về ASCII.
+        case asciiDigits = "d"
+
+        public var rawToken: String { "<\(rawValue)>" }
     }
 
     public var kind: Kind

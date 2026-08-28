@@ -15,6 +15,12 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số dòng sau lượt 1.3.287
+
+* **Không thêm file Swift**: chỉ sửa 7 file engine/view setting. Tất cả giữ ≤ 400 dòng: `QuickTranslationRuleParser` 361, `QuickTranslationRuleCompiler` 316, `QuickTranslationRuleMatcher` 244, `QuickTranslationNumberFormatter` 161 (112 → **161**, +49 cho các loại số mới + full-width), `QuickTranslationRuleElement` 146 (132 → **146**), `QuickTranslationRuleTokenSettings` 68 (64 → **68**), `QuickTranslationRuleTokenSettingsView` 67 (63 → **67**). Không file nào vào bảng 1.1, không baseline nào bị sửa.
+* **Độ phức tạp lúc chạy không đổi bậc**: `<h>`/`<d>` cùng cơ chế `walkNumeral` greedy dài → ngắn và boundary guard; `units(for:)` tra một `Set<UInt16>` tĩnh nên không thêm đơn vị công việc thường trực. Full-width chỉ thêm 10 phần tử vào `digitMap`.
+* `check_architecture.py` giữ **14 violation nền** đã biết, không violation mới. Host Windows không build được; tính đúng đắn biên dịch cần CI/macOS.
+
 ## Số dòng sau lượt 1.3.286
 
 * **Tổng file Swift không đổi**: xoá `QuickTranslationRuleDisableIOMenu.swift` 237 dòng, thêm [`QuickTranslationRuleIOMenu+DisabledActions.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleIOMenu+DisabledActions.swift) 136 dòng. Đây là tách extension cho cùng `QuickTranslationRuleIOMenu`, không thêm primary type top-level.

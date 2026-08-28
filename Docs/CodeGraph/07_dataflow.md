@@ -15,6 +15,12 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Token số mở rộng `<h>`/`<d>` và full-width digits (1.3.287)
+
+* **Bốn loại token số thay cho hai trạng thái digitwise `Bool`.** `Kind` của parser/compiler/matcher dùng chung `QuickTranslationRuleElement.NumeralKind`: `.chinese`/`.digitwise`/`.hanDigits`/`.asciiDigits` tương ứng `<n>/<y>/<h>/<d>`. Tập ký tự của matcher (`units(for:)`) giờ đắt riêng: `<h>` chỉ `〇零一二两兩三四五六七八九`, `<d>` chỉ `0123456789` + full-width `０..９`. Full-width (U+FF10-FF19) được **ba loại `<n>/<y>/<d>`** nhận và render về ASCII.
+* **Render vẫn theo cơ chế cũ.** Matcher `walkNumeral` gọi đúng hàm render theo loại: `<n>` `renderNumeral` (số Â Rập/Hán có bậc), `<y>`/`<h>`/`<d>` digitwise. Chuỗi nguồn không bị `trim`; range UTF-16 vẫn được giữ.
+* **Cấu hình token là input của rewrite, không phải output.** `QuickTranslationRuleTokenSettings` thêm 2 khoá `quickTranslateRuleTokenHanDigitsEnabled` / `quickTranslateRuleTokenAsciiDigitsEnabled` (kho mặc định bật), chữ ký `Configuration.signature` đổi độ dài khi token mới thêm nên cache cũ bị vô hiệu ngay khi cấu hình đổi. Không đổi file rule/snapshot key.
+
 ## Rule dịch: hai bộ trộn trong một lượt rewrite (1.3.274)
 
 ```text

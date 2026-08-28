@@ -114,8 +114,8 @@ public final class QuickTranslationRuleMatcher {
             guard element.isOptional else { return nil }
             return walk(advanced, position)
 
-        case .numeral(let isDigitwise):
-            return walkNumeral(element, isDigitwise: isDigitwise, advanced, position)
+        case .numeral(let numeralKind):
+            return walkNumeral(element, kind: numeralKind, advanced, position)
 
         case .chapterLabel:
             let saved = captures
@@ -139,11 +139,11 @@ public final class QuickTranslationRuleMatcher {
 
     private func walkNumeral(
         _ element: QuickTranslationRuleElement,
-        isDigitwise: Bool,
+        kind: QuickTranslationRuleElement.NumeralKind,
         _ advanced: [Frame],
         _ position: Int
     ) -> Int? {
-        let allowed = QuickTranslationNumberFormatter.units(isDigitwise: isDigitwise)
+        let allowed = QuickTranslationNumberFormatter.units(for: kind)
 
         // Guard bên trái: ký tự ngay trước match thuộc cùng lớp số ⇒ token đang nuốt phần giữa của
         // một chuỗi số dài hơn.
@@ -168,9 +168,17 @@ public final class QuickTranslationRuleMatcher {
         var candidate = upper
         while candidate >= lower {
             let value = text.substring(with: NSRange(location: position, length: candidate))
-            let rendered = isDigitwise
-                ? QuickTranslationNumberFormatter.renderDigitwise(value)
-                : QuickTranslationNumberFormatter.renderNumeral(value)
+            let rendered: String
+            switch kind {
+            case .chinese:
+                rendered = QuickTranslationNumberFormatter.renderNumeral(value)
+            case .digitwise:
+                rendered = QuickTranslationNumberFormatter.renderDigitwise(value)
+            case .hanDigits:
+                rendered = QuickTranslationNumberFormatter.renderHanDigits(value)
+            case .asciiDigits:
+                rendered = QuickTranslationNumberFormatter.renderAsciiDigits(value)
+            }
             store(
                 rendered,
                 sourceRange: NSRange(location: position, length: candidate),

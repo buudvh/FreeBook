@@ -15,6 +15,20 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Token số `<h>`/`<d>` + full-width digits (1.3.287)
+
+| File sửa | Vai trò | Dòng |
+|---|---|---|
+| [`Services/Translation/Engine/QuickTranslationRuleElement.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleElement.swift) | `Kind.numeral` đổi thành `numeral(NumeralKind)`; thêm enum `NumeralKind` 4 loại | 146 |
+| [`Services/Translation/Engine/QuickTranslationNumberFormatter.swift`](../../Sources/Services/Translation/Engine/QuickTranslationNumberFormatter.swift) | thêm `hanDigitsUnits`/`asciiDigitsUnits`, `units(for:)`, `renderHanDigits`/`renderAsciiDigits`, full-width trong `digitMap` | 161 |
+| [`Services/Translation/Engine/QuickTranslationRuleMatcher.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleMatcher.swift) | `walkNumeral(kind:)` + switch render theo `NumeralKind` | 244 |
+| [`Services/Translation/Engine/QuickTranslationRuleCompiler.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleCompiler.swift) | `applyBoundaryGuards` dùng `units(for:)` | 316 |
+| [`Services/Translation/Engine/QuickTranslationRuleParser.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleParser.swift) | parse `<h>`→`.hanDigits`, `<d>`→`.asciiDigits`; `|` giữa token số parse theo loại đầu tiên | 361 |
+| [`Services/Translation/Engine/QuickTranslationRuleTokenSettings.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleTokenSettings.swift) | thêm `hanDigits`/`asciiDigits` (8 → **10** token) + 2 khoá UserDefaults | 68 |
+| [`Views/Settings/Translation/QuickTranslationRuleTokenSettingsView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleTokenSettingsView.swift) | thêm 2 Toggle `<h>`, `<d>` | 67 |
+
+* Không thêm/xoá file nên tổng file Swift không đổi. DSL token số mở rộng nhưng cấu trúc matcher/compiler giữ nguyên hướng greedy + boundary guard có điều kiện.
+
 ## Gộp dropdown rule theo tab hiện tại (1.3.286)
 
 | File | Vai trò | Dòng |

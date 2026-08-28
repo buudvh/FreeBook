@@ -242,9 +242,20 @@ public enum QuickTranslationRuleParser {
         let index = captureCount
         captureCount += 1
 
-        if names.allSatisfy({ $0 == "n" || $0 == "y" }) {
+        let numeralKinds: Set<String> = ["n", "y", "h", "d"]
+        if names.allSatisfy({ numeralKinds.contains($0) }) {
+            // `<n|y>` (và các tổ hợp số khác) vẫn được chấp nhận để không phá rule cũ; ngữ nghĩa
+            // render theo loại **đầu tiên** như hành vi trước 1.3.287 (names[0]).
+            let kind: QuickTranslationRuleElement.NumeralKind
+            switch names[0] {
+            case "n": kind = .chinese
+            case "y": kind = .digitwise
+            case "h": kind = .hanDigits
+            case "d": kind = .asciiDigits
+            default: throw ParseError(code: .unknownTokenName, message: "Token <\(names[0])> không được hỗ trợ")
+            }
             return QuickTranslationRuleElement(
-                kind: .numeral(isDigitwise: names[0] == "y"),
+                kind: .numeral(kind),
                 sourceTokenKinds: sourceTokenKinds,
                 minLength: minLength,
                 maxLength: maxLength,

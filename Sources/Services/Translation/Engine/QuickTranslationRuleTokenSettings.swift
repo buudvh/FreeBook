@@ -5,10 +5,12 @@ import Foundation
 /// Giá trị chỉ sống trong `UserDefaults`, không đi vào file rule hay snapshot. Mỗi rule lưu lại
 /// cú pháp token gốc lúc parse để `<w>` vẫn là một công tắc độc lập với `<ne>|<pn>|<vp>`.
 public enum QuickTranslationRuleTokenSettings {
-    /// Tám token được DSL hỗ trợ, theo đúng thứ tự dùng để tạo chữ ký cache ổn định.
+    /// Mười token được DSL hỗ trợ, theo đúng thứ tự dùng để tạo chữ ký cache ổn định.
     public enum Kind: String, CaseIterable, Hashable, Sendable {
         case numeral = "n"
         case digitwise = "y"
+        case hanDigits = "h"
+        case asciiDigits = "d"
         case chapterLabel = "L"
         case name = "ne"
         case pronoun = "pn"
@@ -21,6 +23,8 @@ public enum QuickTranslationRuleTokenSettings {
             switch self {
             case .numeral: return "quickTranslateRuleTokenNumeralEnabled"
             case .digitwise: return "quickTranslateRuleTokenDigitwiseEnabled"
+            case .hanDigits: return "quickTranslateRuleTokenHanDigitsEnabled"
+            case .asciiDigits: return "quickTranslateRuleTokenAsciiDigitsEnabled"
             case .chapterLabel: return "quickTranslateRuleTokenChapterLabelEnabled"
             case .name: return "quickTranslateRuleTokenNameEnabled"
             case .pronoun: return "quickTranslateRuleTokenPronounEnabled"

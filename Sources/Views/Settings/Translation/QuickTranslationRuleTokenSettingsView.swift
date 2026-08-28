@@ -7,6 +7,8 @@ import SwiftUI
 struct QuickTranslationRuleTokenSettingsView: View {
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.numeral.userDefaultsKey) private var isNumeralEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.digitwise.userDefaultsKey) private var isDigitwiseEnabled = true
+    @AppStorage(QuickTranslationRuleTokenSettings.Kind.hanDigits.userDefaultsKey) private var isHanDigitsEnabled = true
+    @AppStorage(QuickTranslationRuleTokenSettings.Kind.asciiDigits.userDefaultsKey) private var isAsciiDigitsEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.chapterLabel.userDefaultsKey) private var isChapterLabelEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.name.userDefaultsKey) private var isNameEnabled = true
     @AppStorage(QuickTranslationRuleTokenSettings.Kind.pronoun.userDefaultsKey) private var isPronounEnabled = true
@@ -19,6 +21,8 @@ struct QuickTranslationRuleTokenSettingsView: View {
             Section {
                 Toggle("<n> — số", isOn: invalidating($isNumeralEnabled))
                 Toggle("<y> — đọc từng chữ số", isOn: invalidating($isDigitwiseEnabled))
+                Toggle("<h> — chữ số Hán", isOn: invalidating($isHanDigitsEnabled))
+                Toggle("<d> — chữ số 0-9 (kể cả full-width)", isOn: invalidating($isAsciiDigitsEnabled))
                 Toggle("<L> — nhãn chương", isOn: invalidating($isChapterLabelEnabled))
             } header: {
                 Text("Token số và nhãn")
