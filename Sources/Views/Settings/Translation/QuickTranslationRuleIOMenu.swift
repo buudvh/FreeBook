@@ -11,6 +11,7 @@ import UniformTypeIdentifiers
 ///   phải gắn lên **body chính** (`List`), chỉ `Menu` thuần nằm trong toolbar.
 /// - Modifier cho phép giữ logic tách biệt (không bloat `QuickTranslationRuleListView`)
 ///   mà vẫn đặt presentation đúng chỗ.
+@MainActor
 struct QuickTranslationRuleIOMenu: ViewModifier {
     let scope: QuickTranslationRuleScope
     let onChanged: () -> Void

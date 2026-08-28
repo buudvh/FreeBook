@@ -22,6 +22,12 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 - Gỡ `@ObservedObject` khỏi `QuickTranslationRuleIOMenu`, vì `ViewModifier` dùng trực tiếp các singleton store giống modifier danh sách rule tắt.
 - Giữ nguyên hành vi đọc, nhập, xuất và xoá rule theo phạm vi chung/riêng.
 
+## [1.3.284] - 2026-08-28
+
+### Fix: Isolate Quick Translation rule modifiers on MainActor
+
+- Đánh dấu hai `ViewModifier` quản lý rule dịch là `@MainActor` để truy cập singleton store có trạng thái UI an toàn khi build với Swift concurrency hiện hành.
+
 ## [1.3.281] - 2026-08-28
 
 ### Fix rule list back bug, add rule set import/export

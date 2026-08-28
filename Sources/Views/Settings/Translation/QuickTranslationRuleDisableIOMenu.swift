@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 ///
 /// Tách riêng khỏi `QuickTranslationRuleIOMenu` để mỗi ViewModifier chỉ lo một loại dữ liệu
 /// (bộ rule vs danh sách tắt), giữ file < 400 dòng. Áp lên `List` chính cùng lượt với IO menu rule.
+@MainActor
 struct QuickTranslationRuleDisableIOMenu: ViewModifier {
     let scope: QuickTranslationRuleScope
     let onChanged: () -> Void
