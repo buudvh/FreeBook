@@ -59,7 +59,7 @@ Phía View:
 | `Views/Reader/Extensions/ReaderView+RuleTools.swift` | State-handler + overlay của **cả hai** công cụ mới |
 | `Views/Reader/Extensions/ReaderView+Selection.swift` | Khối biên tập vùng chọn dùng chung cho 4 panel |
 | `Views/Settings/Translation/QuickTranslationRuleEntryRow.swift` | Hàng rule `[Sửa][Chuyển][Tắt][Xoá]`, mirror `DictionaryEntryRow` |
-| `Views/Settings/Translation/QuickTranslationRuleIOMenu.swift` | Nhập/Xuất/Xoá bộ rule riêng của một truyện |
+| `Views/Settings/Translation/QuickTranslationRuleIOMenu.swift` | Nhập/Xuất/Xoá bộ rule riêng **và chung** (ViewModifier gắn List, không toolbar) |
 
 * **`QuickTranslationRuleListView` giờ nhận `scope`** và có **2 tab** Đang bật / Đã tắt. Ba đường vào dùng chung một view: hub Từ điển của Reader (Rule Riêng → `.book(bookId)`, Rule Chung → `.global`) và mục Công cụ của màn Quản lý rule dịch (`.global`).
 * **Swipe Sửa/Xoá bị bỏ** khỏi danh sách rule: đã có icon trong hàng thì hai đường cho cùng một việc chỉ gây nhầm.

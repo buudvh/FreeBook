@@ -4,6 +4,15 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.248) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.281] - 2026-08-28
+
+### Fix rule list back bug, add rule set import/export
+
+- Chuyển `QuickTranslationRuleIOMenu` từ View nhúng toolbar sang **ViewModifier** áp lên `List`, gỡ bug SwiftUI: `DocumentPickerPresenter` (UIViewControllerRepresentable) đặt trong toolbar gây kẹt transition khi pop trong sheet → màn trắng (bug 1.3.281). Giống `DictionaryListView`, mọi presenter/presentation giờ gắn lên body chính.
+- Menu Nhập/Xuất/Xoá hiện cho **cả rule riêng và chung** (trước chỉ riêng).
+- Route import/export/xoá theo `scope`: `QuickTranslationRuleBookStore` (riêng) / `QuickTranslationRuleStore` (chung).
+- Giữ `.searchable` (bằng chứng: Rule Chung back bình thường → `.searchable` không phải thủ phạm).
+
 ## [1.3.280] - 2026-08-26
 
 ### Canonicalize Quick Translation rule storage

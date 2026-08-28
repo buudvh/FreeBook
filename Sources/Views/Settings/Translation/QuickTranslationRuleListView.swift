@@ -125,17 +125,15 @@ struct QuickTranslationRuleListView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
-                if case .book(let bookId) = scope {
-                    QuickTranslationRuleIOMenu(bookId: bookId) {
-                        visibleLimit = Self.pageSize
-                    }
-                }
                 Button {
                     editorMode = .add(prefilledPattern: "")
                 } label: {
                     Image(systemName: "plus")
                 }
             }
+        }
+        .quickTranslationRuleIOMenu(scope: scope) {
+            visibleLimit = Self.pageSize
         }
         .sheet(item: $editorMode) { mode in
             QuickTranslationRuleEditorSheet(
