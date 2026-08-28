@@ -4,6 +4,14 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.248) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.286] - 2026-08-28
+
+### Merge Quick Translation rule action menus
+
+- `QuickTranslationRuleListView` chỉ còn một dropdown `quickTranslationRuleIOMenu(scope:showingDisabled:)`; tab Đang bật hiện nhập/xuất/xoá bộ rule, tab Đã tắt hiện nhập/xuất/bật lại/xoá danh sách rule tắt.
+- Xoá modifier riêng `QuickTranslationRuleDisableIOMenu`, chuyển các thao tác rule tắt sang `QuickTranslationRuleIOMenu+DisabledActions.swift` để vẫn giữ mỗi file dưới 400 dòng.
+- Giữ `DocumentPickerPresenter`/`ShareSheet` gắn trên body chính, không đưa presenter vào toolbar.
+
 ## [1.3.285] - 2026-08-28
 
 ### Fix: Correct disabled rule import API label

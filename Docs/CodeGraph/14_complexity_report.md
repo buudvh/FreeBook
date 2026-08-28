@@ -15,6 +15,12 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số dòng sau lượt 1.3.286
+
+* **Tổng file Swift không đổi**: xoá `QuickTranslationRuleDisableIOMenu.swift` 237 dòng, thêm [`QuickTranslationRuleIOMenu+DisabledActions.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleIOMenu+DisabledActions.swift) 136 dòng. Đây là tách extension cho cùng `QuickTranslationRuleIOMenu`, không thêm primary type top-level.
+* **File owner menu vẫn dưới trần 400**: [`QuickTranslationRuleIOMenu.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleIOMenu.swift) 229 → **304** dòng vì nhận thêm state/dialog cho rule tắt và switch theo `showingDisabled`. [`QuickTranslationRuleListView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleListView.swift) vẫn **381** dòng, chỉ đổi từ hai modifier toolbar sang một modifier có tham số tab.
+* `check_architecture.py` giữ **14 violation nền** đã biết, không có violation mới và không nới baseline. Host Windows không build được bằng `xcodebuild`; tính đúng đắn biên dịch cần CI/macOS xác nhận.
+
 ## Số dòng sau lượt 1.3.279
 
 * **Thay 1 file Service bằng 1 file Service, không tăng số file Swift tổng**: xoá `QuickTranslationRuleFileEditor.swift`, thêm `QuickTranslationRuleRecordStore.swift`. File mới là enum thuần Foundation, một type top-level, dưới trần 400.

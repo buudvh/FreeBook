@@ -132,10 +132,7 @@ struct QuickTranslationRuleListView: View {
                 }
             }
         }
-        .quickTranslationRuleIOMenu(scope: scope) {
-            visibleLimit = Self.pageSize
-        }
-        .quickTranslationRuleDisableIOMenu(scope: scope) {
+        .quickTranslationRuleIOMenu(scope: scope, showingDisabled: showingDisabled) {
             visibleLimit = Self.pageSize
         }
         .sheet(item: $editorMode) { mode in

@@ -15,6 +15,16 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Gộp dropdown rule theo tab hiện tại (1.3.286)
+
+| File | Vai trò | Dòng |
+|---|---|---|
+| [`Views/Settings/Translation/QuickTranslationRuleIOMenu.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleIOMenu.swift) | Modifier toolbar duy nhất cho màn danh sách rule; `showingDisabled == false` hiện thao tác bộ rule, `true` hiện thao tác danh sách tắt | 304 |
+| [`Views/Settings/Translation/QuickTranslationRuleIOMenu+DisabledActions.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleIOMenu+DisabledActions.swift) | `extension QuickTranslationRuleIOMenu` chứa menu item + import/export/bật lại/xoá rule tắt, thay cho `QuickTranslationRuleDisableIOMenu.swift` | 136 |
+| [`Views/Settings/Translation/QuickTranslationRuleListView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleListView.swift) | Gắn một `.quickTranslationRuleIOMenu(scope:showingDisabled:)` duy nhất, bỏ modifier rule-tắt riêng | 381 |
+
+* Xoá `Views/Settings/Translation/QuickTranslationRuleDisableIOMenu.swift` (237 dòng) và thêm file extension mới, nên tổng số file Swift không đổi. Cạnh mới vẫn chỉ nằm trong tầng Views; `QuickTranslationRuleIOMenu` tiếp tục là owner presentation, còn store/service không đổi.
+
 ## Copy gốc · Check rule · Bộ rule riêng/chung + file tắt (1.3.274)
 
 | File mới | Vai trò | Dòng |

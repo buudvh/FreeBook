@@ -15,6 +15,12 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Gộp menu rule trong tầng Views (1.3.286)
+
+* **Chỉ đổi presentation ở tầng Views.** `QuickTranslationRuleListView` vẫn phụ thuộc xuống các store rule như trước, nhưng chỉ gắn một `QuickTranslationRuleIOMenu(scope:showingDisabled:)`; giá trị `showingDisabled` quyết định nhánh menu hiển thị. Không thêm cạnh từ Services lên Views và không đổi API store.
+* **`QuickTranslationRuleIOMenu+DisabledActions.swift` là file extension, không khai primary type top-level.** Nó `import SwiftUI` vì nằm trong `Sources/Views/**`, hợp lệ với luật tầng; file chính `QuickTranslationRuleIOMenu.swift` vẫn là type owner duy nhất của `@State`, sheet, dialog và toolbar.
+* **Không nới luật kiến trúc.** Xoá `QuickTranslationRuleDisableIOMenu.swift`, thêm `QuickTranslationRuleIOMenu+DisabledActions.swift`; cả hai file liên quan đều dưới 400 dòng và không cần entry `architecture_allowlist.json`.
+
 ## Vị trí tầng của 17 file mới cho hai bộ rule, tắt-by-file và hai công cụ Reader (1.3.274)
 
 * **17 file mới, không luật nào bị nới.** Phân bố: **2 Models** (`QuickTranslationRuleScope`, `QuickTranslationRuleTrace` — chỉ `import Foundation`, `Sendable`), **6 Services** (`QuickTranslationRuleBookStore`, `QuickTranslationRuleDisableFile`, `QuickTranslationRuleDisableStore`, `QuickTranslationRuleDiagnostics`, `QuickTranslationRuleTransfer` trong `Services/Translation/Engine/`, `TranslationManager+BookScopedFiles` trong `Services/Translation/Extensions/` — chỉ `Foundation`/`Combine`), **9 Views** (3 file `Views/Reader/` gốc, 2 file `Views/Reader/Components/`, 2 file `Views/Reader/Extensions/`, 2 file `Views/Settings/Translation/`). Tất cả **≤ 400 dòng** (lớn nhất `ReaderRuleTraceOverlayView` 383, `QuickTranslationRuleBookStore` 360) và **đúng 1 type top level** (type lồng: `QuickTranslationRuleDisableStore.Snapshot`/`Outcome`, `QuickTranslationRuleTrace.Capture`/`Status`, `QuickTranslationRuleIOMenu.SharedFile`) ⇒ **không** thêm hay nới entry `architecture_allowlist.json` nào.

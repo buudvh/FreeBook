@@ -15,6 +15,12 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Dropdown rule đổi nội dung theo tab hiện tại (1.3.286)
+
+* **Phân hệ Rule Dịch chỉ còn một menu toolbar ở màn danh sách.** `QuickTranslationRuleListView.showingDisabled` được truyền xuống `QuickTranslationRuleIOMenu`: tab Đang bật thao tác file rule thường; tab Đã tắt thao tác danh sách tắt. Vì vậy người dùng không còn thấy hai dropdown `ellipsis.circle` cùng lúc.
+* **Owner presentation không đổi.** `QuickTranslationRuleIOMenu` vẫn đặt `DocumentPickerPresenter` trong `.background`, xuất bằng `ShareSheet` qua `.sheet(item:)` và xác nhận bằng `confirmationDialog`. Phần rule tắt chỉ chuyển từ modifier riêng sang `QuickTranslationRuleIOMenu+DisabledActions` để giữ file chính nhỏ.
+* **Không đổi dataflow store.** Import/export rule thường vẫn đi qua `QuickTranslationRuleStore`/`QuickTranslationRuleBookStore`; import/export/bật lại/xoá rule tắt vẫn đi qua `QuickTranslationRuleDisableStore` và bulk delete records theo `pattern` như trước.
+
 ## Preparing highlight dùng màu highlight config (1.3.278)
 
 * **Phân hệ Reader** giữ thứ tự chọn range active → preparing → search, nhưng màu preparing nay trùng active: `ReaderTextView` dùng `theme.highlightUIColor` và `theme.highlightTextUIColor` cho cả hai trạng thái.

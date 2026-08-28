@@ -15,6 +15,11 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Gộp dropdown nhập/xuất rule theo tab hiện tại (1.3.286)
+
+* **Danh sách rule giờ chỉ có một nút `ellipsis.circle`.** [`QuickTranslationRuleListView`](../../Sources/Views/Settings/Translation/QuickTranslationRuleListView.swift#L117) truyền `showingDisabled` vào [`QuickTranslationRuleIOMenu`](../../Sources/Views/Settings/Translation/QuickTranslationRuleIOMenu.swift#L1): tab **Đang bật** hiện Nhập/Xuất/Xoá bộ rule, tab **Đã tắt** hiện Nhập/Xuất/Bật lại/Xoá danh sách rule tắt. Không còn hai toolbar modifier cạnh tranh cùng vị trí navigation bar.
+* **Logic rule tắt vẫn tách file nhưng không còn là modifier riêng.** [`QuickTranslationRuleIOMenu+DisabledActions`](../../Sources/Views/Settings/Translation/QuickTranslationRuleIOMenu+DisabledActions.swift#L1) là `extension QuickTranslationRuleIOMenu`, thay cho `QuickTranslationRuleDisableIOMenu.swift`; các presenter (`DocumentPickerPresenter`, `ShareSheet`, `confirmationDialog`) vẫn gắn trên body chính để giữ fix màn trắng của 1.3.281.
+
 ## Rule dịch: trace lý do match, bật/tắt từng rule, bộ rule riêng theo truyện, overlay xem bản gốc (1.3.274)
 
 * **Hai bộ rule thật, đúng mô hình "VP riêng / VP chung" của từ điển.** [`QuickTranslationRuleScope`](../../Sources/Models/Translation/QuickTranslationRuleScope.swift#L1) ở tầng Models là `enum { global, book(String) }` — `rank` (0 riêng / 1 chung) là **hằng số duy nhất** quyết định bộ riêng thắng bộ chung khi trùng mọi tiêu chí ưu tiên khác. [`QuickTranslationRuleBookStore`](../../Sources/Services/Translation/Engine/QuickTranslationRuleBookStore.swift#L1) là chủ sở hữu **thứ hai** (không phải bản tổng quát hoá của store chung): LRU cap **3** truyện, compile lazy lần đọc đầu, cùng chính sách TXT canonical như store chung qua `QuickTranslationRuleRecordStore` và compile với `scopeRank = 0`.

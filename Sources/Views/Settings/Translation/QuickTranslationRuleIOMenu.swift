@@ -1,7 +1,8 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Modifier **Nhập / Xuất / Xoá** cho bộ rule của một phạm vi (riêng hoặc chung).
+/// Modifier **Nhập / Xuất / Xoá** cho rule của một phạm vi (riêng hoặc chung).
+/// Nội dung menu đổi theo tab hiện tại: tab Đang bật thao tác bộ rule, tab Đã tắt thao tác danh sách tắt.
 ///
 /// **Lý do dùng ViewModifier thay View gắn toolbar:**
 /// - `DocumentPickerPresenter` là `UIViewControllerRepresentable`; khi đặt `.background`
@@ -14,9 +15,10 @@ import UniformTypeIdentifiers
 @MainActor
 struct QuickTranslationRuleIOMenu: ViewModifier {
     let scope: QuickTranslationRuleScope
+    let showingDisabled: Bool
     let onChanged: () -> Void
 
-    private struct SharedFile: Identifiable {
+    struct SharedFile: Identifiable {
         var id: String { url.absoluteString }
         let url: URL
     }
@@ -27,6 +29,14 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
     @State private var pendingImportText: String? = nil
     @State private var pendingPreview: (added: Int, overlapping: Int, machineOnly: Int) = (0, 0, 0)
     @State private var sharedFile: SharedFile? = nil
+
+    @State var showingDisabledImporter = false
+    @State var showingDisabledImportModes = false
+    @State var pendingDisabledPatterns: [String]? = nil
+    @State var pendingDisabledPreview: (added: Int, overlapping: Int, machineOnly: Int) = (0, 0, 0)
+    @State var sharedDisabledFile: SharedFile? = nil
+    @State var showingReenableConfirm = false
+    @State var showingDeleteDisabledConfirm = false
 
     private var currentSourceText: String? {
         switch scope {
@@ -42,7 +52,7 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
         }
     }
 
-    private var scopeLabel: String {
+    var scopeLabel: String {
         scope.isGlobal ? "chung" : "riêng"
     }
 
@@ -55,25 +65,29 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
-                        Button {
-                            showingImporter = true
-                        } label: {
-                            Label("Nhập file rule (.txt)", systemImage: "square.and.arrow.down")
-                        }
+                        if showingDisabled {
+                            disabledRuleMenuItems
+                        } else {
+                            Button {
+                                showingImporter = true
+                            } label: {
+                                Label("Nhập file rule (.txt)", systemImage: "square.and.arrow.down")
+                            }
 
-                        Button {
-                            exportRules()
-                        } label: {
-                            Label("Xuất bộ rule \(scopeLabel)", systemImage: "square.and.arrow.up")
-                        }
-                        .disabled(!hasRuleFile)
+                            Button {
+                                exportRules()
+                            } label: {
+                                Label("Xuất bộ rule \(scopeLabel)", systemImage: "square.and.arrow.up")
+                            }
+                            .disabled(!hasRuleFile)
 
-                        Button(role: .destructive) {
-                            showingDeleteConfirm = true
-                        } label: {
-                            Label("Xoá bộ rule \(scopeLabel)", systemImage: "trash")
+                            Button(role: .destructive) {
+                                showingDeleteConfirm = true
+                            } label: {
+                                Label("Xoá bộ rule \(scopeLabel)", systemImage: "trash")
+                            }
+                            .disabled(!hasRuleFile)
                         }
-                        .disabled(!hasRuleFile)
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -88,10 +102,28 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                     onCancel: nil
                 )
             )
+            .background(
+                DocumentPickerPresenter(
+                    isPresented: $showingDisabledImporter,
+                    allowedContentTypes: [.plainText, .text],
+                    allowsMultipleSelection: false,
+                    onPick: { urls in readDisabledImport(from: urls.first) },
+                    onCancel: nil
+                )
+            )
             .sheet(item: $sharedFile) { file in
                 ShareSheet(activityItems: [file.url]) { _, completed, _, error in
                     if completed {
                         ToastManager.shared.show(message: "Đã xuất bộ rule \(scopeLabel).", type: .success)
+                    } else if let error = error {
+                        ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
+                    }
+                }
+            }
+            .sheet(item: $sharedDisabledFile) { file in
+                ShareSheet(activityItems: [file.url]) { _, completed, _, error in
+                    if completed {
+                        ToastManager.shared.show(message: "Đã xuất danh sách rule tắt.", type: .success)
                     } else if let error = error {
                         ToastManager.shared.show(message: "Lỗi chia sẻ: \(error.localizedDescription)", type: .error)
                     }
@@ -145,6 +177,48 @@ struct QuickTranslationRuleIOMenu: ViewModifier {
                 } else {
                     Text("Truyện này sẽ quay về dùng thuần bộ rule chung. Bộ chung không bị ảnh hưởng.")
                 }
+            }
+            .confirmationDialog(
+                "Nhập danh sách rule tắt thế nào?",
+                isPresented: $showingDisabledImportModes,
+                titleVisibility: .visible
+            ) {
+                ForEach(DataImportMode.allCases, id: \.self) { mode in
+                    Button(mode.actionTitle, role: mode.isDestructive ? .destructive : nil) {
+                        applyDisabledImport(mode: mode)
+                    }
+                }
+                Button("Hủy", role: .cancel) { pendingDisabledPatterns = nil }
+            } message: {
+                Text(
+                    "File có \(pendingDisabledPreview.added + pendingDisabledPreview.overlapping) mẫu:"
+                    + " \(pendingDisabledPreview.overlapping) mẫu đã tắt sẵn, \(pendingDisabledPreview.added) mẫu mới sẽ tắt."
+                    + " Máy đang tắt \(pendingDisabledPreview.machineOnly) mẫu không nằm trong file."
+                )
+            }
+            .confirmationDialog(
+                "Bật lại tất cả rule đã tắt ở bộ \(scopeLabel)?",
+                isPresented: $showingReenableConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Bật lại tất cả", role: .destructive) {
+                    reenableAllDisabledRules()
+                }
+                Button("Hủy", role: .cancel) {}
+            } message: {
+                Text("Mọi rule trong bộ \(scopeLabel) sẽ được bật lại. Danh sách tắt sẽ rỗng.")
+            }
+            .confirmationDialog(
+                "Xoá tất cả rule đã tắt khỏi bộ \(scopeLabel)?",
+                isPresented: $showingDeleteDisabledConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Xoá tất cả rule đã tắt", role: .destructive) {
+                    deleteAllDisabledRules()
+                }
+                Button("Hủy", role: .cancel) {}
+            } message: {
+                Text("\(currentDisabledPatterns.count) rule đang tắt sẽ bị xoá hẳn khỏi file rule \(scopeLabel) và danh sách tắt được dọn sạch. Không hoàn tác được.")
             }
     }
 
@@ -222,8 +296,9 @@ extension View {
     /// Gắn menu Nhập/Xuất/Xoá rule cho phạm vi `scope` vào view (thường là `List`).
     func quickTranslationRuleIOMenu(
         scope: QuickTranslationRuleScope,
+        showingDisabled: Bool,
         onChanged: @escaping () -> Void
     ) -> some View {
-        modifier(QuickTranslationRuleIOMenu(scope: scope, onChanged: onChanged))
+        modifier(QuickTranslationRuleIOMenu(scope: scope, showingDisabled: showingDisabled, onChanged: onChanged))
     }
 }
