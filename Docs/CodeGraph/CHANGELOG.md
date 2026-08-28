@@ -4,6 +4,13 @@ Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tà
 
 > Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.248) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
 
+## [1.3.285] - 2026-08-28
+
+### Fix: Correct disabled rule import API label
+
+- Sửa chữ ký `QuickTranslationRuleDisableStore.importPatterns(imported:mode:scope:)` khớp call site nhập danh sách rule tắt, tránh lỗi compile do label `imported:`.
+- Tách scope mặc định của `QuickTranslationRuleEditorSheet` trong Reader thành helper rõ ràng, giữ nguyên hành vi sửa/thêm rule theo đúng scope.
+
 ## [1.3.282] - 2026-08-28
 
 ### Fix Check rule edit, add disable rules import/export

@@ -233,18 +233,20 @@ extension ReaderView {
         .sheet(isPresented: $showingRuleGuide) {
             ReaderRuleTraceGuideSheet()
         }
-.sheet(item: $ruleEditorMode) { mode in
-                QuickTranslationRuleEditorSheet(
-                    mode: mode,
-                    defaultScope: {
-                        if case .edit(_, _, _, let scope) = mode { return scope }
-                        return .book(bookId)
-                    }(),
-                    contextBookId: bookId
-                ) { pattern, replacement, scope in
-                    saveRuleFromEditor(mode: mode, pattern: pattern, replacement: replacement, scope: scope)
-                }
+        .sheet(item: $ruleEditorMode) { mode in
+            QuickTranslationRuleEditorSheet(
+                mode: mode,
+                defaultScope: defaultRuleEditorScope(for: mode),
+                contextBookId: bookId
+            ) { pattern, replacement, scope in
+                saveRuleFromEditor(mode: mode, pattern: pattern, replacement: replacement, scope: scope)
             }
+        }
+    }
+
+    func defaultRuleEditorScope(for mode: QuickTranslationRuleEditorSheet.Mode) -> QuickTranslationRuleScope {
+        if case .edit(_, _, _, let scope) = mode { return scope }
+        return .book(bookId)
     }
 
     /// Cụm chữ **gốc** đang chọn — dùng điền sẵn mẫu cho nút `+`.

@@ -161,7 +161,7 @@ public final class QuickTranslationRuleDisableStore: ObservableObject {
     /// Luôn `notifyChange` để Reader/TTS cập nhật (khác `merge` vốn im lặng dùng cho backup).
     @discardableResult
     public func importPatterns(
-        _ imported: [String],
+        imported: [String],
         mode: DataImportMode,
         scope: QuickTranslationRuleScope
     ) -> Outcome {
