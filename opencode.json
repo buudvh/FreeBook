@@ -37,6 +37,62 @@
           }
         }
       }
+    },
+
+    "vyceai": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "vyceai",
+      "options": {
+        "baseURL": "https://vyceai.com/v1"
+      },
+      "models": {
+        "deepseek-v4-flash": {
+          "name": "deepseek-v4-flash",
+          "variants": {
+            "low": {
+              "reasoningEffort": "low"
+            },
+            "medium": {
+              "reasoningEffort": "medium"
+            },
+            "high": {
+              "reasoningEffort": "high"
+            }
+          }
+        }
+      }
+    },
+
+    "xkiro": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "xKiro",
+      "options": {
+        "baseURL": "https://api.xkiro.com/v1"
+      },
+      "models": {
+        "deepseek/deepseek-v4-pro": {
+          "name": "deepseek/deepseek-v4-pro"
+        },
+        "deepseek/deepseek-v4-flash": {
+          "name": "deepseek/deepseek-v4-flash"
+        }
+      }
+    },
+
+    "tokenharbor": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "tokenharbor",
+      "options": {
+        "baseURL": "https://tokenharbor.ai/v1"
+      },
+      "models": {
+        "deepseek-v4-flash:free": {
+          "name": "deepseek-v4-flash:free"
+        },
+        "qwen3.8-27b:free": {
+          "name": "qwen3.8-27b:free"
+        }
+      }
     }
   },
   "model": "localapi/gpt-5.6-sol"
