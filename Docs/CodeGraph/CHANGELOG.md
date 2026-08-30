@@ -2,7 +2,20 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.260) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.261) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.291] - 2026-08-31
+
+### Chống mất chữ khi phiên âm, trường âm Nhật đọc như âm ngắn, xoá tất cả phiên âm
+
+- **Sửa lỗi đọc mất chữ.** Truy ra **5 chỗ bỏ chữ im lặng**: `ONNXPiperEngine` bỏ mọi unicode scalar không có trong `phoneme_id_map` (chỉ log); `IPAToVietnameseMapper` bỏ ký hiệu IPA lạ, xoá âm tiết không dựng được, giữ **một** phụ âm mỗi đầu cụm; bộ luật chính tả cắt phụ âm cuối; **không có chốt chống rỗng ở mức token** (`PiperTTSService.isUnspeakable` chỉ chặn cả chunk); và cổng ngữ cảnh của 1.3.290 đẩy cả từ tiếng Việt vào đường tiếng Anh. Bất biến mới: **không bộ phiên âm nào được trả rỗng**, rỗng thì trả nguyên văn token — áp cho cả ba đường.
+- **Cụm phụ âm tách thành âm tiết đệm thay vì bị cắt.** `assemble` trả `[String]`: cụm đầu thành các âm tiết `+ "ơ"` ("street" → "xơ-tơ-rít", trước là "trít" mất /s/), phụ âm cuối thừa thành **một** âm tiết đệm ("text" → "tếc-xơ"). Đây là cách người Việt thật sự đọc từ nước ngoài, và nó bỏ hẳn lý do phải bỏ âm để hợp chuẩn chính tả.
+- **Siết cổng ngữ cảnh của 1.3.290**: âm tiết Việt mơ hồ ("man", "song", "nam") chỉ được phiên âm khi **kẹp giữa** từ lạ ở *cả hai* phía, thay vì chỉ cần một láng giềng lạ — trước đây "anh Nam gọi taxi" có thể làm "nam" bị phiên âm oan. `VietnameseTokenGate` trả `(before, after)`.
+- **Trường âm tiếng Nhật đọc như âm ngắn — đảo lại quyết định của 1.3.290.** `ー` bị bỏ ("ラーメン" → "ra-mên") vì tiếng Việt không có nguyên âm dài: nhân đôi nguyên âm làm Piper đọc thành **hai âm tiết rời** có ngắt thanh hầu, nghe như nói lắp. Cùng nguyên tắc, thêm `ou → ô` và `ei → ê` ("arigatou" → "a-ri-ga-tô", trước sinh thêm một âm tiết "ư" thừa). Ghi rõ trong code + bộ ca kiểm rằng đây là **lựa chọn nghe**, không phải chuẩn Hepburn.
+- **Thêm "Xoá tất cả phiên âm"** ở màn Từ điển TTS: `TextPreprocessor.deleteAllWords()` (file mới `TextPreprocessor+Bulk.swift`) dọn `wordMap` + ghi plist **rỗng** + xoá LRU cache trong một lượt; UI là `TTSDictionaryBulkActionsModifier` (`@MainActor ViewModifier`, đúng khuôn `QuickTranslationRuleIOMenu`). Ghi file rỗng chứ không xoá file — "chưa tải từ điển" và "người dùng muốn trống" là hai trạng thái khác nhau. Cảnh báo của nút "Tải lại từ điển gốc" sửa lại cho khớp hành vi **trộn** từ 1.3.290 (câu cũ nói sẽ ghi đè, đã sai).
+- Sửa kỳ vọng bộ ca kiểm: ラーメン → "ra-mên", ジェット → "giêt-tô" (sokuon gắn vào âm tiết **trước**, tôi đặt sai ở 1.3.290), thêm ca `arigatou`, `street`, `text`.
+- 2 file Swift mới (421 → **423**). `TextPreprocessor.swift` giữ **đúng** 1121 dòng (chỉ đổi 4 từ khoá truy cập vì `private` là phạm vi file), `TTSDictionaryEditView.swift` **giảm** 706 → 705. `check_architecture.py` giữ 14 violation nền.
+- **Chưa làm trong lượt này**: Phase 0 (đo `phoneme_id_map` của model), Phase 2 (map âm vị tiếng Anh **trong** inventory của model để bỏ hẳn khâu chính tả), Phase 3 (để espeak tự chuyển ngôn ngữ), Phase 4 (kana → IPA trực tiếp).
 
 ## [1.3.290] - 2026-08-30
 
@@ -348,14 +361,3 @@ Thêm **6** file Swift (346 → 352), sửa 2 file; **không** `@Model` nào đ�
 * **Chạm ô URL là bôi đen toàn bộ địa chỉ**: file mới `URLBarTextField` (102) bọc `UITextField` vì SwiftUI `TextField` (iOS 17) không có API chọn hết. Đặt `selectedTextRange` trong `textFieldDidBeginEditing` phải **hoãn một vòng run loop** (UIKit ghi đè bằng caret cuối chuỗi ngay sau callback), và dùng `selectedTextRange` thay `selectAll(nil)` để không bật kèm menu Cut/Copy/Paste. Cờ `isEditing` chặn observer URL của webview ghi đè lúc đang gõ; `updateUIView` chỉ gán `text` khi khác thật.
 * **`BypassWebView.swift` 599 → 350 dòng** (baseline legacy 599, chỉ được giảm): gỡ `WebViewStore`, `SwiftUIWebView` + Coordinator, `fileprivate isDomainBlocked` (dùng lại `isEngineDomainBlocked` của Engine — một nguồn sự thật cho danh sách chặn) và `generateHomeHtml()` (tách nguyên văn sang `BypassBrowserHomePage`, 170 dòng). API công khai `BypassWebView(urlString:host:onImport:)` **không đổi** nên 6 call site không phải sửa.
 * `check_architecture.py` giữ **14 violation, đúng cùng một tập** trước/sau; 6 file mới đều ≤ 400 dòng và đúng 1 type top level, không nới baseline, không sửa `architecture_allowlist.json`. CodeGraph: cập nhật `00`, `02`, `03`, `09`, `11`, `14`.
-
-## [1.3.261] - 2026-08-24
-
-### Tô sáng kết quả tìm, tự tắt cuộn khi kéo trang, dọn tiện ích kho đã gỡ
-
-Thêm **2** file Swift (344 → 346), sửa 7 file; **không** `@Model` nào đổi shape, **không** thêm dependency. Chưa biên dịch (viết trên Windows, không có `xcodebuild`/`xcodegen`) — **phải chạy `xcodegen generate` trên macOS/CI** vì có file mới.
-
-* **Chọn kết quả tìm ⇒ nhảy + tô sáng + tắt cuộn theo highlight**: `ReaderSearchView.onSelect` đổi thành `(Int, Int, String) -> Void` (chapterIndex, paragraphIndex, **query**) để chuỗi truy vấn sống lâu hơn sheet. `ReaderSearchMatcher` thêm struct lồng `Highlight` + `static firstHighlightRange(of:in:)`; `ReaderView.searchHighlight` là `@State` giữ **ý nghĩa** `(chapterIndex, paragraphIndex, query)` chứ không cache `NSRange` — range được tính lại mỗi lần render (`searchHighlightRange(...)`) nên không bao giờ trỏ sai khi bật/tắt dịch. Vệt TTS vẫn thắng: `relativeHighlightRange ?? searchHighlightRange(...)`. Vệt bị xoá ở `.onChange(of: chapterIndex)`, **không** xoá khi đóng sheet.
-* **Người dùng kéo trang lúc TTS đang đọc ⇒ tự tắt cuộn theo highlight**: file mới `Sources/Views/Reader/Components/ReaderUserScrollDetector.swift` (143 dòng) — `UIViewRepresentable` gắn `UIPanGestureRecognizer` **không tiêu thụ touch** (`cancelsTouchesInView = false`, nhận diện đồng thời, không đòi recognizer khác fail) lên `UIScrollView` bao ngoài. Quan sát `contentOffset` bị loại vì cú `ScrollViewProxy.scrollTo` của TTS cũng đổi offset. `handleUserScrollWhilePlaying` (`ReaderView+Controls`) có 4 guard: `!isAutoScrollDisabled`, `isTTSPlayingThisBook`, `!isRestoringReaderPosition`, `!showingFloatingMenu` (chặn cú kéo nới vùng bôi đen). Mỗi lần tắt đều `ttsAutoScrollGeneration += 1` và huỷ `scrollTarget` khi `reason == .ttsAuto`.
-* **Tiện ích kho đã gỡ khỏi registry bị xoá khỏi máy, trừ tiện ích đã cài**: file mới `Sources/Models/Extensions/PruneRepositoryExtensionsCommand.swift` (22 dòng) + `ExtensionTransactionCoordinator.pruneRepositoryExtensions(command:in:)` trả `Result<Int, _>`. `RepositoryManagerView.syncExtensions` gọi prune **sau** khi upsert `.success`, với tập giữ lại suy ra từ chính `commands.map(\.packageId)` nên hai transaction không thể lệch cách viết `packageId`. Ba chốt chặn xoá oan: `items.isEmpty` thoát sớm, `keepPackageIds` rỗng ⇒ `.success(0)`, prune chỉ chạy khi upsert thành công. Tiện ích đã cài (`localPath` khác rỗng) và tiện ích nhập từ zip (`repository == nil`) luôn được giữ; chỉ xoá **bản ghi**, không đụng file.
-* `check_architecture.py` giữ **14 violation, đúng cùng một tập** trước/sau; không nới baseline, không sửa `architecture_allowlist.json`. CodeGraph: cập nhật `00`–`06`, `08`–`14` (`07`, `rules.md` xem lại và vẫn đúng).

@@ -68,10 +68,11 @@ enum TransliterationGoldenSet {
         Case("tokyo", "tô-kiô", .japanese),
         Case("sakura", "xa-kư-ra", .japanese),
         Case("tsunami", "chư-na-mi", .japanese),
-        Case("ラーメン", "ra-a-mên", .japanese, "trường âm ー không được biến mất"),
+        Case("ラーメン", "ra-mên", .japanese, "trường âm ー đọc như âm ngắn — lựa chọn nghe, không phải chuẩn Hepburn"),
+        Case("arigatou", "a-ri-ga-tô", .japanese, "ou là trường âm o, không được sinh thêm âm tiết 'ư'"),
         Case("ヴァイオリン", "va-i-ô-rin", .japanese, "ヴァ phải ra 'va'"),
         Case("ファイト", "pha-i-tô", .japanese, "ファ phải ra 'fa'"),
-        Case("ジェット", "giê-t-tô", .japanese, "ジェ phải ra 'je'")
+        Case("ジェット", "giêt-tô", .japanese, "ジェ ra 'je'; sokuon gắn vào âm tiết TRƯỚC")
     ]
 
     /// Ca phiên âm tiếng Anh. Kỳ vọng viết theo cách một người Việt đọc to từ đó.
@@ -95,7 +96,9 @@ enum TransliterationGoldenSet {
         Case("system", "xít-tơm", .english),
         Case("station", "xtây-sơn", .english),
         Case("machine", "mơ-sin", .english),
-        Case("chocolate", "chóc-lịt", .english)
+        Case("chocolate", "chóc-lịt", .english),
+        Case("street", "xơ-tơ-rít", .english, "cụm đầu tách thành âm tiết đệm, không được bỏ /s/"),
+        Case("text", "tếc-xơ", .english, "phụ âm cuối thừa thành âm tiết đệm, không được bỏ")
     ]
 
     /// Token tiếng Việt mơ hồ: phải **giữ nguyên** khi đứng giữa câu tiếng Việt. Ca ngược lại ("man"

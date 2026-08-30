@@ -15,6 +15,26 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Chống mất chữ + xoá tất cả phiên âm (1.3.291)
+
+| File mới | Tầng | Vai trò | Dòng |
+|---|---|---|---|
+| [`TextPreprocessor+Bulk.swift`](../../Sources/Services/TTS/Preprocessing/TextPreprocessor+Bulk.swift) | Services | `deleteAllWords()` — extension vì file gốc đúng bằng baseline 1121 | 30 |
+| [`TTSDictionaryBulkActionsModifier.swift`](../../Sources/Views/Settings/TTS/TTSDictionaryBulkActionsModifier.swift) | Views | hai alert hàng loạt, khuôn `@MainActor ViewModifier` của `QuickTranslationRuleIOMenu` | 67 |
+
+| File sửa | Thay đổi | Dòng |
+|---|---|---|
+| `IPAToVietnameseMapper.swift` | `assemble` trả `[String]`; cụm đầu/cuối thành âm tiết đệm | 176 → **210** |
+| `JapaneseTransliterator.swift` | `ー` → rỗng (âm ngắn), thêm `ou`/`ei`, chốt chống rỗng | 320 → **311** |
+| `EnglishTransliterator.swift` | chốt chống rỗng | 390 → **393** |
+| `EnglishPhonemeTransliterator.swift` | `nonEmpty(_:fallback:)` ở cả hai nhánh dự phòng | 67 → **77** |
+| `VietnameseTokenGate.swift` | đếm láng giềng lạ riêng từng phía, yêu cầu kẹp giữa | 106 → **110** |
+| `TextPreprocessor.swift` | 4 thành viên `private` → `internal`; **không thêm dòng** | 1121 → **1121** |
+| `TTSDictionaryEditView.swift` | thêm mục menu Xoá tất cả, dời 2 alert ⇒ **giảm** dòng | 706 → **705** |
+| `TransliterationGoldenSet.swift` | sửa kỳ vọng ラーメン/ジェット, thêm `arigatou`/`street`/`text` | 114 → **117** |
+
+* Tổng file Swift **423** (421 + 2). Hai file ở/vượt trần đều không phình: một giữ đúng số dòng, một giảm.
+
 ## Phiên âm Anh/Nhật: 6 file mới, 5 file sửa (1.3.290)
 
 | File mới | Tầng | Vai trò | Dòng |

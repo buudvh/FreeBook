@@ -15,6 +15,13 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hai file mới đều là extension/modifier (1.3.291)
+
+* **`TextPreprocessor+Bulk.swift` là `extension` của actor**, đặt cạnh file gốc. Nó buộc `wordMap`, `saveWordMapToDisk()`, `transliterationCache`, `transliterationCacheOrder` chuyển `private` → `internal` vì `private` là phạm vi **file** — nới phạm vi truy cập trong module, không nới luật kiến trúc, và file gốc không thêm dòng nào (đang đúng baseline 1121).
+* **`TTSDictionaryBulkActionsModifier` theo đúng khuôn `@MainActor struct …: ViewModifier`** mà `QuickTranslationRuleIOMenu` đã dùng: modifier tự gọi store có trạng thái UI, `extension View` chỉ bọc lại.
+* **Modifier tự sở hữu nghĩa "xoá tất cả"** thay vì nhận closure từ view; chỉ `onFinished` trả ra để nạp lại danh sách.
+* `check_architecture.py` giữ **14 violation nền**; `TTSDictionaryEditView` vẫn vượt baseline nhưng **giảm** 706 → 705.
+
 ## Vị trí tầng của 6 file phiên âm mới (1.3.290)
 
 * **5 file mới nằm ở `Sources/Services/TTS/Preprocessing/`, không `import SwiftUI`** ⇒ hợp lệ với `SERVICE_SWIFTUI_IMPORT`; không file nào gọi `ToastManager` ⇒ hợp lệ với `SERVICE_TOAST_COUPLING`. `TransliterationGoldenSet` là **dữ liệu thuần** nên đặt cạnh thứ nó kiểm chứ không ở tầng Views.

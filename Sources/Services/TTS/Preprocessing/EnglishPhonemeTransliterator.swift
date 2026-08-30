@@ -47,7 +47,11 @@ enum EnglishPhonemeTransliterator {
         }
 
         guard isEspeakPathEnabled else {
-            return Outcome(text: EnglishTransliterator.transliterateWord(trimmed), source: .ruleFallback, ipa: "")
+            return Outcome(
+                text: nonEmpty(EnglishTransliterator.transliterateWord(trimmed), fallback: trimmed),
+                source: .ruleFallback,
+                ipa: ""
+            )
         }
 
         let ipa = (try? EspeakPhonemizer.phonemizeEnglish(text: trimmed)) ?? ""
@@ -59,9 +63,15 @@ enum EnglishPhonemeTransliterator {
         }
 
         return Outcome(
-            text: EnglishTransliterator.transliterateWord(trimmed),
+            text: nonEmpty(EnglishTransliterator.transliterateWord(trimmed), fallback: trimmed),
             source: .ruleFallback,
             ipa: ipa
         )
+    }
+
+    /// Chốt cuối: thà đọc **nguyên văn** từ gốc còn hơn mất chữ. Không có chốt nào khác ở mức token —
+    /// `PiperTTSService.isUnspeakable` chỉ chặn khi cả chunk không đọc được.
+    private static func nonEmpty(_ value: String, fallback: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? fallback : value
     }
 }

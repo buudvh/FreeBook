@@ -34,8 +34,11 @@ enum VietnameseTokenGate {
         // Không phải âm tiết tiếng Việt ⇒ phiên âm như trước.
         if !VietnameseWordChecker.isVietnameseWord(token) { return true }
 
-        // Âm tiết mơ hồ: chỉ phiên âm khi nằm trong một dãy từ lạ.
-        return foreignNeighbourCount(around: index, in: matches, source: source) > 0
+        // Âm tiết mơ hồ: chỉ phiên âm khi **kẹp giữa** hai từ lạ. Bản 1.3.290 chỉ cần một láng giềng
+        // lạ ở bất kỳ phía, và điều đó làm "nam" trong "anh Nam gọi taxi" bị phiên âm oan — mất luôn
+        // một từ tiếng Việt nếu bộ phiên âm trả chuỗi méo.
+        let neighbours = foreignNeighbours(around: index, in: matches, source: source)
+        return neighbours.before > 0 && neighbours.after > 0
     }
 
     /// Dùng cho màn Thử phiên âm: nói rõ vì sao token được giữ hay bị phiên âm.
@@ -47,10 +50,10 @@ enum VietnameseTokenGate {
     ) -> String {
         if hasVietnameseDiacritic(token) { return "giữ nguyên: có dấu tiếng Việt" }
         if !VietnameseWordChecker.isVietnameseWord(token) { return "phiên âm: không phải âm tiết tiếng Việt" }
-        let neighbours = foreignNeighbourCount(around: index, in: matches, source: source)
-        return neighbours > 0
-            ? "phiên âm: âm tiết mơ hồ nhưng có \(neighbours) láng giềng lạ"
-            : "giữ nguyên: âm tiết tiếng Việt, không có láng giềng lạ"
+        let neighbours = foreignNeighbours(around: index, in: matches, source: source)
+        return neighbours.before > 0 && neighbours.after > 0
+            ? "phiên âm: âm tiết mơ hồ, kẹp giữa \(neighbours.before) từ lạ bên trái và \(neighbours.after) bên phải"
+            : "giữ nguyên: âm tiết tiếng Việt (lạ bên trái \(neighbours.before), bên phải \(neighbours.after))"
     }
 
     // MARK: - Phụ trợ
@@ -60,30 +63,31 @@ enum VietnameseTokenGate {
         return token.lowercased().contains { marked.contains($0) }
     }
 
-    /// Đếm token "lạ" trong cửa sổ hai bên: dài hơn 1 ký tự, chỉ gồm chữ ASCII, và **không** phải âm
-    /// tiết tiếng Việt. Gặp ranh giới câu thì dừng về phía đó.
-    private static func foreignNeighbourCount(
+    /// Đếm token "lạ" riêng từng phía: dài hơn 1 ký tự, chỉ gồm chữ ASCII, và **không** phải âm tiết
+    /// tiếng Việt. Gặp ranh giới câu thì dừng về phía đó.
+    private static func foreignNeighbours(
         around index: Int,
         in matches: [NSTextCheckingResult],
         source: NSString
-    ) -> Int {
-        var count = 0
+    ) -> (before: Int, after: Int) {
+        var before = 0
+        var after = 0
 
         for offset in 1...windowRadius {
             let previous = index - offset
             guard previous >= 0 else { break }
             if crossesBoundary(from: matches[previous], to: matches[previous + 1], source: source) { break }
-            if isForeign(source.substring(with: matches[previous].range)) { count += 1 }
+            if isForeign(source.substring(with: matches[previous].range)) { before += 1 }
         }
 
         for offset in 1...windowRadius {
             let next = index + offset
             guard next < matches.count else { break }
             if crossesBoundary(from: matches[next - 1], to: matches[next], source: source) { break }
-            if isForeign(source.substring(with: matches[next].range)) { count += 1 }
+            if isForeign(source.substring(with: matches[next].range)) { after += 1 }
         }
 
-        return count
+        return (before, after)
     }
 
     private static func isForeign(_ token: String) -> Bool {

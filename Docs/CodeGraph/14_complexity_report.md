@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số dòng sau lượt 1.3.291
+
+* **Thêm 2 file Swift** (421 → **423**): `TTSDictionaryBulkActionsModifier` 67, `TextPreprocessor+Bulk` 30.
+* **Hai file sát/vượt trần không phình**: `TextPreprocessor.swift` giữ **đúng 1121** (chỉ đổi 4 từ khoá truy cập), `TTSDictionaryEditView.swift` **giảm** 706 → 705. `IPAToVietnameseMapper` 176 → 210, `JapaneseTransliterator` 320 → **311**, `EnglishTransliterator` 390 → 393, `EnglishPhonemeTransliterator` 67 → 77, `VietnameseTokenGate` 106 → 110, `TransliterationGoldenSet` 114 → 117.
+* **Không đổi bậc phức tạp**: `assemble` trả mảng thay vì chuỗi (cùng một lượt quét), `trailingFiller` là một vòng trên coda (≤ 4 phần tử), cổng ngữ cảnh vẫn ≤ 4 lượt tra láng giềng.
+* **Việc còn lại đã biết, chưa làm trong lượt này**: Phase 0 (đo `phoneme_id_map`), Phase 2 (map âm vị Anh trong inventory của model), Phase 3 (để espeak tự chuyển ngôn ngữ), Phase 4 (kana → IPA trực tiếp).
+
 ## Số dòng sau lượt 1.3.290
 
 * **Thêm 6 file Swift** (415 → **421**): `TTSTransliterationTesterView` 277, `ForeignScriptClassifier` 189, `IPAToVietnameseMapper` 182, `TransliterationGoldenSet` 114, `VietnameseTokenGate` 106, `EnglishPhonemeTransliterator` 67. Tất cả ≤ 400 dòng, mỗi file một primary type top-level.

@@ -15,6 +15,13 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời từ điển phiên âm khi xoá tất cả (1.3.291)
+
+* **`deleteAllWords()` dọn đúng ba thứ trong một lượt, trong cùng isolation của actor**: `wordMap` (RAM), file `non-vietnamese-words.plist` (ghi **rỗng**, atomic), và cặp `transliterationCache`/`transliterationCacheOrder` — bỏ sót cache là mọi từ đã phiên âm vẫn trả kết quả cũ tới khi bị evict.
+* **Không tài nguyên mới**: modifier chỉ giữ hai `Binding<Bool>` và hai closure; `Task` trong `deleteAll()` sống một lượt, không giữ tham chiếu ra ngoài.
+* **File rỗng là trạng thái hợp lệ, không phải "chưa có dữ liệu"** — xem `10_risk_report`.
+* Ba chốt chống rỗng là phép so chuỗi O(1), không cấp phát thêm.
+
 ## Trạng thái espeak trở thành tài nguyên chia sẻ (1.3.290)
 
 * **Một engine espeak, một cờ khởi tạo, một `NSLock` — nay có ba lối vào.** `EspeakPhonemizer.phonemize` (Piper), `phonemizeEnglish` (phiên âm tiếng Anh) và `probeVoices` (màn thử nghiệm) đều `lock()` ngay đầu hàm và `initializeIfNeeded()` bên trong lock. Không lối nào khởi tạo lại engine; `espeak_Initialize` vẫn chạy **đúng một lần** cả phiên.

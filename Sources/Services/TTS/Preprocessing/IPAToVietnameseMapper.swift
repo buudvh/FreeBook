@@ -62,7 +62,7 @@ enum IPAToVietnameseMapper {
         guard !units.isEmpty else { return "" }
 
         let syllables = split(units: units)
-        let rendered = syllables.compactMap { assemble($0) }.filter { !$0.isEmpty }
+        let rendered = syllables.flatMap { assemble($0) }.filter { !$0.isEmpty }
         return rendered.joined(separator: "-")
     }
 
@@ -125,37 +125,68 @@ enum IPAToVietnameseMapper {
         return syllables
     }
 
-    /// Dựng một âm tiết Việt hợp lệ từ các đơn vị IPA của nó.
-    private static func assemble(_ units: [String]) -> String? {
+    /// Dựng **các** âm tiết Việt hợp lệ cho một âm tiết IPA.
+    ///
+    /// Trả về mảng chứ không phải một chuỗi vì tiếng Việt không có cụm phụ âm: cụm đầu và phần thừa ở
+    /// cuối phải **tách thành âm tiết đệm** (`+ "ơ"`) chứ không được bỏ. Bản 1.3.290 giữ đúng một phụ âm
+    /// mỗi đầu và bỏ phần còn lại — đó chính là chỗ "street" mất /s/ và "text" mất đuôi.
+    private static func assemble(_ units: [String]) -> [String] {
         guard let vowelIndex = units.firstIndex(where: { isVowel($0) }) else {
-            // Âm tiết không có nguyên âm (cụm phụ âm lạc) — đọc thành phụ âm + "ơ" để không mất chữ.
-            guard let first = units.first, let onset = onsets.first(where: { $0.ipa == first })?.vi else { return nil }
-            return onset + "ơ"
+            // Âm tiết không có nguyên âm: đọc từng phụ âm thành một âm tiết đệm, không bỏ chữ nào.
+            return units.compactMap { unit in
+                onsets.first(where: { $0.ipa == unit })?.vi
+            }.map { normalize(onset: $0, nucleus: "ơ", coda: "") }
         }
 
-        let onset = legalOnset(Array(units[units.startIndex..<vowelIndex]))
-        guard let nucleus = vowels.first(where: { $0.ipa == units[vowelIndex] })?.vi else { return nil }
-        let coda = legalCoda(Array(units[(vowelIndex + 1)...]))
+        let onsetUnits = Array(units[units.startIndex..<vowelIndex])
+        let codaUnits = Array(units[(vowelIndex + 1)...])
+        guard let nucleus = vowels.first(where: { $0.ipa == units[vowelIndex] })?.vi else { return [] }
 
-        return normalize(onset: onset, nucleus: nucleus, coda: coda)
+        let onset = legalOnset(onsetUnits)
+        var result = onset.leading.map { normalize(onset: $0, nucleus: "ơ", coda: "") }
+        result.append(normalize(onset: onset.head, nucleus: nucleus, coda: legalCoda(codaUnits)))
+        if let trailing = trailingFiller(codaUnits) {
+            result.append(normalize(onset: trailing, nucleus: "ơ", coda: ""))
+        }
+        return result
     }
 
-    private static func legalOnset(_ units: [String]) -> String {
+    /// `head` là phụ âm đầu thật; `leading` là các phụ âm đứng trước nó, mỗi cái thành một âm tiết đệm
+    /// ("street" → leading `["x", "t"]`, head `"r"` ⇒ "xơ-tơ-rít").
+    private static func legalOnset(_ units: [String]) -> (leading: [String], head: String) {
         let mapped = units.compactMap { unit in onsets.first(where: { $0.ipa == unit })?.vi }
-        guard !mapped.isEmpty else { return "" }
-        if mapped.count == 1 { return mapped[0] }
+        guard !mapped.isEmpty else { return ([], "") }
+        if mapped.count == 1 { return ([], mapped[0]) }
 
-        // Thử ghép hai phụ âm cuối thành onset đôi hợp lệ; không được thì lấy phụ âm cuối.
+        // Hai phụ âm cuối ghép được thành onset đôi hợp lệ thì giữ nguyên cả cặp.
         let tail = mapped.suffix(2).joined()
-        if legalDoubleOnsets.contains(tail) { return tail }
-        return mapped[mapped.count - 1]
+        if legalDoubleOnsets.contains(tail) {
+            return (Array(mapped.dropLast(2)), tail)
+        }
+        return (Array(mapped.dropLast()), mapped[mapped.count - 1])
     }
 
+    /// Phụ âm cuối **đầu tiên** hợp lệ. Phần còn lại do `trailingFiller` lo, không bị bỏ.
     private static func legalCoda(_ units: [String]) -> String {
         for unit in units {
             if let coda = codas[unit], !coda.isEmpty { return coda }
         }
         return ""
+    }
+
+    /// Phụ âm còn lại sau coda, đọc thành **một** âm tiết đệm ("text" → "tếc-xơ"). Cố ý chỉ lấy một:
+    /// đọc hết mọi phụ âm thừa làm câu dài và lạ hơn là mất một âm.
+    private static func trailingFiller(_ units: [String]) -> String? {
+        var seenCoda = false
+        for unit in units {
+            guard let coda = codas[unit], !coda.isEmpty else { continue }
+            if !seenCoda {
+                seenCoda = true
+                continue
+            }
+            return onsets.first(where: { $0.ipa == unit })?.vi
+        }
+        return nil
     }
 
     /// Ba chỗ chính tả tiếng Việt bắt buộc: `c/k/q` theo nguyên âm sau, `g/gh`, và nguyên âm ngắn

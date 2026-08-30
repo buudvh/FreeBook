@@ -15,6 +15,30 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Chốt chống rỗng và cụm phụ âm (1.3.291)
+
+```text
+transliterateToken
+  ├─ lookupWord                                    → thắng
+  ├─ ForeignScriptClassifier ⇒ Nhật
+  │    └─ transliterateRomaji → rỗng? ⇒ trả nguyên văn token
+  └─ EnglishPhonemeTransliterator.detailed
+       ├─ espeak(en-us) → IPA → IPAToVietnameseMapper
+       │     assemble(units) → [String]            ← trả **mảng** âm tiết
+       │       ├─ leading onset ⇒ "xơ", "tơ"        (không còn bị bỏ)
+       │       ├─ âm tiết chính ⇒ "rít"
+       │       └─ trailingFiller ⇒ "xơ"             (phụ âm cuối thừa)
+       └─ rỗng? ⇒ EnglishTransliterator → rỗng? ⇒ nonEmpty(fallback: token gốc)
+
+Xoá tất cả phiên âm:
+  TTSDictionaryEditView menu → showingDeleteAllConfirmation
+    └─ TTSDictionaryBulkActionsModifier.deleteAll()
+         ├─ await TextPreprocessor.shared.deleteAllWords()  (ghi plist rỗng, xoá cache)
+         └─ await onFinished() == loadDictionary()           (nạp lại danh sách)
+```
+
+* `VietnameseTokenGate` trả `(before, after)`; cổng chỉ mở khi **cả hai** > 0.
+
 ## Đường một token đi qua tiền xử lý TTS (1.3.290)
 
 ```text

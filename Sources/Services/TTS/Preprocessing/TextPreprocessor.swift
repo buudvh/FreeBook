@@ -116,10 +116,10 @@ enum PreprocessorRegex {
 final actor TextPreprocessor {
     static let shared = TextPreprocessor()
 
-    private var wordMap: [String: String] = [:]
+    var wordMap: [String: String] = [:]  // internal: TextPreprocessor+Bulk ở file khác
     private var acronymMap: [String: String] = [:]
-    private var transliterationCache: [String: String] = [:]
-    private var transliterationCacheOrder: [String] = []
+    var transliterationCache: [String: String] = [:]
+    var transliterationCacheOrder: [String] = []
 
     private struct UnitPatternSpec {
         let expansion: String
@@ -199,7 +199,7 @@ final actor TextPreprocessor {
         transliterationCacheOrder.removeAll()
     }
 
-    private func saveWordMapToDisk() throws {
+    func saveWordMapToDisk() throws {
         guard let url = Self.getWordsURL() else {
             throw NSError(domain: "TextPreprocessor", code: 1, userInfo: [NSLocalizedDescriptionKey: "Could not locate non-vietnamese-words.plist URL"])
         }

@@ -19,6 +19,7 @@ struct TTSDictionaryEditView: View {
     @State private var isLoading = false
     @State private var showingFileImporter = false
     @State private var showingDownloadConfirmation = false
+    @State private var showingDeleteAllConfirmation = false
     @State private var exportDocumentToShare: ExportDocument? = nil
     @State private var visibleCount = 100
 
@@ -190,6 +191,11 @@ struct TTSDictionaryEditView: View {
                         } label: {
                             Label("Tải lại từ điển gốc", systemImage: "arrow.down.to.line")
                         }
+                        Button(role: .destructive) {
+                            showingDeleteAllConfirmation = true
+                        } label: {
+                            Label("Xoá tất cả phiên âm", systemImage: "trash")
+                        }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -220,14 +226,7 @@ struct TTSDictionaryEditView: View {
                     }
                 )
             }
-            .alert("Xác nhận tải lại", isPresented: $showingDownloadConfirmation) {
-                Button("Hủy", role: .cancel) {}
-                Button("Tải lại", role: .destructive) {
-                    downloadDictionaries()
-                }
-            } message: {
-                Text("Hành động này sẽ tải lại từ điển gốc từ HuggingFace và ghi đè tất cả các từ vựng tùy chỉnh bạn đã thêm. Bạn có chắc chắn muốn tiếp tục?")
-            }
+            .ttsDictionaryBulkActions(showingDownloadConfirmation: $showingDownloadConfirmation, showingDeleteAllConfirmation: $showingDeleteAllConfirmation, onDownload: downloadDictionaries, onFinished: loadDictionary)
             .sheet(item: Binding(
                 get: { editingKey.map { EditingEntry(key: $0, value: editingValue) } },
                 set: { editingKey = $0?.key; editingValue = $0?.value ?? "" }

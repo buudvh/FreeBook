@@ -1,6 +1,17 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.260) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.261) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.261] - 2026-08-24
+
+### Tô sáng kết quả tìm, tự tắt cuộn khi kéo trang, dọn tiện ích kho đã gỡ
+
+Thêm **2** file Swift (344 → 346), sửa 7 file; **không** `@Model` nào đổi shape, **không** thêm dependency. Chưa biên dịch (viết trên Windows, không có `xcodebuild`/`xcodegen`) — **phải chạy `xcodegen generate` trên macOS/CI** vì có file mới.
+
+* **Chọn kết quả tìm ⇒ nhảy + tô sáng + tắt cuộn theo highlight**: `ReaderSearchView.onSelect` đổi thành `(Int, Int, String) -> Void` (chapterIndex, paragraphIndex, **query**) để chuỗi truy vấn sống lâu hơn sheet. `ReaderSearchMatcher` thêm struct lồng `Highlight` + `static firstHighlightRange(of:in:)`; `ReaderView.searchHighlight` là `@State` giữ **ý nghĩa** `(chapterIndex, paragraphIndex, query)` chứ không cache `NSRange` — range được tính lại mỗi lần render (`searchHighlightRange(...)`) nên không bao giờ trỏ sai khi bật/tắt dịch. Vệt TTS vẫn thắng: `relativeHighlightRange ?? searchHighlightRange(...)`. Vệt bị xoá ở `.onChange(of: chapterIndex)`, **không** xoá khi đóng sheet.
+* **Người dùng kéo trang lúc TTS đang đọc ⇒ tự tắt cuộn theo highlight**: file mới `Sources/Views/Reader/Components/ReaderUserScrollDetector.swift` (143 dòng) — `UIViewRepresentable` gắn `UIPanGestureRecognizer` **không tiêu thụ touch** (`cancelsTouchesInView = false`, nhận diện đồng thời, không đòi recognizer khác fail) lên `UIScrollView` bao ngoài. Quan sát `contentOffset` bị loại vì cú `ScrollViewProxy.scrollTo` của TTS cũng đổi offset. `handleUserScrollWhilePlaying` (`ReaderView+Controls`) có 4 guard: `!isAutoScrollDisabled`, `isTTSPlayingThisBook`, `!isRestoringReaderPosition`, `!showingFloatingMenu` (chặn cú kéo nới vùng bôi đen). Mỗi lần tắt đều `ttsAutoScrollGeneration += 1` và huỷ `scrollTarget` khi `reason == .ttsAuto`.
+* **Tiện ích kho đã gỡ khỏi registry bị xoá khỏi máy, trừ tiện ích đã cài**: file mới `Sources/Models/Extensions/PruneRepositoryExtensionsCommand.swift` (22 dòng) + `ExtensionTransactionCoordinator.pruneRepositoryExtensions(command:in:)` trả `Result<Int, _>`. `RepositoryManagerView.syncExtensions` gọi prune **sau** khi upsert `.success`, với tập giữ lại suy ra từ chính `commands.map(\.packageId)` nên hai transaction không thể lệch cách viết `packageId`. Ba chốt chặn xoá oan: `items.isEmpty` thoát sớm, `keepPackageIds` rỗng ⇒ `.success(0)`, prune chỉ chạy khi upsert thành công. Tiện ích đã cài (`localPath` khác rỗng) và tiện ích nhập từ zip (`repository == nil`) luôn được giữ; chỉ xoá **bản ghi**, không đụng file.
+* `check_architecture.py` giữ **14 violation, đúng cùng một tập** trước/sau; không nới baseline, không sửa `architecture_allowlist.json`. CodeGraph: cập nhật `00`–`06`, `08`–`14` (`07`, `rules.md` xem lại và vẫn đúng).
 
 ## [1.3.260] - 2026-08-24
 

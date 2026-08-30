@@ -15,6 +15,14 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro sau lượt chống mất chữ (1.3.291)
+
+* **Chỗ mất chữ sâu nhất vẫn còn**: `ONNXPiperEngine` bỏ im lặng mọi unicode scalar không có trong `phoneme_id_map` của model (chỉ log). Lượt này chỉ bịt các tầng trên; bịt hẳn cần map âm vị **trong** inventory của model — việc của Phase 2, **chưa làm**.
+* **Cụm phụ âm thành âm tiết đệm làm câu dài hơn**: "street" 3 âm tiết, "text" 2. Đọc đúng hơn nhưng nhịp chậm hơn; `trailingFiller` cố ý chỉ lấy **một** phụ âm thừa vì quá một là nghe rời rạc. Đánh đổi, không phải giới hạn kỹ thuật.
+* **Cổng ngữ cảnh siết lại bỏ sót chiều ngược**: "man" ở **đầu** một cụm tiếng Anh ("man of steel") không còn láng giềng lạ bên trái ⇒ giữ nguyên. Chọn bỏ sót thay vì đọc oan từ tiếng Việt.
+* **Xoá tất cả phiên âm không hoàn tác được** và không có sao lưu tự động; chỉ có hộp xác nhận nêu rõ hậu quả. Ai đã xuất từ điển thì nhập lại được.
+* **`deleteAllWords` ghi file rỗng thay vì xoá file** — cố ý: `loadResourcesFromDisk` coi file không tồn tại là "chưa tải từ điển", khác với "người dùng muốn trống".
+
 ## Rủi ro của lượt đổi phiên âm Anh/Nhật (1.3.290)
 
 * **Phụ thuộc vào bộ dữ liệu espeak trong bản build.** Đường tiếng Anh mới chỉ chạy khi `voices/en` + `en_dict` có thật trong `espeak-ng-data` đã đóng gói. `build-ipa.yml` hiện giữ chúng, nhưng bước dọn dữ liệu đó là **xoá theo danh sách trắng** — sửa nó mà quên `en_dict` là cả tính năng âm thầm rơi về bộ luật cũ, không có lỗi nào nổ. Bù lại: `probeVoices` ở màn Thử phiên âm báo đỏ ngay, và `phonemizeEnglish` ghi `AppLogger` khi đặt giọng thất bại.

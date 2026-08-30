@@ -15,6 +15,14 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS transliteration: no-drop invariants (1.3.291)
+
+* **No transliterator may return an empty string.** If a word cannot be rendered, return the original token verbatim. The only downstream guard is chunk-level (`PiperTTSService.isUnspeakable`), so an empty token is silently missing audio, which users hear as dropped words.
+* **Never satisfy Vietnamese phonotactics by deleting sounds.** Clusters Vietnamese cannot spell must become additional filler syllables (`+ "ơ"`), not be truncated. `IPAToVietnameseMapper.assemble` returns `[String]` for exactly this reason.
+* **Japanese long vowels render short, on purpose.** `ー`, `ou`, `ei` collapse to the short vowel because Vietnamese has no vowel length and doubling makes Piper insert a syllable break. This is a listening decision recorded in the golden set — do not "correct" it back to Hepburn without listening.
+* **The ambiguous-syllable gate requires foreign neighbours on both sides.** One-sided context transliterated Vietnamese words; prefer a missed transliteration over mangled Vietnamese.
+* **Bulk dictionary actions have one owner.** `TTSDictionaryBulkActionsModifier` performs the delete itself and only reports completion; views must not re-implement "delete all".
+
 ## TTS transliteration invariants (1.3.290)
 
 * **espeak voice must always be restored to `vi`.** Any entry point that calls `espeak_SetVoiceByName` with another language must restore `vi` in a `defer` **inside the same `NSLock` critical section** before returning. Piper synthesis assumes Vietnamese phonemes; a leaked voice change corrupts every later utterance and the symptom surfaces long after the cause.

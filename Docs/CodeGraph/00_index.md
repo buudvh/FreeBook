@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Chống mất chữ khi phiên âm, trường âm Nhật đọc như âm ngắn, xoá tất cả phiên âm (1.3.291)
+
+* **"Đọc mất chữ" là 5 chỗ bỏ chữ im lặng, không phải một bug lẻ**: (1) `ONNXPiperEngine` duyệt âm vị **theo từng unicode scalar**, scalar không có trong `phoneme_id_map` thì chỉ log rồi bỏ; (2) `IPAToVietnameseMapper` bỏ ký hiệu IPA lạ, xoá âm tiết không dựng được, giữ **một** phụ âm mỗi đầu cụm; (3) bộ luật chính tả cắt phụ âm cuối; (4) không có chốt chống rỗng ở **mức token** (`PiperTTSService.isUnspeakable` chỉ chặn cả chunk); (5) cổng ngữ cảnh của 1.3.290 mở quá rộng nên từ tiếng Việt cũng bị đẩy vào đường tiếng Anh.
+* **Bất biến mới: không bộ phiên âm nào được trả rỗng** — rỗng thì trả lại **nguyên văn** token. Áp cho cả ba đường (IPA, luật chính tả, romaji Nhật).
+* **Cụm phụ âm tách thành âm tiết đệm thay vì bị cắt.** `assemble` trả `[String]`: cụm đầu thành các âm tiết `+ "ơ"` ("street" → "xơ-tơ-rít" chứ không phải "trít"), phụ âm cuối thừa thành **một** âm tiết đệm ("text" → "tếc-xơ").
+* **Cổng ngữ cảnh siết lại**: âm tiết Việt mơ hồ ("man", "song", "nam") chỉ được phiên âm khi **kẹp giữa** từ lạ ở *cả hai* phía.
+* **Trường âm tiếng Nhật đọc như âm ngắn** — đảo lại quyết định của 1.3.290. `ー` bị bỏ ("ラーメン" → "ra-mên"): tiếng Việt không có nguyên âm dài nên nhân đôi nguyên âm làm Piper đọc thành **hai âm tiết rời** có ngắt thanh hầu. Cùng nguyên tắc, thêm `ou → ô`, `ei → ê` ("arigatou" → "a-ri-ga-tô", trước sinh thêm âm tiết "ư" thừa).
+* **Xoá tất cả phiên âm**: mục menu mới ở màn Từ điển TTS, đi qua [`deleteAllWords()`](../../Sources/Services/TTS/Preprocessing/TextPreprocessor+Bulk.swift#L16) — ghi file **rỗng** chứ không xoá file, để lượt tải lại từ HuggingFace không có gì để trộn thắng. Cảnh báo của nút "Tải lại từ điển gốc" cũng sửa cho khớp hành vi **trộn** từ 1.3.290.
+
 ## Phiên âm Anh/Nhật của NghiTTS: hỏi espeak lấy IPA, bỏ blacklist (1.3.290)
 
 * **Bộ luật tiếng Anh trước đây tự huỷ lẫn nhau.** `sRules` chạy trước `rRules` trên cùng chuỗi nên `ck → c` và `sh → s` đã xoá cụm trước khi các luật đuôi kịp thấy ⇒ **10 luật chết** (`ack$/eck$/ick$/ock$/uck$`, `ash$/esh$/ish$/osh$/ush$`). Hai luật đó dời xuống đầu `tRules`, các luật đuôi sống lại ("back" → "bác" thay vì "bac").

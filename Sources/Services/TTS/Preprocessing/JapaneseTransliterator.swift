@@ -72,16 +72,12 @@ final class JapaneseTransliterator {
         "ウィ": "wi", "ウェ": "we", "ウォ": "wo",
         "ジェ": "je", "シェ": "she", "チェ": "che",
 
-        // Ký tự trường âm. Xử lý ở `convertToRomaji` (nhân đôi nguyên âm trước) chứ không map ở đây:
-        // map thành "" là **xoá** trường âm, còn map thành một chữ cố định thì sai với mọi hàng khác.
-        "ー": "ー"
+        // Ký tự trường âm bị **bỏ**, tức âm dài viết như âm ngắn ("ラーメン" → "ramen"). Đây là lựa
+        // chọn nghe, không phải chuẩn Hepburn: tiếng Việt không có nguyên âm dài, nên nhân đôi nguyên
+        // âm (bản 1.3.290) làm espeak-vi/Piper đọc thành **hai âm tiết rời** có ngắt thanh hầu ở giữa,
+        // nghe như nói lắp. Đừng "sửa lại cho đúng sách" mà không nghe thử.
+        "ー": ""
     ]
-
-    /// Nguyên âm cuối của một chuỗi romaji, để dựng trường âm cho `ー`.
-    private static func trailingVowel(of romaji: String) -> Character? {
-        guard let last = romaji.last, "aiueo".contains(last) else { return nil }
-        return last
-    }
 
     static func convertToRomaji(_ text: String) -> String {
         let chars = Array(text)
@@ -100,15 +96,6 @@ final class JapaneseTransliterator {
             }
 
             let charStr = String(chars[i])
-
-            // Trường âm: nhân đôi nguyên âm vừa sinh ra ("ラーメン" → "raamen"), không xoá nó.
-            if charStr == "ー" {
-                if let vowel = trailingVowel(of: result) {
-                    result.append(vowel)
-                }
-                i += 1
-                continue
-            }
 
             // Kiểm tra âm ngắt Sokuon (っ/ッ)
             if charStr == "っ" || charStr == "ッ" {
@@ -167,9 +154,10 @@ final class JapaneseTransliterator {
         "pa": "pa", "pi": "pi", "pu": "pư", "pe": "pê", "po": "pô",
         "ja": "gia", "ji": "gi", "ju": "giu", "je": "giê", "jo": "giô",
         "a": "a", "i": "i", "u": "ư", "e": "ê", "o": "ô",
-        // Trường âm: `ー` được dựng thành nguyên âm đôi ở `convertToRomaji`, nên bảng phải nhận được
-        // chúng — nếu không, `greedySegment` vỡ và cả từ bị trả về nguyên văn.
-        "aa": "a", "ii": "i", "uu": "ư", "ee": "ê", "oo": "ô",
+        // Âm dài viết như âm ngắn — cùng lý do với `ー` ở bảng kana: tiếng Việt không có nguyên âm dài.
+        // `ou`/`ei` là cách viết trường âm o/e trong romaji ("arigatou", "sensei"); không có hai khoá
+        // này thì `greedySegment` cắt thành "to"+"u" và sinh thêm một âm tiết "ư" thừa.
+        "aa": "a", "ii": "i", "uu": "ư", "ee": "ê", "oo": "ô", "ou": "ô", "ei": "ê",
         // Âm ngoại lai của katakana hiện đại: ヴ và hàng ファ/フィ/フェ/フォ. Các âm khác (ティ, ジェ,
         // シェ, チェ) đã có khoá trong bảng gốc nên không khai lại — trùng khoá trong dictionary
         // literal làm crash lúc chạy.
@@ -288,7 +276,10 @@ final class JapaneseTransliterator {
             }
         }
 
-        return merged.joined(separator: "-")
+        // Không bao giờ trả rỗng: một token biến thành "" là **mất chữ** khi đọc, và pipeline chỉ có
+        // chốt chống rỗng ở mức cả chunk (`PiperTTSService.isUnspeakable`), không có chốt mức token.
+        let result = merged.joined(separator: "-")
+        return result.isEmpty ? word : result
     }
 
     private static func findMergedIndex(syllables: [String], mergedCount: Int, sylIndex: Int) -> Int {

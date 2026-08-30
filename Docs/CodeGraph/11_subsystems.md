@@ -15,6 +15,13 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ TTS: hai lớp bảo vệ mới cho tiền xử lý (1.3.291)
+
+* **Bất biến "không token nào biến thành rỗng" là hợp đồng mới của cả phân hệ.** Trước đây chỉ có chốt mức chunk (`isUnspeakable` → WAV im lặng) nên token rỗng lọt qua và người dùng nghe **thiếu từ**.
+* **Chuẩn chính tả tiếng Việt vẫn là ràng buộc nhưng không còn là cái cớ để bỏ chữ**: `IPAToVietnameseMapper` chuyển từ "cắt cho hợp lệ" sang "tách thành nhiều âm tiết hợp lệ".
+* **Trường âm tiếng Nhật là quyết định *nghe*, không phải quyết định *chuẩn*** — ghi trong code và trong bộ ca kiểm để lần sau không ai sửa lại theo Hepburn rồi làm giọng tệ đi.
+* **Màn Từ điển TTS có đủ ba hành động hàng loạt**: nhập, xuất, và nay **xoá tất cả** — cùng một dropdown, cùng khuôn modifier với phân hệ Rule Dịch.
+
 ## Phân hệ TTS: tiền xử lý đổi từ "đoán chính tả" sang "tra phát âm" (1.3.290)
 
 * **Ranh giới mới trong phân hệ tiền xử lý**: `TextPreprocessor` (actor) vẫn là chủ pipeline và chủ cache, nhưng ba quyết định trước đây nằm rải trong nó nay có chủ rõ ràng — *phiên âm tiếng Anh* thuộc `EnglishPhonemeTransliterator`, *nhận dạng Nhật/Anh* thuộc `ForeignScriptClassifier`, *có phiên âm hay không* thuộc `VietnameseTokenGate`. `TextPreprocessor.swift` không thêm một dòng nào (baseline 1121).

@@ -383,7 +383,10 @@ final class EnglishTransliterator {
             return i
         }.filter { !$0.isEmpty }
 
-        return g.joined(separator: "-")
+        // Không bao giờ trả rỗng: một token biến thành "" là **mất chữ** khi đọc. Bộ luật này cắt phụ
+        // âm cuối và lọc âm tiết rỗng nên chuỗi rỗng là kết quả có thật, không phải giả định.
+        let joined = g.joined(separator: "-")
+        return joined.isEmpty ? word : joined
     }
 }
 
