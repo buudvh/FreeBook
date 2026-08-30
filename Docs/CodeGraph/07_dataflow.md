@@ -15,6 +15,24 @@ Tài liệu này theo dõi chi tiết đường đi của dữ liệu qua các t
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Bản nháp rule: một dòng đi qua đúng pipeline thật (1.3.288)
+
+```text
+pattern + replacement (đang gõ)
+  └─ QuickTranslationRuleRecordStore.serialize([Record])      → "pattern = replacement"
+       └─ QuickTranslationRuleParser.parse                    → captureCount, issues cú pháp
+            └─ QuickTranslationRuleCompiler.compile           → issues hợp đồng (hard/warning)
+                 └─ parseTemplate(replacement)                → {i} nào đang được tham chiếu
+                      └─ Analysis { captureCount, referenced, missing, outOfRange, issues }
+                           ├─ CaptureChipsView   (chip {i}, đỏ = chưa dùng)
+                           └─ DraftIssuesView    (mọi issue, sắp theo severity)
+```
+
+* **Không có nhánh validate thứ hai.** Verdict lúc gõ dùng đúng `serialize → parse → compile` mà `QuickTranslationRuleRecordStore.validRecords` dùng lúc ghi file, nên không thể có trạng thái "ở đây xanh mà lưu vẫn đỏ". Kể cả trường hợp mẫu chứa dấu `=`: định dạng file cắt ở dấu `=` **đầu tiên** nên mẫu như vậy vốn không biểu diễn được, và bản nháp hiện đúng cái sai đó ngay thay vì đợi tới lúc lưu.
+* **Ngoại lệ đã biết**: `DUPLICATE_PATTERN` chỉ phát hiện được khi so với cả file, còn bản nháp chỉ có một dòng — nên trùng mẫu vẫn chỉ báo lúc lưu, và ngữ nghĩa lúc đó là *đè vế phải*, không phải lỗi.
+* **`Segment` là đường dữ liệu thứ hai, thuần văn bản.** `segments(of: pattern)` cắt **văn bản nguồn** (không đi theo AST): `<…>?` là một chip token, `(`/`|`/`)`/`)?` là chip cú pháp, `\x` giữ nguyên 2 ký tự trong một chip, còn lại là từng ký tự. Cắt phẳng nên token nằm trong `(a|<n>)` vẫn chọn/sửa được, và `tokenOrdinal` khớp `captureIndex` của parser vì cả hai đánh số theo thứ tự xuất hiện từ trái sang phải.
+* **`TokenSpec` là cầu hai chiều cho một token**: `tokenSpec(of:)` đọc `<names:min-max>?` (kẹp về vùng hợp lệ của parser, ép `<L>`/`<hv>` về 1...1), `syntax` ghi lại — bỏ `:spec` khi trùng mặc định `1...12`, dùng `:N` khi `min == max`. Mẫu vì vậy không phình thêm ký tự nào so với người gõ tay.
+
 ## Token số mở rộng `<h>`/`<d>` và full-width digits (1.3.287)
 
 * **Bốn loại token số thay cho hai trạng thái digitwise `Bool`.** `Kind` của parser/compiler/matcher dùng chung `QuickTranslationRuleElement.NumeralKind`: `.chinese`/`.digitwise`/`.hanDigits`/`.asciiDigits` tương ứng `<n>/<y>/<h>/<d>`. Tập ký tự của matcher (`units(for:)`) giờ đắt riêng: `<h>` chỉ `〇零一二两兩三四五六七八九`, `<d>` chỉ `0123456789` + full-width `０..９`. Full-width (U+FF10-FF19) được **ba loại `<n>/<y>/<d>`** nhận và render về ASCII.

@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ Rule Dịch: màn nhập rule thành editor có công cụ (1.3.288)
+
+* **Sheet thêm/sửa rule vẫn là một view dùng chung cho cả hai đường vào** (Check rule trong Reader và danh sách rule ở Cài đặt), và cả hai đường **không đổi một dòng nào** ở call site: bản nháp, bảng token, thanh min–max và chip `{i}` đều nằm trong sheet.
+* **Ranh giới mới của phân hệ: `QuickTranslationRuleDraftAnalyzer` là điểm chạm duy nhất giữa UI nhập liệu và engine rule.** Mọi câu hỏi của màn nhập ("mẫu có mấy token", "`{i}` nào thiếu", "rule này có lưu được không", "chip của mẫu là gì", "token này min-max bao nhiêu") đi qua nó; sheet không tự parse cú pháp và không tự đặt lại hằng số nào của parser.
+* **Cấu hình token rule trở thành thông tin hiển thị ở màn nhập.** Bảng token đọc `QuickTranslationRuleTokenSettings.isEnabled(_:)` để làm mờ token đang tắt — người dùng không còn viết được một rule mà không hiểu vì sao nó im lặng không chạy. Bảng dựng từ `Kind.allCases` nên phân hệ chỉ có **một** danh sách token (thêm `<h>`/`<d>` ở 1.3.287 tự xuất hiện ở đây).
+* **Chủ sở hữu presentation trong Reader gọn lại một bậc.** `ruleToolsOverlay` từng gắn **hai** `.sheet` lên cùng một ZStack (hướng dẫn Check rule + thêm/sửa rule); nay sheet hướng dẫn gắn vào chính panel Check rule đã mở nó, còn ZStack chỉ giữ sheet thêm/sửa rule. Một view chỉ có một chỗ trình bày.
+* **Phân hệ Reader không nhận thêm state nào**: `ruleEditorMode`, `showingRuleTraceSheet`, `ruleTraces`, `focusedRuleTraceID` giữ nguyên; trạng thái nhập của sheet thuộc phân hệ Rule Dịch, giữ trong store riêng của nó.
+
 ## Dropdown rule đổi nội dung theo tab hiện tại (1.3.286)
 
 * **Phân hệ Rule Dịch chỉ còn một menu toolbar ở màn danh sách.** `QuickTranslationRuleListView.showingDisabled` được truyền xuống `QuickTranslationRuleIOMenu`: tab Đang bật thao tác file rule thường; tab Đã tắt thao tác danh sách tắt. Vì vậy người dùng không còn thấy hai dropdown `ellipsis.circle` cùng lúc.

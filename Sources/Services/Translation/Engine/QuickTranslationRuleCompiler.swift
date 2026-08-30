@@ -108,7 +108,10 @@ public enum QuickTranslationRuleCompiler {
 
     // MARK: - RHS
 
-    private static func parseTemplate(_ replacement: String) -> [QuickTranslationCompiledRule.TemplateSegment] {
+    /// `internal` chứ không `private`: màn thêm/sửa rule phải hỏi **đúng** hàm này "bản dịch đang
+    /// tham chiếu `{i}` nào" để chấm điểm bản nháp. Cài lại vòng quét `{…}` ở chỗ thứ hai là mở đường
+    /// cho hai nơi hiểu khác nhau về cùng một RHS.
+    internal static func parseTemplate(_ replacement: String) -> [QuickTranslationCompiledRule.TemplateSegment] {
         var segments: [QuickTranslationCompiledRule.TemplateSegment] = []
         var text = ""
         let characters = Array(replacement)

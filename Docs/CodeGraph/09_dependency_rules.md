@@ -15,6 +15,15 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vị trí tầng của 7 file mới cho màn nhập rule (1.3.288)
+
+* **`QuickTranslationRuleDraftAnalyzer` nằm ở `Services/Translation/Engine/`, không phải Views.** Nó là logic thuần: `import Foundation`, **không** `import SwiftUI`, không `ToastManager` — hợp lệ với `SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING`. Đặt nó cạnh `parse`/`compile` mà nó bọc lại giữ đúng chiều Views → Services; nếu đặt ở `Models/` thì Models sẽ phải biết type của Services, tức đảo chiều.
+* **6 file view mới nằm trong `Sources/Views/Settings/Translation/`** cùng chỗ với sheet chúng phục vụ, đều `import SwiftUI` hợp lệ. Không file nào đụng `modelContext` nên `VIEW_SWIFTDATA_MUTATION` không liên quan.
+* **`QuickTranslationRuleDraftStore` là state của tầng Views, không phải Service.** Nó không ghi file, không phát notification, không có `@Published`; chỉ giữ một bản sao trong RAM cho một sheet đang mở. Đặt nó ở Services sẽ tạo một chủ sở hữu trạng thái UI ở tầng dưới mà không ai khác dùng.
+* **Không nới luật kiến trúc nào**: mọi file mới ≤ 400 dòng và có đúng một primary type top-level, nên `architecture_allowlist.json` không thêm entry. `check_architecture.py` giữ **14 violation nền** đã biết, không violation mới.
+* **`parseTemplate` mở từ `private` lên `internal` là cạnh phụ thuộc mới trong cùng tầng Services** (analyzer → compiler), không phải cạnh liên tầng. Lựa chọn còn lại là cài bản quét `{…}` thứ hai — tức hai nơi hiểu khác nhau về cùng một RHS.
+* **`ReaderView.swift` không nhận thêm dòng nào**: nó đang vượt baseline `FILE_SIZE_LIMIT` (2076 > 2053) nên chỉ được giảm. Đây là lý do trạng thái bản nháp phải sống trong store riêng thay vì `@State` của `ReaderView` — `@State` không khai được trong extension.
+
 ## Gộp menu rule trong tầng Views (1.3.286)
 
 * **Chỉ đổi presentation ở tầng Views.** `QuickTranslationRuleListView` vẫn phụ thuộc xuống các store rule như trước, nhưng chỉ gắn một `QuickTranslationRuleIOMenu(scope:showingDisabled:)`; giá trị `showingDisabled` quyết định nhánh menu hiển thị. Không thêm cạnh từ Services lên Views và không đổi API store.

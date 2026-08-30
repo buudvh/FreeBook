@@ -15,6 +15,14 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng đời slot bản nháp của màn nhập rule (1.3.288)
+
+* **Một slot duy nhất, không phải cache theo rule.** `QuickTranslationRuleDraftStore` giữ đúng một cặp `(currentID, currentDraft)`; mở một `Mode.id` khác là ghi đè. Vì vậy bộ nhớ bị chặn bằng **một** bản nháp (hai `String` ngắn + vài `Int`) bất kể người dùng mở bao nhiêu rule, và không cần cơ chế evict nào.
+* **Không có đường rò**: `store()` chạy mỗi thay đổi, `clear()` chạy ở lưu thành công và ở nút Hủy. Nếu người dùng vuốt xuống đóng sheet, slot **cố ý** còn lại — nó bị thu hồi ở lần mở rule khác hoặc khi app tắt (state chỉ nằm trong RAM, không ghi đĩa, không `UserDefaults`).
+* **Vì sao không dọn ở `onDisappear`**: lượt SwiftUI dựng lại content của sheet có thể kèm một lần disappear, nên dọn ở đó sẽ tự ăn mất bản nháp — đúng thứ đang phải chữa. Đây là lý do vòng đời được neo vào **hành động của người dùng**, không vào lifecycle của view.
+* **Không thêm tài nguyên nào khác**: không task, timer, file, cache đĩa, buffer hay observer. `NSLock` trong store chỉ bảo vệ hai biến và không bao giờ giữ qua một lời gọi khác.
+* **Chi phí thường trực của màn nhập là một lượt `parse` + `compile` trên đúng một dòng cho mỗi keystroke** — cùng bậc với việc gõ vào một `TextField`, không giữ tài nguyên nào giữa hai lần gõ. `ForEach` của section Kiểm tra dùng `id: \.offset` chứ không `QuickTranslationRuleIssue.id` (một `UUID` mới mỗi lượt compile), nên hàng không bị remove/insert theo từng ký tự.
+
 ## Không tài nguyên mới khi đồng bộ màu preparing highlight (1.3.278)
 
 * Lượt này chỉ bỏ alpha riêng của preparing highlight và dùng lại màu highlight theme/config hiện có. Không thêm state, task, timer, cache, file hay buffer.

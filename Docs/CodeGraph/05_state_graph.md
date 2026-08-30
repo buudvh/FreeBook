@@ -15,6 +15,16 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Bản nháp và vùng chọn của màn thêm/sửa rule (1.3.288)
+
+* **`@State` của sheet không còn là nơi cuối cùng giữ chữ đang gõ.** Nguồn sự thật cho `TextField` vẫn là `@State`, nhưng nó được mirror sang `QuickTranslationRuleDraftStore` ở mỗi thay đổi (`.onChange(of: currentDraft)`) và `init` seed lại từ đó. Vì vậy một lượt SwiftUI dựng lại content của sheet — thứ đang xảy ra khi Reader tự chuyển chương lúc đang nghe — không còn xoá trạng thái nhập.
+* **Store cố ý không phải `ObservableObject`**: nó chỉ là bản sao để khôi phục. Phát `objectWillChange` mỗi keystroke chỉ thêm một lượt invalidate vô ích.
+* **Vòng đời slot bản nháp**: `store()` mỗi thay đổi → `clear()` **chỉ** khi lưu thành công hoặc bấm Hủy. Mở một `Mode.id` khác ⇒ slot cũ bị ghi đè (một slot duy nhất, không rò). Đóng sheet bằng vuốt xuống **giữ** bản nháp, nên mở lại đúng rule đó thì chữ còn nguyên — trạng thái trung gian này là hợp lệ và có chủ ý.
+* **`selectionStart`/`selectionLength` là chỉ số ký tự trên `Array(pattern)`**, không phải UTF-16 và không phải `String.Index`: mọi thao tác ở màn này là chèn/thay chuỗi trong RAM, không trao range nào cho UIKit. `length == 0` nghĩa là con trỏ chèn; `length > 0` là vùng chọn. Thanh min–max chỉ mở khi vùng chọn trùng **khít** một chip token.
+* **`isProgrammaticPatternEdit` là cờ dùng-một-lần** phân biệt hai nguồn sửa mẫu: gõ tay vào `TextField` ⇒ `reconcileSelection` đưa con trỏ về cuối (đúng thứ tay người dùng đang làm); nút chèn/sửa token ⇒ giữ nguyên vùng chọn nút vừa đặt, nếu không thanh min–max sẽ tự đóng ngay sau khi chèn token. Cờ được tiêu thụ và reset ngay trong `.onChange(of: pattern)`.
+* **`@FocusState` được khôi phục ở `onAppear`** theo `focus` của bản nháp: giữ chữ mà vẫn tụt bàn phím mỗi lần chuyển chương thì trạng thái nhập vẫn coi như bị gián đoạn.
+* `didRestoreDraft` là cờ chỉ-đọc do `init` tính, log **một lần mỗi identity** ở `onAppear` (không log trong `init` — `init` chạy lại theo mỗi lượt body của view chủ). Đây là đầu dò để lần sau chẩn đoán được *nguyên nhân* SwiftUI dựng lại sheet, không phải chỉ triệu chứng.
+
 ## Preparing highlight trùng màu active highlight (1.3.278)
 
 * `highlightIsPreparing` vẫn là state render cấp card/text-view để diff UIKit đúng khi chuyển preparing → active dù `NSRange` giống nhau, nhưng nó **không còn đổi màu**.

@@ -15,6 +15,14 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số dòng sau lượt 1.3.288
+
+* **Thêm 7 file Swift** (406 → **413**), tất cả ≤ 400 dòng và đúng một primary type top-level: `QuickTranslationRuleDraftAnalyzer` 238, `QuickTranslationRuleTokenLengthBar` 132, `QuickTranslationRulePatternStripView` 123, `QuickTranslationRuleTokenPaletteView` 111, `QuickTranslationRuleCaptureChipsView` 82, `QuickTranslationRuleDraftStore` 66, `QuickTranslationRuleDraftIssuesView` 57.
+* **File sửa**: `QuickTranslationRuleEditorSheet` 179 → **374** (còn 26 dòng trước trần 400 — phần Kiểm tra đã được tách sang file riêng chính vì lý do này), `ReaderView+RuleTools` 297 → **299**, `QuickTranslationRuleCompiler` 316 → **319**. `ReaderView.swift` **không** thêm dòng nào: nó đang vượt baseline (2076 > 2053) nên chỉ được giảm — đó cũng là ràng buộc quyết định thiết kế (bản nháp phải sống trong store ngoài, vì `@State` không khai được trong extension).
+* **Độ phức tạp lúc chạy**: mỗi keystroke ở màn nhập chạy `serialize → parse → compile` trên **một** dòng và `segments(of:)` một lần — tuyến tính theo độ dài mẫu (thực tế < 40 ký tự), không đụng từ điển, không I/O. Không có vòng lặp lồng nào mới; `segments` là một lượt quét con trỏ đơn.
+* **Nợ có chủ ý được ghi nhận**: `insertCapture` chèn `{i}` vào **cuối** ô Bản dịch (không có con trỏ cho ô đó); dải chip chỉ dựng cho ô Mẫu. Nếu sau này cần con trỏ cho cả hai ô thì phải bọc `UITextView` — iOS 17 không cấp `TextSelection`.
+* `check_architecture.py` giữ **14 violation nền** đã biết, không violation mới. Host Windows không build được: tính đúng đắn biên dịch phải do CI/macOS xác nhận.
+
 ## Số dòng sau lượt 1.3.287
 
 * **Không thêm file Swift**: chỉ sửa 7 file engine/view setting. Tất cả giữ ≤ 400 dòng: `QuickTranslationRuleParser` 361, `QuickTranslationRuleCompiler` 316, `QuickTranslationRuleMatcher` 244, `QuickTranslationNumberFormatter` 161 (112 → **161**, +49 cho các loại số mới + full-width), `QuickTranslationRuleElement` 146 (132 → **146**), `QuickTranslationRuleTokenSettings` 68 (64 → **68**), `QuickTranslationRuleTokenSettingsView` 67 (63 → **67**). Không file nào vào bảng 1.1, không baseline nào bị sửa.

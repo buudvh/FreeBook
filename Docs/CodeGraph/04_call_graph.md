@@ -15,6 +15,33 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Nhập nhanh ở màn thêm/sửa rule (1.3.288)
+
+```text
+QuickTranslationRuleEditorSheet.body
+  ├─ QuickTranslationRuleDraftAnalyzer.segments(of: pattern)      → [Segment] (chip)
+  ├─ QuickTranslationRuleDraftAnalyzer.analyze(pattern:replacement:)
+  │     └─ RecordStore.serialize → RuleParser.parse → RuleCompiler.compile
+  │           └─ RuleCompiler.parseTemplate(replacement)  (internal từ 1.3.288)
+  ├─ PatternStripView   → chạm chip  → selectionStart/Length = chip.range
+  │                     → chạm vạch  → selectionLength = 0
+  │                     → onDeleteBackward → deleteBackwardInPattern()
+  ├─ TokenPaletteView   → onInsert("<n>") → insertIntoPattern() → setPattern()
+  ├─ TokenLengthBar     → onChange(spec) → applyTokenSpec()     → setPattern()
+  │                        (spec đọc bằng Analyzer.tokenSpec(of: segment.text))
+  └─ CaptureChipsView   → onInsert(i)   → replacement += "{i}"
+
+setPattern() → isProgrammaticPatternEdit = true → pattern/selection mới
+  └─ .onChange(of: pattern) → reconcileSelection(after:)   (kẹp biên, giữ vùng chọn)
+
+.onChange(of: currentDraft) → DraftStore.store(draft, for: mode.id)
+init                        → DraftStore.draft(for: mode.id)  → seed @State
+Hủy / submit(.success)      → DraftStore.clear(id: mode.id)
+```
+
+* **Đường Reader không đổi cạnh nào**: `onAddRule`/`.edit` vẫn set `ruleEditorMode`, `saveRuleFromEditor` vẫn là closure `onSubmit`. Chỉ `.sheet(isPresented: $showingRuleGuide)` dời từ ZStack ngoài xuống panel Check rule.
+* `insertIntoPattern` **thay** vùng đang chọn khi có chọn, chèn tại con trỏ khi không — cùng một hàm cho cả hai, nên không có đường nào bỏ sót việc cập nhật vùng chọn sau khi sửa mẫu.
+
 ## Màu preparing highlight dùng chung đường active highlight (1.3.278)
 
 ```text

@@ -15,6 +15,27 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Màn nhập rule: 6 file mới cho bản nháp + 3 công cụ nhập nhanh (1.3.288)
+
+| File mới | Tầng | Vai trò | Dòng |
+|---|---|---|---|
+| [`Services/Translation/Engine/QuickTranslationRuleDraftAnalyzer.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleDraftAnalyzer.swift) | Services | chấm điểm bản nháp (`Analysis`), cắt mẫu thành `Segment`, đọc/ghi `TokenSpec` | 238 |
+| [`Views/Settings/Translation/QuickTranslationRuleDraftStore.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleDraftStore.swift) | Views | một slot bản nháp theo `Mode.id`, sống ngoài cây view | 66 |
+| [`Views/Settings/Translation/QuickTranslationRulePatternStripView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRulePatternStripView.swift) | Views | dải chip của mẫu: con trỏ, chọn chip, xoá lùi | 123 |
+| [`Views/Settings/Translation/QuickTranslationRuleTokenPaletteView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleTokenPaletteView.swift) | Views | 10 nút token + 4 nút cú pháp nhóm | 111 |
+| [`Views/Settings/Translation/QuickTranslationRuleTokenLengthBar.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleTokenLengthBar.swift) | Views | `[−] min [+]` / `[−] max [+]` bước 1 + công tắc `?` | 132 |
+| [`Views/Settings/Translation/QuickTranslationRuleCaptureChipsView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleCaptureChipsView.swift) | Views | chip `{0}…{n-1}`, tô đỏ chip chưa dùng | 82 |
+| [`Views/Settings/Translation/QuickTranslationRuleDraftIssuesView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleDraftIssuesView.swift) | Views | section Kiểm tra: mọi issue theo severity | 57 |
+
+| File sửa | Thay đổi | Dòng |
+|---|---|---|
+| [`Views/Settings/Translation/QuickTranslationRuleEditorSheet.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleEditorSheet.swift) | seed/mirror bản nháp, `@FocusState`, vùng chọn, 4 subview mới, section Kiểm tra | 179 → **374** |
+| [`Views/Reader/Extensions/ReaderView+RuleTools.swift`](../../Sources/Views/Reader/Extensions/ReaderView+RuleTools.swift) | sheet hướng dẫn dời xuống panel Check rule | 297 → **299** |
+| [`Services/Translation/Engine/QuickTranslationRuleCompiler.swift`](../../Sources/Services/Translation/Engine/QuickTranslationRuleCompiler.swift) | `parseTemplate` `private` → `internal` (+3 dòng doc) | 316 → **319** |
+
+* Tổng file Swift **413** (406 + 7). Mọi file mới ≤ 400 dòng, đúng **một** primary type top-level (các `Segment`/`TokenSpec`/`Analysis`/`Draft`/`Field` đều là type lồng).
+* Chiều phụ thuộc giữ nguyên Views → Services: analyzer nằm ở Services, không `import SwiftUI`; 6 file view mới chỉ đọc type của analyzer.
+
 ## Token số `<h>`/`<d>` + full-width digits (1.3.287)
 
 | File sửa | Vai trò | Dòng |

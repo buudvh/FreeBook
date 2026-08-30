@@ -227,11 +227,13 @@ extension ReaderView {
                         onClose: { closeRuleTracePanel() }
                     )
                 }
+                // Gắn vào chính panel Check rule chứ không lên ZStack ngoài: một view chỉ có **một**
+                // chỗ trình bày, mà ZStack ngoài đã phải giữ sheet thêm/sửa rule.
+                .sheet(isPresented: $showingRuleGuide) {
+                    ReaderRuleTraceGuideSheet()
+                }
                 .zIndex(8)
             }
-        }
-        .sheet(isPresented: $showingRuleGuide) {
-            ReaderRuleTraceGuideSheet()
         }
         .sheet(item: $ruleEditorMode) { mode in
             QuickTranslationRuleEditorSheet(
