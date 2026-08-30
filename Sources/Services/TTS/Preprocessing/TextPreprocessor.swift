@@ -989,7 +989,7 @@ final actor TextPreprocessor {
                             if JapaneseTransliterator.isJapaneseRomaji(currentPart) {
                                 partsResult += JapaneseTransliterator.transliterateRomaji(currentPart)
                             } else {
-                                partsResult += EnglishTransliterator.transliterateWord(currentPart)
+                                partsResult += EnglishPhonemeTransliterator.transliterate(currentPart)
                             }
                         } else {
                             partsResult += currentPart
@@ -1006,7 +1006,7 @@ final actor TextPreprocessor {
                     if JapaneseTransliterator.isJapaneseRomaji(currentPart) {
                         partsResult += JapaneseTransliterator.transliterateRomaji(currentPart)
                     } else {
-                        partsResult += EnglishTransliterator.transliterateWord(currentPart)
+                        partsResult += EnglishPhonemeTransliterator.transliterate(currentPart)
                     }
                 } else {
                     partsResult += currentPart
@@ -1014,7 +1014,7 @@ final actor TextPreprocessor {
             }
             transliterated = partsResult
         } else {
-            transliterated = EnglishTransliterator.transliterateWord(cacheKey)
+            transliterated = EnglishPhonemeTransliterator.transliterate(cacheKey)
         }
 
         storeTransliteration(transliterated, for: cacheKey)
@@ -1076,7 +1076,7 @@ final actor TextPreprocessor {
             var lastOffset = 0
 
             // Self.preprocessLog("🚀 [Preprocess] Step 2b: Processing individual non-Vietnamese tokens...")
-            for match in matches {
+            for (tokenIndex, match) in matches.enumerated() {
                 if match.range.location > lastOffset {
                     let gapRange = NSRange(location: lastOffset, length: match.range.location - lastOffset)
                     result += nsString.substring(with: gapRange)
@@ -1096,7 +1096,7 @@ final actor TextPreprocessor {
                 let processedToken: String
                 if isTranslatedByDict {
                     processedToken = token
-                } else if runtimeConfig.transliterationEnabled && token.count > 1 && token != "mc" && !VietnameseWordChecker.isVietnameseWord(token) {
+                } else if runtimeConfig.transliterationEnabled && token.count > 1 && token != "mc" && VietnameseTokenGate.shouldTransliterate(token, at: tokenIndex, in: matches, source: nsString) {
                     // Tự động chuẩn hóa dấu phụ (ví dụ: ryū -> ryu, arigatō -> arigato)
                     processedToken = transliterateToken(token, config: runtimeConfig)
                 } else {

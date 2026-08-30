@@ -1,6 +1,17 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.259) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.260) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.260] - 2026-08-24
+
+### Tự sao lưu Drive, nút tìm ra header, thông báo đã đọc, nút back không chữ
+
+Bốn thay đổi UX/nền độc lập. Thêm **4** file Swift, **không** `@Model` nào đổi shape, **không** thêm dependency. Chưa biên dịch (Windows).
+
+* **Nút tìm trong chương ra ngoài header**, đứng cạnh nút bật/tắt cuộn theo TTS thay vì nằm trong menu `ellipsis` (`ReaderHeaderFooterOverlayView`, `ReaderView`, `ReaderView+Controls`).
+* **Trung tâm thông báo**: bấm vào một thông báo ⇒ chỉ thông báo đó thành đã đọc (`NotificationInboxManager.markRead(_:)`, không ghi đĩa lại nếu đã đọc). `clearAll()` được **thay** bằng `deleteUnread() -> Int` — theo đúng yêu cầu "xoá tất cả thông báo chỉ xoá thông báo chưa đọc", nên phần **đã đọc** được giữ lại như nhật ký và nút đổi nhãn theo nghĩa mới (`hasUnread`).
+* **Bỏ chữ ở nút back mọi màn hình**: file mới `Sources/Common/Utils/NavigationBarAppearance.swift` — `applyTitlelessBackButton()` đặt màu chữ trong suốt cho **cả bốn** trạng thái của `backButtonAppearance` trên `UINavigationBar.appearance()`, sửa tại chỗ đối tượng appearance đang có để giữ nền mờ mặc định. Không dùng `UIBarButtonItem.appearance()` (sẽ xoá luôn chữ "Đóng"/"Xong"/"Huỷ"), không dùng `navigationBarBackButtonDisplayMode(.minimal)` (API iOS 18). Gọi một lần ở `FreeBookApp.init()`. Hai nút *hành động* nhãn "Quay lại" trong nội dung (`BookDetailView.swift:611`, `ReaderView+LoadingView.swift:90`) **giữ nguyên** — chúng không phải nút back của thanh điều hướng.
+* **Tự động sao lưu lên Google Drive, giữ 5 bản gần nhất**: file mới `DriveAutoBackupPolicy` (nguồn duy nhất của chính sách chạy: `.cooldown`/`.daily`, `maxVersions = 5`, hoãn 25 s sau khởi động, nhóm mặc định `books/extensions/dictBooks/dictCustom` — cố ý bỏ `.content` và `.dictShared`), `BackupCoordinator+AutoDrive` (thân việc, **trả về** `AutoDriveBackupOutcome`) và `DriveAutoBackupSettingsView`. Đúng khuôn lượt kiểm tra chương mới: `MainTabView.task` là điểm phát duy nhất và là nơi hiện toast, nên `Sources/Services/**` vẫn không gọi `ToastManager`. Bản thứ 6 trở đi (cũ nhất trước) bị xoá ngay sau khi bản mới tải lên xong.
 
 ## [1.3.259] - 2026-08-23
 

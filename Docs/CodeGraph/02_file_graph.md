@@ -15,6 +15,28 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Phiên âm Anh/Nhật: 6 file mới, 5 file sửa (1.3.290)
+
+| File mới | Tầng | Vai trò | Dòng |
+|---|---|---|---|
+| [`Services/TTS/Preprocessing/IPAToVietnameseMapper.swift`](../../Sources/Services/TTS/Preprocessing/IPAToVietnameseMapper.swift) | Services | IPA → âm tiết Việt hợp lệ (onset/nucleus/coda + chuẩn hoá `c/k/g/gh`) | 182 |
+| [`Services/TTS/Preprocessing/EnglishPhonemeTransliterator.swift`](../../Sources/Services/TTS/Preprocessing/EnglishPhonemeTransliterator.swift) | Services | espeak `en-us` → IPA → mapper, dự phòng về bộ luật cũ | 67 |
+| [`Services/TTS/Preprocessing/ForeignScriptClassifier.swift`](../../Sources/Services/TTS/Preprocessing/ForeignScriptClassifier.swift) | Services | chấm điểm Nhật/Anh thay cho blacklist | 189 |
+| [`Services/TTS/Preprocessing/VietnameseTokenGate.swift`](../../Sources/Services/TTS/Preprocessing/VietnameseTokenGate.swift) | Services | cổng "là từ tiếng Việt" theo ngữ cảnh láng giềng | 106 |
+| [`Services/TTS/Preprocessing/TransliterationGoldenSet.swift`](../../Sources/Services/TTS/Preprocessing/TransliterationGoldenSet.swift) | Services | ~55 ca kiểm định hướng, dữ liệu thuần | 114 |
+| [`Views/Settings/TTS/TTSTransliterationTesterView.swift`](../../Sources/Views/Settings/TTS/TTSTransliterationTesterView.swift) | Views | màn Thử phiên âm: probe giọng, soi một từ, chạy ca kiểm | 277 |
+
+| File sửa | Thay đổi | Dòng |
+|---|---|---|
+| [`Services/TTS/EspeakPhonemizer.swift`](../../Sources/Services/TTS/EspeakPhonemizer.swift) | tách `initializeIfNeeded`/`textToPhonemes`, thêm `phonemizeEnglish` (đặt giọng `en-us` rồi trả về `vi` trong `defer`) và `probeVoices` | 141 → **193** |
+| [`Services/TTS/Preprocessing/JapaneseTransliterator.swift`](../../Sources/Services/TTS/Preprocessing/JapaneseTransliterator.swift) | xoá `englishBlacklist` (92 dòng) + `simplifySokuon` chết (18 dòng); sửa `ya/yu/yo`; trường âm `ー`; thêm katakana hiện đại | 411 → **320** |
+| [`Services/TTS/Preprocessing/EnglishTransliterator.swift`](../../Sources/Services/TTS/Preprocessing/EnglishTransliterator.swift) | 3 alternation bọc ngoặc, `else if` cho tiền tố y/d, dời `ck`/`sh` xuống `tRules` | 383 → **390** |
+| [`Services/TTS/Preprocessing/TextPreprocessor.swift`](../../Sources/Services/TTS/Preprocessing/TextPreprocessor.swift) | 5 sửa **tại chỗ**: 3 call site sang `EnglishPhonemeTransliterator`, vòng lặp lấy `tokenIndex`, cổng sang `VietnameseTokenGate` | 1121 → **1121** |
+| [`Services/TTS/NghiTTS/NghiTTSClient.swift`](../../Sources/Services/TTS/NghiTTS/NghiTTSClient.swift) | `downloadDictionaries` trộn thay vì ghi đè `non-vietnamese-words.plist` | 175 → **188** |
+
+* Tổng file Swift **421** (415 + 6). `TextPreprocessor.swift` và `JapaneseTransliterator.swift` đang ở/vượt trần baseline nên mọi logic mới nằm ở file mới; hai file đó chỉ sửa tại chỗ hoặc **giảm** dòng.
+* Chiều phụ thuộc: 5 file Services mới không `import SwiftUI`; `EnglishPhonemeTransliterator` → `EspeakPhonemizer` là cạnh mới **trong** tầng Services, không có cạnh ngược từ Views.
+
 ## Con trỏ thật cho ô nhập mẫu: 2 file mới (1.3.289)
 
 | File mới | Tầng | Vai trò | Dòng |

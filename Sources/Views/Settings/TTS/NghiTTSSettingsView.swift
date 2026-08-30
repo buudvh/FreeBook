@@ -22,6 +22,10 @@ struct NghiTTSSettingsView: View {
                 Toggle("Chuẩn hóa cách đọc số", isOn: $preprocessorNumericNormalizationEnabled)
                 Toggle("Áp dụng thay thế từ điển", isOn: $preprocessorDictionaryReplacementEnabled)
                 Toggle("Phiên âm tiếng Anh/Nhật", isOn: $preprocessorTransliterationEnabled)
+
+                NavigationLink(destination: TTSTransliterationTesterView()) {
+                    Label("Thử phiên âm", systemImage: "waveform.and.magnifyingglass")
+                }
             }
             
             Section("Cấu hình khoảng ngắt (giây)") {

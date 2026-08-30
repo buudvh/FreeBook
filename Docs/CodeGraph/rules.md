@@ -15,6 +15,17 @@ Tài liệu này tổng hợp các quy tắc lập trình, quy định bảo tr�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## TTS transliteration invariants (1.3.290)
+
+* **espeak voice must always be restored to `vi`.** Any entry point that calls `espeak_SetVoiceByName` with another language must restore `vi` in a `defer` **inside the same `NSLock` critical section** before returning. Piper synthesis assumes Vietnamese phonemes; a leaked voice change corrupts every later utterance and the symptom surfaces long after the cause.
+* **All espeak access goes through `EspeakPhonemizer`.** Do not call `libespeak_ng` from anywhere else: the initialization flag, the lock and the voice invariant live in that one type. New needs get a new entry point there, not a second engine owner.
+* **Do not "fix" transliteration by growing the word blacklist.** Recognizing Japanese romaji versus English is a scoring problem in `ForeignScriptClassifier`; the set of English words that happen to segment into valid romaji syllables is unbounded, so an exclusion list can only ever chase the last report. Adjust signals or `japaneseThreshold`, and re-run `TransliterationGoldenSet` from the Thử phiên âm screen.
+* **Transliterator output must be legal Vietnamese orthography.** The result is fed back into espeak (`vi`) for Piper, so onset/coda combinations that Vietnamese does not allow are silently mispronounced. `IPAToVietnameseMapper.legalOnset`/`legalCoda`/`normalize` are the only place that guarantee this; new phoneme entries must pass through them rather than emitting raw strings.
+* **Rule cascade order in `EnglishTransliterator` is load-bearing.** `sRules` → `rRules` → `tRules` run on the *same progressively rewritten* string, so a rule that collapses a digraph (`ck`, `sh`) must not run before the suffix rules that need that digraph. Any new rule must state which stage it belongs to and why.
+* **Regex alternation must be grouped.** `"\bcr|pr|gr"` anchors only the first branch; always write `"\b(?:cr|pr|gr)"`. This class of bug silently rewrote mid-word clusters for a long time.
+* **Never overwrite `non-vietnamese-words.plist` wholesale.** It holds both the downloaded base dictionary and user-added pronunciations. Downloads must merge with local entries winning.
+* **Verification for this subsystem lives in the app**, not in `Tests/`: `TTSTransliterationTesterView` + `TransliterationGoldenSet`. Changing a phoneme table or a threshold without re-running the golden set is not a verified change.
+
 ## TTS preparing highlight color invariant (1.3.278)
 
 * Preparing highlight and active TTS highlight must use the same configured Reader highlight colors: `theme.highlightUIColor` for background and `theme.highlightTextUIColor` for foreground when available. Do not add a separate alpha, fallback color, or hard-coded preparing color.

@@ -15,6 +15,16 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro của lượt đổi phiên âm Anh/Nhật (1.3.290)
+
+* **Phụ thuộc vào bộ dữ liệu espeak trong bản build.** Đường tiếng Anh mới chỉ chạy khi `voices/en` + `en_dict` có thật trong `espeak-ng-data` đã đóng gói. `build-ipa.yml` hiện giữ chúng, nhưng bước dọn dữ liệu đó là **xoá theo danh sách trắng** — sửa nó mà quên `en_dict` là cả tính năng âm thầm rơi về bộ luật cũ, không có lỗi nào nổ. Bù lại: `probeVoices` ở màn Thử phiên âm báo đỏ ngay, và `phonemizeEnglish` ghi `AppLogger` khi đặt giọng thất bại.
+* **Đổi giọng espeak là trạng thái toàn cục.** `phonemizeEnglish` đặt `en-us` rồi trả `vi` trong `defer`, tất cả bên trong cùng `NSLock` mà `ONNXPiperEngine` dùng. Nếu sau này có ai gọi espeak **ngoài** `EspeakPhonemizer`, hoặc thêm một lối vào không trả giọng, thì Piper sẽ tổng hợp bằng âm vị tiếng Anh — sai giọng toàn bộ, và triệu chứng sẽ xuất hiện *muộn* sau một lần phiên âm.
+* **Chất lượng bảng IPA→Việt chưa được kiểm trên máy thật.** Bảng phủ nguyên âm/phụ âm phổ thông cộng vài ký hiệu riêng của espeak (`ɐ ᵻ ɚ ɫ ɾ`); âm vị lạ bị `tokenize` bỏ qua, nên trường hợp xấu là mất một âm chứ không phải crash. Nhưng "mất một âm" khó phát hiện bằng mắt — đó là việc của bộ ca kiểm.
+* **Bộ phân loại mới đổi hành vi trên *tập từ vô hạn*.** Bỏ blacklist là bỏ một danh sách chắc chắn đúng (~420 từ đã được xác nhận bằng tay) để đổi lấy một hàm chấm điểm tổng quát. Ngưỡng `japaneseThreshold = 2` là con số **chưa được hiệu chỉnh trên dữ liệu thật**, chỉ trên ~24 ca kiểm; rất có thể phải điều chỉnh sau khi đọc thực tế.
+* **Cổng ngữ cảnh có thể phiên âm oan từ tiếng Việt.** Điều kiện "có láng giềng lạ trong ±2 token" sai khi một câu tiếng Việt không dấu chen từ tiếng Anh: "anh Nam gọi taxi" có thể làm "nam" bị phiên âm. Giảm thiểu bằng cửa sổ hẹp + chặn ở dấu kết câu, và bằng việc tiếng Việt viết có dấu dày đặc. Không có cách nào đúng 100% mà không có bộ phân loại ngôn ngữ mức câu.
+* **Trộn từ điển đánh đổi có chủ ý**: mục dưới máy **thắng** bản tải về, nên một chỉnh sai của người dùng sẽ không bị bản cập nhật từ máy chủ sửa lại. Chọn hướng này vì mất một bản cập nhật nhẹ hơn mất dữ liệu người dùng — và trước 1.3.290 thì bản tải về xoá sạch chỉnh tay.
+* **Không có rủi ro âm thanh cũ**: PCM chỉ nằm trong RAM theo phiên nên đổi phiên âm không để lại audio sai trên đĩa. `transliterationCache` bị xoá mỗi khi từ điển đổi.
+
 ## Rủi ro mở rộng widget TTS từ Reader (1.3.277)
 
 * **Rủi ro chính là đặt request ở sai tầng.** Nếu đưa vào `TTSManager.startSpeaking`, tầng Service sẽ biết widget UI và phá ranh giới kiến trúc. Bản này giữ request trong `ReaderView.startTTS(...)`, caller duy nhất của startSpeaking trong `Sources/`.

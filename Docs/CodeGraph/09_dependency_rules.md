@@ -15,6 +15,14 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vị trí tầng của 6 file phiên âm mới (1.3.290)
+
+* **5 file mới nằm ở `Sources/Services/TTS/Preprocessing/`, không `import SwiftUI`** ⇒ hợp lệ với `SERVICE_SWIFTUI_IMPORT`; không file nào gọi `ToastManager` ⇒ hợp lệ với `SERVICE_TOAST_COUPLING`. `TransliterationGoldenSet` là **dữ liệu thuần** nên đặt cạnh thứ nó kiểm chứ không ở tầng Views.
+* **Màn Thử phiên âm là file Views duy nhất được thêm** và nó chỉ đọc API sẵn có của tầng Services (`TextPreprocessor` actor, các transliterator, `EspeakPhonemizer.probeVoices`) — không có cạnh ngược Services → Views.
+* **Cạnh mới trong tầng Services**: `EnglishPhonemeTransliterator` → `EspeakPhonemizer`. Trước đây `EspeakPhonemizer` chỉ có một consumer là `ONNXPiperEngine`; nay có hai, nên cờ khởi tạo và `NSLock` của nó trở thành tài nguyên **chia sẻ** — mọi lối đổi giọng phải trả lại `vi` (xem `13_resource_lifecycle`).
+* **Không nới luật kiến trúc nào**: mọi file mới ≤ 400 dòng và có đúng một primary type top-level. `TextPreprocessor.swift` (baseline 1121) và `JapaneseTransliterator.swift` (baseline 411) đang ở/vượt trần nên chỉ được sửa tại chỗ hoặc giảm dòng — đó là lý do bộ phân loại và cổng ngữ cảnh phải là type riêng thay vì hàm thêm vào chỗ cũ.
+* `check_architecture.py` giữ **14 violation nền**, không violation mới; `architecture_allowlist.json` không thêm entry.
+
 ## Hai file mới của ô nhập mẫu vẫn nằm đúng tầng (1.3.289)
 
 * **`QuickTranslationRulePatternField` là file view duy nhất của phân hệ rule `import UIKit`.** Hợp lệ: nó nằm trong `Sources/Views/**`, nơi `import SwiftUI`/`UIKit` không bị luật nào cấm (luật `SERVICE_SWIFTUI_IMPORT` chỉ áp cho `Sources/Services/**`). Không có logic rule nào bị kéo vào đây — nó chỉ chuyển đổi con trỏ và văn bản.

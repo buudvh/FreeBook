@@ -7,59 +7,111 @@ final class EspeakPhonemizer {
     private static var isInitialized = false // Cờ kiểm tra trạng thái khởi tạo của Espeak engine
     private static let lock = NSLock() // Lock để đồng bộ hóa luồng (vì libespeak-ng không an toàn khi chạy đa luồng song song)
 
+    /// Giọng mặc định của engine. Piper **luôn** cần âm vị tiếng Việt, nên mọi hàm đổi giọng tạm thời
+    /// phải trả lại giọng này trong `defer` — nếu không, một lượt phiên âm tiếng Anh sẽ làm cả phần
+    /// tổng hợp sau đó đọc sai.
+    private static let synthesisVoice = "vi"
+
     /// phonemize: Chuyển một câu văn bản thành chuỗi âm vị tương ứng
     static func phonemize(text: String) throws -> String {
         // Khóa luồng để đảm bảo tại một thời điểm chỉ có duy nhất một tiến trình được tương tác với libespeak-ng
         lock.lock()
         defer { lock.unlock() } // Tự động mở khóa luồng khi kết thúc hàm
 
-        // 1. Thực hiện khởi tạo Espeak engine trong lần chạy đầu tiên
-        if !isInitialized {
-            // Tìm thư mục dữ liệu ngôn ngữ espeak-ng-data trong ứng dụng
-            guard let dataPath = findEspeakDataPath() else {
-                AppLogger.shared.log("🗣️ [EspeakPhonemizer] LỖI: Không tìm thấy thư mục espeak-ng-data.")
-                throw TTSError.internalError("Cannot find espeak-ng-data directory.")
-            }
-            
-            // Lấy thư mục cha của espeak-ng-data vì hàm espeak_Initialize yêu cầu đường dẫn cha này
-            let parentPath = URL(fileURLWithPath: dataPath).deletingLastPathComponent().path
-            
-            // espeak_Initialize: Khởi tạo engine espeak. Trả về tần số mẫu (sample rate) nếu thành công, hoặc số âm nếu lỗi.
-            let sampleRate = espeak_Initialize(AUDIO_OUTPUT_RETRIEVAL, 0, parentPath, 0)
-            guard sampleRate >= 0 else {
-                AppLogger.shared.log("🗣️ [EspeakPhonemizer] LỖI: espeak_Initialize thất bại với mã \(sampleRate)")
-                throw TTSError.internalError("espeak_Initialize failed with code \(sampleRate).")
-            }
-            
-            // espeak_SetVoiceByName: Thiết lập ngôn ngữ đọc. Ở đây chọn 'vi' cho tiếng Việt.
-            let voiceResult = espeak_SetVoiceByName("vi")
-            guard voiceResult.rawValue == 0 else {
-                AppLogger.shared.log("🗣️ [EspeakPhonemizer] LỖI: espeak_SetVoiceByName('vi') thất bại.")
-                throw TTSError.internalError("espeak_SetVoiceByName('vi') failed.")
-            }
-            
-            isInitialized = true // Đánh dấu đã khởi tạo thành công
+        try initializeIfNeeded()
+        return textToPhonemes(text)
+    }
+
+    /// Âm vị IPA của một từ **tiếng Anh**. Dữ liệu `en_dict` + `voices/en` đã được đóng gói trong IPA
+    /// (xem bước dọn dữ liệu espeak của `build-ipa.yml`), nên đây là tra từ điển phát âm thật chứ không
+    /// phải đoán theo chính tả.
+    static func phonemizeEnglish(text: String) throws -> String {
+        lock.lock()
+        defer { lock.unlock() }
+
+        try initializeIfNeeded()
+
+        let voiceResult = espeak_SetVoiceByName("en-us")
+        guard voiceResult.rawValue == 0 else {
+            AppLogger.shared.log("🗣️ [EspeakPhonemizer] LỖI: espeak_SetVoiceByName('en-us') thất bại — bộ dữ liệu thiếu giọng Anh.")
+            throw TTSError.internalError("espeak_SetVoiceByName('en-us') failed.")
+        }
+        defer { _ = espeak_SetVoiceByName(synthesisVoice) }
+
+        return textToPhonemes(text)
+    }
+
+    /// Thử đặt từng giọng rồi trả lại giọng tổng hợp. Dùng cho màn thử phiên âm: máy chạy qua
+    /// LiveContainer không đính được debugger nên đây là cách duy nhất biết `en-us` có thật hay không.
+    static func probeVoices(_ names: [String]) -> [String: Bool] {
+        lock.lock()
+        defer { lock.unlock() }
+
+        do {
+            try initializeIfNeeded()
+        } catch {
+            return [:]
         }
 
-        // 2. Kiểm tra văn bản đầu vào. Nếu không chứa bất kỳ chữ hoặc số nào thì bỏ qua luôn để tiết kiệm tài nguyên
+        var result: [String: Bool] = [:]
+        for name in names {
+            result[name] = espeak_SetVoiceByName(name).rawValue == 0
+        }
+        _ = espeak_SetVoiceByName(synthesisVoice)
+        return result
+    }
+
+    /// Gọi khi đã giữ `lock`.
+    private static func initializeIfNeeded() throws {
+        guard !isInitialized else { return }
+
+        // Tìm thư mục dữ liệu ngôn ngữ espeak-ng-data trong ứng dụng
+        guard let dataPath = findEspeakDataPath() else {
+            AppLogger.shared.log("🗣️ [EspeakPhonemizer] LỖI: Không tìm thấy thư mục espeak-ng-data.")
+            throw TTSError.internalError("Cannot find espeak-ng-data directory.")
+        }
+
+        // Lấy thư mục cha của espeak-ng-data vì hàm espeak_Initialize yêu cầu đường dẫn cha này
+        let parentPath = URL(fileURLWithPath: dataPath).deletingLastPathComponent().path
+
+        // espeak_Initialize: Khởi tạo engine espeak. Trả về tần số mẫu (sample rate) nếu thành công, hoặc số âm nếu lỗi.
+        let sampleRate = espeak_Initialize(AUDIO_OUTPUT_RETRIEVAL, 0, parentPath, 0)
+        guard sampleRate >= 0 else {
+            AppLogger.shared.log("🗣️ [EspeakPhonemizer] LỖI: espeak_Initialize thất bại với mã \(sampleRate)")
+            throw TTSError.internalError("espeak_Initialize failed with code \(sampleRate).")
+        }
+
+        // espeak_SetVoiceByName: Thiết lập ngôn ngữ đọc. Ở đây chọn 'vi' cho tiếng Việt.
+        let voiceResult = espeak_SetVoiceByName(synthesisVoice)
+        guard voiceResult.rawValue == 0 else {
+            AppLogger.shared.log("🗣️ [EspeakPhonemizer] LỖI: espeak_SetVoiceByName('vi') thất bại.")
+            throw TTSError.internalError("espeak_SetVoiceByName('vi') failed.")
+        }
+
+        isInitialized = true // Đánh dấu đã khởi tạo thành công
+    }
+
+    /// Gọi khi đã giữ `lock` và engine đã khởi tạo.
+    private static func textToPhonemes(_ text: String) -> String {
+        // Kiểm tra văn bản đầu vào. Nếu không chứa bất kỳ chữ hoặc số nào thì bỏ qua luôn để tiết kiệm tài nguyên
         guard text.rangeOfCharacter(from: .alphanumerics) != nil else {
             return ""
         }
 
         // Chuyển chuỗi Swift String sang định dạng C-String (UTF-8) để giao tiếp với thư viện C
         guard let cString = text.cString(using: .utf8) else {
-            throw TTSError.badRequest("Invalid UTF-8 text.")
+            return ""
         }
-        
+
         var result = ""
         var iterations = 0
-        
+
         // Trỏ con trỏ bộ nhớ (pointer) để duyệt qua chuỗi văn bản
         cString.withUnsafeBufferPointer { buffer in
             guard let baseAddress = buffer.baseAddress else { return }
             var textPointer: UnsafeRawPointer? = UnsafeRawPointer(baseAddress)
             var lastPointer = textPointer
-            
+
             // Vòng lặp lấy âm vị cho đến khi hết văn bản (textPointer trỏ về nil)
             while textPointer != nil {
                 iterations += 1
@@ -67,18 +119,18 @@ final class EspeakPhonemizer {
                     AppLogger.shared.log("🗣️ [EspeakPhonemizer] CẢNH BÁO: Vượt quá giới hạn vòng lặp")
                     break
                 }
-                
+
                 // espeak_TextToPhonemes: Hàm của thư viện C lấy âm vị của từ/câu tiếp theo từ vị trí con trỏ textPointer.
                 // Hàm này sẽ tự động dịch chuyển textPointer tiến về phía trước sau khi bóc tách xong một đoạn.
                 let phonemesCStr = espeak_TextToPhonemes(&textPointer, 1, 2)
-                
+
                 // Nếu con trỏ không tự dịch chuyển, có nghĩa là gặp ký tự lỗi hoặc bị kẹt -> Thoát vòng lặp để tránh treo app
                 if textPointer == lastPointer {
                     AppLogger.shared.log("🗣️ [EspeakPhonemizer] CẢNH BÁO: Con trỏ textPointer không dịch chuyển")
                     break
                 }
                 lastPointer = textPointer
-                
+
                 if let phonemesCStr {
                     // Chuyển kết quả C-string âm vị nhận được về lại kiểu Swift String
                     let part = String(cString: phonemesCStr)
@@ -91,7 +143,7 @@ final class EspeakPhonemizer {
                 }
             }
         }
-        
+
         return result
     }
 

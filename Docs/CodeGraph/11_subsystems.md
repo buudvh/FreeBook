@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ TTS: tiền xử lý đổi từ "đoán chính tả" sang "tra phát âm" (1.3.290)
+
+* **Ranh giới mới trong phân hệ tiền xử lý**: `TextPreprocessor` (actor) vẫn là chủ pipeline và chủ cache, nhưng ba quyết định trước đây nằm rải trong nó nay có chủ rõ ràng — *phiên âm tiếng Anh* thuộc `EnglishPhonemeTransliterator`, *nhận dạng Nhật/Anh* thuộc `ForeignScriptClassifier`, *có phiên âm hay không* thuộc `VietnameseTokenGate`. `TextPreprocessor.swift` không thêm một dòng nào (baseline 1121).
+* **espeak-ng đổi vai từ "bộ phiên âm cho Piper" thành tài nguyên chia sẻ của cả phân hệ.** Nó vẫn là owner duy nhất của trạng thái espeak (một cờ khởi tạo, một `NSLock`), nhưng nay phục vụ hai mục đích khác nhau và phải tự bảo toàn giọng `vi` cho đường tổng hợp.
+* **`JapaneseTransliterator` thu hẹp về đúng việc dịch âm.** Nó không còn giữ danh sách từ tiếng Anh (một dạng "từ điển ngôn ngữ" lạc chỗ trong một bộ chuyển tự) — `isJapaneseRomaji` giờ chỉ là một dòng gọi sang bộ phân loại, nên hai việc *nhận dạng* và *đọc* tách hẳn và đổi độc lập được.
+* **Từ điển phiên âm người dùng và từ điển máy chủ dùng chung một file nhưng không còn tranh nhau**: `downloadDictionaries` trộn với bản dưới máy. Đây là điểm chạm thứ hai giữa phân hệ TTS và HuggingFace sau các model Piper, và cả hai đều đi qua `ModelStore.rootURL`.
+* **Phân hệ có thước đo riêng trong app.** Màn Thử phiên âm là công cụ chẩn đoán thứ hai của TTS (sau `TTSReplacementManagerView`), theo đúng khuôn `QuickTranslationRuleTesterView` của phân hệ Rule Dịch: dán chuỗi vào, xem từng bước, không phải đoán qua log.
+
 ## Phân hệ Rule Dịch: ô nhập mẫu tự sở hữu con trỏ (1.3.289)
 
 * **Một bridge UIKit mới, phạm vi hẹp có chủ ý.** `QuickTranslationRulePatternField` là điểm duy nhất của phân hệ rule chạm vào UIKit, và nó chỉ làm hai việc: báo con trỏ/vùng chọn thật lên SwiftUI, nhận vùng chọn từ SwiftUI áp xuống. Nó **không** biết token là gì, không parse cú pháp, không đụng store — mọi hiểu biết về rule vẫn nằm ở `QuickTranslationRuleDraftAnalyzer`.

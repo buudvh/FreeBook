@@ -15,6 +15,15 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Trạng thái espeak trở thành tài nguyên chia sẻ (1.3.290)
+
+* **Một engine espeak, một cờ khởi tạo, một `NSLock` — nay có ba lối vào.** `EspeakPhonemizer.phonemize` (Piper), `phonemizeEnglish` (phiên âm tiếng Anh) và `probeVoices` (màn thử nghiệm) đều `lock()` ngay đầu hàm và `initializeIfNeeded()` bên trong lock. Không lối nào khởi tạo lại engine; `espeak_Initialize` vẫn chạy **đúng một lần** cả phiên.
+* **Giọng là trạng thái toàn cục và được trả lại bằng `defer`.** `phonemizeEnglish` đặt `en-us` rồi `defer { espeak_SetVoiceByName("vi") }`; `probeVoices` thử từng giọng rồi trả `vi` trước khi nhả lock. Đây là bất biến của phân hệ: **Piper luôn cần âm vị tiếng Việt**, nên một lối vào quên trả giọng sẽ làm mọi lượt tổng hợp sau đó sai giọng, và triệu chứng xuất hiện muộn (sau một lần phiên âm tiếng Anh) nên rất khó truy.
+* **Không thêm tài nguyên nào phải giải phóng tay**: 5 type mới ở tầng Services đều là `enum` chỉ có hàm static và bảng `let` bất biến — không session, không task, không timer, không file, không buffer. Bảng IPA/âm tiết là hằng số dựng một lần theo `static let` (lazy của Swift), sống cả phiên và không đáng dọn.
+* **Bộ nhớ**: `ForeignScriptClassifier.syllables` là một `Set<String>` ~120 mục dựng một lần; `englishBlacklist` ~420 mục bị **xoá** nên tổng còn nhẹ hơn trước.
+* **Cache không đổi chủ**: `TextPreprocessor.transliterationCache` (LRU) vẫn là chỗ duy nhất cache kết quả phiên âm và vẫn bị xoá sạch mỗi lần `updateWord`/`deleteWord`. `EnglishPhonemeTransliterator` **cố ý không** giữ cache riêng — thêm một tầng nữa là thêm một nguồn sự thật phải nhớ xoá.
+* **Rủi ro vòng đời duy nhất còn lại**: `probeVoices` gọi được từ UI trong lúc TTS đang phát. Nó chạy trong cùng lock nên không chen giữa một lượt phonemize, nhưng nó **giữ lock** vài lần `espeak_SetVoiceByName` liên tiếp — một lượt tổng hợp trùng thời điểm sẽ chờ. Chấp nhận được vì đây là màn chẩn đoán, người dùng bấm tay.
+
 ## Vòng đời slot bản nháp của màn nhập rule (1.3.288)
 
 * **Một slot duy nhất, không phải cache theo rule.** `QuickTranslationRuleDraftStore` giữ đúng một cặp `(currentID, currentDraft)`; mở một `Mode.id` khác là ghi đè. Vì vậy bộ nhớ bị chặn bằng **một** bản nháp (hai `String` ngắn + vài `Int`) bất kể người dùng mở bao nhiêu rule, và không cần cơ chế evict nào.

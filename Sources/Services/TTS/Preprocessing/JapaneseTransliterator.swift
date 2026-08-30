@@ -64,9 +64,24 @@ final class JapaneseTransliterator {
         "ビャ": "bya", "ビュ": "byu", "ビョ": "byo",
         "ピャ": "pya", "ピュ": "pyu", "ピョ": "pyo",
 
-        // Ký tự trường âm
-        "ー": ""
+        // Âm ngoại lai của katakana hiện đại. Thiếu nhóm này thì ký tự lạ được giữ nguyên và trôi
+        // xuống pipeline tiếng Anh, ra chuỗi vô nghĩa.
+        "ヴ": "vu", "ヴァ": "va", "ヴィ": "vi", "ヴェ": "ve", "ヴォ": "vo",
+        "ファ": "fa", "フィ": "fi", "フェ": "fe", "フォ": "fo",
+        "ティ": "ti", "ディ": "di", "トゥ": "tu", "ドゥ": "du",
+        "ウィ": "wi", "ウェ": "we", "ウォ": "wo",
+        "ジェ": "je", "シェ": "she", "チェ": "che",
+
+        // Ký tự trường âm. Xử lý ở `convertToRomaji` (nhân đôi nguyên âm trước) chứ không map ở đây:
+        // map thành "" là **xoá** trường âm, còn map thành một chữ cố định thì sai với mọi hàng khác.
+        "ー": "ー"
     ]
+
+    /// Nguyên âm cuối của một chuỗi romaji, để dựng trường âm cho `ー`.
+    private static func trailingVowel(of romaji: String) -> Character? {
+        guard let last = romaji.last, "aiueo".contains(last) else { return nil }
+        return last
+    }
 
     static func convertToRomaji(_ text: String) -> String {
         let chars = Array(text)
@@ -85,6 +100,15 @@ final class JapaneseTransliterator {
             }
 
             let charStr = String(chars[i])
+
+            // Trường âm: nhân đôi nguyên âm vừa sinh ra ("ラーメン" → "raamen"), không xoá nó.
+            if charStr == "ー" {
+                if let vowel = trailingVowel(of: result) {
+                    result.append(vowel)
+                }
+                i += 1
+                continue
+            }
 
             // Kiểm tra âm ngắt Sokuon (っ/ッ)
             if charStr == "っ" || charStr == "ッ" {
@@ -131,7 +155,9 @@ final class JapaneseTransliterator {
         "ha": "ha", "hi": "hi", "hu": "hư", "he": "hê", "ho": "hô",
         "fu": "phư",
         "ma": "ma", "mi": "mi", "mu": "mư", "me": "mê", "mo": "mô",
-        "ya": "da", "yi": "di", "yu": "du", "ye": "dê", "yo": "dô",
+        // ya/yu/yo là /ja ju jo/. Bản cũ map sang "da/du/dô" — nhưng "d" tiếng Việt đọc /z/ nên
+        // "Yamato" thành /za-ma-to/. Dùng bán nguyên âm "i" mới ra đúng /j/.
+        "ya": "ia", "yi": "i", "yu": "iu", "ye": "iê", "yo": "iô",
         "ra": "ra", "ri": "ri", "ru": "rư", "re": "rê", "ro": "rô",
         "wa": "oa", "wi": "uy", "we": "uê", "wo": "ô",
         "ga": "ga", "gi": "ghi", "gu": "gư", "ge": "ghê", "go": "gô",
@@ -141,102 +167,18 @@ final class JapaneseTransliterator {
         "pa": "pa", "pi": "pi", "pu": "pư", "pe": "pê", "po": "pô",
         "ja": "gia", "ji": "gi", "ju": "giu", "je": "giê", "jo": "giô",
         "a": "a", "i": "i", "u": "ư", "e": "ê", "o": "ô",
+        // Trường âm: `ー` được dựng thành nguyên âm đôi ở `convertToRomaji`, nên bảng phải nhận được
+        // chúng — nếu không, `greedySegment` vỡ và cả từ bị trả về nguyên văn.
+        "aa": "a", "ii": "i", "uu": "ư", "ee": "ê", "oo": "ô",
+        // Âm ngoại lai của katakana hiện đại: ヴ và hàng ファ/フィ/フェ/フォ. Các âm khác (ティ, ジェ,
+        // シェ, チェ) đã có khoá trong bảng gốc nên không khai lại — trùng khoá trong dictionary
+        // literal làm crash lúc chạy.
+        "va": "va", "vi": "vi", "vu": "vu", "ve": "vê", "vo": "vô",
+        "fa": "pha", "fi": "phi", "fe": "phê", "fo": "phô",
         "n": "n"
     ]
 
     private static let validRomajiSyllables: Set<String> = Set(romajiToViSyllable.keys)
-
-    private static let englishBlacklist: Set<String> = [
-        "no", "so", "to", "do", "go", "on", "an", "in", "he", "she", "we", "me",
-        "be", "re", "or", "by", "my", "if", "up", "at", "it", "is", "as", "am",
-        "one", "two", "ten", "run", "ran", "son", "sun", "won", "ton", "gun", "fun",
-        "pan", "pin", "sin", "win", "bin", "ban", "can", "man", "fan", "van", "dan",
-        "age", "ago", "are", "ate", "ape", "use", "ore", "owe", "awe",
-        "sea", "see", "tea", "tee", "bee", "fee", "pea",
-        "too", "woo", "boo", "goo", "moo", "zoo",
-        "pie", "tie", "die", "lie", "vie",
-        "sue", "due", "hue", "rue", "cue",
-        "you", "our", "her", "him", "his", "who",
-        "take", "make", "sake", "wake", "bake", "cake", "fake", "lake", "rake",
-        "name", "same", "came", "game", "fame", "dame", "tame", "lame",
-        "some", "come", "home", "done", "gone", "bone", "tone", "zone", "none",
-        "more", "bore", "core", "fore", "gore", "pore", "sore", "wore", "tore",
-        "page", "sage", "cage", "rage", "wage",
-        "nose", "rose", "pose", "dose", "hose",
-        "side", "wide", "hide", "ride", "tide",
-        "time", "dime", "mime", "lime",
-        "mine", "wine", "dine", "fine", "line", "nine", "pine", "vine",
-        "sure", "pure", "cure",
-        "pipe", "ripe", "wipe",
-        "pike", "hike", "bike", "mike",
-        "note", "vote", "dote",
-        "open", "oven",
-        "upon",
-        "reason", "season", "poison", "prison", "bison",
-        "position", "opinion", "pension", "tension", "session", "mission",
-        "passion", "fashion", "nation", "station", "motion", "notion",
-        "opposite", "sunshine", "someone", "anyone",
-        "imagine", "machine", "routine", "marine", "genuine",
-        "revenue", "continue", "pursue", "issue",
-        "orange", "manage", "passage", "message", "damage", "garage",
-        "surprise", "paradise", "enterprise",
-        "noise", "poise", "raise",
-        "piano", "casino", "volcano",
-        "refuse", "rescue", "statue",
-        "tongue", "unique", "technique",
-        "resume", "costume", "fortune",
-        "ature", "nature", "future", "mature", "posture",
-        "measure", "treasure", "pleasure",
-        "russia", "russian", "siberia",
-        "toronto", "ohio", "waikiki", "oahu",
-        "sudden", "happen", "kitten", "mitten", "bitten", "rotten", "gotten",
-        "women", "woman",
-        "minute", "ribute", "absolute",
-        "were", "here", "mere", "there", "where",
-        "undue", "undo", "unto",
-        "semi", "anti",
-        "originate", "dominate", "nominate", "terminate", "estimate",
-        "situation", "reputation", "population", "operation", "generation",
-        "sensation", "combination", "imagination", "destination",
-        "possession", "opposition", "composition", "proposition",
-        "refugee", "guarantee",
-        "wanton", "pardon",
-        "taboo", "bamboo", "shampoo", "tattoo",
-        "zero", "hero", "nero",
-        "yankee",
-        "yoke", "woke", "joke", "poke", "smoke", "broke", "spoke", "choke",
-        "shake", "shaken",
-        "shore", "share",
-        "since", "once", "hence", "fence", "prince",
-        "bone", "stone", "phone", "throne", "ozone",
-        "remain", "obtain", "contain", "maintain", "sustain", "retain",
-        "pain", "rain", "gain", "main", "vain", "brain", "train", "grain", "drain",
-        "ruin",
-        "basin",
-        "again", "arose", "arrange", "ashore", "aside", "attitude", "aurora",
-        "automaton", "awaken",
-        "beau", "been", "began", "begin", "begun", "beside", "bizarre",
-        "bohemian", "bonanza",
-        "chain", "change", "cherokee", "china", "chinese", "chosen",
-        "dante", "date", "debutante", "desire", "disease", "doggone", "don", "dozen",
-        "eaten", "ego", "emma", "emotion", "endure", "engage",
-        "eurasian", "europe", "eye",
-        "gaze", "geese", "goose",
-        "harrison", "hate", "hawaii", "hawaiian", "hope", "house", "human",
-        "idea", "indian", "insinuate", "intention", "into", "iota", "irate", "iron", "irritation",
-        "japanese", "jeanne", "jesse", "joan", "joe", "jose", "joshua", "junta",
-        "made", "magazine", "massage", "mate", "maui", "mean", "men", "mention",
-        "mirage", "moon", "moore", "moose",
-        "nope", "onto",
-        "patino", "pierre",
-        "rancho", "rate", "refuge", "repose",
-        "seen", "soon", "suppose",
-        "tirade",
-        "wise", "yea", "yukon",
-        "oona", "ooze", "wada", "weren", "unwin",
-        "naomi", "niihau", "dennin", "doane", "hanrahan", "howison", "nakata",
-        "ee", "san"
-    ]
 
     private static func normalizeRomaji(_ word: String) -> String {
         var w = word.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
@@ -246,24 +188,6 @@ final class JapaneseTransliterator {
         }
         w = w.folding(options: .diacriticInsensitive, locale: nil)
         return w
-    }
-
-    private static func simplifySokuon(_ word: String) -> (String, [Int: Character]) {
-        let chars = Array(word)
-        var result: [Character] = []
-        var sokuonBefore: [Int: Character] = [:]
-        var i = 0
-        while i < chars.count {
-            if i < chars.count - 1 && chars[i] == chars[i+1] && !"aeiou".contains(chars[i]) {
-                sokuonBefore[result.count] = chars[i]
-                result.append(chars[i])
-                i += 2
-            } else {
-                result.append(chars[i])
-                i += 1
-            }
-        }
-        return (String(result), sokuonBefore)
     }
 
     private static func greedySegment(_ word: String) -> [String]? {
@@ -299,25 +223,10 @@ final class JapaneseTransliterator {
     }
 
     static func isJapaneseRomaji(_ word: String) -> Bool {
-        if word.count < 2 { return false }
-
-        let normalized = normalizeRomaji(word)
-
-        if englishBlacklist.contains(normalized) { return false }
-
-        for ch in normalized {
-            if "lqvx".contains(ch) { return false }
-        }
-
-        let range = NSRange(location: 0, length: normalized.utf16.count)
-        if PreprocessorRegex.asciiLettersOnly.firstMatch(in: normalized, options: [], range: range) == nil {
-            return false
-        }
-
-        let (simplified, _) = simplifySokuon(normalized)
-        guard let syllables = greedySegment(simplified) else { return false }
-
-        return syllables.count >= 2
+        // Quyết định thuộc `ForeignScriptClassifier`: bản cũ ở đây coi mọi chuỗi cắt được thành âm
+        // romaji là tiếng Nhật rồi chống đỡ bằng `englishBlacklist` ~420 từ vá theo từng ca — tập từ
+        // tiếng Anh cần loại trừ là vô hạn nên cách đó không bao giờ đúng được.
+        ForeignScriptClassifier.isJapaneseRomaji(word)
     }
 
     static func transliterateRomaji(_ word: String) -> String {

@@ -15,6 +15,33 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đường một token đi qua tiền xử lý TTS (1.3.290)
+
+```text
+TextPreprocessor.preprocess(text)                       [actor]
+  0. JapaneseTransliterator.convertToRomaji             kana → romaji (ー → nhân đôi nguyên âm)
+  1. replaceDictionaryWords(.acronym) → (.word)         cụm từ, thắng trước mọi thứ
+  2. vòng token:
+       VietnameseTokenGate.shouldTransliterate(token, at: i, in: matches, source:)
+         ├─ có dấu tiếng Việt        → giữ nguyên
+         ├─ không phải âm tiết Việt  → phiên âm
+         └─ âm tiết mơ hồ           → phiên âm chỉ khi có láng giềng lạ (±2 token)
+       └─ transliterateToken
+            ├─ lookupWord (từ điển phiên âm người dùng)  → thắng
+            ├─ JapaneseTransliterator.isJapaneseRomaji
+            │    └─ ForeignScriptClassifier.classify     điểm ≥ 2 ⇒ Nhật
+            │         → JapaneseTransliterator.transliterateRomaji
+            └─ EnglishPhonemeTransliterator.transliterate
+                 ├─ EspeakPhonemizer.phonemizeEnglish    espeak_SetVoiceByName("en-us")
+                 │    └─ defer: espeak_SetVoiceByName("vi")   ← Piper luôn cần giọng vi
+                 ├─ IPAToVietnameseMapper.transliterate(ipa:)
+                 └─ (rỗng) → EnglishTransliterator.transliterateWord   dự phòng
+```
+
+* **Ba call site tiếng Anh** trong `transliterateToken` (nhánh có dấu `-`/`.` và nhánh thường) đều đổi sang `EnglishPhonemeTransliterator`, nên không có đường nào còn gọi thẳng bộ luật chính tả trừ chính nhánh dự phòng.
+* `EspeakPhonemizer` giờ có **ba** lối vào cùng chia sẻ một `NSLock` và một cờ khởi tạo: `phonemize` (Piper, giọng `vi`), `phonemizeEnglish` (đổi giọng tạm), `probeVoices` (màn thử nghiệm). Mọi lối đổi giọng đều trả lại `vi` trước khi nhả lock.
+* Màn Thử phiên âm gọi đúng các hàm trên chứ không cài lại đường nào, nên nó phản ánh pipeline thật.
+
 ## Con trỏ của ô nhập mẫu đi hai chiều (1.3.289)
 
 ```text

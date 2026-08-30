@@ -21,15 +21,16 @@ final class EnglishTransliterator {
         RegexRule(pattern: "\\bstr", options: .caseInsensitive, template: "tr"),
         RegexRule(pattern: "\\bsch", options: .caseInsensitive, template: "c"),
         RegexRule(pattern: "\\bsc(?=h)", options: .caseInsensitive, template: "c"),
-        RegexRule(pattern: "\\bsc|sk", options: .caseInsensitive, template: "c"),
+        RegexRule(pattern: "\\b(?:sc|sk)", options: .caseInsensitive, template: "c"),
         RegexRule(pattern: "\\bsp", options: .caseInsensitive, template: "p"),
         RegexRule(pattern: "\\btr", options: .caseInsensitive, template: "tr"),
         RegexRule(pattern: "\\bbr", options: .caseInsensitive, template: "r"),
-        RegexRule(pattern: "\\bcr|pr|gr|dr|fr", options: .caseInsensitive, template: "r"),
-        RegexRule(pattern: "\\bbl|cl|sl|pl", options: .caseInsensitive, template: "l"),
+        RegexRule(pattern: "\\b(?:cr|pr|gr|dr|fr)", options: .caseInsensitive, template: "r"),
+        RegexRule(pattern: "\\b(?:bl|cl|sl|pl)", options: .caseInsensitive, template: "l"),
         RegexRule(pattern: "\\bfl", options: .caseInsensitive, template: "ph"),
-        RegexRule(pattern: "ck", options: .caseInsensitive, template: "c"),
-        RegexRule(pattern: "sh", options: .caseInsensitive, template: "s"),
+        // `ck` và `sh` cố ý **không** nằm ở đây: chúng chạy trước `rRules` thì toàn bộ nhóm đuôi
+        // `ack$/eck$/…` và `ash$/ish$/…` không bao giờ khớp được (10 luật chết). Hai luật này đã
+        // chuyển xuống đầu `tRules`.
         RegexRule(pattern: "ch", options: .caseInsensitive, template: "ch"),
         RegexRule(pattern: "th", options: .caseInsensitive, template: "th"),
         RegexRule(pattern: "ph", options: .caseInsensitive, template: "ph"),
@@ -221,6 +222,10 @@ final class EnglishTransliterator {
     static let tRules: [RegexRule] = {
         let v = vowels
         return [
+            // Hai luật dời từ `sRules` xuống đây (xem ghi chú ở `sRules`): chạy sau `rRules` nên các
+            // luật đuôi `ack$`, `ish$`… mới có cơ hội khớp.
+            RegexRule(pattern: "ck", options: .caseInsensitive, template: "c"),
+            RegexRule(pattern: "sh", options: .caseInsensitive, template: "s"),
             RegexRule(pattern: "x(?![v])".replacingOccurrences(of: "v", with: v), options: .caseInsensitive, template: "c"),
             RegexRule(pattern: "j", options: .caseInsensitive, template: "d"),
             RegexRule(pattern: "w", options: .caseInsensitive, template: "u"),
@@ -252,10 +257,12 @@ final class EnglishTransliterator {
         guard !word.isEmpty else { return "" }
         let vowels = Self.vowels
         var n = word.lowercased().trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        // `else if` chứ không phải hai `if` nối tiếp: bản cũ đổi "y" → "d" rồi câu sau đọc chuỗi **đã**
+        // đổi và biến tiếp thành "đ", nên mọi từ mở đầu bằng "y" đọc thành /d/ ("yes" → "đet").
+        // Và "y" đầu từ là bán nguyên âm /j/ ⇒ dùng "i", vì "d" tiếng Việt đọc /z/.
         if n.hasPrefix("y") {
-            n = "d" + n.dropFirst()
-        }
-        if n.hasPrefix("d") {
+            n = "i" + n.dropFirst()
+        } else if n.hasPrefix("d") {
             n = "đ" + n.dropFirst()
         }
 
@@ -294,7 +301,7 @@ final class EnglishTransliterator {
             var l = part.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
             if l.isEmpty { return "" }
             if l.hasPrefix("y") {
-                l = "d" + l.dropFirst()
+                l = "i" + l.dropFirst()
             }
             for rule in sRules {
                 l = rule.regex.stringByReplacingMatches(in: l, options: [], range: NSRange(location: 0, length: l.utf16.count), withTemplate: rule.template)

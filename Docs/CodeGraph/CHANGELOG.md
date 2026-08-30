@@ -2,7 +2,23 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.259) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.260) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.290] - 2026-08-30
+
+### NghiTTS: phiên âm tiếng Anh qua IPA của espeak, bỏ blacklist tiếng Nhật
+
+- **Bộ luật tiếng Anh tự huỷ lẫn nhau.** `sRules` chạy trước `rRules` trên cùng chuỗi nên `ck → c` và `sh → s` xoá cụm trước khi các luật đuôi kịp thấy ⇒ 10 luật chết (`ack$/eck$/ick$/ock$/uck$`, `ash$/esh$/ish$/osh$/ush$`). Dời hai luật đó xuống đầu `tRules`: "back" → "bác" thay vì "bac", "duck" → "đúc" thay vì "đuc".
+- **Ba luật khớp giữa từ vì thiếu ngoặc**: `"\bcr|pr|gr|dr|fr"` là `(\bcr)|(pr)|…` nên `pr/gr/dr/fr` đổi ở mọi vị trí ("april" → "ail", "hydro" → "hyro"). Nay `\b(?:…)`; cùng nhóm `\b(?:sc|sk)` và `\b(?:bl|cl|sl|pl)`.
+- **Mọi từ mở đầu bằng "y" đọc thành /d/**: hai `if` nối tiếp, câu sau đọc chuỗi vừa bị `y → d` rồi đổi tiếp thành `đ` ("yes" → "đet"). Nay `else if`, và tiền tố `y` map sang `i` vì "d" tiếng Việt đọc /z/ trong khi "y" đầu từ là bán nguyên âm /j/.
+- **Đường chính của tiếng Anh không còn đoán theo chính tả.** `EnglishPhonemeTransliterator` hỏi espeak-ng giọng `en-us` lấy **IPA thật**, `IPAToVietnameseMapper` dựng âm tiết Việt hợp lệ (onset/nucleus/coda + chuẩn hoá `c/k/g/gh/ngh`); bộ luật cũ tụt xuống dự phòng. Không thêm dependency: `build-ipa.yml` khi dọn dữ liệu espeak vẫn giữ `en_dict` + `voices/en`, chỉ có code là chưa bao giờ đổi giọng. `EspeakPhonemizer` tách `initializeIfNeeded`/`textToPhonemes`, thêm `phonemizeEnglish` (đặt `en-us`, trả `vi` trong `defer` — Piper luôn cần giọng `vi`) và `probeVoices`.
+- **Phân loại Nhật/Anh bỏ blacklist tay.** Xoá `englishBlacklist` ~420 từ (vá theo từng ca, có cả "ee", "san"); `ForeignScriptClassifier` chấm điểm dấu hiệu — romaji hợp lệ chỉ còn là *điều kiện cần*. Phải đổi kiến trúc vì "tomato", "potato", "sonata" đều cắt được thành âm romaji: tập từ tiếng Anh cần loại trừ là vô hạn.
+- **Bảng romaji→Việt**: `ya/yu/yo` từ `da/du/dô` (đọc /za/) thành `ia/iu/iô`. `za/zi/zu` **giữ nguyên** `da/di/dư` vì "d" tiếng Việt vốn đọc /z/, khớp /dz/ tiếng Nhật — đây là chỗ tôi nói sai ở lượt khảo sát trước.
+- **Trường âm `ー` không còn bị xoá**: `convertToRomaji` nhân đôi nguyên âm trước ("ラーメン" → "raamen") và bảng nhận thêm `aa/ii/uu/ee/oo` để `greedySegment` không vỡ. Thêm katakana hiện đại: ヴ, ファ/フィ/フェ/フォ, ティ/ディ, ウィ/ウェ/ウォ, ジェ/シェ/チェ.
+- **Cổng "là từ tiếng Việt" xét ngữ cảnh.** `VietnameseTokenGate`: token có dấu → giữ; không phải âm tiết Việt → phiên âm; ~700 âm tiết **mơ hồ** ("man", "can", "song", "tin", "phim") → chỉ phiên âm khi có láng giềng lạ trong cửa sổ ±2 token, chặn ở dấu kết câu.
+- **Tải lại từ điển không còn xoá phiên âm tự thêm**: `downloadDictionaries` **trộn** với bản dưới máy (mục dưới máy thắng) thay vì ghi đè `non-vietnamese-words.plist` — file mà `updateWord` cũng ghi.
+- **Thước đo nằm trong app**: màn **Thử phiên âm** (Cấu hình NghiTTS) kiểm giọng espeak có thật không, soi đường đi của một từ (từ điển → phân loại → IPA → kết quả), và chạy `TransliterationGoldenSet` ~55 ca. Vì `Tests/` bị coi như không tồn tại và máy chạy qua LiveContainer không đính được debugger.
+- 6 file Swift mới (415 → **421**), tất cả ≤ 400 dòng; `TextPreprocessor.swift` giữ **đúng** 1121 dòng (bằng baseline), `JapaneseTransliterator.swift` **giảm** 411 → 320. `check_architecture.py` giữ 14 violation nền.
 
 ## [1.3.289] - 2026-08-30
 
@@ -343,14 +359,3 @@ Thêm **2** file Swift (344 → 346), sửa 7 file; **không** `@Model` nào đ�
 * **Người dùng kéo trang lúc TTS đang đọc ⇒ tự tắt cuộn theo highlight**: file mới `Sources/Views/Reader/Components/ReaderUserScrollDetector.swift` (143 dòng) — `UIViewRepresentable` gắn `UIPanGestureRecognizer` **không tiêu thụ touch** (`cancelsTouchesInView = false`, nhận diện đồng thời, không đòi recognizer khác fail) lên `UIScrollView` bao ngoài. Quan sát `contentOffset` bị loại vì cú `ScrollViewProxy.scrollTo` của TTS cũng đổi offset. `handleUserScrollWhilePlaying` (`ReaderView+Controls`) có 4 guard: `!isAutoScrollDisabled`, `isTTSPlayingThisBook`, `!isRestoringReaderPosition`, `!showingFloatingMenu` (chặn cú kéo nới vùng bôi đen). Mỗi lần tắt đều `ttsAutoScrollGeneration += 1` và huỷ `scrollTarget` khi `reason == .ttsAuto`.
 * **Tiện ích kho đã gỡ khỏi registry bị xoá khỏi máy, trừ tiện ích đã cài**: file mới `Sources/Models/Extensions/PruneRepositoryExtensionsCommand.swift` (22 dòng) + `ExtensionTransactionCoordinator.pruneRepositoryExtensions(command:in:)` trả `Result<Int, _>`. `RepositoryManagerView.syncExtensions` gọi prune **sau** khi upsert `.success`, với tập giữ lại suy ra từ chính `commands.map(\.packageId)` nên hai transaction không thể lệch cách viết `packageId`. Ba chốt chặn xoá oan: `items.isEmpty` thoát sớm, `keepPackageIds` rỗng ⇒ `.success(0)`, prune chỉ chạy khi upsert thành công. Tiện ích đã cài (`localPath` khác rỗng) và tiện ích nhập từ zip (`repository == nil`) luôn được giữ; chỉ xoá **bản ghi**, không đụng file.
 * `check_architecture.py` giữ **14 violation, đúng cùng một tập** trước/sau; không nới baseline, không sửa `architecture_allowlist.json`. CodeGraph: cập nhật `00`–`06`, `08`–`14` (`07`, `rules.md` xem lại và vẫn đúng).
-
-## [1.3.260] - 2026-08-24
-
-### Tự sao lưu Drive, nút tìm ra header, thông báo đã đọc, nút back không chữ
-
-Bốn thay đổi UX/nền độc lập. Thêm **4** file Swift, **không** `@Model` nào đổi shape, **không** thêm dependency. Chưa biên dịch (Windows).
-
-* **Nút tìm trong chương ra ngoài header**, đứng cạnh nút bật/tắt cuộn theo TTS thay vì nằm trong menu `ellipsis` (`ReaderHeaderFooterOverlayView`, `ReaderView`, `ReaderView+Controls`).
-* **Trung tâm thông báo**: bấm vào một thông báo ⇒ chỉ thông báo đó thành đã đọc (`NotificationInboxManager.markRead(_:)`, không ghi đĩa lại nếu đã đọc). `clearAll()` được **thay** bằng `deleteUnread() -> Int` — theo đúng yêu cầu "xoá tất cả thông báo chỉ xoá thông báo chưa đọc", nên phần **đã đọc** được giữ lại như nhật ký và nút đổi nhãn theo nghĩa mới (`hasUnread`).
-* **Bỏ chữ ở nút back mọi màn hình**: file mới `Sources/Common/Utils/NavigationBarAppearance.swift` — `applyTitlelessBackButton()` đặt màu chữ trong suốt cho **cả bốn** trạng thái của `backButtonAppearance` trên `UINavigationBar.appearance()`, sửa tại chỗ đối tượng appearance đang có để giữ nền mờ mặc định. Không dùng `UIBarButtonItem.appearance()` (sẽ xoá luôn chữ "Đóng"/"Xong"/"Huỷ"), không dùng `navigationBarBackButtonDisplayMode(.minimal)` (API iOS 18). Gọi một lần ở `FreeBookApp.init()`. Hai nút *hành động* nhãn "Quay lại" trong nội dung (`BookDetailView.swift:611`, `ReaderView+LoadingView.swift:90`) **giữ nguyên** — chúng không phải nút back của thanh điều hướng.
-* **Tự động sao lưu lên Google Drive, giữ 5 bản gần nhất**: file mới `DriveAutoBackupPolicy` (nguồn duy nhất của chính sách chạy: `.cooldown`/`.daily`, `maxVersions = 5`, hoãn 25 s sau khởi động, nhóm mặc định `books/extensions/dictBooks/dictCustom` — cố ý bỏ `.content` và `.dictShared`), `BackupCoordinator+AutoDrive` (thân việc, **trả về** `AutoDriveBackupOutcome`) và `DriveAutoBackupSettingsView`. Đúng khuôn lượt kiểm tra chương mới: `MainTabView.task` là điểm phát duy nhất và là nơi hiện toast, nên `Sources/Services/**` vẫn không gọi `ToastManager`. Bản thứ 6 trở đi (cũ nhất trước) bị xoá ngay sau khi bản mới tải lên xong.

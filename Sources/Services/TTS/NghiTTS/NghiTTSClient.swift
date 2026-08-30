@@ -75,14 +75,27 @@ public final class NghiTTSClient {
         let (wordsData, responseWords) = try await session.data(from: wordsURL)
         try Self.validateHTTP(responseWords)
         
-        guard (try? PropertyListSerialization.propertyList(from: wordsData, options: [], format: nil) as? [String: String]) != nil else {
+        guard let remoteWords = (try? PropertyListSerialization.propertyList(from: wordsData, options: [], format: nil)) as? [String: String] else {
             throw NSError(domain: "NghiTTSClient", code: 400, userInfo: [NSLocalizedDescriptionKey: "Dữ liệu non-vietnamese-words.plist không hợp lệ"])
         }
-        
+
         // Save files
         try fm.createDirectory(at: modelStore.rootURL, withIntermediateDirectories: true)
         try acronymsData.write(to: localAcronyms, options: .atomic)
-        try wordsData.write(to: localWords, options: .atomic)
+
+        // **Trộn** chứ không ghi đè: `TextPreprocessor.updateWord` ghi phiên âm người dùng tự thêm vào
+        // đúng file này, nên ghi thẳng bản tải về là xoá sạch mọi chỉnh tay. Mục có sẵn dưới máy thắng —
+        // đổi lại, bản chỉnh từ máy chủ không ghi đè được một khoá người dùng đã sửa, và đó là đánh đổi
+        // đúng hướng (mất một bản cập nhật còn hơn mất dữ liệu người dùng).
+        let localWordsExisting = (try? PropertyListSerialization.propertyList(
+            from: (try? Data(contentsOf: localWords)) ?? Data(),
+            options: [],
+            format: nil
+        )) as? [String: String] ?? [:]
+        let mergedWords = remoteWords.merging(localWordsExisting) { _, local in local }
+        let mergedData = try PropertyListSerialization.data(fromPropertyList: mergedWords, format: .xml, options: 0)
+        try mergedData.write(to: localWords, options: .atomic)
+        AppLogger.shared.log("🗣️ [NghiTTSClient] Trộn từ điển: \(remoteWords.count) mục tải về + \(localWordsExisting.count) mục dưới máy → \(mergedWords.count) mục")
         
         // Reload resources in preprocessor
         await TextPreprocessor.shared.loadResources()

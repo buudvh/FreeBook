@@ -15,6 +15,16 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số dòng sau lượt 1.3.290
+
+* **Thêm 6 file Swift** (415 → **421**): `TTSTransliterationTesterView` 277, `ForeignScriptClassifier` 189, `IPAToVietnameseMapper` 182, `TransliterationGoldenSet` 114, `VietnameseTokenGate` 106, `EnglishPhonemeTransliterator` 67. Tất cả ≤ 400 dòng, mỗi file một primary type top-level.
+* **Hai file gần trần được xử lý đúng hướng**: `TextPreprocessor.swift` giữ **đúng 1121** dòng (bằng baseline — chỉ 5 sửa tại chỗ), `JapaneseTransliterator.swift` **giảm 411 → 320** nhờ xoá `englishBlacklist` (92 dòng) và `simplifySokuon` đã chết (18 dòng). `EnglishTransliterator.swift` 383 → 390 (còn 10 dòng trước trần 400), `EspeakPhonemizer.swift` 141 → 193, `NghiTTSClient.swift` 175 → 188, `NghiTTSSettingsView.swift` 146 → 150.
+* **Độ phức tạp lúc chạy đổi bậc ở đúng một chỗ**: mỗi từ tiếng Anh **mới** giờ tốn một lượt gọi vào libespeak (tra `en_dict` + luật, cỡ chục µs) thay vì ~200 lượt `stringByReplacingMatches` của bộ luật cũ — nhanh hơn chứ không chậm hơn. Và kết quả vẫn được `transliterationCache` giữ nên mỗi từ chỉ trả giá một lần.
+* **Bộ phân loại**: một lượt chuẩn hoá + cắt greedy O(n) + ~30 phép `contains` trên chuỗi ngắn, thay cho một lượt tra `Set` 420 mục cộng đúng phép cắt đó. Cùng bậc.
+* **Cổng ngữ cảnh** thêm tối đa 4 lượt tra láng giềng mỗi token mơ hồ (cửa sổ ±2), mỗi lượt là một `substring` + tra `Set` — không đáng kể so với chi phí phiên âm nó đang gác cửa.
+* **Nợ có chủ ý**: bảng IPA→Việt phủ âm vị phổ thông + 5 ký hiệu riêng của espeak; âm vị ngoài bảng bị bỏ qua (mất một âm, không crash) và bộ ca kiểm là chỗ phát hiện. Ngưỡng `japaneseThreshold = 2` mới chỉ hiệu chỉnh trên ~24 ca, chưa trên dữ liệu thật.
+* `check_architecture.py` giữ **14 violation nền**, không violation mới. Host Windows không build được: tính đúng đắn biên dịch do CI/macOS xác nhận, còn chất lượng phiên âm phải nghe trên máy thật.
+
 ## Số dòng sau lượt 1.3.289
 
 * **Thêm 2 file Swift** (413 → **415**): `QuickTranslationRulePatternField` 149, `QuickTranslationRuleEditorSheet+Editing` 96. Cả hai ≤ 400 dòng; `Coordinator` là type lồng nên vẫn một primary type top-level mỗi file.
