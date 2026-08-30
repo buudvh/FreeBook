@@ -15,6 +15,15 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Ô nhập mẫu rule có con trỏ thật (1.3.289)
+
+* **Nút token chèn tại con trỏ, không còn dồn về cuối.** Ở 1.3.288 con trỏ duy nhất là vạch giữa hai chip của dải mẫu, nên chạm nút token luôn chèn vào cuối chuỗi trừ khi người dùng bấm đúng vạch 2pt đó. [`QuickTranslationRulePatternField`](../../Sources/Views/Settings/Translation/QuickTranslationRulePatternField.swift#L17) bọc `UITextView` để đọc/ghi được **con trỏ thật** của ô nhập: `textViewDidChangeSelection` báo vị trí lên `selectionStart`/`selectionLength`, `updateUIView` áp ngược lại khi dải chip hoặc nút token đặt vùng chọn mới. Hai bên vì vậy dùng **một** biến, không có bản sao thứ hai.
+* **Lý do phải bọc UIKit**: iOS 17 không cho SwiftUI đọc hay ghi vùng chọn của `TextField` (`TextSelection` chỉ có từ iOS 18).
+* **Quy đổi đơn vị đặt đúng ở biên UIKit**: model màn nhập đếm theo **ký tự** (`Array(pattern)`), `UITextView` dùng `NSRange` UTF-16; hai chiều đổi qua `String.Index` (`utf16Offset(in:)` / `String.Index(utf16Offset:in:)`), không giả định 1 ký tự = 1 unit. Coordinator giữ `lastReportedRange` để một lần quy đổi không tròn (ký tự ngoài BMP) không thành vòng lặp cập nhật.
+* **Thanh `:min-max` nay mở theo con trỏ**, không chỉ theo vùng chọn khít: token nào **chứa** con trỏ hoặc kết thúc ngay tại đó thì mở thanh. Nhờ vậy vừa chèn `<n>` xong là chỉnh được độ dài ngay, và chạm vào giữa `<n:1-6>` trong ô nhập cũng mở đúng token đó.
+* **Dải chip đổi vai**: không còn là nguồn con trỏ duy nhất mà là bản đồ cấu trúc mẫu — chọn token để sửa độ dài, đặt con trỏ giữa hai chip, xoá **cả chip** liền trước.
+* Khối biên tập mẫu tách sang [`QuickTranslationRuleEditorSheet+Editing.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleEditorSheet+Editing.swift#L13) và các `@State` liên quan chuyển sang `internal` — cùng lý do và cùng khuôn với `ReaderView` + `ReaderView+Selection`: `private` trong Swift là phạm vi file.
+
 ## Rule editor: giữ bản nháp, bảng token, thanh min-max, chip `{i}` (1.3.288)
 
 * **Chữ đang gõ ở màn thêm/sửa rule không còn chết theo identity của sheet.** [`QuickTranslationRuleDraftStore`](../../Sources/Views/Settings/Translation/QuickTranslationRuleDraftStore.swift#L20) giữ **một** slot `(modeID, pattern, replacement, saveToBook, vùng chọn, ô đang focus)`; [`QuickTranslationRuleEditorSheet.init`](../../Sources/Views/Settings/Translation/QuickTranslationRuleEditorSheet.swift#L77) seed `@State` từ slot đó nếu đúng `Mode.id`. Triệu chứng gốc: Reader tự chuyển chương lúc đang nghe làm SwiftUI dựng lại content của sheet (sheet **vẫn mở**) ⇒ `init` chạy lại ⇒ mọi ô về giá trị seed. Draft chỉ bị xoá ở hai hành động dứt khoát của người dùng — lưu thành công và bấm Hủy — **không** ở `onDisappear`, vì chính lượt dựng lại có thể kèm một lần disappear.

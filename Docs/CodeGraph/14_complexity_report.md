@@ -15,6 +15,15 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số dòng sau lượt 1.3.289
+
+* **Thêm 2 file Swift** (413 → **415**): `QuickTranslationRulePatternField` 149, `QuickTranslationRuleEditorSheet+Editing` 96. Cả hai ≤ 400 dòng; `Coordinator` là type lồng nên vẫn một primary type top-level mỗi file.
+* **`QuickTranslationRuleEditorSheet.swift` giảm 374 → 319 dòng** dù thêm bridge UIKit và placeholder overlay, nhờ dời 6 hàm biên tập mẫu sang file `+Editing`. `QuickTranslationRulePatternStripView` 123 → 121 (chỉ sửa doc).
+* **Độ phức tạp lúc chạy**: mỗi lần con trỏ dịch chuyển chạy hai lần quy đổi `String.Index` (O(độ dài mẫu), mẫu < 40 ký tự) và một lượt body của sheet — cùng bậc với việc gõ một ký tự. `sizeThatFits` gọi `UITextView.sizeThatFits` mỗi lượt layout của hàng đó, không phải mỗi keystroke.
+* **Hai chốt chống vòng lặp** (`isApplying`, `lastReportedRange`) là điều kiện O(1); không có retry, timer hay task nào.
+* **Nợ có chủ ý, giữ nguyên từ 1.3.288**: chip `{i}` vẫn chèn vào **cuối** ô Bản dịch — ô đó không có bridge nên không có con trỏ. Nếu sau này cần con trỏ cho cả hai ô thì dùng lại đúng `QuickTranslationRulePatternField` cho ô Bản dịch.
+* `check_architecture.py` giữ **14 violation nền**, không violation mới. Host Windows không build được: tính đúng đắn biên dịch do CI/macOS xác nhận.
+
 ## Số dòng sau lượt 1.3.288
 
 * **Thêm 7 file Swift** (406 → **413**), tất cả ≤ 400 dòng và đúng một primary type top-level: `QuickTranslationRuleDraftAnalyzer` 238, `QuickTranslationRuleTokenLengthBar` 132, `QuickTranslationRulePatternStripView` 123, `QuickTranslationRuleTokenPaletteView` 111, `QuickTranslationRuleCaptureChipsView` 82, `QuickTranslationRuleDraftStore` 66, `QuickTranslationRuleDraftIssuesView` 57.

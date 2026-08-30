@@ -15,6 +15,14 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Hai file mới của ô nhập mẫu vẫn nằm đúng tầng (1.3.289)
+
+* **`QuickTranslationRulePatternField` là file view duy nhất của phân hệ rule `import UIKit`.** Hợp lệ: nó nằm trong `Sources/Views/**`, nơi `import SwiftUI`/`UIKit` không bị luật nào cấm (luật `SERVICE_SWIFTUI_IMPORT` chỉ áp cho `Sources/Services/**`). Không có logic rule nào bị kéo vào đây — nó chỉ chuyển đổi con trỏ và văn bản.
+* **`Coordinator` là type lồng trong struct representable**, nên `MULTI_PRIMARY_TYPES` (đếm type ở cột 0) không bị vi phạm dù file có cả struct và class.
+* **`QuickTranslationRuleEditorSheet+Editing.swift` là extension, không khai type mới.** Nó buộc `pattern`/`replacement`/`selectionStart`/`selectionLength` chuyển từ `private` sang `internal` vì `private` trong Swift là phạm vi **file** — cùng lý do đã ghi ở `ReaderView.swift:117` cho `ReaderView+Selection`/`ReaderView+RuleTools`. Đây là nới **phạm vi truy cập trong module**, không phải nới luật kiến trúc.
+* **Chiều phụ thuộc không đổi**: cả hai file mới chỉ đọc type của `QuickTranslationRuleDraftAnalyzer` (Services) — Views → Services như cũ, không có cạnh ngược.
+* `check_architecture.py` giữ **14 violation nền**, không violation mới; không entry `architecture_allowlist.json` nào được thêm.
+
 ## Vị trí tầng của 7 file mới cho màn nhập rule (1.3.288)
 
 * **`QuickTranslationRuleDraftAnalyzer` nằm ở `Services/Translation/Engine/`, không phải Views.** Nó là logic thuần: `import Foundation`, **không** `import SwiftUI`, không `ToastManager` — hợp lệ với `SERVICE_SWIFTUI_IMPORT` và `SERVICE_TOAST_COUPLING`. Đặt nó cạnh `parse`/`compile` mà nó bọc lại giữ đúng chiều Views → Services; nếu đặt ở `Models/` thì Models sẽ phải biết type của Services, tức đảo chiều.

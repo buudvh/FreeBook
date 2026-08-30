@@ -15,6 +15,21 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Con trỏ thật cho ô nhập mẫu: 2 file mới (1.3.289)
+
+| File mới | Tầng | Vai trò | Dòng |
+|---|---|---|---|
+| [`Views/Settings/Translation/QuickTranslationRulePatternField.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRulePatternField.swift) | Views | `UIViewRepresentable` bọc `UITextView`: báo con trỏ thật lên, nhận vùng chọn từ SwiftUI, quy đổi ký tự ⇄ UTF-16 | 149 |
+| [`Views/Settings/Translation/QuickTranslationRuleEditorSheet+Editing.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleEditorSheet+Editing.swift) | Views | khối biên tập mẫu tách khỏi sheet: định vị token, chèn/thay, xoá lùi | 96 |
+
+| File sửa | Thay đổi | Dòng |
+|---|---|---|
+| [`Views/Settings/Translation/QuickTranslationRuleEditorSheet.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRuleEditorSheet.swift) | `TextField` mẫu → `QuickTranslationRulePatternField` + placeholder overlay; bỏ `isProgrammaticPatternEdit`; `@FocusState` chỉ còn cho ô Bản dịch; helper dời sang file `+Editing` | 374 → **319** |
+| [`Views/Settings/Translation/QuickTranslationRulePatternStripView.swift`](../../Sources/Views/Settings/Translation/QuickTranslationRulePatternStripView.swift) | cập nhật doc vai trò (không còn là nguồn con trỏ duy nhất) | 123 → **121** |
+
+* Tổng file Swift **415** (413 + 2). Mọi file mới ≤ 400 dòng; `Coordinator` của representable là type **lồng** nên không phạm `MULTI_PRIMARY_TYPES`.
+* `QuickTranslationRuleEditorSheet.swift` **giảm** dòng dù thêm tính năng, nhờ dời 6 hàm biên tập sang file extension — đúng khuôn `X+Feature.swift` mà repo dùng cho god-object.
+
 ## Màn nhập rule: 6 file mới cho bản nháp + 3 công cụ nhập nhanh (1.3.288)
 
 | File mới | Tầng | Vai trò | Dòng |

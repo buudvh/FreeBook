@@ -3,15 +3,13 @@ import SwiftUI
 /// Dải chip của **mẫu** đang gõ, mượn đúng idiom thanh chữ gốc của màn Check rule
 /// (`ReaderRuleTraceOverlayView.originalSentenceRowView`).
 ///
-/// Vì sao cần nó: iOS 17 không cho SwiftUI đọc vị trí con trỏ của `TextField` (`TextSelection` là
-/// iOS 18), nên nếu chỉ có bảng nút token thì token luôn bị chèn vào **cuối** mẫu. Luồng chính lại là
-/// nút `+` của Check rule, nơi mẫu được điền sẵn cả cụm đang chọn (`第三十七章`) và việc cần làm là
-/// **thay** `三十七` bằng `<n:1-6>` — chèn cuối vô dụng. Dải chip này cấp con trỏ và vùng chọn mà
-/// không phải bọc UITextView.
+/// Vai trò: cho thấy **cấu trúc** mẫu (một token `<n:1-6>` là **một** chip, không phải 7 ký tự lẻ),
+/// chọn nhanh một token để mở thanh `:min-max`, đặt con trỏ vào giữa hai chip, và xoá cả chip liền
+/// trước. Con trỏ thật do ô nhập cấp (`QuickTranslationRulePatternField`) — dải này ghi vào **cùng**
+/// `selectionStart`/`selectionLength` nên hai bên luôn chỉ về một chỗ.
 ///
-/// Một token là **một** chip (không tách `<n:1-6>` thành 7 ký tự) nhờ
-/// `QuickTranslationRuleDraftAnalyzer.segments(of:)` — cùng hàm cắt mà thanh độ dài dùng để định vị
-/// token, nên không có hai cách hiểu về cùng một mẫu.
+/// Cách cắt chip dùng `QuickTranslationRuleDraftAnalyzer.segments(of:)` — cùng hàm mà thanh độ dài
+/// dùng để định vị token, nên không có hai cách hiểu về cùng một mẫu.
 struct QuickTranslationRulePatternStripView: View {
     let segments: [QuickTranslationRuleDraftAnalyzer.Segment]
     /// Chỉ số **ký tự** trong `Array(pattern)`; `length == 0` nghĩa là con trỏ chèn, không chọn gì.

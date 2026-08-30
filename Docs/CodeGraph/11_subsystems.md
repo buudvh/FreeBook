@@ -15,6 +15,14 @@ Tài liệu này phân tích chi tiết 14 phân hệ chính cấu thành nên �
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ Rule Dịch: ô nhập mẫu tự sở hữu con trỏ (1.3.289)
+
+* **Một bridge UIKit mới, phạm vi hẹp có chủ ý.** `QuickTranslationRulePatternField` là điểm duy nhất của phân hệ rule chạm vào UIKit, và nó chỉ làm hai việc: báo con trỏ/vùng chọn thật lên SwiftUI, nhận vùng chọn từ SwiftUI áp xuống. Nó **không** biết token là gì, không parse cú pháp, không đụng store — mọi hiểu biết về rule vẫn nằm ở `QuickTranslationRuleDraftAnalyzer`.
+* **Sửa đúng khiếu nại**: nút token trước đây luôn chèn vào cuối vì con trỏ duy nhất là vạch 2pt trên dải chip. Nay chèn tại con trỏ của ô nhập, và thay đoạn đang bôi đen nếu có — tức đúng luồng nút `+` của Check rule (mẫu điền sẵn cả cụm chữ Trung, việc cần làm là đổi một đoạn thành token).
+* **Dải chip đổi vai trong phân hệ**: từ "nguồn con trỏ" thành "bản đồ cấu trúc mẫu" — chọn token để mở thanh `:min-max`, đặt con trỏ giữa hai chip, xoá cả chip liền trước. Cả hai thành phần ghi vào cùng một vùng chọn nên không có trạng thái lệch nhau.
+* **Không đổi bất kỳ hợp đồng nào với phần còn lại**: `Mode`, `onSubmit`, `QuickTranslationRuleDraftStore`, `QuickTranslationRuleDraftAnalyzer` giữ nguyên API; cả hai đường vào (Check rule trong Reader, danh sách rule ở Cài đặt) vẫn không phải sửa gì.
+* **Ô Bản dịch cố ý giữ `TextField` SwiftUI**: nó không có bảng nút chèn theo con trỏ (chip `{i}` vẫn chèn vào cuối), nên không cần bridge. Đây là nợ đã ghi ở 14_complexity_report, không phải bỏ sót.
+
 ## Phân hệ Rule Dịch: màn nhập rule thành editor có công cụ (1.3.288)
 
 * **Sheet thêm/sửa rule vẫn là một view dùng chung cho cả hai đường vào** (Check rule trong Reader và danh sách rule ở Cài đặt), và cả hai đường **không đổi một dòng nào** ở call site: bản nháp, bảng token, thanh min–max và chip `{i}` đều nằm trong sheet.

@@ -1,6 +1,12 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.258) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+Lịch sử thay đổi cũ (version ≤ 1.3.259) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
+
+## [1.3.259] - 2026-08-23
+
+### Thêm sidebar debug extension FreeBook cho VS Code
+
+Thêm tool nội bộ `Tools/VSCode/FreeBookExtDebug`, đóng gói VSIX độc lập để debug extension VBook qua FreeBook App. Sidebar theo luồng extension beta: tự nhận root/script, hiện đúng input theo contract `ExtensionManager`, chạy Draft/Installed, Pair/Mock và xem trace tại chỗ. Tool không thực thi JavaScript VBook bằng Node; Mock luôn ghi rõ không chạy JSExecutor iOS. Draft chỉ stage file đã lưu, token/session chỉ nằm trong VS Code SecretStorage, và các script TTS `voice`/`tts` bị đánh dấu chưa hỗ trợ bởi protocol v1 thay vì chạy sai contract.
 
 ## [1.3.258] - 2026-08-23
 

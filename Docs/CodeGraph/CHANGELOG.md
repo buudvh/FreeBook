@@ -2,7 +2,18 @@
 
 Tài liệu này ghi nhận lịch sử thay đổi, cập nhật của bộ tài liệu CodeGraph sống (Living Documentation) trong dự án **FreeBook**.
 
-> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.258) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+> Chỉ giữ các version gần đây. Lịch sử cũ hơn (≤ 1.3.259) nằm ở [CHANGELOG.archive.md](CHANGELOG.archive.md).
+
+## [1.3.289] - 2026-08-30
+
+### Rule editor: chèn token tại con trỏ của ô nhập mẫu
+
+- **Nút token luôn chèn vào cuối mẫu.** Ở 1.3.288 con trỏ duy nhất là vạch 2pt giữa hai chip của dải mẫu, nên trừ khi bấm đúng vạch đó, mọi lần chèn đều rơi xuống cuối chuỗi. Sửa bằng `QuickTranslationRulePatternField` — `UIViewRepresentable` bọc `UITextView` để đọc/ghi **con trỏ thật**: `textViewDidChangeSelection` báo lên `selectionStart`/`selectionLength`, `updateUIView` áp ngược lại khi dải chip hoặc nút token đặt vùng chọn mới. Phải bọc UIKit vì iOS 17 không cho SwiftUI đọc vùng chọn của `TextField` (`TextSelection` là iOS 18). Bấm token giờ chèn tại con trỏ, hoặc **thay** đoạn đang bôi đen.
+- Quy đổi đơn vị đặt đúng ở biên UIKit: model đếm theo **ký tự** (`Array(pattern)`), `UITextView` dùng `NSRange` UTF-16, hai chiều đổi qua `String.Index`. Hai chốt chống vòng lặp cập nhật: `isApplying` (không báo lên khi tự áp xuống) và `lastReportedRange` (không áp lại range vừa báo lên — cần khi chuỗi có ký tự ngoài BMP).
+- Thanh `:min-max` nay mở theo **con trỏ** chứ không chỉ theo vùng chọn khít: token có `start < caret ≤ end` là mở. Vừa chèn `<n>` xong là chỉnh được độ dài ngay, và chạm vào giữa `<n:1-6>` trong ô nhập cũng mở đúng token đó.
+- Bỏ cờ `isProgrammaticPatternEdit` và heuristic "gõ tay ⇒ con trỏ về cuối" của 1.3.288: chúng chỉ tồn tại vì trước đó không đọc được con trỏ thật, giữ lại là hai nguồn tranh nhau quyết định con trỏ ở đâu. `reconcileSelection` giờ chỉ kẹp biên.
+- `@FocusState` chỉ còn cho ô Bản dịch; ô Mẫu tự `becomeFirstResponder()` một lần trong `makeUIView` khi bản nháp nói nó đang được gõ, và báo focus ra ngoài bằng `onFocusChange`. `focusedField` đổi từ `@FocusState` sang `@State` thường vì nó là *dữ liệu của bản nháp*, không phải cái điều khiển focus.
+- 2 file Swift mới (413 → **415**), nhưng `QuickTranslationRuleEditorSheet.swift` **giảm** 374 → 319 dòng nhờ dời 6 hàm biên tập sang `QuickTranslationRuleEditorSheet+Editing.swift`; các `@State` liên quan chuyển sang `internal` (đúng khuôn `ReaderView` + `ReaderView+Selection`). `check_architecture.py` giữ 14 violation nền.
 
 ## [1.3.288] - 2026-08-30
 
@@ -343,9 +354,3 @@ Bốn thay đổi UX/nền độc lập. Thêm **4** file Swift, **không** `@Mo
 * **Trung tâm thông báo**: bấm vào một thông báo ⇒ chỉ thông báo đó thành đã đọc (`NotificationInboxManager.markRead(_:)`, không ghi đĩa lại nếu đã đọc). `clearAll()` được **thay** bằng `deleteUnread() -> Int` — theo đúng yêu cầu "xoá tất cả thông báo chỉ xoá thông báo chưa đọc", nên phần **đã đọc** được giữ lại như nhật ký và nút đổi nhãn theo nghĩa mới (`hasUnread`).
 * **Bỏ chữ ở nút back mọi màn hình**: file mới `Sources/Common/Utils/NavigationBarAppearance.swift` — `applyTitlelessBackButton()` đặt màu chữ trong suốt cho **cả bốn** trạng thái của `backButtonAppearance` trên `UINavigationBar.appearance()`, sửa tại chỗ đối tượng appearance đang có để giữ nền mờ mặc định. Không dùng `UIBarButtonItem.appearance()` (sẽ xoá luôn chữ "Đóng"/"Xong"/"Huỷ"), không dùng `navigationBarBackButtonDisplayMode(.minimal)` (API iOS 18). Gọi một lần ở `FreeBookApp.init()`. Hai nút *hành động* nhãn "Quay lại" trong nội dung (`BookDetailView.swift:611`, `ReaderView+LoadingView.swift:90`) **giữ nguyên** — chúng không phải nút back của thanh điều hướng.
 * **Tự động sao lưu lên Google Drive, giữ 5 bản gần nhất**: file mới `DriveAutoBackupPolicy` (nguồn duy nhất của chính sách chạy: `.cooldown`/`.daily`, `maxVersions = 5`, hoãn 25 s sau khởi động, nhóm mặc định `books/extensions/dictBooks/dictCustom` — cố ý bỏ `.content` và `.dictShared`), `BackupCoordinator+AutoDrive` (thân việc, **trả về** `AutoDriveBackupOutcome`) và `DriveAutoBackupSettingsView`. Đúng khuôn lượt kiểm tra chương mới: `MainTabView.task` là điểm phát duy nhất và là nơi hiện toast, nên `Sources/Services/**` vẫn không gọi `ToastManager`. Bản thứ 6 trở đi (cũ nhất trước) bị xoá ngay sau khi bản mới tải lên xong.
-
-## [1.3.259] - 2026-08-23
-
-### Thêm sidebar debug extension FreeBook cho VS Code
-
-Thêm tool nội bộ `Tools/VSCode/FreeBookExtDebug`, đóng gói VSIX độc lập để debug extension VBook qua FreeBook App. Sidebar theo luồng extension beta: tự nhận root/script, hiện đúng input theo contract `ExtensionManager`, chạy Draft/Installed, Pair/Mock và xem trace tại chỗ. Tool không thực thi JavaScript VBook bằng Node; Mock luôn ghi rõ không chạy JSExecutor iOS. Draft chỉ stage file đã lưu, token/session chỉ nằm trong VS Code SecretStorage, và các script TTS `voice`/`tts` bị đánh dấu chưa hỗ trợ bởi protocol v1 thay vì chạy sai contract.

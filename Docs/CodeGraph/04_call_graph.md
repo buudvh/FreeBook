@@ -15,6 +15,30 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Con trỏ của ô nhập mẫu đi hai chiều (1.3.289)
+
+```text
+người dùng chạm/gõ trong ô nhập
+  UITextView delegate
+    ├─ textViewDidChange          → parent.text = ...        (pattern)
+    └─ textViewDidChangeSelection → report(): NSRange UTF-16 → chỉ số ký tự
+                                     → selectionStart/selectionLength
+                                     → lastReportedRange = range   (chống echo)
+
+nút token / thanh min-max / dải chip đổi selection
+  QuickTranslationRuleEditorSheet.body → updateUIView(_:context:)
+    ├─ view.text != text            → coordinator.apply(text:)
+    └─ view.selectedRange != wanted → coordinator.apply(selection:)
+         (bỏ qua nếu wanted == lastReportedRange: đó là echo của chính mình)
+
+selectedTokenSegment(in:)   ← QuickTranslationRuleEditorSheet+Editing
+  ├─ có vùng chọn  → token trùng khít vùng chọn
+  └─ chỉ có con trỏ → token có start < caret ≤ end   (chứa hoặc kết thúc tại con trỏ)
+```
+
+* `insertIntoPattern` / `applyTokenSpec` / `deleteBackwardInPattern` đều kết thúc bằng `setPattern(_:caret:)` — luôn để lại **con trỏ**, không để lại vùng chọn, nên lượt gõ tiếp theo không thay mất phần vừa chèn.
+* `reconcileSelection(after:)` chỉ còn kẹp biên. Heuristic "gõ tay ⇒ con trỏ về cuối" và cờ `isProgrammaticPatternEdit` của 1.3.288 **đã bỏ**: con trỏ giờ do ô nhập cấp nên không cần đoán nguồn thay đổi nữa.
+
 ## Nhập nhanh ở màn thêm/sửa rule (1.3.288)
 
 ```text
@@ -26,13 +50,13 @@ QuickTranslationRuleEditorSheet.body
   ├─ PatternStripView   → chạm chip  → selectionStart/Length = chip.range
   │                     → chạm vạch  → selectionLength = 0
   │                     → onDeleteBackward → deleteBackwardInPattern()
-  ├─ TokenPaletteView   → onInsert("<n>") → insertIntoPattern() → setPattern()
-  ├─ TokenLengthBar     → onChange(spec) → applyTokenSpec()     → setPattern()
+  ├─ TokenPaletteView   → onInsert("<n>") → insertIntoPattern() → setPattern(caret:)
+  ├─ TokenLengthBar     → onChange(spec) → applyTokenSpec()     → setPattern(caret:)
   │                        (spec đọc bằng Analyzer.tokenSpec(of: segment.text))
   └─ CaptureChipsView   → onInsert(i)   → replacement += "{i}"
 
-setPattern() → isProgrammaticPatternEdit = true → pattern/selection mới
-  └─ .onChange(of: pattern) → reconcileSelection(after:)   (kẹp biên, giữ vùng chọn)
+setPattern(caret:) → pattern + con trỏ mới
+  └─ .onChange(of: pattern) → reconcileSelection(after:)   (kẹp biên)
 
 .onChange(of: currentDraft) → DraftStore.store(draft, for: mode.id)
 init                        → DraftStore.draft(for: mode.id)  → seed @State

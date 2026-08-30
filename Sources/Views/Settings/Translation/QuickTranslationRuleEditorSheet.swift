@@ -15,9 +15,10 @@ import SwiftUI
 /// lại là Reader tự chuyển chương lúc đang nghe làm SwiftUI dựng lại content của sheet (sheet vẫn mở),
 /// `init` chạy lại và mọi ô về giá trị seed.
 ///
-/// Ba công cụ nhập nhanh đều tác động lên **cùng** một vùng chọn (`selectionStart`/`selectionLength`,
-/// tính theo chỉ số ký tự của `Array(pattern)`): dải chip mẫu cấp con trỏ, bảng token chèn hoặc thay
-/// token tại con trỏ, thanh min–max sửa token đang chọn.
+/// Bốn công cụ nhập nhanh đều tác động lên **cùng** một vùng chọn (`selectionStart`/`selectionLength`,
+/// tính theo chỉ số ký tự của `Array(pattern)`): ô nhập `QuickTranslationRulePatternField` cấp con trỏ
+/// **thật**, dải chip cho chọn token và đặt con trỏ giữa hai chip, bảng token chèn hoặc thay token tại
+/// con trỏ, thanh min–max sửa token đang chọn.
 struct QuickTranslationRuleEditorSheet: View {
     /// `Identifiable` để màn danh sách mở sheet bằng `.sheet(item:)` — mở theo *dữ liệu* thì không có
     /// khoảng thời gian sheet đã hiện mà state còn rỗng như cách `isPresented` + biến phụ.
@@ -51,20 +52,22 @@ struct QuickTranslationRuleEditorSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var pattern: String
-    @State private var replacement: String
+    /// `internal` (không `private`): `QuickTranslationRuleEditorSheet+Editing` nằm ở file khác, mà
+    /// `private` trong Swift là phạm vi **file** nên extension ngoài file sẽ không thấy được.
+    @State var pattern: String
+    @State var replacement: String
     @State private var saveToBook: Bool
-    /// Vùng chọn trong mẫu: `length == 0` là con trỏ chèn. Chỉ số **ký tự**, không phải UTF-16 —
-    /// mẫu rule ngắn và mọi thao tác ở đây là chèn/thay chuỗi, không trao range cho UIKit.
-    @State private var selectionStart: Int
-    @State private var selectionLength: Int
+    /// Con trỏ / vùng chọn trong mẫu, đếm theo **ký tự** trên `Array(pattern)`. Nguồn cấp là ô nhập
+    /// (`QuickTranslationRulePatternField` báo lên con trỏ thật); dải chip ghi vào đây thì ô nhập nhận
+    /// lại — hai chiều cùng một biến, không có bản sao thứ hai.
+    @State var selectionStart: Int
+    @State var selectionLength: Int
     /// Lỗi do store trả về lúc lưu (khác với lỗi cú pháp mà bản nháp tự chấm được).
     @State private var errorText: String? = nil
-    /// Phân biệt "người dùng gõ tay vào TextField" với "nút vừa chèn/sửa token". Gõ tay thì con trỏ
-    /// nhảy về cuối (đúng thứ tay người dùng đang làm), còn nút thì phải giữ nguyên vùng nó vừa đặt —
-    /// nếu không, thanh min–max sẽ đóng ngay sau khi chèn token.
-    @State private var isProgrammaticPatternEdit = false
-    @FocusState private var focusedField: QuickTranslationRuleDraftStore.Field?
+    /// Ô đang gõ, chỉ để ghi vào bản nháp. Ô Mẫu là `UIViewRepresentable` nên không dùng được
+    /// `@FocusState` cho nó; ô Bản dịch vẫn là `TextField` nên có `@FocusState` riêng đồng bộ vào đây.
+    @State private var focusedField: QuickTranslationRuleDraftStore.Field?
+    @FocusState private var isReplacementFocused: Bool
 
     /// Ô đang gõ lúc bản nháp được lưu. Khôi phục ở `onAppear` để một lượt dựng lại không làm tụt
     /// bàn phím giữa lúc gõ.
@@ -179,8 +182,15 @@ struct QuickTranslationRuleEditorSheet: View {
                     // lượt dựng lại để lần sau chẩn đoán được nguyên nhân gốc.
                     AppLogger.shared.log("📝 [RuleEditor] Sheet dựng lại giữa lúc gõ — đã khôi phục bản nháp (\(isEditing ? "sửa" : "thêm"))")
                 }
-                if let restoredFocus, focusedField == nil {
-                    focusedField = restoredFocus
+                if restoredFocus == .replacement {
+                    isReplacementFocused = true
+                }
+            }
+            .onChange(of: isReplacementFocused) { _, focused in
+                if focused {
+                    focusedField = .replacement
+                } else if focusedField == .replacement {
+                    focusedField = nil
                 }
             }
             .onChange(of: currentDraft) { _, newValue in
@@ -197,11 +207,27 @@ struct QuickTranslationRuleEditorSheet: View {
     @ViewBuilder
     private func patternSection(segments: [QuickTranslationRuleDraftAnalyzer.Segment]) -> some View {
         Section {
-            TextField("第<n:1-6>章", text: $pattern, axis: .vertical)
-                .font(.system(.body, design: .monospaced))
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .focused($focusedField, equals: .pattern)
+            ZStack(alignment: .topLeading) {
+                if pattern.isEmpty {
+                    Text("第<n:1-6>章")
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundColor(Color(uiColor: .placeholderText))
+                        .allowsHitTesting(false)
+                }
+
+                QuickTranslationRulePatternField(
+                    text: $pattern,
+                    selectionStart: $selectionStart,
+                    selectionLength: $selectionLength,
+                    autoFocus: restoredFocus == .pattern
+                ) { focused in
+                    if focused {
+                        focusedField = .pattern
+                    } else if focusedField == .pattern {
+                        focusedField = nil
+                    }
+                }
+            }
 
             QuickTranslationRulePatternStripView(
                 segments: segments,
@@ -221,7 +247,7 @@ struct QuickTranslationRuleEditorSheet: View {
         } header: {
             Text("Mẫu (vế trái dấu =)")
         } footer: {
-            Text("Bấm một chip ở dải trên để chọn token rồi chỉnh độ dài, hoặc bấm vạch giữa hai chip để đặt chỗ chèn. Token: `<n>` số, `<y>` đọc từng chữ số, `<h>` chữ số Hán, `<d>` chữ số 0-9, `<L>` nhãn chương, `<hv>` một chữ Hán-Việt, `<ne>/<pn>/<vp>/<w>` cụm trong từ điển. Nhóm `(a|b)` và `(a|b)?` không được đánh số. Mỗi token chịu sự chi phối của Cấu hình token rule; tắt token không sửa file nhưng rule chứa token đó sẽ không chạy.")
+            Text("Nút token chèn **tại con trỏ** của ô nhập, hoặc thay đoạn đang bôi đen. Chạm một chip token (ở dải trên hoặc trong ô nhập) để mở thanh chỉnh độ dài. Token: `<n>` số, `<y>` đọc từng chữ số, `<h>` chữ số Hán, `<d>` chữ số 0-9, `<L>` nhãn chương, `<hv>` một chữ Hán-Việt, `<ne>/<pn>/<vp>/<w>` cụm trong từ điển. Nhóm `(a|b)` và `(a|b)?` không được đánh số. Mỗi token chịu sự chi phối của Cấu hình token rule; tắt token không sửa file nhưng rule chứa token đó sẽ không chạy.")
         }
     }
 
@@ -230,7 +256,7 @@ struct QuickTranslationRuleEditorSheet: View {
         Section {
             TextField("Chương {0}", text: $replacement, axis: .vertical)
                 .autocorrectionDisabled()
-                .focused($focusedField, equals: .replacement)
+                .focused($isReplacementFocused)
 
             QuickTranslationRuleCaptureChipsView(analysis: analysis) { index in
                 replacement += "{\(index)}"
@@ -268,86 +294,6 @@ struct QuickTranslationRuleEditorSheet: View {
                     .foregroundColor(.secondary)
             }
         }
-    }
-
-    // MARK: - Vùng chọn trong mẫu
-
-    /// Token đang chọn là token mà vùng chọn trùng **khít** — nhờ vậy chọn hai ký tự literal hay một
-    /// phần của token không mở thanh min–max ra một cách vô nghĩa.
-    private func selectedTokenSegment(
-        in segments: [QuickTranslationRuleDraftAnalyzer.Segment]
-    ) -> QuickTranslationRuleDraftAnalyzer.Segment? {
-        guard selectionLength > 0 else { return nil }
-        return segments.first {
-            $0.kind == .token && $0.start == selectionStart && $0.length == selectionLength
-        }
-    }
-
-    private func setPattern(_ newPattern: String, selection: Range<Int>) {
-        isProgrammaticPatternEdit = true
-        pattern = newPattern
-        selectionStart = selection.lowerBound
-        selectionLength = selection.count
-    }
-
-    /// Gõ tay ⇒ con trỏ về cuối; nút chèn/sửa ⇒ giữ vùng nó vừa đặt. Cả hai đường đều kẹp lại vùng
-    /// chọn để một mẫu vừa bị gõ ngắn đi không để lại range trỏ ra ngoài chuỗi.
-    private func reconcileSelection(after newPattern: String) {
-        let count = Array(newPattern).count
-        if isProgrammaticPatternEdit {
-            isProgrammaticPatternEdit = false
-        } else if focusedField == .pattern {
-            selectionStart = count
-            selectionLength = 0
-        }
-        selectionStart = min(max(0, selectionStart), count)
-        if selectionStart + selectionLength > count {
-            selectionLength = 0
-        }
-    }
-
-    /// Chèn tại con trỏ, hoặc **thay** vùng đang chọn — đúng cái cần cho luồng nút `+` của Check rule,
-    /// nơi mẫu điền sẵn là cả cụm chữ Trung và việc phải làm là đổi một đoạn thành token.
-    private func insertIntoPattern(_ text: String) {
-        let count = Array(pattern).count
-        let start = min(max(0, selectionStart), count)
-        let end = min(max(start, start + selectionLength), count)
-        let updated = QuickTranslationRuleDraftAnalyzer.replacing(
-            range: start..<end,
-            in: pattern,
-            with: text
-        )
-        setPattern(updated, selection: start..<(start + Array(text).count))
-    }
-
-    private func applyTokenSpec(
-        _ spec: QuickTranslationRuleDraftAnalyzer.TokenSpec,
-        to segment: QuickTranslationRuleDraftAnalyzer.Segment
-    ) {
-        let syntax = spec.syntax
-        let updated = QuickTranslationRuleDraftAnalyzer.replacing(
-            range: segment.range,
-            in: pattern,
-            with: syntax
-        )
-        setPattern(updated, selection: segment.start..<(segment.start + Array(syntax).count))
-    }
-
-    private func deleteBackwardInPattern() {
-        let count = Array(pattern).count
-        let start = min(max(0, selectionStart), count)
-
-        if selectionLength > 0 {
-            let end = min(start + selectionLength, count)
-            let updated = QuickTranslationRuleDraftAnalyzer.replacing(range: start..<end, in: pattern, with: "")
-            setPattern(updated, selection: start..<start)
-            return
-        }
-
-        guard let previous = QuickTranslationRuleDraftAnalyzer.segments(of: pattern)
-            .last(where: { $0.end <= start }) else { return }
-        let updated = QuickTranslationRuleDraftAnalyzer.replacing(range: previous.range, in: pattern, with: "")
-        setPattern(updated, selection: previous.start..<previous.start)
     }
 
     // MARK: - Lưu

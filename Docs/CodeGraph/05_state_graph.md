@@ -15,13 +15,22 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Con trỏ của ô nhập mẫu là state chia sẻ giữa UIKit và SwiftUI (1.3.289)
+
+* **`selectionStart`/`selectionLength` vẫn là một nguồn sự thật duy nhất, nhưng nay có hai người ghi**: `QuickTranslationRulePatternField` (báo con trỏ thật của `UITextView` lên) và dải chip / nút token / thanh min–max (đặt vùng chọn xuống). Không có bản sao thứ hai của con trỏ ở đâu.
+* **Đơn vị không đổi ở tầng model**: chỉ số **ký tự** trên `Array(pattern)`. `NSRange` UTF-16 chỉ tồn tại bên trong representable, đúng biên UIKit — vẫn tôn trọng bất biến "mọi offset trao đổi với UIKit là NSRange UTF-16".
+* **Hai cái chốt chống vòng lặp cập nhật**: cờ `isApplying` của coordinator (không báo lên khi chính mình đang áp giá trị xuống) và `lastReportedRange` (không áp lại đúng range vừa báo lên — cần khi quy đổi ký tự ⇄ UTF-16 không tròn vì chuỗi có ký tự ngoài BMP).
+* **Cờ `isProgrammaticPatternEdit` của 1.3.288 đã bị xoá** cùng heuristic "gõ tay thì con trỏ về cuối". Nó chỉ tồn tại vì trước đó không đọc được con trỏ thật; giữ lại sẽ là hai nguồn tranh nhau quyết định con trỏ ở đâu. `reconcileSelection(after:)` giờ chỉ kẹp biên.
+* **`@FocusState` chỉ còn dùng cho ô Bản dịch.** Ô Mẫu là `UIViewRepresentable` nên không tham gia hệ focus của SwiftUI: nó tự `becomeFirstResponder()` một lần trong `makeUIView` khi bản nháp nói ô này đang được gõ, và báo focus ra ngoài bằng `onFocusChange` để bản nháp ghi lại. `focusedField` vì vậy đổi từ `@FocusState` sang `@State` thường — nó là *dữ liệu của bản nháp*, không phải cái điều khiển focus.
+* **Điều kiện mở thanh `:min-max` là state dẫn xuất, không phải state mới**: có vùng chọn ⇒ token trùng khít; chỉ có con trỏ ⇒ token có `start < caret ≤ end`.
+
 ## Bản nháp và vùng chọn của màn thêm/sửa rule (1.3.288)
 
 * **`@State` của sheet không còn là nơi cuối cùng giữ chữ đang gõ.** Nguồn sự thật cho `TextField` vẫn là `@State`, nhưng nó được mirror sang `QuickTranslationRuleDraftStore` ở mỗi thay đổi (`.onChange(of: currentDraft)`) và `init` seed lại từ đó. Vì vậy một lượt SwiftUI dựng lại content của sheet — thứ đang xảy ra khi Reader tự chuyển chương lúc đang nghe — không còn xoá trạng thái nhập.
 * **Store cố ý không phải `ObservableObject`**: nó chỉ là bản sao để khôi phục. Phát `objectWillChange` mỗi keystroke chỉ thêm một lượt invalidate vô ích.
 * **Vòng đời slot bản nháp**: `store()` mỗi thay đổi → `clear()` **chỉ** khi lưu thành công hoặc bấm Hủy. Mở một `Mode.id` khác ⇒ slot cũ bị ghi đè (một slot duy nhất, không rò). Đóng sheet bằng vuốt xuống **giữ** bản nháp, nên mở lại đúng rule đó thì chữ còn nguyên — trạng thái trung gian này là hợp lệ và có chủ ý.
-* **`selectionStart`/`selectionLength` là chỉ số ký tự trên `Array(pattern)`**, không phải UTF-16 và không phải `String.Index`: mọi thao tác ở màn này là chèn/thay chuỗi trong RAM, không trao range nào cho UIKit. `length == 0` nghĩa là con trỏ chèn; `length > 0` là vùng chọn. Thanh min–max chỉ mở khi vùng chọn trùng **khít** một chip token.
-* **`isProgrammaticPatternEdit` là cờ dùng-một-lần** phân biệt hai nguồn sửa mẫu: gõ tay vào `TextField` ⇒ `reconcileSelection` đưa con trỏ về cuối (đúng thứ tay người dùng đang làm); nút chèn/sửa token ⇒ giữ nguyên vùng chọn nút vừa đặt, nếu không thanh min–max sẽ tự đóng ngay sau khi chèn token. Cờ được tiêu thụ và reset ngay trong `.onChange(of: pattern)`.
+* **`selectionStart`/`selectionLength` là chỉ số ký tự trên `Array(pattern)`**, không phải UTF-16 và không phải `String.Index`. `length == 0` nghĩa là con trỏ chèn; `length > 0` là vùng chọn. (1.3.288 chỉ có dải chip cấp con trỏ; từ 1.3.289 ô nhập cấp con trỏ thật — xem mục trên.)
+* **`isProgrammaticPatternEdit` (1.3.288) đã bị xoá ở 1.3.289** — xem mục trên. Nó từng phân biệt "gõ tay vào `TextField`" với "nút vừa chèn/sửa token" vì lúc đó không đọc được con trỏ thật.
 * **`@FocusState` được khôi phục ở `onAppear`** theo `focus` của bản nháp: giữ chữ mà vẫn tụt bàn phím mỗi lần chuyển chương thì trạng thái nhập vẫn coi như bị gián đoạn.
 * `didRestoreDraft` là cờ chỉ-đọc do `init` tính, log **một lần mỗi identity** ở `onAppear` (không log trong `init` — `init` chạy lại theo mỗi lượt body của view chủ). Đây là đầu dò để lần sau chẩn đoán được *nguyên nhân* SwiftUI dựng lại sheet, không phải chỉ triệu chứng.
 
