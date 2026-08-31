@@ -1,18 +1,6 @@
 # CHANGELOG (Lưu trữ) - Nhật ký Thay đổi CodeGraph FreeBook
 
-Lịch sử thay đổi cũ (version ≤ 1.3.262) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
-
-## [1.3.262] - 2026-08-24
-
-### Nút back không chữ chạy thật, ô URL tự bôi đen, bypass browser nhiều tab
-
-Thêm **6** file Swift (346 → 352), sửa 2 file; **không** `@Model` nào đổi shape, **không** thêm dependency. Chưa biên dịch (viết trên Windows, không có `xcodebuild`/`xcodegen`) — **phải chạy `xcodegen generate` trên macOS/CI** vì có file mới.
-
-* **Sửa lỗi "bỏ chữ nút back không hoạt động" của 1.3.260**: nguyên nhân là `NavigationBarAppearance` đọc `UINavigationBar.appearance().standardAppearance` rồi sửa **tại chỗ** — appearance proxy chỉ bảo đảm hợp đồng cho *setter*, getter của nó không trả về đối tượng đang có hiệu lực, nên phép sửa rơi vào hư không. Nay dựng **4 `UINavigationBarAppearance()` mới**: `standard`/`compact` dùng `configureWithDefaultBackground()`, `scrollEdge`/`compactScrollEdge` dùng `configureWithTransparentBackground()` (đúng mặc định iOS 15+ nên diện mạo thanh nav không đổi). Thêm `.font: .systemFont(ofSize: 0.1)` cạnh `.foregroundColor: .clear` cho cả 4 trạng thái `backButtonAppearance` để nhãn không **chiếm chỗ** — chỉ đổi màu thì chevron bị đẩy lệch khỏi vị trí quen thuộc. Vẫn không dùng `UIBarButtonItem.appearance()`.
-* **Bypass browser mở nhiều tab, link ngoài mở tab mới**: 4 file mới `BypassBrowserTabStore` (149), `BypassBrowserTab` (107), `BypassBrowserTabBar` (62), `BypassBrowserWebPane` (38). Trước đây `BypassWebView` **không gắn `WKUIDelegate`** nên `target="_blank"`/`window.open` không làm gì cả. Store là chủ sở hữu duy nhất mọi `WKWebView` và là delegate dùng chung; `createWebViewWith` **dùng lại** `WKWebViewConfiguration` do WebKit trao và **không** tự `load` (tạo config mới ⇒ mất `window.opener`; tự load ⇒ nạp hai lần), trần **8 tab** vì mỗi tab là một webview, đạt trần thì nạp link trên tab hiện tại. KVO (6 khoá) nằm trên tab chứ không trên `Coordinator` nên tab nền vẫn cập nhật tiêu đề/URL; đổi tab chỉ đổi subview của một `UIView` container nên giữ nguyên lịch sử và vị trí cuộn. `webViewDidClose` đóng đúng tab; `closeTab` từ chối đóng tab cuối.
-* **Chạm ô URL là bôi đen toàn bộ địa chỉ**: file mới `URLBarTextField` (102) bọc `UITextField` vì SwiftUI `TextField` (iOS 17) không có API chọn hết. Đặt `selectedTextRange` trong `textFieldDidBeginEditing` phải **hoãn một vòng run loop** (UIKit ghi đè bằng caret cuối chuỗi ngay sau callback), và dùng `selectedTextRange` thay `selectAll(nil)` để không bật kèm menu Cut/Copy/Paste. Cờ `isEditing` chặn observer URL của webview ghi đè lúc đang gõ; `updateUIView` chỉ gán `text` khi khác thật.
-* **`BypassWebView.swift` 599 → 350 dòng** (baseline legacy 599, chỉ được giảm): gỡ `WebViewStore`, `SwiftUIWebView` + Coordinator, `fileprivate isDomainBlocked` (dùng lại `isEngineDomainBlocked` của Engine — một nguồn sự thật cho danh sách chặn) và `generateHomeHtml()` (tách nguyên văn sang `BypassBrowserHomePage`, 170 dòng). API công khai `BypassWebView(urlString:host:onImport:)` **không đổi** nên 6 call site không phải sửa.
-* `check_architecture.py` giữ **14 violation, đúng cùng một tập** trước/sau; 6 file mới đều ≤ 400 dòng và đúng 1 type top level, không nới baseline, không sửa `architecture_allowlist.json`. CodeGraph: cập nhật `00`, `02`, `03`, `09`, `11`, `14`.
+Lịch sử thay đổi cũ (version ≤ 1.3.261) tách khỏi [CHANGELOG.md](CHANGELOG.md) để giữ file chính gọn. Chỉ dùng để tra cứu; không cần đọc khi làm task thường.
 
 ## [1.3.261] - 2026-08-24
 

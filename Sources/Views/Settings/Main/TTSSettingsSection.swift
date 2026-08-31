@@ -10,9 +10,6 @@ struct TTSSettingsSection: View {
             NavigationLink(destination: TTSModelManagerView()) {
                 Label("Quản lý Model", systemImage: "waveform.and.mic")
             }
-            NavigationLink(destination: VieNeuModelManagerView()) {
-                Label("Model VieNeu-TTS (offline)", systemImage: "cpu")
-            }
             NavigationLink(destination: TTSDictionaryEditView()) {
                 Label("Từ điển phiên âm cá nhân", systemImage: "character.book.closed")
             }

@@ -16,16 +16,9 @@ private enum PreprocessorConfig {
 private struct PreprocessorRuntimeConfig {
     let numericNormalizationEnabled: Bool
     let dictionaryReplacementEnabled: Bool
-    /// Kana → Romaji → âm Việt. **Cả hai** engine đều cần: sea-g2p của VieNeu không có tiếng Nhật.
-    let japaneseTransliterationEnabled: Bool
-    /// Phiên âm chữ Latin sang âm Việt. Chỉ Piper cần — xem `TTSPreprocessProfile`.
-    let latinTransliterationEnabled: Bool
-    /// Đi vào khoá cache để hai hồ sơ không trả kết quả của nhau.
-    let profile: TTSPreprocessProfile
+    let transliterationEnabled: Bool
 
-    var anyTransliterationEnabled: Bool { japaneseTransliterationEnabled || latinTransliterationEnabled }
-
-    static func load(profile: TTSPreprocessProfile) -> PreprocessorRuntimeConfig {
+    static func load() -> PreprocessorRuntimeConfig {
         let defaults = UserDefaults.standard
 
         func boolValue(for key: String, fallback defaultValue: Bool) -> Bool {
@@ -33,14 +26,10 @@ private struct PreprocessorRuntimeConfig {
             return defaults.bool(forKey: key)
         }
 
-        // Công tắc trong Cài đặt vẫn tắt được cả hai chiều; hồ sơ chỉ **thu hẹp** thêm.
-        let translit = boolValue(for: PreprocessorSettingKey.transliterationEnabled, fallback: true)
         return PreprocessorRuntimeConfig(
             numericNormalizationEnabled: boolValue(for: PreprocessorSettingKey.numericNormalizationEnabled, fallback: true),
             dictionaryReplacementEnabled: boolValue(for: PreprocessorSettingKey.dictionaryReplacementEnabled, fallback: true),
-            japaneseTransliterationEnabled: translit,
-            latinTransliterationEnabled: translit && profile.appliesLatinTransliteration,
-            profile: profile
+            transliterationEnabled: boolValue(for: PreprocessorSettingKey.transliterationEnabled, fallback: true)
         )
     }
 }
@@ -976,42 +965,35 @@ final actor TextPreprocessor {
     }
 
     private func transliterateToken(_ token: String, config: PreprocessorRuntimeConfig) -> String {
-        guard config.anyTransliterationEnabled else { return token }
+        guard config.transliterationEnabled else { return token }
 
         let folded = token.folding(options: .diacriticInsensitive, locale: nil)
-        let lowered = folded.lowercased()
-        // Khoá cache mang cả hồ sơ: cùng token cho kết quả khác nhau ở `piper` và `vieneu`.
-        let cacheKey = "\(config.profile.rawValue)|\(lowered)"
+        let cacheKey = folded.lowercased()
 
         if let cached = transliterationCache[cacheKey] {
             return cached
         }
 
-        // Chiều bị tắt thì trả nguyên văn — bất biến "không bộ phiên âm nào được trả rỗng".
-        func transliteratePart(_ part: String) -> String {
-            if JapaneseTransliterator.isJapaneseRomaji(part) {
-                return config.japaneseTransliterationEnabled ? JapaneseTransliterator.transliterateRomaji(part) : part
-            }
-            return config.latinTransliterationEnabled ? EnglishPhonemeTransliterator.transliterate(part) : part
-        }
-        func partOrTransliteration(_ part: String) -> String {
-            VietnameseWordChecker.isVietnameseWord(part) ? part : transliteratePart(part)
-        }
-
         let transliterated: String
-        if config.dictionaryReplacementEnabled, let dictMatch = lookupWord(lowered) {
+        if config.dictionaryReplacementEnabled, let dictMatch = lookupWord(cacheKey) {
             transliterated = dictMatch
-        } else if JapaneseTransliterator.isJapaneseRomaji(lowered) {
-            // Giữ đúng thứ tự cũ: cả token là Romaji Nhật thì xử lý nguyên khối, **trước** khi xét
-            // gạch nối. Đảo thứ tự sẽ làm "a-ri-ga-to" bị cắt tại gạch nối và đọc khác đi.
-            transliterated = config.japaneseTransliterationEnabled ? JapaneseTransliterator.transliterateRomaji(lowered) : lowered
-        } else if lowered.contains("-") || lowered.contains(".") {
+        } else if JapaneseTransliterator.isJapaneseRomaji(cacheKey) {
+            transliterated = JapaneseTransliterator.transliterateRomaji(cacheKey)
+        } else if cacheKey.contains("-") || cacheKey.contains(".") {
             var partsResult = ""
             var currentPart = ""
-            for char in lowered {
+            for char in cacheKey {
                 if char == "-" || char == "." {
                     if !currentPart.isEmpty {
-                        partsResult += partOrTransliteration(currentPart)
+                        if !VietnameseWordChecker.isVietnameseWord(currentPart) {
+                            if JapaneseTransliterator.isJapaneseRomaji(currentPart) {
+                                partsResult += JapaneseTransliterator.transliterateRomaji(currentPart)
+                            } else {
+                                partsResult += EnglishPhonemeTransliterator.transliterate(currentPart)
+                            }
+                        } else {
+                            partsResult += currentPart
+                        }
                         currentPart = ""
                     }
                     partsResult.append(char)
@@ -1020,11 +1002,19 @@ final actor TextPreprocessor {
                 }
             }
             if !currentPart.isEmpty {
-                partsResult += partOrTransliteration(currentPart)
+                if !VietnameseWordChecker.isVietnameseWord(currentPart) {
+                    if JapaneseTransliterator.isJapaneseRomaji(currentPart) {
+                        partsResult += JapaneseTransliterator.transliterateRomaji(currentPart)
+                    } else {
+                        partsResult += EnglishPhonemeTransliterator.transliterate(currentPart)
+                    }
+                } else {
+                    partsResult += currentPart
+                }
             }
             transliterated = partsResult
         } else {
-            transliterated = transliteratePart(lowered)
+            transliterated = EnglishPhonemeTransliterator.transliterate(cacheKey)
         }
 
         storeTransliteration(transliterated, for: cacheKey)
@@ -1032,39 +1022,50 @@ final actor TextPreprocessor {
     }
 
     // MARK: - Main Preprocess Pipeline
-    /// - Parameter profile: engine sẽ đọc chuỗi này. Mặc định `.piper` để mọi call site cũ giữ
-    ///   nguyên hành vi; đường VieNeu phải truyền `.vieneu` tường minh. Xem `TTSPreprocessProfile`.
-    func preprocess(_ text: String, profile: TTSPreprocessProfile = .piper) -> String {
+    func preprocess(_ text: String) -> String {
         // Self.preprocessLog("🚀 [Preprocess] Start preprocessing for: '\(text)'")
         if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Self.preprocessLog("🚀 [Preprocess] Text is empty, returning empty string.")
             return ""
         }
 
-        let runtimeConfig = PreprocessorRuntimeConfig.load(profile: profile)
+        let runtimeConfig = PreprocessorRuntimeConfig.load()
+        // Self.preprocessLog(
+        //     "🚀 [Preprocess] Config snapshot: numeric=\(runtimeConfig.numericNormalizationEnabled), dictionary=\(runtimeConfig.dictionaryReplacementEnabled), transliteration=\(runtimeConfig.transliterationEnabled)"
+        // )
 
         // 0. Chuyển đổi Hiragana/Katakana tiếng Nhật sang Romaji
         let pipelineInput: String
-        if runtimeConfig.japaneseTransliterationEnabled {
+        if runtimeConfig.transliterationEnabled {
             // Self.preprocessLog("🚀 [Preprocess] Step 0a: Converting Japanese characters (Romaji)...")
             pipelineInput = JapaneseTransliterator.convertToRomaji(text)
         } else {
+            // Self.preprocessLog("🚀 [Preprocess] Step 0a: Transliteration disabled; keeping original script.")
             pipelineInput = text
         }
 
+        // Self.preprocessLog("🚀 [Preprocess] Step 0b: Running Vietnamese text processor...")
         let processedVi = Self.processVietnameseText(pipelineInput, config: runtimeConfig)
+
+        // Self.preprocessLog("🚀 [Preprocess] Step 0c: Cleaning emojis and symbols...")
         let cleaned = Self.cleanEmojisAndSymbols(processedVi)
+
         let lowercased = cleaned.lowercased()
 
         // 1. Thay thế từ viết tắt (Acronyms) khi config bật
         var replacedText = lowercased
         if runtimeConfig.dictionaryReplacementEnabled {
+            // Self.preprocessLog("🚀 [Preprocess] Step 1: Replacing acronyms...")
             replacedText = replaceDictionaryWords(in: lowercased, type: .acronym, config: runtimeConfig)
+
             // 2. Tiến hành khớp từ điển tiếng Anh và chạy bộ quy tắc
+            // Self.preprocessLog("🚀 [Preprocess] Step 2: Translating English words...")
             replacedText = replaceDictionaryWords(in: replacedText, type: .word, config: runtimeConfig)
+        } else {
+            // Self.preprocessLog("🚀 [Preprocess] Step 1/2: Dictionary replacement disabled; skipping acronym and word maps.")
         }
 
-        let shouldProcessTokens = runtimeConfig.dictionaryReplacementEnabled || runtimeConfig.anyTransliterationEnabled
+        let shouldProcessTokens = runtimeConfig.dictionaryReplacementEnabled || runtimeConfig.transliterationEnabled
 
         var result = replacedText
         if shouldProcessTokens {
@@ -1095,7 +1096,7 @@ final actor TextPreprocessor {
                 let processedToken: String
                 if isTranslatedByDict {
                     processedToken = token
-                } else if runtimeConfig.anyTransliterationEnabled && token.count > 1 && token != "mc" && VietnameseTokenGate.shouldTransliterate(token, at: tokenIndex, in: matches, source: nsString) {
+                } else if runtimeConfig.transliterationEnabled && token.count > 1 && token != "mc" && VietnameseTokenGate.shouldTransliterate(token, at: tokenIndex, in: matches, source: nsString) {
                     // Tự động chuẩn hóa dấu phụ (ví dụ: ryū -> ryu, arigatō -> arigato)
                     processedToken = transliterateToken(token, config: runtimeConfig)
                 } else {

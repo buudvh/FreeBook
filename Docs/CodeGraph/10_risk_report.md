@@ -15,69 +15,6 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Đã loại được rủi ro nào của VieNeu, và còn lại gì (1.3.294)
-
-**Ba rủi ro build của 1.3.292 đều đã loại** — CI của 1.3.293 xanh: selector
-`ORTSessionOptions.addConfigEntry(withKey:value:)` **có** trong binding ObjC đang pin, contrib op int8
-biên dịch được, và 25 file mới chỉ có **một** lỗi (closure bắt `self` trước khi `channels` khởi tạo).
-
-**Bộ `onnx_int8` không hỏng.** Chạy engine tham chiếu Python trên **đúng** bộ int8 đó (local dir,
-`temperature = 0`) cho 4.56 s audio, peak 0.58, rms 0.12 — tỉ lệ rms/peak 0.21 là đặc trưng tiếng nói,
-tiếng ồn trắng cho 0.5–0.7. Nghĩa là nếu thiết bị cho ra nhiễu thì lỗi nằm ở **bản port Swift**, không
-ở export.
-
-**Bốn thành phần đã đối chiếu số học với bản tham chiếu và khớp:**
-
-* **Speaker anchor** — thuật toán của bản Swift (GEMV `NoTrans` trên `xvec_w` (768,192), rồi LayerNorm
-  phương sai **toàn phần**) cho `max|Δ| = 7.45e-09` so với `_speaker_anchor`. Đúng.
-* **Bảng npz** — `text_emb` (419,768) fp32, `audio_emb` (16,1024,768) fp32, cả hai C-contiguous, npz
-  **stored** (không nén). Chỉ số phẳng `(ch * 1024 + code) * 768 + h` của bản Swift là đúng.
-* **Tokenizer** — id của **mọi** phoneme giống nhau giữa `tokenizer.json` gốc và bản `onnx_int8`; chỉ 30
-  nhãn `<|reserved_N|>` bị đổi số. `<|unk|>` = 43, vocab phoneme bắt đầu ở 44 ở cả hai.
-* **Style token 16 là token thật, không phải ô random-init.** Trong tokenizer của `onnx_int8`, id 16 là
-  `<|style_0|>`; ô dự trữ bắt đầu ở **26**, không phải 13. Ghi chú `reserved_token_start = 13` trong
-  `config.json` mô tả cách đánh số của bộ **gốc**. Kết luận "dùng 16" vẫn đúng, nhưng lý do thì khác
-  với những gì 1.3.292 ghi.
-
-**`SeaG2P` khớp cho văn xuôi tiếng Việt, lệch ở chữ số và gạch nối.** Cùng một câu tiếng Việt thuần,
-bản Swift cho chuỗi phoneme **giống hệt** sea-g2p thật. Nhưng "VieNeu-TTS v3" thì sea-g2p thật cho
-`vˈaɪ nˈuː tˈiː tˈiː ˈɛs vˈe bˈaː` (tách ở gạch nối, đọc từng chữ cái, `v3` → "vê ba") còn bản Swift cho
-`vˈiːnuː - tˌiːtˌiːˈɛs vˈiː3` (giữ gạch nối làm token, dính chữ cái, **để nguyên chữ số 3**). Chữ số
-trong ký hiệu này là **dấu thanh** nên đó là lỗi thật — nhưng trong FreeBook nó đã được
-`TextPreprocessor` chặn trước, và nó **không** giải thích được tiếng ồn.
-
-**Còn lại, chưa loại được:**
-
-* Lỗi nằm đâu đó trong cơ chế Swift mà không đọc code ra được: xử lý `ORTValue`, tuổi thọ buffer, hoặc
-  vòng `VieNeuDecodeLoop`. `ONNXVieNeuEngine+SelfCheck` được thêm chính để bisect chỗ này bằng **một**
-  lần chạy trên máy.
-* **Không có bằng chứng nào cho thấy bản port Swift từng cho ra audio đúng.** Bản thử nghiệm chạy với
-  `active_vq = 8` — thứ mà 1.3.292 đã xác định là làm tiếng đục — nên "chậm nhưng nghe được" chưa bao
-  giờ được kiểm chứng. Lỗi có thể có từ đầu và nằm trong phần code dùng chung.
-* RAM và throttle nhiệt vẫn chưa đo. Log thiết bị cho `thermal=serious` và `[NghiEnergy] Underrun` chỉ
-  3 giây sau khi bắt đầu phát, khớp với "khoảng cách giữa 2 chunk lớn".
-
-## Rủi ro của engine VieNeu-TTS (1.3.292)
-
-**Chưa được kiểm chứng trên thiết bị.** Toàn bộ phân hệ này được viết trên Windows, chưa biên dịch và chưa chạy lần nào. Ba điểm phải kiểm ngay ở lần build/chạy đầu:
-
-* **`ORTSessionOptions.addConfigEntry(withKey:value:)`** — dùng để tắt spin-wait của threadpool. Nếu binding ObjC của phiên bản ORT đang pin không có selector này thì đây là **lỗi biên dịch**, không phải lỗi runtime; bỏ dòng đó là xong.
-* **ORT có mmap chung `vieneu_backbone_shared.data` cho hai session hay không.** Nếu nó copy thì RAM là 208 MB thay vì 104 MB, cộng heads 52 MB và codec 44 MB — trên iPhone 11 4 GB chạy qua LiveContainer, cùng lúc có Reader và WKWebView của extension, đó là mức đáng lo cho jetsam.
-* **Contrib op int8** (`DynamicQuantizeMatMul`/`MatMulIntegerToFloat`) có trong bản SPM hay không. Thiếu thì đường lùi là bộ `onnx` fp32: chạy được nhưng chậm hơn ~4× ở hạng mục chiếm 64% vòng lặp.
-
-**Rủi ro chất lượng đặc thù của model tự hồi quy** — Piper không có nhóm này:
-
-* **Ảo giác, lặp vòng, bỏ chữ, EOS sớm.** Ba lá chắn đã có: trần frame theo độ dài phoneme (`24 + 2.0 × len`), repetition penalty cửa sổ trượt 64 frame cho **mọi** codebook, và chốt dấu câu cuối chunk (`punc_norm`). Đọc truyện hàng giờ vẫn là điều kiện chưa được thử.
-* **Không tất định.** `temperature = 0.8` nên cùng một chunk cho audio khác nhau mỗi lần. Muốn đối chiếu với bản Python thì phải đặt `temperature = 0` (đường argmax) — chỉ khi đó kết quả mới so sánh được.
-* **Ngữ điệu nhảy giữa các chunk.** `referenceCodes` giữ **danh tính** giọng ổn định nhưng đường cao độ/năng lượng reset mỗi chunk. Bản tham chiếu chống bằng cách gộp chunk ngắn hơn 20 ký tự; `TTSParagraphBuilder` của FreeBook **chưa** làm điều đó.
-* **Mẫu NaN/Inf** đưa thẳng vào `AVAudioPlayer` là tiếng nổ. `normalise` lọc và đếm chúng vào log.
-
-**Rủi ro hiệu năng và điện năng.** Vòng AR đo được 31.25 ms/frame trên iPhone 11 với bộ **fp32**; dự phóng ~17 ms/frame với bộ int8, tức ~4.7× realtime. Cộng codec (1.34 s cho 6.72 s audio, chỉ có bản fp32 nên là sàn không giảm được), RTF tổng dự kiến ~0.44. Đủ cho watermark 8 giây của `NghiSynthesisPolicy` nhưng **mỏng hơn Piper rõ rệt**: throttle nhiệt sau 20–30 phút có thể đẩy RTF qua 1.0, và khi đó là đứt tiếng chứ không phải chậm hơn. `ProcessInfo.thermalState` hiện **chỉ là telemetry**, không chặn hay điều tiết refill — với Piper vô hại, với VieNeu thì không còn vô hại.
-
-**Rủi ro tải model.** 274 MB qua 11 file. Đã có: resume bằng HTTP Range, ngưỡng cỡ tối thiểu cho từng file (chống trang lỗi HTTP 200), và nguyên tử ở mức cả bộ (staging → kiểm đủ → đổi tên). Chưa có: kiểm SHA-256. Một file tải đủ cỡ nhưng hỏng nội dung sẽ hiện ra dưới dạng lỗi nạp ORT mù mờ.
-
-**Rủi ro không streaming.** Codec chạy một lần cho cả chunk (`decode_full`), nên chunk đầu sau khi bấm Play phải chờ sinh xong toàn bộ. Prefetch của FreeBook che được phần lớn vì chunk ở đây cỡ câu, nhưng chunk đầu tiên vẫn cảm nhận được. `decode_step` + state streaming để lại cho lượt sau.
-
 ## Rủi ro sau lượt chống mất chữ (1.3.291)
 
 * **Chỗ mất chữ sâu nhất vẫn còn**: `ONNXPiperEngine` bỏ im lặng mọi unicode scalar không có trong `phoneme_id_map` của model (chỉ log). Lượt này chỉ bịt các tầng trên; bịt hẳn cần map âm vị **trong** inventory của model — việc của Phase 2, **chưa làm**.

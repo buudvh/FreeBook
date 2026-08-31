@@ -15,30 +15,6 @@ Tài liệu này chi tiết hóa vòng đời (khởi tạo, phân bổ, sử d�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
-## Vòng đời tài nguyên của engine VieNeu (1.3.292)
-
-**Thư mục model** — `applicationSupportDirectory/FreeBook/TTS/VieNeu/v3turbo-int8/`, 11 file, ~274 MB.
-
-* Tên thư mục mang cả biến thể lượng tử hoá nên bản fp32 (nếu thêm sau) nằm cạnh chứ không ghi đè.
-* **Không được đổi tên file.** Hai graph tham chiếu `vieneu_backbone_shared.data` bằng **tên trần** trong external-data proto và ORT phân giải tên đó tương đối với thư mục chứa `.onnx`. Cùng lý do với `moss_audio_tokenizer_decode_shared.data`. Đây là điểm khác căn bản so với `ModelStore` của Piper vốn đặt tên file theo từng giọng.
-* **Vòng đời tải là nguyên tử ở mức cả bộ**: `<variant>.staging/` → tải từng file vào `<tên>.part` → đổi tên thành `<tên>` khi đạt cỡ tối thiểu → kiểm đủ 11 file → đổi tên cả thư mục thành `<variant>/`. `isInstalled` kiểm **nội dung** (đủ file và mỗi file đạt ngưỡng cỡ), nên một lần đổi tên hỏng giữa chừng chỉ dẫn tới "chưa cài", không dẫn tới bộ nửa vời trông như hợp lệ.
-* **File đã cài nhưng thiếu vài cái** (người dùng xoá tay) được **copy sang staging** trước khi tải, để không tải lại 104 MB một cách vô ích.
-* `deleteAll()` xoá cả thư mục thật và staging còn sót.
-
-**File được mmap, không nạp vào heap**: `sea_g2p.bin` (62.8 MB, `SeaG2PDictionary`) và `vieneu_v3_heads.npz` (52.2 MB, `VieNeuNPZArchive`) đều mở bằng `.mappedIfSafe`. Chỉ trang thật sự bị tra mới vào RAM.
-
-**Bảng embedding thì phải nằm trong heap**: `audioEmbedding` 16 × 1024 × 768 float ≈ 50.3 MB cộng `textEmbedding` ≈ 1.29 MB, giữ dạng `[Float]` phẳng vì `cblas_sgemv` cần con trỏ liên tục. Nếu npz là fp16 thì `vImageConvert_Planar16FtoPlanarF` chuyển một lần lúc nạp — không phải vòng lặp từng phần tử, 12.6 triệu phần tử là phần lớn của 3.7 giây khởi động đo được ở bản thử nghiệm.
-
-**Bốn `ORTSession` + một `ORTEnv`** sống trong `Runtime` của `ONNXVieNeuEngine`, dựng một lần và cache theo đường dẫn thư mục model. `ORTEnv` phải được giữ tham chiếu cùng các session. Đổi engine hoặc tải/xoá model xong, `rebuildLocalTTSService()` dựng service mới nên `Runtime` cũ được giải phóng cùng nó.
-
-**Tuổi thọ buffer tensor là bất biến bắt buộc.** `ORTValue(tensorData:...)` **bọc con trỏ** của `NSMutableData` chứ không giữ tham chiếu; `VieNeuTensor` tồn tại chỉ để giữ cả hai sống bằng nhau, và mọi lời gọi `run` đều bọc trong `withExtendedLifetime`. Buffer chết trước khi `run` xong là đọc vào bộ nhớ đã thu hồi — biểu hiện là crash ngẫu nhiên hoặc, tệ hơn, audio sai mà không có lỗi nào.
-
-**KV cache không đi qua heap của Swift.** `ORTValue` output của bước trước được truyền thẳng làm input bước sau; chỉ hidden state (768 float) và hàng cuối của prefill mới `tensorData()`. Ở `T = 300` một lượt copy cả cache là ~12 MB, 12.5 lần mỗi giây.
-
-**Cache có trần rõ ràng**: BPE 20 000 từ, `mergedCache` 10 000, `commonCache` 5 000, `segmentationCache` 5 000, `missing*` 50 000 — vượt trần thì xoá sạch chứ không LRU, vì đây là cache tra cứu tất định nên xoá lại chỉ tốn công tính lại. `anchorCache` giữ theo tên giọng, xoá khi dựng lại `Runtime`.
-
-**PCM ra 48 kHz** nên mỗi payload nặng hơn Piper ~2.2×. Trần `NghiSynthesisPolicy.maxTotalAudioPayloads = 5` không đổi: 5 payload × ~8 giây × 96 KB/giây ≈ 3.8 MB, vẫn trong ngân sách. `AVAudioPlayer(data:)` đọc sample rate từ header WAV nên không cần đổi gì ở tầng phát; đổi lại, **không được trộn** WAV 22.05 kHz và 48 kHz trong cùng hàng chờ — đó là lý do `clearPrefetchCache()` là bắt buộc khi đổi engine, và là lý do WAV im lặng của đường VieNeu cũng phải 48 kHz.
-
 ## Vòng đời từ điển phiên âm khi xoá tất cả (1.3.291)
 
 * **`deleteAllWords()` dọn đúng ba thứ trong một lượt, trong cùng isolation của actor**: `wordMap` (RAM), file `non-vietnamese-words.plist` (ghi **rỗng**, atomic), và cặp `transliterationCache`/`transliterationCacheOrder` — bỏ sót cache là mọi từ đã phiên âm vẫn trả kết quả cũ tới khi bị evict.

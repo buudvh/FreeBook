@@ -9,8 +9,7 @@ struct TTSSettingsView: View {
     @Environment(\.presentationMode) var presentationMode
     @Environment(\.modelContext) private var modelContext
     @ObservedObject var ttsManager = TTSManager.shared
-    // `internal` (không phải `private`) vì `TTSSettingsView+VieNeu` dựng picker giọng Piper.
-    @State var availableVoices: [Voice] = []
+    @State private var availableVoices: [Voice] = []
     @State private var systemVoices: [AVSpeechSynthesisVoice] = []
     
     @Query private var allExtensions: [Extension]
@@ -80,9 +79,6 @@ struct TTSSettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
-
-                // Nhánh `nghitts` có hai engine chạy trên máy — xem `TTSManager+LocalEngine`.
-                localEnginePicker
             }
             
             // Section 2: Chọn giọng đọc
@@ -96,10 +92,17 @@ struct TTSSettingsView: View {
                     }
                     .pickerStyle(.menu)
                 } else if ttsManager.tool == "nghitts" {
-                    if ttsManager.localEngineKind == .vieneu {
-                        vieNeuVoicePicker
+                    let downloadedVoices = availableVoices.filter { isModelDownloaded($0) }
+                    if downloadedVoices.isEmpty {
+                        Text("Chưa tải giọng đọc NghiTTS nào")
+                            .foregroundColor(.secondary)
                     } else {
-                        piperVoicePicker
+                        Picker("Giọng đọc NghiTTS", selection: $ttsManager.selectedVoice) {
+                            ForEach(downloadedVoices, id: \.name) { voice in
+                                Text(voice.name).tag(voice.name)
+                            }
+                        }
+                        .pickerStyle(.menu)
                     }
                 } else if ttsManager.tool == "google" {
                     Picker("Giọng đọc Google TTS", selection: $ttsManager.selectedVoice) {
@@ -500,7 +503,7 @@ struct TTSSettingsView: View {
         }
     }
     
-    func isModelDownloaded(_ voice: Voice) -> Bool {
+    private func isModelDownloaded(_ voice: Voice) -> Bool {
         return (try? ModelStore().modelExists(for: voice.id)) ?? false
     }
     

@@ -735,7 +735,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
     private let siriService = SiriTTSService()
     internal let extService = ExtTTSService()
     internal let googleService = GoogleTTSService()
-    internal var nghiTTSService: (any LocalTTSSynthesizing)?
+    internal var nghiTTSService: PiperTTSService?
     public private(set) var nghiTTSClient: NghiTTSClient?
     private var modelStore: ModelStore?
     private var modelContainer: ModelContainer?
@@ -758,7 +758,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             return
         }
         guard let service = nghiTTSService else { return }
-        let voice = activeLocalVoiceName
+        let voice = selectedVoice
         nghiWarmUpTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 500_000_000)
             guard !Task.isCancelled else { return }
@@ -1025,7 +1025,7 @@ public final class TTSManager: NSObject, ObservableObject, AVAudioPlayerDelegate
             let store = try ModelStore()
             self.modelStore = store
             self.nghiTTSClient = NghiTTSClient(modelStore: store)
-            self.nghiTTSService = makeLocalTTSService(modelStore: store)
+            self.nghiTTSService = PiperTTSService(modelStore: store, engine: ONNXPiperEngine())
 
             // Đặt giọng NghiTTS mặc định nếu chưa chọn
             if self.selectedVoice.isEmpty {
