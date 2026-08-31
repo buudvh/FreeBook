@@ -15,6 +15,16 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## VieNeu-TTS v3 Turbo thành engine offline thứ hai của nhánh nghitts (1.3.292)
+
+* **`tool == "nghitts"` nay nghĩa "engine chạy trên máy", không còn nghĩa "Piper".** Engine cụ thể do khoá UserDefaults `nghiEngineKind` ∈ `{piper, vieneu}` chọn. Giữ nguyên chuỗi `"nghitts"` là chủ ý: nó được so sánh ở ~45 chỗ và điều khiển toàn bộ policy on-device, nên engine mới **thừa hưởng** cả 45 nhánh đó.
+* **Phân hệ mới `Sources/Services/TTS/VieNeuTTS/` (21 file)** cộng protocol `LocalTTSSynthesizing` ở `Sources/Services/TTS/`, hồ sơ tiền xử lý `TTSPreprocessProfile`, extension `TTSManager+LocalEngine`, và hai file View (`TTSSettingsView+VieNeu`, `VieNeuModelManagerView`).
+* **Model tải runtime, ~274 MB, 11 file trong một thư mục và không được đổi tên** — hai graph tham chiếu file weight bằng **tên trần** trong external-data proto và ORT phân giải tên đó tương đối với thư mục chứa `.onnx`.
+* **Dùng bản `onnx_int8`, không phải `onnx` fp32.** Backbone fp32 nặng 415 MB; số đo trên iPhone 11 cho decode step 19.92 ms/frame ≈ 20.8 GB/s, tức thuần bị chặn băng thông. Bản int8 chỉ 104 MB. Bốn khác biệt kiến trúc kèm theo: 1 local layer (không phải 2), cần speaker embedding, heads fp32, và **token dẫn đầu prompt phải là 16**.
+* **Id 13..42 là ô dự trữ random-init chưa train** (`reserved_token_start = 13`, `num_reserved_tokens = 30`), trong đó có cả `tin_tuc` (17) và `doc_truyen` (18). Nhãn phong cách trong file giọng **chỉ để hiển thị**, không bao giờ được dịch thành style token.
+* **VieNeu đọc tiếng Anh gốc** qua sea-g2p, nên hồ sơ `.vieneu` **tắt** phiên âm Latin→âm Việt mà đường Piper bắt buộc phải có. Ngược lại chuẩn hoá số vẫn bắt buộc: bộ ký hiệu phoneme của sea-g2p dùng **chữ số làm dấu thanh**.
+* Chi tiết phân hệ: [11_subsystems.md](11_subsystems.md). Kiểu và ranh giới: [03_type_graph.md](03_type_graph.md). Vòng suy luận: [04_call_graph.md](04_call_graph.md). Rủi ro: [10_risk_report.md](10_risk_report.md).
+
 ## Chống mất chữ khi phiên âm, trường âm Nhật đọc như âm ngắn, xoá tất cả phiên âm (1.3.291)
 
 * **"Đọc mất chữ" là 5 chỗ bỏ chữ im lặng, không phải một bug lẻ**: (1) `ONNXPiperEngine` duyệt âm vị **theo từng unicode scalar**, scalar không có trong `phoneme_id_map` thì chỉ log rồi bỏ; (2) `IPAToVietnameseMapper` bỏ ký hiệu IPA lạ, xoá âm tiết không dựng được, giữ **một** phụ âm mỗi đầu cụm; (3) bộ luật chính tả cắt phụ âm cuối; (4) không có chốt chống rỗng ở **mức token** (`PiperTTSService.isUnspeakable` chỉ chặn cả chunk); (5) cổng ngữ cảnh của 1.3.290 mở quá rộng nên từ tiếng Việt cũng bị đẩy vào đường tiếng Anh.

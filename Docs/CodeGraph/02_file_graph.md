@@ -15,6 +15,26 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Phân hệ VieNeuTTS và protocol engine on-device (1.3.292)
+
+25 file mới, không xoá file nào. Tổng file Swift: 423 → 448.
+
+**`Sources/Services/TTS/` (1 file)** — `LocalTTSSynthesizing.swift`: protocol chung của hai engine on-device, đúng 5 thành viên mà tầng trên gọi, cộng extension cấp giá trị mặc định cho tham số (mặc định khai ở kiểu cụ thể không đi qua witness table).
+
+**`Sources/Services/TTS/VieNeuTTS/` (21 file)**, chia theo tầng:
+
+* *Lưu trữ*: `VieNeuModelFile.swift` (11 file model + ngưỡng cỡ tối thiểu), `VieNeuModelStore.swift` (thư mục cố định, staging, toàn vẹn), `VieNeuModelDownloader.swift` (tải theo manifest, resume bằng HTTP Range, nguyên tử ở mức cả bộ), `VieNeuFileDownload.swift` (bắc cầu `URLSessionDownloadTask` sang async, tiến độ theo byte).
+* *Dữ liệu model*: `VieNeuModelConfig.swift`, `VieNeuNPZArchive.swift` (đọc npz qua central directory, fp16→fp32 bằng vImage), `VieNeuEmbeddingTables.swift` (bảng tied + GEMV + speaker anchor), `VieNeuVoice.swift`, `VieNeuVoiceCatalog.swift`.
+* *Văn bản*: `SeaG2PDictionary.swift` (mmap `sea_g2p.bin`, so sánh theo byte UTF-8), `SeaG2P.swift` (G2P Việt/Anh), `VieNeuTokenizer.swift` (BPE byte-level).
+* *Suy luận*: `VieNeuSessionLayout.swift` (phát hiện tên input/output từ session), `VieNeuTensor.swift` (giữ chung tuổi thọ `NSMutableData` và `ORTValue`), `VieNeuSampler.swift`, `VieNeuRepetitionHistory.swift`, `VieNeuDecodeLoop.swift`, `ONNXVieNeuEngine.swift` + `ONNXVieNeuEngine+Audio.swift`.
+* *Service*: `VieNeuTTSService.swift`.
+
+**Còn lại (3 file)** — `Sources/Services/TTS/Preprocessing/TTSPreprocessProfile.swift`, `Sources/Services/TTS/Extensions/TTSManager+LocalEngine.swift`, `Sources/Views/TTSWidget/TTSSettingsView+VieNeu.swift`, `Sources/Views/Settings/TTS/VieNeuModelManagerView.swift`.
+
+Vì sao nhiều file nhỏ: trần 400 dòng/file và **một** type chính mỗi file của `check_architecture.py`. `ONNXVieNeuEngine` phải tách phần codec/hậu xử lý sang `+Audio` vì file gốc vượt 400 dòng; `SeaG2P` tách phần từ điển nhị phân sang `SeaG2PDictionary` cùng lý do.
+
+Hai file View mới tồn tại vì `TTSSettingsView.swift` (baseline 519) và `TTSModelManagerView.swift` (baseline 478) chỉ được phép **giảm** dòng, không được tăng.
+
 ## Chống mất chữ + xoá tất cả phiên âm (1.3.291)
 
 | File mới | Tầng | Vai trò | Dòng |

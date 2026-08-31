@@ -109,7 +109,7 @@ internal final class TTSChapterPrefetcher {
 
     internal func promoteAudioIfNeeded(
         remainingParentCount: Int,
-        nghiService: PiperTTSService?,
+        nghiService: (any LocalTTSSynthesizing)?,
         googleService: GoogleTTSService,
         extService: ExtTTSService
     ) {
@@ -130,7 +130,7 @@ internal final class TTSChapterPrefetcher {
         processed: ProcessedChapterDTO,
         loadMs: Double,
         processMs: Double,
-        nghiService: PiperTTSService?,
+        nghiService: (any LocalTTSSynthesizing)?,
         googleService: GoogleTTSService,
         extService: ExtTTSService
     ) {

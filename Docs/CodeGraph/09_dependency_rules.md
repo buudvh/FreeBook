@@ -15,6 +15,17 @@ Tài liệu này định nghĩa các quy tắc phụ thuộc (Dependency Rules) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Phân hệ VieNeuTTS giữ đúng chiều phụ thuộc (1.3.292)
+
+* 25 file mới đều nằm đúng tầng: 22 file trong `Sources/Services/`, 2 file `Sources/Views/`, 1 protocol ở `Sources/Services/TTS/`. Không file nào đảo chiều Views → Services.
+* **`Sources/Services/TTS/VieNeuTTS/` không `import SwiftUI`** và không gọi `ToastManager.shared` — hai luật không có ngoại lệ của `check_architecture.py` được giữ nguyên. Lỗi truyền lên bằng `TTSError`, còn UI do `VieNeuModelManagerView` tự hiển thị.
+* **Protocol `LocalTTSSynthesizing` là điểm nối duy nhất theo chiều đúng**: `TTSManager` (tầng trên) phụ thuộc vào trừu tượng, hai service (tầng dưới) phụ thuộc vào protocol. Trước đây `TTSChapterPrefetcher` và `TTSNextChapterPrefixCache` phụ thuộc **kiểu cụ thể** `PiperTTSService` — đó là chỗ phụ thuộc sai chiều nay đã bỏ.
+* **`VieNeuTTS/` không phụ thuộc `NghiTTS/`** ngoài đúng hai điểm dùng lại có chủ ý, đều là hàm thuần: `PiperTTSService.isUnspeakable` (chốt chunk không đọc được) và `PiperSynthesisPayload`/`SynthesisPriority`/`PiperSynthesisCoordinator` (hàng chờ dùng chung). Không có chiều ngược lại: `NghiTTS/` không biết gì về `VieNeuTTS/`.
+* **`TTSPreprocessProfile` để phân hệ Preprocessing không phải biết về engine.** `TextPreprocessor` nhận một hồ sơ chứ không kiểm tra `TTSManager.tool` — nếu nó tự đọc trạng thái engine thì Services sẽ phụ thuộc ngược lên tầng điều phối.
+* **`VieNeuTTSService.voiceKey` khai ở service, không ở `TTSManager`**: `TTSManager` là `@MainActor` nên static của nó bị cô lập theo, mà `resolveVoiceName` đọc khoá đó từ ngoài MainActor.
+* **Không thêm `tool` value mới** nên không phát sinh nhánh phân loại nào ở `TTSChapterPrefetcher`, `TTSNextChapterPrefixCache`, `TTSManager+PrefetchCache`, `TTSManager+NextChapterPrefix`. Đây là lý do chính chọn sub-selection: một `tool` thứ năm buộc phải rà lại ~45 chỗ so sánh chuỗi, và bỏ sót một chỗ là VieNeu bị `isRemoteTTS` xếp vào nhóm remote.
+* Hai file View mới là `extension` và `View` thuần, không giữ state nghiệp vụ; `VieNeuModelManagerView` chỉ gọi store/downloader và `TTSManager.rebuildLocalTTSService()`.
+
 ## Hai file mới đều là extension/modifier (1.3.291)
 
 * **`TextPreprocessor+Bulk.swift` là `extension` của actor**, đặt cạnh file gốc. Nó buộc `wordMap`, `saveWordMapToDisk()`, `transliterationCache`, `transliterationCacheOrder` chuyển `private` → `internal` vì `private` là phạm vi **file** — nới phạm vi truy cập trong module, không nới luật kiến trúc, và file gốc không thêm dòng nào (đang đúng baseline 1121).

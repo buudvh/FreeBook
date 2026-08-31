@@ -15,6 +15,38 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Vòng suy luận VieNeu và đường chọn engine on-device (1.3.292)
+
+**Đường tổng hợp một chunk** (nhánh `nghitts` + `nghiEngineKind == vieneu`):
+
+```
+TTSManager (2 call site: refill nền và demand)
+  └─ any LocalTTSSynthesizing → VieNeuTTSService.synthesizeWithDuration
+       └─ PiperSynthesisCoordinator.enqueuePayload   (dùng chung với Piper)
+            └─ VieNeuTTSService.execute
+                 ├─ TextPreprocessor.preprocess(_, profile: .vieneu)
+                 └─ ONNXVieNeuEngine.synthesize            (Task.detached)
+                      ├─ SeaG2P.phonemes  → VieNeuTokenizer.encode
+                      ├─ VieNeuEmbeddingTables.speakerAnchor      (cache theo giọng)
+                      ├─ buildPrompt      → writeRowEmbedding × (text + 50 ref row)
+                      ├─ VieNeuDecodeLoop.generate
+                      │    ├─ prefill                              × 1
+                      │    └─ mỗi frame (80 ms audio):
+                      │         ├─ acousticFrame
+                      │         │    ├─ acoustic session           × 16
+                      │         │    ├─ audioLogits (cblas_sgemv)  × 16
+                      │         │    └─ VieNeuSampler.sample       × 16
+                      │         └─ decode_step session             × 1
+                      └─ decodeCodes (codec) → normalise → WAVEncoder
+```
+
+* **17 lời gọi ONNX cho mỗi 80 ms audio**, ~212 lời gọi cho mỗi giây. Chuỗi **tuần tự tuyệt đối**: 16 codebook phụ thuộc nhau trong một frame, frame phụ thuộc frame trước. Không pipeline được, không batch được — đó là lý do mọi thứ trong vòng lặp phải rẻ (`VieNeuSampler` chọn top-k **trước** khi sort; `writeRowEmbedding` dùng `cblas_saxpy` thay 768 phép cộng có bounds-check).
+* **KV cache truyền thẳng `ORTValue` output → input bước sau**, không qua `tensorData()`: ở `T = 300` một lượt copy cả cache là ~12 MB, 12.5 lần mỗi giây. `tensorData()` chỉ dùng cho hidden state (768 float) và cho hàng cuối của prefill.
+* **Lời gọi acoustic đầu tiên đưa hai token** (hidden điều kiện + token bắt đầu sinh tiếng nói): hàng ra thứ nhất dò EOS trên vocab text, hàng thứ hai cho code codebook 0. Từ codebook 1 mỗi lần một token là embedding của code vừa sinh, dùng lại KV cache trong cùng frame.
+* **Trần frame theo độ dài phoneme**: `24 + 2.0 × số ký tự phoneme`, chặn trên 300 frame. Trần cố định sai theo cả hai chiều — chunk ngắn vẫn được phép lan dài, chunk dài lại bị cắt giữa câu.
+
+**Đường chọn/đổi engine**: `TTSManager.setupEngines` → `makeLocalTTSService(modelStore:)`; đổi trong Cài đặt → `nghiEngineKind` setter → `applyLocalEngineChange()` → `stop()` + `clearPrefetchCache()` + `rebuildLocalTTSService()` → `prepare(voice:)` nền. Tải model xong, `VieNeuModelManagerView` cũng gọi `rebuildLocalTTSService()` để không phải khởi động lại app.
+
 ## Chốt chống rỗng và cụm phụ âm (1.3.291)
 
 ```text

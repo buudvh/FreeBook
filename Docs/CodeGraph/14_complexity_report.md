@@ -15,6 +15,21 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số dòng sau lượt 1.3.292
+
+* **Thêm 25 file Swift** (423 → **448**), tất cả ≤ 400 dòng, mỗi file một primary type top-level. File lớn nhất: `SeaG2P` 398, `VieNeuDecodeLoop` 340, `ONNXVieNeuEngine` 336, `VieNeuNPZArchive` 302, `VieNeuModelDownloader` ~250, `VieNeuEmbeddingTables` 244, `SeaG2PDictionary` 221, `VieNeuModelManagerView` ~200, `VieNeuTokenizer` 179, `ONNXVieNeuEngine+Audio` ~135, `VieNeuSampler` 138.
+* **Hai lần tách vì trần 400 dòng**: `ONNXVieNeuEngine` 456 → 336 bằng cách dời codec + hậu xử lý sang `+Audio`; `SeaG2P` tách phần từ điển nhị phân sang `SeaG2PDictionary`. Ba lần tách vì luật một-type-mỗi-file: `VieNeuModelFile`, `VieNeuVoice`, `VieNeuRepetitionHistory` rời khỏi file gốc.
+* **Ba file sát/vượt trần đều không phình**: `TTSManager.swift` giữ **đúng 4000** (một dòng thay thế, không thêm — phần logic mới nằm ở `TTSManager+LocalEngine` 130 dòng), `TextPreprocessor.swift` **giảm 1121 → 1120** (thêm cờ hồ sơ nhưng bỏ 9 dòng log đã comment trong `preprocess`), `TTSSettingsView.swift` **giảm 519 → 515** (UI mới nằm ở `TTSSettingsView+VieNeu`). `TTSModelManagerView.swift` giữ nguyên 478 — màn tải VieNeu là file riêng.
+* **Độ phức tạp lúc chạy của vòng suy luận**: mỗi frame audio (80 ms) tốn `1 + n_vq = 17` lời gọi `ORTSession.run`, tức ~212 lời gọi cho mỗi giây audio, cộng 16 GEMV `(1024 × 768)` và 16 lượt lấy mẫu. Chuỗi tuần tự tuyệt đối, không pipeline và không batch được.
+* **Bậc của phần lấy mẫu là chỗ khác biệt có chủ ý**: chọn `k = 25` ứng viên bằng **một lượt quét** O(V) với nhánh bỏ sớm, rồi softmax/nucleus/rút thăm chỉ trên 25 phần tử. Cách viết trực tiếp là cấp phát 1024 tuple rồi `sort` toàn bộ — O(V log V) cộng một lần cấp phát heap, nhân 16 lần mỗi frame.
+* **`writeRowEmbedding` dùng `cblas_saxpy`** thay 768 phép cộng có bounds-check mỗi codebook; prompt ~223 hàng × 17 lần cộng vector.
+* **Nạp bảng embedding**: fp16 → fp32 cho 12.6 triệu phần tử bằng **một** lời gọi `vImageConvert_Planar16FtoPlanarF` theo khối 768 phần tử/hàng, thay vòng lặp `Float(Float16(bitPattern:))` — đây là phần lớn của 3.7 giây khởi động đo được ở bản thử nghiệm.
+* **Tra từ điển sea-g2p là O(log n) thật**: so sánh **byte UTF-8** trực tiếp trên vùng mmap, không dựng `String` cho mỗi lần probe (~17 lần cấp phát mỗi lượt tra bị loại bỏ). Đồng thời sửa một lỗi tiềm ẩn: `String` của Swift so sánh sau chuẩn hoá Unicode nên thứ tự có thể lệch khỏi thứ tự byte mà bảng được Rust sắp, làm tìm kiếm nhị phân **trượt** một số từ mà không báo lỗi.
+* **Đọc npz đi qua central directory**, không quét tuần tự tìm chữ ký `PK\x03\x04` trên 52 MB — vừa nhanh hơn vừa không ăn phải chữ ký nằm trong dữ liệu float.
+* **Tải model không dùng `URLSession.bytes(for:)`**: nó là `AsyncSequence` của **từng byte**, 274 MB thành 274 triệu lần `await next()`. Dùng `URLSessionDownloadTask` + delegate, ghi ở tầng hệ thống, tiến độ theo byte.
+* **Số đo trên iPhone 11 (bộ fp32, 84 frame = 6.72 s audio)**: decode step 19.92 ms/frame (64% vòng lặp, ≈ 20.8 GB/s — thuần bị chặn băng thông), acoustic 7.93 ms/frame, lấy mẫu 2.86 ms/frame, prefill 0.461 s, codec 1.342 s. Vòng AR 31.25 ms/frame ≈ 2.6× realtime. Dự phóng với bộ int8 và 16 codebook: ~17 ms/frame ≈ 4.7× realtime, RTF tổng ~0.44. **Chưa đo lại sau khi chuyển sang int8.**
+* `check_architecture.py` giữ **14 violation nền**, không violation mới. Host Windows không build được: tính đúng đắn biên dịch do CI/macOS xác nhận, hiệu năng và chất lượng phải đo trên iPhone 11 thật qua `app_logs.txt`.
+
 ## Số dòng sau lượt 1.3.291
 
 * **Thêm 2 file Swift** (421 → **423**): `TTSDictionaryBulkActionsModifier` 67, `TextPreprocessor+Bulk` 30.

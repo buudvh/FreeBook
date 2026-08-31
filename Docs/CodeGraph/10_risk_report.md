@@ -15,6 +15,27 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro của engine VieNeu-TTS (1.3.292)
+
+**Chưa được kiểm chứng trên thiết bị.** Toàn bộ phân hệ này được viết trên Windows, chưa biên dịch và chưa chạy lần nào. Ba điểm phải kiểm ngay ở lần build/chạy đầu:
+
+* **`ORTSessionOptions.addConfigEntry(withKey:value:)`** — dùng để tắt spin-wait của threadpool. Nếu binding ObjC của phiên bản ORT đang pin không có selector này thì đây là **lỗi biên dịch**, không phải lỗi runtime; bỏ dòng đó là xong.
+* **ORT có mmap chung `vieneu_backbone_shared.data` cho hai session hay không.** Nếu nó copy thì RAM là 208 MB thay vì 104 MB, cộng heads 52 MB và codec 44 MB — trên iPhone 11 4 GB chạy qua LiveContainer, cùng lúc có Reader và WKWebView của extension, đó là mức đáng lo cho jetsam.
+* **Contrib op int8** (`DynamicQuantizeMatMul`/`MatMulIntegerToFloat`) có trong bản SPM hay không. Thiếu thì đường lùi là bộ `onnx` fp32: chạy được nhưng chậm hơn ~4× ở hạng mục chiếm 64% vòng lặp.
+
+**Rủi ro chất lượng đặc thù của model tự hồi quy** — Piper không có nhóm này:
+
+* **Ảo giác, lặp vòng, bỏ chữ, EOS sớm.** Ba lá chắn đã có: trần frame theo độ dài phoneme (`24 + 2.0 × len`), repetition penalty cửa sổ trượt 64 frame cho **mọi** codebook, và chốt dấu câu cuối chunk (`punc_norm`). Đọc truyện hàng giờ vẫn là điều kiện chưa được thử.
+* **Không tất định.** `temperature = 0.8` nên cùng một chunk cho audio khác nhau mỗi lần. Muốn đối chiếu với bản Python thì phải đặt `temperature = 0` (đường argmax) — chỉ khi đó kết quả mới so sánh được.
+* **Ngữ điệu nhảy giữa các chunk.** `referenceCodes` giữ **danh tính** giọng ổn định nhưng đường cao độ/năng lượng reset mỗi chunk. Bản tham chiếu chống bằng cách gộp chunk ngắn hơn 20 ký tự; `TTSParagraphBuilder` của FreeBook **chưa** làm điều đó.
+* **Mẫu NaN/Inf** đưa thẳng vào `AVAudioPlayer` là tiếng nổ. `normalise` lọc và đếm chúng vào log.
+
+**Rủi ro hiệu năng và điện năng.** Vòng AR đo được 31.25 ms/frame trên iPhone 11 với bộ **fp32**; dự phóng ~17 ms/frame với bộ int8, tức ~4.7× realtime. Cộng codec (1.34 s cho 6.72 s audio, chỉ có bản fp32 nên là sàn không giảm được), RTF tổng dự kiến ~0.44. Đủ cho watermark 8 giây của `NghiSynthesisPolicy` nhưng **mỏng hơn Piper rõ rệt**: throttle nhiệt sau 20–30 phút có thể đẩy RTF qua 1.0, và khi đó là đứt tiếng chứ không phải chậm hơn. `ProcessInfo.thermalState` hiện **chỉ là telemetry**, không chặn hay điều tiết refill — với Piper vô hại, với VieNeu thì không còn vô hại.
+
+**Rủi ro tải model.** 274 MB qua 11 file. Đã có: resume bằng HTTP Range, ngưỡng cỡ tối thiểu cho từng file (chống trang lỗi HTTP 200), và nguyên tử ở mức cả bộ (staging → kiểm đủ → đổi tên). Chưa có: kiểm SHA-256. Một file tải đủ cỡ nhưng hỏng nội dung sẽ hiện ra dưới dạng lỗi nạp ORT mù mờ.
+
+**Rủi ro không streaming.** Codec chạy một lần cho cả chunk (`decode_full`), nên chunk đầu sau khi bấm Play phải chờ sinh xong toàn bộ. Prefetch của FreeBook che được phần lớn vì chunk ở đây cỡ câu, nhưng chunk đầu tiên vẫn cảm nhận được. `decode_step` + state streaming để lại cho lượt sau.
+
 ## Rủi ro sau lượt chống mất chữ (1.3.291)
 
 * **Chỗ mất chữ sâu nhất vẫn còn**: `ONNXPiperEngine` bỏ im lặng mọi unicode scalar không có trong `phoneme_id_map` của model (chỉ log). Lượt này chỉ bịt các tầng trên; bịt hẳn cần map âm vị **trong** inventory của model — việc của Phase 2, **chưa làm**.

@@ -87,7 +87,7 @@ internal final class TTSNextChapterPrefixCache {
         playbackParagraphs: [TTSParagraph],
         capacity: Int,
         prefetchDelayMs: Int,
-        nghiService: PiperTTSService?,
+        nghiService: (any LocalTTSSynthesizing)?,
         googleService: GoogleTTSService,
         extService: ExtTTSService,
         audioWorker: TTSAudioSynthesisWorker
@@ -187,7 +187,7 @@ internal final class TTSNextChapterPrefixCache {
         index: Int,
         paragraph: TTSParagraph,
         prefetchDelayMs: Int,
-        nghiService: PiperTTSService?,
+        nghiService: (any LocalTTSSynthesizing)?,
         googleService: GoogleTTSService,
         extService: ExtTTSService,
         audioWorker: TTSAudioSynthesisWorker
@@ -261,7 +261,7 @@ internal final class TTSNextChapterPrefixCache {
         synthesisKey: String,
         offset: Int,
         prefetchDelayMs: Int,
-        nghiService: PiperTTSService?,
+        nghiService: (any LocalTTSSynthesizing)?,
         googleService: GoogleTTSService,
         extService: ExtTTSService,
         audioWorker: TTSAudioSynthesisWorker

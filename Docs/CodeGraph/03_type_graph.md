@@ -15,6 +15,18 @@ Tài liệu này liệt kê chi tiết định nghĩa và mối quan hệ giữa
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Protocol engine on-device và các kiểu của VieNeuTTS (1.3.292)
+
+* **`LocalTTSSynthesizing`** là kiểu trừu tượng mới ở ranh giới `TTSManager` ↔ engine chạy trên máy: `prepare(voice:)`, `synthesize(...)`, `synthesizeWithDuration(...)`, `currentModel`, `engineStatus`. `PiperTTSService` và `VieNeuTTSService` cùng conform; `TTSChapterPrefetcher`/`TTSNextChapterPrefixCache`/`TTSManager` giữ `any LocalTTSSynthesizing`. Kiểu cụ thể của engine (`ONNXPiperEngine`, `ORTSession`, model store) **không** xuất hiện ngoài service tương ứng.
+* **Giá trị mặc định của tham số nằm ở extension của protocol.** Mặc định khai trong `PiperTTSService` không đi qua witness table, nên call site bỏ bớt `requestID` sẽ vỡ khi biến đổi sang existential.
+* **`TTSPreprocessProfile`** (`piper` | `vieneu`) là kiểu quyết định tiền xử lý. `PreprocessorRuntimeConfig` bỏ cờ `transliterationEnabled` đơn lẻ, thay bằng `japaneseTransliterationEnabled` + `latinTransliterationEnabled` + `profile`; `anyTransliterationEnabled` là hợp của hai chiều.
+* **`TTSManager.LocalEngineKind`** (`piper` | `vieneu`) là kiểu chọn engine, đặt trong `TTSManager+LocalEngine`. `nghiEngineKind`/`vieNeuVoiceName` là **computed property đọc/ghi UserDefaults**, không phải `@Published`, vì `TTSManager.swift` đã vượt baseline dòng nên không nhận thêm stored property; setter tự gọi `objectWillChange.send()`.
+* **`VieNeuModelFile`** là enum một-nguồn-sự-thật cho 11 file model kèm ngưỡng cỡ tối thiểu. Ngưỡng tồn tại để loại trang lỗi HTTP 200 — thứ mà `URLSession` không coi là thất bại nhưng sẽ làm `ORTSession` chết bằng thông báo không liên quan.
+* **`VieNeuVoice`** là DTO bất biến (`speakerEmbedding` 192 float + `referenceCodes` 50×16). Giọng ở model này **không** phải file model riêng như Piper: 20 giọng dùng chung một bộ model. Trường `style` **chỉ để hiển thị** — id 13..42 là ô random-init chưa train nên không được dịch nhãn thành style token.
+* **`VieNeuSessionLayout`** là kiểu mô tả tên input/output của một graph tự hồi quy, **phát hiện từ session** chứ không viết cứng: bộ `onnx_int8` có 1 local layer còn bộ `onnx` có 2. Danh sách KV sắp theo **số** ở đuôi tên, không theo thứ tự `outputNames()` (thứ tự băm).
+* **`VieNeuTensor`** giữ chung tuổi thọ `NSMutableData` và `ORTValue`: `ORTValue(tensorData:...)` bọc con trỏ chứ không giữ tham chiếu, buffer chết trước khi `run` xong là đọc vào bộ nhớ đã thu hồi.
+* **`VieNeuRepetitionHistory`** là cửa sổ trượt 64 frame mỗi codebook, không phải `Set` tích luỹ: codebook chỉ 1024 code nên set không giới hạn sau vài trăm frame đã phạt gần nửa codebook, kể cả code phải lặp lại.
+
 ## API mở rộng widget TTS từ Reader (1.3.277)
 
 * `TTSFloatingWidgetWindowManager` thêm state nội bộ `shouldRevealOnNextShow` và method `requestRevealOnNextShow()`. Đây là API tầng View, không đi qua `TTSManager` để giữ `Services/TTS` không phụ thuộc `Views/TTSWidget`.

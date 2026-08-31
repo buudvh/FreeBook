@@ -4,7 +4,7 @@ protocol PiperEngine {
     func synthesize(text: String, modelONNX: URL, modelConfig: URL, speed: Double, boundaryKind: TTSBoundaryKind) async throws -> Data
 }
 
-final class PiperTTSService: @unchecked Sendable {
+final class PiperTTSService: LocalTTSSynthesizing, @unchecked Sendable {
     private let modelStore: ModelStore
     private let engine: PiperEngine
     private let syncQueue = DispatchQueue(label: "PiperTTSService.sync")

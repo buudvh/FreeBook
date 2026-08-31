@@ -15,6 +15,18 @@ Tài liệu này phân tích chi tiết các máy trạng thái (State Machine) 
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## State chọn engine on-device và giọng VieNeu (1.3.292)
+
+* **Hai khoá UserDefaults mới**: `nghiEngineKind` ∈ `{piper, vieneu}` (mặc định `piper`) và `vieneuVoice` (tên giọng preset). Không có `@Published` nào được thêm: cả hai là **computed property** trong `TTSManager+LocalEngine`, setter tự gọi `objectWillChange.send()` nên `@ObservedObject` vẫn cập nhật. Lý do là `TTSManager.swift` đã vượt baseline dòng của `check_architecture.py` nên không nhận thêm stored property.
+* **Hệ quả cho View**: Picker phải dùng `Binding(get:set:)` chứ không `$ttsManager.nghiEngineKind` — không có projected value cho computed property.
+* **Giọng của hai engine là hai state riêng biệt**, không phải một. `selectedVoice` (khoá `nghittsVoice`) thuộc Piper; `vieneuVoice` thuộc VieNeu. Hai bộ tên không giao nhau nên dùng chung một khoá là đổi engine xong không còn giọng hợp lệ. `activeLocalVoiceName` là nơi duy nhất quyết định giọng nào đi xuống engine đang chọn.
+* **`selectedVoice` vẫn là state danh tính của hàng chờ**, kể cả khi engine là VieNeu: nó tham gia khoá tổng hợp và phép kiểm tra hợp lệ ở hai call site tổng hợp. Vì vậy `VieNeuTTSService.resolveVoiceName` tự phân giải lại tên giọng thay vì đổi đường truyền — đổi đường truyền là chạm vào logic huỷ/hợp lệ của cả hàng chờ.
+* **Đổi `nghiEngineKind` là chuyển state có tác dụng phụ bắt buộc**: `stop()` + `clearPrefetchCache()` + dựng lại service. Hai engine cho sample rate khác nhau (22.05 kHz và 48 kHz) và giọng khác nhau, nên payload PCM còn lại của engine cũ vừa sai giọng vừa sai tần số. Đổi `vieneuVoice` chỉ cần `clearPrefetchCache()`.
+* **`nghiTTSService` có thể là `nil` một cách chủ ý**: chọn VieNeu mà chưa dựng được store thì service là `nil` và người dùng thấy lỗi tường minh, **không** im lặng rơi về Piper.
+* **State chỉ-đọc dẫn xuất từ đĩa**: `isVieNeuModelInstalled` và `vieNeuVoices` không được cache trong `TTSManager`; chúng đọc lại từ `VieNeuModelStore`/catalog mỗi lần truy cập, nên tải hoặc xoá model xong màn Cài đặt phản ánh ngay.
+* **Khoá cache phiên âm mang cả hồ sơ** (`"<profile>|<token>"`): cùng một token cho kết quả khác nhau ở `piper` và `vieneu`, dùng chung khoá là hồ sơ này đọc kết quả của hồ sơ kia.
+* **`vieneuIntraOpThreads`** (mặc định 4) cho phép đo lại số luồng ORT trên máy thật mà không phải build lại.
+
 ## Con trỏ của ô nhập mẫu là state chia sẻ giữa UIKit và SwiftUI (1.3.289)
 
 * **`selectionStart`/`selectionLength` vẫn là một nguồn sự thật duy nhất, nhưng nay có hai người ghi**: `QuickTranslationRulePatternField` (báo con trỏ thật của `UITextView` lên) và dải chip / nút token / thanh min–max (đặt vùng chọn xuống). Không có bản sao thứ hai của con trỏ ở đâu.
