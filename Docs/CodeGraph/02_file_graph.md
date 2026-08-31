@@ -15,6 +15,14 @@ Tài liệu này chi tiết hóa toàn bộ các mối quan hệ phụ thuộc g
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Ba file dụng cụ đo cho phiên âm (1.3.296)
+
+3 file mới (423 → **426**):
+
+* `Sources/Services/TTS/NghiTTS/PiperPhonemeInventory.swift` (87) — đọc `phoneme_id_map` từ `<giọng>.onnx.json`, đếm scalar ngoài từ vựng, và bảng hạ cấp cho ký hiệu không có.
+* `Sources/Services/TTS/NghiTTS/ONNXPiperEngine+Phonemes.swift` (151) — tổng hợp từ **chuỗi IPA cho trước**, bỏ qua tầng phiên âm. Là file riêng vì `ONNXPiperEngine.swift` đang ở **đúng** baseline 469 dòng và chỉ được phép giảm; `CachedRuntime` và `getRuntime` đổi từ `private` sang internal (đổi từ khoá, **không** thêm dòng).
+* `Sources/Views/Settings/TTS/TTSIPAProbeSection.swift` (221) — `View` riêng chứ không phải extension, vì state của `TTSTransliterationTesterView` là `private` nên extension ở file khác không đọc được.
+
 ## Chống mất chữ + xoá tất cả phiên âm (1.3.291)
 
 | File mới | Tầng | Vai trò | Dòng |

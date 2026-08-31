@@ -15,6 +15,25 @@ Tài liệu này mô tả chi tiết đồ thị lời gọi hàm (Call Graph) c
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đường đo IPA thô, tách khỏi tầng phiên âm (1.3.296)
+
+```
+TTSIPAProbeSection
+  ├─ "Tổng hợp & nghe"
+  │    └─ ONNXPiperEngine.synthesizeRawPhonemes(ipa, ...)   ← KHÔNG qua TextPreprocessor
+  │         ├─ getRuntime                (dùng lại session đã cache)
+  │         ├─ ipa → scalar → phonemeIdMap
+  │         │    └─ thiếu? → PiperPhonemeInventory.downgrade → đếm, không bỏ im lặng
+  │         ├─ ORTSession.run            (input/input_lengths/scales[/sid])
+  │         └─ WAVEncoder → AVAudioPlayer
+  └─ "Đếm ký hiệu ngoài từ vựng"
+       └─ Task.detached                 (24 lượt espeak là lời gọi C có khoá)
+            ├─ PiperPhonemeInventory(configURL:)
+            └─ EspeakPhonemizer.phonemizeEnglish × 24 → missingScalars
+```
+
+Điểm cốt lõi: đường này **không** đi qua `TextPreprocessor` hay `IPAToVietnameseMapper`, nên nó tách được lỗi của **model** khỏi lỗi của **tầng phiên âm** — thứ mà mọi đường hiện có đều trộn lẫn.
+
 ## Chốt chống rỗng và cụm phụ âm (1.3.291)
 
 ```text

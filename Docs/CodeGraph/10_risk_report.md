@@ -15,6 +15,19 @@ Tài liệu này báo cáo chi tiết các rủi ro kỹ thuật tiềm ẩn ho�
 *Ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Rủi ro của hướng đưa IPA thẳng vào model (1.3.296)
+
+**Rủi ro chính, và là lý do lượt này chỉ ship dụng cụ đo chứ chưa sửa: ký hiệu có trong từ vựng nhưng có thể chưa được train.** `phoneme_id_map` 161 ký hiệu là bảng IPA chuẩn Piper phát cho **mọi** giọng — nó nói lên model *nhận* được `θ ð æ`, không nói lên dữ liệu huấn luyện tiếng Việt từng chứa chúng. Embedding chưa train sẽ đọc ra tiếng lạ hoặc im lặng. Đây đúng là cái bẫy của lượt VieNeu (`style token 18` có tên `doc_truyen` nhưng nằm trong vùng random-init). Vì vậy thứ tự bắt buộc là **nghe trước, refactor sau**.
+
+* **Nếu E1 đạt**, rủi ro tiếp theo là ngữ điệu: model tiếng Việt đọc IPA tiếng Anh vẫn sẽ mang thanh điệu và nhịp Việt, nghe "lơ lớ". Vẫn khá hơn hai lần chuyển đổi hiện tại, nhưng phải nghe A/B trên cùng một đoạn mới biết khá hơn bao nhiêu.
+* **Nếu E1 thất bại**, đường lùi (P5) là giữ hướng phiên âm sang âm Việt nhưng dùng bảng đếm của E1 để bổ sung `IPAToVietnameseMapper` cho **đúng** những âm vị đang bị bỏ, thay vì đoán như hai lượt trước.
+
+**Bảng hạ cấp của `PiperPhonemeInventory` là phỏng đoán có căn cứ, chưa phải đo.** Nó được gieo từ chính phép đo inventory (`ɴ→n`, `ʧ→tʃ`, tie bar → bỏ, `|→_`), nhưng danh sách ký hiệu espeak *thật sự* sinh ra chỉ biết được sau khi chạy bảng phủ âm vị trên máy. `downgrade` trả `nil` cho ký hiệu chưa biết, và `synthesizeRawPhonemes` **đếm** chúng thay vì bỏ im lặng — đó là cách để lần sau bổ sung đúng chỗ.
+
+**Rủi ro của chính dụng cụ đo**: `TTSIPAProbeSection` dựng một `ONNXPiperEngine` **thứ hai** (giữ trong `@State` nên chỉ một lần cho mỗi lần mở màn), tức nạp thêm một bản model vào RAM cạnh bản đang phát. Với model Piper cỡ 60 MB trên máy 4 GB thì chấp nhận được, nhưng đừng mở màn này giữa lúc đang nghe truyện.
+
+**Chưa chạm đường tổng hợp đang chạy.** `synthesizeRawPhonemes` là đường song song; `ONNXPiperEngine.synthesizeInternal` chưa bị sửa dòng nào, nên lượt này không thể làm hỏng chất lượng hiện tại.
+
 ## Rủi ro sau lượt chống mất chữ (1.3.291)
 
 * **Chỗ mất chữ sâu nhất vẫn còn**: `ONNXPiperEngine` bỏ im lặng mọi unicode scalar không có trong `phoneme_id_map` của model (chỉ log). Lượt này chỉ bịt các tầng trên; bịt hẳn cần map âm vị **trong** inventory của model — việc của Phase 2, **chưa làm**.

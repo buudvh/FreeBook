@@ -40,6 +40,7 @@ struct TTSTransliterationTesterView: View {
     var body: some View {
         Form {
             engineSection
+            TTSIPAProbeSection()
             sentenceSection
             wordSection
             goldenSection

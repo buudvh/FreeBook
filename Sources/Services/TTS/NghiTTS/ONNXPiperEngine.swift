@@ -18,7 +18,7 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
         let phoneme_id_map: [String: [Int]]?
     }
 
-    private struct CachedRuntime {
+    struct CachedRuntime {
         let modelURL: URL
         let configURL: URL
         let env: ORTEnv
@@ -42,7 +42,7 @@ final class ONNXPiperEngine: PiperEngine, @unchecked Sendable {
         return try? NSRegularExpression(pattern: pattern, options: [])
     }()
 
-    private func getRuntime(modelONNX: URL, modelConfig: URL) throws -> CachedRuntime {
+    func getRuntime(modelONNX: URL, modelConfig: URL) throws -> CachedRuntime {
         sessionLock.lock()
         defer { sessionLock.unlock() }
 

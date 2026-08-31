@@ -15,6 +15,13 @@ Tài liệu này đóng vai trò là điểm bắt đầu (Entrypoint) và bản
 *Khu vực này dành riêng cho ghi chú thủ công của con người.*
 
 <!-- GENERATED START -->
+## Đo được: model Piper nhận IPA đầy đủ, không chỉ âm vị tiếng Việt (1.3.296)
+
+* **Phát hiện đảo ngược giả định của 1.3.290 và 1.3.291.** `phoneme_id_map` của model đang dùng có **161 ký hiệu và là bộ IPA đầy đủ**, gồm mọi thứ espeak `en-us` sinh ra (`æ ð θ ŋ ɑ ɔ ɛ ə ɚ ɜ ɝ ɪ ʊ ʌ ʃ ʒ ɹ ɫ ɾ ᵻ ɐ ˈ ˌ ː`) và mọi thứ tiếng Nhật cần (`ɕ ʑ ɸ ɲ ŋ ɾ ː`). Nghĩa là **cả tầng `IPAToVietnameseMapper` có thể là không cần thiết**: đưa IPA tiếng Anh thẳng vào chuỗi phoneme là hợp lệ về từ vựng.
+* **Nhưng có mặt trong từ vựng ≠ đã được train.** 161 ký hiệu là bảng chuẩn Piper phát cho *mọi* giọng, không phải bằng chứng dữ liệu tiếng Việt có `θ`/`ð`/`æ`. Đúng cái bẫy đã gặp ở lượt VieNeu (`style token 18` có tên nhưng là ô random-init).
+* Lượt này ship **dụng cụ đo, chưa phải bản sửa**: ô nhập IPA thô + bảng đếm ký hiệu ngoài từ vựng ở màn Thử phiên âm. Nghe `θˈɪŋk`/`ðˈɪs`/`kˈæt` trên máy thật rồi mới quyết định refactor hay không.
+* Kế hoạch đầy đủ (P1–P5) ở `Docs/Plans/`; rủi ro ở [10_risk_report.md](10_risk_report.md).
+
 ## Chống mất chữ khi phiên âm, trường âm Nhật đọc như âm ngắn, xoá tất cả phiên âm (1.3.291)
 
 * **"Đọc mất chữ" là 5 chỗ bỏ chữ im lặng, không phải một bug lẻ**: (1) `ONNXPiperEngine` duyệt âm vị **theo từng unicode scalar**, scalar không có trong `phoneme_id_map` thì chỉ log rồi bỏ; (2) `IPAToVietnameseMapper` bỏ ký hiệu IPA lạ, xoá âm tiết không dựng được, giữ **một** phụ âm mỗi đầu cụm; (3) bộ luật chính tả cắt phụ âm cuối; (4) không có chốt chống rỗng ở **mức token** (`PiperTTSService.isUnspeakable` chỉ chặn cả chunk); (5) cổng ngữ cảnh của 1.3.290 mở quá rộng nên từ tiếng Việt cũng bị đẩy vào đường tiếng Anh.

@@ -15,6 +15,13 @@ Tài liệu này cung cấp báo cáo chi tiết về độ phức tạp mã ngu
 *Đây là khu vực con người tự viết ghi chú, AI không được phép ghi đè.*
 
 <!-- GENERATED START -->
+## Số dòng sau lượt 1.3.296
+
+* **Thêm 3 file Swift** (423 → **426**): `TTSIPAProbeSection` 221, `ONNXPiperEngine+Phonemes` 151, `PiperPhonemeInventory` 87. Tất cả ≤ 400 dòng, mỗi file một primary type top-level.
+* **Hai file ở baseline không phình**: `ONNXPiperEngine.swift` giữ **đúng 469** (chỉ đổi hai từ khoá `private` → internal, không thêm dòng); `TTSTransliterationTesterView.swift` 277 → 278 (thêm một dòng gọi section mới, file này không có baseline nên trần là 400).
+* **Bậc phức tạp của phép đo**: đếm scalar ngoài từ vựng là một lượt quét tuyến tính trên chuỗi IPA cộng một lượt tra `Set`; 24 lượt gọi espeak nằm trong `Task.detached` nên không chạm main thread.
+* **Không đổi đường tổng hợp đang chạy.** `synthesizeRawPhonemes` là đường thứ hai, song song; đường text hiện tại chưa bị sửa dòng nào.
+
 ## Số dòng sau lượt 1.3.291
 
 * **Thêm 2 file Swift** (421 → **423**): `TTSDictionaryBulkActionsModifier` 67, `TextPreprocessor+Bulk` 30.
